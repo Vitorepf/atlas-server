@@ -168,6 +168,74 @@ final class AtlasProjectLaneVerificationCourtTest extends TestCase
         $this->assertContains('lane_root_mismatch:/repo/other-lane/app/secret.php', $v['blockers']);
     }
 
+    // ── evidence_quorum_floor ────────────────────────────────────────────────
+
+    public function test_hold_when_evidence_quorum_below_floor(): void
+    {
+        $v = (new AtlasProjectLaneVerificationCourt)->adjudicate([
+            'project_id' => 'demo-lane',
+            'verification_policy' => $this->passingPolicy(),
+            'evidence_records' => [
+                ['project_id' => 'demo-lane', 'gate' => 'phpunit', 'evidence_hash' => 'h-1', 'server_side_green' => true],
+            ],
+            'required_rerun_evidence' => ['phpunit'],
+            'evidence_quorum_floor' => 2,
+        ]);
+
+        $this->assertSame(AtlasProjectLaneVerificationCourt::VERDICT_HOLD, $v['verdict']);
+        $this->assertFalse($v['passed']);
+        $this->assertFalse($v['verification_facts']['evidence_quorum_met']);
+        $this->assertSame(2, $v['verification_facts']['evidence_quorum_floor']);
+    }
+
+    public function test_pass_when_evidence_quorum_meets_floor(): void
+    {
+        $v = (new AtlasProjectLaneVerificationCourt)->adjudicate([
+            'project_id' => 'demo-lane',
+            'verification_policy' => $this->passingPolicy(),
+            'evidence_records' => [
+                ['project_id' => 'demo-lane', 'gate' => 'phpunit', 'evidence_hash' => 'h-1', 'server_side_green' => true],
+                ['project_id' => 'demo-lane', 'gate' => 'pint', 'evidence_hash' => 'h-2', 'server_side_green' => true],
+            ],
+            'required_rerun_evidence' => ['phpunit', 'pint'],
+            'evidence_quorum_floor' => 2,
+        ]);
+
+        $this->assertSame(AtlasProjectLaneVerificationCourt::VERDICT_PASS, $v['verdict']);
+        $this->assertTrue($v['passed']);
+        $this->assertTrue($v['verification_facts']['evidence_quorum_met']);
+    }
+
+    public function test_default_quorum_floor_zero_preserves_single_hash_pass(): void
+    {
+        $v = (new AtlasProjectLaneVerificationCourt)->adjudicate([
+            'project_id' => 'demo-lane',
+            'verification_policy' => $this->passingPolicy(),
+            'evidence_records' => [
+                ['project_id' => 'demo-lane', 'gate' => 'phpunit', 'evidence_hash' => 'h-1', 'server_side_green' => true],
+            ],
+            'required_rerun_evidence' => ['phpunit'],
+        ]);
+
+        $this->assertSame(AtlasProjectLaneVerificationCourt::VERDICT_PASS, $v['verdict']);
+        $this->assertSame(0, $v['verification_facts']['evidence_quorum_floor']);
+    }
+
+    public function test_blockers_take_precedence_over_quorum_shortfall(): void
+    {
+        $v = (new AtlasProjectLaneVerificationCourt)->adjudicate([
+            'project_id' => 'demo-lane',
+            'verification_policy' => $this->passingPolicy(),
+            'evidence_records' => [
+                ['project_id' => 'OTHER', 'gate' => 'phpunit', 'evidence_hash' => 'h-1'],
+            ],
+            'evidence_quorum_floor' => 2,
+        ]);
+
+        $this->assertSame(AtlasProjectLaneVerificationCourt::VERDICT_BLOCKED, $v['verdict']);
+        $this->assertContains('evidence_project_id_mismatch:OTHER', $v['blockers']);
+    }
+
     // ── evaluateVotes ─────────────────────────────────────────────────────────
 
     private function cleanVotesInput(): array

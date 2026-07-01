@@ -11,8 +11,10 @@ namespace App\Services\Ai\SelfConstruction\MultiProject;
  *
  * VERDICTS:
  *   pass    — verification policy passes AND every evidence record matches project_id AND every
- *             evidence row carries a non-empty evidence_hash AND no leak facts present.
- *   hold    — required rerun evidence is missing (cannot conclude — neither pass nor fail).
+ *             evidence row carries a non-empty evidence_hash AND no leak facts present AND (when
+ *             an evidence_quorum_floor is supplied) at least that many clean evidence hashes exist.
+ *   hold    — required rerun evidence is missing, or the fresh evidence quorum is below floor
+ *             (cannot conclude — neither pass nor fail).
  *   blocked — explicit mismatch (project_id drift / missing hash) or leak facts present.
  *
  * INVARIANTS:
@@ -159,7 +161,8 @@ final class AtlasProjectLaneVerificationCourt
      *     verification_policy?:array<string,mixed>,
      *     evidence_records?:list<array{project_id?:string, gate?:string, evidence_hash?:string, passed?:bool}>,
      *     required_rerun_evidence?:list<string>,
-     *     leak_facts?:list<array<string,mixed>>
+     *     leak_facts?:list<array<string,mixed>>,
+     *     evidence_quorum_floor?:int
      * }  $input
      * @return array{schema_version:string, verdict:string, passed:bool, project_id:string, blockers:list<string>, verification_facts:array<string,mixed>, evidence_hashes:list<string>, proof_summary:array<string,int>}
      */
@@ -171,6 +174,8 @@ final class AtlasProjectLaneVerificationCourt
         $requiredRerun = is_array($input['required_rerun_evidence'] ?? null) ? array_values(array_map('strval', $input['required_rerun_evidence'])) : [];
         $leakFacts = is_array($input['leak_facts'] ?? null) ? array_values($input['leak_facts']) : [];
         $laneRoots = is_array($input['lane_roots'] ?? null) ? array_map('strval', $input['lane_roots']) : [];
+        // 0 (default) means no quorum requirement — preserves single-hash-passes behavior.
+        $quorumFloor = max(0, (int) ($input['evidence_quorum_floor'] ?? 0));
 
         $blockers = [];
         if ($projectId === '') {
@@ -259,11 +264,17 @@ final class AtlasProjectLaneVerificationCourt
         $evidenceHashes = array_values(array_unique($evidenceHashes));
         sort($evidenceHashes, SORT_STRING);
 
+        // Fresh evidence quorum: even with zero blockers and every required gate rerun, a lane
+        // cannot promote on a single stray hash when the caller demands a quorum of clean,
+        // lane-bound, project-bound evidence hashes. Below floor is a HOLD (cannot conclude),
+        // never an outright block — more evidence may still arrive.
+        $quorumBelowFloor = $quorumFloor > 0 && count($evidenceHashes) < $quorumFloor;
+
         $verdict = self::VERDICT_PASS;
         $passed = false;
         if ($blockers !== []) {
             $verdict = self::VERDICT_BLOCKED;
-        } elseif ($missingRerun !== []) {
+        } elseif ($missingRerun !== [] || $quorumBelowFloor) {
             $verdict = self::VERDICT_HOLD;
         } else {
             $passed = true;
@@ -280,6 +291,8 @@ final class AtlasProjectLaneVerificationCourt
                 'evidence_record_count' => count($records),
                 'missing_rerun' => $missingRerun,
                 'leak_count' => count($leakFacts),
+                'evidence_quorum_floor' => $quorumFloor,
+                'evidence_quorum_met' => ! $quorumBelowFloor,
             ],
             'evidence_hashes' => $evidenceHashes,
             'proof_summary' => [
@@ -287,6 +300,7 @@ final class AtlasProjectLaneVerificationCourt
                 'required_rerun_count' => count($requiredRerun),
                 'missing_rerun_count' => count($missingRerun),
                 'leak_count' => count($leakFacts),
+                'evidence_quorum_floor' => $quorumFloor,
             ],
         ];
     }
