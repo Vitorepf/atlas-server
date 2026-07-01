@@ -75,6 +75,9 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
 
     private const CONTENT_LOW_VALUE_LABELS = ['template_farming', 'shallow_duplication', 'fake_confidence', 'proxy_proof', 'shallow_wrapper'];
 
+    /** leverage_score at/above this is strong enough on its own to justify admission. */
+    private const ADMISSION_LEVERAGE_FLOOR = 0.70;
+
     /**
      * @var list<array<string,mixed>> Frozen good/bad decision cases used to
      *      detect regressions toward template-farm, proxy proof, duplicate
@@ -196,11 +199,25 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
 
         // Content-based fallback: strong leverage + no bad signals → SHOULD be admitted
         $leverage = (float) ($decision['leverage_score'] ?? 0.0);
-        if ($leverage >= 0.70) {
+        if ($leverage >= self::ADMISSION_LEVERAGE_FLOOR) {
             return true;
         }
 
+        // Below the admission floor with nothing proving the work happened: never silently skip
+        // this — an unscored decision is indistinguishable from "no regression detected", which
+        // lets a low-leverage, no-evidence admission dodge scoring by simply omitting scenario_id.
+        if (! $this->hasEvidence($decision)) {
+            return false;
+        }
+
         return null;
+    }
+
+    private function hasEvidence(array $decision): bool
+    {
+        return ! empty($decision['evidence'])
+            || ! empty($decision['evidence_refs'])
+            || (bool) ($decision['has_evidence'] ?? false);
     }
 
     private function contentSignalsBad(array $decision): bool
@@ -232,6 +249,11 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
         $weaknesses = (array) ($decision['weakness_labels'] ?? []);
         if (array_intersect($weaknesses, self::CONTENT_LOW_VALUE_LABELS) !== []) {
             return self::SCENARIO_TEMPLATE_FARM;
+        }
+
+        $leverage = (float) ($decision['leverage_score'] ?? 0.0);
+        if ($leverage < self::ADMISSION_LEVERAGE_FLOOR && ! $this->hasEvidence($decision)) {
+            return self::SCENARIO_WEAK_EVIDENCE;
         }
 
         return 'unknown_content_signal';

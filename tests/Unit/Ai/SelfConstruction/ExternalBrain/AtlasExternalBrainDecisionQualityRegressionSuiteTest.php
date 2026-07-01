@@ -199,11 +199,35 @@ final class AtlasExternalBrainDecisionQualityRegressionSuiteTest extends TestCas
         $this->assertSame(0.0, $result['quality_score']);
     }
 
-    public function test_unknown_scenario_id_with_no_content_signal_is_skipped(): void
+    public function test_unknown_scenario_id_below_leverage_floor_with_no_evidence_is_scored_not_skipped(): void
     {
-        // No scenario_id, no content signals, no leverage → skip, not counted
+        // Omitting scenario_id/leverage/evidence must not let an admitted decision dodge scoring.
         $result = $this->suite->score([
             ['scenario_id' => 'completely_unknown', 'admitted' => true],
+        ]);
+
+        $this->assertSame([], $result['passed_scenarios']);
+        $this->assertNotEmpty($result['failed_scenarios']);
+        $this->assertSame(0.0, $result['quality_score']);
+    }
+
+    public function test_missing_scenario_id_below_leverage_floor_with_no_evidence_infers_weak_evidence_label(): void
+    {
+        // With scenario_id fully absent, the inferred label itself must be weak_evidence.
+        $result = $this->suite->score([
+            ['scenario_id' => '', 'admitted' => true],
+        ]);
+
+        $this->assertContains(AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_WEAK_EVIDENCE, $result['failed_scenarios']);
+        $this->assertSame(0.0, $result['quality_score']);
+    }
+
+    public function test_unknown_scenario_id_below_floor_with_evidence_is_still_skipped(): void
+    {
+        // Below the floor but WITH evidence is genuinely ambiguous — no rule covers it, so it
+        // stays skipped rather than being force-scored either way.
+        $result = $this->suite->score([
+            ['scenario_id' => 'completely_unknown', 'admitted' => true, 'leverage_score' => 0.4, 'evidence' => ['proof' => 'ref']],
         ]);
 
         $this->assertSame([], $result['passed_scenarios']);
@@ -342,6 +366,52 @@ final class AtlasExternalBrainDecisionQualityRegressionSuiteTest extends TestCas
 
         $this->assertNull($result['repair_hint']);
         $this->assertSame([], $result['failed_regressions']);
+    }
+
+    // ── AC1: missing scenario_id + high-risk weakness labels scored as failed ─
+
+    public function test_missing_scenario_id_with_proxy_proof_weakness_is_scored_failed_when_admitted(): void
+    {
+        $result = $this->suite->score([
+            ['scenario_id' => '', 'admitted' => true, 'weakness_labels' => ['proxy_proof']],
+        ]);
+
+        $this->assertSame(0.0, $result['quality_score']);
+        $this->assertNotEmpty($result['failed_scenarios']);
+    }
+
+    public function test_missing_scenario_id_with_shallow_wrapper_weakness_is_scored_failed_when_admitted(): void
+    {
+        $result = $this->suite->score([
+            ['scenario_id' => '', 'admitted' => true, 'weakness_labels' => ['shallow_wrapper']],
+        ]);
+
+        $this->assertSame(0.0, $result['quality_score']);
+        $this->assertNotEmpty($result['failed_scenarios']);
+    }
+
+    public function test_missing_scenario_id_with_template_farming_weakness_is_scored_failed_when_admitted(): void
+    {
+        $result = $this->suite->score([
+            ['scenario_id' => '', 'admitted' => true, 'weakness_labels' => ['template_farming']],
+        ]);
+
+        $this->assertSame(0.0, $result['quality_score']);
+        $this->assertNotEmpty($result['failed_scenarios']);
+    }
+
+    // ── AC3: legitimate high-leverage / consolidation scenarios still pass ────
+
+    public function test_high_leverage_genuine_and_consolidation_needed_still_pass_with_new_weak_evidence_logic(): void
+    {
+        $result = $this->suite->score([
+            $this->decision(AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_HIGH_LEVERAGE_GENUINE, true),
+            $this->decision(AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_CONSOLIDATION_NEEDED, true),
+        ]);
+
+        $this->assertSame(2, count($result['passed_scenarios']));
+        $this->assertSame([], $result['failed_scenarios']);
+        $this->assertSame(1.0, $result['quality_score']);
     }
 
     public function test_frozen_suite_includes_rejected_padding_and_proxy_and_duplicate_and_wrapper_cases(): void
