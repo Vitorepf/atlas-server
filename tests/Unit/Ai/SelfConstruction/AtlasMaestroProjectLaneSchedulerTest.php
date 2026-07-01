@@ -108,4 +108,133 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
         $this->assertSame(7, $plan['unallocated_budget']);
     }
+
+    // ── AC2: refuses lanes lacking verification or namespace safety ────────────
+
+    public function test_unverified_lane_is_denied_regardless_of_demand(): void
+    {
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['risky' => 5], ['risky' => ['verified' => false]]);
+
+        $this->assertSame([], $plan['allocations']);
+        $this->assertSame('risky', $plan['denied_lanes'][0]['lane_id']);
+        $this->assertSame(AtlasMaestroProjectLaneScheduler::REASON_UNVERIFIED_LANE, $plan['denied_lanes'][0]['reason']);
+    }
+
+    public function test_namespace_unsafe_lane_is_denied_regardless_of_demand(): void
+    {
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['unsafe' => 5], ['unsafe' => ['namespace_safe' => false]]);
+
+        $this->assertSame([], $plan['allocations']);
+        $this->assertSame('unsafe', $plan['denied_lanes'][0]['lane_id']);
+        $this->assertSame(AtlasMaestroProjectLaneScheduler::REASON_NAMESPACE_UNSAFE, $plan['denied_lanes'][0]['reason']);
+    }
+
+    public function test_verified_and_namespace_safe_lane_is_allocated(): void
+    {
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['ok' => 3], ['ok' => ['verified' => true, 'namespace_safe' => true]]);
+
+        $this->assertCount(1, $plan['allocations']);
+        $this->assertSame('ok', $plan['allocations'][0]['lane_id']);
+    }
+
+    public function test_verification_and_namespace_safety_default_true_when_absent(): void
+    {
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['legacy' => 2], ['legacy' => []]);
+
+        $this->assertCount(1, $plan['allocations']);
+        $this->assertSame([], $plan['denied_lanes']);
+    }
+
+    // ── AC1: urgency/value protect high-priority lanes from reduction ─────────
+
+    public function test_low_urgency_lane_is_reduced_before_high_urgency_lane(): void
+    {
+        // Equal demand and workers so size alone would tie; urgency must decide.
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(3, ['urgent' => 2, 'routine' => 2], [
+            'urgent' => ['urgency' => 10],
+            'routine' => ['urgency' => 0],
+        ]);
+
+        $byLane = array_column($plan['allocations'], 'workers', 'lane_id');
+        $this->assertSame(2, $byLane['urgent']);
+        $this->assertSame(1, $byLane['routine']);
+    }
+
+    public function test_isolation_risk_lane_is_reduced_before_urgency_is_considered(): void
+    {
+        // 'risky' has higher urgency but isolation_risk=true, so it must still be reduced first.
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(3, ['risky' => 2, 'safe' => 2], [
+            'risky' => ['urgency' => 10, 'isolation_risk' => true],
+            'safe' => ['urgency' => 0],
+        ]);
+
+        $byLane = array_column($plan['allocations'], 'workers', 'lane_id');
+        $this->assertSame(1, $byLane['risky']);
+        $this->assertSame(2, $byLane['safe']);
+    }
+
+    public function test_starvation_denial_protects_high_urgency_lane_over_low_urgency_lane(): void
+    {
+        // budget=1, two equal-demand lanes; low-urgency lane denied first.
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(1, ['critical-work' => 2, 'routine-work' => 2], [
+            'critical-work' => ['urgency' => 5],
+            'routine-work' => ['urgency' => 0],
+        ]);
+
+        $this->assertCount(1, $plan['allocations']);
+        $this->assertSame('critical-work', $plan['allocations'][0]['lane_id']);
+        $deniedIds = array_column($plan['denied_lanes'], 'lane_id');
+        $this->assertContains('routine-work', $deniedIds);
+    }
+
+    public function test_starvation_denial_protects_old_waiting_lane_when_urgency_and_value_tie(): void
+    {
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(1, ['old-lane' => 2, 'new-lane' => 2], [
+            'old-lane' => ['age_seconds' => 100000],
+            'new-lane' => ['age_seconds' => 10],
+        ]);
+
+        $this->assertCount(1, $plan['allocations']);
+        $this->assertSame('old-lane', $plan['allocations'][0]['lane_id']);
+    }
+
+    public function test_urgency_value_isolation_risk_absent_preserves_prior_behavior(): void
+    {
+        // Same fixture and same assertions as test_tight_budget_reduces_largest_lane_deterministically
+        // — with no urgency/value/isolation_risk facts supplied, the reduction outcome must remain
+        // deterministic and fair (sums to budget, no lane starved to zero).
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(4, ['alpha' => 4, 'beta' => 3], ['alpha' => [], 'beta' => []]);
+        $byLane = array_column($plan['allocations'], 'workers', 'lane_id');
+
+        $this->assertSame(4, array_sum($byLane));
+        $this->assertGreaterThan(0, $byLane['alpha']);
+        $this->assertGreaterThan(0, $byLane['beta']);
+    }
+
+    // ── AC3: fairness_rationale is present and explains decisions ──────────────
+
+    public function test_fairness_rationale_present_and_explains_reduction(): void
+    {
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(4, ['alpha' => 4, 'beta' => 3], ['alpha' => [], 'beta' => []]);
+
+        $this->assertArrayHasKey('fairness_rationale', $plan);
+        $this->assertNotEmpty($plan['fairness_rationale']);
+        $blob = implode(' ', $plan['fairness_rationale']);
+        $this->assertStringContainsString('alpha', $blob);
+    }
+
+    public function test_fairness_rationale_explains_verification_denial(): void
+    {
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['risky' => 5], ['risky' => ['verified' => false]]);
+
+        $blob = implode(' ', $plan['fairness_rationale']);
+        $this->assertStringContainsString('risky', $blob);
+    }
+
+    public function test_fairness_rationale_empty_when_all_demand_fits_budget(): void
+    {
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['a' => 2], ['a' => []]);
+
+        $this->assertSame([], $plan['fairness_rationale']);
+    }
 }
