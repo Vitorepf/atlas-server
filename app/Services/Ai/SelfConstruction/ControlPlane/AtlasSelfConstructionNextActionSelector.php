@@ -203,6 +203,17 @@ final class AtlasSelfConstructionNextActionSelector
             return $this->envelope(self::ACTION_CREATE_TASK_PACKETS, $reasons, $scopeGate);
         }
 
+        // 9.8. HIGH-VALUE GAPS — the queue itself is healthy (no repair, verification,
+        // promotion, worker-scheduling, or backlog/replenishment need has priority), but the
+        // control plane still reports concrete high-value evolution gaps. A dumb hold_position
+        // here would waste a healthy execute-mode cycle; originate structural work instead.
+        $highValueGapCount = (int) ($workQueue['high_value_gap_count'] ?? 0);
+        if ($highValueGapCount > 0) {
+            return $this->envelope(self::ACTION_STRUCTURAL_ORIGINATION, [
+                'high_value_gap_count:'.$highValueGapCount,
+            ], $scopeGate);
+        }
+
         return $this->envelope(self::ACTION_HOLD_POSITION, ['queue_idle'], $scopeGate);
     }
 

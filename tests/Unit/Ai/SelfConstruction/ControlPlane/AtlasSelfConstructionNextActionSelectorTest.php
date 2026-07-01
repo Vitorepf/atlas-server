@@ -297,4 +297,83 @@ final class AtlasSelfConstructionNextActionSelectorTest extends TestCase
             $this->assertStringNotContainsString('starvation', $r);
         }
     }
+
+    // ── high_value_gap_count → structural_origination instead of a dumb hold ───
+
+    public function test_healthy_queue_with_high_value_gap_selects_structural_origination(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['high_value_gap_count'] = 3;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_STRUCTURAL_ORIGINATION, $verdict['action']);
+        $this->assertContains('high_value_gap_count:3', $verdict['reasons']);
+    }
+
+    public function test_healthy_queue_with_zero_high_value_gaps_still_holds_position(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['high_value_gap_count'] = 0;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_HOLD_POSITION, $verdict['action']);
+    }
+
+    public function test_repair_organs_takes_priority_over_high_value_gap(): void
+    {
+        $organs = $this->readyOrgans();
+        $organs['missing_organs'] = ['native_worker'];
+        $queue = $this->emptyQueue();
+        $queue['high_value_gap_count'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($organs, $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_ORGANS, $verdict['action']);
+    }
+
+    public function test_verify_candidates_takes_priority_over_high_value_gap(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['open_verifications'] = 2;
+        $queue['high_value_gap_count'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_VERIFY_CANDIDATES, $verdict['action']);
+    }
+
+    public function test_prepare_merge_takes_priority_over_high_value_gap(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['ready_to_promote'] = 1;
+        $queue['high_value_gap_count'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_PREPARE_MERGE, $verdict['action']);
+    }
+
+    public function test_schedule_workers_takes_priority_over_high_value_gap(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['tasks_pending_workers'] = 1;
+        $queue['high_value_gap_count'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_SCHEDULE_WORKERS, $verdict['action']);
+    }
+
+    public function test_backlog_driven_create_task_packets_takes_priority_over_high_value_gap(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['backlog_acceptance_items'] = 2;
+        $queue['high_value_gap_count'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_CREATE_TASK_PACKETS, $verdict['action']);
+    }
 }
