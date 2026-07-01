@@ -57,10 +57,60 @@ final class AtlasExternalBrainSimplificationBurnDownCommand extends Command
             'capability_groups' => $plan['capability_groups'],
             'task_feed_impact' => $plan['task_feed_impact'],
             'yield_preserved' => $plan['task_feed_impact']['yield_preserved'],
+            'required_prework_by_organ' => $this->buildRequiredPreworkByOrgan($plan['ranked_actions'], $plan['first_safe_batch']),
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Builds a per-organ map of exactly which prework blocks consolidation,
+     * for every ranked action not present in first_safe_batch. Parses the
+     * planner's `reasons` strings rather than re-deriving safety logic, so
+     * the command stays a pure read-only projection of the planner's decision.
+     *
+     * @param  list<array<string,mixed>>  $rankedActions
+     * @param  list<string>  $firstSafeBatch
+     * @return array<string,list<string>>
+     */
+    private function buildRequiredPreworkByOrgan(array $rankedActions, array $firstSafeBatch): array
+    {
+        $result = [];
+
+        foreach ($rankedActions as $action) {
+            $organId = (string) ($action['organ_id'] ?? '');
+            if ($organId === '' || in_array($organId, $firstSafeBatch, true)) {
+                continue;
+            }
+
+            $prework = [];
+            foreach ((array) ($action['reasons'] ?? []) as $reason) {
+                $reason = (string) $reason;
+
+                if (str_starts_with($reason, 'missing:')) {
+                    $missing = explode(',', substr($reason, strlen('missing:')));
+                    foreach ($missing as $item) {
+                        $item = trim($item);
+                        if ($item === 'test_coverage') {
+                            $prework[] = 'behavior_coverage';
+                        } elseif ($item !== '') {
+                            $prework[] = $item;
+                        }
+                    }
+                }
+
+                if ($reason === 'consolidation_rejected:yield_drop_without_compensating_action') {
+                    $prework[] = 'worker_feed_or_yield_proof';
+                }
+            }
+
+            if ($prework !== []) {
+                $result[$organId] = array_values(array_unique($prework));
+            }
+        }
+
+        return $result;
     }
 }

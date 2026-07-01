@@ -135,5 +135,58 @@ final class AtlasExternalBrainSimplificationBurnDownCommandTest extends TestCase
         $decoded = json_decode($out, true);
         $this->assertSame('merge_blocked', $decoded['ranked_actions'][0]['action']);
         $this->assertNotContains('organ_a', $decoded['first_safe_batch']);
+        $this->assertContains('worker_feed_or_yield_proof', $decoded['required_prework_by_organ']['organ_a']);
+    }
+
+    public function test_retire_blocked_organ_reports_replacement_owner_and_behavior_coverage_prework(): void
+    {
+        $this->writeInput([
+            'organs' => [
+                [
+                    'organ_id' => 'stale_no_owner',
+                    'capability_labels' => ['legacy'],
+                    'evidence_strength' => 0.05,
+                    'consumer_count' => 0,
+                    'line_count' => 200,
+                    'has_replacement_owner' => false,
+                    'has_test_coverage' => false,
+                    'overlap_organs' => [],
+                ],
+            ],
+        ]);
+
+        [$exit, $out] = $this->runCmd(['--input' => $this->inputFile]);
+
+        $this->assertSame(0, $exit, $out);
+        $decoded = json_decode($out, true);
+        $this->assertSame('retire_blocked', $decoded['ranked_actions'][0]['action']);
+        $this->assertNotContains('stale_no_owner', $decoded['first_safe_batch']);
+        $this->assertContains('replacement_owner', $decoded['required_prework_by_organ']['stale_no_owner']);
+        $this->assertContains('behavior_coverage', $decoded['required_prework_by_organ']['stale_no_owner']);
+    }
+
+    public function test_first_safe_batch_organs_have_no_required_prework_entry(): void
+    {
+        $this->writeInput([
+            'organs' => [
+                [
+                    'organ_id' => 'stale_wrapper',
+                    'capability_labels' => ['legacy_wrapper'],
+                    'evidence_strength' => 0.05,
+                    'consumer_count' => 0,
+                    'line_count' => 300,
+                    'has_replacement_owner' => true,
+                    'has_test_coverage' => true,
+                    'overlap_organs' => [],
+                    'claimable_yield' => 2,
+                ],
+            ],
+        ]);
+
+        [$exit, $out] = $this->runCmd(['--input' => $this->inputFile]);
+
+        $this->assertSame(0, $exit, $out);
+        $decoded = json_decode($out, true);
+        $this->assertArrayNotHasKey('stale_wrapper', $decoded['required_prework_by_organ']);
     }
 }
