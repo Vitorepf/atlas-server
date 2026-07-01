@@ -45,6 +45,12 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
         'depends_on_external_provider_network',
     ];
 
+    /** Source-row `origin` values that are never sufficient on their own — Atlas-native
+     * ownership requires atlas-native corroboration alongside them. */
+    private const PROVIDER_ONLY_ORIGINS = [
+        'claude_code', 'codex', 'cursor', 'external_provider', 'operator', 'human',
+    ];
+
     private readonly AtlasSelfConstructionFinalEvidenceSourceRegistry $registry;
 
     public function __construct(?AtlasSelfConstructionFinalEvidenceSourceRegistry $registry = null)
@@ -82,6 +88,34 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
             $sourcesObserved[$sourceId] = $status;
 
             if ($status === self::SOURCE_STATUS_PASS) {
+                // Self-claim guard: a source row that admits it was self-attested (no independent
+                // verifier) is never sufficient evidence, regardless of its declared status.
+                if ($sourceRow !== null && (bool) ($sourceRow['self_claimed'] ?? false) === true) {
+                    $sourceBlockers[] = [
+                        'source_id' => $sourceId,
+                        'kind' => 'self_claimed_evidence',
+                        'status' => $status,
+                        'refreshable' => $refreshable,
+                        'note' => 'evidence is self-attested without independent verification',
+                    ];
+                    $unsafeBlocker = true;
+                }
+
+                // Provider-only guard: an artifact whose origin is a provider/human/operator and
+                // that carries no atlas-native corroboration is not Atlas-native ownership proof.
+                $origin = $sourceRow !== null ? strtolower(trim((string) ($sourceRow['origin'] ?? ''))) : '';
+                if ($origin !== '' && in_array($origin, self::PROVIDER_ONLY_ORIGINS, true)
+                    && (bool) ($sourceRow['atlas_native_corroborated'] ?? false) === false) {
+                    $sourceBlockers[] = [
+                        'source_id' => $sourceId,
+                        'kind' => 'provider_only_artifact',
+                        'status' => $status,
+                        'refreshable' => $refreshable,
+                        'note' => 'origin='.$origin.' lacks atlas-native corroboration',
+                    ];
+                    $unsafeBlocker = true;
+                }
+
                 // When binding is required, validate that the source row is fully bound.
                 if ($requireBinding && $sourceRow !== null) {
                     $bindingIssues = $this->checkSourceBinding($sourceId, $sourceRow, $expectedWorkspace);
@@ -213,6 +247,41 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
             $flatBlockers[] = $b['kind'].':'.$b['source_id'];
         }
 
+        // missing_evidence / stale_evidence: source ids the caller can act on directly.
+        $missingEvidence = array_values(array_unique(array_column(
+            array_filter($sourceBlockers, static fn (array $b): bool => $b['kind'] === 'source_missing'),
+            'source_id',
+        )));
+        $staleEvidence = array_values(array_unique(array_column(
+            array_filter($sourceBlockers, static fn (array $b): bool => in_array($b['kind'], ['source_stale', 'stale_by_freshness_window'], true)),
+            'source_id',
+        )));
+
+        // provider_dependency_flags: true autonomy dependency flags plus provider-only source ids.
+        $providerDependencyFlags = [];
+        foreach ($contractBlockers as $cb) {
+            if (str_starts_with($cb, 'autonomy_dependency_true:')) {
+                $providerDependencyFlags[] = substr($cb, strlen('autonomy_dependency_true:'));
+            }
+        }
+        foreach ($sourceBlockers as $b) {
+            if ($b['kind'] === 'provider_only_artifact') {
+                $providerDependencyFlags[] = 'provider_only:'.$b['source_id'];
+            }
+        }
+        $providerDependencyFlags = array_values(array_unique($providerDependencyFlags));
+        sort($providerDependencyFlags, SORT_STRING);
+
+        // next_required_proof: the single most actionable next step, or null when already ready.
+        $nextRequiredProof = null;
+        if (! $passed) {
+            if ($contractBlockers !== []) {
+                $nextRequiredProof = 'resolve_autonomy_contract:'.$contractBlockers[0];
+            } elseif ($sourceBlockers !== []) {
+                $nextRequiredProof = $this->nextRequiredProofFor($sourceBlockers[0]);
+            }
+        }
+
         return [
             'schema' => self::SCHEMA,
             'schema_version' => self::SCHEMA,
@@ -224,7 +293,27 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
             'sources_observed' => $sourcesObserved,
             'evidence_refs' => array_keys($sourcesObserved),
             'registry_schema_version' => (string) $registry['schema_version'],
+            'missing_evidence' => $missingEvidence,
+            'stale_evidence' => $staleEvidence,
+            'provider_dependency_flags' => $providerDependencyFlags,
+            'next_required_proof' => $nextRequiredProof,
         ];
+    }
+
+    /** @param  array<string,mixed>  $blocker */
+    private function nextRequiredProofFor(array $blocker): string
+    {
+        $sourceId = (string) $blocker['source_id'];
+
+        return match ($blocker['kind']) {
+            'source_missing' => "produce_evidence:{$sourceId}",
+            'source_stale', 'stale_by_freshness_window' => "refresh_evidence:{$sourceId}",
+            'self_claimed_evidence' => "obtain_independent_verification:{$sourceId}",
+            'provider_only_artifact' => "produce_atlas_native_corroboration:{$sourceId}",
+            'source_failed' => "fix_and_reverify:{$sourceId}",
+            'source_contradictory' => "resolve_contradiction:{$sourceId}",
+            default => "resolve:{$blocker['kind']}:{$sourceId}",
+        };
     }
 
     /**

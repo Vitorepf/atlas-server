@@ -55,6 +55,96 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifierTest extends TestCas
         $this->assertSame([], $verdict['autonomy_contract_blockers']);
     }
 
+    // ── AC: new output shape ────────────────────────────────────────────────
+
+    public function test_ready_facts_have_empty_missing_and_stale_evidence_and_null_next_proof(): void
+    {
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($this->readyFacts());
+
+        $this->assertSame([], $verdict['missing_evidence']);
+        $this->assertSame([], $verdict['stale_evidence']);
+        $this->assertSame([], $verdict['provider_dependency_flags']);
+        $this->assertNull($verdict['next_required_proof']);
+    }
+
+    // ── AC: self-claimed evidence rejection ───────────────────────────────────
+
+    public function test_self_claimed_evidence_is_rejected_even_when_status_passes(): void
+    {
+        $facts = $this->readyFacts(['sources' => [
+            'verification_court' => ['status' => 'pass', 'self_claimed' => true],
+        ]]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertContains('self_claimed_evidence', $kinds);
+        $this->assertSame('obtain_independent_verification:verification_court', $verdict['next_required_proof']);
+    }
+
+    // ── AC: stale receipt rejection ────────────────────────────────────────────
+
+    public function test_stale_receipt_is_reported_in_stale_evidence(): void
+    {
+        $facts = $this->readyFacts(['sources' => ['docs_health' => ['status' => 'stale']]]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertContains('docs_health', $verdict['stale_evidence']);
+    }
+
+    // ── AC: provider-only artifact rejection ──────────────────────────────────
+
+    public function test_provider_only_artifact_without_atlas_native_corroboration_is_rejected(): void
+    {
+        $facts = $this->readyFacts(['sources' => [
+            'merge_governor' => ['status' => 'pass', 'origin' => 'codex'],
+        ]]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertContains('provider_only_artifact', $kinds);
+        $this->assertContains('provider_only:merge_governor', $verdict['provider_dependency_flags']);
+    }
+
+    public function test_provider_only_artifact_with_atlas_native_corroboration_is_accepted(): void
+    {
+        $facts = $this->readyFacts(['sources' => [
+            'merge_governor' => ['status' => 'pass', 'origin' => 'codex', 'atlas_native_corroborated' => true],
+        ]]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertNotContains('provider_only_artifact', $kinds);
+    }
+
+    // ── AC: missing evidence surfaced directly ────────────────────────────────
+
+    public function test_missing_source_is_reported_in_missing_evidence(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['sources']['code_index_readiness_bridge']);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertContains('code_index_readiness_bridge', $verdict['missing_evidence']);
+    }
+
+    // ── AC: provider dependency flags surface true autonomy dependencies ─────
+
+    public function test_provider_dependency_flags_surface_true_autonomy_dependencies(): void
+    {
+        $facts = $this->readyFacts(['autonomy_dependencies' => ['depends_on_codex' => true]]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertContains('depends_on_codex', $verdict['provider_dependency_flags']);
+    }
+
     public function test_hold_when_code_index_readiness_bridge_missing_refreshable(): void
     {
         $facts = $this->readyFacts();
