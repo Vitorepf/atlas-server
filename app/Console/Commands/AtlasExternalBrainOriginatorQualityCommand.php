@@ -16,6 +16,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyReg
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBlindSpotCurriculum;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityRubric;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCausalAblationBatchStudy;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCognitiveWorkPartitioner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainConsolidationFirstCircuitBreaker;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainContextBudgetDistiller;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossProjectEvolutionProfile;
@@ -72,6 +73,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainBlindSpotCurriculum $blindSpotCurriculum,
         AtlasExternalBrainCapabilityRubric $capabilityRubric,
         AtlasExternalBrainCausalAblationBatchStudy $causalAblationBatchStudy,
+        AtlasExternalBrainCognitiveWorkPartitioner $cognitiveWorkPartitioner,
         AtlasExternalBrainConsolidationFirstCircuitBreaker $consolidationFirstCircuitBreaker,
         AtlasExternalBrainContextBudgetDistiller $contextBudgetDistiller,
     ): int {
@@ -265,6 +267,14 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // runs when the caller explicitly supplies a consolidation_first section.
         if (is_array($decoded['consolidation_first'] ?? null)) {
             $payload['consolidation_first'] = $consolidationFirstCircuitBreaker->evaluate($decoded['consolidation_first']);
+        }
+
+        // Optional cognitive work partitioner: splits a mission into deterministic cognitive
+        // phases with model-tier hints. Distinct from the consolidation-first gate above (mission
+        // phase planning vs. sprawl gating), so it only runs when the caller explicitly supplies
+        // a cognitive_work_partitioner section.
+        if (is_array($decoded['cognitive_work_partitioner'] ?? null)) {
+            $payload['cognitive_work_partitioner'] = $cognitiveWorkPartitioner->partition($decoded['cognitive_work_partitioner']);
         }
 
         // Optional context budget distillation: compacts a full context pack into a
