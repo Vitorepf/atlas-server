@@ -166,6 +166,25 @@ final class AtlasExternalBrainOutputContractNormalizer
             $violations[] = ['code' => 'test_only_scope', 'repair_hint' => 'include at least one implementation file in allowed_files'];
         }
 
+        // AC2: reject CLI-only scope — a proposal touching only Console Commands wires no
+        // real behavior, it just calls existing services.
+        $implFiles = array_values(array_filter($allowedFiles, static fn (string $f): bool => ! $isTestPath($f)));
+        if ($implFiles !== [] && count(array_filter($implFiles, static fn (string $f): bool => str_contains($f, 'Console/Commands/') || str_contains($f, 'Command.php'))) === count($implFiles)) {
+            $violations[] = ['code' => 'cli_only_scope', 'repair_hint' => 'include the underlying service/class the CLI command wraps, not only the Command file'];
+        }
+
+        // AC2: reject wrapper-only scope — an objective that only says it forwards/delegates
+        // to something else, without describing real logic to build.
+        if ($objective !== '') {
+            $low = strtolower($objective);
+            foreach (['thin wrapper', 'wraps the existing', 'delegates to', 'forwards all calls to', 'pass-through', 'passthrough'] as $wrapperSignal) {
+                if (str_contains($low, $wrapperSignal)) {
+                    $violations[] = ['code' => 'wrapper_only_scope', 'repair_hint' => 'describe the real behavior being added, not just a delegation/wrapper'];
+                    break;
+                }
+            }
+        }
+
         if (! empty($acceptance) && ! $hasRunnableAcceptance) {
             $violations[] = ['code' => 'missing_runnable_acceptance', 'repair_hint' => 'add a runnable acceptance criterion (e.g. phpunit/artisan test command) to acceptance'];
         }

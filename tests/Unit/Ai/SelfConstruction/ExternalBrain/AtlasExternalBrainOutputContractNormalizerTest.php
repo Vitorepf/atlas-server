@@ -212,6 +212,26 @@ final class AtlasExternalBrainOutputContractNormalizerTest extends TestCase
 
     // ── AC2: test-only scope rejection ────────────────────────────────────────
 
+    public function test_cli_only_scope_is_rejected(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'allowed_files' => ['app/Console/Commands/FooCommand.php'],
+        ])]]);
+
+        $this->assertCount(0, $r['normalized_contracts']);
+        $this->assertContains('cli_only_scope', $r['rejected_inputs'][0]['violation_reasons']);
+    }
+
+    public function test_wrapper_only_objective_is_rejected(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'objective' => 'This is a thin wrapper that delegates to the existing FooService',
+        ])]]);
+
+        $this->assertCount(0, $r['normalized_contracts']);
+        $this->assertContains('wrapper_only_scope', $r['rejected_inputs'][0]['violation_reasons']);
+    }
+
     public function test_test_only_scope_is_rejected(): void
     {
         $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
