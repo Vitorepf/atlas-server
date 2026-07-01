@@ -554,4 +554,81 @@ final class AtlasExternalBrainPortfolioBalancerTest extends TestCase
 
         $this->assertNotEmpty($result['rationale']);
     }
+
+    // ── balancePortfolio(): quality budget across bug repair / simplify / research / model_amplifier lanes ──
+
+    public function test_overrepresented_lane_is_capped_when_other_lanes_are_undercovered(): void
+    {
+        $result = $this->balancer()->balancePortfolio(['simplification_debt' => 1.0]);
+
+        $this->assertLessThanOrEqual(25, $result['percentages']['simplify']);
+        $lanes = array_column($result['rejected_overconcentration'], 'lane');
+        $this->assertContains('simplify', $lanes);
+        $this->assertSame(100, $result['total_percent']);
+    }
+
+    public function test_capped_lane_overflow_is_redistributed_to_other_lanes(): void
+    {
+        $withoutDebt = $this->balancer()->balancePortfolio([]);
+        $withDebt = $this->balancer()->balancePortfolio(['simplification_debt' => 1.0]);
+
+        // build gets some of the redistributed overflow, so it should not shrink to zero.
+        $this->assertGreaterThan(0, $withDebt['percentages']['build']);
+        $this->assertSame(100, array_sum($withDebt['percentages']));
+        $this->assertNotSame($withoutDebt['percentages'], $withDebt['percentages']);
+    }
+
+    public function test_critical_repair_lane_can_exceed_its_cap_when_risk_evidence_is_strong(): void
+    {
+        $result = $this->balancer()->balancePortfolio([
+            'give_back_rate' => 1.0,
+            'poison_rate' => 1.0,
+            'malformed_rate' => 1.0,
+            'collision_rate' => 1.0,
+        ]);
+
+        $this->assertGreaterThan(25, $result['percentages']['repair']);
+        $lanes = array_column($result['rejected_overconcentration'], 'lane');
+        $this->assertNotContains('repair', $lanes);
+    }
+
+    public function test_repair_lane_is_capped_like_any_other_lane_when_risk_evidence_is_weak(): void
+    {
+        // repair_pressure just above activation (0.3) but well below the strong-evidence
+        // threshold (0.6) — repair gets a boost but is not exempt from the cap.
+        $result = $this->balancer()->balancePortfolio([
+            'give_back_rate' => 0.4,
+            'poison_rate' => 0.4,
+            'malformed_rate' => 0.4,
+            'collision_rate' => 0.4,
+        ]);
+
+        $this->assertLessThanOrEqual(25, $result['percentages']['repair']);
+    }
+
+    public function test_output_includes_lane_allocations_and_rejected_overconcentration(): void
+    {
+        $result = $this->balancer()->balancePortfolio([]);
+
+        $this->assertArrayHasKey('lane_allocations', $result);
+        $this->assertArrayHasKey('rejected_overconcentration', $result);
+        $this->assertSame($result['percentages'], $result['lane_allocations']);
+    }
+
+    public function test_no_overconcentration_when_signals_are_balanced(): void
+    {
+        $result = $this->balancer()->balancePortfolio([]);
+
+        $this->assertSame([], $result['rejected_overconcentration']);
+    }
+
+    public function test_balance_portfolio_covers_all_eight_lanes_and_sums_to_100(): void
+    {
+        $result = $this->balancer()->balancePortfolio(['simplification_debt' => 0.9, 'give_back_rate' => 0.5]);
+
+        foreach (AtlasExternalBrainPortfolioBalancer::PORTFOLIO_LANES as $lane) {
+            $this->assertArrayHasKey($lane, $result['percentages']);
+        }
+        $this->assertSame(100, array_sum($result['percentages']));
+    }
 }

@@ -471,6 +471,12 @@ final class AtlasExternalBrainPortfolioBalancer
     /** Repair/verification may never be squeezed below this share of the batch. */
     private const PORTFOLIO_FLOOR_PCT = 10.0;
 
+    /** No lane may exceed this share of the batch — prevents one easy lane from dominating. */
+    private const PORTFOLIO_MAX_SHARE_PCT = 25.0;
+
+    /** repair_pressure above this counts as strong risk evidence, exempting 'repair' from the cap. */
+    private const STRONG_RISK_EVIDENCE_THRESHOLD = 0.6;
+
     /** Repair pressure above this activates the repair/queue-self-healing shift. */
     private const REPAIR_PRESSURE_ACTIVATION = 0.3;
 
@@ -568,6 +574,47 @@ final class AtlasExternalBrainPortfolioBalancer
             }
         }
 
+        // AC2/AC3: cap any single lane's share so it can never dominate the batch while other
+        // lanes go undercovered — except 'repair', which may exceed the cap when repair_pressure
+        // itself is strong risk evidence (a real incident is never squeezed by a fairness rule).
+        $strongRiskEvidence = $repairPressure > self::STRONG_RISK_EVIDENCE_THRESHOLD;
+        $rejectedOverconcentration = [];
+        $overflow = 0.0;
+        foreach ($shares as $lane => $share) {
+            if ($lane === 'repair' && $strongRiskEvidence) {
+                continue;
+            }
+            if ($share > self::PORTFOLIO_MAX_SHARE_PCT) {
+                $overflow += $share - self::PORTFOLIO_MAX_SHARE_PCT;
+                $rejectedOverconcentration[] = [
+                    'lane' => $lane,
+                    'capped_from' => round($share, 2),
+                    'capped_to' => self::PORTFOLIO_MAX_SHARE_PCT,
+                    'reason' => 'lane_exceeds_max_share_without_strong_risk_evidence',
+                ];
+                $shares[$lane] = self::PORTFOLIO_MAX_SHARE_PCT;
+            }
+        }
+        if ($overflow > 0.0) {
+            $recipients = array_filter(
+                array_keys($shares),
+                static fn (string $l): bool => $shares[$l] < self::PORTFOLIO_MAX_SHARE_PCT || ($l === 'repair' && $strongRiskEvidence),
+            );
+            $recipientSum = array_sum(array_intersect_key($shares, array_flip($recipients)));
+            if ($recipientSum > 0.0) {
+                foreach ($recipients as $lane) {
+                    $shares[$lane] += $overflow * ($shares[$lane] / $recipientSum);
+                }
+            }
+        }
+        if ($rejectedOverconcentration !== []) {
+            $reasons[] = sprintf(
+                'capped %d overconcentrated lane(s) at %.0f%% max share and redistributed the overflow',
+                count($rejectedOverconcentration),
+                self::PORTFOLIO_MAX_SHARE_PCT,
+            );
+        }
+
         if ($reasons === []) {
             $reasons[] = 'no pressure signals present; baseline allocation across lanes';
         }
@@ -577,8 +624,10 @@ final class AtlasExternalBrainPortfolioBalancer
         return [
             'schema' => self::SCHEMA,
             'percentages' => $percentages,
+            'lane_allocations' => $percentages,
             'total_percent' => array_sum($percentages),
             'reasons' => $reasons,
+            'rejected_overconcentration' => $rejectedOverconcentration,
         ];
     }
 
