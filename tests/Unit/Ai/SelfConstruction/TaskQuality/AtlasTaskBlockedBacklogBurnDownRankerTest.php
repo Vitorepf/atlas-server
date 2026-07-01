@@ -256,4 +256,61 @@ final class AtlasTaskBlockedBacklogBurnDownRankerTest extends TestCase
 
         $this->assertSame(json_encode($x), json_encode($y));
     }
+
+    // ── worker_waste_pressure / downstream_unlock_score ───────────────────────
+
+    public function test_ranked_action_has_worker_waste_pressure_and_downstream_unlock_score(): void
+    {
+        $r = $this->ranker()->rank([$this->family('a')]);
+        $item = $r['ranked_actions'][0];
+
+        $this->assertArrayHasKey('worker_waste_pressure', $item);
+        $this->assertArrayHasKey('downstream_unlock_score', $item);
+        $this->assertSame(0.0, $item['worker_waste_pressure']);
+        $this->assertSame(0.0, $item['downstream_unlock_score']);
+    }
+
+    public function test_small_family_with_high_worker_waste_pressure_outranks_larger_low_leverage_family(): void
+    {
+        $r = $this->ranker()->rank([
+            $this->family('high-count-low-value', ['packet_count' => 20]),
+            $this->family('small-worker-waste', [
+                'packet_count' => 2,
+                'active_workers_blocked' => 4,
+                're_serve_rate' => 3.0,
+            ]),
+        ]);
+
+        $this->assertSame('small-worker-waste', $r['ranked_actions'][0]['family']);
+        $this->assertGreaterThan(0.0, $r['ranked_actions'][0]['worker_waste_pressure']);
+    }
+
+    public function test_small_family_with_high_downstream_unlocks_outranks_larger_low_leverage_family(): void
+    {
+        $r = $this->ranker()->rank([
+            $this->family('high-count-low-value', ['packet_count' => 20]),
+            $this->family('small-downstream-unlock', [
+                'packet_count' => 2,
+                'downstream_unlocks' => 15,
+            ]),
+        ]);
+
+        $this->assertSame('small-downstream-unlock', $r['ranked_actions'][0]['family']);
+        $this->assertGreaterThan(0.0, $r['ranked_actions'][0]['downstream_unlock_score']);
+    }
+
+    public function test_repeated_re_serve_rate_increases_worker_waste_pressure(): void
+    {
+        $low = $this->ranker()->rank([
+            $this->family('a', ['active_workers_blocked' => 2, 're_serve_rate' => 0.0]),
+        ]);
+        $high = $this->ranker()->rank([
+            $this->family('a', ['active_workers_blocked' => 2, 're_serve_rate' => 5.0]),
+        ]);
+
+        $this->assertGreaterThan(
+            $low['ranked_actions'][0]['worker_waste_pressure'],
+            $high['ranked_actions'][0]['worker_waste_pressure'],
+        );
+    }
 }

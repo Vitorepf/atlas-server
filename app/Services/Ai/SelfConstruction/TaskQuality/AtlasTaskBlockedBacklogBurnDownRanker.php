@@ -31,7 +31,7 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  *
  * OUTPUT: { schema, ranked_actions:list<{action, family, packet_count, expected_unblocked,
  *   recovered_claimable_value, leverage, avoided_token_waste, waste_reduction_score,
- *   combined_score, risk, reason_codes}> }
+ *   worker_waste_pressure, downstream_unlock_score, combined_score, risk, reason_codes}> }
  *
  * Pure: read-only, deterministic, no provider calls, no queue/git mutation.
  */
@@ -58,6 +58,15 @@ final class AtlasTaskBlockedBacklogBurnDownRanker
     /** Weight applied to leverage when ranking within a tier — a small family that unlocks a lot
      *  of downstream real work can outrank a larger, low-leverage family. */
     private const LEVERAGE_WEIGHT = 5.0;
+
+    /** Weight applied to worker_waste_pressure — active workers stuck re-serving the same
+     *  blocked family are burning real muscle time, so that pressure earns ranking priority
+     *  even when the family itself is small. */
+    private const WORKER_WASTE_WEIGHT = 3.0;
+
+    /** Weight applied to downstream_unlocks — a family that gates many other packets is worth
+     *  clearing before a larger family that unlocks nothing downstream. */
+    private const DOWNSTREAM_UNLOCK_WEIGHT = 2.0;
 
     /** Rough tokens wasted per repeated give_back cycle; used only to produce a relative
      *  avoided_token_waste metric, not an absolute cost figure. */
@@ -91,6 +100,9 @@ final class AtlasTaskBlockedBacklogBurnDownRanker
             $targetCriticality = (string) ($f['target_criticality'] ?? 'low');
             $implementationRisk = (string) ($f['implementation_risk'] ?? 'low');
             $leverage = max(0.0, (float) ($f['leverage'] ?? 0.0));
+            $activeWorkersBlocked = max(0, (int) ($f['active_workers_blocked'] ?? 0));
+            $reServeRate = max(0.0, (float) ($f['re_serve_rate'] ?? 0.0));
+            $downstreamUnlocks = max(0, (int) ($f['downstream_unlocks'] ?? 0));
 
             $reasonCodes = [];
             if ($canSubmitReplacement && in_array($confidence, ['high', 'medium'], true)) {
@@ -117,9 +129,22 @@ final class AtlasTaskBlockedBacklogBurnDownRanker
             $risk = ($action === self::ACTION_RETIRE && $targetCriticality === 'high') ? 'high' : $implementationRisk;
 
             $avoidedTokenWaste = round($giveBackTotal * self::TOKEN_WASTE_PER_GIVE_BACK, 2);
-            // Leverage-weighted score: a small family that unlocks a lot of downstream real work
-            // can outrank a larger, low-leverage family within the same action tier.
-            $combinedScore = round($expectedUnblocked + $leverage * self::LEVERAGE_WEIGHT, 4);
+            // Active workers stuck repeatedly re-serving the same blocked family are burning
+            // real muscle time — that pressure grows with both how many workers are stuck AND
+            // how often they keep re-serving it.
+            $workerWastePressure = round($activeWorkersBlocked * (1.0 + $reServeRate), 4);
+            // Downstream unlocks: how much other real work this family gates.
+            $downstreamUnlockScore = round($downstreamUnlocks * self::DOWNSTREAM_UNLOCK_WEIGHT, 4);
+            // Leverage/waste/unlock-weighted score: a small family that burns worker time or
+            // unlocks a lot of downstream real work can outrank a larger, low-leverage family
+            // within the same action tier.
+            $combinedScore = round(
+                $expectedUnblocked
+                + $leverage * self::LEVERAGE_WEIGHT
+                + $workerWastePressure * self::WORKER_WASTE_WEIGHT
+                + $downstreamUnlockScore,
+                4,
+            );
 
             $rankedActions[] = [
                 'action' => $action,
@@ -130,6 +155,8 @@ final class AtlasTaskBlockedBacklogBurnDownRanker
                 'leverage' => $leverage,
                 'avoided_token_waste' => $avoidedTokenWaste,
                 'waste_reduction_score' => $giveBackTotal,
+                'worker_waste_pressure' => $workerWastePressure,
+                'downstream_unlock_score' => $downstreamUnlockScore,
                 'combined_score' => $combinedScore,
                 'risk' => $risk,
                 'reason_codes' => $reasonCodes,
