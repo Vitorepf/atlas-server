@@ -130,4 +130,144 @@ final class AtlasMaestroOldestPacketRotationAdvisorTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $src, "advisor must not perform {$forbidden}");
         }
     }
+
+    // ── classifyOldestPackets(): AC2/AC3/AC4 per-packet rotation classification ──
+
+    private function packet(array $overrides = []): array
+    {
+        return array_merge([
+            'task_packet_id' => 'tp-1',
+            'age_minutes' => 30.0,
+            'value_decay_score' => 0.0,
+            'staleness_score' => 0.0,
+            'worker_fit_score' => 1.0,
+            'blocked_history_count' => 0,
+            'proof_freshness_score' => 1.0,
+        ], $overrides);
+    }
+
+    public function test_clean_packet_is_served_now(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([$this->packet()]);
+
+        $this->assertSame(AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_SERVE_NOW, $result['classified_packets'][0]['action']);
+        $this->assertNotEmpty($result['classified_packets'][0]['rationale']);
+    }
+
+    public function test_high_value_decay_is_retired(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([$this->packet(['value_decay_score' => 0.9])]);
+
+        $this->assertSame(AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_RETIRE, $result['classified_packets'][0]['action']);
+        $this->assertStringContainsString('decayed', $result['classified_packets'][0]['rationale']);
+    }
+
+    public function test_ancient_packet_with_any_decay_is_retired(): void
+    {
+        // Below the hard decay floor, but ancient (>= AGE_ANCIENT_MINUTES) with nonzero decay.
+        $result = $this->advisor()->classifyOldestPackets([$this->packet(['age_minutes' => 300.0, 'value_decay_score' => 0.1])]);
+
+        $this->assertSame(AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_RETIRE, $result['classified_packets'][0]['action']);
+    }
+
+    public function test_ancient_packet_with_zero_decay_is_not_retired_by_age_alone(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([$this->packet(['age_minutes' => 300.0, 'value_decay_score' => 0.0])]);
+
+        $this->assertNotSame(AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_RETIRE, $result['classified_packets'][0]['action']);
+    }
+
+    public function test_stale_proof_freshness_is_reshaped(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([$this->packet(['proof_freshness_score' => 0.1])]);
+
+        $this->assertSame(AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_RESHAPE, $result['classified_packets'][0]['action']);
+    }
+
+    public function test_high_staleness_is_reshaped(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([$this->packet(['staleness_score' => 0.7])]);
+
+        $this->assertSame(AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_RESHAPE, $result['classified_packets'][0]['action']);
+    }
+
+    public function test_low_worker_fit_is_keep_waiting(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([$this->packet(['worker_fit_score' => 0.1])]);
+
+        $this->assertSame(AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_KEEP_WAITING, $result['classified_packets'][0]['action']);
+    }
+
+    public function test_repeated_blocked_history_is_quarantined(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([$this->packet(['blocked_history_count' => 5])]);
+
+        $this->assertSame(AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_QUARANTINE, $result['classified_packets'][0]['action']);
+        $this->assertStringContainsString('blocked', $result['classified_packets'][0]['rationale']);
+    }
+
+    public function test_quarantine_takes_priority_over_all_other_signals(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([$this->packet([
+            'blocked_history_count' => 4,
+            'value_decay_score' => 0.9,
+            'staleness_score' => 0.9,
+            'worker_fit_score' => 0.0,
+            'proof_freshness_score' => 0.0,
+        ])]);
+
+        $this->assertSame(AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_QUARANTINE, $result['classified_packets'][0]['action']);
+    }
+
+    public function test_signals_report_all_six_considered_dimensions(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([$this->packet()]);
+        $signals = implode(' ', $result['classified_packets'][0]['signals']);
+
+        foreach (['age_minutes:', 'value_decay_score:', 'staleness_score:', 'worker_fit_score:', 'blocked_history_count:', 'proof_freshness_score:'] as $prefix) {
+            $this->assertStringContainsString($prefix, $signals);
+        }
+    }
+
+    public function test_classify_multiple_packets_returns_one_entry_each(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([
+            $this->packet(['task_packet_id' => 'a']),
+            $this->packet(['task_packet_id' => 'b', 'value_decay_score' => 0.95]),
+        ]);
+
+        $this->assertSame(2, $result['count']);
+        $ids = array_column($result['classified_packets'], 'task_packet_id');
+        $this->assertSame(['a', 'b'], $ids);
+    }
+
+    public function test_classify_empty_packets_returns_zero_count(): void
+    {
+        $result = $this->advisor()->classifyOldestPackets([]);
+
+        $this->assertSame(0, $result['count']);
+        $this->assertSame([], $result['classified_packets']);
+    }
+
+    public function test_classify_action_set_never_includes_origination(): void
+    {
+        $allActions = [
+            AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_SERVE_NOW,
+            AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_RESHAPE,
+            AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_RETIRE,
+            AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_KEEP_WAITING,
+            AtlasMaestroOldestPacketRotationAdvisor::PACKET_ACTION_QUARANTINE,
+        ];
+        foreach ($allActions as $action) {
+            $this->assertStringNotContainsString('originat', $action);
+        }
+    }
+
+    public function test_classify_is_deterministic(): void
+    {
+        $advisor = $this->advisor();
+        $packets = [$this->packet(['value_decay_score' => 0.85])];
+
+        $this->assertSame($advisor->classifyOldestPackets($packets), $advisor->classifyOldestPackets($packets));
+    }
 }
