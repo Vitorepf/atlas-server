@@ -11,16 +11,26 @@ use App\Services\Ai\SelfConstruction\TaskFabric\AtlasTaskFabricBrutalValueAdmiss
  * so only chains with valid dependency ordering, non-overlapping write-sets and
  * individually gate-passing steps enter a batch.
  *
- * Validation applied to each chain (all failures collected; any → rejected):
- *   gate_rejection           — one or more steps fail the brutal value admission gate
+ * Validation applied to each chain (all failures collected):
+ *   gate_rejection             — one or more steps fail the brutal value admission gate
  *   depends_on_order_violation — a step's depends_on references a task that appears at
  *                               an equal or later position in the steps array
- *   write_set_conflict       — two parallel steps (no direct depends_on between them)
+ *   write_set_conflict         — two parallel steps (no direct depends_on between them)
  *                               share at least one allowed_file path
+ *   allowed_files_ambiguous    — a step declares no allowed_files at all (hard defect → rejected)
+ *   lane_namespace_ambiguous   — a step is missing lane_namespace, only checked when
+ *                               shared_facts.require_lane_namespace is true (ambiguity → deferred)
+ *   dependency_evidence_ambiguous — a step has depends_on but explicitly marks
+ *                               dependency_evidence_verified === false (ambiguity → deferred)
+ *
+ * Hard defects reject a chain outright; pure ambiguity reasons (the two above) instead
+ * defer it — the chain isn't structurally broken, it just isn't provable yet.
  *
  * OUTPUT:
  *   accepted_chains[]   — chains that passed all checks; includes step_count
- *   rejected_chains[]   — chains that failed; includes rejection_reasons[]
+ *   admitted_chains[]   — alias of accepted_chains (AC4 vocabulary)
+ *   deferred_chains[]   — chains blocked only by ambiguity; includes deferral_reasons[]
+ *   rejected_chains[]   — chains with a hard defect; includes rejection_reasons[]
  *   depends_on_edges[]  — {from, to, chain_id} for every depends_on in all chains
  *   write_set_conflicts[]— {chain_id, task_a, task_b, conflicting_files[]} per conflict
  *
@@ -29,6 +39,9 @@ use App\Services\Ai\SelfConstruction\TaskFabric\AtlasTaskFabricBrutalValueAdmiss
 final class AtlasTaskGraphChainAdmissionBinder
 {
     public const SCHEMA = 'atlas.task_graph.chain_admission_binder.v1';
+
+    /** Ambiguity-class reasons defer a chain instead of rejecting it outright. */
+    private const DEFERRABLE_REASONS = ['lane_namespace_ambiguous', 'dependency_evidence_ambiguous'];
 
     public function __construct(
         private readonly AtlasTaskFabricBrutalValueAdmissionGate $gate = new AtlasTaskFabricBrutalValueAdmissionGate,
@@ -44,6 +57,7 @@ final class AtlasTaskGraphChainAdmissionBinder
         $sharedFacts = is_array($input['shared_facts'] ?? null) ? $input['shared_facts'] : [];
 
         $accepted = [];
+        $deferred = [];
         $rejected = [];
         $edges = [];
         $conflicts = [];
@@ -95,19 +109,42 @@ final class AtlasTaskGraphChainAdmissionBinder
                 }
             }
 
+            // 4. Ambiguity checks: allowed_files (hard defect), lane_namespace and
+            //    dependency evidence (soft — deferred, not rejected).
+            $requireLaneNamespace = ($sharedFacts['require_lane_namespace'] ?? false) === true;
+            foreach ($steps as $step) {
+                $files = is_array($step['allowed_files'] ?? null) ? $step['allowed_files'] : [];
+                if ($files === []) {
+                    $chainReasons[] = 'allowed_files_ambiguous';
+                }
+
+                if ($requireLaneNamespace && trim((string) ($step['lane_namespace'] ?? '')) === '') {
+                    $chainReasons[] = 'lane_namespace_ambiguous';
+                }
+
+                $deps = is_array($step['depends_on'] ?? null) ? $step['depends_on'] : [];
+                if ($deps !== [] && ($step['dependency_evidence_verified'] ?? true) === false) {
+                    $chainReasons[] = 'dependency_evidence_ambiguous';
+                }
+            }
+
             $chainReasons = array_values(array_unique($chainReasons));
-            $entry = ['chain_id' => $chainId, 'step_count' => count($steps), 'rejection_reasons' => $chainReasons];
+            $hardReasons = array_values(array_diff($chainReasons, self::DEFERRABLE_REASONS));
 
             if ($chainReasons === []) {
-                $accepted[] = $entry;
+                $accepted[] = ['chain_id' => $chainId, 'step_count' => count($steps), 'rejection_reasons' => []];
+            } elseif ($hardReasons !== []) {
+                $rejected[] = ['chain_id' => $chainId, 'step_count' => count($steps), 'rejection_reasons' => $chainReasons];
             } else {
-                $rejected[] = $entry;
+                $deferred[] = ['chain_id' => $chainId, 'step_count' => count($steps), 'deferral_reasons' => $chainReasons];
             }
         }
 
         return [
             'schema_version' => self::SCHEMA,
             'accepted_chains' => $accepted,
+            'admitted_chains' => $accepted,
+            'deferred_chains' => $deferred,
             'rejected_chains' => $rejected,
             'depends_on_edges' => $edges,
             'write_set_conflicts' => $conflicts,

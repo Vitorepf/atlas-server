@@ -215,4 +215,98 @@ final class AtlasTaskGraphChainAdmissionBinderTest extends TestCase
         $r = $this->svc()->bind([]);
         $this->assertSame(AtlasTaskGraphChainAdmissionBinder::SCHEMA, $r['schema_version']);
     }
+
+    // ── AC4: admitted_chains alias + deferred bucket ────────────────────────────
+
+    public function test_admitted_chains_is_alias_of_accepted_chains(): void
+    {
+        $r = $this->bind([$this->chain('c1', [$this->step('t1')])]);
+
+        $this->assertSame($r['accepted_chains'], $r['admitted_chains']);
+    }
+
+    public function test_deferred_chains_is_empty_by_default(): void
+    {
+        $r = $this->bind([$this->chain('c1', [$this->step('t1')])]);
+
+        $this->assertSame([], $r['deferred_chains']);
+    }
+
+    // ── AC3: allowed_files ambiguous (hard defect → rejected) ───────────────────
+
+    public function test_chain_rejected_when_step_has_no_allowed_files(): void
+    {
+        $step = $this->step('t1');
+        $step['allowed_files'] = [];
+
+        $r = $this->bind([$this->chain('c1', [$step])]);
+
+        $this->assertSame([], $r['accepted_chains']);
+        $this->assertContains('allowed_files_ambiguous', $r['rejected_chains'][0]['rejection_reasons']);
+    }
+
+    // ── AC3: lane_namespace ambiguous (opt-in, ambiguity → deferred) ────────────
+
+    public function test_chain_deferred_when_lane_namespace_missing_and_required(): void
+    {
+        $r = $this->bind(
+            [$this->chain('c1', [$this->step('t1')])],
+            shared: ['require_lane_namespace' => true],
+        );
+
+        $this->assertSame([], $r['accepted_chains']);
+        $this->assertSame([], $r['rejected_chains']);
+        $this->assertCount(1, $r['deferred_chains']);
+        $this->assertContains('lane_namespace_ambiguous', $r['deferred_chains'][0]['deferral_reasons']);
+    }
+
+    public function test_lane_namespace_not_checked_when_not_required(): void
+    {
+        $r = $this->bind([$this->chain('c1', [$this->step('t1')])]);
+
+        $this->assertCount(1, $r['accepted_chains']);
+    }
+
+    public function test_chain_accepted_when_lane_namespace_present_and_required(): void
+    {
+        $step = $this->step('t1');
+        $step['lane_namespace'] = 'lane-a';
+
+        $r = $this->bind(
+            [$this->chain('c1', [$step])],
+            shared: ['require_lane_namespace' => true],
+        );
+
+        $this->assertCount(1, $r['accepted_chains']);
+    }
+
+    // ── AC3: dependency evidence ambiguous (ambiguity → deferred) ───────────────
+
+    public function test_chain_deferred_when_dependency_evidence_not_verified(): void
+    {
+        $t2 = $this->step('t2', deps: ['t1'], files: ['app/Services/T2.php', 'tests/T2Test.php']);
+        $t2['dependency_evidence_verified'] = false;
+
+        $r = $this->bind([$this->chain('c1', [$this->step('t1'), $t2])]);
+
+        $this->assertSame([], $r['accepted_chains']);
+        $this->assertSame([], $r['rejected_chains']);
+        $this->assertContains('dependency_evidence_ambiguous', $r['deferred_chains'][0]['deferral_reasons']);
+    }
+
+    public function test_ambiguity_and_hard_defect_together_still_rejects(): void
+    {
+        $step = $this->step('t1');
+        $step['allowed_files'] = [];
+
+        $r = $this->bind(
+            [$this->chain('c1', [$step])],
+            shared: ['require_lane_namespace' => true],
+        );
+
+        $this->assertCount(1, $r['rejected_chains']);
+        $this->assertSame([], $r['deferred_chains']);
+        $this->assertContains('allowed_files_ambiguous', $r['rejected_chains'][0]['rejection_reasons']);
+        $this->assertContains('lane_namespace_ambiguous', $r['rejected_chains'][0]['rejection_reasons']);
+    }
 }
