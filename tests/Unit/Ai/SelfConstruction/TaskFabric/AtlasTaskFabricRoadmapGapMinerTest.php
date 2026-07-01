@@ -149,12 +149,12 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         $this->assertEmpty(array_filter($out[0]['tags'], static fn (string $t): bool => str_starts_with($t, 'lane:')));
     }
 
-    public function test_mine_by_lane_sorted_by_lane_then_organ_then_capability(): void
+    public function test_mine_by_lane_ties_within_same_leverage_score_sorted_by_lane_then_organ_then_capability(): void
     {
+        // Same organ + same lane ⇒ identical leverage_score ⇒ falls back to lane/organ/capability order.
         $rows = [
             $this->row('Task Fabric',  'b_cap', ['lane' => 'compounding']),
             $this->row('Task Fabric',  'a_cap', ['lane' => 'compounding']),
-            $this->row('Maestro',      'z_cap', ['lane' => 'self-recovery']),
         ];
         $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane($rows);
 
@@ -162,11 +162,52 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         $this->assertSame([
             'compounding:Task Fabric:a_cap',
             'compounding:Task Fabric:b_cap',
-            'self-recovery:Maestro:z_cap',
         ], $keys);
     }
 
+    public function test_mine_by_lane_orders_by_leverage_score_descending_across_organs_and_lanes(): void
+    {
+        // Maestro (organ_priority=9) + self-recovery (lane_priority=5) = 14
+        // Task Fabric (organ_priority=10) + compounding (lane_priority=2) = 12
+        // Higher compound leverage (Maestro) must rank first, even though "Maestro" > "Task Fabric" alphabetically.
+        $rows = [
+            $this->row('Task Fabric', 'b_cap', ['lane' => 'compounding']),
+            $this->row('Maestro',     'z_cap', ['lane' => 'self-recovery']),
+        ];
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane($rows);
+
+        $this->assertSame('Maestro', $out[0]['organ']);
+        $this->assertSame('Task Fabric', $out[1]['organ']);
+        $this->assertGreaterThan($out[1]['leverage_score'], $out[0]['leverage_score']);
+    }
+
     // ---------- mineRanked — ranked real gaps, blocked-family, dedup, proxy rejection ----------
+
+    public function test_mine_by_lane_leverage_score_increases_with_unlock_count(): void
+    {
+        $result = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([
+            $this->row('Task Fabric', 'no_unlocks', ['lane' => 'compounding']),
+            $this->row('Task Fabric', 'with_unlocks', ['lane' => 'compounding', 'unlocks_capabilities' => ['a', 'b']]),
+        ]);
+
+        $noUnlocks = array_values(array_filter($result, fn ($c) => $c['capability'] === 'no_unlocks'))[0];
+        $withUnlocks = array_values(array_filter($result, fn ($c) => $c['capability'] === 'with_unlocks'))[0];
+
+        $this->assertGreaterThan($noUnlocks['leverage_score'], $withUnlocks['leverage_score']);
+    }
+
+    public function test_mine_by_lane_leverage_score_increases_with_evidence_freshness(): void
+    {
+        $result = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([
+            $this->row('Task Fabric', 'stale', ['lane' => 'compounding', 'evidence_age_days' => 200]),
+            $this->row('Task Fabric', 'fresh', ['lane' => 'compounding', 'evidence_age_days' => 1]),
+        ]);
+
+        $stale = array_values(array_filter($result, fn ($c) => $c['capability'] === 'stale'))[0];
+        $fresh = array_values(array_filter($result, fn ($c) => $c['capability'] === 'fresh'))[0];
+
+        $this->assertGreaterThan($stale['leverage_score'], $fresh['leverage_score']);
+    }
 
     public function test_mine_ranked_output_has_leverage_score(): void
     {

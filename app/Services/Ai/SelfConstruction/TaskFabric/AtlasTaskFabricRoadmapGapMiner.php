@@ -66,6 +66,17 @@ final class AtlasTaskFabricRoadmapGapMiner
         'completion-certification',
     ];
 
+    /** Lane priority weights for leverage scoring in mineByLane (higher = more impactful). */
+    public const LANE_PRIORITY = [
+        'self-recovery'             => 5,
+        'lane-governance'           => 4,
+        'task-repair'               => 4,
+        'muscle-feedback'           => 3,
+        'frontier-import'           => 2,
+        'compounding'               => 2,
+        'completion-certification'  => 1,
+    ];
+
     /**
      * @param  list<array{organ?:string, capability?:string, current_state?:string, target_state?:string, evidence_path?:string, suggested_files?:list<string>, resolved?:bool, kind?:string}>  $rows
      * @return list<array{schema_version:string, organ:string, capability:string, capability_gap:string, evidence_path:string, suggested_files:list<string>, owner_scope:string, tags:list<string>}>
@@ -195,6 +206,17 @@ final class AtlasTaskFabricRoadmapGapMiner
                 $tags[] = 'lane:'.$lane;
             }
 
+            // Leverage scoring: structural impact drives ordering, not alphabetical position.
+            $organPriority = self::ORGAN_PRIORITY[$organ] ?? 0;
+            $lanePriority  = self::LANE_PRIORITY[$lane] ?? 0;
+            $unblockCount  = count((array) ($row['unlocks_capabilities'] ?? []));
+            $unblockValue  = min($unblockCount, 3);
+            $evidenceAgeDays = isset($row['evidence_age_days']) ? max(0, (int) $row['evidence_age_days']) : null;
+            // Fresher evidence (recently seen) scores higher; unknown age scores neutral (0).
+            $freshnessValue = $evidenceAgeDays === null ? 0 : max(0, 3 - intdiv($evidenceAgeDays, 30));
+
+            $leverageScore = $organPriority + $lanePriority + $unblockValue + $freshnessValue;
+
             $candidate = array_merge([
                 'schema_version'  => self::SCHEMA,
                 'organ'           => $organ,
@@ -203,6 +225,7 @@ final class AtlasTaskFabricRoadmapGapMiner
                 'evidence_path'   => $evidence,
                 'suggested_files' => $files,
                 'owner_scope'     => 'atlas-native',
+                'leverage_score'  => $leverageScore,
                 'tags'            => $tags,
             ], $this->extractChainFields($row));
             if ($lane !== '') {
@@ -213,6 +236,9 @@ final class AtlasTaskFabricRoadmapGapMiner
         }
 
         usort($candidates, static function (array $a, array $b): int {
+            if ($b['leverage_score'] !== $a['leverage_score']) {
+                return $b['leverage_score'] <=> $a['leverage_score'];
+            }
             $laneA = (string) ($a['lane'] ?? '');
             $laneB = (string) ($b['lane'] ?? '');
             return strcmp($laneA, $laneB) ?: strcmp($a['organ'], $b['organ']) ?: strcmp($a['capability'], $b['capability']);
