@@ -20,12 +20,22 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   impact_confidence:         float — confidence that queued tasks have real impact [0..1] (default 1.0)
  *   expected_value_density:    float — average value per claimable task [0..1] (default 1.0)
  *   age_cost:                  float — additional carrying cost per task per backlog unit (default 0.0)
+ *   expected_token_waste:      float — expected muscle tokens burned on rework/give_back (default 0.0)
+ *   proof_coverage:            float — fraction of backlog slice backed by strong proof [0..1]
+ *                                      (default 0.0 = no discount; higher coverage LOWERS carrying cost)
  *
  * OUTPUT:
  *   { schema, carrying_cost:float, saturation_risk:string(low|medium|high),
  *     preferred_action:string(seed|drain|consolidate|unblock|pause), reasons:list<string>,
- *     cost_breakdown:array<string,float>,
+ *     cost_breakdown:array<string,float>, cost_drivers:list<array{driver:string,value:float}>,
+ *     retirement_candidates:list<string>,
  *     recommended_queue_action:{ action, reasons, economics } }
+ *
+ * COST_DRIVERS / RETIREMENT_CANDIDATES: cost_drivers ranks every non-zero cost_breakdown
+ * component highest-first so the caller can see what is actually driving the carrying cost.
+ * retirement_candidates names the dead-weight components (stale_backlog_cost,
+ * quarantine_worker_drag, opportunity_cost) whenever they are non-zero — these represent
+ * backlog debt that should be retired rather than carried forward.
  *
  * RECOMMENDED_QUEUE_ACTION ECONOMICS: bundles all six decision inputs so the caller can
  * audit what drove the choice: worker_capacity, claimable_depth, blocked_count,
@@ -110,6 +120,8 @@ final class AtlasExternalBrainBacklogCostModel
         $malformedRate        = min(1.0, max(0.0, (float) ($input['malformed_rate'] ?? 0.0)));
         $dependencyUnlockValue = min(1.0, max(0.0, (float) ($input['dependency_unlock_value'] ?? 0.0)));
         $quarantinedCount      = max(0, (int) ($input['quarantined_count'] ?? 0));
+        $expectedTokenWaste    = max(0.0, (float) ($input['expected_token_waste'] ?? 0.0));
+        $proofCoverage         = min(1.0, max(0.0, (float) ($input['proof_coverage'] ?? 0.0)));
 
         // ── Carrying cost breakdown ───────────────────────────────────────────
         $workerHoursCost     = round($backlogSize / $workerThroughput, 4);
@@ -130,10 +142,21 @@ final class AtlasExternalBrainBacklogCostModel
         // must never be counted as, or masked by, positive serving capacity.
         $quarantineWorkerDrag = round(($blockedCount + $quarantinedCount) * self::QUARANTINE_WORKER_DRAG_PER_TASK, 4);
 
+        // Expected muscle token waste: tokens burned on rework/give_back the backlog is expected
+        // to cost, independent of the give_back_rate carrying-cost term above.
+        $tokenWasteCost = round($expectedTokenWaste, 4);
+
+        // Proof-coverage discount: a backlog slice backed by stronger proof carries LESS execution
+        // risk — never used to inflate cost, only to discount it. Absent input (0.0) never changes
+        // prior behavior.
+        $proofCoverageDiscount = round($proofCoverage * $backlogSize * 0.3, 4);
+
         $carryingCost = round(
-            $workerHoursCost + $giveBackBurden + $reviewBurden
-            + $integrationLoad + $opportunityCost + $ageCostContribution + $staleBacklogCost
-            + $quarantineWorkerDrag,
+            max(0.0,
+                $workerHoursCost + $giveBackBurden + $reviewBurden
+                + $integrationLoad + $opportunityCost + $ageCostContribution + $staleBacklogCost
+                + $quarantineWorkerDrag + $tokenWasteCost - $proofCoverageDiscount,
+            ),
             2
         );
 
@@ -193,6 +216,39 @@ final class AtlasExternalBrainBacklogCostModel
             self::ACTION_RETIRE_STALE   => $retireStaleCost,
         ];
 
+        $costBreakdown = [
+            'worker_hours_cost'    => $workerHoursCost,
+            'give_back_burden'     => $giveBackBurden,
+            'review_burden'        => $reviewBurden,
+            'integration_load'     => $integrationLoad,
+            'opportunity_cost'     => $opportunityCost,
+            'age_cost_contribution' => $ageCostContribution,
+            'stale_backlog_cost'   => $staleBacklogCost,
+            'quarantine_worker_drag' => $quarantineWorkerDrag,
+            'token_waste_cost'     => $tokenWasteCost,
+            'proof_coverage_discount' => $proofCoverageDiscount,
+        ];
+
+        // cost_drivers: every non-zero cost_breakdown component, highest-first — the discount is
+        // never listed as a driver, it is what reduces cost.
+        $costDrivers = [];
+        foreach ($costBreakdown as $driver => $value) {
+            if ($driver === 'proof_coverage_discount' || $value <= 0.0) {
+                continue;
+            }
+            $costDrivers[] = ['driver' => $driver, 'value' => $value];
+        }
+        usort($costDrivers, static fn (array $a, array $b): int => $b['value'] <=> $a['value']);
+
+        // retirement_candidates: dead-weight components (stale/quarantined/blocked backlog) worth
+        // retiring rather than carrying forward.
+        $retirementCandidates = [];
+        foreach (['stale_backlog_cost', 'quarantine_worker_drag', 'opportunity_cost'] as $deadWeightDriver) {
+            if (($costBreakdown[$deadWeightDriver] ?? 0.0) > 0.0) {
+                $retirementCandidates[] = $deadWeightDriver;
+            }
+        }
+
         return [
             'schema'           => self::SCHEMA,
             'carrying_cost'    => $carryingCost,
@@ -201,16 +257,9 @@ final class AtlasExternalBrainBacklogCostModel
             'reasons'          => array_values($reasons),
             'cost_by_action'   => $costByAction,
             'quarantine_worker_drag' => $quarantineWorkerDrag,
-            'cost_breakdown'   => [
-                'worker_hours_cost'    => $workerHoursCost,
-                'give_back_burden'     => $giveBackBurden,
-                'review_burden'        => $reviewBurden,
-                'integration_load'     => $integrationLoad,
-                'opportunity_cost'     => $opportunityCost,
-                'age_cost_contribution' => $ageCostContribution,
-                'stale_backlog_cost'   => $staleBacklogCost,
-                'quarantine_worker_drag' => $quarantineWorkerDrag,
-            ],
+            'cost_breakdown'   => $costBreakdown,
+            'cost_drivers'     => $costDrivers,
+            'retirement_candidates' => $retirementCandidates,
             'recommended_queue_action' => [
                 'action'    => $preferredAction,
                 'reasons'   => array_values($reasons),

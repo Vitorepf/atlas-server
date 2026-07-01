@@ -707,4 +707,100 @@ final class AtlasExternalBrainBacklogCostModelTest extends TestCase
             $lowCostHighValue['cost_by_action']['create_more'],
         );
     }
+
+    // ── AC1: high give_back probability raises backlog cost even when claimable depth is high ──
+
+    public function test_high_give_back_probability_raises_cost_despite_high_claimable_depth(): void
+    {
+        $lowGiveBack = $this->model()->model([
+            'backlog_size' => 40, 'claimable_depth' => 35, 'give_back_rate' => 0.05,
+        ]);
+        $highGiveBack = $this->model()->model([
+            'backlog_size' => 40, 'claimable_depth' => 35, 'give_back_rate' => 0.7,
+        ]);
+
+        $this->assertGreaterThan($lowGiveBack['carrying_cost'], $highGiveBack['carrying_cost']);
+    }
+
+    // ── AC2: strong proof coverage lowers execution risk for equally sized backlog slices ──
+
+    public function test_strong_proof_coverage_lowers_carrying_cost_for_equally_sized_backlog(): void
+    {
+        $weakProof = $this->model()->model(['backlog_size' => 30, 'proof_coverage' => 0.0]);
+        $strongProof = $this->model()->model(['backlog_size' => 30, 'proof_coverage' => 0.9]);
+
+        $this->assertLessThan($weakProof['carrying_cost'], $strongProof['carrying_cost']);
+    }
+
+    public function test_proof_coverage_discount_appears_in_cost_breakdown(): void
+    {
+        $result = $this->model()->model(['backlog_size' => 20, 'proof_coverage' => 0.5]);
+
+        $this->assertArrayHasKey('proof_coverage_discount', $result['cost_breakdown']);
+        $this->assertGreaterThan(0.0, $result['cost_breakdown']['proof_coverage_discount']);
+    }
+
+    public function test_carrying_cost_never_goes_negative_from_proof_coverage_discount(): void
+    {
+        $result = $this->model()->model(['backlog_size' => 1, 'proof_coverage' => 1.0]);
+
+        $this->assertGreaterThanOrEqual(0.0, $result['carrying_cost']);
+    }
+
+    // ── AC3: output includes cost_drivers and retirement_candidates fields ──────
+
+    public function test_output_includes_cost_drivers_and_retirement_candidates(): void
+    {
+        $result = $this->model()->model(['backlog_size' => 10]);
+
+        $this->assertArrayHasKey('cost_drivers', $result);
+        $this->assertArrayHasKey('retirement_candidates', $result);
+    }
+
+    public function test_cost_drivers_are_ranked_highest_first(): void
+    {
+        $result = $this->model()->model([
+            'backlog_size' => 30,
+            'give_back_rate' => 0.4,
+            'blocked_count' => 3,
+        ]);
+
+        $values = array_column($result['cost_drivers'], 'value');
+        $sorted = $values;
+        rsort($sorted);
+        $this->assertSame($sorted, $values);
+        $this->assertNotEmpty($result['cost_drivers']);
+    }
+
+    public function test_retirement_candidates_flags_stale_and_quarantine_and_blocked_debt(): void
+    {
+        $result = $this->model()->model([
+            'backlog_size' => 20,
+            'claimable_depth' => 10,
+            'blocked_count' => 2,
+            'quarantined_count' => 3,
+            'queue_age_p95_minutes' => 90.0,
+            'serve_rate_per_minute' => 0.01,
+        ]);
+
+        $this->assertContains('quarantine_worker_drag', $result['retirement_candidates']);
+        $this->assertContains('opportunity_cost', $result['retirement_candidates']);
+        $this->assertContains('stale_backlog_cost', $result['retirement_candidates']);
+    }
+
+    public function test_retirement_candidates_empty_when_no_dead_weight(): void
+    {
+        $result = $this->model()->model(['backlog_size' => 10]);
+
+        $this->assertSame([], $result['retirement_candidates']);
+    }
+
+    public function test_token_waste_input_increases_carrying_cost(): void
+    {
+        $noWaste = $this->model()->model(['backlog_size' => 10, 'expected_token_waste' => 0.0]);
+        $withWaste = $this->model()->model(['backlog_size' => 10, 'expected_token_waste' => 50.0]);
+
+        $this->assertGreaterThan($noWaste['carrying_cost'], $withWaste['carrying_cost']);
+        $this->assertArrayHasKey('token_waste_cost', $withWaste['cost_breakdown']);
+    }
 }
