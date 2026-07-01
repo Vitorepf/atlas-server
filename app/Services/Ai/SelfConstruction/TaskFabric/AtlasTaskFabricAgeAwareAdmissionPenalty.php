@@ -49,6 +49,12 @@ final class AtlasTaskFabricAgeAwareAdmissionPenalty
 
     private const MEDIUM_LEVERAGE_THRESHOLD = 4.0;
 
+    /** Below this drain slope, workers are consuming claimable work slower than it accumulates. */
+    private const SATURATION_DRAIN_SLOPE_THRESHOLD = 0.5;
+
+    /** Above this claimable-per-worker ratio, the existing workforce cannot realistically absorb the backlog. */
+    private const SATURATION_CLAIMABLE_PER_WORKER_THRESHOLD = 5.0;
+
     /**
      * @param  array<string,mixed>  $batch
      * @param  array<string,mixed>  $queueFacts
@@ -76,25 +82,53 @@ final class AtlasTaskFabricAgeAwareAdmissionPenalty
         }
 
         $penaltyScore = $this->penaltyScore($claimableDepth, $p95AgeHours, $leverageScore);
+        $saturationReasons = $this->saturationReasons($queueFacts, $claimableDepth);
 
         if ($leverageScore >= self::HIGH_LEVERAGE_THRESHOLD) {
-            return $this->result(self::DECISION_ADMIT_WITH_PENALTY, $penaltyScore, [
+            return $this->result(self::DECISION_ADMIT_WITH_PENALTY, $penaltyScore, array_merge([
                 'deep_stale_backlog_detected',
                 sprintf('high_leverage_score=%.1f_overrides_penalty', $leverageScore),
-            ]);
+            ], $saturationReasons));
         }
 
         if ($leverageScore >= self::MEDIUM_LEVERAGE_THRESHOLD) {
-            return $this->result(self::DECISION_DEFER, $penaltyScore, [
+            return $this->result(self::DECISION_DEFER, $penaltyScore, array_merge([
                 'deep_stale_backlog_detected',
                 sprintf('medium_leverage_score=%.1f_deferred_until_backlog_drains', $leverageScore),
-            ]);
+            ], $saturationReasons));
         }
 
-        return $this->result(self::DECISION_REJECT_PADDING, $penaltyScore, [
+        return $this->result(self::DECISION_REJECT_PADDING, $penaltyScore, array_merge([
             'deep_stale_backlog_detected',
             sprintf('low_leverage_score=%.1f_treated_as_padding', $leverageScore),
-        ]);
+        ], $saturationReasons));
+    }
+
+    /**
+     * @param  array<string,mixed>  $queueFacts
+     * @return list<string>
+     */
+    private function saturationReasons(array $queueFacts, int $claimableDepth): array
+    {
+        $workerConsumption = is_array($queueFacts['worker_consumption'] ?? null) ? $queueFacts['worker_consumption'] : [];
+        $activeWorkers = max(0, (int) ($workerConsumption['active_workers'] ?? 0));
+        $reasons = [];
+
+        if (array_key_exists('drain_slope', $workerConsumption)) {
+            $drainSlope = (float) $workerConsumption['drain_slope'];
+            if ($drainSlope <= self::SATURATION_DRAIN_SLOPE_THRESHOLD) {
+                $reasons[] = sprintf('worker_drain_slope=%.2f_indicates_saturation', $drainSlope);
+            }
+        }
+
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $queueFacts)
+            ? (float) $queueFacts['claimable_per_active_worker']
+            : ($activeWorkers > 0 ? $claimableDepth / $activeWorkers : null);
+        if ($claimablePerActiveWorker !== null && $claimablePerActiveWorker >= self::SATURATION_CLAIMABLE_PER_WORKER_THRESHOLD) {
+            $reasons[] = sprintf('claimable_per_active_worker=%.2f_indicates_saturation', $claimablePerActiveWorker);
+        }
+
+        return $reasons;
     }
 
     private function penaltyScore(int $claimableDepth, float $p95AgeHours, float $leverageScore): float

@@ -126,6 +126,52 @@ final class AtlasTaskFabricAgeAwareAdmissionPenaltyTest extends TestCase
         $this->assertSame(AtlasTaskFabricAgeAwareAdmissionPenalty::DECISION_ADMIT_WITH_PENALTY, $r['decision']);
     }
 
+    public function test_high_leverage_batch_under_saturation_names_claimable_per_active_worker_pressure(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0]),
+            $this->deepStale(['worker_consumption' => ['active_workers' => 3]]), // 60/3 = 20 >= threshold
+        );
+
+        $this->assertSame(AtlasTaskFabricAgeAwareAdmissionPenalty::DECISION_ADMIT_WITH_PENALTY, $r['decision']);
+        $found = false;
+        foreach ($r['reasons'] as $reason) {
+            if (str_contains($reason, 'claimable_per_active_worker')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'expected a reason naming claimable_per_active_worker pressure');
+    }
+
+    public function test_high_leverage_batch_under_saturation_names_worker_drain_slope_pressure(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0]),
+            $this->deepStale(['worker_consumption' => ['active_workers' => 20, 'drain_slope' => 0.1]]),
+        );
+
+        $this->assertSame(AtlasTaskFabricAgeAwareAdmissionPenalty::DECISION_ADMIT_WITH_PENALTY, $r['decision']);
+        $found = false;
+        foreach ($r['reasons'] as $reason) {
+            if (str_contains($reason, 'worker_drain_slope')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'expected a reason naming worker_drain_slope pressure');
+    }
+
+    public function test_no_saturation_signal_when_workers_are_ample(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0]),
+            $this->deepStale(['worker_consumption' => ['active_workers' => 60, 'drain_slope' => 0.9]]),
+        );
+
+        foreach ($r['reasons'] as $reason) {
+            $this->assertStringNotContainsString('saturation', $reason);
+        }
+    }
+
     // ── low leverage → reject_padding ─────────────────────────────────────────
 
     public function test_low_leverage_batch_rejected_as_padding_during_deep_stale_backlog(): void
