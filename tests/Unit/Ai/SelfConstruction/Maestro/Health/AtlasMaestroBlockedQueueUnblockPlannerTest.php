@@ -116,6 +116,39 @@ final class AtlasMaestroBlockedQueueUnblockPlannerTest extends TestCase
 
     // ── implementation_work_enqueued ──────────────────────────────────────────
 
+    public function test_operator_only_and_forbidden_self_target_classified_operator_only_lane_with_refusal_reason(): void
+    {
+        foreach ([['operator_only' => true], ['forbidden_self_target' => true]] as $overrides) {
+            $r = $this->svc()->plan([$this->pkt('p1', $overrides)]);
+            $entry = $r['entries'][0];
+
+            $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::LANE_OPERATOR_ONLY, $entry['lane']);
+            $this->assertFalse($entry['implementation_work_enqueued']);
+            $this->assertNotEmpty($entry['refusal_reason']);
+        }
+    }
+
+    public function test_schema_errors_and_deficiencies_classified_respec_only_not_implementation_work_lane(): void
+    {
+        $schema = $this->svc()->plan([$this->pkt('p1', ['schema_errors' => ['e1']])]);
+        $deficiency = $this->svc()->plan([$this->pkt('p2', ['deficiencies' => ['d1']])]);
+
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::LANE_RESPEC_ONLY, $schema['entries'][0]['lane']);
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::LANE_RESPEC_ONLY, $deficiency['entries'][0]['lane']);
+    }
+
+    public function test_dependency_repair_with_downstream_unlock_count_is_safe_impl_work_and_sorted_deterministically(): void
+    {
+        $r = $this->svc()->plan([
+            $this->pkt('low', ['dependency_status' => 'stale', 'downstream_unlock_count' => 1]),
+            $this->pkt('high', ['dependency_status' => 'stale', 'downstream_unlock_count' => 5]),
+        ]);
+
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::LANE_SAFE_IMPL_WORK, $r['entries'][0]['lane']);
+        $this->assertSame('high', $r['entries'][0]['task_packet_id']);
+        $this->assertSame('low', $r['entries'][1]['task_packet_id']);
+    }
+
     public function test_operator_only_refuses_implementation_work(): void
     {
         $r = $this->svc()->plan([$this->pkt('p1', ['operator_only' => true])]);

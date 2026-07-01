@@ -36,8 +36,24 @@ final class AtlasMaestroBlockedQueueUnblockPlanner
 
     private const GIVE_BACK_RETIRE_THRESHOLD = 8;
 
+    public const LANE_SAFE_IMPL_WORK = 'safe_impl_work';
+
+    public const LANE_RESPEC_ONLY = 'respec_only';
+
+    public const LANE_OPERATOR_ONLY = 'operator_only';
+
+    public const LANE_NONE = 'none';
+
     /** @var list<string> Actions for which implementation work is NOT enqueued. */
     private const NO_IMPL_WORK_ACTIONS = [self::ACTION_OPERATOR_ONLY, self::ACTION_LEAVE_BLOCKED];
+
+    /** action => lane: which of the three refusal-aware buckets an action belongs to. */
+    private const ACTION_TO_LANE = [
+        self::ACTION_OPERATOR_ONLY => self::LANE_OPERATOR_ONLY,
+        self::ACTION_CREATE_MIGRATION_TASK => self::LANE_RESPEC_ONLY,
+        self::ACTION_RESCOPE => self::LANE_RESPEC_ONLY,
+        self::ACTION_FIX_DEPENDENCY => self::LANE_SAFE_IMPL_WORK,
+    ];
 
     /**
      * @param  list<array<string,mixed>>  $blockedPackets
@@ -51,12 +67,16 @@ final class AtlasMaestroBlockedQueueUnblockPlanner
             $action = $this->classifyAction($packet);
             $downstreamUnlock = max(0, (int) ($packet['downstream_unlock_count'] ?? 0));
 
+            $implementationWorkEnqueued = ! in_array($action, self::NO_IMPL_WORK_ACTIONS, true);
+
             $entries[] = [
                 'task_packet_id' => $id,
                 'action' => $action,
+                'lane' => self::ACTION_TO_LANE[$action] ?? self::LANE_NONE,
                 'root_cause' => $this->rootCause($action),
                 'downstream_unlock_count' => $downstreamUnlock,
-                'implementation_work_enqueued' => ! in_array($action, self::NO_IMPL_WORK_ACTIONS, true),
+                'implementation_work_enqueued' => $implementationWorkEnqueued,
+                'refusal_reason' => $implementationWorkEnqueued ? null : $this->rootCause($action),
             ];
         }
 
