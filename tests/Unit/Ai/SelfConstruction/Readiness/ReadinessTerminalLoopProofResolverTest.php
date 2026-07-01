@@ -68,7 +68,27 @@ class ReadinessTerminalLoopProofResolverTest extends TestCase
 
         $result = ReadinessTerminalLoopProofResolver::withPayload($options, 'some/path.json');
 
-        self::assertSame($options, $result);
+        self::assertSame(['already' => 'present'], $result['agent_control_plane_terminal_loop_operational_proof']);
+        self::assertSame('data', $result['other']);
+        self::assertSame('explicit_array', $result['agent_control_plane_terminal_loop_operational_proof_source']);
+    }
+
+    public function test_with_payload_preserves_source_metadata_for_explicit_array_source(): void
+    {
+        $options = ['agent_control_plane_terminal_loop_operational_proof' => ['a' => 1]];
+
+        $result = ReadinessTerminalLoopProofResolver::withPayload($options, 'nonexistent/path.json');
+
+        self::assertSame('explicit_array', $result['agent_control_plane_terminal_loop_operational_proof_source']);
+    }
+
+    public function test_with_payload_preserves_source_metadata_for_json_option_source(): void
+    {
+        $options = ['agent_control_plane_terminal_loop_operational_proof_json' => '{"proof_payload":{"from":"json"}}'];
+
+        $result = ReadinessTerminalLoopProofResolver::withPayload($options, 'nonexistent/path.json');
+
+        self::assertSame('json_option', $result['agent_control_plane_terminal_loop_operational_proof_source']);
     }
 
     public function test_with_payload_resolves_from_json_option_string(): void
@@ -170,6 +190,114 @@ class ReadinessTerminalLoopProofResolverTest extends TestCase
         } finally {
             @unlink($absolutePath);
         }
+    }
+
+    // ── freshness policy ───────────────────────────────────────────────────────
+
+    public function test_resolve_audit_reports_stale_when_generated_at_older_than_max_age(): void
+    {
+        $options = [
+            'agent_control_plane_terminal_loop_operational_proof' => [
+                'ok' => true,
+                'generated_at' => time() - 7200,
+            ],
+        ];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json', ['max_age_seconds' => 3600]);
+
+        self::assertSame('stale', $audit['freshness_status']);
+        self::assertContains('stale_proof_payload', $audit['blockers']);
+        self::assertTrue($audit['payload_present']);
+    }
+
+    public function test_resolve_audit_reports_fresh_when_generated_at_within_max_age(): void
+    {
+        $options = [
+            'agent_control_plane_terminal_loop_operational_proof' => [
+                'ok' => true,
+                'generated_at' => time() - 10,
+            ],
+        ];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json', ['max_age_seconds' => 3600]);
+
+        self::assertSame('fresh', $audit['freshness_status']);
+        self::assertNotContains('stale_proof_payload', $audit['blockers']);
+    }
+
+    public function test_resolve_audit_freshness_unknown_without_policy(): void
+    {
+        $options = [
+            'agent_control_plane_terminal_loop_operational_proof' => [
+                'ok' => true,
+                'generated_at' => time() - 999999,
+            ],
+        ];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json');
+
+        self::assertSame('unknown', $audit['freshness_status']);
+        self::assertNotContains('stale_proof_payload', $audit['blockers']);
+    }
+
+    // ── source ambiguity ─────────────────────────────────────────────────────────
+
+    public function test_resolve_audit_reports_source_ambiguity_when_multiple_sources_supplied(): void
+    {
+        $options = [
+            'agent_control_plane_terminal_loop_operational_proof' => ['a' => 1],
+            'agent_control_plane_terminal_loop_operational_proof_json' => '{"proof_payload":{"b":2}}',
+        ];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json');
+
+        self::assertTrue($audit['source_ambiguity']);
+        // Deterministic precedence: explicit_array still wins.
+        self::assertSame('explicit_array', $audit['source']);
+        self::assertTrue(
+            (bool) array_filter($audit['blockers'], static fn (string $b): bool => str_starts_with($b, 'multiple_proof_sources_supplied')),
+        );
+    }
+
+    public function test_resolve_audit_no_source_ambiguity_when_only_one_source_supplied(): void
+    {
+        $options = ['agent_control_plane_terminal_loop_operational_proof' => ['a' => 1]];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json');
+
+        self::assertFalse($audit['source_ambiguity']);
+    }
+
+    // ── invariant: payload_present=true never appears without blockers when weak ──
+
+    public function test_stale_payload_present_true_still_carries_blocker(): void
+    {
+        $options = [
+            'agent_control_plane_terminal_loop_operational_proof' => [
+                'ok' => true,
+                'generated_at' => time() - 7200,
+            ],
+        ];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json', ['max_age_seconds' => 3600]);
+
+        self::assertTrue($audit['payload_present']);
+        self::assertNotEmpty($audit['blockers']);
+    }
+
+    public function test_ambiguous_payload_present_true_still_carries_blocker(): void
+    {
+        $options = [
+            'agent_control_plane_terminal_loop_operational_proof' => ['a' => 1],
+            'agent_control_plane_terminal_loop_operational_proof_json' => '{"proof_payload":{"b":2}}',
+        ];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json');
+
+        self::assertTrue($audit['payload_present']);
+        self::assertNotEmpty($audit['blockers']);
+    }
+
+    public function test_clean_single_source_payload_present_true_has_no_blockers(): void
+    {
+        $options = ['agent_control_plane_terminal_loop_operational_proof' => ['a' => 1]];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json');
+
+        self::assertTrue($audit['payload_present']);
+        self::assertSame([], $audit['blockers']);
     }
 
     public function test_with_payload_does_not_overwrite_when_canonical_payload_empty(): void

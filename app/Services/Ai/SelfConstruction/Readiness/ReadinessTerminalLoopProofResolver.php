@@ -44,54 +44,95 @@ final class ReadinessTerminalLoopProofResolver
     }
 
     /**
-     * Return a deterministic resolution audit without mutating options.
+     * Return a deterministic resolution audit without mutating options. When more than one
+     * proof source is simultaneously supplied, the SAME precedence (explicit array > json
+     * option > canonical file) resolves which source wins, but source_ambiguity=true and a
+     * named blocker surface the ambiguity instead of silently picking one — an autonomous
+     * promotion decision must never rely on undocumented tie-breaking.
+     *
+     * $policy['max_age_seconds'], when supplied, blocks a proof payload whose own
+     * generated_at is older than that ceiling: freshness_status becomes 'stale' and a named
+     * blocker is added. Without a policy (or without a generated_at in the payload),
+     * freshness_status is 'unknown' — this never blocks (freshness is opt-in via policy).
+     *
+     * INVARIANT: an empty, stale, or ambiguous proof payload never reports payload_present=true
+     * without a blocker naming the specific weakness.
      *
      * @param  array<string, mixed>  $options
-     * @return array{source: string, canonical_path: string, payload_present: bool, blockers: list<string>}
+     * @param  array{max_age_seconds?: int}  $policy
+     * @return array{source: string, canonical_path: string, payload_present: bool, blockers: list<string>, freshness_status: string, source_ambiguity: bool}
      */
-    public static function resolveAudit(array $options, string $canonicalPath): array
+    public static function resolveAudit(array $options, string $canonicalPath, array $policy = []): array
     {
+        $suppliedSources = [];
         if (array_key_exists('agent_control_plane_terminal_loop_operational_proof', $options)) {
-            $payload = (array) $options['agent_control_plane_terminal_loop_operational_proof'];
-
-            return [
-                'source' => 'explicit_array',
-                'canonical_path' => '',
-                'payload_present' => $payload !== [],
-                'blockers' => $payload !== [] ? [] : ['explicit_array_proof_is_empty'],
-            ];
+            $suppliedSources[] = 'explicit_array';
         }
-
         if (isset($options['agent_control_plane_terminal_loop_operational_proof_json'])) {
+            $suppliedSources[] = 'json_option';
+        }
+        if (Storage::disk('local')->exists($canonicalPath)) {
+            $suppliedSources[] = 'canonical_file';
+        }
+        $sourceAmbiguity = count($suppliedSources) > 1;
+
+        if (in_array('explicit_array', $suppliedSources, true)) {
+            $payload = (array) $options['agent_control_plane_terminal_loop_operational_proof'];
+            $source = 'explicit_array';
+            $canonical = '';
+            $emptyBlocker = 'explicit_array_proof_is_empty';
+        } elseif (in_array('json_option', $suppliedSources, true)) {
             $proof = ReadinessJsonInput::decodeOption($options['agent_control_plane_terminal_loop_operational_proof_json']);
             $payload = self::payloadFromJson($proof);
-
+            $source = 'json_option';
+            $canonical = '';
+            $emptyBlocker = 'json_option_payload_empty_or_invalid';
+        } elseif (in_array('canonical_file', $suppliedSources, true)) {
+            $proof = ReadinessJsonInput::decodeOption('@storage/app/private/'.$canonicalPath);
+            $payload = self::payloadFromJson($proof);
+            $source = 'canonical_file';
+            $canonical = 'storage/app/private/'.$canonicalPath;
+            $emptyBlocker = 'canonical_file_payload_empty';
+        } else {
             return [
-                'source' => 'json_option',
+                'source' => 'missing',
                 'canonical_path' => '',
-                'payload_present' => $payload !== [],
-                'blockers' => $payload !== [] ? [] : ['json_option_payload_empty_or_invalid'],
+                'payload_present' => false,
+                'blockers' => ['no_proof_source_available'],
+                'freshness_status' => 'unknown',
+                'source_ambiguity' => false,
             ];
         }
 
-        if (Storage::disk('local')->exists($canonicalPath)) {
-            $proof = ReadinessJsonInput::decodeOption('@storage/app/private/'.$canonicalPath);
-            $payload = self::payloadFromJson($proof);
-            $absPath = 'storage/app/private/'.$canonicalPath;
+        $payloadPresent = $payload !== [];
+        $blockers = $payloadPresent ? [] : [$emptyBlocker];
 
-            return [
-                'source' => 'canonical_file',
-                'canonical_path' => $absPath,
-                'payload_present' => $payload !== [],
-                'blockers' => $payload !== [] ? [] : ['canonical_file_payload_empty'],
-            ];
+        $freshnessStatus = 'unknown';
+        if ($payloadPresent) {
+            $maxAgeSeconds = array_key_exists('max_age_seconds', $policy) ? (int) $policy['max_age_seconds'] : null;
+            $generatedAt = $payload['generated_at'] ?? null;
+            if ($generatedAt !== null && $maxAgeSeconds !== null) {
+                $timestamp = is_numeric($generatedAt) ? (int) $generatedAt : strtotime((string) $generatedAt);
+                if ($timestamp !== false) {
+                    $freshnessStatus = (time() - $timestamp) > $maxAgeSeconds ? 'stale' : 'fresh';
+                    if ($freshnessStatus === 'stale') {
+                        $blockers[] = 'stale_proof_payload';
+                    }
+                }
+            }
+        }
+
+        if ($sourceAmbiguity) {
+            $blockers[] = 'multiple_proof_sources_supplied:'.implode(',', $suppliedSources);
         }
 
         return [
-            'source' => 'missing',
-            'canonical_path' => '',
-            'payload_present' => false,
-            'blockers' => ['no_proof_source_available'],
+            'source' => $source,
+            'canonical_path' => $canonical,
+            'payload_present' => $payloadPresent,
+            'blockers' => $blockers,
+            'freshness_status' => $freshnessStatus,
+            'source_ambiguity' => $sourceAmbiguity,
         ];
     }
 
@@ -106,12 +147,15 @@ final class ReadinessTerminalLoopProofResolver
     public static function withPayload(array $options, string $canonicalPath): array
     {
         if (isset($options['agent_control_plane_terminal_loop_operational_proof'])) {
+            $options['agent_control_plane_terminal_loop_operational_proof_source'] ??= 'explicit_array';
+
             return $options;
         }
 
         if (isset($options['agent_control_plane_terminal_loop_operational_proof_json'])) {
             $proof = ReadinessJsonInput::decodeOption($options['agent_control_plane_terminal_loop_operational_proof_json']);
             $options['agent_control_plane_terminal_loop_operational_proof'] = self::payloadFromJson($proof);
+            $options['agent_control_plane_terminal_loop_operational_proof_source'] = 'json_option';
 
             return $options;
         }
