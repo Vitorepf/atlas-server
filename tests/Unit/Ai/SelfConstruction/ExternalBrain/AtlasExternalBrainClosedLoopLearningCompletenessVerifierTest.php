@@ -266,4 +266,72 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifierTest extends
 
         $this->assertSame('derive_next_batch_constraint_from_learning_update', $result['next_repair_task_hint']);
     }
+
+    // ── AC1: outcome-type routing ──────────────────────────────────────────
+
+    public function test_success_outcome_without_learner_route_is_flagged(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['outcome_type' => 'success'])
+        ));
+
+        $this->assertFalse($result['complete']);
+        $this->assertContains('no_learner_route', $result['missing_links']);
+    }
+
+    public function test_success_outcome_with_learner_route_via_learning_update_passes(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle([
+                'outcome_type' => 'success',
+                'learning_update' => ['pattern_family' => 'spec-quality', 'routed_to_learner' => true],
+            ])
+        ));
+
+        $this->assertTrue($result['complete']);
+    }
+
+    public function test_give_back_outcome_without_policy_route_is_flagged(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['outcome_type' => 'give_back'])
+        ));
+
+        $this->assertFalse($result['complete']);
+        $this->assertContains('no_policy_route', $result['missing_links']);
+    }
+
+    public function test_give_back_outcome_with_policy_change_in_constraint_passes(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle([
+                'outcome_type' => 'give_back',
+                'next_batch_constraint' => ['policy_change' => 'tighten_scope_gate'],
+            ])
+        ));
+
+        $this->assertTrue($result['complete']);
+    }
+
+    public function test_quarantine_outcome_without_maestro_route_is_flagged(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['outcome_type' => 'quarantine'])
+        ));
+
+        $this->assertFalse($result['complete']);
+        $this->assertContains('no_maestro_route', $result['missing_links']);
+    }
+
+    public function test_quarantine_outcome_with_maestro_adjustment_in_constraint_passes(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle([
+                'outcome_type' => 'quarantine',
+                'next_batch_constraint' => ['maestro_adjustment' => 'suspend_family'],
+            ])
+        ));
+
+        $this->assertTrue($result['complete']);
+    }
 }
