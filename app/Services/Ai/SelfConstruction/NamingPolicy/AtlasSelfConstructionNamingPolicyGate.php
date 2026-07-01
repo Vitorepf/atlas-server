@@ -38,7 +38,35 @@ final class AtlasSelfConstructionNamingPolicyGate
 
     public const VIOLATION_TEMPLATE_FARM_DENSITY = 'template_farm_naming_density';
 
+    public const VIOLATION_VAGUE_GENERATED_NAME = 'vague_generated_slop_name';
+
+    public const VIOLATION_FORBIDDEN_QUARANTINE_NAME = 'forbidden_quarantine_name_outside_quarantine_dir';
+
+    public const VIOLATION_DUPLICATE_CONCEPT = 'duplicate_concept_name_in_batch';
+
+    public const VIOLATION_BOUNDARY = 'boundary_violation_wrong_layer_suffix';
+
     public const FAMILY_DENSITY_LIMIT = 3;
+
+    /**
+     * Bare, low-signal class-name stems (a generated file whose ENTIRE name is one of these words)
+     * — a "slop" name that carries no responsibility information of its own.
+     *
+     * @var list<string>
+     */
+    private const VAGUE_NAME_STEMS = [
+        'Helper', 'Manager', 'Handler', 'Util', 'Utils', 'Impl', 'Temp', 'Draft',
+        'Copy', 'Final', 'Misc', 'Generic', 'New', 'Thing', 'Stuff', 'Data',
+    ];
+
+    /**
+     * Class-name suffixes that belong to a DIFFERENT architectural layer (HTTP controllers,
+     * DB migrations, Eloquent models, middleware) — these must never live under the pure
+     * Self-Construction service tree.
+     *
+     * @var list<string>
+     */
+    private const BOUNDARY_FORBIDDEN_SUFFIXES = ['Controller', 'Migration', 'Model', 'Middleware', 'Kernel', 'ServiceProvider'];
 
     /**
      * @var non-empty-string
@@ -108,18 +136,47 @@ final class AtlasSelfConstructionNamingPolicyGate
         foreach ($familyCounts as $family => $count) {
             if ($count >= self::FAMILY_DENSITY_LIMIT) {
                 $failedFamilies[] = $family;
-                $newViolations[] = [
-                    'file' => 'batch:family:'.$family,
-                    'class_name' => $family,
-                    'length' => $count,
-                    'violation' => self::VIOLATION_TEMPLATE_FARM_DENSITY,
-                    'detail' => sprintf(
+                $newViolations[] = $this->violationEntry(
+                    'batch:family:'.$family, $family, $count, self::VIOLATION_TEMPLATE_FARM_DENSITY,
+                    sprintf(
                         'template-farm density: family "%s" appears %d times in this batch (limit %d). Each new file must bring a distinct capability.',
                         $family,
                         $count,
                         self::FAMILY_DENSITY_LIMIT,
                     ),
-                ];
+                    'consolidate the repeated family into one class, or rename the extras to distinct responsibility-specific names',
+                );
+            }
+        }
+
+        // Duplicate-concept check — files whose stem (version/copy marker stripped) collides
+        // are the same responsibility named twice, not two distinct capabilities.
+        $conceptCounts = [];
+        $conceptFiles = [];
+        foreach ($newRelativePaths as $relative) {
+            if (! $this->isInScope($relative)) {
+                continue;
+            }
+            $className = preg_replace('/\.php$/', '', basename($relative)) ?? basename($relative);
+            $concept = $this->conceptStem($className);
+            $conceptCounts[$concept] = ($conceptCounts[$concept] ?? 0) + 1;
+            $conceptFiles[$concept][] = $relative;
+        }
+        foreach ($conceptCounts as $concept => $count) {
+            if ($count < 2) {
+                continue;
+            }
+            foreach ($conceptFiles[$concept] as $relative) {
+                $className = preg_replace('/\.php$/', '', basename($relative)) ?? basename($relative);
+                $newViolations[] = $this->violationEntry(
+                    $relative, $className, $count, self::VIOLATION_DUPLICATE_CONCEPT,
+                    sprintf(
+                        'duplicate concept: "%s" collides with %d other file(s) in this batch after stripping version/copy markers.',
+                        $concept,
+                        $count - 1,
+                    ),
+                    'merge the duplicate files into one class, or rename to a distinct responsibility (not a version/copy suffix)',
+                );
             }
         }
 
@@ -149,7 +206,7 @@ final class AtlasSelfConstructionNamingPolicyGate
     }
 
     /**
-     * @return array{file: string, class_name: string, length: int, violation: string, detail: string}|null
+     * @return array{file: string, path: string, class_name: string, length: int, violation: string, violation_code: string, detail: string, suggested_name_or_action: string}|null
      */
     public function checkPath(string $relativePath): ?array
     {
@@ -162,30 +219,50 @@ final class AtlasSelfConstructionNamingPolicyGate
         $length = mb_strlen($className);
 
         if ($length > self::MAX_CLASS_NAME_LENGTH) {
-            return [
-                'file' => $relativePath,
-                'class_name' => $className,
-                'length' => $length,
-                'violation' => self::VIOLATION_TOO_LONG,
-                'detail' => sprintf(
+            return $this->violationEntry(
+                $relativePath, $className, $length, self::VIOLATION_TOO_LONG,
+                sprintf(
                     'class name has %d chars; policy is <=%d. See docs/engineering-knowledge-base/atlas-self-construction-catalog.md.',
                     $length,
                     self::MAX_CLASS_NAME_LENGTH,
                 ),
-            ];
+                'shorten the class name to <='.self::MAX_CLASS_NAME_LENGTH.' characters while preserving the responsibility it names',
+            );
         }
 
         if ($this->hasForbiddenApSuffix($className, $relativePath)) {
-            return [
-                'file' => $relativePath,
-                'class_name' => $className,
-                'length' => $length,
-                'violation' => self::VIOLATION_FORBIDDEN_AP_SUFFIX,
-                'detail' => sprintf(
+            return $this->violationEntry(
+                $relativePath, $className, $length, self::VIOLATION_FORBIDDEN_AP_SUFFIX,
+                sprintf(
                     'class name contains ApNNN suffix but does not emit %s. See docs/engineering-knowledge-base/atlas-self-construction-catalog.md (Contract 2).',
                     self::HANDOFF_PACKET_SCHEMA,
                 ),
-            ];
+                'drop the ApNNN suffix, or emit the '.self::HANDOFF_PACKET_SCHEMA.' schema to earn it',
+            );
+        }
+
+        if ($this->isVagueGeneratedName($className)) {
+            return $this->violationEntry(
+                $relativePath, $className, $length, self::VIOLATION_VAGUE_GENERATED_NAME,
+                'class name is a bare generated-slop stem with no responsibility information of its own.',
+                'rename to describe the concrete responsibility, e.g. "<Concept><Role>" instead of a generic stem like Helper/Manager/Util',
+            );
+        }
+
+        if ($this->hasForbiddenQuarantineName($className, $relativePath)) {
+            return $this->violationEntry(
+                $relativePath, $className, $length, self::VIOLATION_FORBIDDEN_QUARANTINE_NAME,
+                'class name references quarantine but the file does not live under a "_quarantine" directory.',
+                'move the file into a "_quarantine" directory, or remove "Quarantine" from the class name',
+            );
+        }
+
+        if ($this->violatesLayerBoundary($className)) {
+            return $this->violationEntry(
+                $relativePath, $className, $length, self::VIOLATION_BOUNDARY,
+                'class name suffix belongs to a different architectural layer (HTTP/DB/framework), not the pure Self-Construction service tree.',
+                'move this class to its proper layer directory (app/Http, database/migrations, app/Models, ...), or rename it to a service-layer responsibility name',
+            );
         }
 
         return null;
@@ -279,5 +356,56 @@ final class AtlasSelfConstructionNamingPolicyGate
         }
 
         return ! str_contains($contents, self::HANDOFF_PACKET_SCHEMA);
+    }
+
+    /**
+     * @return array{file: string, path: string, class_name: string, length: int, violation: string, violation_code: string, detail: string, suggested_name_or_action: string}
+     */
+    private function violationEntry(string $relativePath, string $className, int $length, string $code, string $detail, string $suggestedNameOrAction): array
+    {
+        return [
+            'file' => $relativePath,
+            'path' => $relativePath,
+            'class_name' => $className,
+            'length' => $length,
+            'violation' => $code,
+            'violation_code' => $code,
+            'detail' => $detail,
+            'suggested_name_or_action' => $suggestedNameOrAction,
+        ];
+    }
+
+    private function isVagueGeneratedName(string $className): bool
+    {
+        return in_array($className, self::VAGUE_NAME_STEMS, true);
+    }
+
+    private function hasForbiddenQuarantineName(string $className, string $relativePath): bool
+    {
+        if (stripos($className, 'quarantine') === false) {
+            return false;
+        }
+
+        return ! str_contains($relativePath, '/_quarantine/');
+    }
+
+    private function violatesLayerBoundary(string $className): bool
+    {
+        foreach (self::BOUNDARY_FORBIDDEN_SUFFIXES as $suffix) {
+            if (str_ends_with($className, $suffix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Strip a trailing version/duplicate marker (V2, 2, Copy, New) so "FooReducer" and
+     * "FooReducer2" collapse to the same concept for duplicate detection.
+     */
+    private function conceptStem(string $className): string
+    {
+        return preg_replace('/(V?\d+|Copy|New)$/', '', $className) ?? $className;
     }
 }

@@ -264,6 +264,66 @@ final class AtlasSelfConstructionNamingPolicyGateTest extends TestCase
         $this->assertSame(1, $result['summary']['families_failed']); // only Service hits the limit
     }
 
+    // ── AC1/AC2: violation_code, path, suggested_name_or_action on every violation ──
+
+    public function test_valid_name_produces_no_violations_and_ok_status(): void
+    {
+        $result = $this->gate->evaluate([
+            'app/Services/Ai/SelfConstruction/AtlasFooBarQualityGate.php',
+        ]);
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame([], $result['new_violations']);
+    }
+
+    public function test_vague_generated_name_is_rejected_with_violation_code_and_suggestion(): void
+    {
+        $result = $this->gate->evaluate([
+            'app/Services/Ai/SelfConstruction/Helper.php',
+        ]);
+
+        $this->assertSame('failed', $result['status']);
+        $violation = $result['new_violations'][0];
+        $this->assertSame(AtlasSelfConstructionNamingPolicyGate::VIOLATION_VAGUE_GENERATED_NAME, $violation['violation_code']);
+        $this->assertSame('app/Services/Ai/SelfConstruction/Helper.php', $violation['path']);
+        $this->assertNotEmpty($violation['suggested_name_or_action']);
+    }
+
+    public function test_duplicate_concept_in_batch_is_rejected(): void
+    {
+        $result = $this->gate->evaluate([
+            'app/Services/Ai/SelfConstruction/AtlasStallReducer.php',
+            'app/Services/Ai/SelfConstruction/AtlasStallReducer2.php',
+        ]);
+
+        $this->assertSame('failed', $result['status']);
+        $codes = array_column($result['new_violations'], 'violation_code');
+        $this->assertContains(AtlasSelfConstructionNamingPolicyGate::VIOLATION_DUPLICATE_CONCEPT, $codes);
+    }
+
+    public function test_forbidden_quarantine_name_outside_quarantine_dir_is_rejected(): void
+    {
+        $result = $this->gate->evaluate([
+            'app/Services/Ai/SelfConstruction/AtlasQuarantineWorker.php',
+        ]);
+
+        $this->assertSame('failed', $result['status']);
+        $violation = $result['new_violations'][0];
+        $this->assertSame(AtlasSelfConstructionNamingPolicyGate::VIOLATION_FORBIDDEN_QUARANTINE_NAME, $violation['violation_code']);
+    }
+
+    public function test_boundary_violation_for_wrong_layer_suffix_is_rejected(): void
+    {
+        $result = $this->gate->evaluate([
+            'app/Services/Ai/SelfConstruction/AtlasFooController.php',
+        ]);
+
+        $this->assertSame('failed', $result['status']);
+        $violation = $result['new_violations'][0];
+        $this->assertSame(AtlasSelfConstructionNamingPolicyGate::VIOLATION_BOUNDARY, $violation['violation_code']);
+        $this->assertNotEmpty($violation['suggested_name_or_action']);
+    }
+
     private function purge(string $path): void
     {
         if (! is_dir($path)) {
