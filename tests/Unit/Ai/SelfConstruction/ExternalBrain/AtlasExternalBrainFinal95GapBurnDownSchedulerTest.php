@@ -742,4 +742,127 @@ final class AtlasExternalBrainFinal95GapBurnDownSchedulerTest extends TestCase
 
         $this->assertArrayNotHasKey('gap-b', $result['blockers']);
     }
+
+    // ── AC2: autonomy criticality ranks a gap higher among same-priority peers ─
+
+    public function test_autonomy_critical_gap_outranks_equal_priority_peer(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'plain', 'gap_type' => 'missing', 'impact_score' => 0.5, 'effort_score' => 0.5],
+            ['organ_id' => 'critical', 'gap_type' => 'missing', 'impact_score' => 0.5, 'effort_score' => 0.5, 'autonomy_critical' => true],
+        ]);
+
+        $this->assertSame('critical', $result['burn_down_schedule'][0]['organ_id']);
+    }
+
+    public function test_autonomy_critical_flag_echoed_in_schedule_entry(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'gap-x', 'gap_type' => 'missing', 'autonomy_critical' => true],
+        ]);
+
+        $this->assertTrue($result['burn_down_schedule'][0]['autonomy_critical']);
+    }
+
+    // ── AC3: must_fix_now / schedule_next / defer / retire_gap decision buckets ──
+
+    public function test_blocked_gap_is_must_fix_now(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'gap-a', 'gap_type' => 'blocked', 'blocker' => 'missing_dependency'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::DECISION_MUST_FIX_NOW, $result['burn_down_schedule'][0]['decision']);
+    }
+
+    public function test_autonomy_critical_gap_is_must_fix_now(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'gap-a', 'gap_type' => 'thin', 'autonomy_critical' => true],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::DECISION_MUST_FIX_NOW, $result['burn_down_schedule'][0]['decision']);
+    }
+
+    public function test_top_ranked_non_critical_gap_is_schedule_next(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'gap-a', 'gap_type' => 'missing'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::DECISION_SCHEDULE_NEXT, $result['burn_down_schedule'][0]['decision']);
+    }
+
+    public function test_low_ranked_gap_is_deferred(): void
+    {
+        $gaps = array_map(
+            fn (int $i) => ['organ_id' => "gap-{$i}", 'gap_type' => 'weak_outcome_learning', 'impact_score' => 0.1],
+            range(1, 6),
+        );
+
+        $result = $this->scheduler()->schedule($gaps);
+
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::DECISION_DEFER, $result['burn_down_schedule'][5]['decision']);
+    }
+
+    public function test_retire_flag_wins_over_every_other_decision(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'gap-a', 'gap_type' => 'blocked', 'blocker' => 'x', 'autonomy_critical' => true, 'retire' => true],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::DECISION_RETIRE_GAP, $result['burn_down_schedule'][0]['decision']);
+    }
+
+    // ── AC4: burn-down cannot be confirmed without current, passing proof evidence ──
+
+    public function test_confirm_burn_down_refuses_without_proof_passed(): void
+    {
+        $result = $this->scheduler()->confirmBurnDown('gap-a', ['evidence_ref' => 'evidence:1', 'evidence_age_hours' => 1.0]);
+
+        $this->assertFalse($result['burned_down']);
+        $this->assertContains('proof_not_passed', $result['blockers']);
+    }
+
+    public function test_confirm_burn_down_refuses_without_evidence_ref(): void
+    {
+        $result = $this->scheduler()->confirmBurnDown('gap-a', ['proof_passed' => true, 'evidence_age_hours' => 1.0]);
+
+        $this->assertFalse($result['burned_down']);
+        $this->assertContains('no_evidence_ref', $result['blockers']);
+    }
+
+    public function test_confirm_burn_down_refuses_stale_evidence(): void
+    {
+        $result = $this->scheduler()->confirmBurnDown('gap-a', [
+            'proof_passed' => true,
+            'evidence_ref' => 'evidence:1',
+            'evidence_age_hours' => 100.0,
+            'max_evidence_age_hours' => 24.0,
+        ]);
+
+        $this->assertFalse($result['burned_down']);
+        $this->assertContains('evidence_stale', $result['blockers']);
+    }
+
+    public function test_confirm_burn_down_passes_with_fresh_passing_evidence(): void
+    {
+        $result = $this->scheduler()->confirmBurnDown('gap-a', [
+            'proof_passed' => true,
+            'evidence_ref' => 'evidence:1',
+            'evidence_age_hours' => 1.0,
+        ]);
+
+        $this->assertTrue($result['burned_down']);
+        $this->assertSame([], $result['blockers']);
+        $this->assertSame('gap-a', $result['organ_id']);
+    }
+
+    public function test_confirm_burn_down_defaults_refuse_when_no_evidence_supplied(): void
+    {
+        $result = $this->scheduler()->confirmBurnDown('gap-a', []);
+
+        $this->assertFalse($result['burned_down']);
+        $this->assertNotEmpty($result['blockers']);
+    }
 }

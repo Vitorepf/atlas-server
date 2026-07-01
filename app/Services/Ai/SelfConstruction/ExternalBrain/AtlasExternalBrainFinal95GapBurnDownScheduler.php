@@ -79,6 +79,18 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
         'weak_outcome_learning' => 7,
     ];
 
+    /** AC3: decision buckets, in severity order. */
+    public const DECISION_RETIRE_GAP    = 'retire_gap';
+    public const DECISION_MUST_FIX_NOW  = 'must_fix_now';
+    public const DECISION_SCHEDULE_NEXT = 'schedule_next';
+    public const DECISION_DEFER         = 'defer';
+
+    /** top-of-schedule rank window that still counts as "schedule_next" rather than "defer". */
+    private const SCHEDULE_NEXT_RANK_CEILING = 3;
+
+    /** AC4: default freshness window for burn-down proof evidence. */
+    private const DEFAULT_MAX_EVIDENCE_AGE_HOURS = 24.0;
+
     /**
      * @param  list<array<string,mixed>>  $gaps
      * @return array<string,mixed>
@@ -106,16 +118,20 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
             $impactScore          = (float) ($gap['impact_score'] ?? 0.5);
             $effortScore          = (float) ($gap['effort_score'] ?? 0.5);
             $evidenceAgeHours     = (float) ($gap['evidence_age_hours'] ?? 0.0);
+            $autonomyCritical     = (bool) ($gap['autonomy_critical'] ?? false);
+            $retire               = (bool) ($gap['retire'] ?? false);
 
             $priority = self::GAP_PRIORITY[$gapType] ?? 99;
             $approach = $this->resolveApproach($gapType, $canBackfill, $canReplay, $canConsolidate, $canDocSync, $canIntegrationWiring);
 
             // compound_impact_score: nominal impact plus a bonus for every capability this gap
-            // unlocks downstream, minus effort, minus a small penalty for stale evidence — but this
+            // unlocks downstream, minus effort, minus a small penalty for stale evidence, plus a
+            // large bonus when the gap sits on a critical missing autonomy circuit — but this
             // NEVER overrides dependency ordering (see topologicalOrder), only breaks ties among
             // simultaneously-ready gaps.
             $compoundImpactScore = round(
-                $impactScore - $effortScore + (count($unlocks) * 0.10) + ($evidenceAgeHours / 1000.0),
+                $impactScore - $effortScore + (count($unlocks) * 0.10) + ($evidenceAgeHours / 1000.0)
+                    + ($autonomyCritical ? 0.5 : 0.0),
                 4,
             );
 
@@ -135,6 +151,8 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
                 'impact_score'        => $impactScore,
                 'effort_score'        => $effortScore,
                 'evidence_age_hours'  => $evidenceAgeHours,
+                'autonomy_critical'   => $autonomyCritical,
+                'retire'              => $retire,
             ];
         }
 
@@ -149,10 +167,11 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
             if ($isNonFeature) {
                 $nonFeature++;
             }
+            $priorityRank = $rank + 1;
             $schedule[] = [
                 'organ_id'            => $entry['organ_id'],
                 'gap_type'            => $entry['gap_type'],
-                'priority_rank'       => $rank + 1,
+                'priority_rank'       => $priorityRank,
                 'owner_subsystem'     => $entry['owner_subsystem'],
                 'resolution_approach' => $entry['resolution_approach'],
                 'cheapest_next_proof' => $entry['cheapest_next_proof'],
@@ -164,6 +183,8 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
                 'effort_score'        => $entry['effort_score'],
                 'evidence_age_hours'  => $entry['evidence_age_hours'],
                 'compound_impact_score' => $entry['compound_impact_score'],
+                'autonomy_critical'   => $entry['autonomy_critical'],
+                'decision'            => $this->decisionFor($entry, $priorityRank),
             ];
 
             if ($entry['depends_on'] !== [] || $entry['unlocks'] !== []) {
@@ -274,6 +295,62 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
         }
 
         return $order;
+    }
+
+    /**
+     * AC3: buckets a scheduled gap into retire_gap / must_fix_now / schedule_next / defer,
+     * in that severity order — an explicit retire always wins, then autonomy-critical or
+     * actively-blocked gaps, then top-of-schedule rank, then everything else defers.
+     *
+     * @param  array<string,mixed>  $entry
+     */
+    private function decisionFor(array $entry, int $priorityRank): string
+    {
+        if ($entry['retire']) {
+            return self::DECISION_RETIRE_GAP;
+        }
+        if ($entry['autonomy_critical'] || $entry['blocker'] !== null) {
+            return self::DECISION_MUST_FIX_NOW;
+        }
+        if ($priorityRank <= self::SCHEDULE_NEXT_RANK_CEILING) {
+            return self::DECISION_SCHEDULE_NEXT;
+        }
+
+        return self::DECISION_DEFER;
+    }
+
+    /**
+     * AC4: a gap may be called "burned down" ONLY with current, passing proof evidence — never
+     * on the strength of scheduling alone. Pure: does not mutate any gap or ledger state.
+     *
+     * @param  array<string,mixed>  $evidence  {proof_passed?:bool, evidence_ref?:string,
+     *                                          evidence_age_hours?:float, max_evidence_age_hours?:float}
+     * @return array{schema:string, organ_id:string, burned_down:bool, blockers:list<string>}
+     */
+    public function confirmBurnDown(string $organId, array $evidence): array
+    {
+        $proofPassed = (bool) ($evidence['proof_passed'] ?? false);
+        $evidenceRef = trim((string) ($evidence['evidence_ref'] ?? ''));
+        $evidenceAgeHours = (float) ($evidence['evidence_age_hours'] ?? PHP_FLOAT_MAX);
+        $maxEvidenceAgeHours = (float) ($evidence['max_evidence_age_hours'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_HOURS);
+
+        $blockers = [];
+        if (! $proofPassed) {
+            $blockers[] = 'proof_not_passed';
+        }
+        if ($evidenceRef === '') {
+            $blockers[] = 'no_evidence_ref';
+        }
+        if ($evidenceAgeHours > $maxEvidenceAgeHours) {
+            $blockers[] = 'evidence_stale';
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'organ_id' => $organId,
+            'burned_down' => $blockers === [],
+            'blockers' => $blockers,
+        ];
     }
 
     private function resolveApproach(
