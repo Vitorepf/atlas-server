@@ -352,24 +352,55 @@ final class AtlasExternalBrainImpactForecastCalibratorTest extends TestCase
 
     public function test_actual_much_higher_than_predicted_gives_up_hint(): void
     {
-        // predicted=low (0.1), actual=delivered+high+unlocks → well above predicted
+        // 3 observations (meets sample-size floor): predicted=low (0.1), actual=delivered+high+unlocks → well above predicted
         $result = $this->calibrator()->calibrate(
-            [['task_family' => 'g', 'predicted_leverage' => 'low']],
-            [['task_family' => 'g', 'actual_outcome' => 'delivered', 'capability_delta' => 'high', 'downstream_unlocks' => 4]],
+            array_fill(0, 3, ['task_family' => 'g', 'predicted_leverage' => 'low']),
+            array_fill(0, 3, ['task_family' => 'g', 'actual_outcome' => 'delivered', 'capability_delta' => 'high', 'downstream_unlocks' => 4]),
         );
 
         $this->assertSame('up', $result['calibrations'][0]['next_ranking_hint']);
+        $this->assertSame(AtlasExternalBrainImpactForecastCalibrator::ADJUSTMENT_STATUS_SUFFICIENT, $result['calibrations'][0]['adjustment_status']);
     }
 
     public function test_actual_much_lower_than_predicted_gives_down_hint(): void
     {
-        // predicted=high (0.9), actual=give_back (0.0) → well below predicted
+        // 3 observations (meets sample-size floor): predicted=high (0.9), actual=give_back (0.0) → well below predicted
+        $result = $this->calibrator()->calibrate(
+            array_fill(0, 3, ['task_family' => 'g', 'predicted_leverage' => 'high']),
+            array_fill(0, 3, ['task_family' => 'g', 'actual_outcome' => 'give_back']),
+        );
+
+        $this->assertSame('down', $result['calibrations'][0]['next_ranking_hint']);
+        $this->assertSame(AtlasExternalBrainImpactForecastCalibrator::ADJUSTMENT_STATUS_SUFFICIENT, $result['calibrations'][0]['adjustment_status']);
+    }
+
+    // ── AC2: sample-size floor suppresses aggressive hints ────────────────────
+
+    public function test_single_observation_never_gives_aggressive_hint(): void
+    {
+        // Same as the up/down cases above, but with only 1 observation — must hold, not chase.
         $result = $this->calibrator()->calibrate(
             [['task_family' => 'g', 'predicted_leverage' => 'high']],
             [['task_family' => 'g', 'actual_outcome' => 'give_back']],
         );
 
-        $this->assertSame('down', $result['calibrations'][0]['next_ranking_hint']);
+        $cal = $result['calibrations'][0];
+        $this->assertSame('hold', $cal['next_ranking_hint']);
+        $this->assertSame(AtlasExternalBrainImpactForecastCalibrator::ADJUSTMENT_STATUS_INSUFFICIENT, $cal['adjustment_status']);
+        $this->assertSame(1, $cal['sample_size']);
+    }
+
+    public function test_calibration_includes_sample_size_confidence_band_and_status(): void
+    {
+        $result = $this->calibrator()->calibrate(
+            [['task_family' => 'g', 'predicted_leverage' => 'medium']],
+            [['task_family' => 'g', 'actual_outcome' => 'delivered', 'capability_delta' => 'medium']],
+        );
+
+        $cal = $result['calibrations'][0];
+        foreach (['sample_size', 'confidence_band', 'confidence_adjustment', 'adjustment_status'] as $k) {
+            $this->assertArrayHasKey($k, $cal, "Missing field: {$k}");
+        }
     }
 
     public function test_accurate_prediction_gives_hold_hint(): void
@@ -507,8 +538,8 @@ final class AtlasExternalBrainImpactForecastCalibratorTest extends TestCase
     public function test_down_ranking_hint_caps_next_batch_size(): void
     {
         $result = $this->calibrator()->calibrate(
-            [['task_family' => 'falling', 'predicted_leverage' => 'high']],
-            [['task_family' => 'falling', 'actual_outcome' => 'give_back']],
+            array_fill(0, 3, ['task_family' => 'falling', 'predicted_leverage' => 'high']),
+            array_fill(0, 3, ['task_family' => 'falling', 'actual_outcome' => 'give_back']),
         );
 
         $cal = $result['calibrations'][0];
@@ -519,8 +550,8 @@ final class AtlasExternalBrainImpactForecastCalibratorTest extends TestCase
     public function test_up_ranking_hint_with_strong_multiplier_allows_increased_batch_size(): void
     {
         $result = $this->calibrator()->calibrate(
-            [['task_family' => 'rising', 'predicted_leverage' => 'low']],
-            [['task_family' => 'rising', 'actual_outcome' => 'delivered', 'capability_delta' => 'high', 'downstream_unlocks' => 4, 'green_evidence' => true]],
+            array_fill(0, 3, ['task_family' => 'rising', 'predicted_leverage' => 'low']),
+            array_fill(0, 3, ['task_family' => 'rising', 'actual_outcome' => 'delivered', 'capability_delta' => 'high', 'downstream_unlocks' => 4, 'green_evidence' => true]),
         );
 
         $cal = $result['calibrations'][0];

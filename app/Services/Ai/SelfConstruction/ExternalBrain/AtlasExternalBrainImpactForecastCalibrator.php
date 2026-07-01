@@ -52,6 +52,12 @@ final class AtlasExternalBrainImpactForecastCalibrator
     /** Minimum gap between actual and predicted for next_ranking_hint to move up/down. */
     private const RANKING_GAP = 0.20;
 
+    /** Families with fewer observations than this cannot support a confident up/down hint. */
+    private const SAMPLE_SIZE_FLOOR = 3;
+
+    public const ADJUSTMENT_STATUS_SUFFICIENT   = 'sufficient_evidence';
+    public const ADJUSTMENT_STATUS_INSUFFICIENT = 'insufficient_evidence';
+
     /**
      * @param  list<array<string,mixed>>  $forecasts
      * @param  list<array<string,mixed>>  $outcomes
@@ -75,9 +81,17 @@ final class AtlasExternalBrainImpactForecastCalibrator
             $predictedScore = $this->averagePredictedScore($familyForecasts);
             $actualScore    = $this->averageActualScore($familyOutcomes);
 
+            $sampleSize          = max(count($familyForecasts), count($familyOutcomes));
+            $hasEnoughEvidence   = $sampleSize >= self::SAMPLE_SIZE_FLOOR;
+            $adjustmentStatus    = $hasEnoughEvidence ? self::ADJUSTMENT_STATUS_SUFFICIENT : self::ADJUSTMENT_STATUS_INSUFFICIENT;
+            // Confidence band shrinks as evidence accumulates (never reaches 0, never exceeds 1).
+            $confidenceBand      = round(min(1.0, 1.0 / sqrt(max(1, $sampleSize))), 4);
+
             $forecastError       = round(abs($predictedScore - $actualScore), 4);
             $confidenceAdj       = round(max(-1.0, min(1.0, $actualScore - $predictedScore)), 4);
-            $nextRankingHint     = $this->rankingHint($actualScore, $predictedScore);
+            // AC2: below the sample-size floor, a single lucky/unlucky outcome must never
+            // produce an aggressive up/down ranking hint — hold until more evidence arrives.
+            $nextRankingHint     = $hasEnoughEvidence ? $this->rankingHint($actualScore, $predictedScore) : 'hold';
             $familyOverclaimFlags = $this->familyOverclaimFlags($family, $familyForecasts, $familyOutcomes);
 
             if ($familyOverclaimFlags !== []) {
@@ -93,6 +107,9 @@ final class AtlasExternalBrainImpactForecastCalibrator
 
             $calibrations[] = [
                 'task_family'              => $family,
+                'sample_size'              => $sampleSize,
+                'confidence_band'          => $confidenceBand,
+                'adjustment_status'        => $adjustmentStatus,
                 'forecast_error'           => $forecastError,
                 'confidence_adjustment'    => $confidenceAdj,
                 'calibration_bias'         => round(-$confidenceAdj, 4),
