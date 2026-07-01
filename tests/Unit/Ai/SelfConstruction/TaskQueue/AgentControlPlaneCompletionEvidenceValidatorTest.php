@@ -296,6 +296,34 @@ class AgentControlPlaneCompletionEvidenceValidatorTest extends TestCase
         self::assertFalse($result['structured_completion_evidence_valid']);
     }
 
+    public function test_vague_command_summary_does_not_satisfy_required_command(): void
+    {
+        $evidence = [
+            'packet_id' => 'tp1', 'lease_id' => 'l1',
+            'files_changed' => ['app/Foo.php'],
+            'commands_run' => ['tests passed', 'all green'],
+            'tests_or_gates_result' => 'pass',
+            'git_status_short' => 'clean',
+            'git_diff_check_result' => 'clean',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneCompletionEvidenceValidator::canonicalCompletionEvidenceHash($evidence);
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['app/Foo.php'],
+            'required_commands' => ['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertSame('blocked', $result['status']);
+        self::assertContains('required_command_not_run', $result['blockers']);
+        self::assertSame(
+            ['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'],
+            $result['missing_required_commands'],
+        );
+        self::assertFalse($result['structured_completion_evidence_valid']);
+    }
+
     public function test_complete_evidence_with_required_binding_passes(): void
     {
         $evidence = [
