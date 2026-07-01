@@ -235,6 +235,25 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
             ];
         }
 
+        // Concrete respec_patch_fields — only populated when the evidence actually supports a
+        // repair path (add_missing_impl_file / respec). Quarantine/cancel/split/operator_only
+        // never get one, so a caller can never mistake a quarantined packet for a direct reopen.
+        $respecPatchFields = match (true) {
+            $recommendation === self::REC_ADD_IMPL && $missingImplCandidate !== null => [
+                'objective' => null,
+                'allowed_files' => [$missingImplCandidate],
+                'acceptance_criteria' => null,
+                'required_evidence' => null,
+            ],
+            $recommendation === self::REC_RESPEC => [
+                'objective' => null,
+                'allowed_files' => null,
+                'acceptance_criteria' => 'Remove the contradictory/impossible acceptance criterion and replace it with a single runnable, non-contradictory assertion.',
+                'required_evidence' => ['tests_or_gates_result'],
+            ],
+            default => null,
+        };
+
         $doNotRequeueReason = match ($recommendation) {
             self::REC_QUARANTINE => 'give_back_count_reached_quarantine_threshold:operator_respec_required_before_any_requeue',
             self::REC_CANCEL     => 'cli_clobber_or_petreo:task_permanently_blocked:never_requeue',
@@ -266,6 +285,7 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
                 'reasons'                => array_values(array_unique($allReasons)),
             ],
             'respec_contract_draft'    => $respecContractDraft,
+            'respec_patch_fields'      => $respecPatchFields,
             'do_not_requeue_reason'    => $doNotRequeueReason,
         ];
     }

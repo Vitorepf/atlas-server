@@ -488,4 +488,48 @@ final class AtlasTaskFabricGiveBackLearningIntegratorTest extends TestCase
 
         $this->assertSame(json_encode($a['chain_repair_hints']), json_encode($b['chain_repair_hints']));
     }
+
+    public function test_scope_repair_missing_impl_recommends_allowed_files_patch_with_missing_candidate(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-a', 'reason' => 'scope_repair_attempted', 'blocking_deficiencies' => ['missing_impl_file: app/Demo/Foo.php']],
+        ]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertNotNull($rec['respec_patch_fields']);
+        $this->assertSame(['app/Demo/Foo.php'], $rec['respec_patch_fields']['allowed_files']);
+        $this->assertArrayHasKey('objective', $rec['respec_patch_fields']);
+        $this->assertArrayHasKey('acceptance_criteria', $rec['respec_patch_fields']);
+        $this->assertArrayHasKey('required_evidence', $rec['respec_patch_fields']);
+    }
+
+    public function test_contradictory_acceptance_recommends_acceptance_criteria_patch_and_blocks_dependent_chain(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-b', 'reason' => 'acceptance_contradiction', 'blocking_deficiencies' => ['scalar_score_required_but_anti_goodhart_forbids']],
+        ]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertNotNull($rec['respec_patch_fields']);
+        $this->assertNotEmpty($rec['respec_patch_fields']['acceptance_criteria']);
+        $this->assertSame(['tests_or_gates_result'], $rec['respec_patch_fields']['required_evidence']);
+
+        $chainHint = array_values(array_filter(
+            $r['chain_repair_hints'],
+            static fn (array $h): bool => ($h['task_packet_id'] ?? null) === 'pkt-b',
+        ))[0];
+        $this->assertSame(AtlasTaskFabricGiveBackLearningIntegrator::CHAIN_ACTION_BLOCK_DEPENDENT_CHAIN, $chainHint['action']);
+    }
+
+    public function test_quarantine_threshold_returns_quarantine_and_never_suggests_direct_reopen(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-q', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl'], 'give_back_count' => 8],
+        ]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertSame(AtlasTaskFabricGiveBackLearningIntegrator::REC_QUARANTINE, $rec['recommendation']);
+        $this->assertNull($rec['respec_patch_fields']);
+        $this->assertNotNull($rec['do_not_requeue_reason']);
+    }
 }
