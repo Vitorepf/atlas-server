@@ -104,4 +104,60 @@ final class AtlasSelfConstructionSimplificationLiveShadowPlan
 
         return abs((float) $oldValue - (float) $newValue) > $tolerance;
     }
+
+    /**
+     * Compiles the BEFORE-the-fact shadow run plan for a risky consolidation candidate: the old
+     * and new circuits run side by side over the same sampled inputs. A candidate that mutates
+     * side effects (writes, sends, dispatches) without proven isolation is blocked outright — a
+     * live shadow run must never actually double-execute an uncontained side effect.
+     *
+     * @param  array{
+     *   candidate_id?:           string,
+     *   old_circuit?:            string,
+     *   new_circuit?:            string,
+     *   sample_input_refs?:      list<string>,
+     *   has_side_effects?:       bool,
+     *   side_effects_isolated?:  bool,
+     *   minimum_sample_count?:   int,
+     * }  $candidate
+     * @return array<string,mixed>
+     */
+    public function planShadowRun(array $candidate): array
+    {
+        $candidateId = trim((string) ($candidate['candidate_id'] ?? ''));
+        $oldCircuit = trim((string) ($candidate['old_circuit'] ?? ''));
+        $newCircuit = trim((string) ($candidate['new_circuit'] ?? ''));
+        $sampleInputRefs = array_values(array_unique(array_map('strval', (array) ($candidate['sample_input_refs'] ?? []))));
+        $hasSideEffects = (bool) ($candidate['has_side_effects'] ?? false);
+        $sideEffectsIsolated = (bool) ($candidate['side_effects_isolated'] ?? false);
+        $requiredSampleFloor = max(1, (int) ($candidate['minimum_sample_count'] ?? self::DEFAULT_MINIMUM_SAMPLE_COUNT));
+
+        if ($hasSideEffects && ! $sideEffectsIsolated) {
+            return [
+                'schema' => self::SCHEMA,
+                'action' => 'blocked',
+                'candidate_id' => $candidateId,
+                'blockers' => ['side_effects_not_isolated'],
+                'shadow_steps' => [],
+            ];
+        }
+
+        $shadowSteps = [];
+        foreach ($sampleInputRefs as $ref) {
+            $shadowSteps[] = "shadow_run:{$oldCircuit}:{$ref}";
+            $shadowSteps[] = "shadow_run:{$newCircuit}:{$ref}";
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'action' => 'shadow_run_planned',
+            'candidate_id' => $candidateId,
+            'shadow_steps' => $shadowSteps,
+            'sample_input_refs' => $sampleInputRefs,
+            'diff_receipt_required' => true,
+            'required_sample_floor' => $requiredSampleFloor,
+            'promotion_requirement' => 'zero_material_diffs_and_sample_count_at_or_above_floor:'.$requiredSampleFloor,
+            'blockers' => [],
+        ];
+    }
 }
