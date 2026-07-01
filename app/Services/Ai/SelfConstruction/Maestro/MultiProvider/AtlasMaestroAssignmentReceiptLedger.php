@@ -64,7 +64,19 @@ final class AtlasMaestroAssignmentReceiptLedger
     }
 
     /**
-     * Walk the ledger and verify that each row's previous_hash matches its predecessor's receipt_hash.
+     * Same as {@see recent()} but newest-first — convenient for dashboards/CLI listings.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function recentNewestFirst(int $n = 50): array
+    {
+        return array_reverse($this->recent($n));
+    }
+
+    /**
+     * Walk the ledger and verify that each row's previous_hash matches its predecessor's receipt_hash,
+     * AND that each row's stored receipt_hash still matches a fresh hash of its own content — so
+     * in-place payload tampering (not just link tampering) is also detected.
      * Returns true for an empty ledger (vacuously valid).
      */
     public function verifyChain(): bool
@@ -75,7 +87,14 @@ final class AtlasMaestroAssignmentReceiptLedger
             if (($row['previous_hash'] ?? null) !== $expected) {
                 return false;
             }
-            $expected = (string) ($row['receipt_hash'] ?? '');
+            $storedHash = (string) ($row['receipt_hash'] ?? '');
+            $content = $row;
+            unset($content['receipt_hash'], $content['previous_hash']);
+            $recomputedHash = hash('sha256', (string) json_encode($content, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            if ($recomputedHash !== $storedHash) {
+                return false;
+            }
+            $expected = $storedHash;
         }
 
         return true;
@@ -97,6 +116,9 @@ final class AtlasMaestroAssignmentReceiptLedger
             'fallback_used' => isset($receipt['fallback_used']) ? (string) $receipt['fallback_used'] : null,
             'outcome' => $outcome,
             'wall_clock_iso8601' => (string) ($receipt['wall_clock_iso8601'] ?? date('c')),
+            'worker_id' => (string) ($receipt['worker_id'] ?? ''),
+            'task_family' => (string) ($receipt['task_family'] ?? ''),
+            'routing_reason' => (string) ($receipt['routing_reason'] ?? $receipt['reason_code'] ?? $receipt['classifier_rule_id'] ?? ''),
         ];
     }
 
