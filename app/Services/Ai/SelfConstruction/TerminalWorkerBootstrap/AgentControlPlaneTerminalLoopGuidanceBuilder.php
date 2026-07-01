@@ -410,6 +410,52 @@ class AgentControlPlaneTerminalLoopGuidanceBuilder
         return $recipe;
     }
 
+    /**
+     * WORKER-facing (not operator-facing) guidance covering four safety pillars a stateless worker
+     * session repeatedly needs re-stated: loop-until-drained (never stop after one task), give_back
+     * honesty (never fake success), allowed_files boundaries (never manual git add -A / commit), and
+     * safe recovery from a transient lease state (renew/recover — never hand-delete the lock file).
+     *
+     * @return array<string,mixed>
+     */
+    public function terminalLoopWorkerGuidance(): array
+    {
+        $guidance = [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_worker_guidance.v1',
+            'loop_until_drained' => [
+                'loop_until_the_queue_is_drained_not_until_you_feel_done',
+                'never_stop_prematurely_after_completing_a_single_task',
+                'after_each_completion_immediately_claim_the_next_task',
+                'only_stop_when_the_queue_reports_no_eligible_work_or_the_operator_says_stop',
+            ],
+            'give_back_honesty' => [
+                'give_back_truly_impossible_or_self_contradictory_tasks_with_a_one_line_diagnosis',
+                'never_report_success_on_a_red_or_unproven_task',
+                'never_give_back_a_task_merely_because_it_is_hard',
+            ],
+            'allowed_files_safety' => [
+                'edit_only_the_files_listed_in_allowed_files',
+                'never_run_git_add_dash_a_or_a_bare_manual_git_commit',
+                'only_the_report_command_with_commit_may_create_the_commit',
+                'never_git_reset_hard_checkout_or_stash_other_workers_in_flight_changes',
+            ],
+            'transient_lease_recovery' => [
+                'if_a_lease_looks_stuck_or_expired_use_the_recovery_command_not_manual_deletion',
+                'never_delete_or_hand_edit_lease_or_lock_files_on_disk',
+                'renew_the_lease_before_it_expires_on_long_running_tasks',
+                'a_recoverable_lease_state_resumes_from_the_checkpoint_not_a_fresh_claim',
+            ],
+            'non_execution_guarantees' => [
+                'terminal_loop_worker_guidance_does_not_claim_lease',
+                'terminal_loop_worker_guidance_does_not_complete_packet',
+                'terminal_loop_worker_guidance_does_not_delete_or_mutate_lease_files',
+            ],
+        ];
+        $guidance['worker_guidance_hash'] = $this->stableHash($guidance);
+
+        return $guidance;
+    }
+
     public function terminalLoopCurrentStep(string $status, string $claimEvent, bool $oneShotWorkerPacketReady, bool $previewOnly): string
     {
         if ($previewOnly) {
