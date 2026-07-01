@@ -69,6 +69,12 @@ final class AtlasMaestroBlockedQueueUnblockPlanner
 
             $implementationWorkEnqueued = ! in_array($action, self::NO_IMPL_WORK_ACTIONS, true);
 
+            // A claimable repair path (fix_dependency/rescope/create_migration_task) or an explicit
+            // retire decision both refuse passive waiting — only leave_blocked/operator_only are
+            // genuinely passive, and operator_only refuses for a DIFFERENT reason (human gate, not
+            // a repair path), so it never carries a passive_wait_blocked_reason.
+            $hasClaimableRepairPath = $implementationWorkEnqueued || $action === self::ACTION_RETIRE;
+
             $entries[] = [
                 'task_packet_id' => $id,
                 'action' => $action,
@@ -77,6 +83,7 @@ final class AtlasMaestroBlockedQueueUnblockPlanner
                 'downstream_unlock_count' => $downstreamUnlock,
                 'implementation_work_enqueued' => $implementationWorkEnqueued,
                 'refusal_reason' => $implementationWorkEnqueued ? null : $this->rootCause($action),
+                'passive_wait_blocked_reason' => $hasClaimableRepairPath ? $this->rootCause($action) : null,
             ];
         }
 
@@ -92,12 +99,24 @@ final class AtlasMaestroBlockedQueueUnblockPlanner
             array_filter($entries, static fn (array $e): bool => ! $e['implementation_work_enqueued']),
         ));
 
+        $claimableRepairSpecs = array_values(array_filter(
+            $entries,
+            static fn (array $e): bool => $e['implementation_work_enqueued'],
+        ));
+        $retireCandidates = array_values(array_map(
+            static fn (array $e): string => $e['task_packet_id'],
+            array_filter($entries, static fn (array $e): bool => $e['action'] === self::ACTION_RETIRE),
+        ));
+
         return [
             'schema_version' => self::SCHEMA,
             'total_blocked' => count($blockedPackets),
             'entries' => $entries,
+            'unblock_plan' => $entries,
             'by_action' => $byAction,
             'implementation_work_refused_ids' => $refusedIds,
+            'claimable_repair_specs' => $claimableRepairSpecs,
+            'retire_candidates' => $retireCandidates,
         ];
     }
 

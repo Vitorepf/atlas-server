@@ -200,4 +200,51 @@ final class AtlasMaestroBlockedQueueUnblockPlannerTest extends TestCase
         $this->assertSame([], $r['by_action']);
         $this->assertSame([], $r['implementation_work_refused_ids']);
     }
+
+    // ── AC: claimable repair paths / retire candidates / passive-wait refusal ──
+
+    public function test_converts_dependency_forbidden_target_and_malformed_acceptance_into_actions(): void
+    {
+        $r = $this->svc()->plan([
+            ['task_packet_id' => 'a', 'dependency_status' => 'stale'],
+            ['task_packet_id' => 'b', 'forbidden_self_target' => true],
+            ['task_packet_id' => 'c', 'deficiencies' => ['contradictory_acceptance']],
+            ['task_packet_id' => 'd', 'give_back_count' => 10],
+        ]);
+
+        $byId = array_column($r['entries'], null, 'task_packet_id');
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::ACTION_FIX_DEPENDENCY, $byId['a']['action']);
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::ACTION_OPERATOR_ONLY, $byId['b']['action']);
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::ACTION_RESCOPE, $byId['c']['action']);
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::ACTION_RETIRE, $byId['d']['action']);
+    }
+
+    public function test_refuses_passive_wait_when_a_claimable_repair_path_exists(): void
+    {
+        $r = $this->svc()->plan([
+            ['task_packet_id' => 'repairable', 'dependency_status' => 'missing'],
+            ['task_packet_id' => 'genuinely_stuck'],
+        ]);
+
+        $byId = array_column($r['entries'], null, 'task_packet_id');
+        $this->assertNotNull($byId['repairable']['passive_wait_blocked_reason']);
+        $this->assertNull($byId['genuinely_stuck']['passive_wait_blocked_reason']);
+    }
+
+    public function test_output_includes_unblock_plan_claimable_repair_specs_retire_candidates_and_passive_wait_reason(): void
+    {
+        $r = $this->svc()->plan([
+            ['task_packet_id' => 'a', 'dependency_status' => 'stale'],
+            ['task_packet_id' => 'b', 'give_back_count' => 10],
+            ['task_packet_id' => 'c'],
+        ]);
+
+        foreach (['unblock_plan', 'claimable_repair_specs', 'retire_candidates'] as $key) {
+            $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
+        }
+        $this->assertContains('b', $r['retire_candidates']);
+        $repairIds = array_column($r['claimable_repair_specs'], 'task_packet_id');
+        $this->assertContains('a', $repairIds);
+        $this->assertArrayHasKey('passive_wait_blocked_reason', $r['entries'][0]);
+    }
 }
