@@ -32,10 +32,18 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
     public const STATUS_WITHIN_BUDGET = 'within_budget';
     public const STATUS_PROOF_OVER_BUDGET = 'proof_over_budget';
 
-    private const MAX_CHECKS_PER_TASK = 6;
+    private const BASE_MAX_CHECKS_PER_TASK = 6;
+    private const ABSOLUTE_MAX_CHECKS_PER_TASK = 12;
     private const CHECK_BUDGET_PER_MUSCLE = 10;
     private const DEFAULT_PER_MUSCLE_MINUTE_BUDGET = 45.0;
     private const DEFAULT_MINUTES_PER_CHECK = 5.0;
+
+    /** Risk-adjusted proof budget multiplier: higher risk earns a larger (but still capped) budget. */
+    private const RISK_BUDGET_MULTIPLIER = [
+        'low' => 1.0,
+        'medium' => 1.5,
+        'high' => 2.0,
+    ];
 
     public function __construct(
         private readonly AtlasExternalBrainImplementationProofDemand $proofDemand = new AtlasExternalBrainImplementationProofDemand,
@@ -54,6 +62,8 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
         $perTaskRequiredChecks = [];
         $overBudgetTasks = [];
         $proofSlimmingRecommendations = [];
+        $splitCandidates = [];
+        $missingEvidenceTasks = [];
         $waveTotalEstimatedMinutes = 0.0;
         $waveTotalChecks = 0;
 
@@ -83,7 +93,11 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
             $checks = array_values(array_unique($checks));
 
             $missingEvidence = $requiredEvidence === [];
-            $tooBroad = count($checks) > self::MAX_CHECKS_PER_TASK;
+            $riskBudget = (int) min(
+                self::ABSOLUTE_MAX_CHECKS_PER_TASK,
+                round(self::BASE_MAX_CHECKS_PER_TASK * (self::RISK_BUDGET_MULTIPLIER[$riskLevel] ?? 1.0)),
+            );
+            $tooBroad = count($checks) > $riskBudget;
 
             $estimatedMinutes = array_key_exists('estimated_test_minutes', $task)
                 ? max(0.0, (float) $task['estimated_test_minutes'])
@@ -98,17 +112,25 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
                 'check_count' => count($checks),
                 'estimated_minutes' => $estimatedMinutes,
                 'risk_level' => $riskLevel,
+                'risk_adjusted_budget' => $riskBudget,
                 'affected_file_families' => $affectedFileFamilies,
                 'missing_evidence' => $missingEvidence,
                 'too_broad' => $tooBroad,
             ];
+
+            if ($missingEvidence) {
+                $missingEvidenceTasks[] = $taskId;
+            }
+            if ($tooBroad) {
+                $splitCandidates[] = $taskId;
+            }
 
             if ($missingEvidence || $tooBroad) {
                 $overBudgetTasks[] = $taskId;
 
                 $reasons = array_values(array_filter([
                     $missingEvidence ? 'required_evidence_is_empty' : null,
-                    $tooBroad ? sprintf('required_checks=%d_exceeds_max=%d', count($checks), self::MAX_CHECKS_PER_TASK) : null,
+                    $tooBroad ? sprintf('required_checks=%d_exceeds_risk_adjusted_budget=%d', count($checks), $riskBudget) : null,
                 ]));
 
                 $proofSlimmingRecommendations[] = [
@@ -116,7 +138,7 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
                     'reasons' => $reasons,
                     'recommendation' => $missingEvidence
                         ? "add at least one required_evidence entry for task {$taskId} before it can be accepted"
-                        : sprintf('trim task %s required_checks from %d to <= %d before this wave runs (split into a follow-up task instead)', $taskId, count($checks), self::MAX_CHECKS_PER_TASK),
+                        : sprintf('split task %s (required_checks=%d exceeds risk-adjusted budget=%d) into a follow-up task instead of dispatching it as-is', $taskId, count($checks), $riskBudget),
                 ];
             }
         }
@@ -153,6 +175,11 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
             'proof_budget_status' => $proofBudgetStatus,
             'over_budget_tasks' => array_values(array_unique($overBudgetTasks)),
             'proof_slimming_recommendations' => $proofSlimmingRecommendations,
+            'wave_slimming_plan' => [
+                'split_candidates' => array_values(array_unique($splitCandidates)),
+                'missing_evidence_tasks' => array_values(array_unique($missingEvidenceTasks)),
+                'wave_over_budget' => $waveExceedsCheckBudget || $waveExceedsMinuteBudget,
+            ],
             'mutates_queue' => false,
         ];
     }

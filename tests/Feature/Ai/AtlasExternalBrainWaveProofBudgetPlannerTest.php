@@ -101,7 +101,7 @@ final class AtlasExternalBrainWaveProofBudgetPlannerTest extends TestCase
     {
         $result = $this->planner()->plan(['wave_tasks' => [
             $this->task([
-                'acceptance_criteria' => ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'],
+                'acceptance_criteria' => ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13'],
                 'risk_level' => 'high',
             ]),
         ]]);
@@ -109,6 +109,55 @@ final class AtlasExternalBrainWaveProofBudgetPlannerTest extends TestCase
         $this->assertSame(AtlasExternalBrainWaveProofBudgetPlanner::STATUS_PROOF_OVER_BUDGET, $result['proof_budget_status']);
         $this->assertContains('task-1', $result['over_budget_tasks']);
         $this->assertTrue($result['per_task_required_checks'][0]['too_broad']);
+    }
+
+    // ── AC: wave_slimming_plan identifies split candidates and missing evidence ──
+
+    public function test_wave_slimming_plan_identifies_split_candidates_and_missing_evidence_tasks(): void
+    {
+        $result = $this->planner()->plan(['wave_tasks' => [
+            $this->task([
+                'task_id' => 'split-me',
+                'acceptance_criteria' => ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10', 'c11', 'c12', 'c13'],
+                'risk_level' => 'high',
+            ]),
+            $this->task(['task_id' => 'no-evidence', 'required_evidence' => []]),
+        ]]);
+
+        $plan = $result['wave_slimming_plan'];
+        $this->assertContains('split-me', $plan['split_candidates']);
+        $this->assertContains('no-evidence', $plan['missing_evidence_tasks']);
+        $this->assertNotContains('no-evidence', $plan['split_candidates']);
+        $this->assertNotContains('split-me', $plan['missing_evidence_tasks']);
+    }
+
+    // ── AC: risk-adjusted budget is larger for high risk but still capped ────
+
+    public function test_high_risk_task_gets_larger_budget_but_still_capped_without_split(): void
+    {
+        $withinHighBudget = $this->planner()->plan(['wave_tasks' => [
+            $this->task([
+                'acceptance_criteria' => ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8'],
+                'risk_level' => 'high',
+            ]),
+        ]]);
+        $this->assertFalse($withinHighBudget['per_task_required_checks'][0]['too_broad']);
+
+        $sameChecksLowRisk = $this->planner()->plan(['wave_tasks' => [
+            $this->task([
+                'acceptance_criteria' => ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8'],
+                'risk_level' => 'low',
+            ]),
+        ]]);
+        $this->assertTrue($sameChecksLowRisk['per_task_required_checks'][0]['too_broad']);
+
+        $beyondAbsoluteCap = $this->planner()->plan(['wave_tasks' => [
+            $this->task([
+                'acceptance_criteria' => array_map(fn ($i) => "c{$i}", range(1, 20)),
+                'risk_level' => 'high',
+            ]),
+        ]]);
+        $this->assertTrue($beyondAbsoluteCap['per_task_required_checks'][0]['too_broad']);
     }
 
     public function test_wave_over_minute_budget_with_low_muscle_count_is_over_budget(): void
