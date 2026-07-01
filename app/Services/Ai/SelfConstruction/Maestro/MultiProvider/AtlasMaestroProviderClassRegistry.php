@@ -15,8 +15,16 @@ final class AtlasMaestroProviderClassRegistry
         'doc-fidelity',
     ];
 
+    public const PROVIDER_CLASS_LOCAL_NATIVE = 'local_native';
+
+    public const PROVIDER_CLASS_SUBSCRIPTION_EXTERNAL = 'subscription_external';
+
+    public const PROVIDER_CLASS_API_METERED = 'api_metered';
+
+    public const PROVIDER_CLASS_UNKNOWN = 'unknown';
+
     /**
-     * @return array<string,array{provider_id:string,axes:array<string,int>,cost_band:string,memory_anchor:string,autonomy_level:string,steady_state_allowed:bool,supports_task_classes:list<string>}>
+     * @return array<string,array{provider_id:string,axes:array<string,int>,cost_band:string,memory_anchor:string,autonomy_level:string,steady_state_allowed:bool,supports_task_classes:list<string>,provider_class:string,proof_strength:int,quota_style:string,fallback_class:string,autonomy_dependency_risk:string}>
      */
     public function providers(): array
     {
@@ -34,6 +42,11 @@ final class AtlasMaestroProviderClassRegistry
                 'autonomy_level' => 'native',
                 'steady_state_allowed' => true,
                 'supports_task_classes' => ['*'],
+                'provider_class' => self::PROVIDER_CLASS_LOCAL_NATIVE,
+                'proof_strength' => 100,
+                'quota_style' => 'unmetered_native',
+                'fallback_class' => 'none',
+                'autonomy_dependency_risk' => 'none',
             ],
             'minimax-m3' => [
                 'provider_id' => 'minimax-m3',
@@ -48,6 +61,11 @@ final class AtlasMaestroProviderClassRegistry
                 'autonomy_level' => 'ai_api',
                 'steady_state_allowed' => true,
                 'supports_task_classes' => ['refactor', 'wiring', 'docs', 'test', 'grind'],
+                'provider_class' => self::PROVIDER_CLASS_SUBSCRIPTION_EXTERNAL,
+                'proof_strength' => 70,
+                'quota_style' => 'subscription_pool',
+                'fallback_class' => 'atlas_native',
+                'autonomy_dependency_risk' => 'low',
             ],
             'codex-gpt-5-5' => [
                 'provider_id' => 'codex-gpt-5-5',
@@ -62,6 +80,11 @@ final class AtlasMaestroProviderClassRegistry
                 'autonomy_level' => 'ai_api',
                 'steady_state_allowed' => false,
                 'supports_task_classes' => ['architecture', 'planning', 'hard-refactor'],
+                'provider_class' => self::PROVIDER_CLASS_API_METERED,
+                'proof_strength' => 85,
+                'quota_style' => 'pay_per_token',
+                'fallback_class' => 'claude-opus',
+                'autonomy_dependency_risk' => 'high',
             ],
             'claude-opus' => [
                 'provider_id' => 'claude-opus',
@@ -76,6 +99,11 @@ final class AtlasMaestroProviderClassRegistry
                 'autonomy_level' => 'ai_api',
                 'steady_state_allowed' => false,
                 'supports_task_classes' => ['architecture', 'planning', 'docs', 'hard-refactor'],
+                'provider_class' => self::PROVIDER_CLASS_API_METERED,
+                'proof_strength' => 88,
+                'quota_style' => 'pay_per_token',
+                'fallback_class' => 'codex-gpt-5-5',
+                'autonomy_dependency_risk' => 'high',
             ],
             'glm-5-2' => [
                 'provider_id' => 'glm-5-2',
@@ -90,12 +118,50 @@ final class AtlasMaestroProviderClassRegistry
                 'autonomy_level' => 'ai_api',
                 'steady_state_allowed' => true,
                 'supports_task_classes' => ['refactor', 'wiring', 'docs', 'test', 'grind'],
+                'provider_class' => self::PROVIDER_CLASS_SUBSCRIPTION_EXTERNAL,
+                'proof_strength' => 75,
+                'quota_style' => 'subscription_pool',
+                'fallback_class' => 'minimax-m3',
+                'autonomy_dependency_risk' => 'low',
             ],
         ];
 
         $this->assertWellFormed($providers);
 
         return $providers;
+    }
+
+    /**
+     * Safe degraded contract for any provider id, known or unknown, so callers
+     * (e.g. assignment policy) never have to special-case a missing entry.
+     * Known providers return their full registry row; unknown ids return a
+     * deterministic, non-secret placeholder that degrades to the native fallback.
+     *
+     * @return array<string,mixed>
+     */
+    public function contractFor(string $providerId): array
+    {
+        $providers = $this->providers();
+
+        if (isset($providers[$providerId])) {
+            return $providers[$providerId];
+        }
+
+        return [
+            'provider_id' => $providerId,
+            'axes' => array_fill_keys(self::AXES, 0),
+            'cost_band' => 'unknown',
+            'memory_anchor' => '',
+            'autonomy_level' => 'unknown',
+            'steady_state_allowed' => false,
+            'supports_task_classes' => [],
+            'provider_class' => self::PROVIDER_CLASS_UNKNOWN,
+            'proof_strength' => 0,
+            'quota_style' => 'unknown',
+            'fallback_class' => 'atlas_native',
+            'autonomy_dependency_risk' => 'unknown',
+            'degraded' => true,
+        ];
     }
 
     /**
@@ -138,6 +204,21 @@ final class AtlasMaestroProviderClassRegistry
             }
             if (! is_array($provider['supports_task_classes'] ?? null) || $provider['supports_task_classes'] === []) {
                 throw new LogicException(sprintf('provider %s must declare non-empty supports_task_classes', $providerId));
+            }
+            if ((string) ($provider['provider_class'] ?? '') === '') {
+                throw new LogicException(sprintf('provider %s must declare provider_class', $providerId));
+            }
+            if (! is_int($provider['proof_strength'] ?? null) || $provider['proof_strength'] < 0 || $provider['proof_strength'] > 100) {
+                throw new LogicException(sprintf('provider %s must declare proof_strength as an int in [0,100]', $providerId));
+            }
+            if ((string) ($provider['quota_style'] ?? '') === '') {
+                throw new LogicException(sprintf('provider %s must declare quota_style', $providerId));
+            }
+            if ((string) ($provider['fallback_class'] ?? '') === '') {
+                throw new LogicException(sprintf('provider %s must declare fallback_class', $providerId));
+            }
+            if ((string) ($provider['autonomy_dependency_risk'] ?? '') === '') {
+                throw new LogicException(sprintf('provider %s must declare autonomy_dependency_risk', $providerId));
             }
         }
     }
