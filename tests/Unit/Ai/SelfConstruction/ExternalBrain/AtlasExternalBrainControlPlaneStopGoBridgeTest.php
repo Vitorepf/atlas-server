@@ -365,4 +365,19 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
 
         $this->assertArrayHasKey('stop_go_decision', $result);
     }
+
+    public function test_low_claimable_per_active_worker_with_healthy_high_quality_still_creates(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['claimable_per_active_worker' => 0.5]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CREATE_MORE_TASKS, $result['stop_go_decision']);
+        $this->assertNotSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_PAUSE, $result['stop_go_decision']);
+    }
+
+    public function test_low_claimable_per_active_worker_with_healthy_high_quality_and_gaps_escalates(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['claimable_per_active_worker' => 0.5, 'maturity_gap_count' => 2]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_ESCALATE_AMBITION, $result['stop_go_decision']);
+    }
 }
