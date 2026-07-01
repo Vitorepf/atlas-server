@@ -128,6 +128,77 @@ final class AtlasNativeWorkerPoolSupervisorTest extends TestCase
         $this->assertSame('hold_stale_workers_present', $plan['reason']);
     }
 
+    public function test_top_up_required_when_active_workers_and_claimable_per_active_worker_below_floor(): void
+    {
+        $sup = new AtlasNativeWorkerPoolSupervisor;
+        $plan = $sup->capacityPlan([
+            'active_workers' => 4,
+            'stale_workers' => 0,
+            'queue_depth' => 0,
+            'max_worker_budget' => 5,
+            'claimable_per_active_worker' => 1.5,
+        ]);
+
+        $this->assertSame('top_up_required', $plan['recommendation']);
+        $this->assertSame('worker_floor_low', $plan['reason']);
+    }
+
+    public function test_top_up_required_takes_precedence_over_spawn(): void
+    {
+        $sup = new AtlasNativeWorkerPoolSupervisor;
+        $plan = $sup->capacityPlan([
+            'active_workers' => 2,
+            'stale_workers' => 0,
+            'queue_depth' => 10,
+            'max_worker_budget' => 5,
+            'claimable_per_active_worker' => 1.0,
+        ]);
+
+        $this->assertSame('top_up_required', $plan['recommendation']);
+    }
+
+    public function test_no_top_up_required_when_claimable_per_active_worker_above_floor(): void
+    {
+        $sup = new AtlasNativeWorkerPoolSupervisor;
+        $plan = $sup->capacityPlan([
+            'active_workers' => 4,
+            'stale_workers' => 0,
+            'queue_depth' => 0,
+            'max_worker_budget' => 5,
+            'claimable_per_active_worker' => 10.0,
+        ]);
+
+        $this->assertSame('hold', $plan['recommendation']);
+    }
+
+    public function test_zero_active_workers_does_not_emit_top_up_required_without_no_claimable_task(): void
+    {
+        $sup = new AtlasNativeWorkerPoolSupervisor;
+        $plan = $sup->capacityPlan([
+            'active_workers' => 0,
+            'stale_workers' => 0,
+            'queue_depth' => 0,
+            'max_worker_budget' => 5,
+        ]);
+
+        $this->assertSame('hold', $plan['recommendation']);
+    }
+
+    public function test_zero_active_workers_emits_top_up_required_with_no_claimable_task_evidence(): void
+    {
+        $sup = new AtlasNativeWorkerPoolSupervisor;
+        $plan = $sup->capacityPlan([
+            'active_workers' => 0,
+            'stale_workers' => 0,
+            'queue_depth' => 0,
+            'max_worker_budget' => 5,
+            'no_claimable_task' => true,
+        ]);
+
+        $this->assertSame('top_up_required', $plan['recommendation']);
+        $this->assertSame('no_claimable_task', $plan['reason']);
+    }
+
     public function test_refused_action_kinds_surface_in_blocked_actions(): void
     {
         $sup = new AtlasNativeWorkerPoolSupervisor;

@@ -35,12 +35,15 @@ final class AtlasNativeWorkerPoolSupervisor
         'git',
     ];
 
+    /** claimable_per_active_worker at/below this is a worker-floor breach. */
+    public const WORKER_FLOOR_THRESHOLD = 2.0;
+
     /**
      * Deterministic capacity recommendation from a worker snapshot.
      * No shell, no provider, no human approval — facts in, recommendation out.
      *
-     * @param  array{active_workers:int, stale_workers:int, queue_depth:int, max_worker_budget:int}  $snapshot
-     * @return array{recommendation:'spawn'|'hold'|'drain', reason:string}
+     * @param  array{active_workers:int, stale_workers:int, queue_depth:int, max_worker_budget:int, claimable_per_active_worker?:float|null, no_claimable_task?:bool}  $snapshot
+     * @return array{recommendation:'spawn'|'hold'|'drain'|'top_up_required', reason:string}
      */
     public function capacityPlan(array $snapshot): array
     {
@@ -48,10 +51,22 @@ final class AtlasNativeWorkerPoolSupervisor
         $stale = max(0, (int) ($snapshot['stale_workers'] ?? 0));
         $queueDepth = max(0, (int) ($snapshot['queue_depth'] ?? 0));
         $maxBudget = max(1, (int) ($snapshot['max_worker_budget'] ?? 1));
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $snapshot) && $snapshot['claimable_per_active_worker'] !== null
+            ? (float) $snapshot['claimable_per_active_worker']
+            : null;
+        $noClaimableTask = (bool) ($snapshot['no_claimable_task'] ?? false);
 
         if ($active > $maxBudget) {
             return ['recommendation' => 'drain', 'reason' => 'active_exceeds_budget'];
         }
+
+        if ($active > 0 && $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= self::WORKER_FLOOR_THRESHOLD) {
+            return ['recommendation' => 'top_up_required', 'reason' => 'worker_floor_low'];
+        }
+        if ($active === 0 && $noClaimableTask) {
+            return ['recommendation' => 'top_up_required', 'reason' => 'no_claimable_task'];
+        }
+
         if ($queueDepth > $active && $active < $maxBudget) {
             return ['recommendation' => 'spawn', 'reason' => 'queue_pressure_and_budget_available'];
         }
