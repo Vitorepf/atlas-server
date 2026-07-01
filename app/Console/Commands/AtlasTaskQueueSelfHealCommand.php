@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmbiguityResolutionPlanner;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainContextHygieneIncidentTaskPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackToQueueRepairPlanner;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskQueueSelfHealingRespecPlanner;
 use Illuminate\Console\Command;
@@ -47,10 +48,12 @@ final class AtlasTaskQueueSelfHealCommand extends Command
         $respecPlanner = new AtlasTaskQueueSelfHealingRespecPlanner;
         $repairPlanner = new AtlasExternalBrainGiveBackToQueueRepairPlanner;
         $ambiguityPlanner = new AtlasExternalBrainAmbiguityResolutionPlanner;
+        $contextHygienePlanner = new AtlasExternalBrainContextHygieneIncidentTaskPlanner;
 
         $respecProposals = [];
         $giveBackEvents = [];
         $ambiguityItems = [];
+        $hygieneIncidents = [];
 
         foreach ($blockedRecords as $record) {
             $taskPacket = is_array($record['task_packet'] ?? null) ? (array) $record['task_packet'] : [];
@@ -88,10 +91,19 @@ final class AtlasTaskQueueSelfHealCommand extends Command
             if ($ambiguity !== []) {
                 $ambiguityItems[] = ['task_packet_id' => $taskId] + $ambiguity;
             }
+
+            // A blocked packet may carry AOBG/context-pack hygiene incidents (already sanitized
+            // upstream by the memory safety gate) alongside its own root-cause metadata.
+            foreach ((array) ($metadata['context_hygiene_incidents'] ?? []) as $incident) {
+                if (is_array($incident)) {
+                    $hygieneIncidents[] = $incident;
+                }
+            }
         }
 
         $repairResult = $repairPlanner->plan(['give_backs' => $giveBackEvents]);
         $ambiguityResult = $ambiguityPlanner->plan(['ambiguity_items' => $ambiguityItems]);
+        $contextHygieneResult = $contextHygienePlanner->plan($hygieneIncidents);
 
         $payload = [
             'schema' => self::SCHEMA,
@@ -107,6 +119,7 @@ final class AtlasTaskQueueSelfHealCommand extends Command
             // A blocked packet whose recorded ambiguity cannot be resolved locally must never be
             // waved through as a speculative respec — the caller consumes this flag before acting.
             'ambiguity_task_creation_allowed' => $ambiguityResult['task_creation_allowed'],
+            'context_hygiene_task_plan' => $contextHygieneResult['task_plan'],
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
