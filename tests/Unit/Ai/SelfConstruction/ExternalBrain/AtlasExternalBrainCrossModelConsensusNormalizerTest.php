@@ -341,4 +341,87 @@ final class AtlasExternalBrainCrossModelConsensusNormalizerTest extends TestCase
 
         $this->assertGreaterThan(0.5, $result['consensus_confidence']);
     }
+
+    // ── AC2: agreement without shared evidence is marked weak_consensus ───────
+
+    public function test_agreement_without_shared_evidence_is_weak_consensus(): void
+    {
+        $p1 = $this->proposal(['proposal_id' => 'p1', 'evidence_refs' => []]);
+        $p2 = $this->proposal(['proposal_id' => 'p2', 'evidence_refs' => []]);
+
+        $result = $this->normalizer->normalize($this->input($p1, $p2));
+
+        $this->assertTrue($result['weak_consensus']);
+        $this->assertNotNull($result['weak_consensus_reason']);
+    }
+
+    public function test_agreement_with_shared_evidence_is_not_weak_consensus(): void
+    {
+        $p1 = $this->proposal(['proposal_id' => 'p1', 'evidence_refs' => ['receipt:abc']]);
+        $p2 = $this->proposal(['proposal_id' => 'p2', 'evidence_refs' => ['receipt:abc']]);
+
+        $result = $this->normalizer->normalize($this->input($p1, $p2));
+
+        $this->assertFalse($result['weak_consensus']);
+        $this->assertNull($result['weak_consensus_reason']);
+    }
+
+    public function test_single_selected_proposal_is_never_weak_consensus(): void
+    {
+        $result = $this->normalizer->normalize($this->input($this->proposal(['proposal_id' => 'solo'])));
+
+        $this->assertFalse($result['weak_consensus']);
+    }
+
+    // ── AC3: evidence-backed minority dissent is preserved as dissenting_signal ──
+
+    public function test_evidence_backed_minority_dissent_is_preserved_as_dissenting_signal(): void
+    {
+        $majority1 = $this->proposal(['proposal_id' => 'm1', 'conclusion_group' => 'group_a', 'evidence_strength' => 0.6]);
+        $majority2 = $this->proposal(['proposal_id' => 'm2', 'conclusion_group' => 'group_a', 'evidence_strength' => 0.6]);
+        $dissent    = $this->proposal(['proposal_id' => 'd1', 'conclusion_group' => 'group_b', 'evidence_strength' => 0.85]);
+
+        $result = $this->normalizer->normalize($this->input($majority1, $majority2, $dissent));
+
+        // Preserved in selected_proposals.
+        $selectedIds = array_column($result['selected_proposals'], 'proposal_id');
+        $this->assertContains('d1', $selectedIds);
+
+        // Surfaced as a dissenting signal.
+        $dissentIds = array_column($result['dissenting_signals'], 'proposal_id');
+        $this->assertContains('d1', $dissentIds);
+    }
+
+    public function test_low_evidence_minority_is_not_surfaced_as_dissenting_signal(): void
+    {
+        $majority1 = $this->proposal(['proposal_id' => 'm1', 'conclusion_group' => 'group_a', 'evidence_strength' => 0.6]);
+        $majority2 = $this->proposal(['proposal_id' => 'm2', 'conclusion_group' => 'group_a', 'evidence_strength' => 0.6]);
+        $weakDissent = $this->proposal(['proposal_id' => 'd1', 'conclusion_group' => 'group_b', 'evidence_strength' => 0.20]);
+
+        $result = $this->normalizer->normalize($this->input($majority1, $majority2, $weakDissent));
+
+        $dissentIds = array_column($result['dissenting_signals'], 'proposal_id');
+        $this->assertNotContains('d1', $dissentIds);
+    }
+
+    public function test_no_conclusion_groups_yields_no_dissenting_signals(): void
+    {
+        $p1 = $this->proposal(['proposal_id' => 'p1', 'evidence_strength' => 0.9]);
+        $p2 = $this->proposal(['proposal_id' => 'p2', 'evidence_strength' => 0.9]);
+
+        $result = $this->normalizer->normalize($this->input($p1, $p2));
+
+        $this->assertSame([], $result['dissenting_signals']);
+    }
+
+    // ── AC4: provider-specific names/metadata are removed from normalized output ──
+
+    public function test_model_source_is_never_included_in_normalized_output(): void
+    {
+        $p = $this->proposal(['proposal_id' => 'p1', 'model_source' => 'claude-opus-4-8']);
+        $result = $this->normalizer->normalize($this->input($p));
+
+        $this->assertArrayNotHasKey('model_source', $result['selected_proposals'][0]);
+        $this->assertStringNotContainsString('claude-opus-4-8', (string) json_encode($result));
+    }
 }

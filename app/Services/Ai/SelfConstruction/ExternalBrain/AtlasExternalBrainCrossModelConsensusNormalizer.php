@@ -25,6 +25,19 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * AC4: output always includes selected_proposals, rejected_proposals,
  *      evidence_ranking, disagreements, and merge_notes.
  *
+ * Provider-neutral output (new): model_source is NEVER included in the normalized candidate —
+ * a proposal is compared and merged purely on its evidence/leverage/canonical_dimensions, never
+ * on which model produced it.
+ *
+ * weak_consensus (new, AC2): 2+ selected proposals that agree (no high-severity contradiction
+ * between them) but share NO overlapping evidence_refs are flagged — agreement without shared
+ * evidence is not the same as agreement backed by evidence.
+ *
+ * dissenting_signals (new, AC3): among selected proposals grouped by conclusion_group, a
+ * proposal in a strict-minority group with evidence_strength >= DISSENT_EVIDENCE_THRESHOLD is
+ * preserved in selected_proposals AND additionally surfaced here — evidence-backed dissent must
+ * never be silently absorbed into the majority's conclusion.
+ *
  * Pure: no I/O, no side effects.
  */
 final class AtlasExternalBrainCrossModelConsensusNormalizer
@@ -38,6 +51,8 @@ final class AtlasExternalBrainCrossModelConsensusNormalizer
     public const DISAGREEMENT_HIGH_SEVERITY = 'unresolved_high_severity_contradiction';
 
     private const LOW_LEVERAGE_THRESHOLD = 0.30;
+
+    private const DISSENT_EVIDENCE_THRESHOLD = 0.50;
 
     // Canonical dimensions emitted per proposal.
     public const CANONICAL_DIMENSIONS = ['implementability', 'leverage', 'evidence_strength', 'proxy_risk', 'novelty', 'confidence'];
@@ -82,9 +97,10 @@ final class AtlasExternalBrainCrossModelConsensusNormalizer
                 'objective'              => (string) ($proposal['objective'] ?? ''),
                 'evidence_strength'      => $evidence,
                 'leverage_score'         => $leverage,
-                'model_source'           => (string) ($proposal['model_source'] ?? ''),
                 'contradiction_with'     => (string) ($proposal['contradiction_with'] ?? ''),
                 'contradiction_severity' => (string) ($proposal['contradiction_severity'] ?? ''),
+                'conclusion_group'       => trim((string) ($proposal['conclusion_group'] ?? '')),
+                'evidence_refs'          => array_values(array_unique(array_map('strval', (array) ($proposal['evidence_refs'] ?? [])))),
                 'canonical_dimensions'   => [
                     'implementability'  => max(0.0, min(1.0, (float) ($proposal['implementability'] ?? 0.5))),
                     'leverage'          => $leverage,
@@ -139,6 +155,12 @@ final class AtlasExternalBrainCrossModelConsensusNormalizer
         [$consensusConfidence, $verificationRequired, $verificationReason] =
             $this->computeConsensus($selected);
 
+        // AC2: agreement without any shared evidence across selected proposals.
+        [$weakConsensus, $weakConsensusReason] = $this->detectWeakConsensus($selected);
+
+        // AC3: evidence-backed minority dissent, preserved and surfaced (not silently absorbed).
+        $dissentingSignals = $this->detectDissentingSignals($selected);
+
         $mergeNotes = $this->buildMergeNotes(
             count($selected),
             count($rejected),
@@ -156,7 +178,74 @@ final class AtlasExternalBrainCrossModelConsensusNormalizer
             'consensus_confidence'  => $consensusConfidence,
             'verification_required' => $verificationRequired,
             'verification_reason'   => $verificationReason,
+            'weak_consensus'        => $weakConsensus,
+            'weak_consensus_reason' => $weakConsensusReason,
+            'dissenting_signals'    => $dissentingSignals,
         ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $selected
+     * @return array{0:bool, 1:string|null}
+     */
+    private function detectWeakConsensus(array $selected): array
+    {
+        if (count($selected) < 2) {
+            return [false, null];
+        }
+
+        foreach ($selected as $a) {
+            foreach ($selected as $b) {
+                if ($a['proposal_id'] === $b['proposal_id']) {
+                    continue;
+                }
+                if (array_intersect($a['evidence_refs'], $b['evidence_refs']) !== []) {
+                    return [false, null];
+                }
+            }
+        }
+
+        return [true, 'selected_proposals_agree_but_share_no_overlapping_evidence_refs'];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $selected
+     * @return list<array{proposal_id:string, conclusion_group:string, evidence_strength:float}>
+     */
+    private function detectDissentingSignals(array $selected): array
+    {
+        $groupCounts = [];
+        foreach ($selected as $candidate) {
+            $group = $candidate['conclusion_group'];
+            if ($group === '') {
+                continue;
+            }
+            $groupCounts[$group] = ($groupCounts[$group] ?? 0) + 1;
+        }
+
+        if (count($groupCounts) < 2) {
+            return [];
+        }
+
+        arsort($groupCounts);
+        $majorityGroup = (string) array_key_first($groupCounts);
+
+        $signals = [];
+        foreach ($selected as $candidate) {
+            $group = $candidate['conclusion_group'];
+            if ($group === '' || $group === $majorityGroup) {
+                continue;
+            }
+            if ($candidate['evidence_strength'] >= self::DISSENT_EVIDENCE_THRESHOLD) {
+                $signals[] = [
+                    'proposal_id'       => $candidate['proposal_id'],
+                    'conclusion_group'  => $group,
+                    'evidence_strength' => $candidate['evidence_strength'],
+                ];
+            }
+        }
+
+        return $signals;
     }
 
     /**
