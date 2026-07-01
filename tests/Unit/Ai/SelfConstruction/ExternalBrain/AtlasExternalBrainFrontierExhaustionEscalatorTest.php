@@ -70,9 +70,12 @@ final class AtlasExternalBrainFrontierExhaustionEscalatorTest extends TestCase
 
     public function test_escalates_each_rung_in_order(): void
     {
+        // Each wave carries the full evidence floor for every prior pass, so
+        // escalation is never blocked by a missing-evidence gate — this test
+        // proves rung ordering, not evidence gating (see test_evidence_floor_gates_advancement).
         $waves = [
-            $this->thinWave(20, 2, 100),
-            $this->thinWave(5, 10, 300),
+            $this->thinWave(20, 2, 100, 'scanned', '5 leads', '2-4 findings', 'more surface remains'),
+            $this->thinWave(5, 10, 300, 'scanned', '5 leads', '2-4 findings', 'more surface remains'),
         ];
         $ctx = ['remaining_high_risk_domains' => []];
 
@@ -88,6 +91,21 @@ final class AtlasExternalBrainFrontierExhaustionEscalatorTest extends TestCase
             $r = $this->svc()->escalate($waves, array_merge($ctx, ['current_pass' => $current]));
             $this->assertSame($expectedNext, $r['next_pass'], "from {$current} expected {$expectedNext}");
         }
+    }
+
+    public function test_evidence_floor_gates_advancement_even_when_surface_thinning(): void
+    {
+        // Thinning signals fire, but the current pass's own evidence floor
+        // (rejected_false_leads for compression) is missing — must not advance.
+        $waves = [
+            $this->thinWave(20, 2, 100),
+            $this->thinWave(5, 10, 300), // no rejected_false_leads
+        ];
+
+        $r = $this->svc()->escalate($waves, ['current_pass' => 'compression']);
+
+        $this->assertSame('compression', $r['next_pass']);
+        $this->assertFalse($r['evidence_floor_satisfied']);
     }
 
     // ── stable surface stays ──────────────────────────────────────────────────
@@ -207,8 +225,8 @@ final class AtlasExternalBrainFrontierExhaustionEscalatorTest extends TestCase
         $this->assertFalse($r['wave_analysis']['rising_cost']);
         // high_duplicate_rate can still trigger from a single wave (dupes vs total)
         $this->assertTrue($r['wave_analysis']['high_duplicate_rate']);
-        // but without declining+rising+dupes all true, stays on bug_hunt
-        $this->assertSame('bug_hunt', $r['next_pass']);
+        // a single strong thinning signal (high duplicates alone) is enough to escalate
+        $this->assertSame('compression', $r['next_pass']);
     }
 
     // ── recommendStrategyChange() ───────────────────────────────────────────────

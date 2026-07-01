@@ -154,11 +154,15 @@ final class AtlasExternalBrainFrontierExhaustionEscalator
         $risingCost = $this->isRisingCost($waveHistory);
         $highDuplicates = $this->isHighDuplicates($waveHistory);
 
-        $nextPass = $this->computeNextPass($currentPass, $decliningFindings, $risingCost, $highDuplicates, $remainingHighRisk);
-
         $latestWave = $waveHistory !== [] ? $waveHistory[count($waveHistory) - 1] : [];
         $requiredFloor = self::EVIDENCE_FLOOR_BY_PASS[$currentPass] ?? ['inspected_surface'];
         $missingEvidence = $this->missingFloor($latestWave, $requiredFloor);
+
+        // Never advance past a pass whose own evidence floor is unmet — a thinning
+        // surface alone must not be enough to reach stop_with_evidence without proof.
+        $nextPass = $missingEvidence === []
+            ? $this->computeNextPass($currentPass, $decliningFindings, $risingCost, $highDuplicates, $remainingHighRisk)
+            : $currentPass;
 
         $reasonParts = [];
         if ($decliningFindings) {
@@ -201,7 +205,7 @@ final class AtlasExternalBrainFrontierExhaustionEscalator
             $idx = 0;
         }
 
-        $surfaceThin = $decliningFindings && $risingCost && $highDuplicates;
+        $surfaceThin = $decliningFindings || $risingCost || $highDuplicates;
         $shouldEscalate = $surfaceThin || ($remainingHighRisk !== [] && ($decliningFindings || $highDuplicates));
 
         if ($shouldEscalate && $idx < count($ladder) - 1) {
