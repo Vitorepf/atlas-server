@@ -217,4 +217,126 @@ final class AtlasTaskQueuePreServeSelfHealingGateTest extends TestCase
         $b = $this->gate()->classify($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC2: queue_action classifies into serve/repair_first/reshape_first/quarantine_first/replenish_first ──
+
+    public function test_queue_action_serve_for_clean_queue(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth([]);
+
+        $this->assertSame('serve_clean', $r['recommendation']);
+        $this->assertSame('serve', $r['queue_action']);
+    }
+
+    public function test_queue_action_repair_first_for_malformed_packets(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['malformed_count' => 3]);
+
+        $this->assertSame('repair_first', $r['queue_action']);
+    }
+
+    public function test_queue_action_repair_first_for_collisions(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['collision_count' => 1]);
+
+        $this->assertSame('repair_first', $r['queue_action']);
+    }
+
+    public function test_queue_action_reshape_first_for_blocked_packets(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['blocked_count' => 2]);
+
+        $this->assertSame('reshape_first', $r['queue_action']);
+    }
+
+    public function test_queue_action_quarantine_first_for_high_poison_ratio(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['poison_ratio' => 0.35]);
+
+        $this->assertSame('quarantine_poison_before_serve', $r['recommendation']);
+        $this->assertSame('quarantine_first', $r['queue_action']);
+    }
+
+    public function test_queue_action_replenish_first_for_high_stale_claimable_ratio(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['stale_claimable_ratio' => 0.75]);
+
+        $this->assertSame('replenish_stale_claimables_before_serve', $r['recommendation']);
+        $this->assertSame('replenish_first', $r['queue_action']);
+    }
+
+    public function test_queue_action_replenish_first_for_worker_floor_starvation(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['claimable_per_active_worker' => 1]);
+
+        $this->assertSame('replenish_first', $r['queue_action']);
+    }
+
+    // ── AC3: malformed, blocked, stale claimables, worker floor, poison ratio all considered ──
+
+    public function test_poison_ratio_below_floor_does_not_trigger_quarantine(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['poison_ratio' => 0.1]);
+
+        $this->assertNotSame('quarantine_poison_before_serve', $r['recommendation']);
+        $this->assertSame('serve_clean', $r['recommendation']);
+    }
+
+    public function test_stale_claimable_ratio_below_floor_does_not_trigger_replenish(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['stale_claimable_ratio' => 0.2]);
+
+        $this->assertNotSame('replenish_stale_claimables_before_serve', $r['recommendation']);
+        $this->assertSame('serve_clean', $r['recommendation']);
+    }
+
+    public function test_malformed_keeps_precedence_over_poison_ratio(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['malformed_count' => 1, 'poison_ratio' => 0.9]);
+
+        $this->assertSame('repair_malformed_before_serve', $r['recommendation']);
+    }
+
+    public function test_poison_ratio_keeps_precedence_over_blocked_count(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['poison_ratio' => 0.9, 'blocked_count' => 1]);
+
+        $this->assertSame('quarantine_poison_before_serve', $r['recommendation']);
+    }
+
+    public function test_blocked_keeps_precedence_over_stale_claimable_ratio(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['blocked_count' => 1, 'stale_claimable_ratio' => 0.9]);
+
+        $this->assertSame('unblock_before_serve', $r['recommendation']);
+    }
+
+    // ── AC4: safe action plan, never mutates queue state ────────────────────────
+
+    public function test_action_plan_present_and_non_empty_for_every_recommendation(): void
+    {
+        foreach ([
+            [],
+            ['malformed_count' => 1],
+            ['blocked_count' => 1],
+            ['collision_count' => 1],
+            ['poison_ratio' => 0.9],
+            ['stale_claimable_ratio' => 0.9],
+            ['claimable_per_active_worker' => 1],
+        ] as $facts) {
+            $r = $this->gate()->evaluateQueueHealth($facts);
+            $this->assertNotEmpty($r['action_plan'], 'action_plan must be non-empty for recommendation='.$r['recommendation']);
+            foreach ($r['action_plan'] as $step) {
+                $this->assertIsString($step);
+            }
+        }
+    }
+
+    public function test_mutates_queue_state_is_always_false(): void
+    {
+        foreach ([[], ['malformed_count' => 1], ['poison_ratio' => 0.9]] as $facts) {
+            $r = $this->gate()->evaluateQueueHealth($facts);
+            $this->assertFalse($r['mutates_queue_state']);
+        }
+    }
 }

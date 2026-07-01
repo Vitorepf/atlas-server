@@ -112,16 +112,49 @@ final class AtlasTaskQueuePreServeSelfHealingGate
 
     private const WORKER_FEED_FLOOR = 2.0;
 
+    /** Poison ratio at/above which packets must be quarantined before serve resumes. */
+    private const POISON_RATIO_FLOOR = 0.20;
+
+    /** Stale-claimable ratio at/above which the claimable supply must be replenished before serve. */
+    private const STALE_CLAIMABLE_RATIO_FLOOR = 0.50;
+
+    /**
+     * queue_action (AC2) maps each internal recommendation onto the canonical 5-state vocabulary:
+     * serve, repair_first, reshape_first, quarantine_first, replenish_first.
+     */
+    private const QUEUE_ACTION_MAP = [
+        'repair_malformed_before_serve' => 'repair_first',
+        'resolve_collisions_before_serve' => 'repair_first',
+        'unblock_before_serve' => 'reshape_first',
+        'quarantine_poison_before_serve' => 'quarantine_first',
+        'replenish_stale_claimables_before_serve' => 'replenish_first',
+        'top_up_before_serve_starvation' => 'replenish_first',
+        'serve_clean' => 'serve',
+    ];
+
+    /**
+     * action_plan (AC4): concrete, safe next steps per recommendation — never a mutation, always
+     * advisory text for a caller to act on.
+     */
+    private const ACTION_PLAN_MAP = [
+        'repair_malformed_before_serve' => ['repair or discard malformed packets', 'do not serve until malformed_count returns to 0'],
+        'resolve_collisions_before_serve' => ['deduplicate colliding packet_id values before resuming serve'],
+        'unblock_before_serve' => ['resolve the blocking scope/dependency issue on blocked packets before resuming serve'],
+        'quarantine_poison_before_serve' => ['quarantine packets flagged as poison before resuming serve'],
+        'replenish_stale_claimables_before_serve' => ['originate fresh claimable tasks; stale claimables are not real supply'],
+        'top_up_before_serve_starvation' => ['originate more claimable tasks before active workers starve'],
+        'serve_clean' => ['serve normally; queue health is within all floors'],
+    ];
+
     /**
      * Pure, READ-ONLY queue-level pre-serve check (no packet writes, no lease
      * changes): when the queue is about to starve workers, it must emit a
      * repair/top-up recommendation BEFORE serving falls through to
      * no_claimable_task — never after.
      *
-     * Precedence (first match wins): malformed packets, blocked packets, and
-     * packet-id collisions are queue corruption — worse than impending
-     * starvation — and keep precedence over the worker-floor top-up
-     * recommendation.
+     * Precedence (first match wins): malformed packets, poison ratio, blocked packets, packet-id
+     * collisions and stale claimable ratio are queue corruption/decay — worse than impending
+     * starvation — and keep precedence over the worker-floor top-up recommendation.
      *
      * A confirmed-fresh `sufficient_depth` signal (opt-in) overrides the
      * worker-floor starvation check: a caller that has already verified the
@@ -132,6 +165,7 @@ final class AtlasTaskQueuePreServeSelfHealingGate
      * @param  array<string,mixed>  $facts  { malformed_count?: int,
      *   blocked_count?: int, collision_count?: int,
      *   claimable_per_active_worker?: float,
+     *   poison_ratio?: float, stale_claimable_ratio?: float,
      *   sufficient_depth?: array{value?: bool, fresh?: bool} }
      * @return array<string,mixed>
      */
@@ -141,11 +175,17 @@ final class AtlasTaskQueuePreServeSelfHealingGate
         $blockedCount = max(0, (int) ($facts['blocked_count'] ?? 0));
         $collisionCount = max(0, (int) ($facts['collision_count'] ?? 0));
         $claimablePerActiveWorker = $facts['claimable_per_active_worker'] ?? null;
+        $poisonRatio = (float) ($facts['poison_ratio'] ?? 0.0);
+        $staleClaimableRatio = (float) ($facts['stale_claimable_ratio'] ?? 0.0);
         $sufficientDepth = is_array($facts['sufficient_depth'] ?? null) ? $facts['sufficient_depth'] : [];
         $sufficientDepthConfirmedFresh = (bool) ($sufficientDepth['value'] ?? false) && (bool) ($sufficientDepth['fresh'] ?? false);
 
         if ($malformedCount > 0) {
             return $this->queueHealthResult('repair_malformed_before_serve', ['malformed_packets_present:'.$malformedCount]);
+        }
+
+        if ($poisonRatio >= self::POISON_RATIO_FLOOR) {
+            return $this->queueHealthResult('quarantine_poison_before_serve', ['poison_ratio_at_or_above_floor:'.$poisonRatio]);
         }
 
         if ($blockedCount > 0) {
@@ -154,6 +194,10 @@ final class AtlasTaskQueuePreServeSelfHealingGate
 
         if ($collisionCount > 0) {
             return $this->queueHealthResult('resolve_collisions_before_serve', ['packet_id_collisions_present:'.$collisionCount]);
+        }
+
+        if ($staleClaimableRatio >= self::STALE_CLAIMABLE_RATIO_FLOOR) {
+            return $this->queueHealthResult('replenish_stale_claimables_before_serve', ['stale_claimable_ratio_at_or_above_floor:'.$staleClaimableRatio]);
         }
 
         if (! $sufficientDepthConfirmedFresh
@@ -172,6 +216,8 @@ final class AtlasTaskQueuePreServeSelfHealingGate
         'unblock_before_serve',
         'resolve_collisions_before_serve',
         'top_up_before_serve_starvation',
+        'quarantine_poison_before_serve',
+        'replenish_stale_claimables_before_serve',
     ];
 
     /**
@@ -185,6 +231,9 @@ final class AtlasTaskQueuePreServeSelfHealingGate
             'recommendation' => $recommendation,
             'reasons' => $reasons,
             'proof_required' => in_array($recommendation, self::PROOF_REQUIRED_RECOMMENDATIONS, true),
+            'queue_action' => self::QUEUE_ACTION_MAP[$recommendation] ?? 'serve',
+            'action_plan' => self::ACTION_PLAN_MAP[$recommendation] ?? [],
+            'mutates_queue_state' => false,
         ];
     }
 
