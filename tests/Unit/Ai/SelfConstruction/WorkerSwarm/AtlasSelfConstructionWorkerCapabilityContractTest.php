@@ -24,6 +24,11 @@ final class AtlasSelfConstructionWorkerCapabilityContractTest extends TestCase
             'declared_capabilities' => ['inspect_task_packet', 'apply_scoped_patch', 'run_gates', 'write_evidence'],
             'declared_actions' => ['inspect', 'apply_patch_in_scope', 'run_gate_in_sandbox', 'write_evidence_row'],
             'evidence_emits' => AtlasSelfConstructionWorkerCapabilityContract::REQUIRED_EVIDENCE,
+            'proof_strength' => [
+                'evidence_hash' => 'sha256',
+                'test_run_id' => 'ci_run_id',
+                'commit_sha_or_diff_hash' => 'git_sha',
+            ],
         ];
     }
 
@@ -114,5 +119,43 @@ final class AtlasSelfConstructionWorkerCapabilityContractTest extends TestCase
         $this->assertSame('hard', $compact['worker_tier']);
         $this->assertSame($p['worker_id'], $compact['worker_id']);
         $this->assertIsArray($compact['capabilities']);
+    }
+
+    // ── AC: proof_strength for required evidence fields ───────────────────────
+
+    public function test_accepted_profile_includes_proof_strength_for_required_evidence(): void
+    {
+        $r = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($this->safeProfile());
+
+        $this->assertTrue($r['accepted']);
+        foreach (AtlasSelfConstructionWorkerCapabilityContract::REQUIRED_EVIDENCE as $field) {
+            $this->assertArrayHasKey($field, $r['profile']['proof_strength']);
+            $this->assertNotEmpty($r['profile']['proof_strength'][$field]);
+        }
+    }
+
+    public function test_missing_proof_strength_for_required_field_adds_weak_evidence_blocker(): void
+    {
+        $p = $this->safeProfile();
+        unset($p['proof_strength']['test_run_id']);
+
+        $r = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($p);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('weak_evidence:test_run_id', $r['blockers']);
+    }
+
+    public function test_forbidden_authority_and_tier_mismatch_behavior_unchanged(): void
+    {
+        $p = $this->safeProfile();
+        $p['declared_actions'][] = 'execute_main_merge';
+        $r = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($p);
+        $this->assertContains('authority_overreach:execute_main_merge', $r['blockers']);
+
+        $tierP = $this->safeProfile();
+        $tierP['worker_tier'] = AtlasSelfConstructionWorkerCapabilityContract::TIER_EASY;
+        $tierP['required_tier'] = AtlasSelfConstructionWorkerCapabilityContract::TIER_HARDEST;
+        $tierR = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($tierP);
+        $this->assertContains('tier_mismatch:easy<hardest', $tierR['blockers']);
     }
 }

@@ -121,9 +121,15 @@ final class AtlasSelfConstructionWorkerCapabilityContract
         }
 
         $evidence = is_array($profile['evidence_emits'] ?? null) ? array_values(array_map('strval', $profile['evidence_emits'])) : [];
+        $proofStrength = is_array($profile['proof_strength'] ?? null) ? $profile['proof_strength'] : [];
         foreach (self::REQUIRED_EVIDENCE as $req) {
             if (! in_array($req, $evidence, true)) {
                 $blockers[] = 'missing_evidence:'.$req;
+
+                continue;
+            }
+            if (empty($proofStrength[$req])) {
+                $blockers[] = 'weak_evidence:'.$req;
             }
         }
 
@@ -150,6 +156,7 @@ final class AtlasSelfConstructionWorkerCapabilityContract
                 'declared_capabilities' => $caps,
                 'declared_actions' => $actions,
                 'evidence_emits' => $evidence,
+                'proof_strength' => $proofStrength,
                 'worker_tier' => $workerTier !== '' ? $workerTier : null,
             ],
         ];
