@@ -161,7 +161,10 @@ final class AtlasSelfConstructionOrganReadinessComposer
             }
         }
 
-        $circuitComplete = $missingEdges === [];
+        // Circuit-path validation is opt-in: only gates all_ready when the caller explicitly
+        // supplies circuit_edges. Callers that never pass it keep the original organ-only verdict.
+        $circuitChecked = $circuitEdges !== [];
+        $circuitComplete = ! $circuitChecked || $missingEdges === [];
         $organsReady = $blocked === [] && $missing === [] && $degraded === [];
         $allReady = $organsReady && $circuitComplete;
 
