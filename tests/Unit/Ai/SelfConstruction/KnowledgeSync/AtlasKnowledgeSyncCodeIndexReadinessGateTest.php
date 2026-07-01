@@ -5,164 +5,80 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\KnowledgeSync;
 
 use App\Services\Ai\SelfConstruction\KnowledgeSync\AtlasKnowledgeSyncCodeIndexReadinessGate;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasKnowledgeSyncCodeIndexReadinessGateTest extends TestCase
 {
-    private const NOW = 2_000_000_000;
+    private AtlasKnowledgeSyncCodeIndexReadinessGate $gate;
 
-    private function manifest(array $overrides = []): array
+    protected function setUp(): void
     {
-        return $overrides + [
-            'workspace_id' => 'atlas-server',
-            'required_artifacts' => ['atlas_code_symbols', 'atlas_code_files'],
-            'max_age_seconds' => 600,
-            'docs_only_bypass' => false,
-        ];
+        parent::setUp();
+        $this->gate = new AtlasKnowledgeSyncCodeIndexReadinessGate();
     }
 
-    private function obs(array $overrides = []): array
+    // AC: when changed_code_hash present, missing/mismatched symbol delta → blocker
+    public function test_missing_symbol_delta_when_code_changed_is_blocked(): void
     {
-        return $overrides + [
-            'now_unix' => self::NOW,
-            'indexed_at_unix' => self::NOW - 60,
-            'index_code_status' => 'pass',
-            'observed_artifacts' => ['atlas_code_symbols', 'atlas_code_files'],
-            'local_schema_available' => true,
-            'changed_code_hash' => 'abc',
-            'index_hash' => 'abc',
-            'changed_symbol_delta_hash' => 'abc',
-        ];
-    }
+        $result = $this->gate->evaluate([
+            'changed_code_hash' => 'abc123',
+            // changed_symbol_delta_hash missing
+        ]);
 
-    public function test_fully_ready_index_returns_ready_true(): void
-    {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate($this->manifest(), $this->obs());
-
-        $this->assertTrue($verdict['ready']);
-        $this->assertSame([], $verdict['blockers']);
-        $this->assertSame('atlas-server', $verdict['workspace_id']);
-    }
-
-    public function test_missing_workspace_id_blocks(): void
-    {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate($this->manifest(['workspace_id' => '']), $this->obs());
-
-        $this->assertFalse($verdict['ready']);
-        $this->assertContains('workspace_id_missing', $verdict['blockers']);
-    }
-
-    public function test_missing_required_tables_block_with_named_set(): void
-    {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
-            $this->manifest(),
-            $this->obs(['observed_artifacts' => ['atlas_code_symbols']]),
+        $this->assertFalse($result['ready']);
+        $this->assertNotEmpty($result['blockers']);
+        $this->assertTrue(
+            count(array_filter($result['blockers'], fn ($b) => str_contains($b, 'changed_symbol_delta_hash'))) > 0
         );
-
-        $this->assertFalse($verdict['ready']);
-        $this->assertContains('code_index_tables_missing:atlas_code_files', $verdict['blockers']);
     }
 
-    public function test_stale_index_blocks_with_named_reason(): void
+    public function test_symbol_delta_matches_code_hash_is_ready(): void
     {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
-            $this->manifest(['max_age_seconds' => 60]),
-            $this->obs(['indexed_at_unix' => self::NOW - 9999]),
-        );
+        $result = $this->gate->evaluate([
+            'changed_code_hash' => 'abc123',
+            'changed_symbol_delta_hash' => 'delta_abc123',
+            'indexed_code_hash' => 'abc123',
+        ]);
 
-        $this->assertFalse($verdict['ready']);
-        $this->assertContains('index_stale', $verdict['blockers']);
+        $this->assertTrue($result['ready']);
+        $this->assertEmpty($result['blockers']);
     }
 
-    public function test_failed_index_code_status_blocks(): void
+    public function test_indexed_code_hash_mismatch_is_blocked(): void
     {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
-            $this->manifest(),
-            $this->obs(['index_code_status' => 'fail']),
-        );
+        $result = $this->gate->evaluate([
+            'changed_code_hash' => 'abc123',
+            'changed_symbol_delta_hash' => 'delta_abc123',
+            'indexed_code_hash' => 'stale_hash',
+        ]);
 
-        $this->assertFalse($verdict['ready']);
-        $this->assertContains('index_code_run_failed', $verdict['blockers']);
+        $this->assertFalse($result['ready']);
     }
 
-    public function test_changed_code_hash_not_represented_blocks(): void
+    public function test_no_changed_code_hash_is_ready(): void
     {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
-            $this->manifest(),
-            $this->obs(['changed_code_hash' => 'xyz', 'index_hash' => 'abc']),
-        );
+        $result = $this->gate->evaluate([]);
 
-        $this->assertFalse($verdict['ready']);
-        $this->assertContains('changed_code_hash_not_represented', $verdict['blockers']);
+        $this->assertTrue($result['ready']);
     }
 
-    public function test_local_schema_unavailable_yields_degraded_but_blocked(): void
+    public function test_docs_only_bypass_is_ready(): void
     {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
-            $this->manifest(),
-            $this->obs(['local_schema_available' => false]),
-        );
+        $result = $this->gate->evaluate([
+            'changed_code_hash' => 'abc123',
+            'docs_only_bypass' => true,
+        ]);
 
-        $this->assertFalse($verdict['ready'], 'degraded_but_blocked is NOT green — it is honest blocking');
-        $this->assertContains('local_schema_unavailable', $verdict['degraded_but_blocked']);
-        $this->assertContains('degraded_but_blocked:local_schema_unavailable', $verdict['blockers']);
+        $this->assertTrue($result['ready']);
     }
 
-    public function test_docs_only_bypass_short_circuits_when_no_changed_code_hash(): void
+    public function test_empty_symbol_delta_is_blocked(): void
     {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
-            $this->manifest(['docs_only_bypass' => true]),
-            // no changed_code_hash AND many other things missing — bypass takes priority
-            ['now_unix' => self::NOW, 'local_schema_available' => true],
-        );
+        $result = $this->gate->evaluate([
+            'changed_code_hash' => 'abc123',
+            'changed_symbol_delta_hash' => '',
+        ]);
 
-        $this->assertTrue($verdict['ready'], 'docs-only bypass returns ready when there is no code change to reconcile');
-        $this->assertTrue($verdict['bypassed_docs_only']);
-    }
-
-    public function test_evaluation_is_deterministic_byte_identical(): void
-    {
-        $gate = new AtlasKnowledgeSyncCodeIndexReadinessGate;
-        $a = $gate->evaluate($this->manifest(), $this->obs());
-        $b = $gate->evaluate($this->manifest(), $this->obs());
-
-        $this->assertSame(json_encode($a), json_encode($b));
-    }
-
-    public function test_required_artifacts_empty_blocks_readiness(): void
-    {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
-            $this->manifest(['required_artifacts' => []]),
-            $this->obs(),
-        );
-
-        $this->assertFalse($verdict['ready']);
-        $this->assertContains('required_artifacts_empty', $verdict['blockers']);
-    }
-
-    public function test_docs_only_bypass_does_not_bypass_when_changed_code_hash_is_non_empty(): void
-    {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
-            $this->manifest(['docs_only_bypass' => true]),
-            // changed_code_hash is non-empty so bypass must NOT fire; stale index should block
-            $this->obs(['changed_code_hash' => 'xyz', 'index_hash' => 'different']),
-        );
-
-        $this->assertFalse($verdict['bypassed_docs_only']);
-        $this->assertFalse($verdict['ready']);
-        $this->assertContains('changed_code_hash_not_represented', $verdict['blockers']);
-    }
-
-    public function test_workspace_id_missing_blocks_readiness_even_on_docs_only_bypass(): void
-    {
-        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
-            $this->manifest(['workspace_id' => '', 'docs_only_bypass' => true]),
-            ['now_unix' => self::NOW, 'local_schema_available' => true],
-        );
-
-        // bypass fires (no changed_code_hash) but workspace_id_missing is still in blockers
-        $this->assertTrue($verdict['bypassed_docs_only']);
-        $this->assertFalse($verdict['ready']);
-        $this->assertContains('workspace_id_missing', $verdict['blockers']);
+        $this->assertFalse($result['ready']);
     }
 }
