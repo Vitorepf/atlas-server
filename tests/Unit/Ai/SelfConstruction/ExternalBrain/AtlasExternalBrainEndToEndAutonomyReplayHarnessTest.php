@@ -18,11 +18,11 @@ final class AtlasExternalBrainEndToEndAutonomyReplayHarnessTest extends TestCase
     private function healthyScenario(array $overrides = []): array
     {
         return array_replace_recursive([
-            'intake' => ['context_evidence_present' => true],
-            'admission' => ['candidate_pool' => [['task_id' => 'c1'], ['task_id' => 'c2']]],
-            'enqueue_decision' => ['queue_facts' => ['poison_detected' => false, 'sprawl_pressure' => false, 'low_value_ratio' => 0.1]],
-            'outcome_learning' => ['outcomes_recorded' => true],
-            'next_action' => ['decision_hint' => 'continue'],
+            'intake' => ['context_evidence_present' => true, 'owner' => 'atlas', 'evidence_ref' => 'evidence:intake:1'],
+            'admission' => ['candidate_pool' => [['task_id' => 'c1'], ['task_id' => 'c2']], 'owner' => 'atlas', 'evidence_ref' => 'evidence:admission:1'],
+            'enqueue_decision' => ['queue_facts' => ['poison_detected' => false, 'sprawl_pressure' => false, 'low_value_ratio' => 0.1], 'owner' => 'atlas', 'evidence_ref' => 'evidence:enqueue_decision:1'],
+            'outcome_learning' => ['outcomes_recorded' => true, 'owner' => 'atlas', 'evidence_ref' => 'evidence:outcome_learning:1'],
+            'next_action' => ['decision_hint' => 'continue', 'owner' => 'atlas', 'evidence_ref' => 'evidence:next_action:1'],
         ], $overrides);
     }
 
@@ -199,6 +199,56 @@ final class AtlasExternalBrainEndToEndAutonomyReplayHarnessTest extends TestCase
     {
         $result = $this->harness()->replay($this->healthyScenario());
         $this->assertSame(AtlasExternalBrainEndToEndAutonomyReplayHarness::SCHEMA, $result['schema']);
+    }
+
+    // ── AC1: native_loop_proof per-step fields ────────────────────────────────
+
+    public function test_native_loop_proof_present_with_all_steps_and_fields(): void
+    {
+        $result = $this->harness()->replay($this->healthyScenario());
+
+        foreach (AtlasExternalBrainEndToEndAutonomyReplayHarness::CYCLE_STEPS as $step) {
+            $this->assertArrayHasKey($step, $result['native_loop_proof'], "Missing proof for step: {$step}");
+            foreach (['owner', 'evidence_ref', 'provider_free', 'operator_free', 'replay_freshness_status'] as $field) {
+                $this->assertArrayHasKey($field, $result['native_loop_proof'][$step], "Missing {$field} for step {$step}");
+            }
+            $this->assertSame('atlas', $result['native_loop_proof'][$step]['owner']);
+            $this->assertTrue($result['native_loop_proof'][$step]['provider_free']);
+            $this->assertTrue($result['native_loop_proof'][$step]['operator_free']);
+            $this->assertSame('fresh', $result['native_loop_proof'][$step]['replay_freshness_status']);
+        }
+    }
+
+    public function test_native_loop_proof_reports_stale_when_step_marked_stale(): void
+    {
+        $result = $this->harness()->replay($this->healthyScenario([
+            'intake' => ['stale' => true],
+        ]));
+
+        $this->assertSame('stale', $result['native_loop_proof']['intake']['replay_freshness_status']);
+    }
+
+    // ── AC2: refuse completion when owner/evidence_ref is missing ────────────
+
+    public function test_cycle_refused_when_step_owner_is_missing_even_though_payload_exists(): void
+    {
+        $result = $this->harness()->replay($this->healthyScenario([
+            'admission' => ['owner' => '', 'evidence_ref' => ''],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainEndToEndAutonomyReplayHarness::STATUS_EVIDENCE_MISSING, $result['autonomy_replay_status']);
+        $this->assertSame('admission', $result['failed_step']);
+        $this->assertNotEmpty($result['next_repair_hint']);
+    }
+
+    public function test_cycle_refused_when_owner_is_not_atlas(): void
+    {
+        $result = $this->harness()->replay($this->healthyScenario([
+            'outcome_learning' => ['owner' => 'operator'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainEndToEndAutonomyReplayHarness::STATUS_EVIDENCE_MISSING, $result['autonomy_replay_status']);
+        $this->assertSame('outcome_learning', $result['failed_step']);
     }
 
     // ── determinism ──────────────────────────────────────────────────────────

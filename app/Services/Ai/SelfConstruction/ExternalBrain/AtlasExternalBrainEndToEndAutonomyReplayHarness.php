@@ -73,6 +73,8 @@ final class AtlasExternalBrainEndToEndAutonomyReplayHarness
      */
     public function replay(array $scenario): array
     {
+        $nativeLoopProof = [];
+
         foreach (self::CYCLE_STEPS as $step) {
             if (! array_key_exists($step, $scenario) || ! is_array($scenario[$step])) {
                 return [
@@ -81,6 +83,7 @@ final class AtlasExternalBrainEndToEndAutonomyReplayHarness
                     'failed_step' => $step,
                     'next_repair_hint' => self::REPAIR_HINTS[$step] ?? "Supply {$step} facts before replaying the cycle.",
                     'completed_steps' => [],
+                    'native_loop_proof' => $nativeLoopProof,
                 ];
             }
 
@@ -97,8 +100,34 @@ final class AtlasExternalBrainEndToEndAutonomyReplayHarness
                     'failed_step' => $step,
                     'next_repair_hint' => "Remove the {$reason} dependency from {$step} and replace it with an Atlas-native autonomous path.",
                     'completed_steps' => array_slice(self::CYCLE_STEPS, 0, array_search($step, self::CYCLE_STEPS, true)),
+                    'native_loop_proof' => $nativeLoopProof,
                 ];
             }
+
+            // A step payload existing is not enough — completion requires explicit proof
+            // that Atlas (not a human/operator/provider) owns this step, with a concrete
+            // evidence reference. Missing owner/evidence refuses the cycle even though the
+            // step payload itself is present.
+            $owner = trim((string) ($stepFacts['owner'] ?? ''));
+            $evidenceRef = trim((string) ($stepFacts['evidence_ref'] ?? ''));
+            if ($owner !== 'atlas' || $evidenceRef === '') {
+                return [
+                    'schema' => self::SCHEMA,
+                    'autonomy_replay_status' => self::STATUS_EVIDENCE_MISSING,
+                    'failed_step' => $step,
+                    'next_repair_hint' => "Provide Atlas-native owner=atlas and a concrete evidence_ref for {$step} before replaying the cycle.",
+                    'completed_steps' => array_slice(self::CYCLE_STEPS, 0, array_search($step, self::CYCLE_STEPS, true)),
+                    'native_loop_proof' => $nativeLoopProof,
+                ];
+            }
+
+            $nativeLoopProof[$step] = [
+                'owner' => $owner,
+                'evidence_ref' => $evidenceRef,
+                'provider_free' => ! $requiresProviderSteadyState,
+                'operator_free' => ! $requiresOperator,
+                'replay_freshness_status' => (bool) ($stepFacts['stale'] ?? false) ? 'stale' : 'fresh',
+            ];
         }
 
         $queueFacts = (array) ($scenario['enqueue_decision']['queue_facts'] ?? []);
@@ -122,6 +151,7 @@ final class AtlasExternalBrainEndToEndAutonomyReplayHarness
             'failed_step' => null,
             'next_repair_hint' => null,
             'completed_steps' => self::CYCLE_STEPS,
+            'native_loop_proof' => $nativeLoopProof,
             'brain_decision' => $brainDecision,
             'queue_facts_seen' => $queueFacts,
             'candidate_count' => count($candidatePool),
