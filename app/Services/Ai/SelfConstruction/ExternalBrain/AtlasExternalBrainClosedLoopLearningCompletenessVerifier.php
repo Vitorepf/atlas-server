@@ -23,6 +23,7 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
     public const SCHEMA = 'atlas.external_brain.closed_loop_learning_completeness_verifier.v1';
 
     public const LINK_ORIGINATION_RECEIPT   = 'no_origination_receipt';
+    public const LINK_ATTRIBUTION           = 'no_attribution';
     public const LINK_IMPLEMENTATION_RESULT = 'no_implementation_result';
     public const LINK_VALUE_EVIDENCE        = 'no_value_evidence';
     public const LINK_LEARNING_RECORD       = 'no_learning_record';
@@ -32,8 +33,12 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
     public const LINK_POLICY_ROUTE          = 'no_policy_route';
     public const LINK_MAESTRO_ROUTE         = 'no_maestro_route';
 
+    /** outcome_type values whose absence of a policy/task-fabric route is a learning leak. */
+    private const LEAK_PRONE_OUTCOME_TYPES = ['success', 'give_back'];
+
     private const REPAIR_HINT_MAP = [
         self::LINK_ORIGINATION_RECEIPT   => 'emit_origination_receipt_for_cycle',
+        self::LINK_ATTRIBUTION           => 'attach_attribution_to_cycle',
         self::LINK_IMPLEMENTATION_RESULT => 'ensure_implementation_result_is_committed',
         self::LINK_VALUE_EVIDENCE        => 'attach_runnable_evidence_to_cycle',
         self::LINK_LEARNING_RECORD       => 'run_outcome_learner_for_cycle',
@@ -45,7 +50,7 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
 
     /**
      * @param  array{cycles?: list<array<string,mixed>>}  $input
-     * @return array{schema:string, complete:bool, missing_links:list<string>, cycle_receipts:list<array<string,mixed>>, next_repair_task_hint:string|null}
+     * @return array{schema:string, complete:bool, missing_links:list<string>, cycle_receipts:list<array<string,mixed>>, next_repair_task_hint:string|null, learning_leaks:list<string>}
      */
     public function verify(array $input): array
     {
@@ -54,17 +59,24 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
         $allMissingLinks = [];
         $cycleReceipts   = [];
         $allComplete     = true;
+        $learningLeaks   = [];
 
         foreach ($cycles as $idx => $cycle) {
             $cycleId = (string) ($cycle['cycle_id'] ?? "cycle_{$idx}");
             $missing = $this->missingLinks($cycle);
+            $learningLeak = $this->isLearningLeak($cycle, $missing);
 
             $cycleReceipts[] = [
                 'cycle_id'       => $cycleId,
                 'complete'       => $missing === [],
                 'missing_links'  => $missing,
                 'decision_chain' => $this->buildDecisionChain($cycle),
+                'learning_leak'  => $learningLeak,
             ];
+
+            if ($learningLeak) {
+                $learningLeaks[] = $cycleId;
+            }
 
             if ($missing !== []) {
                 $allComplete = false;
@@ -84,6 +96,7 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
             'missing_links'           => $allMissingLinks,
             'cycle_receipts'          => $cycleReceipts,
             'next_repair_task_hint'   => $hint,
+            'learning_leaks'          => $learningLeaks,
         ];
     }
 
@@ -94,6 +107,10 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
 
         if (! $this->hasOrigination($cycle)) {
             $missing[] = self::LINK_ORIGINATION_RECEIPT;
+        }
+
+        if (! $this->hasAttribution($cycle)) {
+            $missing[] = self::LINK_ATTRIBUTION;
         }
 
         if (! $this->hasImplementation($cycle)) {
@@ -122,6 +139,34 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
         }
 
         return $missing;
+    }
+
+    /**
+     * A "learning leak" is a success (commit) or give_back outcome that closes without ever
+     * touching policy or the prompt/task-fabric — the loop LOOKS closed (a learning_update
+     * may even exist) but nothing downstream actually changed as a result.
+     *
+     * @param  list<string>  $missing
+     */
+    private function isLearningLeak(array $cycle, array $missing): bool
+    {
+        $outcomeType = strtolower(trim((string) ($cycle['outcome_type'] ?? '')));
+        if (! in_array($outcomeType, self::LEAK_PRONE_OUTCOME_TYPES, true)) {
+            return false;
+        }
+
+        return in_array(self::LINK_LEARNER_ROUTE, $missing, true)
+            || in_array(self::LINK_POLICY_ROUTE, $missing, true);
+    }
+
+    private function hasAttribution(array $cycle): bool
+    {
+        $r = $cycle['attribution'] ?? null;
+        if (! is_array($r) || $r === []) {
+            return false;
+        }
+
+        return ! empty($r['owner']) || ! empty($r['task_class']) || ! empty($r['agent_id']);
     }
 
     private function checkOutcomeRoute(array $cycle, string $outcomeType): ?string
@@ -204,6 +249,7 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
         // Priority order matches the chain from left to right
         $priority = [
             self::LINK_ORIGINATION_RECEIPT,
+            self::LINK_ATTRIBUTION,
             self::LINK_IMPLEMENTATION_RESULT,
             self::LINK_VALUE_EVIDENCE,
             self::LINK_LEARNING_RECORD,

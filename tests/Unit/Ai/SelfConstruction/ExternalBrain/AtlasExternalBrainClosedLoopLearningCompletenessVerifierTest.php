@@ -21,6 +21,7 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifierTest extends
         return array_merge([
             'cycle_id'              => 'cycle-1',
             'origination_receipt'   => ['task_packet_id' => 'task-001'],
+            'attribution'           => ['owner' => 'worker-1', 'task_class' => 'refactor'],
             'implementation_result' => ['commit_sha' => 'abc123', 'files_committed' => ['app/Foo.php']],
             'runnable_evidence'     => ['command' => './vendor/bin/phpunit tests/FooTest.php', 'outcome' => 'OK (14 tests)'],
             'learning_update'       => ['pattern_family' => 'spec-quality', 'delta' => 0.15],
@@ -39,7 +40,7 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifierTest extends
     {
         $result = $this->verifier->verify($this->input($this->completeCycle()));
 
-        foreach (['schema', 'complete', 'missing_links', 'cycle_receipts', 'next_repair_task_hint'] as $k) {
+        foreach (['schema', 'complete', 'missing_links', 'cycle_receipts', 'next_repair_task_hint', 'learning_leaks'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainClosedLoopLearningCompletenessVerifier::SCHEMA, $result['schema']);
@@ -111,6 +112,92 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifierTest extends
             AtlasExternalBrainClosedLoopLearningCompletenessVerifier::LINK_NEXT_BATCH_CONSTRAINT,
             $result['missing_links'],
         );
+    }
+
+    // ── AC: missing attribution → incomplete ──────────────────────────────────
+
+    public function test_missing_attribution_is_flagged(): void
+    {
+        $result = $this->verifier->verify($this->input($this->completeCycle(['attribution' => null])));
+
+        $this->assertFalse($result['complete']);
+        $this->assertContains(
+            AtlasExternalBrainClosedLoopLearningCompletenessVerifier::LINK_ATTRIBUTION,
+            $result['missing_links'],
+        );
+    }
+
+    public function test_empty_attribution_array_is_flagged(): void
+    {
+        $result = $this->verifier->verify($this->input($this->completeCycle(['attribution' => []])));
+
+        $this->assertContains(
+            AtlasExternalBrainClosedLoopLearningCompletenessVerifier::LINK_ATTRIBUTION,
+            $result['missing_links'],
+        );
+    }
+
+    public function test_attribution_with_only_agent_id_is_sufficient(): void
+    {
+        $result = $this->verifier->verify($this->input($this->completeCycle(['attribution' => ['agent_id' => 'worker-9']])));
+
+        $this->assertNotContains(
+            AtlasExternalBrainClosedLoopLearningCompletenessVerifier::LINK_ATTRIBUTION,
+            $result['missing_links'],
+        );
+    }
+
+    // ── AC: learning leak — commit/give_back with no policy or task-fabric effect ──
+
+    public function test_success_outcome_without_learner_route_is_flagged_as_learning_leak(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['outcome_type' => 'success'])
+        ));
+
+        $this->assertSame(['cycle-1'], $result['learning_leaks']);
+        $this->assertTrue($result['cycle_receipts'][0]['learning_leak']);
+    }
+
+    public function test_give_back_outcome_without_policy_route_is_flagged_as_learning_leak(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['cycle_id' => 'give-back-cycle', 'outcome_type' => 'give_back'])
+        ));
+
+        $this->assertSame(['give-back-cycle'], $result['learning_leaks']);
+        $this->assertTrue($result['cycle_receipts'][0]['learning_leak']);
+    }
+
+    public function test_give_back_outcome_with_policy_change_is_not_a_learning_leak(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle([
+                'outcome_type' => 'give_back',
+                'next_batch_constraint' => ['policy_change' => 'tighten_scope_gate'],
+            ])
+        ));
+
+        $this->assertSame([], $result['learning_leaks']);
+        $this->assertFalse($result['cycle_receipts'][0]['learning_leak']);
+    }
+
+    public function test_quarantine_outcome_without_maestro_route_is_not_a_learning_leak(): void
+    {
+        // Learning leak is scoped to success/give_back -- quarantine has its own maestro route
+        // check (LINK_MAESTRO_ROUTE) but is not classified as a "leak" by this verifier.
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['outcome_type' => 'quarantine'])
+        ));
+
+        $this->assertSame([], $result['learning_leaks']);
+    }
+
+    public function test_cycle_without_outcome_type_is_not_a_learning_leak(): void
+    {
+        $result = $this->verifier->verify($this->input($this->completeCycle()));
+
+        $this->assertSame([], $result['learning_leaks']);
     }
 
     // ── Other link checks ─────────────────────────────────────────────────────
