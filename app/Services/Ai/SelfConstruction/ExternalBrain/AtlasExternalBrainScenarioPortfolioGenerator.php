@@ -94,20 +94,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
      */
     public function generate(array $additionalScenarios = []): array
     {
-        $base = [
-            $this->highYieldScenario(),
-            $this->lowYieldScenario(),
-            $this->adversarialScenario(),
-            $this->crossProjectScenario(),
-            $this->blockedPoisonScenario(),
-            $this->staleDocScenario(),
-            $this->architectureLeapScenario(),
-            $this->successLowImpactScenario(),
-            $this->giveBackDiagnosticScenario(),
-            $this->quarantineRespecScenario(),
-            $this->proxyGreenCommitScenario(),
-            $this->modelTierFailureScenario(),
-        ];
+        $base = $this->canonicalScenarios();
 
         $seen     = [];
         $accepted = [];
@@ -128,7 +115,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
         }
 
         $coverage = array_values(array_unique(array_column($accepted, 'family')));
-        $missing  = array_values(array_diff(self::CANONICAL_FAMILIES, $coverage));
+        $missing  = array_values(array_diff($this->canonicalFamilies(), $coverage));
 
         return [
             'schema'                    => self::SCHEMA,
@@ -153,15 +140,48 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
      */
     public function assessPortfolio(array $callerScenarios): array
     {
-        $covered = array_values(array_unique(array_column($callerScenarios, 'family')));
-        $missing = array_values(array_diff(self::CANONICAL_FAMILIES, $covered));
+        $required = $this->canonicalFamilies();
+        $covered  = array_values(array_unique(array_column($callerScenarios, 'family')));
+        $missing  = array_values(array_diff($required, $covered));
 
         return [
-            'required_families'         => self::CANONICAL_FAMILIES,
+            'required_families'         => $required,
             'covered_families'          => $covered,
             'missing_scenario_families' => $missing,
             'too_narrow'                => $missing !== [],
         ];
+    }
+
+    /**
+     * Single registry circuit: the canonical scenario list is built here once,
+     * and both generate() (via the base scenarios) and assessPortfolio() (via
+     * canonicalFamilies()) derive from this same source — so a family can never
+     * be present in one path and missing from the other.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function canonicalScenarios(): array
+    {
+        return [
+            $this->highYieldScenario(),
+            $this->lowYieldScenario(),
+            $this->adversarialScenario(),
+            $this->crossProjectScenario(),
+            $this->blockedPoisonScenario(),
+            $this->staleDocScenario(),
+            $this->architectureLeapScenario(),
+            $this->successLowImpactScenario(),
+            $this->giveBackDiagnosticScenario(),
+            $this->quarantineRespecScenario(),
+            $this->proxyGreenCommitScenario(),
+            $this->modelTierFailureScenario(),
+        ];
+    }
+
+    /** @return list<string> */
+    private function canonicalFamilies(): array
+    {
+        return array_values(array_unique(array_column($this->canonicalScenarios(), 'family')));
     }
 
     private function highYieldScenario(): array
