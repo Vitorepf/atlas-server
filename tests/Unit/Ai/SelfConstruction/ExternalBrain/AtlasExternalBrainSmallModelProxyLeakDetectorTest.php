@@ -68,6 +68,16 @@ final class AtlasExternalBrainSmallModelProxyLeakDetectorTest extends TestCase
 
     // ── green path ────────────────────────────────────────────────────────────
 
+    public function test_detect_does_not_mutate_its_input_spec(): void
+    {
+        $input = ['candidate_spec' => $this->proxySpec()];
+        $before = $input;
+
+        $this->svc()->detect($input);
+
+        $this->assertSame($before, $input);
+    }
+
     public function test_good_spec_is_not_rejected(): void
     {
         $r = $this->detect($this->goodSpec());
