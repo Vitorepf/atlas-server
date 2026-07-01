@@ -43,6 +43,22 @@ final class AtlasExternalBrainDecisionLedgerCompactor
     private const SEPARATE_REASON_IRREVERSIBLE     = 'irreversible';
     private const SEPARATE_REASON_EXPIRED          = 'expired';
 
+    /** decision types that are ALWAYS durable — canonical decisions, failures, constraints, poison patterns, next-action receipts. */
+    private const DURABLE_DECISION_TYPES = [
+        'durable_decision',
+        'failed_pattern',
+        'active_constraint',
+        'poison_pattern',
+        'next_action_receipt',
+    ];
+
+    /** noise decision types => the specific reason each is dropped for (AC3 vocabulary). */
+    private const NOISE_DROP_REASONS = [
+        'status_narration'        => 'repeated_status_narration',
+        'queue_snapshot'          => 'stale_queue_snapshot',
+        'speculation'             => 'non_actionable_speculation',
+    ];
+
     /**
      * @param  array{traces?: list<array<string,mixed>>}  $input
      * @return array<string,mixed>
@@ -284,7 +300,7 @@ final class AtlasExternalBrainDecisionLedgerCompactor
                 continue;
             }
 
-            $isDurableClass = in_array($type, ['durable_decision', 'failed_pattern', 'active_constraint'], true);
+            $isDurableClass = in_array($type, self::DURABLE_DECISION_TYPES, true);
             $isSupersededOrDuplicate = in_array($status, ['superseded', 'duplicate'], true);
 
             if ($isDurableClass && ! $isSupersededOrDuplicate) {
@@ -292,10 +308,12 @@ final class AtlasExternalBrainDecisionLedgerCompactor
                 continue;
             }
 
+            $reason = $isSupersededOrDuplicate ? $status : (self::NOISE_DROP_REASONS[$type] ?? 'not_durable');
+
             $dropped[] = [
                 'decision_id' => $decisionId,
                 'type'        => $type,
-                'reason'      => $isSupersededOrDuplicate ? $status : 'not_durable',
+                'reason'      => $reason,
             ];
         }
 

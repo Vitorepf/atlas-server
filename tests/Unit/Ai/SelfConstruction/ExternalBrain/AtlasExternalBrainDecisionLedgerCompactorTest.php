@@ -492,6 +492,81 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
         $this->assertStringContainsString('dropped 1', $result['compact_summary']);
     }
 
+    public function test_compact_decisions_preserves_poison_pattern(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'P1', 'type' => 'poison_pattern', 'status' => 'active'],
+        ]]);
+
+        $this->assertSame(1, $result['preserved_count']);
+        $this->assertSame(0, $result['dropped_count']);
+    }
+
+    public function test_compact_decisions_preserves_next_action_receipt(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'N1', 'type' => 'next_action_receipt', 'status' => 'active'],
+        ]]);
+
+        $this->assertSame(1, $result['preserved_count']);
+        $this->assertSame(0, $result['dropped_count']);
+    }
+
+    public function test_compact_decisions_drops_status_narration_with_reason(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'S1', 'type' => 'status_narration', 'status' => 'active'],
+        ]]);
+
+        $this->assertSame(1, $result['dropped_count']);
+        $this->assertSame('repeated_status_narration', $result['dropped'][0]['reason']);
+    }
+
+    public function test_compact_decisions_drops_queue_snapshot_with_reason(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'Q1', 'type' => 'queue_snapshot', 'status' => 'active'],
+        ]]);
+
+        $this->assertSame(1, $result['dropped_count']);
+        $this->assertSame('stale_queue_snapshot', $result['dropped'][0]['reason']);
+    }
+
+    public function test_compact_decisions_drops_speculation_with_reason(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'SP1', 'type' => 'speculation', 'status' => 'active'],
+        ]]);
+
+        $this->assertSame(1, $result['dropped_count']);
+        $this->assertSame('non_actionable_speculation', $result['dropped'][0]['reason']);
+    }
+
+    public function test_compact_decisions_never_leaks_raw_provider_internals(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            [
+                'decision_id' => 'D1',
+                'type' => 'durable_decision',
+                'status' => 'active',
+                'raw_transcript' => 'SECRET_PROVIDER_TRANSCRIPT',
+                'provider_prompt' => 'SECRET_PROVIDER_PROMPT',
+            ],
+            [
+                'decision_id' => 'S1',
+                'type' => 'status_narration',
+                'status' => 'active',
+                'raw_transcript' => 'SECRET_PROVIDER_TRANSCRIPT',
+                'provider_prompt' => 'SECRET_PROVIDER_PROMPT',
+            ],
+        ]]);
+
+        $encoded = json_encode($result);
+
+        $this->assertStringNotContainsString('SECRET_PROVIDER_TRANSCRIPT', $encoded);
+        $this->assertStringNotContainsString('SECRET_PROVIDER_PROMPT', $encoded);
+    }
+
     // ── compaction_metrics ─────────────────────────────────────────────────────
 
     public function test_compaction_metrics_has_required_fields(): void
