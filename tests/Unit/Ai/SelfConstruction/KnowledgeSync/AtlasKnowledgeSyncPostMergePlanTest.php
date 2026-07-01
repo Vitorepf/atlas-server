@@ -210,4 +210,63 @@ final class AtlasKnowledgeSyncPostMergePlanTest extends TestCase
             $this->assertIsString($hint);
         }
     }
+
+    // ── planQueueRealityRefresh() ─────────────────────────────────────────────
+
+    private function svc(): AtlasKnowledgeSyncPostMergePlan
+    {
+        return new AtlasKnowledgeSyncPostMergePlan;
+    }
+
+    public function test_all_three_fresh_refreshes_allow_next_origination(): void
+    {
+        $result = $this->svc()->planQueueRealityRefresh([
+            'queue_health' => ['present' => true, 'age_seconds' => 10],
+            'queued_targets' => ['present' => true, 'age_seconds' => 20],
+            'code_index' => ['present' => true, 'age_seconds' => 30],
+        ]);
+
+        $this->assertTrue($result['next_origination_allowed']);
+        $this->assertTrue($result['queue_health_refresh']['fresh']);
+        $this->assertTrue($result['queued_targets_refresh']['fresh']);
+        $this->assertTrue($result['code_index_refresh']['fresh']);
+        $this->assertSame([], $result['missing_refreshes']);
+    }
+
+    public function test_missing_queued_targets_refresh_blocks_next_origination(): void
+    {
+        $result = $this->svc()->planQueueRealityRefresh([
+            'queue_health' => ['present' => true, 'age_seconds' => 10],
+            'code_index' => ['present' => true, 'age_seconds' => 30],
+        ]);
+
+        $this->assertFalse($result['next_origination_allowed']);
+        $this->assertContains('queued_targets', $result['missing_refreshes']);
+    }
+
+    public function test_stale_code_index_refresh_blocks_next_origination(): void
+    {
+        $result = $this->svc()->planQueueRealityRefresh([
+            'queue_health' => ['present' => true, 'age_seconds' => 10],
+            'queued_targets' => ['present' => true, 'age_seconds' => 20],
+            'code_index' => ['present' => true, 'age_seconds' => 99999],
+        ]);
+
+        $this->assertFalse($result['next_origination_allowed']);
+        $this->assertContains('code_index', $result['missing_refreshes']);
+        $this->assertFalse($result['code_index_refresh']['fresh']);
+    }
+
+    public function test_custom_max_age_seconds_is_respected(): void
+    {
+        $result = $this->svc()->planQueueRealityRefresh([
+            'queue_health' => ['present' => true, 'age_seconds' => 100],
+            'queued_targets' => ['present' => true, 'age_seconds' => 100],
+            'code_index' => ['present' => true, 'age_seconds' => 100],
+            'max_age_seconds' => 50,
+        ]);
+
+        $this->assertFalse($result['next_origination_allowed']);
+        $this->assertCount(3, $result['missing_refreshes']);
+    }
 }

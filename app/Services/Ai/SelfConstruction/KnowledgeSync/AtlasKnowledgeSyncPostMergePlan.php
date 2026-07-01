@@ -46,6 +46,66 @@ final class AtlasKnowledgeSyncPostMergePlan
 
     public const FILE_CLASS_MIGRATION = 'migration';
 
+    private const DEFAULT_REFRESH_MAX_AGE_SECONDS = 3600;
+
+    /**
+     * Explicitly refreshes queue health, queued targets, and code index BEFORE the next
+     * origination batch is allowed to rely on them — a next_origination_allowed=true claim can
+     * never rest on a refresh that is missing or stale. Pure: only judges supplied refresh facts,
+     * never performs the refresh itself.
+     *
+     * @param  array<string,mixed>  $facts
+     *         queue_health?:    {present?:bool, age_seconds?:int}
+     *         queued_targets?:  {present?:bool, age_seconds?:int}
+     *         code_index?:      {present?:bool, age_seconds?:int}
+     *         max_age_seconds?: int  optional override of the freshness ceiling (default 3600)
+     * @return array<string,mixed>
+     */
+    public function planQueueRealityRefresh(array $facts): array
+    {
+        $maxAgeSeconds = (int) ($facts['max_age_seconds'] ?? self::DEFAULT_REFRESH_MAX_AGE_SECONDS);
+
+        $queueHealthRefresh = $this->refreshStatus($facts['queue_health'] ?? null, $maxAgeSeconds);
+        $queuedTargetsRefresh = $this->refreshStatus($facts['queued_targets'] ?? null, $maxAgeSeconds);
+        $codeIndexRefresh = $this->refreshStatus($facts['code_index'] ?? null, $maxAgeSeconds);
+
+        $missingRefreshes = [];
+        foreach (['queue_health' => $queueHealthRefresh, 'queued_targets' => $queuedTargetsRefresh, 'code_index' => $codeIndexRefresh] as $name => $status) {
+            if (! $status['fresh']) {
+                $missingRefreshes[] = $name;
+            }
+        }
+
+        $nextOriginationAllowed = $missingRefreshes === [];
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'queue_health_refresh' => $queueHealthRefresh,
+            'queued_targets_refresh' => $queuedTargetsRefresh,
+            'code_index_refresh' => $codeIndexRefresh,
+            'missing_refreshes' => $missingRefreshes,
+            'next_origination_allowed' => $nextOriginationAllowed,
+        ];
+    }
+
+    /**
+     * @param  mixed  $refresh
+     * @return array{present:bool, age_seconds:?int, fresh:bool}
+     */
+    private function refreshStatus($refresh, int $maxAgeSeconds): array
+    {
+        $refresh = is_array($refresh) ? $refresh : [];
+        $present = (bool) ($refresh['present'] ?? false);
+        $ageSeconds = array_key_exists('age_seconds', $refresh) ? (int) $refresh['age_seconds'] : null;
+        $fresh = $present && $ageSeconds !== null && $ageSeconds <= $maxAgeSeconds;
+
+        return [
+            'present' => $present,
+            'age_seconds' => $ageSeconds,
+            'fresh' => $fresh,
+        ];
+    }
+
     /**
      * Classify changed file paths and produce an ordered sync plan distinguishing mandatory from optional steps.
      *
