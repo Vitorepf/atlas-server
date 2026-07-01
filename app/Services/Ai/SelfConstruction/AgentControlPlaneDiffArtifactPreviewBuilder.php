@@ -16,19 +16,38 @@ final class AgentControlPlaneDiffArtifactPreviewBuilder
     public function preview(array $workspacePlan, array $manifestPlan = []): array
     {
         $paths = (array) ($manifestPlan['output_paths'] ?? $workspacePlan['write_set'] ?? []);
+
+        $seen = [];
         $artifacts = [];
+        $duplicatePathCount = 0;
+        $invalidPathCount = 0;
+
         foreach ($paths as $path) {
             if (! is_string($path) || trim($path) === '') {
+                $invalidPathCount++;
+
                 continue;
             }
+            $normalized = trim($path);
+            if (isset($seen[$normalized])) {
+                $duplicatePathCount++;
+
+                continue;
+            }
+            $seen[$normalized] = true;
+
             $artifacts[] = [
-                'path' => trim($path),
-                'expected_diff_kind' => $this->kind(trim($path)),
-                'preview_hash' => hash('sha256', trim($path).'|diff-preview'),
+                'path' => $normalized,
+                'expected_diff_kind' => $this->kind($normalized),
+                'preview_hash' => hash('sha256', $normalized.'|diff-preview'),
                 'real_diff_read_allowed' => false,
                 'patch_apply_allowed' => false,
             ];
         }
+
+        // Deterministic ordering: the same path set in any input order yields the same artifact
+        // list and, by extension, the same diff_preview_hash.
+        usort($artifacts, static fn (array $a, array $b): int => strcmp($a['path'], $b['path']));
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -36,6 +55,8 @@ final class AgentControlPlaneDiffArtifactPreviewBuilder
             'status' => $artifacts === [] ? 'diff_preview_empty' : 'diff_preview_ready',
             'workspace_plan_id' => (string) ($workspacePlan['workspace_plan_id'] ?? ''),
             'artifact_count' => count($artifacts),
+            'duplicate_path_count' => $duplicatePathCount,
+            'invalid_path_count' => $invalidPathCount,
             'artifacts' => $artifacts,
             'real_diff_read_allowed' => false,
             'patch_apply_allowed' => false,
