@@ -502,4 +502,42 @@ final class AtlasExternalBrainPatternTransferEvaluatorTest extends TestCase
         $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_NEEDS_MORE_EVIDENCE, $r['results'][0]['transfer_decision']);
         $this->assertSame('collect_more_evidence:PAT', $r['results'][0]['first_task_spec_hint']);
     }
+
+    // ── destination_safety_floor / negative_outcome_summary ─────────────────────
+
+    public function test_accepted_transfer_includes_destination_safety_floor(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [$this->transferablePattern('PAT')]]);
+
+        $at = $r['accepted_transfers'][0];
+        $this->assertArrayHasKey('destination_safety_floor', $at);
+        $this->assertSame(0.30, $at['destination_safety_floor']['give_back_threshold']);
+        $this->assertSame(0.20, $at['destination_safety_floor']['duplicate_rate_threshold']);
+        $this->assertSame(0.40, $at['destination_safety_floor']['weak_acceptance_threshold']);
+    }
+
+    public function test_accepted_transfer_includes_negative_outcome_summary(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [array_merge(
+            $this->transferablePattern('PAT'),
+            ['cross_class_outcomes' => [
+                ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90, 'give_back_rate' => 0.12, 'duplicate_rate' => 0.05, 'weak_acceptance_rate' => 0.08],
+            ]],
+        )]]);
+
+        $summary = $r['accepted_transfers'][0]['negative_outcome_summary'];
+        $this->assertSame(0.12, $summary['max_give_back_rate']);
+        $this->assertSame(0.05, $summary['max_duplicate_rate']);
+        $this->assertSame(0.08, $summary['max_weak_acceptance_rate']);
+    }
+
+    public function test_destination_safety_floor_reflects_custom_thresholds(): void
+    {
+        $r = $this->evaluator()->evaluate([
+            'patterns'   => [$this->transferablePattern('PAT')],
+            'thresholds' => ['give_back_threshold' => 0.50],
+        ]);
+
+        $this->assertSame(0.50, $r['accepted_transfers'][0]['destination_safety_floor']['give_back_threshold']);
+    }
 }

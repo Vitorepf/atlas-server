@@ -213,6 +213,12 @@ final class AtlasExternalBrainPatternTransferEvaluator
                     'transfer_score'          => $transferScore,
                     'required_adaptations'    => $requiredAdaptations,
                     'proof_of_source_success' => $proofOfSuccess,
+                    'destination_safety_floor' => [
+                        'give_back_threshold'       => $giveBackThreshold,
+                        'duplicate_rate_threshold'  => $duplicateThreshold,
+                        'weak_acceptance_threshold' => $weakAcceptanceThreshold,
+                    ],
+                    'negative_outcome_summary' => $this->negativeOutcomeSummary($crossOutcomes),
                 ];
             } else {
                 $rejectedTransfer = [
@@ -379,6 +385,35 @@ final class AtlasExternalBrainPatternTransferEvaluator
         }
 
         return $ratios !== [] ? round(array_sum($ratios) / count($ratios), 4) : 0.0;
+    }
+
+    /**
+     * Aggregates the worst observed negative-outcome rates across all cross-class outcomes
+     * so an accepted transfer still shows its safety picture, not just a pass/fail verdict.
+     *
+     * @param  list<array<string,mixed>>  $outcomes
+     * @return array{max_give_back_rate:float, max_duplicate_rate:float, max_weak_acceptance_rate:float}
+     */
+    private function negativeOutcomeSummary(array $outcomes): array
+    {
+        $maxGiveBack = 0.0;
+        $maxDuplicate = 0.0;
+        $maxWeakAcceptance = 0.0;
+
+        foreach ($outcomes as $outcome) {
+            if (! is_array($outcome)) {
+                continue;
+            }
+            $maxGiveBack = max($maxGiveBack, (float) ($outcome['give_back_rate'] ?? 0.0));
+            $maxDuplicate = max($maxDuplicate, (float) ($outcome['duplicate_rate'] ?? 0.0));
+            $maxWeakAcceptance = max($maxWeakAcceptance, (float) ($outcome['weak_acceptance_rate'] ?? 0.0));
+        }
+
+        return [
+            'max_give_back_rate' => $maxGiveBack,
+            'max_duplicate_rate' => $maxDuplicate,
+            'max_weak_acceptance_rate' => $maxWeakAcceptance,
+        ];
     }
 
     /**
