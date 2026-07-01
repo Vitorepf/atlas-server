@@ -221,4 +221,134 @@ class AtlasMaestroBudgetGateTest extends TestCase
         self::assertSame(AtlasMaestroBudgetGate::DECISION_ALLOW, $verdict['budget_decision']);
         self::assertSame(1.0, $verdict['budget_multiplier']);
     }
+
+    // ── AC2: low structural value never earns the benefit of the doubt on waste ──
+
+    public function test_low_structural_value_with_mild_waste_signal_blocks(): void
+    {
+        $verdict = $this->gate()->evaluateWasteAwareRouting([
+            'retry_loop_rate' => 0.05,
+            'structural_value_score' => 0.05,
+        ]);
+
+        self::assertSame(AtlasMaestroBudgetGate::DECISION_BLOCK, $verdict['budget_decision']);
+        self::assertContains('low_structural_value_with_waste_signal', $verdict['blocked_reasons']);
+    }
+
+    public function test_default_structural_value_does_not_block_when_waste_is_below_threshold(): void
+    {
+        $verdict = $this->gate()->evaluateWasteAwareRouting(['retry_loop_rate' => 0.05]);
+
+        self::assertSame(AtlasMaestroBudgetGate::DECISION_ALLOW, $verdict['budget_decision']);
+        self::assertNotContains('low_structural_value_with_waste_signal', $verdict['blocked_reasons']);
+    }
+
+    public function test_high_structural_value_does_not_block_mild_waste_signal(): void
+    {
+        $verdict = $this->gate()->evaluateWasteAwareRouting([
+            'retry_loop_rate' => 0.05,
+            'structural_value_score' => 0.9,
+        ]);
+
+        self::assertNotContains('low_structural_value_with_waste_signal', $verdict['blocked_reasons']);
+    }
+
+    // ── AC3: high-cost routes only allowed through with verified proof_demand/criticality/unlock ──
+
+    public function test_budget_overage_blocked_by_default_even_with_high_scores_without_verified_proof(): void
+    {
+        Config::set('atlas.maestro.cost.budgets', ['per_cycle_cents' => 50]);
+        $ledger = $this->ledgerWithFacts(3, 30);
+
+        $verdict = (new AtlasMaestroBudgetGate(new AtlasMaestroCostAggregator($ledger)))->decide(
+            'pk-1', 'atlas_native', 'refactor', 'cycle-A',
+            ['proof_demand_score' => 0.9, 'criticality_score' => 0.9, 'expected_unlock_score' => 0.9],
+        );
+
+        self::assertSame(AtlasMaestroBudgetGate::GATE_ADVISE, $verdict['gate']);
+        self::assertNotSame('high_value_route_justified', $verdict['reason']);
+    }
+
+    public function test_budget_overage_allowed_when_high_value_route_is_verified(): void
+    {
+        Config::set('atlas.maestro.cost.budgets', ['per_cycle_cents' => 50]);
+        $ledger = $this->ledgerWithFacts(3, 30);
+
+        $verdict = (new AtlasMaestroBudgetGate(new AtlasMaestroCostAggregator($ledger)))->decide(
+            'pk-1', 'atlas_native', 'refactor', 'cycle-A',
+            [
+                'proof_demand_score' => 0.9,
+                'criticality_score' => 0.9,
+                'expected_unlock_score' => 0.9,
+                'verified_high_value_route_proof' => true,
+            ],
+        );
+
+        self::assertSame(AtlasMaestroBudgetGate::GATE_ALLOW, $verdict['gate']);
+        self::assertSame('high_value_route_justified', $verdict['reason']);
+    }
+
+    public function test_verified_proof_alone_without_all_three_high_scores_does_not_justify_high_cost_route(): void
+    {
+        Config::set('atlas.maestro.cost.budgets', ['per_cycle_cents' => 50]);
+        $ledger = $this->ledgerWithFacts(3, 30);
+
+        $verdict = (new AtlasMaestroBudgetGate(new AtlasMaestroCostAggregator($ledger)))->decide(
+            'pk-1', 'atlas_native', 'refactor', 'cycle-A',
+            [
+                'proof_demand_score' => 0.9,
+                'criticality_score' => 0.1, // fails the floor
+                'expected_unlock_score' => 0.9,
+                'verified_high_value_route_proof' => true,
+            ],
+        );
+
+        self::assertSame(AtlasMaestroBudgetGate::GATE_ADVISE, $verdict['gate']);
+    }
+
+    // ── AC4: provider class, cost band, waste reason, fallback route ───────────
+
+    public function test_envelope_includes_provider_class_cost_band_waste_reason_and_fallback_route(): void
+    {
+        Config::set('atlas.maestro.cost.budgets', ['per_cycle_cents' => 50]);
+        $ledger = $this->ledgerWithFacts(3, 30);
+
+        $verdict = (new AtlasMaestroBudgetGate(new AtlasMaestroCostAggregator($ledger)))
+            ->decide('pk-1', 'codex', 'refactor', 'cycle-A');
+
+        foreach (['provider_class', 'cost_band', 'waste_reason', 'fallback_route'] as $key) {
+            self::assertArrayHasKey($key, $verdict, "Missing key: {$key}");
+        }
+        self::assertSame('paid_provider', $verdict['provider_class']);
+        self::assertSame('cycle_budget_exceeded', $verdict['waste_reason']);
+        self::assertSame('atlas_native', $verdict['fallback_route']);
+    }
+
+    public function test_atlas_native_provider_class_is_zero_cost(): void
+    {
+        $verdict = $this->gate()->decide('pk-1', 'atlas_native', 'refactor', null);
+
+        self::assertSame('zero_cost', $verdict['provider_class']);
+    }
+
+    public function test_allowed_envelope_has_null_waste_reason_and_fallback_route(): void
+    {
+        $verdict = $this->gate()->decide('pk-1', 'atlas_native', 'refactor', null);
+
+        self::assertSame(AtlasMaestroBudgetGate::GATE_ALLOW, $verdict['gate']);
+        self::assertNull($verdict['waste_reason']);
+        self::assertNull($verdict['fallback_route']);
+        self::assertSame('none', $verdict['cost_band']);
+    }
+
+    public function test_cost_band_reflects_overage_size(): void
+    {
+        Config::set('atlas.maestro.cost.budgets', ['per_cycle_cents' => 10]);
+        $ledger = $this->ledgerWithFacts(1, 10010); // overage = 10000 cents -> high band
+
+        $verdict = (new AtlasMaestroBudgetGate(new AtlasMaestroCostAggregator($ledger)))
+            ->decide('pk-1', 'atlas_native', 'refactor', 'cycle-A');
+
+        self::assertSame('high', $verdict['cost_band']);
+    }
 }
