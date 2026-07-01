@@ -89,55 +89,70 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
         $rollbackCondition = isset($scaffold['rollback_condition']) && $scaffold['rollback_condition'] !== ''
             ? (string) $scaffold['rollback_condition']
             : null;
+        $requiredSections = array_values(array_map('strval', (array) ($scaffold['required_sections'] ?? [])));
+        $replacementCoveredSections = array_values(array_map('strval', (array) ($scaffold['replacement_covered_sections'] ?? [])));
+
+        $action = null;
+        $reasons = [];
+        $keepRationale = null;
 
         // RETIRE — quality failure. A retire decision driven by low lift requires
         // lift evidence; without it we never assume deletion is safe.
         $liftRetireEligible = $hasLiftEvidence && $lift < self::RETIRE_LIFT_FLOOR;
         $failureRetireEligible = $failureRate > self::RETIRE_FAILURE_CEILING;
         if ($liftRetireEligible || $failureRetireEligible) {
-            $reasons = [];
+            $action = self::ACTION_RETIRE;
             if ($liftRetireEligible) {
                 $reasons[] = sprintf('lift_score:%.4f<%.2f', $lift, self::RETIRE_LIFT_FLOOR);
             }
             if ($failureRetireEligible) {
                 $reasons[] = sprintf('failure_recurrence_rate:%.4f>%.2f', $failureRate, self::RETIRE_FAILURE_CEILING);
             }
-
-            return $this->entry($id, self::ACTION_RETIRE, $reasons, $replacement, null, $maintenanceCost, $lift, $failureRate, $rollbackCondition);
-        }
-
-        // RETIRE — high overlap with a replacement ready
-        if ($overlap > self::OVERLAP_RETIRE_CEILING && $replacement !== null) {
-            return $this->entry($id, self::ACTION_RETIRE, [
-                sprintf('overlap_score:%.4f>%.2f:superseded', $overlap, self::OVERLAP_RETIRE_CEILING),
-            ], $replacement, null, $maintenanceCost, $lift, $failureRate, $rollbackCondition);
-        }
-
-        // MERGE — moderate overlap with a replacement
-        if ($overlap > self::OVERLAP_MERGE_THRESHOLD && $replacement !== null) {
-            return $this->entry($id, self::ACTION_MERGE, [
-                sprintf('overlap_score:%.4f>%.2f:merge_into_replacement', $overlap, self::OVERLAP_MERGE_THRESHOLD),
-            ], $replacement, null, $maintenanceCost, $lift, $failureRate, $rollbackCondition);
-        }
-
-        // DOWNGRADE — not bad enough to retire, but costly to maintain and stale.
-        if (
+        } elseif ($overlap > self::OVERLAP_RETIRE_CEILING && $replacement !== null) {
+            // RETIRE — high overlap with a replacement ready
+            $action = self::ACTION_RETIRE;
+            $reasons[] = sprintf('overlap_score:%.4f>%.2f:superseded', $overlap, self::OVERLAP_RETIRE_CEILING);
+        } elseif ($overlap > self::OVERLAP_MERGE_THRESHOLD && $replacement !== null) {
+            // MERGE — moderate overlap with a replacement
+            $action = self::ACTION_MERGE;
+            $reasons[] = sprintf('overlap_score:%.4f>%.2f:merge_into_replacement', $overlap, self::OVERLAP_MERGE_THRESHOLD);
+        } elseif (
             $hasLiftEvidence
             && $lift >= self::RETIRE_LIFT_FLOOR
             && $lift < self::DOWNGRADE_LIFT_CEILING
             && $maintenanceCost >= self::DOWNGRADE_MAINTENANCE_FLOOR
             && $staleUsageDays >= self::DOWNGRADE_STALE_DAYS_FLOOR
         ) {
-            return $this->entry($id, self::ACTION_DOWNGRADE, [
-                sprintf(
-                    'lift_score:%.4f maintenance_cost:%.2f>=%.2f stale_usage_days:%d>=%d',
-                    $lift,
-                    $maintenanceCost,
-                    self::DOWNGRADE_MAINTENANCE_FLOOR,
-                    $staleUsageDays,
-                    self::DOWNGRADE_STALE_DAYS_FLOOR,
-                ),
-            ], $replacement, null, $maintenanceCost, $lift, $failureRate, $rollbackCondition);
+            // DOWNGRADE — not bad enough to retire, but costly to maintain and stale.
+            $action = self::ACTION_DOWNGRADE;
+            $reasons[] = sprintf(
+                'lift_score:%.4f maintenance_cost:%.2f>=%.2f stale_usage_days:%d>=%d',
+                $lift,
+                $maintenanceCost,
+                self::DOWNGRADE_MAINTENANCE_FLOOR,
+                $staleUsageDays,
+                self::DOWNGRADE_STALE_DAYS_FLOOR,
+            );
+        }
+
+        // AC: retirement/merge is blocked when required_sections were declared and the
+        // replacement (or lack thereof) doesn't cover all of them — active workers must
+        // never lose required guidance. Opt-in: skips entirely when required_sections
+        // was never supplied, so legacy callers keep their existing behavior unchanged.
+        if (in_array($action, [self::ACTION_RETIRE, self::ACTION_MERGE], true) && $requiredSections !== []) {
+            $missingSections = array_values(array_diff($requiredSections, $replacementCoveredSections));
+            if ($missingSections !== []) {
+                $reasons = ['retirement_blocked_missing_fallback_coverage:'.implode(',', $missingSections)];
+                $keepRationale = sprintf(
+                    'fallback does not cover required sections [%s]: refusing retirement preserves worker guidance',
+                    implode(', ', $missingSections),
+                );
+                $action = self::ACTION_KEEP;
+            }
+        }
+
+        if ($action !== null) {
+            return $this->entry($id, $action, $reasons, $replacement, $keepRationale, $maintenanceCost, $lift, $failureRate, $rollbackCondition, $requiredSections, $replacementCoveredSections);
         }
 
         // KEEP — explain why removal would reduce quality
@@ -156,7 +171,7 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
 
         $keepReason = $hasLiftEvidence ? 'sufficient_lift_and_low_failure' : 'lift_evidence_missing_refuse_retirement';
 
-        return $this->entry($id, self::ACTION_KEEP, [$keepReason], null, $keepRationale, $maintenanceCost, $lift, $failureRate);
+        return $this->entry($id, self::ACTION_KEEP, [$keepReason], null, $keepRationale, $maintenanceCost, $lift, $failureRate, null, $requiredSections, $replacementCoveredSections);
     }
 
     private function entry(
@@ -169,6 +184,8 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
         float $lift,
         float $failureRate,
         ?string $rollbackCondition = null,
+        array $requiredSections = [],
+        array $replacementCoveredSections = [],
     ): array {
         $complexityReductionWeight = match ($action) {
             self::ACTION_RETIRE => 1.0,
@@ -197,6 +214,24 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
                 : null))
             : null;
 
+        // AC: migration_notes + worker_impact — every plan entry tells an active worker
+        // exactly what changes and what (if anything) it must migrate to.
+        $migrationNotes = match (true) {
+            $action === self::ACTION_KEEP => ['no migration needed: scaffold retained'],
+            $replacement !== null => [sprintf('workers relying on %s should migrate to %s', $id, $replacement)],
+            default => [sprintf('workers relying on %s have no replacement; remove dependency on it', $id)],
+        };
+        if ($requiredSections !== []) {
+            $migrationNotes[] = sprintf('required_sections=[%s]', implode(', ', $requiredSections));
+        }
+
+        $workerImpact = match (true) {
+            $action === self::ACTION_KEEP => 'none',
+            $replacement !== null && $requiredSections !== [] && array_diff($requiredSections, $replacementCoveredSections) === [] => 'redirect_to_replacement_fully_covered',
+            $replacement !== null => 'redirect_to_replacement',
+            default => 'requires_manual_review_no_replacement',
+        };
+
         return [
             'scaffold_id'                   => $id,
             'action'                        => $action,
@@ -207,6 +242,8 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
             'expected_complexity_reduction' => $expectedComplexityReduction,
             'capability_risk'               => $capabilityRisk,
             'quality_floor_preserved'       => $qualityFloorPreserved,
+            'migration_notes'               => $migrationNotes,
+            'worker_impact'                 => $workerImpact,
         ];
     }
 }

@@ -313,4 +313,74 @@ final class AtlasExternalBrainScaffoldRetirementPlannerTest extends TestCase
 
         $this->assertGreaterThan($keptEntry['expected_complexity_reduction'], $retiredEntry['expected_complexity_reduction']);
     }
+
+    // ── AC: retirement blocked when no fallback covers required sections ───────
+
+    public function test_retirement_blocked_when_replacement_does_not_cover_required_sections(): void
+    {
+        $result = $this->plan($this->scaffold('harmful', [
+            'overlap_score'                 => 0.80,
+            'replacement_candidate'         => 'scaffold-v2',
+            'required_sections'             => ['guardrails', 'proof_obligations'],
+            'replacement_covered_sections'  => ['guardrails'], // missing proof_obligations
+        ]));
+
+        $entry = $this->findEntry($result, 'harmful');
+        $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_KEEP, $entry['action']);
+        $this->assertStringContainsString('proof_obligations', implode(' ', $entry['reasons']));
+    }
+
+    public function test_retirement_proceeds_when_replacement_covers_all_required_sections(): void
+    {
+        $result = $this->plan($this->scaffold('safe-to-retire', [
+            'overlap_score'                 => 0.80,
+            'replacement_candidate'         => 'scaffold-v2',
+            'required_sections'             => ['guardrails', 'proof_obligations'],
+            'replacement_covered_sections'  => ['guardrails', 'proof_obligations'],
+        ]));
+
+        $entry = $this->findEntry($result, 'safe-to-retire');
+        $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_RETIRE, $entry['action']);
+        $this->assertSame('redirect_to_replacement_fully_covered', $entry['worker_impact']);
+    }
+
+    public function test_no_required_sections_declared_preserves_legacy_retire_behavior(): void
+    {
+        $result = $this->plan($this->scaffold('legacy', [
+            'overlap_score'         => 0.80,
+            'replacement_candidate' => 'scaffold-v2',
+        ]));
+
+        $entry = $this->findEntry($result, 'legacy');
+        $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_RETIRE, $entry['action']);
+    }
+
+    // ── AC: retirement plans include migration_notes and worker_impact fields ──
+
+    public function test_every_entry_has_migration_notes_and_worker_impact_keys(): void
+    {
+        $result = $this->plan($this->scaffold('s1'));
+
+        $entry = $this->findEntry($result, 's1');
+        $this->assertArrayHasKey('migration_notes', $entry);
+        $this->assertArrayHasKey('worker_impact', $entry);
+        $this->assertNotEmpty($entry['migration_notes']);
+    }
+
+    public function test_keep_action_has_none_worker_impact(): void
+    {
+        $result = $this->plan($this->scaffold('s1'));
+
+        $entry = $this->findEntry($result, 's1');
+        $this->assertSame('none', $entry['worker_impact']);
+    }
+
+    public function test_retire_without_replacement_reports_requires_manual_review(): void
+    {
+        $result = $this->plan($this->scaffold('no-fallback', ['lift_score' => 0.05]));
+
+        $entry = $this->findEntry($result, 'no-fallback');
+        $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_RETIRE, $entry['action']);
+        $this->assertSame('requires_manual_review_no_replacement', $entry['worker_impact']);
+    }
 }
