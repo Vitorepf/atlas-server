@@ -355,4 +355,78 @@ final class AtlasExternalBrainGateRegressionResponsePlannerTest extends TestCase
             $this->assertSame($case['expected_repair'], $r['repair_action'], "Wrong repair for {$case['expected_class']}");
         }
     }
+
+    // ── AC1: gate false-negative (a hole) produces strengthen_gate repair plan ──
+
+    public function test_gate_hole_produces_strengthen_gate_repair_action(): void
+    {
+        $result = $this->planner->plan($this->auditWithHoles([$this->hole()]));
+
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_STRENGTHEN_GATE, $result['repair_action']);
+    }
+
+    public function test_multiple_holes_still_produce_strengthen_gate_action(): void
+    {
+        $result = $this->planner->plan($this->auditWithHoles([
+            $this->hole(['attack' => 'a', 'severity' => 'high']),
+            $this->hole(['attack' => 'b', 'severity' => 'critical']),
+        ]));
+
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_STRENGTHEN_GATE, $result['repair_action']);
+    }
+
+    // ── AC2: contradictory acceptance produces quarantine_and_respec plan ───────
+
+    public function test_contradiction_diagnosis_produces_quarantine_and_respec_response_plan(): void
+    {
+        $result = $this->planner->diagnose($this->packet([
+            'packet_quality' => ['deficiencies' => ['hidden_poison:contradictory_acceptance']],
+        ]));
+
+        $this->assertSame(
+            AtlasExternalBrainGateRegressionResponsePlanner::RESPONSE_PLAN_QUARANTINE_AND_RESPEC,
+            $result['response_plan'],
+        );
+        // repair_action stays the mechanical rewrite_criteria — response_plan is the broader plan.
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_REWRITE_CRITERIA, $result['repair_action']);
+    }
+
+    public function test_non_contradiction_poison_classes_use_repair_action_as_response_plan(): void
+    {
+        $result = $this->planner->diagnose($this->packet(['forbidden_files' => ['x']]));
+
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_QUARANTINE, $result['response_plan']);
+        $this->assertSame($result['repair_action'], $result['response_plan']);
+    }
+
+    // ── AC3: plans never recommend loosening a gate to make a packet pass ───────
+
+    public function test_no_repair_action_or_response_plan_ever_loosens_a_gate(): void
+    {
+        $loosenVerbs = ['loosen', 'weaken', 'disable_gate', 'skip_gate', 'bypass_gate', 'lower_threshold'];
+
+        $allActionValues = [
+            AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_STRENGTHEN_GATE,
+            AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_REWRITE_CRITERIA,
+            AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_ADD_SCOPE,
+            AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_QUARANTINE,
+            AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_SPLIT_PACKET,
+            AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_GIVE_BACK,
+            AtlasExternalBrainGateRegressionResponsePlanner::RESPONSE_PLAN_QUARANTINE_AND_RESPEC,
+        ];
+
+        foreach ($allActionValues as $action) {
+            foreach ($loosenVerbs as $verb) {
+                $this->assertStringNotContainsString($verb, $action, "{$action} must never loosen a gate");
+            }
+        }
+    }
+
+    public function test_gate_regression_plan_action_is_always_strengthen_never_loosen(): void
+    {
+        $result = $this->planner->plan($this->auditWithHoles([$this->hole()]));
+
+        $this->assertNotSame('loosen_gate', $result['repair_action']);
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_STRENGTHEN_GATE, $result['repair_action']);
+    }
 }

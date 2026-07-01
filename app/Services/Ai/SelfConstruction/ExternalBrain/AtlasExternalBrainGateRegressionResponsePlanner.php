@@ -47,6 +47,13 @@ final class AtlasExternalBrainGateRegressionResponsePlanner
     public const REPAIR_SPLIT_PACKET     = 'split_packet';
     public const REPAIR_GIVE_BACK        = 'give_back';
 
+    /** AC1: a gate hole is always a false negative — the gate itself must be strengthened. */
+    public const REPAIR_STRENGTHEN_GATE = 'strengthen_gate';
+
+    /** AC2: contradiction is never just a criteria rewrite — the packet must also be quarantined
+     * from serving while it is respec'd, so it can never be re-served broken in the meantime. */
+    public const RESPONSE_PLAN_QUARANTINE_AND_RESPEC = 'quarantine_and_respec';
+
     /** Maps each poison class to its deterministic repair action. */
     private const POISON_REPAIR_MAP = [
         self::POISON_CONTRADICTION               => self::REPAIR_REWRITE_CRITERIA,
@@ -54,6 +61,16 @@ final class AtlasExternalBrainGateRegressionResponsePlanner
         self::POISON_FORBIDDEN_TARGET            => self::REPAIR_QUARANTINE,
         self::POISON_STALE_DUPLICATE             => self::REPAIR_SPLIT_PACKET,
         self::POISON_TEST_ONLY_SPEC              => self::REPAIR_GIVE_BACK,
+    ];
+
+    /**
+     * AC2: broader response_plan per poison class — never just the mechanical repair_action.
+     * Every other class's plan currently equals its repair_action 1:1; only contradiction gets
+     * the stronger quarantine_and_respec treatment because a contradictory spec can never be
+     * safely re-served while awaiting rewrite.
+     */
+    private const POISON_RESPONSE_PLAN_MAP = [
+        self::POISON_CONTRADICTION => self::RESPONSE_PLAN_QUARANTINE_AND_RESPEC,
     ];
 
     // AC3: severity sort order (higher = more critical).
@@ -115,6 +132,7 @@ final class AtlasExternalBrainGateRegressionResponsePlanner
             'verdict'             => self::VERDICT_REPAIR_FIRST,
             'highest_severity'    => $severityOut,
             'repair_target'       => $attack,
+            'repair_action'       => self::REPAIR_STRENGTHEN_GATE,
             'expected_deficiency' => $expected,
             'deficiencies'        => $deficiencies,
             'evidence_command'    => self::EVIDENCE_COMMAND,
@@ -187,14 +205,17 @@ final class AtlasExternalBrainGateRegressionResponsePlanner
         ];
     }
 
-    /** @return array{poison_class:string, repair_action:string, fail_closed:bool, repair_reason:string} */
+    /** @return array{poison_class:string, repair_action:string, fail_closed:bool, repair_reason:string, response_plan:string} */
     private function poisonResult(string $poisonClass, string $reason): array
     {
+        $repairAction = self::POISON_REPAIR_MAP[$poisonClass];
+
         return [
             'poison_class'  => $poisonClass,
-            'repair_action' => self::POISON_REPAIR_MAP[$poisonClass],
+            'repair_action' => $repairAction,
             'fail_closed'   => true,
             'repair_reason' => $reason,
+            'response_plan' => self::POISON_RESPONSE_PLAN_MAP[$poisonClass] ?? $repairAction,
         ];
     }
 }
