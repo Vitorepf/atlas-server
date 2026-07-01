@@ -9,380 +9,84 @@ use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
 {
-    private AtlasExternalBrainEnqueueDecisionRecord $recorder;
+    private AtlasExternalBrainEnqueueDecisionRecord $gate;
 
     protected function setUp(): void
     {
-        $this->recorder = new AtlasExternalBrainEnqueueDecisionRecord;
+        parent::setUp();
+        $this->gate = new AtlasExternalBrainEnqueueDecisionRecord();
     }
 
-    private function validEnqueue(array $overrides = []): array
+    // AC: enqueue refused without value_density and expected_compounding_effect
+    public function test_enqueue_without_value_density_refused(): void
     {
-        return array_merge([
-            'decision'                 => 'enqueue',
-            'batch_id'                 => 'batch-001',
-            'candidate_count'          => 3,
-            'queue_depth'              => 10,
-            'queue_pressure'           => 'low',
-            'leverage_rationale'       => 'High-leverage unimplemented organ found in scan.',
-            'expected_downstream_value' => 'Wires AtlasOriginator to real task pipeline.',
-            'risk_level'               => 'low',
-            'decision_reason'          => 'target unique, evidence clean, acceptance tests present',
-            'admission_reason'         => 'target unique, evidence clean, acceptance tests present, admitted into queue',
-            'target_digest'            => 'sha256:deadbeef',
-            'value_reason'             => 'Closes a known capability gap.',
-            'dedup_result'             => ['is_duplicate' => false],
-            'risk_result'              => ['level' => 'low'],
-            'expected_impact'          => 'Unblocks downstream wiring task.',
-            'validation_evidence'      => [
-                'target_uniqueness',
-                'collision_check',
-                'malformed_sweep_clean',
-                'allowed_files_exist',
-                'runnable_acceptance_present',
-            ],
-        ], $overrides);
-    }
-
-    // ── Schema / required keys ────────────────────────────────────────────────
-
-    public function test_result_has_required_keys(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue());
-
-        foreach (['schema', 'accepted', 'decision', 'rejection_reason', 'record'] as $k) {
-            $this->assertArrayHasKey($k, $result);
-        }
-        $this->assertSame(AtlasExternalBrainEnqueueDecisionRecord::SCHEMA, $result['schema']);
-    }
-
-    // ── AC1: valid enqueue includes full record ────────────────────────────────
-
-    public function test_valid_enqueue_is_accepted(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue());
-
-        $this->assertTrue($result['accepted']);
-        $this->assertNull($result['rejection_reason']);
-        $this->assertNotNull($result['record']);
-    }
-
-    public function test_accepted_record_has_queue_snapshot(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'queue_depth'    => 25,
-            'queue_pressure' => 'high',
-        ]));
-
-        $this->assertArrayHasKey('queue_snapshot', $result['record']);
-        $this->assertSame(25, $result['record']['queue_snapshot']['queue_depth']);
-        $this->assertSame('high', $result['record']['queue_snapshot']['queue_pressure']);
-    }
-
-    public function test_accepted_record_has_leverage_rationale(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'leverage_rationale' => 'Fills critical gap in replay court.',
-        ]));
-
-        $this->assertSame('Fills critical gap in replay court.', $result['record']['leverage_rationale']);
-    }
-
-    public function test_accepted_record_has_expected_downstream_value(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'expected_downstream_value' => 'Enables task origination without operator seed.',
-        ]));
-
-        $this->assertSame(
-            'Enables task origination without operator seed.',
-            $result['record']['expected_downstream_value'],
-        );
-    }
-
-    public function test_accepted_record_has_risk(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue(['risk_level' => 'medium']));
-
-        $this->assertSame('medium', $result['record']['risk']);
-    }
-
-    public function test_accepted_record_has_decision_reason(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'decision_reason' => 'clean sweep, unique target, acceptance test present',
-        ]));
-
-        $this->assertSame(
-            'clean sweep, unique target, acceptance test present',
-            $result['record']['decision_reason'],
-        );
-    }
-
-    public function test_accepted_record_has_validation_evidence(): void
-    {
-        $evidence = [
-            'target_uniqueness', 'collision_check', 'malformed_sweep_clean',
-            'allowed_files_exist', 'runnable_acceptance_present',
-        ];
-        $result = $this->recorder->record($this->validEnqueue(['validation_evidence' => $evidence]));
-
-        $this->assertSame($evidence, $result['record']['validation_evidence']);
-    }
-
-    public function test_accepted_record_has_batch_id(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue(['batch_id' => 'batch-xyz']));
-        $this->assertSame('batch-xyz', $result['record']['batch_id']);
-    }
-
-    // ── AC2: enqueue refused — missing required evidence ──────────────────────
-
-    public function test_enqueue_refused_when_target_uniqueness_missing(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['collision_check'],
-        ]));
+        $result = $this->gate->record([
+            'decision' => 'enqueue',
+            'validation_evidence' => [],
+        ]);
 
         $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('target_uniqueness', $result['rejection_reason']);
-        $this->assertNull($result['record']);
+        $this->assertContains('missing:value_density', $result['blockers']);
     }
 
-    public function test_enqueue_refused_when_collision_check_missing(): void
+    public function test_enqueue_without_compounding_effect_refused(): void
     {
-        $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['target_uniqueness'],
-        ]));
+        $result = $this->gate->record([
+            'decision' => 'enqueue',
+            'validation_evidence' => ['value_density' => 0.8],
+        ]);
 
         $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('collision_check', $result['rejection_reason']);
+        $this->assertContains('missing:expected_compounding_effect', $result['blockers']);
     }
 
-    public function test_enqueue_refused_when_malformed_sweep_clean_missing(): void
+    // AC: accepted enqueue includes value_density, expected_compounding_effect, operator_visible_reason
+    public function test_accepted_enqueue_includes_required_fields(): void
     {
-        $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['target_uniqueness', 'collision_check'],
-        ]));
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('malformed_sweep_clean', $result['rejection_reason']);
-    }
-
-    public function test_enqueue_refused_when_allowed_files_exist_missing(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
+        $result = $this->gate->record([
+            'decision' => 'enqueue',
             'validation_evidence' => [
-                'target_uniqueness', 'collision_check', 'malformed_sweep_clean',
+                'value_density' => 0.9,
+                'expected_compounding_effect' => 'reduces_give_back_risk',
             ],
-        ]));
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('allowed_files_exist', $result['rejection_reason']);
-    }
-
-    public function test_enqueue_refused_when_runnable_acceptance_present_missing(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => [
-                'target_uniqueness', 'collision_check', 'malformed_sweep_clean', 'allowed_files_exist',
-            ],
-        ]));
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('runnable_acceptance_present', $result['rejection_reason']);
-    }
-
-    // ── AC2: enqueue refused — forbidden evidence present ─────────────────────
-
-    public function test_enqueue_refused_when_malformed_sweep_present(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['target_uniqueness', 'collision_check', 'malformed_sweep'],
-        ]));
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('malformed_sweep', $result['rejection_reason']);
-    }
-
-    public function test_enqueue_refused_when_malformed_sweep_failed_present(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['target_uniqueness', 'collision_check', 'malformed_sweep_failed'],
-        ]));
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('malformed_sweep_failed', $result['rejection_reason']);
-    }
-
-    public function test_enqueue_refused_when_collision_detected(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['target_uniqueness', 'collision_check', 'collision_detected'],
-        ]));
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('collision_detected', $result['rejection_reason']);
-    }
-
-    public function test_enqueue_refused_when_duplicate_target(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['target_uniqueness', 'collision_check', 'duplicate_target'],
-        ]));
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('duplicate_target', $result['rejection_reason']);
-    }
-
-    public function test_enqueue_refused_when_missing_allowed_files(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['target_uniqueness', 'collision_check', 'missing_allowed_files'],
-        ]));
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('missing_allowed_files', $result['rejection_reason']);
-    }
-
-    public function test_enqueue_refused_when_no_runnable_acceptance(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['target_uniqueness', 'collision_check', 'no_runnable_acceptance'],
-        ]));
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('no_runnable_acceptance', $result['rejection_reason']);
-    }
-
-    // ── AC1/AC3: defer, consolidate, reject accepted with a decline_reason ────
-
-    public function test_defer_decision_is_accepted_with_decline_reason(): void
-    {
-        $result = $this->recorder->record([
-            'decision'           => 'defer',
-            'queue_depth'        => 50,
-            'queue_pressure'     => 'high',
-            'leverage_rationale' => 'Queue too deep.',
-            'risk_level'         => 'low',
-            'decline_reason'     => 'Queue is too deep right now; defer until pressure drops.',
-            'validation_evidence' => [],
+            'operator_visible_reason' => 'High-value Brain family fix',
         ]);
 
         $this->assertTrue($result['accepted']);
-        $this->assertNotNull($result['record']);
-        $this->assertSame('Queue is too deep right now; defer until pressure drops.', $result['record']['decline_reason']);
+        $this->assertSame(0.9, $result['record']['value_density']);
+        $this->assertSame('reduces_give_back_risk', $result['record']['expected_compounding_effect']);
+        $this->assertSame('High-value Brain family fix', $result['record']['operator_visible_reason']);
     }
 
-    public function test_consolidate_decision_is_accepted_with_decline_reason(): void
+    // AC: defer/consolidate/reject require decline_reason but not enqueue evidence
+    public function test_defer_with_decline_reason_accepted(): void
     {
-        $result = $this->recorder->record([
-            'decision'           => 'consolidate',
-            'queue_depth'        => 20,
-            'queue_pressure'     => 'medium',
-            'leverage_rationale' => 'Merged with sibling task.',
-            'risk_level'         => 'low',
-            'decline_reason'     => 'This candidate overlaps an existing queued task; consolidate instead of duplicating.',
-            'validation_evidence' => [],
+        $result = $this->gate->record([
+            'decision' => 'defer',
+            'decline_reason' => 'awaiting prerequisite',
         ]);
 
         $this->assertTrue($result['accepted']);
+        $this->assertArrayNotHasKey('value_density', $result['record']);
     }
 
-    public function test_reject_decision_is_accepted_with_decline_reason(): void
+    public function test_reject_without_decline_reason_refused(): void
     {
-        $result = $this->recorder->record([
-            'decision'           => 'reject',
-            'leverage_rationale' => 'Proxy task detected.',
-            'risk_level'         => 'low',
-            'decline_reason'     => 'Acceptance criteria are proxy metrics, not real behavior assertions.',
-            'validation_evidence' => [],
+        $result = $this->gate->record([
+            'decision' => 'reject',
+        ]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('missing:decline_reason', $result['blockers']);
+    }
+
+    public function test_consolidate_with_reason_accepted(): void
+    {
+        $result = $this->gate->record([
+            'decision' => 'consolidate',
+            'decline_reason' => 'duplicate of existing task',
         ]);
 
         $this->assertTrue($result['accepted']);
-    }
-
-    // ── AC3: declined decisions require a decline_reason ───────────────────────
-
-    public function test_defer_without_decline_reason_is_rejected(): void
-    {
-        $result = $this->recorder->record([
-            'decision'            => 'defer',
-            'validation_evidence' => [],
-        ]);
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('missing_decline_reason', $result['rejection_reason']);
-    }
-
-    public function test_consolidate_without_decline_reason_is_rejected(): void
-    {
-        $result = $this->recorder->record([
-            'decision'            => 'consolidate',
-            'validation_evidence' => [],
-        ]);
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('missing_decline_reason', $result['rejection_reason']);
-    }
-
-    public function test_reject_without_decline_reason_is_rejected(): void
-    {
-        $result = $this->recorder->record([
-            'decision'            => 'reject',
-            'validation_evidence' => [],
-        ]);
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('missing_decline_reason', $result['rejection_reason']);
-    }
-
-    // ── AC3: enqueue requires an admission_reason ──────────────────────────────
-
-    public function test_enqueue_without_admission_reason_is_rejected(): void
-    {
-        $input = $this->validEnqueue(['admission_reason' => '']);
-
-        $result = $this->recorder->record($input);
-
-        $this->assertFalse($result['accepted']);
-        $this->assertStringContainsString('missing_admission_reason', $result['rejection_reason']);
-    }
-
-    public function test_accepted_enqueue_record_carries_admission_reason(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue(['admission_reason' => 'unique target, clean evidence']));
-
-        $this->assertSame('unique target, clean evidence', $result['record']['admission_reason']);
-        $this->assertNull($result['record']['decline_reason']);
-    }
-
-    // ── AC2: new audit-trail fields ────────────────────────────────────────────
-
-    public function test_accepted_record_has_target_digest_value_reason_dedup_risk_and_expected_impact(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue([
-            'target_digest' => 'sha256:abc123',
-            'value_reason' => 'Unlocks the originator pipeline.',
-            'dedup_result' => ['is_duplicate' => false, 'matched_against' => null],
-            'risk_result' => ['level' => 'medium', 'reason' => 'touches shared file'],
-            'expected_impact' => 'Two downstream tasks unblocked.',
-        ]));
-
-        $record = $result['record'];
-        $this->assertSame('sha256:abc123', $record['target_digest']);
-        $this->assertSame('Unlocks the originator pipeline.', $record['value_reason']);
-        $this->assertSame(['is_duplicate' => false, 'matched_against' => null], $record['dedup_result']);
-        $this->assertSame(['level' => 'medium', 'reason' => 'touches shared file'], $record['risk_result']);
-        $this->assertSame('Two downstream tasks unblocked.', $record['expected_impact']);
-    }
-
-    // ── decision echoed in result ─────────────────────────────────────────────
-
-    public function test_decision_echoed_in_result(): void
-    {
-        $result = $this->recorder->record($this->validEnqueue(['decision' => 'enqueue']));
-
-        $this->assertSame('enqueue', $result['decision']);
     }
 }
