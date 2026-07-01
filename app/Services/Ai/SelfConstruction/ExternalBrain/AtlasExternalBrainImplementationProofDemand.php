@@ -45,6 +45,20 @@ final class AtlasExternalBrainImplementationProofDemand
     public const PROOF_BEFORE_AFTER_EVIDENCE = 'before_after_evidence';
     public const PROOF_AUTONOMY_STEADY_STATE = 'autonomy_steady_state';
 
+    // Refactor/simplification/consolidation-specific proof: a behavior-preserving change must
+    // prove it preserved behavior, mapped who it affects, has an undo path, and told the brain.
+    public const PROOF_BEHAVIOR_EQUIVALENCE = 'behavior_equivalence';
+    public const PROOF_CONSUMER_IMPACT = 'consumer_impact';
+    public const PROOF_ROLLBACK_PLAN = 'rollback_plan';
+    public const PROOF_KNOWLEDGE_SYNC = 'knowledge_sync';
+
+    public const REFACTOR_PROOF_SET = [
+        self::PROOF_BEHAVIOR_EQUIVALENCE,
+        self::PROOF_CONSUMER_IMPACT,
+        self::PROOF_ROLLBACK_PLAN,
+        self::PROOF_KNOWLEDGE_SYNC,
+    ];
+
     public const ACCEPTED_REAL_PROOF_TYPES = [
         self::PROOF_BEHAVIOR_PROOF,
         self::PROOF_REGRESSION_PROOF,
@@ -53,6 +67,24 @@ final class AtlasExternalBrainImplementationProofDemand
         self::PROOF_BEHAVIOR_DELTA,
         self::PROOF_BEFORE_AFTER_EVIDENCE,
         self::PROOF_AUTONOMY_STEADY_STATE,
+        self::PROOF_BEHAVIOR_EQUIVALENCE,
+        self::PROOF_CONSUMER_IMPACT,
+        self::PROOF_ROLLBACK_PLAN,
+        self::PROOF_KNOWLEDGE_SYNC,
+    ];
+
+    private const REFACTOR_CLASSES = ['refactor', 'simplification', 'consolidation'];
+
+    // Structural/base proof types: prove the code runs, never that a risky change is safe on its
+    // own — too generic to satisfy a high-risk or refactor-class task by themselves.
+    private const GENERIC_PROOF_TYPES = [
+        self::PROOF_UNIT_TEST,
+        self::PROOF_FEATURE_TEST,
+        self::PROOF_COMMAND_SMOKE,
+        self::PROOF_QUEUE_HEALTH,
+        self::PROOF_DOC_PROPOSAL,
+        self::PROOF_COLLISION_SWEEP,
+        self::PROOF_WORKER_CONTINUITY,
     ];
 
     /** value_mechanism => extra proof it must add on top of the base, regardless of risk. */
@@ -95,6 +127,10 @@ final class AtlasExternalBrainImplementationProofDemand
         self::PROOF_RUNTIME_RECEIPT => 'A runtime receipt proving a real runtime decision changed as a result of this work.',
         self::PROOF_BEHAVIOR_DELTA => 'A concrete before/after behavior diff proving the change altered a real decision or output, not just that code compiles.',
         self::PROOF_WORKER_CONTINUITY => 'Evidence that workers keep claiming and completing tasks across the change, not just that the queue accepts writes.',
+        self::PROOF_BEHAVIOR_EQUIVALENCE => 'A before/after comparison proving the refactor produced byte-identical or spec-equivalent behavior for every existing input.',
+        self::PROOF_CONSUMER_IMPACT => 'An enumeration of every caller/consumer of the changed code, confirming none observe a behavior change.',
+        self::PROOF_ROLLBACK_PLAN => 'A concrete rollback path (revert commit, feature flag, or reversible migration) if the refactor turns out unsafe.',
+        self::PROOF_KNOWLEDGE_SYNC => 'Confirmation that docs, memory, and code-index evidence were updated to reflect the refactor before it counts as done.',
     ];
 
     /**
@@ -112,12 +148,19 @@ final class AtlasExternalBrainImplementationProofDemand
 
         $isHigh = $riskLevel === 'high';
         $isMedium = $riskLevel === 'medium';
+        $isRefactor = in_array($targetClass, self::REFACTOR_CLASSES, true)
+            || in_array($valueMechanism, self::REFACTOR_CLASSES, true);
 
-        $base = self::BASE_BY_CLASS[$targetClass]
-            ?? self::BASE_BY_CLASS[$valueMechanism]
-            ?? self::PROOF_UNIT_TEST;
-
-        $proofs = [$base];
+        // Refactor/simplification/consolidation tasks demand the behavior-preservation proof set
+        // instead of the generic base proof — "it still compiles" never proves behavior was kept.
+        if ($isRefactor) {
+            $proofs = self::REFACTOR_PROOF_SET;
+        } else {
+            $base = self::BASE_BY_CLASS[$targetClass]
+                ?? self::BASE_BY_CLASS[$valueMechanism]
+                ?? self::PROOF_UNIT_TEST;
+            $proofs = [$base];
+        }
 
         if ($isMedium) {
             $proofs[] = self::PROOF_COLLISION_SWEEP;
@@ -147,10 +190,11 @@ final class AtlasExternalBrainImplementationProofDemand
         $requiredProofs = array_values(array_unique($proofs));
         sort($requiredProofs);
 
-        $noteSufficient = ! $isHigh && ! $isPropertyGated && ! $isQueueOrContinuity;
+        $noteSufficient = ! $isHigh && ! $isPropertyGated && ! $isQueueOrContinuity && ! $isRefactor;
 
         $rationale = match (true) {
             $isHigh && $isPropertyGated => 'high_risk_property_gated: runnable gate mandatory',
+            $isRefactor                 => 'refactor_class: behavior equivalence, consumer impact, rollback plan and knowledge sync mandatory',
             $isHigh                     => 'high_risk: runnable gate mandatory',
             $isPropertyGated            => 'property_gated: runtime receipt mandatory',
             $isMedium                   => 'medium_risk: collision sweep added',
@@ -194,17 +238,28 @@ final class AtlasExternalBrainImplementationProofDemand
     /**
      * Judges a single submitted proof type: real evidence is accepted, a
      * proxy ("looks done") signal is rejected outright regardless of risk
-     * level or any other context.
+     * level or any other context. A generic base proof (unit_test, feature_test,
+     * command_smoke, ...) is additionally rejected as "too generic" when the task
+     * is high-risk or refactor-class — those tasks demand risk-specific evidence.
      *
      * @return array{accepted:bool,is_proxy:bool,reason:string}
      */
-    public function verifySubmittedProof(string $proofType): array
+    public function verifySubmittedProof(string $proofType, string $riskLevel = 'low', string $targetClass = 'logic'): array
     {
         if (in_array($proofType, self::REJECTED_PROXY_PROOF_TYPES, true)) {
             return [
                 'accepted' => false,
                 'is_proxy' => true,
                 'reason' => "\"{$proofType}\" is a proxy signal (compiles/exists/runs) — it never proves the targeted behavior actually changed.",
+            ];
+        }
+
+        $isRefactorClass = in_array($targetClass, self::REFACTOR_CLASSES, true);
+        if (($riskLevel === 'high' || $isRefactorClass) && in_array($proofType, self::GENERIC_PROOF_TYPES, true)) {
+            return [
+                'accepted' => false,
+                'is_proxy' => false,
+                'reason' => "\"{$proofType}\" is too generic for a ".($isRefactorClass ? 'refactor-class' : 'high-risk')." task — it proves the code runs, not that this specific risk was addressed.",
             ];
         }
 

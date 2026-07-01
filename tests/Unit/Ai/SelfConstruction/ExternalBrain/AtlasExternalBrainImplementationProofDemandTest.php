@@ -355,4 +355,100 @@ final class AtlasExternalBrainImplementationProofDemandTest extends TestCase
             $this->assertTrue($verdict['is_proxy']);
         }
     }
+
+    // ── AC1: refactor-class proof demand ────────────────────────────────────────
+
+    public function test_refactor_target_class_requires_behavior_equivalence_consumer_impact_rollback_and_knowledge_sync(): void
+    {
+        $r = $this->derive(targetClass: 'refactor');
+
+        $this->assertContains('behavior_equivalence', $r['required_proofs']);
+        $this->assertContains('consumer_impact', $r['required_proofs']);
+        $this->assertContains('rollback_plan', $r['required_proofs']);
+        $this->assertContains('knowledge_sync', $r['required_proofs']);
+    }
+
+    public function test_simplification_value_mechanism_requires_refactor_proof_set(): void
+    {
+        $r = $this->derive(valueMechanism: 'simplification');
+
+        foreach (AtlasExternalBrainImplementationProofDemand::REFACTOR_PROOF_SET as $proof) {
+            $this->assertContains($proof, $r['required_proofs']);
+        }
+    }
+
+    public function test_consolidation_target_class_notes_are_not_sufficient(): void
+    {
+        $r = $this->derive(targetClass: 'consolidation');
+        $this->assertFalse($r['implementation_notes_sufficient']);
+    }
+
+    public function test_refactor_proof_types_are_accepted_as_real_proof(): void
+    {
+        foreach (AtlasExternalBrainImplementationProofDemand::REFACTOR_PROOF_SET as $proof) {
+            $verdict = $this->svc()->verifySubmittedProof($proof);
+            $this->assertTrue($verdict['accepted'], "{$proof} should be accepted");
+            $this->assertFalse($verdict['is_proxy']);
+        }
+    }
+
+    public function test_refactor_rationale_mentions_behavior_equivalence(): void
+    {
+        $r = $this->derive(targetClass: 'refactor');
+        $this->assertStringContainsString('behavior equivalence', $r['minimum_proof_rationale']);
+    }
+
+    // ── AC2/AC3: generic proof rejected for high-risk / refactor-class tasks ───
+
+    public function test_generic_unit_test_rejected_for_high_risk_task(): void
+    {
+        $verdict = $this->svc()->verifySubmittedProof(
+            AtlasExternalBrainImplementationProofDemand::PROOF_UNIT_TEST,
+            riskLevel: 'high',
+        );
+
+        $this->assertFalse($verdict['accepted']);
+        $this->assertFalse($verdict['is_proxy']);
+    }
+
+    public function test_generic_feature_test_rejected_for_refactor_class(): void
+    {
+        $verdict = $this->svc()->verifySubmittedProof(
+            AtlasExternalBrainImplementationProofDemand::PROOF_FEATURE_TEST,
+            targetClass: 'refactor',
+        );
+
+        $this->assertFalse($verdict['accepted']);
+        $this->assertFalse($verdict['is_proxy']);
+    }
+
+    public function test_generic_unit_test_rejection_reason_is_specific_to_too_generic_not_unrecognized(): void
+    {
+        $lowRisk = $this->svc()->verifySubmittedProof(
+            AtlasExternalBrainImplementationProofDemand::PROOF_UNIT_TEST,
+            riskLevel: 'low',
+            targetClass: 'logic',
+        );
+        $highRisk = $this->svc()->verifySubmittedProof(
+            AtlasExternalBrainImplementationProofDemand::PROOF_UNIT_TEST,
+            riskLevel: 'high',
+            targetClass: 'logic',
+        );
+
+        $this->assertFalse($lowRisk['accepted']);
+        $this->assertFalse($highRisk['accepted']);
+        $this->assertStringContainsString('too generic', $highRisk['reason']);
+        $this->assertStringNotContainsString('too generic', $lowRisk['reason']);
+    }
+
+    public function test_behavior_delta_still_accepted_for_high_risk_task(): void
+    {
+        // AC3: rejection targets GENERIC proofs, not all proofs — a real, specific proof still passes.
+        $verdict = $this->svc()->verifySubmittedProof(
+            AtlasExternalBrainImplementationProofDemand::PROOF_BEHAVIOR_DELTA,
+            riskLevel: 'high',
+        );
+
+        $this->assertTrue($verdict['accepted']);
+    }
 }
