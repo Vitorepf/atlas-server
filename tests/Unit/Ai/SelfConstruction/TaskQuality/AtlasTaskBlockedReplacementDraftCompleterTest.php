@@ -267,4 +267,203 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $src, "completer must not perform {$forbidden}");
         }
     }
+
+    // ── AC1: fills missing objective from field_recovery when the draft lacks it ──
+
+    public function test_missing_objective_is_filled_from_field_recovery(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'objective' => 'Harden the forbidden-target guard for blocked packets.',
+                'allowed_files' => ['app/Foo.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.9,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertSame('Harden the forbidden-target guard for blocked packets.', $completed['objective']);
+        $this->assertTrue($completed['can_submit']);
+    }
+
+    public function test_missing_objective_without_recovery_does_not_block_submission(): void
+    {
+        // Backward compatibility: drafts predating the objective field must not regress.
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['app/Foo.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.9,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertSame('', $completed['objective']);
+        $this->assertTrue($completed['can_submit']);
+        $this->assertNotContains('objective', $completed['missing_fields']);
+    }
+
+    public function test_present_objective_is_never_overwritten_by_recovery(): void
+    {
+        $items = [[
+            'draft' => $this->draft(['objective' => 'Original objective.']),
+            'field_recovery' => [
+                'objective' => 'Recovered objective that should be ignored.',
+                'allowed_files' => ['app/Foo.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.9,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertSame('Original objective.', $completed['objective']);
+    }
+
+    // ── AC2: refuses test-only, forbidden-target and human-dependent drafts ──
+
+    public function test_test_only_draft_is_refused_even_with_trusted_high_confidence_recovery(): void
+    {
+        $items = [[
+            'draft' => $this->draft(['is_test_only' => true]),
+            'field_recovery' => [
+                'allowed_files' => ['tests/Unit/Foo/FooTest.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertFalse($completed['can_submit']);
+        $this->assertContains('test_only_replacement_refused', $completed['refusal_reasons']);
+        $this->assertNull($completed['replacement_task_packet_id']);
+    }
+
+    public function test_human_dependent_draft_is_refused(): void
+    {
+        $items = [[
+            'draft' => $this->draft(['requires_human' => true]),
+            'field_recovery' => [
+                'allowed_files' => ['app/Foo.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertFalse($completed['can_submit']);
+        $this->assertContains('human_dependent_replacement_refused', $completed['refusal_reasons']);
+    }
+
+    public function test_forbidden_target_allowed_file_is_refused(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['app/Services/Ai/Brain/AtlasBrainCore.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertFalse($completed['can_submit']);
+        $reasonBlob = implode(',', $completed['refusal_reasons']);
+        $this->assertStringContainsString('forbidden_target_replacement_refused', $reasonBlob);
+    }
+
+    public function test_explicit_forbidden_targets_list_refuses_matching_allowed_file(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['app/Services/Ai/Utility/Special.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+                'forbidden_targets' => ['app/Services/Ai/Utility/Special.php'],
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertFalse($completed['can_submit']);
+        $this->assertContains('forbidden_target_replacement_refused:app/Services/Ai/Utility/Special.php', $completed['refusal_reasons']);
+    }
+
+    public function test_non_forbidden_non_test_only_non_human_draft_still_submits(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['app/Services/Ai/Foo.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertTrue($completed['can_submit']);
+        $this->assertSame([], $completed['refusal_reasons']);
+    }
+
+    // ── AC3: missing_fact blockers instead of invented implementation scope ──
+
+    public function test_missing_fact_blockers_mirror_missing_fields(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['app/Foo.php'],
+                'trust' => 'trusted',
+                'confidence' => 0.9,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertSame(['acceptance_criteria', 'required_evidence'], $completed['missing_fields']);
+        $this->assertSame(['missing_fact:acceptance_criteria', 'missing_fact:required_evidence'], $completed['missing_fact_blockers']);
+    }
+
+    public function test_missing_fact_blockers_empty_when_no_fields_missing(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['app/Foo.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.9,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertSame([], $completed['missing_fact_blockers']);
+    }
 }

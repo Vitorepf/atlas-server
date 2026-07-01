@@ -12,8 +12,15 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  * cannot itself produce a safe packet. Does not enqueue, mutate queue records, retire packets, call
  * providers, write files, or run git — it only returns a proposal payload.
  *
- * Input item shape: {draft: array, field_recovery: {allowed_files?, acceptance_criteria?,
- *   required_evidence?, trust:'trusted'|'ambiguous'|'untrusted', confidence:float}}
+ * Input item shape: {draft: array, field_recovery: {objective?, allowed_files?,
+ *   acceptance_criteria?, required_evidence?, trust:'trusted'|'ambiguous'|'untrusted',
+ *   confidence:float, is_test_only?, requires_human?, forbidden_targets?}}
+ *
+ * objective is filled from field_recovery when the draft is missing it (same conservative
+ * merge as the other three fields), but is never required to submit — replacement drafts
+ * predating this field must not regress. Test-only, forbidden-target and human-dependent
+ * drafts are always refused regardless of trust/confidence, since no amount of field recovery
+ * makes an unsafe replacement shape safe to submit.
  */
 final class AtlasTaskBlockedReplacementDraftCompleter
 {
@@ -23,7 +30,12 @@ final class AtlasTaskBlockedReplacementDraftCompleter
 
     private const REQUIRED_FIELDS = ['allowed_files', 'acceptance_criteria', 'required_evidence'];
 
+    private const FILLABLE_FIELDS = ['objective', 'allowed_files', 'acceptance_criteria', 'required_evidence'];
+
     private const CONFIDENCE_THRESHOLD = 0.75;
+
+    /** @var list<string> */
+    private const FORBIDDEN_TARGET_KEYWORDS = ['Brain', 'Gateway', 'Harness', 'Core', 'Immune'];
 
     /**
      * @param  list<array<string, mixed>>  $items
@@ -87,10 +99,13 @@ final class AtlasTaskBlockedReplacementDraftCompleter
         $confidence = (float) ($fieldRecovery['confidence'] ?? 0.0);
 
         $merged = $draft;
-        foreach (self::REQUIRED_FIELDS as $field) {
-            $missing = ! isset($merged[$field]) || $merged[$field] === [] || $merged[$field] === '';
-            $recovered = (array) ($fieldRecovery[$field] ?? []);
-            if ($missing && $recovered !== []) {
+        foreach (self::FILLABLE_FIELDS as $field) {
+            $current = $merged[$field] ?? null;
+            $missing = $current === null || $current === [] || $current === '';
+            $recoveredRaw = $fieldRecovery[$field] ?? null;
+            $recovered = $field === 'objective' ? trim((string) $recoveredRaw) : (array) ($recoveredRaw ?? []);
+            $recoveredIsUseful = $field === 'objective' ? $recovered !== '' : $recovered !== [];
+            if ($missing && $recoveredIsUseful) {
                 $merged[$field] = $recovered;
             }
         }
@@ -111,18 +126,72 @@ final class AtlasTaskBlockedReplacementDraftCompleter
             $refusalReasons[] = 'missing_required_fields:'.implode(',', $missingFields);
         }
 
-        $canSubmit = $missingFields === [] && $trust === self::TRUST_TRUSTED && $confidence >= self::CONFIDENCE_THRESHOLD;
+        // AC2: safety refusals — no amount of trusted, high-confidence field recovery makes an
+        // unsafe replacement shape submittable.
+        if ((bool) ($draft['is_test_only'] ?? $fieldRecovery['is_test_only'] ?? false)) {
+            $refusalReasons[] = 'test_only_replacement_refused';
+        }
+        if ((bool) ($draft['requires_human'] ?? $fieldRecovery['requires_human'] ?? false)) {
+            $refusalReasons[] = 'human_dependent_replacement_refused';
+        }
+        $forbiddenTargets = $this->matchedForbiddenTargets(
+            (array) ($merged['allowed_files'] ?? []),
+            array_values(array_filter(array_map('strval', (array) ($fieldRecovery['forbidden_targets'] ?? [])))),
+        );
+        foreach ($forbiddenTargets as $target) {
+            $refusalReasons[] = 'forbidden_target_replacement_refused:'.$target;
+        }
+
+        $canSubmit = $missingFields === []
+            && $trust === self::TRUST_TRUSTED
+            && $confidence >= self::CONFIDENCE_THRESHOLD
+            && $forbiddenTargets === []
+            && ! (bool) ($draft['is_test_only'] ?? $fieldRecovery['is_test_only'] ?? false)
+            && ! (bool) ($draft['requires_human'] ?? $fieldRecovery['requires_human'] ?? false);
 
         return [
             'task_packet_id' => $sourceId,
             'replacement_task_packet_id' => $canSubmit ? $this->replacementId($sourceId, $merged) : null,
             'can_submit' => $canSubmit,
             'missing_fields' => $missingFields,
+            'missing_fact_blockers' => array_map(static fn (string $f): string => 'missing_fact:'.$f, $missingFields),
             'refusal_reasons' => $refusalReasons,
+            'objective' => $merged['objective'] ?? '',
             'allowed_files' => $merged['allowed_files'] ?? [],
             'acceptance_criteria' => $merged['acceptance_criteria'] ?? [],
             'required_evidence' => $merged['required_evidence'] ?? [],
         ];
+    }
+
+    /**
+     * A path is a forbidden target when it matches a caller-supplied forbidden_targets list, or
+     * when it touches a core-system keyword — a replacement draft never gets to invent its way
+     * around either.
+     *
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $forbiddenTargets
+     * @return list<string>
+     */
+    private function matchedForbiddenTargets(array $allowedFiles, array $forbiddenTargets): array
+    {
+        $matched = [];
+        foreach ($allowedFiles as $path) {
+            $path = (string) $path;
+            if (in_array($path, $forbiddenTargets, true)) {
+                $matched[] = $path;
+
+                continue;
+            }
+            foreach (self::FORBIDDEN_TARGET_KEYWORDS as $keyword) {
+                if (str_contains($path, $keyword)) {
+                    $matched[] = $path;
+
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($matched));
     }
 
     /**
