@@ -114,4 +114,56 @@ final class AemorJudgmentQualityScorerTest extends TestCase
         $this->assertSame('clear', $result['breakdown']['repeated_failure']);
         $this->assertSame(90, $result['breakdown']['context_roi']);
     }
+
+    public function testNegativeEvidenceRefsCountAndOutOfRangeRoiAreClampedBeforeScoring(): void
+    {
+        $result = $this->scorer->score(-5, 'pass', 'clear', 500);
+
+        $this->assertSame(0, $result['breakdown']['evidence_coverage']);
+        $this->assertSame(100, $result['breakdown']['context_roi']);
+        $this->assertContains('no_evidence_refs', $result['negative_drivers']);
+    }
+
+    public function testNegativeEvidenceRefsWithNegativeRoiAreBothClampedToZero(): void
+    {
+        $result = $this->scorer->score(-1, 'pass', 'clear', -20);
+
+        $this->assertSame(0, $result['breakdown']['evidence_coverage']);
+        $this->assertSame(0, $result['breakdown']['context_roi']);
+    }
+
+    public function testFalseLearningFailureCapsStatusBelowStrongEvenWithGoodRoiAndClearFailure(): void
+    {
+        $result = $this->scorer->score(2, 'blocked_for_learning', 'clear', 90);
+
+        $this->assertNotSame('strong', $result['status']);
+        $this->assertSame('watch', $result['status']);
+        $this->assertContains('false_learning_status_caps_below_strong', $result['negative_drivers']);
+    }
+
+    public function testPositiveAndNegativeDriversExplainScoreDeterministically(): void
+    {
+        $result = $this->scorer->score(2, 'pass', 'clear', 90);
+
+        $this->assertSame(
+            ['evidence_refs_present', 'false_learning_gate_passed', 'repeated_failure_clear', 'high_context_roi'],
+            $result['positive_drivers'],
+        );
+        $this->assertSame([], $result['negative_drivers']);
+
+        $second = $this->scorer->score(2, 'pass', 'clear', 90);
+        $this->assertSame($result['positive_drivers'], $second['positive_drivers']);
+        $this->assertSame($result['negative_drivers'], $second['negative_drivers']);
+    }
+
+    public function testAllNegativeDriversPresentForFullPenaltyInput(): void
+    {
+        $result = $this->scorer->score(0, 'blocked_for_learning', 'blocked', 10);
+
+        $this->assertSame(
+            ['no_evidence_refs', 'false_learning_gate_not_passed', 'repeated_failure_not_clear', 'low_context_roi', 'false_learning_status_caps_below_strong'],
+            $result['negative_drivers'],
+        );
+        $this->assertSame([], $result['positive_drivers']);
+    }
 }
