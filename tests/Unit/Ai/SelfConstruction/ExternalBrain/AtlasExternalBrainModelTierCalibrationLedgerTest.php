@@ -175,6 +175,71 @@ final class AtlasExternalBrainModelTierCalibrationLedgerTest extends TestCase
         $this->assertSame([], $result['routing_recommendations']);
     }
 
+    // ── retry cost ────────────────────────────────────────────────────────────
+
+    public function test_tier_stats_includes_avg_retry_count(): void
+    {
+        $runs = [
+            $this->makeRun(['retry_count' => 2]),
+            $this->makeRun(['retry_count' => 4]),
+        ];
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+        $stats  = $result['tier_stats'][AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL];
+
+        $this->assertEqualsWithDelta(3.0, $stats['avg_retry_count'], 0.001);
+    }
+
+    // ── confidence scales with sample size ───────────────────────────────────
+
+    public function test_confidence_is_low_for_thin_sample_and_high_for_deep_sample(): void
+    {
+        $thin = $this->ledger->calibrate(['runs' => $this->nRuns(2)]);
+        $deep = $this->ledger->calibrate(['runs' => $this->nRuns(20)]);
+
+        $thinConfidence = $thin['tier_stats'][AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL]['confidence'];
+        $deepConfidence = $deep['tier_stats'][AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL]['confidence'];
+
+        $this->assertLessThan($deepConfidence, $thinConfidence);
+        $this->assertSame(1.0, $deepConfidence);
+    }
+
+    public function test_under_sampled_segment_carries_low_confidence(): void
+    {
+        $result = $this->ledger->calibrate(['runs' => $this->nRuns(2)]);
+
+        $this->assertArrayHasKey('confidence', $result['under_sampled_segments'][0]);
+        $this->assertLessThan(0.5, $result['under_sampled_segments'][0]['confidence']);
+    }
+
+    public function test_routing_recommendation_carries_confidence_and_sample_size(): void
+    {
+        $result = $this->ledger->calibrate(['runs' => $this->nRuns(5, ['outcome' => 'success'])]);
+
+        $rec = $result['routing_recommendations'][0];
+        $this->assertArrayHasKey('confidence', $rec);
+        $this->assertArrayHasKey('sample_size', $rec);
+        $this->assertSame(5, $rec['sample_size']);
+    }
+
+    // ── frontier overfit: label alone never justifies promotion ─────────────
+
+    public function test_frontier_tier_with_poor_outcomes_triggers_downgrade_not_promotion(): void
+    {
+        // "frontier" tier, but real outcomes are bad — the label must not save it.
+        $runs = [
+            ...$this->nRuns(1, ['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_FRONTIER, 'outcome' => 'success']),
+            ...$this->nRuns(4, ['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_FRONTIER, 'outcome' => 'low_value']),
+        ];
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+
+        $this->assertNotEmpty($result['routing_recommendations']);
+        $rec = $result['routing_recommendations'][0];
+        $this->assertSame(AtlasExternalBrainModelTierCalibrationLedger::TIER_FRONTIER, $rec['model_tier']);
+        $this->assertStringContainsString('downgrade', $rec['action']);
+    }
+
     // ── AC4: evidence_thresholds ──────────────────────────────────────────────
 
     public function test_evidence_thresholds_key_is_present(): void

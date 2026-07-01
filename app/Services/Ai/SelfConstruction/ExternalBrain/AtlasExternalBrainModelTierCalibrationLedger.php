@@ -10,13 +10,18 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * only when enough evidence exists.
  *
  * AC2: aggregates by model_tier, scaffold_variant, critique_depth, task_class,
- *      success rate, give_back rate, and value proof strength.
+ *      success rate, give_back rate, value proof strength, and avg retry cost —
+ *      a model_tier label never substitutes for measured outcomes (a "frontier"
+ *      tier with poor real results scores the same as any other poor performer).
  *
  * AC3: recommendations are only emitted for segments with ≥ MIN_SAMPLES runs.
  *      Segments below that threshold are listed as under_sampled and inconclusive.
  *
  * AC4: output always includes tier_stats, routing_recommendations,
- *      under_sampled_segments, and evidence_thresholds.
+ *      under_sampled_segments, and evidence_thresholds. tier_stats, per-segment
+ *      recommendations, and under_sampled_segments each carry a confidence score
+ *      derived from sample_size, so a thin sample can never look as trustworthy
+ *      as a deep one.
  *
  * Pure: no I/O, no side effects.
  */
@@ -47,6 +52,9 @@ final class AtlasExternalBrainModelTierCalibrationLedger
     /** Frontier must beat the best small/scaffolded verified success rate by this much to count as extraordinary lift. */
     private const FRONTIER_HIGH_LIFT_DELTA = 0.30;
 
+    /** Sample size at which confidence saturates to 1.0; below it confidence scales linearly. */
+    private const CONFIDENT_SAMPLE_SIZE = 20;
+
     /**
      * @param  array{runs?: list<array<string,mixed>>}  $input
      * @return array{schema:string, tier_stats:array<string,mixed>, routing_recommendations:list<array<string,mixed>>, under_sampled_segments:list<array<string,mixed>>, evidence_thresholds:array<string,mixed>}
@@ -67,6 +75,7 @@ final class AtlasExternalBrainModelTierCalibrationLedger
             $taskClass = (string) ($run['task_class']        ?? 'general');
             $outcome   = (string) ($run['outcome']           ?? '');
             $valueStr  = max(0.0, min(1.0, (float) ($run['value_proof_strength'] ?? 0.0)));
+            $retries   = max(0, (int) ($run['retry_count'] ?? 0));
             $verified  = (bool) ($run['verified'] ?? false);
 
             if ($verified) {
@@ -94,11 +103,13 @@ final class AtlasExternalBrainModelTierCalibrationLedger
                     'low_value_count'   => 0,
                     'total'             => 0,
                     'value_strength_sum' => 0.0,
+                    'retry_sum'         => 0,
                 ];
             }
 
             $segments[$segKey]['total']++;
             $segments[$segKey]['value_strength_sum'] += $valueStr;
+            $segments[$segKey]['retry_sum'] += $retries;
 
             match ($outcome) {
                 self::OUTCOME_SUCCESS   => $segments[$segKey]['success_count']++,
@@ -109,10 +120,11 @@ final class AtlasExternalBrainModelTierCalibrationLedger
 
             // Tier-level aggregation
             if (! isset($tierRaw[$tier])) {
-                $tierRaw[$tier] = ['success' => 0, 'give_back' => 0, 'low_value' => 0, 'total' => 0, 'vs_sum' => 0.0];
+                $tierRaw[$tier] = ['success' => 0, 'give_back' => 0, 'low_value' => 0, 'total' => 0, 'vs_sum' => 0.0, 'retry_sum' => 0];
             }
             $tierRaw[$tier]['total']++;
             $tierRaw[$tier]['vs_sum'] += $valueStr;
+            $tierRaw[$tier]['retry_sum'] += $retries;
             match ($outcome) {
                 self::OUTCOME_SUCCESS   => $tierRaw[$tier]['success']++,
                 self::OUTCOME_GIVE_BACK => $tierRaw[$tier]['give_back']++,
@@ -130,6 +142,8 @@ final class AtlasExternalBrainModelTierCalibrationLedger
                 'success_rate'              => $total > 0 ? round($agg['success'] / $total, 4) : 0.0,
                 'give_back_rate'            => $total > 0 ? round($agg['give_back'] / $total, 4) : 0.0,
                 'avg_value_proof_strength'  => $total > 0 ? round($agg['vs_sum'] / $total, 4) : 0.0,
+                'avg_retry_count'           => $total > 0 ? round($agg['retry_sum'] / $total, 4) : 0.0,
+                'confidence'                => $this->confidence($total),
             ];
         }
 
@@ -147,6 +161,8 @@ final class AtlasExternalBrainModelTierCalibrationLedger
                     'model_tier'   => $seg['model_tier'],
                     'task_class'   => $seg['task_class'],
                     'sample_count' => $total,
+                    'sample_size'  => $total,
+                    'confidence'   => $this->confidence($total),
                     'verdict'      => 'inconclusive',
                 ];
                 continue;
@@ -165,8 +181,11 @@ final class AtlasExternalBrainModelTierCalibrationLedger
                     'task_class'    => $seg['task_class'],
                     'success_rate'  => round($successRate, 4),
                     'give_back_rate' => round($giveBackRate, 4),
+                    'avg_retry_count' => round($seg['retry_sum'] / $total, 4),
                     'action'        => $recommendation,
                     'evidence'      => "sample_count={$total}",
+                    'sample_size'   => $total,
+                    'confidence'    => $this->confidence($total),
                 ];
             }
         }
@@ -257,6 +276,12 @@ final class AtlasExternalBrainModelTierCalibrationLedger
         $bestLowerTierSuccessRate = max($small['success_rate'], $scaffolded['success_rate']);
 
         return ($frontier['success_rate'] - $bestLowerTierSuccessRate) >= self::FRONTIER_HIGH_LIFT_DELTA;
+    }
+
+    /** Linear ramp from 0 at zero samples to 1.0 at CONFIDENT_SAMPLE_SIZE — a thin sample can never claim full confidence. */
+    private function confidence(int $sampleSize): float
+    {
+        return round(min(1.0, $sampleSize / self::CONFIDENT_SAMPLE_SIZE), 4);
     }
 
     private function recommendation(string $tier, float $successRate, float $giveBackRate, float $avgVs): ?string
