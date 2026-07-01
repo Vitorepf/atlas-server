@@ -374,4 +374,93 @@ final class AtlasSelfConstructionScopeExpansionCandidateRankerTest extends TestC
         $this->assertContains('scalar_only_proxy', $byId['proxy']);
         $this->assertContains('hype_only', $byId['hype']);
     }
+
+    // ── AC: high-leverage ready candidate ─────────────────────────────────────
+
+    public function test_high_leverage_ready_candidate_is_accepted_and_ranks_first(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'ready', 'proven_leverage_tier' => 3, 'autonomy_readiness_tier' => 3, 'risk' => 2]),
+                $this->goodCandidate(['scope_id' => 'weak', 'proven_leverage_tier' => 1, 'autonomy_readiness_tier' => 1, 'risk' => 2]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $order = array_column($out['accepted_candidates'], 'scope_id');
+        $this->assertSame(['ready', 'weak'], $order);
+    }
+
+    // ── AC: blocks high-risk low-readiness expansion even when leverage looks high ──
+
+    public function test_high_risk_low_readiness_candidate_is_blocked_despite_high_leverage(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate([
+                    'scope_id' => 'risky-unready',
+                    'proven_leverage_tier' => 3, // leverage looks high
+                    'autonomy_readiness_tier' => 1, // but unready
+                    'risk' => 8, // and high risk
+                ]),
+            ],
+            'risk_budget' => ['max_risk' => 10], // budget alone would allow it through
+        ]);
+
+        $this->assertSame([], $out['accepted_candidates']);
+        $this->assertContains(
+            AtlasSelfConstructionScopeExpansionCandidateRanker::REASON_HIGH_RISK_LOW_READINESS,
+            $out['rejected_candidates'][0]['reasons'],
+        );
+    }
+
+    public function test_high_risk_but_ready_candidate_is_not_blocked_by_the_readiness_gate(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'risky-but-ready', 'risk' => 8, 'autonomy_readiness_tier' => 3]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertCount(1, $out['accepted_candidates']);
+    }
+
+    // ── AC: mature lane deprioritization ───────────────────────────────────────
+
+    public function test_mature_lane_candidate_is_deprioritized_below_immature_lane_on_tie(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'mature', 'lane_maturity_tier' => 8]),
+                $this->goodCandidate(['scope_id' => 'new-lane', 'lane_maturity_tier' => 1]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $order = array_column($out['accepted_candidates'], 'scope_id');
+        $this->assertSame(['new-lane', 'mature'], $order);
+        $this->assertSame(1, $out['accepted_candidates'][0]['score_components']['lane_maturity']);
+    }
+
+    // ── AC: deterministic ranking (repeat run yields identical order) ────────
+
+    public function test_ranking_order_is_deterministic_across_repeated_runs(): void
+    {
+        $input = [
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'a', 'proven_leverage_tier' => 3, 'lane_maturity_tier' => 2]),
+                $this->goodCandidate(['scope_id' => 'b', 'proven_leverage_tier' => 3, 'lane_maturity_tier' => 5]),
+                $this->goodCandidate(['scope_id' => 'c', 'proven_leverage_tier' => 1]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ];
+
+        $ranker = new AtlasSelfConstructionScopeExpansionCandidateRanker;
+        $r1 = array_column($ranker->rank($input)['accepted_candidates'], 'scope_id');
+        $r2 = array_column($ranker->rank($input)['accepted_candidates'], 'scope_id');
+
+        $this->assertSame($r1, $r2);
+        $this->assertSame(['a', 'b', 'c'], $r1);
+    }
 }

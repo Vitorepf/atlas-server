@@ -52,8 +52,16 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
 
     public const REASON_DUPLICATE_SCOPE_ID = 'duplicate_scope_id';
 
+    public const REASON_HIGH_RISK_LOW_READINESS = 'high_risk_low_readiness_blocked';
+
     /** candidate_kind values that dominate additive_expansion on an otherwise-tied ranking. */
     public const DELETION_FIRST_KINDS = ['deletion_first', 'refactor_first'];
+
+    /** risk at or above this, combined with low readiness, blocks the candidate regardless of leverage. */
+    private const HIGH_RISK_THRESHOLD = 7;
+
+    /** autonomy_readiness_tier at or below this counts as "unready" for the high-risk block. */
+    private const LOW_READINESS_THRESHOLD = 1;
 
     /**
      * @param  array<string,mixed>  $facts {candidates:list<array>, current_scope?:array, queue_health?:array, autonomy?:array, risk_budget:array}
@@ -99,6 +107,7 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
                 (int) ($a['proof_cost'] ?? 5),
                 -1 * (int) ($a['isolation'] ?? 5),
                 (int) $a['risk'],
+                (int) ($a['lane_maturity_tier'] ?? 0),
                 (string) $a['scope_id'],
             ] <=> [
                 $bDeletionFirst,
@@ -107,6 +116,7 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
                 (int) ($b['proof_cost'] ?? 5),
                 -1 * (int) ($b['isolation'] ?? 5),
                 (int) $b['risk'],
+                (int) ($b['lane_maturity_tier'] ?? 0),
                 (string) $b['scope_id'],
             ];
         });
@@ -127,15 +137,16 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
 
         foreach ($accepted as $idx => &$candidate) {
             $candidate['score_components'] = [
-                'leverage'   => (int) ($candidate['proven_leverage_tier'] ?? 0),
-                'readiness'  => (int) ($candidate['autonomy_readiness_tier'] ?? 0),
-                'proof_cost' => (int) ($candidate['proof_cost'] ?? 5),
-                'isolation'  => (int) ($candidate['isolation'] ?? 5),
-                'risk'       => (int) ($candidate['risk'] ?? 0),
+                'leverage'      => (int) ($candidate['proven_leverage_tier'] ?? 0),
+                'readiness'     => (int) ($candidate['autonomy_readiness_tier'] ?? 0),
+                'proof_cost'    => (int) ($candidate['proof_cost'] ?? 5),
+                'isolation'     => (int) ($candidate['isolation'] ?? 5),
+                'risk'          => (int) ($candidate['risk'] ?? 0),
+                'lane_maturity' => (int) ($candidate['lane_maturity_tier'] ?? 0),
             ];
             $candidate['decision_facts'] = [
                 'rank'            => $idx + 1,
-                'sort_dimensions' => ['proven_leverage_tier', 'autonomy_readiness_tier', 'proof_cost', 'isolation', 'risk', 'scope_id'],
+                'sort_dimensions' => ['proven_leverage_tier', 'autonomy_readiness_tier', 'proof_cost', 'isolation', 'risk', 'lane_maturity_tier', 'scope_id'],
                 'accepted'        => true,
             ];
         }
@@ -196,6 +207,12 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
         if (array_key_exists('risk', $candidate) && array_key_exists('max_risk', $budget)) {
             if ((int) $candidate['risk'] > (int) $budget['max_risk']) {
                 $reasons[] = self::REASON_RISK_BUDGET_EXCEEDED;
+            }
+        }
+        // Blocks high-risk, low-readiness expansion outright — regardless of how high leverage looks.
+        if (array_key_exists('risk', $candidate) && array_key_exists('autonomy_readiness_tier', $candidate)) {
+            if ((int) $candidate['risk'] >= self::HIGH_RISK_THRESHOLD && (int) $candidate['autonomy_readiness_tier'] <= self::LOW_READINESS_THRESHOLD) {
+                $reasons[] = self::REASON_HIGH_RISK_LOW_READINESS;
             }
         }
         if (($candidate['scalar_only_proxy'] ?? false) === true) {
