@@ -152,11 +152,32 @@ final class AtlasSelfConstructionSimplificationRedundancyMap
             $overlappingResponsibilityTags = array_values(array_unique($pairOverlappingResponsibilityTags[$root] ?? []));
             sort($overlappingResponsibilityTags, SORT_STRING);
 
-            // Removable lines: the total line cost across every member except the one that would
-            // remain as the canonical implementation (the largest, since it likely holds the
-            // superset of behavior).
+            // Canonical keeper: the member with the strongest real-world backing wins — test
+            // coverage (proof it can be verified after consolidation), consumer count (blast
+            // radius of getting it wrong), then breadth of shared responsibility — never
+            // shallow token similarity or raw line count alone.
+            $keeperScore = static fn (string $id): float => ($organs[$id]['has_tests'] ? 100.0 : 0.0)
+                + (count($organs[$id]['downstream_consumers']) * 10.0)
+                + count($organs[$id]['responsibility_tags']);
+            $canonicalKeeper = $members[0];
+            $bestScore = $keeperScore($canonicalKeeper);
+            foreach ($members as $id) {
+                $score = $keeperScore($id);
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $canonicalKeeper = $id;
+                }
+            }
+
+            $removableMemberIds = array_values(array_diff($members, [$canonicalKeeper]));
+            $removableMembers = array_map(static fn (string $id): array => [
+                'organ_id' => $id,
+                'lines' => $organs[$id]['line_count'],
+            ], $removableMemberIds);
+
+            // Removable lines: the total line cost across every member except the canonical keeper.
             $lineCounts = array_map(static fn (string $id): int => $organs[$id]['line_count'], $members);
-            $removableLines = array_sum($lineCounts) - max($lineCounts);
+            $removableLines = array_sum($lineCounts) - $organs[$canonicalKeeper]['line_count'];
 
             // proof_ready: at least one member already has test coverage — a real audit trail
             // proving current behavior exists to compare consolidated behavior against.
@@ -184,6 +205,8 @@ final class AtlasSelfConstructionSimplificationRedundancyMap
                 'repeated_method_names' => $repeatedMethodNames,
                 'overlapping_responsibility_tags' => $overlappingResponsibilityTags,
                 'removable_lines' => $removableLines,
+                'canonical_keeper' => $canonicalKeeper,
+                'removable_members' => $removableMembers,
                 'proof_ready' => $proofReady,
                 'priority_score' => $priorityScore,
             ];

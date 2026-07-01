@@ -136,6 +136,77 @@ final class AtlasSelfConstructionSimplificationRedundancyMapTest extends TestCas
         $this->assertArrayHasKey('priority_score', $cluster);
     }
 
+    // ── AC: canonical_keeper / removable_members ────────────────────────────────
+
+    public function test_canonical_keeper_prefers_tests_consumers_and_broad_responsibility(): void
+    {
+        $result = $this->mapper()->map([
+            'organs' => [
+                [
+                    'organ_id' => 'organ-untested',
+                    'layer' => 'gate',
+                    'purpose_tokens' => ['dedup'],
+                    'responsibility_tags' => ['dedup'],
+                    'line_count' => 300,
+                    'has_tests' => false,
+                    'downstream_consumers' => [],
+                ],
+                [
+                    'organ_id' => 'organ-tested',
+                    'layer' => 'gate',
+                    'purpose_tokens' => ['dedup'],
+                    'responsibility_tags' => ['dedup', 'queue_admission'],
+                    'line_count' => 50,
+                    'has_tests' => true,
+                    'downstream_consumers' => ['CommandA', 'CommandB'],
+                ],
+            ],
+        ]);
+
+        $cluster = $result['clusters'][0];
+        $this->assertSame('organ-tested', $cluster['canonical_keeper']);
+    }
+
+    public function test_removable_members_exclude_keeper_and_include_expected_removed_lines(): void
+    {
+        $result = $this->mapper()->map([
+            'organs' => [
+                [
+                    'organ_id' => 'organ-a',
+                    'layer' => 'gate',
+                    'purpose_tokens' => ['dedup'],
+                    'line_count' => 150,
+                    'has_tests' => true,
+                ],
+                [
+                    'organ_id' => 'organ-b',
+                    'layer' => 'gate',
+                    'purpose_tokens' => ['dedup'],
+                    'line_count' => 90,
+                    'has_tests' => false,
+                ],
+            ],
+        ]);
+
+        $cluster = $result['clusters'][0];
+        $this->assertSame('organ-a', $cluster['canonical_keeper']);
+        $this->assertSame([['organ_id' => 'organ-b', 'lines' => 90]], $cluster['removable_members']);
+        $this->assertSame(90, $cluster['removable_lines']);
+    }
+
+    public function test_shallow_purpose_token_overlap_without_proof_or_consumers_is_not_high_priority(): void
+    {
+        $result = $this->mapper()->map([
+            'organs' => [
+                ['organ_id' => 'shallow-a', 'layer' => 'gate', 'purpose_tokens' => ['dedup'], 'has_tests' => false],
+                ['organ_id' => 'shallow-b', 'layer' => 'gate', 'purpose_tokens' => ['dedup'], 'has_tests' => false],
+            ],
+        ]);
+
+        $cluster = $result['clusters'][0];
+        $this->assertNotSame(AtlasSelfConstructionSimplificationRedundancyMap::PRIORITY_HIGH, $cluster['consolidation_priority']);
+    }
+
     public function test_similar_names_without_shared_responsibility_ranks_lower_than_true_duplicate_circuit(): void
     {
         $trueDuplicate = $this->mapper()->map([
