@@ -208,4 +208,40 @@ final class AtlasSelfConstructionWorkerAssignmentMatcherTest extends TestCase
 
         $this->assertSame(['w-a', 'w-z'], array_column($verdict['outcome_fit_hints'], 'worker_id'));
     }
+
+    // ── eligible ranked by outcome affinity ───────────────────────────────────
+
+    public function test_eligible_ranked_by_outcome_affinity_preferred_before_neutral(): void
+    {
+        $task = $this->task(['task_family' => 'php_service']);
+        $preferred = $this->worker(['worker_id' => 'w-z-preferred', 'success_families' => ['php_service']]);
+        $neutral = $this->worker(['worker_id' => 'w-a-neutral']);
+
+        $verdict = (new AtlasSelfConstructionWorkerAssignmentMatcher)->match($task, [$preferred, $neutral], self::NOW);
+
+        $this->assertSame(['w-z-preferred', 'w-a-neutral'], array_column($verdict['eligible'], 'worker_id'));
+    }
+
+    public function test_poison_family_worker_ranked_below_neutral_worker_in_eligible(): void
+    {
+        $task = $this->task(['task_family' => 'php_service']);
+        $poisoned = $this->worker(['worker_id' => 'w-a-poisoned', 'poison_families' => ['php_service']]);
+        $neutral = $this->worker(['worker_id' => 'w-z-neutral']);
+
+        $verdict = (new AtlasSelfConstructionWorkerAssignmentMatcher)->match($task, [$poisoned, $neutral], self::NOW);
+
+        $this->assertSame(['w-z-neutral', 'w-a-poisoned'], array_column($verdict['eligible'], 'worker_id'));
+        $this->assertCount(2, $verdict['eligible'], 'poison match must not demote to ineligible');
+    }
+
+    public function test_eligible_ranking_falls_back_to_worker_id_when_no_task_family(): void
+    {
+        $task = $this->task();
+        $w1 = $this->worker(['worker_id' => 'w-z']);
+        $w2 = $this->worker(['worker_id' => 'w-a']);
+
+        $verdict = (new AtlasSelfConstructionWorkerAssignmentMatcher)->match($task, [$w1, $w2], self::NOW);
+
+        $this->assertSame(['w-a', 'w-z'], array_column($verdict['eligible'], 'worker_id'));
+    }
 }

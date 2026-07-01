@@ -43,6 +43,10 @@ final class AtlasSelfConstructionWorkerAssignmentMatcher
 
     private const RISK_ORDER = ['low' => 1, 'medium' => 2, 'high' => 3, 'critical' => 4];
 
+    // Lower rank sorts first — preferred outranks neutral, which outranks caution,
+    // which outranks rejected_by_history (poison never eligible-ranks above neutral).
+    private const FIT_RANK = ['preferred' => 0, 'neutral' => 1, 'caution' => 2, 'rejected_by_history' => 3];
+
     public const DEFAULT_FRESHNESS_WINDOW_SECONDS = 3600;
 
     /**
@@ -112,21 +116,32 @@ final class AtlasSelfConstructionWorkerAssignmentMatcher
             }
         }
 
-        // Deterministic tie ordering — eligible list sorted by worker_id ASC.
-        usort($eligible, static fn (array $a, array $b): int => strcmp($a['worker_id'], $b['worker_id']));
         usort($ineligible, static fn (array $a, array $b): int => strcmp($a['worker_id'], $b['worker_id']));
 
-        // outcome_fit_hints — advisory only, does not affect eligible/ineligible split.
+        // outcome_fit_hints — computed here so the eligible ranking below can use them; the
+        // eligible/ineligible SPLIT itself never depends on outcome history, only ordering does.
         $outcomeHints = [];
+        $fitByWorkerId = [];
         if ($taskFamily !== '') {
             foreach ($workers as $w) {
                 if (! is_array($w)) {
                     continue;
                 }
-                $outcomeHints[] = $this->outcomeHint($taskFamily, $w);
+                $hint = $this->outcomeHint($taskFamily, $w);
+                $outcomeHints[] = $hint;
+                $fitByWorkerId[$hint['worker_id']] = $hint['fit'];
             }
             usort($outcomeHints, static fn (array $a, array $b): int => strcmp($a['worker_id'], $b['worker_id']));
         }
+
+        // Eligible ranking: outcome affinity first (preferred > neutral > caution >
+        // rejected_by_history), worker_id ASC as the deterministic tiebreak.
+        usort($eligible, static function (array $a, array $b) use ($fitByWorkerId): int {
+            $ra = self::FIT_RANK[$fitByWorkerId[$a['worker_id']] ?? 'neutral'] ?? 1;
+            $rb = self::FIT_RANK[$fitByWorkerId[$b['worker_id']] ?? 'neutral'] ?? 1;
+
+            return $ra <=> $rb ?: strcmp($a['worker_id'], $b['worker_id']);
+        });
 
         return [
             'schema_version'      => self::SCHEMA,
