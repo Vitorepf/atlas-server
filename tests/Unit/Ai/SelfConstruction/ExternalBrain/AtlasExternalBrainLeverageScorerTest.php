@@ -33,6 +33,7 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
             'implementation_evidence' => 0.8,
             'repeated_pain'           => 0.7,
             'blast_radius_safety'     => 0.7,
+            'unlocked_capabilities'   => ['real_capability'],
         ];
 
         $cheapWrapper = [
@@ -66,6 +67,7 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
             'implementation_evidence' => 0.8,
             'repeated_pain'           => 0.8,
             'blast_radius_safety'     => 0.8,
+            'unlocked_capabilities'   => ['real_capability'],
         ];
 
         $clean     = $scorer->score($base);
@@ -94,7 +96,7 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
     public function test_duplicated_target_penalty(): void
     {
         $scorer = $this->scorer();
-        $result = $scorer->score(['duplicated_target' => true, 'capability_unlock' => 1.0, 'implementation_evidence' => 0.8]);
+        $result = $scorer->score(['duplicated_target' => true, 'capability_unlock' => 1.0, 'implementation_evidence' => 0.8, 'unlocked_capabilities' => ['x']]);
 
         $this->assertContains('duplicated_target', $result['triggered_penalties']);
         $this->assertSame(0.30, $result['penalty']);
@@ -103,7 +105,7 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
     public function test_already_satisfied_penalty(): void
     {
         $scorer = $this->scorer();
-        $result = $scorer->score(['already_satisfied' => true, 'capability_unlock' => 1.0, 'implementation_evidence' => 0.8]);
+        $result = $scorer->score(['already_satisfied' => true, 'capability_unlock' => 1.0, 'implementation_evidence' => 0.8, 'unlocked_capabilities' => ['x']]);
 
         $this->assertContains('already_satisfied', $result['triggered_penalties']);
         $this->assertSame(0.35, $result['penalty']);
@@ -115,6 +117,7 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
         $result = $scorer->score([
             'capability_unlock'       => 1.0,
             'implementation_evidence' => 0.8,   // proof_weight=0.8 → no unproven_high_claim
+            'unlocked_capabilities'   => ['x'], // → no ungrounded_compound_claim
             'cosmetic_cli'            => true,   // 0.25
             'duplicated_target'       => true,   // 0.30
             'already_satisfied'       => true,   // 0.35 → total 0.90
@@ -173,15 +176,17 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
         $this->assertEqualsWithDelta(1.0, array_sum(array_column($dims, 'weight')), 0.001);
     }
 
-    public function test_penalties_list_has_four_entries(): void
+    public function test_penalties_list_has_six_entries(): void
     {
         $penalties = $this->scorer()->penalties();
 
-        $this->assertCount(4, $penalties);
+        $this->assertCount(6, $penalties);
         $this->assertContains('cosmetic_cli',       array_column($penalties, 'penalty'));
         $this->assertContains('one_test_microtask', array_column($penalties, 'penalty'));
         $this->assertContains('duplicated_target',  array_column($penalties, 'penalty'));
         $this->assertContains('already_satisfied',  array_column($penalties, 'penalty'));
+        $this->assertContains('ungrounded_compound_claim', array_column($penalties, 'penalty'));
+        $this->assertContains('template_farm_similarity',  array_column($penalties, 'penalty'));
     }
 
     public function test_score_output_has_canonical_keys(): void
@@ -419,5 +424,151 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
         $this->assertSame('well_evidenced', $ranked[0]['label']);
         $why = $ranked[0]['why_this_beats_next'];
         $this->assertStringContainsString('proof_weight', $why);
+    }
+
+    // ---------- new AC: ungrounded_compound_claim ----------
+
+    public function test_high_capability_unlock_with_no_compound_evidence_triggers_ungrounded_compound_claim(): void
+    {
+        $result = $this->scorer()->score([
+            'capability_unlock' => 0.9,
+            'downstream_unblock_count' => 0,
+            'unlocked_capabilities' => [],
+        ]);
+
+        $this->assertContains('ungrounded_compound_claim', $result['triggered_penalties']);
+    }
+
+    public function test_high_capability_unlock_with_unlocked_capabilities_avoids_ungrounded_compound_claim(): void
+    {
+        $result = $this->scorer()->score([
+            'capability_unlock' => 0.9,
+            'unlocked_capabilities' => ['real_cap'],
+        ]);
+
+        $this->assertNotContains('ungrounded_compound_claim', $result['triggered_penalties']);
+    }
+
+    public function test_high_capability_unlock_with_downstream_unblock_avoids_ungrounded_compound_claim(): void
+    {
+        $result = $this->scorer()->score([
+            'capability_unlock' => 0.9,
+            'downstream_unblock_count' => 3,
+        ]);
+
+        $this->assertNotContains('ungrounded_compound_claim', $result['triggered_penalties']);
+    }
+
+    public function test_low_capability_unlock_never_triggers_ungrounded_compound_claim(): void
+    {
+        $result = $this->scorer()->score(['capability_unlock' => 0.5]);
+
+        $this->assertNotContains('ungrounded_compound_claim', $result['triggered_penalties']);
+    }
+
+    // ---------- new AC: template_farm_similarity ----------
+
+    public function test_repeated_template_signature_in_peer_context_triggers_template_farm_similarity(): void
+    {
+        $result = $this->scorer()->score([
+            'capability_unlock' => 0.5,
+            'template_signature' => 'sig-a',
+            'peer_context' => ['template_signatures' => ['sig-a', 'sig-b']],
+        ]);
+
+        $this->assertContains('template_farm_similarity', $result['triggered_penalties']);
+    }
+
+    public function test_same_impact_class_in_peer_context_triggers_template_farm_similarity(): void
+    {
+        $result = $this->scorer()->score([
+            'capability_unlock' => 0.5,
+            'impact_class' => 'perf',
+            'peer_context' => ['impact_classes' => ['perf']],
+        ]);
+
+        $this->assertContains('template_farm_similarity', $result['triggered_penalties']);
+    }
+
+    public function test_unique_template_signature_avoids_template_farm_similarity(): void
+    {
+        $result = $this->scorer()->score([
+            'capability_unlock' => 0.5,
+            'template_signature' => 'sig-unique',
+            'peer_context' => ['template_signatures' => ['sig-a', 'sig-b']],
+        ]);
+
+        $this->assertNotContains('template_farm_similarity', $result['triggered_penalties']);
+    }
+
+    public function test_no_peer_context_never_triggers_template_farm_similarity(): void
+    {
+        $result = $this->scorer()->score([
+            'capability_unlock' => 0.5,
+            'template_signature' => 'sig-a',
+        ]);
+
+        $this->assertNotContains('template_farm_similarity', $result['triggered_penalties']);
+    }
+
+    public function test_template_farm_similarity_penalty_factor_is_applied(): void
+    {
+        $result = $this->scorer()->score([
+            'capability_unlock' => 0.5,
+            'template_signature' => 'sig-a',
+            'peer_context' => ['template_signatures' => ['sig-a']],
+        ]);
+
+        $this->assertSame(0.25, $result['penalty']);
+    }
+
+    // ---------- new AC: rank() leads with compound_impact/proof_weight over raw weighted_sum ----------
+
+    public function test_rank_explanation_leads_with_compound_impact_before_score_advantage(): void
+    {
+        $ranked = $this->scorer()->rank([
+            [
+                'label' => 'winner',
+                'capability_unlock' => 0.6,
+                'downstream_unblock_count' => 8,
+            ],
+            [
+                'label' => 'loser',
+                'capability_unlock' => 0.6,
+                'downstream_unblock_count' => 1,
+            ],
+        ]);
+
+        $why = $ranked[0]['why_this_beats_next'];
+        $compoundPos = strpos($why, 'more_downstream_unblocks');
+        $scorePos = strpos($why, 'score_advantage');
+
+        $this->assertNotFalse($compoundPos);
+        $this->assertNotFalse($scorePos);
+        $this->assertLessThan($scorePos, $compoundPos, 'compound_impact must lead the explanation before score_advantage');
+    }
+
+    public function test_rank_explanation_leads_with_proof_weight_before_score_advantage(): void
+    {
+        $ranked = $this->scorer()->rank([
+            [
+                'label' => 'well_evidenced',
+                'capability_unlock' => 0.6,
+                'implementation_evidence' => 0.9,
+                'evidence_refs' => ['ref-1', 'ref-2', 'ref-3'],
+            ],
+            [
+                'label' => 'no_evidence',
+                'capability_unlock' => 0.6,
+                'implementation_evidence' => 0.1,
+            ],
+        ]);
+
+        $why = $ranked[0]['why_this_beats_next'];
+        $proofPos = strpos($why, 'proof_weight');
+        $scorePos = strpos($why, 'score_advantage');
+
+        $this->assertNotFalse($proofPos);
+        $this->assertLessThan($scorePos, $proofPos, 'proof_weight must lead the explanation before score_advantage');
     }
 }

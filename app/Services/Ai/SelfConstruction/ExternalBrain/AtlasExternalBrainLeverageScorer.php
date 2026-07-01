@@ -46,6 +46,17 @@ final class AtlasExternalBrainLeverageScorer
     private const WEAK_PROOF_THRESHOLD        = 0.30;
     private const UNPROVEN_CLAIM_PENALTY      = 0.20;
 
+    // Anti-Goodhart: a high capability_unlock claim backed by ZERO compound-impact evidence
+    // (no unlocked_capabilities, no downstream unblocks) is a raw capability claim, not proof
+    // this opportunity actually compounds — distinct from unproven_high_claim, which is about
+    // implementation proof rather than compound-impact evidence.
+    private const UNGROUNDED_COMPOUND_CLAIM_PENALTY = 0.20;
+
+    // Anti-Goodhart: a batch flooded with near-identical opportunities (same template_signature
+    // or impact_class as peers) never compounds leverage — it's the same lever pulled repeatedly,
+    // dressed up as N distinct high-value opportunities.
+    private const TEMPLATE_FARM_SIMILARITY_PENALTY = 0.25;
+
     /**
      * Score a single opportunity, including a compound-impact receipt.
      *
@@ -91,8 +102,6 @@ final class AtlasExternalBrainLeverageScorer
             $triggeredPenalties[] = 'unproven_high_claim';
         }
 
-        $penalty = min(1.0, $penalty);
-
         $compoundImpact = [
             'unlocked_capabilities'    => is_array($opportunity['unlocked_capabilities'] ?? null)
                 ? array_values($opportunity['unlocked_capabilities'])
@@ -105,6 +114,35 @@ final class AtlasExternalBrainLeverageScorer
                 ? array_values($opportunity['autonomy_gain_signals'])
                 : [],
         ];
+
+        // Anti-Goodhart: a high capability_unlock claim with ZERO compound-impact evidence at all
+        // (no unlocked capabilities AND no downstream unblocks) is an ungrounded compound claim —
+        // ease/proof_weight alone never excuses it, since this is about compounding evidence, not
+        // implementation feasibility.
+        if ($dimensionScores['capability_unlock'] > self::PROOF_REQUIRED_THRESHOLD
+            && $compoundImpact['unlocked_capabilities'] === []
+            && $compoundImpact['downstream_unblock_count'] === 0) {
+            $penalty            += self::UNGROUNDED_COMPOUND_CLAIM_PENALTY;
+            $triggeredPenalties[] = 'ungrounded_compound_claim';
+        }
+
+        // Anti-Goodhart: template-farm similarity — this opportunity's template_signature or
+        // impact_class already appears among the peer opportunities the caller supplied, meaning
+        // the batch pulls the same lever repeatedly instead of compounding distinct leverage.
+        $templateSignature = trim((string) ($opportunity['template_signature'] ?? ''));
+        $impactClass        = trim((string) ($opportunity['impact_class'] ?? ''));
+        $peerContext         = is_array($opportunity['peer_context'] ?? null) ? $opportunity['peer_context'] : [];
+        $peerTemplateSignatures = is_array($peerContext['template_signatures'] ?? null) ? $peerContext['template_signatures'] : [];
+        $peerImpactClasses      = is_array($peerContext['impact_classes'] ?? null) ? $peerContext['impact_classes'] : [];
+
+        $isTemplateFarm = ($templateSignature !== '' && in_array($templateSignature, $peerTemplateSignatures, true))
+            || ($impactClass !== '' && in_array($impactClass, $peerImpactClasses, true));
+        if ($isTemplateFarm) {
+            $penalty            += self::TEMPLATE_FARM_SIMILARITY_PENALTY;
+            $triggeredPenalties[] = 'template_farm_similarity';
+        }
+
+        $penalty = min(1.0, $penalty);
 
         return [
             'schema'              => self::SCHEMA,
@@ -150,15 +188,7 @@ final class AtlasExternalBrainLeverageScorer
      */
     private function explainWin(array $winner, array $next): string
     {
-        $parts = [];
-
-        $scoreDiff = round((float) $winner['final_score'] - (float) $next['final_score'], 4);
-        $parts[]   = 'score_advantage:'.$scoreDiff;
-
-        $penaltyDiff = round((float) $next['penalty'] - (float) $winner['penalty'], 4);
-        if ($penaltyDiff > 0.0) {
-            $parts[] = 'fewer_penalties:'.$penaltyDiff;
-        }
+        $compoundParts = [];
 
         $wImpact = $winner['compound_impact'] ?? [];
         $nImpact = $next['compound_impact']   ?? [];
@@ -166,34 +196,45 @@ final class AtlasExternalBrainLeverageScorer
         $wUnblock = (int) ($wImpact['downstream_unblock_count'] ?? 0);
         $nUnblock = (int) ($nImpact['downstream_unblock_count'] ?? 0);
         if ($wUnblock > $nUnblock) {
-            $parts[] = 'more_downstream_unblocks:'.$wUnblock.'_vs_'.$nUnblock;
+            $compoundParts[] = 'more_downstream_unblocks:'.$wUnblock.'_vs_'.$nUnblock;
         }
 
         $wCaps = count((array) ($wImpact['unlocked_capabilities'] ?? []));
         $nCaps = count((array) ($nImpact['unlocked_capabilities'] ?? []));
         if ($wCaps > $nCaps) {
-            $parts[] = 'more_unlocked_capabilities:'.$wCaps.'_vs_'.$nCaps;
+            $compoundParts[] = 'more_unlocked_capabilities:'.$wCaps.'_vs_'.$nCaps;
         }
 
         $wRisk = count((array) ($wImpact['risk_reduction_signals'] ?? []));
         $nRisk = count((array) ($nImpact['risk_reduction_signals'] ?? []));
         if ($wRisk > $nRisk) {
-            $parts[] = 'more_risk_reduction_signals:'.$wRisk.'_vs_'.$nRisk;
+            $compoundParts[] = 'more_risk_reduction_signals:'.$wRisk.'_vs_'.$nRisk;
         }
 
         $wAuto = count((array) ($wImpact['autonomy_gain_signals'] ?? []));
         $nAuto = count((array) ($nImpact['autonomy_gain_signals'] ?? []));
         if ($wAuto > $nAuto) {
-            $parts[] = 'more_autonomy_gain_signals:'.$wAuto.'_vs_'.$nAuto;
+            $compoundParts[] = 'more_autonomy_gain_signals:'.$wAuto.'_vs_'.$nAuto;
         }
 
         $wProof = (float) ($winner['proof_weight'] ?? 0.0);
         $nProof = (float) ($next['proof_weight']   ?? 0.0);
         if ($wProof > $nProof + 0.05) {
-            $parts[] = 'proof_weight:'.round($wProof, 2).'_vs_'.round($nProof, 2);
+            $compoundParts[] = 'proof_weight:'.round($wProof, 2).'_vs_'.round($nProof, 2);
         }
 
-        return implode('|', $parts);
+        $penaltyDiff = round((float) $next['penalty'] - (float) $winner['penalty'], 4);
+        if ($penaltyDiff > 0.0) {
+            $compoundParts[] = 'fewer_penalties:'.$penaltyDiff;
+        }
+
+        // Anti-Goodhart: compound_impact and proof_weight evidence explain the win FIRST
+        // whenever such a difference exists — raw score/weighted_sum is a fallback explanation,
+        // never the leading justification, when real compounding evidence differs.
+        $scoreDiff = round((float) $winner['final_score'] - (float) $next['final_score'], 4);
+        $scorePart = 'score_advantage:'.$scoreDiff;
+
+        return implode('|', [...$compoundParts, $scorePart]);
     }
 
     /** @return list<array{dimension:string,weight:float}> */
@@ -209,10 +250,16 @@ final class AtlasExternalBrainLeverageScorer
     /** @return list<array{penalty:string,factor:float}> */
     public function penalties(): array
     {
-        return array_map(
+        $named = array_map(
             static fn (string $p, float $f): array => ['penalty' => $p, 'factor' => $f],
             array_keys(self::PENALTY_FACTORS),
             array_values(self::PENALTY_FACTORS),
         );
+
+        return [
+            ...$named,
+            ['penalty' => 'ungrounded_compound_claim', 'factor' => self::UNGROUNDED_COMPOUND_CLAIM_PENALTY],
+            ['penalty' => 'template_farm_similarity', 'factor' => self::TEMPLATE_FARM_SIMILARITY_PENALTY],
+        ];
     }
 }
