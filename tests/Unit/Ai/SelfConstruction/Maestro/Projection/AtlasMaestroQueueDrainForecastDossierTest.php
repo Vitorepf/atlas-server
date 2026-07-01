@@ -345,4 +345,48 @@ final class AtlasMaestroQueueDrainForecastDossierTest extends TestCase
         $this->assertTrue($result['below_worker_floor']);
         $this->assertEqualsWithDelta(3.0, $result['worker_floor_gap'], 0.001);
     }
+
+    // ── quality_adjusted_ready / quality_burn_rate_reasons ────────────────────
+
+    public function test_quality_adjusted_ready_defaults_to_effective_ready_when_no_quality_profile(): void
+    {
+        $result = $this->dossier->compile($this->healthy());
+
+        $this->assertSame($result['effective_ready'], $result['quality_adjusted_ready']);
+        $this->assertSame([], $result['quality_burn_rate_reasons']);
+    }
+
+    public function test_quality_adjusted_ready_capped_by_high_quality_supply_with_reason(): void
+    {
+        $result = $this->dossier->compile($this->healthy([
+            'queue_health'    => ['ready_count' => 10, 'blocked_count' => 0, 'claimed_count' => 0],
+            'quality_profile' => ['high_quality_ready_count' => 2, 'low_quality_ready_count' => 8],
+        ]));
+
+        $this->assertSame(2, $result['quality_adjusted_ready']);
+        $this->assertContains('raw_ready_overstates_quality_supply:10_vs_quality_adjusted:2', $result['quality_burn_rate_reasons']);
+    }
+
+    public function test_quality_burn_rate_reason_when_quality_adjusted_ready_below_worker_floor(): void
+    {
+        $result = $this->dossier->compile($this->healthy([
+            'queue_health'        => ['ready_count' => 10, 'blocked_count' => 0, 'claimed_count' => 0],
+            'quality_profile'     => ['high_quality_ready_count' => 1, 'low_quality_ready_count' => 9],
+            'active_worker_count' => 3,
+        ]));
+
+        $this->assertSame(1, $result['quality_adjusted_ready']);
+        $this->assertContains('quality_adjusted_ready_below_worker_floor:1_vs_floor:3', $result['quality_burn_rate_reasons']);
+    }
+
+    public function test_quality_burn_rate_reason_when_recent_serve_rate_exceeds_quality_supply(): void
+    {
+        $result = $this->dossier->compile($this->healthy([
+            'queue_health'             => ['ready_count' => 10, 'blocked_count' => 0, 'claimed_count' => 0],
+            'quality_profile'          => ['high_quality_ready_count' => 2, 'low_quality_ready_count' => 8],
+            'recent_serve_rate_per_hour' => 5.0,
+        ]));
+
+        $this->assertContains('recent_serve_rate_exceeds_quality_adjusted_supply:5_per_hour_vs_2', $result['quality_burn_rate_reasons']);
+    }
 }

@@ -21,7 +21,9 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Projection;
  * Outputs:
  *   drain_eta, productivity_risk, next_action, evidence_refs, effective_ready,
  *   productive_ready (alias of effective_ready), poison_blocked_ready,
- *   eta_to_dry_by_worker_count (per-worker-count burn-down forecast).
+ *   eta_to_dry_by_worker_count (per-worker-count burn-down forecast),
+ *   quality_adjusted_ready (effective_ready capped at high-quality supply),
+ *   quality_burn_rate_reasons (why quality-adjusted supply is thinner than raw ready_count implies).
  *
  * eta_to_dry_by_worker_count: throughput_per_hour_per_worker × worker_count drives a SEPARATE eta per
  * worker count (default [1, 5]) — so five-muscle throughput always shows a shorter ETA than a single
@@ -165,6 +167,25 @@ final class AtlasMaestroQueueDrainForecastDossier
         // ── worker_floor_gap: numeric shortfall of effective_ready below the worker floor ──
         $workerFloorGap = round(max(0.0, $workerFloor - $effectiveReady), 2);
 
+        // ── quality_adjusted_ready / quality_burn_rate_reasons: a raw ready_count can look
+        // healthy while hiding a mostly-low-value backlog or a supply that the recent serve
+        // rate will burn through fast. quality_adjusted_ready caps effective_ready at the
+        // high-quality supply; quality_burn_rate_reasons names WHY that adjusted number is
+        // thinner than it looks (raw count overstates it, worker floor unmet on quality-only
+        // supply, or recent serve rate would exhaust it within the hour).
+        $qualityAdjustedReady = min($effectiveReady, $highQualityReady);
+        $recentServeRate = max(0.0, (float) ($facts['recent_serve_rate_per_hour'] ?? 0.0));
+        $qualityBurnRateReasons = [];
+        if ($qualityAdjustedReady < $readyCount) {
+            $qualityBurnRateReasons[] = 'raw_ready_overstates_quality_supply:'.$readyCount.'_vs_quality_adjusted:'.$qualityAdjustedReady;
+        }
+        if ($activeWorkerCount > 0 && $qualityAdjustedReady < $workerFloor) {
+            $qualityBurnRateReasons[] = 'quality_adjusted_ready_below_worker_floor:'.$qualityAdjustedReady.'_vs_floor:'.$workerFloor;
+        }
+        if ($recentServeRate > 0.0 && $qualityAdjustedReady < $recentServeRate) {
+            $qualityBurnRateReasons[] = 'recent_serve_rate_exceeds_quality_adjusted_supply:'.$recentServeRate.'_per_hour_vs_'.$qualityAdjustedReady;
+        }
+
         // ── replenish_by: when replenishment must land, null when nothing needs it ──
         $replenishBy = match (true) {
             $productivityRisk === self::RISK_LOW && $qualityFloorStatus === 'healthy' => null,
@@ -201,6 +222,8 @@ final class AtlasMaestroQueueDrainForecastDossier
             'estimated_dry_time'         => $estimatedDryTime,
             'time_to_dry'                => $drainEta,
             'worker_floor_gap'           => $workerFloorGap,
+            'quality_adjusted_ready'     => $qualityAdjustedReady,
+            'quality_burn_rate_reasons'  => $qualityBurnRateReasons,
             'quality_floor_status'       => $qualityFloorStatus,
             'replenish_by'               => $replenishBy,
             'starvation_risk'            => $starvationRisk,
