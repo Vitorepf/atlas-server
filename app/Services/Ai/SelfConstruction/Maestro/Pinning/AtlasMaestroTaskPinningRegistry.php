@@ -32,7 +32,7 @@ final class AtlasMaestroTaskPinningRegistry
     }
 
     /** @return array<string,mixed> */
-    public function pin(string $taskPacketId, string $workerId, string $reason): array
+    public function pin(string $taskPacketId, string $workerId, string $reason, ?int $ttlSeconds = null): array
     {
         if ($taskPacketId === '' || $workerId === '') {
             throw new RuntimeException('pinning_requires_task_and_worker');
@@ -48,6 +48,7 @@ final class AtlasMaestroTaskPinningRegistry
             'pinned_at' => (string) ($this->now)(),
             'reason' => $reason,
             'task_packet_id' => $taskPacketId,
+            'ttl_expires_at' => $ttlSeconds !== null ? $this->addSeconds((string) ($this->now)(), $ttlSeconds) : null,
             'worker_id' => $workerId,
         ];
         ksort($entry);
@@ -74,8 +75,18 @@ final class AtlasMaestroTaskPinningRegistry
     {
         $state = $this->load();
         $row = $state[$taskPacketId] ?? null;
+        if (! is_array($row)) {
+            return null;
+        }
+        $ttlExpiresAt = (string) ($row['ttl_expires_at'] ?? '');
+        if ($ttlExpiresAt !== '' && strcmp($ttlExpiresAt, (string) ($this->now)()) <= 0) {
+            unset($state[$taskPacketId]);
+            $this->save($state);
 
-        return is_array($row) ? $row : null;
+            return null;
+        }
+
+        return $row;
     }
 
     /** @return array<string,array<string,mixed>> */
@@ -90,6 +101,16 @@ final class AtlasMaestroTaskPinningRegistry
     public function snapshotBytes(): string
     {
         return (string) json_encode($this->snapshot(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    private function addSeconds(string $iso, int $seconds): string
+    {
+        $ts = strtotime($iso);
+        if ($ts === false) {
+            $ts = 0;
+        }
+
+        return gmdate('Y-m-d\TH:i:s\Z', $ts + $seconds);
     }
 
     /** @return array<string,array<string,mixed>> */
