@@ -73,6 +73,8 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
                 'usage_evidence_count' => 0,
                 'compounding_value'    => 0.05,
                 'maintenance_cost'     => 0.50,
+                'has_replacement_proof' => true,
+                'has_behavior_preservation_evidence' => true,
             ]],
         ]);
 
@@ -106,6 +108,8 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
                 'usage_evidence_count' => 5,
                 'compounding_value'    => 0.50,
                 'maintenance_cost'     => 0.30,
+                'has_replacement_proof' => true,
+                'has_behavior_preservation_evidence' => true,
             ]],
         ]);
 
@@ -122,6 +126,8 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
                 'compounding_value'              => 0.50,
                 'maintenance_cost'               => 0.30,
                 'covers_same_decision_surface_as' => ['overlapping-organ'],
+                'has_replacement_proof' => true,
+                'has_behavior_preservation_evidence' => true,
             ]],
         ]);
 
@@ -277,6 +283,8 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
             'compounding_value'               => 0.05,
             'maintenance_cost'                => 0.30,
             'covers_same_decision_surface_as' => ['OverlapOrgan'],
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
         ]]]);
 
         $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MERGE, $r['ranked_candidates'][0]['recommended_action']);
@@ -451,6 +459,8 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
             'usage_evidence_count' => 0,
             'compounding_value'    => 0.0,
             'has_active_consumers' => false,
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
         ];
         $r = $this->planner()->plan(['candidates' => [$candidate]]);
 
@@ -541,6 +551,23 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
         $this->assertContains('missing_replacement_proof', $entry['blocked_deletion_reason']);
     }
 
+    public function test_omitted_proof_fields_default_fail_closed_and_block_deletion(): void
+    {
+        // Fail-closed: proof fields must be explicit, never assumed true by omission.
+        $candidate = [
+            'organ_id'             => 'MC3',
+            'similar_organs'       => ['other'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+        $entry = $r['ranked_candidates'][0];
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MIGRATE_OR_PROVE_FIRST, $entry['recommended_action']);
+        $this->assertContains('missing_replacement_proof', $entry['blocked_deletion_reason']);
+        $this->assertContains('missing_behavior_preservation_evidence', $entry['blocked_deletion_reason']);
+    }
+
     public function test_missing_behavior_preservation_evidence_forces_migrate_or_prove_first(): void
     {
         $candidate = [
@@ -564,6 +591,8 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
             'similar_organs'       => ['other'],
             'usage_evidence_count' => 0,
             'compounding_value'    => 0.0,
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
         ];
         $r = $this->planner()->plan(['candidates' => [$candidate]]);
         $entry = $r['ranked_candidates'][0];

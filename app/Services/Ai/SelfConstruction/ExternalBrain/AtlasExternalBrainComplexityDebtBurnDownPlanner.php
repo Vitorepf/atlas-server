@@ -98,8 +98,9 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
             $compounding       = (float) ($raw['compounding_value'] ?? 0.0);
             $maintCost         = (float) ($raw['maintenance_cost'] ?? 0.0);
             $hasActiveConsumers = (bool) ($raw['has_active_consumers'] ?? false);
-            $hasReplacementProof = (bool) ($raw['has_replacement_proof'] ?? true);
-            $hasBehaviorPreservationEvidence = (bool) ($raw['has_behavior_preservation_evidence'] ?? true);
+            // Fail-closed: deletion/consolidation proof must be explicit, never assumed by omission.
+            $hasReplacementProof = (bool) ($raw['has_replacement_proof'] ?? false);
+            $hasBehaviorPreservationEvidence = (bool) ($raw['has_behavior_preservation_evidence'] ?? false);
             $estimatedLineDelta = (int) ($raw['estimated_line_delta'] ?? 0);
             $sameDecision      = is_array($raw['covers_same_decision_surface_as'] ?? null)
                 ? $raw['covers_same_decision_surface_as']
