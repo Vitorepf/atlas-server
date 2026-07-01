@@ -77,6 +77,28 @@ final class AtlasExternalBrainProposalSelectionLoopTest extends TestCase
         $this->assertNull($result['batch']);
     }
 
+    public function test_rejected_dossier_labels_outscored_vs_disqualified(): void
+    {
+        $loop = new AtlasExternalBrainProposalSelectionLoop();
+
+        $proxyCandidate = $this->opportunityCandidate('proxy', 0.99);
+        $proxyCandidate['is_proxy'] = true;
+
+        $result = $loop->select([
+            $proxyCandidate,
+            $this->opportunityCandidate('low', 0.2),
+            $this->opportunityCandidate('high', 0.9),
+        ]);
+
+        $dossierByProposal = array_column($result['rejected_dossier'], null, 'proposal_id');
+
+        $this->assertSame('disqualification', $dossierByProposal['proxy']['source']);
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_PROXY, $dossierByProposal['proxy']['reason']);
+
+        $this->assertSame('outscored', $dossierByProposal['low']['source']);
+        $this->assertSame('outscored_by_winner', $dossierByProposal['low']['reason']);
+    }
+
     public function test_selection_is_deterministic_across_repeated_calls(): void
     {
         $loop = new AtlasExternalBrainProposalSelectionLoop();

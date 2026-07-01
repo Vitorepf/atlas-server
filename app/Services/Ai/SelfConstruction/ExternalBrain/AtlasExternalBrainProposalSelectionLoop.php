@@ -46,11 +46,20 @@ final class AtlasExternalBrainProposalSelectionLoop
             $batch = $this->composer->compose([$arenaResult['winner']], $composeOptions);
         }
 
+        $rejectedDossier = array_map(static function (array $r): array {
+            return [
+                'proposal_id' => $r['proposal_id'],
+                'reason'      => $r['reason'],
+                'source'      => $r['reason'] === 'outscored_by_winner' ? 'outscored' : 'disqualification',
+            ];
+        }, $arenaResult['rejected']);
+
         return [
             'schema' => self::SCHEMA,
             'verdict' => $arenaResult['verdict'],
             'winner' => $arenaResult['winner'],
             'rejected' => $arenaResult['rejected'],
+            'rejected_dossier' => $rejectedDossier,
             'arena_hash' => $arenaResult['arena_hash'],
             'batch' => $batch,
         ];
