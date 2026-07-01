@@ -31,11 +31,14 @@ final class AtlasExternalBrainOutcomeLearnerTest extends TestCase
 
     public function test_delivered_high_impact_promotes_pattern_family(): void
     {
+        // A single high-impact delivery only reaches promotable confidence when backed by
+        // explicit value_proof — see test_single_delivered_high_impact_without_value_proof_does_not_promote_alone.
         $r = $this->learner->learn([[
             'task_packet_id' => 'task-01',
             'pattern_family' => 'contract_mismatch_hunt',
             'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_DELIVERED,
             'impact' => AtlasExternalBrainOutcomeLearner::IMPACT_HIGH,
+            'value_proof' => true,
         ]]);
 
         $adj = $r['priority_adjustments'][0];
@@ -177,6 +180,7 @@ final class AtlasExternalBrainOutcomeLearnerTest extends TestCase
             'pattern_family' => 'contract_mismatch',
             'outcome' => 'delivered',
             'impact' => 'high',
+            'value_proof' => true,
         ]]);
 
         $focuses = array_column($r['next_wave_hints'], 'focus');
@@ -416,6 +420,7 @@ final class AtlasExternalBrainOutcomeLearnerTest extends TestCase
                 'pattern_family' => 'contract_hunt',
                 'outcome'        => 'delivered',
                 'impact'         => 'high',
+                'value_proof'    => true,
                 'task_family'    => 'architecture',
                 'worker_id'      => 'claude-muscle-3',
             ],
@@ -606,5 +611,94 @@ final class AtlasExternalBrainOutcomeLearnerTest extends TestCase
             }
         }
         $this->fail("No worker_fit_hint for worker='{$workerId}', task_family='{$taskFamily}'");
+    }
+
+    // ── new AC1: delivered high-impact WITHOUT value_proof does not promote by itself ──
+
+    public function test_single_delivered_high_impact_without_value_proof_does_not_promote_alone(): void
+    {
+        $result = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'fam-x', 'outcome' => 'delivered', 'impact' => 'high'],
+        ]);
+
+        $this->assertNotContains('fam-x', $result['promoted']);
+    }
+
+    // ── new AC2: proxy outcomes produce an avoid recommendation ──────────────
+
+    public function test_proxy_outcome_produces_avoid_recommendation(): void
+    {
+        $result = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'fam-p', 'task_family' => 'fam-p', 'outcome' => 'proxy'],
+        ]);
+
+        $rec = $this->findByKey($result['recommendations'], 'task_family', 'fam-p');
+        $this->assertSame('avoid', $rec['action']);
+    }
+
+    public function test_poison_outcome_produces_repair_recommendation(): void
+    {
+        $result = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'fam-poison', 'task_family' => 'fam-poison', 'outcome' => 'poison'],
+        ]);
+
+        $rec = $this->findByKey($result['recommendations'], 'task_family', 'fam-poison');
+        $this->assertSame('repair', $rec['action']);
+    }
+
+    public function test_quarantine_outcome_produces_self_heal_recommendation(): void
+    {
+        $result = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'fam-q', 'task_family' => 'fam-q', 'outcome' => 'quarantine'],
+        ]);
+
+        $rec = $this->findByKey($result['recommendations'], 'task_family', 'fam-q');
+        $this->assertSame('self_heal', $rec['action']);
+    }
+
+    public function test_repeated_give_back_produces_avoid_recommendation(): void
+    {
+        $result = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'fam-gb', 'task_family' => 'fam-gb', 'outcome' => 'give_back'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'fam-gb', 'task_family' => 'fam-gb', 'outcome' => 'give_back'],
+        ]);
+
+        $rec = $this->findByKey($result['recommendations'], 'task_family', 'fam-gb');
+        $this->assertSame('avoid', $rec['action']);
+    }
+
+    // ── new AC3: worker fit hints stay scoped and never suppress unrelated families ──
+
+    public function test_worker_fit_hint_for_one_family_does_not_suppress_unrelated_high_performing_family(): void
+    {
+        $result = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'weak-fam', 'task_family' => 'weak-fam', 'worker_id' => 'w1', 'outcome' => 'give_back'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'weak-fam', 'task_family' => 'weak-fam', 'worker_id' => 'w1', 'outcome' => 'give_back'],
+            ['task_packet_id' => 't3', 'pattern_family' => 'strong-fam', 'task_family' => 'strong-fam', 'worker_id' => 'w2', 'outcome' => 'delivered', 'impact' => 'high'],
+            ['task_packet_id' => 't4', 'pattern_family' => 'strong-fam', 'task_family' => 'strong-fam', 'worker_id' => 'w2', 'outcome' => 'delivered', 'impact' => 'high'],
+        ]);
+
+        $weakFit = $this->findWorkerFit($result['worker_fit_hints'], 'w1', 'weak-fam');
+        $strongFit = $this->findWorkerFit($result['worker_fit_hints'], 'w2', 'strong-fam');
+
+        $this->assertSame('weak', $weakFit['fit']);
+        $this->assertSame('strong', $strongFit['fit']);
+
+        $strongRec = $this->findByKey($result['recommendations'], 'task_family', 'strong-fam');
+        $this->assertSame('promote', $strongRec['action']);
+    }
+
+    // ── new AC4: promoted and demoted stay disjoint under mixed real-world outcomes ──
+
+    public function test_promoted_and_demoted_remain_disjoint_with_mixed_outcomes(): void
+    {
+        $result = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'good', 'outcome' => 'delivered', 'impact' => 'high'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'good', 'outcome' => 'delivered', 'impact' => 'high'],
+            ['task_packet_id' => 't3', 'pattern_family' => 'bad', 'outcome' => 'proxy'],
+            ['task_packet_id' => 't4', 'pattern_family' => 'bad', 'outcome' => 'give_back'],
+        ]);
+
+        $this->assertSame([], array_intersect($result['promoted'], $result['demoted']));
     }
 }

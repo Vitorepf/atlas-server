@@ -209,7 +209,9 @@ final class AtlasExternalBrainOutcomeLearner
             $confidence = match (true) {
                 $delivered >= 2 && $highImpactValidated >= 1 => 'high',
                 $delivered >= 2 => 'medium',
-                $delivered === 1 && $deliveredHighImpact >= 1 => 'medium',
+                // A single high-impact delivery is only "medium" confidence when backed by
+                // explicit value_proof — a lone unproven high-impact outcome never promotes alone.
+                $delivered === 1 && $highImpactValidated >= 1 => 'medium',
                 default => 'low',
             };
 
@@ -436,6 +438,9 @@ final class AtlasExternalBrainOutcomeLearner
         if ($stats['poison'] > 0) {
             return 'repair';
         }
+        if ($stats['proxy'] > 0) {
+            return 'avoid';
+        }
         if ($giveBackRate >= 0.50 || $stats['give_back'] >= 2) {
             return 'avoid';
         }
@@ -465,7 +470,9 @@ final class AtlasExternalBrainOutcomeLearner
             'repair'    => $stats['poison'] > 0
                 ? "poison_count={$stats['poison']}:harmful_tasks_detected_fix_root_cause_first"
                 : "success_rate={$successRate}:low_delivery_confidence_requires_repair",
-            'avoid'     => "give_back_rate={$giveBackRate},give_back_count={$stats['give_back']}:repeated_negative_lowers_priority",
+            'avoid'     => $stats['proxy'] > 0
+                ? "proxy_count={$stats['proxy']}:no_real_capability_gain_lowers_priority"
+                : "give_back_rate={$giveBackRate},give_back_count={$stats['give_back']}:repeated_negative_lowers_priority",
             'promote'   => "success_rate={$successRate},delivered={$stats['delivered']}:high_confidence_green_compound_next_batch",
             default     => "success_rate={$successRate}:insufficient_signal",
         };
