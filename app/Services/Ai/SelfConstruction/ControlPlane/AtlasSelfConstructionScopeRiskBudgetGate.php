@@ -23,7 +23,24 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
  *
  * OUTPUT:
  *   { schema, allowed:bool, blockers:list<string>,
- *     normalized_scope:list<string>, max_tasks:int, max_cost_units:int, risk_floor:string }
+ *     normalized_scope:list<string>, max_tasks:int, max_cost_units:int, risk_floor:string,
+ *     risk_budget_remaining:int, blocking_factors:list<string> }
+ *
+ * NEW (unconditional, not gated behind supply pressure): a scope broader than
+ * BROAD_SCOPE_UNCONDITIONAL_THRESHOLD files with no proof coverage (implementation+test scope,
+ * runnable acceptance) is rejected regardless of supply pressure — broad_scope_without_proof_coverage.
+ *
+ * NEW: optional active_scopes (list<list<string>>) names OTHER concurrently-running cycles' scope.
+ * A requested path already touched by an active cycle is a real collision —
+ * scope_collision_with_active_cycle:<path>. A requested scope that overlaps NONE of them is
+ * parallel-safe and is admitted on the same terms as any other request within budget.
+ *
+ * risk_budget_remaining (new): cost_budget_units minus (risk-weighted normalized scope size),
+ * floored at 0 — a coarse signal of how much budget this request would consume.
+ *
+ * blocking_factors (new): every blocker classified into one of collision_risk | file_breadth |
+ * proof_coverage | worker_capacity | other, deduplicated — a caller can react to the DIMENSION
+ * of the problem without parsing every raw blocker string.
  *
  * INVARIANTS:
  *   - DETERMINISTIC envelope (blockers sorted; normalized_scope sorted).
@@ -49,6 +66,12 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
 
     /** Under supply pressure, normalized scope wider than this is rejected as broad. */
     public const MAX_SCOPE_BREADTH_UNDER_PRESSURE = 2;
+
+    /** Unconditional (no supply-pressure gate): scope wider than this without proof coverage is rejected. */
+    public const BROAD_SCOPE_UNCONDITIONAL_THRESHOLD = 3;
+
+    /** @var array<string,int> */
+    private const RISK_WEIGHT = ['low' => 1, 'medium' => 2, 'high' => 4, 'hardest' => 8];
 
     /**
      * @param  array{
@@ -147,6 +170,35 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
         $normalizedScope = array_values(array_unique($normalizedScope));
         sort($normalizedScope, SORT_STRING);
 
+        $hasImplementationScope = (bool) ($facts['has_implementation_scope'] ?? false);
+        $hasTestScope = (bool) ($facts['has_test_scope'] ?? false);
+        $hasRunnableAcceptance = (bool) ($facts['has_runnable_acceptance'] ?? false);
+        $hasProofCoverage = $hasImplementationScope && $hasTestScope && $hasRunnableAcceptance;
+
+        // Unconditional broad-scope-without-proof-coverage check (not gated behind supply
+        // pressure) — a wide scope with no proof plan is a real risk on any cycle, not only a
+        // thin-supply one.
+        if (count($normalizedScope) > self::BROAD_SCOPE_UNCONDITIONAL_THRESHOLD && ! $hasProofCoverage) {
+            $blockers[] = 'broad_scope_without_proof_coverage';
+        }
+
+        // Parallel-safety: a requested path already touched by another active cycle is a real
+        // collision risk; a scope that overlaps none of them is parallel-safe.
+        $activeScopes = is_array($facts['active_scopes'] ?? null) ? $facts['active_scopes'] : [];
+        $activeScopePaths = [];
+        foreach ($activeScopes as $scope) {
+            if (is_array($scope)) {
+                foreach ($scope as $path) {
+                    $activeScopePaths[(string) $path] = true;
+                }
+            }
+        }
+        foreach ($normalizedScope as $path) {
+            if (isset($activeScopePaths[$path])) {
+                $blockers[] = 'scope_collision_with_active_cycle:'.$path;
+            }
+        }
+
         // Supply-pressure admission tightening: when servable_now is thin relative to
         // active_leases, only high-confidence packets (concrete impl+test scope, runnable
         // acceptance, narrow scope) are admitted — broad/ambiguous packets get starved workers
@@ -157,10 +209,7 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
             && $servableNow < $activeLeases * self::SUPPLY_PRESSURE_MULTIPLIER;
 
         if ($supplyPressure) {
-            $hasImplementationScope = (bool) ($facts['has_implementation_scope'] ?? false);
-            $hasTestScope = (bool) ($facts['has_test_scope'] ?? false);
-            $hasRunnableAcceptance = (bool) ($facts['has_runnable_acceptance'] ?? false);
-            if (! ($hasImplementationScope && $hasTestScope && $hasRunnableAcceptance)) {
+            if (! $hasProofCoverage) {
                 $blockers[] = 'supply_pressure_requires_high_confidence_packet';
             }
 
@@ -191,7 +240,17 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
             }
         }
 
+        $blockers = array_values(array_unique($blockers));
         sort($blockers, SORT_STRING);
+
+        $riskWeight = self::RISK_WEIGHT[$risk] ?? self::RISK_WEIGHT[self::RISK_FLOOR_DEFAULT];
+        $riskBudgetRemaining = max(0, max(0, $costBudget) - ($riskWeight * count($normalizedScope)));
+
+        $blockingFactors = array_values(array_unique(array_map(
+            fn (string $b): string => $this->classifyBlocker($b),
+            $blockers,
+        )));
+        sort($blockingFactors, SORT_STRING);
 
         return [
             'schema' => self::SCHEMA,
@@ -201,6 +260,8 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
             'max_tasks' => max(0, $taskBudget),
             'max_cost_units' => max(0, $costBudget),
             'risk_floor' => $risk,
+            'risk_budget_remaining' => $riskBudgetRemaining,
+            'blocking_factors' => $blockingFactors,
         ];
     }
 
@@ -217,5 +278,28 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
         }
 
         return false;
+    }
+
+    /** Classifies a raw blocker string into one of the four canonical risk dimensions. */
+    private function classifyBlocker(string $blocker): string
+    {
+        return match (true) {
+            str_starts_with($blocker, 'scope_collision_with_active_cycle') => 'collision_risk',
+            str_starts_with($blocker, 'forbidden_organ_touched') => 'collision_risk',
+            str_starts_with($blocker, 'scope_outside_lane') => 'collision_risk',
+            str_starts_with($blocker, 'broad_scope_without_proof_coverage') => 'proof_coverage',
+            str_starts_with($blocker, 'supply_pressure_requires_high_confidence_packet') => 'proof_coverage',
+            str_starts_with($blocker, 'supply_pressure_scope_too_broad') => 'file_breadth',
+            str_starts_with($blocker, 'supply_pressure_ambiguous_scope') => 'file_breadth',
+            str_starts_with($blocker, 'empty_requested_scope') => 'file_breadth',
+            str_starts_with($blocker, 'empty_task_budget') => 'worker_capacity',
+            str_starts_with($blocker, 'empty_cost_budget') => 'worker_capacity',
+            str_starts_with($blocker, 'burn_rate_') => 'worker_capacity',
+            str_starts_with($blocker, 'high_risk_requires_rollback_ready') => 'worker_capacity',
+            str_starts_with($blocker, 'high_risk_requires_cycle_window') => 'worker_capacity',
+            str_starts_with($blocker, 'cycle_window_exhausted') => 'worker_capacity',
+            str_starts_with($blocker, 'autonomy_window_requires_burn_budget') => 'worker_capacity',
+            default => 'other',
+        };
     }
 }

@@ -330,4 +330,139 @@ final class AtlasSelfConstructionScopeRiskBudgetGateTest extends TestCase
 
         $this->assertNotContains('autonomy_window_requires_burn_budget', $r['blockers']);
     }
+
+    // ── AC2: broad file scope without proof coverage is rejected (unconditional) ──
+
+    public function test_broad_scope_without_proof_coverage_is_rejected_without_supply_pressure(): void
+    {
+        $f = $this->safeFacts();
+        $f['requested_scope'] = ['app/Demo/A.php', 'app/Demo/B.php', 'app/Demo/C.php', 'app/Demo/D.php'];
+        // No servable_now/active_leases set — supply pressure is NOT active.
+        // No has_implementation_scope/has_test_scope/has_runnable_acceptance set.
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('broad_scope_without_proof_coverage', $r['blockers']);
+    }
+
+    public function test_broad_scope_with_proof_coverage_is_not_rejected(): void
+    {
+        $f = $this->safeFacts();
+        $f['requested_scope'] = ['app/Demo/A.php', 'app/Demo/B.php', 'app/Demo/C.php', 'app/Demo/D.php'];
+        $f['has_implementation_scope'] = true;
+        $f['has_test_scope'] = true;
+        $f['has_runnable_acceptance'] = true;
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertNotContains('broad_scope_without_proof_coverage', $r['blockers']);
+    }
+
+    public function test_narrow_scope_without_proof_coverage_is_not_rejected_by_broad_check(): void
+    {
+        $f = $this->safeFacts();
+        // Default requested_scope is a single file — below the unconditional threshold.
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertNotContains('broad_scope_without_proof_coverage', $r['blockers']);
+        $this->assertTrue($r['allowed']);
+    }
+
+    // ── AC3: parallel-safe non-overlapping scopes are admitted within budget ──
+
+    public function test_non_overlapping_active_scope_is_admitted(): void
+    {
+        $f = $this->safeFacts();
+        $f['active_scopes'] = [['app/Other/Unrelated.php']];
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertTrue($r['allowed']);
+        $this->assertSame([], array_filter($r['blockers'], fn (string $b) => str_starts_with($b, 'scope_collision_with_active_cycle')));
+    }
+
+    public function test_overlapping_active_scope_is_a_collision(): void
+    {
+        $f = $this->safeFacts();
+        $f['active_scopes'] = [['app/Demo/Foo.php']]; // same file as requested_scope
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('scope_collision_with_active_cycle:app/Demo/Foo.php', $r['blockers']);
+    }
+
+    public function test_no_active_scopes_never_triggers_collision(): void
+    {
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($this->safeFacts());
+
+        $this->assertTrue($r['allowed']);
+    }
+
+    // ── AC4: output includes risk_budget_remaining and blocking_factors ───────
+
+    public function test_output_includes_risk_budget_remaining_and_blocking_factors(): void
+    {
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($this->safeFacts());
+
+        $this->assertArrayHasKey('risk_budget_remaining', $r);
+        $this->assertArrayHasKey('blocking_factors', $r);
+        $this->assertIsInt($r['risk_budget_remaining']);
+        $this->assertSame([], $r['blocking_factors']);
+    }
+
+    public function test_risk_budget_remaining_decreases_with_higher_risk_and_wider_scope(): void
+    {
+        $low = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate(array_merge($this->safeFacts(), ['risk_class' => 'low']));
+        $high = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate(array_merge($this->safeFacts(), [
+            'risk_class' => 'high', 'rollback_ready' => true, 'cycle_window' => ['remaining_cycles' => 3],
+        ]));
+
+        $this->assertGreaterThan($high['risk_budget_remaining'], $low['risk_budget_remaining']);
+    }
+
+    public function test_risk_budget_remaining_never_goes_negative(): void
+    {
+        $f = $this->safeFacts();
+        $f['cost_budget_units'] = 1;
+        $f['risk_class'] = 'hardest';
+        $f['rollback_ready'] = true;
+        $f['cycle_window'] = ['remaining_cycles' => 3];
+        $f['requested_scope'] = ['app/Demo/A.php', 'app/Demo/B.php', 'app/Demo/C.php'];
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertGreaterThanOrEqual(0, $r['risk_budget_remaining']);
+    }
+
+    public function test_blocking_factors_classifies_forbidden_organ_as_collision_risk(): void
+    {
+        $f = $this->safeFacts();
+        $f['touched_organs'] = ['Constitution', 'Demo'];
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertContains('collision_risk', $r['blocking_factors']);
+    }
+
+    public function test_blocking_factors_classifies_broad_scope_as_proof_coverage(): void
+    {
+        $f = $this->safeFacts();
+        $f['requested_scope'] = ['app/Demo/A.php', 'app/Demo/B.php', 'app/Demo/C.php', 'app/Demo/D.php'];
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertContains('proof_coverage', $r['blocking_factors']);
+    }
+
+    public function test_blocking_factors_classifies_empty_budget_as_worker_capacity(): void
+    {
+        $f = $this->safeFacts();
+        $f['task_budget'] = 0;
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertContains('worker_capacity', $r['blocking_factors']);
+    }
 }
