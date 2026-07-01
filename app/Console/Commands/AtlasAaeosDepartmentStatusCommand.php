@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
@@ -34,6 +35,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         AtlasAaeosDepartmentMaturityBandClassifier $bandClassifier,
         AtlasAaeosDepartmentPromotionEligibilityEvaluator $promotionEligibility,
         AtlasAaeosClaimDefinitionOfDoneValidator $claimValidator,
+        AaeosDepartmentLevelClassifier $levelClassifier,
     ): int {
         $qualityBarResult = $qualityBar->qualityBar();
         $maturityResult = $maturity->maturity();
@@ -44,6 +46,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
             'quality_bar' => $qualityBarResult,
             'maturity_band_classification' => $this->classifyQualityBarBands($bandClassifier, $qualityBarResult),
             'promotion_eligibility' => $this->evaluatePromotionEligibility($promotionEligibility, $maturityResult, $qualityBarResult),
+            'department_level_classification' => $this->classifyDepartmentLevels($levelClassifier, $qualityBarResult),
         ];
         if ((bool) $this->option('quality-bar')) {
             $payload['quality_bar_signal'] = $qualityBar->emitSignal();
@@ -117,6 +120,43 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         }
 
         return $bandClassifier->classifyDepartments($bandLadders, $snapshots);
+    }
+
+    /**
+     * Runs AaeosDepartmentLevelClassifier per department over the same real quality-bar
+     * threshold/current data as classifyQualityBarBands, so the earned-level read (with capping
+     * metric and missing-metric diagnostics) is available alongside the coarser pass/fail band.
+     *
+     * @param  array<string,mixed>  $qualityBarResult
+     * @return array<string,mixed>
+     */
+    private function classifyDepartmentLevels(AaeosDepartmentLevelClassifier $levelClassifier, array $qualityBarResult): array
+    {
+        $results = [];
+
+        foreach ((array) ($qualityBarResult['departments'] ?? []) as $department) {
+            $id = (string) ($department['department'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+
+            $bandLadder = [
+                [
+                    'level' => 'meets_quality_bar',
+                    'thresholds' => [
+                        ['metric' => 'quality_score', 'comparator' => '>=', 'value' => (float) ($department['threshold'] ?? 0.0)],
+                    ],
+                ],
+            ];
+            $metricsSnapshot = ['quality_score' => (float) ($department['current'] ?? 0.0)];
+
+            $results[$id] = $levelClassifier->classify($id, $metricsSnapshot, $bandLadder);
+        }
+
+        return [
+            'schema_version' => 'atlas.aaeos.department_level_classification_batch.v1',
+            'departments' => $results,
+        ];
     }
 
     /**
