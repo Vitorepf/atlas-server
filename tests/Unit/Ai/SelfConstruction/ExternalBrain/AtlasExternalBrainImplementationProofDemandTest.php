@@ -251,4 +251,32 @@ final class AtlasExternalBrainImplementationProofDemandTest extends TestCase
         $this->assertFalse($r['accepted']);
         $this->assertFalse($r['is_proxy']);
     }
+
+    // ── AC3: output includes rejected_proxy_proofs and proof_gap_reasons ──────
+
+    public function test_derive_output_includes_rejected_proxy_proofs(): void
+    {
+        $r = $this->derive();
+
+        $this->assertArrayHasKey('rejected_proxy_proofs', $r);
+        foreach (AtlasExternalBrainImplementationProofDemand::REJECTED_PROXY_PROOF_TYPES as $proxy) {
+            $this->assertContains($proxy, $r['rejected_proxy_proofs']);
+        }
+    }
+
+    public function test_derive_output_includes_proof_gap_reasons_for_high_risk(): void
+    {
+        $r = $this->derive(risk: 'high');
+
+        $this->assertArrayHasKey('proof_gap_reasons', $r);
+        $this->assertNotEmpty($r['proof_gap_reasons']);
+    }
+
+    public function test_derive_output_includes_proof_gap_reasons_for_low_risk(): void
+    {
+        $r = $this->derive(risk: 'low');
+
+        $this->assertArrayHasKey('proof_gap_reasons', $r);
+        $this->assertNotEmpty($r['proof_gap_reasons']);
+    }
 }

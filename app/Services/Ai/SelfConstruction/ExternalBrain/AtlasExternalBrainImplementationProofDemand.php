@@ -133,10 +133,24 @@ final class AtlasExternalBrainImplementationProofDemand
                 ?? 'A runnable proof that the change produced a real, observable behavior difference.';
         }
 
+        // Proxy proof types never satisfy the demand, regardless of risk — surfaced explicitly so
+        // callers never need to re-derive the rejection list from ACCEPTED_REAL_PROOF_TYPES.
+        $rejectedProxyProofs = self::REJECTED_PROXY_PROOF_TYPES;
+
+        $proofGapReasons = [];
+        if ($isHigh || $isPropertyGated) {
+            $proofGapReasons[] = 'proxy_evidence_alone_insufficient_for_'.($isHigh ? 'high_risk' : 'property_gated').'_task';
+        }
+        foreach ($rejectedProxyProofs as $proxyType) {
+            $proofGapReasons[] = "{$proxyType}_never_satisfies_required_proofs";
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'required_proofs' => $requiredProofs,
+            'rejected_proxy_proofs' => $rejectedProxyProofs,
             'implementation_notes_sufficient' => $noteSufficient,
+            'proof_gap_reasons' => $proofGapReasons,
             'minimum_proof_rationale' => $rationale,
             'risk_level' => $riskLevel,
             'target_class' => $targetClass,
