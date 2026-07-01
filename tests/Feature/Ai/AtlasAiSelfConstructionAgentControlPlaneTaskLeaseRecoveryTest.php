@@ -729,7 +729,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest extend
             'lease_id' => $leaseId,
             'actor' => $actor,
             'files_changed' => ['app/Services/Ai/SelfConstruction/'.$packetId.'.php'],
-            'commands_run' => ['php artisan test --filter='.str_replace('-', '', $packetId).': passed'],
+            'commands_run' => ['php artisan test app/Services/Ai/SelfConstruction/'.$packetId.'.php: passed'],
             'tests_or_gates_result' => 'passed',
             'git_status_short' => ' M app/Services/Ai/SelfConstruction/'.$packetId.'.php',
             'git_diff_check_result' => 'clean',
