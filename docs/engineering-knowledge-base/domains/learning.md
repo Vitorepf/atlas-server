@@ -5,20 +5,27 @@ title: Atlas AI Learning Domain
 status: active
 category: architecture
 priority: 94
-summary: Spec canonica implemented/ready do dominio Learning para aprendizado humano, pratica deliberada, revisao e spaced review sem alterar o Learning Plane do Core.
+summary: Spec canonica implemented/ready do dominio Learning para aprendizado humano, pratica deliberada, revisao, spaced review e mastery acelerado conectado ao Research OS sem alterar o Learning Plane do Core.
 capabilities:
   - learning_domain
   - deliberate_practice
   - spaced_review
   - mastery_evidence
+  - teaching_mastery_os
+  - research_to_teaching_bridge
 decisions:
   - Learning e dominio implemented/ready para aprendizado humano.
   - Learning Domain nao e o Learning Plane do Core; ele nao promove memoria nem altera comportamento critico sem review.
   - Planos de estudo nao mutam calendario, tarefas ou rotina automaticamente.
+  - Learning Domain transforma Research OS em ensino personalizado: diagnostico, curriculo, pratica, feedback, revisao e prova de transferencia.
+  - Atlas deve ajudar o operador a dominar qualquer area da forma mais rapida e eficiente possivel, com evidencia de progresso.
 maintenance:
   - Atualize quando flows, gates, runtime, spaced review ou mastery evidence mudarem.
   - Rodar docs-health, sync, architecture-validate e testes de DomainProfileCompliance depois de alterar o contrato.
 related_paths:
+  - docs/engineering-knowledge-base/research-self-improvement/research-operating-system.md
+  - docs/engineering-knowledge-base/cognitive/overview.md
+  - docs/engineering-knowledge-base/cognitive/pipeline-overlay.md
   - app/Services/Ai/Domain/AtlasLearningOrchestrator.php
   - app/Services/Ai/Domain/LearningPlanService.php
   - app/Services/Ai/AtlasDomainProfileRegistry.php
@@ -120,6 +127,26 @@ next_actions:
 Learning is the human learning domain. It helps the operator learn a topic,
 skill, workflow or mental model through structured plans, practice loops,
 review, retrieval and spaced repetition.
+
+## Teaching / Mastery OS Contract
+
+Learning is the teaching layer for Atlas human capability growth. Research OS
+finds the best knowledge, evidence, domain map, frontier and judgment. Learning
+turns that into the shortest safe path to mastery for the operator.
+
+```text
+Research OS -> Domain Map / Evidence / Best Methods / Judgment
+Learning Domain -> Learner Model / Curriculum / Practice / Feedback / Review
+```
+
+The target is rapid, efficient mastery of any learnable area: languages,
+instruments, mathematics, technical topics, workflows and personal cognitive
+barriers. The domain must diagnose the current level, find gaps, generate a
+Pareto curriculum, create deliberate practice, detect mistakes, schedule
+spaced review, require transfer proof and update the next best learning move.
+
+Learning success is not "content was delivered". Success requires evidence
+that the operator can explain, recall, apply, transfer and improve.
 
 ## Status
 

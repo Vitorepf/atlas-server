@@ -5,7 +5,7 @@ title: Atlas Self-Construction Runtime Implementation Roadmap
 status: active
 category: architecture
 priority: 98
-summary: Phased roadmap for implementing Self-Construction OS runtime safely.
+summary: Phased roadmap for implementing Autonomos / Self-Construction runtime safely under Atlas Autonomous Engineering Government v3.
 tags:
   - atlas-ai
   - self-construction
@@ -14,8 +14,9 @@ capabilities:
   - self_construction_runtime_implementation_roadmap
   - roadmap
 decisions:
-  - Runtime roadmap now targets Atlas Autonomous Engineering Government, with Self-Construction OS as its Atlas-building-Atlas operating system.
-  - Task Fabric, Maestro, Verification Court, Merge Governor and Learning Transfer are required before credible 24/7 autonomy claims.
+  - Runtime roadmap targets Atlas Autonomous Engineering Government v3, with Autonomos / Self-Construction as the Atlas-building-Atlas user-space runtime.
+  - Mission Control, Policy Plane, Engineering Kernel, Spec Court, Task Fabric, Maestro, Verification Court, Governor and Learning-Application Controller are required before credible 24/7 autonomy claims.
+  - Loop / ACDE is pilot legacy; roadmap work should migrate useful capabilities into Autonomos or the correct v3 layer.
   - Multi-project stewardship must be isolated by project lane before external projects can run 24/7.
   - Runtime begins read-only and advisory before autonomous patching.
   - Each phase promotes one maturity slice with tests and evidence.
@@ -112,13 +113,14 @@ next_actions:
 ---
 # Atlas Self-Construction Runtime Implementation Roadmap
 
-Self-Construction runtime must be phased. The target is no longer a monolithic
-Loop. The target is `Atlas Autonomous Engineering Government` with
-Self-Construction OS as the Atlas-building-Atlas operating system.
+Autonomos / Self-Construction runtime must be phased. The target is no longer a
+monolithic Loop. The target is `Atlas Autonomous Engineering Government` v3
+with Self-Construction as the Atlas-building-Atlas user-space runtime.
 
 ```text
-Observe -> Decide -> Architect -> Decompose -> Schedule -> Execute
--> Verify -> Merge/Reject -> Learn -> Update Knowledge -> Reprioritize
+Intent -> Mission Control -> Policy Plane -> Spec Court -> Task Fabric
+-> Maestro -> Engineering Kernel / Worker -> Verification Court -> Governor
+-> ReceiptLedger -> Learning-Application -> Knowledge Sync -> Reprioritize
 ```
 
 
@@ -137,13 +139,14 @@ Phase goals at a glance:
 - Phase 3   - Meta-SDD Artifact Generator
 - Phase 4   - Receipt-Scoped Task Planner
 - Phase 4.2 - Task Fabric And Maestro Contract
-- Phase 4.4 - Verification Court Contract
-- Phase 4.6 - Merge / Release Governor Contract
+- Phase 4.3 - Policy Plane And Engineering Kernel Contract
+- Phase 4.4 - Spec Court And Verification Court Contract
+- Phase 4.6 - Governor Land/Canary/Revert Contract
 - Phase 4.5 - Traceability Guardrail
 - Phase 4.8 - Promotion Gate
 - Phase 5   - Low-Risk Agent Execution
 - Phase 6   - Restricted Runtime Patches
-- Phase 6.5 - Learning Transfer Runtime
+- Phase 6.5 - Learning-Application Runtime
 - Phase 7   - Strategic Self-Construction
 - Phase 8   - Atlas 24/7 Stewardship Lane
 - Phase 9   - External Project Stewardship

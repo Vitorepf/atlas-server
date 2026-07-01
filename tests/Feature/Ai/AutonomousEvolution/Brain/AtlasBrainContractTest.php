@@ -161,8 +161,11 @@ final class AtlasBrainContractTest extends TestCase
         self::assertStringContainsString('seed_existing_spec_command', $prompt);
         self::assertStringContainsString('--cleanup-specs', $prompt);
         self::assertStringContainsString('Pre-dry=>harden', $prompt);
-        self::assertStringContainsString('rotate/expand via patterns+web if under quota', $prompt);
+        self::assertStringContainsString('under quota pivot bugs/gates/live/simplify/frontier(repos,papers)', $prompt);
+        self::assertStringContainsString('seed levers', $prompt);
         self::assertStringContainsString('SPARE-BUDGET', $prompt);
+        self::assertStringContainsString('dry vein=>pivot', $prompt);
+        self::assertStringContainsString('design-paths', $prompt);
         self::assertStringContainsString('use suggested_next_path', $prompt);
         self::assertStringContainsString('Hermes/refused/no_proposal=>ORIGINATE+SEED', $prompt);
         self::assertStringContainsString('no final', $prompt);

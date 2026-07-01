@@ -112,7 +112,7 @@ flowchart LR
 ## Integration points
 
 - **AI Gateway**: the gateway injects brain context into prompts before they
-  reach a frontier model. See [../ai-gateway/](../ai-gateway/).
+  reach a frontier model. See [../ai-gateway/](../ai-gateway/index.md).
 - **Capture & ingestion**: raw captures are cognitively quarantined until a
   human ratifies a curation proposal; only then can they become memory. See
   [../capture-ingestion/cognitive-quarantine-and-privacy.md](../capture-ingestion/cognitive-quarantine-and-privacy.md).

@@ -31,6 +31,7 @@ final class AtlasKnowledgeSyncCodeIndexReadinessGateTest extends TestCase
             'local_schema_available' => true,
             'changed_code_hash' => 'abc',
             'index_hash' => 'abc',
+            'changed_symbol_delta_hash' => 'abc',
         ];
     }
 

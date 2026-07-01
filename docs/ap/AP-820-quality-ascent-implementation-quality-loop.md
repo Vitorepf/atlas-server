@@ -1,5 +1,5 @@
 ---
-title: AP-820 Quality Ascent — métrica escalar de qualidade de implementação + catraca + cadeia de avanço de baseline (estilo autoresearch, governado)
+title: AP-820 Quality Ascent — métrica escalar de qualidade de implementação + catraca + cadeia de avanço de baseline (padrão autoresearch dentro do Research OS)
 status: implemented
 owner: atlas-ai / autonomous-evolution / quality
 line_limit: 240
@@ -27,9 +27,14 @@ related_paths:
 ## 1. Propósito + fonte verificada
 
 Capturar o mecanismo do **autoresearch** (Karpathy, github.com/karpathy/autoresearch
-— **lido e verificado**): superfície de edição limitada (`train.py`), orçamento fixo
+— **lido e verificado**) como padrão/executor dentro do Research OS, nao como
+arquitetura paralela: superfície de edição limitada (`train.py`), orçamento fixo
 por experimento (5 min), **UMA métrica escalar honesta** (val_bpb), regra
 "melhorou estritamente → mantém, senão → descarta", rodando indefinidamente.
+
+Fronteira canonica: `autoresearch` e inspiração/runtime pattern. No Atlas, a
+autoridade continua em `research-self-improvement/research-operating-system.md`;
+qualquer variação deve entrar como runner, adapter ou profile governado.
 
 **Achado código-verificado que moldou a obra:** o Atlas JÁ tinha ~90% dessa forma.
 `AtlasEvolutionFrozenJudge` é o juiz autoresearch (canal escalar

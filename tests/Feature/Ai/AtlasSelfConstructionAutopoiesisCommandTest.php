@@ -87,7 +87,7 @@ final class AtlasSelfConstructionAutopoiesisCommandTest extends TestCase
 
     public function test_interpret_returns_verdict_envelope(): void
     {
-        $this->writeJson(['verification_passed' => true, 'evidence_ref' => 'evh-1', 'real_leverage_proof' => true]);
+        $this->writeJson(['verification_passed' => true, 'evidence_ref' => 'evh-1', 'real_leverage_proof' => true, 'impact_receipt_ref' => 'receipt-1']);
         Artisan::call('atlas:self-construction:autopoiesis', ['action' => 'interpret', '--facts' => $this->factsPath, '--json' => true]);
         $p = json_decode(trim(Artisan::output()), true);
         $this->assertSame(AtlasSelfConstructionAutopoiesisOutcomeInterpreter::VERDICT_PROMOTE, $p['outcome']['verdict']);

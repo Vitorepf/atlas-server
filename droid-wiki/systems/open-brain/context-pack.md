@@ -151,7 +151,7 @@ flowchart TD
   read model. See
   [../engineering/code-intelligence-and-codegraph.md](../engineering/code-intelligence-and-codegraph.md).
 - **AI Gateway**: the gateway can inject a pack into a prompt before it reaches
-  a frontier model. See [../ai-gateway/](../ai-gateway/).
+  a frontier model. See [../ai-gateway/](../ai-gateway/index.md).
 
 ## Key source files
 

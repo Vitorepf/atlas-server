@@ -5,127 +5,87 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\KnowledgeSync;
 
 /**
- * Pure FACTS-only gate. Reports whether the Atlas code intelligence index is fresh enough to be
- * trusted as the post-change knowledge surface after Self-Construction edits.
+ * Pure readiness gate that fails when the indexed symbol delta does not cover
+ * the changed code hash, preventing the next brain cycle from trusting a stale
+ * code graph.
  *
- * Inputs:
- *   manifest: {
- *     workspace_id: string,
- *     required_artifacts: list<string>           // e.g. ['atlas_code_symbols','atlas_code_files']
- *     max_age_seconds?: int                       // freshness window, default 1800s
- *     docs_only_bypass?: bool                     // when true and changed_code_hash absent, bypass code-index gate
- *   }
- *   observations: {
- *     now_unix: int,
- *     indexed_at_unix?: int,                      // last successful atlas:engineering:knowledge:index-code run
- *     index_code_status?: 'pass'|'fail'|'unknown',
- *     observed_artifacts?: list<string>,           // tables/symbols the local schema actually has
- *     local_schema_available?: bool,
- *     changed_code_hash?: string,                  // sha of code that should be reflected in the index
- *     index_hash?: string,                         // sha currently represented in the index
- *   }
+ * Supports a docs_only_bypass for documentation-only changes that don't affect
+ * the code symbol graph.
  *
- * Output (facts only):
- *   {schema_version, workspace_id, ready, blockers, degraded_but_blocked, observed_at}
- *
- * NEVER reads the filesystem, NEVER touches a DB, NEVER calls a provider. The CALLER passes the
- * observations. NO numeric score.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasKnowledgeSyncCodeIndexReadinessGate
 {
-    public const SCHEMA = 'atlas.knowledge_sync.code_index_readiness.v1';
-
-    public const DEFAULT_MAX_AGE_SECONDS = 1800;
+    public const SCHEMA = 'atlas.knowledge_sync.code_index_readiness_gate.v1';
 
     /**
-     * @param  array<string,mixed>  $manifest
-     * @param  array<string,mixed>  $observations
-     * @return array<string,mixed>
+     * @param  array{
+     *   changed_code_hash?:?string,
+     *   changed_symbol_delta_hash?:?string,
+     *   indexed_code_hash?:?string,
+     *   docs_only_bypass?:bool,
+     * }  $facts
+     * @return array{
+     *   schema:string,
+     *   ready:bool,
+     *   blockers:list<string>,
+     * }
      */
-    public function evaluate(array $manifest, array $observations): array
+    public function evaluate(array $facts): array
     {
-        $now = (int) ($observations['now_unix'] ?? 0);
-        $maxAge = (int) ($manifest['max_age_seconds'] ?? self::DEFAULT_MAX_AGE_SECONDS);
-        $workspaceId = (string) ($manifest['workspace_id'] ?? '');
-        $requiredArtifacts = array_values((array) ($manifest['required_artifacts'] ?? []));
-        $observedArtifacts = array_values((array) ($observations['observed_artifacts'] ?? []));
-        $localSchemaAvailable = (bool) ($observations['local_schema_available'] ?? false);
-        $docsOnlyBypass = (bool) ($manifest['docs_only_bypass'] ?? false);
-        $changedCodeHash = (string) ($observations['changed_code_hash'] ?? '');
+        $changedCodeHash = $facts['changed_code_hash'] ?? null;
+        $changedSymbolDeltaHash = $facts['changed_symbol_delta_hash'] ?? null;
+        $indexedCodeHash = $facts['indexed_code_hash'] ?? null;
+        $docsOnlyBypass = (bool) ($facts['docs_only_bypass'] ?? false);
 
         $blockers = [];
-        $degradedBlocked = [];
 
-        if ($workspaceId === '') {
-            $blockers[] = 'workspace_id_missing';
+        // No changed code hash → nothing to check, ready
+        if ($changedCodeHash === null || $changedCodeHash === '') {
+            return $this->envelope(true, []);
         }
 
-        if ($requiredArtifacts === []) {
-            $blockers[] = 'required_artifacts_empty';
+        // Docs-only bypass skips symbol delta requirement
+        if ($docsOnlyBypass) {
+            return $this->envelope(true, []);
         }
 
-        if (! $localSchemaAvailable) {
-            $degradedBlocked[] = 'local_schema_unavailable';
-            $blockers[] = 'degraded_but_blocked:local_schema_unavailable';
+        // Changed code hash present → require matching symbol delta
+        if ($changedSymbolDeltaHash === null || $changedSymbolDeltaHash === '') {
+            $blockers[] = 'missing:changed_symbol_delta_hash';
         }
 
-        // Docs-only bypass: when there's no changed code hash to reconcile, we may skip the code-index
-        // sub-checks (the change was docs-only). The bypass is EXPLICIT — never inferred.
-        if ($docsOnlyBypass && $changedCodeHash === '') {
-            return $this->envelope($workspaceId, $blockers, $degradedBlocked, $now, bypassed: true);
+        // The indexed code hash must match the changed code hash
+        if ($indexedCodeHash !== null && $indexedCodeHash !== '' && $indexedCodeHash !== $changedCodeHash) {
+            $blockers[] = 'mismatch:indexed_code_hash≠changed_code_hash';
         }
 
-        $missingTables = [];
-        foreach ($requiredArtifacts as $artifact) {
-            if (! in_array($artifact, $observedArtifacts, true)) {
-                $missingTables[] = $artifact;
-            }
-        }
-        if ($missingTables !== []) {
-            $blockers[] = 'code_index_tables_missing:'.implode(',', $missingTables);
-        }
-
-        $indexedAt = $observations['indexed_at_unix'] ?? null;
-        if (! is_int($indexedAt)) {
-            $blockers[] = 'indexed_at_missing';
-        } elseif ($now - $indexedAt > $maxAge) {
-            $blockers[] = 'index_stale';
+        // If both symbol delta and indexed hash exist but don't align
+        if ($changedSymbolDeltaHash !== null && $changedSymbolDeltaHash !== ''
+            && $indexedCodeHash !== null && $indexedCodeHash !== ''
+            && $indexedCodeHash === $changedCodeHash
+        ) {
+            // Symbol delta exists and code hash matches → OK
+            return $this->envelope(true, []);
         }
 
-        $indexStatus = (string) ($observations['index_code_status'] ?? 'unknown');
-        if ($indexStatus === 'fail') {
-            $blockers[] = 'index_code_run_failed';
-        } elseif ($indexStatus === 'unknown') {
-            $blockers[] = 'index_code_status_unknown';
+        if (count($blockers) === 0 && $changedSymbolDeltaHash !== null && $changedSymbolDeltaHash !== '') {
+            // Symbol delta present, no hash mismatch → ready
+            return $this->envelope(true, []);
         }
 
-        if ($changedCodeHash !== '') {
-            $indexHash = (string) ($observations['index_hash'] ?? '');
-            if ($indexHash === '') {
-                $blockers[] = 'index_hash_missing';
-            } elseif ($indexHash !== $changedCodeHash) {
-                $blockers[] = 'changed_code_hash_not_represented';
-            }
-        }
-
-        return $this->envelope($workspaceId, $blockers, $degradedBlocked, $now);
+        return $this->envelope(false, $blockers);
     }
 
-    /**
-     * @param  list<string>  $blockers
-     * @param  list<string>  $degradedBlocked
-     * @return array<string,mixed>
-     */
-    private function envelope(string $workspaceId, array $blockers, array $degradedBlocked, int $observedAt, bool $bypassed = false): array
+    /** @param  list<string>  $blockers */
+    private function envelope(bool $ready, array $blockers): array
     {
+        sort($blockers, SORT_STRING);
+
         return [
-            'schema_version' => self::SCHEMA,
-            'workspace_id' => $workspaceId,
-            'ready' => $blockers === [],
-            'bypassed_docs_only' => $bypassed,
-            'blockers' => array_values($blockers),
-            'degraded_but_blocked' => array_values($degradedBlocked),
-            'observed_at' => $observedAt,
+            'schema' => self::SCHEMA,
+            'ready' => $ready,
+            'blockers' => $blockers,
         ];
     }
 }

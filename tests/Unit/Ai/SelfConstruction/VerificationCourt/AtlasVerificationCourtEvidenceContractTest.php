@@ -28,6 +28,12 @@ final class AtlasVerificationCourtEvidenceContractTest extends TestCase
             'receipt_hash' => 'rh-abc',
             'allowed_files_hash' => 'afh-xyz',
             'command_hash' => 'ch-def',
+            'receipt_chain' => [
+                'task_packet_id' => 'pkt-1',
+                'lease_id' => 'lease_01XYZ',
+                'allowed_files_hash' => 'afh-xyz',
+                'command_hash' => 'ch-def',
+            ],
             'scope_deviations' => [],
             'residual_risks' => [],
             'runtime_owner' => AtlasVerificationCourtEvidenceContract::RUNTIME_OWNER_NATIVE,

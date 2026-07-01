@@ -88,7 +88,7 @@ final class AtlasExternalBrainControlPlaneConvergenceCommandTest extends TestCas
         $this->writeInput([
             'integration_gate' => [
                 'organs' => [
-                    ['organ_id' => 'wired_organ', 'is_important' => true, 'control_plane_exposure' => true],
+                    ['organ_id' => 'wired_organ', 'is_important' => true, 'control_plane_exposure' => true, 'decision_effect' => 'gates task promotion', 'consumer_links' => ['originator']],
                 ],
             ],
             'stop_go_bridge' => [
@@ -111,7 +111,7 @@ final class AtlasExternalBrainControlPlaneConvergenceCommandTest extends TestCas
         $this->writeInput([
             'integration_gate' => [
                 'organs' => [
-                    ['organ_id' => 'wired_organ', 'is_important' => true, 'control_plane_exposure' => true],
+                    ['organ_id' => 'wired_organ', 'is_important' => true, 'control_plane_exposure' => true, 'decision_effect' => 'gates task promotion', 'consumer_links' => ['originator']],
                 ],
             ],
             'stop_go_bridge' => [

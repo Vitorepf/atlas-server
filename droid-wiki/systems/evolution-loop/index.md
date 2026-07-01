@@ -52,7 +52,7 @@ graph TD
     Workers --> Court --> MergeGov --> Receipts --> Learning --> Loop
 ```
 
-Separation of powers is enforced: observe, decide-value, architect, decompose, schedule, execute, verify, merge, and learn are distinct organs. One agent must not span originate through promote. See [self-construction-government](../self-construction-government/).
+Separation of powers is enforced: observe, decide-value, architect, decompose, schedule, execute, verify, merge, and learn are distinct organs. One agent must not span originate through promote. See [self-construction-government](../self-construction-government/index.md).
 
 ## Directory layout
 
@@ -148,9 +148,9 @@ Five load-bearing invariants stop the loop from cheating itself:
 
 ## Integration points
 
-- **Engineering plane** ([../engineering/](../engineering/)) is the loop's execution engine. The harness runs provider scenarios; the code graph feeds comprehension.
-- **AI Gateway** ([../ai-gateway/](../ai-gateway/)) is how the loop reaches frontier models. The writer and the judge panel call providers through it.
-- **Self-Construction Government** ([../self-construction-government/](../self-construction-government/)) governs the loop: constitution, control plane, task fabric, Maestro, verification court, merge governor.
+- **Engineering plane** ([../engineering/](../engineering/index.md)) is the loop's execution engine. The harness runs provider scenarios; the code graph feeds comprehension.
+- **AI Gateway** ([../ai-gateway/](../ai-gateway/index.md)) is how the loop reaches frontier models. The writer and the judge panel call providers through it.
+- **Self-Construction Government** ([../self-construction-government/](../self-construction-government/index.md)) governs the loop: constitution, control plane, task fabric, Maestro, verification court, merge governor.
 - **CLI operator** ([../cli-operator/watchdogs-and-master-switch.md](../cli-operator/watchdogs-and-master-switch.md)) runs the 24/7 watchdogs and the master switch.
 - **Concepts**: [anti-goodhart](../../concepts/anti-goodhart.md), [evidence-and-receipts](../../concepts/evidence-and-receipts.md), [earned-autonomy](../../concepts/earned-autonomy.md).
 

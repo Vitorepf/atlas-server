@@ -43,6 +43,11 @@ final class AtlasSelfConstructionWorkersCommandTest extends TestCase
             'declared_capabilities' => ['inspect_task_packet'],
             'declared_actions' => ['inspect'],
             'evidence_emits' => AtlasSelfConstructionWorkerCapabilityContract::REQUIRED_EVIDENCE,
+            'proof_strength' => [
+                'evidence_hash' => 'sha256',
+                'test_run_id' => 'ci_run_id',
+                'commit_sha_or_diff_hash' => 'git_sha',
+            ],
         ]);
         Artisan::call('atlas:self-construction:workers', ['action' => 'capability', '--facts' => $this->factsPath, '--json' => true]);
         $p = json_decode(trim(Artisan::output()), true);

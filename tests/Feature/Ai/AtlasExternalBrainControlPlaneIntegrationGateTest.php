@@ -132,6 +132,7 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
             'is_read_only_helper'    => true,
             'control_plane_exposure' => true,
             'consumer_links'         => ['PolicyCompiler'],
+            'decision_effect'        => 'gates task promotion',
         ]);
 
         $this->assertTrue($r['count_as_delivered']);

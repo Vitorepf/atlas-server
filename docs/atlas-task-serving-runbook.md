@@ -30,11 +30,12 @@ owner: atlas-ai
 
 > **Arquitetura final:** Task serving e task packets agora pertencem ao
 > `Task Fabric / Task Economy` dentro do `Atlas Autonomous Engineering
-> Government` (`docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`).
+> Government` v3 (`docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`).
 > Eles vieram para ficar. O modo atual, em que Claude Code/Codex/Cursor
 > externos resolvem packets, é o bootstrap operacional. Na forma final,
 > workers são músculos substituíveis; Atlas verifica server-side, aprende com
-> give-back e integra via Verification Court + Merge / Release Governor.
+> give-back e integra via Spec Court, Verification Court, Engineering Kernel e
+> Governor.
 
 > O Atlas é o **servidor de tasks**. Qualquer IA (Claude Code, Codex, Cursor, KimiK2, MiniMax, Hermes — todas
 > iguais, `client_id` opaco) pede uma task, implementa, e **resolve commitando na main**. As IAs trabalham
@@ -77,13 +78,16 @@ workers no servidor Atlas.
 
 ```text
 Atlas Autonomous Engineering Government
--> Atlas Self-Construction OS
+-> Mission Control / AWEOS
+-> Policy Plane
+-> Spec Court
 -> Task Fabric / Task Economy
 -> Maestro
 -> Workers bootstrap ou Atlas-native
+-> Engineering Kernel
 -> Verification Court
--> Merge / Release Governor
--> Receipts / Learning / Knowledge Sync
+-> Governor
+-> ReceiptLedger / Learning-Application / Knowledge Sync
 ```
 
 ## Contratos
@@ -91,7 +95,9 @@ Atlas Autonomous Engineering Government
 O contrato permanente é simples: `shared_local_main_with_scope_lock`,
 `allowed_files` exato, commit escopado pelo Atlas, gates server-side e
 `final_runtime_owner=atlas_native`. Workers externos são substituíveis; o Atlas
-continua sendo o servidor, verificador, committer e dono do runtime final.
+continua sendo o servidor, verificador, committer governado e dono do runtime
+final. `verified=true` pertence a Verification Court; main/release entry
+pertence ao Governor.
 
 ## Escopo de Implementacao
 
@@ -168,13 +174,17 @@ No `Atlas Autonomous Engineering Government`, este serving evolui para o
 `Task Fabric / Task Economy` preservando a mesma simplicidade operacional:
 
 ```text
-Control Plane / Strategy / Architecture
+Mission Control + Leverage Ranker
+-> Proposal Arena
+-> Spec Court aprova design/packet
+-> Policy Plane vincula gates, budget e isolamento
 -> Task Fabric packetiza
 -> Maestro agenda e roteia
 -> Worker executa na main local compartilhada, só allowed_files
+-> Engineering Kernel registra mecanismos e receipts
 -> Verification Court revalida
--> Merge Governor integra ou rejeita
--> Learning Transfer atualiza futuras tasks
+-> Governor integra, canaria, rejeita ou reverte
+-> Learning-Application Controller atualiza futuras tasks
 ```
 
 Cada packet final deve carregar:
@@ -203,12 +213,17 @@ política default de task. `AgentControlPlaneTaskPacketBuilder` deve continuar
 emitindo `shared_local_main_with_scope_lock` e `atlas_native` como contrato
 normal; isolamento só entra como exceção explícita de risco.
 
+Na arquitetura v3, esse gate e parte da Spec Court operacional. O objetivo dele
+nao e reduzir throughput; e impedir que lixo vire custo de musculo. Quando a
+fila esta saudavel, o originador ainda pode criar tasks de alto valor em outro
+escopo; o gate nao deve virar desculpa para parar de buscar evolucao.
+
 `give_back` é dado de aprendizado, não lixo: fora de escopo, capability já
 existente, acceptance contraditório, teste impossível, dependência morta e
-contexto insuficiente devem alimentar o Learning Transfer System. No bootstrap,
-um operador pode observar e corrigir casos novos; no estado final, Atlas deve
-quarentenar, classificar, reparar templates/packets e prevenir re-serves sem
-depender de uma pessoa.
+contexto insuficiente devem alimentar o Learning-Application Controller e Queue
+Self-Healing. No bootstrap, um operador pode observar e corrigir casos novos;
+no estado final, Atlas deve quarentenar, classificar, reparar templates/packets
+e prevenir re-serves sem depender de uma pessoa.
 
 Packets novos devem carregar o contrato mecânico de autonomia:
 `operator_dependency_allowed=false`, `human_dependency_allowed=false` e
@@ -252,7 +267,7 @@ até a fila secar ou o serving desativar.
 php artisan atlas:task next --client="claude-code-1" --json
 #   → { status: "served", task: { task_packet_id, lease_id, objective, allowed_files, acceptance_criteria, required_evidence } }
 #   → status "no_claimable_task"      = fila vazia para o worker bootstrap; o replenisher Atlas-native deve manter a fila viva no estado final
-#   → status "no_self_sufficient_task" = só sobrou task malformada; Task Fabric/Learning Transfer deve reparar a causa no estado final
+#   → status "no_self_sufficient_task" = só sobrou task malformada; Task Fabric/Queue Self-Healing/Learning-Application deve reparar a causa no estado final
 
 # 2) IMPLEMENTA — edite SOMENTE os arquivos em allowed_files. Rode os testes/gates do acceptance.
 
@@ -319,7 +334,7 @@ lease, task id, allowed files, evidence e report final.
 
 - Internalizar workers Atlas-native para executar packets sem depender de
   Claude Code, Codex, Cursor, operador ou provider externo.
-- Mover verificação server-side, rollback, Learning Transfer e Merge Governor
-  para o caminho padrão de 24/7.
+- Mover verificação server-side, rollback, Learning-Application Controller e
+  Governor para o caminho padrão de 24/7.
 - Manter a fila self-sufficient por sweep/health, bloqueando poison packets antes
   de servir.

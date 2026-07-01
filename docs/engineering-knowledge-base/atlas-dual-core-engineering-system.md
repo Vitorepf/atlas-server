@@ -5,7 +5,7 @@ title: Atlas Dual-Core Engineering System
 status: active
 category: programming
 priority: 100
-summary: Contrato canonico que separa Atlas Dev e Atlas Forge como dois sistemas completos e autonomos de engenharia de software, conectados por fronteira, roteamento, evidencia compartilhada e escalonamento Dev -> Forge sem fusao de identidade.
+summary: Contrato canonico que separa Atlas Dev e Atlas Forge como dois runtimes user-space completos de engenharia de software dentro do Atlas Autonomous Engineering Government, conectados por fronteira, roteamento, evidencia compartilhada e escalonamento Dev -> Forge sem fusao de identidade.
 tags:
   - atlas
   - atlas-dev
@@ -24,6 +24,10 @@ decisions:
   - Atlas Dev e completo por si so como sistema leve, rapido, governado e auditavel de programacao assistida por IA.
   - Atlas Forge e completo por si so como sistema pesado, enterprise, continuo e automatizado de engenharia de software por Obras.
   - Atlas Dev nao e Forge mini, Forge nao e gerente do Dev, e nenhum dos dois deve ser fundido em um sistema unico.
+  - Na arquitetura v3, Dev e Forge sao runtimes user-space sob Constitution, Mission Control, Policy Plane, Engineering Kernel, Spec Court, Verification Court e Governor.
+  - O roteamento Dev/Forge pertence a Mission Control/Policy Plane; o Dual-Core define identidade e contrato, nao cria um OS acima do governo.
+  - Dev e Forge nao podem possuir provider direto, `verified=true`, main/release entry ou promocao de memoria canonica.
+  - Autonomos / Self-Construction e o terceiro runtime user-space para Atlas 24/7 sem operador; ele nao deve ser chamado de Loop.
   - A relacao correta e interoperabilidade por contratos: roteamento, evidence, escalation packet, intake packet, receipts e governance refs.
   - Atlas Dev deve resolver tarefas claras, pequenas, medias ou ambiguas de escopo limitado com Senior Engineer Loop, teste e recibo.
   - Atlas Forge deve resolver obras grandes, longas, ambiguas, multi-modulo, multiagente, enterprise ou com SDD/governanca pesada.
@@ -74,6 +78,8 @@ forbidden_changes:
   - Declarar que Dev e apenas uma feature interna do Forge.
   - Declarar que Forge e apenas um orquestrador que manda tarefas para Dev.
   - Fundir Dev e Forge em um unico runtime sem boundary contract.
+  - Fazer Dev/Forge bypassarem Engineering Kernel, Spec Court, Verification Court, Governor ou Policy Plane.
+  - Tratar o Dual-Core como arquitetura superior ao Atlas Autonomous Engineering Government.
   - Permitir escalonamento silencioso sem packet, receipt e motivo auditavel.
   - Permitir que Dev execute Obra longa sem promover para Forge.
 depends_on:
@@ -154,7 +160,7 @@ line_limit: 900
 ## Resumo
 
 Atlas Dual-Core Engineering System e o contrato que define a convivencia entre
-dois nucleos completos de engenharia de software:
+dois runtimes user-space completos de engenharia de software:
 
 ```text
 Atlas Dev   = nucleo rapido, leve, governado e auditavel para programacao diaria.
@@ -165,19 +171,35 @@ Eles nao sao o mesmo produto. Eles nao devem ser fundidos. Eles compartilham
 contratos, evidence e roteamento, mas preservam identidade, runtime, UX,
 criterios de sucesso e autoridade operacional.
 
+Na arquitetura v3, o Dual-Core nao e o governo inteiro. Dev e Forge vivem sob o
+Atlas Autonomous Engineering Government:
+
+```text
+Constitution / Mission Control / Policy Plane
+-> Engineering Kernel / Courts / Governor
+-> User-space runtimes
+   -> Atlas Dev
+   -> Atlas Forge
+   -> Autonomos / Self-Construction
+```
+
+Autonomos e o runtime 24/7 sem operador para Atlas construindo Atlas. O antigo
+Loop / ACDE e piloto legado desse runtime, nao um quarto OS concorrente.
+
 ## Papel no Atlas
 
 Atlas Dev e completo por si so. Atlas Forge tambem e completo por si so.
 
 O patamar correto nao e juntar os dois. O patamar correto e fazer os dois
-conversarem por contrato:
+conversarem por contrato e pelo roteamento de Mission Control:
 
 ```text
-Atlas AI Router
+Mission Control / Atlas AI Router
 -> decide Dev, Forge ou Dev -> Forge
 -> registra motivo
 -> entrega ao nucleo correto
 -> preserva evidence compativel
+-> recebe Court/Governor receipts quando houver codigo/release
 ```
 
 ## Onde Se Encaixa
@@ -186,6 +208,12 @@ Atlas AI Router
 | --- | --- | --- |
 | Atlas Dev | Fast path de programacao assistida superior a provider direto | Forge mini |
 | Atlas Forge | Sistema completo de engenharia pesada por Obras | Gerente do Dev |
+| Autonomos / Self-Construction | Runtime 24/7 de Atlas construindo Atlas | Loop piloto nem Dev/Forge escondido |
+
+Dev, Forge e Autonomos nao chamam provider direto nem fazem merge por conta
+propria no estado governado. Eles pedem mecanismo ao Engineering Kernel,
+aceitam politica da Policy Plane, passam pelos tribunais e recebem landing do
+Governor.
 
 ## Atlas Dev
 
@@ -209,6 +237,10 @@ Atlas Dev deve parecer leve para o usuario, mesmo quando por baixo faz trabalho
 senior. Ele deve ser mais confiavel que Claude Code/Codex direto porque adiciona
 contrato, verificacao, evidence, scope guard e learning handoff.
 
+O Operator Rebate se aplica aqui: como Dev tem operador presente e escopo
+menor, ele deve manter overhead baixo sem perder receipts proporcionais. Se
+ficar pesado demais, sera bypassado por ferramentas externas; isso gera drift.
+
 ## Atlas Forge
 
 Atlas Forge e o sistema para engenharia pesada, enterprise, longa e
@@ -230,6 +262,10 @@ Responsabilidades canonicas:
 
 Forge nao depende de Dev para ser completo. Se usar Dev como executor tatico em
 algum momento, isso e uma opcao de interoperabilidade, nao uma subordinacao.
+
+Forge paga mais custo de governanca porque o risco e o horizonte sao maiores:
+SDD, work packets, continuidade, multiagente, rollback, review e receipts mais
+fortes. Isso nao autoriza bypass de Court/Governor.
 
 ## Fluxo
 

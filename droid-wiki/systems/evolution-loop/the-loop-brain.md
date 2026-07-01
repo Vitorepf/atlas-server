@@ -123,8 +123,8 @@ The brain is the propose-only "decide" verb that emits the packet spec a worker 
 - The brain's perception organs are pétreo; see [self-modification safety](self-modification-safety.md).
 - The cycle capsule and internalization feed [recursive self-improvement](recursive-self-improvement.md).
 - The brain runs under the 24/7 campaign; see [campaigns and runtime](campaigns-and-runtime.md).
-- The brain reaches frontier models through the [AI Gateway](../ai-gateway/).
-- The brain is governed by the [self-construction-government](../self-construction-government/).
+- The brain reaches frontier models through the [AI Gateway](../ai-gateway/index.md).
+- The brain is governed by the [self-construction-government](../self-construction-government/index.md).
 
 ## Key source files
 

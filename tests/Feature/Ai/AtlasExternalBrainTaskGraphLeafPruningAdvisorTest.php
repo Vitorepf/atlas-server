@@ -102,6 +102,7 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisorTest extends TestCase
                 'maturity_gap_coverage' => 0.0,
                 'implementation_effort' => 0.9,
                 'duplication_risk' => 0.0,
+                'safe_pruning_evidence' => ['no_active_consumers'],
             ]),
         ]]);
 
@@ -163,5 +164,44 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisorTest extends TestCase
         $result = $this->advisor->advise(['tasks' => []]);
 
         $this->assertSame([], $result['recommendations']);
+    }
+
+    public function test_very_low_leverage_without_safe_pruning_evidence_delays_instead_of_retiring(): void
+    {
+        $result = $this->advisor->advise(['tasks' => [
+            $this->task('weak-no-evidence', [
+                'evidence_value' => 0.0,
+                'maturity_gap_coverage' => 0.0,
+                'implementation_effort' => 0.9,
+                'duplication_risk' => 0.0,
+            ]),
+        ]]);
+
+        $row = $this->recommendationFor($result, 'weak-no-evidence');
+        $this->assertSame('delay_leaf', $row['recommendation']);
+        $this->assertContains('missing_safe_pruning_evidence', $row['retirement_blockers']);
+    }
+
+    public function test_merge_leaf_includes_merge_target_hint(): void
+    {
+        $result = $this->advisor->advise(['tasks' => [
+            $this->task('dup-leaf', ['duplication_risk' => 0.9, 'merge_target_hint' => 'other-task-id']),
+        ]]);
+
+        $row = $this->recommendationFor($result, 'dup-leaf');
+        $this->assertSame('merge_leaf', $row['recommendation']);
+        $this->assertSame('other-task-id', $row['merge_target_hint']);
+    }
+
+    public function test_recommendation_includes_preserves_capability_field(): void
+    {
+        $result = $this->advisor->advise(['tasks' => [
+            $this->task('any-leaf'),
+        ]]);
+
+        $row = $this->recommendationFor($result, 'any-leaf');
+        $this->assertArrayHasKey('preserves_capability', $row);
+        $this->assertArrayHasKey('safe_pruning_evidence', $row);
+        $this->assertArrayHasKey('retirement_blockers', $row);
     }
 }

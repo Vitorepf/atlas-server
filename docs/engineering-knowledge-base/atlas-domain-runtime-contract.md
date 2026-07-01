@@ -342,7 +342,7 @@ Dominios cobertos pelo design pack, todos com status `planned` enquanto Meta
 | Domain | Charter resumido | Stage alvo inicial |
 |---|---|---|
 | Software Company Runtime | Engenharia de software (Dev, Debug, Review, QA, Security, Forge, Delivery) | Department |
-| Research Company Runtime | Fontes primarias, contradiction check, citations, opportunity radar, sintese | Specialist |
+| Research Company Runtime | Adapter do Research OS universal: fontes primarias, contradiction check, citations, opportunity radar, sintese | Specialist |
 | Corporate Strategy / Venture Studio | Oportunidades, modelagem de empresa, TAM/SAM/SOM, GTM, experimentos | Specialist |
 | Finance / Investment | Research desk, valuation, portfolio, risk, compliance, reporting (sem trade real sem mandato) | Specialist |
 | Marketing / Growth | Posicionamento, ICP, campanha, copy, funil, experimentos (sem publicar/gastar sem approval) | Specialist |

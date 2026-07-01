@@ -66,7 +66,7 @@ final class AtlasBrainWorkerPromptCommand extends Command
         $clientArg = escapeshellarg($client);
         $scopeArg = escapeshellarg($scope);
 
-        return "TARGET QUOTA: {$targetSeeds} CREDITED VALID SEEDS. ACTOR={$client} BASELINE_SEEDED={$baselineSeeded}. QUOTA PREFLIGHT before step1: `{$php} artisan atlas:brain:state --scope={$scopeArg} --target-seeds={$targetSeeds} --baseline-seeded={$baselineSeeded} --actor={$clientArg} --json` => quota.credited_valid_seeds/status; any quota result=>PREFLIGHT. quota_met=>STOP. quota.first_action.command/must_run_now nonempty=>EXECUTE VERBATIM NOW; no prose/analysis; analysis_before_must_run_now=contract_violation. quota.unattributed_seeded>0=>do_not_count. stalled_before_quota=>RUN must_run_now; obedience_failure=>RUN must_run_now; external_actor_must_execute=>true; operator_input_required=>false; never ask/stop. temp_spec_already_done=>never reseed;auto_recovery_required;analysis_allowed_before_recovery=false;discard_existing_spec_command+step1. seed_existing_spec_first=>dry_run_existing_spec_command+seed_existing_spec_command. counts.credited>0+no warnings=valid; skipped_done_set=>RUN next_command before seed; missing_actor_attribution invalid. use suggested_next_path; rotate/expand via patterns+web if under quota. Pre-dry=>harden. Never proxy.\n\n";
+        return "TARGET QUOTA: {$targetSeeds} CREDITED VALID SEEDS. ACTOR={$client} BASELINE_SEEDED={$baselineSeeded}. QUOTA PREFLIGHT before step1: `{$php} artisan atlas:brain:state --scope={$scopeArg} --target-seeds={$targetSeeds} --baseline-seeded={$baselineSeeded} --actor={$clientArg} --json` => quota.credited_valid_seeds/status; any quota result=>PREFLIGHT. quota_met=>STOP. quota.first_action.command/must_run_now nonempty=>EXECUTE VERBATIM NOW; no prose/analysis; analysis_before_must_run_now=contract_violation. quota.unattributed_seeded>0=>do_not_count. stalled_before_quota=>RUN must_run_now; obedience_failure=>RUN must_run_now; external_actor_must_execute=>true; operator_input_required=>false; never ask/stop. temp_spec_already_done=>never reseed;auto_recovery_required;analysis_allowed_before_recovery=false;discard_existing_spec_command+step1. seed_existing_spec_first=>dry_run_existing_spec_command+seed_existing_spec_command. counts.credited>0+no warnings=valid; skipped_done_set=>RUN next_command before seed; missing_actor_attribution invalid. use suggested_next_path; under quota pivot bugs/gates/live/simplify/frontier(repos,papers); seed levers. Pre-dry=>harden. Never proxy.\n\n";
     }
 
     private function phpCommand(string $php): string
@@ -84,8 +84,8 @@ final class AtlasBrainWorkerPromptCommand extends Command
             return $prompt;
         }
 
-        $extra = "\nSPARE-BUDGET: no microtasks/wrapper farms; no arm-dormant->print-schema; each seed=distinct lever. Prefer bug/runtime/gate/decision.";
-        $room = 3990 - mb_strlen($prompt);
+        $extra = "\nSPARE-BUDGET: dry vein=>pivot design-paths/web/repos/papers; no wrappers; seed distinct levers. No self-stop.";
+        $room = 3948 - mb_strlen($prompt);
 
         return $room > 0 ? $prompt.mb_substr($extra, 0, $room) : $prompt;
     }
@@ -142,8 +142,8 @@ PROMPT;
         $startLine = $targetSeeds > 0 ? 'Start: QUOTA PREFLIGHT, then step1.' : 'Start step 1.';
         $loopLine = $targetSeeds > 0 ? 'Preflight.' : 'Go to 1.';
         $altitude = $targetSeeds > 0
-            ? "RULES: never edit app/; no commit/merge/queue. Write ONLY docs/. Queue via `atlas:brain:seed`. `disabled`=>STOP; never switch on; ATLAS_BRAIN_MASTER_ENABLED operator-only. No proxy/dup; STOP only on `disabled`/`dry`.\nAMBITION: max-leverage; rotate. Hermes/refused/no_proposal=>ORIGINATE+SEED; no final. Obra/prod/pipeline valid; no self-contained dry. `dry`/`disabled` stop; else change path."
-            : "HARD CONSTRAINTS:\n- NEVER edit app/; no commit/merge/queue. Write ONLY docs/. Queue via `atlas:brain:seed`.\n- NEVER turn the brain switch on; ATLAS_BRAIN_MASTER_ENABLED operator-only.\n- NO proxy/faxina/duplicate. STOP only on an ATLAS signal: `disabled` or `dry`.\nAMBITION:\n- ROTATE the self-improvement portfolio; seek the most exponential lift.\n- Hermes/refused/no_proposal=>ORIGINATE+SEED; no final. Obra/prod/pipeline valid; no self-contained dry.\n- A refusal/blocked path is NOT a stop; change path.";
+            ? "RULES: never edit app/; no commit/merge/queue. ONLY docs/. Seed via `atlas:brain:seed`. `disabled`=>STOP; switch operator-only. No proxy/dup; STOP only `disabled`/`dry`.\nAMBITION: max-leverage; rotate. LOW/sufficient_depth/healthy queue NEVER stop/wait/no-task. Full queue=>use skills: codebase-design,improve-codebase-architecture,domain-modeling,diagnosing-bugs,tdd,code-review,teach,grilling,prototype,to-prd,grill-with-docs. refused/no_proposal=>ORIGINATE+SEED. dry/disabled stop; else change path."
+            : "HARD CONSTRAINTS:\n- NEVER edit app/; no commit/merge/queue. Write ONLY docs/. Queue via `atlas:brain:seed`.\n- NEVER turn the brain switch on; ATLAS_BRAIN_MASTER_ENABLED operator-only.\n- NO proxy/faxina/duplicate. STOP only on an ATLAS signal: `disabled` or `dry`.\nAMBITION:\n- ROTATE the self-improvement portfolio; seek the most exponential lift.\n- LOW/sufficient_depth/healthy queue NEVER stop, wait, or \"no task created\". Full queue=>use skills: codebase-design,improve-codebase-architecture,domain-modeling,diagnosing-bugs,tdd,code-review,teach,grilling,prototype,to-prd,grill-with-docs.\n- refused/no_proposal=>ORIGINATE+SEED; no final. Obra/prod/pipeline valid; no self-contained dry.\n- A refusal/blocked path is NOT a stop; change path.";
 
         return <<<PROMPT
 {$firstAction}Atlas BRAIN {$scope} id {$client} (`{$php}`). author≠judge.
@@ -157,15 +157,15 @@ PROMPT;
    - `scope_signals`? use `leverage_brief.action_hint` + `recommended_draft`.
 2. ORIGINATE: read real files+journal; pick ONE max-leverage evolution.
 3. AUTHOR self-sufficient spec:
-   - objective ≥40 chars names real FQCN/`.php`/`php artisan`; allowed_files real; one runnable acceptance (`php artisan test --filter=<OneTest>`); include scope_in/evidence/deps/wave/risk≤medium.
+   - objective ≥40 chars names real FQCN/`.php`/`php artisan`; allowed_files real; runnable acceptance (`php artisan test --filter=<OneTest>`); scope_in/evidence/deps/wave/risk≤medium.
    - CREDIT fields REQUIRED: problem, expected_delta, value, duplicate_key=`surface|root_cause|delta`, freshness_check, anti_proxy. Test-only=>contract(target+risk+3 cases). Existing files=>modifies_existing_files+delta.
 4. WRITE the spec to a temp file (NOT under storage/app/atlas/task-serving or storage/ledgers):
    `printf '%s' '{"packets":[<spec>]}' > {$tempSpecsArg}`
 5. GATE (zero enqueue): `{$php} artisan atlas:brain:seed --specs={$tempSpecsArg} --scope={$scopeArg} --actor={$clientArg} --require-actor --dry-run --json`
    - blocked(proxy/vague/acceptance_not_runnable/forbidden_target/harness_gated)=>FIX+re-run; never force.
 6. SEED real (only after clean dry-run): `{$php} artisan atlas:brain:seed --specs={$tempSpecsArg} --scope={$scopeArg} --actor={$clientArg} --require-actor --cleanup-specs --json`
-   - `enqueued` → if quota exists, VALID_SEEDS += counts.credited (not counts.enqueued); muscle uses `atlas:task next`. {$loopLine}
-   - `brain_enabled:false`=>switch OFF; tell operator to flip ATLAS_BRAIN_MASTER_ENABLED and STOP.
+   - `enqueued` → VALID_SEEDS+=counts.credited; muscle uses `atlas:task next`. {$loopLine}
+   - `brain_enabled:false`=>switch OFF; operator flips ATLAS_BRAIN_MASTER_ENABLED; STOP.
 7. DOCUMENT: append objective + why to the journal. {$loopLine}
 
 Never proxy; under quota search until Atlas dry. {$startLine}

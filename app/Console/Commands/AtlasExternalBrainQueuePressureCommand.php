@@ -101,6 +101,14 @@ final class AtlasExternalBrainQueuePressureCommand extends Command
             'budget_total' => (int) $this->option('ambition-budget-total'),
         ]);
 
+        $recommendedBatchSize = $workerFloor['action'] === AtlasExternalBrainQueuePressureGovernor::ACTION_REQUEST_BOUNDED_BATCH
+            ? max((int) $adaptiveBatch['recommended_batch_size'], (int) $workerFloor['max_tasks'])
+            : (int) $adaptiveBatch['recommended_batch_size'];
+
+        if ($recommendedBatchSize === 0 && $drainForecast['recommended_originator_pace'] === 'increase_origination') {
+            $recommendedBatchSize = 2;
+        }
+
         $payload = [
             'schema' => self::SCHEMA,
             'drain_forecast' => $drainForecast,
@@ -109,9 +117,7 @@ final class AtlasExternalBrainQueuePressureCommand extends Command
             'ambition_budget' => $ambitionBudget,
             // Worker-floor pressure and the drain-informed adaptive batch both feed the final
             // recommendation; a starvation signal from either organ wins over a habitual batch.
-            'recommended_batch_size' => $workerFloor['action'] === AtlasExternalBrainQueuePressureGovernor::ACTION_REQUEST_BOUNDED_BATCH
-                ? max((int) $adaptiveBatch['recommended_batch_size'], (int) $workerFloor['max_tasks'])
-                : (int) $adaptiveBatch['recommended_batch_size'],
+            'recommended_batch_size' => $recommendedBatchSize,
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));

@@ -53,11 +53,11 @@ final class AtlasExternalBrainAutonomyReplayCommandTest extends TestCase
     private function completeScenario(): array
     {
         return [
-            'intake' => ['evidence' => ['e1']],
-            'admission' => ['candidate_pool' => ['c1', 'c2']],
-            'enqueue_decision' => ['queue_facts' => ['poison_detected' => false, 'sprawl_pressure' => false, 'low_value_ratio' => 0.1]],
-            'outcome_learning' => ['recorded' => true],
-            'next_action' => ['action' => 'create_more_tasks'],
+            'intake' => ['evidence' => ['e1'], 'owner' => 'atlas', 'evidence_ref' => 'evidence:intake:1'],
+            'admission' => ['candidate_pool' => ['c1', 'c2'], 'owner' => 'atlas', 'evidence_ref' => 'evidence:admission:1'],
+            'enqueue_decision' => ['queue_facts' => ['poison_detected' => false, 'sprawl_pressure' => false, 'low_value_ratio' => 0.1], 'owner' => 'atlas', 'evidence_ref' => 'evidence:enqueue_decision:1'],
+            'outcome_learning' => ['recorded' => true, 'owner' => 'atlas', 'evidence_ref' => 'evidence:outcome_learning:1'],
+            'next_action' => ['action' => 'create_more_tasks', 'owner' => 'atlas', 'evidence_ref' => 'evidence:next_action:1'],
         ];
     }
 

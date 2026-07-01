@@ -5,7 +5,7 @@ title: Atlas Self-Construction OS — Final Autonomy Runtime Contract
 status: active
 category: architecture
 priority: 100
-summary: Implementation reference for the final Atlas-native autonomy runtime — Task Fabric, Maestro, worker swarm, Verification Court, Merge Governor, receipts, learning transfer, docs sync, and multi-project lanes — extracted from the Self-Construction OS overview.
+summary: Implementation reference for the final Atlas-native Autonomos / Self-Construction runtime under Atlas Autonomous Engineering Government v3: Constitution, Mission Control, Policy Plane, Engineering Kernel, Spec Court, Verification Court, Governor, receipts, learning application, docs sync and multi-project lanes.
 tags:
   - atlas-ai
   - self-construction
@@ -17,11 +17,14 @@ capabilities:
   - multi_project_stewardship
 decisions:
   - The final steady-state owner of Self-Construction is Atlas-native; external coding tools (Claude Code, Codex, Cursor, Loop) are bootstrap and surge aids only and never the permanent engine.
-  - Each project instance gets its own contract, mainline, Cortex model, task queue, Maestro lane, worker policy, Verification Court gates, Merge/Release Governor policy, receipts and docs sync, so one 24/7 lane for Atlas can run beside another 24/7 lane for a separate project without cross-leakage.
+  - The final architecture is v3: Constitution, Mission Control, Policy Plane, Engineering Kernel, Spec Court, Verification Court, Governor, Learning-Application Controller and user-space runtimes.
+  - Loop / ACDE is pilot legacy and migration material, not the product name, final runtime or authority.
+  - Each project instance gets its own contract, mainline, Cortex model, task queue, Maestro lane, worker policy, Spec Court gates, Verification Court gates, Governor policy, receipts and docs sync, so one 24/7 lane for Atlas can run beside another 24/7 lane for a separate project without cross-leakage.
 maintenance:
   - Update whenever the final autonomy runtime contract, separation-of-powers split, or multi-project stewardship boundary changes.
   - Keep aligned with atlas-autonomous-engineering-government.md and self-construction/constitution.md.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - docs/engineering-knowledge-base/self-construction/constitution.md
@@ -48,6 +51,8 @@ allowed_changes:
   - Atualizar este contrato quando a divisão de poderes do runtime final, os limites de stewardship multi-projeto ou a definição de owner final mudarem.
 forbidden_changes:
   - Declarar que IA externa (Claude Code, Codex, Cursor, Loop) é o owner final ou steady-state.
+  - Reintroduzir Loop como nome do OS final ou autoridade monolitica.
+  - Fazer Autonomos bypassar Engineering Kernel, Spec Court, Verification Court, Governor ou Policy Plane.
   - Misturar arquivos, segredos, políticas ou releases entre lanes de projetos distintos.
 depends_on:
   - atlas-ai-self-construction-os
@@ -90,61 +95,69 @@ next_actions:
 
 ## Resumo
 
-Contrato canônico do runtime final Atlas-native do Self-Construction OS: como
-Atlas constrói Atlas (e outros projetos) com owner final Atlas-native, lanes
-multi-projeto independentes e separação rígida de poderes.
+Contrato canônico do runtime final Atlas-native de Autonomos /
+Self-Construction: como Atlas constrói Atlas (e outros projetos) com owner
+final Atlas-native, lanes multi-projeto independentes e separação rígida de
+poderes.
 
 ## Papel no Atlas
 
-Sub-doc detalhado de `atlas-ai-self-construction-os.md`. O pai segura a visão
-arquitetural compacta; este contrato segura a referência de implementação para
-quem precisa decidir owner final, autoridade por papel, ou setup de novo lane de
-projeto.
+Sub-doc detalhado de `atlas-ai-self-construction-os.md` e do governo v3. O pai
+segura a visão arquitetural compacta; este contrato segura a referência de
+implementação para quem precisa decidir owner final, autoridade por papel, ou
+setup de novo lane de projeto.
 
 ## Final Architecture Position
 
-Self-Construction OS is the governed operating system for Atlas building Atlas.
-It is not a monolithic Loop. It is a separation-of-powers system:
+Autonomos / Self-Construction is the governed user-space runtime for Atlas
+building Atlas. It is not a monolithic Loop and not the whole government. It is
+a runtime under the v3 separation-of-powers system:
 
 ```text
 Atlas Autonomous Engineering Government
-  -> Atlas Self-Construction OS
-      -> Constitution / Kernel
-      -> Control Plane
-      -> Cortex / World Model
-      -> Goal & Value System
-      -> Strategy Council
-      -> Architecture Council
-      -> Task Fabric / Task Economy
-      -> Maestro Scheduler
-      -> Worker Swarm
-      -> Verification Court
-      -> Merge / Release Governor
-      -> Receipts / Evidence / Memory
-      -> Learning Transfer System
-      -> Autopoiesis Lab / Loop
-      -> Docs / Knowledge Sync
+  -> Constitution
+  -> Mission Control / AWEOS
+  -> Policy Plane
+  -> Engineering Kernel
+      -> ProviderPort
+      -> WorkcellExecutor
+      -> ReceiptLedger
+      -> MergeActuator
+      -> BudgetMeter
+  -> Spec Court
+  -> Verification Court
+  -> Governor
+  -> Learning-Application Controller
+  -> User-space runtimes
+      -> Autonomos / Self-Construction
+      -> Atlas Dev
+      -> Atlas Forge
+      -> external bootstrap workers
 ```
 
 Responsibilities are deliberately split:
 
-- `Control Plane` decides scope, risk, budget, priority and mode.
-- `Cortex` supplies read-only understanding, not authority.
-- `Strategy Council` selects highest-leverage directions.
-- `Architecture Council` converts strategy into contracts and invariants.
+- `Constitution` defines autonomy laws, ownership, dependency bans and
+  simplicity.
+- `Mission Control / AWEOS` compiles intent, routes by risk/evidence and
+  records outcomes.
+- `Policy Plane` owns gate, budget, merge/canary and isolation policy as data.
+- `Engineering Kernel` exposes the minimal dangerous mechanisms.
+- `Spec Court` rejects bad proposals and packets before execution.
 - `Task Fabric` creates executable packets with `allowed_files`, dependencies,
-  risk, gates, evidence and rollback.
+  risk, gates, evidence and rollback after Spec Court admission.
 - `Maestro` schedules, routes, repairs queue health and learns worker affinity.
-- `Workers` execute packets and may include Loop, Claude Code, Codex, Cursor
+- `Workers` execute packets and may include Claude Code, Codex, Cursor, Hermes
   and internal agents during bootstrap; the final target is Atlas-native
   workers without operator/human/provider dependency. External workers are
   training wheels and surge capacity, never the permanent engine.
 - `Verification Court` re-runs gates and treats worker output as an allegation
   until independently verified.
-- `Merge / Release Governor` owns entry into main/release.
-- `Learning Transfer System` promotes proven lessons into future packets,
-  docs, memory and context packs.
-- `Autopoiesis Lab / Loop` proposes recursive self-improvement under gates.
+- `Governor` owns admit, land, canary and revert.
+- `Learning-Application Controller` applies, measures and settles or reverts
+  proven lessons into future packets, docs, memory and context packs.
+- Loop / ACDE code is migration material. Useful mechanisms move into one of
+  the layers above; stale naming and monolithic authority are retired.
 
 ## Multi-Project Stewardship
 
@@ -156,8 +169,9 @@ project stewardship system. A project instance gets its own:
 - Cortex project model;
 - task queue and Maestro lane;
 - worker pool policy;
+- Spec Court gates;
 - Verification Court gates;
-- Merge / Release Governor policy;
+- Governor policy;
 - receipts, learning transfer and docs sync.
 
 This allows one 24/7 lane for Atlas and another 24/7 lane for a separate
@@ -174,7 +188,7 @@ Claude Code, Codex, Cursor, the Loop and any other external coding tool are
 **bootstrap and surge aids only**. They may help Atlas during early build-out
 or absorb a temporary capacity spike, but the final steady-state owner of every
 Self-Construction stage (Task Fabric → Maestro → Worker Swarm → Verification
-Court → Merge Governor → Receipts/Learning/Docs Sync) remains **Atlas-native**.
+Court → Governor → Receipts/Learning/Docs Sync) remains **Atlas-native**.
 Any future surface that requires a human operator, an external IDE session, an
 external coding agent or an external provider product to keep the cycle alive
 is a regression, not progress, and must be rebuilt as Atlas-native before it
@@ -191,19 +205,21 @@ detalha a forma do runtime final.
 - Owner final do steady state = Atlas-native.
 - Cada projeto = lane completa e independente.
 - Workers externos = bootstrap e surge only.
+- Spec Court independente antes da execucao.
 - Verification Court independente de quem executou o trabalho.
-- Merge/Release Governor é a única autoridade de entrada em main/release.
+- Governor é a única autoridade de entrada em main/release.
 
 ## Fluxo
 
-1. Control Plane define escopo/risco/orçamento/prioridade/modo.
-2. Strategy + Architecture Council convertem em contratos.
-3. Task Fabric emite packets com allowed_files/gates/evidence.
-4. Maestro escala lanes e workers (Atlas-native preferred; externos só como surge).
-5. Workers executam pacotes.
-6. Verification Court re-roda gates.
-7. Merge/Release Governor decide entrada em main.
-8. Receipts/Learning Transfer/Docs Sync absorvem o aprendizado.
+1. Mission Control define rota, escopo, risco, orçamento, prioridade e modo.
+2. Policy Plane vincula gates, budget, isolamento e merge/canary policy.
+3. Spec Court valida proposta, design, packet, allowed_files e evidence plan.
+4. Task Fabric emite packets com allowed_files/gates/evidence.
+5. Maestro escala lanes e workers (Atlas-native preferred; externos só como surge).
+6. Workers executam pacotes por Engineering Kernel quando houver efeito perigoso.
+7. Verification Court re-roda gates.
+8. Governor decide land/canary/revert.
+9. Receipts/Learning-Application/Docs Sync absorvem o aprendizado.
 
 ## Regras para IA
 

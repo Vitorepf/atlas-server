@@ -10,8 +10,8 @@ namespace App\Services\Ai\SelfConstruction\VerificationCourt;
  *
  * INPUT FACTS:
  *   { evidence_contract_result:{accepted:bool},
- *     replay_plan_result:{plan_status:string, commands:list<{id:string, name:string}>, blockers:list<string>},
- *     replay_outcomes:list<{command_id:string, name:string, passed:bool, output_present?:bool}>,
+ *     replay_plan_result:{plan_status:string, commands:list<{id:string, name:string, output_hash?:string}>, blockers:list<string>},
+ *     replay_outcomes:list<{command_id:string, name:string, passed:bool, output_present?:bool, output_hash?:string}>,
  *     changed_files:list<string>, allowed_files:list<string>,
  *     proxy_only_evidence?:bool }
  *
@@ -134,6 +134,17 @@ final class AtlasVerificationCourtFalseGreenDetector
             }
             if (array_key_exists('output_present', $row) && ($row['output_present'] === false)) {
                 $failedReasons[] = 'replay_output_missing:'.$cmdId;
+            }
+            // Output-hash binding: only enforced for planned commands that declare an expected
+            // output_hash — a plan never declaring one keeps prior exit-code-only callers green.
+            $expectedOutputHash = isset($cmd['output_hash']) ? (string) $cmd['output_hash'] : '';
+            if ($expectedOutputHash !== '' && ($row['passed'] ?? null) === true) {
+                $actualOutputHash = array_key_exists('output_hash', $row) ? (string) $row['output_hash'] : '';
+                if ($actualOutputHash === '') {
+                    $failedReasons[] = 'replay_output_hash_missing:'.$cmdId;
+                } elseif ($actualOutputHash !== $expectedOutputHash) {
+                    $failedReasons[] = 'replay_output_hash_mismatch:'.$cmdId;
+                }
             }
         }
 
@@ -258,6 +269,12 @@ final class AtlasVerificationCourtFalseGreenDetector
                 $families[] = 'replay';
             } elseif (str_starts_with($r, 'replay_missing_for:')) {
                 $evidenceToReplay[] = substr($r, strlen('replay_missing_for:'));
+                $families[] = 'replay';
+            } elseif (str_starts_with($r, 'replay_output_hash_missing:')) {
+                $evidenceToReplay[] = substr($r, strlen('replay_output_hash_missing:'));
+                $families[] = 'replay';
+            } elseif (str_starts_with($r, 'replay_output_hash_mismatch:')) {
+                $evidenceToReplay[] = substr($r, strlen('replay_output_hash_mismatch:'));
                 $families[] = 'replay';
             } elseif (str_starts_with($r, 'changed_file_outside_allowed:')) {
                 $scopeViolationFiles[] = substr($r, strlen('changed_file_outside_allowed:'));

@@ -114,8 +114,8 @@ final class AgentRuntimeEvidenceJournalTest extends TestCase
     {
         $repo = new AgentRuntimeEvidenceJournalRepository;
 
-        $first  = $repo->append($this->entry(['task_packet_id' => 'task-first',  'evidence_type' => 'scope_lock']));
-        $second = $repo->append($this->entry(['task_packet_id' => 'task-second', 'evidence_type' => 'validation_result']));
+        $first  = $repo->append($this->entry(['task_packet_id' => 'task-first',  'evidence_type' => 'scope_lock', 'evidence_hash' => hash('sha256', 'evidence-first')]));
+        $second = $repo->append($this->entry(['task_packet_id' => 'task-second', 'evidence_type' => 'validation_result', 'evidence_hash' => hash('sha256', 'evidence-second')]));
 
         $summary = $repo->summary();
 

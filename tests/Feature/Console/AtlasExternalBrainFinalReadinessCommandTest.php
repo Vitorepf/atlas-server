@@ -55,6 +55,8 @@ final class AtlasExternalBrainFinalReadinessCommandTest extends TestCase
                 'knowledge_sync_current' => true,
                 'operator_independence' => true,
                 'poison_blocker_open' => false,
+                'evidence_refs' => ['ev-default'],
+                'owner' => 'atlas',
             ];
         }
 

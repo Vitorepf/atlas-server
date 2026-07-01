@@ -23,12 +23,16 @@ final class CouncilReport
      * @param  list<array{kind:string, signal:string, lens_id:?string, fact?:array<string,mixed>}>  $disagreements
      * @param  list<string>  $participatingLensIds
      */
+    /**
+     * @param  array{areas:list<string>,maturity_signals:list<array<string,mixed>>,risk_signals:list<array<string,mixed>>,owner_hints:list<string>,gap_hints:list<string>}  $domainMapDigest
+     */
     public function __construct(
         public readonly string $subjectId,
         public readonly array $rawFactsByLens,
         public readonly array $agreements,
         public readonly array $disagreements,
         public readonly array $participatingLensIds,
+        public readonly array $domainMapDigest = [],
     ) {
     }
 
@@ -43,6 +47,7 @@ final class CouncilReport
             'agreements' => $this->agreements,
             'disagreements' => $this->disagreements,
             'participating_lens_ids' => $this->participatingLensIds,
+            'domain_map_digest' => $this->domainMapDigest,
         ];
     }
 }

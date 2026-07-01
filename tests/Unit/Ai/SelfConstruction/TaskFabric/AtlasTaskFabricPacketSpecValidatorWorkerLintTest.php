@@ -26,6 +26,8 @@ final class AtlasTaskFabricPacketSpecValidatorWorkerLintTest extends TestCase
             'rollback_hint' => 'Revert via the standard rollback procedure.',
             'workspace_policy' => ['execution_topology' => 'shared_local_main_with_scope_lock'],
             'simplicity_contract' => 'atlas_native',
+            'duplicate_target_check' => 'no_existing_capability_found',
+            'steady_state_constraint' => 'no_human_or_provider_dependency',
         ];
     }
 

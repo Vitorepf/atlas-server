@@ -47,10 +47,10 @@ final class AtlasExternalBrainCapabilityRubricTest extends TestCase
 
     public function test_partial_scores_produce_expected_weighted_score(): void
     {
-        // Only strategic_origination (weight 0.20) set to 1.0
+        // Only strategic_origination (weight 0.14) set to 1.0
         $r = $this->eval(['strategic_origination' => 1.0]);
 
-        $this->assertEqualsWithDelta(0.20, $r['weighted_score'], 0.001);
+        $this->assertEqualsWithDelta(0.14, $r['weighted_score'], 0.001);
     }
 
     public function test_weighted_score_maps_into_band(): void

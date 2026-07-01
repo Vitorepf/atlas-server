@@ -6,7 +6,7 @@ status: active
 implementation_state: partial_runtime_with_future_scope
 category: architecture
 priority: 100
-summary: Canonical law for Atlas building Atlas through governed research, documentation, SDD, execution, evidence, repair and learning.
+summary: Canonical law for Autonomos / Self-Construction: Atlas building Atlas as a user-space runtime under Atlas Autonomous Engineering Government v3, through governed research, documentation, SDD, task fabric, courts, evidence, repair and learning.
 tags:
   - atlas-ai
   - self-construction
@@ -18,8 +18,9 @@ capabilities:
   - self_construction_runtime_map
 decisions:
   - Atlas Self-Construction OS lives inside Atlas Autonomous Engineering Government, the final 24/7 engineering architecture.
-  - The Loop is Autopoiesis / Evolution Engine inside Self-Construction, not the whole OS and not the final authority.
-  - Task Fabric, Maestro and Worker Swarm are permanent execution organs of Self-Construction, not temporary external-worker scaffolding.
+  - In v3, Self-Construction is Autonomos: the Atlas-building-Atlas user-space runtime under Constitution, Mission Control, Policy Plane, Engineering Kernel, Spec Court, Verification Court, Governor and Learning-Application Controller.
+  - The old Loop / ACDE is pilot legacy and migration material, not the product name, not the OS and not the final authority.
+  - Task Fabric, Maestro and Worker Swarm are permanent execution organs of Self-Construction, but they serve Spec Court, Policy Plane, Engineering Kernel, Verification Court and Governor.
   - Self-Construction must support Atlas itself and external-project stewardship instances through isolated scopes, lanes, task queues, gates and receipts.
   - Atlas may become self-programming only through documentation-as-law, SDD, receipts, evidence and gates.
   - Self-construction is not vibe coding; it is governed evolution of the system that builds itself.
@@ -29,7 +30,7 @@ decisions:
   - Self-Directed Evolution Layer is a composition/read-model layer above this OS; it must reuse Self-Construction proposal primitives instead of creating a new self-construction authority.
   - `AtlasSelfConstructionSubsystemBuilderService` is the existing owner for subsystem gap detection, subsystem proposal, approval/rejection receipt and scaffold skeletons.
   - Self-Programming OS remains a maturity/safety patamar, not a free runtime; command surfaces and tests must keep self-programming blocked unless safety contracts, receipts, gates and Atlas-native autonomy authorization explicitly promote it. Operator approval is bootstrap or exception handling, not the final dependency.
-  - LoopPatternRegistry is the governed bridge from skills/catalogs/outcomes into execution structures; it may guide self-construction but cannot approve itself.
+  - LoopPatternRegistry is legacy-named source material from skills/catalogs/outcomes into execution structures; it may guide Autonomos but cannot approve itself and should migrate naming over time.
 maintenance:
   - Read before changing Atlas core, self-improvement, SDD runtime, memory, research automation, autonomous coding or governance.
   - Update when a new self-programming loop, maturity level, build dependency or core safety gate is promoted.
@@ -101,7 +102,7 @@ related_paths:
   - docs/ap/AP-691-atlas-self-construction-os-contract.md
 owner: atlas-ai
 layer: 0.8-self-construction
-line_limit: 280
+line_limit: 520
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-self-construction-os
@@ -204,9 +205,10 @@ next_actions:
 
 > **Canonical parent:** `Atlas Autonomous Engineering Government`
 > (`docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`).
-> This document defines the Atlas-building-Atlas operating system inside that
-> government. If this doc, an older Loop doc or a task-serving doc appears to
-> imply that the Loop alone is the final 24/7 authority, the Government doc wins.
+> This document defines the Atlas-building-Atlas runtime inside that government:
+> Autonomos / Self-Construction. If this doc, an older Loop doc or a
+> task-serving doc appears to imply that the Loop alone is the final 24/7
+> authority, the Government doc wins.
 
 > **Simplicity law:** Self-Construction must preserve the simple mainline task
 > model that works: shared local `main`, conflict-free packets, edits limited to
@@ -244,7 +246,17 @@ Atlas detects the right gap
 
 Detailed runtime contract (separation-of-powers split, final Atlas-native owner, multi-project lane stewardship) moved to [`self-construction/final-autonomy-runtime-contract.md`](self-construction/final-autonomy-runtime-contract.md). Constitutional rules live in [`self-construction/constitution.md`](self-construction/constitution.md) and the governing layer in [`atlas-autonomous-engineering-government.md`](atlas-autonomous-engineering-government.md).
 
-Compact summary: Self-Construction OS is a separation-of-powers system (Control Plane / Cortex / Strategy / Architecture / Task Fabric / Maestro / Worker Swarm / Verification Court / Merge Governor / Receipts / Learning Transfer / Autopoiesis Lab / Docs Sync). The final steady-state owner is Atlas-native — Claude Code, Codex, Cursor, Loop and any other external coding tool are bootstrap and surge aids only, never the permanent engine. Each managed project gets its own contract, mainline, Cortex model, task queue, Maestro lane, worker pool policy, Verification Court gates, Merge/Release Governor policy, receipts and docs sync, so one 24/7 lane for Atlas can run beside another 24/7 lane for a separate project with no cross-leakage.
+Compact summary: Self-Construction OS is now the Autonomos user-space runtime
+under the v3 government: Constitution / Mission Control / Policy Plane /
+Engineering Kernel / Spec Court / Task Fabric / Maestro / Worker Swarm /
+Verification Court / Governor / ReceiptLedger / Learning-Application /
+Knowledge Sync. The final steady-state owner is Atlas-native — Claude Code,
+Codex, Cursor, Loop and any other external coding tool are bootstrap and surge
+aids only, never the permanent engine. Each managed project gets its own
+contract, mainline, Cortex model, task queue, Maestro lane, worker pool policy,
+Spec Court gates, Verification Court gates, Governor policy, receipts and docs
+sync, so one 24/7 lane for Atlas can run beside another 24/7 lane for a
+separate project with no cross-leakage.
 
 
 ## Hard Laws
@@ -288,7 +300,7 @@ spec sozinho", IA deve verificar os primitivos ja existentes:
 |---|---|---|
 | Detectar gaps de subsystem | `AtlasSelfConstructionSubsystemBuilderService::detectGaps()` / `atlas:self-construction:detect-gaps` | Self-Construction OS |
 | Propor subsystem/capability | `AtlasSelfConstructionSubsystemBuilderService::propose()` / `atlas:self-construction:propose-subsystem` | Self-Construction OS |
-| Aprovar/rejeitar proposta | `AtlasSelfConstructionSubsystemBuilderService::approve()` / `atlas:self-construction:approve-proposal` | autoridade atual/bootstrap via receipt append-only; destino final = Atlas-native Verification Court / Merge Governor |
+| Aprovar/rejeitar proposta | `AtlasSelfConstructionSubsystemBuilderService::approve()` / `atlas:self-construction:approve-proposal` | autoridade atual/bootstrap via receipt append-only; destino final = Spec Court + Verification Court + Governor |
 | Staging de scaffold aprovado | `AtlasSelfConstructionScaffoldStagingExecutorService` / `atlas:scaffold:stage` | staging, nao producao |
 | Promocao de scaffold | `atlas:scaffold:promote` | dry-run/bootstrap promotion, nao auto-merge; destino final = autonomy-level authorization |
 
@@ -349,13 +361,13 @@ layer becomes compounding engineering power.
 | Maturity levels | `self-construction/capability-maturity-ladder.md` |
 | Build dependencies | `self-construction/build-graph.md` |
 | Priority engine | `self-construction/implementation-priority-engine.md` |
-| Loop pattern selection | `atlas-loop-pattern-registry.md` |
-| Autonomous loop | `self-construction/autonomous-implementation-loop.md` |
+| Legacy pattern selection | `atlas-loop-pattern-registry.md` (legacy-named; migrate into Autonomos pattern library) |
+| Autonomous implementation runtime | `self-construction/autonomous-implementation-loop.md` (legacy name; governed by Autonomos) |
 | Safety contract | `self-construction/self-programming-safety-contract.md` |
 | Quality bar | `self-construction/quality-bar-and-metrics.md` |
 | Failure modes | `self-construction/failure-modes.md` |
 | Builder persona / runtime roadmap | `self-construction/builder-persona-and-handoff.md`, `self-construction/runtime-implementation-roadmap.md` |
-## Core Loop
+## Core Autonomos Cycle
 ```text
 1. Detect gap or opportunity.
 2. Classify layer and risk.
@@ -363,16 +375,17 @@ layer becomes compounding engineering power.
 4. Research source-backed state of the art.
 5. Promote durable findings to docs.
 6. Compile Meta-SDD spec.
-7. Architecture Council defines contracts and invariants.
-8. Task Fabric builds small executable packets.
-9. Maestro schedules workers by lane, dependency and affinity.
-10. Workers execute the smallest safe block.
-11. Verification Court re-runs gates and rejects false green.
-12. Merge / Release Governor merges, rejects or rolls back.
-13. Append evidence and receipts.
-14. Transfer proven learning into docs, memory and future packets.
-15. Detect drift.
-16. Promote maturity only if metrics prove it.
+7. Mission Control and Policy Plane bind route, risk, gates and budget.
+8. Spec Court validates contracts, invariants, packet and evidence plan.
+9. Task Fabric builds small executable packets.
+10. Maestro schedules workers by lane, dependency and affinity.
+11. Workers execute the smallest safe block through Kernel mechanisms when needed.
+12. Verification Court re-runs gates and rejects false green.
+13. Governor lands, canaries, rejects or rolls back.
+14. Append evidence and receipts.
+15. Learning-Application Controller transfers proven learning into docs, memory and future packets.
+16. Detect drift.
+17. Promote maturity only if metrics prove it.
 ```
 ## Maturity Target
 Atlas is elite when a new AI session can ask:

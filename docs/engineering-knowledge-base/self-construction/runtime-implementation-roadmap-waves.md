@@ -138,9 +138,11 @@ Any AI can understand the law of Atlas self-construction.
 Deliver:
 
 - canonical `Atlas Autonomous Engineering Government` doc;
-- explicit position of Loop as Autopoiesis / Evolution Engine;
-- authority boundaries for Cortex, Strategy, Architecture, Task Fabric,
-  Maestro, Workers, Verification Court, Merge Governor and Learning Transfer;
+- explicit position of Loop/ACDE as pilot legacy and Autonomos /
+  Self-Construction as the Atlas-building-Atlas runtime;
+- authority boundaries for Mission Control, Policy Plane, Engineering Kernel,
+  Spec Court, Task Fabric, Maestro, Workers, Verification Court, Governor and
+  Learning-Application Controller;
 - multi-project stewardship contract;
 - bridges from legacy Loop/AAEL/task-serving docs to the new parent.
 
@@ -260,7 +262,11 @@ Atlas can verify completed packets independently from the worker that authored
 them.
 ```
 
-## Phase 4.6 - Merge / Release Governor Contract
+## Phase 4.6 - Governor Land/Canary/Revert Contract
+
+Naming note: in the v3 architecture this is the `Governor` land/canary/revert
+contract. Older historical merge/release names should migrate to Governor
+unless they refer to historical code.
 
 Deliver:
 
@@ -388,11 +394,15 @@ Goal:
 Atlas can improve its own implementation safely.
 ```
 
-## Phase 6.5 - Learning Transfer Runtime
+## Phase 6.5 - Learning-Application Runtime
+
+Naming note: in the v3 architecture this is the `Learning-Application
+Controller`: apply, measure, settle or revert. Older references to Learning
+Transfer remain historical shorthand only.
 
 Deliver:
 
-- Learning Transfer Receipt for every reusable failure/success;
+- Learning-Application receipt for every reusable failure/success;
 - separation between completion receipts, evidence receipts and learning
   receipts;
 - docs/memory/context-pack update path;
@@ -425,11 +435,12 @@ Atlas can choose and execute the highest-leverage next construction step.
 
 Deliver:
 
-- one bounded Atlas scope, initially Loop / AutonomousEvolution;
+- one bounded Atlas scope, initially Autonomos / Self-Construction using useful
+  Loop / AutonomousEvolution legacy mechanisms;
 - project objective and value contract;
 - dedicated task economy and Maestro lane;
 - server-side Verification Court;
-- Merge Governor policy;
+- Governor land/canary/revert policy;
 - learning transfer and knowledge sync;
 - 24h supervisor, kill switch, backlog-depth gate and recovery ledger.
 

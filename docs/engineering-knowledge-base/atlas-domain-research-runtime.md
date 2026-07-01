@@ -37,6 +37,7 @@ capabilities:
 decisions:
   - Research é domínio review-only (analysis_review_only); nunca executa.
   - Toda publicação de claim passa por ResearchDomainComplianceGate.
+  - ResearchDomain e Research Company Runtime sao adapter/executor do Research OS universal, nao uma arquitetura paralela de pesquisa.
   - Storage de runs/sources/claims/synthesis vive em DB (decisão 2026-05-18).
   - Gate decisions vivem em JSONL append-only (storage/atlas/research_domain/gates.jsonl).
   - Flows canônicos: research.quick e research.super (registry).
@@ -62,6 +63,7 @@ related_paths:
   - app/Services/Ai/AtlasDomainProfileRegistry.php
   - app/Services/Ai/Cognition/AtlasCognitionScoreCardService.php
   - docs/engineering-knowledge-base/atlas-ai-research-self-improvement-runtime.md
+  - docs/engineering-knowledge-base/research-self-improvement/research-operating-system.md
   - docs/engineering-knowledge-base/research-self-improvement/
   - docs/engineering-knowledge-base/domains/finance.md
 doc_schema: atlas_canonical_module_doc.v1
@@ -139,6 +141,12 @@ evidência, claims e síntese, mas não executa ações externas. O papel deste 
 é apontar o runtime PHP atual e impedir que uma IA recrie services, flows,
 registry ou storage paralelos por não saber onde a autoridade vive.
 
+Este runtime **não é o Research OS universal inteiro**. Ele é o adapter/executor
+atual do domínio `research` dentro do Atlas Research OS. A autoridade sobre
+pipeline universal, evidencia, claims, citation health, contradiction,
+synthesis, promotion e destinos de conhecimento vive em
+`research-self-improvement/research-operating-system.md`.
+
 ## Onde Se Encaixa
 
 Este documento NÃO duplica conteúdo de `research-self-improvement/` ou de
@@ -146,6 +154,23 @@ Este documento NÃO duplica conteúdo de `research-self-improvement/` ou de
 **rubrica autoral** da função Research no Atlas. Este doc-mãe é a
 **fotografia de runtime PHP**: que arquivo existe, onde está, qual contrato
 expõe.
+
+Regra de arquitetura: qualquer nova pesquisa especifica deve preferir
+`Research OS Core + Domain Research Profile` antes de criar outro serviço de
+pesquisa. Exemplos:
+
+| Necessidade | Caminho correto |
+| --- | --- |
+| Pesquisa de empresas | Research OS + company/business adapter |
+| Pesquisa financeira | Research OS + finance adapter |
+| Pesquisa cientifica | Research OS + science adapter |
+| Pesquisa de musica/gaita | Research OS + learning/music adapter |
+| Pesquisa de ingles/frances | Research OS + language-learning adapter |
+| Pesquisa de tecnologia | Research OS + technology adapter |
+
+Se o mecanismo parece generico (source quality, claim extraction, contradiction,
+synthesis, citation health, promotion), ele pertence ao Research OS Core. Se o
+criterio e especifico do assunto, ele pertence ao adapter.
 
 Research depende da governança de conhecimento, Constitutional Kernel,
 Autonomy Admission e do registry de domínios. Finance é referência estrutural
@@ -170,6 +195,27 @@ novo trabalho COMPÕE sobre eles, NÃO os substitui:
 | `ResearchReadinessService.php` | Health check (tables, models, services, canon enums). |
 | `ResearchControlPlaneProjection.php` | Read-model para superfícies (CLI, futura UI). |
 | `ResearchDomainManifestSeeder.php` | Seed idempotente do manifest no registry. |
+
+### Papel como adapter do Research OS
+
+| Camada do Research OS | Implementacao atual neste runtime | Observacao |
+| --- | --- | --- |
+| Source Plan | `ResearchSourcePlanService` | Local/deterministico; nao faz fetch externo. |
+| Source Quality | `ResearchSourceQualityService` | Usa factors fornecidos por operador/teste/runtime futuro. |
+| Claim Store | `ResearchClaimService` + `ai_research_claims` | `source_refs` obrigatorio. |
+| Contradiction Check | `ResearchClaimService::runContradictionCheck` | Heuristica deterministica v1. |
+| Synthesis | `ResearchSynthesisService` | Certifica contra thresholds do domain canon. |
+| Evidence Pack | `ResearchEvidenceBridge` | Projeta para mission evidence quando disponivel. |
+| Control Plane | `ResearchControlPlaneProjection` | Read model do adapter. |
+
+O que ainda deve subir para o Research OS Core quando generalizado:
+
+- contrato de `Domain Research Profile`;
+- promotion gate para Memory/Vault/Semantic Notes/Docs/Constelacao;
+- connector/fetch runtime;
+- citation health reutilizavel;
+- eval harness comum;
+- cross-domain semantic recall.
 
 ### Profile + Registry
 
@@ -200,6 +246,8 @@ com as actions: `readiness`, `seed-manifest`, `smoke`, `control-plane`,
 
 ```text
 research.quick|research.super
+-> Research OS Core contract
+-> Research Domain Adapter
 -> ResearchRuntimeService
 -> source plan
 -> source quality
@@ -216,11 +264,14 @@ autônoma deve bloquear no compliance gate.
 ## Regras para IA
 
 - Não criar registry paralelo para flows Research.
+- Não criar outro sistema de pesquisa paralelo ao Research OS.
 - Não duplicar enums de `ResearchDomainCanon`.
+- Não mover regra generica de pesquisa para adapter especifico se ela pertence ao core.
 - Não migrar runs/sources/claims/synthesis de DB para JSONL.
 - Não tratar `requires_evidence` como falha pétrea; é retomada com mais fonte.
 - Não declarar benchmark, Rivals ou superioridade por ResearchDomain.
 - Não permitir ação externa: Research analisa, não executa.
+- Não promover synthesis para Memory/Vault/Constelacao sem promotion gate.
 
 ## Escopo de Implementacao
 
@@ -311,17 +362,20 @@ php artisan atlas:engineering:knowledge docs-health --json
 ```
 
 O doc só prova que o runtime ResearchDomain existe e está governado. Ele não
-prova benchmark externo, Rivals real ou que todo fluxo Research está final.
+prova benchmark externo, Rivals real, Research OS universal final, ou que todo
+fluxo Research está final.
 
 ## Riscos
 
 | Risco | Mitigação |
 | --- | --- |
 | IA recriar `ResearchDomainFlowRegistry` | Registry canônico declarado neste doc. |
+| IA criar mini-Research por dominio | Research OS universal + adapters, conforme `research-operating-system.md`. |
 | Research virar executor | Compliance gate bloqueia execution intent. |
 | Claims sem fonte | Thresholds e `source_grounded=true` exigidos. |
 | Storage paralelo | DB e JSONL têm papéis separados no contrato. |
 | Scorecard virar claim externo | claim_policy bloqueia benchmark/Rivals/superioridade. |
+| Pesquisa certificada nao virar conhecimento reutilizavel | Futuro promotion gate deve levar synthesis para Memory/Vault/Semantic Notes/Open Brain/Constelacao. |
 
 ## Exemplos
 

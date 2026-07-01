@@ -21,6 +21,7 @@ decisions:
 maintenance:
   - Update before changing autonomy policy, self-programming permissions or core mutation rules.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md
   - docs/engineering-knowledge-base/atlas-ai-self-construction-os.md
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
@@ -123,27 +124,25 @@ This constitution now operates under the final 24/7 architecture:
 
 ```text
 Atlas Autonomous Engineering Government
-  -> Atlas Self-Construction OS
-      -> Constitution / Kernel
-      -> Control Plane
-      -> Cortex / World Model
-      -> Goal & Value System
-      -> Strategy Council
-      -> Architecture Council
-      -> Task Fabric / Task Economy
-      -> Maestro Scheduler
-      -> Worker Swarm
-      -> Verification Court
-      -> Merge / Release Governor
-      -> Receipts / Evidence / Memory
-      -> Learning Transfer System
-      -> Autopoiesis Lab / Loop
-      -> Docs / Knowledge Sync
-      -> Operator Interface (visibility / emergency only)
+  -> Constitution
+  -> Mission Control / AWEOS
+  -> Policy Plane
+  -> Engineering Kernel
+  -> Spec Court
+  -> Verification Court
+  -> Governor
+  -> Learning-Application Controller
+  -> User-space runtimes
+      -> Autonomos / Self-Construction
+      -> Atlas Dev
+      -> Atlas Forge
+      -> external bootstrap workers
 ```
 
-The Loop is not the whole authority. It is the Autopoiesis / Evolution Engine
-inside Self-Construction. Workers are execution muscles. Verification, merge,
+Loop / ACDE is not the whole authority and not the final runtime name. It is
+pilot legacy: useful mechanisms migrate into Autonomos, Spec Court,
+Verification Court, Engineering Kernel, Governor or Learning-Application
+Controller. Workers are execution muscles. Verification, landing/revert,
 learning promotion and autonomy escalation belong to separate constitutional
 organs.
 
@@ -263,7 +262,8 @@ Atlas must not:
 Layer -1 Thesis / constitutional fixed point
 -> Atlas Autonomous Engineering Government
 -> Self-Construction Constitution
--> Self-Construction Control Plane
+-> Mission Control / AWEOS
+-> Policy Plane / Spec Court / Engineering Kernel / Verification Court / Governor
 -> Canonical Architecture Index
 -> Kernel / Decision Receipt / Evidence Ledger
 -> Documentation OS / Knowledge Governance
@@ -297,7 +297,7 @@ A project-stewardship operation must additionally declare:
 - project objective and value contract;
 - repository/mainline/lane boundary;
 - project-specific forbidden files/actions;
-- merge/release governor policy;
+- Governor land/canary/revert policy;
 - allowed worker classes;
 - context freshness and knowledge sync status;
 - cross-project data/memory boundaries.
@@ -306,16 +306,21 @@ A project-stewardship operation must additionally declare:
 
 Autonomous engineering work must preserve these boundaries:
 
-- Cortex observes and retrieves; it does not decide.
-- Strategy prioritizes; it does not create executable tasks.
-- Architecture designs contracts; it does not schedule workers.
+- Mission Control compiles intent, route, risk and outcome; it does not call
+  providers, merge code or mark final truth.
+- Policy Plane owns gates, budget, isolation and merge/canary policies as data;
+  it does not execute.
+- Spec Court validates proposals, design, packets and evidence before
+  execution.
 - Task Fabric creates packets; it does not verify final merit.
 - Maestro schedules and repairs queue health; it does not relax gates.
 - Workers execute scoped packets; they do not approve or merge.
 - Verification Court validates independently; it does not author candidates.
-- Merge / Release Governor controls main/release entry and rollback.
-- Learning Transfer promotes reusable lessons only after evidence.
-- Autopoiesis / Loop proposes recursive improvement under this constitution.
+- Governor controls main/release entry, canary and rollback.
+- Learning-Application Controller applies, measures, settles or reverts
+  reusable lessons only after evidence.
+- Autonomos / Self-Construction proposes and executes recursive improvement
+  under this constitution.
 - Operator Interface exposes visibility and emergency override; it is not a
   dependency for normal steady-state progress.
 

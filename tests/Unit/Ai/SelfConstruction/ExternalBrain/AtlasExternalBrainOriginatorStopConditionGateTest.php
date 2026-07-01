@@ -464,6 +464,30 @@ final class AtlasExternalBrainOriginatorStopConditionGateTest extends TestCase
         $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_DRAIN_FIRST, $result['verdict']);
     }
 
+    public function test_live_wait_signal_does_not_become_queue_pressure_or_stop_origination(): void
+    {
+        $result = $this->eval([
+            'next_action' => 'wait',
+            'task_urgency' => 'non_urgent',
+            'open_surfaces_remaining' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_CONTINUE_SEARCH, $result['verdict']);
+        $this->assertNotContains('queue_pressure_high:drain_before_new_origination', $result['blocking_reasons']);
+    }
+
+    public function test_live_monitor_idle_supply_signal_does_not_become_queue_pressure_or_stop_origination(): void
+    {
+        $result = $this->eval([
+            'next_action' => 'monitor_idle_supply',
+            'task_urgency' => 'non_urgent',
+            'open_surfaces_remaining' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_CONTINUE_SEARCH, $result['verdict']);
+        $this->assertNotContains('queue_pressure_high:drain_before_new_origination', $result['blocking_reasons']);
+    }
+
     public function test_live_consolidate_signal_maps_to_consolidate_first_without_duplicated_boolean(): void
     {
         $result = $this->eval(['next_action' => 'consolidate_existing_tasks']);

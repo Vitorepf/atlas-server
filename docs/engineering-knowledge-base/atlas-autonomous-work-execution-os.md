@@ -5,7 +5,7 @@ title: Atlas Autonomous Work Execution OS
 status: active
 category: autonomous-intelligence
 priority: 100
-summary: Define o AWEOS, Atlas Autonomous Work Execution OS, a camada que transforma pedido humano em ciclo operacional completo com contexto persistente, budget cognitivo, workcell, execucao governada, evidencia, certificacao, aprendizado e continuacao.
+summary: Define o AWEOS, Atlas Autonomous Work Execution OS / Mission Control, como a torre residente que compila intencao, roteia por risco e evidencia, registra outcomes e coordena runtimes user-space sem chamar provider, certificar verdade final ou fazer merge.
 implementation_state: runtime_implemented_l1_to_l10
 macro_layer: true
 product_name: Atlas Autonomous Work Execution OS
@@ -27,16 +27,18 @@ capabilities:
   - mission_control
   - execution_memory_learning_guard
 decisions:
-  - AWEOS plugs into Atlas Autonomous Engineering Government as mission/work execution, not as the final self-construction authority.
-  - AWEOS may execute project work only inside an admitted stewardship lane with Task Fabric, Verification Court and Merge / Release Governor policy.
+  - AWEOS plugs into Atlas Autonomous Engineering Government as Mission Control, not as final self-construction authority and not as Engineering Kernel.
+  - AWEOS may execute project work only inside an admitted stewardship lane with Task Fabric, Spec Court, Verification Court and Governor policy.
   - O nome canonico/produto e Atlas Autonomous Work Execution OS.
   - O acronimo tecnico obrigatorio e AWEOS.
   - O nome interno de experiencia/superficie e Atlas Mission Control.
   - O runtime tecnico canonico e AtlasAutonomousWorkExecutionService.
-  - AWEOS orquestra APCR, AREG, AAWR, AEMOR, Dev, Forge e Control Plane.
+  - AWEOS orquestra APCR, AREG, AAWR, AEMOR, Dev, Forge, Autonomos e Control Plane como runtimes/capacidades user-space.
   - AWEOS nao chama provider diretamente, nao executa ferramenta externa e nao roda benchmark.
-  - Completion operacional exige certified outcome.
+  - AWEOS nao pode marcar `verified=true`, promover memoria canonica ou fazer main/release entry; isso pertence a Verification Court, Learning-Application Controller e Governor.
+  - Completion operacional exige certified outcome, mas certified outcome de codigo/release precisa de receipts de Court/Governor.
   - Memoria confiavel exige AEMOR/Judgment Guard e evidencia.
+  - Roteamento AWEOS deve usar risco, escopo, ambiguidade e evidencia AEMOR; roteamento por substring isolada e bug.
 maintenance:
   - Atualizar quando APCR, AREG, AAWR, AEMOR, Dev, Forge ou Hyperflow mudarem contrato.
   - Nao criar outro executor autonomo paralelo sem compatibilidade AWEOS.
@@ -71,6 +73,8 @@ allowed_changes:
 forbidden_changes:
   - Chamar provider diretamente dentro do AWEOS.
   - Executar efeitos externos diretamente dentro do AWEOS.
+  - Fazer AWEOS substituir Engineering Kernel, Spec Court, Verification Court, Governor ou Policy Plane.
+  - Declarar `verified=true` ou merge/release final a partir de self-report do runtime.
   - Declarar superioridade externa ou benchmark sem gate proprio.
   - Promover memoria sem AEMOR/Judgment Guard.
 depends_on:
@@ -111,15 +115,15 @@ line_limit: 520
 
 > **Parent architecture:** AWEOS is a mission/work execution organ inside
 > `Atlas Autonomous Engineering Government`. It coordinates execution, context,
-> workcells and certified outcomes; it does not replace Self-Construction
-> Control Plane, Task Fabric, Verification Court or Merge / Release Governor.
+> workcells and outcomes; it does not replace Autonomos / Self-Construction,
+> Engineering Kernel, Policy Plane, Spec Court, Verification Court or Governor.
 
 ## Resumo
 
-AWEOS transforma um pedido humano em uma operacao completa:
+AWEOS transforma uma intencao em uma missao governada:
 
 ```text
-prompt -> APCR -> AREG -> AAWR -> Dev/Forge/Flow -> AEMOR -> certified outcome -> Mission Control -> continuation
+intent -> APCR -> AREG -> AAWR -> route policy -> Dev/Forge/Autonomos/Flow -> AEMOR -> outcome record -> Mission Control -> continuation
 ```
 
 Ele e o runtime central que evita o problema de sessoes zeradas, prompts gigantes,
@@ -127,23 +131,32 @@ execucoes sem prova e aprendizado falso.
 
 ## Papel no Atlas
 
-AWEOS e a camada operacional acima dos runtimes especializados. Ele nao substitui
-Hyperflow, Atlas Dev, Atlas Forge, APCR, AREG, AAWR ou AEMOR. Ele coordena todos
-em uma unidade auditavel de trabalho.
+AWEOS e Mission Control: a camada operacional acima dos runtimes
+especializados. Ele nao substitui Hyperflow, Atlas Dev, Atlas Forge, Autonomos,
+APCR, AREG, AAWR, AEMOR, Engineering Kernel, Courts ou Governor. Ele coordena
+todos em uma unidade auditavel de trabalho e registra o outcome comum que
+alimenta aprendizado e roteamento futuro.
 
 ## Onde Se Encaixa
 
 ```text
 Atlas Autonomous Engineering Government
-  -> Control Plane
-  -> AWEOS / Mission Control
-     -> APCR: contexto persistente e must-know ledger
-     -> AREG: budget cognitivo, ferramentas, risco, camadas
-     -> AAWR: workcell, papeis, task graph, verificacao
-     -> Dev/Forge/Research/etc: runtime alvo
-     -> AEMOR: outcome, aprendizado, replay, anti-false-learning
-     -> Verification Court / Merge Governor when code or release is affected
+  -> Constitution
+  -> Mission Control / AWEOS
+      -> APCR: contexto persistente e must-know ledger
+      -> AREG: budget cognitivo, ferramentas, risco, camadas
+      -> AAWR: workcell, papeis, task graph, verificacao planejada
+      -> route policy: Dev, Forge, Autonomos, external bootstrap ou blocked
+      -> AEMOR: outcome, aprendizado, replay, anti-false-learning
+      -> outcome registrar
+  -> Policy Plane / Engineering Kernel / Courts / Governor
+      -> chamados quando a missao toca codigo, release, memoria ou autonomia
 ```
+
+AWEOS nao e o lugar onde provider, shell, git, merge ou `verified=true` vivem.
+Ele pede essas capacidades ao Engineering Kernel e aceita apenas receipts de
+Spec Court, Verification Court, Governor e Learning-Application Controller como
+verdade final.
 
 ## Contratos
 
@@ -154,6 +167,8 @@ Schemas canonicos:
 - `atlas.aweos.certified_outcome.v1`
 - `atlas.aweos.control_plane.v1`
 - `atlas.aweos.certification.v1`
+- `atlas.aweos.route_decision.v1`
+- `atlas.aweos.outcome_record.v1`
 
 Campos obrigatorios de uma execucao:
 
@@ -169,6 +184,8 @@ Campos obrigatorios de uma execucao:
 - `strategic_next_action`
 - `mission_control`
 - `claim_policy`
+- `route_decision`
+- `outcome_record`
 
 ## Fluxo
 
@@ -176,18 +193,24 @@ Campos obrigatorios de uma execucao:
 2. APCR monta contexto minimo e hash.
 3. AREG decide budget, risco, ferramentas e camadas.
 4. AAWR desenha workcell e verifica contexto por papel.
-5. AWEOS gera execution plan com runtime target.
+5. AWEOS gera execution plan com runtime target e policy refs.
 6. AWEOS abre episodio AEMOR.
-7. Runtime alvo executa ou apresenta plano.
-8. Outcome e certificado via `certifyOutcome`.
-9. AEMOR/AREG/AAWR recebem feedback.
-10. Control Plane mostra estado, blockers e proxima acao.
+7. Runtime alvo executa ou apresenta plano por contrato.
+8. Se tocar codigo/release/memoria/autonomia, Court/Governor/Kernel emitem
+   receipts.
+9. Outcome e registrado via `certifyOutcome`; quando houver codigo/release, ele
+   referencia os receipts independentes, nao self-report.
+10. AEMOR/AREG/AAWR recebem feedback.
+11. Mission Control mostra estado, blockers e proxima acao.
 
 ## Regras para IA
 
 - Nunca chame provider dentro do AWEOS.
-- Nunca use AWEOS para contornar Task Fabric, Self-Construction policy,
-  Verification Court ou Merge / Release Governor.
+- Nunca use AWEOS para contornar Task Fabric, Autonomos policy, Engineering
+  Kernel, Policy Plane, Spec Court, Verification Court ou Governor.
+- Nunca trate AWEOS como executor final, juiz final ou committer.
+- Nunca use roteamento por substring como unica decisao; use risco, escopo,
+  ambiguidade, AEMOR e Policy Plane.
 - Para projeto externo, exija lane de stewardship com workspace, gates,
   receipts e politica de merge/release proprios.
 - Nunca execute ferramenta externa diretamente pelo AWEOS.
@@ -215,6 +238,11 @@ AWEOS-L1 a AWEOS-L10:
 
 Estado atual: implementado como runtime local de orquestracao, persistencia,
 certificacao e control plane. Execucao real continua em Dev/Forge/flows.
+
+Na arquitetura v3, o estado alvo e mais preciso: AWEOS continua sendo Mission
+Control. Execucao perigosa vai ao Engineering Kernel, qualidade de entrada vai
+ao Spec Court, qualidade de saida vai ao Verification Court, landing vai ao
+Governor e aprendizado aplicado vai ao Learning-Application Controller.
 
 ## Dependencias
 

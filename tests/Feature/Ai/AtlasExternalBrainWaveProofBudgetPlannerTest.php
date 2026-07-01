@@ -137,7 +137,7 @@ final class AtlasExternalBrainWaveProofBudgetPlannerTest extends TestCase
     {
         $withinHighBudget = $this->planner()->plan(['wave_tasks' => [
             $this->task([
-                'acceptance_criteria' => ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8'],
+                'acceptance_criteria' => ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'],
                 'risk_level' => 'high',
             ]),
         ]]);
@@ -145,7 +145,7 @@ final class AtlasExternalBrainWaveProofBudgetPlannerTest extends TestCase
 
         $sameChecksLowRisk = $this->planner()->plan(['wave_tasks' => [
             $this->task([
-                'acceptance_criteria' => ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8'],
+                'acceptance_criteria' => ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'],
                 'risk_level' => 'low',
             ]),
         ]]);

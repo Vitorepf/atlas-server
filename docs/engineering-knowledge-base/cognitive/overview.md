@@ -20,6 +20,10 @@ capabilities:
   - pareto_curve_discovery
   - declarative_mastery_objective
   - five_movements_method
+  - human_evolution_os
+  - personal_evolution_governor
+  - evolution_portfolio_engine
+  - human_evolution_flywheel
 decisions:
   - Cognitive Plane e expansao do `learning` domain + capabilities cognitivas no Core + Curator preditivo dedicado; nao novo Atlas.
   - Operador declara dominancia ("quero dominar X") como input canonico; Atlas faz Pareto curve discovery e monta trilha do cume.
@@ -27,6 +31,9 @@ decisions:
   - Meta operacional: comprimir o ciclo "guru raso -> mediano -> bom" em pelo menos 3x; meta longa 5-10x.
   - Aprendizado tem 4 pilares inseparaveis; faltar um invalida maestria.
   - Metodo opera em 5 movimentos: declarar, gerar erro (Generation Effect), praticar, provar, revisar.
+  - Atlas Human Evolution OS governa a escolha da proxima evolucao humana por contexto, ambicao, gaps, gargalo, oportunidade, alavancagem composta e prova de resultado.
+  - Evolution Portfolio Engine transforma possiveis evolucoes humanas em portfolio vivo, ranqueado por alavancagem, urgencia, prazer, dificuldade, efeito composto, dependencias e prova.
+  - Human Evolution Flywheel fecha o ciclo: diagnosticar capacidade, pesquisar, ensinar, praticar deliberadamente, revisar, provar transferencia e registrar outcome real.
 maintenance:
   - Manter abaixo de 260 linhas (contrato canonico Doc-OS).
   - Atualizar quando tese, pilares, movimentos ou autoridade mudarem.
@@ -163,6 +170,67 @@ Pergunta-norte cognitiva (analoga a pergunta-norte da Tese central):
 > **Esta feature multiplica meu output cognitivo, ou compete com o ato de aprender? Mantem o Atlas como canal unico, ou cria fricca de escape?**
 
 Multiplica + canal unico -> constroi. Compete + escape -> descarta.
+
+## Atlas Human Evolution OS / Personal Evolution Governor
+
+Atlas Human Evolution OS e o frame de produto acima de pesquisa, aprendizado, cognicao, memoria e aplicacao. Seu objetivo e multiplicar a capacidade humana do operador, nao apenas responder perguntas ou montar trilhas de estudo.
+
+O **Personal Evolution Governor** e a camada que decide qual evolucao humana vale mais agora. Ele nao substitui o operador; ele produz um portfolio ranqueado de proximas evolucoes, com evidencia, custo, risco, impacto composto e prova esperada.
+
+```
+Personal Evolution Governor
+-> Life / Work Context Model
+-> Capability Gap Map
+-> Ambition Map
+-> Bottleneck Detector
+-> Opportunity Radar
+-> Evolution Portfolio
+-> Next Best Evolution
+```
+
+Ele responde se o maior salto atual vem de ingles, matematica, gaita, comunicacao, programacao, foco/saude, negociacao, escrita, pesquisa ou outra area. A decisao deve considerar: o que desbloqueia mais futuro, o que remove gargalo recorrente, o que aumenta autonomia, o que melhora execucao diaria e o que cria aprendizado transferivel para varias areas.
+
+Fluxo canonico:
+
+```
+Personal Evolution Governor
+-> Research OS
+-> Learning / Teaching / Mastery OS
+-> Cognitive Plane
+-> Memory / Notes / Constelacao
+-> Application / Action Layer
+-> Outcome Learning
+```
+
+Research OS descobre o melhor conhecimento e a fronteira real. Learning/Mastery transforma isso em curriculo, pratica, feedback e revisao. Cognitive Plane comprime tempo ate dominio. Memory/Constelacao preserva e conecta. Application Layer prova no mundo. Outcome Learning fecha o ciclo e melhora a proxima escolha.
+
+### Evolution Portfolio Engine
+
+O Evolution Portfolio Engine e o mecanismo concreto de decisao do Personal Evolution Governor. Ele mantem um portfolio vivo de possiveis evolucoes humanas e evita que o Atlas escolha por impulso, moda, facilidade ou obsessao de curto prazo.
+
+Cada opcao recebe score por alavancagem, urgencia, prazer, dificuldade, efeito composto, dependencias, risco de abandono e prova de progresso. O portfolio deve separar horizontes: hoje, semana, mes, trimestre e ano.
+
+Saida canonica: `Next Best Evolution`, sempre com motivo curto, prova esperada e rota inicial para Research OS + Learning/Mastery OS.
+
+### Human Evolution Flywheel
+
+O Human Evolution Flywheel e o ciclo operacional que impede o Atlas de virar apenas explicador. Ele transforma pesquisa e ensino em evolucao humana medida.
+
+```
+Human Capability Graph
+-> Mastery Diagnostic Engine
+-> Research-to-Teaching Bridge
+-> Personal Curriculum Generator
+-> Deliberate Practice Engine
+-> Memory / Spaced Review
+-> Transfer Proof
+-> Outcome Ledger
+-> Evolution Portfolio Engine
+```
+
+O ciclo comeca mapeando capacidades reais do operador: nivel atual, gargalo, evidencia, dependencias e proxima alavanca. Antes de ensinar, o Atlas diagnostica lacunas e ilusoes de fluencia. Research OS encontra fontes, fronteira e modelos mentais; Learning/Mastery converte em curriculo, lessons, treino ativo, revisao espacada e prova pratica.
+
+Aprendizado so conta quando gera evidencia: explicar, lembrar, aplicar, transferir para contexto novo ou melhorar performance observavel. O Outcome Ledger registra acertos, erros, travas e progresso para que o proximo `Next Best Evolution` seja escolhido por resultado real, nao por sensacao.
 
 ## A Piramide de Pareto — descoberta de cume
 

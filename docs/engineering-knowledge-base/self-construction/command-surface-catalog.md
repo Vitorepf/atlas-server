@@ -33,7 +33,7 @@ graph_id: atlas-ai-self-construction-command-surface-catalog
 graph_title: Atlas Self-Construction OS - Command Surface Catalog
 graph_world: atlas
 graph_layer: gear
-graph_kind: reference
+graph_kind: module
 graph_parent: atlas-ai-self-construction-os
 graph_status: active
 graph_source: repo

@@ -50,9 +50,11 @@ final class AtlasExternalBrainResearchToTaskCommandTest extends TestCase
             'implementation_risk' => 0.10,
             'atlas_failure_mode' => "Atlas lacks {$id} handling",
             'target_path' => "app/Services/Foo{$id}.php",
+            'implementation_target' => "app/Services/Foo{$id}.php",
             'adaptation_notes' => 'Map pattern to Atlas service boundary.',
             'allowed_files' => ["app/Services/Foo{$id}.php"],
             'test_path' => "tests/Unit/Foo{$id}Test.php",
+            'test_target' => "tests/Unit/Foo{$id}Test.php",
             'anti_goodhart_risks' => ['could be gamed by inflating counters'],
             'runnable_acceptance' => "./vendor/bin/phpunit tests/Unit/Foo{$id}Test.php",
             'source_type' => 'external_dissection',
@@ -170,6 +172,7 @@ final class AtlasExternalBrainResearchToTaskCommandTest extends TestCase
             'allowed_files_candidate' => ['app/Services/Ai/RetryService.php'],
             'runnable_evidence_path' => './vendor/bin/phpunit tests/Unit/RetryServiceTest.php',
             'owner_files' => ['app/Services/Ai/RetryService.php'],
+            'leverage_hint' => 'fixes retry backoff reused across all provider adapters',
         ]]]);
 
         $this->assertCount(1, $result['grounded_task_candidates']);

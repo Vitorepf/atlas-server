@@ -173,7 +173,7 @@ sequenceDiagram
 - The merge governor is phase 8 of [the 8-phase cycle](the-8-phase-cycle.md). The close runner refuses to close any prior receipt that did not certify clean (see [quality gates and certification](quality-gates-and-certification.md)).
 - The master switch and the FORBIDDEN merge organs live in [self-modification safety](self-modification-safety.md).
 - Every merge outcome is recorded in [receipts and evidence](receipts-and-evidence.md) (the `AutoMergeReceiptLedger` plus the cycle receipt chain).
-- The merge governor is governed by the [self-construction-government](../self-construction-government/) (merge governor organ, never trusts worker self-report).
+- The merge governor is governed by the [self-construction-government](../self-construction-government/index.md) (merge governor organ, never trusts worker self-report).
 
 ## Key source files
 

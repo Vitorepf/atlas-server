@@ -151,6 +151,7 @@ final class AtlasSelfConstructionCompletionAutonomyCommandTest extends TestCase
             'evidence' => [['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native']],
             'readiness' => ['state' => 'ready'],
             'capability_facts' => $allLanes,
+            'soak' => ['status' => 'pass', 'age_seconds' => 60],
         ]);
 
         [$exit, $out] = $this->runCmd(['action' => 'final-brain-score', '--facts' => $path, '--json' => true]);
@@ -170,6 +171,7 @@ final class AtlasSelfConstructionCompletionAutonomyCommandTest extends TestCase
             'evidence' => [['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native']],
             'readiness' => ['state' => 'ready'],
             'capability_facts' => $allLanes,
+            'soak' => ['status' => 'pass', 'age_seconds' => 60],
         ]);
 
         [$exit, $out] = $this->runCmd(['action' => 'final-brain-score', '--facts' => $path, '--json' => true]);

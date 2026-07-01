@@ -5,7 +5,7 @@ title: Atlas Programming Governance System
 status: active
 category: programming-governance
 priority: 100
-summary: Indice canonico dos gates que transformam programacao por IA em fluxo governado por placement, spec antes do codigo, contratos de tarefa, Code Intelligence, evidence, AHCL, learning e cartografia.
+summary: Indice canonico dos gates que transformam programacao por IA em fluxo governado por placement, spec antes do codigo, contratos de tarefa, Code Intelligence, evidence, AHCL, learning e cartografia, alimentando Policy Plane, Spec Court e Verification Court dentro do Atlas Autonomous Engineering Government.
 tags:
   - atlas
   - programming
@@ -26,19 +26,24 @@ capabilities:
   - governed_completion
 decisions:
   - Atlas Programming Governance System e o nome canonico do conjunto de gates que governa programacao feita por IA.
+  - Na arquitetura v3, Programming Governance e uma camada de contratos e gates que alimenta Policy Plane, Spec Court, Verification Court e Governor; nao e runtime, executor ou juiz final isolado.
   - Programar no Atlas nao e escrever codigo direto; e passar por placement, contexto, spec, contrato, execucao, evidence, learning e cartografia.
   - Spec antes do codigo e lei para qualquer alteracao estrutural, arriscada, multiarquivo, multiagente ou de arquitetura.
   - Code Intelligence e parte obrigatoria do fluxo; ele informa onde mexer, o que existe, quais simbolos/docs/testes se relacionam e onde ha risco.
   - Evidence obrigatorio separa implementacao real de opiniao do agente.
+  - Quality Intelligence e gate transversal antes de completion: cada entrega deve passar por Definition of Excellence do tipo de trabalho, Impact Proof, Regression Intelligence, Simplification Gate e adversarial review proporcional ao risco.
   - Atlas Hierarchical Control Loop e o controlador H/L antes de completion; ele decide continue, repair, replan, escalate ou submit.
   - Atlas Adaptive Hierarchical Control Plane estende AHCL para live session, Forge multi-agent control e predictive replay learning.
   - Completion so pode fechar quando AHCL converge para `submit`.
+  - Em codigo/release governado, `submit` de AHCL nao substitui receipts de Verification Court e Governor.
   - Cartografia da programacao deve mostrar onde cada engrenagem de software fica, o que faz, quais docs a governam e qual evidence prova seu estado.
   - Atlas Dev e a fast lane governada deste sistema; seus gates sao projecoes compactas dos gates universais, nao um sistema paralelo.
+  - Atlas Forge, Atlas Dev e Autonomos consomem estes gates como runtimes user-space sob o governo v3.
 maintenance:
   - Atualize este indice quando os gates de programacao, SDD, Engineering Blueprint, Code Intelligence, Forge Workspace, Self-Construction OS ou cartografia de codigo mudarem.
   - Mantenha este arquivo como indice curto; detalhes vivem nos child docs de contratos e runbook.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-programming-governance-system-contracts.md
@@ -106,6 +111,7 @@ allowed_changes:
 
 forbidden_changes:
   - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
+  - Fazer Programming Governance substituir Engineering Kernel, Spec Court, Verification Court, Governor ou Mission Control.
   - Expandir este indice com detalhes que pertencem aos child docs.
 
 depends_on:
@@ -197,6 +203,10 @@ no Atlas. Ele nao e um editor, prompt ou ferramenta isolada. Ele define como uma
 IA transforma intencao em codigo seguro: placement, contexto, spec, contrato,
 execucao, evidence, learning e cartografia.
 
+Na arquitetura v3, ele e uma camada de contratos e gates. Ele alimenta Policy
+Plane, Spec Court, Verification Court e Governor; ele nao executa provider, nao
+faz merge, nao marca `verified=true` e nao substitui Mission Control.
+
 Para programacao pesada em `programming.forge`, leia tambem
 `atlas-programming-forge-flow.md`. Governance define as regras; o Forge Flow
 amarra essas regras ao Forge OS, Forge Workspace, Agentic RAG, Tool Runtime,
@@ -221,25 +231,41 @@ Transformar programacao em uma linha de producao governada:
 - obrigar spec antes do codigo quando o risco justificar;
 - ligar mudancas a docs canonicos, simbolos, testes e evidence;
 - permitir que Forge OS use varios agentes sem perder controle;
+- transformar "passou teste" em entrega excelente por impacto, simplicidade,
+  regressao correta e critica adversarial;
 - alimentar Cartografia para humanos e IAs navegarem pelo software real.
 
 ## Onde Se Encaixa
 
 ```text
-Sovereign OS
--> Epistemic OS
--> Knowledge Governance System
--> Programming Governance System
--> Forge Operating System
--> Programming Domain / Self-Construction OS
--> Runtime / Code / Tests / Evidence
--> Cartographic Knowledge OS
+Atlas Autonomous Engineering Government
+-> Constitution
+-> Mission Control / AWEOS
+-> Policy Plane
+   -> programming gate profiles
+   -> spec-before-code policy
+   -> evidence policy
+   -> quality policy
+-> Spec Court
+   -> proposal, placement, task contract and design review
+-> Engineering Kernel
+-> User-space runtimes
+   -> Atlas Dev
+   -> Atlas Forge
+   -> Autonomos / Self-Construction
+-> Verification Court / Governor
+-> Knowledge Governance / Cartography
 ```
 
 Programming Governance nao substitui Programming Domain. O dominio executa
 fluxos `programming.*`; este sistema define os gates que todo fluxo de
 programacao deve obedecer. Forge OS e a fabrica que aplica estes gates em
 trabalho pesado, longo, multiagente ou multiprovider.
+
+Completion governado e composto: AHCL pode decidir `submit`, mas a entrega de
+codigo/release so fica final quando Verification Court prova e Governor autoriza
+landing/canary/revert. Isso impede completion narrativo, falso verde e bypass de
+merge.
 
 ## Contratos
 
@@ -253,6 +279,9 @@ Invariantes:
 - task contract limita arquivos, risco, testes, rollback e evidence;
 - Code Intelligence orienta contexto real;
 - evidence separa implementacao real de narrativa;
+- Quality Intelligence exige Definition of Excellence por tipo de trabalho,
+  Impact Proof, Regression Intelligence, Simplification Gate e adversarial
+  review antes de completion;
 - learning volta para docs, specs, prompts, gates ou cartografia.
 
 ### Atlas Dev Fast Lane
@@ -268,6 +297,7 @@ Mapeamento canonico:
 | spec-before-code | `mini_spec_before_code_gate` |
 | scope guard | `scope_guard_light` |
 | evidence | `receipt_gate` |
+| quality intelligence | `impact_proof` + `simplification_check` + `adversarial_review` |
 | hierarchical-control | `completion_state_gate` + halt decision |
 | completion | `completion_state_gate` |
 
@@ -320,6 +350,8 @@ Este sistema governa:
 - executable acceptance;
 - evidence ledger;
 - repair/refactor governance;
+- Quality Intelligence: Definition of Excellence por tipo, Impact Proof,
+  Regression Intelligence, Simplification Gate e adversarial review;
 - docs/code intelligence/cartography refresh;
 - hierarchical control loop;
 - completion gate.

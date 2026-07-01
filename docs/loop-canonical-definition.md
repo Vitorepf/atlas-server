@@ -1,66 +1,80 @@
 ---
 id: loop-canonical-definition
 type: engineering_knowledge
-title: Loop Canonical Definition
+title: Loop Legacy Definition / Autonomos Evolution Capability
 status: active
 category: autonomous-evolution
 priority: 100
 doc_schema: atlas_canonical_module_doc.v1
 graph_layer: system
 ---
-# Loop — DEFINIÇÃO CANÔNICA (fonte de verdade; ler ANTES de qualquer trabalho no loop)
+# Loop — DEFINIÇÃO LEGADA E MIGRAÇÃO PARA AUTÔNOMOS
 
-> Este é o documento canônico do que o **Atlas Loop** é. O operador repetiu isto 5× até travar, porque IAs (incluindo Claude) erraram o rumo por dias. Espelha as memórias `loop-true-objective-canonical`, `loop-delivery-pipeline-design-dominant`, `loop-endgoal-sole-autonomous-self-engineer`, `loop-not-proxy-cleanup-feedback`. **Qualquer doc/código/IA que divergir disto está errado.**
+> Este documento preserva o aprendizado que fez o antigo **Atlas Loop** parar de
+> otimizar proxy e buscar evolução real. Ele não define mais o produto final.
+> O nome e a arquitetura final são `Autonomos / Self-Construction` dentro do
+> `Atlas Autonomous Engineering Government`.
 
-> **ATUALIZAÇÃO ARQUITETURAL FINAL:** o Loop NÃO é mais o nome do OS inteiro. A arquitetura 24/7 final é `Atlas Autonomous Engineering Government`, documentada em `docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`. Dentro dele, o `Atlas Self-Construction OS` governa Atlas-building-Atlas; o Loop vira **Autopoiesis / Evolution Engine**, um órgão de evolução recursiva sob Constitution, Control Plane, Task Fabric, Maestro, Verification Court, Merge Governor, Receipts e Knowledge Sync. Este doc continua canônico para a função do Loop, mas não concede autoridade total ao Loop monolítico.
+> **REGRA ATUAL:** se uma seção antiga abaixo disser "Loop", leia como
+> capacidade legada a migrar para Autonomos, Spec Court, Verification Court,
+> Engineering Kernel, Governor ou Learning-Application Controller. Não crie novo
+> runtime chamado Loop e não trate Loop como OS, governo ou autoridade final.
 
 ## Resumo
 
-O Loop é o órgão de autopoiese/evolução que busca saltos reais de capacidade
-dentro de um escopo, sempre subordinado ao Atlas Autonomous Engineering
-Government. Ele não é o OS inteiro.
+O antigo Loop foi o piloto de autopoiese/evolução que ensinou o Atlas a buscar
+saltos reais de capacidade dentro de um escopo. A régua de ambição continua
+válida, mas o produto final agora é Autonomos / Self-Construction governado
+pelo Atlas Autonomous Engineering Government.
 
 ## Papel no Atlas
 
-Alimentar Self-Construction com evolução recursiva de alto impacto: detectar
-gargalos, propor saltos, gerar verificadores, aprender com outcomes e melhorar
-o próprio mecanismo de evolução.
+Alimentar Autonomos / Self-Construction com evolução recursiva de alto impacto:
+detectar gargalos, propor saltos, gerar verificadores, aprender com outcomes e
+melhorar o próprio mecanismo de evolução. O nome Loop deve desaparecer da
+arquitetura de produto conforme a migração avançar.
 
 ## Onde Se Encaixa
 
-`Atlas Autonomous Engineering Government -> Atlas Self-Construction OS ->
-Autopoiesis Lab / Loop`. Execução paralela, verificação, merge, rollback,
-receipts e learning promotion pertencem aos órgãos separados do governo.
+`Atlas Autonomous Engineering Government -> User-space runtimes -> Autonomos /
+Self-Construction`. Capacidades legadas do Loop devem ser realocadas para
+Autonomos, Spec Court, Verification Court, Engineering Kernel, Governor ou
+Learning-Application Controller. Execução paralela, verificação, merge,
+rollback, receipts e learning promotion pertencem aos órgãos separados do
+governo.
 
 ## Contratos
 
-O Loop deve perseguir valor real, não proxy; deve operar por evidência; deve
-usar workers como músculos substituíveis; e deve preservar o destino final
-100% Atlas-native sem dependência normal de operador, humano ou provider.
+Autonomos deve preservar a lei que o Loop aprendeu: perseguir valor real, não
+proxy; operar por evidência; usar workers como músculos substituíveis; e manter
+o destino final 100% Atlas-native sem dependência normal de operador, humano ou
+provider.
 
 ## Fluxo
 
 Entender escopo, identificar salto de alavancagem, projetar criticamente,
-decompor via Task Fabric, executar por workers, verificar, mergear/rejeitar por
-governança, registrar evidência, transferir aprendizado e repetir.
+passar por Spec Court, decompor via Task Fabric, executar por workers, verificar
+em Verification Court, land/revert pelo Governor, registrar evidência, aplicar
+aprendizado e repetir.
 
 ## Regras para IA
 
-Não tratar o Loop como governo inteiro, não aceitar proxy como valor, não
-reintroduzir dependência humana/provider no caminho normal e não enfraquecer a
-separação entre criar, executar, julgar, mergear e aprender.
+Não tratar Loop como governo inteiro, produto final ou runtime novo. Não aceitar
+proxy como valor, não reintroduzir dependência humana/provider no caminho normal
+e não enfraquecer a separação entre criar, executar, julgar, mergear e aprender.
 
 ## Escopo de Implementacao
 
-Este documento define o comportamento esperado do Loop como órgão final. A
-implementação concreta pode estar em AutonomousEvolution, Task Fabric, Maestro,
-Verification Court, Merge Governor e Self-Construction runtimes.
+Este documento define a régua histórica que deve ser migrada para Autonomos. A
+implementação concreta pode estar em AutonomousEvolution legado, Task Fabric,
+Maestro, Spec Court, Verification Court, Governor e Self-Construction runtimes.
+O objetivo de manutenção é reduzir dependência conceitual do nome Loop.
 
 ## Dependencias
 
-Depende de Atlas Autonomous Engineering Government, Self-Construction
-Constitution, Task Fabric, Maestro, Verification Court, Merge / Release
-Governor, Receipts, Learning Transfer e Knowledge Sync.
+Depende de Atlas Autonomous Engineering Government v3: Constitution, Mission
+Control, Policy Plane, Engineering Kernel, Spec Court, Verification Court,
+Governor, ReceiptLedger, Learning-Application Controller e Knowledge Sync.
 
 ## Evidencias
 
@@ -100,35 +114,31 @@ Entrega = a evolução **mais EXPONENCIAL** possível. Pode ser: refatoração D
 
 **Régua de valor = TEMPO × NÍVEL:** 1h → avanço real; 5 dias 24/7 → extraordinário; 1 mês → multiplicado. Meta: engenharia da qualidade mais avançada DO MUNDO.
 
-## Onde O Loop Fica Na Arquitetura Final
+## Onde A Capacidade Legada Do Loop Fica Na Arquitetura Final
 
-O Loop é o **motor evolutivo** do Atlas, não o governo inteiro. A versão final separa poderes:
+A capacidade evolutiva que nasceu no Loop migra para Autonomos e para os
+tribunais/controladores v3. A versão final separa poderes:
 
 ```text
 Atlas Autonomous Engineering Government
-  -> Atlas Self-Construction OS
-      -> Constitution / Kernel
-      -> Control Plane
-      -> Cortex / World Model
-      -> Goal & Value System
-      -> Strategy Council
-      -> Architecture Council
-      -> Task Fabric / Task Economy
-      -> Maestro Scheduler
-      -> Worker Swarm
-      -> Verification Court
-      -> Merge / Release Governor
-      -> Receipts / Evidence / Memory
-      -> Learning Transfer System
-      -> Autopoiesis Lab / Loop
-      -> Docs / Knowledge Sync
+  -> Constitution
+  -> Mission Control / AWEOS
+  -> Policy Plane
+  -> Engineering Kernel
+  -> Spec Court
+  -> Verification Court
+  -> Governor
+  -> Learning-Application Controller
+  -> User-space runtimes
+      -> Autonomos / Self-Construction
 ```
 
-O Loop contribui principalmente em `Autopoiesis Lab / Loop`: identifica saltos,
-propõe evolução, aprende com outcomes e ajuda a melhorar o próprio sistema. A
-execução paralela padronizada pertence a `Task Fabric + Maestro + Worker Swarm`.
-A aprovação pertence a `Verification Court + Merge / Release Governor`. A
-autoridade de escopo, risco e prioridade pertence ao `Control Plane`.
+O antigo Loop contribui como material de migração: identificação de saltos,
+ambição sem teto, anti-proxy, padrões de execução, frozen verification e
+aprendizado por outcomes. Essas capacidades devem morar em Autonomos, Spec
+Court, Verification Court, Learning-Application Controller, Task Fabric e
+Maestro. A aprovação pertence a `Verification Court + Governor`. A autoridade
+de escopo, risco e prioridade pertence a `Mission Control + Policy Plane`.
 
 Regra dura: se um doc antigo diz "o Loop sozinho decide, executa, julga e
 mergeia tudo", leia isso como histórico/aspiração pré-separação-de-poderes. A
@@ -170,19 +180,20 @@ config reload boundaries. Eles nunca importam memoria canonica, provider auth,
 stream in-memory, UI/chat authority ou scanner LLM como seguranca do Atlas.
 
 ## O TETO (objetivo de vida na arquitetura final)
-A implementação final **não termina no Loop monolítico**. Ela termina quando o
+A implementação final **não termina no Loop monolítico nem no nome Loop**. Ela
+termina quando o
 `Atlas Autonomous Engineering Government` consegue cuidar de Atlas 24/7:
 entende o estado vivo, decide a maior alavancagem, arquiteta, decompõe em
 tasks, distribui workers, verifica independentemente, mergeia/rejeita com
 rollback, atualiza docs, transfere aprendizado e aumenta escopo por prova.
 
-O Loop, nesse teto, é o órgão de autopoiese/evolução que alimenta o governo com
-saltos recursivos. Ele pode usar workers internos/externos, mas workers são
-músculos substituíveis. O operador fica fora do fluxo normal: pode descrever
-intenção de produto, observar evidência e acionar emergência, mas não é o
-aprovador permanente de risco nem o motor que mantém o ciclo vivo. Risco alto
-deve ser decidido por autonomia Atlas-native: Constitution, Verification Court,
-Merge / Release Governor, rollback e níveis de autorização.
+Autonomos, nesse teto, é o runtime 24/7 de Atlas construindo Atlas. Ele pode
+usar workers internos/externos durante bootstrap, mas workers são músculos
+substituíveis. O operador fica fora do fluxo normal: pode descrever intenção de
+produto, observar evidência e acionar emergência, mas não é o aprovador
+permanente de risco nem o motor que mantém o ciclo vivo. Risco alto deve ser
+decidido por autonomia Atlas-native: Constitution, Policy Plane, Spec Court,
+Verification Court, Governor, rollback e níveis de autorização.
 
 **Escada de território:** começa PEQUENO (o loop melhora o **próprio loop**) → prova → sobe pra engenharia (contexto, memória, compactação, o próprio loop) → ganha mais escopo **provando**, não recebendo.
 

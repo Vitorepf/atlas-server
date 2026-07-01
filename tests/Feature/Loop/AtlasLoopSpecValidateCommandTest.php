@@ -34,6 +34,8 @@ final class AtlasLoopSpecValidateCommandTest extends TestCase
             'rollback_hint' => 'git revert the commit',
             'workspace_policy' => ['execution_topology' => 'shared_local_main_with_scope_lock'],
             'simplicity_contract' => 'atlas_native',
+            'duplicate_target_check' => 'no_existing_capability_found',
+            'steady_state_constraint' => 'no_human_or_provider_dependency',
         ]);
 
         $this->assertSame('atlas.taskfabric.packet_spec_validation.v1', $decoded['schema']);

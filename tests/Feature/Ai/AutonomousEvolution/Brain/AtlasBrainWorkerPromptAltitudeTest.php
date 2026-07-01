@@ -54,4 +54,39 @@ final class AtlasBrainWorkerPromptAltitudeTest extends TestCase
         self::assertStringContainsString('most exponential lift', $out);
         self::assertStringContainsString('NOT a stop', $out);
     }
+
+    public function test_sufficient_queue_depth_is_never_a_brain_stop_reason(): void
+    {
+        $out = $this->prompt();
+
+        self::assertStringContainsString('sufficient_depth/healthy queue NEVER stop', $out);
+        self::assertStringContainsString('Full queue=>use skills', $out);
+        self::assertStringContainsString('codebase-design', $out);
+        self::assertStringContainsString('diagnosing-bugs', $out);
+        self::assertStringContainsString('teach', $out);
+        self::assertStringContainsString('prototype', $out);
+        self::assertStringNotContainsString('queue is sufficient = stop', $out);
+    }
+
+    public function test_quota_prompt_also_forbids_sufficient_queue_self_stop(): void
+    {
+        Artisan::call('atlas:brain:worker-prompt', [
+            '--scope' => 'autonomous',
+            '--mode' => 'originate',
+            '--client' => 'brain-quota-test',
+            '--target-seeds' => 100,
+            '--baseline-seeded' => 0,
+        ]);
+
+        $out = Artisan::output();
+
+        self::assertStringContainsString('sufficient_depth/healthy queue NEVER stop/wait/no-task', $out);
+        self::assertStringContainsString('Full queue=>use skills', $out);
+        self::assertStringContainsString('improve-codebase-architecture', $out);
+        self::assertStringContainsString('code-review', $out);
+        self::assertStringContainsString('grill-with-docs', $out);
+        self::assertStringContainsString('to-prd', $out);
+        self::assertStringContainsString('under quota search until Atlas dry', $out);
+        self::assertLessThan(4000, mb_strlen(trim($out)));
+    }
 }

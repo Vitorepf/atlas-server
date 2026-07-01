@@ -21,6 +21,10 @@ namespace App\Services\Ai\SelfConstruction\VerificationCourt;
  *   - unacknowledged_scope_deviation:<path>
  *   - non_atlas_native_runtime_owner:<owner>
  *   - empty_command_proof   (commands_run had only entries without a name/exit_code)
+ *   - missing_receipt_chain (evidence.receipt_chain absent)
+ *   - receipt_chain_task_packet_id_mismatch / receipt_chain_lease_id_mismatch /
+ *     receipt_chain_allowed_files_hash_mismatch / receipt_chain_command_hash_mismatch
+ *     (receipt_chain.{field} absent OR differs from the evidence's own top-level claim)
  *
  * WORKER-FEED CONTINUITY (opt-in, only checked when evidence sets
  * `claims_autonomous_execution_quality=true` — a dry-run-only allegation with no such claim is
@@ -116,6 +120,33 @@ final class AtlasVerificationCourtEvidenceContract
         $commandHash = (string) ($evidence['command_hash'] ?? '');
         if (isset($expected['command_hash']) && $commandHash !== (string) $expected['command_hash']) {
             $blockers[] = 'command_hash_mismatch';
+        }
+
+        // Receipt hash CHAIN: binds the receipt to the exact task/lease/allowed-files/command-proof
+        // this allegation claims — a receipt is worthless proof if it could have been generated for a
+        // different task, a different lease, different files, or different commands. Every link must
+        // be present AND match the evidence's own top-level claim; the court cannot consider evidence
+        // whose receipt chain does not provably cover what is being alleged.
+        $receiptChain = is_array($evidence['receipt_chain'] ?? null) ? $evidence['receipt_chain'] : null;
+        if ($receiptChain === null) {
+            $blockers[] = 'missing_receipt_chain';
+        } else {
+            $chainTaskId = (string) ($receiptChain['task_packet_id'] ?? '');
+            if ($chainTaskId === '' || $chainTaskId !== $taskId) {
+                $blockers[] = 'receipt_chain_task_packet_id_mismatch';
+            }
+            $chainLeaseId = (string) ($receiptChain['lease_id'] ?? '');
+            if ($chainLeaseId === '' || $chainLeaseId !== $leaseId) {
+                $blockers[] = 'receipt_chain_lease_id_mismatch';
+            }
+            $chainAllowedFilesHash = (string) ($receiptChain['allowed_files_hash'] ?? '');
+            if ($chainAllowedFilesHash === '' || $chainAllowedFilesHash !== $allowedFilesHash) {
+                $blockers[] = 'receipt_chain_allowed_files_hash_mismatch';
+            }
+            $chainCommandHash = (string) ($receiptChain['command_hash'] ?? '');
+            if ($chainCommandHash === '' || $chainCommandHash !== $commandHash) {
+                $blockers[] = 'receipt_chain_command_hash_mismatch';
+            }
         }
 
         $scopeDevs = is_array($evidence['scope_deviations'] ?? null) ? array_values($evidence['scope_deviations']) : [];

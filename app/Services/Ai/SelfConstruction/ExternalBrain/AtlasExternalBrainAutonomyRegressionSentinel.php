@@ -52,6 +52,17 @@ final class AtlasExternalBrainAutonomyRegressionSentinel
         'external_tool_only'        => 'ensure execution can run through Atlas-native muscles, not only external tools',
     ];
 
+    /** Evidence a worker must attach before a BLOCKING regression can be closed. A regression
+     *  without required evidence stays an observation-only alert and can never be counted as
+     *  resolved or safe-to-go. */
+    private const REQUIRED_EVIDENCE = [
+        'human_dependency'         => 'runtime trace proving no human-approval step and final_runtime_owner=atlas_native',
+        'provider_dependency'      => 'runtime trace proving steady-state execution completes without an external provider call',
+        'ungated_bootstrap_muscle' => 'proof of final_runtime_owner=atlas_native and evidence_gated=true for the bootstrap muscle',
+        'prompt_only_memory'       => 'proof of a persisted Atlas-native memory write for the capability',
+        'external_tool_only'      => 'runtime trace proving execution through an Atlas-native muscle',
+    ];
+
     /**
      * @param  array{
      *   requires_human_approval?: bool,
@@ -120,6 +131,29 @@ final class AtlasExternalBrainAutonomyRegressionSentinel
             }
         }
 
+        // Actionable blockers: every hard (non-soft) regression becomes a concrete blocker
+        // carrying capability/reason/repair_hint/required_evidence -- never just a name.
+        // Soft regressions are observation-only alerts: they have no required_evidence, so
+        // they must never be countable as "resolved" or folded into safe_to_go.
+        $blockers = [];
+        $observationOnlyAlerts = [];
+        foreach ($regressions as $type) {
+            if (in_array($type, self::SOFT_REGRESSION_TYPES, true)) {
+                $observationOnlyAlerts[] = [
+                    'capability' => $type,
+                    'reason' => 'soft regression: '.$type,
+                ];
+
+                continue;
+            }
+            $blockers[] = [
+                'capability' => $type,
+                'reason' => 'hard regression: '.$type,
+                'repair_hint' => self::REMEDIATION_HINTS[$type] ?? '',
+                'required_evidence' => self::REQUIRED_EVIDENCE[$type] ?? '',
+            ];
+        }
+
         return [
             'schema'           => self::SCHEMA,
             'is_regression'    => $isRegression,
@@ -128,6 +162,9 @@ final class AtlasExternalBrainAutonomyRegressionSentinel
             'allowed_bootstrap' => $allowedBootstrap,
             'sentinel_verdict' => $verdict,
             'remediation_hints' => $remediationHints,
+            'blockers' => $blockers,
+            'observation_only_alerts' => $observationOnlyAlerts,
+            'safe_to_go' => $blockers === [],
             'autonomy_owner_contract' => [
                 'final_runtime_owner'   => $finalOwner,
                 'evidence_gated'        => $evidenceGated,

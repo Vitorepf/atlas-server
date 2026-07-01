@@ -14,7 +14,7 @@ final class AtlasExternalBrainWorkerDrainRateForecasterProjectionTest extends Te
         return new AtlasExternalBrainWorkerDrainRateForecaster;
     }
 
-    public function test_sufficient_depth_and_non_blind_telemetry_recommends_wait(): void
+    public function test_sufficient_depth_and_non_blind_telemetry_recommends_monitoring(): void
     {
         $result = $this->forecaster()->recommendFromProjection([
             'queue_depth' => 20,
@@ -22,7 +22,7 @@ final class AtlasExternalBrainWorkerDrainRateForecasterProjectionTest extends Te
             'telemetry_confidence' => 'direct',
         ]);
 
-        $this->assertSame(AtlasExternalBrainWorkerDrainRateForecaster::PROJECTION_RECOMMENDATION_WAIT, $result['recommendation']);
+        $this->assertSame(AtlasExternalBrainWorkerDrainRateForecaster::PROJECTION_RECOMMENDATION_MONITOR_IDLE_SUPPLY, $result['recommendation']);
     }
 
     public function test_blind_telemetry_recommends_fix_projection_telemetry_before_wait(): void
@@ -56,7 +56,7 @@ final class AtlasExternalBrainWorkerDrainRateForecasterProjectionTest extends Te
         $this->assertSame(AtlasExternalBrainWorkerDrainRateForecaster::PROJECTION_RECOMMENDATION_REPLENISH, $resultBlind['recommendation']);
     }
 
-    public function test_estimated_telemetry_with_sufficient_depth_recommends_wait(): void
+    public function test_estimated_telemetry_with_sufficient_depth_recommends_monitoring(): void
     {
         $result = $this->forecaster()->recommendFromProjection([
             'queue_depth' => 15,
@@ -64,6 +64,6 @@ final class AtlasExternalBrainWorkerDrainRateForecasterProjectionTest extends Te
             'telemetry_confidence' => 'estimated',
         ]);
 
-        $this->assertSame(AtlasExternalBrainWorkerDrainRateForecaster::PROJECTION_RECOMMENDATION_WAIT, $result['recommendation']);
+        $this->assertSame(AtlasExternalBrainWorkerDrainRateForecaster::PROJECTION_RECOMMENDATION_MONITOR_IDLE_SUPPLY, $result['recommendation']);
     }
 }

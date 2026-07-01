@@ -12,9 +12,15 @@ namespace App\Services\Ai\AutonomousEvolution\Attribution;
  * FACT-only + deterministic. A shape is CREDITED only when it has earned it from REAL samples: samples >=
  * minSamples (default 5) AND a Wilson lower-bound (95%) on its positive-Δ rate strictly above 0. A new/thin
  * shape NEVER gets spurious credit OR blame — the Wilson floor is exactly the anti-small-sample guard. Nothing
- * here is an LLM score and nothing is self-set: `credited`, `mean_delta` and `wilson_lower_bound` are COMPUTED
- * from the deliveries' measured net_behavior_delta — a caller cannot hand itself a grade. NEW class only — the
- * operator later feeds the prior into the pétreo AtlasLoopOriginationProducer / AtlasLoopAmbitionDecider.
+ * here is an LLM score and nothing is self-set: `credited`, `capability_delta` and `wilson_lower_bound` are
+ * COMPUTED from the deliveries' measured net_behavior_delta — a caller cannot hand itself a grade.
+ *
+ * CAUSAL HONESTY: `credited` alone answers "did this shape clear the anti-noise floor", not "did this shape
+ * cause more capability than everything else". `counterfactual_baseline` is the positive-Δ rate of every
+ * OTHER shape's deliveries; when a credited shape's Wilson lower bound does not clear that baseline,
+ * `false_causality_warning` is set — the shape is statistically indistinguishable from the background rate,
+ * so treating it as the cause of the gain would be a correlation-as-causation error. `confidence` is a
+ * deterministic sample-size band (low/medium/high), never an LLM score.
  */
 final class AtlasLoopCapabilityDeltaAttributionService
 {
@@ -27,7 +33,7 @@ final class AtlasLoopCapabilityDeltaAttributionService
 
     /**
      * @param  list<array{shape_token?:string, originator_id?:string, net_behavior_delta?:int|float, objective_class?:string}>  $deliveries
-     * @return array{schema:string, by_shape:list<array{shape_token:string, samples:int, mean_delta:float, wilson_lower_bound:float, credited:bool}>}
+     * @return array{schema:string, by_shape:list<array{shape_token:string, samples:int, sample_count:int, mean_delta:float, capability_delta:float, wilson_lower_bound:float, credited:bool, confidence:string, counterfactual_baseline:float, false_causality_warning:bool, rationale:string}>}
      */
     public function attribute(array $deliveries): array
     {
@@ -45,25 +51,75 @@ final class AtlasLoopCapabilityDeltaAttributionService
             $byShape[$shape][] = (float) ($delivery['net_behavior_delta'] ?? 0);
         }
 
+        // Population totals, used below as each shape's COUNTERFACTUAL baseline (the positive-Δ rate of
+        // every OTHER shape) — comparing a shape against itself would bias the baseline toward its own result.
+        $totalSamples = 0;
+        $totalPositives = 0;
+        foreach ($byShape as $deltas) {
+            $totalSamples += count($deltas);
+            $totalPositives += count(array_filter($deltas, static fn (float $d): bool => $d > 0.0));
+        }
+
         $rows = [];
         foreach ($byShape as $shape => $deltas) {
             $samples = count($deltas);
             $positives = count(array_filter($deltas, static fn (float $d): bool => $d > 0.0));
             $mean = round(array_sum($deltas) / max(1, $samples), 3);
             $wilson = $this->wilsonLowerBound($positives, $samples);
+            $credited = $samples >= $this->minSamples && $wilson > 0.0;
+
+            $otherSamples = $totalSamples - $samples;
+            $otherPositives = $totalPositives - $positives;
+            $counterfactualBaseline = $otherSamples > 0 ? round($otherPositives / $otherSamples, 4) : 0.0;
+
+            // A shape that clears the "credited" bar but does not beat what every OTHER shape achieves is
+            // not causally distinguishable from the background rate — flag it instead of asserting causation.
+            $falseCausalityWarning = $credited && $wilson <= $counterfactualBaseline;
 
             $rows[] = [
                 'shape_token' => $shape,
                 'samples' => $samples,
+                'sample_count' => $samples,
                 'mean_delta' => $mean,
+                'capability_delta' => $mean,
                 'wilson_lower_bound' => $wilson,
-                'credited' => $samples >= $this->minSamples && $wilson > 0.0,
+                'credited' => $credited,
+                'confidence' => $this->confidenceBand($samples),
+                'counterfactual_baseline' => $counterfactualBaseline,
+                'false_causality_warning' => $falseCausalityWarning,
+                'rationale' => $this->rationale($credited, $falseCausalityWarning, $samples, $wilson, $counterfactualBaseline),
             ];
         }
 
         usort($rows, static fn (array $a, array $b): int => strcmp($a['shape_token'], $b['shape_token']));
 
         return ['schema' => self::SCHEMA, 'by_shape' => $rows];
+    }
+
+    /** Deterministic sample-size confidence band — never an LLM/opaque score. */
+    private function confidenceBand(int $samples): string
+    {
+        if ($samples < $this->minSamples) {
+            return 'low';
+        }
+
+        return $samples >= $this->minSamples * 2 ? 'high' : 'medium';
+    }
+
+    /** Deterministic, computed-only explanation of the credited/confidence/false-causality verdict. */
+    private function rationale(bool $credited, bool $falseCausalityWarning, int $samples, float $wilson, float $counterfactualBaseline): string
+    {
+        if (! $credited) {
+            return $samples < $this->minSamples
+                ? sprintf('insufficient samples (n=%d < min %d)', $samples, $this->minSamples)
+                : sprintf('no positive-delta evidence above zero (wilson lower bound %.4f)', $wilson);
+        }
+
+        if ($falseCausalityWarning) {
+            return sprintf('credited but wilson lower bound %.4f does not clear counterfactual baseline %.4f — not distinguishable from the background rate', $wilson, $counterfactualBaseline);
+        }
+
+        return sprintf('credited: wilson lower bound %.4f exceeds counterfactual baseline %.4f over n=%d samples', $wilson, $counterfactualBaseline, $samples);
     }
 
     /**

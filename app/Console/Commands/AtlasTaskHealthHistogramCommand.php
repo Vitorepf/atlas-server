@@ -107,9 +107,9 @@ final class AtlasTaskHealthHistogramCommand extends Command
 
     /**
      * Cross-checks the urgency classifier's verdict against the LIVE worker_drain_forecast facts
-     * from atlas:task:health so this command can never report wait/LOW while active workers are
-     * actually at or below the claimable worker floor. Read-only: only reads coordination health,
-     * never claims/releases/enqueues/mutates a lease.
+     * from atlas:task:health so this command can never report passive monitoring while active
+     * workers are actually at or below the claimable worker floor. Read-only: only reads
+     * coordination health, never claims/releases/enqueues/mutates a lease.
      *
      * @return array<string,mixed>
      */
@@ -129,12 +129,12 @@ final class AtlasTaskHealthHistogramCommand extends Command
         $replenishRecommendation = (string) ($forecast['replenish_recommendation'] ?? '');
         $floorTriggeredByRecommendation = $replenishRecommendation === 'replenish_soon' || $replenishRecommendation === 'replenish_urgently';
 
-        if ($payload['next_action'] === 'wait'
+        if (in_array($payload['next_action'], ['wait', 'monitor_idle_supply'], true)
             && ((int) ($forecast['active_leases'] ?? 0) > 0)
-            && ($floorVerdict['replenish_action'] !== 'wait' || $floorTriggeredByRecommendation)
+            && (! in_array($floorVerdict['replenish_action'], ['wait', 'monitor_idle_supply'], true) || $floorTriggeredByRecommendation)
         ) {
             $payload['next_action'] = 'originate';
-            $payload['replenish_action'] = $floorVerdict['replenish_action'] !== 'wait' ? $floorVerdict['replenish_action'] : 'replenish_soon';
+            $payload['replenish_action'] = ! in_array($floorVerdict['replenish_action'], ['wait', 'monitor_idle_supply'], true) ? $floorVerdict['replenish_action'] : 'replenish_soon';
             $payload['reasons'] = array_values(array_unique(array_merge(
                 array_filter($payload['reasons'], static fn (string $r): bool => $r !== 'no_replenish_pressure'),
                 [AtlasMaestroReplenishUrgencyClassifier::REASON_WORKER_FLOOR],

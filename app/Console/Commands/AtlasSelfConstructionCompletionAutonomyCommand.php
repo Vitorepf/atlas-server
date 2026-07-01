@@ -61,6 +61,11 @@ final class AtlasSelfConstructionCompletionAutonomyCommand extends Command
                 $auditSvc->audit((array) ($facts['evidence'] ?? [])),
                 $transitionSvc->transition($auditSvc->audit((array) ($facts['evidence'] ?? []))),
                 (array) ($facts['readiness'] ?? []),
+                (array) ($facts['capability_facts'] ?? []),
+                (array) ($facts['capability_evidence'] ?? []),
+                (array) ($facts['regression'] ?? []),
+                (array) ($facts['worker_feed'] ?? []),
+                (array) ($facts['soak'] ?? []),
             ),
             'code-index-readiness' => $codeIndexBridge->verify((array) ($facts['code_index'] ?? $facts)),
             'final-brain-score' => $this->finalBrainScore($facts, $auditSvc, $transitionSvc, $verdictSvc),
@@ -99,6 +104,10 @@ final class AtlasSelfConstructionCompletionAutonomyCommand extends Command
             $transitionResult,
             (array) ($facts['readiness'] ?? []),
             $capabilityFacts,
+            (array) ($facts['capability_evidence'] ?? []),
+            (array) ($facts['regression'] ?? []),
+            (array) ($facts['worker_feed'] ?? []),
+            (array) ($facts['soak'] ?? []),
         );
 
         $missingTasks = array_values(array_map(

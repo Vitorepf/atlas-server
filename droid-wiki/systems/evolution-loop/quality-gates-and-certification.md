@@ -202,7 +202,7 @@ sequenceDiagram
 - Only a `certified` cycle is allowed to enter [merge governor](merge-governor.md). The close runner refuses to close any prior receipt that did not certify clean.
 - The frozen judge is a FORBIDDEN self-target; see [self-modification safety](self-modification-safety.md).
 - Every verdict, floor decision, and consensus is recorded; see [receipts and evidence](receipts-and-evidence.md).
-- The cross-model triangulator reaches providers through the [AI Gateway](../ai-gateway/).
+- The cross-model triangulator reaches providers through the [AI Gateway](../ai-gateway/index.md).
 
 ## Key source files
 

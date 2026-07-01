@@ -383,10 +383,12 @@ Riscos de **confusão de leitura** detectados, em ordem de gravidade:
    `domains/security.md:128-134` diz "Security Domain NÃO é cyber executor";
    Atlas Cyber Security é projeto separado em `docs/cyber-security/*`.
    Coexistem, mas dois donos do mesmo escopo são proibidos.
-7. **Research runtime vs Research domain** (baixo):
-   `atlas-ai-research-self-improvement-runtime.md` é P0 law (Layer 0.6);
-   Research Domain (Meta 8A) é executor. Risco de confundir lei com
-   adapter.
+7. **Research OS vs Research adapters** (baixo):
+   `research-self-improvement/research-operating-system.md` é o core universal;
+   `atlas-ai-research-self-improvement-runtime.md` governa pesquisa aplicada a
+   self-improvement; Research Domain/Company Runtime (Meta 8A) é adapter e
+   executor local. Risco de criar mini-Research OS por domínio em vez de
+   Domain Research Profiles.
 8. **Open Brain = Memory Context Core?** (baixo): doc compacto trata como o
    mesmo (`atlas-ai-memory-context-core-open-brain.md`); mas
    `memory/open-brain-mcp.md` é surface MCP/HTTP. Risco de fundir o

@@ -21,7 +21,7 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * AC2: always includes blocking_reasons and evidence_cited.
  *
  * LIVE SIGNAL NORMALIZATION: accepts an optional `next_action` (Maestro/queue-policy vocabulary —
- * wait, monitor, drain_existing_queue, consolidate_existing_tasks, self_heal_queue,
+ * monitor, drain_existing_queue, consolidate_existing_tasks, self_heal_queue,
  * create_high_leverage_batch, or the longer real bridge variants like
  * `self_heal_queue_before_creating`/`observe_and_wait`) and normalizes it into the SAME boolean facts
  * the verdict ladder already reads (gate_regression_detected, queue_pressure_high,
@@ -253,13 +253,13 @@ final class AtlasExternalBrainOriginatorStopConditionGate
 
         if (str_contains($nextAction, 'self_heal_queue')) {
             $input['gate_regression_detected'] = true;
-        } elseif (str_contains($nextAction, 'drain_existing_queue') || $nextAction === 'wait') {
+        } elseif (str_contains($nextAction, 'drain_existing_queue')) {
             $input['queue_pressure_high'] = true;
         } elseif (str_contains($nextAction, 'consolidate_existing_tasks')) {
             $input['consolidation_pressure_high'] = true;
         }
-        // 'monitor' and 'create_high_leverage_batch' (and 'observe_and_wait') set no override —
-        // they must pass through the existing quality/evidence/surface rules honestly.
+        // Passive monitor/wait vocabulary and create_high_leverage_batch set no override: queue
+        // comfort is not evidence to drain first, stop, or refuse high-leverage origination.
 
         return $input;
     }

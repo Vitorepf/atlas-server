@@ -227,7 +227,7 @@ Atlas AI
 -> Mission Mode
 -> Autonomous Intelligence OS
    -> Atlas Kernel / WorkOrder / Evidence / Policy / Tool Runtime
-   -> Research Company Runtime
+   -> Research Company Runtime (adapter do Research OS universal)
    -> Software Company Runtime
    -> Cyber Security Company Runtime
    -> Finance / Investment Company Runtime

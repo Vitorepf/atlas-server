@@ -97,6 +97,7 @@ final class AtlasExternalBrainScaffoldedPromptAssemblerTest extends TestCase
             'forbidden_output_shapes',
             'acceptance_floor',
             'budget_guard',
+            'no_wait_policy',
             'output_contract',
         ];
         $r = $this->assemble();

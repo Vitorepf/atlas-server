@@ -25,6 +25,10 @@ final class AtlasTaskWorkerPromptTest extends TestCase
         $this->assertStringContainsString('ONLY', $out, 'the allowed_files-only rule is present');
         $this->assertStringContainsString('NEVER `git add -A`', $out, 'the no-broad-git rule is present (shared main safety)');
         $this->assertStringContainsString('QUALITY BOOST', $out, 'the prompt uses spare budget for duplicate/root-cause guardrails');
+        $this->assertStringContainsString('Skill triggers', $out, 'the prompt routes workers to installed skills when useful');
+        $this->assertStringContainsString('diagnosing-bugs', $out, 'bug tasks should use the debugging skill');
+        $this->assertStringContainsString('code-review', $out, 'workers should self-review before resolving');
+        $this->assertStringContainsString('Atlas allowed_files/acceptance wins', $out, 'skills must never override the Atlas task contract');
     }
 
     public function test_auto_generates_a_unique_client_id_when_unspecified(): void

@@ -260,6 +260,86 @@ final class AtlasExternalBrainAutonomyRegressionSentinelTest extends TestCase
         $this->assertNotEmpty(array_filter($result['remediation_hints'], fn ($h) => str_contains($h, 'Atlas-native store')));
     }
 
+    // ── AC1/AC3: actionable blockers with capability/reason/repair_hint/required_evidence ──
+
+    public function test_hard_regression_becomes_a_blocker_with_all_required_fields(): void
+    {
+        $input                            = $this->clean();
+        $input['requires_human_approval'] = true;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertCount(1, $result['blockers']);
+        $blocker = $result['blockers'][0];
+        $this->assertSame('human_dependency', $blocker['capability']);
+        $this->assertNotEmpty($blocker['reason']);
+        $this->assertNotEmpty($blocker['repair_hint']);
+        $this->assertNotEmpty($blocker['required_evidence']);
+        $this->assertFalse($result['safe_to_go']);
+    }
+
+    public function test_multiple_hard_regressions_all_become_blockers(): void
+    {
+        $result = $this->sentinel->scan([
+            'requires_human_approval'     => true,
+            'prompt_only_memory'          => true,
+            'final_runtime_owner'         => 'atlas_native',
+            'evidence_gated'              => true,
+        ]);
+
+        $this->assertCount(2, $result['blockers']);
+        $capabilities = array_column($result['blockers'], 'capability');
+        $this->assertContains('human_dependency', $capabilities);
+        $this->assertContains('prompt_only_memory', $capabilities);
+    }
+
+    public function test_operator_seeding_warning_is_observation_only_and_not_a_blocker(): void
+    {
+        $input                               = $this->clean();
+        $input['requires_operator_seeding']  = true;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertSame([], $result['blockers']);
+        $this->assertCount(1, $result['observation_only_alerts']);
+        $this->assertSame('operator_seeding_required', $result['observation_only_alerts'][0]['capability']);
+        $this->assertArrayNotHasKey('repair_hint', $result['observation_only_alerts'][0]);
+        $this->assertArrayNotHasKey('required_evidence', $result['observation_only_alerts'][0]);
+    }
+
+    public function test_observation_only_alert_alone_is_safe_to_go(): void
+    {
+        $input                              = $this->clean();
+        $input['requires_operator_seeding'] = true;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertTrue($result['safe_to_go'], 'observation-only alerts never block safe_to_go');
+    }
+
+    public function test_clean_proposal_is_safe_to_go_with_no_blockers_or_alerts(): void
+    {
+        $result = $this->sentinel->scan($this->clean());
+
+        $this->assertTrue($result['safe_to_go']);
+        $this->assertSame([], $result['blockers']);
+        $this->assertSame([], $result['observation_only_alerts']);
+    }
+
+    public function test_any_blocker_present_makes_safe_to_go_false_even_with_alerts(): void
+    {
+        $result = $this->sentinel->scan([
+            'requires_operator_seeding' => true,
+            'prompt_only_memory'        => true,
+            'final_runtime_owner'       => 'atlas_native',
+            'evidence_gated'            => true,
+        ]);
+
+        $this->assertNotEmpty($result['observation_only_alerts']);
+        $this->assertNotEmpty($result['blockers']);
+        $this->assertFalse($result['safe_to_go']);
+    }
+
     public function test_autonomy_owner_contract_reflects_inputs(): void
     {
         $result = $this->sentinel->scan([

@@ -182,7 +182,9 @@ plano/AP, implementacao validada e proposta de self-improvement.
 ## Onde Se Encaixa
 
 Filho do Atlas AI canonical architecture index e da sequencia multi-domain.
-Meta 8A implementa o Research Company Runtime local; Tool Runtime, promocao
+O Research OS universal e a autoridade de pesquisa. Este runtime descreve como
+pesquisa alimenta self-improvement. Meta 8A implementa o Research Company
+Runtime local como adapter/executor do Research OS; Tool Runtime, promocao
 automatica e fetch externo continuam fora deste boundary.
 
 ## Contratos
@@ -220,7 +222,8 @@ revisavel vencem opiniao, conversa e autoaplicacao invisivel.
 
 | Area | Canonical doc |
 |---|---|
-| Research Operating System | `research-self-improvement/research-operating-system.md` |
+| Research Operating System universal core | `research-self-improvement/research-operating-system.md` |
+| Research Domain adapter/runtime | `atlas-domain-research-runtime.md` |
 | Evidence Lake and Citation Health | `research-self-improvement/evidence-lake-and-citation-health.md` |
 | Source connectors and capture | `research-self-improvement/source-connectors-and-capture.md` |
 | Multi-agent research roles | `research-self-improvement/multi-agent-research-roles.md` |
@@ -243,7 +246,8 @@ revisavel vencem opiniao, conversa e autoaplicacao invisivel.
 
 ## Required Runtime Shape
 
-The runtime must be layered:
+The runtime must be layered. Shared research mechanics belong in Research OS
+Core; domain-specific policies belong in Domain Research Profiles/adapters.
 
 1. **Research Scout** gathers candidates from approved source classes.
 2. **Source Judge** scores source quality, freshness, provenance and conflict.
@@ -255,6 +259,31 @@ The runtime must be layered:
    diff checks.
 8. **Self-Improvement Reviewer** emits proposals, findings and metrics.
 9. **Promotion Gate** decides promote, hold, archive, rollback or research more.
+
+## Universal Research Boundary
+
+Atlas must not grow separate research stacks for every domain. Finance,
+business/company research, science, programming, marketing, music, language
+learning, technology and personal development all use the same Research OS
+pipeline:
+
+```text
+Research Intent
+-> Domain Research Profile
+-> Source Plan
+-> Evidence / Claims / Contradictions
+-> Synthesis
+-> Promotion Gate
+-> Memory / Vault / Semantic Notes / Docs / AP / Constelacao
+```
+
+Only the domain profile changes. It may define sources, trust thresholds,
+claim risks, synthesis shape and promotion targets. It must not reimplement
+source quality, claim storage, contradiction search, citation health or memory
+promotion as a parallel system.
+
+Research Company Runtime is therefore not a competing Research OS. It is the
+current domain runtime that proves part of the universal contract.
 
 ## Research Quality Contract
 
@@ -320,6 +349,8 @@ Automation is not allowed to:
 - delete canonical docs;
 - bypass architecture validation;
 - claim improvement without metric or replay.
+- create a parallel research store or domain-specific research pipeline when a
+  Research OS adapter/profile would do.
 
 ## Core Metrics
 
@@ -371,6 +402,13 @@ Runtime** como primeiro Domain Company Runtime focado em pesquisa: source
 plan, source quality, claims com attribution obrigatoria, contradiction
 check, synthesis e evidence pack auditavel.
 
+Status de autoridade: este e um adapter/executor local do Research OS universal,
+nao o Research OS universal completo. Ele valida DB, services, smoke e
+control-plane para o dominio `research`, mas ainda nao prova fetch externo,
+Evidence Lake completo, citation health universal, multi-agent research,
+promotion automatica governada para Memory/Vault/Semantic Notes/Constelacao,
+ou uso cross-domain como sinapses futuras.
+
 Boundary atual: runtime local implementado e testado para planejamento,
 qualidade de fontes, attribution, contradiction check, synthesis, readiness,
 smoke e control-plane projection. Nao faz fetch externo, scraping, promocao
@@ -381,59 +419,16 @@ Runtime (Meta 5) executara web.search/web.fetch e devolvera factors
 estruturados para `ResearchSourceQualityService`. Aqui ficam apenas os
 contratos canonicos e a maquina de estado.
 
-Persistencia (4 tabelas):
+Persistencia local: `ai_research_runs`, `ai_research_sources`,
+`ai_research_claims` e `ai_research_syntheses`, todos com hashes/refs
+deterministicos e attribution obrigatoria.
 
-- `ai_research_runs` (`atlas.ai.research_run.v1`) — pergunta, hipotese,
-  source_plan, status, certification_hash, evidence_pack_hash, missing_requirements.
-- `ai_research_sources` (`atlas.ai.research_source.v1`) — todas as fontes,
-  status em `{planned, accepted, rejected}`, source_quality, quality_factors,
-  reason_rejected e `citation_hash` deterministico (sha256 canonical).
-- `ai_research_claims` (`atlas.ai.research_claim.v1`) — afirmacoes com
-  `source_refs` obrigatorio, `claim_status`, `contradiction_status` e
-  `claim_hash` deterministico.
-- `ai_research_syntheses` (`atlas.ai.research_synthesis.v1`) — sintese final
-  com `brief`, `claim_refs`, `source_refs`, `contradictions`,
-  `open_questions`, `overall_confidence`, `evidence_refs` (pack completo) e
-  `synthesis_hash`.
-
-Services (`App\Services\Ai\ResearchDomain`):
-
-- `ResearchDomainCanon` — enums canonicos: source types, source statuses,
-  claim statuses, contradiction statuses, primary/low-triangulation types,
-  minimum diversity e thresholds.
-- `ResearchDomainManifestSeeder::seed()` — idempotente; reusa o payload
-  canonical do Meta 2 (`DomainSeedManifests::research()`).
-- `ResearchRuntimeService::run()` orquestra pipeline plan -> score ->
-  claim -> contradiction-check -> synthesize -> certify.
-- `ResearchRuntimeService::smokeRun()` end-to-end deterministico para CLI/tests.
-- `ResearchSourcePlanService::plan(question, sources, hypothesis, context)`
-  abre o run e persiste sources com status `planned`.
-- `ResearchSourceQualityService::score(source, factors)` aplica regras
-  deterministicas (peer_reviewed, primary, recency_days, domain_authority,
-  vendor_bias, low_triangulation). `scoreRun(run, factorsByHash)` aplica para
-  todo o run e calcula `source_diversity`.
-- `ResearchClaimService::record(run, statement, citationHashes, confidence)`
-  exige `>=1` citation hash valido (rejeita citations de fontes rejeitadas);
-  `runContradictionCheck(run)` flag par-a-par bidirecional;
-  `declareContradiction(claim, reason)` registra contradicao aceita.
-- `ResearchSynthesisService::synthesize(run, brief, context)` constroi
-  synthesis + pack via bridge, calcula `missing_requirements`,
-  `overall_confidence` e seta `certification_status` em
-  `{passed, failed}`. Falha por padrao quando ha `<2` sources aceitas,
-  diversidade `<2`, claims sem attribution ou contradiction detectada sem
-  resolucao.
-- `ResearchEvidenceBridge::projectToMissionEvidence(run, synthesis)` projeta
-  source refs + synthesis no `ai_mission_evidence_refs` quando Mission
-  Foundation esta presente; tolerante a ausencia.
-- `ResearchEvidenceBridge::buildEvidencePack(run, synthesis)` retorna pack
-  canonical (`sources_accepted`, `sources_rejected`, `claims`,
-  `synthesis_hash`).
-- `ResearchReadinessService::report()` — schema
-  `atlas.ai.research_domain.readiness.v1`.
-- `ResearchControlPlaneProjection::snapshot()` — schema
-  `atlas.ai.research_domain.control_plane.v1` com 4 secoes
-  (runs/sources/claims/syntheses) e agregados por status, source type e
-  rejection reason.
+Services locais (`App\Services\Ai\ResearchDomain`): canon, manifest seeder,
+runtime orchestration, source plan, source quality, claim recording,
+contradiction check, synthesis, evidence bridge, readiness e control-plane
+projection. O detalhe operacional vive no codigo/testes e no doc
+`atlas-domain-research-runtime.md`; este documento fixa a autoridade e os
+limites.
 
 Comando Artisan:
 
@@ -462,6 +457,10 @@ Fora de escopo de Meta 8A (continua em Metas seguintes):
 - Auto-classificacao de claims por LLM/embedding — heuristica determinista v1.
 - Promotion automatica de brief para docs canonicos — `research-to-docs-promotion`
   doc continua governando.
+- Domain Research Profile universal para areas como finance, science, music,
+  language learning, technology e personal development.
+- Promotion governada de synthesis/claims para Semantic Notes, AtlasVault,
+  Memory, Open Brain recall e Constelacao.
 
 ## Escopo de Implementacao
 
@@ -490,6 +489,10 @@ Risco principal: IA confundir runtime local de pesquisa com crawler externo,
 auto-promocao de docs ou self-improvement autônomo. Esses caminhos continuam
 bloqueados por source gate, docs promotion law e review.
 
+Risco secundario: IA criar varios mini-runtimes de pesquisa por dominio. A
+mitigacao canonica e usar `research-self-improvement/research-operating-system.md`
+como core universal e adicionar apenas adapters/profiles.
+
 ## Exemplos
 
 Correto: criar research packet com fontes, claims e synthesis antes de um AP.
@@ -498,4 +501,6 @@ Proibido: usar resumo de provider sem fonte como memoria, policy ou codigo.
 ## Proximas Acoes
 
 Manter readiness e testes ResearchDomain verdes; quando Tool Runtime entregar
-fetch externo, atualizar este doc com novo boundary e provas.
+fetch externo, atualizar este doc com novo boundary e provas. Proxima evolucao
+canonica: especificar `Domain Research Profile` e a ponte
+`ResearchSynthesis -> Memory/Vault/Semantic Notes/Open Brain/Constelacao`.

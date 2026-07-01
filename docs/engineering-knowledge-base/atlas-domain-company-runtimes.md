@@ -201,7 +201,7 @@ Todo dominio deve declarar:
 - Finance / Investment Company Runtime.
 - Marketing / Growth Company Runtime.
 - Corporate Strategy / Venture Studio Runtime.
-- Research Company Runtime.
+- Research Company Runtime (adapter do Research OS universal).
 - Sales Company Runtime.
 - Automation Company Runtime.
 - Data Intelligence Company Runtime.
@@ -275,8 +275,11 @@ exigem autorizacao escrita, escopo, legal/privacy gate e evidence chain.
 
 ### Research / Market Intelligence
 
-Empresa de pesquisa: fonte primaria, freshness, source quality, contradiction
-check, claims, citations, synthesis, opportunity radar e relatorios.
+Adapter de pesquisa sobre o Research OS universal: fonte primaria, freshness,
+source quality, contradiction check, claims, citations, synthesis, opportunity
+radar e relatorios. Nao e uma arquitetura de pesquisa paralela; regras
+genericas de coleta, evidencia, contradicao, citation health, promotion e
+memoria pertencem ao `research-self-improvement/research-operating-system.md`.
 
 ### Personal Development / Learning
 
