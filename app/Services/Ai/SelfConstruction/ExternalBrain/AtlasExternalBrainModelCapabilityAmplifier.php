@@ -159,15 +159,48 @@ final class AtlasExternalBrainModelCapabilityAmplifier
         $proxyLeakDelta = round($proxyLeakRate - $baselineProxyLeakRate, 4);
         $heldoutRegressionPack = $this->heldoutRegressionPack($heldoutLiftProof, $proxyLeakDelta);
 
+        $implementabilityBlockers = array_values(array_filter(array_map(
+            'strval',
+            (array) ($input['implementability_blockers'] ?? []),
+        ), static fn (string $b): bool => $b !== ''));
+
+        $evidenceConfidenceOk = $confidence >= $profile['evidence_confidence_floor'];
+        $heldoutSampleOk = $heldoutLiftProof['heldout_sample_size'] >= self::MIN_HELDOUT_SAMPLE_SIZE;
+        $proxyLeakOk = $proxyLeakRate < self::PROXY_LEAK_CEILING && $proxyLeakDelta <= 0.0;
+        $implementabilityOk = $implementabilityBlockers === [];
+
         // AC3: autonomous execution is allowed ONLY when held-out lift is positive, proxy leakage
         // is below ceiling AND never increased vs baseline, evidence confidence meets the profile
-        // floor, and no escalation trigger fired — never inferred from prompt strictness alone.
+        // floor, task implementability has no open blockers, and no escalation trigger fired —
+        // never inferred from prompt strictness alone.
         $autonomousExecutionAllowed = ! $escalation['escalate']
             && $heldoutLiftProof['lift_delta'] > 0.0
-            && $heldoutLiftProof['heldout_sample_size'] >= self::MIN_HELDOUT_SAMPLE_SIZE
-            && $proxyLeakRate < self::PROXY_LEAK_CEILING
-            && $proxyLeakDelta <= 0.0
-            && $confidence >= $profile['evidence_confidence_floor'];
+            && $heldoutSampleOk
+            && $proxyLeakOk
+            && $evidenceConfidenceOk
+            && $implementabilityOk;
+
+        $repairActions = [];
+        if (! $evidenceConfidenceOk) {
+            $repairActions[] = 'collect_more_evidence_to_raise_confidence_above_'.$profile['evidence_confidence_floor'];
+        }
+        if (! $heldoutSampleOk) {
+            $repairActions[] = 'expand_heldout_sample_to_at_least_'.self::MIN_HELDOUT_SAMPLE_SIZE;
+        }
+        if (! $proxyLeakOk) {
+            $repairActions[] = 'reduce_proxy_leak_rate_below_ceiling_and_vs_baseline';
+        }
+        if (! $implementabilityOk) {
+            $repairActions[] = 'resolve_implementability_blockers:'.implode(',', $implementabilityBlockers);
+        }
+
+        $proofFloorStatus = [
+            'evidence_confidence_ok' => $evidenceConfidenceOk,
+            'heldout_sample_ok' => $heldoutSampleOk,
+            'proxy_leak_ok' => $proxyLeakOk,
+            'implementability_ok' => $implementabilityOk,
+            'autonomous_execution_allowed' => $autonomousExecutionAllowed,
+        ];
 
         return [
             'schema_version'             => self::SCHEMA,
@@ -191,6 +224,8 @@ final class AtlasExternalBrainModelCapabilityAmplifier
             // AC4: frontier is reachable ONLY via escalation_recommendation (advisory: frontier OR
             // human review) — steady-state output never requires a frontier provider to function.
             'steady_state_provider_requirement' => 'none_provider_agnostic',
+            'proof_floor_status' => $proofFloorStatus,
+            'repair_actions' => $repairActions,
         ];
     }
 

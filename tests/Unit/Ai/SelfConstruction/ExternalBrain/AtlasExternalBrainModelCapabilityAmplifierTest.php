@@ -468,4 +468,66 @@ final class AtlasExternalBrainModelCapabilityAmplifierTest extends TestCase
         $this->assertTrue($withEscalation['escalation_recommendation']['escalate']);
         $this->assertSame('none_provider_agnostic', $withEscalation['steady_state_provider_requirement']);
     }
+
+    // ── proof_floor_status ────────────────────────────────────────────────────
+
+    public function test_proof_floor_status_all_ok_when_every_floor_satisfied(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size' => 'small',
+            'baseline_pass_rate' => 0.4,
+            'scaffolded_pass_rate' => 0.9,
+            'heldout_sample_size' => 20,
+            'proxy_leak_rate' => 0.0,
+            'confidence' => 0.9,
+        ]);
+
+        foreach (['evidence_confidence_ok', 'heldout_sample_ok', 'proxy_leak_ok', 'implementability_ok', 'autonomous_execution_allowed'] as $key) {
+            $this->assertArrayHasKey($key, $r['proof_floor_status'], "Missing key: {$key}");
+        }
+        $this->assertTrue($r['proof_floor_status']['evidence_confidence_ok']);
+        $this->assertTrue($r['proof_floor_status']['heldout_sample_ok']);
+        $this->assertTrue($r['proof_floor_status']['proxy_leak_ok']);
+        $this->assertTrue($r['proof_floor_status']['implementability_ok']);
+        $this->assertTrue($r['proof_floor_status']['autonomous_execution_allowed']);
+        $this->assertSame([], $r['repair_actions']);
+    }
+
+    public function test_implementability_blockers_fail_implementability_ok_and_block_autonomy_for_small_and_mid(): void
+    {
+        foreach (['small', 'mid'] as $size) {
+            $r = $this->svc()->amplify([
+                'model_size' => $size,
+                'baseline_pass_rate' => 0.4,
+                'scaffolded_pass_rate' => 0.9,
+                'heldout_sample_size' => 20,
+                'confidence' => 0.9,
+                'implementability_blockers' => ['missing_target_file'],
+            ]);
+
+            $this->assertFalse($r['proof_floor_status']['implementability_ok'], "profile={$size}");
+            $this->assertFalse($r['proof_floor_status']['autonomous_execution_allowed'], "profile={$size}");
+            $this->assertFalse($r['autonomous_execution_allowed'], "profile={$size}");
+            $this->assertNotEmpty($r['repair_actions'], "profile={$size}");
+        }
+    }
+
+    public function test_repair_actions_present_for_each_failed_proof_floor(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size' => 'small',
+            'baseline_pass_rate' => 0.4,
+            'scaffolded_pass_rate' => 0.9,
+            'heldout_sample_size' => 1,
+            'proxy_leak_rate' => 0.5,
+            'confidence' => 0.1,
+            'implementability_blockers' => ['unresolved_dependency'],
+        ]);
+
+        $this->assertFalse($r['proof_floor_status']['evidence_confidence_ok']);
+        $this->assertFalse($r['proof_floor_status']['heldout_sample_ok']);
+        $this->assertFalse($r['proof_floor_status']['proxy_leak_ok']);
+        $this->assertFalse($r['proof_floor_status']['implementability_ok']);
+        $this->assertGreaterThanOrEqual(4, count($r['repair_actions']));
+    }
 }
