@@ -102,6 +102,44 @@ final class AtlasTaskCommitGovernanceChainTest extends TestCase
         $this->assertFileDoesNotExist($this->releaseLedgerPath);
     }
 
+    public function test_observe_mode_includes_replay_verdict_without_blocking(): void
+    {
+        $result = $this->chain(AtlasTaskCommitGovernanceChain::MODE_OBSERVE)->govern([
+            'task_packet_id' => 'task-5',
+            'project_id' => 'atlas-self-construction',
+            'changed_files' => ['app/Services/Foo.php'],
+            'verification' => ['passed' => true, 'evidence_hash' => 'ev-5'],
+        ]);
+
+        $this->assertArrayHasKey('replay_verdict', $result);
+        $this->assertSame('passed', $result['replay_verdict']['verdict']);
+        $this->assertFalse($result['enforced_block']);
+    }
+
+    public function test_enforce_mode_blocks_false_green_replay_contradiction_even_when_verification_passed_true(): void
+    {
+        $result = $this->chain(AtlasTaskCommitGovernanceChain::MODE_ENFORCE)->govern([
+            'task_packet_id' => 'task-6',
+            'project_id' => 'atlas-self-construction',
+            'changed_files' => ['app/Services/Foo.php'],
+            'verification' => [
+                'passed' => true,
+                'evidence_hash' => 'ev-6',
+                'planned_commands' => [
+                    ['command_id' => 'cmd-1', 'output_hash' => 'hash-1'],
+                ],
+                'replay_results' => [
+                    ['command_id' => 'cmd-1', 'exit_code' => 0, 'output_hash' => null],
+                ],
+            ],
+        ]);
+
+        $this->assertFalse($result['admitted']);
+        $this->assertTrue($result['enforced_block']);
+        $this->assertContains('false_green_replay_contradiction', $result['blockers']);
+        $this->assertNotSame('passed', $result['replay_verdict']['verdict']);
+    }
+
     public function test_off_mode_is_a_no_op_and_skips_both_ledgers(): void
     {
         $result = $this->chain(AtlasTaskCommitGovernanceChain::MODE_OFF)->govern([

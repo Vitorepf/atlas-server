@@ -57,6 +57,7 @@ final class AtlasTaskCommitGovernanceChain
         private readonly ?AtlasMergeGovernorReleaseDecisionLedger $releaseLedger = null,
         ?callable $clock = null,
         private readonly ?string $modeOverride = null,
+        private readonly ?AtlasVerificationCourtFalseGreenDetector $falseGreenDetector = null,
     ) {
         $this->clock = $clock ?? static fn (): string => now()->toIso8601String();
     }
@@ -87,7 +88,7 @@ final class AtlasTaskCommitGovernanceChain
     {
         $mode = $this->mode();
         if ($mode === self::MODE_OFF) {
-            return $this->envelope($mode, true, false, 'skipped', '', [], ['verdict_ledger' => 'skipped', 'release_ledger' => 'skipped']);
+            return $this->envelope($mode, true, false, 'skipped', '', [], ['verdict_ledger' => 'skipped', 'release_ledger' => 'skipped'], null, null);
         }
 
         try {
@@ -141,14 +142,32 @@ final class AtlasTaskCommitGovernanceChain
             $blockers = array_values(array_map('strval', (array) $admission['blockers']));
             $admitted = $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED;
 
+            // Replay binding: bind the server-reported green to the planned/replayed command hashes so a
+            // "passed=true" that never actually replayed its commands can't sail through as admitted.
+            $replayVerdict = ($this->falseGreenDetector ?? new AtlasVerificationCourtFalseGreenDetector)->detect([
+                'passed' => $serverGreen,
+                'planned_commands' => (array) ($verification['planned_commands'] ?? []),
+                'replay_results' => (array) ($verification['replay_results'] ?? []),
+            ]);
+            $falseGreenContradiction = $serverGreen && in_array($replayVerdict['verdict'], [
+                AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED,
+                AtlasVerificationCourtFalseGreenDetector::VERDICT_BLOCKED,
+            ], true);
+
+            if ($falseGreenContradiction) {
+                $decision = 'false_green_replay_contradiction';
+                $admitted = false;
+                $blockers = array_values(array_unique([...$blockers, 'false_green_replay_contradiction', ...$replayVerdict['reasons']]));
+            }
+
             $recorded = $this->record($taskId, $projectId, $decision, $blockers, $evidenceHash, $risk, $rollback, $changed, $checks);
 
             $enforcedBlock = $mode === self::MODE_ENFORCE && ! $admitted;
 
-            return $this->envelope($mode, $admitted, $enforcedBlock, $decision, (string) $risk['risk_level'], $blockers, $recorded);
+            return $this->envelope($mode, $admitted, $enforcedBlock, $decision, (string) $risk['risk_level'], $blockers, $recorded, null, $replayVerdict);
         } catch (Throwable $e) {
             // FAIL-OPEN: never wedge a worker because governance broke. Record nothing, admit, do not block.
-            return $this->envelope($mode, true, false, 'fail_open_error', '', [], ['verdict_ledger' => 'error', 'release_ledger' => 'error'], $e->getMessage());
+            return $this->envelope($mode, true, false, 'fail_open_error', '', [], ['verdict_ledger' => 'error', 'release_ledger' => 'error'], $e->getMessage(), null);
         }
     }
 
@@ -318,7 +337,7 @@ final class AtlasTaskCommitGovernanceChain
      * @param  array{verdict_ledger:string, release_ledger:string}  $recorded
      * @return array<string,mixed>
      */
-    private function envelope(string $mode, bool $admitted, bool $enforcedBlock, string $decision, string $riskLevel, array $blockers, array $recorded, ?string $error = null): array
+    private function envelope(string $mode, bool $admitted, bool $enforcedBlock, string $decision, string $riskLevel, array $blockers, array $recorded, ?string $error = null, ?array $replayVerdict = null): array
     {
         return [
             'schema' => self::SCHEMA,
@@ -330,6 +349,7 @@ final class AtlasTaskCommitGovernanceChain
             'risk_level' => $riskLevel,
             'blockers' => $blockers,
             'recorded' => $recorded,
+            'replay_verdict' => $replayVerdict,
             'error' => $error,
         ];
     }
