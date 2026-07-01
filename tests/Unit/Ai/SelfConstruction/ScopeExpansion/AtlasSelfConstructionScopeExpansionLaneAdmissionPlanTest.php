@@ -156,6 +156,65 @@ final class AtlasSelfConstructionScopeExpansionLaneAdmissionPlanTest extends Tes
         $this->assertLessThan($external['lane_priority'], $internal['lane_priority'], 'atlas_internal must have lower (higher-priority) number than external');
     }
 
+    // ── AC2: lane_scope, task_fabric_policy, verification_policy, rollback_policy, knowledge_sync_plan, first_wave_shape ──
+
+    public function test_ready_plan_contains_all_new_structured_policy_fields(): void
+    {
+        $plan = (new AtlasSelfConstructionScopeExpansionLaneAdmissionPlan)
+            ->plan($this->candidate(), $this->readyVerdict(), $this->laneFacts());
+
+        foreach (['lane_scope', 'task_fabric_policy', 'verification_policy', 'rollback_policy', 'knowledge_sync_plan', 'first_wave_shape'] as $field) {
+            $this->assertArrayHasKey($field, $plan, "missing field: {$field}");
+        }
+        $this->assertSame(['app/Services/Ai/Authoring'], $plan['lane_scope']['allowed_roots']);
+        $this->assertTrue($plan['verification_policy']['quality_floor_met']);
+        $this->assertTrue($plan['rollback_policy']['rollback_ready']);
+    }
+
+    public function test_first_wave_shape_has_one_task_per_allowed_root(): void
+    {
+        $plan = (new AtlasSelfConstructionScopeExpansionLaneAdmissionPlan)
+            ->plan($this->candidate(), $this->readyVerdict(), $this->laneFacts([
+                'allowed_roots' => ['app/Services/Ai/Authoring', 'app/Services/Ai/AuthoringSecondary'],
+            ]));
+
+        $this->assertSame(2, $plan['first_wave_shape']['wave_size']);
+        $this->assertCount(2, $plan['first_wave_shape']['tasks']);
+        $this->assertStringContainsString('app/Services/Ai/Authoring', $plan['first_wave_shape']['tasks'][0]['task_shape']);
+    }
+
+    // ── AC3/AC4: unclear boundary rejection ──────────────────────────────────
+
+    public function test_rejects_when_allowed_root_conflicts_with_forbidden_root(): void
+    {
+        $plan = (new AtlasSelfConstructionScopeExpansionLaneAdmissionPlan)
+            ->plan($this->candidate(), $this->readyVerdict(), $this->laneFacts([
+                'allowed_roots' => ['app/Services/Ai/Authoring'],
+                'forbidden_roots' => ['app/Services/Ai/Authoring'],
+            ]));
+
+        $this->assertSame('rejected', $plan['status']);
+        $blockerWasFound = false;
+        foreach ($plan['blockers'] as $b) {
+            if (str_starts_with($b, 'unclear_lane_boundary:')) {
+                $blockerWasFound = true;
+                break;
+            }
+        }
+        $this->assertTrue($blockerWasFound);
+    }
+
+    // ── AC3/AC4: missing verification rejection ──────────────────────────────
+
+    public function test_rejects_when_verification_explicitly_unavailable(): void
+    {
+        $plan = (new AtlasSelfConstructionScopeExpansionLaneAdmissionPlan)
+            ->plan($this->candidate(), $this->readyVerdict(), $this->laneFacts(['verification_available' => false]));
+
+        $this->assertSame('rejected', $plan['status']);
+        $this->assertContains('missing_verification_policy', $plan['blockers']);
+    }
+
     public function test_plan_source_is_pure(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/ScopeExpansion/AtlasSelfConstructionScopeExpansionLaneAdmissionPlan.php'));

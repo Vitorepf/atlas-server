@@ -81,6 +81,21 @@ final class AtlasSelfConstructionScopeExpansionLaneAdmissionPlan
             }
         }
 
+        // Unclear boundary: a root declared both allowed AND forbidden gives the lane no clean edge.
+        foreach ($allowedRoots as $allowedRoot) {
+            foreach ($forbiddenRoots as $forbiddenRoot) {
+                if ($this->rootsOverlap($allowedRoot, $forbiddenRoot)) {
+                    $blockers[] = 'unclear_lane_boundary:'.$allowedRoot.':conflicts_with_forbidden:'.$forbiddenRoot;
+                }
+            }
+        }
+
+        // Missing verification: opt-in signal (default true preserves existing callers) — a lane
+        // that explicitly declares it has no verification path must never be admitted.
+        if (! (bool) ($laneFacts['verification_available'] ?? true)) {
+            $blockers[] = 'missing_verification_policy';
+        }
+
         if ($blockers !== []) {
             sort($blockers, SORT_STRING);
 
@@ -93,6 +108,10 @@ final class AtlasSelfConstructionScopeExpansionLaneAdmissionPlan
         }
 
         $laneId = 'lane:'.$projectId.':'.(string) ($candidate['id'] ?? '');
+        $verificationHooks = ['atlas.verification_court.evaluate'];
+        $rollbackHooks = ['atlas.rollback.apply'];
+        $knowledgeSyncHooks = ['atlas.engineering.knowledge.sync', 'atlas.engineering.knowledge.index-code'];
+
         $plan = [
             'candidate_id' => (string) ($candidate['id'] ?? ''),
             'project_id' => $projectId,
@@ -102,16 +121,58 @@ final class AtlasSelfConstructionScopeExpansionLaneAdmissionPlan
             'allowed_roots' => $allowedRoots,
             'forbidden_roots' => $forbiddenRoots,
             'execution_topology' => $topology,
-            'verification_hooks' => ['atlas.verification_court.evaluate'],
+            'verification_hooks' => $verificationHooks,
             'release_hooks' => ['atlas.release_governor.preflight', 'atlas.release_governor.commit'],
             'receipt_hooks' => ['atlas.receipts.append'],
-            'rollback_hooks' => ['atlas.rollback.apply'],
-            'knowledge_sync_hooks' => ['atlas.engineering.knowledge.sync', 'atlas.engineering.knowledge.index-code'],
+            'rollback_hooks' => $rollbackHooks,
+            'knowledge_sync_hooks' => $knowledgeSyncHooks,
             'requires_operator_handoff' => false,
             'lane_priority' => $laneType === 'atlas_internal' ? 1 : 2,
+            'lane_scope' => [
+                'allowed_roots' => $allowedRoots,
+                'forbidden_roots' => $forbiddenRoots,
+                'queue_namespace' => $namespace,
+            ],
+            'task_fabric_policy' => [
+                'queue_namespace' => $namespace,
+                'execution_topology' => $topology,
+                'lane_priority' => $laneType === 'atlas_internal' ? 1 : 2,
+            ],
+            'verification_policy' => [
+                'hooks' => $verificationHooks,
+                'quality_floor_met' => (bool) ($laneFacts['quality_floor_met'] ?? true),
+            ],
+            'rollback_policy' => [
+                'hooks' => $rollbackHooks,
+                'rollback_ready' => (bool) ($laneFacts['rollback_ready'] ?? true),
+            ],
+            'knowledge_sync_plan' => [
+                'hooks' => $knowledgeSyncHooks,
+            ],
+            'first_wave_shape' => $this->firstWaveShape($allowedRoots),
         ];
 
         return $this->envelope(self::STATUS_READY, $plan);
+    }
+
+    /**
+     * One bootstrap mapping task per allowed root — the smallest concrete first wave a new lane
+     * can start on without inventing scope beyond what was just admitted.
+     *
+     * @param  list<string>  $allowedRoots
+     * @return array{wave_size:int, tasks:list<array<string,string>>}
+     */
+    private function firstWaveShape(array $allowedRoots): array
+    {
+        $tasks = array_map(static fn (string $root): array => [
+            'task_shape' => 'map_and_document_scope:'.$root,
+            'root' => $root,
+        ], $allowedRoots);
+
+        return [
+            'wave_size' => count($tasks),
+            'tasks' => $tasks,
+        ];
     }
 
     private function rootsOverlap(string $a, string $b): bool
