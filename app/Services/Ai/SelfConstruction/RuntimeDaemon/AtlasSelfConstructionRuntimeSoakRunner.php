@@ -45,6 +45,12 @@ final class AtlasSelfConstructionRuntimeSoakRunner
 
     private const MIN_VIRTUAL_TICKS_FOR_GREEN = 5;
 
+    private const MIN_GREEN_TICKS_FOR_GREEN = 1;
+
+    private const MIN_RECOVERED_TICKS_FOR_GREEN = 1;
+
+    private const MIN_HELD_TICKS_FOR_GREEN = 1;
+
     /** @var list<string> */
     private const FORBIDDEN_TOKENS = [
         'requires_operator',
@@ -131,21 +137,40 @@ final class AtlasSelfConstructionRuntimeSoakRunner
         $passed = $dependencyViolations === [] && $failedCount === 0;
 
         $offendingTokens = array_values(array_unique(array_column($dependencyViolations, 'violation')));
-        $hasEnoughVirtualRuntimeEvidence = count($ticks) >= self::MIN_VIRTUAL_TICKS_FOR_GREEN;
+
+        $statusReasons = [];
+        if (count($ticks) < self::MIN_VIRTUAL_TICKS_FOR_GREEN) {
+            $statusReasons[] = 'insufficient_tick_count';
+        }
+        if ($greenCount < self::MIN_GREEN_TICKS_FOR_GREEN) {
+            $statusReasons[] = 'insufficient_green_ticks';
+        }
+        if ($recoveredCount < self::MIN_RECOVERED_TICKS_FOR_GREEN) {
+            $statusReasons[] = 'insufficient_recovered_ticks';
+        }
+        if ($heldCount < self::MIN_HELD_TICKS_FOR_GREEN) {
+            $statusReasons[] = 'insufficient_held_ticks';
+        }
+        if ($failedCount > 0) {
+            $statusReasons[] = 'callback_failures_present';
+        }
+        $hasFullVirtualRuntimeDiversity = $statusReasons === [];
 
         if ($offendingTokens !== []) {
             $soakStatus = 'blocked';
-        } elseif ($passed && $hasEnoughVirtualRuntimeEvidence) {
+        } elseif ($passed && $hasFullVirtualRuntimeDiversity) {
             $soakStatus = 'green';
         } else {
             $soakStatus = 'partial';
         }
+        sort($statusReasons, SORT_STRING);
 
         $payload = [
             'schema' => self::SCHEMA,
             'schema_version' => self::SCHEMA,
             'passed' => $passed,
             'soak_status' => $soakStatus,
+            'soak_status_reasons' => $soakStatus === 'partial' ? $statusReasons : [],
             'offending_tokens' => $offendingTokens,
             'dry_run' => ! $apply || ! is_callable($callback),
             'tick_count' => count($ticks),

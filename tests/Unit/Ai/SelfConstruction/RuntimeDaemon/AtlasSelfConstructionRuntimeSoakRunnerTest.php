@@ -182,6 +182,34 @@ class AtlasSelfConstructionRuntimeSoakRunnerTest extends TestCase
         self::assertSame('partial', $verdict['soak_status'], 'not enough virtual runtime evidence to declare green');
     }
 
+    public function test_enough_ticks_without_recovered_or_held_diversity_is_partial_with_reasons(): void
+    {
+        $scenario = [
+            'virtual_ticks' => [
+                ['index' => 0, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
+                ['index' => 1, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
+                ['index' => 2, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
+                ['index' => 3, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
+                ['index' => 4, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
+            ],
+        ];
+        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
+
+        self::assertTrue($verdict['passed']);
+        self::assertSame('partial', $verdict['soak_status']);
+        self::assertContains('insufficient_recovered_ticks', $verdict['soak_status_reasons']);
+        self::assertContains('insufficient_held_ticks', $verdict['soak_status_reasons']);
+        self::assertSame($verdict['soak_status_reasons'], array_values(array_unique($verdict['soak_status_reasons'])));
+    }
+
+    public function test_soak_status_reasons_empty_when_green(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($this->defaultScenario());
+
+        self::assertSame('green', $verdict['soak_status']);
+        self::assertSame([], $verdict['soak_status_reasons']);
+    }
+
     public function test_max_cycle_stop_limits_ticks_to_scenario_max(): void
     {
         $maxTicks = 5;
