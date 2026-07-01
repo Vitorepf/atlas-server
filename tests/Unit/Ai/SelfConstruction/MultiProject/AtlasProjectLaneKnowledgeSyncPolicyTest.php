@@ -182,4 +182,92 @@ final class AtlasProjectLaneKnowledgeSyncPolicyTest extends TestCase
         $this->assertSame([], $r['blockers']);
         $this->assertSame([], $r['required_commands']);
     }
+
+    // ── AC: required_docs / code_index_sync / memory_writeback / receipt_sync / post_merge_sync ──
+
+    public function test_output_includes_new_sync_duty_facts(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest' => $this->atlasLane(),
+            'touched_paths' => [],
+        ]);
+
+        foreach (['required_docs', 'code_index_sync', 'memory_writeback', 'receipt_sync', 'post_merge_sync', 'blockers'] as $key) {
+            $this->assertArrayHasKey($key, $r, "missing {$key}");
+        }
+    }
+
+    public function test_atlas_lane_with_code_change_sets_code_index_sync_true(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest' => $this->atlasLane(),
+            'touched_paths' => ['app/Foo.php'],
+        ]);
+
+        $this->assertTrue($r['code_index_sync']);
+    }
+
+    public function test_external_lane_with_no_relevant_facts_has_all_sync_duties_false(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest' => ['project_id' => 'demo-lane', 'allowed_scope_roots' => ['/repo/demo/']],
+            'touched_paths' => [],
+        ]);
+
+        $this->assertFalse($r['code_index_sync']);
+        $this->assertFalse($r['memory_writeback']);
+        $this->assertFalse($r['receipt_sync']);
+        $this->assertFalse($r['post_merge_sync']);
+    }
+
+    public function test_missing_canonical_docs_yields_empty_required_docs(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest' => $this->atlasLane(),
+            'touched_paths' => [],
+        ]);
+
+        $this->assertSame([], $r['required_docs']);
+    }
+
+    public function test_disabled_memory_writeback_when_no_release_notes_flag_and_fresh_projection(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest'      => $this->atlasLane(),
+            'touched_paths'      => [],
+            'knowledge_surfaces' => ['memory_projection' => 'fresh'],
+        ]);
+
+        $this->assertFalse($r['memory_writeback']);
+    }
+
+    public function test_post_merge_sync_required_triggers_all_sync_duties_and_command(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest' => $this->atlasLane(),
+            'touched_paths' => [],
+            'outcome_facts' => ['post_merge' => true],
+        ]);
+
+        $this->assertTrue($r['post_merge_sync']);
+        $this->assertTrue($r['code_index_sync']);
+        $this->assertTrue($r['memory_writeback']);
+        $this->assertTrue($r['receipt_sync']);
+        $this->assertContains('lane-post-merge-sync:atlas', array_column($r['required_commands'], 'id'));
+    }
+
+    public function test_safe_no_op_lane_has_no_sync_duties_and_stays_conformant(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest' => $this->atlasLane(),
+            'touched_paths' => [],
+        ]);
+
+        $this->assertTrue($r['conformant']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertFalse($r['code_index_sync']);
+        $this->assertFalse($r['memory_writeback']);
+        $this->assertFalse($r['receipt_sync']);
+        $this->assertFalse($r['post_merge_sync']);
+    }
 }

@@ -74,6 +74,8 @@ final class AtlasProjectLaneKnowledgeSyncPolicy
             }
         }
 
+        $postMergeRequested = (bool) ($outcome['post_merge'] ?? false);
+
         $commands = [];
         $hasDocs = $this->anyMatches($insidePaths, static fn (string $p): bool => str_contains($p, '/docs/') || str_ends_with(strtolower($p), '.md'));
         $hasCode = $this->anyMatches($insidePaths, static fn (string $p): bool => str_ends_with($p, '.php'));
@@ -129,8 +131,21 @@ final class AtlasProjectLaneKnowledgeSyncPolicy
             }
         }
 
+        if ($postMergeRequested) {
+            $commands[] = $this->command(
+                'lane-post-merge-sync:'.$projectId,
+                'post_merge_full_sync',
+                $projectId,
+                'post-merge sync duty: full knowledge alignment required after merge to lane '.$projectId,
+            );
+        }
+
         usort($commands, static fn (array $a, array $b): int => strcmp($a['id'], $b['id']));
         sort($blockers, SORT_STRING);
+
+        $codeIndexSync = $hasCode || in_array($codeIndexFreshness, ['stale', 'missing'], true) || $postMergeRequested;
+        $memoryWriteback = ! empty($outcome['requires_release_notes']) || in_array($memoryProjectionStatus, ['stale', 'missing'], true) || $postMergeRequested;
+        $receiptSync = ! empty($outcome['integrated_test_passed']) || $postMergeRequested;
 
         return [
             'schema'                   => self::SCHEMA,
@@ -141,6 +156,11 @@ final class AtlasProjectLaneKnowledgeSyncPolicy
             'canonical_docs'           => $canonicalDocs,
             'code_index_freshness'     => $codeIndexFreshness,
             'memory_projection_status' => $memoryProjectionStatus,
+            'required_docs'            => $canonicalDocs,
+            'code_index_sync'          => $codeIndexSync,
+            'memory_writeback'         => $memoryWriteback,
+            'receipt_sync'             => $receiptSync,
+            'post_merge_sync'          => $postMergeRequested,
         ];
     }
 
