@@ -118,6 +118,23 @@ final class AgentRuntimeRegistryOrchestrator
 
         $status = $blockers === [] ? 'planned' : 'blocked';
 
+        // AC4: proof continuity — an assignment carrying continuation_context claims to pick
+        // up prior evidence; one without it is a fresh assignment and continuity is simply not
+        // applicable. Never invented from data this orchestrator does not have.
+        $continuationContext = (array) ($taskPacket['continuation_context'] ?? []);
+        $proofContinuityStatus = $continuationContext !== []
+            ? 'continuous_from_prior_evidence'
+            : 'new_assignment_no_continuity_required';
+
+        // AC4: next_repair_action — the single most useful next step given the current
+        // blockers, in fixed priority order (missing registry > no availability > no match).
+        $nextRepairAction = match (true) {
+            in_array('no_agents_registered', $blockers, true) => 'register_at_least_one_agent',
+            in_array('no_available_agents', $blockers, true) => $this->repairActionFromAvailability($availabilityPlan),
+            in_array('no_matching_candidates', $blockers, true) => 'broaden_task_capability_requirements_or_register_matching_agent',
+            default => 'none_required',
+        };
+
         $hashPayload = [
             'task_packet_id' => (string) ($taskPacket['task_packet_id'] ?? ''),
             'availability_hash' => (string) ($availabilityPlan['availability_hash'] ?? ''),
@@ -139,6 +156,9 @@ final class AgentRuntimeRegistryOrchestrator
             'ranking_plan' => $rankPlan,
             'best_candidate' => $matchPlan['best_candidate'] ?? null,
             'selected_agent' => $rankPlan['selected_agent'] ?? null,
+            'rejected_agents' => $availabilityPlan['unavailable_agents'] ?? [],
+            'proof_continuity_status' => $proofContinuityStatus,
+            'next_repair_action' => $nextRepairAction,
             'blockers' => array_values(array_unique($blockers)),
             'warnings' => array_values(array_unique($warnings)),
             'assignment_hash' => $this->stableHash($hashPayload),
@@ -268,6 +288,26 @@ final class AgentRuntimeRegistryOrchestrator
             'ledger_write_allowed' => false,
             'handoff_execution_allowed' => false,
         ];
+    }
+
+    /**
+     * Translates the availability planner's repair_reasons into one concrete next step,
+     * in fixed priority order — the most severe/authoritative blocker first.
+     *
+     * @param  array<string, mixed>  $availabilityPlan
+     */
+    private function repairActionFromAvailability(array $availabilityPlan): string
+    {
+        $repairReasons = (array) ($availabilityPlan['repair_reasons'] ?? []);
+
+        return match (true) {
+            in_array('quarantined', $repairReasons, true) || in_array('quarantined_status', $repairReasons, true) => 'unquarantine_or_register_a_non_quarantined_agent',
+            in_array('missing_capabilities', $repairReasons, true) => 'register_agent_with_required_capabilities',
+            in_array('capacity_full', $repairReasons, true) => 'free_agent_capacity_or_register_additional_agent',
+            in_array('stale_heartbeat', $repairReasons, true) || in_array('missing_heartbeat', $repairReasons, true) => 'refresh_agent_heartbeat',
+            in_array('no_agents_registered', $repairReasons, true) => 'register_at_least_one_agent',
+            default => 'repair:'.($repairReasons[0] ?? 'unknown_availability_blocker'),
+        };
     }
 
     /**
