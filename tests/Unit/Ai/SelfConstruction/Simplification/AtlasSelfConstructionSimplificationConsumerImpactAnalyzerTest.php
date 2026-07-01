@@ -87,4 +87,47 @@ final class AtlasSelfConstructionSimplificationConsumerImpactAnalyzerTest extend
         $this->assertSame([], $result['blockers']);
         $this->assertSame([], $result['impacted_classes']);
     }
+
+    public function test_direct_and_transitive_consumers_are_counted_and_public_touch_raises_risk(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'DirectCaller', 'category' => 'runtime', 'proof_refs' => ['git:blob1']],
+                ['name' => 'TransitiveCaller', 'category' => 'runtime', 'proof_refs' => ['git:blob2'], 'transitive' => true],
+                ['name' => 'ArtisanCommand', 'category' => 'command', 'proof_refs' => ['app/Console/Commands/FooCommand.php'], 'is_public_command' => true],
+            ],
+        ]);
+
+        $this->assertSame(2, $result['direct_consumer_count']);
+        $this->assertSame(1, $result['transitive_consumer_count']);
+        $this->assertTrue($result['touches_public_command']);
+        $this->assertSame(AtlasSelfConstructionSimplificationConsumerImpactAnalyzer::RISK_HIGH, $result['risk_level']);
+    }
+
+    public function test_test_and_docs_only_usage_is_lower_risk_but_still_reported(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'CallerTest', 'category' => 'test', 'proof_refs' => ['tests/FooTest.php']],
+                ['name' => 'readme-section', 'category' => 'docs', 'proof_refs' => ['docs/foo.md']],
+            ],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionSimplificationConsumerImpactAnalyzer::RISK_LOW, $result['risk_level']);
+        $this->assertSame(['test', 'docs'], $result['impacted_classes']);
+        $this->assertSame(2, $result['direct_consumer_count']);
+    }
+
+    public function test_high_risk_from_public_contract_touch_emits_blocking_reason_over_safe_refactor_floor(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'ContractCaller', 'category' => 'runtime', 'proof_refs' => ['git:blob1'], 'is_public_contract' => true],
+            ],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionSimplificationConsumerImpactAnalyzer::RISK_HIGH, $result['risk_level']);
+        $this->assertContains('consumer_risk_exceeds_safe_refactor_floor:high', $result['blocking_reasons']);
+        $this->assertFalse($result['safe_to_continue']);
+    }
 }
