@@ -34,6 +34,8 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'objective_contains_no_proxy_keywords',
                 'acceptance_requires_behavior_test',
             ],
+            'stop_repeating_rule' => 'never_admit_a_task_whose_objective_is_cosmetic_only',
+            'required_evidence' => 'acceptance_requires_behavior_test',
         ],
         'operator_dependency' => [
             'challenge_cases' => [
@@ -48,6 +50,8 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'no_manual_step_in_acceptance',
                 'task_has_no_human_approval_gate',
             ],
+            'stop_repeating_rule' => 'never_admit_a_task_with_a_human_approval_gate_in_acceptance',
+            'required_evidence' => 'task_has_no_human_approval_gate',
         ],
         'duplicate_target' => [
             'challenge_cases' => [
@@ -62,6 +66,8 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'no_duplicate_allowed_file_across_active_tasks',
                 'capability_not_in_registry',
             ],
+            'stop_repeating_rule' => 'never_originate_a_task_without_a_dedup_search_against_existing_capabilities',
+            'required_evidence' => 'capability_registry_search_performed',
         ],
         'low_leverage' => [
             'challenge_cases' => [
@@ -76,6 +82,8 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'objective_length_above_50_chars',
                 'task_has_downstream_dependents_or_unlocks',
             ],
+            'stop_repeating_rule' => 'never_originate_a_task_whose_only_justification_is_ease_of_implementation',
+            'required_evidence' => 'task_has_downstream_dependents_or_unlocks',
         ],
         'false_green_acceptance' => [
             'challenge_cases' => [
@@ -90,6 +98,24 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'acceptance_criteria_include_behavior_assertion',
                 'wiring_to_consumer_verified',
             ],
+            'stop_repeating_rule' => 'never_mark_complete_without_verified_wiring_to_a_real_consumer',
+            'required_evidence' => 'wiring_to_consumer_verified',
+        ],
+        'weak_acceptance' => [
+            'challenge_cases' => [
+                'Acceptance criterion only says "tests pass" with no behavior named',
+                'Acceptance criteria are satisfied by a stub implementation',
+            ],
+            'runbook_reminders' => [
+                'Rewrite each acceptance criterion to assert the specific behavior being proven',
+                'Reject acceptance criteria that a no-op implementation could satisfy',
+            ],
+            'preflight_checks' => [
+                'acceptance_criteria_assert_specific_behavior',
+                'acceptance_criteria_reject_no_op_implementations',
+            ],
+            'stop_repeating_rule' => 'never_accept_acceptance_criteria_that_are_exit_code_only',
+            'required_evidence' => 'acceptance_criteria_assert_specific_behavior',
         ],
         'over_complexity' => [
             'challenge_cases' => [
@@ -104,6 +130,8 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'no_speculative_abstractions',
                 'class_count_within_task_scope',
             ],
+            'stop_repeating_rule' => 'never_add_an_abstraction_not_directly_required_by_acceptance_criteria',
+            'required_evidence' => 'no_speculative_abstractions',
         ],
         'missed_dedup' => [
             'challenge_cases' => [
@@ -118,6 +146,8 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'no_duplicate_logic_in_allowed_files',
                 'existing_utility_search_done',
             ],
+            'stop_repeating_rule' => 'never_add_a_helper_without_searching_for_an_existing_equivalent',
+            'required_evidence' => 'existing_utility_search_done',
         ],
         'no_runnable_evidence' => [
             'challenge_cases' => [
@@ -132,6 +162,8 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'all_acceptance_criteria_have_runnable_evidence_path',
                 'no_external_system_dependency_in_evidence',
             ],
+            'stop_repeating_rule' => 'never_admit_a_decision_without_a_runnable_evidence_reference',
+            'required_evidence' => 'all_acceptance_criteria_have_runnable_evidence_path',
         ],
         'provider_dependency' => [
             'challenge_cases' => [
@@ -146,6 +178,8 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'no_direct_provider_sdk_calls',
                 'output_is_provider_safe',
             ],
+            'stop_repeating_rule' => 'never_call_a_provider_sdk_directly_outside_the_atlas_gateway',
+            'required_evidence' => 'output_is_provider_safe',
         ],
     ];
 
@@ -202,6 +236,8 @@ final class AtlasExternalBrainBlindSpotCurriculum
         'preflight_checks' => [
             'manual_review_required_for_this_failure_type',
         ],
+        'stop_repeating_rule' => 'investigate_root_cause_before_next_run',
+        'required_evidence' => 'manual_review_required_for_this_failure_type',
     ];
 
     /**
@@ -243,6 +279,8 @@ final class AtlasExternalBrainBlindSpotCurriculum
                     'challenge_cases' => $catalog['challenge_cases'],
                     'runbook_reminders' => $catalog['runbook_reminders'],
                     'preflight_checks' => $catalog['preflight_checks'],
+                    'stop_repeating_rule' => $catalog['stop_repeating_rule'],
+                    'required_evidence' => $catalog['required_evidence'],
                 ];
                 $injectionRules[] = [
                     'inject_before' => $type . '_class_tasks',
@@ -259,10 +297,17 @@ final class AtlasExternalBrainBlindSpotCurriculum
         }
 
         $allChecks = [];
+        $preflightRules = [];
         foreach ($curriculumItems as $item) {
             foreach ($item['preflight_checks'] as $check) {
                 $allChecks[$check] = true;
             }
+            $preflightRules[] = [
+                'blind_spot_type' => $item['blind_spot_type'],
+                'stop_repeating_rule' => $item['stop_repeating_rule'],
+                'required_evidence' => $item['required_evidence'],
+                'preflight_checks' => $item['preflight_checks'],
+            ];
         }
 
         return [
@@ -274,6 +319,7 @@ final class AtlasExternalBrainBlindSpotCurriculum
             'preflight_contract'   => [
                 'checks'        => array_values(array_keys($allChecks)),
                 'applied_types' => array_column($promotedBlindSpots, 'type'),
+                'rules'         => $preflightRules,
             ],
         ];
     }

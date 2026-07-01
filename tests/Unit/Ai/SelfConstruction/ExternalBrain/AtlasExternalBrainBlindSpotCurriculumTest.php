@@ -210,6 +210,76 @@ final class AtlasExternalBrainBlindSpotCurriculumTest extends TestCase
         $this->assertSame(count($checks), count(array_unique($checks)));
     }
 
+    // ── preflight rules bindable to task admission (AC) ─────────────────────────
+
+    public function test_every_promoted_blind_spot_adds_stop_repeating_rule_and_required_evidence_to_preflight_contract(): void
+    {
+        $r = $this->build([
+            $this->obs('proxy_risk', 'run-1'),
+            $this->obs('proxy_risk', 'run-2'),
+        ]);
+
+        $this->assertArrayHasKey('rules', $r['preflight_contract']);
+        $rules = $r['preflight_contract']['rules'];
+        $this->assertCount(1, $rules);
+        $rule = $rules[0];
+        $this->assertSame('proxy_risk', $rule['blind_spot_type']);
+        $this->assertNotEmpty($rule['stop_repeating_rule']);
+        $this->assertNotEmpty($rule['required_evidence']);
+
+        // Also present on each curriculum_item.
+        $item = $r['curriculum_items'][0];
+        $this->assertArrayHasKey('stop_repeating_rule', $item);
+        $this->assertArrayHasKey('required_evidence', $item);
+        $this->assertNotEmpty($item['stop_repeating_rule']);
+        $this->assertNotEmpty($item['required_evidence']);
+    }
+
+    public function test_duplicate_target_and_weak_acceptance_produce_distinct_preflight_checks_not_generic_manual_review(): void
+    {
+        $r = $this->build([
+            $this->obs('duplicate_target', 'run-1'),
+            $this->obs('duplicate_target', 'run-2'),
+            $this->obs('weak_acceptance', 'run-3'),
+            $this->obs('weak_acceptance', 'run-4'),
+        ]);
+
+        $rulesByType = [];
+        foreach ($r['preflight_contract']['rules'] as $rule) {
+            $rulesByType[$rule['blind_spot_type']] = $rule;
+        }
+
+        $this->assertArrayHasKey('duplicate_target', $rulesByType);
+        $this->assertArrayHasKey('weak_acceptance', $rulesByType);
+
+        $duplicateChecks = $rulesByType['duplicate_target']['preflight_checks'];
+        $weakAcceptanceChecks = $rulesByType['weak_acceptance']['preflight_checks'];
+
+        $this->assertNotContains('manual_review_required_for_this_failure_type', $duplicateChecks);
+        $this->assertNotContains('manual_review_required_for_this_failure_type', $weakAcceptanceChecks);
+        $this->assertNotSame($duplicateChecks, $weakAcceptanceChecks);
+
+        $this->assertNotSame(
+            $rulesByType['duplicate_target']['stop_repeating_rule'],
+            $rulesByType['weak_acceptance']['stop_repeating_rule'],
+        );
+    }
+
+    public function test_unpromoted_single_observation_does_not_pollute_preflight_contract(): void
+    {
+        $r = $this->build([
+            $this->obs('weak_acceptance', 'run-1'), // single occurrence => below threshold
+        ]);
+
+        $this->assertSame([], $r['promoted_blind_spots']);
+        $rejectedTypes = array_column($r['rejected_candidates'], 'type');
+        $this->assertContains('weak_acceptance', $rejectedTypes);
+
+        $this->assertSame([], $r['preflight_contract']['checks']);
+        $this->assertSame([], $r['preflight_contract']['applied_types']);
+        $this->assertSame([], $r['preflight_contract']['rules']);
+    }
+
     // ── new catalog entries ───────────────────────────────────────────────────
 
     public function test_over_complexity_uses_catalog(): void
