@@ -55,8 +55,33 @@ final class AtlasMaestroTaskTierClassifier
     ];
 
     /**
-     * @param  array{packet_id?:string, objective?:string, allowed_files?:list<string>, acceptance_criteria?:list<string>, give_back_count?:int, required_evidence?:list<string>, provided_evidence?:list<string>}  $packet
-     * @return array{schema:string, packet_id:string, tier:string, fact_basis:list<string>, content_hash:string, signals:array<string,int|string|bool>}
+     * Path substrings and objective keywords that signal runtime/autonomy impact — these bump
+     * an otherwise-easy tier up to `hard` (a simple unit-only change never touches these).
+     */
+    public const RUNTIME_AUTONOMY_PATH_MARKERS = ['ContinuousRuntime', 'AutonomousEvolution', 'Maestro'];
+
+    public const RUNTIME_AUTONOMY_KEYWORDS = ['runtime', 'autonomy', 'autonomous'];
+
+    /** proof_coverage (0..1) at/above this is treated as strong, risk-lowering evidence. */
+    public const HIGH_PROOF_COVERAGE_THRESHOLD = 0.8;
+
+    public const RISK_DANGEROUS_SCOPE = 'dangerous_scope_regardless_of_proof';
+
+    public const RISK_LOW_RISK_HIGH_PROOF = 'low_risk_high_proof_coverage';
+
+    public const RISK_UNPROVEN_SCOPE = 'unproven_scope';
+
+    public const RISK_STANDARD = 'standard_risk';
+
+    public const CAPABILITY_GENERAL = 'general_worker';
+
+    public const CAPABILITY_SKILLED = 'skilled_worker';
+
+    public const CAPABILITY_FRONTIER = 'frontier_or_lead_worker';
+
+    /**
+     * @param  array{packet_id?:string, objective?:string, allowed_files?:list<string>, acceptance_criteria?:list<string>, give_back_count?:int, required_evidence?:list<string>, provided_evidence?:list<string>, proof_coverage?:float}  $packet
+     * @return array{schema:string, packet_id:string, tier:string, fact_basis:list<string>, content_hash:string, signals:array<string,int|string|bool>, risk_reason:string, required_worker_capability:string}
      */
     public function classify(array $packet): array
     {
@@ -143,7 +168,33 @@ final class AtlasMaestroTaskTierClassifier
                 }
                 $factBasis[] = 'missing_evidence: '.$missingEvidenceCount.' of '.count($requiredEvidence).' required evidence refs absent';
             }
+
+            // Runtime/autonomy-impact tasks are never a simple unit-only change — bump easy → hard.
+            $runtimeAutonomyHit = $this->firstRuntimeAutonomyMarker($allowedFiles, $lowerObjective);
+            if ($runtimeAutonomyHit !== null && $tier === self::TIER_EASY) {
+                $tier = self::TIER_HARD;
+                $factBasis[] = 'runtime_autonomy_impact: '.$runtimeAutonomyHit;
+            }
         }
+
+        // Proof coverage can lower the perceived RISK narrative, but never the tier itself when
+        // the tier was set by a dangerous-scope (hardest) trigger above.
+        $proofCoverage = max(0.0, min(1.0, (float) ($packet['proof_coverage'] ?? 0.0)));
+        if ($tier === self::TIER_HARDEST) {
+            $riskReason = self::RISK_DANGEROUS_SCOPE;
+        } elseif ($proofCoverage >= self::HIGH_PROOF_COVERAGE_THRESHOLD) {
+            $riskReason = self::RISK_LOW_RISK_HIGH_PROOF;
+        } elseif ($proofCoverage < 0.3) {
+            $riskReason = self::RISK_UNPROVEN_SCOPE;
+        } else {
+            $riskReason = self::RISK_STANDARD;
+        }
+
+        $requiredWorkerCapability = match ($tier) {
+            self::TIER_HARDEST => self::CAPABILITY_FRONTIER,
+            self::TIER_HARD => self::CAPABILITY_SKILLED,
+            default => self::CAPABILITY_GENERAL,
+        };
 
         $signals = [
             'objective_length' => $objectiveLength,
@@ -164,6 +215,8 @@ final class AtlasMaestroTaskTierClassifier
             'tier' => $tier,
             'fact_basis' => $factBasis,
             'signals' => $signals,
+            'risk_reason' => $riskReason,
+            'required_worker_capability' => $requiredWorkerCapability,
         ];
 
         // Hash of the INPUT (so identical packet ⇒ identical content_hash regardless of run time).
@@ -188,6 +241,27 @@ final class AtlasMaestroTaskTierClassifier
                 if (str_contains($path, $marker)) {
                     return $marker;
                 }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function firstRuntimeAutonomyMarker(array $allowedFiles, string $lowerObjective): ?string
+    {
+        foreach ($allowedFiles as $path) {
+            foreach (self::RUNTIME_AUTONOMY_PATH_MARKERS as $marker) {
+                if (str_contains($path, $marker)) {
+                    return $marker;
+                }
+            }
+        }
+        foreach (self::RUNTIME_AUTONOMY_KEYWORDS as $kw) {
+            if (str_contains($lowerObjective, $kw)) {
+                return $kw;
             }
         }
 

@@ -196,4 +196,101 @@ final class AtlasMaestroTaskTierClassifierTest extends TestCase
         ]);
         $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_HARD, $r['tier']);
     }
+
+    // --- risk / proof-coverage / worker-capability (AC) --------------------
+
+    public function test_runtime_autonomy_impact_task_is_higher_tier_than_simple_unit_only_change(): void
+    {
+        $classifier = new AtlasMaestroTaskTierClassifier;
+
+        $simple = $classifier->classify([
+            'packet_id' => 'p-simple',
+            'objective' => 'Add a tiny CLI helper that prints a static banner.',
+            'allowed_files' => ['app/Console/Commands/AtlasFooCommand.php'],
+            'acceptance_criteria' => ['banner prints'],
+        ]);
+        $runtimeImpact = $classifier->classify([
+            'packet_id' => 'p-runtime',
+            'objective' => 'Tiny edit to runtime behavior.',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/ContinuousRuntime/AtlasFoo.php'],
+            'acceptance_criteria' => ['ok'],
+        ]);
+
+        $tierRank = [AtlasMaestroTaskTierClassifier::TIER_EASY => 0, AtlasMaestroTaskTierClassifier::TIER_HARD => 1, AtlasMaestroTaskTierClassifier::TIER_HARDEST => 2];
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_EASY, $simple['tier']);
+        $this->assertGreaterThan($tierRank[$simple['tier']], $tierRank[$runtimeImpact['tier']]);
+    }
+
+    public function test_autonomy_keyword_in_objective_bumps_easy_to_hard(): void
+    {
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-autonomy',
+            'objective' => 'Improve autonomy of the small helper.',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => [],
+        ]);
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_HARD, $r['tier']);
+        $foundFact = false;
+        foreach ($r['fact_basis'] as $fact) {
+            if (str_contains($fact, 'runtime_autonomy_impact')) {
+                $foundFact = true;
+            }
+        }
+        $this->assertTrue($foundFact);
+    }
+
+    public function test_high_proof_coverage_lowers_risk_reason_but_not_tier_for_dangerous_scope(): void
+    {
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-constitution-proven',
+            'objective' => 'Tiny edit.',
+            'allowed_files' => ['app/Services/Ai/AutonomousEvolution/Constitution/Bylaw.php'],
+            'acceptance_criteria' => ['ok'],
+            'proof_coverage' => 1.0,
+        ]);
+
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_HARDEST, $r['tier']);
+        $this->assertSame(AtlasMaestroTaskTierClassifier::RISK_DANGEROUS_SCOPE, $r['risk_reason']);
+    }
+
+    public function test_high_proof_coverage_yields_low_risk_reason_for_non_dangerous_scope(): void
+    {
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-proven-easy',
+            'objective' => 'Add a tiny CLI helper that prints a static banner.',
+            'allowed_files' => ['app/Console/Commands/AtlasFooCommand.php'],
+            'acceptance_criteria' => [],
+            'proof_coverage' => 0.9,
+        ]);
+
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_EASY, $r['tier']);
+        $this->assertSame(AtlasMaestroTaskTierClassifier::RISK_LOW_RISK_HIGH_PROOF, $r['risk_reason']);
+    }
+
+    public function test_classifier_output_includes_tier_risk_reason_and_required_worker_capability(): void
+    {
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-shape',
+            'objective' => 'x',
+            'allowed_files' => ['app/X.php'],
+            'acceptance_criteria' => [],
+        ]);
+
+        $this->assertArrayHasKey('tier', $r);
+        $this->assertArrayHasKey('risk_reason', $r);
+        $this->assertArrayHasKey('required_worker_capability', $r);
+        $this->assertSame(AtlasMaestroTaskTierClassifier::CAPABILITY_GENERAL, $r['required_worker_capability']);
+    }
+
+    public function test_hardest_tier_requires_frontier_worker_capability(): void
+    {
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-frontier',
+            'objective' => 'Run the final certification suite and sign off.',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => [],
+        ]);
+
+        $this->assertSame(AtlasMaestroTaskTierClassifier::CAPABILITY_FRONTIER, $r['required_worker_capability']);
+    }
 }
