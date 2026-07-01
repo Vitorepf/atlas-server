@@ -46,6 +46,9 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizer
     public const REJECTION_GENERIC_CROSS_LAYER_PROOF = 'generic_proof_reused_across_layers';
 
     public const GAP_NARROW_EVIDENCE             = 'narrow_evidence_for_multi_capability_scope';
+    public const GAP_MISSING_OUTCOME_LEARNING_EVIDENCE   = 'missing_outcome_learning_evidence';
+    public const GAP_MISSING_ANTI_TEMPLATE_FARM_EVIDENCE = 'missing_anti_template_farm_evidence';
+    public const GAP_MISSING_ROLLBACK_RESPEC_EVIDENCE    = 'missing_rollback_respec_evidence';
 
     private const DUPLICATE_OVERLAP_THRESHOLD    = 0.60;
     private const MIN_DIRECTORIES_FOR_LEVERAGE   = 2;
@@ -185,6 +188,10 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizer
         }
 
         // ── Per-task coverage gaps ────────────────────────────────────────────
+        // A conditional batch-level gate names the REQUIREMENT ("you must prove X"); these
+        // per-task checks catch the batch relying on that requirement text alone instead of
+        // actually supplying the evidence a muscle/originator needs to prove it per task.
+        $batchNeedsOutcomeLearning = count($batch) >= 2;
         foreach ($batch as $idx => $task) {
             $taskId  = (string) ($task['task_id'] ?? "task_{$idx}");
             $missing = [];
@@ -197,6 +204,16 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizer
             }
             if ($this->isMultiCapabilityTask($task) && count((array) ($task['test_commands'] ?? [])) < self::MIN_EVIDENCE_CHANNELS_MULTI) {
                 $missing[] = self::GAP_NARROW_EVIDENCE;
+            }
+            if ($batchNeedsOutcomeLearning && empty($task['outcome_learning_evidence'])) {
+                $missing[] = self::GAP_MISSING_OUTCOME_LEARNING_EVIDENCE;
+            }
+            if (array_key_exists('template_similarity', $task) && empty($task['anti_template_farm_evidence'])) {
+                $missing[] = self::GAP_MISSING_ANTI_TEMPLATE_FARM_EVIDENCE;
+            }
+            if (((bool) ($task['modifies_existing_files'] ?? false) || (bool) ($task['rollback_required'] ?? false))
+                && empty($task['rollback_respec_plan'])) {
+                $missing[] = self::GAP_MISSING_ROLLBACK_RESPEC_EVIDENCE;
             }
 
             if ($missing !== []) {

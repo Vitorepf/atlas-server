@@ -394,4 +394,91 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizerTest extends TestCase
             $result['batch_level_gates'],
         );
     }
+
+    // ── AC3: batch without outcome-learning/anti-template-farm/rollback evidence ──
+    // emits per_task_coverage_gaps naming the missing gate, not just the batch-level requirement text.
+
+    public function test_multi_task_batch_without_outcome_learning_evidence_has_coverage_gap(): void
+    {
+        $batch = [
+            $this->task(['task_id' => 'a']),
+            $this->task(['task_id' => 'b']),
+        ];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $gapsForA = array_column($result['per_task_coverage_gaps'], 'missing_coverage', 'task_id')['a'] ?? [];
+        $this->assertContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GAP_MISSING_OUTCOME_LEARNING_EVIDENCE,
+            $gapsForA,
+        );
+    }
+
+    public function test_multi_task_batch_with_outcome_learning_evidence_has_no_such_gap(): void
+    {
+        $batch = [
+            $this->task(['task_id' => 'a', 'outcome_learning_evidence' => 'pattern_family_priority_updated']),
+            $this->task(['task_id' => 'b', 'outcome_learning_evidence' => 'pattern_family_priority_updated']),
+        ];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $gapsForA = array_column($result['per_task_coverage_gaps'], 'missing_coverage', 'task_id')['a'] ?? [];
+        $this->assertNotContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GAP_MISSING_OUTCOME_LEARNING_EVIDENCE,
+            $gapsForA,
+        );
+    }
+
+    public function test_template_similarity_task_without_resolution_evidence_has_coverage_gap(): void
+    {
+        $batch = [$this->task(['task_id' => 'a', 'template_similarity' => 0.8])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $this->assertSame('a', $result['per_task_coverage_gaps'][0]['task_id']);
+        $this->assertContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GAP_MISSING_ANTI_TEMPLATE_FARM_EVIDENCE,
+            $result['per_task_coverage_gaps'][0]['missing_coverage'],
+        );
+    }
+
+    public function test_template_similarity_task_with_resolution_evidence_has_no_such_gap(): void
+    {
+        $batch = [$this->task([
+            'task_id' => 'a',
+            'template_similarity' => 0.8,
+            'anti_template_farm_evidence' => 'diffed_against_existing_impl_not_a_clone',
+        ])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $this->assertSame([], $result['per_task_coverage_gaps']);
+    }
+
+    public function test_rollback_required_task_without_plan_has_coverage_gap(): void
+    {
+        $batch = [$this->task(['task_id' => 'a', 'rollback_required' => true])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $this->assertSame('a', $result['per_task_coverage_gaps'][0]['task_id']);
+        $this->assertContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GAP_MISSING_ROLLBACK_RESPEC_EVIDENCE,
+            $result['per_task_coverage_gaps'][0]['missing_coverage'],
+        );
+    }
+
+    public function test_rollback_required_task_with_plan_has_no_such_gap(): void
+    {
+        $batch = [$this->task([
+            'task_id' => 'a',
+            'rollback_required' => true,
+            'rollback_respec_plan' => 'revert_via_git_and_respec_scope',
+        ])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $this->assertSame([], $result['per_task_coverage_gaps']);
+    }
 }
