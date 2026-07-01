@@ -65,24 +65,29 @@ final class AtlasExternalBrainPostCommitWaveResequencer
         }
 
         $newlyUnblockedCriticalPath = [];
+        $freshValuePromoted = [];
         $newlyUnblockedOther = [];
         foreach ($tasksById as $taskId => $task) {
             if (isset($removedTaskIds[$taskId])) {
                 continue;
             }
-            if (! (bool) ($task['unblocked_by_latest_commit'] ?? false)) {
-                continue;
-            }
-            if ((bool) ($task['is_critical_path'] ?? false)) {
+            $unblockedByCommit = (bool) ($task['unblocked_by_latest_commit'] ?? false);
+            $freshValueProof = (bool) ($task['fresh_value_proof'] ?? false);
+            $newDownstreamUnlock = (bool) ($task['new_downstream_unlock'] ?? false);
+
+            if ($unblockedByCommit && (bool) ($task['is_critical_path'] ?? false)) {
                 $newlyUnblockedCriticalPath[] = $taskId;
                 $resequenceReasons[] = "prioritized_newly_unblocked_critical_path:{$taskId}";
-            } else {
+            } elseif (! $unblockedByCommit && $freshValueProof && $newDownstreamUnlock) {
+                $freshValuePromoted[] = $taskId;
+                $resequenceReasons[] = "promoted_fresh_value_proof:{$taskId}";
+            } elseif ($unblockedByCommit) {
                 $newlyUnblockedOther[] = $taskId;
                 $resequenceReasons[] = "prioritized_newly_unblocked:{$taskId}";
             }
         }
 
-        $newlyUnblockedTaskIds = array_merge($newlyUnblockedCriticalPath, $newlyUnblockedOther);
+        $newlyUnblockedTaskIds = array_merge($newlyUnblockedCriticalPath, $freshValuePromoted, $newlyUnblockedOther);
         $placed = array_fill_keys($newlyUnblockedTaskIds, true);
 
         $remainder = [];

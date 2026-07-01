@@ -104,6 +104,50 @@ final class AtlasExternalBrainPostCommitWaveResequencerTest extends TestCase
         $this->assertSame(['b', 'a', 'c'], $result['resequenced_task_ids']);
     }
 
+    public function test_task_with_fresh_value_proof_and_new_downstream_unlock_is_promoted_even_if_not_in_previous_wave(): void
+    {
+        $result = $this->resequencer()->resequence([
+            'previous_wave' => ['task_ids' => ['a', 'b']],
+            'queue_tasks' => [
+                ['task_id' => 'a'],
+                ['task_id' => 'b'],
+                ['task_id' => 'c', 'fresh_value_proof' => true, 'new_downstream_unlock' => true],
+            ],
+        ]);
+
+        $this->assertSame('c', $result['resequenced_task_ids'][0]);
+        $reasons = implode(' ', $result['resequence_reasons']);
+        $this->assertStringContainsString('promoted_fresh_value_proof:c', $reasons);
+    }
+
+    public function test_fresh_value_proof_without_new_downstream_unlock_is_not_promoted(): void
+    {
+        $result = $this->resequencer()->resequence([
+            'previous_wave' => ['task_ids' => ['a', 'b']],
+            'queue_tasks' => [
+                ['task_id' => 'a'],
+                ['task_id' => 'b'],
+                ['task_id' => 'c', 'fresh_value_proof' => true],
+            ],
+        ]);
+
+        $this->assertNotSame('c', $result['resequenced_task_ids'][0]);
+    }
+
+    public function test_critical_path_unblocked_still_ranks_above_fresh_value_promotion(): void
+    {
+        $result = $this->resequencer()->resequence([
+            'previous_wave' => ['task_ids' => ['a']],
+            'queue_tasks' => [
+                ['task_id' => 'a'],
+                ['task_id' => 'b', 'unblocked_by_latest_commit' => true, 'is_critical_path' => true],
+                ['task_id' => 'c', 'fresh_value_proof' => true, 'new_downstream_unlock' => true],
+            ],
+        ]);
+
+        $this->assertSame(['b', 'c', 'a'], $result['resequenced_task_ids']);
+    }
+
     public function test_stable_remainder_preserves_previous_wave_order(): void
     {
         $result = $this->resequencer()->resequence([
