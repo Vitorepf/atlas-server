@@ -132,6 +132,51 @@ final class AtlasExternalBrainFinalityEvidenceBundle
         ];
     }
 
+    /** Required dimensions for the task-facts finality contract, in blocker-priority order. */
+    private const TASK_FACT_REQUIRED_DIMENSIONS = [
+        'implementation_evidence' => 'attach_commit_or_diff_evidence_refs',
+        'runnable_tests' => 'add_a_runnable_test_gate_and_prove_it_green',
+        'muscle_outcomes' => 'record_real_muscle_outcome_evidence_not_a_task_count',
+        'knowledge_sync_ready' => 'run_engineering_knowledge_sync_before_declaring_finality',
+    ];
+
+    /**
+     * Task-facts finality contract: a large task_count is NEVER sufficient proof by itself --
+     * finality requires implementation_evidence, runnable_tests, muscle_outcomes and
+     * knowledge_sync_ready to each be independently proven present.
+     *
+     * @param  array{
+     *   task_count?:int, implementation_evidence?:bool, runnable_tests?:bool,
+     *   muscle_outcomes?:bool, knowledge_sync_ready?:bool,
+     * }  $facts
+     * @return array<string,mixed>
+     */
+    public function assembleFromTaskFacts(array $facts): array
+    {
+        $taskCount = max(0, (int) ($facts['task_count'] ?? 0));
+
+        $blockers = [];
+        foreach (self::TASK_FACT_REQUIRED_DIMENSIONS as $dimension => $nextEvidenceAction) {
+            if (! (bool) ($facts[$dimension] ?? false)) {
+                $blockers[] = [
+                    'dimension' => $dimension,
+                    'blocker_type' => 'missing_'.$dimension,
+                    'next_evidence_action' => $nextEvidenceAction,
+                ];
+            }
+        }
+
+        $finalityReady = $blockers === [];
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'finality_ready' => $finalityReady,
+            'task_count' => $taskCount,
+            'blockers' => $blockers,
+            'missing_dimensions' => array_column($blockers, 'dimension'),
+        ];
+    }
+
     private function readinessBand(float $score, bool $isFinal): string
     {
         if ($isFinal) {

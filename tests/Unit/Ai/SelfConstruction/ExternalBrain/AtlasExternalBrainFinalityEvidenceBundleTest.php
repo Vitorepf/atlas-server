@@ -347,4 +347,76 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
         $b = $this->bundle()->assemble($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC: assembleFromTaskFacts() -- task_count alone never proves finality ──────
+
+    private function allProvenTaskFacts(array $overrides = []): array
+    {
+        return array_merge([
+            'task_count' => 500,
+            'implementation_evidence' => true,
+            'runnable_tests' => true,
+            'muscle_outcomes' => true,
+            'knowledge_sync_ready' => true,
+        ], $overrides);
+    }
+
+    public function test_large_task_count_without_evidence_is_not_finality_ready(): void
+    {
+        $result = $this->bundle()->assembleFromTaskFacts(['task_count' => 5000]);
+
+        $this->assertFalse($result['finality_ready']);
+        $this->assertSame(5000, $result['task_count']);
+        $this->assertNotEmpty($result['blockers']);
+    }
+
+    public function test_finality_ready_requires_all_four_dimensions(): void
+    {
+        $result = $this->bundle()->assembleFromTaskFacts($this->allProvenTaskFacts());
+
+        $this->assertTrue($result['finality_ready']);
+        $this->assertSame([], $result['blockers']);
+    }
+
+    public function test_missing_implementation_evidence_blocks_with_next_evidence_action(): void
+    {
+        $result = $this->bundle()->assembleFromTaskFacts($this->allProvenTaskFacts(['implementation_evidence' => false]));
+
+        $this->assertFalse($result['finality_ready']);
+        $this->assertContains('implementation_evidence', $result['missing_dimensions']);
+        $blocker = $result['blockers'][0];
+        $this->assertSame('implementation_evidence', $blocker['dimension']);
+        $this->assertNotEmpty($blocker['next_evidence_action']);
+    }
+
+    public function test_missing_runnable_tests_blocks(): void
+    {
+        $result = $this->bundle()->assembleFromTaskFacts($this->allProvenTaskFacts(['runnable_tests' => false]));
+
+        $this->assertContains('runnable_tests', $result['missing_dimensions']);
+    }
+
+    public function test_missing_muscle_outcomes_blocks(): void
+    {
+        $result = $this->bundle()->assembleFromTaskFacts($this->allProvenTaskFacts(['muscle_outcomes' => false]));
+
+        $this->assertContains('muscle_outcomes', $result['missing_dimensions']);
+    }
+
+    public function test_missing_knowledge_sync_ready_blocks(): void
+    {
+        $result = $this->bundle()->assembleFromTaskFacts($this->allProvenTaskFacts(['knowledge_sync_ready' => false]));
+
+        $this->assertContains('knowledge_sync_ready', $result['missing_dimensions']);
+    }
+
+    public function test_every_missing_dimension_has_a_concrete_next_evidence_action(): void
+    {
+        $result = $this->bundle()->assembleFromTaskFacts(['task_count' => 100]);
+
+        foreach ($result['blockers'] as $blocker) {
+            $this->assertNotEmpty($blocker['next_evidence_action']);
+        }
+        $this->assertCount(4, $result['blockers']);
+    }
 }
