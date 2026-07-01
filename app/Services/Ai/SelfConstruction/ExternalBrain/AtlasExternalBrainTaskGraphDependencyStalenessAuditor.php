@@ -44,6 +44,15 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
         $brokenDependencies = [];
         $supersededDependents = [];
         $repairOrRetireRecommendations = [];
+        $staleTaskIds = [];
+        $dependencyBlockers = [];
+        $recommendedChainAction = [];
+
+        $flag = function (string $taskId, string $dependsOn, string $rescopePlan, string $chainAction) use (&$staleTaskIds, &$dependencyBlockers, &$recommendedChainAction): void {
+            $staleTaskIds[$taskId] = true;
+            $dependencyBlockers[$taskId][] = $dependsOn;
+            $recommendedChainAction[$taskId] = $chainAction;
+        };
 
         foreach ($edges as $edge) {
             $edge = (array) $edge;
@@ -62,34 +71,45 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
             $edgeRow = ['task_id' => $taskId, 'depends_on_task_id' => $dependsOn];
 
             if ($status === '') {
-                $staleEdges[] = $edgeRow + ['reason' => 'dependency_status_unknown_dangling_reference'];
+                $staleEdges[] = $edgeRow + [
+                    'reason' => 'dependency_status_unknown_dangling_reference',
+                    'rescope_plan' => "repoint or drop {$taskId}'s dependency on {$dependsOn}: no known status for a dangling reference",
+                ];
                 $repairOrRetireRecommendations[] = [
                     'task_id' => $taskId,
                     'action' => 'repair',
                     'reason' => 'dependency_status_unknown_dangling_reference',
                 ];
+                $flag($taskId, $dependsOn, $staleEdges[array_key_last($staleEdges)]['rescope_plan'], 'rescope');
 
                 continue;
             }
 
             if ($supersededBy !== '') {
-                $supersededDependents[] = $edgeRow + ['superseded_by' => $supersededBy];
+                $rescopePlan = "repoint {$taskId}'s dependency from {$dependsOn} to its replacement {$supersededBy}";
+                $supersededDependents[] = $edgeRow + ['superseded_by' => $supersededBy, 'rescope_plan' => $rescopePlan];
                 $repairOrRetireRecommendations[] = [
                     'task_id' => $taskId,
                     'action' => 'repair',
                     'reason' => 'dependency_superseded_repoint_to_'.$supersededBy,
                 ];
+                $flag($taskId, $dependsOn, $rescopePlan, 'rescope');
 
                 continue;
             }
 
-            if ($status === 'cancelled') {
-                $brokenDependencies[] = $edgeRow + ['reason' => 'dependency_cancelled'];
+            if (in_array($status, ['cancelled', 'quarantined'], true)) {
+                $reason = $status === 'quarantined' ? 'dependency_quarantined' : 'dependency_cancelled';
+                $rescopePlan = $status === 'quarantined'
+                    ? "rescope {$taskId} to drop or replace its quarantined dependency {$dependsOn} pending review"
+                    : "retire {$taskId}: its dependency {$dependsOn} is cancelled and will never complete";
+                $brokenDependencies[] = $edgeRow + ['reason' => $reason, 'rescope_plan' => $rescopePlan];
                 $repairOrRetireRecommendations[] = [
                     'task_id' => $taskId,
-                    'action' => 'retire',
-                    'reason' => 'dependency_cancelled_will_never_complete',
+                    'action' => $status === 'quarantined' ? 'rescope' : 'retire',
+                    'reason' => $status === 'quarantined' ? 'dependency_quarantined_pending_review' : 'dependency_cancelled_will_never_complete',
                 ];
+                $flag($taskId, $dependsOn, $rescopePlan, $status === 'quarantined' ? 'rescope' : 'retire');
 
                 continue;
             }
@@ -99,12 +119,14 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
                 if ($delivered) {
                     $satisfiedDependencies[] = $edgeRow;
                 } else {
-                    $brokenDependencies[] = $edgeRow + ['reason' => 'completed_without_delivered_capability_evidence'];
+                    $rescopePlan = "rescope {$taskId}: dependency {$dependsOn} claims completed but lacks delivered capability evidence — request proof or reopen";
+                    $brokenDependencies[] = $edgeRow + ['reason' => 'completed_without_delivered_capability_evidence', 'rescope_plan' => $rescopePlan];
                     $repairOrRetireRecommendations[] = [
                         'task_id' => $taskId,
                         'action' => 'repair',
                         'reason' => 'dependency_completed_without_capability_evidence',
                     ];
+                    $flag($taskId, $dependsOn, $rescopePlan, 'rescope');
                 }
 
                 continue;
@@ -121,6 +143,9 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
             'broken_dependencies' => $brokenDependencies,
             'superseded_dependents' => $supersededDependents,
             'repair_or_retire_recommendations' => $repairOrRetireRecommendations,
+            'stale_task_ids' => array_values(array_keys($staleTaskIds)),
+            'dependency_blockers' => $dependencyBlockers,
+            'recommended_chain_action' => array_intersect_key($recommendedChainAction, $staleTaskIds),
             'mutates_queue' => false,
         ];
     }

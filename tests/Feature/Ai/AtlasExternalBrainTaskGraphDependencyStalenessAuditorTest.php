@@ -104,6 +104,56 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditorTest extends Te
         $this->assertSame([], $result['satisfied_dependencies']);
     }
 
+    // ── quarantined ──────────────────────────────────────────────────────────
+
+    public function test_quarantined_dependency_is_broken_and_recommends_rescope(): void
+    {
+        $result = $this->auditor()->audit([
+            'edges' => [['task_id' => 'a', 'depends_on_task_id' => 'b']],
+            'statuses' => ['b' => 'quarantined'],
+        ]);
+
+        $this->assertCount(1, $result['broken_dependencies']);
+        $actions = array_column($result['repair_or_retire_recommendations'], 'action');
+        $this->assertContains('rescope', $actions);
+        $this->assertNotEmpty($result['broken_dependencies'][0]['rescope_plan']);
+    }
+
+    // ── new fields: stale_task_ids, dependency_blockers, recommended_chain_action ──
+
+    public function test_terminal_quarantined_and_superseded_populate_stale_task_ids_and_chain_action(): void
+    {
+        $result = $this->auditor()->audit([
+            'edges' => [
+                ['task_id' => 'cancelled-dependent', 'depends_on_task_id' => 'x'],
+                ['task_id' => 'quarantined-dependent', 'depends_on_task_id' => 'y'],
+                ['task_id' => 'superseded-dependent', 'depends_on_task_id' => 'z'],
+            ],
+            'statuses' => ['x' => 'cancelled', 'y' => 'quarantined', 'z' => 'queued'],
+            'superseded_targets' => ['z' => 'z-replacement'],
+        ]);
+
+        $this->assertContains('cancelled-dependent', $result['stale_task_ids']);
+        $this->assertContains('quarantined-dependent', $result['stale_task_ids']);
+        $this->assertContains('superseded-dependent', $result['stale_task_ids']);
+
+        $this->assertSame(['x'], $result['dependency_blockers']['cancelled-dependent']);
+        $this->assertSame('retire', $result['recommended_chain_action']['cancelled-dependent']);
+        $this->assertSame('rescope', $result['recommended_chain_action']['quarantined-dependent']);
+        $this->assertSame('rescope', $result['recommended_chain_action']['superseded-dependent']);
+    }
+
+    public function test_fresh_dependency_task_id_is_not_present_in_stale_task_ids(): void
+    {
+        $result = $this->auditor()->audit([
+            'edges' => [['task_id' => 'still-good', 'depends_on_task_id' => 'b']],
+            'statuses' => ['b' => 'queued'],
+        ]);
+
+        $this->assertNotContains('still-good', $result['stale_task_ids']);
+        $this->assertArrayNotHasKey('still-good', $result['recommended_chain_action']);
+    }
+
     public function test_never_mutates_queue(): void
     {
         $result = $this->auditor()->audit(['edges' => []]);
