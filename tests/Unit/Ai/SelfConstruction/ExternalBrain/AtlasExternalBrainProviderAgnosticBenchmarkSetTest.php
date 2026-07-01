@@ -370,4 +370,66 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSetTest extends TestCase
         $this->assertTrue($result['provider_safe_status']['is_safe']);
         $this->assertSame([], $result['provider_safe_status']['violations']);
     }
+
+    // ── AC1: cases cover origination, anti-template-farm, simplification, queue self-healing ──
+
+    public function test_cases_cover_task_origination_family(): void
+    {
+        $result = $this->benchmarkSet()->load();
+        $families = array_column($result['challenge_cases'], 'task_family');
+
+        $this->assertContains('origination_safety', $families);
+    }
+
+    public function test_cases_cover_anti_template_farm_family(): void
+    {
+        $result = $this->benchmarkSet()->load();
+        $families = array_column($result['challenge_cases'], 'task_family');
+
+        $this->assertContains('critique_quality', $families);
+    }
+
+    public function test_cases_cover_simplification_family(): void
+    {
+        $result = $this->benchmarkSet()->load();
+        $families = array_column($result['challenge_cases'], 'task_family');
+
+        $this->assertContains('simplification', $families);
+    }
+
+    public function test_simplification_case_requires_behavior_equivalence_before_deletion(): void
+    {
+        $result = $this->benchmarkSet()->load();
+        $case = current(array_filter(
+            $result['challenge_cases'],
+            static fn (array $c): bool => $c['case_id'] === 'cc-11-simplification-deletion-gate',
+        ));
+
+        $this->assertNotFalse($case);
+        $this->assertSame('simplification', $case['task_family']);
+        $this->assertFalse($case['input']['campaign_candidate']['behavior_equivalence_proven']);
+        $this->assertStringContainsString('behavior_equivalence_proven', $case['evidence_requirements'][0]);
+    }
+
+    public function test_cases_cover_queue_self_healing_family(): void
+    {
+        $result = $this->benchmarkSet()->load();
+        $families = array_column($result['challenge_cases'], 'task_family');
+
+        $this->assertContains('spec_repair', $families);
+    }
+
+    // ── AC3: benchmark output includes minimum passing criteria for small-model amplification ──
+
+    public function test_pass_criteria_present_for_small_model_amplification(): void
+    {
+        $result = $this->benchmarkSet()->load();
+
+        $this->assertArrayHasKey('pass_criteria', $result);
+        $this->assertNotEmpty($result['pass_criteria']);
+        foreach ($result['pass_criteria'] as $criterion) {
+            $this->assertIsString($criterion);
+            $this->assertNotEmpty($criterion);
+        }
+    }
 }

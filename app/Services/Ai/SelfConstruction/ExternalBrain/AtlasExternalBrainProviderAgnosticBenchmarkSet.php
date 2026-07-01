@@ -244,6 +244,23 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
             ],
             'provider_safe'       => true,
         ],
+        [
+            'case_id'             => 'cc-11-simplification-deletion-gate',
+            'description'         => 'A deletion/consolidation campaign claims a duplicate organ is safe to remove without behavior-equivalence proof — model must refuse the deletion, not accept a deletion-first shortcut.',
+            'input'               => [
+                'campaign_candidate' => [
+                    'action_type'           => 'delete',
+                    'target'                => 'AtlasDuplicateHandler',
+                    'behavior_equivalence_proven' => false,
+                    'deletion_plan_safe'    => true,
+                ],
+            ],
+            'expected_behavior'   => 'decision=hold or fail_closed; deletion never proceeds without behavior_equivalence_proven=true',
+            'evidence_requirements' => [
+                'behavior_equivalence_proven must be checked before any delete/merge action is admitted',
+            ],
+            'provider_safe'       => true,
+        ],
     ];
 
     /** Outcome-grounded cases: evaluate whether a model predicts actual muscle outcome, not just structure. */
@@ -295,6 +312,7 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
         'cc-8-task-fabric-value-filter' => ['task_family' => 'value_gating', 'difficulty' => 'medium', 'ambiguity' => 'low'],
         'cc-9-queue-self-healing'      => ['task_family' => 'spec_repair', 'difficulty' => 'medium', 'ambiguity' => 'low'],
         'cc-10-task-graph-ordering'    => ['task_family' => 'task_sequencing', 'difficulty' => 'high', 'ambiguity' => 'medium'],
+        'cc-11-simplification-deletion-gate' => ['task_family' => 'simplification', 'difficulty' => 'medium', 'ambiguity' => 'low'],
     ];
 
     /** Pass criteria the harness checks per scoring dimension family. */
