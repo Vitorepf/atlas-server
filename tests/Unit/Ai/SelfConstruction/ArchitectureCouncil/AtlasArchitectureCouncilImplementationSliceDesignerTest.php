@@ -44,6 +44,7 @@ final class AtlasArchitectureCouncilImplementationSliceDesignerTest extends Test
         $this->assertSame(['app/Demo/Compiler.php', 'tests/Unit/Demo/CompilerTest.php'], $brief['allowed_files_hint']);
         $this->assertTrue($brief['claimable']);
         $this->assertSame([], $r['rejected_slices']);
+        $this->assertSame(['test_run_id'], $brief['evidence_seed']);
     }
 
     public function test_analysis_only_acceptance_is_rejected_not_emitted_as_claimable(): void
