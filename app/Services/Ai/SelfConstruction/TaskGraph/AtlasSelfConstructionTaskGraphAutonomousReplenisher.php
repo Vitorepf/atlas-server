@@ -101,6 +101,14 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
 
         $replenisherHash = $this->replenisherHash($plan, $enqueueResults, $apply, $maxApplied);
 
+        // AC3: worker_feed_thin must be observable from run()'s own output, not only from the
+        // separate prioritizeUnlockedFollowUps() call — derive it from the same queue facts.
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $queueFacts) && $queueFacts['claimable_per_active_worker'] !== null
+            ? (float) $queueFacts['claimable_per_active_worker']
+            : null;
+        $workerFeedFloorRatio = (float) ($queueFacts['worker_feed_floor_ratio'] ?? self::DEFAULT_WORKER_FEED_FLOOR_RATIO);
+        $workerFeedThin = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= $workerFeedFloorRatio;
+
         return [
             'schema' => self::SCHEMA,
             'schema_version' => self::SCHEMA,
@@ -109,6 +117,7 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
             'applied_count' => $appliedCount,
             'withheld_count' => count($withheld),
             'duplicate_count' => count($duplicates),
+            'worker_feed_thin' => $workerFeedThin,
             'max_applied' => $maxApplied,
             'enqueue_results' => $enqueueResults,
             'plan' => [

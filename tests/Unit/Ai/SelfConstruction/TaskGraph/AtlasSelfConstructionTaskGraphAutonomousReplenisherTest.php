@@ -38,6 +38,61 @@ class AtlasSelfConstructionTaskGraphAutonomousReplenisherTest extends TestCase
         ];
     }
 
+    // ── AC1: unlocked high-value follow-ups rank before isolated low-value drafts ──
+
+    public function test_unlocked_high_value_follow_up_ranks_before_speculative_low_value_when_feed_thin(): void
+    {
+        $result = (new AtlasSelfConstructionTaskGraphAutonomousReplenisher)->prioritizeUnlockedFollowUps(
+            [
+                ['task_packet_id' => 'speculative-1', 'value' => 9, 'dependency_count' => 0, 'speculative' => true],
+                ['task_packet_id' => 'follow-up-1', 'value' => 8, 'dependency_count' => 2, 'is_unlocked_follow_up' => true],
+            ],
+            ['claimable_per_active_worker' => 1.0],
+        );
+
+        $this->assertTrue($result['worker_feed_thin']);
+        $this->assertSame('follow-up-1', $result['ordered'][0]['task_packet_id']);
+    }
+
+    public function test_worker_feed_not_thin_falls_back_to_value_ordering(): void
+    {
+        $result = (new AtlasSelfConstructionTaskGraphAutonomousReplenisher)->prioritizeUnlockedFollowUps(
+            [
+                ['task_packet_id' => 'speculative-1', 'value' => 9, 'dependency_count' => 0, 'speculative' => true],
+                ['task_packet_id' => 'follow-up-1', 'value' => 8, 'dependency_count' => 2, 'is_unlocked_follow_up' => true],
+            ],
+            ['claimable_per_active_worker' => 10.0],
+        );
+
+        $this->assertFalse($result['worker_feed_thin']);
+        $this->assertSame('speculative-1', $result['ordered'][0]['task_packet_id']);
+    }
+
+    // ── AC3: run() output includes worker_feed_thin ──────────────────────────
+
+    public function test_run_output_includes_worker_feed_thin(): void
+    {
+        $result = (new AtlasSelfConstructionTaskGraphAutonomousReplenisher)->run(
+            ['status' => 'incomplete'],
+            [$this->validDraft('a-1')],
+            ['claimable_per_active_worker' => 1.0],
+        );
+
+        $this->assertArrayHasKey('worker_feed_thin', $result);
+        $this->assertTrue($result['worker_feed_thin']);
+    }
+
+    public function test_run_output_worker_feed_thin_false_when_comfortable(): void
+    {
+        $result = (new AtlasSelfConstructionTaskGraphAutonomousReplenisher)->run(
+            ['status' => 'incomplete'],
+            [$this->validDraft('a-1')],
+            ['claimable_per_active_worker' => 10.0],
+        );
+
+        $this->assertFalse($result['worker_feed_thin']);
+    }
+
     public function test_default_dry_run_plans_but_applies_nothing(): void
     {
         $called = 0;
