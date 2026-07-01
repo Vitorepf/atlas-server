@@ -24,6 +24,8 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
 
     public const BLOCKER_MISSING_WORKER_CONTINUITY_SAFETY_EVIDENCE = 'missing_worker_continuity_safety_evidence';
 
+    public const BLOCKER_MISSING_LIVE_SHADOW_EQUIVALENCE_EVIDENCE = 'missing_live_shadow_equivalence_evidence';
+
     /**
      * @param  array<string, mixed>  $candidate
      * @return array<string, mixed>
@@ -83,6 +85,17 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
             }
         }
 
+        // High-risk deletions/merges must prove behavioral equivalence was observed in a live
+        // shadow run — line deletion + unit tests alone can miss production-only behavior.
+        $highRisk = (bool) ($candidate['high_risk'] ?? false);
+        $liveShadowEquivalenceEvidence = $candidate['live_shadow_equivalence_evidence'] ?? null;
+        $hasLiveShadowEvidence = is_array($liveShadowEquivalenceEvidence)
+            ? $liveShadowEquivalenceEvidence !== []
+            : (bool) $liveShadowEquivalenceEvidence;
+        if ($highRisk && ! $hasLiveShadowEvidence) {
+            $blockers[] = self::BLOCKER_MISSING_LIVE_SHADOW_EQUIVALENCE_EVIDENCE;
+        }
+
         $approved = $blockers === [];
 
         $rollbackRequirement = $rollbackNotes !== ''
@@ -117,6 +130,8 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
             'consumer_migration_status' => $consumerMigrationStatus,
             'touches_queue_serving_organ' => $touchesQueueServingOrgan,
             'worker_continuity_safe' => $touchesQueueServingOrgan ? $workerContinuitySafe : null,
+            'high_risk' => $highRisk,
+            'live_shadow_equivalence_evidence_present' => $highRisk ? $hasLiveShadowEvidence : null,
         ];
     }
 

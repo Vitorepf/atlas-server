@@ -181,4 +181,62 @@ final class AtlasExternalBrainSimplificationCandidateVerifierTest extends TestCa
 
         $this->assertSame('unmigrated_consumers', $result['consumer_migration_status']);
     }
+
+    // ── high_risk requires live-shadow equivalence evidence ──────────────────
+
+    public function test_high_risk_without_live_shadow_equivalence_evidence_blocks_approval(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'high_risk' => true,
+        ]));
+
+        $this->assertFalse($result['approved']);
+        $this->assertContains('missing_live_shadow_equivalence_evidence', $result['blockers']);
+    }
+
+    public function test_high_risk_with_full_evidence_is_approved(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'high_risk' => true,
+            'live_shadow_equivalence_evidence' => ['requests_compared' => 500, 'divergences' => 0],
+        ]));
+
+        $this->assertTrue($result['approved']);
+        $this->assertSame([], $result['blockers']);
+        $this->assertTrue($result['live_shadow_equivalence_evidence_present']);
+    }
+
+    public function test_low_risk_candidate_does_not_require_live_shadow_evidence(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate());
+
+        $this->assertTrue($result['approved']);
+        $this->assertNull($result['live_shadow_equivalence_evidence_present']);
+    }
+
+    public function test_queue_serving_organ_candidate_still_requires_worker_continuity_evidence(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'touches_queue_serving_organ' => true,
+        ]));
+
+        $this->assertFalse($result['approved']);
+        $this->assertContains('missing_worker_continuity_safety_evidence', $result['blockers']);
+    }
+
+    public function test_queue_serving_organ_candidate_with_continuity_evidence_is_approved(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'touches_queue_serving_organ' => true,
+            'worker_continuity_evidence' => [
+                'claimable_per_active_worker_before' => 2.0,
+                'claimable_per_active_worker_after' => 2.5,
+                'no_claimable_task_incidents_before' => 1,
+                'no_claimable_task_incidents_after' => 0,
+            ],
+        ]));
+
+        $this->assertTrue($result['approved']);
+        $this->assertTrue($result['worker_continuity_safe']);
+    }
 }
