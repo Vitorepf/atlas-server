@@ -406,4 +406,84 @@ final class AtlasExternalBrainRankedEvolutionOperatingPolicyTest extends TestCas
         $this->assertSame('strong-move', $result['selected_move']['id']);
         $this->assertArrayHasKey('hype', $result['rejected_move_reasons']);
     }
+
+    // ── decideNextPosture(): originate / consolidate / research / self_heal / hold ──
+
+    public function test_healthy_deep_queue_with_high_value_frontier_chooses_originate_selective(): void
+    {
+        $result = $this->policy()->decideNextPosture([
+            'queue_health'      => 0.90,
+            'frontier_leverage' => 0.90,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainRankedEvolutionOperatingPolicy::ACTION_ORIGINATE_SELECTIVE, $result['chosen_action']);
+    }
+
+    public function test_weak_task_quality_and_high_redundancy_chooses_consolidate_first(): void
+    {
+        $result = $this->policy()->decideNextPosture([
+            'task_quality' => 0.20,
+            'redundancy'   => 0.80,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainRankedEvolutionOperatingPolicy::ACTION_CONSOLIDATE_FIRST, $result['chosen_action']);
+    }
+
+    public function test_malformed_or_poison_risk_chooses_self_heal_before_adding_new_volume(): void
+    {
+        // Queue looks great by every other measure — poison risk must still win.
+        $result = $this->policy()->decideNextPosture([
+            'queue_health'             => 0.95,
+            'frontier_leverage'        => 0.95,
+            'malformed_or_poison_risk' => 0.80,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainRankedEvolutionOperatingPolicy::ACTION_SELF_HEAL, $result['chosen_action']);
+    }
+
+    public function test_low_evidence_quality_chooses_research(): void
+    {
+        $result = $this->policy()->decideNextPosture(['evidence_quality' => 0.10]);
+
+        $this->assertSame(AtlasExternalBrainRankedEvolutionOperatingPolicy::ACTION_RESEARCH, $result['chosen_action']);
+    }
+
+    public function test_nothing_clears_threshold_holds(): void
+    {
+        $result = $this->policy()->decideNextPosture([]);
+
+        $this->assertSame(AtlasExternalBrainRankedEvolutionOperatingPolicy::ACTION_HOLD, $result['chosen_action']);
+    }
+
+    public function test_high_worker_drain_blocks_originate_selective_despite_healthy_queue(): void
+    {
+        $result = $this->policy()->decideNextPosture([
+            'queue_health'      => 0.90,
+            'frontier_leverage' => 0.90,
+            'worker_drain'      => 0.90,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainRankedEvolutionOperatingPolicy::ACTION_ORIGINATE_SELECTIVE, $result['chosen_action']);
+    }
+
+    public function test_decide_next_posture_output_has_required_keys(): void
+    {
+        $result = $this->policy()->decideNextPosture([]);
+
+        $this->assertSame(AtlasExternalBrainRankedEvolutionOperatingPolicy::SCHEMA, $result['schema']);
+        foreach (['chosen_action', 'reasons', 'signals'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+        $this->assertNotEmpty($result['reasons']);
+    }
+
+    public function test_decide_next_posture_output_is_deterministic(): void
+    {
+        $facts = ['queue_health' => 0.7, 'frontier_leverage' => 0.65];
+
+        $this->assertSame(
+            json_encode($this->policy()->decideNextPosture($facts)),
+            json_encode($this->policy()->decideNextPosture($facts)),
+        );
+    }
 }

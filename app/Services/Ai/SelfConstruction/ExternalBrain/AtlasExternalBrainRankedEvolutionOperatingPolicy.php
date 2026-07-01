@@ -162,6 +162,98 @@ final class AtlasExternalBrainRankedEvolutionOperatingPolicy
         return max(0.0, min(1.0, $v));
     }
 
+    public const ACTION_ORIGINATE_SELECTIVE = 'originate_selective';
+    public const ACTION_CONSOLIDATE_FIRST   = 'consolidate_first';
+    public const ACTION_RESEARCH            = 'research';
+    public const ACTION_SELF_HEAL           = 'self_heal';
+    public const ACTION_HOLD                = 'hold';
+
+    private const SELF_HEAL_POISON_FLOOR       = 0.40;
+    private const CONSOLIDATE_QUALITY_CEILING  = 0.40;
+    private const CONSOLIDATE_REDUNDANCY_FLOOR = 0.50;
+    private const ORIGINATE_QUEUE_HEALTH_FLOOR = 0.60;
+    private const ORIGINATE_LEVERAGE_FLOOR     = 0.60;
+    private const ORIGINATE_DRAIN_CEILING      = 0.60;
+    private const RESEARCH_EVIDENCE_CEILING    = 0.30;
+
+    /**
+     * Chooses the brain's next posture from five mutually-exclusive actions,
+     * evaluated in fail-safe priority order: a malformed/poison-risk queue is
+     * repaired before any new volume is added, weak-quality/redundant queues are
+     * consolidated before being grown, a healthy deep queue with a strong frontier
+     * is originated into selectively, thin evidence sends the brain to research,
+     * and hold is the honest fallback when no dimension clears its bar.
+     *
+     * @param  array{
+     *   queue_health?: float,
+     *   frontier_leverage?: float,
+     *   task_quality?: float,
+     *   redundancy?: float,
+     *   worker_drain?: float,
+     *   evidence_quality?: float,
+     *   malformed_or_poison_risk?: float,
+     * }  $facts
+     * @return array{schema:string, chosen_action:string, reasons:list<string>, signals:array<string,float>}
+     */
+    public function decideNextPosture(array $facts): array
+    {
+        $queueHealth      = $this->clamp01((float) ($facts['queue_health']             ?? 0.0));
+        $frontierLeverage = $this->clamp01((float) ($facts['frontier_leverage']        ?? 0.0));
+        $taskQuality      = $this->clamp01((float) ($facts['task_quality']             ?? 1.0));
+        $redundancy       = $this->clamp01((float) ($facts['redundancy']               ?? 0.0));
+        $workerDrain      = $this->clamp01((float) ($facts['worker_drain']             ?? 0.0));
+        $evidenceQuality  = $this->clamp01((float) ($facts['evidence_quality']         ?? 1.0));
+        $poisonRisk       = $this->clamp01((float) ($facts['malformed_or_poison_risk'] ?? 0.0));
+
+        if ($poisonRisk >= self::SELF_HEAL_POISON_FLOOR) {
+            $action = self::ACTION_SELF_HEAL;
+            $reason = sprintf(
+                'malformed_or_poison_risk:%.2f>=%.2f: repair the queue before adding new volume',
+                $poisonRisk, self::SELF_HEAL_POISON_FLOOR,
+            );
+        } elseif ($taskQuality <= self::CONSOLIDATE_QUALITY_CEILING && $redundancy >= self::CONSOLIDATE_REDUNDANCY_FLOOR) {
+            $action = self::ACTION_CONSOLIDATE_FIRST;
+            $reason = sprintf(
+                'task_quality:%.2f<=%.2f redundancy:%.2f>=%.2f: consolidate before creating more low-quality, redundant volume',
+                $taskQuality, self::CONSOLIDATE_QUALITY_CEILING, $redundancy, self::CONSOLIDATE_REDUNDANCY_FLOOR,
+            );
+        } elseif (
+            $queueHealth >= self::ORIGINATE_QUEUE_HEALTH_FLOOR
+            && $frontierLeverage >= self::ORIGINATE_LEVERAGE_FLOOR
+            && $workerDrain <= self::ORIGINATE_DRAIN_CEILING
+        ) {
+            $action = self::ACTION_ORIGINATE_SELECTIVE;
+            $reason = sprintf(
+                'queue_health:%.2f>=%.2f frontier_leverage:%.2f>=%.2f worker_drain:%.2f<=%.2f: healthy deep queue with a high-value frontier, originate selectively rather than stop',
+                $queueHealth, self::ORIGINATE_QUEUE_HEALTH_FLOOR, $frontierLeverage, self::ORIGINATE_LEVERAGE_FLOOR, $workerDrain, self::ORIGINATE_DRAIN_CEILING,
+            );
+        } elseif ($evidenceQuality <= self::RESEARCH_EVIDENCE_CEILING) {
+            $action = self::ACTION_RESEARCH;
+            $reason = sprintf(
+                'evidence_quality:%.2f<=%.2f: gather stronger evidence before committing to origination or consolidation',
+                $evidenceQuality, self::RESEARCH_EVIDENCE_CEILING,
+            );
+        } else {
+            $action = self::ACTION_HOLD;
+            $reason = 'no dimension clears its threshold: hold rather than force a low-conviction move';
+        }
+
+        return [
+            'schema'        => self::SCHEMA,
+            'chosen_action' => $action,
+            'reasons'       => [$reason],
+            'signals'       => [
+                'queue_health'             => $queueHealth,
+                'frontier_leverage'        => $frontierLeverage,
+                'task_quality'             => $taskQuality,
+                'redundancy'               => $redundancy,
+                'worker_drain'             => $workerDrain,
+                'evidence_quality'         => $evidenceQuality,
+                'malformed_or_poison_risk' => $poisonRisk,
+            ],
+        ];
+    }
+
     private const WEAK_EVIDENCE_FLOOR = 0.30;
     private const LOW_READINESS_FLOOR = 0.30;
 
