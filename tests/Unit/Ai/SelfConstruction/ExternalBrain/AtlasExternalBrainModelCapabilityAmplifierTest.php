@@ -279,6 +279,7 @@ final class AtlasExternalBrainModelCapabilityAmplifierTest extends TestCase
             'heldout_sample_size'   => 20,
             'proxy_leak_rate'       => 0.0,
             'confidence'            => 0.9,
+            'task_family_lift_proof' => true,
         ]);
 
         $this->assertTrue($r['autonomous_execution_allowed']);
@@ -480,6 +481,7 @@ final class AtlasExternalBrainModelCapabilityAmplifierTest extends TestCase
             'heldout_sample_size' => 20,
             'proxy_leak_rate' => 0.0,
             'confidence' => 0.9,
+            'task_family_lift_proof' => true,
         ]);
 
         foreach (['evidence_confidence_ok', 'heldout_sample_ok', 'proxy_leak_ok', 'implementability_ok', 'autonomous_execution_allowed'] as $key) {
@@ -529,5 +531,56 @@ final class AtlasExternalBrainModelCapabilityAmplifierTest extends TestCase
         $this->assertFalse($r['proof_floor_status']['proxy_leak_ok']);
         $this->assertFalse($r['proof_floor_status']['implementability_ok']);
         $this->assertGreaterThanOrEqual(4, count($r['repair_actions']));
+    }
+
+    // ── AC: small models require task-family-specific heldout lift proof ─────
+
+    public function test_small_model_with_positive_global_lift_but_missing_task_family_proof_is_not_allowed(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size' => 'small',
+            'baseline_pass_rate' => 0.4,
+            'scaffolded_pass_rate' => 0.9,
+            'heldout_sample_size' => 20,
+            'proxy_leak_rate' => 0.0,
+            'confidence' => 0.9,
+        ]);
+
+        $this->assertFalse($r['autonomous_execution_allowed']);
+        $this->assertFalse($r['proof_floor_status']['task_family_lift_proof_ok']);
+    }
+
+    public function test_any_proxy_leak_delta_above_zero_blocks_small_model_autonomy(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size' => 'small',
+            'baseline_pass_rate' => 0.4,
+            'scaffolded_pass_rate' => 0.9,
+            'heldout_sample_size' => 20,
+            'confidence' => 0.9,
+            'task_family_lift_proof' => true,
+            'baseline_proxy_leak_rate' => 0.01,
+            'proxy_leak_rate' => 0.02,
+        ]);
+
+        $this->assertFalse($r['autonomous_execution_allowed']);
+        $this->assertFalse($r['proof_floor_status']['proxy_leak_ok']);
+    }
+
+    public function test_small_model_with_task_family_proof_and_no_proxy_regression_can_proceed(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size' => 'small',
+            'baseline_pass_rate' => 0.4,
+            'scaffolded_pass_rate' => 0.9,
+            'heldout_sample_size' => 20,
+            'confidence' => 0.9,
+            'task_family_lift_proof' => true,
+            'baseline_proxy_leak_rate' => 0.0,
+            'proxy_leak_rate' => 0.0,
+        ]);
+
+        $this->assertTrue($r['autonomous_execution_allowed']);
+        $this->assertTrue($r['proof_floor_status']['task_family_lift_proof_ok']);
     }
 }

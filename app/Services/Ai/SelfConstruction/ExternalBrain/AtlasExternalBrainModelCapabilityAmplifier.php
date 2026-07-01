@@ -168,19 +168,26 @@ final class AtlasExternalBrainModelCapabilityAmplifier
         $heldoutSampleOk = $heldoutLiftProof['heldout_sample_size'] >= self::MIN_HELDOUT_SAMPLE_SIZE;
         $proxyLeakOk = $proxyLeakRate < self::PROXY_LEAK_CEILING && $proxyLeakDelta <= 0.0;
         $implementabilityOk = $implementabilityBlockers === [];
+        // Small models cannot generalize a global lift proof to an unproven task family — they
+        // require an explicit per-family held-out proof before autonomous execution is allowed.
+        $taskFamilyLiftProofOk = $modelSize !== 'small' || (bool) ($input['task_family_lift_proof'] ?? false);
 
         // AC3: autonomous execution is allowed ONLY when held-out lift is positive, proxy leakage
         // is below ceiling AND never increased vs baseline, evidence confidence meets the profile
-        // floor, task implementability has no open blockers, and no escalation trigger fired —
-        // never inferred from prompt strictness alone.
+        // floor, task implementability has no open blockers, small models also prove task-family
+        // lift, and no escalation trigger fired — never inferred from prompt strictness alone.
         $autonomousExecutionAllowed = ! $escalation['escalate']
             && $heldoutLiftProof['lift_delta'] > 0.0
             && $heldoutSampleOk
             && $proxyLeakOk
             && $evidenceConfidenceOk
-            && $implementabilityOk;
+            && $implementabilityOk
+            && $taskFamilyLiftProofOk;
 
         $repairActions = [];
+        if (! $taskFamilyLiftProofOk) {
+            $repairActions[] = 'prove_task_family_specific_heldout_lift_before_autonomous_execution';
+        }
         if (! $evidenceConfidenceOk) {
             $repairActions[] = 'collect_more_evidence_to_raise_confidence_above_'.$profile['evidence_confidence_floor'];
         }
@@ -199,6 +206,7 @@ final class AtlasExternalBrainModelCapabilityAmplifier
             'heldout_sample_ok' => $heldoutSampleOk,
             'proxy_leak_ok' => $proxyLeakOk,
             'implementability_ok' => $implementabilityOk,
+            'task_family_lift_proof_ok' => $taskFamilyLiftProofOk,
             'autonomous_execution_allowed' => $autonomousExecutionAllowed,
         ];
 
