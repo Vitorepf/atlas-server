@@ -187,4 +187,97 @@ final class AtlasSelfConstructionSimplificationCandidateScorecardTest extends Te
         $this->assertStringContainsString('factors=[', $rationale);
         $this->assertStringContainsString('unproven_high_consumer_count_penalty', $rationale);
     }
+
+    // ── deletion_roi / duplication / consumer_risk / proof_cost / autonomy_gain / recommendation (AC) ──
+
+    public function test_every_row_exposes_new_scorecard_dimensions(): void
+    {
+        $result = $this->scorecard()->score([
+            'candidates' => [['candidate_id' => 'a', 'removable_lines' => 100, 'duplicate_surface' => 0.5]],
+        ]);
+        $row = $result['scores'][0];
+
+        foreach (['deletion_roi', 'duplication', 'consumer_risk', 'proof_cost', 'autonomy_gain', 'recommendation'] as $key) {
+            $this->assertArrayHasKey($key, $row, "missing {$key}");
+        }
+    }
+
+    public function test_high_roi_deletion_candidate_is_recommended_delete_now(): void
+    {
+        $row = $this->scorecard()->score([
+            'candidates' => [[
+                'candidate_id' => 'clean-delete',
+                'removable_lines' => 400,
+                'duplicate_surface' => 0.9,
+                'proof_coverage' => 0.9,
+                'rollback_ready' => true,
+                'behavior_parity' => true,
+                'consumer_count' => 1,
+                'autonomy_gain' => 0.5,
+                'consumer_risk' => 0.05,
+            ]],
+        ])['scores'][0];
+
+        $this->assertSame('delete_now', $row['recommendation']);
+        $this->assertGreaterThan(0.3, $row['deletion_roi']);
+        $this->assertLessThan(0.2, $row['proof_cost']);
+    }
+
+    public function test_risky_refactor_candidate_is_recommended_refactor_with_caution(): void
+    {
+        $row = $this->scorecard()->score([
+            'candidates' => [[
+                'candidate_id' => 'risky',
+                'removable_lines' => 100,
+                'duplicate_surface' => 0.6,
+                'consumer_risk' => 0.9,
+                'proof_coverage' => 0.3,
+                'autonomy_gain' => 0.2,
+            ]],
+        ])['scores'][0];
+
+        $this->assertSame('refactor_with_caution', $row['recommendation']);
+    }
+
+    public function test_low_value_cleanup_candidate_is_recommended_defer(): void
+    {
+        $row = $this->scorecard()->score([
+            'candidates' => [[
+                'candidate_id' => 'low-value',
+                'removable_lines' => 5,
+                'duplicate_surface' => 0.05,
+                'consumer_risk' => 0.1,
+                'proof_coverage' => 0.1,
+                'autonomy_gain' => 0.0,
+            ]],
+        ])['scores'][0];
+
+        $this->assertSame('defer_low_value', $row['recommendation']);
+    }
+
+    public function test_cosmetic_disqualified_candidate_is_recommended_reject(): void
+    {
+        $row = $this->scorecard()->score([
+            'candidates' => [['candidate_id' => 'cosmetic', 'line_reduction' => 999, 'rename_or_wrap_only' => true]],
+        ])['scores'][0];
+
+        $this->assertSame('reject_cosmetic', $row['recommendation']);
+        $this->assertSame(0.0, $row['deletion_roi']);
+    }
+
+    public function test_deterministic_tie_break_by_candidate_id_when_scores_are_equal(): void
+    {
+        $candidate = fn (string $id) => [
+            'candidate_id' => $id,
+            'removable_lines' => 100,
+            'duplicate_surface' => 0.5,
+            'consumer_risk' => 0.1,
+            'proof_coverage' => 0.5,
+            'autonomy_gain' => 0.5,
+        ];
+
+        $result = $this->scorecard()->score(['candidates' => [$candidate('zeta'), $candidate('alpha'), $candidate('mu')]]);
+
+        $this->assertSame(['alpha', 'mu', 'zeta'], $result['recommended_order']);
+    }
 }

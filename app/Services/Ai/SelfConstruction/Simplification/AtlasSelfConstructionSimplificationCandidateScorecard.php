@@ -60,6 +60,25 @@ final class AtlasSelfConstructionSimplificationCandidateScorecard
 
     private const WEIGHT_UNPROVEN_HIGH_CONSUMER_PENALTY = 0.35;
 
+    /** deletion_roi weighting: line reduction vs duplication collapse, before the consumer-risk discount. */
+    private const DELETION_ROI_LINE_WEIGHT = 0.6;
+
+    private const DELETION_ROI_DUPLICATION_WEIGHT = 0.4;
+
+    private const RECOMMENDATION_DELETE_NOW = 'delete_now';
+
+    private const RECOMMENDATION_REFACTOR_WITH_CAUTION = 'refactor_with_caution';
+
+    private const RECOMMENDATION_DEFER_LOW_VALUE = 'defer_low_value';
+
+    private const RECOMMENDATION_REJECT_COSMETIC = 'reject_cosmetic';
+
+    /** consumer_risk at/above this routes an otherwise-scoring candidate to refactor_with_caution. */
+    private const RISKY_CONSUMER_RISK_THRESHOLD = 0.6;
+
+    /** total_score at/above this (and not risky) is recommended for immediate deletion. */
+    private const DELETE_NOW_SCORE_THRESHOLD = 0.5;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -132,12 +151,32 @@ final class AtlasSelfConstructionSimplificationCandidateScorecard
                     $behaviorParity ? 'true' : 'false',
                 );
 
+            $deletionRoi = $disqualifiers !== [] ? 0.0 : round(
+                ($normalizedLineReduction * self::DELETION_ROI_LINE_WEIGHT + $duplicationCollapse * self::DELETION_ROI_DUPLICATION_WEIGHT)
+                * (1 - $consumerRisk),
+                4
+            );
+            $proofCost = round(1 - $proofReadiness, 4);
+
+            $recommendation = match (true) {
+                $disqualifiers !== [] => self::RECOMMENDATION_REJECT_COSMETIC,
+                $consumerRisk >= self::RISKY_CONSUMER_RISK_THRESHOLD => self::RECOMMENDATION_REFACTOR_WITH_CAUTION,
+                $totalScore >= self::DELETE_NOW_SCORE_THRESHOLD => self::RECOMMENDATION_DELETE_NOW,
+                default => self::RECOMMENDATION_DEFER_LOW_VALUE,
+            };
+
             $rows[] = [
                 'candidate_id' => $candidateId,
                 'total_score' => $totalScore,
                 'component_scores' => $componentScores,
                 'disqualifiers' => $disqualifiers,
                 'rationale' => $rationale,
+                'deletion_roi' => $deletionRoi,
+                'duplication' => $duplicationCollapse,
+                'consumer_risk' => $consumerRisk,
+                'proof_cost' => $proofCost,
+                'autonomy_gain' => $autonomyGain,
+                'recommendation' => $recommendation,
             ];
         }
 
