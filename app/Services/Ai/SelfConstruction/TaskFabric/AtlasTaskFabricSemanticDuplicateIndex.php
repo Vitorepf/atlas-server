@@ -53,13 +53,17 @@ final class AtlasTaskFabricSemanticDuplicateIndex
             // Check against queued specs
             foreach ($queuedSpecs as $j => $queued) {
                 $score = $this->similarity($cf, $queuedFp[$j]);
-                if ($score >= self::DUPLICATE_THRESHOLD && ! $this->isComplement($candidate, $queued)) {
+                $isComplement = $this->isComplement($candidate, $queued);
+                $capabilityCollision = ! $isComplement && $this->hasCapabilityAndFileCollision($candidate, $queued);
+                if (($score >= self::DUPLICATE_THRESHOLD || $capabilityCollision) && ! $isComplement) {
                     $duplicateFlags[] = [
                         'candidate_index' => $i,
                         'matched_against' => 'queued',
                         'matched_index' => $j,
                         'similarity_score' => round($score, 3),
-                        'reason' => 'objective intent and acceptance shape overlap with queued task',
+                        'reason' => $capabilityCollision && $score < self::DUPLICATE_THRESHOLD
+                            ? 'same capability intent and overlapping allowed_files as queued task'
+                            : 'objective intent and acceptance shape overlap with queued task',
                     ];
                     $flaggedIndices[$i] = true;
                     break;
@@ -73,13 +77,17 @@ final class AtlasTaskFabricSemanticDuplicateIndex
             // Check against earlier candidates in same batch
             for ($j = 0; $j < $i; $j++) {
                 $score = $this->similarity($cf, $candidateFp[$j]);
-                if ($score >= self::DUPLICATE_THRESHOLD && ! $this->isComplement($candidate, $candidates[$j])) {
+                $isComplement = $this->isComplement($candidate, $candidates[$j]);
+                $capabilityCollision = ! $isComplement && $this->hasCapabilityAndFileCollision($candidate, $candidates[$j]);
+                if (($score >= self::DUPLICATE_THRESHOLD || $capabilityCollision) && ! $isComplement) {
                     $duplicateFlags[] = [
                         'candidate_index' => $i,
                         'matched_against' => 'batch',
                         'matched_index' => $j,
                         'similarity_score' => round($score, 3),
-                        'reason' => 'objective intent and acceptance shape overlap with sibling candidate',
+                        'reason' => $capabilityCollision && $score < self::DUPLICATE_THRESHOLD
+                            ? 'same capability intent and overlapping allowed_files as sibling candidate'
+                            : 'objective intent and acceptance shape overlap with sibling candidate',
                     ];
                     $flaggedIndices[$i] = true;
                     break;
@@ -154,6 +162,25 @@ final class AtlasTaskFabricSemanticDuplicateIndex
         return $this->jaccard($a['intent_words'], $b['intent_words']) * self::INTENT_WEIGHT
             + $this->jaccard($a['acceptance_verbs'], $b['acceptance_verbs']) * self::ACCEPTANCE_WEIGHT
             + $this->jaccard($a['capability_tags'], $b['capability_tags']) * self::TAG_WEIGHT;
+    }
+
+    /**
+     * True when two packets share the same SPECIFIC capability_intent (not a broad subsystem
+     * label from capability_tags) AND their allowed_files overlap — a near-duplicate even when
+     * the objective-text similarity score doesn't cross the jaccard threshold.
+     */
+    private function hasCapabilityAndFileCollision(array $a, array $b): bool
+    {
+        $aIntent = strtolower(trim((string) ($a['capability_intent'] ?? '')));
+        $bIntent = strtolower(trim((string) ($b['capability_intent'] ?? '')));
+        if ($aIntent === '' || $bIntent === '' || $aIntent !== $bIntent) {
+            return false;
+        }
+
+        $aFiles = array_map('strval', is_array($a['allowed_files'] ?? null) ? $a['allowed_files'] : []);
+        $bFiles = array_map('strval', is_array($b['allowed_files'] ?? null) ? $b['allowed_files'] : []);
+
+        return array_intersect($aFiles, $bFiles) !== [];
     }
 
     private function isComplement(array $a, array $b): bool

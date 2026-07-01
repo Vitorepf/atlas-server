@@ -177,4 +177,83 @@ final class AtlasTaskFabricSemanticDuplicateIndexTest extends TestCase
         $this->assertSame(0, $r['flagged_count']);
         $this->assertSame(0, $r['clean_count']);
     }
+
+    // ── capability + allowed_files collision (AC) ──────────────────────────────
+
+    public function test_same_capability_intent_and_overlapping_allowed_files_flagged_despite_low_text_similarity(): void
+    {
+        $r = $this->svc()->check([
+            'queued_specs' => [[
+                'objective' => 'Implement AtlasFoo to compress evidence records using adaptive sampling',
+                'capability_intent' => 'worker_floor_top_up',
+                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+            ]],
+            'candidate_packets' => [[
+                'objective' => 'Extend AtlasBar so stalled capabilities are retired with a receipt',
+                'capability_intent' => 'worker_floor_top_up',
+                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+            ]],
+        ]);
+
+        $this->assertSame(1, $r['flagged_count']);
+        $this->assertStringContainsString('capability intent and overlapping allowed_files', $r['duplicate_flags'][0]['reason']);
+    }
+
+    public function test_broad_shared_subsystem_label_alone_does_not_flag_distinct_capabilities(): void
+    {
+        $r = $this->svc()->check([
+            'queued_specs' => [[
+                'objective' => 'Implement AtlasFoo to compress evidence records using adaptive sampling',
+                'capability_intent' => 'evidence_compression',
+                'capability_tags' => ['task_fabric'],
+                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+            ]],
+            'candidate_packets' => [[
+                'objective' => 'Extend AtlasBar so stalled capabilities are retired with a receipt',
+                'capability_intent' => 'stalled_capability_retirement',
+                'capability_tags' => ['task_fabric'],
+                'allowed_files' => ['app/Services/Ai/Bar/AtlasBar.php'],
+            ]],
+        ]);
+
+        $this->assertSame(0, $r['flagged_count']);
+    }
+
+    public function test_same_capability_intent_without_file_overlap_does_not_flag(): void
+    {
+        $r = $this->svc()->check([
+            'queued_specs' => [[
+                'objective' => 'Implement AtlasFoo to compress evidence records using adaptive sampling',
+                'capability_intent' => 'worker_floor_top_up',
+                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+            ]],
+            'candidate_packets' => [[
+                'objective' => 'Extend AtlasBar so stalled capabilities are retired with a receipt',
+                'capability_intent' => 'worker_floor_top_up',
+                'allowed_files' => ['app/Services/Ai/Bar/AtlasBar.php'],
+            ]],
+        ]);
+
+        $this->assertSame(0, $r['flagged_count']);
+    }
+
+    public function test_capability_collision_is_still_blocked_by_complement_guard(): void
+    {
+        $r = $this->svc()->check([
+            'queued_specs' => [[
+                'objective' => 'Implement AtlasFoo to compress evidence records using adaptive sampling',
+                'capability_intent' => 'worker_floor_top_up',
+                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+                'evidence_floor' => 'strict',
+            ]],
+            'candidate_packets' => [[
+                'objective' => 'Extend AtlasBar so stalled capabilities are retired with a receipt',
+                'capability_intent' => 'worker_floor_top_up',
+                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+                'evidence_floor' => 'lenient',
+            ]],
+        ]);
+
+        $this->assertSame(0, $r['flagged_count']);
+    }
 }
