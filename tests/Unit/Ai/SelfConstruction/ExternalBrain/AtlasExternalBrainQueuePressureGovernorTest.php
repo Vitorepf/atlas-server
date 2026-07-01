@@ -417,4 +417,57 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
 
         $this->assertNotSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
     }
+
+    // ── high_leverage_escape ──────────────────────────────────────────────────
+
+    public function test_high_leverage_escape_true_when_high_leverage_bypasses_pressure(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 40, 'active_leases' => 3],
+            candidate:  ['leverage_score' => 0.80, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+        $this->assertTrue($result['high_leverage_escape']);
+    }
+
+    public function test_high_leverage_escape_true_when_dependency_unlock_bypasses_pressure(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 20, 'active_leases' => 10, 'servable_depth' => 100],
+            candidate:  ['leverage_score' => 0.10, 'dependency_unlock_score' => 0.90, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+        $this->assertTrue($result['high_leverage_escape']);
+    }
+
+    public function test_high_leverage_escape_false_on_healthy_queue(): void
+    {
+        $result = $this->governor()->decide($this->input());
+
+        $this->assertFalse($result['high_leverage_escape']);
+    }
+
+    public function test_high_leverage_escape_false_on_low_leverage_defer_with_saturation_reason(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 35, 'active_leases' => 3],
+            candidate:  ['leverage_score' => 0.50, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_DEFER, $result['decision']);
+        $this->assertFalse($result['high_leverage_escape']);
+        $this->assertStringContainsString('saturation_blocked_low_leverage', $result['reason']);
+    }
+
+    public function test_high_leverage_escape_false_on_urgent_override(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 99, 'active_leases' => 99],
+            candidate:  ['leverage_score' => 0.0, 'task_class' => 'malformed'],
+        ));
+
+        $this->assertFalse($result['high_leverage_escape']);
+    }
 }

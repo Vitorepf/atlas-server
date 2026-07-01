@@ -120,12 +120,12 @@ final class AtlasExternalBrainQueuePressureGovernor
                     ? "high dependency_unlock_score={$dependencyUnlockScore} admitted despite elevated pressure (live servable_per_worker_ratio={$servablePerWorker})"
                     : "high-leverage prerequisite (score={$leverageScore}) admitted despite elevated pressure";
 
-                return $this->result(self::DECISION_ENQUEUE_NOW, $bypassReason, underPressure: true);
+                return $this->result(self::DECISION_ENQUEUE_NOW, $bypassReason, underPressure: true, highLeverageEscape: true);
             }
 
             $ratioNote = $highServableRatio ? " live servable_per_worker_ratio={$servablePerWorker}" : '';
 
-            return $this->result(self::DECISION_DEFER, "queue pressure elevated (claimable={$claimableDepth}, leases={$activeLeases}){$ratioNote}; low-leverage batch deferred", underPressure: true, liveRatioReason: $highServableRatio ? (string) $servablePerWorker : null);
+            return $this->result(self::DECISION_DEFER, "queue pressure elevated (claimable={$claimableDepth}, leases={$activeLeases}){$ratioNote}; saturation_blocked_low_leverage: low-leverage batch deferred", underPressure: true, liveRatioReason: $highServableRatio ? (string) $servablePerWorker : null);
         }
 
         // --- Blocked family check ---
@@ -213,8 +213,8 @@ final class AtlasExternalBrainQueuePressureGovernor
         return (string) self::WORKER_FLOOR_RATIO;
     }
 
-    /** @return array{schema:string,decision:string,reason:string,urgent_override:bool,under_pressure:bool,live_ratio_reason:?string,batch_budget:array<string,mixed>} */
-    private function result(string $decision, string $reason, bool $urgentOverride = false, bool $underPressure = false, ?string $liveRatioReason = null): array
+    /** @return array{schema:string,decision:string,reason:string,urgent_override:bool,under_pressure:bool,live_ratio_reason:?string,batch_budget:array<string,mixed>,high_leverage_escape:bool} */
+    private function result(string $decision, string $reason, bool $urgentOverride = false, bool $underPressure = false, ?string $liveRatioReason = null, bool $highLeverageEscape = false): array
     {
         return [
             'schema'             => self::SCHEMA,
@@ -224,6 +224,7 @@ final class AtlasExternalBrainQueuePressureGovernor
             'under_pressure'     => $underPressure,
             'live_ratio_reason'  => $liveRatioReason,
             'batch_budget'       => $this->buildBatchBudget($decision, $urgentOverride, $underPressure, $liveRatioReason),
+            'high_leverage_escape' => $highLeverageEscape,
         ];
     }
 
