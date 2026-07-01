@@ -441,6 +441,61 @@ final class AtlasExternalBrainImplementationProofDemandTest extends TestCase
         $this->assertStringNotContainsString('too generic', $lowRisk['reason']);
     }
 
+    // ── AC: every required proof emits a runnable command template or evidence fields ──
+
+    public function test_every_required_proof_has_runnable_template_or_evidence_fields(): void
+    {
+        $scenarios = [
+            ['risk' => 'high', 'targetClass' => 'queue', 'valueMechanism' => 'queue_health', 'isPropertyGated' => true],
+            ['risk' => 'low', 'targetClass' => 'refactor'],
+            ['risk' => 'low', 'targetClass' => 'worker_continuity'],
+            ['risk' => 'low', 'targetClass' => 'command'],
+            ['risk' => 'low', 'targetClass' => 'doc'],
+            ['risk' => 'low', 'targetClass' => 'feature'],
+            ['risk' => 'low', 'targetClass' => 'runtime'],
+            ['risk' => 'medium', 'valueMechanism' => 'autonomy'],
+        ];
+
+        foreach ($scenarios as $scenario) {
+            $r = $this->derive(
+                risk: $scenario['risk'] ?? 'low',
+                targetClass: $scenario['targetClass'] ?? 'logic',
+                valueMechanism: $scenario['valueMechanism'] ?? 'logic',
+                isPropertyGated: $scenario['isPropertyGated'] ?? false,
+            );
+
+            foreach ($r['minimum_required_evidence']['evidence_by_proof_type'] as $proofType => $evidence) {
+                $hasTemplate = ! empty($evidence['runnable_command_template']);
+                $hasFields = ! empty($evidence['evidence_fields']);
+                $this->assertTrue(
+                    $hasTemplate || $hasFields,
+                    "proof '{$proofType}' must carry runnable_command_template or evidence_fields",
+                );
+            }
+        }
+    }
+
+    public function test_refactor_proof_set_emits_runnable_evidence_requirements(): void
+    {
+        $r = $this->derive(targetClass: 'refactor');
+        $byType = $r['minimum_required_evidence']['evidence_by_proof_type'];
+
+        foreach (['behavior_equivalence', 'consumer_impact', 'rollback_plan', 'knowledge_sync'] as $proof) {
+            $this->assertArrayHasKey($proof, $byType);
+            $this->assertNotEmpty($byType[$proof]['evidence_fields'] ?? []);
+        }
+    }
+
+    public function test_proxy_proof_types_never_receive_runnable_templates_or_fields(): void
+    {
+        $r = $this->derive();
+        $byType = $r['minimum_required_evidence']['evidence_by_proof_type'];
+
+        foreach (AtlasExternalBrainImplementationProofDemand::REJECTED_PROXY_PROOF_TYPES as $proxyType) {
+            $this->assertArrayNotHasKey($proxyType, $byType);
+        }
+    }
+
     public function test_behavior_delta_still_accepted_for_high_risk_task(): void
     {
         // AC3: rejection targets GENERIC proofs, not all proofs — a real, specific proof still passes.

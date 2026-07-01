@@ -106,6 +106,39 @@ final class AtlasExternalBrainImplementationProofDemand
         self::PROOF_TEST_PRESENCE,
     ];
 
+    /**
+     * Proof types Task Fabric can verify by literally running a command — the demand becomes
+     * directly actionable instead of prose the muscle has to interpret.
+     */
+    private const RUNNABLE_COMMAND_TEMPLATE = [
+        self::PROOF_UNIT_TEST => '/opt/homebrew/bin/php artisan test <path_to_unit_test>',
+        self::PROOF_FEATURE_TEST => '/opt/homebrew/bin/php artisan test <path_to_feature_test>',
+        self::PROOF_COMMAND_SMOKE => '/opt/homebrew/bin/php artisan <target_command> --json',
+        self::PROOF_QUEUE_HEALTH => '/opt/homebrew/bin/php artisan atlas:task:health --json',
+        self::PROOF_COLLISION_SWEEP => '/opt/homebrew/bin/php artisan test <path_to_sibling_caller_tests>',
+        self::PROOF_WORKER_CONTINUITY => '/opt/homebrew/bin/php artisan atlas:task:maestro:workers list --json',
+        self::PROOF_RUNTIME_RECEIPT => '/opt/homebrew/bin/php artisan atlas:task next --client=<worker_id> --json',
+    ];
+
+    /**
+     * Proof types that are a judgment/decision, not a single runnable command — Task Fabric
+     * still gets a concrete, checkable contract: the exact fields the submitted evidence must carry.
+     */
+    private const EVIDENCE_FIELD_REQUIREMENTS = [
+        self::PROOF_DOC_PROPOSAL => ['doc_path', 'canonical_source_ref'],
+        self::PROOF_BEHAVIOR_PROOF => ['before_state', 'after_state', 'observed_diff'],
+        self::PROOF_REGRESSION_PROOF => ['regression_scenario', 'before_result', 'after_result'],
+        self::PROOF_RUNTIME_DECISION_CHANGE => ['trigger_input', 'decision_before', 'decision_after'],
+        self::PROOF_MEASURABLE_QUEUE_QUALITY_IMPROVEMENT => ['metric_name', 'before_value', 'after_value'],
+        self::PROOF_BEHAVIOR_DELTA => ['before_output', 'after_output'],
+        self::PROOF_BEFORE_AFTER_EVIDENCE => ['before_state', 'after_state'],
+        self::PROOF_AUTONOMY_STEADY_STATE => ['autonomous_cycles_observed', 'human_interventions_count'],
+        self::PROOF_BEHAVIOR_EQUIVALENCE => ['input_set', 'before_output', 'after_output'],
+        self::PROOF_CONSUMER_IMPACT => ['consumer_list', 'confirmed_unaffected'],
+        self::PROOF_ROLLBACK_PLAN => ['rollback_mechanism', 'rollback_verified'],
+        self::PROOF_KNOWLEDGE_SYNC => ['docs_updated', 'memory_updated', 'code_index_updated'],
+    ];
+
     private const BASE_BY_CLASS = [
         'command' => self::PROOF_COMMAND_SMOKE,
         'queue'   => self::PROOF_QUEUE_HEALTH,
@@ -203,8 +236,21 @@ final class AtlasExternalBrainImplementationProofDemand
 
         $minimumRequiredEvidence = [];
         foreach ($requiredProofs as $proofType) {
-            $minimumRequiredEvidence[$proofType] = self::MINIMUM_EVIDENCE_DESCRIPTION[$proofType]
-                ?? 'A runnable proof that the change produced a real, observable behavior difference.';
+            $entry = [
+                'description' => self::MINIMUM_EVIDENCE_DESCRIPTION[$proofType]
+                    ?? 'A runnable proof that the change produced a real, observable behavior difference.',
+            ];
+
+            if (isset(self::RUNNABLE_COMMAND_TEMPLATE[$proofType])) {
+                $entry['runnable_command_template'] = self::RUNNABLE_COMMAND_TEMPLATE[$proofType];
+            } else {
+                // Every non-command proof type still gets a concrete, checkable field contract —
+                // falls back to the behavior_delta shape so no required proof ever ships as bare prose.
+                $entry['evidence_fields'] = self::EVIDENCE_FIELD_REQUIREMENTS[$proofType]
+                    ?? ['before_state', 'after_state'];
+            }
+
+            $minimumRequiredEvidence[$proofType] = $entry;
         }
 
         // Proxy proof types never satisfy the demand, regardless of risk — surfaced explicitly so
