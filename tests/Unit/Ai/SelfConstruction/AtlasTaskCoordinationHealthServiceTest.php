@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AtlasTaskCoordinationHealthService;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
@@ -68,5 +71,69 @@ final class AtlasTaskCoordinationHealthServiceTest extends TestCase
         $this->assertArrayHasKey('queue_disk_mismatch_detected', $snapshot['health_flags']);
         $this->assertFalse($snapshot['health_flags']['queue_disk_mismatch_detected']);
         $this->assertTrue($snapshot['healthy']);
+    }
+
+    // ── AC: lease_mismatch_leak vs recoverable_backlog + self_healing_action ────────
+
+    public function test_unexplained_lease_mismatch_with_zero_recoverable_is_lease_mismatch_leak(): void
+    {
+        // Claim a lease with no corresponding queue record at all: active_leases=1,
+        // claimed=0, and nothing for inspectRecoverability to classify -> recoverable_total=0.
+        (new AgentControlPlaneClaimLeaseRepository)->claim('orphan-task', 'agent-1', ['allowed_files' => ['app/X.php']]);
+
+        $snapshot = (new AtlasTaskCoordinationHealthService)->snapshot();
+
+        $this->assertFalse($snapshot['leases_match_claimed']);
+        $this->assertSame(0, $snapshot['recoverable']['total']);
+        $this->assertTrue($snapshot['health_flags']['lease_leak_detected']);
+        $this->assertFalse($snapshot['health_flags']['recoverable_backlog']);
+        $this->assertFalse($snapshot['healthy']);
+        $this->assertSame('reap_orphan_leases_and_requeue_claimed_records', $snapshot['self_healing_action']);
+    }
+
+    public function test_lease_mismatch_does_not_mark_queue_dry_or_jammed_when_claimable_supply_high(): void
+    {
+        (new AgentControlPlaneClaimLeaseRepository)->claim('orphan-task-2', 'agent-1', ['allowed_files' => ['app/X.php']]);
+
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        for ($i = 0; $i < 5; $i++) {
+            $queue->enqueue($builder->build($this->fixture("supply-{$i}")));
+        }
+
+        $snapshot = (new AtlasTaskCoordinationHealthService)->snapshot();
+
+        $this->assertTrue($snapshot['health_flags']['lease_leak_detected']);
+        $this->assertFalse($snapshot['health_flags']['dry_queue']);
+        $this->assertFalse($snapshot['health_flags']['serving_jammed']);
+        $this->assertGreaterThan(0, $snapshot['claimable_depth']);
+    }
+
+    public function test_recoverable_backlog_gets_await_next_reap_self_healing_action(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $queue->enqueue((new AgentControlPlaneTaskPacketBuilder)->build($this->fixture('orphan-claimed')));
+        $queue->updateStatus('orphan-claimed', 'claimed', ['agent_id' => 'agent-1', 'lease_id' => 'lease-does-not-exist']);
+
+        $snapshot = (new AtlasTaskCoordinationHealthService)->snapshot();
+
+        $this->assertGreaterThan(0, $snapshot['recoverable']['total']);
+        $this->assertTrue($snapshot['health_flags']['recoverable_backlog']);
+        $this->assertFalse($snapshot['health_flags']['lease_leak_detected']);
+        $this->assertSame('await_next_claim_next_reap_cycle', $snapshot['self_healing_action']);
+    }
+
+    /** @return array<string, mixed> */
+    private function fixture(string $id): array
+    {
+        return [
+            'task_packet_id' => $id,
+            'objective' => 'Fixture '.$id.': implement app/Services/Ai/SelfConstruction/'.$id.'.php deterministically and prove it.',
+            'operator_id' => 'tester',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
+            'acceptance_criteria' => ['php artisan test asserts '.$id.' behaves correctly'],
+            'required_evidence' => ['task_packet_created'],
+        ];
     }
 }

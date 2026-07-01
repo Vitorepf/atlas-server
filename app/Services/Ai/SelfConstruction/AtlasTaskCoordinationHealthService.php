@@ -121,6 +121,16 @@ final class AtlasTaskCoordinationHealthService
         $drainTelemetryConfidence = $serveTotal > 0 ? 'direct' : ($queueTransitionCount > 0 ? 'estimated' : 'unavailable');
         $drainFallbackSource = $drainTelemetryConfidence === 'estimated' ? 'queue_transitions' : null;
 
+        // SELF-HEALING ACTION — a recoverable backlog already self-heals on the next claimNext
+        // (it re-admits released/expired-lease/orphan work), so it needs no operator action. An
+        // unexplained lease mismatch (recoverable_total=0 but leases don't match claimed) is a
+        // true orphan leak the reaper cannot already fix on its own, so it gets a concrete action.
+        $selfHealingAction = match (true) {
+            $flags['lease_leak_detected'] => 'reap_orphan_leases_and_requeue_claimed_records',
+            $flags['recoverable_backlog'] => 'await_next_claim_next_reap_cycle',
+            default => null,
+        };
+
         return [
             'schema' => self::SCHEMA,
             'healthy' => $healthy,
@@ -143,6 +153,7 @@ final class AtlasTaskCoordinationHealthService
                 'last_claimable_depth' => $serving['last_claimable_depth'] ?? null,
             ],
             'health_flags' => $flags,
+            'self_healing_action' => $selfHealingAction,
             'serving_disk_health' => [
                 'ok' => (bool) ($servingDiskHealth['ok'] ?? false),
                 'disk' => (string) ($servingDiskHealth['disk'] ?? ''),
