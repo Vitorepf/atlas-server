@@ -80,6 +80,8 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
             'organ_id'               => 'core-organ',
             'is_important'           => true,
             'control_plane_exposure' => true,
+            'decision_effect'        => 'gates task promotion',
+            'consumer_links'         => ['originator'],
         ]);
 
         $this->assertTrue($result['count_as_delivered']);
@@ -92,6 +94,7 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
             'organ_id'               => 'core-organ',
             'is_important'           => true,
             'control_plane_exposure' => true,
+            'decision_effect'        => 'gates task promotion',
             'consumer_links'         => ['originator', 'maestro'],
         ]);
 
@@ -105,6 +108,8 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
             'organ_id'               => 'core-organ',
             'is_important'           => true,
             'control_plane_exposure' => true,
+            'decision_effect'        => 'gates task promotion',
+            'consumer_links'         => ['originator'],
             'evidence_floor'         => 'tests_or_gates_result',
         ]);
 
@@ -117,9 +122,23 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
             'organ_id'               => 'core-organ',
             'is_important'           => true,
             'control_plane_exposure' => true,
+            'decision_effect'        => 'gates task promotion',
+            'consumer_links'         => ['originator'],
         ]);
 
         $this->assertSame([], $result['evidence_requirements']);
+    }
+
+    public function test_control_plane_exposure_without_decision_effect_or_consumer_links_blocks(): void
+    {
+        $result = $this->gate()->evaluate([
+            'organ_id'               => 'core-organ',
+            'is_important'           => true,
+            'control_plane_exposure' => true,
+        ]);
+
+        $this->assertFalse($result['count_as_delivered']);
+        $this->assertSame(AtlasExternalBrainControlPlaneIntegrationGate::STATUS_DECISION_EFFECT_MISSING, $result['integration_status']);
     }
 
     // ── rule 3: readiness map exposure ───────────────────────────────────────
@@ -282,6 +301,8 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
             'organ_id'               => 'wired-organ',
             'is_important'           => true,
             'control_plane_exposure' => true,
+            'decision_effect'        => 'gates task promotion',
+            'consumer_links'         => ['originator'],
         ]);
 
         $this->assertSame([], $result['integration_blockers']);
@@ -344,6 +365,8 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
             'is_important'           => true,
             'control_plane_exposure' => true,
             'readiness_map_exposure' => true,
+            'decision_effect'        => 'gates task promotion',
+            'consumer_links'         => ['originator'],
         ]);
 
         $this->assertSame(AtlasExternalBrainControlPlaneIntegrationGate::PATH_CONTROL_PLANE, $result['exposure_path']);
@@ -380,7 +403,7 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
     public function test_evaluate_batch_coverage_percent_reflects_delivered_ratio(): void
     {
         $organs = [
-            ['organ_id' => 'wired-1', 'is_important' => true, 'control_plane_exposure' => true],
+            ['organ_id' => 'wired-1', 'is_important' => true, 'control_plane_exposure' => true, 'decision_effect' => 'gates task promotion', 'consumer_links' => ['originator']],
             ['organ_id' => 'unwired-1', 'is_important' => true, 'control_plane_exposure' => false, 'readiness_map_exposure' => false],
         ];
 
@@ -395,7 +418,7 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
     public function test_evaluate_batch_full_coverage_is_100_percent(): void
     {
         $organs = [
-            ['organ_id' => 'a', 'is_important' => true, 'control_plane_exposure' => true],
+            ['organ_id' => 'a', 'is_important' => true, 'control_plane_exposure' => true, 'decision_effect' => 'gates task promotion', 'consumer_links' => ['originator']],
             ['organ_id' => 'b', 'is_important' => false],
         ];
 
@@ -443,6 +466,8 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
                 'is_important'             => true,
                 'is_read_only_helper'      => true,
                 'control_plane_exposure'   => true,
+                'decision_effect'          => 'gates task promotion',
+                'consumer_links'           => ['originator'],
             ],
         ];
 

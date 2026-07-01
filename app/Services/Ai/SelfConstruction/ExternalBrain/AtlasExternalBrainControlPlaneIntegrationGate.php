@@ -57,6 +57,8 @@ final class AtlasExternalBrainControlPlaneIntegrationGate
     public const STATUS_READ_ONLY_HELPER_BLOCKED = 'read_only_helper_blocked';
     public const STATUS_NOT_INTEGRATED           = 'not_integrated';
 
+    public const STATUS_DECISION_EFFECT_MISSING  = 'decision_effect_missing';
+
     /**
      * @param  array<string,mixed>  $organ
      * @return array<string,mixed>
@@ -94,7 +96,20 @@ final class AtlasExternalBrainControlPlaneIntegrationGate
                 ['read_only_helper_requires_control_plane_exposure']);
         }
 
-        // Rule 3: control-plane wired.
+        // Rule 3: control-plane wired — but appearing in the snapshot alone proves nothing; the
+        // organ must actually affect a decision (decision_effect) and have a real consumer
+        // (consumer_links), or it is just registered, not integrated.
+        if ($controlPlane && ($decisionEffect === '' || $consumerLinks === [])) {
+            $reasons[] = 'control_plane_exposure_present_but_no_decision_effect_or_consumer_link';
+            $missing = array_values(array_filter([
+                $decisionEffect === '' ? 'missing_decision_effect' : null,
+                $consumerLinks === [] ? 'missing_consumer_links' : null,
+            ]));
+
+            return $this->result($organId, false, self::PATH_NONE, self::STATUS_DECISION_EFFECT_MISSING,
+                '', '', [], $reasons, $missing);
+        }
+
         if ($controlPlane) {
             $reasons[] = 'exposed_via_control_plane_snapshot';
             if ($decisionEffect !== '') {
