@@ -123,4 +123,78 @@ final class AtlasSelfConstructionScaffoldRetirementPolicyTest extends TestCase
 
         $this->assertSame('retire', $decision['decision']);
     }
+
+    // ── AC: live usage ceiling — active scaffolds are not retired blindly ──────
+
+    public function test_scaffold_above_live_usage_ceiling_waits_despite_full_evidence(): void
+    {
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide(
+            $this->fullEvidence() + ['live_usage_count' => 500, 'live_usage_ceiling' => 100],
+        );
+
+        $this->assertSame('wait', $decision['decision']);
+        $this->assertFalse($decision['retire_now']);
+        $this->assertStringContainsString('live_usage_count=500', $decision['reason']);
+    }
+
+    public function test_scaffold_below_live_usage_ceiling_retires_normally(): void
+    {
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide(
+            $this->fullEvidence() + ['live_usage_count' => 5, 'live_usage_ceiling' => 100],
+        );
+
+        $this->assertSame('retire', $decision['decision']);
+    }
+
+    public function test_live_usage_fields_are_no_op_when_omitted(): void
+    {
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide($this->fullEvidence());
+
+        $this->assertSame('retire', $decision['decision']);
+    }
+
+    // ── AC: mature replacements can retire scaffolds ────────────────────────────
+
+    public function test_replacement_below_maturity_floor_waits_despite_full_evidence(): void
+    {
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide(
+            $this->fullEvidence() + ['replacement_maturity_days' => 3],
+        );
+
+        $this->assertSame('wait', $decision['decision']);
+        $this->assertStringContainsString('replacement_maturity_days=3', $decision['reason']);
+    }
+
+    public function test_mature_replacement_retires_normally(): void
+    {
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide(
+            $this->fullEvidence() + ['replacement_maturity_days' => 30],
+        );
+
+        $this->assertSame('retire', $decision['decision']);
+    }
+
+    // ── AC: missing rollback blocks destructive advice ──────────────────────────
+
+    public function test_only_rollback_receipt_missing_blocks_instead_of_generic_needs_evidence(): void
+    {
+        $evidence = $this->fullEvidence();
+        $evidence['rollback_receipt'] = false;
+
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide($evidence);
+
+        $this->assertSame('block', $decision['decision']);
+        $this->assertFalse($decision['retire_now']);
+        $this->assertSame(['rollback_receipt'], $decision['missing_evidence']);
+        $this->assertSame('missing_rollback_receipt_blocks_destructive_retirement', $decision['reason']);
+    }
+
+    public function test_rollback_receipt_missing_alongside_other_evidence_stays_needs_evidence(): void
+    {
+        // Multiple gaps: the generic needs_evidence bucket still applies (frozen behavior).
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide([]);
+
+        $this->assertSame('needs_evidence', $decision['decision']);
+        $this->assertContains('rollback_receipt', $decision['missing_evidence']);
+    }
 }
