@@ -161,6 +161,23 @@ final class AtlasVerificationCourtFalseGreenDetector
             }
         }
 
+        // 3c. green verdicts must not coexist with a starved worker feed: low claimable supply per
+        // active worker, or a fresh no_claimable_task signal not yet resolved by a repair receipt.
+        $workerFloorFacts = is_array($facts['worker_floor_facts'] ?? null) ? $facts['worker_floor_facts'] : [];
+        $activeWorkerCount = max(0, (int) ($workerFloorFacts['active_worker_count'] ?? 0));
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $workerFloorFacts)
+            ? (float) $workerFloorFacts['claimable_per_active_worker']
+            : null;
+        $workerFloorThreshold = (float) ($workerFloorFacts['floor'] ?? 2.0);
+        $belowWorkerFloor = $activeWorkerCount > 0 && $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= $workerFloorThreshold;
+
+        $noClaimableTaskSignalFresh = (bool) ($facts['no_claimable_task_signal_fresh'] ?? false);
+        $noClaimableTaskResolvedByRepairReceipt = (bool) ($facts['no_claimable_task_resolved_by_repair_receipt'] ?? false);
+
+        if (($belowWorkerFloor || $noClaimableTaskSignalFresh) && ! $noClaimableTaskResolvedByRepairReceipt) {
+            $failedReasons[] = 'false_green_worker_starvation';
+        }
+
         // 4. scope-clean check
         $allowed = is_array($facts['allowed_files'] ?? null) ? array_values(array_map('strval', $facts['allowed_files'])) : [];
         $changed = is_array($facts['changed_files'] ?? null) ? array_values(array_map('strval', $facts['changed_files'])) : [];
@@ -227,6 +244,9 @@ final class AtlasVerificationCourtFalseGreenDetector
             } elseif ($r === 'worker_continuity_replay_missing') {
                 $evidenceToReplay[] = 'claimable_per_active_worker_or_no_claimable_task';
                 $families[] = 'worker_continuity';
+            } elseif ($r === 'false_green_worker_starvation') {
+                $evidenceToReplay[] = 'claimable_per_active_worker_or_no_claimable_task';
+                $families[] = 'worker_starvation';
             } elseif (str_starts_with($r, 'replay_conflict:')) {
                 $evidenceToReplay[] = substr($r, strlen('replay_conflict:'));
                 $families[] = 'conflict';
@@ -261,7 +281,7 @@ final class AtlasVerificationCourtFalseGreenDetector
     /** @param list<string> $families */
     private function dominantFamily(array $families): ?string
     {
-        foreach (['task_fabric', 'evidence_contract', 'worker_continuity', 'conflict', 'replay', 'scope', 'proxy'] as $fam) {
+        foreach (['task_fabric', 'evidence_contract', 'worker_continuity', 'worker_starvation', 'conflict', 'replay', 'scope', 'proxy'] as $fam) {
             if (in_array($fam, $families, true)) {
                 return $fam;
             }
@@ -279,6 +299,7 @@ final class AtlasVerificationCourtFalseGreenDetector
             'task_fabric'       => 'Task fabric blocked replay plan' . ($blockerReason ? ": {$blockerReason}" : '') . '. Fix the blocker before re-queuing.',
             'evidence_contract' => 'Evidence contract rejected. Re-run evidence collection with a valid contract before claiming completion.',
             'worker_continuity' => 'Worker-continuity improvement was claimed but no passed replay outcome covers claimable_per_active_worker or no_claimable_task. Add and pass a replay command for that evidence before claiming completion.',
+            'worker_starvation' => 'Green verdict coexists with a starved worker feed (low claimable-per-active-worker or a fresh no_claimable_task signal). Prove the starvation is resolved with a fresh repair receipt before claiming completion.',
             'conflict'          => "Conflicting replay outcomes for: {$ids}. Re-run those commands and submit a single canonical outcome.",
             'replay'            => "Replay commands failed or missing output: {$ids}. Re-run and confirm they pass before claiming completion.",
             'scope'             => 'Scope violation: changed files outside allowed scope: ' . implode(', ', $scopeViolationFiles) . '. Revert or add to allowed_files.',
