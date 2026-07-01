@@ -18,6 +18,15 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Personalization;
  *   1. Higher categorical priority wins (high > medium > low).
  *   2. Same priority → more recent registered_at wins.
  *   3. Same priority + same timestamp → lower source string alphabetically wins (deterministic).
+ *   4. task_families (list<string>) is ALWAYS the union of existing + incoming valid families —
+ *      a lower-priority registerWithMerge call never removes a family the client already had,
+ *      it only ever adds new valid ones.
+ *
+ * VALIDATION (register / registerWithMerge / config-seeded entries): a preference entry is
+ * rejected outright — the store is left unchanged — when any known key carries a malformed
+ * shape: max_files/max_loc/tier/source/priority given as a non-scalar (array), or task_families
+ * given as anything other than a list<string>. inspect()/all() only ever return the whitelisted,
+ * normalized keys — raw/unknown submitted keys never leak through.
  */
 final class AtlasMaestroWorkerPreferenceRegistry
 {
@@ -46,14 +55,21 @@ final class AtlasMaestroWorkerPreferenceRegistry
 
     /**
      * Always-override registration (existing behaviour, no conflict resolution).
+     * Returns false and leaves the store unchanged when $prefs is malformed.
      */
-    public function register(string $clientId, array $prefs): void
+    public function register(string $clientId, array $prefs): bool
     {
         $clientId = trim($clientId);
         if ($clientId === '') {
-            return;
+            return false;
+        }
+        $validation = $this->validate($prefs);
+        if (! $validation['valid']) {
+            return false;
         }
         $this->declared[$clientId] = $this->normalizeProfile($prefs);
+
+        return true;
     }
 
     /**
@@ -61,36 +77,88 @@ final class AtlasMaestroWorkerPreferenceRegistry
      *   - higher priority wins
      *   - same priority → more recent registered_at wins
      *   - same priority + same timestamp → lower source alphabetically wins
+     *   - task_families is always the union of existing + incoming, regardless of which side
+     *     wins the scalar fields.
+     * Returns false and leaves the store unchanged when $prefs is malformed.
      */
-    public function registerWithMerge(string $clientId, array $prefs): void
+    public function registerWithMerge(string $clientId, array $prefs): bool
     {
         $clientId = trim($clientId);
         if ($clientId === '') {
-            return;
+            return false;
+        }
+        $validation = $this->validate($prefs);
+        if (! $validation['valid']) {
+            return false;
         }
         $incoming = $this->normalizeProfile($prefs);
 
         if (! isset($this->declared[$clientId])) {
             $this->declared[$clientId] = $incoming;
 
-            return;
+            return true;
         }
 
         $existing = $this->declared[$clientId];
         $inPri = self::PRIORITY_ORDER[$incoming['priority']] ?? 1;
         $exPri = self::PRIORITY_ORDER[$existing['priority']] ?? 1;
 
+        $winner = $existing;
         if ($inPri > $exPri) {
-            $this->declared[$clientId] = $incoming;
+            $winner = $incoming;
         } elseif ($inPri === $exPri) {
             if ((int) $incoming['registered_at'] > (int) $existing['registered_at']) {
-                $this->declared[$clientId] = $incoming;
+                $winner = $incoming;
             } elseif ((int) $incoming['registered_at'] === (int) $existing['registered_at']
                 && (string) $incoming['source'] < (string) $existing['source']) {
-                $this->declared[$clientId] = $incoming;
+                $winner = $incoming;
             }
         }
-        // existing higher priority → keep existing, do nothing
+        // existing higher priority → winner stays $existing
+
+        $winner['task_families'] = array_values(array_unique(array_merge(
+            (array) $existing['task_families'],
+            (array) $incoming['task_families'],
+        )));
+        sort($winner['task_families'], SORT_STRING);
+
+        $this->declared[$clientId] = $winner;
+
+        return true;
+    }
+
+    /**
+     * Validates a raw preference submission BEFORE normalization. A known key carrying the
+     * wrong shape (max_files/max_loc/tier/source/priority as an array, or task_families as
+     * anything other than a list<string>) rejects the whole submission.
+     *
+     * @param  array<string,mixed>  $prefs
+     * @return array{valid:bool, reasons:list<string>}
+     */
+    public function validate(array $prefs): array
+    {
+        $reasons = [];
+
+        foreach (['max_files', 'max_loc', 'tier', 'source', 'priority'] as $scalarKey) {
+            if (array_key_exists($scalarKey, $prefs) && is_array($prefs[$scalarKey])) {
+                $reasons[] = "{$scalarKey}_must_be_scalar";
+            }
+        }
+
+        if (array_key_exists('task_families', $prefs)) {
+            $taskFamilies = $prefs['task_families'];
+            $isValidList = is_array($taskFamilies)
+                && array_is_list($taskFamilies)
+                && array_reduce($taskFamilies, static fn (bool $carry, mixed $v): bool => $carry && is_string($v), true);
+            if (! $isValidList) {
+                $reasons[] = 'task_families_must_be_a_list_of_strings';
+            }
+        }
+
+        return [
+            'valid' => $reasons === [],
+            'reasons' => $reasons,
+        ];
     }
 
     /**
@@ -105,6 +173,12 @@ final class AtlasMaestroWorkerPreferenceRegistry
         if ($this->isExpired($profile)) {
             return self::DEFAULT_PROFILE;
         }
+
+        $profile['provenance'] = [
+            'source' => $profile['source'],
+            'priority' => $profile['priority'],
+            'registered_at' => $profile['registered_at'],
+        ];
 
         return $profile;
     }
@@ -146,7 +220,7 @@ final class AtlasMaestroWorkerPreferenceRegistry
         $out = [];
         foreach ($raw as $clientId => $prefs) {
             $clientId = trim((string) $clientId);
-            if ($clientId === '' || ! is_array($prefs)) {
+            if ($clientId === '' || ! is_array($prefs) || ! $this->validate($prefs)['valid']) {
                 continue;
             }
             $out[$clientId] = $this->normalizeProfile($prefs);
@@ -166,12 +240,17 @@ final class AtlasMaestroWorkerPreferenceRegistry
             $priority = 'medium';
         }
 
+        $taskFamilies = array_key_exists('task_families', $prefs) && is_array($prefs['task_families'])
+            ? array_values(array_map('strval', $prefs['task_families']))
+            : [];
+
         return [
             'max_files' => max(1, (int) ($prefs['max_files'] ?? self::DEFAULT_PROFILE['max_files'])),
             'max_loc' => max(1, (int) ($prefs['max_loc'] ?? self::DEFAULT_PROFILE['max_loc'])),
             'tier' => (string) ($prefs['tier'] ?? self::DEFAULT_PROFILE['tier']),
             'source' => (string) ($prefs['source'] ?? 'declared'),
             'task_family' => (string) ($prefs['task_family'] ?? ''),
+            'task_families' => $taskFamilies,
             'priority' => $priority,
             'registered_at' => array_key_exists('registered_at', $prefs) ? (int) $prefs['registered_at'] : time(),
             'ttl_seconds' => isset($prefs['ttl_seconds']) ? (int) $prefs['ttl_seconds'] : null,
