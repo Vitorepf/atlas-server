@@ -53,12 +53,16 @@ final class AtlasMaestroGiveBackPatternMiner
 
                 continue;
             }
+            $buckets = $groupBuckets[$shapeKey] ?? [];
+            $dominant = $this->dominantBucket($buckets);
             $facts[] = [
                 'shape_key' => $group['shape_key'],
                 'give_back_count' => (int) $group['give_back_count'],
                 'served_count' => (int) $group['served_count'],
-                'bucket' => $this->dominantBucket($groupBuckets[$shapeKey] ?? []),
-                'respec_hint' => $this->respecHint($this->dominantBucket($groupBuckets[$shapeKey] ?? [])),
+                'bucket' => $dominant,
+                'respec_hint' => $this->respecHint($dominant),
+                'supporting_bucket_counts' => $buckets,
+                'repair_confidence' => $this->repairConfidence($buckets),
             ];
         }
 
@@ -139,6 +143,24 @@ final class AtlasMaestroGiveBackPatternMiner
         arsort($buckets);
 
         return (string) array_key_first($buckets);
+    }
+
+    /**
+     * 'high' only when the dominant bucket holds strict majority (>50%) support among all
+     * classified give_backs for this shape — otherwise 'low', so the reshaper never overreacts
+     * to a mixed/weak signal as if it were a single clear root cause.
+     *
+     * @param  array<string,int>  $buckets
+     */
+    private function repairConfidence(array $buckets): string
+    {
+        $total = array_sum($buckets);
+        if ($total === 0) {
+            return 'low';
+        }
+        $dominantCount = max($buckets);
+
+        return $dominantCount / $total > 0.5 ? 'high' : 'low';
     }
 
     private function respecHint(string $bucket): string

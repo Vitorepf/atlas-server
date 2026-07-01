@@ -119,6 +119,74 @@ final class AtlasMaestroGiveBackPatternMinerTest extends TestCase
         $this->assertNotEmpty($row['respec_hint']);
     }
 
+    public function test_rows_include_supporting_bucket_counts(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 5; $i++) {
+            $rows[] = [
+                'task_class' => 'forbidden-class',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => 'forbidden_self_target',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/Maestro/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Ai/SelfConstruction/Maestro/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes(minSample: 5);
+
+        $row = $result['rows'][0];
+        $this->assertArrayHasKey('supporting_bucket_counts', $row);
+        $this->assertSame(['forbidden_target' => 5], $row['supporting_bucket_counts']);
+    }
+
+    public function test_repair_confidence_is_high_only_when_dominant_bucket_has_majority(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+
+        $dominantRows = [];
+        for ($i = 0; $i < 5; $i++) {
+            $dominantRows[] = [
+                'task_class' => 'mixed-class',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => 'forbidden_self_target',
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+        $dominantResult = $miner->mineGiveBackShapes($dominantRows, minSample: 5);
+        $this->assertSame('high', $dominantResult['rows'][0]['repair_confidence']);
+
+        $splitRows = [];
+        for ($i = 0; $i < 3; $i++) {
+            $splitRows[] = [
+                'task_class' => 'split-class',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => 'forbidden_self_target',
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+        for ($i = 0; $i < 3; $i++) {
+            $splitRows[] = [
+                'task_class' => 'split-class',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => 'schema_mismatch_invalid',
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+        $splitResult = $miner->mineGiveBackShapes($splitRows, minSample: 5);
+        $this->assertSame('low', $splitResult['rows'][0]['repair_confidence']);
+    }
+
     public function test_low_sample_buckets_abstain_instead_of_becoming_policy(): void
     {
         $rows = [];
@@ -139,6 +207,7 @@ final class AtlasMaestroGiveBackPatternMinerTest extends TestCase
         $this->assertSame([], $result['rows']);
         $this->assertCount(1, $result['abstentions']);
         $this->assertSame('insufficient_sample', $result['abstentions'][0]['abstain_reason']);
+        $this->assertArrayNotHasKey('repair_confidence', $result['abstentions'][0]);
     }
 
     public function test_each_bucket_emits_a_respec_hint(): void
