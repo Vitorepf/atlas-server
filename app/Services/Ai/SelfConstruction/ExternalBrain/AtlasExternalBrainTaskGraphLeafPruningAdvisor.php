@@ -64,12 +64,27 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisor
     private const DELAY_LEVERAGE_THRESHOLD = 0.45;
 
     /**
+     * Queue-pressure adjustment: high pressure retires/merges low-leverage duplicate
+     * leaves faster (higher thresholds catch more candidates); low pressure delays
+     * less aggressively and preserves moderate leaves instead of prematurely retiring.
+     *
+     * @var array<string,array{retire:float,delay:float,duplication:float}>
+     */
+    private const PRESSURE_THRESHOLDS = [
+        'high' => ['retire' => 0.35, 'delay' => 0.60, 'duplication' => 0.40],
+        'medium' => ['retire' => 0.20, 'delay' => 0.45, 'duplication' => 0.60],
+        'low' => ['retire' => 0.05, 'delay' => 0.25, 'duplication' => 0.80],
+    ];
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function advise(array $input): array
     {
         $tasks = is_array($input['tasks'] ?? null) ? $input['tasks'] : [];
+        $queuePressure = strtolower(trim((string) ($input['queue_pressure'] ?? 'medium')));
+        $thresholds = self::PRESSURE_THRESHOLDS[$queuePressure] ?? self::PRESSURE_THRESHOLDS['medium'];
 
         $recommendations = [];
         foreach ($tasks as $task) {
@@ -106,9 +121,9 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisor
 
             [$recommendation, $reason] = match (true) {
                 $isSafetyOrCertification && $evidenceValue >= self::SAFETY_EVIDENCE_THRESHOLD => ['keep_leaf', 'preserved_high_evidence_safety_or_certification_leaf'],
-                $duplicationRisk >= self::HIGH_DUPLICATION_RISK_THRESHOLD => ['merge_leaf', 'high_duplication_risk_merge_with_similar_task'],
-                $leverageScore < self::RETIRE_LEVERAGE_THRESHOLD => ['retire_leaf', 'low_leverage_retire'],
-                $leverageScore < self::DELAY_LEVERAGE_THRESHOLD => ['delay_leaf', 'moderate_leverage_delay_until_queue_clears'],
+                $duplicationRisk >= $thresholds['duplication'] => ['merge_leaf', 'high_duplication_risk_merge_with_similar_task'],
+                $leverageScore < $thresholds['retire'] => ['retire_leaf', 'low_leverage_retire'],
+                $leverageScore < $thresholds['delay'] => ['delay_leaf', 'moderate_leverage_delay_until_queue_clears'],
                 default => ['keep_leaf', 'sufficient_leverage_keep'],
             };
 
