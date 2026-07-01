@@ -170,6 +170,25 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
 
         [$workerFeedRisk, $workerFeedReason] = $this->workerFeedRisk($criticalPath, $tasks);
 
+        // Only surfaced when the critical path itself starves the worker feed — a rescue node is
+        // a usable (never blocked/stale/duplicate/done/low-evidence) replenishment/unblock task
+        // not already on the critical path, ranked by effective_score so the best rescue leads.
+        $starvationRescueTaskIds = [];
+        if ($workerFeedRisk === 'high') {
+            $criticalPathSet = array_flip($criticalPath);
+            $candidates = [];
+            foreach (array_keys($usable) as $id) {
+                if (isset($criticalPathSet[$id])) {
+                    continue;
+                }
+                if ($tasks[$id]['is_replenishment_node'] || $tasks[$id]['is_unblock_node'] || $tasks[$id]['produces_claimable_count'] > 0) {
+                    $candidates[$id] = $effectiveScore[$id];
+                }
+            }
+            arsort($candidates);
+            $starvationRescueTaskIds = array_keys($candidates);
+        }
+
         return [
             'schema' => self::SCHEMA,
             'critical_path_task_ids' => $criticalPath,
@@ -179,6 +198,7 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
             'next_best_task' => $criticalPath[0] ?? null,
             'worker_feed_risk' => $workerFeedRisk,
             'worker_feed_risk_reason' => $workerFeedReason,
+            'starvation_rescue_task_ids' => $starvationRescueTaskIds,
         ];
     }
 
