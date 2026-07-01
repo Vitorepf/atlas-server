@@ -24,6 +24,14 @@ final class AtlasSelfConstructionAutopoiesisHypothesisGenerator
 
     public const PROXY_ONLY_KINDS = ['novelty', 'task_count', 'line_churn', 'green_self_report'];
 
+    private const DESIGN_PATH_BY_ORIGIN = [
+        'failure' => 'fix_failure',
+        'give_back' => 'respec_packet',
+        'gap' => 'close_capability_gap',
+        'repeated_friction' => 'reduce_friction',
+        'ambition_second_pass' => 'ambition_second_pass',
+    ];
+
     /**
      * @param  array<string,mixed>  $facts {
      *     failures: list<{organ:string, class:string, evidence_refs:list<string>}>,
@@ -116,6 +124,13 @@ final class AtlasSelfConstructionAutopoiesisHypothesisGenerator
                 }
             }
         }
+
+        // Attach design_path + anti_proxy_acceptance to every hypothesis, derived from its origin.
+        foreach ($hypotheses as &$h) {
+            $h['design_path'] = self::DESIGN_PATH_BY_ORIGIN[$h['origin']] ?? 'fix_failure';
+            $h['anti_proxy_acceptance'] = array_values((array) ($h['required_evidence'] ?? []));
+        }
+        unset($h);
 
         // Deduplicate by (target_organ, class) — keep first occurrence.
         $seen = [];

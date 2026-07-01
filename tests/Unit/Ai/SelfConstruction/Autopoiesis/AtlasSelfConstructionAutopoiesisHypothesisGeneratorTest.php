@@ -24,9 +24,11 @@ final class AtlasSelfConstructionAutopoiesisHypothesisGeneratorTest extends Test
         $this->assertContains('cortex', $organs);
         $this->assertContains('worker_swarm', $organs);
         foreach ($verdict['hypotheses'] as $h) {
-            foreach (['target_organ', 'class', 'expected_leverage', 'safety_boundary', 'required_evidence'] as $key) {
+            foreach (['target_organ', 'class', 'expected_leverage', 'safety_boundary', 'required_evidence', 'design_path', 'anti_proxy_acceptance'] as $key) {
                 $this->assertArrayHasKey($key, $h);
             }
+            $this->assertContains($h['design_path'], ['fix_failure', 'respec_packet', 'close_capability_gap', 'reduce_friction', 'ambition_second_pass']);
+            $this->assertNotEmpty($h['anti_proxy_acceptance']);
         }
     }
 
