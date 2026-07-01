@@ -102,6 +102,56 @@ final class AtlasMaestroLeaseContentionBackoffAdvisorTest extends TestCase
         $this->assertSame($advisor->advise($facts), $advisor->advise($facts));
     }
 
+    // ── worker-quality cap on spawn_more ────────────────────────────────────
+
+    public function test_high_servable_now_does_not_spawn_more_when_recent_give_back_rate_breaches_ceiling(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'servable_now' => 10,
+            'active_leases' => 2,
+            'recent_give_back_rate' => 0.5,
+        ]));
+
+        $this->assertNotSame(AtlasMaestroLeaseContentionBackoffAdvisor::DECISION_SPAWN_MORE, $result['decision']);
+        $this->assertNotEmpty($result['quality_gate_reason_codes']);
+        $this->assertStringContainsString('recent_give_back_rate', implode(',', $result['quality_gate_reason_codes']));
+    }
+
+    public function test_high_servable_now_does_not_spawn_more_when_weak_green_rate_breaches_ceiling(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'servable_now' => 10,
+            'active_leases' => 2,
+            'weak_green_rate' => 0.6,
+        ]));
+
+        $this->assertNotSame(AtlasMaestroLeaseContentionBackoffAdvisor::DECISION_SPAWN_MORE, $result['decision']);
+        $this->assertNotEmpty($result['quality_gate_reason_codes']);
+        $this->assertStringContainsString('weak_green_rate', implode(',', $result['quality_gate_reason_codes']));
+    }
+
+    public function test_high_quality_recent_completion_evidence_allows_spawn_more_with_burst_cap(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'servable_now' => 50,
+            'active_leases' => 2,
+            'recent_give_back_rate' => 0.05,
+            'weak_green_rate' => 0.0,
+        ]));
+
+        $this->assertSame(AtlasMaestroLeaseContentionBackoffAdvisor::DECISION_SPAWN_MORE, $result['decision']);
+        $this->assertLessThanOrEqual(4, $result['target_worker_delta']);
+        $this->assertEmpty($result['quality_gate_reason_codes']);
+    }
+
+    public function test_output_includes_quality_gate_reason_codes_key_even_when_empty(): void
+    {
+        $result = $this->advisor()->advise($this->facts());
+
+        $this->assertArrayHasKey('quality_gate_reason_codes', $result);
+        $this->assertSame([], $result['quality_gate_reason_codes']);
+    }
+
     public function test_source_performs_no_process_sleep_mutation_provider_or_git_calls(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/Maestro/Concurrency/AtlasMaestroLeaseContentionBackoffAdvisor.php'));

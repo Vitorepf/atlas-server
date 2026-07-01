@@ -30,6 +30,10 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
 
     private const SPAWN_BURST_CAP = 4;
 
+    private const QUALITY_GIVE_BACK_RATE_CEILING = 0.3;
+
+    private const QUALITY_WEAK_GREEN_RATE_CEILING = 0.3;
+
     /**
      * @param  array<string, mixed>  $facts
      * @return array<string, mixed>
@@ -41,9 +45,22 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
         $recentCommitFailures = (int) ($facts['recent_commit_failures'] ?? 0);
         $recentIndexLockRetries = (int) ($facts['recent_index_lock_retries'] ?? 0);
         $averageTaskMinutes = (float) ($facts['average_task_minutes'] ?? 10.0);
+        $recentGiveBackRate = (float) ($facts['recent_give_back_rate'] ?? 0.0);
+        $weakGreenRate = (float) ($facts['weak_green_rate'] ?? 0.0);
 
         $reasonCodes = [];
+        $qualityGateReasonCodes = [];
         $hasContention = false;
+        $qualityBreached = false;
+
+        if ($recentGiveBackRate > self::QUALITY_GIVE_BACK_RATE_CEILING) {
+            $qualityGateReasonCodes[] = 'quality_gate:recent_give_back_rate='.$recentGiveBackRate;
+            $qualityBreached = true;
+        }
+        if ($weakGreenRate > self::QUALITY_WEAK_GREEN_RATE_CEILING) {
+            $qualityGateReasonCodes[] = 'quality_gate:weak_green_rate='.$weakGreenRate;
+            $qualityBreached = true;
+        }
 
         if ($recentCommitFailures >= self::COMMIT_FAILURE_THRESHOLD) {
             $reasonCodes[] = 'contention:commit_failures='.$recentCommitFailures;
@@ -63,26 +80,35 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
             $delta = -max(1, (int) ceil($activeLeases / 2));
             $retryAfter = max(30, (int) round($averageTaskMinutes * 60 / 4));
 
-            return $this->result(self::DECISION_BACKOFF, $delta, $retryAfter, $reasonCodes);
+            return $this->result(self::DECISION_BACKOFF, $delta, $retryAfter, $reasonCodes, $qualityGateReasonCodes);
         }
 
         $headroom = $servableNow - $activeLeases;
         if ($headroom >= self::SPAWN_HEADROOM_THRESHOLD) {
+            // Queue headroom alone is not sufficient — recent worker quality caps whether Maestro
+            // actually spawns more muscles, so a deep-but-unreliable queue does not compound failures.
+            if ($qualityBreached) {
+                $reasonCodes[] = 'headroom:servable_now_exceeds_active_leases='.$headroom;
+
+                return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes, $qualityGateReasonCodes);
+            }
+
             $reasonCodes[] = 'headroom:servable_now_exceeds_active_leases='.$headroom;
 
-            return $this->result(self::DECISION_SPAWN_MORE, min($headroom, self::SPAWN_BURST_CAP), 0, $reasonCodes);
+            return $this->result(self::DECISION_SPAWN_MORE, min($headroom, self::SPAWN_BURST_CAP), 0, $reasonCodes, $qualityGateReasonCodes);
         }
 
         $reasonCodes[] = 'stable:no_strong_signal';
 
-        return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes);
+        return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes, $qualityGateReasonCodes);
     }
 
     /**
      * @param  list<string>  $reasonCodes
+     * @param  list<string>  $qualityGateReasonCodes
      * @return array<string, mixed>
      */
-    private function result(string $decision, int $targetWorkerDelta, int $retryAfterSeconds, array $reasonCodes): array
+    private function result(string $decision, int $targetWorkerDelta, int $retryAfterSeconds, array $reasonCodes, array $qualityGateReasonCodes = []): array
     {
         return [
             'schema' => self::SCHEMA,
@@ -90,6 +116,7 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
             'target_worker_delta' => $targetWorkerDelta,
             'retry_after_seconds' => $retryAfterSeconds,
             'reason_codes' => $reasonCodes,
+            'quality_gate_reason_codes' => $qualityGateReasonCodes,
         ];
     }
 }
