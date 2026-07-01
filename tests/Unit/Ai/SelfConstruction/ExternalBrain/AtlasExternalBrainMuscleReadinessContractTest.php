@@ -208,6 +208,35 @@ final class AtlasExternalBrainMuscleReadinessContractTest extends TestCase
         $this->assertGreaterThan(0.0, $r['give_back_risk_score']);
     }
 
+    public function test_multi_failure_packet_reports_all_blocking_deficiencies_coherently(): void
+    {
+        $r = $this->contract->check($this->readySpec([
+            'allowed_files'       => ['tests/Unit/Ai/SelfConstruction/AtlasDriftDetectorTest.php'],
+            'acceptance_criteria' => [],
+            'required_evidence'   => [],
+        ]));
+
+        $this->assertFalse($r['ready']);
+        $this->assertContains('no_test_only_packet', $r['blocking_deficiencies']);
+        $this->assertContains('implementation_plus_test_scope', $r['blocking_deficiencies']);
+        $this->assertContains('runnable_proof', $r['blocking_deficiencies']);
+        $this->assertContains('clear_give_back_path', $r['blocking_deficiencies']);
+
+        // Every blocking deficiency must correspond to a failed check, and vice versa —
+        // the two derivations must never drift apart.
+        $failedChecks = array_values(array_map(
+            static fn (array $c): string => $c['check'],
+            array_filter($r['checks'], static fn (array $c): bool => ! $c['passed']),
+        ));
+        sort($failedChecks);
+        $blocking = $r['blocking_deficiencies'];
+        sort($blocking);
+        $this->assertSame($failedChecks, $blocking);
+
+        $this->assertNotEmpty($r['readiness_category']);
+        $this->assertGreaterThan(0.0, $r['give_back_risk_score']);
+    }
+
     // ── scoped_files check ────────────────────────────────────────────────────
 
     public function test_fails_scoped_files_when_allowed_files_empty(): void

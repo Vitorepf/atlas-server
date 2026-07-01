@@ -103,34 +103,75 @@ final class AtlasExternalBrainMuscleReadinessContract
             $this->checkWorkerCapabilityFit($taskFamily, $riskLevel, $modelTier, $workerCapabilities),
         ];
 
-        $ready = array_reduce($checks, static fn (bool $carry, array $c): bool => $carry && $c['passed'], true);
-        $hints = array_values(array_unique(array_merge(...array_column($checks, 'hints'))));
-
-        // Strip internal hints key for output.
-        $checkOutput = array_map(static function (array $c): array {
-            return ['check' => $c['check'], 'passed' => $c['passed'], 'reason' => $c['reason']];
-        }, $checks);
+        $result = $this->assembleCheckResult($checks);
 
         $failureCategory = null;
-        if (! $ready) {
+        if (! $result['ready']) {
             $failureCategory = $this->classifyFailure($isDuplicate, $allowedFiles, $implementedFiles, $riskLevel, $objective, $checks);
         }
-
-        $blockingDeficiencies = array_values(
-            array_column(array_filter($checkOutput, static fn (array $c): bool => ! $c['passed']), 'check')
-        );
 
         return [
             'schema'                => self::SCHEMA,
             'task_packet_id'        => $id,
-            'ready'                 => $ready,
-            'readiness_category'    => $this->deriveReadinessCategory($ready, $failureCategory, $checks),
+            'ready'                 => $result['ready'],
+            'readiness_category'    => $this->deriveReadinessCategory($result['ready'], $failureCategory, $checks),
             'failure_category'      => $failureCategory,
-            'give_back_risk_score'  => $this->computeGiveBackRiskScore($checks),
-            'blocking_deficiencies' => $blockingDeficiencies,
-            'checks'                => $checkOutput,
-            'repair_hints'          => $hints,
+            'give_back_risk_score'  => $result['give_back_risk_score'],
+            'blocking_deficiencies' => $result['blocking_deficiencies'],
+            'checks'                => $result['checks'],
+            'repair_hints'          => $result['repair_hints'],
             'worker_readiness'      => $this->assessWorkerReadiness($spec),
+        ];
+    }
+
+    /**
+     * Single pass over the raw check results: derives ready, blocking_deficiencies,
+     * give_back_risk_score, repair_hints, and the stripped check output from ONE
+     * shared list of failed checks — so a multi-failure packet cannot show a
+     * blocking deficiency that isn't reflected in the risk score, or vice versa.
+     *
+     * @param  list<array<string,mixed>>  $checks
+     * @return array{ready:bool, blocking_deficiencies:list<string>, give_back_risk_score:float, repair_hints:list<string>, checks:list<array<string,mixed>>}
+     */
+    private function assembleCheckResult(array $checks): array
+    {
+        $riskWeights = [
+            'no_test_only_packet'            => 0.30,
+            'runnable_proof'                 => 0.25,
+            'implementation_plus_test_scope' => 0.20,
+            'clear_give_back_path'           => 0.20,
+            'acceptance_contradiction_risk'  => 0.15,
+            'concrete_symbol_presence'       => 0.15,
+            'give_back_escape_hatch'         => 0.10,
+            'enough_context'                 => 0.10,
+            'worker_capability_fit'          => 0.20,
+        ];
+
+        $ready = true;
+        $blockingDeficiencies = [];
+        $riskScore = 0.0;
+        $hints = [];
+        $checkOutput = [];
+
+        foreach ($checks as $check) {
+            $checkOutput[] = ['check' => $check['check'], 'passed' => $check['passed'], 'reason' => $check['reason']];
+            $hints = array_merge($hints, (array) ($check['hints'] ?? []));
+
+            if (! $check['passed']) {
+                $ready = false;
+                $blockingDeficiencies[] = $check['check'];
+                if (isset($riskWeights[$check['check']])) {
+                    $riskScore += $riskWeights[$check['check']];
+                }
+            }
+        }
+
+        return [
+            'ready'                 => $ready,
+            'blocking_deficiencies' => array_values($blockingDeficiencies),
+            'give_back_risk_score'  => round(min(1.0, $riskScore), 4),
+            'repair_hints'          => array_values(array_unique($hints)),
+            'checks'                => $checkOutput,
         ];
     }
 
@@ -521,31 +562,6 @@ final class AtlasExternalBrainMuscleReadinessContract
         }
 
         return 'repairable_spec_defect';
-    }
-
-    /** @param list<array<string,mixed>> $checks */
-    private function computeGiveBackRiskScore(array $checks): float
-    {
-        $weights = [
-            'no_test_only_packet'            => 0.30,
-            'runnable_proof'                 => 0.25,
-            'implementation_plus_test_scope' => 0.20,
-            'clear_give_back_path'           => 0.20,
-            'acceptance_contradiction_risk'  => 0.15,
-            'concrete_symbol_presence'       => 0.15,
-            'give_back_escape_hatch'         => 0.10,
-            'enough_context'                 => 0.10,
-            'worker_capability_fit'          => 0.20,
-        ];
-
-        $score = 0.0;
-        foreach ($checks as $check) {
-            if (! $check['passed'] && isset($weights[$check['check']])) {
-                $score += $weights[$check['check']];
-            }
-        }
-
-        return round(min(1.0, $score), 4);
     }
 
     /**
