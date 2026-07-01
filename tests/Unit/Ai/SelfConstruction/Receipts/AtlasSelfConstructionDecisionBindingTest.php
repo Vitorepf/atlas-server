@@ -193,4 +193,90 @@ final class AtlasSelfConstructionDecisionBindingTest extends TestCase
         sort($sortedKinds, SORT_STRING);
         $this->assertSame($sortedKinds, $kinds);
     }
+
+    // ── AC: reports bound/unbound/stale/proof gaps/confidence without raw provider content ──
+
+    public function test_valid_binding_has_full_confidence_and_no_proof_gap(): void
+    {
+        $decisions = ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1', 'ts' => '2026-06-25T00:00:00Z']];
+        $row = ['decision_ref' => 'd-1', 'decision_hash' => 'h-d1', 'decision_ts' => '2026-06-25T00:01:00Z'];
+        $index = $this->index($decisions, [
+            'task_receipts' => ['t-1' => array_merge(['id' => 't-1'], $row)],
+        ]);
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+
+        $this->assertSame(1.0, $r['bindings'][0]['confidence']);
+        $this->assertSame([], $r['proof_gaps']);
+        $this->assertSame(1.0, $r['overall_confidence']);
+    }
+
+    public function test_missing_receipt_produces_zero_confidence_and_proof_gap_entry(): void
+    {
+        $index = $this->index(
+            ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1']],
+            ['task_receipts' => ['t-1' => ['id' => 't-1']]],
+        );
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+
+        $this->assertSame(0.0, $r['bindings'][0]['confidence']);
+        $this->assertCount(1, $r['proof_gaps']);
+        $this->assertSame('missing_binding', $r['proof_gaps'][0]['gap']);
+        $this->assertSame(0.0, $r['overall_confidence']);
+    }
+
+    public function test_stale_evidence_gets_partial_confidence_and_proof_gap(): void
+    {
+        $decisions = ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1', 'ts' => '2026-06-25T10:00:00Z']];
+        $index = $this->index($decisions, [
+            'verification_receipts' => ['v-1' => ['id' => 'v-1', 'decision_ref' => 'd-1', 'decision_hash' => 'h-d1', 'decision_ts' => '2026-06-25T05:00:00Z']],
+        ]);
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+
+        $this->assertSame(0.5, $r['bindings'][0]['confidence']);
+        $this->assertCount(1, $r['proof_gaps']);
+        $this->assertSame('stale_binding', $r['proof_gaps'][0]['gap']);
+    }
+
+    // ── AC: ambiguous multi-receipt case ────────────────────────────────────────
+
+    public function test_ambiguous_multi_receipt_row_yields_ambiguous_binding(): void
+    {
+        $index = $this->index(
+            ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1'], 'd-2' => ['id' => 'd-2', 'hash' => 'h-d2']],
+            ['task_receipts' => ['t-1' => ['id' => 't-1', 'decision_refs' => ['d-1', 'd-2']]]],
+        );
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+
+        $this->assertSame(AtlasSelfConstructionDecisionBinding::STATUS_AMBIGUOUS, $r['bindings'][0]['status']);
+        $this->assertStringContainsString('multiple_distinct_decision_refs', $r['bindings'][0]['reason']);
+        $this->assertSame(0.2, $r['bindings'][0]['confidence']);
+        $this->assertSame(1, $r['critical_summary'][AtlasSelfConstructionDecisionBinding::STATUS_AMBIGUOUS]);
+    }
+
+    public function test_single_decision_refs_entry_is_not_treated_as_ambiguous(): void
+    {
+        $decisions = ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1']];
+        $index = $this->index($decisions, [
+            'task_receipts' => ['t-1' => ['id' => 't-1', 'decision_refs' => ['d-1'], 'decision_ref' => 'd-1', 'decision_hash' => 'h-d1']],
+        ]);
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+
+        $this->assertSame(AtlasSelfConstructionDecisionBinding::STATUS_BOUND, $r['bindings'][0]['status']);
+    }
+
+    // ── provider-safety: no raw content keys leak into the envelope ────────────
+
+    public function test_envelope_never_exposes_provider_sensitive_keys(): void
+    {
+        $decisions = ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1', 'raw_prompt' => 'secret prompt']];
+        $row = ['decision_ref' => 'd-1', 'decision_hash' => 'h-d1', 'provider_trace' => 'internal-trace'];
+        $index = $this->index($decisions, [
+            'task_receipts' => ['t-1' => array_merge(['id' => 't-1'], $row)],
+        ]);
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+
+        $json = (string) json_encode($r);
+        $this->assertStringNotContainsString('secret prompt', $json);
+        $this->assertStringNotContainsString('internal-trace', $json);
+    }
 }
