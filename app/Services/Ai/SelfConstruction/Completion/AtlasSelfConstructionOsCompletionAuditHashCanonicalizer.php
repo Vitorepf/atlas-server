@@ -13,14 +13,58 @@ namespace App\Services\Ai\SelfConstruction\Completion;
  */
 final class AtlasSelfConstructionOsCompletionAuditHashCanonicalizer
 {
+    /** Provider-sensitive / volatile fields always excluded before hashing. @var list<string> */
+    private const FIXED_VOLATILE_FIELDS = ['audited_at', 'completion_audit_hash', 'raw_prompt', 'provider_trace'];
+
     /**
      * @param  array<string,mixed>  $payload
+     * @param  list<string>  $extraVolatileFields  caller-declared volatile fields to additionally
+     *                                              ignore (e.g. a run-specific timestamp key),
+     *                                              merged with the fixed provider-safe set.
      */
-    public static function stableHash(array $payload): string
+    public static function stableHash(array $payload, array $extraVolatileFields = []): string
     {
-        unset($payload['audited_at'], $payload['completion_audit_hash'], $payload['raw_prompt'], $payload['provider_trace']);
+        $payload = self::stripVolatileFields($payload, $extraVolatileFields);
 
         return hash('sha256', (string) json_encode(self::ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * AC4: names which volatile/provider-sensitive fields were actually present in $payload and
+     * therefore excluded from the hash — so the redaction is reported, not silent.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  list<string>  $extraVolatileFields
+     * @return list<string>
+     */
+    public static function excludedFields(array $payload, array $extraVolatileFields = []): array
+    {
+        $allVolatile = array_values(array_unique(array_merge(
+            self::FIXED_VOLATILE_FIELDS,
+            array_map('strval', $extraVolatileFields),
+        )));
+
+        return array_values(array_filter(
+            $allVolatile,
+            static fn (string $field): bool => array_key_exists($field, $payload),
+        ));
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  list<string>  $extraVolatileFields
+     * @return array<string,mixed>
+     */
+    private static function stripVolatileFields(array $payload, array $extraVolatileFields): array
+    {
+        foreach (self::FIXED_VOLATILE_FIELDS as $field) {
+            unset($payload[$field]);
+        }
+        foreach ($extraVolatileFields as $field) {
+            unset($payload[(string) $field]);
+        }
+
+        return $payload;
     }
 
     /**

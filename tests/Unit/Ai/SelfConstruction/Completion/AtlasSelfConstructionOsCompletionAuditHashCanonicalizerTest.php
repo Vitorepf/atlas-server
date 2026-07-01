@@ -107,4 +107,90 @@ class AtlasSelfConstructionOsCompletionAuditHashCanonicalizerTest extends TestCa
         $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['x' => 1, 'provider_trace' => ['tok' => 999, 'model' => 'sonnet']]);
         self::assertSame($a, $b, 'provider_trace must be stripped before hashing');
     }
+
+    // ── AC3: substantive fields (evidence, verdict, blocker, proof_source) DO change the hash ──
+
+    public function test_evidence_change_changes_hash(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['evidence' => ['tests_or_gates_result']]);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['evidence' => ['implementation_notes']]);
+        self::assertNotSame($a, $b, 'evidence change must change the hash');
+    }
+
+    public function test_verdict_change_changes_hash(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['verdict' => 'passed']);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['verdict' => 'failed']);
+        self::assertNotSame($a, $b, 'verdict change must change the hash');
+    }
+
+    public function test_blocker_change_changes_hash(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['blockers' => []]);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['blockers' => ['missing_proof']]);
+        self::assertNotSame($a, $b, 'blocker change must change the hash');
+    }
+
+    public function test_proof_source_change_changes_hash(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['proof_source' => 'phpunit']);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['proof_source' => 'manual']);
+        self::assertNotSame($a, $b, 'proof_source change must change the hash');
+    }
+
+    // ── AC3: caller-declared extra volatile fields are ignored (stable hash) ──────
+
+    public function test_extra_volatile_field_is_ignored_when_declared(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(
+            ['verdict' => 'passed', 'run_started_at' => 1000],
+            ['run_started_at'],
+        );
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(
+            ['verdict' => 'passed', 'run_started_at' => 9999],
+            ['run_started_at'],
+        );
+        self::assertSame($a, $b, 'declared extra volatile field must not affect the hash');
+    }
+
+    public function test_undeclared_field_still_affects_hash_even_if_it_would_be_volatile_elsewhere(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['verdict' => 'passed', 'run_started_at' => 1000]);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['verdict' => 'passed', 'run_started_at' => 9999]);
+        self::assertNotSame($a, $b, 'run_started_at is only volatile when explicitly declared');
+    }
+
+    // ── AC4: provider-sensitive fields are reported as excluded ───────────────────
+
+    public function test_excluded_fields_names_the_fixed_volatile_fields_present_in_payload(): void
+    {
+        $excluded = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::excludedFields([
+            'verdict' => 'passed',
+            'audited_at' => 1234,
+            'raw_prompt' => 'secret',
+            'provider_trace' => ['tok' => 1],
+        ]);
+
+        self::assertContains('audited_at', $excluded);
+        self::assertContains('raw_prompt', $excluded);
+        self::assertContains('provider_trace', $excluded);
+        self::assertNotContains('verdict', $excluded);
+    }
+
+    public function test_excluded_fields_omits_fixed_volatile_fields_absent_from_payload(): void
+    {
+        $excluded = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::excludedFields(['verdict' => 'passed']);
+
+        self::assertSame([], $excluded);
+    }
+
+    public function test_excluded_fields_includes_declared_extra_volatile_fields_present_in_payload(): void
+    {
+        $excluded = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::excludedFields(
+            ['verdict' => 'passed', 'run_started_at' => 1000],
+            ['run_started_at'],
+        );
+
+        self::assertContains('run_started_at', $excluded);
+    }
 }
