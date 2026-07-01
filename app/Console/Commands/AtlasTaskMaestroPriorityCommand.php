@@ -32,6 +32,9 @@ final class AtlasTaskMaestroPriorityCommand extends Command
 
     private const WHITELISTED_STATUSES = ['snapshotted', 'reshaped', 'listed', 'disabled'];
 
+    /** claimable count at/below this is a low-supply signal — origination should top up soon. */
+    private const LOW_CLAIMABLE_THRESHOLD = 3;
+
     protected $signature = 'atlas:task:maestro:priority {action : snapshot|reshape|history} {--limit=20} {--client=} {--json}';
 
     protected $description = 'Operator surface for the maestro dynamic-priority loop (snapshot | reshape | history).';
@@ -68,7 +71,44 @@ final class AtlasTaskMaestroPriorityCommand extends Command
             'schema' => self::SCHEMA_SNAPSHOT,
             'status' => 'snapshotted',
             'snapshot' => $row,
+            'age_value_pressure' => $this->ageValuePressure($row),
         ]);
+    }
+
+    /**
+     * Distinguishes stale-but-servable work from urgent replenishment, using only existing
+     * snapshot facts — blocked/quarantined packets are NEVER counted as implementable supply.
+     *
+     * @param  array<string,mixed>  $row  the snapshotter's row (disabled ⇒ neutral 'low' band)
+     * @return array{band:'low'|'watch'|'replenish_soon'|'urgent', recommendation:'wait'|'replenish', implementable_supply_count:int, blocked_or_quarantined_count:int, worker_idle_prediction_ms:int}
+     */
+    private function ageValuePressure(array $row): array
+    {
+        $packets = $this->loadPendingPackets();
+        $blockedOrQuarantined = 0;
+        foreach ($packets as $p) {
+            if ((bool) ($p['blocked'] ?? false) || (bool) ($p['quarantined'] ?? false)) {
+                $blockedOrQuarantined++;
+            }
+        }
+        // Blocked/quarantined packets are dead weight, never useful supply — excluded here.
+        $claimableCount = count($packets) - $blockedOrQuarantined;
+        $idleMs = (int) ($row['facts']['worker_idle_prediction_ms'] ?? 0);
+
+        $band = match (true) {
+            $claimableCount === 0 => 'urgent',
+            $idleMs === 0 => 'watch',
+            $claimableCount <= self::LOW_CLAIMABLE_THRESHOLD => 'replenish_soon',
+            default => 'low',
+        };
+
+        return [
+            'band' => $band,
+            'recommendation' => in_array($band, ['urgent', 'replenish_soon'], true) ? 'replenish' : 'wait',
+            'implementable_supply_count' => $claimableCount,
+            'blocked_or_quarantined_count' => $blockedOrQuarantined,
+            'worker_idle_prediction_ms' => $idleMs,
+        ];
     }
 
     private function doReshape(): int
