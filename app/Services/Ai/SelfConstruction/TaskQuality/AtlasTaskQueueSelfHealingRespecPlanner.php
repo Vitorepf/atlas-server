@@ -37,8 +37,26 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  *
  * EVIDENCE REQUIREMENTS are always emitted when respec is required.
  *
+ * IMPLEMENTABILITY / RESIDUAL RISK:
+ *   implementability_before — true only when no issue was detected on the input packet.
+ *   implementability_after  — true when every detected issue type has a deterministic,
+ *     always-resolving respec action (add_implementation_file, add_test_file,
+ *     revise_acceptance_criteria); false when a forbidden_target issue is present, since
+ *     replacing a forbidden target requires picking a genuinely new, permitted target that
+ *     this planner cannot itself invent — that risk is named in residual_risk instead of
+ *     silently claimed resolved.
+ *   residual_risk            — list of facts about what a respec does NOT guarantee.
+ *
+ * PROPOSED RESPEC VALIDATION (opt-in via proposed_allowed_files / proposed_acceptance_criteria):
+ *   Refuses a caller-supplied candidate respec that (a) adds allowed_files unrelated to the
+ *   original target/scope (broad_scope_expansion), or (b) drops an original acceptance
+ *   criterion that asserted a real runnable proof gate without replacing it
+ *   (removed_meaningful_proof_gate). A minimal, in-scope, proof-preserving respec is valid.
+ *
  * OUTPUT:
- *   { schema, respec_required, issues, respec_actions, evidence_requirements }
+ *   { schema, respec_required, issues, respec_actions, evidence_requirements,
+ *     implementability_before, implementability_after, residual_risk,
+ *     proposed_respec_validation }
  *
  * PURE / DETERMINISTIC / NO I/O.
  */
@@ -159,6 +177,20 @@ final class AtlasTaskQueueSelfHealingRespecPlanner
             }
         }
 
+        $issueTypes = array_column($issues, 'type');
+        $hasForbiddenTarget = in_array('forbidden_target', $issueTypes, true);
+        $implementabilityBefore = ! $respecRequired;
+        $implementabilityAfter = ! $respecRequired || ! $hasForbiddenTarget;
+        $residualRisk = [];
+        if ($hasForbiddenTarget) {
+            $residualRisk[] = 'forbidden_target_replacement_requires_a_new_permitted_target_not_invented_by_this_planner';
+        }
+
+        $proposalGiven = array_key_exists('proposed_allowed_files', $packet) || array_key_exists('proposed_acceptance_criteria', $packet);
+        $proposedValidation = $proposalGiven
+            ? $this->validateProposedRespec($packet, $allowedFiles, $acceptance, $target)
+            : null;
+
         return [
             'schema'                  => self::SCHEMA,
             'respec_required'         => $respecRequired,
@@ -167,7 +199,72 @@ final class AtlasTaskQueueSelfHealingRespecPlanner
             'evidence_requirements'   => $evidenceReqs,
             'runnable_command_hint'   => $runnableCommand,
             'non_fatal_discovery_hints' => array_values(array_unique($nonFatalDiscoveryHints)),
+            'implementability_before' => $implementabilityBefore,
+            'implementability_after'  => $implementabilityAfter,
+            'residual_risk'           => $residualRisk,
+            'proposed_respec_validation' => $proposedValidation,
         ];
+    }
+
+    /**
+     * Refuses a proposed respec that expands scope beyond the original target's directory or
+     * silently drops an original acceptance criterion that asserted a real runnable proof gate.
+     * A minimal respec never needs to reach outside the target's own directory or shed proof.
+     *
+     * @param  array<string,mixed>  $packet
+     * @param  list<string>  $originalAllowedFiles
+     * @param  list<string>  $originalAcceptance
+     * @return array<string,mixed>
+     */
+    private function validateProposedRespec(array $packet, array $originalAllowedFiles, array $originalAcceptance, string $target): array
+    {
+        $proposedAllowedFiles = is_array($packet['proposed_allowed_files'] ?? null)
+            ? array_map('strval', $packet['proposed_allowed_files'])
+            : $originalAllowedFiles;
+        $proposedAcceptance = is_array($packet['proposed_acceptance_criteria'] ?? null)
+            ? array_map('strval', $packet['proposed_acceptance_criteria'])
+            : $originalAcceptance;
+
+        $refusalReasons = [];
+
+        $originalDirs = array_unique(array_map(static fn (string $f): string => dirname($f), $originalAllowedFiles));
+        $newFiles = array_values(array_diff($proposedAllowedFiles, $originalAllowedFiles));
+        foreach ($newFiles as $file) {
+            $inScope = false;
+            foreach ($originalDirs as $dir) {
+                if ($dir !== '.' && str_starts_with($file, $dir)) {
+                    $inScope = true;
+                    break;
+                }
+            }
+            if (! $inScope && $target !== '' && ! str_contains($file, $target)) {
+                $refusalReasons[] = 'broad_scope_expansion:'.$file;
+            }
+        }
+
+        $droppedCriteria = array_values(array_diff($originalAcceptance, $proposedAcceptance));
+        foreach ($droppedCriteria as $criterion) {
+            if ($this->isRunnableProofCriterion($criterion)) {
+                $refusalReasons[] = 'removed_meaningful_proof_gate:'.$criterion;
+            }
+        }
+
+        return [
+            'valid'            => $refusalReasons === [],
+            'refusal_reasons'  => $refusalReasons,
+        ];
+    }
+
+    private function isRunnableProofCriterion(string $criterion): bool
+    {
+        $lc = strtolower($criterion);
+        foreach (['artisan test', 'phpunit', 'exits 0', 'exit 0', 'exit code 0', 'green output', 'assert'] as $needle) {
+            if (str_contains($lc, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return array{bool,bool} [hasImpl, hasTest] */

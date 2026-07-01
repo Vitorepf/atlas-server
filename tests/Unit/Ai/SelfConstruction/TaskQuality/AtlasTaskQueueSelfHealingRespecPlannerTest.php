@@ -307,4 +307,102 @@ final class AtlasTaskQueueSelfHealingRespecPlannerTest extends TestCase
         $this->assertNull($result['runnable_command_hint']);
         $this->assertSame([], $result['non_fatal_discovery_hints']);
     }
+
+    // ── AC3: before/after implementability + residual risk ─────────────────────
+
+    public function test_healthy_packet_is_implementable_before_and_after_with_no_residual_risk(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket());
+
+        $this->assertTrue($result['implementability_before']);
+        $this->assertTrue($result['implementability_after']);
+        $this->assertSame([], $result['residual_risk']);
+    }
+
+    public function test_missing_test_path_is_not_implementable_before_but_is_after(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo/AtlasFooService.php'],
+        ]));
+
+        $this->assertFalse($result['implementability_before']);
+        $this->assertTrue($result['implementability_after']);
+        $this->assertSame([], $result['residual_risk']);
+    }
+
+    public function test_forbidden_target_is_not_fully_implementable_after_and_names_residual_risk(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket([
+            'target'            => 'AtlasFooService',
+            'forbidden_targets' => ['atlasfooservice'],
+        ]));
+
+        $this->assertFalse($result['implementability_before']);
+        $this->assertFalse($result['implementability_after']);
+        $this->assertNotEmpty($result['residual_risk']);
+    }
+
+    // ── AC2: refuses broad-scope or proof-gate-removing proposed respecs ───────
+
+    public function test_proposed_respec_validation_absent_when_no_proposal_given(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket());
+
+        $this->assertNull($result['proposed_respec_validation']);
+    }
+
+    public function test_proposed_respec_in_scope_and_proof_preserving_is_valid(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo/AtlasFooService.php'],
+            'proposed_allowed_files' => [
+                'app/Services/Ai/SelfConstruction/Foo/AtlasFooService.php',
+                'app/Services/Ai/SelfConstruction/Foo/AtlasFooServiceTest.php',
+            ],
+        ]));
+
+        $this->assertTrue($result['proposed_respec_validation']['valid']);
+        $this->assertSame([], $result['proposed_respec_validation']['refusal_reasons']);
+    }
+
+    public function test_proposed_respec_adding_unrelated_file_is_refused(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket([
+            'proposed_allowed_files' => array_merge($this->healthyPacket()['allowed_files'], [
+                'app/Services/Ai/UnrelatedDomain/SomethingElse.php',
+            ]),
+        ]));
+
+        $this->assertFalse($result['proposed_respec_validation']['valid']);
+        $reasonBlob = implode(',', $result['proposed_respec_validation']['refusal_reasons']);
+        $this->assertStringContainsString('broad_scope_expansion', $reasonBlob);
+    }
+
+    public function test_proposed_respec_dropping_runnable_proof_criterion_is_refused(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket([
+            'proposed_acceptance_criteria' => ['Must implement deterministic scoring.'],
+        ]));
+
+        $this->assertFalse($result['proposed_respec_validation']['valid']);
+        $reasonBlob = implode(',', $result['proposed_respec_validation']['refusal_reasons']);
+        $this->assertStringContainsString('removed_meaningful_proof_gate', $reasonBlob);
+    }
+
+    public function test_proposed_respec_dropping_non_proof_criterion_is_allowed(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket([
+            'acceptance_criteria' => [
+                'Must implement deterministic scoring.',
+                'Should read well in the changelog.',
+                'Running ./vendor/bin/phpunit produces green output.',
+            ],
+            'proposed_acceptance_criteria' => [
+                'Must implement deterministic scoring.',
+                'Running ./vendor/bin/phpunit produces green output.',
+            ],
+        ]));
+
+        $this->assertTrue($result['proposed_respec_validation']['valid']);
+    }
 }
