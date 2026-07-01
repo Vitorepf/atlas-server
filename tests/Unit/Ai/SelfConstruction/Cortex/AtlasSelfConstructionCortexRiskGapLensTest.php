@@ -35,6 +35,44 @@ final class AtlasSelfConstructionCortexRiskGapLensTest extends TestCase
         $this->assertContains(AtlasSelfConstructionCortexRiskGapLens::GAP_STALE_CONTEXT, $classes);
     }
 
+    public function test_blocked_debt_reported_separately_from_claimable_supply(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'queue_health' => ['blocked_count' => 40, 'claimable_count' => 10],
+        ]);
+
+        $gap = null;
+        foreach ($r['gaps'] as $g) {
+            if ($g['class'] === AtlasSelfConstructionCortexRiskGapLens::GAP_BLOCKED_DEBT) {
+                $gap = $g;
+            }
+        }
+        $this->assertNotNull($gap);
+        $this->assertSame(40, $gap['evidence']['blocked_count']);
+        $this->assertSame(10, $gap['evidence']['claimable_count']);
+        $this->assertTrue($gap['evidence']['dead_supply']);
+        $this->assertSame('task_queue', $gap['originator_hints']['likely_owner_organ']);
+        $this->assertSame('queue_repair', $gap['originator_hints']['suggested_lane']);
+    }
+
+    public function test_quarantined_debt_maps_to_maestro_repair_path(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'queue_health' => ['quarantined_count' => 5, 'claimable_count' => 10],
+        ]);
+
+        $gap = null;
+        foreach ($r['gaps'] as $g) {
+            if ($g['class'] === AtlasSelfConstructionCortexRiskGapLens::GAP_QUARANTINED_DEBT) {
+                $gap = $g;
+            }
+        }
+        $this->assertNotNull($gap);
+        $this->assertSame(5, $gap['evidence']['quarantined_count']);
+        $this->assertSame('maestro', $gap['originator_hints']['likely_owner_organ']);
+        $this->assertSame('poison_quarantine_repair', $gap['originator_hints']['suggested_lane']);
+    }
+
     public function test_missing_receipts_gap_triggered_by_red_verification(): void
     {
         $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([

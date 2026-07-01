@@ -57,6 +57,10 @@ final class AtlasSelfConstructionCortexRiskGapLens
 
     public const GAP_UNPROVED_RUNTIME = 'unproved_runtime_path';
 
+    public const GAP_BLOCKED_DEBT = 'blocked_queue_debt';
+
+    public const GAP_QUARANTINED_DEBT = 'quarantined_queue_debt';
+
     /**
      * @param  array<string,array<string,mixed>>  $facts
      * @return array{schema:string, gaps:list<array{class:string, evidence:array<string,mixed>}>}
@@ -109,6 +113,21 @@ final class AtlasSelfConstructionCortexRiskGapLens
         if ($malformed > 0) {
             $ev = ['malformed_count' => $malformed];
             $gaps[] = ['class' => self::GAP_MALFORMED_QUEUE, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_MALFORMED_QUEUE, $ev)];
+        }
+
+        // Blocked/quarantined debt is dead supply, never claimable — report it separately from
+        // claimable_count so the originator never mistakes it for usable depth.
+        $claimableCount = max(0, (int) ($queueHealth['claimable_count'] ?? 0));
+        $blockedCount = max(0, (int) ($queueHealth['blocked_count'] ?? 0));
+        if ($blockedCount > 0) {
+            $ev = ['blocked_count' => $blockedCount, 'claimable_count' => $claimableCount, 'dead_supply' => true];
+            $gaps[] = ['class' => self::GAP_BLOCKED_DEBT, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_BLOCKED_DEBT, $ev)];
+        }
+
+        $quarantinedCount = max(0, (int) ($queueHealth['quarantined_count'] ?? 0));
+        if ($quarantinedCount > 0) {
+            $ev = ['quarantined_count' => $quarantinedCount, 'claimable_count' => $claimableCount, 'dead_supply' => true];
+            $gaps[] = ['class' => self::GAP_QUARANTINED_DEBT, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_QUARANTINED_DEBT, $ev)];
         }
 
         $gbCount = max(0, (int) ($queueHealth['repeated_give_back_count'] ?? 0));
@@ -208,6 +227,18 @@ final class AtlasSelfConstructionCortexRiskGapLens
                 'required_evidence'   => 'code_index_stale:false',
                 'likely_owner_organ'  => 'code_intelligence',
                 'avoid_proxy_warning' => 'task_count_does_not_refresh_a_stale_code_index',
+            ],
+            self::GAP_BLOCKED_DEBT => [
+                'suggested_lane'      => 'queue_repair',
+                'required_evidence'   => 'blocked_count:0',
+                'likely_owner_organ'  => 'task_queue',
+                'avoid_proxy_warning' => 'blocked_debt_is_dead_supply_not_claimable_depth_and_must_be_repaired_not_counted',
+            ],
+            self::GAP_QUARANTINED_DEBT => [
+                'suggested_lane'      => 'poison_quarantine_repair',
+                'required_evidence'   => 'quarantined_count:0',
+                'likely_owner_organ'  => 'maestro',
+                'avoid_proxy_warning' => 'quarantined_debt_is_dead_supply_not_claimable_depth_and_must_be_repaired_not_counted',
             ],
             self::GAP_PROJECT_LANE_LEAK => [
                 'suggested_lane'      => 'lane_boundary_repair',
