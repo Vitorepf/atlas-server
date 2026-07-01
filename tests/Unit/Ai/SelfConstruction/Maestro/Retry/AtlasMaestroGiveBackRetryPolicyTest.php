@@ -131,16 +131,48 @@ final class AtlasMaestroGiveBackRetryPolicyTest extends TestCase
     {
         $policy  = new AtlasMaestroGiveBackRetryPolicy();
         $verdict = $policy->evaluate([
-            'task_packet_id'         => 'pkt-mm',
+            'task_packet_id'              => 'pkt-mm',
+            'retries_used'                => 0,
+            'give_back_count'             => 1,
+            'give_back_reason_class'      => 'worker_mismatch',
+            'alternate_worker_available'  => true,
+            'new_fingerprint'             => 'fp-a',
+            'previous_fingerprint'        => 'fp-b',
+            'now_unix'                    => 1700000000,
+        ]);
+        $this->assertTrue($verdict->allow);
+        $this->assertSame(RetryDecision::REASON_OK, $verdict->reason);
+    }
+
+    public function test_worker_mismatch_without_alternate_worker_is_denied(): void
+    {
+        $policy  = new AtlasMaestroGiveBackRetryPolicy();
+        $verdict = $policy->evaluate([
+            'task_packet_id'         => 'pkt-mm-none',
             'retries_used'           => 0,
             'give_back_count'        => 1,
             'give_back_reason_class' => 'worker_mismatch',
-            'new_fingerprint'        => 'fp-same',
-            'previous_fingerprint'   => 'fp-same',
-            'now_unix'               => 1700000000,
+            'new_fingerprint'        => 'fp-a',
+            'previous_fingerprint'   => 'fp-b',
         ]);
-        $this->assertTrue($verdict->allow, 'worker mismatch should allow retry even with loop fingerprint');
-        $this->assertSame(RetryDecision::REASON_OK, $verdict->reason);
+        $this->assertFalse($verdict->allow);
+        $this->assertSame(AtlasMaestroGiveBackRetryPolicy::REASON_WORKER_MISMATCH_NO_ALTERNATE, $verdict->reason);
+    }
+
+    public function test_worker_mismatch_with_same_fingerprint_still_denies_as_loop(): void
+    {
+        $policy  = new AtlasMaestroGiveBackRetryPolicy();
+        $verdict = $policy->evaluate([
+            'task_packet_id'              => 'pkt-mm-loop',
+            'retries_used'                => 0,
+            'give_back_count'             => 1,
+            'give_back_reason_class'      => 'worker_mismatch',
+            'alternate_worker_available'  => true,
+            'new_fingerprint'             => 'fp-same',
+            'previous_fingerprint'        => 'fp-same',
+        ]);
+        $this->assertFalse($verdict->allow, 'a worker-mismatch retry must never loop on the same fingerprint');
+        $this->assertSame(RetryDecision::REASON_LOOP_DETECTED, $verdict->reason);
     }
 
     public function test_packet_defect_reason_class_returns_respec_needed_regardless_of_count(): void

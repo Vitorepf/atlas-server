@@ -34,6 +34,7 @@ final class AtlasMaestroGiveBackRetryPolicy
     public const REASON_WORKER_MISMATCH = 'worker_mismatch';
     public const REASON_RESPEC_NEEDED   = 'respec_needed';
     public const REASON_QUARANTINE      = 'quarantine';
+    public const REASON_WORKER_MISMATCH_NO_ALTERNATE = 'worker_mismatch_no_alternate_worker';
 
     public function __construct(
         private readonly int $maxRetries = self::DEFAULT_MAX_RETRIES,
@@ -76,17 +77,30 @@ final class AtlasMaestroGiveBackRetryPolicy
             return RetryDecision::deny(self::REASON_QUARANTINE, $nextAttempt);
         }
 
-        // Rule 3: worker_mismatch — packet is sound; retry with a different worker.
-        if ($giveBackReasonClass === 'worker_mismatch') {
-            return RetryDecision::allow($nextAttempt);
-        }
-
         $newFingerprint      = (string) ($facts['new_fingerprint']      ?? '');
         $previousFingerprint = isset($facts['previous_fingerprint']) ? (string) $facts['previous_fingerprint'] : '';
 
-        // Rule 4: loop detected (same reshape fingerprint).
+        // Rule 3: loop detected (same reshape fingerprint) — checked BEFORE worker_mismatch allowance
+        // so a worker-mismatch retry can never loop on the same worker fingerprint.
         if ($newFingerprint !== '' && $previousFingerprint !== '' && $newFingerprint === $previousFingerprint) {
             return RetryDecision::deny(RetryDecision::REASON_LOOP_DETECTED, $nextAttempt);
+        }
+
+        // Rule 4: worker_mismatch — packet is sound; retry only with a different worker.
+        if ($giveBackReasonClass === 'worker_mismatch') {
+            if (! (bool) ($facts['alternate_worker_available'] ?? false)) {
+                return RetryDecision::deny(self::REASON_WORKER_MISMATCH_NO_ALTERNATE, $nextAttempt);
+            }
+            if ($retriesUsed >= $this->maxRetries) {
+                return RetryDecision::deny(RetryDecision::REASON_BUDGET_EXHAUSTED, $nextAttempt);
+            }
+            $cooldownUntil = (int) ($facts['cooldown_until_unix'] ?? 0);
+            $now           = (int) ($facts['now_unix']           ?? time());
+            if ($cooldownUntil > 0 && $now < $cooldownUntil) {
+                return RetryDecision::deny(RetryDecision::REASON_COOLDOWN_ACTIVE, $nextAttempt);
+            }
+
+            return RetryDecision::allow($nextAttempt);
         }
 
         // Rule 5: budget exhausted.
