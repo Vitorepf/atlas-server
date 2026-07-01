@@ -56,6 +56,7 @@ final class AtlasSelfConstructionAutopoiesisOutcomeInterpreter
     {
         $verPassed = (bool) ($facts['verification_passed'] ?? false);
         $evidence = (string) ($facts['evidence_ref'] ?? '');
+        $impactReceiptRef = (string) ($facts['impact_receipt_ref'] ?? '');
         $realLeverage = (bool) ($facts['real_leverage_proof'] ?? false);
         $proxyOnly = (bool) ($facts['proxy_only_signal'] ?? false);
         $regression = (bool) ($facts['regression_detected'] ?? false);
@@ -100,7 +101,11 @@ final class AtlasSelfConstructionAutopoiesisOutcomeInterpreter
             return $this->envelope(self::VERDICT_RETRY, ['retry:real_leverage_proof_missing']);
         }
 
-        return $this->envelope(self::VERDICT_PROMOTE, ['promote:real_leverage_proof+evidence']);
+        if ($impactReceiptRef === '') {
+            return $this->envelope(self::VERDICT_RETRY, ['retry:impact_receipt_ref_missing']);
+        }
+
+        return $this->envelope(self::VERDICT_PROMOTE, ['promote:real_leverage_proof+evidence+impact_receipt']);
     }
 
     /**

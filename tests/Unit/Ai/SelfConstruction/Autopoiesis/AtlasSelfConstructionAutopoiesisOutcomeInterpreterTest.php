@@ -21,8 +21,31 @@ final class AtlasSelfConstructionAutopoiesisOutcomeInterpreterTest extends TestC
             'verification_passed' => true,
             'evidence_ref' => 'evh-1',
             'real_leverage_proof' => true,
+            'impact_receipt_ref' => 'receipt-1',
         ]);
         $this->assertSame(AtlasSelfConstructionAutopoiesisOutcomeInterpreter::VERDICT_PROMOTE, $r['verdict']);
+    }
+
+    public function test_retry_when_impact_receipt_ref_missing_despite_verification_and_leverage(): void
+    {
+        $r = (new AtlasSelfConstructionAutopoiesisOutcomeInterpreter)->interpret([
+            'verification_passed' => true,
+            'evidence_ref' => 'evh-1',
+            'real_leverage_proof' => true,
+        ]);
+        $this->assertSame(AtlasSelfConstructionAutopoiesisOutcomeInterpreter::VERDICT_RETRY, $r['verdict']);
+        $this->assertContains('retry:impact_receipt_ref_missing', $r['reasons']);
+    }
+
+    public function test_promote_requires_both_evidence_ref_and_impact_receipt_ref(): void
+    {
+        $r = (new AtlasSelfConstructionAutopoiesisOutcomeInterpreter)->interpret([
+            'verification_passed' => true,
+            'evidence_ref' => '',
+            'real_leverage_proof' => true,
+            'impact_receipt_ref' => 'receipt-1',
+        ]);
+        $this->assertSame(AtlasSelfConstructionAutopoiesisOutcomeInterpreter::VERDICT_REJECT, $r['verdict']);
     }
 
     public function test_retry_when_proxy_only_signal_even_with_verification(): void
