@@ -24,14 +24,34 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     confidence?:             float  (0..1)
  *     campaign_ids?:           list<string>
  *     contradicted_by?:        list<string>  (recent outcome IDs; empty = not contradicted)
+ *     recent_violations?:      list<string>  (recent outcome/task IDs where the SAME mistake this
+ *                                             lesson warns against happened again — distinct from
+ *                                             contradicted_by, which means the lesson's CLAIM was
+ *                                             wrong; a violation means the lesson was right but ignored)
+ *     derived_from_failure?:   bool  (default false — whether this lesson originated from an actual
+ *                                     negative/failed outcome rather than a stylistic preference)
  *   }>
  *   decay_threshold_seconds?:  int   (default 604800 = 7 days)
  *   overfit_max_campaigns?:    int   (default 1)
  *
- * OUTPUT:
- *   { schema, lessons, total, contradicted_count, decayed_count, overfit_count, fresh_count }
+ * `signal` (per lesson, orthogonal to `status`) names WHY this lesson needs attention in the AC2
+ * vocabulary — computed independently of status priority so a lesson can be simultaneously
+ * `fresh` (its claim still holds) yet `repeated_error` (the mistake it warns against keeps
+ * happening because nobody applied it):
+ *   ignored_negative_outcome <- recent_violations non-empty AND derived_from_failure == true
+ *   repeated_error           <- recent_violations non-empty (otherwise)
+ *   stale_lesson             <- status == decayed
+ *   obsolete_policy          <- status == architecture_incompatible
+ *   null                     <- none of the above
  *
- *   Each lesson entry: { lesson_id, status, recommendation, decay_reason }
+ * `decay_findings` reports one entry per lesson with a non-null signal:
+ *   { source_lesson, recent_violation, severity, refresh_action }
+ *
+ * OUTPUT:
+ *   { schema, lessons, total, contradicted_count, decayed_count, overfit_count, fresh_count,
+ *     decay_findings }
+ *
+ *   Each lesson entry: { lesson_id, status, recommendation, decay_reason, signal }
  *
  * PURE / DETERMINISTIC / NO I/O.
  */
@@ -50,6 +70,15 @@ final class AtlasExternalBrainLearningDecayDetector
     public const REC_DEMOTE     = 'demote';
     public const REC_QUARANTINE = 'quarantine';
     public const REC_DOWNRANK   = 'downrank';
+
+    public const SIGNAL_REPEATED_ERROR          = 'repeated_error';
+    public const SIGNAL_STALE_LESSON            = 'stale_lesson';
+    public const SIGNAL_IGNORED_NEGATIVE_OUTCOME = 'ignored_negative_outcome';
+    public const SIGNAL_OBSOLETE_POLICY         = 'obsolete_policy';
+
+    public const SEVERITY_CRITICAL = 'critical';
+    public const SEVERITY_HIGH     = 'high';
+    public const SEVERITY_MEDIUM   = 'medium';
 
     private const DEFAULT_DECAY_THRESHOLD_SECONDS       = 604800; // 7 days
     private const DEFAULT_OVERFIT_MAX_CAMPAIGNS          = 1;
@@ -73,6 +102,7 @@ final class AtlasExternalBrainLearningDecayDetector
         $overfitCount               = 0;
         $freshCount                 = 0;
         $architectureIncompatibleCount = 0;
+        $decayFindings              = [];
 
         foreach ($rawLessons as $raw) {
             if (! is_array($raw) || ! isset($raw['lesson_id'])) {
@@ -85,6 +115,8 @@ final class AtlasExternalBrainLearningDecayDetector
             $contradictedBy    = is_array($raw['contradicted_by'] ?? null) ? $raw['contradicted_by'] : [];
             $lessonArchVersion = trim((string) ($raw['architecture_version'] ?? ''));
             $confirmationCount = max(0, (int) ($raw['confirmation_count'] ?? 0));
+            $recentViolations  = array_values(array_map('strval', is_array($raw['recent_violations'] ?? null) ? $raw['recent_violations'] : []));
+            $derivedFromFailure = (bool) ($raw['derived_from_failure'] ?? false);
 
             $archIncompatible = $lessonArchVersion !== ''
                 && $currentArchVersion !== ''
@@ -131,6 +163,14 @@ final class AtlasExternalBrainLearningDecayDetector
                 $freshCount++;
             }
 
+            $signal = match (true) {
+                $recentViolations !== [] && $derivedFromFailure => self::SIGNAL_IGNORED_NEGATIVE_OUTCOME,
+                $recentViolations !== [] => self::SIGNAL_REPEATED_ERROR,
+                $status === self::STATUS_DECAYED => self::SIGNAL_STALE_LESSON,
+                $status === self::STATUS_ARCHITECTURE_INCOMPATIBLE => self::SIGNAL_OBSOLETE_POLICY,
+                default => null,
+            };
+
             $lessons[] = [
                 'lesson_id'              => $lessonId,
                 'status'                 => $status,
@@ -144,7 +184,18 @@ final class AtlasExternalBrainLearningDecayDetector
                 ),
                 'architecture_compatible' => ! $archIncompatible,
                 'confirmation_count'      => $confirmationCount,
+                'signal'                  => $signal,
+                'recent_violations'       => $recentViolations,
             ];
+
+            if ($signal !== null) {
+                $decayFindings[] = [
+                    'source_lesson'    => $lessonId,
+                    'recent_violation' => $recentViolations[0] ?? null,
+                    'severity'         => $this->severityFor($signal),
+                    'refresh_action'   => $this->refreshActionFor($signal, $recentViolations, $currentArchVersion),
+                ];
+            }
         }
 
         return [
@@ -156,7 +207,31 @@ final class AtlasExternalBrainLearningDecayDetector
             'overfit_count'                  => $overfitCount,
             'fresh_count'                    => $freshCount,
             'architecture_incompatible_count' => $architectureIncompatibleCount,
+            'decay_findings'                  => $decayFindings,
         ];
+    }
+
+    private function severityFor(string $signal): string
+    {
+        return match ($signal) {
+            self::SIGNAL_IGNORED_NEGATIVE_OUTCOME => self::SEVERITY_CRITICAL,
+            self::SIGNAL_REPEATED_ERROR => self::SEVERITY_HIGH,
+            default => self::SEVERITY_MEDIUM,
+        };
+    }
+
+    /** @param  list<string>  $recentViolations */
+    private function refreshActionFor(string $signal, array $recentViolations, string $currentArchVersion): string
+    {
+        $violationList = implode(', ', array_slice($recentViolations, 0, 3));
+
+        return match ($signal) {
+            self::SIGNAL_IGNORED_NEGATIVE_OUTCOME => "escalate this lesson to a hard gate; a failure-derived lesson was ignored in: {$violationList}",
+            self::SIGNAL_REPEATED_ERROR => "re-surface this lesson at task-authoring time; the same mistake recurred in: {$violationList}",
+            self::SIGNAL_STALE_LESSON => 'revalidate against recent outcomes before continuing to rely on this lesson',
+            self::SIGNAL_OBSOLETE_POLICY => "retire or rewrite this lesson for the current architecture_version".($currentArchVersion !== '' ? ":{$currentArchVersion}" : ''),
+            default => 'no action required',
+        };
     }
 
     private function computeDecayScore(

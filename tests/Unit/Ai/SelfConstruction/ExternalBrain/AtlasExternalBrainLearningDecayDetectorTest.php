@@ -446,6 +446,126 @@ final class AtlasExternalBrainLearningDecayDetectorTest extends TestCase
         );
     }
 
+    // ── AC2/AC3/AC4: repeated_error, ignored_negative_outcome, decay_findings ──
+
+    public function test_repeated_false_wait_yields_repeated_error_signal_and_finding(): void
+    {
+        $result = $this->detector()->detect([
+            'lessons' => [[
+                'lesson_id'              => 'never-idle-wait',
+                'created_at_seconds_ago' => 100,
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => [],
+                'recent_violations'      => ['task-501', 'task-502'],
+            ]],
+        ]);
+
+        $entry = $result['lessons'][0];
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::SIGNAL_REPEATED_ERROR, $entry['signal']);
+
+        $finding = $result['decay_findings'][0];
+        $this->assertSame('never-idle-wait', $finding['source_lesson']);
+        $this->assertSame('task-501', $finding['recent_violation']);
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::SEVERITY_HIGH, $finding['severity']);
+        $this->assertStringContainsString('task-501', $finding['refresh_action']);
+    }
+
+    public function test_template_farm_recurrence_yields_repeated_error_signal(): void
+    {
+        $result = $this->detector()->detect([
+            'lessons' => [[
+                'lesson_id'              => 'no-template-farming',
+                'created_at_seconds_ago' => 100,
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => [],
+                'recent_violations'      => ['task-farm-1', 'task-farm-2', 'task-farm-3'],
+            ]],
+        ]);
+
+        $entry = $result['lessons'][0];
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::SIGNAL_REPEATED_ERROR, $entry['signal']);
+        $this->assertCount(1, $result['decay_findings']);
+    }
+
+    public function test_violation_of_failure_derived_lesson_yields_ignored_negative_outcome(): void
+    {
+        $result = $this->detector()->detect([
+            'lessons' => [[
+                'lesson_id'              => 'prod-incident-lesson',
+                'created_at_seconds_ago' => 100,
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => [],
+                'recent_violations'      => ['incident-77'],
+                'derived_from_failure'   => true,
+            ]],
+        ]);
+
+        $entry = $result['lessons'][0];
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::SIGNAL_IGNORED_NEGATIVE_OUTCOME, $entry['signal']);
+
+        $finding = $result['decay_findings'][0];
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::SEVERITY_CRITICAL, $finding['severity']);
+        $this->assertStringContainsString('escalate', $finding['refresh_action']);
+    }
+
+    public function test_stale_policy_yields_stale_lesson_signal_and_finding(): void
+    {
+        $result = $this->detector()->detect([
+            'lessons' => [[
+                'lesson_id'              => 'old-cadence-rule',
+                'created_at_seconds_ago' => 900000,
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => [],
+            ]],
+        ]);
+
+        $entry = $result['lessons'][0];
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::SIGNAL_STALE_LESSON, $entry['signal']);
+
+        $finding = $result['decay_findings'][0];
+        $this->assertSame('old-cadence-rule', $finding['source_lesson']);
+        $this->assertNull($finding['recent_violation']);
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::SEVERITY_MEDIUM, $finding['severity']);
+    }
+
+    public function test_obsolete_lesson_yields_obsolete_policy_signal_and_finding(): void
+    {
+        $result = $this->detector()->detect([
+            'current_architecture_version' => 'v2',
+            'lessons' => [[
+                'lesson_id'              => 'v1-only-rule',
+                'created_at_seconds_ago' => 100,
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => [],
+                'architecture_version'   => 'v1',
+            ]],
+        ]);
+
+        $entry = $result['lessons'][0];
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::SIGNAL_OBSOLETE_POLICY, $entry['signal']);
+
+        $finding = $result['decay_findings'][0];
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::SEVERITY_MEDIUM, $finding['severity']);
+        $this->assertStringContainsString('v2', $finding['refresh_action']);
+    }
+
+    public function test_healthy_retained_learning_has_null_signal_and_no_finding(): void
+    {
+        $result = $this->detector()->detect([
+            'lessons' => [[
+                'lesson_id'              => 'healthy-lesson',
+                'created_at_seconds_ago' => 100,
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => [],
+                'confirmation_count'     => 10,
+            ]],
+        ]);
+
+        $entry = $result['lessons'][0];
+        $this->assertNull($entry['signal']);
+        $this->assertSame([], $result['decay_findings']);
+    }
+
     public function test_architecture_incompatible_count_in_output(): void
     {
         $result = $this->detector()->detect(['lessons' => [$this->freshLesson()]]);
