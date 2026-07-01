@@ -365,4 +365,75 @@ final class AtlasExternalBrainStalledCapabilityRescuePlannerTest extends TestCas
         $this->assertSame(30, AtlasExternalBrainStalledCapabilityRescuePlanner::RESCUE_STALE_DAYS_THRESHOLD);
         $this->assertSame(1.0, AtlasExternalBrainStalledCapabilityRescuePlanner::RESCUE_MAX_COST);
     }
+
+    // ── AC: planUnblock() emits a concrete unblock_plan for genuinely stalled capabilities ──
+
+    private function unblockEntryFor(array $result, string $id): array
+    {
+        foreach ($result['entries'] as $entry) {
+            if ($entry['capability_id'] === $id) {
+                return $entry;
+            }
+        }
+
+        return [];
+    }
+
+    public function test_repeated_give_back_is_detected_as_stalled_with_unblock_plan(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-giveback', 'give_back_count' => 3],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-giveback');
+        $this->assertTrue($entry['is_stalled']);
+        $this->assertSame('repeated_give_back', $entry['unblock_plan']['root_cause']);
+        $this->assertNotEmpty($entry['unblock_plan']['first_safe_task']);
+        $this->assertNotEmpty($entry['unblock_plan']['required_evidence']);
+        $this->assertTrue($entry['unblock_plan']['stop_creating_adjacent_features']);
+    }
+
+    public function test_stale_proof_is_detected_as_stalled(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-stale', 'last_proof_age_days' => 45],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-stale');
+        $this->assertTrue($entry['is_stalled']);
+        $this->assertSame('stale_proof', $entry['unblock_plan']['root_cause']);
+    }
+
+    public function test_blocked_dependency_is_detected_as_stalled(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-blocked', 'blocked_dependencies' => ['AtlasFooService']],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-blocked');
+        $this->assertTrue($entry['is_stalled']);
+        $this->assertSame('blocked_dependency', $entry['unblock_plan']['root_cause']);
+    }
+
+    public function test_no_impact_commit_streak_is_detected_as_stalled(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-no-impact', 'no_impact_commit_streak' => 4],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-no-impact');
+        $this->assertTrue($entry['is_stalled']);
+        $this->assertSame('no_impact_commits', $entry['unblock_plan']['root_cause']);
+    }
+
+    public function test_low_priority_capability_without_stall_signals_is_not_stalled(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-low-priority', 'priority' => 'low'],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-low-priority');
+        $this->assertFalse($entry['is_stalled']);
+        $this->assertNull($entry['unblock_plan']);
+    }
 }

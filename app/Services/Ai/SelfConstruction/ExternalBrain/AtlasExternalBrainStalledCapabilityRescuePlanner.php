@@ -173,6 +173,74 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
         ];
     }
 
+    public const STALLED_GIVE_BACK_THRESHOLD = 2;
+    public const STALLED_STALE_PROOF_DAYS    = 30;
+    public const STALLED_NO_IMPACT_STREAK    = 3;
+
+    /**
+     * Detects genuinely stalled capabilities (repeated give_back, stale proof, blocked
+     * dependencies, or a streak of no-impact commits) and emits a concrete unblock_plan
+     * instead of more adjacent feature work. A capability that is merely low priority
+     * (never touched, no signal of active-but-failing work) is NOT stalled.
+     *
+     * @param  list<array<string,mixed>>  $capabilities  Each: id, give_back_count,
+     *   last_proof_age_days, blocked_dependencies, no_impact_commit_streak, priority
+     * @return array<string,mixed>
+     */
+    public function planUnblock(array $capabilities): array
+    {
+        $entries = [];
+
+        foreach ($capabilities as $cap) {
+            $id = (string) ($cap['id'] ?? '');
+            $giveBackCount = max(0, (int) ($cap['give_back_count'] ?? 0));
+            $lastProofAgeDays = max(0, (int) ($cap['last_proof_age_days'] ?? 0));
+            $blockedDependencies = array_values(array_filter(array_map('strval', (array) ($cap['blocked_dependencies'] ?? []))));
+            $noImpactStreak = max(0, (int) ($cap['no_impact_commit_streak'] ?? 0));
+
+            $rootCause = match (true) {
+                $blockedDependencies !== [] => 'blocked_dependency',
+                $giveBackCount >= self::STALLED_GIVE_BACK_THRESHOLD => 'repeated_give_back',
+                $lastProofAgeDays > self::STALLED_STALE_PROOF_DAYS => 'stale_proof',
+                $noImpactStreak >= self::STALLED_NO_IMPACT_STREAK => 'no_impact_commits',
+                default => null,
+            };
+
+            $isStalled = $rootCause !== null;
+
+            $unblockPlan = null;
+            if ($isStalled) {
+                $unblockPlan = [
+                    'root_cause' => $rootCause,
+                    'first_safe_task' => match ($rootCause) {
+                        'blocked_dependency' => 'resolve_blocked_dependency:'.implode(',', $blockedDependencies),
+                        'repeated_give_back' => 'diagnose_repeated_give_back_root_cause',
+                        'stale_proof' => 'refresh_proof_with_current_runnable_evidence',
+                        default => 'break_no_impact_streak_with_one_real_committed_change',
+                    },
+                    'required_evidence' => match ($rootCause) {
+                        'blocked_dependency' => ['dependency_resolution_proof'],
+                        'repeated_give_back' => ['give_back_root_cause_analysis'],
+                        'stale_proof' => ['fresh_runnable_evidence'],
+                        default => ['committed_change_with_measurable_delta'],
+                    },
+                    'stop_creating_adjacent_features' => true,
+                ];
+            }
+
+            $entries[] = [
+                'capability_id' => $id,
+                'is_stalled' => $isStalled,
+                'unblock_plan' => $unblockPlan,
+            ];
+        }
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'entries' => $entries,
+        ];
+    }
+
     private function nextAction(string $action, string $unblockCause, string $replacementOwner): string
     {
         return match ($action) {
