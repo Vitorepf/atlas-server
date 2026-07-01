@@ -73,6 +73,17 @@ final class AtlasTaskQueueSelfHealingRespecPlannerTest extends TestCase
         $this->assertContains('add_implementation_file', $actions);
     }
 
+    public function test_scope_repair_issue_includes_root_cause(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket([
+            'scope_repair_removed_impl' => true,
+        ]));
+
+        $issue = $result['issues'][array_search('scope_removes_implementation', array_column($result['issues'], 'type'), true)];
+        $this->assertArrayHasKey('root_cause', $issue);
+        $this->assertNotEmpty($issue['root_cause']);
+    }
+
     // ── contradictory_acceptance ──────────────────────────────────────────────
 
     public function test_respec_for_explicit_contradictory_acceptance_flag(): void
@@ -96,6 +107,20 @@ final class AtlasTaskQueueSelfHealingRespecPlannerTest extends TestCase
 
         $types = array_column($result['issues'], 'type');
         $this->assertContains('contradictory_acceptance', $types);
+    }
+
+    public function test_contradictory_acceptance_evidence_names_the_conflicting_criteria(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket([
+            'acceptance_criteria' => [
+                'Must call provider API.',
+                'Must not call provider API.',
+            ],
+        ]));
+
+        $joined = implode(' ', $result['evidence_requirements']);
+        $this->assertStringContainsString('Must call provider API.', $joined);
+        $this->assertStringContainsString('Must not call provider API.', $joined);
     }
 
     public function test_respec_action_revise_acceptance_criteria(): void

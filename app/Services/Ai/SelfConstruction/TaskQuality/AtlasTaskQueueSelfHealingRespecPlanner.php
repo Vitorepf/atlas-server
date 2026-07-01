@@ -83,31 +83,55 @@ final class AtlasTaskQueueSelfHealingRespecPlanner
 
         // 1. Scope removes implementation.
         if ($scopeRepairRemovedImpl || ($allowedFiles !== [] && ! $hasImpl && ! $hasTest)) {
-            $issues[]        = ['type' => 'scope_removes_implementation', 'detail' => 'Scope repair left no implementation file in allowed_files.'];
+            $issues[]        = [
+                'type'       => 'scope_removes_implementation',
+                'detail'     => 'Scope repair left no implementation file in allowed_files.',
+                'root_cause' => 'scope_repair_removed_impl_file',
+            ];
             $respecActions[] = ['action' => 'add_implementation_file', 'rationale' => 'Re-include or add an implementation file to allowed_files.'];
         }
 
         // 2. Contradictory acceptance.
-        if ($hasContradictory || $this->hasContradiction($acceptance)) {
-            $issues[]        = ['type' => 'contradictory_acceptance', 'detail' => 'Acceptance criteria contain contradictory requirements.'];
+        $contradictionPair = $this->findContradictionPair($acceptance);
+        if ($hasContradictory || $contradictionPair !== null) {
+            $issues[]        = [
+                'type'       => 'contradictory_acceptance',
+                'detail'     => 'Acceptance criteria contain contradictory requirements.',
+                'root_cause' => $contradictionPair !== null
+                    ? "conflicting_criteria:\"{$contradictionPair[0]}\" vs \"{$contradictionPair[1]}\""
+                    : 'explicit_contradictory_acceptance_flag',
+            ];
             $respecActions[] = ['action' => 'revise_acceptance_criteria', 'rationale' => 'Remove or reconcile contradictory criteria.'];
         }
 
         // 3. Forbidden target.
         if ($target !== '' && in_array(strtolower($target), $forbiddenTargets, true)) {
-            $issues[]        = ['type' => 'forbidden_target', 'detail' => 'Target "'.$target.'" is in the forbidden list.', 'target' => $target];
+            $issues[]        = [
+                'type'       => 'forbidden_target',
+                'detail'     => 'Target "'.$target.'" is in the forbidden list.',
+                'target'     => $target,
+                'root_cause' => 'target_in_forbidden_list',
+            ];
             $respecActions[] = ['action' => 'replace_target', 'target' => $target, 'rationale' => 'Choose a different, permitted target.'];
         }
 
         // 4. Missing test path.
         if ($allowedFiles !== [] && $hasImpl && ! $hasTest) {
-            $issues[]        = ['type' => 'missing_test_path', 'detail' => 'Implementation file present but no test file in allowed_files.'];
+            $issues[]        = [
+                'type'       => 'missing_test_path',
+                'detail'     => 'Implementation file present but no test file in allowed_files.',
+                'root_cause' => 'no_test_file_in_allowed_files',
+            ];
             $respecActions[] = ['action' => 'add_test_file', 'rationale' => 'Add a matching *Test.php to allowed_files.'];
         }
 
         // 5. Test-only packet.
         if ($allowedFiles !== [] && ! $hasImpl && $hasTest) {
-            $issues[]        = ['type' => 'test_only_packet', 'detail' => 'allowed_files contains only test files; no implementation.'];
+            $issues[]        = [
+                'type'       => 'test_only_packet',
+                'detail'     => 'allowed_files contains only test files; no implementation.',
+                'root_cause' => 'allowed_files_contains_only_test_files',
+            ];
             $respecActions[] = ['action' => 'add_implementation_file', 'rationale' => 'Add the corresponding implementation file to allowed_files.'];
         }
 
@@ -119,6 +143,9 @@ final class AtlasTaskQueueSelfHealingRespecPlanner
                 'Confirm target is not in the forbidden list.',
             ]
             : [];
+        if ($contradictionPair !== null) {
+            $evidenceReqs[] = "Reconcile: \"{$contradictionPair[0]}\" vs \"{$contradictionPair[1]}\".";
+        }
 
         // ── runnable_command hint: ensure acceptance requires a real artisan test path ──
         $runnableCommand = null;
@@ -173,33 +200,37 @@ final class AtlasTaskQueueSelfHealingRespecPlanner
         return [$hasImpl, $hasTest];
     }
 
-    /** @param list<string> $criteria */
-    private function hasContradiction(array $criteria): bool
+    /**
+     * @param  list<string>  $criteria
+     * @return array{0:string,1:string}|null  the conflicting [must_not_criterion, must_criterion] pair, or null
+     */
+    private function findContradictionPair(array $criteria): ?array
     {
         $mustNot = [];
         $must    = [];
 
         foreach ($criteria as $c) {
-            $lc = strtolower(trim($c));
+            $trimmed = trim($c);
+            $lc = strtolower($trimmed);
             if (str_starts_with($lc, 'must not ')) {
-                $mustNot[] = substr($lc, 9);
+                $mustNot[] = [substr($lc, 9), $trimmed];
             } elseif (str_starts_with($lc, 'must ')) {
-                $must[] = substr($lc, 5);
+                $must[] = [substr($lc, 5), $trimmed];
             }
         }
 
-        foreach ($mustNot as $neg) {
-            foreach ($must as $pos) {
+        foreach ($mustNot as [$neg, $negOriginal]) {
+            foreach ($must as [$pos, $posOriginal]) {
                 // Overlap: the positive clause starts with or contains the same subject/verb.
                 $negWords = explode(' ', $neg);
                 $posWords = explode(' ', $pos);
                 $overlap  = count(array_intersect($negWords, $posWords));
                 if ($overlap >= 2) {
-                    return true;
+                    return [$negOriginal, $posOriginal];
                 }
             }
         }
 
-        return false;
+        return null;
     }
 }
