@@ -32,6 +32,11 @@ final class AtlasExternalBrainResearchSourceTrustRanker
     public const TASK_ADMISSION_REVIEW = 'review_first';
     public const TASK_ADMISSION_REJECT = 'reject';
 
+    public const ADOPTION_CLASSIFICATION_ADOPT_OR_ADAPT = 'adopt_or_adapt';
+    public const ADOPTION_CLASSIFICATION_DOWNGRADE_OR_REJECT = 'downgrade_or_reject';
+
+    private const GROUNDED_SOURCE_TYPES = ['primary_documentation', 'repo_local_evidence'];
+
     private const SCORE_PRIMARY_DOCS     = 8.0;
     private const SCORE_REPO_LOCAL       = 7.0;
     private const SCORE_MEASURED_REPORT  = 6.0;
@@ -189,6 +194,14 @@ final class AtlasExternalBrainResearchSourceTrustRanker
             $groundingReqs,
         )));
 
+        // AC1: a primary or repo-local source with a concrete dated claim and real (non-blocked)
+        // Atlas applicability can be classified adopt_or_adapt; everything else must be downgraded
+        // or rejected rather than treated as ready-to-use.
+        $isGroundedSourceType = in_array($type, self::GROUNDED_SOURCE_TYPES, true);
+        $adoptionClassification = ($isGroundedSourceType && $hasConcreteClaim && $hasValidSourceDate && $adoptionBlockers === [])
+            ? self::ADOPTION_CLASSIFICATION_ADOPT_OR_ADAPT
+            : self::ADOPTION_CLASSIFICATION_DOWNGRADE_OR_REJECT;
+
         return [
             'schema'                       => self::SCHEMA,
             'trust_score'                  => $score,
@@ -200,6 +213,7 @@ final class AtlasExternalBrainResearchSourceTrustRanker
             'rejection_reasons'            => array_values(array_unique($rejectionReasons)),
             'adoption_blockers'            => array_values(array_unique($adoptionBlockers)),
             'atlas_adaptation_requirements' => $atlasAdaptationRequirements,
+            'adoption_classification'      => $adoptionClassification,
         ];
     }
 

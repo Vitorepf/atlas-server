@@ -347,6 +347,70 @@ final class AtlasExternalBrainResearchSourceTrustRankerTest extends TestCase
         $this->assertContains('requires_primary_source_citation', $r['grounding_requirements']);
     }
 
+    // ── AC1: adoption_classification ─────────────────────────────────────────
+
+    public function test_repo_local_concrete_dated_claim_classified_adopt_or_adapt(): void
+    {
+        $r = $this->rank([
+            'source_type' => 'repo_local_evidence',
+            'has_concrete_claim' => true,
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+            'grounding' => 'repo_verified',
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainResearchSourceTrustRanker::ADOPTION_CLASSIFICATION_ADOPT_OR_ADAPT,
+            $r['adoption_classification'],
+        );
+    }
+
+    public function test_primary_documentation_concrete_dated_claim_classified_adopt_or_adapt(): void
+    {
+        $r = $this->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+            'grounding' => 'primary_source',
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainResearchSourceTrustRanker::ADOPTION_CLASSIFICATION_ADOPT_OR_ADAPT,
+            $r['adoption_classification'],
+        );
+    }
+
+    public function test_hype_heavy_source_classified_downgrade_or_reject(): void
+    {
+        $r = $this->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+            'is_hype_heavy' => true,
+            'grounding' => 'primary_source',
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainResearchSourceTrustRanker::ADOPTION_CLASSIFICATION_DOWNGRADE_OR_REJECT,
+            $r['adoption_classification'],
+        );
+    }
+
+    public function test_undated_blog_classified_downgrade_or_reject(): void
+    {
+        $r = $this->rank([
+            'source_type' => 'blog',
+            'has_concrete_claim' => true,
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainResearchSourceTrustRanker::ADOPTION_CLASSIFICATION_DOWNGRADE_OR_REJECT,
+            $r['adoption_classification'],
+        );
+    }
+
     private function ranker(): AtlasExternalBrainResearchSourceTrustRanker
     {
         return new AtlasExternalBrainResearchSourceTrustRanker;
