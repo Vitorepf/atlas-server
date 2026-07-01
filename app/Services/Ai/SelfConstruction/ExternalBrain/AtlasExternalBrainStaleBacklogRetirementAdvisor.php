@@ -23,6 +23,8 @@ final class AtlasExternalBrainStaleBacklogRetirementAdvisor
 
     public const DECISION_RESPEC = 'respec';
 
+    public const DECISION_RESPEC_REFRESH = 'respec_refresh';
+
     public const DECISION_KEEP = 'keep';
 
     private const OLD_THRESHOLD_DAYS = 30;
@@ -71,6 +73,17 @@ final class AtlasExternalBrainStaleBacklogRetirementAdvisor
                 $taskId, $family, $ageBand, self::DECISION_RESPEC,
                 'old_blocked_high_value_with_clear_repair_path',
                 'rewrite_spec_with_clear_repair_path',
+            );
+        }
+
+        // AC3: a stale (not superseded/duplicate/blocked-with-clear-repair-path) packet whose
+        // leverage is still high is not dead work — its SPEC needs revalidating against the
+        // current codebase before it is safe to serve, not a full rewrite and not a deletion.
+        if ($isOld && $strategicValue === 'high') {
+            return $this->result(
+                $taskId, $family, $ageBand, self::DECISION_RESPEC_REFRESH,
+                'stale_still_high_leverage',
+                'refresh_spec_against_current_codebase_before_serving',
             );
         }
 

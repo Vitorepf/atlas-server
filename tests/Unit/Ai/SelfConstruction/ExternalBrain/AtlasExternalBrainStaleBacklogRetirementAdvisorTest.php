@@ -152,4 +152,45 @@ final class AtlasExternalBrainStaleBacklogRetirementAdvisorTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RESPEC, $result['decision']);
     }
+
+    // ── AC3: stale packets with still-valid high leverage get respec_refresh ──
+
+    public function test_stale_high_value_claimable_packet_gets_respec_refresh(): void
+    {
+        $result = $this->advisor()->advise($this->task([
+            'age_days' => 40,
+            'status' => 'claimable',
+            'strategic_value' => 'high',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RESPEC_REFRESH, $result['decision']);
+        $this->assertSame('stale_still_high_leverage', $result['reason']);
+        $this->assertSame('refresh_spec_against_current_codebase_before_serving', $result['next_action']);
+    }
+
+    public function test_stale_low_value_packet_does_not_get_respec_refresh(): void
+    {
+        $result = $this->advisor()->advise($this->task([
+            'age_days' => 40,
+            'status' => 'claimable',
+            'strategic_value' => 'low',
+        ]));
+
+        $this->assertNotSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RESPEC_REFRESH, $result['decision']);
+        $this->assertSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_KEEP, $result['decision']);
+    }
+
+    public function test_stale_high_value_blocked_with_clear_repair_path_keeps_full_respec_not_refresh(): void
+    {
+        // The more specific blocked+clear-repair-path branch must win over the generic refresh branch.
+        $result = $this->advisor()->advise($this->task([
+            'age_days' => 45,
+            'status' => 'blocked',
+            'repair_path_clear' => true,
+            'strategic_value' => 'high',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RESPEC, $result['decision']);
+        $this->assertNotSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RESPEC_REFRESH, $result['decision']);
+    }
 }
