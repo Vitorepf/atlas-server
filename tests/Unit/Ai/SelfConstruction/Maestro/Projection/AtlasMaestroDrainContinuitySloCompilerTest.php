@@ -176,4 +176,41 @@ final class AtlasMaestroDrainContinuitySloCompilerTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $json);
         }
     }
+
+    // ── originator_action ─────────────────────────────────────────────────────
+
+    public function test_worker_floor_maps_to_originate_now(): void
+    {
+        $r = $this->compiler()->compile(['claimable_per_active_worker' => 1.0, 'active_workers' => 3]);
+
+        $this->assertSame(AtlasMaestroDrainContinuitySloCompiler::ORIGINATOR_ACTION_ORIGINATE_NOW, $r['originator_action']);
+    }
+
+    public function test_queue_starved_maps_to_originate_now(): void
+    {
+        $r = $this->compiler()->compile(['queue_depth' => 5, 'servable_now' => 0]);
+
+        $this->assertSame(AtlasMaestroDrainContinuitySloCompiler::ORIGINATOR_ACTION_ORIGINATE_NOW, $r['originator_action']);
+    }
+
+    public function test_telemetry_blind_maps_to_fix_telemetry(): void
+    {
+        $r = $this->compiler()->compile(['telemetry_confidence' => 'blind', 'active_workers' => 2]);
+
+        $this->assertSame(AtlasMaestroDrainContinuitySloCompiler::ORIGINATOR_ACTION_FIX_TELEMETRY, $r['originator_action']);
+    }
+
+    public function test_give_back_amplification_maps_to_repair_give_back_loop_before_monitor(): void
+    {
+        $r = $this->compiler()->compile(['give_back_rate' => 0.5]);
+
+        $this->assertSame(AtlasMaestroDrainContinuitySloCompiler::ORIGINATOR_ACTION_REPAIR_GIVE_BACK_LOOP, $r['originator_action']);
+    }
+
+    public function test_healthy_facts_default_to_monitor(): void
+    {
+        $r = $this->compiler()->compile(['queue_depth' => 5, 'servable_now' => 5, 'active_workers' => 1]);
+
+        $this->assertSame(AtlasMaestroDrainContinuitySloCompiler::ORIGINATOR_ACTION_MONITOR, $r['originator_action']);
+    }
 }

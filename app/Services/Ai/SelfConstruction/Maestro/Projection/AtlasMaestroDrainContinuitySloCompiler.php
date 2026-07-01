@@ -53,6 +53,11 @@ final class AtlasMaestroDrainContinuitySloCompiler
 
     public const REASON_WORKER_FLOOR = 'worker_floor';
 
+    public const ORIGINATOR_ACTION_ORIGINATE_NOW = 'originate_now';
+    public const ORIGINATOR_ACTION_FIX_TELEMETRY = 'fix_telemetry';
+    public const ORIGINATOR_ACTION_REPAIR_GIVE_BACK_LOOP = 'repair_give_back_loop';
+    public const ORIGINATOR_ACTION_MONITOR = 'monitor';
+
     /**
      * Consumes Maestro projection facts (claimable_per_active_worker, active_workers,
      * telemetry_confidence) and compiles a single, actionable SLO verdict — without adding
@@ -126,6 +131,12 @@ final class AtlasMaestroDrainContinuitySloCompiler
         ));
         $giveBackRate = max(0.0, min(1.0, (float) ($facts['give_back_rate'] ?? 0.0)));
         $claimLatencySeconds = max(0.0, (float) ($facts['claim_latency_seconds'] ?? 0.0));
+        $telemetryConfidence = $facts['telemetry_confidence'] ?? null;
+        $isTelemetryBlind = $activeWorkers > 0 && (string) $telemetryConfidence === 'blind';
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $facts) && $facts['claimable_per_active_worker'] !== null
+            ? (float) $facts['claimable_per_active_worker']
+            : null;
+        $isWorkerFloorBreach = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= self::PROJECTION_WORKER_FLOOR_THRESHOLD;
 
         $avgThroughput = $throughputSamples !== []
             ? array_sum(array_map('floatval', $throughputSamples)) / count($throughputSamples)
@@ -178,10 +189,24 @@ final class AtlasMaestroDrainContinuitySloCompiler
         }
         $verdicts['claim_latency'] = $claimVerdict;
 
+        if ($isWorkerFloorBreach) {
+            $blockers[] = 'worker_floor_breach';
+        }
+        if ($isTelemetryBlind) {
+            $blockers[] = 'telemetry_confidence_blind_with_active_workers';
+        }
+
         $status = match (true) {
             $supplyVerdict === 'starved' => self::STATUS_CRITICAL,
             $blockers !== [] => self::STATUS_AT_RISK,
             default => self::STATUS_HEALTHY,
+        };
+
+        $originatorAction = match (true) {
+            $isWorkerFloorBreach || $supplyVerdict === 'starved' => self::ORIGINATOR_ACTION_ORIGINATE_NOW,
+            $giveBackVerdict === 'amplifying_risk' => self::ORIGINATOR_ACTION_REPAIR_GIVE_BACK_LOOP,
+            $isTelemetryBlind => self::ORIGINATOR_ACTION_FIX_TELEMETRY,
+            default => self::ORIGINATOR_ACTION_MONITOR,
         };
 
         return [
@@ -189,6 +214,7 @@ final class AtlasMaestroDrainContinuitySloCompiler
             'status' => $status,
             'verdicts' => $verdicts,
             'blockers' => $blockers,
+            'originator_action' => $originatorAction,
         ];
     }
 }
