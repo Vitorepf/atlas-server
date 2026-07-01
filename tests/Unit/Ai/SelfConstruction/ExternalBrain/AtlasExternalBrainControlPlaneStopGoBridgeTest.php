@@ -44,6 +44,16 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
         $this->assertTrue($result['provider_free']);
     }
 
+    public function test_decide_does_not_mutate_its_input(): void
+    {
+        $input = $this->healthy(['maturity_gap_count' => 3]);
+        $before = $input;
+
+        $this->bridge->decide($input);
+
+        $this->assertSame($before, $input);
+    }
+
     // ── create_more_tasks ─────────────────────────────────────────────────────
 
     public function test_healthy_high_quality_returns_create_more_tasks(): void
