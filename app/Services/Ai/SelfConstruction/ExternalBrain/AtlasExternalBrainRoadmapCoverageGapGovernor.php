@@ -14,6 +14,17 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * it is a prerequisite unlock or a high-value repair: those two are
  * structurally different from "more of the same theme" and stay allowed.
  *
+ * Staleness (new): a roadmap_gap may declare last_reviewed_days_ago (default 0). Once that
+ * exceeds STALE_AFTER_DAYS, the gap is marked stale instead of being blindly enqueued into
+ * undercovered_high_priority_gaps / next_batch_should_target / gap_candidates / task-fabric
+ * replenishment — a roadmap item nobody has revisited in that long needs revalidation first, not
+ * an automatic new task.
+ *
+ * gap_candidates (new): every undercovered, non-stale, high-priority gap gets a candidate object
+ * naming a `reason` and a `suggested_task_family` (the gap's own declared task_family, or a
+ * derived fallback), so the originator has enough material to build a real task instead of a
+ * bare gap_id.
+ *
  * Pure: no I/O, no queue mutation.
  */
 final class AtlasExternalBrainRoadmapCoverageGapGovernor
@@ -22,6 +33,7 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
 
     private const DEFAULT_TARGET_COVERAGE = 3;
     private const HIGH_PRIORITY_FLOOR = 8.0;
+    private const STALE_AFTER_DAYS = 180;
 
     /** claimable_per_active_worker at or below this ratio means workers are about to starve. */
     private const WORKER_FLOOR_LOW_THRESHOLD = 2.0;
@@ -73,6 +85,8 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
         $gapPriorities = [];
         $gapTargets = [];
         $gapMaterial = [];
+        $staleRoadmapGaps = [];
+        $gapCandidates = [];
 
         foreach ($roadmapGaps as $gap) {
             $gap = (array) $gap;
@@ -108,8 +122,32 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
 
                 continue;
             }
+
+            // AC4: a roadmap item that hasn't been reviewed in STALE_AFTER_DAYS is marked stale
+            // instead of being blindly enqueued as an undercovered/high-priority target.
+            $lastReviewedDaysAgo = max(0, (int) ($gap['last_reviewed_days_ago'] ?? 0));
+            if ($lastReviewedDaysAgo > self::STALE_AFTER_DAYS) {
+                $staleRoadmapGaps[] = [
+                    'gap_id' => $gapId,
+                    'reason' => 'stale_requires_revalidation_before_enqueue',
+                    'last_reviewed_days_ago' => $lastReviewedDaysAgo,
+                ];
+
+                continue;
+            }
+
             if ($isHighPriority) {
                 $undercoveredHighPriorityGaps[] = $gapId;
+
+                // AC3: give the originator a real candidate — reason + suggested task family —
+                // instead of a bare gap_id.
+                $taskFamily = trim((string) ($gap['task_family'] ?? ''));
+                $suggestedTaskFamily = $taskFamily !== '' ? $taskFamily : 'roadmap_'.preg_replace('/[^a-z0-9]+/', '_', strtolower($gapId));
+                $gapCandidates[] = [
+                    'gap_id' => $gapId,
+                    'reason' => sprintf('undercovered_high_priority_gap:current=%d,target=%d', $currentCoverage, $targetCoverage),
+                    'suggested_task_family' => $suggestedTaskFamily,
+                ];
             }
         }
 
@@ -166,6 +204,8 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
             'worker_floor_low' => $workerFloorLow,
             'claimable_per_active_worker' => $claimablePerActiveWorker,
             'task_fabric_replenishment_actions' => $taskFabricReplenishmentActions,
+            'gap_candidates' => $gapCandidates,
+            'stale_roadmap_gaps' => $staleRoadmapGaps,
             'mutates_queue' => false,
         ];
     }
