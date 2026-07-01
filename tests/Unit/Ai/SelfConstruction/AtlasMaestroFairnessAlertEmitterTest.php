@@ -72,6 +72,23 @@ class AtlasMaestroFairnessAlertEmitterTest extends TestCase
         self::assertSame('worker-A', $alerts[0]['max_share_id']);
     }
 
+    public function test_breach_followed_by_recovery_emits_recovery_onset_alert(): void
+    {
+        $sequence = array_merge(array_fill(0, 5, 0.8), array_fill(0, 5, 0.1));
+        $reporter = $this->stubReporter($sequence);
+        $emitter = new AtlasMaestroFairnessAlertEmitter($reporter, $this->windowPath, $this->alertsPath, windowSize: 5, threshold: 0.6);
+        for ($i = 1; $i <= 10; $i++) {
+            $emitter->emit(sprintf('2026-06-25T00:00:%02dZ', $i));
+        }
+        $alerts = $emitter->readAlerts();
+
+        self::assertCount(2, $alerts);
+        self::assertSame('hogging_onset', $alerts[0]['reason_code']);
+        self::assertSame('hogging_onset_recovered', $alerts[1]['reason_code']);
+        self::assertSame(AtlasMaestroFairnessAlertEmitter::SEVERITY_INFO, $alerts[1]['severity']);
+        self::assertSame('workers', $alerts[1]['axis']);
+    }
+
     public function test_alternating_sequence_never_n_consecutive_over_emits_zero_alerts(): void
     {
         $reporter = $this->stubReporter([0.8, 0.1, 0.8, 0.1, 0.8]);

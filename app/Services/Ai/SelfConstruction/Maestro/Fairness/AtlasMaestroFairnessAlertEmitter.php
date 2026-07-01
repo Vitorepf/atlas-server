@@ -110,6 +110,23 @@ final class AtlasMaestroFairnessAlertEmitter
                     ];
                     $this->appendAlert($alert);
                     $alerts[] = $alert;
+                } elseif (! $currentOver && $previousOver) {
+                    $lastRow = $window[count($window) - 1];
+                    $scoreObserved = (float) ($lastRow[$key] ?? 0);
+                    $alert = [
+                        'schema' => self::SCHEMA,
+                        'kind' => self::ALERT_KIND,
+                        'axis' => $axisConf['axis'],
+                        'severity' => self::SEVERITY_INFO,
+                        'reason_code' => $axisConf['reason_code'].'_recovered',
+                        'gini_observed' => $scoreObserved,
+                        'threshold' => $this->threshold,
+                        'cycles_over' => count($window),
+                        'max_share_id' => (string) ($lastRow[$axisConf['share_id_key']] ?? ''),
+                        'observed_at' => $observedAt,
+                    ];
+                    $this->appendAlert($alert);
+                    $alerts[] = $alert;
                 }
             }
         }
