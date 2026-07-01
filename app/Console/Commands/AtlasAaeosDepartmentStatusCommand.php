@@ -7,6 +7,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
 use Illuminate\Console\Command;
@@ -39,6 +40,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         AtlasAaeosClaimDefinitionOfDoneValidator $claimValidator,
         AaeosDepartmentLevelClassifier $levelClassifier,
         AtlasRepairLoopGuard $repairLoopGuard,
+        AtlasAaeosDepartmentQualityBarLevelClassifier $qualityBarLevelClassifier,
     ): int {
         $qualityBarResult = $qualityBar->qualityBar();
         $maturityResult = $maturity->maturity();
@@ -50,6 +52,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
             'maturity_band_classification' => $this->classifyQualityBarBands($bandClassifier, $qualityBarResult),
             'promotion_eligibility' => $this->evaluatePromotionEligibility($promotionEligibility, $maturityResult, $qualityBarResult),
             'department_level_classification' => $this->classifyDepartmentLevels($levelClassifier, $qualityBarResult),
+            'quality_bar_level_classification' => $this->classifyQualityBarLevels($qualityBarLevelClassifier, $qualityBarResult),
         ];
         if ((bool) $this->option('quality-bar')) {
             $payload['quality_bar_signal'] = $qualityBar->emitSignal();
@@ -165,6 +168,44 @@ class AtlasAaeosDepartmentStatusCommand extends Command
 
         return [
             'schema_version' => 'atlas.aaeos.department_level_classification_batch.v1',
+            'departments' => $results,
+        ];
+    }
+
+    /**
+     * Runs AtlasAaeosDepartmentQualityBarLevelClassifier per department over the same real
+     * quality-bar threshold/current data as classifyDepartmentLevels, so the cumulative-climb
+     * band read (achieved_level/next_level/binding_breaches) is available alongside the other
+     * two classifications.
+     *
+     * @param  array<string,mixed>  $qualityBarResult
+     * @return array<string,mixed>
+     */
+    private function classifyQualityBarLevels(AtlasAaeosDepartmentQualityBarLevelClassifier $qualityBarLevelClassifier, array $qualityBarResult): array
+    {
+        $results = [];
+
+        foreach ((array) ($qualityBarResult['departments'] ?? []) as $department) {
+            $id = (string) ($department['department'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+
+            $bandLadder = [
+                [
+                    'level' => 'meets_quality_bar',
+                    'thresholds' => [
+                        ['metric' => 'quality_score', 'comparator' => '>=', 'value' => (float) ($department['threshold'] ?? 0.0)],
+                    ],
+                ],
+            ];
+            $metricsSnapshot = ['quality_score' => (float) ($department['current'] ?? 0.0)];
+
+            $results[$id] = $qualityBarLevelClassifier->classify($id, $metricsSnapshot, $bandLadder);
+        }
+
+        return [
+            'schema_version' => 'atlas.aaeos.quality_bar_level_classification_batch.v1',
             'departments' => $results,
         ];
     }
