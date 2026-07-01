@@ -14,9 +14,147 @@ final class AtlasSelfConstructionRuntimePromotionEvidenceDossierService
 
     public const MODE = 'read_only_runtime_promotion_evidence_dossier';
 
+    public const EVIDENCE_SECTIONS_SCHEMA = 'atlas.self_construction.runtime_promotion_evidence_sections.v1';
+
+    public const STATE_CURRENT = 'current';
+
+    public const STATE_STALE = 'stale';
+
+    public const STATE_WEAK = 'weak';
+
+    public const STATE_MISSING = 'missing';
+
+    public const VERDICT_COMPLETE = 'complete';
+
+    public const VERDICT_INCOMPLETE = 'incomplete';
+
+    /** @var list<string> */
+    private const CRITICAL_SECTIONS = [
+        'queue_health',
+        'worker_outcome',
+        'proof_receipts',
+        'learning_sync',
+        'rollback_plan',
+        'runtime_soak',
+    ];
+
+    private const STALE_AFTER_SECONDS = 86400;
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
     ) {}
+
+    /**
+     * Builds the six-section runtime promotion evidence dossier: queue health, worker outcome,
+     * proof receipts, learning sync, rollback plan, and runtime soak. Each section is
+     * independently classified missing/stale/weak/current with an actionable repair hint, and
+     * the overall verdict is complete ONLY when every critical section is current — a runtime
+     * promotion is never claimed complete on partial or aging evidence.
+     *
+     * @param  array<string, mixed>  $facts  each key in CRITICAL_SECTIONS maps to that section's evidence array
+     * @return array<string, mixed>
+     */
+    public function evidenceSections(array $facts): array
+    {
+        $sections = [];
+        foreach (self::CRITICAL_SECTIONS as $sectionKey) {
+            $sections[$sectionKey] = $this->evaluateSection($sectionKey, (array) ($facts[$sectionKey] ?? []));
+        }
+
+        $blockingSections = array_values(array_filter(
+            self::CRITICAL_SECTIONS,
+            static fn (string $key): bool => $sections[$key]['evidence_state'] !== self::STATE_CURRENT,
+        ));
+
+        $verdict = $blockingSections === [] ? self::VERDICT_COMPLETE : self::VERDICT_INCOMPLETE;
+
+        $payload = [
+            'schema_version' => self::EVIDENCE_SECTIONS_SCHEMA,
+            'mode' => self::MODE,
+            'generated_at' => CarbonImmutable::now()->toIso8601String(),
+            'sections' => $sections,
+            'blocking_sections' => $blockingSections,
+            'verdict' => $verdict,
+            'complete' => $verdict === self::VERDICT_COMPLETE,
+        ];
+        $payload['evidence_sections_hash'] = $this->stableHash($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $section
+     * @return array<string, mixed>
+     */
+    private function evaluateSection(string $sectionKey, array $section): array
+    {
+        if ($section === []) {
+            return [
+                'section' => $sectionKey,
+                'evidence_state' => self::STATE_MISSING,
+                'repair_hint' => 'supply_'.$sectionKey.'_evidence',
+                'facts' => [],
+            ];
+        }
+
+        $ageSeconds = (int) ($section['observed_at_seconds_ago'] ?? 0);
+        if ($ageSeconds > self::STALE_AFTER_SECONDS) {
+            return [
+                'section' => $sectionKey,
+                'evidence_state' => self::STATE_STALE,
+                'repair_hint' => 'refresh_'.$sectionKey.'_evidence',
+                'facts' => $section,
+            ];
+        }
+
+        $weakReason = $this->weakReason($sectionKey, $section);
+        if ($weakReason !== null) {
+            return [
+                'section' => $sectionKey,
+                'evidence_state' => self::STATE_WEAK,
+                'repair_hint' => $weakReason,
+                'facts' => $section,
+            ];
+        }
+
+        return [
+            'section' => $sectionKey,
+            'evidence_state' => self::STATE_CURRENT,
+            'repair_hint' => null,
+            'facts' => $section,
+        ];
+    }
+
+    /**
+     * Section-specific weakness rules — a section can be present and fresh yet still fail to
+     * prove the thing it claims to prove.
+     *
+     * @param  array<string, mixed>  $section
+     */
+    private function weakReason(string $sectionKey, array $section): ?string
+    {
+        return match ($sectionKey) {
+            'queue_health' => (float) ($section['give_back_rate'] ?? 0.0) >= 0.3
+                ? 'give_back_rate_too_high_stabilize_queue_before_promotion'
+                : null,
+            'worker_outcome' => (int) ($section['sample_count'] ?? 0) < 5
+                ? 'insufficient_worker_outcome_sample_count'
+                : ((float) ($section['success_rate'] ?? 0.0) < 0.8 ? 'worker_outcome_success_rate_below_promotion_floor' : null),
+            'proof_receipts' => ((int) ($section['receipt_count'] ?? 0) === 0)
+                ? 'no_proof_receipts_recorded'
+                : (! (bool) ($section['all_verified'] ?? false) ? 'unverified_proof_receipts_present' : null),
+            'learning_sync' => (int) ($section['lessons_admitted_count'] ?? 0) === 0
+                ? 'no_lessons_admitted_since_last_sync'
+                : null,
+            'rollback_plan' => ! (bool) ($section['has_plan'] ?? false)
+                ? 'no_rollback_plan_present'
+                : (! (bool) ($section['tested'] ?? false) ? 'rollback_plan_present_but_untested' : null),
+            'runtime_soak' => (int) ($section['soak_hours'] ?? 0) < 24
+                ? 'runtime_soak_duration_below_24h_floor'
+                : ((int) ($section['incident_count'] ?? 0) > 0 ? 'runtime_soak_reported_incidents_unresolved' : null),
+            default => null,
+        };
+    }
 
     /** @return array<string, mixed> */
     public function build(array $options = []): array
