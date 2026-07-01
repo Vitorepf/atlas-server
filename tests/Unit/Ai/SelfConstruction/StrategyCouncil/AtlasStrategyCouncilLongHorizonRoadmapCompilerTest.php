@@ -262,4 +262,102 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompilerTest extends TestCase
         $this->assertSame('ready-gap', $r['taskable_slices'][0]['gap_id']);
         $this->assertSame(['abstract-gap'], $r['not_queue_ready_gap_ids']);
     }
+
+    // ── AC4: capability_arcs, dependency_chains, proof_milestones, simplification_waves, stop_go_checkpoints, risk_notes ──
+
+    public function test_empty_facts_yield_empty_new_fields_with_all_checkpoints_green(): void
+    {
+        $r = $this->compiler()->compile([]);
+
+        $this->assertSame([], $r['capability_arcs']);
+        $this->assertSame([], $r['dependency_chains']);
+        $this->assertSame([], $r['proof_milestones']);
+        $this->assertSame([], $r['simplification_waves']);
+        $this->assertSame([], $r['risk_notes']);
+        foreach ($r['stop_go_checkpoints'] as $checkpoint) {
+            $this->assertTrue($checkpoint['go']);
+        }
+    }
+
+    public function test_single_gap_yields_single_capability_arc(): void
+    {
+        $r = $this->compiler()->compile(['gap_index' => [$this->gap('gap-1')]]);
+
+        $this->assertCount(1, $r['capability_arcs']);
+        $this->assertSame('arc_0', $r['capability_arcs'][0]['arc']);
+        $this->assertSame(['gap-1'], $r['capability_arcs'][0]['gaps']);
+    }
+
+    public function test_dependent_gaps_yield_two_arcs_and_a_dependency_chain_edge(): void
+    {
+        $r = $this->compiler()->compile([
+            'gap_index' => [$this->gap('base'), $this->gap('derived', ['base'])],
+        ]);
+
+        $this->assertCount(2, $r['capability_arcs']);
+        $this->assertSame(['base'], $r['capability_arcs'][0]['gaps']);
+        $this->assertSame(['derived'], $r['capability_arcs'][1]['gaps']);
+        $this->assertSame([['from' => 'base', 'to' => 'derived']], $r['dependency_chains']);
+    }
+
+    public function test_compression_candidate_produces_a_simplification_wave_for_its_phase(): void
+    {
+        $r = $this->compiler()->compile([
+            'gap_index'              => [$this->gap('gap-a'), $this->gap('gap-b')],
+            'worker_capacity'        => ['near_term' => 1, 'mid_term' => 2],
+            'compression_candidates' => ['gap-b'],
+        ]);
+
+        $this->assertCount(1, $r['simplification_waves']);
+        $this->assertSame('mid_term', $r['simplification_waves'][0]['phase']);
+        $this->assertSame(['gap-b'], $r['simplification_waves'][0]['gaps']);
+    }
+
+    public function test_taskable_gap_with_required_evidence_produces_a_proof_milestone(): void
+    {
+        $gap = $this->gap('gap-1');
+        $gap['allowed_files'] = ['app/Foo.php'];
+        $gap['acceptance_criteria'] = ['php artisan test'];
+        $gap['required_evidence'] = ['tests_or_gates_result'];
+
+        $r = $this->compiler()->compile(['gap_index' => [$gap]]);
+
+        $this->assertCount(1, $r['proof_milestones']);
+        $this->assertSame('gap-1', $r['proof_milestones'][0]['gap_id']);
+        $this->assertSame(['tests_or_gates_result'], $r['proof_milestones'][0]['required_evidence']);
+    }
+
+    public function test_dependency_cycle_and_pressure_and_abstract_items_all_surface_in_risk_notes_and_checkpoints(): void
+    {
+        $r = $this->compiler()->compile([
+            'gap_index'      => [$this->gap('g1', ['g2']), $this->gap('g2', ['g1']), $this->gap('abstract')],
+            'queue_forecast' => ['current_pressure' => 0.9],
+        ]);
+
+        $this->assertContains('dependency_cycle_or_missing_dependency_detected', $r['risk_notes']);
+        $this->assertContains('queue_pressure_above_cap_near_term_capacity_reduced', $r['risk_notes']);
+        $this->assertContains('abstract_roadmap_items_not_queue_ready', $r['risk_notes']);
+
+        $goByCheckpoint = [];
+        foreach ($r['stop_go_checkpoints'] as $c) {
+            $goByCheckpoint[$c['checkpoint']] = $c['go'];
+        }
+        $this->assertFalse($goByCheckpoint['dependency_integrity']);
+        $this->assertFalse($goByCheckpoint['queue_pressure']);
+        $this->assertFalse($goByCheckpoint['queue_readiness']);
+    }
+
+    public function test_new_roadmap_fields_are_deterministic_across_repeated_compiles(): void
+    {
+        $facts = [
+            'gap_index'         => [$this->gap('g1'), $this->gap('g2', ['g1']), $this->gap('g3')],
+            'calibrated_impact' => ['g1' => 0.7, 'g2' => 0.5, 'g3' => 0.9],
+            'queue_forecast'    => ['current_pressure' => 0.6],
+            'worker_capacity'   => ['near_term' => 2, 'mid_term' => 2],
+        ];
+        $a = $this->compiler()->compile($facts);
+        $b = $this->compiler()->compile($facts);
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }
