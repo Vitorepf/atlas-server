@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBacklogCostModel;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainConvergenceCriteriaCompiler;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainEnqueueValueThrottle;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainQueueSaturationStopPolicy;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainRunPolicyCompiler;
@@ -23,7 +24,7 @@ use Illuminate\Console\Command;
  * Never mutates files, calls providers, or runs git — read-only reporting only.
  *
  * Input: a single JSON file (--input=PATH) with keys:
- *   { run_policy_config:{...}, run_state:{...}, saturation:{...}, families:{...}, throttle:{...} }
+ *   { run_policy_config:{...}, run_state:{...}, saturation:{...}, families:{...}, throttle:{...}, convergence:{...} }
  * Missing/absent sections default to empty and produce a conservative report.
  */
 final class AtlasExternalBrainAutonomyGovernorCommand extends Command
@@ -41,6 +42,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
         AtlasExternalBrainTaskFamilyYieldModel $yieldModel,
         AtlasExternalBrainEnqueueValueThrottle $throttle,
         AtlasExternalBrainBacklogCostModel $backlogCostModel,
+        AtlasExternalBrainConvergenceCriteriaCompiler $convergenceCompiler,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -62,6 +64,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
         $familiesFacts = is_array($decoded['families'] ?? null) ? $decoded['families'] : [];
         $throttleInput = is_array($decoded['throttle'] ?? null) ? $decoded['throttle'] : [];
         $backlogCostInput = is_array($decoded['backlog_cost'] ?? null) ? $decoded['backlog_cost'] : [];
+        $convergenceInput = is_array($decoded['convergence'] ?? null) ? $decoded['convergence'] : [];
 
         $compiledPolicy = $runPolicyCompiler->compile($runPolicyConfig);
         $runEvaluation = $runPolicyCompiler->evaluate($compiledPolicy, $runState);
@@ -69,6 +72,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
         $yield = $yieldModel->model($familiesFacts);
         $throttleResult = $throttle->throttle($throttleInput);
         $backlogCost = $backlogCostModel->model($backlogCostInput);
+        $convergence = $convergenceCompiler->compile($convergenceInput);
 
         $shouldPause = ! $runEvaluation['can_stop'] && $runEvaluation['violations'] !== [];
         $shouldSelfHeal = ($saturation['decision'] ?? null) === 'unblock_first';
@@ -92,6 +96,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
             'family_yield' => $yield,
             'enqueue_throttle' => $throttleResult,
             'backlog_cost' => $backlogCost,
+            'convergence' => $convergence,
             'governor_action' => $governorAction,
         ];
 
