@@ -134,4 +134,74 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocatorTest extends Test
         $this->assertGreaterThan(0, $result['lane_percentages']['verification']);
         $this->assertStringContainsString('proof_freshness', $result['rationale']['verification']);
     }
+
+    // ── AC: budgets simplification, proof, autonomy, unblock, learning, additive capability ──
+
+    public function test_autonomy_and_unblock_lanes_present(): void
+    {
+        $result = $this->allocator->allocate([]);
+
+        $this->assertArrayHasKey('autonomy', $result['lane_percentages']);
+        $this->assertArrayHasKey('unblock', $result['lane_percentages']);
+    }
+
+    public function test_high_autonomy_debt_allocates_non_zero_autonomy(): void
+    {
+        $result = $this->allocator->allocate(['autonomy_debt' => 0.9]);
+
+        $this->assertGreaterThan(0, $result['lane_percentages']['autonomy']);
+        $this->assertStringContainsString('autonomy_debt', $result['rationale']['autonomy']);
+    }
+
+    public function test_high_unblock_debt_allocates_non_zero_unblock(): void
+    {
+        $result = $this->allocator->allocate(['unblock_debt' => 0.9]);
+
+        $this->assertGreaterThan(0, $result['lane_percentages']['unblock']);
+        $this->assertStringContainsString('unblock_debt', $result['rationale']['unblock']);
+    }
+
+    public function test_capability_lane_percentages_maps_canonical_names(): void
+    {
+        $result = $this->allocator->allocate([]);
+
+        foreach (['simplification', 'proof', 'autonomy', 'unblock', 'learning', 'additive_capability'] as $key) {
+            $this->assertArrayHasKey($key, $result['capability_lane_percentages']);
+        }
+        $this->assertSame(100, array_sum($result['capability_lane_percentages']));
+    }
+
+    // ── AC: caps additive work when proof or simplification debt is high ──────
+
+    public function test_additive_build_capped_when_simplification_debt_high(): void
+    {
+        $result = $this->allocator->allocate(['simplification_debt' => 0.35]);
+
+        $this->assertArrayHasKey('build', $result['rationale']);
+        $this->assertStringContainsString('capped', $result['rationale']['build']);
+    }
+
+    public function test_additive_build_not_capped_when_debt_low(): void
+    {
+        $result = $this->allocator->allocate([]);
+
+        $this->assertStringNotContainsString('capped', $result['rationale']['build']);
+    }
+
+    // ── AC: returns next lane recommendation ───────────────────────────────────
+
+    public function test_next_lane_recommendation_present(): void
+    {
+        $result = $this->allocator->allocate([]);
+
+        $this->assertArrayHasKey('next_lane_recommendation', $result);
+        $this->assertContains($result['next_lane_recommendation'], AtlasExternalBrainStructuralLeverageBudgetAllocator::LANES);
+    }
+
+    public function test_next_lane_recommendation_matches_dominant_lane(): void
+    {
+        $result = $this->allocator->allocate(['give_back_rate' => 0.9]);
+
+        $this->assertSame('repair', $result['next_lane_recommendation']);
+    }
 }

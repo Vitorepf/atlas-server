@@ -7,11 +7,14 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 /**
  * Pure, deterministic budget allocator for brain-originator batches.
  *
- * Allocates the next batch budget across six lanes:
- *   build, repair, simplify, research, verification, learning.
+ * Allocates the next batch budget across eight lanes:
+ *   build, repair, simplify, research, verification, learning, autonomy, unblock.
  *
  * Shifts budget AWAY from build when give_back, poison, simplification debt,
- * or weak evidence trends say the highest leverage is elsewhere.
+ * weak evidence, autonomy debt or unblock debt trends say the highest leverage
+ * is elsewhere. capability_lane_percentages re-expresses the same shares under
+ * the canonical simplification/proof/autonomy/unblock/learning/additive_capability
+ * vocabulary demanded of every originator-effort allocator.
  *
  * NO network I/O, NO file I/O, NO provider calls.
  */
@@ -19,7 +22,10 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
 {
     public const SCHEMA = 'atlas.external_brain.structural_leverage_budget_allocator.v1';
 
-    public const LANES = ['build', 'repair', 'simplify', 'research', 'verification', 'learning'];
+    public const LANES = ['build', 'repair', 'simplify', 'research', 'verification', 'learning', 'autonomy', 'unblock'];
+
+    /** AC3: additive (build) work is capped once proof or simplification debt is high. */
+    private const ADDITIVE_CAP_WHEN_DEBT_HIGH = 20;
 
     /**
      * @param  array{
@@ -31,12 +37,16 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
      *     build_demand?:float,
      *     evidence_strength?:float,
      *     candidate_leverage_proven?:bool,
+     *     autonomy_debt?:float,
+     *     unblock_debt?:float,
      * }  $facts
      * @return array{
      *     schema:string,
      *     lane_percentages:array<string,int>,
+     *     capability_lane_percentages:array<string,int>,
      *     rationale:array<string,string>,
      *     blocked_lanes:list<string>,
+     *     next_lane_recommendation:string,
      * }
      */
     public function allocate(array $facts): array
@@ -48,19 +58,31 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
         $proofFreshness = $this->clamp($facts['proof_freshness'] ?? 1.0);
         $evidenceStrength = $this->clamp($facts['evidence_strength'] ?? 1.0);
         $candidateProven = (bool) ($facts['candidate_leverage_proven'] ?? false);
+        $autonomyDebt = $this->clamp($facts['autonomy_debt'] ?? 0.0);
+        $unblockDebt = $this->clamp($facts['unblock_debt'] ?? 0.0);
 
         // Start with a balanced baseline.
         $lanes = [
-            'build'        => 40,
+            'build'        => 25,
             'repair'       => 10,
             'simplify'     => 10,
-            'research'     => 15,
+            'research'     => 10,
             'verification' => 15,
             'learning'     => 10,
+            'autonomy'     => 7,
+            'unblock'      => 8,
         ];
 
         $rationale = [];
         $blocked = [];
+
+        // ── AC3: cap additive (build) work when proof or simplification debt is high,
+        //     BEFORE any other shift is applied — a high debt signal caps the additive
+        //     ceiling itself, it doesn't just compete with other shifts for it.
+        if (($simpDebt > 0.3 || $proofFreshness < 0.5) && $lanes['build'] > self::ADDITIVE_CAP_WHEN_DEBT_HIGH) {
+            $lanes['build'] = self::ADDITIVE_CAP_WHEN_DEBT_HIGH;
+            $rationale['build'] = "additive work capped at ".self::ADDITIVE_CAP_WHEN_DEBT_HIGH."% while proof or simplification debt is high";
+        }
 
         // ── High give_back or poison → shift to repair ─────────────────────
         $distress = max($giveBackRate, $poisonRate);
@@ -110,6 +132,22 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
             $rationale['verification'] = "proof_freshness={$proofFreshness} → allocate {$shift}% to proof/verification refresh";
         }
 
+        // ── Autonomy debt → non-zero autonomy lane (underfunded high-leverage) ──
+        if ($autonomyDebt > 0.3) {
+            $shift = min(15, (int) round($autonomyDebt * 20));
+            $lanes['build'] -= $shift;
+            $lanes['autonomy'] += $shift;
+            $rationale['autonomy'] = "autonomy_debt={$autonomyDebt} → allocate {$shift}% to autonomy";
+        }
+
+        // ── Unblock debt → non-zero unblock lane (underfunded high-leverage) ──
+        if ($unblockDebt > 0.3) {
+            $shift = min(15, (int) round($unblockDebt * 20));
+            $lanes['build'] -= $shift;
+            $lanes['unblock'] += $shift;
+            $rationale['unblock'] = "unblock_debt={$unblockDebt} → allocate {$shift}% to unblock";
+        }
+
         // Clamp and normalize to 100.
         foreach ($lanes as $k => $v) {
             $lanes[$k] = max(0, $v);
@@ -143,12 +181,37 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
             ? implode('_then_', $dominantLanes).'_focused'
             : 'balanced';
 
+        // AC4: single next-lane recommendation — the dominant lane, or the highest-funded
+        // lane when nothing clears the dominance floor.
+        $nextLane = $dominantLanes[0] ?? array_keys($sortedLanes)[0];
+
         return [
             'schema'                     => self::SCHEMA,
             'lane_percentages'           => $lanes,
+            'capability_lane_percentages' => $this->capabilityLaneView($lanes),
             'rationale'                  => $rationale,
             'blocked_lanes'              => array_values(array_unique($blocked)),
             'recommended_next_batch_shape' => $recommendedShape,
+            'next_lane_recommendation'  => $nextLane,
+        ];
+    }
+
+    /**
+     * AC2: re-expresses lane_percentages under the canonical capability vocabulary —
+     * simplification, proof, autonomy, unblock, learning, additive_capability.
+     *
+     * @param  array<string,int>  $lanes
+     * @return array<string,int>
+     */
+    private function capabilityLaneView(array $lanes): array
+    {
+        return [
+            'simplification'      => $lanes['simplify'],
+            'proof'                => $lanes['verification'],
+            'autonomy'             => $lanes['autonomy'],
+            'unblock'              => $lanes['unblock'] + $lanes['repair'],
+            'learning'             => $lanes['learning'],
+            'additive_capability'  => $lanes['build'] + $lanes['research'],
         ];
     }
 
