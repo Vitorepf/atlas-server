@@ -95,6 +95,18 @@ final class AtlasVerificationCourtGateReplayPlan
             $commands[] = $this->command('lane-freshness:'.$lane['project_id'], 'lane_freshness_check', 'project_lane attached', $changed);
         }
 
+        // worker-floor replay steps — any task touching queue, Maestro, replenisher, or autonomous
+        // completion claims must replay the worker-feed continuity checks, not just its own gates.
+        // A task that LOOKS unrelated to worker feed can still silently regress it.
+        $workerFloorTouchedFiles = array_values(array_filter($changed, [$this, 'touchesWorkerFloorConcern']));
+        if ($workerFloorTouchedFiles !== []) {
+            $reason = 'changed_files touch queue/maestro/replenisher/autonomous-completion concerns';
+            $commands[] = $this->command('worker-floor-queue-health', 'worker_floor_queue_health_check', $reason, $workerFloorTouchedFiles);
+            $commands[] = $this->command('worker-floor-queued-target-collision', 'worker_floor_queued_target_collision_check', $reason, $workerFloorTouchedFiles);
+            $commands[] = $this->command('worker-floor-malformed-sweep', 'worker_floor_malformed_sweep', $reason, $workerFloorTouchedFiles);
+            $commands[] = $this->command('worker-floor-check', 'worker_floor_check', $reason, $workerFloorTouchedFiles);
+        }
+
         if ($commands === [] && $blockers === []) {
             $blockers[] = 'no_replayable_gate_derivable';
         }
@@ -122,6 +134,23 @@ final class AtlasVerificationCourtGateReplayPlan
             'changed_file_filter' => $filteredFiles,
             'evidence_hash' => $filteredFiles !== [] ? substr(hash('sha256', implode('|', $filteredFiles)), 0, 16) : null,
         ];
+    }
+
+    /** Path substrings that mark a changed file as touching a worker-floor-relevant concern. */
+    private const WORKER_FLOOR_CONCERN_PATH_MARKERS = [
+        'queue', 'maestro', 'replenish', 'completion', 'autonomy', 'autonomous',
+    ];
+
+    private function touchesWorkerFloorConcern(string $path): bool
+    {
+        $lower = strtolower($path);
+        foreach (self::WORKER_FLOOR_CONCERN_PATH_MARKERS as $marker) {
+            if (str_contains($lower, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

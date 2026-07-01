@@ -141,4 +141,70 @@ final class AtlasVerificationCourtGateReplayPlanTest extends TestCase
         $this->assertContains('pint', $names);
         $this->assertContains('static_analysis', $names);
     }
+
+    // ── worker-floor replay steps ─────────────────────────────────────────────
+
+    public function test_queue_touching_task_includes_all_worker_floor_replay_steps(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketQueueRepository.php'],
+            'packet_facts' => ['declared_gates' => []],
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertContains('worker_floor_queue_health_check', $names);
+        $this->assertContains('worker_floor_queued_target_collision_check', $names);
+        $this->assertContains('worker_floor_malformed_sweep', $names);
+        $this->assertContains('worker_floor_check', $names);
+    }
+
+    public function test_maestro_touching_task_includes_worker_floor_replay_steps(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Services/Ai/SelfConstruction/Maestro/Health/AtlasMaestroReplenishUrgencyClassifier.php'],
+            'packet_facts' => ['declared_gates' => []],
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertContains('worker_floor_check', $names);
+    }
+
+    public function test_replenisher_touching_task_includes_worker_floor_replay_steps(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Services/Ai/SelfConstruction/Replenisher/AtlasSelfConstructionNativeReplenisherPreflight.php'],
+            'packet_facts' => ['declared_gates' => []],
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertContains('worker_floor_check', $names);
+    }
+
+    public function test_autonomous_completion_touching_task_includes_worker_floor_replay_steps(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Services/Ai/SelfConstruction/Completion/AtlasSelfConstructionFinalAutonomyVerdict.php'],
+            'packet_facts' => ['declared_gates' => []],
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertContains('worker_floor_check', $names);
+    }
+
+    public function test_unrelated_task_stays_minimal_without_worker_floor_steps(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Services/Ai/SelfConstruction/TaskQuality/AtlasTaskPacketQualityInspector.php'],
+            'packet_facts' => ['declared_gates' => []],
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertNotContains('worker_floor_check', $names);
+        $this->assertNotContains('worker_floor_queue_health_check', $names);
+    }
 }
