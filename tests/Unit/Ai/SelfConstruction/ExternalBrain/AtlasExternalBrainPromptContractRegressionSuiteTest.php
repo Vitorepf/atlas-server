@@ -24,7 +24,8 @@ final class AtlasExternalBrainPromptContractRegressionSuiteTest extends TestCase
             verify implementability against a concrete file. Never require a human or operator —
             this prompt is atlas-native end to end. Dedup every proposal against prior runs and
             avoid templated repeats. Reward proposals for their value, diversity, and evidence,
-            not for raw count alone.
+            not for raw count alone. When local candidates dry up, escalate to research, a second
+            pass, architecture review, or simplification work instead of stopping.
             PROMPT;
     }
 
@@ -143,9 +144,11 @@ final class AtlasExternalBrainPromptContractRegressionSuiteTest extends TestCase
         $r = $this->suite()->validate($this->validPrompt());
 
         $this->assertFalse($r['quota_farm_risk']);
-        $this->assertCount(7, $r['detected_strengths']);
+        $this->assertCount(9, $r['detected_strengths']);
         $this->assertContains('has_persistence_contract', $r['detected_strengths']);
+        $this->assertContains('has_escalation_beyond_local_candidates', $r['detected_strengths']);
         $this->assertContains('no_quota_farm_risk', $r['detected_strengths']);
+        $this->assertContains('no_comfortable_queue_stop_risk', $r['detected_strengths']);
     }
 
     public function test_quota_farm_risk_true_for_raw_count_without_mitigation(): void
@@ -158,9 +161,78 @@ final class AtlasExternalBrainPromptContractRegressionSuiteTest extends TestCase
         $this->assertTrue($r['quota_farm_risk']);
     }
 
-    public function test_empty_prompt_only_passes_the_quota_farm_check(): void
+    public function test_empty_prompt_only_passes_the_defect_checks(): void
     {
         $r = $this->suite()->validate('');
-        $this->assertSame(['no_quota_farm_risk'], $r['detected_strengths']);
+        $this->assertSame(['no_quota_farm_risk', 'no_comfortable_queue_stop_risk'], $r['detected_strengths']);
+    }
+
+    // ── AC2: stop-when-queue-comfortable language fails with comfortable_queue_stop_risk ──
+
+    public function test_stop_when_queue_is_comfortable_fails_with_comfortable_queue_stop_risk(): void
+    {
+        $prompt = $this->validPrompt().' Stop the run when the queue depth is comfortable.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertFalse($r['pass']);
+        $this->assertContains('comfortable_queue_stop_risk', $r['failed_clauses']);
+        $this->assertTrue($r['quota_farm_risk'] === false); // unrelated defect stays independent
+    }
+
+    public function test_pause_when_queue_is_sufficient_fails_with_comfortable_queue_stop_risk(): void
+    {
+        $prompt = $this->validPrompt().' Pause when the queue is sufficient.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertContains('comfortable_queue_stop_risk', $r['failed_clauses']);
+    }
+
+    public function test_valid_prompt_has_no_comfortable_queue_stop_risk(): void
+    {
+        $r = $this->suite()->validate($this->validPrompt());
+
+        $this->assertNotContains('comfortable_queue_stop_risk', $r['failed_clauses']);
+    }
+
+    // ── AC3: prompt must require escalation beyond local candidates ──────────
+
+    public function test_missing_escalation_clause_fails_with_missing_escalation_beyond_local_candidates(): void
+    {
+        $prompt = (string) preg_replace(
+            '/When local candidates dry up.*?instead of stopping\.\s*/s',
+            '',
+            $this->validPrompt(),
+        );
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertFalse($r['pass']);
+        $this->assertContains('missing_escalation_beyond_local_candidates', $r['failed_clauses']);
+    }
+
+    public function test_escalation_via_research_satisfies_the_clause(): void
+    {
+        $r = $this->suite()->validate('Escalate to research when local candidates run out.');
+        $this->assertNotContains('missing_escalation_beyond_local_candidates', $r['failed_clauses']);
+    }
+
+    public function test_escalation_via_architecture_satisfies_the_clause(): void
+    {
+        $r = $this->suite()->validate('When candidates dry up, expand scope into architecture work.');
+        $this->assertNotContains('missing_escalation_beyond_local_candidates', $r['failed_clauses']);
+    }
+
+    // ── AC4: quota/count language with value+evidence mitigation still passes quota-farm check ──
+
+    public function test_quota_language_with_value_and_evidence_mitigation_passes_quota_farm_check(): void
+    {
+        $prompt = 'Maximize the task count, but only when backed by real value and evidence.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertFalse($r['quota_farm_risk']);
+        $this->assertNotContains('quota_farm_risk', $r['failed_clauses']);
     }
 }

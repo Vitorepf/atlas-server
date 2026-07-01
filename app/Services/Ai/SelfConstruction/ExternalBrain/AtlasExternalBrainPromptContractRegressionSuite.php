@@ -55,6 +55,10 @@ final class AtlasExternalBrainPromptContractRegressionSuite
             '/(dedup|duplicate|anti-template|not a template|avoid templated)/i',
             'Add a dedup/anti-template clause so repeated or templated proposals are rejected.',
         ],
+        'escalation_beyond_local_candidates' => [
+            '/(escalat\w*|expand\w*).{0,80}(research|second pass|architecture|simplif\w*)|(research|second pass|architecture|simplif\w*).{0,80}(escalat\w*|expand\w*)/is',
+            'Add an explicit escalation clause: when local candidates dry up, escalate to research, a second pass, architecture work, or simplification instead of stopping.',
+        ],
     ];
 
     private const QUOTA_FARM_RAW_COUNT_PATTERN = '/(as many (tasks|proposals) as possible|maximize (the )?(task|proposal) (count|volume)|raw (task )?count|task volume alone)/i';
@@ -62,6 +66,10 @@ final class AtlasExternalBrainPromptContractRegressionSuite
     private const QUOTA_FARM_VALUE_MITIGATION_PATTERN = '/(value|diversity|evidence)/i';
 
     private const QUOTA_FARM_PATCH_NOTE = 'Raw-count language rewards quota-farming. Require value, diversity, or evidence alongside any count target.';
+
+    private const COMFORTABLE_QUEUE_STOP_PATTERN = '/(stop|pause|halt|end the run).{0,60}(queue (is |depth (is )?)?(sufficient|comfortable|full|healthy|enough)|enough (tasks|work) (queued|in the queue))|(queue (is |depth (is )?)?(sufficient|comfortable|full|healthy|enough)|enough (tasks|work) (queued|in the queue)).{0,60}(stop|pause|halt|end the run)/is';
+
+    private const COMFORTABLE_QUEUE_STOP_PATCH_NOTE = 'Prompt tells the brain to stop/pause when queue depth looks comfortable. A comfortable queue is never a stop condition — require explicit high-value-search escalation instead.';
 
     /**
      * @return array{schema:string, pass:bool, score:float, failed_clauses:list<string>, required_patch_notes:list<string>, detected_strengths:list<string>, quota_farm_risk:bool}
@@ -71,7 +79,7 @@ final class AtlasExternalBrainPromptContractRegressionSuite
         $failedClauses = [];
         $patchNotes = [];
         $detectedStrengths = [];
-        $totalChecks = count(self::REQUIRED_CLAUSES) + 1; // +1 for the quota-farm defect check
+        $totalChecks = count(self::REQUIRED_CLAUSES) + 2; // +2 for the quota-farm and comfortable-queue-stop defect checks
         $passedChecks = 0;
 
         foreach (self::REQUIRED_CLAUSES as $key => [$pattern, $note]) {
@@ -92,6 +100,15 @@ final class AtlasExternalBrainPromptContractRegressionSuite
         } else {
             $passedChecks++;
             $detectedStrengths[] = 'no_quota_farm_risk';
+        }
+
+        $hasComfortableQueueStopRisk = preg_match(self::COMFORTABLE_QUEUE_STOP_PATTERN, $prompt) === 1;
+        if ($hasComfortableQueueStopRisk) {
+            $failedClauses[] = 'comfortable_queue_stop_risk';
+            $patchNotes[] = self::COMFORTABLE_QUEUE_STOP_PATCH_NOTE;
+        } else {
+            $passedChecks++;
+            $detectedStrengths[] = 'no_comfortable_queue_stop_risk';
         }
 
         return [
