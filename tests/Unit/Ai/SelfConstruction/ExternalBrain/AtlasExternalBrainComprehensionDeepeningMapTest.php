@@ -277,4 +277,55 @@ final class AtlasExternalBrainComprehensionDeepeningMapTest extends TestCase
 
         $this->assertSame([], $r['ranked_gaps']);
     }
+
+    public function test_recurring_failure_with_high_impact_creates_guardrail_task_with_concrete_first_next_step(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [
+            $this->gap('g1', ['recurring_failure_signal' => true, 'impact_on_quality' => 0.9, 'impact_on_autonomy' => 0.9]),
+        ]]);
+
+        $entry = $this->gapResultFor($r, 'g1');
+        $this->assertSame('create_guardrail_task', $entry['decision']);
+        $this->assertNotEmpty($entry['first_next_step']);
+    }
+
+    public function test_recurring_failure_with_curiosity_only_and_low_impact_is_deferred_not_task_noise(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [
+            $this->gap('g1', [
+                'recurring_failure_signal' => true,
+                'curiosity_only' => true,
+                'impact_on_quality' => 0.1,
+                'impact_on_autonomy' => 0.1,
+            ]),
+        ]]);
+
+        $this->assertSame('defer', $this->gapResultFor($r, 'g1')['decision']);
+    }
+
+    public function test_recurring_failure_with_low_material_impact_and_no_curiosity_is_also_deferred(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [
+            $this->gap('g1', [
+                'recurring_failure_signal' => true,
+                'curiosity_only' => false,
+                'impact_on_quality' => 0.1,
+                'impact_on_autonomy' => 0.1,
+            ]),
+        ]]);
+
+        $this->assertSame('defer', $this->gapResultFor($r, 'g1')['decision']);
+    }
+
+    public function test_shallow_context_domains_block_architecture_targets_and_produce_next_context_actions(): void
+    {
+        $r = $this->svc()->map([
+            'domains' => [$this->domain('loop', ['has_owner_docs' => false, 'context_pack_age_days' => 40])],
+            'architecture_targets' => ['loop'],
+        ]);
+
+        $this->assertContains('loop', $r['blocked_architecture_targets']);
+        $this->assertNotEmpty($r['next_context_actions']);
+        $this->assertSame('loop', $r['next_context_actions'][0]['domain_id']);
+    }
 }

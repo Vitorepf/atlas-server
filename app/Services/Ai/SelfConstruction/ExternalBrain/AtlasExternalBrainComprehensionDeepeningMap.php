@@ -39,6 +39,9 @@ final class AtlasExternalBrainComprehensionDeepeningMap
 
     public const CURIOSITY_ONLY_IMPACT_FLOOR = 0.3;
 
+    /** A recurring-failure signal alone never justifies a guardrail task below this impact. */
+    public const RECURRING_FAILURE_MATERIAL_IMPACT_FLOOR = 0.3;
+
     /**
      * @param  array<string,mixed>  $input  domains list + architecture_targets list
      * @return array{schema_version:string, ranked_domains:list<array<string,mixed>>, blocked_architecture_targets:list<string>, next_context_actions:list<array<string,mixed>>}
@@ -179,9 +182,13 @@ final class AtlasExternalBrainComprehensionDeepeningMap
                     'defer',
                     'defer_until_impact_increases_or_curiosity_is_backed_by_a_real_need',
                 ],
-                $recurringFailureSignal => [
+                $recurringFailureSignal && $impactScore >= self::RECURRING_FAILURE_MATERIAL_IMPACT_FLOOR => [
                     'create_guardrail_task',
                     "author_guardrail_task_to_prevent_recurrence_of_{$missingContext}_failure",
+                ],
+                $recurringFailureSignal => [
+                    'defer',
+                    'defer_guardrail_task_until_recurring_failure_impact_on_quality_or_autonomy_is_material',
                 ],
                 $hasExistingEvidence => [
                     'read_evidence',
