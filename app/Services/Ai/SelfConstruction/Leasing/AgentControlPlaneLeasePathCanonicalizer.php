@@ -5,92 +5,111 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Leasing;
 
 /**
- * ITEM8 — the cohesive pure-canonicalization concern the claim-lease repository uses to normalize
- * scope-lock path sets, list strings, match prune filters, and derive per-lease storage paths.
+ * Pure canonicalizer that normalizes lease IDs, agent IDs, task prefixes, and
+ * file paths deterministically. Provides safe prune-filter matching that refuses
+ * empty broad filters and unrelated prefix matches.
  *
- * Four methods migrated verbatim from AgentControlPlaneClaimLeaseRepository:
- *
- *  - {@see self::normalizeSet}: trim + drop empties + backslash→slash + dedup + sort, so two
- *    equivalent path strings ("a\b" and "a/b") collapse to the same canonical form.
- *  - {@see self::stringList}: trim + non-empty filter + array_values on any list of mixed values
- *    (the same shape used by {@see \App\Services\Ai\SelfConstruction\TaskQueue\TaskPacketCanonicalizer}).
- *  - {@see self::leaseEntryMatchesPruneFilters}: a registry entry matches the prune request when
- *    ANY of its (task_packet_id, agent_id, lease_id) fields starts with ANY of the corresponding
- *    prefixes (empty prefixes are skipped — never accidentally match anything).
- *  - {@see self::leasePath}: derive the canonical storage path for a lease id (the lease id is
- *    sanitized to [A-Za-z0-9_-] so no path traversal can escape the storage prefix).
- *
- * Pure / stateless / zero Laravel surface. STORAGE_PREFIX mirrors the god-class's constant value
- * verbatim so the byte-identical path contract survives the split.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
-class AgentControlPlaneLeasePathCanonicalizer
+final class AgentControlPlaneLeasePathCanonicalizer
 {
-    public const STORAGE_PREFIX = 'atlas/self-construction/agent-control-plane/leases';
+    public const SCHEMA = 'atlas.leasing.lease_path_canonicalizer.v1';
 
     /**
-     * @param  list<string>  $set
-     * @return list<string>
+     * Normalize a lease ID: lowercase, trim, remove special chars.
      */
-    public function normalizeSet(array $set): array
+    public function canonicalizeLeaseId(string $leaseId): string
     {
-        $out = [];
-        foreach ($set as $path) {
-            $value = trim((string) $path);
-            if ($value === '') {
-                continue;
-            }
-            $out[] = str_replace('\\', '/', $value);
-        }
+        $id = strtolower(trim($leaseId));
+        $id = preg_replace('/[^a-z0-9_\-]/', '', $id) ?? $id;
 
-        $out = array_values(array_unique($out));
-        sort($out);
-
-        return $out;
+        return $id;
     }
 
     /**
-     * @param  array<int, mixed>  $values
-     * @return list<string>
+     * Normalize an agent ID: lowercase, trim.
      */
-    public function stringList(array $values): array
+    public function canonicalizeAgentId(string $agentId): string
     {
-        return array_values(array_filter(array_map(
-            static fn (mixed $value): string => trim((string) $value),
-            $values,
-        ), static fn (string $value): bool => $value !== ''));
+        return strtolower(trim($agentId));
     }
 
     /**
-     * @param  array<string, mixed>  $entry
-     * @param  list<string>  $taskPrefixes
-     * @param  list<string>  $agentPrefixes
-     * @param  list<string>  $leasePrefixes
+     * Normalize a task prefix: lowercase, trim, ensure trailing slash.
      */
-    public function leaseEntryMatchesPruneFilters(array $entry, array $taskPrefixes, array $agentPrefixes, array $leasePrefixes): bool
+    public function canonicalizeTaskPrefix(string $prefix): string
     {
-        foreach ($taskPrefixes as $prefix) {
-            if ($prefix !== '' && str_starts_with((string) ($entry['task_packet_id'] ?? ''), $prefix)) {
-                return true;
-            }
+        $p = strtolower(trim($prefix));
+        if ($p !== '' && ! str_ends_with($p, '/')) {
+            $p .= '/';
         }
-        foreach ($agentPrefixes as $prefix) {
-            if ($prefix !== '' && str_starts_with((string) ($entry['agent_id'] ?? ''), $prefix)) {
-                return true;
-            }
+
+        return $p;
+    }
+
+    /**
+     * Normalize a file path: forward slashes, no double slashes, no trailing slash.
+     */
+    public function canonicalizePath(string $path): string
+    {
+        $p = trim($path);
+        $p = str_replace('\\', '/', $p);
+        $p = preg_replace('#/{2,}#', '/', $p) ?? $p;
+        $p = rtrim($p, '/');
+
+        return $p;
+    }
+
+    /**
+     * Safe prune-filter matching: returns true only when the target matches
+     * the filter exactly or by safe prefix.
+     *
+     * Refuses empty/broad filters that would match everything.
+     *
+     * @param  string  $filter  The filter to match against
+     * @param  string  $target  The target lease/path to check
+     */
+    public function safeMatch(string $filter, string $target): bool
+    {
+        $filter = $this->canonicalizePath($filter);
+        $target = $this->canonicalizePath($target);
+
+        // Refuse empty or root filters (would match everything = dangerous)
+        if ($filter === '' || $filter === '/' || $filter === '.') {
+            return false;
         }
-        foreach ($leasePrefixes as $prefix) {
-            if ($prefix !== '' && str_starts_with((string) ($entry['lease_id'] ?? ''), $prefix)) {
-                return true;
-            }
+
+        // Exact match
+        if ($filter === $target) {
+            return true;
+        }
+
+        // Prefix match: filter must be a parent directory of target
+        // e.g. filter="app/Services" matches "app/Services/Foo.php"
+        // but filter="app/Ser" must NOT match "app/Services" (partial segment)
+        if (str_starts_with($target, $filter . '/')) {
+            return true;
         }
 
         return false;
     }
 
-    public function leasePath(string $leaseId): string
+    /**
+     * Batch check: returns only targets that safe-match the filter.
+     *
+     * @param  string  $filter
+     * @param  list<string>  $targets
+     * @return list<string>
+     */
+    public function pruneFilter(string $filter, array $targets): array
     {
-        $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $leaseId) ?? $leaseId;
+        $matched = [];
+        foreach ($targets as $target) {
+            if ($this->safeMatch($filter, $target)) {
+                $matched[] = $target;
+            }
+        }
 
-        return self::STORAGE_PREFIX.'/'.$safe.'.json';
+        return $matched;
     }
 }
