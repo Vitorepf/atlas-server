@@ -44,6 +44,16 @@ final class AtlasExternalBrainScaffoldOverfitDetector
     public const POISON_THRESHOLD                 = 0.10;
     public const TEMPLATE_REPETITION_THRESHOLD    = 0.70;
     public const GATE_KEYWORD_DENSITY_THRESHOLD   = 0.60;
+    public const NARROW_FIXTURE_THRESHOLD         = 0.60;
+
+    // AC2/AC3: named overfit category per suspect — separate from the free-form `reasons` list,
+    // so a caller can route on a single canonical category instead of parsing reason strings.
+    public const CATEGORY_TEMPLATE_FARM        = 'template_farm_overfit';
+    public const CATEGORY_NARROW_FIXTURE       = 'narrow_fixture_overfit';
+    public const CATEGORY_GATE_OVERFIT         = 'gate_overfit';
+    public const CATEGORY_HELDOUT_OVERFIT      = 'heldout_overfit';
+    public const CATEGORY_SCHEMA_ONLY_OVERFIT  = 'schema_only_overfit';
+    public const CATEGORY_QUALITY_DECLINE      = 'quality_decline_overfit';
 
     /**
      * @param  array<string,mixed>  $input
@@ -75,6 +85,7 @@ final class AtlasExternalBrainScaffoldOverfitDetector
             $heldoutRate     = (float)   ($m['heldout_pass_rate']       ?? 0.0);
             $templateRepetition        = (float) ($m['template_repetition_score']  ?? 0.0);
             $gateKeywordDensity        = (float) ($m['gate_keyword_density']        ?? 0.0);
+            $narrowFixtureScore        = (float) ($m['narrow_fixture_score']        ?? 0.0);
             $schemaChangeOnly          = (bool)  ($m['schema_change_only']          ?? false);
             $evidenceQualityDelta      = (float) ($m['evidence_quality_delta']      ?? 0.0);
             $replayAccuracyDelta       = (float) ($m['replay_accuracy_delta']       ?? 0.0);
@@ -117,13 +128,16 @@ final class AtlasExternalBrainScaffoldOverfitDetector
             $templateFarm        = $templateRepetition > self::TEMPLATE_REPETITION_THRESHOLD;
             // D: gate-keyword stuffing — scaffold criteria saturated with gate keywords, no capability proof
             $gateStuffing        = $gateKeywordDensity > self::GATE_KEYWORD_DENSITY_THRESHOLD;
+            // F: narrow-fixture hack — scaffold hard-codes to specific fixture shapes/values instead
+            // of teaching general capability; a small model trained on it learns the fixture, not the skill.
+            $narrowFixtureHack   = $narrowFixtureScore > self::NARROW_FIXTURE_THRESHOLD;
             // E: schema-only scaffold — only changes output format with no quality improvement in any dimension
             $schemaOnly          = $schemaChangeOnly
                 && $evidenceQualityDelta   <= 0.0
                 && $replayAccuracyDelta    <= 0.0
                 && $escalationQualityDelta <= 0.0;
 
-            if ($gateHighWithDecline || $heldoutOverfit || $templateFarm || $gateStuffing || $schemaOnly) {
+            if ($gateHighWithDecline || $heldoutOverfit || $templateFarm || $gateStuffing || $schemaOnly || $narrowFixtureHack) {
                 $reasons = [];
                 if ($gateHighWithDecline) {
                     $reasons[] = 'high_gate_low_real_quality';
@@ -140,6 +154,20 @@ final class AtlasExternalBrainScaffoldOverfitDetector
                 if ($schemaOnly) {
                     $reasons[] = 'schema_only_scaffold';
                 }
+                if ($narrowFixtureHack) {
+                    $reasons[] = 'narrow_fixture_overfit';
+                }
+                // AC2/AC3: a single canonical category, priority-ordered — template farming and
+                // fixture hacking are the most dangerous (they actively teach the wrong behavior),
+                // so they outrank a plain gate-wording match.
+                $overfitCategory = match (true) {
+                    $templateFarm      => self::CATEGORY_TEMPLATE_FARM,
+                    $narrowFixtureHack => self::CATEGORY_NARROW_FIXTURE,
+                    $gateStuffing      => self::CATEGORY_GATE_OVERFIT,
+                    $heldoutOverfit    => self::CATEGORY_HELDOUT_OVERFIT,
+                    $schemaOnly        => self::CATEGORY_SCHEMA_ONLY_OVERFIT,
+                    default            => self::CATEGORY_QUALITY_DECLINE,
+                };
                 $suspectScaffolds[] = [
                     'variant_id'                => $id,
                     'gate_pass_rate'            => $gateRate,
@@ -147,6 +175,7 @@ final class AtlasExternalBrainScaffoldOverfitDetector
                     'template_repetition_score' => $templateRepetition,
                     'declining_metrics'         => $decliningMetrics,
                     'reasons'                   => $reasons,
+                    'overfit_category'          => $overfitCategory,
                 ];
                 if ($heldoutOverfit) {
                     $anyHeldoutOverfit = true;
@@ -227,6 +256,7 @@ final class AtlasExternalBrainScaffoldOverfitDetector
             'schema_only_scaffold'         => 'add_evidence_quality_or_replay_accuracy_improvement_not_schema_only',
             'high_gate_low_real_quality'   => 'raise_real_quality_signals_before_relying_on_gate_pass_rate',
             'heldout_gap_exceeds_threshold' => 'expand_heldout_evaluation_set_to_close_benchmark_heldout_gap',
+            'narrow_fixture_overfit'       => 'generalize_scaffold_beyond_specific_fixture_shapes_and_values',
         ];
 
         $hints = [];

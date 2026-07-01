@@ -364,4 +364,88 @@ final class AtlasExternalBrainScaffoldOverfitDetectorTest extends TestCase
         $heldout = $this->detect($this->metric('v2', ['benchmark_pass_rate' => 0.95, 'heldout_pass_rate' => 0.50]));
         $this->assertStringContainsString('heldout_gap', $heldout['blocking_reason']);
     }
+
+    // ── AC2: gate-wording satisfaction is categorized as gate_overfit ─────────
+
+    public function test_gate_wording_satisfaction_is_categorized_as_gate_overfit(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'gate_keyword_density' => 0.80, // > 0.60: scaffold tells the model to satisfy counter wording
+        ]));
+
+        $this->assertTrue($result['overfit_detected']);
+        $suspect = $result['suspect_scaffolds'][0];
+        $this->assertContains('gate_keyword_stuffing', $suspect['reasons']);
+        $this->assertSame(AtlasExternalBrainScaffoldOverfitDetector::CATEGORY_GATE_OVERFIT, $suspect['overfit_category']);
+    }
+
+    // ── AC3: fixture-specific hacks are categorized as narrow_fixture_overfit ──
+
+    public function test_fixture_specific_hack_is_categorized_as_narrow_fixture_overfit(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'narrow_fixture_score' => 0.85, // > 0.60: scaffold hard-codes to specific fixture shapes
+        ]));
+
+        $this->assertTrue($result['overfit_detected']);
+        $suspect = $result['suspect_scaffolds'][0];
+        $this->assertContains('narrow_fixture_overfit', $suspect['reasons']);
+        $this->assertSame(AtlasExternalBrainScaffoldOverfitDetector::CATEGORY_NARROW_FIXTURE, $suspect['overfit_category']);
+    }
+
+    public function test_low_narrow_fixture_score_does_not_flag(): void
+    {
+        $result = $this->detect($this->metric('v1', ['narrow_fixture_score' => 0.30]));
+
+        $this->assertFalse($result['overfit_detected']);
+    }
+
+    public function test_narrow_fixture_overfit_repair_hint_is_present(): void
+    {
+        $result = $this->detect($this->metric('v1', ['narrow_fixture_score' => 0.90]));
+
+        $this->assertContains(
+            'generalize_scaffold_beyond_specific_fixture_shapes_and_values',
+            $result['repair_hints'],
+        );
+    }
+
+    public function test_narrow_fixture_overfit_outranks_gate_overfit_when_both_present(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'narrow_fixture_score' => 0.85,
+            'gate_keyword_density' => 0.80,
+        ]));
+
+        $suspect = $result['suspect_scaffolds'][0];
+        $this->assertSame(AtlasExternalBrainScaffoldOverfitDetector::CATEGORY_NARROW_FIXTURE, $suspect['overfit_category']);
+        $this->assertContains('narrow_fixture_overfit', $suspect['reasons']);
+        $this->assertContains('gate_keyword_stuffing', $suspect['reasons']);
+    }
+
+    // ── AC4: general proof and grounding guidance is NOT flagged ──────────────
+
+    public function test_general_proof_and_grounding_guidance_is_not_flagged(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            // A healthy scaffold that merely emphasizes proof/grounding without gate-wording
+            // stuffing or fixture hard-coding must stay clean.
+            'gate_keyword_density' => 0.20,
+            'narrow_fixture_score' => 0.10,
+        ]));
+
+        $this->assertFalse($result['overfit_detected']);
+        $this->assertSame('none', $result['recommended_action']);
+    }
+
+    public function test_template_farm_outranks_narrow_fixture_category(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'template_repetition_score' => 0.85,
+            'narrow_fixture_score' => 0.85,
+        ]));
+
+        $suspect = $result['suspect_scaffolds'][0];
+        $this->assertSame(AtlasExternalBrainScaffoldOverfitDetector::CATEGORY_TEMPLATE_FARM, $suspect['overfit_category']);
+    }
 }
