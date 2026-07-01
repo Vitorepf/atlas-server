@@ -157,4 +157,104 @@ final class AtlasKnowledgeSyncDocsDriftGateTest extends TestCase
         sort($sorted, SORT_STRING);
         $this->assertSame($sorted, $r['blockers'], 'blockers must be sorted deterministically');
     }
+
+    // ── AC1/AC3: capability-changing task requires all 4 sync artifacts ────────────
+
+    public function test_capability_changed_without_any_required_artifacts_fails_closed(): void
+    {
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts([]),
+            'capability_changed' => true,
+            'now_unix' => time(),
+        ]);
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('capability_changed_but_docs_health_check_not_required', $r['blockers']);
+        $this->assertContains('capability_changed_but_knowledge_sync_not_required', $r['blockers']);
+        $this->assertContains('capability_changed_but_code_index_not_required', $r['blockers']);
+        $this->assertContains('capability_changed_but_memory_update_not_required', $r['blockers']);
+    }
+
+    public function test_capability_changed_missing_code_index_evidence_is_blocked(): void
+    {
+        $now = time();
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate(array_merge($this->freshEvidence($now), [
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check', 'engineering-knowledge-sync', 'code-intelligence-index', 'memory-update']),
+            'capability_changed' => true,
+            'memory_update' => ['ok' => true, 'observed_at_unix' => $now - 60],
+            // code_index intentionally missing
+        ]));
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('code_index_missing', $r['blockers']);
+        $this->assertContains('run_index_code', $r['next_sync_actions']);
+    }
+
+    public function test_capability_changed_missing_memory_update_evidence_is_blocked(): void
+    {
+        $now = time();
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate(array_merge($this->freshEvidence($now), [
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check', 'engineering-knowledge-sync', 'code-intelligence-index', 'memory-update']),
+            'capability_changed' => true,
+            'code_index' => ['ok' => true, 'observed_at_unix' => $now - 60],
+            // memory_update intentionally missing
+        ]));
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('memory_update_missing', $r['blockers']);
+        $this->assertContains('record_memory_update', $r['next_sync_actions']);
+    }
+
+    public function test_capability_changed_with_all_fresh_evidence_is_conformant(): void
+    {
+        $now = time();
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate(array_merge($this->freshEvidence($now), [
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check', 'engineering-knowledge-sync', 'code-intelligence-index', 'memory-update']),
+            'capability_changed' => true,
+            'code_index' => ['ok' => true, 'observed_at_unix' => $now - 60],
+            'memory_update' => ['ok' => true, 'observed_at_unix' => $now - 60],
+        ]));
+        $this->assertTrue($r['conformant']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertSame([], $r['next_sync_actions']);
+    }
+
+    public function test_non_capability_changing_task_does_not_require_code_index_or_memory(): void
+    {
+        // code-intelligence-index required but no capability change and no evidence supplied:
+        // must NOT be gated — matches the plain "no docs change" bypass behavior.
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts(['code-intelligence-index']),
+            'now_unix' => time(),
+        ]);
+        $this->assertTrue($r['conformant']);
+    }
+
+    // ── AC2: required_artifacts and next_sync_actions always present ───────────────
+
+    public function test_required_artifacts_echoed_in_output(): void
+    {
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check', 'engineering-knowledge-sync']),
+            'now_unix' => time(),
+        ]);
+        $this->assertSame(['docs-health-check', 'engineering-knowledge-sync'], $r['required_artifacts']);
+    }
+
+    public function test_next_sync_actions_present_and_empty_when_conformant(): void
+    {
+        $now = time();
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate(array_merge($this->freshEvidence($now), [
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check', 'engineering-knowledge-sync']),
+        ]));
+        $this->assertArrayHasKey('next_sync_actions', $r);
+        $this->assertSame([], $r['next_sync_actions']);
+    }
+
+    public function test_next_sync_actions_maps_docs_and_sync_blockers_to_remediation(): void
+    {
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check', 'engineering-knowledge-sync']),
+            'now_unix' => time(),
+        ]);
+        $this->assertContains('run_docs_health_check', $r['next_sync_actions']);
+        $this->assertContains('run_engineering_knowledge_sync', $r['next_sync_actions']);
+    }
 }
