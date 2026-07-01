@@ -51,6 +51,57 @@ final class AtlasSelfConstructionFinalEvidenceReplayServiceTest extends TestCase
         $this->assertNotEmpty($row['action_hint']);
     }
 
+    // ── AC: replayFinalEvidenceEntries() rejects self-reports, accepts hash-matched receipts ──
+
+    public function test_entry_without_receipt_ref_or_deterministic_inputs_is_rejected_as_self_report(): void
+    {
+        $replay = (new AtlasSelfConstructionFinalEvidenceReplayService)->replayFinalEvidenceEntries([
+            ['id' => 'claim-1', 'completion_text' => 'all done, trust me'],
+        ]);
+
+        $this->assertFalse($replay['replay_passed']);
+        $this->assertContains('claim-1', $replay['rejected_self_reports']);
+        $this->assertNotEmpty($replay['mismatch_reasons']);
+        $this->assertSame([], $replay['evidence_refs']);
+    }
+
+    public function test_entry_with_receipt_and_matching_replayed_hash_is_accepted(): void
+    {
+        $service = new AtlasSelfConstructionFinalEvidenceReplayService;
+        $inputs = ['step' => 'compile', 'ok' => true];
+        $expectedHash = hash('sha256', (string) json_encode($inputs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        $replay = $service->replayFinalEvidenceEntries([
+            [
+                'id' => 'entry-1',
+                'receipt_ref' => 'receipt-abc',
+                'deterministic_inputs' => $inputs,
+                'expected_output_hash' => $expectedHash,
+            ],
+        ]);
+
+        $this->assertTrue($replay['replay_passed']);
+        $this->assertSame(['receipt-abc'], $replay['evidence_refs']);
+        $this->assertSame([], $replay['rejected_self_reports']);
+        $this->assertSame([], $replay['mismatch_reasons']);
+    }
+
+    public function test_entry_with_receipt_but_mismatched_replayed_hash_is_rejected(): void
+    {
+        $replay = (new AtlasSelfConstructionFinalEvidenceReplayService)->replayFinalEvidenceEntries([
+            [
+                'id' => 'entry-2',
+                'receipt_ref' => 'receipt-xyz',
+                'deterministic_inputs' => ['step' => 'compile'],
+                'expected_output_hash' => 'not-the-real-hash',
+            ],
+        ]);
+
+        $this->assertFalse($replay['replay_passed']);
+        $this->assertSame([], $replay['evidence_refs']);
+        $this->assertContains('receipt-xyz:replayed_output_hash_mismatch', $replay['mismatch_reasons']);
+    }
+
     /** @param array<string, mixed> $overrides */
     private function bundle(array $overrides = []): array
     {

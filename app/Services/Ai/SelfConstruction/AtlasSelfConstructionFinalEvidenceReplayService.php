@@ -87,6 +87,53 @@ final class AtlasSelfConstructionFinalEvidenceReplayService
         return $payload;
     }
 
+    /**
+     * Replays a list of final-evidence entries, rejecting any entry that is a bare
+     * self-reported completion claim instead of receipt-anchored, reproducible evidence.
+     *
+     * @param  list<array<string,mixed>>  $entries
+     * @return array<string,mixed>
+     */
+    public function replayFinalEvidenceEntries(array $entries): array
+    {
+        $rejectedSelfReports = [];
+        $evidenceRefs = [];
+        $mismatchReasons = [];
+
+        foreach ($entries as $entry) {
+            $receiptRef = (string) ($entry['receipt_ref'] ?? '');
+            $deterministicInputs = (array) ($entry['deterministic_inputs'] ?? []);
+            $expectedOutputHash = (string) ($entry['expected_output_hash'] ?? '');
+
+            if ($receiptRef === '' || $deterministicInputs === [] || $expectedOutputHash === '') {
+                $entryId = (string) ($entry['id'] ?? ($receiptRef !== '' ? $receiptRef : 'unknown'));
+                $rejectedSelfReports[] = $entryId;
+                $mismatchReasons[] = "{$entryId}:missing_receipt_or_deterministic_evidence";
+
+                continue;
+            }
+
+            $replayedOutputHash = hash('sha256', (string) json_encode($deterministicInputs, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            if ($replayedOutputHash !== $expectedOutputHash) {
+                $mismatchReasons[] = "{$receiptRef}:replayed_output_hash_mismatch";
+
+                continue;
+            }
+
+            $evidenceRefs[] = $receiptRef;
+        }
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'replay_passed' => $rejectedSelfReports === [] && $mismatchReasons === [],
+            'rejected_self_reports' => $rejectedSelfReports,
+            'evidence_refs' => $evidenceRefs,
+            'mismatch_reasons' => $mismatchReasons,
+        ];
+    }
+
     /** @param array<string, mixed> $bundle */
     private function bundleHash(array $bundle): string
     {
