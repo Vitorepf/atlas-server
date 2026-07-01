@@ -457,4 +457,59 @@ final class AtlasExternalBrainWeakOutputRepairLoopTest extends TestCase
 
         $this->assertSame($proposal, $result['repaired_candidate']);
     }
+
+    // ── AC3: escalate instead of auto-repairing when evidence is insufficient ──
+
+    public function test_insufficient_evidence_escalates_instead_of_repairing_missing_evidence(): void
+    {
+        $result = $this->loop->repair($this->input(
+            ['required_evidence' => []],
+            ['evidence_sufficient_for_repair' => false],
+        ));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_ESCALATED_INSUFFICIENT_EVIDENCE, $result['failure_class']);
+        $this->assertNull($result['repaired_candidate']);
+        $this->assertSame([], $result['repair_steps']);
+        $this->assertNotEmpty($result['refusal_reason']);
+        $this->assertNotNull($result['escalation']);
+        $this->assertFalse($result['replay_required']);
+    }
+
+    public function test_insufficient_evidence_escalates_instead_of_repairing_missing_impl_file(): void
+    {
+        $result = $this->loop->repair($this->input(
+            ['allowed_files' => []],
+            ['evidence_sufficient_for_repair' => false],
+        ));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_ESCALATED_INSUFFICIENT_EVIDENCE, $result['failure_class']);
+        $this->assertNull($result['repaired_candidate']);
+    }
+
+    public function test_insufficient_evidence_flag_does_not_escalate_strong_output(): void
+    {
+        // Nothing to repair — the flag has nothing to act on, so pass-through stands.
+        $result = $this->loop->repair($this->input([], ['evidence_sufficient_for_repair' => false]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_STRONG_PASS_THROUGH, $result['failure_class']);
+    }
+
+    public function test_insufficient_evidence_flag_defaults_to_sufficient_when_absent(): void
+    {
+        // Default (absent) must not change existing fixable behavior.
+        $result = $this->loop->repair($this->input(['required_evidence' => []]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_MISSING_EVIDENCE, $result['failure_class']);
+        $this->assertNotNull($result['repaired_candidate']);
+    }
+
+    public function test_unrecoverable_still_takes_precedence_over_insufficient_evidence_escalation(): void
+    {
+        $result = $this->loop->repair($this->input(
+            ['required_evidence' => []],
+            ['is_poison' => true, 'evidence_sufficient_for_repair' => false],
+        ));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_UNRECOVERABLE, $result['failure_class']);
+    }
 }

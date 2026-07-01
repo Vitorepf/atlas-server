@@ -40,6 +40,7 @@ final class AtlasExternalBrainWeakOutputRepairLoop
     public const CLASS_PROXY_OR_FAKE_VALUE       = 'proxy_or_fake_value_output';
     public const CLASS_STRONG_PASS_THROUGH       = 'strong_pass_through';
     public const CLASS_ESCALATED                 = 'escalated_repeated_unrepaired';
+    public const CLASS_ESCALATED_INSUFFICIENT_EVIDENCE = 'escalated_insufficient_evidence_for_repair';
 
     public const LOW_VALUE_WEAKNESSES = ['shallow_duplication', 'template_farming', 'fake_confidence'];
     public const PROXY_OR_FAKE_VALUE_WEAKNESSES = ['proxy_proof', 'fake_value'];
@@ -81,6 +82,7 @@ final class AtlasExternalBrainWeakOutputRepairLoop
         $isDuplicate   = (bool)  ($input['is_duplicate']    ?? false);
         $dedupConflict = (string) ($input['dedup_conflict'] ?? '');
         $objective     = trim((string) ($proposal['objective'] ?? ''));
+        $evidenceSufficientForRepair = (bool) ($input['evidence_sufficient_for_repair'] ?? true);
 
         // 1. Unrecoverable
         if ($isPoison || $isGiveBack || $objective === '') {
@@ -121,6 +123,35 @@ final class AtlasExternalBrainWeakOutputRepairLoop
                 'weakness:'.implode('+', array_values($lowValueHits)),
                 'require_exponential_value_justification_in_scaffold_prompt',
             );
+        }
+
+        // 4.5. Small-model output without enough evidence to repair SAFELY → escalate
+        //      instead of guessing at a fix. Only fires when something actually needs
+        //      repair; an already-strong output has nothing to escalate about.
+        if (! $evidenceSufficientForRepair) {
+            $allFiles = (array) ($proposal['allowed_files'] ?? []);
+            $scopeWeaknesses = ['over_broad_scope', 'missing_code_search', 'weak_acceptance'];
+            $repairWeaknesses = ['stale_evidence', 'vague_objective', 'low_impact'];
+            $needsRepair = $this->isMissingEvidence($proposal)
+                || $this->isMissingImplFile($proposal)
+                || array_intersect($weaknesses, $scopeWeaknesses) !== []
+                || array_intersect($weaknesses, $repairWeaknesses) !== []
+                || count($allFiles) > self::MAX_ALLOWED_FILES;
+
+            if ($needsRepair) {
+                return [
+                    'schema'                   => self::SCHEMA,
+                    'failure_class'            => self::CLASS_ESCALATED_INSUFFICIENT_EVIDENCE,
+                    'repaired_candidate'       => null,
+                    'repair_steps'             => [],
+                    'repair_action'            => null,
+                    'refusal_reason'           => 'small_model_output_lacks_evidence_for_safe_automatic_repair',
+                    'next_scaffold_constraint' => 'escalate_to_stronger_model_or_human_review_instead_of_guessing_a_repair',
+                    'replay_required'          => false,
+                    'replay_command'           => null,
+                    'escalation'               => ['threshold_exceeded' => true, 'root_cause' => 'insufficient_evidence_for_repair'],
+                ];
+            }
         }
 
         // 5. Fixable: stale evidence → evidence_refresh
