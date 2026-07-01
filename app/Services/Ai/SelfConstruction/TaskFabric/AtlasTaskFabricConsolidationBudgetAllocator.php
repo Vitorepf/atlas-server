@@ -95,16 +95,58 @@ final class AtlasTaskFabricConsolidationBudgetAllocator
         // Allocate task slots.
         $consolidationBudget = (int) floor($batchSize * $consolidationRatio);
         $unblockBudget       = (int) floor($batchSize * $unblockRatio);
+
+        // High duplication/orphan/weak-value debt must never be silently erased by rounding
+        // or downward relief (thin queue, urgent blockers) -- it can shrink the budget, but a
+        // real debt trigger always keeps at least one reserved slot.
+        $hasHighDebtTrigger = in_array('high_duplicate_pressure', $triggers, true)
+            || in_array('high_orphan_count', $triggers, true)
+            || in_array('weak_value_proof', $triggers, true);
+        if ($hasHighDebtTrigger && $consolidationBudget < 1) {
+            $consolidationBudget = 1;
+        }
+
+        // Deletion budget: the portion of the consolidation budget specifically earmarked for
+        // removing duplicate/orphaned organs rather than general simplification cleanup.
+        $deletionBudget = ($dupPressure > self::HIGH_DUPLICATE || $orphanCount > self::HIGH_ORPHAN)
+            ? max(1, (int) floor($consolidationBudget / 2))
+            : 0;
+
         $implementationBudget = max(0, $batchSize - $consolidationBudget - $unblockBudget);
+
+        $consolidationTargetFamilies = array_values(array_unique(array_map(
+            'strval',
+            (array) ($facts['duplicate_capability_families'] ?? []),
+        )));
+
+        $rationale = $triggers === []
+            ? ['baseline allocation: no duplication, orphan, or weak-value-proof pressure detected']
+            : array_map(static fn (string $trigger): string => match ($trigger) {
+                'high_duplicate_pressure' => 'duplicate_pressure above threshold reserves consolidation budget',
+                'high_orphan_count' => 'orphaned capability count above threshold reserves consolidation budget',
+                'weak_value_proof' => 'weak value-proof density reserves consolidation budget',
+                'thin_queue_relief' => 'thin queue depth reduces (never erases) consolidation budget',
+                'strong_value_proof_relief' => 'strong value-proof density slightly reduces consolidation budget',
+                'high_blocked_pressure' => 'high blocked pressure reserves unblock budget',
+                default => $trigger,
+            }, $triggers);
 
         return [
             'schema_version'        => self::SCHEMA,
             'consolidation_budget'  => $consolidationBudget,
+            'deletion_budget'       => $deletionBudget,
             'unblock_budget'        => $unblockBudget,
             'implementation_budget' => $implementationBudget,
             'total_budget'          => $batchSize,
             'consolidation_ratio'   => round($consolidationRatio, 3),
             'unblock_ratio'         => round($unblockRatio, 3),
+            'budget_ratio' => [
+                'consolidation' => round($consolidationRatio, 3),
+                'unblock' => round($unblockRatio, 3),
+                'implementation' => round(1.0 - $consolidationRatio - $unblockRatio, 3),
+            ],
+            'rationale' => $rationale,
+            'consolidation_target_families' => $consolidationTargetFamilies,
             'active_triggers'       => $triggers,
             'diagnostics' => [
                 'queue_depth'               => $queueDepth,

@@ -163,4 +163,45 @@ final class AtlasTaskFabricConsolidationBudgetAllocatorTest extends TestCase
         $b     = $this->allocator()->allocate($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC: deletion_budget / budget_ratio / rationale / target families ────────────
+
+    public function test_high_duplication_allocates_nonzero_consolidation_and_deletion_budget(): void
+    {
+        $r = $this->allocator()->allocate(array_merge($this->healthy(), [
+            'duplicate_pressure' => 0.9,
+            'duplicate_capability_families' => ['family_a', 'family_b'],
+        ]));
+
+        $this->assertGreaterThan(0, $r['consolidation_budget']);
+        $this->assertGreaterThan(0, $r['deletion_budget']);
+        $this->assertSame(['family_a', 'family_b'], $r['consolidation_target_families']);
+        $this->assertNotEmpty($r['rationale']);
+    }
+
+    public function test_thin_queue_and_urgent_blocker_reduce_but_never_erase_consolidation_budget(): void
+    {
+        $r = $this->allocator()->allocate([
+            'batch_size'                => 10,
+            'queue_depth'               => 5, // thin_queue_relief
+            'duplicate_pressure'        => 0.9, // high debt trigger
+            'orphaned_capability_count' => 0,
+            'blocked_pressure'          => 0.9, // urgent blocker
+            'value_proof_density'       => 1.0,
+        ]);
+
+        $this->assertGreaterThanOrEqual(1, $r['consolidation_budget']);
+        $this->assertContains('thin_queue_relief', $r['active_triggers']);
+    }
+
+    public function test_output_includes_budget_ratio_rationale_and_target_families(): void
+    {
+        $r = $this->allocator()->allocate($this->healthy());
+
+        $this->assertArrayHasKey('budget_ratio', $r);
+        $this->assertArrayHasKey('consolidation', $r['budget_ratio']);
+        $this->assertArrayHasKey('rationale', $r);
+        $this->assertArrayHasKey('consolidation_target_families', $r);
+        $this->assertSame([], $r['consolidation_target_families']);
+    }
 }
