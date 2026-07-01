@@ -160,4 +160,53 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifierTest extends 
         $this->assertSame(AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_FORBIDDEN_TARGET, $verdict['class']);
         $this->assertSame('quarantine_poison', $verdict['action_hint']);
     }
+
+    // ── AC: packet_shape_defect and worker_feed_starvation w/ queue_floor_facts ──────
+
+    public function test_packet_shape_defect_class_produces_respec_packet_shape_hint(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'malformed_packet:missing_required_field']));
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_PACKET_SHAPE_DEFECT, $verdict['class']);
+        $this->assertSame('respec_packet_shape', $verdict['action_hint']);
+    }
+
+    public function test_no_claimable_task_below_worker_floor_becomes_worker_feed_starvation_with_queue_floor_facts(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact([
+                'reason' => 'no_claimable_task',
+                'claimable_per_active_worker' => 1.0,
+                'claimable_depth' => 2,
+                'active_worker_count' => 4,
+            ]));
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_WORKER_FEED_STARVATION, $verdict['class']);
+        $this->assertArrayHasKey('queue_floor_facts', $verdict);
+        $this->assertSame(2, $verdict['queue_floor_facts']['claimable_depth']);
+        $this->assertSame(4, $verdict['queue_floor_facts']['active_worker_count']);
+        $this->assertSame(1.0, $verdict['queue_floor_facts']['claimable_per_active_worker']);
+    }
+
+    public function test_no_claimable_task_above_worker_floor_stays_generic_queue_starvation(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact([
+                'reason' => 'no_claimable_task',
+                'claimable_per_active_worker' => 10.0,
+            ]));
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_NO_CLAIMABLE_TASK, $verdict['class']);
+    }
+
+    public function test_output_never_invents_narrative_and_includes_all_required_keys(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'scope_gap:requires_files_outside_scope']));
+
+        foreach (['schema_version', 'class', 'action_hint', 'packet_id', 'allowed_files', 'blocking_facts', 'evidence_refs'] as $key) {
+            $this->assertArrayHasKey($key, $verdict, "Missing key: {$key}");
+        }
+    }
 }
