@@ -12,6 +12,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierEn
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierFallbackRunbook;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyDependencyInverter;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyRegressionOracle;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyRegressionSentinel;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -61,6 +62,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainAmplifierFallbackRunbook $fallbackRunbook,
         AtlasExternalBrainAutonomyDependencyInverter $dependencyInverter,
         AtlasExternalBrainAutonomyRegressionOracle $regressionOracle,
+        AtlasExternalBrainAutonomyRegressionSentinel $regressionSentinel,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -186,6 +188,15 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // explicitly supplies an autonomy_regression_assessment section.
         if (is_array($decoded['autonomy_regression_assessment'] ?? null)) {
             $payload['autonomy_regression_assessment'] = $regressionOracle->assess($decoded['autonomy_regression_assessment']);
+        }
+
+        // Optional autonomy regression sentinel scan: detects whether a proposed change
+        // reintroduces human/operator/provider dependency into the steady-state design.
+        // Distinct from the delta-based oracle assessment above (single-state contract scan
+        // vs. before/after delta), so it only runs when the caller explicitly supplies an
+        // autonomy_regression_scan section.
+        if (is_array($decoded['autonomy_regression_scan'] ?? null)) {
+            $payload['autonomy_regression_scan'] = $regressionSentinel->scan($decoded['autonomy_regression_scan']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
