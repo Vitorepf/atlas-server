@@ -133,6 +133,33 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
                 $entry['collapse_into'] = $replacementOwner;
             }
 
+            // AC1/AC2/AC3: turn the decision into implementable muscle work — never fake work
+            // for retire, and never duplicate capability work when a replacement owner exists.
+            if ($action === self::ACTION_RESCUE) {
+                $entry['first_safe_task'] = [
+                    'objective_hint'            => $entry['next_action'],
+                    'allowed_file_hints'        => array_values(array_filter(array_map(
+                        'trim',
+                        (array) ($cap['owning_file_paths'] ?? [])
+                    ))),
+                    'proof_requirements'        => self::EVIDENCE_BY_ACTION[self::ACTION_RESCUE],
+                    'expected_capability_delta' => "{$id}: stalled -> integrated",
+                ];
+            } elseif ($action === self::ACTION_COLLAPSE) {
+                $consolidationTarget = $replacementOwner !== '' ? $replacementOwner : 'canonical_owner';
+                $entry['first_safe_task'] = [
+                    'objective_hint'       => "collapse_into:{$consolidationTarget}",
+                    'replacement_owner'    => $consolidationTarget,
+                    'consolidation_proof'  => self::EVIDENCE_BY_ACTION[self::ACTION_COLLAPSE],
+                ];
+            } elseif ($action === self::ACTION_RETIRE) {
+                // Explicitly no implementation brief — retiring never emits fake work.
+                $entry['retire_conditions'] = [
+                    'stall_count_at_or_above' => self::STALL_RETIRE_THRESHOLD,
+                    'no_active_consumer'      => true,
+                ];
+            }
+
             $entries[]           = $entry;
             $byAction[$action][] = $id;
         }

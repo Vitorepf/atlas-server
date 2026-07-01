@@ -51,6 +51,26 @@ final class AtlasExternalBrainStalledCapabilityRescuePlannerTest extends TestCas
         $this->assertNotEmpty($e['next_action']);
     }
 
+    public function test_high_impact_rescueable_capability_has_first_safe_task(): void
+    {
+        $cap = array_merge($this->cap('cap-rescue-1', 'implemented'), [
+            'impact_level' => 'high',
+            'estimated_rescue_cost' => 0.2,
+            'owning_file_paths' => ['app/Services/Ai/Foo.php'],
+        ]);
+        $r = $this->svc()->plan([$cap]);
+        $e = $this->entryFor($r, 'cap-rescue-1');
+
+        $this->assertArrayHasKey('first_safe_task', $e);
+        foreach (['objective_hint', 'allowed_file_hints', 'proof_requirements', 'expected_capability_delta'] as $k) {
+            $this->assertArrayHasKey($k, $e['first_safe_task'], "missing {$k}");
+        }
+        $this->assertNotEmpty($e['first_safe_task']['objective_hint']);
+        $this->assertContains('app/Services/Ai/Foo.php', $e['first_safe_task']['allowed_file_hints']);
+        $this->assertNotEmpty($e['first_safe_task']['proof_requirements']);
+        $this->assertNotEmpty($e['first_safe_task']['expected_capability_delta']);
+    }
+
     public function test_every_entry_has_unblock_cause_rescue_priority_and_next_action(): void
     {
         $r = $this->svc()->plan([
@@ -93,6 +113,10 @@ final class AtlasExternalBrainStalledCapabilityRescuePlannerTest extends TestCas
         $this->assertSame('cap-owner', $e['collapse_into']);
         $this->assertContains('overlap_proof', $e['evidence_requirements']);
         $this->assertContains('canonical_owner_confirmation', $e['evidence_requirements']);
+        $this->assertArrayHasKey('first_safe_task', $e);
+        $this->assertSame('cap-owner', $e['first_safe_task']['replacement_owner']);
+        $this->assertNotEmpty($e['first_safe_task']['consolidation_proof']);
+        $this->assertStringContainsString('cap-owner', $e['first_safe_task']['objective_hint']);
     }
 
     public function test_collapse_takes_priority_over_rescue(): void
@@ -130,6 +154,17 @@ final class AtlasExternalBrainStalledCapabilityRescuePlannerTest extends TestCas
             AtlasExternalBrainStalledCapabilityRescuePlanner::ACTION_RETIRE,
             $this->entryFor($r, 'cap-6')['action'],
         );
+    }
+
+    public function test_retire_decision_has_retire_conditions_and_no_first_safe_task(): void
+    {
+        $threshold = AtlasExternalBrainStalledCapabilityRescuePlanner::STALL_RETIRE_THRESHOLD;
+        $r = $this->svc()->plan([$this->cap('cap-retire-1', 'planned', $threshold)]);
+        $e = $this->entryFor($r, 'cap-retire-1');
+
+        $this->assertArrayHasKey('retire_conditions', $e);
+        $this->assertArrayHasKey('no_active_consumer', $e['retire_conditions']);
+        $this->assertArrayNotHasKey('first_safe_task', $e);
     }
 
     public function test_high_stall_queued_is_retire(): void
