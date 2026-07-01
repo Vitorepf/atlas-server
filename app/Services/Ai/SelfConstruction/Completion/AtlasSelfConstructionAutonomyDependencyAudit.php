@@ -68,6 +68,7 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
         $seenStepIds = [];
         $seenSteadyStatePhases = [];
         $remediationHints = [];
+        $requiredPhaseSet = array_flip($requiredSteadyStatePhases);
 
         foreach ($evidence as $row) {
             if (! is_array($row)) {
@@ -108,7 +109,10 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
                     $steadyStateDependencies[] = ['step_id' => $stepId, 'role' => $role];
                 }
 
-                // Projection staleness check.
+                $isRequiredPhase = $stepId !== '' && isset($requiredPhaseSet[$stepId]);
+
+                // Projection staleness check. Required phases need an explicit 'fresh' status — a
+                // required phase whose projection is simply absent is not part of a complete chain.
                 $projStatus = (string) ($row['projection_status'] ?? '');
                 if ($projStatus === 'stale') {
                     $b = 'stale_projection:'.$stepId;
@@ -118,22 +122,34 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
                     $b = 'unavailable_projection:'.$stepId;
                     $blockers[] = $b;
                     $remediationHints[$b] = 'provision_projection_source_for_phase:'.$stepId;
+                } elseif ($isRequiredPhase && $projStatus !== 'fresh') {
+                    $b = 'missing_projection_status:'.$stepId;
+                    $blockers[] = $b;
+                    $remediationHints[$b] = 'record_fresh_projection_status_for_required_phase:'.$stepId;
                 }
 
-                // Queue evidence check.
+                // Queue evidence check. Required phases need an explicit 'available' value.
                 $queueEv = (string) ($row['queue_evidence'] ?? '');
                 if ($queueEv === 'unavailable') {
                     $b = 'unavailable_queue_evidence:'.$stepId;
                     $blockers[] = $b;
                     $remediationHints[$b] = 'restore_queue_evidence_for_phase:'.$stepId;
+                } elseif ($isRequiredPhase && $queueEv !== 'available') {
+                    $b = 'missing_queue_evidence:'.$stepId;
+                    $blockers[] = $b;
+                    $remediationHints[$b] = 'record_available_queue_evidence_for_required_phase:'.$stepId;
                 }
 
-                // Runtime evidence check.
+                // Runtime evidence check. Required phases need an explicit 'available' value.
                 $runtimeEv = (string) ($row['runtime_evidence'] ?? '');
                 if ($runtimeEv === 'unavailable') {
                     $b = 'unavailable_runtime_evidence:'.$stepId;
                     $blockers[] = $b;
                     $remediationHints[$b] = 'collect_runtime_evidence_for_phase:'.$stepId;
+                } elseif ($isRequiredPhase && $runtimeEv !== 'available') {
+                    $b = 'missing_runtime_evidence:'.$stepId;
+                    $blockers[] = $b;
+                    $remediationHints[$b] = 'record_available_runtime_evidence_for_required_phase:'.$stepId;
                 }
             } else {
                 // bootstrap + emergency — allowed even with non-atlas roles.

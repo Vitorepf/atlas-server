@@ -124,8 +124,8 @@ final class AtlasSelfConstructionAutonomyDependencyAuditTest extends TestCase
             [
                 ['step_id' => 'boot_open', 'kind' => 'bootstrap', 'role' => 'operator'],
                 ['step_id' => 'kill_switch', 'kind' => 'emergency', 'role' => 'human'],
-                ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native'],
-                ['step_id' => 'verify', 'kind' => 'steady_state', 'role' => 'atlas_native'],
+                ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native', 'projection_status' => 'fresh', 'queue_evidence' => 'available', 'runtime_evidence' => 'available'],
+                ['step_id' => 'verify', 'kind' => 'steady_state', 'role' => 'atlas_native', 'projection_status' => 'fresh', 'queue_evidence' => 'available', 'runtime_evidence' => 'available'],
             ],
             ['observe', 'verify'],
         );
@@ -253,6 +253,86 @@ final class AtlasSelfConstructionAutonomyDependencyAuditTest extends TestCase
                 'projection_status' => 'fresh', 'queue_evidence' => 'available', 'runtime_evidence' => 'available',
             ],
         ]);
+
+        $this->assertTrue($verdict['atlas_native']);
+        $this->assertSame([], $verdict['blockers']);
+        $this->assertSame([], $verdict['remediation_hints']);
+    }
+
+    // ── required steady-state phase: complete-chain enforcement ──────────────
+
+    public function test_required_phase_with_absent_runtime_evidence_blocks_even_without_explicit_unavailable_value(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit(
+            [
+                [
+                    'step_id' => 'execute', 'kind' => 'steady_state', 'role' => 'atlas_native',
+                    'projection_status' => 'fresh', 'queue_evidence' => 'available',
+                ],
+            ],
+            ['execute'],
+        );
+
+        $this->assertFalse($verdict['atlas_native']);
+        $this->assertContains('missing_runtime_evidence:execute', $verdict['blockers']);
+        $this->assertArrayHasKey('missing_runtime_evidence:execute', $verdict['remediation_hints']);
+    }
+
+    public function test_required_phase_with_absent_queue_evidence_blocks(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit(
+            [
+                [
+                    'step_id' => 'replenish', 'kind' => 'steady_state', 'role' => 'atlas_native',
+                    'projection_status' => 'fresh', 'runtime_evidence' => 'available',
+                ],
+            ],
+            ['replenish'],
+        );
+
+        $this->assertFalse($verdict['atlas_native']);
+        $this->assertContains('missing_queue_evidence:replenish', $verdict['blockers']);
+        $this->assertArrayHasKey('missing_queue_evidence:replenish', $verdict['remediation_hints']);
+    }
+
+    public function test_required_phase_with_absent_projection_status_blocks(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit(
+            [
+                [
+                    'step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native',
+                    'queue_evidence' => 'available', 'runtime_evidence' => 'available',
+                ],
+            ],
+            ['observe'],
+        );
+
+        $this->assertFalse($verdict['atlas_native']);
+        $this->assertContains('missing_projection_status:observe', $verdict['blockers']);
+        $this->assertArrayHasKey('missing_projection_status:observe', $verdict['remediation_hints']);
+    }
+
+    public function test_non_required_phase_with_absent_chain_fields_is_unaffected(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native'],
+        ]);
+
+        $this->assertTrue($verdict['atlas_native']);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_required_phase_with_complete_chain_passes(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit(
+            [
+                [
+                    'step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native',
+                    'projection_status' => 'fresh', 'queue_evidence' => 'available', 'runtime_evidence' => 'available',
+                ],
+            ],
+            ['observe'],
+        );
 
         $this->assertTrue($verdict['atlas_native']);
         $this->assertSame([], $verdict['blockers']);
