@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
+use Throwable;
 
 /**
  * PART 2 · A7 — THE CONTRACT (the heart): "the Atlas OFFERS the tasks".
@@ -46,6 +49,10 @@ final class AtlasTaskServingService
 
     private readonly AtlasTaskCommitGovernanceChain $governance;
 
+    private readonly AtlasTaskPostLandCanarySentinel $canarySentinel;
+
+    private readonly AtlasTaskGovernancePolicyPlane $policyPlane;
+
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly ?AtlasTaskServingSentinel $sentinel = null,
@@ -53,11 +60,15 @@ final class AtlasTaskServingService
         ?AtlasTaskScopedCommitter $committer = null,
         ?AtlasTaskCommitVerificationGate $verifier = null,
         ?AtlasTaskCommitGovernanceChain $governance = null,
+        ?AtlasTaskPostLandCanarySentinel $canarySentinel = null,
+        ?AtlasTaskGovernancePolicyPlane $policyPlane = null,
     ) {
         $this->inspector = $inspector ?? new AtlasTaskPacketQualityInspector;
         $this->committer = $committer ?? new AtlasTaskScopedCommitter;
         $this->verifier = $verifier ?? new AtlasTaskCommitVerificationGate;
         $this->governance = $governance ?? new AtlasTaskCommitGovernanceChain;
+        $this->canarySentinel = $canarySentinel ?? new AtlasTaskPostLandCanarySentinel;
+        $this->policyPlane = $policyPlane ?? new AtlasTaskGovernancePolicyPlane;
     }
 
     /**
@@ -266,6 +277,17 @@ final class AtlasTaskServingService
             }
 
             $resolved = $this->orchestrator->markResolved($taskPacketId, $leaseId, $clientId, (string) ($commit['commit_sha'] ?? ''));
+
+            // GOVERNOR'S CANARY LEG — policy-plane gated (default OFF, byte-identical to today when off).
+            // Probes the just-landed tree; a sentinel error is swallowed fail-open so a canary bug never
+            // touches the already-resolved report.
+            if ($this->policyPlane->canaryEnabled()) {
+                try {
+                    $this->canarySentinel->observe($taskPacketId, (string) ($commit['commit_sha'] ?? ''), array_values((array) $scope['allowed_files']));
+                } catch (Throwable) {
+                    // fail-open: a canary error never wedges or mutates the resolved report.
+                }
+            }
 
             return $this->reportEnvelope('resolved', $clientId, [
                 'outcome' => 'success',

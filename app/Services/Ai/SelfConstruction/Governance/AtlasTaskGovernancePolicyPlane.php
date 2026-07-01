@@ -108,6 +108,16 @@ final class AtlasTaskGovernancePolicyPlane
             : self::DEFAULT_VERIFIER_ENABLED;
     }
 
+    /**
+     * Default OFF. Gates {@see \App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel}
+     * in the serving report commit path — absent config key reproduces today's behavior exactly
+     * (no canary observation, zero receipts).
+     */
+    public function canaryEnabled(): bool
+    {
+        return (bool) ($this->config()['canary_enabled'] ?? false);
+    }
+
     public function isolationContract(): string
     {
         $val = trim((string) ($this->config()['isolation_contract'] ?? ''));

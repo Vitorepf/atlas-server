@@ -18,6 +18,10 @@ return [
     // Default for AtlasTaskGovernancePolicyPlane::isolationContract().
     'isolation_contract' => 'shared_local_main_with_scope_lock',
 
+    // Default for AtlasTaskGovernancePolicyPlane::canaryEnabled(). Gates AtlasTaskPostLandCanarySentinel
+    // in the serving report commit path. OFF by default — flipping to true is an operator decision.
+    'canary_enabled' => false,
+
     // Per risk-level governance policy. required_checks is a subset of:
     //   syntax, boot, task_tests, required_test
     'risk_levels' => [
