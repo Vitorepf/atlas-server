@@ -342,6 +342,7 @@ final class AtlasExternalBrainPoisonRepairConversionTrackerTest extends TestCase
             array_merge($this->event('real-fam', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS), [
                 'output_allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
                 'output_acceptance_criteria' => ['Runnable proof: phpunit tests/Unit/FooTest.php'],
+                'repaired_root_cause' => 'missing_evidence_ref',
             ]),
         ]);
 
@@ -349,6 +350,21 @@ final class AtlasExternalBrainPoisonRepairConversionTrackerTest extends TestCase
         $this->assertSame(1, $metrics['success_count']);
         $this->assertSame(0, $metrics['rejected_success_claims']);
         $this->assertSame('fully_converted', $metrics['repair_status']);
+    }
+
+    public function test_success_claim_with_output_allowed_files_but_missing_repaired_root_cause_counts_as_unchanged(): void
+    {
+        $r = $this->svc()->track([
+            array_merge($this->event('missing-root-cause-fam', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS), [
+                'output_allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+                'output_acceptance_criteria' => ['Runnable proof: phpunit tests/Unit/FooTest.php'],
+            ]),
+        ]);
+
+        $metrics = $r['family_metrics']['missing-root-cause-fam'];
+        $this->assertSame(0, $metrics['success_count']);
+        $this->assertSame(1, $metrics['unchanged_count']);
+        $this->assertSame(1, $metrics['rejected_success_claims']);
     }
 
     public function test_success_claim_without_output_fields_keeps_legacy_self_reported_behavior(): void

@@ -50,6 +50,10 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
             return false;
         }
 
+        if (trim((string) ($event['repaired_root_cause'] ?? '')) === '') {
+            return false;
+        }
+
         $acceptanceCriteria = array_values(array_map('strval', (array) ($event['output_acceptance_criteria'] ?? [])));
         foreach ($acceptanceCriteria as $criterion) {
             $lower = strtolower($criterion);
