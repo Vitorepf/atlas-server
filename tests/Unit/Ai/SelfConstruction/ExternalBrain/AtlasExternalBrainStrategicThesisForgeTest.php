@@ -173,6 +173,28 @@ final class AtlasExternalBrainStrategicThesisForgeTest extends TestCase
         $this->assertSame(AtlasExternalBrainStrategicThesisForge::RISK_LOW, $r['theses'][0]['risk']);
     }
 
+    // ── AC4: high urgency + high risk must stay explicit risk=high, never hidden by a large,
+    // "attractive-looking" opportunity count driving expected_compound_lift up ──
+
+    public function test_high_urgency_high_risk_stays_explicit_regardless_of_large_opportunity_count(): void
+    {
+        $manyOpportunities = array_map(
+            static fn (int $i): array => ['description' => "opportunity-{$i}", 'evidence' => "evidence:{$i}"],
+            range(1, 20),
+        );
+
+        $r = $this->forge->forge([$this->validCluster([
+            'urgency' => 'high',
+            'risk' => 'high',
+            'opportunities' => $manyOpportunities,
+        ])]);
+
+        $this->assertCount(1, $r['theses']);
+        $thesis = $r['theses'][0];
+        $this->assertSame(AtlasExternalBrainStrategicThesisForge::RISK_HIGH, $thesis['risk'], 'a large opportunity count must never demote/hide the explicit risk=high');
+        $this->assertGreaterThan(0.0, $thesis['expected_compound_lift'], 'the attractive lift score is a SEPARATE field from risk, not a replacement for it');
+    }
+
     // ── opportunity-count in evidence demand ──────────────────────────────────
 
     public function test_evidence_demand_counts_opportunities(): void
