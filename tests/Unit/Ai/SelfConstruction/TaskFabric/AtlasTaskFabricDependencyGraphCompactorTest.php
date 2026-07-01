@@ -152,4 +152,60 @@ final class AtlasTaskFabricDependencyGraphCompactorTest extends TestCase
         $b = $this->compactor()->compact($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── critical_path preservation (AC) ──────────────────────────────────────
+
+    public function test_critical_path_edges_survive_compaction_even_when_transitively_reachable(): void
+    {
+        // Brain->TaskFabric->Maestro is the canonical circuit; Brain->Maestro is a shortcut
+        // that would normally make Brain->TaskFabric (or TaskFabric->Maestro) redundant, but
+        // circuit edges must never be removed.
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('Brain'), $this->node('TaskFabric'), $this->node('Maestro')],
+            'edges' => [$this->edge('Brain', 'TaskFabric'), $this->edge('TaskFabric', 'Maestro'), $this->edge('Brain', 'Maestro')],
+            'critical_path' => ['Brain', 'TaskFabric', 'Maestro'],
+        ]);
+
+        $this->assertContains(['from' => 'Brain', 'to' => 'TaskFabric'], $r['compacted_edges']);
+        $this->assertContains(['from' => 'TaskFabric', 'to' => 'Maestro'], $r['compacted_edges']);
+        $this->assertNotContains(['from' => 'Brain', 'to' => 'TaskFabric'], $r['removed_redundant_edges']);
+        $this->assertNotContains(['from' => 'TaskFabric', 'to' => 'Maestro'], $r['removed_redundant_edges']);
+    }
+
+    public function test_critical_path_nodes_reported_in_deterministic_declared_order(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('Brain'), $this->node('TaskFabric'), $this->node('Maestro'), $this->node('Proof'), $this->node('Learning')],
+            'edges' => [
+                $this->edge('Brain', 'TaskFabric'),
+                $this->edge('TaskFabric', 'Maestro'),
+                $this->edge('Maestro', 'Proof'),
+                $this->edge('Proof', 'Learning'),
+            ],
+            'critical_path' => ['Brain', 'TaskFabric', 'Maestro', 'Proof', 'Learning'],
+        ]);
+
+        $this->assertSame(['Brain', 'TaskFabric', 'Maestro', 'Proof', 'Learning'], $r['critical_path_nodes']);
+    }
+
+    public function test_critical_path_nodes_excludes_nodes_absent_from_graph(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('Brain'), $this->node('TaskFabric')],
+            'edges' => [$this->edge('Brain', 'TaskFabric')],
+            'critical_path' => ['Brain', 'TaskFabric', 'GhostNode'],
+        ]);
+
+        $this->assertSame(['Brain', 'TaskFabric'], $r['critical_path_nodes']);
+    }
+
+    public function test_no_critical_path_supplied_yields_empty_critical_path_nodes(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('A'), $this->node('B')],
+            'edges' => [$this->edge('A', 'B')],
+        ]);
+
+        $this->assertSame([], $r['critical_path_nodes']);
+    }
 }

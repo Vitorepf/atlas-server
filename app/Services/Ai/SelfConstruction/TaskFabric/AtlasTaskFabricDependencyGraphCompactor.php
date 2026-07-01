@@ -40,6 +40,10 @@ final class AtlasTaskFabricDependencyGraphCompactor
     {
         $nodeList = is_array($facts['nodes'] ?? null) ? $facts['nodes'] : [];
         $edgeList = is_array($facts['edges'] ?? null) ? $facts['edges'] : [];
+        $criticalPath = array_values(array_filter(
+            array_map('strval', is_array($facts['critical_path'] ?? null) ? $facts['critical_path'] : []),
+            static fn (string $id): bool => $id !== '',
+        ));
 
         // Build node id set.
         $nodeIds = [];
@@ -93,6 +97,14 @@ final class AtlasTaskFabricDependencyGraphCompactor
             }
         }
 
+        // Canonical circuit edges (consecutive pairs in critical_path) are NEVER treated as
+        // redundant — the critical path must survive compaction even if it is also reachable
+        // via another chain.
+        $criticalPathEdges = [];
+        for ($i = 0; $i < count($criticalPath) - 1; $i++) {
+            $criticalPathEdges[$criticalPath[$i].'->'.$criticalPath[$i + 1]] = true;
+        }
+
         // Transitive reduction.
         $compactedEdges = [];
         $removedEdges   = [];
@@ -100,6 +112,12 @@ final class AtlasTaskFabricDependencyGraphCompactor
         foreach ($parsedEdges as $e) {
             $from  = $e['from'];
             $to    = $e['to'];
+
+            if (isset($criticalPathEdges[$from.'->'.$to])) {
+                $compactedEdges[] = $e;
+                continue;
+            }
+
             $other = array_filter($adj[$from] ?? [], static fn (string $d): bool => $d !== $to);
             $reachableViaOthers = $this->reachableByBfs(array_values($other), $adj);
 
@@ -109,6 +127,13 @@ final class AtlasTaskFabricDependencyGraphCompactor
                 $compactedEdges[] = $e;
             }
         }
+
+        // critical_path_nodes: the declared canonical path, filtered to nodes that actually
+        // exist in the graph, preserving the input's deterministic order.
+        $criticalPathNodes = array_values(array_filter(
+            $criticalPath,
+            static fn (string $id): bool => isset($nodeIds[$id]),
+        ));
 
         return [
             'schema_version'           => self::SCHEMA,
@@ -120,6 +145,7 @@ final class AtlasTaskFabricDependencyGraphCompactor
             'node_count'               => count($nodeIds),
             'original_edge_count'      => count($parsedEdges),
             'compacted_edge_count'     => count($compactedEdges),
+            'critical_path_nodes'      => $criticalPathNodes,
         ];
     }
 
