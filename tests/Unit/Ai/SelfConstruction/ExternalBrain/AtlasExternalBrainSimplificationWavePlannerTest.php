@@ -254,4 +254,48 @@ final class AtlasExternalBrainSimplificationWavePlannerTest extends TestCase
 
         $this->assertSame(json_encode($a['stop_go_decision']), json_encode($b['stop_go_decision']));
     }
+
+    // ── worker-floor guard ────────────────────────────────────────────────────
+
+    public function test_low_queue_pressure_below_worker_floor_caps_capacity_at_one(): void
+    {
+        $candidates = [
+            $this->candidate('a', ['line_reduction' => 10]),
+            $this->candidate('b', ['line_reduction' => 10]),
+            $this->candidate('c', ['line_reduction' => 10]),
+        ];
+        $r = $this->planner()->plan($candidates, [
+            'queue_pressure' => 'low',
+            'claimable_per_active_worker' => 1.0,
+        ]);
+
+        $this->assertTrue($r['worker_floor_guarded']);
+        $this->assertSame(1, $r['capacity_allocation']['effective_wave_capacity']);
+        $this->assertCount(1, $r['waves'][0]);
+    }
+
+    public function test_healthy_queue_depth_keeps_worker_floor_guarded_false(): void
+    {
+        $candidates = [
+            $this->candidate('a', ['line_reduction' => 10]),
+            $this->candidate('b', ['line_reduction' => 10]),
+        ];
+        $r = $this->planner()->plan($candidates, [
+            'queue_pressure' => 'normal',
+            'claimable_per_active_worker' => 1.0,
+        ]);
+
+        $this->assertFalse($r['worker_floor_guarded']);
+        $this->assertSame(5, $r['capacity_allocation']['effective_wave_capacity']);
+    }
+
+    public function test_low_pressure_above_worker_floor_is_not_guarded(): void
+    {
+        $r = $this->planner()->plan([$this->candidate('a')], [
+            'queue_pressure' => 'low',
+            'claimable_per_active_worker' => 5.0,
+        ]);
+
+        $this->assertFalse($r['worker_floor_guarded']);
+    }
 }

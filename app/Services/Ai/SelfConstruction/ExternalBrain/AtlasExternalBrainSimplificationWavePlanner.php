@@ -39,6 +39,8 @@ final class AtlasExternalBrainSimplificationWavePlanner
 
     private const DEFAULT_WAVE_CAPACITY = 5;
 
+    private const DEFAULT_WORKER_FLOOR = 2.0;
+
     private const RISK_RANK = ['low' => 0, 'medium' => 1, 'high' => 2];
 
     private const ROLLBACK_RANK = ['easy' => 0, 'moderate' => 1, 'hard' => 2];
@@ -53,6 +55,14 @@ final class AtlasExternalBrainSimplificationWavePlanner
         $baseCapacity = max(1, (int) ($capacityFacts['wave_capacity'] ?? self::DEFAULT_WAVE_CAPACITY));
         $urgent = (bool) ($capacityFacts['build_or_repair_urgent'] ?? false);
         $effectiveCapacity = $urgent ? max(1, (int) floor($baseCapacity / 2)) : $baseCapacity;
+
+        $queuePressure = (string) ($capacityFacts['queue_pressure'] ?? 'normal');
+        $claimablePerActiveWorker = (float) ($capacityFacts['claimable_per_active_worker'] ?? PHP_FLOAT_MAX);
+        $workerFloor = (float) ($capacityFacts['worker_floor'] ?? self::DEFAULT_WORKER_FLOOR);
+        $workerFloorGuarded = $queuePressure === 'low' && $claimablePerActiveWorker < $workerFloor;
+        if ($workerFloorGuarded) {
+            $effectiveCapacity = 1;
+        }
 
         $eligible = [];
         $deferred = [];
@@ -137,6 +147,7 @@ final class AtlasExternalBrainSimplificationWavePlanner
                 'eligible_count' => count($eligible),
                 'wave_count' => count($waves),
             ],
+            'worker_floor_guarded' => $workerFloorGuarded,
             'expected_reduction_score' => $expectedReductionScore,
             'safety_notes' => $safetyNotes,
             'autonomy_lane_policy' => $this->autonomyLanePolicy($baseCapacity, $effectiveCapacity, $urgent),
