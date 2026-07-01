@@ -377,6 +377,24 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
         $this->assertContains('missing_allowed_files_hint:-0.15', $withoutHint['draft']['score_explanation']);
     }
 
+    public function test_vague_adaptation_hypothesis_alone_lowers_score_and_is_explained(): void
+    {
+        $clear = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'allowed_files_hint' => ['app/A.php'],
+        ]));
+        $vague = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'atlas_adaptation_hypothesis' => 'use it',
+            'allowed_files_hint' => ['app/A.php'],
+        ]));
+
+        $this->assertTrue($vague['accepted'], 'a short hypothesis combined with otherwise-strong fields still clears the adoption floor');
+        $this->assertLessThan(
+            $clear['draft']['adoption_score'],
+            $vague['draft']['adoption_score'],
+        );
+        $this->assertContains('vague_adaptation_hypothesis:-0.25', $vague['draft']['score_explanation']);
+    }
+
     public function test_score_explanation_is_empty_for_ideal_entry(): void
     {
         $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
