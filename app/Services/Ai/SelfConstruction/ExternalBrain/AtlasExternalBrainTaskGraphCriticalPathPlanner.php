@@ -15,7 +15,11 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * entirely (AC3) regardless of how high their nominal leverage_score is.
  *
  * effective_score(t) = leverage_score - 0.10 × effort + 0.20 × maturity_gap_coverage - risk_penalty
+ *   + unblock_bonus + claimable_bonus
  *   risk_penalty: high=0.30, medium=0.10, low=0.0.
+ *   unblock_bonus = min(2.0, 0.15 × downstream_unblock_count).
+ *   claimable_bonus = min(2.0, 0.15 × produces_claimable_count) — a claimable-producing node
+ *   ranks ahead of a broad low-leverage branch of equal nominal leverage_score.
  *
  * path_score(t) = effective_score(t) + max(path_score(p)) over usable p in t.depends_on,
  *   i.e. the classic longest-weighted-path DAG recurrence. The task with the
@@ -281,9 +285,10 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
     {
         $riskPenalty = self::RISK_PENALTIES[$task['risk']] ?? 0.0;
         $unblockBonus = min(2.0, 0.15 * $task['downstream_unblock_count']);
+        $claimableBonus = min(2.0, 0.15 * $task['produces_claimable_count']);
 
         return round(
-            $task['leverage_score'] - 0.10 * $task['effort'] + 0.20 * $task['maturity_gap_coverage'] - $riskPenalty + $unblockBonus,
+            $task['leverage_score'] - 0.10 * $task['effort'] + 0.20 * $task['maturity_gap_coverage'] - $riskPenalty + $unblockBonus + $claimableBonus,
             4,
         );
     }

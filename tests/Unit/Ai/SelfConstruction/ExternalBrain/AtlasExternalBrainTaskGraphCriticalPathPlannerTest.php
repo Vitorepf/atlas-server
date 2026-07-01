@@ -205,6 +205,31 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlannerTest extends TestCase
         $this->assertSame(['good-node'], $r['critical_path_task_ids']);
     }
 
+    public function test_high_produces_claimable_count_can_beat_standalone_high_leverage_task(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'claimable-producer', 'leverage_score' => 0.3, 'status' => 'queued', 'produces_claimable_count' => 10],
+                ['task_id' => 'standalone-high', 'leverage_score' => 0.9, 'status' => 'queued'],
+            ],
+        ]);
+
+        $this->assertSame(['claimable-producer'], $r['critical_path_task_ids']);
+    }
+
+    public function test_claimable_producing_node_deprioritizes_broad_low_leverage_branch(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'claimable-producer', 'leverage_score' => 0.3, 'status' => 'queued', 'produces_claimable_count' => 5],
+                ['task_id' => 'broad-low-leverage', 'leverage_score' => 0.2, 'status' => 'queued'],
+            ],
+        ]);
+
+        $this->assertSame('claimable-producer', $r['next_best_task']);
+        $this->assertContains('broad-low-leverage', $r['next_best_parallel_task_ids']);
+    }
+
     public function test_chain_unlock_count_remains_deterministic_for_parallel_branches(): void
     {
         $input = [
