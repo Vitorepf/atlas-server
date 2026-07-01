@@ -8,12 +8,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Read-only orchestrator for one brain cycle.
  *
  * Pipeline (pure, no I/O, no dispatch):
- *   1. Normalize   — deduplicate signals by label, drop blank objectives
- *   2. Score       — rank opportunities by compounding leverage
+ *   1. Normalize   — deduplicate signals by label, drop blank objectives, drop exact targets
+ *                    already present in previous outcomes (never re-propose a completed target)
+ *   2. Score       — rank opportunities by compounding leverage, boosted for categories with
+ *                    ≥2 previous successes (winning family gets priority, never a duplicate)
  *   3. Balance     — ensure healthy category mix across the wave
  *   4. Compose     — preflight implementability, group thin tasks, collision guard, batch cap
  *   5. Audit       — check the emitted batch against Goodhart quota-gaming patterns
  *   6. Learn       — summarise previous-outcome feedback for the next cycle
+ *   7. Benchmark   — translate benchmark dimension failures into repair/scaffold-improvement
+ *                    proposals for the next cycle (never silently ignored)
  *
  * Returns a next-wave plan. Never enqueues, commits, spawns workers,
  * calls providers, or claims final completion.
@@ -35,6 +39,7 @@ final class AtlasExternalBrainSelfImprovementCycle
      * @param  list<array<string,mixed>>  $signals          Raw opportunities from the brain.
      * @param  list<array<string,mixed>>  $previousOutcomes Past task results: [{outcome, category, task_packet_id}].
      * @param  array<string,mixed>        $options          Forwarded to the composer (max_batch etc.).
+     * @param  array<string,mixed>        $benchmarkResults Latest benchmark harness output: {dimension_failures?: array<string,string>}.
      * @return array{
      *     schema:             string,
      *     accepted:           list<array<string,mixed>>,
@@ -45,15 +50,28 @@ final class AtlasExternalBrainSelfImprovementCycle
      *     stats:              array<string,int|string>,
      * }
      */
-    public function run(array $signals, array $previousOutcomes = [], array $options = []): array
+    public function run(array $signals, array $previousOutcomes = [], array $options = [], array $benchmarkResults = []): array
     {
-        // 1. Normalize
-        $normalized = $this->normalize($signals);
+        // 6. Learn from previous outcomes (computed early — feeds normalize dedup + score boost)
+        $learner = $this->learnFromOutcomes($previousOutcomes);
+
+        // 1. Normalize — drop dupes/blanks AND any signal that exactly targets a completed task.
+        $normalized = $this->normalize($signals, $learner['completed_targets']);
 
         // 2. Score & rank — merge score envelope back into the original signal so
         //    downstream steps (composer, balancer) still see objective/allowed_files/etc.
+        //    Categories with ≥2 previous successes get a priority boost (AC3): winning
+        //    families rank higher without ever duplicating an exact completed target.
         $scored = array_map(
-            fn (array $signal): array => array_merge($signal, ['final_score' => $this->scorer->score($signal)['final_score']]),
+            function (array $signal) use ($learner): array {
+                $baseScore = $this->scorer->score($signal)['final_score'];
+                $category  = (string) ($signal['category'] ?? '');
+                $boosted   = in_array($category, $learner['boost_categories'], true)
+                    ? min(1.0, $baseScore + 0.1)
+                    : $baseScore;
+
+                return array_merge($signal, ['final_score' => $boosted]);
+            },
             $normalized,
         );
         usort($scored, static fn (array $a, array $b): int => $b['final_score'] <=> $a['final_score']);
@@ -68,11 +86,11 @@ final class AtlasExternalBrainSelfImprovementCycle
         // 5. Anti-Goodhart audit
         $auditResult = $this->auditor->audit($composeResult['emitted']);
 
-        // 6. Learn from previous outcomes
-        $learner = $this->learnFromOutcomes($previousOutcomes);
-
         $nextWaveDecisions = $this->buildNextWaveDecisions($composeResult['emitted'], $auditResult, $learner);
         $nextDecision      = $this->deriveNextDecision($learner, $nextWaveDecisions);
+
+        // 7. Benchmark response — translate failed dimensions into repair/scaffold proposals.
+        $benchmarkResponse = $this->buildBenchmarkResponse($benchmarkResults);
 
         return [
             'schema'              => self::SCHEMA,
@@ -82,6 +100,7 @@ final class AtlasExternalBrainSelfImprovementCycle
             'learner_feedback'    => $learner,
             'next_wave_decisions' => $nextWaveDecisions,
             'next_decision'       => $nextDecision,
+            'benchmark_response'  => $benchmarkResponse,
             'portfolio_balance'   => [
                 'status'   => $balanceResult['status'],
                 'deficits' => $balanceResult['deficits'],
@@ -103,21 +122,65 @@ final class AtlasExternalBrainSelfImprovementCycle
      *
      * @param  list<array<string,mixed>>  $proposals       Pre-scored proposals [{task_packet_id, category, final_score, ...}]
      * @param  list<array<string,mixed>>  $previousOutcomes
-     * @return array{schema:string, learner_feedback:array<string,mixed>, next_wave_decisions:array<string,mixed>, next_decision:string}
+     * @param  array<string,mixed>        $benchmarkResults Latest benchmark harness output: {dimension_failures?: array<string,string>}.
+     * @return array{schema:string, learner_feedback:array<string,mixed>, next_wave_decisions:array<string,mixed>, next_decision:string, benchmark_response:list<array<string,string>>}
      */
-    public function processCycleOutcomes(array $proposals, array $previousOutcomes): array
+    public function processCycleOutcomes(array $proposals, array $previousOutcomes, array $benchmarkResults = []): array
     {
         $learner     = $this->learnFromOutcomes($previousOutcomes);
         $auditResult = ['verdict' => AtlasExternalBrainAntiGoodhartAuditor::VERDICT_PASS, 'findings' => []];
         $decisions   = $this->buildNextWaveDecisions($proposals, $auditResult, $learner);
         $nextDecision = $this->deriveNextDecision($learner, $decisions);
+        $benchmarkResponse = $this->buildBenchmarkResponse($benchmarkResults);
 
         return [
             'schema'              => self::SCHEMA,
             'learner_feedback'    => $learner,
             'next_wave_decisions' => $decisions,
             'next_decision'       => $nextDecision,
+            'benchmark_response'  => $benchmarkResponse,
         ];
+    }
+
+    /**
+     * Translate benchmark harness dimension_failures into concrete repair or
+     * scaffold-improvement proposals for the next cycle (AC2). Never silently drops a
+     * failed dimension — every failure becomes exactly one proposal.
+     *
+     * Dimensions that indicate the ORIGINATED BATCH was flawed (template farming, quota
+     * padding, queue pressure, weak proof, missing certification, premature exhaustion
+     * claims) become repair proposals — fix the batch that was produced. Dimensions that
+     * indicate the SCAFFOLD ITSELF is too weak to reach ambition (no evolutionary leap, no
+     * architectural coverage, no cross-project reach, no second-pass breakthrough) become
+     * scaffold-improvement proposals — the runbook/scaffold needs to be strengthened.
+     *
+     * @param  array<string,mixed>  $benchmarkResults  {dimension_failures?: array<string,string>}
+     * @return list<array{dimension:string, proposal_type:string, objective:string}>
+     */
+    private function buildBenchmarkResponse(array $benchmarkResults): array
+    {
+        $failures = is_array($benchmarkResults['dimension_failures'] ?? null) ? $benchmarkResults['dimension_failures'] : [];
+
+        $scaffoldDimensions = [
+            'evolutionary_leap_present',
+            'architectural_coverage',
+            'cross_project_reach',
+            'second_pass_present',
+        ];
+
+        $proposals = [];
+        foreach ($failures as $dimension => $reason) {
+            $dimension = (string) $dimension;
+            $type      = in_array($dimension, $scaffoldDimensions, true) ? 'scaffold_improvement' : 'repair';
+
+            $proposals[] = [
+                'dimension'     => $dimension,
+                'proposal_type' => $type,
+                'objective'     => "Address benchmark failure {$dimension} ({$reason}) via {$type}.",
+            ];
+        }
+
+        return $proposals;
     }
 
     /**
@@ -191,12 +254,15 @@ final class AtlasExternalBrainSelfImprovementCycle
     }
 
     /**
-     * Deduplicate by label; drop entries with a blank objective or missing label.
+     * Deduplicate by label; drop entries with a blank objective or missing label; drop any
+     * signal whose label exactly matches a completed target (AC3: never re-propose an exact
+     * target already delivered).
      *
      * @param  list<array<string,mixed>>  $signals
+     * @param  list<string>  $completedTargets
      * @return list<array<string,mixed>>
      */
-    private function normalize(array $signals): array
+    private function normalize(array $signals, array $completedTargets = []): array
     {
         $seen = [];
         $out  = [];
@@ -209,7 +275,7 @@ final class AtlasExternalBrainSelfImprovementCycle
             $label     = (string) ($signal['label'] ?? '');
             $objective = trim((string) ($signal['objective'] ?? ''));
 
-            if ($label === '' || $objective === '' || isset($seen[$label])) {
+            if ($label === '' || $objective === '' || isset($seen[$label]) || in_array($label, $completedTargets, true)) {
                 continue;
             }
 
@@ -224,7 +290,7 @@ final class AtlasExternalBrainSelfImprovementCycle
      * Summarise previous-cycle task outcomes into learner feedback.
      *
      * @param  list<array<string,mixed>>  $previousOutcomes
-     * @return array{total_outcomes:int,success_count:int,give_back_count:int,failure_count:int,avoid_categories:list<string>,signal:string}
+     * @return array{total_outcomes:int,success_count:int,give_back_count:int,failure_count:int,avoid_categories:list<string>,boost_categories:list<string>,completed_targets:list<string>,signal:string}
      */
     private function learnFromOutcomes(array $previousOutcomes): array
     {
@@ -232,13 +298,20 @@ final class AtlasExternalBrainSelfImprovementCycle
         $giveBack         = 0;
         $failure          = 0;
         $categoryGiveBack = [];
+        $categorySuccess  = [];
+        $completedTargets = [];
 
         foreach ($previousOutcomes as $o) {
             $outcome  = (string) ($o['outcome'] ?? '');
             $category = (string) ($o['category'] ?? 'unknown');
+            $target   = (string) ($o['task_packet_id'] ?? $o['label'] ?? '');
+            if ($target !== '') {
+                $completedTargets[] = $target;
+            }
 
             if ($outcome === 'success') {
                 $success++;
+                $categorySuccess[$category] = ($categorySuccess[$category] ?? 0) + 1;
             } elseif ($outcome === 'give_back') {
                 $giveBack++;
                 $categoryGiveBack[$category] = ($categoryGiveBack[$category] ?? 0) + 1;
@@ -250,6 +323,9 @@ final class AtlasExternalBrainSelfImprovementCycle
         $total           = count($previousOutcomes);
         $avoidCategories = array_values(
             array_keys(array_filter($categoryGiveBack, static fn (int $c): bool => $c >= 2)),
+        );
+        $boostCategories = array_values(
+            array_keys(array_filter($categorySuccess, static fn (int $c): bool => $c >= 2)),
         );
 
         $signal = $total > 0
@@ -272,6 +348,8 @@ final class AtlasExternalBrainSelfImprovementCycle
             'give_back_count'  => $giveBack,
             'failure_count'    => $failure,
             'avoid_categories' => $avoidCategories,
+            'boost_categories' => $boostCategories,
+            'completed_targets' => array_values(array_unique($completedTargets)),
             'signal'           => $signal,
             'next_action'      => $nextAction,
         ];

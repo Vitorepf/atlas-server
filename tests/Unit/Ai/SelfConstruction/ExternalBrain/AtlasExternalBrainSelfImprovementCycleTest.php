@@ -319,4 +319,133 @@ final class AtlasExternalBrainSelfImprovementCycleTest extends TestCase
         // If rt-1 was rejected before reaching next_wave_decisions, the held array is empty — still valid.
         $this->assertIsArray($held);
     }
+
+    // ── AC1: previous give_back families reduce similar next proposals ──────────
+
+    public function test_repeated_give_back_family_reduces_accept_count_for_same_category(): void
+    {
+        $outcomes = [
+            ['outcome' => 'give_back', 'category' => 'docs_sync'],
+            ['outcome' => 'give_back', 'category' => 'docs_sync'],
+        ];
+
+        $withHistory = $this->cycle()->run(
+            [
+                $this->signal('docs-a', 'docs_sync', 0.9),
+                $this->signal('arch-a', 'architecture_unlock', 0.8),
+            ],
+            $outcomes,
+        );
+        $withoutHistory = $this->cycle()->run(
+            [
+                $this->signal('docs-a', 'docs_sync', 0.9),
+                $this->signal('arch-a', 'architecture_unlock', 0.8),
+            ],
+        );
+
+        $acceptCountWithHistory = count($withHistory['next_wave_decisions']['accept']);
+        $acceptCountWithoutHistory = count($withoutHistory['next_wave_decisions']['accept']);
+
+        $this->assertLessThan($acceptCountWithoutHistory, $acceptCountWithHistory);
+    }
+
+    // ── AC2: benchmark failures become repair or scaffold-improvement proposals ──
+
+    public function test_benchmark_dimension_failure_produces_repair_proposal(): void
+    {
+        $result = $this->cycle()->run(
+            [$this->signal('s1', 'bug_fix', 0.7)],
+            [],
+            [],
+            ['dimension_failures' => ['template_farm_free' => '75% template copies exceed 40% threshold']],
+        );
+
+        $this->assertArrayHasKey('benchmark_response', $result);
+        $this->assertCount(1, $result['benchmark_response']);
+        $this->assertSame('template_farm_free', $result['benchmark_response'][0]['dimension']);
+        $this->assertSame('repair', $result['benchmark_response'][0]['proposal_type']);
+    }
+
+    public function test_benchmark_dimension_failure_produces_scaffold_improvement_proposal(): void
+    {
+        $result = $this->cycle()->run(
+            [$this->signal('s1', 'bug_fix', 0.7)],
+            [],
+            [],
+            ['dimension_failures' => ['evolutionary_leap_present' => 'no high-leverage architecture or evolution task found']],
+        );
+
+        $this->assertSame('scaffold_improvement', $result['benchmark_response'][0]['proposal_type']);
+    }
+
+    public function test_no_benchmark_results_produces_empty_benchmark_response(): void
+    {
+        $result = $this->cycle()->run([$this->signal('s1', 'bug_fix', 0.7)]);
+
+        $this->assertSame([], $result['benchmark_response']);
+    }
+
+    public function test_multiple_benchmark_failures_each_produce_a_proposal(): void
+    {
+        $result = $this->cycle()->run(
+            [$this->signal('s1', 'bug_fix', 0.7)],
+            [],
+            [],
+            ['dimension_failures' => [
+                'template_farm_free' => 'too many template copies',
+                'second_pass_present' => 'no second-pass breakthrough task found',
+            ]],
+        );
+
+        $this->assertCount(2, $result['benchmark_response']);
+        $dimensions = array_column($result['benchmark_response'], 'dimension');
+        $this->assertContains('template_farm_free', $dimensions);
+        $this->assertContains('second_pass_present', $dimensions);
+    }
+
+    // ── AC3: positive outcome deltas raise priority without duplicating exact targets ──
+
+    public function test_winning_family_with_repeated_success_ranks_higher_than_neutral_category(): void
+    {
+        $outcomes = [
+            ['outcome' => 'success', 'category' => 'bug_fix'],
+            ['outcome' => 'success', 'category' => 'bug_fix'],
+        ];
+
+        $result = $this->cycle()->run(
+            [
+                $this->signal('bug-new', 'bug_fix', 0.5),
+                $this->signal('docs-new', 'docs_sync', 0.5),
+            ],
+            $outcomes,
+        );
+
+        $this->assertContains('bug_fix', $result['learner_feedback']['boost_categories']);
+    }
+
+    public function test_exact_completed_target_is_never_re_proposed(): void
+    {
+        $outcomes = [
+            ['outcome' => 'success', 'task_packet_id' => 'already-done-1', 'category' => 'bug_fix'],
+        ];
+
+        $result = $this->cycle()->run(
+            [$this->signal('already-done-1', 'bug_fix', 0.9)],
+            $outcomes,
+        );
+
+        $this->assertSame(0, $result['stats']['normalized']);
+        $this->assertSame([], $result['accepted']);
+    }
+
+    public function test_completed_targets_key_present_in_learner_feedback(): void
+    {
+        $outcomes = [
+            ['outcome' => 'success', 'task_packet_id' => 'done-1', 'category' => 'bug_fix'],
+        ];
+
+        $result = $this->cycle()->run([$this->signal('s1', 'bug_fix', 0.7)], $outcomes);
+
+        $this->assertContains('done-1', $result['learner_feedback']['completed_targets']);
+    }
 }
