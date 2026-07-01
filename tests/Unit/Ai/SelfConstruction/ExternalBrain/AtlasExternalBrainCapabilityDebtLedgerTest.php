@@ -387,6 +387,60 @@ final class AtlasExternalBrainCapabilityDebtLedgerTest extends TestCase
         $this->assertCount(1, $r['debt_by_capability_area']['evidence_capture']);
     }
 
+    // ── AC2/AC3: recurrence, cost_of_delay, proof_gap, recommended_task_shape, expected_unlocked_capability ──
+
+    public function test_ranked_debt_includes_new_output_fields(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => [$this->debtRecord()]]);
+
+        $entry = $r['ranked_debts'][0];
+        foreach (['recommended_task_shape', 'expected_unlocked_capability', 'recurrence_count', 'cost_of_delay', 'proof_gap'] as $k) {
+            $this->assertArrayHasKey($k, $entry);
+        }
+        $this->assertSame('task_origination', $entry['expected_unlocked_capability']);
+        $this->assertNotEmpty($entry['recommended_task_shape']);
+    }
+
+    public function test_recurring_failure_debt_ranks_above_one_off_debt_at_equal_severity(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => [
+            $this->debtRecord(['debt_id' => 'one-off', 'severity' => 'medium', 'blocked_downstream_circuits' => [], 'recurrence_count' => 1]),
+            $this->debtRecord(['debt_id' => 'recurring', 'severity' => 'medium', 'blocked_downstream_circuits' => [], 'recurrence_count' => 5]),
+        ]]);
+
+        $this->assertSame('recurring', $r['ranked_debts'][0]['debt_id']);
+    }
+
+    public function test_proof_gap_prioritizes_unproven_debt_over_proven_debt_at_equal_severity(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => [
+            $this->debtRecord(['debt_id' => 'proven', 'severity' => 'medium', 'blocked_downstream_circuits' => [], 'proof_gap' => 0.0]),
+            $this->debtRecord(['debt_id' => 'unproven', 'severity' => 'medium', 'blocked_downstream_circuits' => [], 'proof_gap' => 0.9]),
+        ]]);
+
+        $this->assertSame('unproven', $r['ranked_debts'][0]['debt_id']);
+    }
+
+    public function test_cost_of_delay_raises_unblock_score(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => [
+            $this->debtRecord(['debt_id' => 'no-delay-cost', 'severity' => 'medium', 'blocked_downstream_circuits' => []]),
+            $this->debtRecord(['debt_id' => 'accruing-cost', 'severity' => 'medium', 'blocked_downstream_circuits' => [], 'cost_of_delay_per_day' => 2.0, 'days_delayed' => 10]),
+        ]]);
+
+        $this->assertSame('accruing-cost', $r['ranked_debts'][0]['debt_id']);
+    }
+
+    public function test_defaulted_new_fields_do_not_change_unblock_score(): void
+    {
+        $withDefaults = $this->svc()->rankByUnblockValue(['debt_records' => [$this->debtRecord()]]);
+        $withExplicitZeros = $this->svc()->rankByUnblockValue(['debt_records' => [
+            $this->debtRecord(['recurrence_count' => 1, 'cost_of_delay_per_day' => 0.0, 'days_delayed' => 0, 'proof_gap' => 0.0]),
+        ]]);
+
+        $this->assertSame($withDefaults['ranked_debts'][0]['unblock_score'], $withExplicitZeros['ranked_debts'][0]['unblock_score']);
+    }
+
     public function test_empty_debt_records_returns_empty_ranking(): void
     {
         $r = $this->svc()->rankByUnblockValue(['debt_records' => []]);

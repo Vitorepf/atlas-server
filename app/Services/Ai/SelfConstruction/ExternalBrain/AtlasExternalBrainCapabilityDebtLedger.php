@@ -137,6 +137,12 @@ final class AtlasExternalBrainCapabilityDebtLedger
 
     private const STALE_EVIDENCE_PENALTY = 0.5;
 
+    /** Priority bonus added per repeated recurrence of the same debt beyond the first occurrence. */
+    private const RECURRENCE_BONUS_PER_COUNT = 1.0;
+
+    /** Full proof_gap (1.0 — completely unproven) adds this much to unblock_score. */
+    private const PROOF_GAP_WEIGHT = 3.0;
+
     /**
      * Ranks autonomy debt by how much fixing it unblocks 24/7 self-construction
      * — NOT by how easy the fix is. implementation_effort, if supplied, is
@@ -145,14 +151,24 @@ final class AtlasExternalBrainCapabilityDebtLedger
      * unblock_score = severity_weight(severity) * (1 + count(blocked_downstream_circuits))
      *   discounted by STALE_EVIDENCE_PENALTY (0.5) when evidence_age_days
      *   exceeds STALE_EVIDENCE_AGE_DAYS (14) — stale evidence cannot justify
-     *   full ranking confidence even for a severe-sounding debt.
+     *   full ranking confidence even for a severe-sounding debt
+     *   + recurrence_bonus: (recurrence_count - 1) * RECURRENCE_BONUS_PER_COUNT — a debt that keeps
+     *     reappearing across cycles is more urgent than a one-off, even at equal severity
+     *   + cost_of_delay: cost_of_delay_per_day * days_delayed — an explicit, caller-supplied accrual
+     *   + proof_gap_bonus: proof_gap * PROOF_GAP_WEIGHT — the less proven the debt's fix would be,
+     *     the more urgent it is to close that gap before it compounds
+     *
+     * recurrence_count, cost_of_delay_per_day, days_delayed, and proof_gap all default to values
+     * (1, 0.0, 0, 0.0) that contribute zero bonus, so unblock_score reduces to exactly the original
+     * formula for any caller that does not supply them.
      *
      * Groups debt by capability area, severity, blocked downstream circuits
      * and evidence freshness in debt_by_capability_area.
      *
      * @param  array<string,mixed>  $input  { debt_records: list<{
      *   debt_id, blocked_capability, severity?, blocked_downstream_circuits?,
-     *   evidence_age_days?, implementation_effort?}> }
+     *   evidence_age_days?, implementation_effort?, recurrence_count?,
+     *   cost_of_delay_per_day?, days_delayed?, proof_gap?}> }
      * @return array<string,mixed>
      */
     public function rankByUnblockValue(array $input): array
@@ -174,9 +190,19 @@ final class AtlasExternalBrainCapabilityDebtLedger
             $blockedCircuits = is_array($r['blocked_downstream_circuits'] ?? null) ? array_values($r['blocked_downstream_circuits']) : [];
             $evidenceAgeDays = max(0, (int) ($r['evidence_age_days'] ?? 0));
             $evidenceFresh = $evidenceAgeDays <= self::STALE_EVIDENCE_AGE_DAYS;
+            $recurrenceCount = max(1, (int) ($r['recurrence_count'] ?? 1));
+            $costOfDelayPerDay = max(0.0, (float) ($r['cost_of_delay_per_day'] ?? 0.0));
+            $daysDelayed = max(0, (int) ($r['days_delayed'] ?? 0));
+            $proofGap = max(0.0, min(1.0, (float) ($r['proof_gap'] ?? 0.0)));
 
             $rawScore = $severityWeight * (1 + count($blockedCircuits));
-            $unblockScore = $evidenceFresh ? $rawScore : round($rawScore * self::STALE_EVIDENCE_PENALTY, 4);
+            $severityScore = $evidenceFresh ? $rawScore : round($rawScore * self::STALE_EVIDENCE_PENALTY, 4);
+
+            $recurrenceBonus = round(($recurrenceCount - 1) * self::RECURRENCE_BONUS_PER_COUNT, 4);
+            $costOfDelay = round($costOfDelayPerDay * $daysDelayed, 4);
+            $proofGapBonus = round($proofGap * self::PROOF_GAP_WEIGHT, 4);
+
+            $unblockScore = round($severityScore + $recurrenceBonus + $costOfDelay + $proofGapBonus, 4);
 
             $entry = [
                 'debt_id' => $debtId,
@@ -185,8 +211,13 @@ final class AtlasExternalBrainCapabilityDebtLedger
                 'blocked_downstream_circuits' => $blockedCircuits,
                 'evidence_age_days' => $evidenceAgeDays,
                 'evidence_freshness' => $evidenceFresh ? 'fresh' : 'stale',
+                'recurrence_count' => $recurrenceCount,
+                'cost_of_delay' => $costOfDelay,
+                'proof_gap' => $proofGap,
                 'unblock_score' => $unblockScore,
                 'first_safe_task_hint' => "author_minimal_probe_for_{$blockedCapability}_with_runnable_evidence",
+                'recommended_task_shape' => "author_minimal_probe_for_{$blockedCapability}_with_runnable_evidence",
+                'expected_unlocked_capability' => $blockedCapability,
             ];
 
             $rankedDebts[] = $entry;
