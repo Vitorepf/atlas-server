@@ -324,4 +324,74 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitchTest extends TestCase
 
         $this->assertSame('rollback_telemetry', $result['kill_reason']);
     }
+
+    // ── Recovery window ─────────────────────────────────────────────────────
+
+    public function test_fresh_canary_has_recovery_window_not_applicable(): void
+    {
+        $result = $this->switch->evaluate($this->allGood(20));
+
+        $this->assertSame('not_applicable', $result['recovery_window_status']);
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_CONTINUE, $result['action']);
+    }
+
+    public function test_previous_rollback_with_normal_sample_still_waits_for_recovery_sample(): void
+    {
+        $input = array_merge($this->allGood(20), ['was_previously_rolled_back' => true]);
+        $result = $this->switch->evaluate($input);
+
+        // 20 clears MIN_SAMPLE_SIZE (10) but not RECOVERY_MIN_SAMPLE_SIZE (30)
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_WAIT_FOR_SAMPLE, $result['action']);
+        $this->assertSame('in_recovery_window', $result['recovery_window_status']);
+    }
+
+    public function test_previous_rollback_with_sufficient_recovery_sample_and_clean_metrics_continues(): void
+    {
+        $input = array_merge($this->allGood(30), ['was_previously_rolled_back' => true]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_CONTINUE, $result['action']);
+        $this->assertSame('recovered', $result['recovery_window_status']);
+    }
+
+    public function test_previous_rollback_still_rolls_back_on_breach_regardless_of_sample_size(): void
+    {
+        $input = array_merge($this->allGood(50), [
+            'was_previously_rolled_back' => true,
+            'duplicate_rate'              => 0.99,
+        ]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_ROLLBACK, $result['action']);
+        $this->assertSame('in_recovery_window', $result['recovery_window_status']);
+    }
+
+    public function test_missing_mandatory_telemetry_blocks_recovery_even_with_green_metrics(): void
+    {
+        $input = array_merge($this->allGood(50), [
+            'was_previously_rolled_back' => true,
+            'has_mandatory_telemetry'    => false,
+        ]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_ROLLBACK, $result['action']);
+        $this->assertSame('missing_mandatory_telemetry', $result['kill_reason']);
+    }
+
+    public function test_rollback_result_includes_recovery_window_status(): void
+    {
+        $input = array_merge($this->allGood(), ['duplicate_rate' => 0.99]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertArrayHasKey('recovery_window_status', $result);
+        $this->assertSame('in_recovery_window', $result['recovery_window_status']);
+    }
+
+    public function test_wait_for_sample_result_includes_recovery_window_status(): void
+    {
+        $result = $this->switch->evaluate($this->allGood(5));
+
+        $this->assertArrayHasKey('recovery_window_status', $result);
+        $this->assertSame('not_applicable', $result['recovery_window_status']);
+    }
 }

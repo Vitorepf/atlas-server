@@ -26,6 +26,15 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
 
     private const MIN_SAMPLE_SIZE         = 10;
 
+    // A variant recovering FROM a previous rollback must clear a larger sample
+    // than a fresh canary — otherwise a tiny post-rollback sample could bounce
+    // straight back to continue and oscillate with the next small regression.
+    private const RECOVERY_MIN_SAMPLE_SIZE = 30;
+
+    public const RECOVERY_WINDOW_NOT_APPLICABLE = 'not_applicable';
+    public const RECOVERY_WINDOW_IN_PROGRESS    = 'in_recovery_window';
+    public const RECOVERY_WINDOW_RECOVERED      = 'recovered';
+
     // Hard ceilings (inclusive breach at >)
     private const DUPLICATE_CEILING       = 0.20;
     private const GIVE_BACK_CEILING       = 0.25;
@@ -70,6 +79,7 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
         $hasMandatoryTelemetry= array_key_exists('has_mandatory_telemetry', $input)
             ? (bool) $input['has_mandatory_telemetry']
             : true;
+        $wasPreviouslyRolledBack = (bool) ($input['was_previously_rolled_back'] ?? false);
 
         $killTriggers = [];
         if ($rollbackTelemetry) {
@@ -127,45 +137,82 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
         // Kill switch overrides action to rollback immediately.
         if ($killSwitchActive || $breached !== []) {
             return [
-                'schema'              => self::SCHEMA,
-                'action'              => self::ACTION_ROLLBACK,
-                'breached_thresholds' => $breached,
-                'rollback_scope'      => 'canary_only',
-                'sample_size'         => $sampleSize,
-                'next_safe_variant'   => 'baseline',
-                'kill_switch_active'  => $killSwitchActive,
-                'kill_reason'         => $killReason,
-                'recovery_condition'  => $recoveryCondition,
-                'safe_mode_policy'    => $safeModePolicy,
+                'schema'                 => self::SCHEMA,
+                'action'                 => self::ACTION_ROLLBACK,
+                'breached_thresholds'    => $breached,
+                'rollback_scope'         => 'canary_only',
+                'sample_size'            => $sampleSize,
+                'next_safe_variant'      => 'baseline',
+                'kill_switch_active'     => $killSwitchActive,
+                'kill_reason'            => $killReason,
+                'recovery_condition'     => $recoveryCondition,
+                'safe_mode_policy'       => $safeModePolicy,
+                'recovery_window_status' => self::RECOVERY_WINDOW_IN_PROGRESS,
+            ];
+        }
+
+        // Recovering FROM a previous rollback: normal-size samples are never enough on
+        // their own — require the larger recovery sample before trusting a clean read.
+        if ($wasPreviouslyRolledBack) {
+            if ($sampleSize < self::RECOVERY_MIN_SAMPLE_SIZE) {
+                return [
+                    'schema'                 => self::SCHEMA,
+                    'action'                 => self::ACTION_WAIT_FOR_SAMPLE,
+                    'breached_thresholds'    => [],
+                    'rollback_scope'         => null,
+                    'sample_size'            => $sampleSize,
+                    'next_safe_variant'      => 'current_canary',
+                    'kill_switch_active'     => false,
+                    'kill_reason'            => null,
+                    'recovery_condition'     => 'no_recovery_needed',
+                    'safe_mode_policy'       => 'normal_operation',
+                    'recovery_window_status' => self::RECOVERY_WINDOW_IN_PROGRESS,
+                ];
+            }
+
+            return [
+                'schema'                 => self::SCHEMA,
+                'action'                 => self::ACTION_CONTINUE,
+                'breached_thresholds'    => [],
+                'rollback_scope'         => null,
+                'sample_size'            => $sampleSize,
+                'next_safe_variant'      => 'current_canary',
+                'kill_switch_active'     => false,
+                'kill_reason'            => null,
+                'recovery_condition'     => 'no_recovery_needed',
+                'safe_mode_policy'       => 'normal_operation',
+                'recovery_window_status' => self::RECOVERY_WINDOW_RECOVERED,
             ];
         }
 
         if ($sampleSize < self::MIN_SAMPLE_SIZE) {
             return [
-                'schema'              => self::SCHEMA,
-                'action'              => self::ACTION_WAIT_FOR_SAMPLE,
-                'breached_thresholds' => [],
-                'rollback_scope'      => null,
-                'sample_size'         => $sampleSize,
-                'next_safe_variant'   => 'current_canary',
-                'kill_switch_active'  => false,
-                'kill_reason'         => null,
-                'recovery_condition'  => 'no_recovery_needed',
-                'safe_mode_policy'    => 'normal_operation',
+                'schema'                 => self::SCHEMA,
+                'action'                 => self::ACTION_WAIT_FOR_SAMPLE,
+                'breached_thresholds'    => [],
+                'rollback_scope'         => null,
+                'sample_size'            => $sampleSize,
+                'next_safe_variant'      => 'current_canary',
+                'kill_switch_active'     => false,
+                'kill_reason'            => null,
+                'recovery_condition'     => 'no_recovery_needed',
+                'safe_mode_policy'       => 'normal_operation',
+                'recovery_window_status' => self::RECOVERY_WINDOW_NOT_APPLICABLE,
             ];
         }
 
         return [
-            'schema'              => self::SCHEMA,
-            'action'              => self::ACTION_CONTINUE,
-            'breached_thresholds' => [],
-            'rollback_scope'      => null,
-            'sample_size'         => $sampleSize,
-            'next_safe_variant'   => 'current_canary',
-            'kill_switch_active'  => false,
-            'kill_reason'         => null,
-            'recovery_condition'  => 'no_recovery_needed',
-            'safe_mode_policy'    => 'normal_operation',
+            'schema'                 => self::SCHEMA,
+            'action'                 => self::ACTION_CONTINUE,
+            'breached_thresholds'    => [],
+            'rollback_scope'         => null,
+            'sample_size'            => $sampleSize,
+            'next_safe_variant'      => 'current_canary',
+            'kill_switch_active'     => false,
+            'kill_reason'            => null,
+            'recovery_condition'     => 'no_recovery_needed',
+            'safe_mode_policy'       => 'normal_operation',
+            'recovery_window_status' => self::RECOVERY_WINDOW_NOT_APPLICABLE,
         ];
     }
 }
