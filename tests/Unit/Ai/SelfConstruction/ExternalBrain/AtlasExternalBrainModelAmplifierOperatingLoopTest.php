@@ -28,6 +28,23 @@ final class AtlasExternalBrainModelAmplifierOperatingLoopTest extends TestCase
         return $this->svc()->decide(array_merge($base, $overrides));
     }
 
+    public function test_decide_does_not_mutate_its_input(): void
+    {
+        $input = [
+            'proxy_leak_detected' => true,
+            'benchmark_score' => 0.85,
+            'frontier_available' => false,
+            'escalation_budget_remaining' => false,
+            'scaffold_available' => false,
+            'scaffold_evidence' => ['lift_score' => 0.0, 'retire_signal' => false, 'repair_signal' => false],
+        ];
+        $before = $input;
+
+        $this->svc()->decide($input);
+
+        $this->assertSame($before, $input);
+    }
+
     // ── priority 1: proxy leak → repair_scaffold ──────────────────────────────
 
     public function test_proxy_leak_triggers_repair_scaffold(): void
