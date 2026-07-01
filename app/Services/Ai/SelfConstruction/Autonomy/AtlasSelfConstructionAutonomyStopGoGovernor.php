@@ -30,6 +30,13 @@ final class AtlasSelfConstructionAutonomyStopGoGovernor
     public const DECISION_CALL_MUSCLES         = 'call_more_muscles';
     public const DECISION_CREATE_HIGH_VALUE    = 'create_high_value_tasks';
     public const DECISION_PAUSE                = 'pause_origination';
+    public const DECISION_GO_REPAIR_QUEUE      = 'go_repair_queue';
+
+    /** claimable_per_active_worker at/below this is a worker-feed floor breach. */
+    public const WORKER_FLOOR_THRESHOLD = 2.0;
+
+    /** Decisions that mean "advance autonomy" — vetoed when the worker feed is below floor. */
+    private const GO_AUTONOMOUS_DECISIONS = [self::DECISION_CALL_MUSCLES, self::DECISION_CREATE_HIGH_VALUE];
 
     /**
      * @param  array<string,mixed>  $input
@@ -44,6 +51,10 @@ final class AtlasSelfConstructionAutonomyStopGoGovernor
         $giveBackRepeated        = (bool)   ($input['give_back_repeated']        ?? false);
         $dryQueue                = (bool)   ($input['dry_queue']                 ?? false) || $queueHealth === 'dry';
         $workerCapacityAvailable = (bool)   ($input['worker_capacity_available'] ?? false);
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $input) && $input['claimable_per_active_worker'] !== null
+            ? (float) $input['claimable_per_active_worker']
+            : null;
+        $lowWorkerFloor = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= self::WORKER_FLOOR_THRESHOLD;
 
         $isHealthy   = $queueHealth === 'healthy';
         $isHighValue = $valueTrend === 'high';
@@ -53,6 +64,11 @@ final class AtlasSelfConstructionAutonomyStopGoGovernor
             $valueTrend, $sprawlPressure, $isHealthy, $isHighValue,
             $workerCapacityAvailable,
         );
+
+        if ($lowWorkerFloor && in_array($decision, self::GO_AUTONOMOUS_DECISIONS, true)) {
+            $decision = self::DECISION_GO_REPAIR_QUEUE;
+            $rationale = ['worker_feed_below_floor'];
+        }
 
         return [
             'schema'              => self::SCHEMA,
@@ -123,6 +139,7 @@ final class AtlasSelfConstructionAutonomyStopGoGovernor
             self::DECISION_CONSOLIDATE       => 'monitor:sprawl_pressure_and_value_trend_recovery',
             self::DECISION_CALL_MUSCLES      => 'monitor:worker_throughput_and_outcome_quality',
             self::DECISION_CREATE_HIGH_VALUE => 'monitor:task_value_trend_and_queue_depth',
+            self::DECISION_GO_REPAIR_QUEUE   => 'monitor:claimable_per_active_worker_recovery',
             default                          => 'monitor:queue_health_and_value_signal',
         };
     }

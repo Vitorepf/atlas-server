@@ -192,4 +192,52 @@ final class AtlasSelfConstructionAutonomyStopGoGovernorTest extends TestCase
 
         $this->assertNotEmpty($result['rationale']);
     }
+
+    // ── worker-feed floor veto (AC) ───────────────────────────────────────────
+
+    public function test_low_worker_floor_vetoes_call_more_muscles_into_go_repair_queue(): void
+    {
+        $result = $this->governor->decide($this->healthy([
+            'worker_capacity_available' => true,
+            'claimable_per_active_worker' => 1.5,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_GO_REPAIR_QUEUE, $result['decision']);
+        $this->assertSame(['worker_feed_below_floor'], $result['rationale']);
+    }
+
+    public function test_low_worker_floor_vetoes_create_high_value_tasks_into_go_repair_queue(): void
+    {
+        $result = $this->governor->decide($this->healthy([
+            'claimable_per_active_worker' => 1.5,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_GO_REPAIR_QUEUE, $result['decision']);
+    }
+
+    public function test_healthy_worker_floor_preserves_existing_go_autonomous_behavior(): void
+    {
+        $result = $this->governor->decide($this->healthy([
+            'claimable_per_active_worker' => 10.0,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_CREATE_HIGH_VALUE, $result['decision']);
+    }
+
+    public function test_low_worker_floor_does_not_override_self_heal_decision(): void
+    {
+        $result = $this->governor->decide($this->healthy([
+            'malformed_risk' => true,
+            'claimable_per_active_worker' => 1.0,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_SELF_HEAL, $result['decision']);
+    }
+
+    public function test_no_worker_floor_context_preserves_existing_behavior(): void
+    {
+        $result = $this->governor->decide($this->healthy());
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_CREATE_HIGH_VALUE, $result['decision']);
+    }
 }
