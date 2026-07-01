@@ -338,6 +338,8 @@ class AgentControlPlaneReplayDiffService
             'improvement_count' => count($improvements),
             'regression_severity_map' => $regressionSeverityMap,
             'highest_regression_severity' => $highestRegressionSeverity,
+            'next_action' => $this->nextActionForStatus($status, $highestRegressionSeverity),
+            'decision_reason' => $this->decisionReasonForStatus($status, $regressions, $improvements, $highestRegressionSeverity),
             'non_execution_guarantees' => [
                 'diff_does_not_start_codex',
                 'diff_does_not_call_codex_cli_or_app',
@@ -377,6 +379,48 @@ class AgentControlPlaneReplayDiffService
             'violation_increase' => ((int) ($regression['delta'] ?? 0)) >= 3 ? 'high' : 'medium',
             'slice_count_decrease' => 'medium',
             default => 'medium',
+        };
+    }
+
+    private function nextActionForStatus(string $status, string $highestRegressionSeverity): string
+    {
+        if ($status === 'regressed') {
+            return in_array($highestRegressionSeverity, ['critical', 'high'], true) ? 'block_merge' : 'review';
+        }
+
+        return match ($status) {
+            'changed_with_warnings' => 'review',
+            'improved', 'changed', 'unchanged' => 'proceed',
+            default => 'wait',
+        };
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $regressions
+     * @param  list<array<string, mixed>>  $improvements
+     */
+    private function decisionReasonForStatus(string $status, array $regressions, array $improvements, string $highestRegressionSeverity): string
+    {
+        if ($status === 'regressed') {
+            $kind = (string) ($regressions[0]['kind'] ?? 'unspecified_regression');
+
+            return "regressed:{$kind}:severity_{$highestRegressionSeverity}";
+        }
+        if ($status === 'changed_with_warnings') {
+            return 'changed_with_warnings:warning_count_increased';
+        }
+        if ($status === 'improved') {
+            $kind = (string) ($improvements[0]['kind'] ?? 'unspecified_improvement');
+
+            return "improved:{$kind}";
+        }
+
+        return match ($status) {
+            'unchanged' => 'unchanged:deterministic_hash_matched',
+            'changed' => 'changed:no_regression_or_improvement_signal',
+            'no_baseline' => 'no_baseline:missing_snapshot',
+            'no_target' => 'no_target:replay_unresolved',
+            default => 'unknown_status',
         };
     }
 
@@ -581,6 +625,8 @@ class AgentControlPlaneReplayDiffService
             'improvement_count' => 0,
             'regression_severity_map' => [],
             'highest_regression_severity' => 'none',
+            'next_action' => $this->nextActionForStatus($status, 'none'),
+            'decision_reason' => $this->decisionReasonForStatus($status, [], [], 'none'),
             'non_execution_guarantees' => [
                 'diff_does_not_start_codex',
                 'diff_does_not_call_codex_cli_or_app',

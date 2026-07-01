@@ -133,4 +133,55 @@ final class AgentControlPlaneReplayDiffServiceTest extends TestCase
         $this->assertSame('none', $diff['highest_regression_severity']);
         $this->assertSame([], $diff['regression_severity_map']);
     }
+
+    public function test_critical_regression_next_action_blocks_merge(): void
+    {
+        $before = $this->freshReplay();
+        $before['runtime_safety'] = ['runtime_safety_all_false' => true];
+        $after = $this->freshReplay();
+        $after['runtime_safety'] = ['runtime_safety_all_false' => false];
+        $after['deterministic_replay_hash'] = 'after_'.bin2hex(random_bytes(31));
+
+        $diff = $this->newDiffService()->diff($before, $after);
+
+        $this->assertSame('block_merge', $diff['next_action']);
+        $this->assertStringStartsWith('regressed:runtime_safety_dropped_from_all_false:', $diff['decision_reason']);
+    }
+
+    public function test_unchanged_next_action_proceeds(): void
+    {
+        $replay = $this->freshReplay();
+
+        $diff = $this->newDiffService()->diff($replay, $replay);
+
+        $this->assertSame('unchanged', $diff['status']);
+        $this->assertSame('proceed', $diff['next_action']);
+        $this->assertSame('unchanged:deterministic_hash_matched', $diff['decision_reason']);
+    }
+
+    public function test_pointer_advanced_with_chain_growth_is_classified_as_improvement(): void
+    {
+        $before = $this->freshReplay();
+        $before['current_pointer'] = 'slice_a';
+        $before['violations'] = [];
+        $after = $this->freshReplay();
+        $after['current_pointer'] = 'slice_b';
+        $after['violations'] = [];
+        $after['replayed_slices'] = array_merge(
+            (array) ($after['replayed_slices'] ?? []),
+            [['slice_key' => 'extra_grown_slice']],
+        );
+        $after['deterministic_replay_hash'] = 'after_'.bin2hex(random_bytes(31));
+        $after['cycle_integrity'] = [
+            'intentional_reentry_detected' => false,
+            'regressions' => [],
+            'cycle_ok' => true,
+        ];
+
+        $diff = $this->newDiffService()->diff($before, $after);
+
+        $kinds = array_column($diff['improvements'], 'kind');
+        $this->assertContains('pointer_advanced_with_chain_growth', $kinds);
+        $this->assertSame([], $diff['regressions']);
+    }
 }
