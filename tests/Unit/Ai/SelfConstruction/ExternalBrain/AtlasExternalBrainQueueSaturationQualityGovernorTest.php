@@ -338,4 +338,20 @@ final class AtlasExternalBrainQueueSaturationQualityGovernorTest extends TestCas
         $collision = $this->svc()->decide($this->healthyShallowFacts(['collision_risk' => 0.9, 'family_diversity' => 0.1]));
         $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_REPAIR_SPECS_BEFORE_CREATION, $collision['decision']);
     }
+
+    // ── quantidade de musculos (active_workers) sizes max_new_tasks independent of depth ──
+
+    public function test_more_active_workers_at_the_same_depth_increases_max_new_tasks_capacity(): void
+    {
+        $fewWorkers = $this->svc()->decide($this->healthyShallowFacts(['servable_depth' => 2, 'active_workers' => 2]));
+        $manyWorkers = $this->svc()->decide($this->healthyShallowFacts(['servable_depth' => 2, 'active_workers' => 6]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_CREATE_HIGH_VALUE_BATCH, $fewWorkers['decision']);
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_CREATE_HIGH_VALUE_BATCH, $manyWorkers['decision']);
+        $this->assertGreaterThan(
+            $fewWorkers['max_new_tasks'],
+            $manyWorkers['max_new_tasks'],
+            'more active muscles at the same queue depth must widen remaining serving capacity',
+        );
+    }
 }
