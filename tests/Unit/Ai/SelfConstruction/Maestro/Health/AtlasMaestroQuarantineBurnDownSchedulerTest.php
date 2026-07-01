@@ -302,4 +302,69 @@ final class AtlasMaestroQuarantineBurnDownSchedulerTest extends TestCase
         $this->assertSame('retire', $result['ranked'][0]['action']);
         $this->assertSame('unsafe_to_respec', $result['ranked'][0]['reason']);
     }
+
+    // ── AC2: unblock leverage can outrank raw packet count ────────────────────
+
+    public function test_low_count_high_leverage_family_outranks_high_count_low_value_family(): void
+    {
+        $result = $this->scheduler()->rankFamiliesByClaimableRecovery([
+            ['family_id' => 'high-count-low-value', 'packet_count' => 20, 'recovery_confidence' => 0.1],
+            ['family_id' => 'low-count-high-leverage', 'packet_count' => 2, 'recovery_confidence' => 0.3, 'unblock_leverage' => 5.0],
+        ]);
+
+        $ids = array_column($result['ranked'], 'family_id');
+        $this->assertSame(['low-count-high-leverage', 'high-count-low-value'], $ids);
+    }
+
+    public function test_zero_leverage_does_not_change_existing_ranking_by_expected_recovery(): void
+    {
+        $result = $this->scheduler()->rankFamiliesByClaimableRecovery([
+            ['family_id' => 'a', 'packet_count' => 20, 'recovery_confidence' => 0.1],
+            ['family_id' => 'b', 'packet_count' => 5, 'recovery_confidence' => 0.9],
+        ]);
+
+        $ids = array_column($result['ranked'], 'family_id');
+        $this->assertSame(['b', 'a'], $ids);
+    }
+
+    // ── AC3: burn_down_wave proposals ─────────────────────────────────────────
+
+    public function test_burn_down_wave_emits_family_repair_strategy_expected_recovered_and_risk(): void
+    {
+        $result = $this->scheduler()->planBurnDownWave([
+            ['family_id' => 'recoverable', 'packet_count' => 4, 'recovery_confidence' => 0.7],
+        ]);
+
+        $entry = $result['burn_down_wave'][0];
+        foreach (['family', 'repair_strategy', 'expected_recovered', 'risk'] as $k) {
+            $this->assertArrayHasKey($k, $entry);
+        }
+        $this->assertSame('recoverable', $entry['family']);
+        $this->assertSame('respec_with_root_cause_fix', $entry['repair_strategy']);
+    }
+
+    public function test_burn_down_wave_unrepairable_family_gets_no_repair_retire_strategy(): void
+    {
+        $result = $this->scheduler()->planBurnDownWave([
+            ['family_id' => 'poisoned', 'packet_count' => 10, 'poison_count' => 3, 'recovery_confidence' => 0.8],
+        ]);
+
+        $entry = $result['burn_down_wave'][0];
+        $this->assertSame('no_repair_retire', $entry['repair_strategy']);
+        $this->assertSame('high', $entry['risk']);
+    }
+
+    public function test_burn_down_wave_is_deterministic(): void
+    {
+        $families = [
+            ['family_id' => 'a', 'packet_count' => 20, 'recovery_confidence' => 0.1],
+            ['family_id' => 'b', 'packet_count' => 2, 'recovery_confidence' => 0.3, 'unblock_leverage' => 5.0],
+            ['family_id' => 'c', 'packet_count' => 10, 'poison_count' => 3, 'recovery_confidence' => 0.8],
+        ];
+
+        $this->assertSame(
+            $this->scheduler()->planBurnDownWave($families),
+            $this->scheduler()->planBurnDownWave($families),
+        );
+    }
 }

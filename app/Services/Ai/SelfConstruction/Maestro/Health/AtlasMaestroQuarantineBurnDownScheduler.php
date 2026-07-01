@@ -48,6 +48,11 @@ final class AtlasMaestroQuarantineBurnDownScheduler
     /** Number of poison attempts beyond which a packet is retired. */
     public const POISON_THRESHOLD = 3;
 
+    /** Weight applied to unblock_leverage when ranking families for burn-down — a small,
+     *  low-recovery family that unblocks a lot of downstream work can still outrank a large,
+     *  low-value family with no leverage. */
+    private const LEVERAGE_WEIGHT = 0.5;
+
     /**
      * @param  list<array<string,mixed>>  $packets
      * @return array<string,mixed>
@@ -146,7 +151,7 @@ final class AtlasMaestroQuarantineBurnDownScheduler
      * a large low-confidence one. Families that cannot safely produce a claimable replacement task
      * (poisoned beyond threshold, or zero recovery confidence) get a retire action instead of respec.
      *
-     * @param  list<array{family_id?:string, packet_count?:int, poison_count?:int, recovery_confidence?:float, safe_to_respec?:bool}>  $families
+     * @param  list<array{family_id?:string, packet_count?:int, poison_count?:int, recovery_confidence?:float, safe_to_respec?:bool, unblock_leverage?:float}>  $families
      * @return array{schema:string, ranked:list<array<string,mixed>>}
      */
     public function rankFamiliesByClaimableRecovery(array $families): array
@@ -163,8 +168,12 @@ final class AtlasMaestroQuarantineBurnDownScheduler
             $poisonCount = max(0, (int) ($family['poison_count'] ?? 0));
             $recoveryConfidence = max(0.0, min(1.0, (float) ($family['recovery_confidence'] ?? 0.0)));
             $safeToRespec = (bool) ($family['safe_to_respec'] ?? true);
+            $unblockLeverage = max(0.0, (float) ($family['unblock_leverage'] ?? 0.0));
 
             $expectedClaimableRecovery = round($packetCount * $recoveryConfidence, 4);
+            // Ranking score: raw expected recovery plus a leverage bonus, so a small family that
+            // unblocks a lot of downstream work can outrank a larger, low-leverage family.
+            $combinedScore = round($expectedClaimableRecovery + $unblockLeverage * self::LEVERAGE_WEIGHT, 4);
 
             $canRecover = $safeToRespec && $poisonCount < self::POISON_THRESHOLD && $recoveryConfidence > 0.0;
 
@@ -173,7 +182,9 @@ final class AtlasMaestroQuarantineBurnDownScheduler
                 'packet_count'                => $packetCount,
                 'poison_count'                => $poisonCount,
                 'recovery_confidence'         => $recoveryConfidence,
+                'unblock_leverage'            => $unblockLeverage,
                 'expected_claimable_recovery' => $expectedClaimableRecovery,
+                'combined_score'              => $combinedScore,
                 'action'                      => $canRecover ? 'respec' : 'retire',
                 'reason'                      => $canRecover
                     ? 'recoverable_family:expected_claimable_recovery='.$expectedClaimableRecovery
@@ -184,12 +195,44 @@ final class AtlasMaestroQuarantineBurnDownScheduler
         }
 
         usort($ranked, static fn (array $a, array $b): int =>
-            $b['expected_claimable_recovery'] <=> $a['expected_claimable_recovery']
+            $b['combined_score'] <=> $a['combined_score']
                 ?: strcmp($a['family_id'], $b['family_id']));
 
         return [
             'schema' => self::SCHEMA,
             'ranked' => $ranked,
+        ];
+    }
+
+    /**
+     * Emit the burn_down_wave: for each ranked family, the coarse repair_strategy and risk level
+     * a muscle needs to act on cleanup, without re-deriving the underlying ranking logic.
+     *
+     * @param  list<array{family_id?:string, packet_count?:int, poison_count?:int, recovery_confidence?:float, safe_to_respec?:bool, unblock_leverage?:float}>  $families
+     * @return array{schema:string, burn_down_wave:list<array{family:string, repair_strategy:string, expected_recovered:float, risk:string}>}
+     */
+    public function planBurnDownWave(array $families): array
+    {
+        $ranked = $this->rankFamiliesByClaimableRecovery($families)['ranked'];
+
+        $wave = [];
+        foreach ($ranked as $r) {
+            $repairStrategy = $r['action'] === 'retire' ? 'no_repair_retire' : 'respec_with_root_cause_fix';
+            $risk = $r['poison_count'] >= self::POISON_THRESHOLD
+                ? 'high'
+                : ($r['recovery_confidence'] < 0.4 ? 'medium' : 'low');
+
+            $wave[] = [
+                'family'             => $r['family_id'],
+                'repair_strategy'    => $repairStrategy,
+                'expected_recovered' => $r['expected_claimable_recovery'],
+                'risk'               => $risk,
+            ];
+        }
+
+        return [
+            'schema'         => self::SCHEMA,
+            'burn_down_wave' => $wave,
         ];
     }
 }
