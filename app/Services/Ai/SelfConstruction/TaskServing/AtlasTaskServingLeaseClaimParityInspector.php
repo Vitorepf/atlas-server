@@ -177,6 +177,14 @@ final class AtlasTaskServingLeaseClaimParityInspector
             ],
         };
 
+        // AC: real recoverable lease leaks (a terminal record PROVES the task ended — safe to reap)
+        // vs non-recoverable ghost active leases (no record at all — nothing to reconcile against,
+        // repairing the registry is the honest next step, not a blind reap). Named separately from
+        // recoverable_candidates (unchanged above) so callers can act on the sharper distinction.
+        $recoverableLeaks = ['total' => count($terminalWithActiveLease), 'items' => $terminalWithActiveLease];
+        $ghostActiveLeases = ['total' => count($leaseWithoutClaim), 'items' => $leaseWithoutClaim];
+        $cleanParity = $classification === self::CLASSIFICATION_CLEAN_PARITY;
+
         return [
             'schema' => self::SCHEMA,
             'active_leases' => $activeLeaseCount,
@@ -184,8 +192,12 @@ final class AtlasTaskServingLeaseClaimParityInspector
             'matched_pairs' => $matchedPairs,
             'lease_without_claim' => $leaseWithoutClaim,
             'claim_without_lease' => $claimWithoutLease,
+            'claimed_without_lease' => $claimWithoutLease,
             'terminal_with_active_lease' => $terminalWithActiveLease,
             'recoverable_candidates' => $recoverableCandidates,
+            'recoverable_leaks' => $recoverableLeaks,
+            'ghost_active_leases' => $ghostActiveLeases,
+            'clean_parity' => $cleanParity,
             'duplicate_task_packet_ids' => $duplicateTaskPacketIds,
             'duplicate_lease_counts' => $duplicateCounts,
             'severity' => $severity,

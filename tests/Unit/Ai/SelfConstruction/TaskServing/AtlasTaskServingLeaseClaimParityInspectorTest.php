@@ -185,4 +185,58 @@ final class AtlasTaskServingLeaseClaimParityInspectorTest extends TestCase
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
     }
+
+    // ── AC: reports recoverable_leaks, ghost_active_leases, claimed_without_lease, clean parity separately ──
+
+    public function test_clean_state_reports_clean_parity_true_and_empty_leak_ghost_buckets(): void
+    {
+        $r = $this->svc()->inspect(
+            [$this->lease('L1', 't1')],
+            [$this->record('t1', 'claimed')],
+        );
+
+        $this->assertTrue($r['clean_parity']);
+        $this->assertSame(0, $r['recoverable_leaks']['total']);
+        $this->assertSame(0, $r['ghost_active_leases']['total']);
+        $this->assertSame([], $r['claimed_without_lease']);
+    }
+
+    public function test_real_recoverable_leak_reports_terminal_lease_in_recoverable_leaks_not_ghost(): void
+    {
+        $r = $this->svc()->inspect(
+            [$this->lease('L1', 't1')],
+            [$this->record('t1', 'completed')],
+        );
+
+        $this->assertFalse($r['clean_parity']);
+        $this->assertSame(1, $r['recoverable_leaks']['total']);
+        $this->assertContains('t1', $r['recoverable_leaks']['items']);
+        $this->assertSame(0, $r['ghost_active_leases']['total']);
+    }
+
+    public function test_ghost_active_lease_with_no_record_reports_in_ghost_bucket_not_recoverable_leaks(): void
+    {
+        $r = $this->svc()->inspect(
+            [$this->lease('L1', 't1')],
+            [],
+        );
+
+        $this->assertFalse($r['clean_parity']);
+        $this->assertSame(1, $r['ghost_active_leases']['total']);
+        $this->assertContains('t1', $r['ghost_active_leases']['items']);
+        $this->assertSame(0, $r['recoverable_leaks']['total']);
+    }
+
+    public function test_claimed_without_lease_mismatch_is_reported_separately(): void
+    {
+        $r = $this->svc()->inspect(
+            [],
+            [$this->record('t1', 'claimed')],
+        );
+
+        $this->assertFalse($r['clean_parity']);
+        $this->assertContains('t1', $r['claimed_without_lease']);
+        $this->assertSame(0, $r['recoverable_leaks']['total']);
+        $this->assertSame(0, $r['ghost_active_leases']['total']);
+    }
 }
