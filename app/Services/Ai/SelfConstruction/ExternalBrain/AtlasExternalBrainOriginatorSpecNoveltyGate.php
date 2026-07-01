@@ -51,20 +51,25 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGate
      */
     public function evaluate(array $input): array
     {
-        $candidates = is_array($input['candidates'] ?? null) ? $input['candidates'] : [];
-        $pool = array_merge(
+        $rawCandidates = is_array($input['candidates'] ?? null) ? $input['candidates'] : [];
+        $candidates = array_values(array_filter($rawCandidates, static fn (mixed $c): bool => is_array($c)));
+
+        $externalPool = array_merge(
             $this->normalizePool($input['queued_targets'] ?? null, 'queued_target'),
             $this->normalizePool($input['recent_authored_specs'] ?? null, 'recent_authored_spec'),
         );
+        // Template-farm batches (repeated templates / renamed wrappers submitted together)
+        // only surface when candidates are also compared against their own batch siblings.
+        $batchPool = $this->normalizePool($candidates, 'batch_sibling');
         $existingClassNames = is_array($input['existing_class_names'] ?? null)
             ? array_map('strval', $input['existing_class_names'])
             : [];
 
         $results = [];
-        foreach ($candidates as $candidate) {
-            if (! is_array($candidate)) {
-                continue;
-            }
+        foreach ($candidates as $i => $candidate) {
+            $siblingPool = $batchPool;
+            unset($siblingPool[$i]);
+            $pool = array_merge($externalPool, array_values($siblingPool));
             $results[] = $this->evaluateOne($candidate, $pool, $existingClassNames);
         }
 
@@ -97,7 +102,12 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGate
             }
         }
 
-        $semanticDuplicate = $bestSimilarity >= self::DUPLICATE_THRESHOLD;
+        $semanticDuplicate = $bestMatch !== null && $bestSimilarity >= self::DUPLICATE_THRESHOLD;
+        $coherentChain = $semanticDuplicate && $this->isCoherentChain($candidate, $bestMatch);
+        if ($coherentChain) {
+            $semanticDuplicate = false;
+        }
+
         $duplicate = $classNameCollision || $semanticDuplicate;
 
         $duplicateEvidence = [];
@@ -112,7 +122,7 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGate
             $duplicateEvidence[] = [
                 'matched_against' => $bestMatch['label'],
                 'similarity' => round($bestSimilarity, 4),
-                'reason' => 'semantic_overlap',
+                'reason' => $bestMatch['source'] === 'batch_sibling' ? 'template_farm_sibling' : 'semantic_overlap',
             ];
         }
 
@@ -128,7 +138,48 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGate
             'duplicate_evidence' => $duplicateEvidence,
             'safe_to_enqueue' => ! $duplicate,
             'suggested_merge_or_pivot_action' => $suggestedAction,
+            'minimal_rewrite_suggestion' => $this->rewriteSuggestion($duplicate, $classNameCollision, $bestMatch),
         ];
+    }
+
+    /**
+     * A candidate that overlaps a matched item textually is still NOT a duplicate
+     * when it declares it changes a distinct capability, or that it deliberately
+     * unlocks/builds on that matched item as the next step in a strategic chain.
+     *
+     * @param  array<string,mixed>  $candidate
+     * @param  array<string,mixed>  $bestMatch
+     */
+    private function isCoherentChain(array $candidate, array $bestMatch): bool
+    {
+        $candidateCapability = isset($candidate['distinct_capability']) ? (string) $candidate['distinct_capability'] : null;
+        if ($candidateCapability !== null && $candidateCapability !== '' && $bestMatch['distinct_capability'] !== null) {
+            if ($candidateCapability !== $bestMatch['distinct_capability']) {
+                return true;
+            }
+        }
+
+        $unlocksTaskId = isset($candidate['unlocks_task_id']) ? (string) $candidate['unlocks_task_id'] : null;
+
+        return $unlocksTaskId !== null && $unlocksTaskId !== '' && $unlocksTaskId === $bestMatch['class_name'];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $bestMatch
+     */
+    private function rewriteSuggestion(bool $duplicate, bool $classNameCollision, ?array $bestMatch): ?string
+    {
+        if (! $duplicate) {
+            return null;
+        }
+        if ($classNameCollision) {
+            return 'Rename the class and diverge its objective/scope — this class name already exists.';
+        }
+        if ($bestMatch !== null) {
+            return 'Narrow the objective to a capability not covered by '.$bestMatch['label'].', or merge this spec into it directly.';
+        }
+
+        return 'Pivot objective or scope to a distinct capability before resubmitting.';
     }
 
     /**
@@ -154,7 +205,7 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGate
     }
 
     /**
-     * @return list<array{label:string,objective_tokens:list<string>,allowed_files:list<string>,acceptance_tokens:list<string>}>
+     * @return list<array{label:string,source:string,class_name:string,distinct_capability:?string,objective_tokens:list<string>,allowed_files:list<string>,acceptance_tokens:list<string>}>
      */
     private function normalizePool(mixed $rawList, string $labelPrefix): array
     {
@@ -170,6 +221,9 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGate
             $label = (string) ($item['class_name'] ?? ($labelPrefix.'_'.$i));
             $pool[] = [
                 'label' => $label,
+                'source' => $labelPrefix,
+                'class_name' => (string) ($item['class_name'] ?? ''),
+                'distinct_capability' => isset($item['distinct_capability']) ? (string) $item['distinct_capability'] : null,
                 'objective_tokens' => $this->tokens((string) ($item['objective'] ?? '')),
                 'allowed_files' => $this->toStringSet($item['allowed_files'] ?? null),
                 'acceptance_tokens' => $this->tokens(implode(' ', $this->toStringSet($item['acceptance'] ?? null))),
