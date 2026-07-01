@@ -21,6 +21,7 @@ final class AtlasMaestroSemanticRejectionReceiptTest extends TestCase
             'packet_id',
             'panel_votes',
             'rejected_voters',
+            'reopen_patch',
             'respec_suggestion',
             'sibling_observed',
             'ts_utc',
@@ -31,6 +32,21 @@ final class AtlasMaestroSemanticRejectionReceiptTest extends TestCase
         $this->assertSame('sibling_role_mismatch', $decoded['rejected_voters']['orphan_caller']);
         $this->assertSame('AtlasTaskPacketQualityInspector', $decoded['offending_symbol']);
         $this->assertSame('app/Services/Ai/SelfConstruction/AtlasTaskPacketQualityInspector.php', $decoded['defining_file']);
+        $this->assertArrayHasKey('allowed_files', $decoded['reopen_patch']);
+        $this->assertArrayHasKey('objective', $decoded['reopen_patch']);
+    }
+
+    public function test_acceptance_symbol_rejection_includes_acceptance_criteria_reopen_patch(): void
+    {
+        $json = $this->composer()->compose('packet-2', [
+            'pass' => false,
+            'votes' => [true, true, false],
+            'voter_reasons' => ['acceptance_symbol' => 'symbol_not_resolved'],
+        ]);
+        $decoded = json_decode($json, true);
+
+        $this->assertArrayHasKey('acceptance_criteria', $decoded['reopen_patch']);
+        $this->assertArrayNotHasKey('allowed_files', $decoded['reopen_patch']);
     }
 
     public function test_compose_is_byte_deterministic_for_same_inputs(): void

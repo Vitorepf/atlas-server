@@ -36,8 +36,33 @@ final class AtlasMaestroSemanticRejectionReceipt
         }
 
         $receipt['respec_suggestion'] = $this->respecSuggestion($receipt['rejected_voters']);
+        $receipt['reopen_patch'] = $this->reopenPatch($receipt['rejected_voters']);
 
         return $this->encode($receipt);
+    }
+
+    /**
+     * Concrete field-level repair guidance per rejected voter, so respec loops target
+     * an actual field instead of a vague suggestion string.
+     *
+     * @param  array<string,string>  $rejectedVoters
+     * @return array<string,string>
+     */
+    private function reopenPatch(array $rejectedVoters): array
+    {
+        $patch = [];
+        if (isset($rejectedVoters['allowed_files_intent'])) {
+            $patch['allowed_files'] = 'widen_allowed_files_to_cover_named_implementation_target';
+            $patch['objective'] = 'name_the_concrete_allowed_file_or_symbol_the_objective_targets';
+        }
+        if (isset($rejectedVoters['orphan_caller'])) {
+            $patch['allowed_files'] = $patch['allowed_files'] ?? 'wire_a_real_caller_into_allowed_files_scope';
+        }
+        if (isset($rejectedVoters['acceptance_symbol'])) {
+            $patch['acceptance_criteria'] = 'cite_a_resolvable_symbol_or_concrete_test_path_in_acceptance_criteria';
+        }
+
+        return $patch;
     }
 
     /**
