@@ -146,8 +146,18 @@ final class AtlasExternalBrainCapabilityIntegrationMap
             static fn (array $cap): bool => (bool) ($cap['is_implemented'] ?? false),
         ));
         $circuits        = $this->buildCircuits($implementedCapabilities, $capabilityMap);
-        $isolatedOrgans  = $this->findIsolatedOrgans($implementedCapabilities);
+        $dormantIds      = array_keys(array_filter(
+            array_column($capabilityMap, 'integration_status', 'capability_id'),
+            static fn (string $status): bool => $status === self::STATUS_DORMANT,
+        ));
+        // dormant_implemented organs get their own prove_or_wire/retire_review path below — never
+        // the blind zero-signal "retire" recommendation, which cannot see replacement_proof.
+        $isolatedOrgans  = array_values(array_diff($this->findIsolatedOrgans($implementedCapabilities), $dormantIds));
         $recommendations = $this->buildRecommendations($circuits, $isolatedOrgans);
+        $recommendations = array_merge(
+            $recommendations,
+            $this->dormantRetirementRecommendations($implementedCapabilities, $capabilityMap, $circuits),
+        );
 
         return [
             'schema_version'          => self::SCHEMA,
@@ -314,6 +324,60 @@ final class AtlasExternalBrainCapabilityIntegrationMap
                     'action'        => 'merge',
                     'rationale'     => "circuit has {$memberCount} organs with zero downstream consumers; merging eliminates redundancy without adding wrapper classes",
                     'high_leverage' => true,
+                ];
+            }
+        }
+
+        return $recommendations;
+    }
+
+    /**
+     * A dormant_implemented capability must NEVER be recommended for isolated retirement on
+     * consumer_count=0 alone — that only proves it is unwired, not that it is safe to delete.
+     * Retirement review requires ALL THREE: zero consumers, an explicit replacement_proof, and
+     * no active circuit membership. Missing replacement_proof routes to prove_or_wire instead;
+     * active circuit membership means the organ is still load-bearing and is excluded entirely.
+     *
+     * @param  array<int,array<string,mixed>>  $capabilities
+     * @param  array<int,array<string,mixed>>  $capabilityMap
+     * @param  list<array<string,mixed>>       $circuits
+     * @return list<array{organ_id:string, action:string, rationale:string, high_leverage:bool}>
+     */
+    private function dormantRetirementRecommendations(array $capabilities, array $capabilityMap, array $circuits): array
+    {
+        $statusById = array_column($capabilityMap, 'integration_status', 'capability_id');
+
+        $activeCircuitMembers = [];
+        foreach ($circuits as $circuit) {
+            foreach ((array) ($circuit['member_organ_ids'] ?? []) as $memberId) {
+                $activeCircuitMembers[(string) $memberId] = true;
+            }
+        }
+
+        $recommendations = [];
+        foreach ($capabilities as $cap) {
+            $id = (string) ($cap['id'] ?? '');
+            if (($statusById[$id] ?? null) !== self::STATUS_DORMANT) {
+                continue;
+            }
+            if (isset($activeCircuitMembers[$id])) {
+                continue; // still load-bearing inside an active circuit — never a retirement candidate
+            }
+
+            $hasReplacementProof = (bool) ($cap['replacement_proof'] ?? false);
+            if ($hasReplacementProof) {
+                $recommendations[] = [
+                    'organ_id'      => $id,
+                    'action'        => 'retire_review',
+                    'rationale'     => 'dormant_implemented with zero consumers, proven replacement, and no active circuit membership; safe for retirement review',
+                    'high_leverage' => false,
+                ];
+            } else {
+                $recommendations[] = [
+                    'organ_id'      => $id,
+                    'action'        => 'prove_or_wire',
+                    'rationale'     => 'dormant_implemented capability has no replacement_proof; wire it or prove a real replacement before retirement is even considered',
+                    'high_leverage' => false,
                 ];
             }
         }

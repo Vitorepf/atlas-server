@@ -495,4 +495,66 @@ final class AtlasExternalBrainCapabilityIntegrationMapTest extends TestCase
         );
         $this->assertEmpty($highLeverageRecs, 'wrapper-only debt must not generate high_leverage recommendations');
     }
+
+    // ── AC: dormant retirement gating ─────────────────────────────────────────
+
+    public function test_dormant_capability_without_replacement_proof_is_recommended_prove_or_wire(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'id'                 => 'dormant_no_proof',
+            'is_wired'           => false,
+            'consumer_count'     => 0,
+            'integration_points' => [],
+            'connected_to'       => [],
+        ])]]);
+
+        $recs = array_filter($r['circuit_recommendations'], fn (array $rec): bool => ($rec['organ_id'] ?? null) === 'dormant_no_proof');
+        $this->assertNotEmpty($recs);
+        foreach ($recs as $rec) {
+            $this->assertSame('prove_or_wire', $rec['action']);
+        }
+        $this->assertEmpty(array_filter($recs, fn (array $rec): bool => $rec['action'] === 'retire'));
+    }
+
+    public function test_dormant_capability_in_active_circuit_is_not_isolated_retirement_candidate(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap([
+                'id'                 => 'dormant_in_circuit',
+                'is_wired'           => false,
+                'consumer_count'     => 0,
+                'integration_points' => ['shared_circuit'],
+                'connected_to'       => ['shared_circuit'],
+                'replacement_proof'  => true,
+            ]),
+            $this->cap([
+                'id'                 => 'active_sibling',
+                'is_wired'           => true,
+                'consumer_count'     => 1,
+                'integration_points' => ['shared_circuit'],
+                'connected_to'       => ['shared_circuit'],
+            ]),
+        ]]);
+
+        $recs = array_filter($r['circuit_recommendations'], fn (array $rec): bool => ($rec['organ_id'] ?? null) === 'dormant_in_circuit');
+        $this->assertEmpty($recs, 'organ inside an active circuit must never get a retirement recommendation');
+    }
+
+    public function test_true_zero_consumer_dormant_with_replacement_proof_and_no_circuit_can_be_recommended_for_retirement_review(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'id'                 => 'safe_to_retire',
+            'is_wired'           => false,
+            'consumer_count'     => 0,
+            'integration_points' => [],
+            'connected_to'       => [],
+            'replacement_proof'  => true,
+        ])]]);
+
+        $recs = array_filter($r['circuit_recommendations'], fn (array $rec): bool => ($rec['organ_id'] ?? null) === 'safe_to_retire');
+        $this->assertNotEmpty($recs);
+        foreach ($recs as $rec) {
+            $this->assertSame('retire_review', $rec['action']);
+        }
+    }
 }
