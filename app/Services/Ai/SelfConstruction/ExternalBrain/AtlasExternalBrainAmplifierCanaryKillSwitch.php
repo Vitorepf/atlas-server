@@ -8,11 +8,15 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Pure canary kill-switch evaluator. Checks live canary metrics against
  * hard ceilings and recommends rollback, continue, or wait for more samples.
  *
- * AC2: rollback when any metric breaches its ceiling.
+ * AC2: rollback when any metric breaches its ceiling — including false_green_rate (structural
+ *      gates passing while proof is fake/absent) and proxy_leak_rate (template/wrapper output).
  * AC3: continue only when all metrics are within thresholds AND sample size ≥ MIN.
- *      Insufficient sample with no breach → wait_for_sample.
- * AC4: output always includes action, breached_thresholds, rollback_scope,
- *      sample_size, and next_safe_variant.
+ *      Insufficient sample with no breach → wait_for_sample. A failure streak fully explained
+ *      by quota_exhausted is a temporary infra issue, not capability degradation — it returns
+ *      pause_for_quota (safe fallback) instead of rollback; every other kill trigger still fires.
+ * AC4: output always includes action, severity, breached_thresholds, rollback_scope,
+ *      sample_size, next_safe_variant, kill_reason (trip reason), and recovery_condition
+ *      (minimum evidence required to resume).
  *
  * Pure: no I/O, no side effects.
  */
@@ -23,6 +27,12 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
     public const ACTION_ROLLBACK          = 'rollback';
     public const ACTION_CONTINUE          = 'continue';
     public const ACTION_WAIT_FOR_SAMPLE   = 'wait_for_sample';
+    public const ACTION_PAUSE_FOR_QUOTA   = 'pause_for_quota';
+
+    public const SEVERITY_NONE     = 'none';
+    public const SEVERITY_LOW      = 'low';
+    public const SEVERITY_HIGH     = 'high';
+    public const SEVERITY_CRITICAL = 'critical';
 
     private const MIN_SAMPLE_SIZE         = 10;
 
@@ -45,6 +55,7 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
     // Kill-switch thresholds
     private const PROXY_LEAK_CEILING      = 0.15;
     private const FAILURE_STREAK_LIMIT    = 3;
+    private const FALSE_GREEN_CEILING     = 0.15;
 
     /**
      * @param  array{
@@ -80,6 +91,14 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
             ? (bool) $input['has_mandatory_telemetry']
             : true;
         $wasPreviouslyRolledBack = (bool) ($input['was_previously_rolled_back'] ?? false);
+        $falseGreenRate       = max(0.0, min(1.0, (float) ($input['false_green_rate'] ?? 0.0)));
+
+        // AC3: a failure streak explained by temporary quota exhaustion is NOT capability
+        // degradation — rolling back the amplifier for it would be a false signal. Every other
+        // kill trigger (telemetry, proxy leak, false-green, regression, missing telemetry) still
+        // fires regardless, because those indicate the model/output itself, not infra availability.
+        $quotaExhausted = (bool) ($input['quota_exhausted'] ?? false);
+        $failureStreakExplainedByQuota = $quotaExhausted && $failureStreak >= self::FAILURE_STREAK_LIMIT;
 
         $killTriggers = [];
         if ($rollbackTelemetry) {
@@ -88,7 +107,10 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
         if ($proxyLeakRate > self::PROXY_LEAK_CEILING) {
             $killTriggers[] = ['reason' => 'proxy_leak_ceiling_breach', 'recovery' => 'proxy_leak_rate_below_ceiling_for_2_cycles', 'policy' => 'disable_amplifier_immediately'];
         }
-        if ($failureStreak >= self::FAILURE_STREAK_LIMIT) {
+        if ($falseGreenRate > self::FALSE_GREEN_CEILING) {
+            $killTriggers[] = ['reason' => 'false_green_ceiling_breach', 'recovery' => 'false_green_rate_below_ceiling_for_2_cycles', 'policy' => 'disable_amplifier_immediately'];
+        }
+        if ($failureStreak >= self::FAILURE_STREAK_LIMIT && ! $quotaExhausted) {
             $killTriggers[] = ['reason' => 'held_out_failure_streak', 'recovery' => 'zero_consecutive_failures_for_5_tasks', 'policy' => 'disable_amplifier_immediately'];
         }
         if ($regressionSpike) {
@@ -139,6 +161,7 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
             return [
                 'schema'                 => self::SCHEMA,
                 'action'                 => self::ACTION_ROLLBACK,
+                'severity'               => $killSwitchActive ? self::SEVERITY_CRITICAL : self::SEVERITY_HIGH,
                 'breached_thresholds'    => $breached,
                 'rollback_scope'         => 'canary_only',
                 'sample_size'            => $sampleSize,
@@ -151,6 +174,26 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
             ];
         }
 
+        // AC3: the failure streak looked like capability degradation but is fully explained by
+        // temporary quota exhaustion — a safe fallback (pause, don't roll back) since the model
+        // itself was never actually exercised enough to prove or disprove anything.
+        if ($failureStreakExplainedByQuota) {
+            return [
+                'schema'                 => self::SCHEMA,
+                'action'                 => self::ACTION_PAUSE_FOR_QUOTA,
+                'severity'               => self::SEVERITY_LOW,
+                'breached_thresholds'    => [],
+                'rollback_scope'         => null,
+                'sample_size'            => $sampleSize,
+                'next_safe_variant'      => 'current_canary',
+                'kill_switch_active'     => false,
+                'kill_reason'            => 'temporary_quota_failure',
+                'recovery_condition'     => 'quota_restored_and_failure_streak_clears',
+                'safe_mode_policy'       => 'pause_sampling_until_quota_restored',
+                'recovery_window_status' => self::RECOVERY_WINDOW_NOT_APPLICABLE,
+            ];
+        }
+
         // Recovering FROM a previous rollback: normal-size samples are never enough on
         // their own — require the larger recovery sample before trusting a clean read.
         if ($wasPreviouslyRolledBack) {
@@ -158,6 +201,7 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
                 return [
                     'schema'                 => self::SCHEMA,
                     'action'                 => self::ACTION_WAIT_FOR_SAMPLE,
+                    'severity'               => self::SEVERITY_NONE,
                     'breached_thresholds'    => [],
                     'rollback_scope'         => null,
                     'sample_size'            => $sampleSize,
@@ -173,6 +217,7 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
             return [
                 'schema'                 => self::SCHEMA,
                 'action'                 => self::ACTION_CONTINUE,
+                'severity'               => self::SEVERITY_NONE,
                 'breached_thresholds'    => [],
                 'rollback_scope'         => null,
                 'sample_size'            => $sampleSize,
@@ -189,6 +234,7 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
             return [
                 'schema'                 => self::SCHEMA,
                 'action'                 => self::ACTION_WAIT_FOR_SAMPLE,
+                'severity'               => self::SEVERITY_NONE,
                 'breached_thresholds'    => [],
                 'rollback_scope'         => null,
                 'sample_size'            => $sampleSize,
@@ -204,6 +250,7 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
         return [
             'schema'                 => self::SCHEMA,
             'action'                 => self::ACTION_CONTINUE,
+            'severity'               => self::SEVERITY_NONE,
             'breached_thresholds'    => [],
             'rollback_scope'         => null,
             'sample_size'            => $sampleSize,

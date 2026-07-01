@@ -394,4 +394,115 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitchTest extends TestCase
         $this->assertArrayHasKey('recovery_window_status', $result);
         $this->assertSame('not_applicable', $result['recovery_window_status']);
     }
+
+    // ── AC4: severity present on every action ─────────────────────────────────
+
+    public function test_continue_has_none_severity(): void
+    {
+        $result = $this->switch->evaluate($this->allGood(20));
+
+        $this->assertArrayHasKey('severity', $result);
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::SEVERITY_NONE, $result['severity']);
+    }
+
+    public function test_wait_for_sample_has_none_severity(): void
+    {
+        $result = $this->switch->evaluate($this->allGood(5));
+
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::SEVERITY_NONE, $result['severity']);
+    }
+
+    public function test_ceiling_breach_without_kill_switch_has_high_severity(): void
+    {
+        $input = $this->allGood();
+        $input['duplicate_rate'] = 0.50;
+
+        $result = $this->switch->evaluate($input);
+
+        $this->assertFalse($result['kill_switch_active']);
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::SEVERITY_HIGH, $result['severity']);
+    }
+
+    public function test_kill_switch_trigger_has_critical_severity(): void
+    {
+        $input = array_merge($this->allGood(20), ['rollback_telemetry' => true]);
+
+        $result = $this->switch->evaluate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::SEVERITY_CRITICAL, $result['severity']);
+    }
+
+    // ── AC2: false-green evidence (structural gates pass, proof is fake/absent) ────
+
+    public function test_false_green_rate_above_ceiling_triggers_kill_switch(): void
+    {
+        $input = array_merge($this->allGood(20), ['false_green_rate' => 0.20]); // > 0.15
+
+        $result = $this->switch->evaluate($input);
+
+        $this->assertTrue($result['kill_switch_active']);
+        $this->assertSame('false_green_ceiling_breach', $result['kill_reason']);
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_ROLLBACK, $result['action']);
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::SEVERITY_CRITICAL, $result['severity']);
+    }
+
+    public function test_false_green_rate_at_ceiling_does_not_trigger(): void
+    {
+        $input = array_merge($this->allGood(20), ['false_green_rate' => 0.15]);
+
+        $result = $this->switch->evaluate($input);
+
+        $this->assertFalse($result['kill_switch_active']);
+    }
+
+    // ── AC3: temporary quota failure vs capability degradation ────────────────
+
+    public function test_failure_streak_explained_by_quota_pauses_instead_of_rolling_back(): void
+    {
+        $input = array_merge($this->allGood(20), [
+            'held_out_failure_streak' => 3,
+            'quota_exhausted' => true,
+        ]);
+
+        $result = $this->switch->evaluate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_PAUSE_FOR_QUOTA, $result['action']);
+        $this->assertFalse($result['kill_switch_active']);
+        $this->assertNull($result['rollback_scope']);
+        $this->assertSame('temporary_quota_failure', $result['kill_reason']);
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::SEVERITY_LOW, $result['severity']);
+    }
+
+    public function test_failure_streak_without_quota_flag_still_rolls_back(): void
+    {
+        $input = array_merge($this->allGood(20), ['held_out_failure_streak' => 3]);
+
+        $result = $this->switch->evaluate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_ROLLBACK, $result['action']);
+        $this->assertTrue($result['kill_switch_active']);
+    }
+
+    public function test_quota_exhausted_alone_without_failure_streak_does_not_pause(): void
+    {
+        $input = array_merge($this->allGood(20), ['quota_exhausted' => true]);
+
+        $result = $this->switch->evaluate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_CONTINUE, $result['action']);
+    }
+
+    public function test_quota_exhausted_does_not_suppress_other_kill_triggers(): void
+    {
+        $input = array_merge($this->allGood(20), [
+            'held_out_failure_streak' => 3,
+            'quota_exhausted' => true,
+            'rollback_telemetry' => true,
+        ]);
+
+        $result = $this->switch->evaluate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_ROLLBACK, $result['action']);
+        $this->assertSame('rollback_telemetry', $result['kill_reason']);
+    }
 }
