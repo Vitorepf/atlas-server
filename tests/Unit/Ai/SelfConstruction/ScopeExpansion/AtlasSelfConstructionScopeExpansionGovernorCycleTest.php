@@ -245,6 +245,66 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycleTest extends TestCas
         $this->assertContains('doc:source.md', $receipts['candidate_evidence_refs']);
     }
 
+    public function test_decision_summary_includes_all_required_fields(): void
+    {
+        $id = 'scope-a';
+        $admissionPlan = ['status' => 'ready', 'candidate_id' => $id, 'actions' => []];
+        $cycle = new AtlasSelfConstructionScopeExpansionGovernorCycle(
+            null, null, null,
+            static fn (array $c, array $r, array $l): array => $admissionPlan,
+        );
+        $out = $cycle->run([
+            'candidates' => [$this->readyCandidate($id)],
+            'risk_budget' => ['max_risk' => 10],
+            'readiness_facts' => $this->readyFactsFor($id),
+            'lane_facts' => $this->laneFactsFor($id),
+        ]);
+
+        $summary = $out['decision_summary'];
+        foreach (['expansion_decision', 'accepted_count', 'admitted_count', 'withheld_count', 'blocked_action_count', 'next_control_plane_action'] as $key) {
+            $this->assertArrayHasKey($key, $summary, "decision_summary must contain {$key}");
+        }
+        $this->assertSame('selected', $summary['expansion_decision']);
+        $this->assertSame(1, $summary['accepted_count']);
+        $this->assertSame(1, $summary['admitted_count']);
+    }
+
+    public function test_forbidden_action_kinds_have_withhold_forbidden_action_class(): void
+    {
+        $id = 'scope-a';
+        $admissionPlan = ['status' => 'ready', 'candidate_id' => $id, 'actions' => [['kind' => 'git']]];
+        $cycle = new AtlasSelfConstructionScopeExpansionGovernorCycle(
+            null, null, null,
+            static fn (array $c, array $r, array $l): array => $admissionPlan,
+        );
+        $out = $cycle->run([
+            'candidates' => [$this->readyCandidate($id)],
+            'risk_budget' => ['max_risk' => 10],
+            'readiness_facts' => $this->readyFactsFor($id),
+            'lane_facts' => $this->laneFactsFor($id),
+        ], ['apply' => true]);
+
+        $this->assertSame(1, $out['decision_summary']['forbidden_action_withheld_count']);
+        $forbidden = $out['withheld_actions'][0];
+        $this->assertSame('withhold_forbidden_action', $forbidden['withhold_class']);
+    }
+
+    public function test_governor_cycle_hash_changes_when_decision_summary_changes_and_apply_false_stays_dry_run(): void
+    {
+        $id = 'scope-a';
+        $cycle = new AtlasSelfConstructionScopeExpansionGovernorCycle();
+
+        $withCandidate = $cycle->run([
+            'candidates' => [$this->readyCandidate($id)],
+            'readiness_facts' => $this->readyFactsFor($id),
+            'lane_facts' => $this->laneFactsFor($id),
+        ]);
+        $withoutCandidate = $cycle->run(['candidates' => []]);
+
+        $this->assertNotSame($withCandidate['governor_cycle_hash'], $withoutCandidate['governor_cycle_hash']);
+        $this->assertTrue($withCandidate['dry_run']);
+    }
+
     public function test_rejected_candidate_does_not_become_admission_plan_action(): void
     {
         $bad = $this->readyCandidate('bad');

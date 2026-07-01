@@ -118,6 +118,7 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycle
                         'candidate_id' => $cid,
                         'kind' => $kind,
                         'reason' => 'forbidden_action_kind:'.$kind,
+                        'withhold_class' => 'withhold_forbidden_action',
                     ];
 
                     continue;
@@ -173,6 +174,27 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycle
 
         $expansionDecision = $accepted === [] ? 'no_op' : ($admittedCount > 0 ? 'selected' : 'blocked');
 
+        $forbiddenWithheldCount = count(array_filter(
+            $withheldActions,
+            static fn (array $w): bool => ($w['withhold_class'] ?? '') === 'withhold_forbidden_action',
+        ));
+        $nextControlPlaneAction = match (true) {
+            $blockedActions !== [] => 'investigate_blocked_actions',
+            $apply && $appliedActions !== [] => 'monitor_applied_actions',
+            ! $apply && $admittedCount > 0 => 'apply_ready_admissions',
+            $accepted === [] => 'await_new_candidates',
+            default => 'none_required',
+        };
+        $decisionSummary = [
+            'expansion_decision' => $expansionDecision,
+            'accepted_count' => count($accepted),
+            'admitted_count' => $admittedCount,
+            'withheld_count' => count($withheldActions),
+            'blocked_action_count' => count($blockedActions),
+            'forbidden_action_withheld_count' => $forbiddenWithheldCount,
+            'next_control_plane_action' => $nextControlPlaneAction,
+        ];
+
         $candidateEvidenceRefs = [];
         foreach ($accepted as $c) {
             foreach ((array) ($c['evidence_refs'] ?? []) as $ref) {
@@ -184,6 +206,7 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycle
             'schema_version' => self::SCHEMA,
             'status' => 'ok',
             'expansion_decision' => $expansionDecision,
+            'decision_summary' => $decisionSummary,
             'dry_run' => ! $apply,
             'ranked_candidates' => $ranked,
             'readiness' => $readinessByCandidate,
