@@ -53,6 +53,34 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
         'pasted_context',
     ];
 
+    public const REGRESSION_OPERATOR_PROMPT = 'operator_prompt_required';
+
+    public const REGRESSION_MANUAL_DECISION = 'manual_decision_required';
+
+    public const REGRESSION_PROVIDER = 'provider_required';
+
+    public const REGRESSION_HUMAN_RECOVERY = 'human_recovery_only';
+
+    public const REGRESSION_UNDOCUMENTED_HANDOFF = 'undocumented_handoff';
+
+    /** regression kind => severity. */
+    private const REGRESSION_SEVERITY = [
+        self::REGRESSION_PROVIDER => 'critical',
+        self::REGRESSION_OPERATOR_PROMPT => 'critical',
+        self::REGRESSION_HUMAN_RECOVERY => 'critical',
+        self::REGRESSION_MANUAL_DECISION => 'high',
+        self::REGRESSION_UNDOCUMENTED_HANDOFF => 'medium',
+    ];
+
+    /** regression kind => concrete Atlas-native replacement guidance. */
+    private const REGRESSION_NATIVE_REPLACEMENT_HINT = [
+        self::REGRESSION_OPERATOR_PROMPT => 'replace the operator prompt with an Atlas-native autonomous decision (gate/originator function), not a human confirmation step',
+        self::REGRESSION_MANUAL_DECISION => 'replace the manual decision with a deterministic Atlas-native policy (a gate/service method), not human judgment',
+        self::REGRESSION_PROVIDER => 'replace the external-provider dependency with a local/Atlas-native execution path (Hermes/local model), never a hard external-provider requirement',
+        self::REGRESSION_HUMAN_RECOVERY => 'replace the human/pasted-session recovery step with an Atlas-native automated recovery routine (self-heal, retry, reclaim)',
+        self::REGRESSION_UNDOCUMENTED_HANDOFF => 'name and document the actual handoff — an unnamed non-atlas actor in an ordinary path cannot be evaluated for native replacement',
+    ];
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -61,6 +89,7 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
     {
         $blockers = [];
         $inspectedPaths = [];
+        $regressions = [];
 
         $finalOwner = (string) ($facts['final_runtime_owner'] ?? '');
         if ($finalOwner !== 'atlas_native') {
@@ -101,10 +130,21 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
 
             foreach ($nonAtlas as $actor) {
                 if (in_array($actor, self::PASTED_SESSION_ANTIPATTERNS, true)) {
-                    $blockers[] = sprintf('pasted_session_recovery_in_ordinary_path:path=%s:actor=%s', $id, $actor);
+                    $blockingReason = sprintf('pasted_session_recovery_in_ordinary_path:path=%s:actor=%s', $id, $actor);
                 } else {
-                    $blockers[] = sprintf('steady_state_non_atlas_actor:path=%s:actor=%s', $id, $actor);
+                    $blockingReason = sprintf('steady_state_non_atlas_actor:path=%s:actor=%s', $id, $actor);
                 }
+                $blockers[] = $blockingReason;
+
+                $kindOfRegression = $this->classifyRegression($actor);
+                $regressions[] = [
+                    'kind' => $kindOfRegression,
+                    'path_id' => $id,
+                    'actor' => $actor,
+                    'severity' => self::REGRESSION_SEVERITY[$kindOfRegression],
+                    'blocking_reason' => $blockingReason,
+                    'native_replacement_hint' => self::REGRESSION_NATIVE_REPLACEMENT_HINT[$kindOfRegression],
+                ];
             }
         }
 
@@ -116,6 +156,7 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
             'status' => $passed ? self::STATUS_PASSED : self::STATUS_BLOCKED,
             'passed' => $passed,
             'blockers' => $blockers,
+            'regressions' => $regressions,
             'allowed_exception_labels' => self::ALLOWED_EXCEPTION_LABELS,
             'inspected_paths' => $inspectedPaths,
             'proof_summary' => sprintf(
@@ -125,5 +166,29 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
                 count($blockers),
             ),
         ];
+    }
+
+    /** Classifies a non-atlas actor string into one of the 5 named regression kinds. */
+    private function classifyRegression(string $actor): string
+    {
+        $lower = strtolower($actor);
+
+        if (in_array($actor, self::PASTED_SESSION_ANTIPATTERNS, true)
+            || str_contains($lower, 'recovery')
+            || str_contains($lower, 'paste')
+            || str_contains($lower, 'session')) {
+            return self::REGRESSION_HUMAN_RECOVERY;
+        }
+        if (str_contains($lower, 'provider') || str_contains($lower, 'claude') || str_contains($lower, 'codex') || str_contains($lower, 'external')) {
+            return self::REGRESSION_PROVIDER;
+        }
+        if (str_contains($lower, 'operator') || str_contains($lower, 'prompt')) {
+            return self::REGRESSION_OPERATOR_PROMPT;
+        }
+        if (str_contains($lower, 'manual') || str_contains($lower, 'decision') || str_contains($lower, 'review') || str_contains($lower, 'approve')) {
+            return self::REGRESSION_MANUAL_DECISION;
+        }
+
+        return self::REGRESSION_UNDOCUMENTED_HANDOFF;
     }
 }
