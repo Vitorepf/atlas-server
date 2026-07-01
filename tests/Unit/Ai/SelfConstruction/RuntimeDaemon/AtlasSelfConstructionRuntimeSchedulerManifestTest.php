@@ -194,4 +194,60 @@ final class AtlasSelfConstructionRuntimeSchedulerManifestTest extends TestCase
 
         $this->assertSame($hashA, $hashB, 'manifest_hash must be stable regardless of option key order');
     }
+
+    // ── AC2/AC3/AC4: cadence, safety_gates, proof_requirements, heartbeat_contract, recovery_policy, ready ──
+
+    public function test_ready_manifest_has_all_required_contract_fields_and_no_reasons(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest();
+
+        foreach (['cadence', 'safety_gates', 'proof_requirements', 'heartbeat_contract', 'recovery_policy', 'disabled_by_default'] as $key) {
+            $this->assertArrayHasKey($key, $m, "Missing key: {$key}");
+        }
+        $this->assertTrue($m['ready']);
+        $this->assertSame([], $m['not_ready_reasons']);
+        $this->assertTrue($m['disabled_by_default']);
+    }
+
+    public function test_missing_heartbeat_contract_refuses_ready(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest(['heartbeat_contract' => []]);
+
+        $this->assertFalse($m['ready']);
+        $this->assertContains('heartbeat_contract_missing', $m['not_ready_reasons']);
+    }
+
+    public function test_missing_proof_requirements_refuses_ready(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest(['proof_requirements' => []]);
+
+        $this->assertFalse($m['ready']);
+        $this->assertContains('proof_requirements_missing', $m['not_ready_reasons']);
+    }
+
+    public function test_missing_recovery_policy_refuses_ready(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest(['recovery_policy' => []]);
+
+        $this->assertFalse($m['ready']);
+        $this->assertContains('recovery_policy_missing', $m['not_ready_reasons']);
+    }
+
+    public function test_missing_safety_gates_refuses_ready(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest(['safety_gates' => []]);
+
+        $this->assertFalse($m['ready']);
+        $this->assertContains('safety_gates_missing', $m['not_ready_reasons']);
+    }
+
+    public function test_disabled_by_default_is_always_true_regardless_of_options(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest([
+            'safety_gates' => [],
+            'cadence_seconds' => 500,
+        ]);
+
+        $this->assertTrue($m['disabled_by_default']);
+    }
 }

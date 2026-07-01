@@ -46,7 +46,7 @@ final class AtlasSelfConstructionRuntimeSchedulerManifest
     ];
 
     /**
-     * @param  array<string,mixed>  $options {php_bin?, cadence_seconds?, heartbeat_max_age_seconds?, max_runtime_seconds?, facts_path?, enabled_lanes?, disabled_lanes?, queue_thresholds?}
+     * @param  array<string,mixed>  $options {php_bin?, cadence_seconds?, heartbeat_max_age_seconds?, max_runtime_seconds?, facts_path?, enabled_lanes?, disabled_lanes?, queue_thresholds?, safety_gates?, proof_requirements?, heartbeat_contract?, recovery_policy?}
      * @return array<string,mixed>
      */
     public function manifest(array $options = []): array
@@ -65,6 +65,52 @@ final class AtlasSelfConstructionRuntimeSchedulerManifest
             self::DEFAULT_QUEUE_THRESHOLDS,
             array_filter((array) ($options['queue_thresholds'] ?? []), static fn ($v): bool => $v !== null),
         );
+
+        $defaultSafetyGates = [
+            'master_switch_off',
+            'safety_stop_event',
+            'pause_requested',
+            'stop_requested',
+            'unattended_supervisor_critical_blocker',
+            'heartbeat_stale_beyond_policy',
+            'non_atlas_dependency_detected',
+        ];
+        $safetyGates = array_key_exists('safety_gates', $options) ? (array) $options['safety_gates'] : $defaultSafetyGates;
+
+        $defaultProofRequirements = ['daemon_cycle_hash', 'cycle_receipt_hash', 'state_hash', 'supervisor_hash'];
+        $proofRequirements = array_key_exists('proof_requirements', $options) ? (array) $options['proof_requirements'] : $defaultProofRequirements;
+
+        $defaultHeartbeatContract = ['max_age_seconds' => $heartbeatMaxAge, 'required' => true];
+        $heartbeatContract = array_key_exists('heartbeat_contract', $options) ? (array) $options['heartbeat_contract'] : $defaultHeartbeatContract;
+
+        $defaultRecoveryPolicy = [
+            'backoff' => [
+                'kind' => 'exponential_with_jitter',
+                'initial_seconds' => 30,
+                'multiplier' => 2.0,
+                'max_seconds' => 1800,
+                'jitter_seconds' => 5,
+            ],
+            'resume_obligations' => ['last_state_hash', 'heartbeat_hash', 'safety_stop_clearance_hash'],
+        ];
+        $recoveryPolicy = array_key_exists('recovery_policy', $options) ? (array) $options['recovery_policy'] : $defaultRecoveryPolicy;
+
+        // AC3: ready=true only when every contract (safety, heartbeat, proof, recovery) is present
+        // and complete — a missing contract must never be silently treated as "good enough".
+        $notReadyReasons = [];
+        if ($safetyGates === []) {
+            $notReadyReasons[] = 'safety_gates_missing';
+        }
+        if ($proofRequirements === []) {
+            $notReadyReasons[] = 'proof_requirements_missing';
+        }
+        if ($heartbeatContract === [] || empty($heartbeatContract['required'])) {
+            $notReadyReasons[] = 'heartbeat_contract_missing';
+        }
+        if ($recoveryPolicy === [] || empty($recoveryPolicy['backoff']) || empty($recoveryPolicy['resume_obligations'])) {
+            $notReadyReasons[] = 'recovery_policy_missing';
+        }
+        sort($notReadyReasons, SORT_STRING);
 
         $tickCommand = $phpBin.' artisan atlas:self-construction:runtime-daemon tick --apply --json';
         $statusCommand = $phpBin.' artisan atlas:self-construction:runtime-daemon status --json';
@@ -133,6 +179,16 @@ final class AtlasSelfConstructionRuntimeSchedulerManifest
             'enabled_lanes'     => $enabledLanes,
             'disabled_lanes'    => $disabledLanes,
             'queue_thresholds'  => $queueThresholds,
+            'cadence'            => $cadence,
+            'safety_gates'       => $safetyGates,
+            'proof_requirements' => $proofRequirements,
+            'heartbeat_contract' => $heartbeatContract,
+            'recovery_policy'    => $recoveryPolicy,
+            // Unattended 24/7 operation is opt-in only — a scheduler bridge must explicitly arm
+            // this manifest; it is never self-installing or self-enabling.
+            'disabled_by_default' => true,
+            'ready'              => $notReadyReasons === [],
+            'not_ready_reasons'  => $notReadyReasons,
         ];
 
         // Stable hash over the full manifest so consumers can detect drift.
