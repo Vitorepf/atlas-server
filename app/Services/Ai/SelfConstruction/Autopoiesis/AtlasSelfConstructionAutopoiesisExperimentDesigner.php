@@ -18,15 +18,22 @@ use RuntimeException;
  *     gates:list<string>, rollback:{strategy:string, affected_files:list<string>} }
  *
  * OUTPUT:
- *   { schema, experiment_id, scope_paths, gates, rollback, success_evidence, separation_of_powers,
- *     status:'designed', plan_hash }
+ *   { schema, experiment_id, scope_paths, gates, rollback, success_evidence, proof_requirements,
+ *     separation_of_powers, status:'designed', plan_hash }
+ *
+ * proof_requirements — deterministic, derived entirely from already-canonicalized hypothesis
+ * fields (scope_paths, gates, rollback, experiment_id) so it never needs its own hash input:
+ *   before_snapshot, after_snapshot, behavior_parity_check, rollback_verification, impact_receipt.
  *
  * REJECTS (throws RuntimeException) when:
  *   - rollback.strategy is missing/empty
  *   - rollback.affected_files is empty
+ *   - rollback.affected_files is not a SUBSET of scope_paths (no rollback claim outside the
+ *     governed write set)
  *   - expected_evidence is empty
  *   - scope_paths is empty
  *   - any path looks like a broad directory (no extension or trailing '/')
+ *   - gates omit at least one runnable test/verification command string
  *
  * INVARIANTS:
  *   - DETERMINISTIC plan_hash = sha256(canonical {hypothesis_id, scope_paths, gates, rollback, success_evidence}).
@@ -78,6 +85,9 @@ final class AtlasSelfConstructionAutopoiesisExperimentDesigner
             throw new RuntimeException('autopoiesis_designer: empty expected_evidence');
         }
         $gates = is_array($hypothesis['gates'] ?? null) ? array_values(array_map('strval', $hypothesis['gates'])) : [];
+        if (! $this->hasRunnableVerificationCommand($gates)) {
+            throw new RuntimeException('autopoiesis_designer: gates omit at least one runnable test or verification command');
+        }
         $rollback = is_array($hypothesis['rollback'] ?? null) ? $hypothesis['rollback'] : [];
         $strategy = trim((string) ($rollback['strategy'] ?? ''));
         if ($strategy === '') {
@@ -86,6 +96,10 @@ final class AtlasSelfConstructionAutopoiesisExperimentDesigner
         $affected = is_array($rollback['affected_files'] ?? null) ? array_values(array_map('strval', $rollback['affected_files'])) : [];
         if ($affected === []) {
             throw new RuntimeException('autopoiesis_designer: rollback.affected_files empty');
+        }
+        $outsideScope = array_diff($affected, $scopePaths);
+        if ($outsideScope !== []) {
+            throw new RuntimeException('autopoiesis_designer: rollback.affected_files not a subset of scope_paths: '.implode(', ', $outsideScope));
         }
         sort($scopePaths, SORT_STRING);
         sort($expected, SORT_STRING);
@@ -102,6 +116,14 @@ final class AtlasSelfConstructionAutopoiesisExperimentDesigner
         ];
         ksort($canonical);
 
+        $proofRequirements = [
+            'before_snapshot' => 'snapshot scope_paths ['.implode(', ', $scopePaths).'] before mutation for '.$experimentId,
+            'after_snapshot' => 'snapshot scope_paths ['.implode(', ', $scopePaths).'] after mutation for '.$experimentId,
+            'behavior_parity_check' => 'diff before/after snapshots for parity across gates: '.implode(', ', $gates),
+            'rollback_verification' => 'verify rollback.strategy='.$strategy.' restores affected_files: ['.implode(', ', $affected).']',
+            'impact_receipt' => 'record impact receipt referencing plan_hash and gates for '.$experimentId,
+        ];
+
         return [
             'schema' => self::SCHEMA,
             'experiment_id' => $experimentId,
@@ -109,9 +131,22 @@ final class AtlasSelfConstructionAutopoiesisExperimentDesigner
             'gates' => $gates,
             'rollback' => ['strategy' => $strategy, 'affected_files' => $affected],
             'success_evidence' => $expected,
+            'proof_requirements' => $proofRequirements,
             'separation_of_powers' => self::SEPARATION_OF_POWERS,
             'status' => 'designed',
             'plan_hash' => hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
         ];
+    }
+
+    /** @param  list<string>  $gates */
+    private function hasRunnableVerificationCommand(array $gates): bool
+    {
+        foreach ($gates as $gate) {
+            if (preg_match('/\b(test|verify|phpunit|jest|pytest|rspec|artisan|exit\s*0)\b/i', $gate) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

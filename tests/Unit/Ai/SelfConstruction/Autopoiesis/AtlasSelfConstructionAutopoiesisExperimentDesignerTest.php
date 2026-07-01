@@ -91,4 +91,100 @@ final class AtlasSelfConstructionAutopoiesisExperimentDesignerTest extends TestC
         $this->expectExceptionMessageMatches('/scope_paths exceeds risk limit/');
         (new AtlasSelfConstructionAutopoiesisExperimentDesigner)->design($h);
     }
+
+    // ── proof_requirements ─────────────────────────────────────────────────────
+
+    public function test_plan_includes_deterministic_proof_requirements(): void
+    {
+        $r = (new AtlasSelfConstructionAutopoiesisExperimentDesigner)->design($this->validHypothesis());
+
+        foreach (['before_snapshot', 'after_snapshot', 'behavior_parity_check', 'rollback_verification', 'impact_receipt'] as $key) {
+            $this->assertArrayHasKey($key, $r['proof_requirements'], "Missing proof_requirements key: {$key}");
+            $this->assertNotSame('', $r['proof_requirements'][$key]);
+        }
+    }
+
+    public function test_proof_requirements_are_deterministic_for_same_input(): void
+    {
+        $d = new AtlasSelfConstructionAutopoiesisExperimentDesigner;
+        $a = $d->design($this->validHypothesis());
+        $b = $d->design($this->validHypothesis());
+        $this->assertSame($a['proof_requirements'], $b['proof_requirements']);
+    }
+
+    // ── rollback.affected_files must be a subset of scope_paths ───────────────
+
+    public function test_rollback_affected_files_outside_scope_paths_throws(): void
+    {
+        $h = $this->validHypothesis();
+        $h['rollback']['affected_files'] = ['app/Outside/NotInScope.php'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/not a subset of scope_paths/');
+        (new AtlasSelfConstructionAutopoiesisExperimentDesigner)->design($h);
+    }
+
+    public function test_rollback_affected_files_subset_of_scope_paths_is_accepted(): void
+    {
+        $h = $this->validHypothesis();
+        $h['scope_paths'] = ['app/Demo/Foo.php', 'app/Demo/Bar.php'];
+        $h['rollback']['affected_files'] = ['app/Demo/Foo.php'];
+        $r = (new AtlasSelfConstructionAutopoiesisExperimentDesigner)->design($h);
+        $this->assertSame('designed', $r['status']);
+    }
+
+    // ── gates must include at least one runnable test/verification command ────
+
+    public function test_gates_without_any_runnable_verification_command_throws(): void
+    {
+        $h = $this->validHypothesis();
+        $h['gates'] = ['review manually', 'looks good'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/gates omit at least one runnable/');
+        (new AtlasSelfConstructionAutopoiesisExperimentDesigner)->design($h);
+    }
+
+    public function test_empty_gates_throws(): void
+    {
+        $h = $this->validHypothesis();
+        $h['gates'] = [];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/gates omit at least one runnable/');
+        (new AtlasSelfConstructionAutopoiesisExperimentDesigner)->design($h);
+    }
+
+    public function test_gates_with_runnable_command_is_accepted(): void
+    {
+        $h = $this->validHypothesis();
+        $h['gates'] = ['php artisan test --filter=FooTest'];
+        $r = (new AtlasSelfConstructionAutopoiesisExperimentDesigner)->design($h);
+        $this->assertSame('designed', $r['status']);
+    }
+
+    // ── plan_hash changes when proof_requirements-relevant input changes ──────
+
+    public function test_plan_hash_changes_when_gates_change(): void
+    {
+        $d = new AtlasSelfConstructionAutopoiesisExperimentDesigner;
+        $a = $d->design($this->validHypothesis());
+
+        $h = $this->validHypothesis();
+        $h['gates'] = ['phpunit', 'php artisan test --filter=OtherTest'];
+        $b = $d->design($h);
+
+        $this->assertNotSame($a['plan_hash'], $b['plan_hash']);
+        $this->assertNotSame($a['proof_requirements'], $b['proof_requirements']);
+    }
+
+    public function test_plan_hash_changes_when_rollback_affected_files_change(): void
+    {
+        $d = new AtlasSelfConstructionAutopoiesisExperimentDesigner;
+        $a = $d->design($this->validHypothesis());
+
+        $h = $this->validHypothesis();
+        $h['scope_paths'] = ['app/Demo/Foo.php', 'app/Demo/Bar.php'];
+        $h['rollback']['affected_files'] = ['app/Demo/Foo.php', 'app/Demo/Bar.php'];
+        $b = $d->design($h);
+
+        $this->assertNotSame($a['plan_hash'], $b['plan_hash']);
+    }
 }
