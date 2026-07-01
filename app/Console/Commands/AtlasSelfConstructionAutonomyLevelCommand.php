@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyDecisionReceiptLedger;
 use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyDegradationPolicy;
+use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyDutyCyclePlanner;
 use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyLevelLadder;
 use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyPromotionGate;
 use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyRuntimeLedger;
@@ -17,6 +18,7 @@ use Throwable;
  *   levels   — list autonomy levels with policy facts.
  *   promote  — evaluate a promotion (from_level → to_level) against gate facts; appends ledger event.
  *   degrade  — run the degradation policy over facts; appends ledger event.
+ *   cycle    — run the 24/7 duty-cycle planner over facts (originate/self-heal/pause decision).
  *   history  — read ledger history (optionally filtered by lane).
  *
  * Facts-only inputs from a JSON file path; no broad shell-out, no provider call.
@@ -24,10 +26,10 @@ use Throwable;
 final class AtlasSelfConstructionAutonomyLevelCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:self-construction:autonomy-level {action : levels|promote|degrade|history} {--facts=} {--json}';
+    protected $signature = 'atlas:self-construction:autonomy-level {action : levels|promote|degrade|cycle|history} {--facts=} {--json}';
 
     /** @var string */
-    protected $description = 'Atlas Self-Construction autonomy ladder CLI: levels, promote, degrade, history.';
+    protected $description = 'Atlas Self-Construction autonomy ladder CLI: levels, promote, degrade, cycle, history.';
 
     public function handle(): int
     {
@@ -38,6 +40,7 @@ final class AtlasSelfConstructionAutonomyLevelCommand extends Command
             'levels' => $this->levels(),
             'promote' => $this->promote($facts),
             'degrade' => $this->degrade($facts),
+            'cycle' => $this->cycle($facts),
             'history' => $this->history($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
@@ -133,6 +136,24 @@ final class AtlasSelfConstructionAutonomyLevelCommand extends Command
             'reasons' => $reasons,
             'ledger_event_hash' => $ledgerEvent['evidence_hash'] ?? null,
             'decision_receipt_hash' => $receipt['receipt_hash'],
+        ];
+    }
+
+    /** @param array<string,mixed>|null $facts @return array<string,mixed> */
+    private function cycle(?array $facts): array
+    {
+        if (! is_array($facts) || ! isset($facts['facts'])) {
+            return ['status' => 'usage_error', 'reason' => '--facts JSON with facts{} required'];
+        }
+        $planner = $this->app()->make(AtlasSelfConstructionAutonomyDutyCyclePlanner::class);
+        $plan = $planner->plan((array) $facts['facts']);
+
+        return [
+            'status' => 'ok',
+            'recommended_action' => $plan['recommended_action'] ?? null,
+            'ready_to_run' => $plan['ready_to_run'] ?? null,
+            'rationale' => $plan['rationale'] ?? '',
+            'plan' => $plan,
         ];
     }
 
