@@ -59,6 +59,14 @@ final class AgentRuntimeRegistryRepository
         'dry_run_agent',
     ];
 
+    // AC4: redact any metadata key whose name suggests a raw transcript or a secret-like value.
+    // Case-insensitive substring match — deliberately broad so callers don't need to enumerate
+    // every possible secret field name.
+    private const SENSITIVE_METADATA_KEY_SUBSTRINGS = [
+        'secret', 'password', 'token', 'api_key', 'apikey', 'private_key',
+        'raw_prompt', 'authorization', 'credential', 'provider_trace',
+    ];
+
     public function __construct(
         private readonly ?string $disk = null,
     ) {}
@@ -106,9 +114,13 @@ final class AgentRuntimeRegistryRepository
 
             $capabilities = $this->normalizeCapabilities((array) ($agent['capabilities'] ?? []));
             $surfaces = $this->normalizeStringList((array) ($agent['surfaces'] ?? []));
+            $projectLane = trim((string) ($agent['project_lane'] ?? ''));
+            $runtimeClass = trim((string) ($agent['runtime_class'] ?? ''));
 
             $existing = $this->readAgentFile($agentId);
             $now = CarbonImmutable::now()->toIso8601String();
+
+            $redaction = $this->redactMetadata((array) ($options['metadata'] ?? ($agent['metadata'] ?? [])));
 
             $record = [
                 'schema_version' => self::SCHEMA_VERSION,
@@ -118,6 +130,8 @@ final class AgentRuntimeRegistryRepository
                 'status' => $requestedStatus,
                 'capabilities' => $capabilities,
                 'surfaces' => $surfaces,
+                'project_lane' => $projectLane,
+                'runtime_class' => $runtimeClass,
                 'max_parallel_tasks' => $maxParallelTasks,
                 'current_task_count' => $currentTaskCount,
                 'heartbeat_required' => (bool) ($agent['heartbeat_required'] ?? true),
@@ -126,7 +140,8 @@ final class AgentRuntimeRegistryRepository
                 'cost_meter_supported' => (bool) ($agent['cost_meter_supported'] ?? false),
                 'continuation_summary_supported' => (bool) ($agent['continuation_summary_supported'] ?? false),
                 'evidence_required' => (bool) ($agent['evidence_required'] ?? true),
-                'metadata' => (array) ($options['metadata'] ?? ($agent['metadata'] ?? [])),
+                'metadata' => $redaction['metadata'],
+                'metadata_redacted_fields' => $redaction['redacted_fields'],
                 'tags' => $this->normalizeStringList((array) ($options['tags'] ?? ($agent['tags'] ?? []))),
                 'updated_at' => $now,
                 'runtime_execution_allowed' => false,
@@ -199,6 +214,8 @@ final class AgentRuntimeRegistryRepository
         $kind = isset($filters['kind']) ? (string) $filters['kind'] : '';
         $capability = isset($filters['capability']) ? (string) $filters['capability'] : '';
         $tag = isset($filters['tag']) ? (string) $filters['tag'] : '';
+        $projectLane = isset($filters['project_lane']) ? (string) $filters['project_lane'] : '';
+        $runtimeClass = isset($filters['runtime_class']) ? (string) $filters['runtime_class'] : '';
         $limit = isset($filters['limit']) ? (int) $filters['limit'] : 0;
 
         $results = [];
@@ -220,6 +237,12 @@ final class AgentRuntimeRegistryRepository
                 if (! in_array($tag, $tags, true)) {
                     continue;
                 }
+            }
+            if ($projectLane !== '' && (string) ($entry['project_lane'] ?? '') !== $projectLane) {
+                continue;
+            }
+            if ($runtimeClass !== '' && (string) ($entry['runtime_class'] ?? '') !== $runtimeClass) {
+                continue;
             }
             $agentId = (string) ($entry['agent_id'] ?? '');
             $record = $this->readAgentFile($agentId);
@@ -275,7 +298,13 @@ final class AgentRuntimeRegistryRepository
                 'metadata' => $metadata,
             ];
             if ($metadata !== []) {
-                $record['metadata'] = array_merge((array) ($record['metadata'] ?? []), $metadata);
+                $redaction = $this->redactMetadata(array_merge((array) ($record['metadata'] ?? []), $metadata));
+                $record['metadata'] = $redaction['metadata'];
+                $record['metadata_redacted_fields'] = array_values(array_unique(array_merge(
+                    (array) ($record['metadata_redacted_fields'] ?? []),
+                    $redaction['redacted_fields'],
+                )));
+                sort($record['metadata_redacted_fields'], SORT_STRING);
             }
 
             $this->writeAgentFile($agentId, $record);
@@ -600,6 +629,40 @@ final class AgentRuntimeRegistryRepository
         ];
     }
 
+    /**
+     * AC4: strips any metadata key whose name looks like a raw provider transcript or a
+     * secret-like value, before it is ever persisted. Capability facts (capabilities, surfaces,
+     * tags, project_lane, runtime_class) and receipts are never touched — only the free-form
+     * `metadata` bag is filtered.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return array{metadata: array<string, mixed>, redacted_fields: list<string>}
+     */
+    private function redactMetadata(array $metadata): array
+    {
+        $clean = [];
+        $redactedFields = [];
+        foreach ($metadata as $key => $value) {
+            $keyLower = strtolower((string) $key);
+            $isSensitive = false;
+            foreach (self::SENSITIVE_METADATA_KEY_SUBSTRINGS as $needle) {
+                if (str_contains($keyLower, $needle)) {
+                    $isSensitive = true;
+                    break;
+                }
+            }
+            if ($isSensitive) {
+                $redactedFields[] = (string) $key;
+
+                continue;
+            }
+            $clean[$key] = $value;
+        }
+        sort($redactedFields, SORT_STRING);
+
+        return ['metadata' => $clean, 'redacted_fields' => $redactedFields];
+    }
+
     private function isValidAgentId(string $agentId): bool
     {
         return $agentId !== '' && (bool) preg_match('/^[A-Za-z0-9][A-Za-z0-9._\-]{1,127}$/', $agentId);
@@ -657,6 +720,8 @@ final class AgentRuntimeRegistryRepository
             'status' => (string) ($record['status'] ?? ''),
             'capabilities' => (array) ($record['capabilities'] ?? []),
             'surfaces' => (array) ($record['surfaces'] ?? []),
+            'project_lane' => (string) ($record['project_lane'] ?? ''),
+            'runtime_class' => (string) ($record['runtime_class'] ?? ''),
             'max_parallel_tasks' => (int) ($record['max_parallel_tasks'] ?? 0),
             'current_task_count' => (int) ($record['current_task_count'] ?? 0),
             'heartbeat_required' => (bool) ($record['heartbeat_required'] ?? true),
@@ -810,6 +875,8 @@ final class AgentRuntimeRegistryRepository
             'status' => (string) ($record['status'] ?? ''),
             'capabilities' => (array) ($record['capabilities'] ?? []),
             'tags' => (array) ($record['tags'] ?? []),
+            'project_lane' => (string) ($record['project_lane'] ?? ''),
+            'runtime_class' => (string) ($record['runtime_class'] ?? ''),
             'registered_at' => (string) ($record['registered_at'] ?? ''),
             'updated_at' => (string) ($record['updated_at'] ?? ''),
             'max_parallel_tasks' => (int) ($record['max_parallel_tasks'] ?? 0),
