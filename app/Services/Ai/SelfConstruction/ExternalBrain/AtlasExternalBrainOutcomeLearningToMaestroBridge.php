@@ -124,7 +124,7 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
                     ? sprintf('give_back_rate_%.2f_exceeds_poison_threshold_%.2f', $giveBackRate, $poisonGiveBack)
                     : sprintf('quarantine_rate_%.2f_exceeds_poison_threshold_%.2f', $quarantineRate, $poisonQuarantine);
 
-                $poisonBlocks[]     = ['task_family' => $family, 'reason' => $reason];
+                $poisonBlocks[]     = ['task_family' => $family, 'reason' => $reason, 'sample_count' => $sampleCount];
                 $supplyAdjustments[] = [
                     'task_family' => $family,
                     'adjustment'  => 'block',
@@ -241,50 +241,55 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
         if ($isPoison) {
             $cheaper = $this->cheaperTier($tier);
             return [
-                'task_family' => $family,
-                'prefer'      => $cheaper,
-                'avoid'       => $tier,
-                'escalate'    => $cheaper === $tier,
-                'rationale'   => sprintf('poison_block: route_to_%s_or_escalate', $cheaper),
+                'task_family'    => $family,
+                'prefer'         => $cheaper,
+                'avoid'          => $tier,
+                'escalate'       => $cheaper === $tier,
+                'rationale'      => sprintf('poison_block: route_to_%s_or_escalate', $cheaper),
+                'maestro_action' => 'quarantine_family',
             ];
         }
 
         if ($giveBackRate >= $giveBackCeiling) {
             return [
-                'task_family' => $family,
-                'prefer'      => $this->cheaperTier($tier),
-                'avoid'       => $tier,
-                'escalate'    => false,
-                'rationale'   => sprintf('high_give_back_%.2f: prefer_cheaper_tier', $giveBackRate),
+                'task_family'    => $family,
+                'prefer'         => $this->cheaperTier($tier),
+                'avoid'          => $tier,
+                'escalate'       => false,
+                'rationale'      => sprintf('high_give_back_%.2f: prefer_cheaper_tier', $giveBackRate),
+                'maestro_action' => 'deprioritize_or_respec',
             ];
         }
 
         if ($successRate >= $successFloor && $hasValueProof) {
             return [
-                'task_family' => $family,
-                'prefer'      => $tier,
-                'avoid'       => null,
-                'escalate'    => false,
-                'rationale'   => sprintf('proven_success_%.2f: confirm_tier_%s', $successRate, $tier),
+                'task_family'    => $family,
+                'prefer'         => $tier,
+                'avoid'          => null,
+                'escalate'       => false,
+                'maestro_action' => 'none',
+                'rationale'      => sprintf('proven_success_%.2f: confirm_tier_%s', $successRate, $tier),
             ];
         }
 
         if ($successRate >= $successFloor) {
             return [
-                'task_family' => $family,
-                'prefer'      => null,
-                'avoid'       => null,
-                'escalate'    => false,
-                'rationale'   => sprintf('weak_green_%.2f: tighten_fabric_before_confirming_tier', $successRate),
+                'task_family'    => $family,
+                'prefer'         => null,
+                'avoid'          => null,
+                'escalate'       => false,
+                'maestro_action' => 'none',
+                'rationale'      => sprintf('weak_green_%.2f: tighten_fabric_before_confirming_tier', $successRate),
             ];
         }
 
         return [
-            'task_family' => $family,
-            'prefer'      => null,
-            'avoid'       => null,
-            'escalate'    => false,
-            'rationale'   => 'no_dominant_signal: hold_current_routing',
+            'task_family'    => $family,
+            'prefer'         => null,
+            'avoid'          => null,
+            'escalate'       => false,
+            'maestro_action' => 'none',
+            'rationale'      => 'no_dominant_signal: hold_current_routing',
         ];
     }
 

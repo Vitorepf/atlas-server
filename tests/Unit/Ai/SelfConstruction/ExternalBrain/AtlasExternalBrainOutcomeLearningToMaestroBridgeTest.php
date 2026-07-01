@@ -376,6 +376,32 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridgeTest extends TestCas
         $this->assertStringContainsString('stale', $r['replenisher_feedback'][0]['reason']);
     }
 
+    // ── maestro_action vocabulary (poison quarantine vs deprioritize) ─────────
+
+    public function test_poison_dispatch_hint_carries_quarantine_family_maestro_action(): void
+    {
+        $r = $this->bridge([$this->row(['give_back_rate' => 0.80, 'sample_count' => 12])]);
+
+        $this->assertSame('quarantine_family', $r['dispatch_hints'][0]['maestro_action']);
+        $this->assertSame(12, $r['poison_family_blocks'][0]['sample_count']);
+    }
+
+    public function test_non_poison_high_give_back_emits_deprioritize_or_respec_maestro_action(): void
+    {
+        $r = $this->bridge([$this->row(['give_back_rate' => 0.50])]);
+
+        $this->assertSame('deprioritize_or_respec', $r['dispatch_hints'][0]['maestro_action']);
+        $this->assertSame([], $r['poison_family_blocks']);
+    }
+
+    public function test_stale_row_produces_no_dispatch_hint_but_still_blocks_poison(): void
+    {
+        $r = $this->bridge([$this->row(['give_back_rate' => 0.80, 'learning_age_days' => 45])]);
+
+        $this->assertSame([], $r['dispatch_hints']);
+        $this->assertNotEmpty($r['poison_family_blocks']);
+    }
+
     public function test_fresh_poison_rows_still_produce_poison_blocks_and_reduce_supply(): void
     {
         $r = $this->bridge([$this->row([
