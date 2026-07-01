@@ -34,18 +34,23 @@ final class AtlasExternalBrainImplementationProofDemand
     public const PROOF_COLLISION_SWEEP = 'collision_sweep';
     public const PROOF_DOC_PROPOSAL = 'doc_proposal';
     public const PROOF_RUNTIME_RECEIPT = 'runtime_receipt';
+    public const PROOF_WORKER_CONTINUITY = 'worker_continuity';
 
     // Real evidence types: prove an actual behavior/decision/quality change happened.
     public const PROOF_BEHAVIOR_PROOF = 'behavior_proof';
     public const PROOF_REGRESSION_PROOF = 'regression_proof';
     public const PROOF_RUNTIME_DECISION_CHANGE = 'runtime_decision_change';
     public const PROOF_MEASURABLE_QUEUE_QUALITY_IMPROVEMENT = 'measurable_queue_quality_improvement';
+    public const PROOF_BEHAVIOR_DELTA = 'behavior_delta';
+    public const PROOF_BEFORE_AFTER_EVIDENCE = 'before_after_evidence';
 
     public const ACCEPTED_REAL_PROOF_TYPES = [
         self::PROOF_BEHAVIOR_PROOF,
         self::PROOF_REGRESSION_PROOF,
         self::PROOF_RUNTIME_DECISION_CHANGE,
         self::PROOF_MEASURABLE_QUEUE_QUALITY_IMPROVEMENT,
+        self::PROOF_BEHAVIOR_DELTA,
+        self::PROOF_BEFORE_AFTER_EVIDENCE,
     ];
 
     // Proxy evidence types: prove something compiles/runs/exists, never that behavior changed.
@@ -67,7 +72,10 @@ final class AtlasExternalBrainImplementationProofDemand
         'doc'     => self::PROOF_DOC_PROPOSAL,
         'feature' => self::PROOF_FEATURE_TEST,
         'runtime' => self::PROOF_RUNTIME_RECEIPT,
+        'worker_continuity' => self::PROOF_WORKER_CONTINUITY,
     ];
+
+    private const QUEUE_OR_CONTINUITY_CLASSES = ['queue', 'worker_continuity'];
 
     private const MINIMUM_EVIDENCE_DESCRIPTION = [
         self::PROOF_UNIT_TEST => 'A unit test that asserts a concrete, behavior-specific outcome (not just that the class exists).',
@@ -77,6 +85,8 @@ final class AtlasExternalBrainImplementationProofDemand
         self::PROOF_COLLISION_SWEEP => 'A collision sweep confirming the change does not regress sibling callers.',
         self::PROOF_DOC_PROPOSAL => 'A doc proposal cross-checked against the canonical source it describes.',
         self::PROOF_RUNTIME_RECEIPT => 'A runtime receipt proving a real runtime decision changed as a result of this work.',
+        self::PROOF_BEHAVIOR_DELTA => 'A concrete before/after behavior diff proving the change altered a real decision or output, not just that code compiles.',
+        self::PROOF_WORKER_CONTINUITY => 'Evidence that workers keep claiming and completing tasks across the change, not just that the queue accepts writes.',
     ];
 
     /**
@@ -108,16 +118,21 @@ final class AtlasExternalBrainImplementationProofDemand
         if ($isHigh) {
             $proofs[] = self::PROOF_COLLISION_SWEEP;
             $proofs[] = self::PROOF_RUNTIME_RECEIPT;
+            $proofs[] = self::PROOF_BEHAVIOR_DELTA;
         }
 
         if ($isPropertyGated) {
             $proofs[] = self::PROOF_RUNTIME_RECEIPT;
+            $proofs[] = self::PROOF_BEHAVIOR_DELTA;
         }
+
+        $isQueueOrContinuity = in_array($targetClass, self::QUEUE_OR_CONTINUITY_CLASSES, true)
+            || in_array($valueMechanism, self::QUEUE_OR_CONTINUITY_CLASSES, true);
 
         $requiredProofs = array_values(array_unique($proofs));
         sort($requiredProofs);
 
-        $noteSufficient = ! $isHigh && ! $isPropertyGated;
+        $noteSufficient = ! $isHigh && ! $isPropertyGated && ! $isQueueOrContinuity;
 
         $rationale = match (true) {
             $isHigh && $isPropertyGated => 'high_risk_property_gated: runnable gate mandatory',

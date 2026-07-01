@@ -272,6 +272,52 @@ final class AtlasExternalBrainImplementationProofDemandTest extends TestCase
         $this->assertNotEmpty($r['proof_gap_reasons']);
     }
 
+    public function test_high_risk_requires_runtime_receipt_plus_behavior_delta(): void
+    {
+        $r = $this->derive(risk: 'high');
+        $this->assertContains('runtime_receipt', $r['required_proofs']);
+        $this->assertContains('behavior_delta', $r['required_proofs']);
+    }
+
+    public function test_property_gated_requires_runtime_receipt_plus_behavior_delta(): void
+    {
+        $r = $this->derive(isPropertyGated: true);
+        $this->assertContains('runtime_receipt', $r['required_proofs']);
+        $this->assertContains('behavior_delta', $r['required_proofs']);
+    }
+
+    public function test_before_after_evidence_is_accepted_as_real_proof(): void
+    {
+        $result = $this->svc()->verifySubmittedProof('before_after_evidence');
+        $this->assertTrue($result['accepted']);
+        $this->assertFalse($result['is_proxy']);
+    }
+
+    public function test_worker_continuity_target_class_requires_worker_continuity_proof(): void
+    {
+        $r = $this->derive(targetClass: 'worker_continuity');
+        $this->assertContains('worker_continuity', $r['required_proofs']);
+    }
+
+    public function test_queue_target_class_does_not_allow_implementation_notes_alone(): void
+    {
+        $r = $this->derive(targetClass: 'queue');
+        $this->assertFalse($r['implementation_notes_sufficient']);
+    }
+
+    public function test_worker_continuity_target_class_does_not_allow_implementation_notes_alone(): void
+    {
+        $r = $this->derive(targetClass: 'worker_continuity');
+        $this->assertFalse($r['implementation_notes_sufficient']);
+    }
+
+    public function test_low_risk_pure_logic_task_can_use_unit_test_and_notes(): void
+    {
+        $r = $this->derive(targetClass: 'logic');
+        $this->assertTrue($r['implementation_notes_sufficient']);
+        $this->assertContains('unit_test', $r['required_proofs']);
+    }
+
     public function test_derive_output_includes_proof_gap_reasons_for_low_risk(): void
     {
         $r = $this->derive(risk: 'low');
