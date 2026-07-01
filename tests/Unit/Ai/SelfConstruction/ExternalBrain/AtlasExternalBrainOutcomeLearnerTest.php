@@ -701,4 +701,77 @@ final class AtlasExternalBrainOutcomeLearnerTest extends TestCase
 
         $this->assertSame([], array_intersect($result['promoted'], $result['demoted']));
     }
+
+    // ── AC1: next_batch_policy_delta on promoted recommendation ────────────────
+
+    public function test_delivered_high_impact_family_recommendation_has_next_batch_policy_delta(): void
+    {
+        $outcomes = [];
+        for ($i = 0; $i < 3; $i++) {
+            $outcomes[] = ['task_packet_id' => "t{$i}", 'task_family' => 'promo-fam', 'outcome' => 'delivered', 'impact' => 'high'];
+        }
+        $r = $this->learner->learn($outcomes);
+
+        $rec = $this->findByKey($r['recommendations'], 'task_family', 'promo-fam');
+        $this->assertSame('promote', $rec['action']);
+        $this->assertArrayHasKey('confidence', $rec);
+        $this->assertArrayHasKey('next_batch_policy_delta', $rec);
+        $this->assertGreaterThan(0, $rec['next_batch_policy_delta']);
+    }
+
+    // ── AC2: demoted/self_heal recommendations carry decay + revalidation metadata ──
+
+    public function test_repeated_give_back_recommendation_has_decay_and_revalidation_metadata(): void
+    {
+        $outcomes = [];
+        for ($i = 0; $i < 3; $i++) {
+            $outcomes[] = ['task_packet_id' => "t{$i}", 'task_family' => 'bad-fam', 'worker_id' => 'w1', 'outcome' => 'give_back'];
+        }
+        $r = $this->learner->learn($outcomes);
+
+        $rec = $this->findByKey($r['recommendations'], 'task_family', 'bad-fam');
+        $this->assertSame('avoid', $rec['action']);
+        $this->assertArrayHasKey('decay', $rec);
+        $this->assertArrayHasKey('revalidate_after_cycles', $rec);
+    }
+
+    public function test_quarantine_recommendation_has_decay_and_revalidation_metadata(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'task_family' => 'quarantined-fam', 'outcome' => 'quarantine'],
+        ]);
+
+        $rec = $this->findByKey($r['recommendations'], 'task_family', 'quarantined-fam');
+        $this->assertSame('self_heal', $rec['action']);
+        $this->assertArrayHasKey('decay', $rec);
+        $this->assertArrayHasKey('revalidate_after_cycles', $rec);
+    }
+
+    // ── AC3: poison attribution distinguishes worker-specific from family-systemic ──
+
+    public function test_poison_hint_attributed_to_single_worker_when_give_backs_come_from_one_worker(): void
+    {
+        $outcomes = [];
+        for ($i = 0; $i < 3; $i++) {
+            $outcomes[] = ['task_packet_id' => "t{$i}", 'task_family' => 'one-bad-worker-fam', 'worker_id' => 'bad-worker', 'outcome' => 'give_back'];
+        }
+        $r = $this->learner->learn($outcomes);
+
+        $hint = $this->findByKey($r['poison_family_hints'], 'task_family', 'one-bad-worker-fam');
+        $this->assertSame('worker_specific', $hint['attribution']);
+    }
+
+    public function test_poison_hint_attributed_to_family_when_give_backs_spread_across_workers(): void
+    {
+        $outcomes = [
+            ['task_packet_id' => 't1', 'task_family' => 'systemic-fam', 'worker_id' => 'worker-a', 'outcome' => 'give_back'],
+            ['task_packet_id' => 't2', 'task_family' => 'systemic-fam', 'worker_id' => 'worker-b', 'outcome' => 'give_back'],
+            ['task_packet_id' => 't3', 'task_family' => 'systemic-fam', 'worker_id' => 'worker-c', 'outcome' => 'give_back'],
+        ];
+        $r = $this->learner->learn($outcomes);
+
+        $hint = $this->findByKey($r['poison_family_hints'], 'task_family', 'systemic-fam');
+        $this->assertNotNull($hint);
+        $this->assertSame('family_systemic', $hint['attribution']);
+    }
 }

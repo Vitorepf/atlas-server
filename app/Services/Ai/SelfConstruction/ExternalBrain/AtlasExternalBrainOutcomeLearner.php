@@ -118,6 +118,7 @@ final class AtlasExternalBrainOutcomeLearner
         // New: accumulate task_family and worker stats.
         $familyStats = [];  // [task_family => [total, delivered, give_back, proxy]]
         $workerStats = [];  // [worker_id => [task_family => [total, delivered, give_back]]]
+        $familyGiveBackWorkers = []; // [task_family => set of worker_ids with >=1 give_back]
 
         foreach ($outcomes as $o) {
             $family        = (string) ($o['pattern_family'] ?? '');
@@ -190,6 +191,10 @@ final class AtlasExternalBrainOutcomeLearner
                         self::OUTCOME_GIVE_BACK => $workerStats[$workerId][$taskFamily]['give_back']++,
                         default => null,
                     };
+
+                    if ($outcome === self::OUTCOME_GIVE_BACK) {
+                        $familyGiveBackWorkers[$taskFamily][$workerId] = true;
+                    }
                 }
             }
         }
@@ -241,7 +246,8 @@ final class AtlasExternalBrainOutcomeLearner
         $focusFamilies       = [];
 
         foreach ($familyStats as $tf => $stats) {
-            $entry = $this->buildFamilyIndexEntry($tf, $stats);
+            $giveBackWorkerCount = count($familyGiveBackWorkers[$tf] ?? []);
+            $entry = $this->buildFamilyIndexEntry($tf, $stats, $giveBackWorkerCount);
 
             $familyPerformance[]   = $entry['family_performance'];
             $giveBackRisk[]        = $entry['give_back_risk'];
@@ -304,7 +310,7 @@ final class AtlasExternalBrainOutcomeLearner
      * @param  array{delivered:int,give_back:int,proxy:int,poison:int,quarantine:int,total:int}  $stats
      * @return array{family_performance:array<string,mixed>, give_back_risk:array<string,mixed>, poison_hint:?array<string,string>, next_wave_adjustment:array<string,mixed>, next_batch_budget:array<string,mixed>, recommendation:array<string,mixed>, is_focus_family:bool}
      */
-    private function buildFamilyIndexEntry(string $taskFamily, array $stats): array
+    private function buildFamilyIndexEntry(string $taskFamily, array $stats, int $giveBackWorkerCount = 0): array
     {
         $successRate  = $stats['total'] > 0 ? round($stats['delivered'] / $stats['total'], 3) : 0.0;
         $giveBackRate = $stats['total'] > 0 ? round($stats['give_back'] / $stats['total'], 3) : 0.0;
@@ -334,10 +340,15 @@ final class AtlasExternalBrainOutcomeLearner
 
         $poisonHint = null;
         if ($giveBackRate >= self::POISON_RATE_THRESHOLD || $stats['give_back'] >= self::POISON_COUNT_THRESHOLD) {
+            // AC3: distinguish a single bad worker from a systemically poisoned family —
+            // give-backs concentrated in exactly one worker are attributed to that worker,
+            // not blamed on the task_family shape itself.
+            $attribution = $giveBackWorkerCount === 1 ? 'worker_specific' : 'family_systemic';
             $poisonHint = [
                 'task_family'      => $taskFamily,
                 'reason'           => "give_back_rate={$giveBackRate}, give_back_count={$stats['give_back']}",
                 'suggested_action' => "Reduce origination for '{$taskFamily}' until root cause is identified; unrelated families are unaffected",
+                'attribution'      => $attribution,
             ];
         }
 
@@ -375,11 +386,28 @@ final class AtlasExternalBrainOutcomeLearner
         $action     = $this->deriveRecommendationAction($stats, $successRate, $giveBackRate);
         $confidence = $this->deriveRecommendationConfidence($stats, $successRate);
         $recommendation = [
-            'task_family' => $taskFamily,
-            'action'      => $action,
-            'confidence'  => $confidence,
-            'reason'      => $this->deriveRecommendationReason($action, $stats, $successRate, $giveBackRate),
+            'task_family'              => $taskFamily,
+            'action'                   => $action,
+            'confidence'               => $confidence,
+            'reason'                   => $this->deriveRecommendationReason($action, $stats, $successRate, $giveBackRate),
+            // AC1: next_batch_policy_delta mirrors the next-wave priority delta so the
+            // recommendation itself carries the concrete policy adjustment for this family.
+            'next_batch_policy_delta'  => $priorityDelta,
         ];
+        // AC2: demoted/self-heal actions carry decay + revalidation metadata so a demoted
+        // family is not permanently blacklisted — it decays and can be revalidated later.
+        if (in_array($action, ['avoid', 'repair', 'self_heal'], true)) {
+            $recommendation['decay'] = match ($action) {
+                'self_heal' => 0.90,
+                'repair'    => 0.60,
+                default     => 0.40,
+            };
+            $recommendation['revalidate_after_cycles'] = match ($action) {
+                'self_heal' => 5,
+                'repair'    => 3,
+                default     => 2,
+            };
+        }
 
         return [
             'family_performance'   => $familyPerformance,
