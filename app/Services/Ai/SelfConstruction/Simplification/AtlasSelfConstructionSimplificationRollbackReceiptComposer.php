@@ -36,9 +36,27 @@ final class AtlasSelfConstructionSimplificationRollbackReceiptComposer
         $replayGates = array_values((array) ($input['replay_gates'] ?? []));
         $restoreSteps = array_values((array) ($input['restore_steps'] ?? []));
 
+        $isDestructive = in_array($actionType, self::DESTRUCTIVE_ACTIONS, true);
+        // pre_image_refs may be opaque strings (legacy: only presence is checked) or structured
+        // {path, ...} entries — only structured entries opt a caller into per-touched-file coverage,
+        // so legacy plain-ref callers keep their exact prior behavior.
+        $structuredPaths = array_values(array_filter(array_map(
+            static fn (mixed $ref): ?string => is_array($ref) && array_key_exists('path', $ref) ? (string) $ref['path'] : null,
+            $preImageRefs,
+        ), static fn (?string $p): bool => $p !== null));
+
         $reasons = [];
-        if (in_array($actionType, self::DESTRUCTIVE_ACTIONS, true) && $preImageRefs === []) {
+        if ($isDestructive && $preImageRefs === []) {
             $reasons[] = 'pre_image_refs_missing';
+        }
+
+        $missingPreimagePaths = [];
+        if ($isDestructive && $touchedFiles !== [] && $structuredPaths !== []) {
+            $missingPreimagePaths = array_values(array_diff($touchedFiles, $structuredPaths));
+            sort($missingPreimagePaths, SORT_STRING);
+            if ($missingPreimagePaths !== []) {
+                $reasons[] = 'missing_preimage_paths';
+            }
         }
 
         if ($reasons !== []) {
@@ -46,6 +64,7 @@ final class AtlasSelfConstructionSimplificationRollbackReceiptComposer
                 'schema_version' => self::SCHEMA,
                 'blocked' => true,
                 'reasons' => $reasons,
+                'missing_preimage_paths' => $missingPreimagePaths,
                 'rollback_receipt_hash' => null,
                 'restore_steps' => [],
             ];
@@ -55,6 +74,7 @@ final class AtlasSelfConstructionSimplificationRollbackReceiptComposer
             'schema_version' => self::SCHEMA,
             'blocked' => false,
             'reasons' => [],
+            'missing_preimage_paths' => [],
             'rollback_receipt_hash' => $this->preimageReceiptHash($preImageRefs, $touchedFiles, $replayGates),
             'restore_steps' => $restoreSteps,
         ];

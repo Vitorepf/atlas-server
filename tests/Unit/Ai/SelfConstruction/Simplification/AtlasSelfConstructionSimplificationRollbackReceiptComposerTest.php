@@ -146,4 +146,64 @@ final class AtlasSelfConstructionSimplificationRollbackReceiptComposerTest exten
 
         $this->assertFalse($result['blocked']);
     }
+
+    public function test_destructive_action_with_touched_files_not_covered_by_structured_preimage_refs_is_blocked(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput([
+                'pre_image_refs' => [['path' => 'app/Services/Ai/Foo.php', 'hash' => 'sha1:a']],
+                'touched_files' => ['app/Services/Ai/Foo.php', 'app/Services/Ai/Bar.php'],
+            ]),
+        );
+
+        $this->assertTrue($result['blocked']);
+        $this->assertContains('missing_preimage_paths', $result['reasons']);
+        $this->assertSame(['app/Services/Ai/Bar.php'], $result['missing_preimage_paths']);
+    }
+
+    public function test_missing_preimage_paths_lists_uncovered_files_deterministically_sorted(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput([
+                'pre_image_refs' => [['path' => 'app/Z.php']],
+                'touched_files' => ['app/Z.php', 'app/B.php', 'app/A.php'],
+            ]),
+        );
+
+        $this->assertSame(['app/A.php', 'app/B.php'], $result['missing_preimage_paths']);
+    }
+
+    public function test_fully_covered_structured_preimage_refs_are_not_blocked(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput([
+                'pre_image_refs' => [
+                    ['path' => 'app/Services/Ai/Foo.php', 'hash' => 'sha1:a'],
+                ],
+                'touched_files' => ['app/Services/Ai/Foo.php'],
+            ]),
+        );
+
+        $this->assertFalse($result['blocked']);
+        $this->assertSame([], $result['missing_preimage_paths']);
+        $this->assertNotNull($result['rollback_receipt_hash']);
+    }
+
+    public function test_legacy_plain_string_preimage_refs_skip_per_file_coverage_check(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage($this->preimageInput());
+
+        $this->assertFalse($result['blocked']);
+        $this->assertSame([], $result['missing_preimage_paths']);
+    }
+
+    public function test_rollback_receipt_hash_changes_when_pre_image_refs_change(): void
+    {
+        $first = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage($this->preimageInput());
+        $second = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput(['pre_image_refs' => ['sha1:different-preimage']]),
+        );
+
+        $this->assertNotSame($first['rollback_receipt_hash'], $second['rollback_receipt_hash']);
+    }
 }
