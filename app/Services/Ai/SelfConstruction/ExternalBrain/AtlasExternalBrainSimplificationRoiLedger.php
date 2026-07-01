@@ -93,6 +93,7 @@ final class AtlasExternalBrainSimplificationRoiLedger
 
         $approvedRoi   = round($totalRoi, 3);
         $refusedRoiRnd = round($refusedRoi, 3);
+        $riskAdjustedApprovedRoi = round(array_sum(array_column($approved, 'risk_adjusted_roi')), 3);
 
         return [
             'schema_version'               => self::SCHEMA,
@@ -104,9 +105,35 @@ final class AtlasExternalBrainSimplificationRoiLedger
             'opportunity_cost'             => $refusedRoiRnd,
             'approved_count'               => count($approved),
             'refused_count'                => count($refused),
+            'risk_adjusted_approved_roi'   => $riskAdjustedApprovedRoi,
             'behavior_preservation_status' => $this->globalBpStatus($approved),
             'next_simplification_action'   => $this->nextAction($approved, $refused),
+            'batch_roi_summary'            => [
+                'approved_count'             => count($approved),
+                'refused_count'              => count($refused),
+                'approved_roi'               => $approvedRoi,
+                'refused_roi'                => $refusedRoiRnd,
+                'risk_adjusted_approved_roi' => $riskAdjustedApprovedRoi,
+                'top_refusal_reasons'        => $this->topRefusalReasons($refused),
+            ],
         ];
+    }
+
+    /** @return list<array{reason:string, count:int, roi:float}> */
+    private function topRefusalReasons(array $refused): array
+    {
+        $byReason = [];
+        foreach ($refused as $entry) {
+            $reason = (string) ($entry['refusal_reason'] ?? 'unknown');
+            $byReason[$reason]['reason'] ??= $reason;
+            $byReason[$reason]['count']   = ($byReason[$reason]['count']   ?? 0) + 1;
+            $byReason[$reason]['roi']     = round(($byReason[$reason]['roi'] ?? 0.0) + (float) ($entry['roi_estimate'] ?? 0.0), 3);
+        }
+
+        $reasons = array_values($byReason);
+        usort($reasons, static fn (array $a, array $b): int => $b['count'] <=> $a['count'] ?: strcmp($a['reason'], $b['reason']));
+
+        return $reasons;
     }
 
     private function refusalReason(string $action, array $candidate): ?string

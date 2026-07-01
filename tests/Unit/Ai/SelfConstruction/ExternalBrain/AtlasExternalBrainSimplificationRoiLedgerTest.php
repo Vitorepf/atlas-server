@@ -440,4 +440,49 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         }
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── batch_roi_summary ──────────────────────────────────────────────────────
+
+    public function test_batch_roi_summary_has_required_fields(): void
+    {
+        $r = $this->ledger()->record([
+            'candidates' => [$this->deletion('D1'), $this->merge('M1', -0.2)],
+        ]);
+
+        $summary = $r['batch_roi_summary'];
+        foreach (['approved_count', 'refused_count', 'approved_roi', 'refused_roi', 'risk_adjusted_approved_roi', 'top_refusal_reasons'] as $k) {
+            $this->assertArrayHasKey($k, $summary);
+        }
+        $this->assertSame(1, $summary['approved_count']);
+        $this->assertSame(1, $summary['refused_count']);
+    }
+
+    public function test_top_refusal_reasons_grouped_deterministically(): void
+    {
+        $r = $this->ledger()->record([
+            'candidates' => [
+                $this->merge('M1', -0.2),
+                $this->merge('M2', -0.3),
+                ['id' => 'D1', 'action' => 'delete', 'roi_estimate' => 0.5],
+            ],
+        ]);
+
+        $reasons = $r['batch_roi_summary']['top_refusal_reasons'];
+        $byReason = array_column($reasons, 'count', 'reason');
+        $this->assertSame(2, $byReason['negative_roi_estimate']);
+        $this->assertSame(1, $byReason['deletion_without_replacement_proof']);
+    }
+
+    public function test_risky_approved_candidate_reduces_risk_adjusted_roi_not_raw_roi(): void
+    {
+        $r = $this->ledger()->record([
+            'candidates' => [
+                array_merge($this->deletion('D1'), ['risk_level' => 'high']),
+            ],
+        ]);
+
+        $summary = $r['batch_roi_summary'];
+        $this->assertSame($summary['approved_roi'], $r['approved']['0']['raw_roi'] ?? $r['approved'][0]['raw_roi']);
+        $this->assertLessThan($summary['approved_roi'], $summary['risk_adjusted_approved_roi']);
+    }
 }
