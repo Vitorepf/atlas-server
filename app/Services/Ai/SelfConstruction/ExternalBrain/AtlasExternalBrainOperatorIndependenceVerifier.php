@@ -131,6 +131,13 @@ final class AtlasExternalBrainOperatorIndependenceVerifier
             }
         }
 
+        // Severity order: human > operator > claude_codex > external_provider, regardless of the
+        // order steps were declared in — the most severe dependency always drives next_unblock_action.
+        usort($blocking, static fn (array $a, array $b): int =>
+            array_search($a['dependency_type'], self::BLOCKING_TYPES, true)
+                <=> array_search($b['dependency_type'], self::BLOCKING_TYPES, true)
+        );
+
         $passed = $blocking === [];
 
         $nextAction = null;
