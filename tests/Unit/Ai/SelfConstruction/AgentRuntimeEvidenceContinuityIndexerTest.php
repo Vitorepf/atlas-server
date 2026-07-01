@@ -23,7 +23,7 @@ final class AgentRuntimeEvidenceContinuityIndexerTest extends TestCase
 
         // globally every required type is present, somewhere
         $this->assertSame([], $index['missing_required_evidence_types']);
-        $this->assertSame('continuity_index_complete', $index['status']);
+        $this->assertSame('continuity_index_stitched_proxy', $index['status']);
 
         $byTask = collect($index['per_task_continuity'])->keyBy('task_packet_id');
 
@@ -55,5 +55,21 @@ final class AgentRuntimeEvidenceContinuityIndexerTest extends TestCase
         $this->assertTrue($row['complete']);
         $this->assertSame([], $row['missing_required_types']);
         $this->assertSame(AgentRuntimeEvidenceContinuityIndexer::REQUIRED_TYPES, $row['present_required_types']);
+    }
+
+    public function test_missing_required_types_stay_incomplete_with_deterministic_missing_list(): void
+    {
+        $entries = [
+            ['evidence_type' => 'dispatch_plan', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1'],
+            ['evidence_type' => 'claim_lease', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1'],
+        ];
+
+        $index = (new AgentRuntimeEvidenceContinuityIndexer)->build($entries);
+
+        $this->assertSame('continuity_index_incomplete', $index['status']);
+        $this->assertSame(
+            ['scope_lock', 'validation_result', 'continuation_summary'],
+            $index['missing_required_evidence_types'],
+        );
     }
 }

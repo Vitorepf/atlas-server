@@ -69,10 +69,25 @@ final class AgentRuntimeEvidenceContinuityIndexer
                 'complete' => $missingForTask === [],
             ];
         }
+        $anyTaskComplete = false;
+        foreach ($perTaskContinuity as $row) {
+            if ($row['complete']) {
+                $anyTaskComplete = true;
+                break;
+            }
+        }
+        // Global completeness alone can be a stitched illusion: the required types may all be
+        // present, but scattered across different tasks rather than proven by any single task.
+        $status = match (true) {
+            $missing !== [] => 'continuity_index_incomplete',
+            $anyTaskComplete => 'continuity_index_complete',
+            default => 'continuity_index_stitched_proxy',
+        };
+
         $index = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
-            'status' => $missing === [] ? 'continuity_index_complete' : 'continuity_index_incomplete',
+            'status' => $status,
             'entry_count' => count($entries),
             'task_packet_count' => count($tasks),
             'agent_count' => count($agents),
