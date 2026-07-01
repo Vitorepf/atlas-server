@@ -128,6 +128,43 @@ final class AtlasMaestroSemanticRejectionReceiptTest extends TestCase
         $this->assertSame($a, $b);
     }
 
+    // ── AC3/AC4: raw fail_reason replaces the vague fallback when no named voter rejected ──
+
+    public function test_fail_reason_replaces_vague_respec_suggestion_when_no_named_voter_rejected(): void
+    {
+        $decoded = json_decode($this->composer()->compose('pkt-raw', [
+            'pass' => false,
+            'votes' => [true, true, true],
+            'fail_reason' => 'panel_timeout_no_verdict_reached',
+        ]), true);
+
+        $this->assertSame('investigate_panel_fail_reason:panel_timeout_no_verdict_reached', $decoded['respec_suggestion']);
+        $this->assertArrayHasKey('panel_review', $decoded['reopen_patch']);
+        $this->assertSame('address_panel_fail_reason:panel_timeout_no_verdict_reached', $decoded['reopen_patch']['panel_review']);
+    }
+
+    public function test_no_fail_reason_and_no_rejected_voter_keeps_respec_not_determined(): void
+    {
+        $decoded = json_decode($this->composer()->compose('pkt-empty', [
+            'pass' => false,
+            'votes' => [true, true, true],
+        ]), true);
+
+        $this->assertSame('respec_not_determined', $decoded['respec_suggestion']);
+        $this->assertSame([], $decoded['reopen_patch']);
+    }
+
+    public function test_fail_reason_does_not_override_a_named_voter_rejection(): void
+    {
+        $panel = $this->panelResult();
+        $panel['fail_reason'] = 'generic_panel_note';
+        $decoded = json_decode($this->composer()->compose('pkt-both', $panel), true);
+
+        $this->assertStringContainsString('widen_allowed_files', $decoded['respec_suggestion']);
+        $this->assertStringNotContainsString('generic_panel_note', $decoded['respec_suggestion']);
+        $this->assertArrayNotHasKey('panel_review', $decoded['reopen_patch']);
+    }
+
     private function composer(): AtlasMaestroSemanticRejectionReceipt
     {
         return new AtlasMaestroSemanticRejectionReceipt;

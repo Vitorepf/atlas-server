@@ -35,8 +35,10 @@ final class AtlasMaestroSemanticRejectionReceipt
             $receipt['offending_symbol'] = 'unknown';
         }
 
-        $receipt['respec_suggestion'] = $this->respecSuggestion($receipt['rejected_voters']);
-        $receipt['reopen_patch'] = $this->reopenPatch($receipt['rejected_voters']);
+        $rawFailReason = trim((string) ($panelResult['fail_reason'] ?? ''));
+
+        $receipt['respec_suggestion'] = $this->respecSuggestion($receipt['rejected_voters'], $rawFailReason);
+        $receipt['reopen_patch'] = $this->reopenPatch($receipt['rejected_voters'], $rawFailReason);
 
         return $this->encode($receipt);
     }
@@ -45,10 +47,14 @@ final class AtlasMaestroSemanticRejectionReceipt
      * Concrete field-level repair guidance per rejected voter, so respec loops target
      * an actual field instead of a vague suggestion string.
      *
+     * When none of the three named voters rejected the panel (a rejection outside their scope),
+     * a raw `fail_reason` from the panel — if supplied — becomes a concrete `panel_review` field
+     * instead of leaving reopen_patch empty with nothing for a respec loop to act on.
+     *
      * @param  array<string,string>  $rejectedVoters
      * @return array<string,string>
      */
-    private function reopenPatch(array $rejectedVoters): array
+    private function reopenPatch(array $rejectedVoters, string $rawFailReason = ''): array
     {
         $patch = [];
         if (isset($rejectedVoters['allowed_files_intent'])) {
@@ -61,14 +67,20 @@ final class AtlasMaestroSemanticRejectionReceipt
         if (isset($rejectedVoters['acceptance_symbol'])) {
             $patch['acceptance_criteria'] = 'cite_a_resolvable_symbol_or_concrete_test_path_in_acceptance_criteria';
         }
+        if ($patch === [] && $rawFailReason !== '') {
+            $patch['panel_review'] = 'address_panel_fail_reason:'.$rawFailReason;
+        }
 
         return $patch;
     }
 
     /**
+     * Falls back to the panel's own `fail_reason` (when supplied) rather than the vague
+     * `respec_not_determined` marker, whenever no named voter's reason explains the rejection.
+     *
      * @param  array<string,string>  $rejectedVoters
      */
-    private function respecSuggestion(array $rejectedVoters): string
+    private function respecSuggestion(array $rejectedVoters, string $rawFailReason = ''): string
     {
         $map = [
             'allowed_files_intent' => 'widen_allowed_files',
@@ -81,8 +93,11 @@ final class AtlasMaestroSemanticRejectionReceipt
                 $suggestions[] = $suggestion;
             }
         }
+        if ($suggestions !== []) {
+            return implode('+', $suggestions);
+        }
 
-        return $suggestions !== [] ? implode('+', $suggestions) : 'respec_not_determined';
+        return $rawFailReason !== '' ? 'investigate_panel_fail_reason:'.$rawFailReason : 'respec_not_determined';
     }
 
     /**
