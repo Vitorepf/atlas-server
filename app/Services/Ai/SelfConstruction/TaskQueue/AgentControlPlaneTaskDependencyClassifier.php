@@ -61,6 +61,58 @@ final class AgentControlPlaneTaskDependencyClassifier
     }
 
     /**
+     * Structured explanation of classifyDependencies()'s verdict: which depends_on ids
+     * are inflight, blocked (dead), absent (fail-open), or cycle-broken (fail-open).
+     *
+     * @param  Closure(string):?array  $nodeLoader
+     * @param  array<string, mixed>  $candidate
+     * @param  array<string, array{status:string, depends_on:list<string>}|null>  $cache
+     * @return array{verdict:string, inflight_dependency_ids:list<string>, blocked_dependency_ids:list<string>, absent_dependency_ids:list<string>, cycle_broken_dependency_ids:list<string>}
+     */
+    public static function explainDependencies(Closure $nodeLoader, array $candidate, array &$cache): array
+    {
+        $rootId = (string) ($candidate['task_packet_id'] ?? '');
+        $dependsOn = array_values(array_filter((array) data_get($candidate, 'metadata.depends_on', []), 'is_string'));
+
+        $inflight = [];
+        $blocked = [];
+        $absent = [];
+        $cycleBroken = [];
+
+        foreach ($dependsOn as $depId) {
+            $node = self::dependencyNode($nodeLoader, $depId, $cache);
+            if ($node === null) {
+                $absent[] = $depId;
+
+                continue;
+            }
+            if (in_array($node['status'], self::DEPENDENCY_SATISFIED_STATES, true)) {
+                continue;
+            }
+            if ($rootId !== '' && self::dependencyReaches($nodeLoader, $depId, $rootId, $cache, [])) {
+                $cycleBroken[] = $depId;
+
+                continue;
+            }
+            if (in_array($node['status'], self::DEPENDENCY_DEAD_STATES, true)) {
+                $blocked[] = $depId;
+            } else {
+                $inflight[] = $depId;
+            }
+        }
+
+        $verdict = $inflight !== [] ? 'inflight' : ($blocked !== [] ? 'blocked' : 'met');
+
+        return [
+            'verdict' => $verdict,
+            'inflight_dependency_ids' => $inflight,
+            'blocked_dependency_ids' => $blocked,
+            'absent_dependency_ids' => $absent,
+            'cycle_broken_dependency_ids' => $cycleBroken,
+        ];
+    }
+
+    /**
      * @param  Closure(string):?array  $nodeLoader
      * @param  array<string, array{status:string, depends_on:list<string>}|null>  $cache
      * @return array{status:string, depends_on:list<string>}|null
