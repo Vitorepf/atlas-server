@@ -18,16 +18,22 @@ final class AtlasSelfConstructionSimplificationLiveShadowPlan
 
     private const DEFAULT_MINIMUM_SAMPLE_COUNT = 10;
 
+    private const MISMATCH_MATERIAL = 'material';
+
+    private const MISMATCH_TOLERATED = 'tolerated';
+
     /** @var list<string> */
     private const EVIDENCE_REQUIRED = [
         'shadow_run_receipts',
         'comparison_report',
         'promotion_approval',
+        'material_diff_report',
+        'sample_identity_receipts',
     ];
 
     /**
      * @param  array{
-     *   samples?: list<array{old_output?: array<string,mixed>, new_output?: array<string,mixed>}>,
+     *   samples?: list<array{sample_id?: string, old_output?: array<string,mixed>, new_output?: array<string,mixed>}>,
      *   compared_fields?: list<string>,
      *   tolerated_drift?: array<string, float>,
      *   minimum_sample_count?: int,
@@ -52,6 +58,26 @@ final class AtlasSelfConstructionSimplificationLiveShadowPlan
 
         $sampleCount = count($samples);
         $mismatches = [];
+        $blockers = [];
+
+        // Stable sample identity: every sample must carry a non-empty, unique sample_id — without
+        // it a mismatch (or a clean match) can't be traced back to a specific real input, so a
+        // circuit collapse could silently promote on unidentifiable samples.
+        $seenSampleIds = [];
+        foreach ($samples as $index => $sample) {
+            $sampleId = trim((string) ($sample['sample_id'] ?? ''));
+            if ($sampleId === '') {
+                $blockers[] = 'missing_sample_id:'.$index;
+
+                continue;
+            }
+            if (isset($seenSampleIds[$sampleId])) {
+                $blockers[] = 'duplicate_sample_id:'.$sampleId;
+
+                continue;
+            }
+            $seenSampleIds[$sampleId] = true;
+        }
 
         foreach ($samples as $index => $sample) {
             $oldOutput = (array) ($sample['old_output'] ?? []);
@@ -61,23 +87,29 @@ final class AtlasSelfConstructionSimplificationLiveShadowPlan
                 $oldValue = $oldOutput[$field] ?? null;
                 $newValue = $newOutput[$field] ?? null;
 
-                if ($this->diverges($oldValue, $newValue, $toleratedDrift[$field] ?? null)) {
+                $classification = $this->classifyDivergence($oldValue, $newValue, $toleratedDrift[$field] ?? null);
+                if ($classification !== null) {
                     $mismatches[] = [
                         'sample_index' => $index,
                         'field' => $field,
                         'old_value' => $oldValue,
                         'new_value' => $newValue,
+                        'classification' => $classification,
                     ];
                 }
             }
         }
 
-        $blockers = [];
+        $materialMismatchCount = count(array_filter(
+            $mismatches,
+            static fn (array $m): bool => $m['classification'] === self::MISMATCH_MATERIAL,
+        ));
+
         if ($sampleCount < $minimumSampleCount) {
             $blockers[] = 'sample_count_below_minimum:'.$sampleCount.'<'.$minimumSampleCount;
         }
-        if ($mismatches !== []) {
-            $blockers[] = 'field_mismatches_detected:'.count($mismatches);
+        if ($materialMismatchCount > 0) {
+            $blockers[] = 'material_field_mismatches_detected:'.$materialMismatchCount;
         }
 
         return [
@@ -92,17 +124,19 @@ final class AtlasSelfConstructionSimplificationLiveShadowPlan
         ];
     }
 
-    private function diverges(mixed $oldValue, mixed $newValue, ?float $tolerance): bool
+    /** Returns null when the values are identical (no mismatch at all); else 'material' or 'tolerated'. */
+    private function classifyDivergence(mixed $oldValue, mixed $newValue, ?float $tolerance): ?string
     {
-        if ($tolerance === null) {
-            return $oldValue !== $newValue;
+        if ($oldValue === $newValue) {
+            return null;
         }
 
-        if (! is_numeric($oldValue) || ! is_numeric($newValue)) {
-            return $oldValue !== $newValue;
+        if ($tolerance !== null && is_numeric($oldValue) && is_numeric($newValue)
+            && abs((float) $oldValue - (float) $newValue) <= $tolerance) {
+            return self::MISMATCH_TOLERATED;
         }
 
-        return abs((float) $oldValue - (float) $newValue) > $tolerance;
+        return self::MISMATCH_MATERIAL;
     }
 
     /**
@@ -118,6 +152,7 @@ final class AtlasSelfConstructionSimplificationLiveShadowPlan
      *   sample_input_refs?:      list<string>,
      *   has_side_effects?:       bool,
      *   side_effects_isolated?:  bool,
+     *   isolation_proof_ref?:    string,
      *   minimum_sample_count?:   int,
      * }  $candidate
      * @return array<string,mixed>
@@ -130,14 +165,25 @@ final class AtlasSelfConstructionSimplificationLiveShadowPlan
         $sampleInputRefs = array_values(array_unique(array_map('strval', (array) ($candidate['sample_input_refs'] ?? []))));
         $hasSideEffects = (bool) ($candidate['has_side_effects'] ?? false);
         $sideEffectsIsolated = (bool) ($candidate['side_effects_isolated'] ?? false);
+        $isolationProofRef = trim((string) ($candidate['isolation_proof_ref'] ?? ''));
         $requiredSampleFloor = max(1, (int) ($candidate['minimum_sample_count'] ?? self::DEFAULT_MINIMUM_SAMPLE_COUNT));
 
-        if ($hasSideEffects && ! $sideEffectsIsolated) {
+        // A claimed isolation flag with no concrete proof reference is just as unsafe as no
+        // isolation at all — either omission blocks a side-effecting candidate outright.
+        if ($hasSideEffects && (! $sideEffectsIsolated || $isolationProofRef === '')) {
+            $blockers = [];
+            if (! $sideEffectsIsolated) {
+                $blockers[] = 'side_effects_not_isolated';
+            }
+            if ($isolationProofRef === '') {
+                $blockers[] = 'missing_isolation_proof_ref';
+            }
+
             return [
                 'schema' => self::SCHEMA,
                 'action' => 'blocked',
                 'candidate_id' => $candidateId,
-                'blockers' => ['side_effects_not_isolated'],
+                'blockers' => $blockers,
                 'shadow_steps' => [],
             ];
         }
