@@ -5,319 +5,76 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Composes queue state, maturity gaps, worker outcomes, give_back risk,
- * simplification pressure and amplifier health into one honest control-plane
- * snapshot. Pure, deterministic, no I/O.
+ * Pure snapshot that routes final-readiness blockers to specific closure actions
+ * instead of generic "create more tasks" or "monitor".
  *
- * Status (worst-case):
- *   red    — give_back_rate>0.30 OR worker_success_rate<0.50 OR amplifier=rollback_candidate
- *   yellow — queue/simplification pressure high OR value/muscle degrading OR amplifier=watch
- *            OR give_back>0.15 OR success_rate<0.70
- *   green  — none of the above AND NOT task_value_degrading AND NOT muscle_outcomes_degrading
- *
- * next_decision (first match):
- *   consolidate_existing_tasks — queue_pressure=high OR simplification_pressure=high
- *   create_more_tasks          — maturity_gap_count>0
- *   monitor                    — otherwise
- *
- * stop_go_verdict: stop=red, watch=yellow, go=green
- *
- * AC3: refuses green when value or muscle is degrading, even if queue health looks ok.
- * AC4: pure PHP, no I/O, no provider calls, no queue mutation.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasExternalBrainUnifiedControlPlaneSnapshot
 {
     public const SCHEMA = 'atlas.external_brain.unified_control_plane_snapshot.v1';
 
-    public const STATUS_RED    = 'red';
-    public const STATUS_YELLOW = 'yellow';
-    public const STATUS_GREEN  = 'green';
-
-    public const VERDICT_STOP  = 'stop';
-    public const VERDICT_WATCH = 'watch';
-    public const VERDICT_GO    = 'go';
-
-    public const DECISION_CREATE      = 'create_more_tasks';
-    public const DECISION_CONSOLIDATE = 'consolidate_existing_tasks';
-    public const DECISION_MONITOR     = 'monitor';
-
-    public const FOCUS_SELF_HEAL       = 'self_heal';
-    public const FOCUS_SIMPLIFICATION  = 'simplification';
-    public const FOCUS_MODEL_AMPLIFIER = 'model_amplifier';
-    public const FOCUS_OUTCOME_LEARNING = 'outcome_learning';
-    public const FOCUS_CAPABILITY_GAP  = 'capability_gap';
-    public const FOCUS_TASK_FABRIC     = 'task_fabric';
-
-    private const GIVE_BACK_RED_FLOOR         = 0.30;
-    private const GIVE_BACK_YELLOW_FLOOR      = 0.15;
-    private const SUCCESS_RATE_RED_CEILING    = 0.50;
-    private const SUCCESS_RATE_YELLOW_CEILING = 0.70;
-    private const MALFORMED_RED_FLOOR         = 0.30;
-
-    /** Evidence older than this reads as stale — a green snapshot must never rest on it. */
-    private const STALE_EVIDENCE_HOURS_CEILING = 72.0;
-
-    /** Integration coverage below this percent reads as weak — wiring claims need real proof. */
-    private const WEAK_INTEGRATION_COVERAGE_FLOOR = 50.0;
-
     /**
-     * @param  array<string,mixed>  $input
-     * @return array{schema:string, status:string, top_risks:list<string>, next_decision:string, recommended_batch_theme:string, stop_go_verdict:string}
+     * @param  array{
+     *   stop_go_verdict?:string,
+     *   stale_evidence_count?:int,
+     *   provider_independence?:string,
+     *   maturity_gap_count?:int,
+     *   red_blocker_count?:int,
+     *   yellow_blocker_count?:int,
+     * }  $facts
+     * @return array{
+     *   schema:string,
+     *   recommended_next_decision:string,
+     *   stop_go_verdict:string,
+     *   routing_reason:string,
+     * }
      */
-    public function compose(array $input): array
+    public function snapshot(array $facts): array
     {
-        $queuePressure          = (string) ($input['queue_pressure']            ?? 'low');
-        $simplPressure          = (string) ($input['simplification_pressure']   ?? 'low');
-        $amplifierStatus        = (string) ($input['model_amplifier_status']    ?? 'healthy');
-        $maturityGapCount       = max(0,   (int)   ($input['maturity_gap_count']        ?? 0));
-        $workerSuccessRate      = max(0.0, min(1.0, (float) ($input['worker_success_rate']     ?? 1.0)));
-        $giveBackRate           = max(0.0, min(1.0, (float) ($input['give_back_rate']          ?? 0.0)));
-        $malformedRate          = max(0.0, min(1.0, (float) ($input['malformed_rate']          ?? 0.0)));
-        $taskValueDegrading     = (bool)   ($input['task_value_degrading']      ?? false);
-        $muscleOutcomeDegrading = (bool)   ($input['muscle_outcomes_degrading'] ?? false);
-        $evidenceAgeHours       = max(0.0, (float) ($input['evidence_age_hours']            ?? 0.0));
-        $integrationCoverage    = max(0.0, min(100.0, (float) ($input['integration_coverage_percent'] ?? 100.0)));
-        $finalReadinessPercent  = max(0.0, min(100.0, (float) ($input['final_readiness_percent']      ?? 100.0)));
-        $providerIndependenceStatus = (string) ($input['provider_independence_status'] ?? 'ready');
-        $taskFabricQualityStatus    = (string) ($input['task_fabric_quality_status']   ?? 'healthy');
+        $stopGo = (string) ($facts['stop_go_verdict'] ?? 'green');
+        $staleEvidence = (int) ($facts['stale_evidence_count'] ?? 0);
+        $providerIndependence = (string) ($facts['provider_independence'] ?? 'passing');
+        $maturityGaps = (int) ($facts['maturity_gap_count'] ?? 0);
+        $redBlockers = (int) ($facts['red_blocker_count'] ?? 0);
+        $yellowBlockers = (int) ($facts['yellow_blocker_count'] ?? 0);
 
-        $evidenceFreshnessStatus = $evidenceAgeHours > self::STALE_EVIDENCE_HOURS_CEILING ? 'stale' : 'fresh';
-        $integrationCoverageStatus = $integrationCoverage < self::WEAK_INTEGRATION_COVERAGE_FLOOR ? 'weak' : 'adequate';
-
-        [$status, $topRisks] = $this->resolveStatus(
-            $queuePressure, $simplPressure, $amplifierStatus,
-            $workerSuccessRate, $giveBackRate, $malformedRate, $taskValueDegrading, $muscleOutcomeDegrading,
-            $evidenceFreshnessStatus, $integrationCoverageStatus,
-            $providerIndependenceStatus, $taskFabricQualityStatus,
-        );
-
-        $nextDecision = $this->resolveDecision(
-            $queuePressure, $simplPressure, $maturityGapCount,
-            $taskFabricQualityStatus, $providerIndependenceStatus, $evidenceFreshnessStatus,
-        );
-        $batchTheme   = $this->resolveBatchTheme($status, $nextDecision, $topRisks);
-        $rankedFocus  = $this->resolveRankedFocus(
-            $giveBackRate, $malformedRate, $workerSuccessRate,
-            $simplPressure, $amplifierStatus, $taskValueDegrading, $muscleOutcomeDegrading, $maturityGapCount,
-            $taskFabricQualityStatus,
-        );
-
-        $readiness = [
-            'provider_independence'    => $providerIndependenceStatus,
-            'model_amplifier'          => $amplifierStatus,
-            'task_fabric_quality'      => $taskFabricQualityStatus,
-            'knowledge_sync_freshness' => $evidenceFreshnessStatus,
-        ];
-        $readinessHealthyValues = [
-            'provider_independence' => 'ready',
-            'model_amplifier' => 'healthy',
-            'task_fabric_quality' => 'healthy',
-            'knowledge_sync_freshness' => 'fresh',
-        ];
-        $blockers = [];
-        foreach ($readinessHealthyValues as $pillar => $healthyValue) {
-            if ($readiness[$pillar] !== $healthyValue) {
-                $blockers[] = $pillar;
-            }
+        // Provider dependency failing → red, route to close dependency
+        if ($providerIndependence === 'failing') {
+            return $this->envelope('close_provider_dependency', 'red', 'provider_independence failing → close dependency');
         }
-        sort($blockers, SORT_STRING);
 
-        $workerState = match (true) {
-            $workerSuccessRate < self::SUCCESS_RATE_RED_CEILING
-                || $giveBackRate > self::GIVE_BACK_RED_FLOOR
-                || $malformedRate > self::MALFORMED_RED_FLOOR => 'unsafe',
-            $workerSuccessRate < self::SUCCESS_RATE_YELLOW_CEILING
-                || $giveBackRate > self::GIVE_BACK_YELLOW_FLOOR => 'degraded',
-            default => 'healthy',
-        };
+        // Red blockers → stop
+        if ($redBlockers > 0) {
+            return $this->envelope('resolve_red_blockers', 'red', "{$redBlockers} red blockers must be resolved");
+        }
 
-        $queueState = ($queuePressure === 'high' || $simplPressure === 'high') ? 'pressured' : 'healthy';
+        // Stale evidence → refresh before anything else
+        if ($staleEvidence > 0) {
+            return $this->envelope('refresh_evidence', $stopGo, "{$staleEvidence} stale evidence items must be refreshed");
+        }
 
-        $proofState = match (true) {
-            $evidenceFreshnessStatus === 'stale' => 'stale',
-            $integrationCoverageStatus === 'weak' => 'weak',
-            default => 'fresh',
-        };
+        // Maturity gaps with no red/yellow → compile gap chain
+        if ($maturityGaps > 0 && $redBlockers === 0 && $yellowBlockers === 0) {
+            return $this->envelope('compile_gap_chain', $stopGo, "{$maturityGaps} maturity gaps need structured gap-chain compilation");
+        }
 
-        $maturityBand = match ($status) {
-            self::STATUS_RED    => 'not_ready',
-            self::STATUS_YELLOW => 'near_ready',
-            default             => 'final_ready',
-        };
+        // Yellow blockers → harden task fabric
+        if ($yellowBlockers > 0) {
+            return $this->envelope('harden_task_fabric', $stopGo, "{$yellowBlockers} yellow blockers indicate task-fabric weakness");
+        }
 
+        // Default: create more tasks (only when nothing more specific applies)
+        return $this->envelope('create_more_tasks', $stopGo, 'no specific blockers — continue origination');
+    }
+
+    private function envelope(string $nextDecision, string $stopGo, string $reason): array
+    {
         return [
-            'schema'                     => self::SCHEMA,
-            'status'                     => $status,
-            'top_risks'                  => array_values($topRisks),
-            'next_decision'              => $nextDecision,
-            'recommended_batch_theme'    => $batchTheme,
-            'ranked_focus'               => $rankedFocus,
-            'stop_go_verdict'            => match ($status) {
-                self::STATUS_RED    => self::VERDICT_STOP,
-                self::STATUS_YELLOW => self::VERDICT_WATCH,
-                default             => self::VERDICT_GO,
-            },
-            'evidence_freshness_status'  => $evidenceFreshnessStatus,
-            'final_readiness_percent'    => $finalReadinessPercent,
-            'integration_coverage_status' => $integrationCoverageStatus,
-            'readiness'                  => $readiness,
-            // AC2: one honest final-readiness snapshot vocabulary for operator + native governor.
-            'maturity_band'              => $maturityBand,
-            'final_readiness'            => $finalReadinessPercent,
-            'queue_state'                => $queueState,
-            'worker_state'               => $workerState,
-            'proof_state'                => $proofState,
-            'blockers'                   => $blockers,
-            'recommended_next_decision'  => $nextDecision,
+            'schema' => self::SCHEMA,
+            'recommended_next_decision' => $nextDecision,
+            'stop_go_verdict' => $stopGo,
+            'routing_reason' => $reason,
         ];
-    }
-
-    /** @return array{string, list<string>} */
-    private function resolveStatus(
-        string $queuePressure,
-        string $simplPressure,
-        string $amplifierStatus,
-        float  $workerSuccessRate,
-        float  $giveBackRate,
-        float  $malformedRate,
-        bool   $taskValueDegrading,
-        bool   $muscleOutcomeDegrading,
-        string $evidenceFreshnessStatus,
-        string $integrationCoverageStatus,
-        string $providerIndependenceStatus,
-        string $taskFabricQualityStatus,
-    ): array {
-        $risks = [];
-
-        // RED conditions
-        if ($giveBackRate > self::GIVE_BACK_RED_FLOOR) {
-            $risks[] = sprintf('give_back_rate:%.4f>%.2f', $giveBackRate, self::GIVE_BACK_RED_FLOOR);
-        }
-        if ($malformedRate > self::MALFORMED_RED_FLOOR) {
-            $risks[] = sprintf('malformed_rate:%.4f>%.2f', $malformedRate, self::MALFORMED_RED_FLOOR);
-        }
-        if ($workerSuccessRate < self::SUCCESS_RATE_RED_CEILING) {
-            $risks[] = sprintf('worker_success_rate:%.4f<%.2f', $workerSuccessRate, self::SUCCESS_RATE_RED_CEILING);
-        }
-        if ($amplifierStatus === 'rollback_candidate') {
-            $risks[] = 'model_amplifier_status:rollback_candidate';
-        }
-        // A missing final-certification pillar (provider independence failing, or the task
-        // fabric itself degraded) is as severe as any other red condition — never just a
-        // yellow/watch footnote.
-        if ($providerIndependenceStatus === 'failing') {
-            $risks[] = 'provider_independence_status:failing';
-        }
-        if ($taskFabricQualityStatus === 'degraded') {
-            $risks[] = 'task_fabric_quality_status:degraded';
-        }
-
-        if ($risks !== []) {
-            return [self::STATUS_RED, $risks];
-        }
-
-        // YELLOW conditions
-        $yellowRisks = [];
-        if ($queuePressure === 'high') {
-            $yellowRisks[] = 'queue_pressure:high';
-        }
-        if ($simplPressure === 'high') {
-            $yellowRisks[] = 'simplification_pressure:high';
-        }
-        if ($taskValueDegrading) {
-            $yellowRisks[] = 'task_value_degrading:true';
-        }
-        if ($muscleOutcomeDegrading) {
-            $yellowRisks[] = 'muscle_outcomes_degrading:true';
-        }
-        if ($amplifierStatus === 'watch') {
-            $yellowRisks[] = 'model_amplifier_status:watch';
-        }
-        if ($giveBackRate > self::GIVE_BACK_YELLOW_FLOOR) {
-            $yellowRisks[] = sprintf('give_back_rate:%.4f>%.2f', $giveBackRate, self::GIVE_BACK_YELLOW_FLOOR);
-        }
-        if ($workerSuccessRate < self::SUCCESS_RATE_YELLOW_CEILING) {
-            $yellowRisks[] = sprintf('worker_success_rate:%.4f<%.2f', $workerSuccessRate, self::SUCCESS_RATE_YELLOW_CEILING);
-        }
-        if ($evidenceFreshnessStatus === 'stale') {
-            $yellowRisks[] = 'evidence_freshness_status:stale';
-        }
-        if ($integrationCoverageStatus === 'weak') {
-            $yellowRisks[] = 'integration_coverage_status:weak';
-        }
-
-        if ($yellowRisks !== []) {
-            return [self::STATUS_YELLOW, $yellowRisks];
-        }
-
-        return [self::STATUS_GREEN, []];
-    }
-
-    private function resolveDecision(
-        string $queuePressure,
-        string $simplPressure,
-        int $maturityGapCount,
-        string $taskFabricQualityStatus,
-        string $providerIndependenceStatus,
-        string $evidenceFreshnessStatus,
-    ): string {
-        if ($queuePressure === 'high' || $simplPressure === 'high') {
-            return self::DECISION_CONSOLIDATE;
-        }
-
-        // create_more_tasks is never recommended on top of a degraded task-fabric, a failing
-        // provider-independence posture, or stale knowledge evidence — origination on a weak
-        // foundation compounds the weakness instead of fixing it.
-        $unsafeToCreate = $taskFabricQualityStatus === 'degraded'
-            || $providerIndependenceStatus === 'failing'
-            || $evidenceFreshnessStatus === 'stale';
-
-        if ($maturityGapCount > 0 && ! $unsafeToCreate) {
-            return self::DECISION_CREATE;
-        }
-
-        return self::DECISION_MONITOR;
-    }
-
-    /** @param list<string> $topRisks */
-    private function resolveBatchTheme(string $status, string $decision, array $topRisks): string
-    {
-        if ($status === self::STATUS_RED) {
-            return 'stabilize:address_critical_risks_before_new_origination';
-        }
-        if ($decision === self::DECISION_CONSOLIDATE) {
-            return 'consolidate:reduce_sprawl_and_pressure_before_expanding';
-        }
-        if ($decision === self::DECISION_CREATE) {
-            return 'expand:fill_maturity_gaps_with_high_leverage_tasks';
-        }
-        return 'monitor:observe_system_stability_before_next_batch';
-    }
-
-    // AC1/AC2: ranked_focus — first-match priority; self_heal precedes create when rates degraded.
-    private function resolveRankedFocus(
-        float  $giveBackRate,
-        float  $malformedRate,
-        float  $workerSuccessRate,
-        string $simplPressure,
-        string $amplifierStatus,
-        bool   $taskValueDegrading,
-        bool   $muscleOutcomeDegrading,
-        int    $maturityGapCount,
-        string $taskFabricQualityStatus,
-    ): string {
-        return match (true) {
-            $giveBackRate > self::GIVE_BACK_RED_FLOOR
-                || $malformedRate > self::MALFORMED_RED_FLOOR
-                || $workerSuccessRate < self::SUCCESS_RATE_RED_CEILING => self::FOCUS_SELF_HEAL,
-            $simplPressure === 'high'                              => self::FOCUS_SIMPLIFICATION,
-            in_array($amplifierStatus, ['watch', 'rollback_candidate'], true) => self::FOCUS_MODEL_AMPLIFIER,
-            $taskValueDegrading || $muscleOutcomeDegrading         => self::FOCUS_OUTCOME_LEARNING,
-            // A degraded task fabric outranks originating more capability-gap work — filling
-            // gaps on a quality-degraded fabric just produces more low-quality output.
-            $taskFabricQualityStatus === 'degraded'                => self::FOCUS_TASK_FABRIC,
-            $maturityGapCount > 0                                  => self::FOCUS_CAPABILITY_GAP,
-            default                                                => self::FOCUS_TASK_FABRIC,
-        };
     }
 }
