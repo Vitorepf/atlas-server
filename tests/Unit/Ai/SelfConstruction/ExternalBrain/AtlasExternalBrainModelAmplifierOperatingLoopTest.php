@@ -418,4 +418,63 @@ final class AtlasExternalBrainModelAmplifierOperatingLoopTest extends TestCase
         $this->assertSame('keep_testing', $r['lifecycle_decision']);
         $this->assertTrue($r['promotion_blocked']);
     }
+
+    // ── worker-feed floor: low supply defers exploratory trials ──────────────
+
+    public function test_defers_exploratory_trial_when_servable_now_below_worker_feed_floor(): void
+    {
+        $r = $this->svc()->runOperatingLoop([
+            'servable_now' => 5,
+            'active_leases' => 1,
+            'candidate_scaffolds' => [
+                $this->candidate('exploratory', ['observed_lift' => 0.5]),
+            ],
+        ]);
+
+        $this->assertNull($r['selected_scaffold_id']);
+        $this->assertSame('deferred_low_worker_feed_supply', $r['lifecycle_decision']);
+        $this->assertTrue($r['promotion_blocked']);
+        $this->assertSame('defer_exploratory_trial_low_worker_feed', $r['next_action']);
+    }
+
+    public function test_allows_trial_under_low_supply_when_it_improves_task_quality(): void
+    {
+        $r = $this->svc()->runOperatingLoop([
+            'servable_now' => 5,
+            'active_leases' => 1,
+            'candidate_scaffolds' => [
+                $this->candidate('exploratory', ['observed_lift' => 0.5]),
+                $this->candidate('task-quality', ['observed_lift' => 0.3, 'improves_task_quality' => true]),
+            ],
+        ]);
+
+        $this->assertSame('task-quality', $r['selected_scaffold_id']);
+        $this->assertNotSame('deferred_low_worker_feed_supply', $r['lifecycle_decision']);
+    }
+
+    public function test_no_deferral_when_servable_now_at_or_above_floor(): void
+    {
+        $r = $this->svc()->runOperatingLoop([
+            'servable_now' => 20,
+            'active_leases' => 1,
+            'candidate_scaffolds' => [
+                $this->candidate('exploratory', ['observed_lift' => 0.5]),
+            ],
+        ]);
+
+        $this->assertSame('exploratory', $r['selected_scaffold_id']);
+        $this->assertNotSame('deferred_low_worker_feed_supply', $r['lifecycle_decision']);
+    }
+
+    public function test_no_deferral_when_servable_now_not_supplied(): void
+    {
+        $r = $this->svc()->runOperatingLoop([
+            'active_leases' => 5,
+            'candidate_scaffolds' => [
+                $this->candidate('exploratory', ['observed_lift' => 0.5]),
+            ],
+        ]);
+
+        $this->assertSame('exploratory', $r['selected_scaffold_id']);
+    }
 }

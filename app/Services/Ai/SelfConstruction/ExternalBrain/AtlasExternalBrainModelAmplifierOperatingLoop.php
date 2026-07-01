@@ -135,9 +135,16 @@ final class AtlasExternalBrainModelAmplifierOperatingLoop
      *   signal (capped to [0,1]) plus a requires_critique_arena hint when the
      *   loop could not reach a confident decision.
      *
+     * WORKER-FEED FLOOR (low-supply deferral): when servable_now < active_leases * 10,
+     * exploratory amplifier trials are paused/narrowed to only those that explicitly
+     * improve claimable task packet quality (acceptance, dedupe, or proof). A candidate
+     * opts into this narrow lane by setting improves_task_quality=true; every other
+     * candidate is skipped during low supply so the loop never burns worker cycles on
+     * pure research while muscles are starving for claimable work.
+     *
      * @param  array<string,mixed>  $input  { candidate_scaffolds: list<{id,
-     *   lift_evidence_present?, lift_evidence_self_declared?, observed_lift?}>,
-     *   benchmark_score? }
+     *   lift_evidence_present?, lift_evidence_self_declared?, observed_lift?,
+     *   improves_task_quality?}>, benchmark_score?, servable_now?, active_leases? }
      * @return array<string,mixed>
      */
     public function runOperatingLoop(array $input): array
@@ -145,10 +152,17 @@ final class AtlasExternalBrainModelAmplifierOperatingLoop
         $candidates = is_array($input['candidate_scaffolds'] ?? null) ? $input['candidate_scaffolds'] : [];
         $benchmarkScore = (float) ($input['benchmark_score'] ?? 0.0);
 
+        $activeLeases = (int) ($input['active_leases'] ?? 0);
+        $servableNow = array_key_exists('servable_now', $input) ? (int) $input['servable_now'] : null;
+        $lowWorkerFeedSupply = $servableNow !== null && $servableNow < ($activeLeases * 10);
+
         // STEP 1: select_scaffold.
         $selected = null;
         foreach ($candidates as $candidate) {
             if (! is_array($candidate) || ! ($candidate['lift_evidence_present'] ?? false)) {
+                continue;
+            }
+            if ($lowWorkerFeedSupply && ! (bool) ($candidate['improves_task_quality'] ?? false)) {
                 continue;
             }
             $observedLift = (float) ($candidate['observed_lift'] ?? 0.0);
@@ -157,6 +171,24 @@ final class AtlasExternalBrainModelAmplifierOperatingLoop
             }
         }
         $selectedId = $selected !== null ? (string) ($selected['id'] ?? '') : null;
+
+        if ($lowWorkerFeedSupply && $selected === null) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'selected_scaffold_id' => null,
+                'steps' => [
+                    ['step' => 'select_scaffold', 'selected_scaffold_id' => null],
+                    ['step' => 'deferred_low_worker_feed_supply', 'servable_now' => $servableNow, 'active_leases' => $activeLeases],
+                ],
+                'lifecycle_decision' => 'deferred_low_worker_feed_supply',
+                'promotion_blocked' => true,
+                'next_action' => 'defer_exploratory_trial_low_worker_feed',
+                'feedback_payload' => [
+                    'scaffold_evidence_strength' => 0.0,
+                    'requires_critique_arena' => false,
+                ],
+            ];
+        }
 
         // STEP 2: benchmark.
         $benchmarkStep = ['step' => 'benchmark', 'benchmark_score' => $benchmarkScore];
