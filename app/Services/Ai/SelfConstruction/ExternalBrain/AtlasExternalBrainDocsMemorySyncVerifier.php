@@ -37,11 +37,15 @@ final class AtlasExternalBrainDocsMemorySyncVerifier
         $codeIndexFresh = (bool) ($change['code_index_fresh'] ?? true);
         $isTestOnly = (bool) ($change['is_test_only'] ?? false);
         $isInternalRefactor = (bool) ($change['is_internal_refactor'] ?? false);
+        $publicContractChanged = (bool) ($change['public_contract_changed'] ?? false);
 
         $staleSurfaces = [];
         $requiredActions = [];
 
-        $knowledgeSurfaceApplies = $behaviorChanged && ! $isTestOnly && ! $isInternalRefactor;
+        // A public contract change must sync docs/memory even when internally small
+        // (is_internal_refactor) — only pure test-only edits are exempt.
+        $knowledgeSurfaceApplies = $behaviorChanged && ! $isTestOnly
+            && ($publicContractChanged || ! $isInternalRefactor);
 
         if ($knowledgeSurfaceApplies) {
             if (! $docsUpdated) {
@@ -74,6 +78,7 @@ final class AtlasExternalBrainDocsMemorySyncVerifier
                 'behavior_changed='.($behaviorChanged ? 'true' : 'false'),
                 'is_test_only='.($isTestOnly ? 'true' : 'false'),
                 'is_internal_refactor='.($isInternalRefactor ? 'true' : 'false'),
+                'public_contract_changed='.($publicContractChanged ? 'true' : 'false'),
                 'docs_updated='.($docsUpdated ? 'true' : 'false'),
                 'memory_facts_recorded='.($memoryFactsRecorded ? 'true' : 'false'),
                 'code_index_fresh='.($codeIndexFresh ? 'true' : 'false'),

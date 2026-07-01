@@ -137,4 +137,52 @@ final class AtlasExternalBrainDocsMemorySyncVerifierTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainDocsMemorySyncVerifier::STATUS_INDEX_STALE, $result['sync_status']);
     }
+
+    // ── new AC: public_contract_changed forces sync even on internal refactor ──
+
+    public function test_public_contract_changed_forces_knowledge_stale_despite_internal_refactor(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'is_internal_refactor' => true,
+            'public_contract_changed' => true,
+            'docs_updated' => false,
+            'memory_facts_recorded' => false,
+            'code_index_fresh' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainDocsMemorySyncVerifier::STATUS_KNOWLEDGE_STALE, $result['sync_status']);
+        $this->assertContains('docs', $result['stale_surfaces']);
+        $this->assertContains('memory', $result['stale_surfaces']);
+    }
+
+    public function test_internal_refactor_without_public_contract_change_keeps_no_action_when_index_fresh(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'is_internal_refactor' => true,
+            'public_contract_changed' => false,
+            'docs_updated' => false,
+            'memory_facts_recorded' => false,
+            'code_index_fresh' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainDocsMemorySyncVerifier::STATUS_NO_ACTION, $result['sync_status']);
+    }
+
+    public function test_code_index_stale_reported_independently_of_docs_or_memory_staleness(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'public_contract_changed' => true,
+            'docs_updated' => true,
+            'memory_facts_recorded' => true,
+            'code_index_fresh' => false,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainDocsMemorySyncVerifier::STATUS_INDEX_STALE, $result['sync_status']);
+        $this->assertContains('code_index', $result['stale_surfaces']);
+        $this->assertNotContains('docs', $result['stale_surfaces']);
+        $this->assertNotContains('memory', $result['stale_surfaces']);
+    }
 }
