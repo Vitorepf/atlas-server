@@ -6,6 +6,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneCorridorProjector;
 use App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneCycleHorizonAnalyzer;
+use App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneGapCollector;
 
 /**
  * CORRIDOR ANALYSER concern, extracted from the god-class
@@ -260,5 +261,50 @@ final class AgentControlPlaneChainIntegrityCorridorAnalyzer
     public function terminalHorizonAnalysis(array $deepChain, string $currentNextRequiredSlice, array $cycleIntegrity): array
     {
         return AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis($deepChain, $currentNextRequiredSlice, $cycleIntegrity);
+    }
+
+    /**
+     * Thin seam over {@see AgentControlPlaneGapCollector::capabilityGaps}.
+     *
+     * @param  list<array<string, string>>  $deepChain
+     * @param  list<array<string, mixed>>  $sliceReports
+     * @return list<array<string, mixed>>
+     */
+    public function capabilityGaps(array $deepChain, array $sliceReports): array
+    {
+        return AgentControlPlaneGapCollector::capabilityGaps($deepChain, $sliceReports);
+    }
+
+    /**
+     * Thin seam over {@see AgentControlPlaneGapCollector::collectInvokerGaps}.
+     *
+     * @param  list<array<string, mixed>>  $sliceReports
+     * @return list<array<string, mixed>>
+     */
+    public function collectInvokerGaps(array $sliceReports): array
+    {
+        return AgentControlPlaneGapCollector::collectInvokerGaps($sliceReports);
+    }
+
+    /**
+     * Thin seam over {@see AgentControlPlaneGapCollector::collectReadinessGaps}.
+     *
+     * @param  list<array<string, mixed>>  $sliceReports
+     * @return list<array<string, mixed>>
+     */
+    public function collectReadinessGaps(array $sliceReports): array
+    {
+        return AgentControlPlaneGapCollector::collectReadinessGaps($sliceReports);
+    }
+
+    /**
+     * Thin seam over {@see AgentControlPlaneGapCollector::runtimeSafetyGaps}.
+     *
+     * @param  array<string, mixed>  $runtimeSafety
+     * @return list<array<string, string>>
+     */
+    public function runtimeSafetyGaps(array $runtimeSafety): array
+    {
+        return AgentControlPlaneGapCollector::runtimeSafetyGaps($runtimeSafety);
     }
 }
