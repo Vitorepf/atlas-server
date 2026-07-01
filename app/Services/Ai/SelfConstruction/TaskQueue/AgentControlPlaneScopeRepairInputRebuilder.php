@@ -137,6 +137,9 @@ final class AgentControlPlaneScopeRepairInputRebuilder
         $objective = trim((string) data_get($packet, 'objective', ''));
         $removed = implode(', ', $forbiddenAllowed);
         $repairNote = " Scope repair: {$removed} was removed from allowed_files because Atlas cannot safely commit forbidden self-targets. Implement only the remaining allowed_files and do not edit the removed path(s).";
+        if ($allTestOnly) {
+            $repairNote .= ' BLOCKED: only test file(s) survive after forbidden-target removal — no implementation file remains, so this packet cannot be reopened as muscle-ready. Origination must add a real implementation target before this repair can proceed.';
+        }
 
         return [
             'task_packet_id' => (string) data_get($packet, 'task_packet_id', ''),
