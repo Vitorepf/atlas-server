@@ -88,4 +88,80 @@ final class AtlasSelfConstructionFrontierToPacketDrafterTest extends TestCase
         $this->assertSame('atlas_native', $packets[0]['autonomy_contract']['runtime_owner']);
         $this->assertNull($packets[0]['autonomy_contract']['provider_prompt']);
     }
+
+    // ── AC: complete frontier emits test_paths, draft_id, anti_template_rationale ──
+
+    public function test_complete_frontier_emits_test_paths_draft_id_and_anti_template_rationale(): void
+    {
+        $packets = (new AtlasSelfConstructionFrontierToPacketDrafter)->draft([$this->frontier()]);
+
+        $this->assertSame(['tests/Unit/Demo/FooTest.php'], $packets[0]['test_paths']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $packets[0]['draft_id']);
+        $this->assertStringContainsString('add Foo', $packets[0]['anti_template_rationale']);
+        $this->assertStringContainsString('TF', $packets[0]['anti_template_rationale']);
+    }
+
+    // ── AC: missing test path is rejected ───────────────────────────────────────
+
+    public function test_missing_test_path_throws(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/missing_test_path/');
+        (new AtlasSelfConstructionFrontierToPacketDrafter)->draft([
+            $this->frontier('f-no-test', ['allowed_file_candidates' => ['app/Demo/Foo.php']]),
+        ]);
+    }
+
+    // ── AC: weak frontier (no capability_gap) is rejected ───────────────────────
+
+    public function test_weak_frontier_with_empty_capability_gap_throws(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/weak_frontier_missing_capability_gap/');
+        (new AtlasSelfConstructionFrontierToPacketDrafter)->draft([
+            $this->frontier('f-weak', ['capability_gap' => '']),
+        ]);
+    }
+
+    public function test_weak_frontier_with_whitespace_only_capability_gap_throws(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/weak_frontier_missing_capability_gap/');
+        (new AtlasSelfConstructionFrontierToPacketDrafter)->draft([
+            $this->frontier('f-weak2', ['capability_gap' => '   ']),
+        ]);
+    }
+
+    // ── AC: dependency propagation influences the deterministic draft_id ────────
+
+    public function test_dependency_propagation_changes_draft_id_but_not_suppression_key(): void
+    {
+        $d = new AtlasSelfConstructionFrontierToPacketDrafter;
+        $withoutDeps = $d->draft([$this->frontier('f-1')]);
+        $withDeps = $d->draft([$this->frontier('f-1')], dependsByFrontierId: ['f-1' => ['f-prev']]);
+
+        $this->assertSame($withoutDeps[0]['suppression_key'], $withDeps[0]['suppression_key'], 'content identity unchanged');
+        $this->assertNotSame($withoutDeps[0]['draft_id'], $withDeps[0]['draft_id'], 'draft identity changes with placement');
+        $this->assertSame(['f-prev'], $withDeps[0]['depends_on']);
+    }
+
+    // ── AC: deterministic draft ids ──────────────────────────────────────────────
+
+    public function test_draft_id_is_byte_stable_across_calls(): void
+    {
+        $d = new AtlasSelfConstructionFrontierToPacketDrafter;
+        $a = $d->draft([$this->frontier()], waveByFrontierId: ['f-1' => 2], dependsByFrontierId: ['f-1' => ['f-x', 'f-y']]);
+        $b = $d->draft([$this->frontier()], waveByFrontierId: ['f-1' => 2], dependsByFrontierId: ['f-1' => ['f-y', 'f-x']]);
+
+        $this->assertSame($a[0]['draft_id'], $b[0]['draft_id'], 'depends_on order must not affect draft_id');
+    }
+
+    public function test_draft_id_differs_when_wave_differs(): void
+    {
+        $d = new AtlasSelfConstructionFrontierToPacketDrafter;
+        $waveOne = $d->draft([$this->frontier()], waveByFrontierId: ['f-1' => 1]);
+        $waveTwo = $d->draft([$this->frontier()], waveByFrontierId: ['f-1' => 2]);
+
+        $this->assertNotSame($waveOne[0]['draft_id'], $waveTwo[0]['draft_id']);
+    }
 }
