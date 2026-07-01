@@ -6,6 +6,15 @@ use Symfony\Component\Console\Input\ArgvInput;
 
 define('LARAVEL_START', microtime(true));
 
+// Atlas boot alone peaks ~120MB, so the 128M php.ini default OOMs almost any
+// command. Raise the floor once here instead of scattering -d memory_limit
+// overrides. Never lowers an explicitly higher or unlimited (-1) limit.
+$currentLimit = ini_parse_quantity((string) ini_get('memory_limit'));
+if ($currentLimit >= 0 && $currentLimit < 4096 * 1048576) {
+    ini_set('memory_limit', '4096M');
+}
+unset($currentLimit);
+
 // Register the Composer autoloader...
 require __DIR__.'/vendor/autoload.php';
 
