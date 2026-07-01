@@ -719,6 +719,39 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalWorkerBootstrapTest 
         );
     }
 
+    public function test_bootstrap_falls_back_to_replenishment_when_claimable_supply_exists_only_outside_requested_tag(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $otherLaneTask = $builder->build([
+            'task_packet_id' => 'bootstrap-fallback-other-lane-task',
+            'objective' => 'task tagged for a different lane than requested',
+            'operator_id' => 'tester',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/bootstrap-fallback-other-lane-task.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/bootstrap-fallback-other-lane-task.php'],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
+        ]);
+        $this->assertSame('ok', $queue->enqueue($otherLaneTask, ['tags' => ['other_lane']])['status']);
+
+        // Claimable supply exists (for 'other_lane'), but the worker requests 'my_lane' — the
+        // eligibility guard sees ZERO eligible tasks for 'my_lane', so fallback replenishment
+        // must fire and produce new supply IN 'my_lane' rather than reporting the other lane's
+        // (irrelevant) supply as satisfying the request.
+        $result = $this->service()->bootstrap($this->context(), [
+            'actor' => 'fallback-lane-worker',
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['my_lane'],
+        ]);
+
+        $this->assertSame('ready_for_worker', $result['status']);
+        $this->assertSame('my_lane', $result['claim_tag']);
+        $this->assertGreaterThan(0, $result['generated_task_count']);
+        $this->assertNotSame('bootstrap-fallback-other-lane-task', $result['task_packet_id']);
+        $this->assertContains('my_lane', (array) data_get($result, 'claim.queue_entry.tags', []));
+    }
+
     private function service(): AgentControlPlaneTerminalWorkerBootstrapService
     {
         $queue = new AgentControlPlaneTaskPacketQueueRepository;
