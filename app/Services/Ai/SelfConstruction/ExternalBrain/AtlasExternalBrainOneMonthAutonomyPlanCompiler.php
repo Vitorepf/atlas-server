@@ -22,7 +22,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   worker_capacity:     {tasks_per_day?:int}                           — base daily throughput
  *
  * OUTPUT (FACTS only — no scalar quality score):
- *   {schema_version, status, blockers, waves, category_allocation}
+ *   {schema_version, status, blockers, waves, category_allocation, steady_state_priorities,
+ *    critical_path_categories}
+ * Each wave additionally carries: milestone, proof_gates, risk_burndown, stop_go.
+ *
+ * steady_state_priorities is a fixed ordering: internal Atlas execution, internal Atlas
+ * learning, then native proof loops — external tools are never the steady-state target.
+ *
+ * stop_go per wave is derived only from facts already present in the plan (queue health via
+ * give_back_rate, capability lift via presence of build items, evidence quality via whether the
+ * wave has any items at all) — never a human judgment call baked into the compiler.
  *
  * PURE / DETERMINISTIC / NO I/O.
  */
@@ -52,6 +61,15 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
 
     private const DEFAULT_TASKS_PER_DAY = 5;
 
+    private const STOP_GO_HOLD_GIVE_BACK_THRESHOLD = 0.5;
+
+    /** @var list<string> */
+    private const STEADY_STATE_PRIORITIES = [
+        'internal_atlas_execution',
+        'internal_atlas_learning',
+        'native_proof_loops',
+    ];
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -76,12 +94,15 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
                     self::CATEGORY_SIMPLIFY => 0,
                     self::CATEGORY_RESEARCH => 0,
                 ],
+                'steady_state_priorities' => self::STEADY_STATE_PRIORITIES,
+                'critical_path_categories' => [self::CATEGORY_BUILD, self::CATEGORY_SIMPLIFY, self::CATEGORY_RESEARCH],
             ];
         }
 
         $ordered = $this->interleave($buildItems, $simplifyItems, $researchItems);
         $perWaveCapacity = $this->perWaveCapacity($facts);
-        $waves = $this->bucketIntoWaves($ordered, $perWaveCapacity);
+        $giveBackRate = max(0.0, min(1.0, (float) ($facts['queue_yield']['give_back_rate'] ?? 0.0)));
+        $waves = $this->bucketIntoWaves($ordered, $perWaveCapacity, $giveBackRate);
 
         $allocation = [
             self::CATEGORY_BUILD => count($buildItems),
@@ -95,6 +116,8 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
             'blockers' => [],
             'waves' => $waves,
             'category_allocation' => $allocation,
+            'steady_state_priorities' => self::STEADY_STATE_PRIORITIES,
+            'critical_path_categories' => [self::CATEGORY_BUILD, self::CATEGORY_SIMPLIFY, self::CATEGORY_RESEARCH],
         ];
     }
 
@@ -246,26 +269,126 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
 
     /**
      * @param  list<array{category:string,target:string,reason:string}>  $items
-     * @return list<array{wave:int,day_start:int,day_end:int,items:list<array{category:string,target:string,reason:string}>}>
+     * @return list<array<string,mixed>>
      */
-    private function bucketIntoWaves(array $items, int $perWaveCapacity): array
+    private function bucketIntoWaves(array $items, int $perWaveCapacity, float $giveBackRate): array
     {
         $waves = [];
         $cursor = 0;
+        $totalItems = count($items);
         for ($wave = 1; $wave <= self::WAVE_COUNT; $wave++) {
             $waveItems = array_slice($items, $cursor, $perWaveCapacity);
             $cursor += $perWaveCapacity;
+            $remainingAfterWave = max(0, $totalItems - $cursor);
+
             $waves[] = [
                 'wave' => $wave,
                 'day_start' => (($wave - 1) * self::DAYS_PER_WAVE) + 1,
                 'day_end' => $wave * self::DAYS_PER_WAVE,
                 'items' => $waveItems,
+                'milestone' => $this->milestone($wave, $waveItems),
+                'proof_gates' => $this->proofGates($waveItems),
+                'risk_burndown' => $this->riskBurndown($totalItems, $remainingAfterWave),
+                'stop_go' => $this->stopGoCheck($waveItems, $giveBackRate),
             ];
-            if ($cursor >= count($items)) {
+            if ($cursor >= $totalItems) {
                 break;
             }
         }
 
         return $waves;
+    }
+
+    /**
+     * @param  list<array{category:string,target:string,reason:string}>  $waveItems
+     */
+    private function milestone(int $wave, array $waveItems): string
+    {
+        if ($waveItems === []) {
+            return sprintf('Wave %d: no items scheduled', $wave);
+        }
+        $counts = ['build' => 0, 'simplify' => 0, 'research' => 0];
+        foreach ($waveItems as $item) {
+            $category = (string) ($item['category'] ?? '');
+            if (isset($counts[$category])) {
+                $counts[$category]++;
+            }
+        }
+
+        return sprintf(
+            'Wave %d: complete %d build, %d simplify, %d research item(s) toward Atlas-native steady-state autonomy',
+            $wave,
+            $counts[self::CATEGORY_BUILD],
+            $counts[self::CATEGORY_SIMPLIFY],
+            $counts[self::CATEGORY_RESEARCH],
+        );
+    }
+
+    /**
+     * @param  list<array{category:string,target:string,reason:string}>  $waveItems
+     * @return list<string>
+     */
+    private function proofGates(array $waveItems): array
+    {
+        $categories = array_unique(array_column($waveItems, 'category'));
+        $gates = ['tests_or_gates_result'];
+        if (in_array(self::CATEGORY_SIMPLIFY, $categories, true)) {
+            $gates[] = 'no_behavior_change_proof';
+        }
+        if (in_array(self::CATEGORY_BUILD, $categories, true)) {
+            $gates[] = 'capability_lift_evidence';
+        }
+        if (in_array(self::CATEGORY_RESEARCH, $categories, true)) {
+            $gates[] = 'research_findings_documented';
+        }
+
+        return $gates;
+    }
+
+    /**
+     * Residual backlog after this wave, expressed as a risk facing steady-state autonomy —
+     * never a scalar quality figure, only a fact plus a bucketed risk_level for readability.
+     */
+    private function riskBurndown(int $totalItems, int $remainingAfterWave): array
+    {
+        $remainingShare = $totalItems > 0 ? $remainingAfterWave / $totalItems : 0.0;
+        $riskLevel = match (true) {
+            $remainingAfterWave === 0 => 'none',
+            $remainingShare > 0.5 => 'high',
+            $remainingShare > 0.15 => 'medium',
+            default => 'low',
+        };
+
+        return [
+            'remaining_items' => $remainingAfterWave,
+            'risk_level' => $riskLevel,
+        ];
+    }
+
+    /**
+     * @param  list<array{category:string,target:string,reason:string}>  $waveItems
+     * @return array{decision:string, reasons:list<string>}
+     */
+    private function stopGoCheck(array $waveItems, float $giveBackRate): array
+    {
+        $reasons = [];
+
+        if ($waveItems === []) {
+            $reasons[] = 'no_items_scheduled_for_this_wave';
+        }
+        if ($giveBackRate >= self::STOP_GO_HOLD_GIVE_BACK_THRESHOLD) {
+            $reasons[] = sprintf('queue_give_back_rate=%.2f at/above hold threshold=%.2f', $giveBackRate, self::STOP_GO_HOLD_GIVE_BACK_THRESHOLD);
+        }
+        $hasCapabilityLift = in_array(self::CATEGORY_BUILD, array_column($waveItems, 'category'), true);
+        if (! $hasCapabilityLift && $waveItems !== []) {
+            $reasons[] = 'no_capability_lift_item_in_wave';
+        }
+
+        $decision = $reasons === [] ? 'go' : 'hold';
+
+        return [
+            'decision' => $decision,
+            'reasons' => $reasons,
+        ];
     }
 }

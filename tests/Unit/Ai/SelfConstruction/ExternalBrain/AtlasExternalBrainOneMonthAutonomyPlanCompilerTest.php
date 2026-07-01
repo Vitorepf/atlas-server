@@ -161,4 +161,134 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompilerTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $json);
         }
     }
+
+    // ── AC2: steady-state priorities and critical-path categories ─────────────
+
+    public function test_steady_state_priorities_are_internal_execution_learning_then_proof_loops(): void
+    {
+        $plan = $this->compiler()->compile(['capability_scores' => [['capability_id' => 'x', 'score' => 1.0]]]);
+
+        $this->assertSame([
+            'internal_atlas_execution',
+            'internal_atlas_learning',
+            'native_proof_loops',
+        ], $plan['steady_state_priorities']);
+    }
+
+    public function test_critical_path_categories_prioritize_build_before_simplify_before_research(): void
+    {
+        $plan = $this->compiler()->compile(['capability_scores' => [['capability_id' => 'x', 'score' => 1.0]]]);
+
+        $this->assertSame([
+            AtlasExternalBrainOneMonthAutonomyPlanCompiler::CATEGORY_BUILD,
+            AtlasExternalBrainOneMonthAutonomyPlanCompiler::CATEGORY_SIMPLIFY,
+            AtlasExternalBrainOneMonthAutonomyPlanCompiler::CATEGORY_RESEARCH,
+        ], $plan['critical_path_categories']);
+    }
+
+    public function test_insufficient_input_still_reports_steady_state_priorities(): void
+    {
+        $plan = $this->compiler()->compile([]);
+
+        $this->assertNotEmpty($plan['steady_state_priorities']);
+    }
+
+    // ── AC1: milestone, proof_gates, risk_burndown per wave ────────────────────
+
+    public function test_wave_has_milestone_proof_gates_and_risk_burndown(): void
+    {
+        $plan = $this->compiler()->compile([
+            'capability_scores' => [['capability_id' => 'weak_organ', 'score' => 10.0]],
+        ]);
+        $wave = $plan['waves'][0];
+
+        $this->assertNotEmpty($wave['milestone']);
+        $this->assertContains('tests_or_gates_result', $wave['proof_gates']);
+        $this->assertContains('capability_lift_evidence', $wave['proof_gates']);
+        $this->assertArrayHasKey('remaining_items', $wave['risk_burndown']);
+        $this->assertArrayHasKey('risk_level', $wave['risk_burndown']);
+    }
+
+    public function test_simplify_only_wave_requires_no_behavior_change_proof_gate(): void
+    {
+        $plan = $this->compiler()->compile([
+            'give_back_rates' => [['family' => 'brain_forbidden', 'rate' => 0.8]],
+        ]);
+        $wave = $plan['waves'][0];
+
+        $this->assertContains('no_behavior_change_proof', $wave['proof_gates']);
+    }
+
+    public function test_research_only_wave_requires_research_findings_documented_gate(): void
+    {
+        $plan = $this->compiler()->compile([
+            'research_gaps' => [['topic' => 'topic_a', 'priority' => 3]],
+        ]);
+        $wave = $plan['waves'][0];
+
+        $this->assertContains('research_findings_documented', $wave['proof_gates']);
+    }
+
+    public function test_last_wave_has_zero_remaining_items_and_no_risk(): void
+    {
+        $plan = $this->compiler()->compile([
+            'capability_scores' => [['capability_id' => 'weak_organ', 'score' => 10.0]],
+        ]);
+        $lastWave = end($plan['waves']);
+
+        $this->assertSame(0, $lastWave['risk_burndown']['remaining_items']);
+        $this->assertSame('none', $lastWave['risk_burndown']['risk_level']);
+    }
+
+    public function test_risk_burndown_declines_across_waves_when_backlog_is_large(): void
+    {
+        $capabilityScores = [];
+        for ($i = 0; $i < 40; $i++) {
+            $capabilityScores[] = ['capability_id' => 'cap_'.$i, 'score' => 10.0];
+        }
+        $plan = $this->compiler()->compile([
+            'capability_scores' => $capabilityScores,
+            'worker_capacity' => ['tasks_per_day' => 1],
+        ]);
+
+        $remaining = array_column(array_column($plan['waves'], 'risk_burndown'), 'remaining_items');
+        for ($i = 1; $i < count($remaining); $i++) {
+            $this->assertLessThanOrEqual($remaining[$i - 1], $remaining[$i]);
+        }
+    }
+
+    // ── AC3: stop/go checks per wave ───────────────────────────────────────────
+
+    public function test_wave_with_build_item_and_healthy_queue_is_go(): void
+    {
+        $plan = $this->compiler()->compile([
+            'capability_scores' => [['capability_id' => 'weak_organ', 'score' => 10.0]],
+            'queue_yield' => ['give_back_rate' => 0.1],
+        ]);
+
+        $this->assertSame('go', $plan['waves'][0]['stop_go']['decision']);
+        $this->assertSame([], $plan['waves'][0]['stop_go']['reasons']);
+    }
+
+    public function test_wave_with_high_give_back_rate_is_hold(): void
+    {
+        $plan = $this->compiler()->compile([
+            'capability_scores' => [['capability_id' => 'weak_organ', 'score' => 10.0]],
+            'queue_yield' => ['give_back_rate' => 0.6],
+        ]);
+
+        $this->assertSame('hold', $plan['waves'][0]['stop_go']['decision']);
+        $this->assertNotEmpty($plan['waves'][0]['stop_go']['reasons']);
+    }
+
+    public function test_wave_without_capability_lift_item_is_hold(): void
+    {
+        $plan = $this->compiler()->compile([
+            'give_back_rates' => [['family' => 'brain_forbidden', 'rate' => 0.8]],
+            'queue_yield' => ['give_back_rate' => 0.0],
+        ]);
+
+        $this->assertSame('hold', $plan['waves'][0]['stop_go']['decision']);
+        $this->assertContains('no_capability_lift_item_in_wave', $plan['waves'][0]['stop_go']['reasons']);
+    }
 }
