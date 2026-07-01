@@ -78,27 +78,13 @@ final class AtlasExternalBrainHighValueBatchComposer
     {
         $maxBatch = max(1, (int) ($options['max_batch'] ?? self::DEFAULT_MAX_BATCH));
 
-        // Phase 1: validate — partition into valid and rejected.
+        // Phase 1: validate — partition into valid and rejected via one reusable circuit.
         $valid   = [];
         $rejected = [];
         foreach ($rankedOpportunities as $opp) {
-            $miss = $this->missingRequiredFields($opp);
-            if ($miss !== []) {
-                $rejected[] = [
-                    'label'  => (string) ($opp['label'] ?? ''),
-                    'reason' => 'missing_required_fields',
-                    'detail' => implode(',', $miss),
-                ];
-
-                continue;
-            }
-
-            if ($this->hasGenericValueMechanism((string) ($opp['value_mechanism'] ?? ''), $opp)) {
-                $rejected[] = [
-                    'label'  => (string) ($opp['label'] ?? ''),
-                    'reason' => 'generic_value_mechanism',
-                    'detail' => 'value_mechanism:'.strtolower(trim((string) ($opp['value_mechanism'] ?? ''))),
-                ];
+            $rejection = $this->validateOpportunity($opp);
+            if ($rejection !== null) {
+                $rejected[] = $rejection;
 
                 continue;
             }
@@ -238,6 +224,37 @@ final class AtlasExternalBrainHighValueBatchComposer
         ksort($signals, SORT_STRING);
 
         return $signals;
+    }
+
+    /**
+     * Single reusable validation circuit for one opportunity: required-field
+     * presence (including impl/test allowed_files split) and generic
+     * value-mechanism rejection. Returns the rejection entry to append, or
+     * null when the opportunity is valid.
+     *
+     * @param  array<string, mixed>  $opp
+     * @return array{label:string,reason:string,detail?:string}|null
+     */
+    private function validateOpportunity(array $opp): ?array
+    {
+        $miss = $this->missingRequiredFields($opp);
+        if ($miss !== []) {
+            return [
+                'label'  => (string) ($opp['label'] ?? ''),
+                'reason' => 'missing_required_fields',
+                'detail' => implode(',', $miss),
+            ];
+        }
+
+        if ($this->hasGenericValueMechanism((string) ($opp['value_mechanism'] ?? ''), $opp)) {
+            return [
+                'label'  => (string) ($opp['label'] ?? ''),
+                'reason' => 'generic_value_mechanism',
+                'detail' => 'value_mechanism:'.strtolower(trim((string) ($opp['value_mechanism'] ?? ''))),
+            ];
+        }
+
+        return null;
     }
 
     /**
