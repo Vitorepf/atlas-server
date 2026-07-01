@@ -40,9 +40,15 @@ final class AtlasExternalBrainCapabilityIntegrationMap
     private const STATUS_DORMANT          = 'dormant_implemented';
     private const STATUS_CONTRACT_MISSING = 'contract_missing';
     private const STATUS_MISSING          = 'not_implemented';
+    private const STATUS_DUPLICATED       = 'duplicated';
+    private const STATUS_STALE            = 'stale';
+    private const STATUS_MISSING_PROOF    = 'missing_proof';
 
     // AC3: consumer_count at or above this ceiling yields max consumer factor (1.0).
     private const CONSUMER_CEILING = 5;
+
+    // Days since last verification beyond which a wired capability is considered stale.
+    private const STALE_DAYS_THRESHOLD = 90;
 
     /**
      * @param  array<string,mixed>  $facts
@@ -61,6 +67,9 @@ final class AtlasExternalBrainCapabilityIntegrationMap
         $totalDormant         = 0;
         $totalContractMissing = 0;
         $totalNotImplemented  = 0;
+        $totalDuplicated      = 0;
+        $totalStale           = 0;
+        $totalMissingProof    = 0;
 
         foreach ($capabilities as $cap) {
             $id                 = (string) ($cap['id'] ?? '');
@@ -72,6 +81,9 @@ final class AtlasExternalBrainCapabilityIntegrationMap
             $hasContract        = ! array_key_exists('has_contract', $cap) || (bool) $cap['has_contract'];
             $controlPlaneExists = (bool) ($cap['control_plane_exists'] ?? false);
             $ownerDomain        = (string) ($cap['owner_domain'] ?? '');
+            $duplicateOf        = trim((string) ($cap['duplicate_of'] ?? ''));
+            $lastVerifiedDaysAgo = array_key_exists('last_verified_days_ago', $cap) ? (int) $cap['last_verified_days_ago'] : null;
+            $evidenceRefs       = array_values(array_filter(array_map('strval', (array) ($cap['evidence_refs'] ?? []))));
 
             $missingConnections = array_values(array_diff($integPoints, $connectedTo));
 
@@ -79,6 +91,14 @@ final class AtlasExternalBrainCapabilityIntegrationMap
             if (! $isImplemented) {
                 $status = self::STATUS_MISSING;
                 $totalNotImplemented++;
+            } elseif ($duplicateOf !== '') {
+                $status = self::STATUS_DUPLICATED;
+                $totalImplemented++;
+                $totalDuplicated++;
+            } elseif ($lastVerifiedDaysAgo !== null && $lastVerifiedDaysAgo > self::STALE_DAYS_THRESHOLD) {
+                $status = self::STATUS_STALE;
+                $totalImplemented++;
+                $totalStale++;
             } elseif (! $hasContract) {
                 $status = self::STATUS_CONTRACT_MISSING;
                 $totalImplemented++;
@@ -109,12 +129,30 @@ final class AtlasExternalBrainCapabilityIntegrationMap
                     'missing_connections' => $missingConnections,
                     'next_wiring_actions' => $this->nextWiringActions($isWired, $missingConnections, $consumerCount),
                 ];
+            } elseif ($evidenceRefs === []) {
+                // AC3: class existence + wiring alone is never proof of real integration —
+                // a fully-wired capability with zero verifiable evidence is missing_proof, not integrated.
+                $status = self::STATUS_MISSING_PROOF;
+                $totalImplemented++;
+                $totalWired++;
+                $totalMissingProof++;
             } else {
                 $status = self::STATUS_FULFILLED;
                 $totalImplemented++;
                 $totalWired++;
                 $fulfilled[] = $id;
             }
+
+            $nextIntegrationAction = match ($status) {
+                self::STATUS_MISSING => 'implement_capability',
+                self::STATUS_DUPLICATED => "consolidate_into:{$duplicateOf}",
+                self::STATUS_STALE => 'reverify_capability_evidence',
+                self::STATUS_CONTRACT_MISSING => 'define_capability_contract',
+                self::STATUS_DORMANT => 'wire_a_real_consumer',
+                self::STATUS_DEBT => 'complete_wiring',
+                self::STATUS_MISSING_PROOF => 'attach_evidence_refs',
+                default => 'none',
+            };
 
             // AC3: coverage_score (unchanged formula) + wiring_coverage composite.
             $coverageScore  = $this->coverage($status, $integPoints, $connectedTo);
@@ -134,6 +172,8 @@ final class AtlasExternalBrainCapabilityIntegrationMap
                 'wiring_coverage'     => $wiringCoverage,
                 'consumer_count'      => $consumerCount,
                 'control_plane_exists' => $controlPlaneExists,
+                'evidence_refs'       => $evidenceRefs,
+                'next_integration_action' => $nextIntegrationAction,
             ];
         }
 
@@ -172,6 +212,9 @@ final class AtlasExternalBrainCapabilityIntegrationMap
                 'dormant_implemented' => $totalDormant,
                 'contract_missing'    => $totalContractMissing,
                 'not_implemented'     => $totalNotImplemented,
+                'duplicated'          => $totalDuplicated,
+                'stale'               => $totalStale,
+                'missing_proof'       => $totalMissingProof,
                 'fully_integrated'    => count($fulfilled),
             ],
             'circuits'                => $circuits,

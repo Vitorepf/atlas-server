@@ -22,6 +22,7 @@ final class AtlasExternalBrainCapabilityIntegrationMapTest extends TestCase
             'is_wired'           => true,
             'integration_points' => ['orchestrator', 'task_fabric'],
             'connected_to'       => ['orchestrator', 'task_fabric'],
+            'evidence_refs'      => ['ev-default'],
         ], $overrides);
     }
 
@@ -556,5 +557,49 @@ final class AtlasExternalBrainCapabilityIntegrationMapTest extends TestCase
         foreach ($recs as $rec) {
             $this->assertSame('retire_review', $rec['action']);
         }
+    }
+
+    // ── AC: duplicated / stale / missing_proof classifications ──────────────────
+
+    public function test_duplicate_of_field_classifies_as_duplicated(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap(['id' => 'dup', 'duplicate_of' => 'canonical'])]]);
+
+        $this->assertSame('duplicated', $r['capability_map'][0]['integration_status']);
+        $this->assertSame(1, $r['debt_summary']['duplicated']);
+        $this->assertSame('consolidate_into:canonical', $r['capability_map'][0]['next_integration_action']);
+    }
+
+    public function test_stale_last_verified_beyond_threshold_classifies_as_stale(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap(['id' => 'old', 'last_verified_days_ago' => 200])]]);
+
+        $this->assertSame('stale', $r['capability_map'][0]['integration_status']);
+        $this->assertSame(1, $r['debt_summary']['stale']);
+    }
+
+    public function test_fully_wired_without_evidence_refs_is_missing_proof_not_integrated(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap(['id' => 'no-proof', 'evidence_refs' => []])]]);
+
+        $this->assertSame('missing_proof', $r['capability_map'][0]['integration_status']);
+        $this->assertSame(1, $r['debt_summary']['missing_proof']);
+        $this->assertNotContains('no-proof', $r['fulfilled_capabilities']);
+    }
+
+    public function test_fully_integrated_requires_non_empty_evidence_refs(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap(['id' => 'proven', 'evidence_refs' => ['gate:AtlasFooTest']])]]);
+
+        $this->assertSame('fully_integrated', $r['capability_map'][0]['integration_status']);
+        $this->assertContains('proven', $r['fulfilled_capabilities']);
+        $this->assertSame(['gate:AtlasFooTest'], $r['capability_map'][0]['evidence_refs']);
+    }
+
+    public function test_every_entry_includes_next_integration_action(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap()]]);
+
+        $this->assertArrayHasKey('next_integration_action', $r['capability_map'][0]);
     }
 }
