@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBacklogCostModel;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityGapTaskChainCompiler;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainConvergenceCriteriaCompiler;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainEnqueueValueThrottle;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainQueueSaturationStopPolicy;
@@ -43,6 +44,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
         AtlasExternalBrainEnqueueValueThrottle $throttle,
         AtlasExternalBrainBacklogCostModel $backlogCostModel,
         AtlasExternalBrainConvergenceCriteriaCompiler $convergenceCompiler,
+        AtlasExternalBrainCapabilityGapTaskChainCompiler $capabilityGapTaskChainCompiler,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -65,6 +67,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
         $throttleInput = is_array($decoded['throttle'] ?? null) ? $decoded['throttle'] : [];
         $backlogCostInput = is_array($decoded['backlog_cost'] ?? null) ? $decoded['backlog_cost'] : [];
         $convergenceInput = is_array($decoded['convergence'] ?? null) ? $decoded['convergence'] : [];
+        $capabilityGapsInput = is_array($decoded['capability_gaps'] ?? null) ? $decoded['capability_gaps'] : [];
 
         $compiledPolicy = $runPolicyCompiler->compile($runPolicyConfig);
         $runEvaluation = $runPolicyCompiler->evaluate($compiledPolicy, $runState);
@@ -73,6 +76,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
         $throttleResult = $throttle->throttle($throttleInput);
         $backlogCost = $backlogCostModel->model($backlogCostInput);
         $convergence = $convergenceCompiler->compile($convergenceInput);
+        $capabilityGapTaskChain = $capabilityGapTaskChainCompiler->compile(['gaps' => $capabilityGapsInput]);
 
         $shouldPause = ! $runEvaluation['can_stop'] && $runEvaluation['violations'] !== [];
         $shouldSelfHeal = ($saturation['decision'] ?? null) === 'unblock_first';
@@ -97,6 +101,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
             'enqueue_throttle' => $throttleResult,
             'backlog_cost' => $backlogCost,
             'convergence' => $convergence,
+            'capability_gap_task_chain' => $capabilityGapTaskChain,
             'governor_action' => $governorAction,
         ];
 
