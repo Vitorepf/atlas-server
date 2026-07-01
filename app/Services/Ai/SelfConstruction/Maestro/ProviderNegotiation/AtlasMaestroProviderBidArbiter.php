@@ -22,6 +22,9 @@ final class AtlasMaestroProviderBidArbiter
         'risk_tier_mismatch' => 'route to a provider whose risk tier matches the task requirement',
     ];
 
+    /** minimum declared capability_score an otherwise-eligible bid must meet for a high-risk task. */
+    private const HIGH_RISK_MIN_CAPABILITY = 70;
+
     /**
      * @return BidArbitrationVerdict|NoEligibleProviderVerdict
      */
@@ -77,5 +80,70 @@ final class AtlasMaestroProviderBidArbiter
             decisiveCriterion: $decisive,
             criteriaTrace: $criteriaTrace,
         );
+    }
+
+    /**
+     * Same fact-only ordering as {@see self::arbitrate()}, plus a risk-aware capability floor
+     * and an explicit selected/rejected reason trail for downstream serving decisions.
+     *
+     * For a high-risk task, an otherwise-eligible bid below HIGH_RISK_MIN_CAPABILITY is treated
+     * as ineligible for THIS decision only (never mutates ProviderBid::$eligibilityBool) — this
+     * never overrides the frozen BidComparator order, it only narrows which bids reach it.
+     *
+     * @param  array{risk_tier?:string}  $taskFacts
+     * @return array{winner_provider_id:?string, selected_reason:?string, rejected_bid_reasons:array<string,string>, risk_tier:string}
+     */
+    public function arbitrateWithReasons(BidSet $set, string $taskId, array $taskFacts = []): array
+    {
+        $riskTier = (string) ($taskFacts['risk_tier'] ?? 'normal');
+        $isHighRisk = $riskTier === 'high';
+
+        $eligible = [];
+        $rejectedReasons = [];
+        foreach ($set->bids as $bid) {
+            if (! $bid->eligibilityBool) {
+                $rejectedReasons[$bid->providerId] = $bid->ineligibilityReasons !== []
+                    ? implode(',', $bid->ineligibilityReasons)
+                    : 'ineligible';
+
+                continue;
+            }
+            if ($isHighRisk && $bid->capabilityScore < self::HIGH_RISK_MIN_CAPABILITY) {
+                $rejectedReasons[$bid->providerId] = 'insufficient_proof_capability_for_high_risk_task';
+
+                continue;
+            }
+            $eligible[] = $bid;
+        }
+
+        if ($eligible === []) {
+            ksort($rejectedReasons);
+
+            return [
+                'winner_provider_id' => null,
+                'selected_reason' => null,
+                'rejected_bid_reasons' => $rejectedReasons,
+                'risk_tier' => $riskTier,
+            ];
+        }
+
+        $comparator = new BidComparator($taskId);
+        usort($eligible, static fn (ProviderBid $a, ProviderBid $b): int => $comparator->compare($a, $b));
+        $winner = $eligible[0];
+
+        foreach (array_slice($eligible, 1) as $other) {
+            [, $step] = $comparator->stepCompare($winner, $other);
+            $rejectedReasons[$other->providerId] = "lost_on_{$step}";
+        }
+        ksort($rejectedReasons);
+
+        return [
+            'winner_provider_id' => $winner->providerId,
+            'selected_reason' => $isHighRisk
+                ? 'highest_ranked_bid_meeting_high_risk_capability_floor'
+                : 'highest_ranked_eligible_bid',
+            'rejected_bid_reasons' => $rejectedReasons,
+            'risk_tier' => $riskTier,
+        ];
     }
 }

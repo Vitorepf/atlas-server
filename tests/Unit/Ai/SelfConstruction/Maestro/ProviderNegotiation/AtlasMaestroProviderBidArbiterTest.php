@@ -162,4 +162,59 @@ final class AtlasMaestroProviderBidArbiterTest extends TestCase
         $this->assertSame('tiebreak', $v1->decisiveCriterion);
         $this->assertSame($v1->winnerProviderId, $v2->winnerProviderId, 'tiebreak winner must be stable regardless of input order');
     }
+
+    // ── arbitrateWithReasons(): risk-aware capability floor + explicit reason trail ──────
+
+    public function test_unsafe_or_ineligible_bid_never_wins_even_when_cheapest(): void
+    {
+        $cheapUnsafe = $this->bid(['providerId' => 'cheap-unsafe', 'declaredCostUnits' => 1, 'eligibilityBool' => false, 'ineligibilityReasons' => ['risk_tier_mismatch']]);
+        $safe = $this->bid(['providerId' => 'safe', 'declaredCostUnits' => 999]);
+
+        $result = (new AtlasMaestroProviderBidArbiter())->arbitrateWithReasons(new BidSet([$cheapUnsafe, $safe]), 'task-1');
+
+        $this->assertSame('safe', $result['winner_provider_id']);
+        $this->assertStringContainsString('risk_tier_mismatch', $result['rejected_bid_reasons']['cheap-unsafe']);
+    }
+
+    public function test_high_risk_task_rejects_bid_below_capability_floor_that_would_otherwise_win(): void
+    {
+        $weak = $this->bid(['providerId' => 'weak', 'capabilityScore' => 50]);
+
+        $normalResult = (new AtlasMaestroProviderBidArbiter())->arbitrateWithReasons(new BidSet([$weak]), 'task-1', ['risk_tier' => 'normal']);
+        $highRiskResult = (new AtlasMaestroProviderBidArbiter())->arbitrateWithReasons(new BidSet([$weak]), 'task-1', ['risk_tier' => 'high']);
+
+        $this->assertSame('weak', $normalResult['winner_provider_id']);
+        $this->assertNull($highRiskResult['winner_provider_id']);
+        $this->assertSame(
+            'insufficient_proof_capability_for_high_risk_task',
+            $highRiskResult['rejected_bid_reasons']['weak'],
+        );
+    }
+
+    public function test_high_risk_task_selects_bid_meeting_capability_floor(): void
+    {
+        $strong = $this->bid(['providerId' => 'strong', 'capabilityScore' => 90]);
+        $weak = $this->bid(['providerId' => 'weak', 'capabilityScore' => 50]);
+
+        $result = (new AtlasMaestroProviderBidArbiter())->arbitrateWithReasons(new BidSet([$strong, $weak]), 'task-1', ['risk_tier' => 'high']);
+
+        $this->assertSame('strong', $result['winner_provider_id']);
+        $this->assertSame(
+            'insufficient_proof_capability_for_high_risk_task',
+            $result['rejected_bid_reasons']['weak'],
+        );
+    }
+
+    public function test_arbitration_result_includes_selected_reason_and_rejected_bid_reasons(): void
+    {
+        $a = $this->bid(['providerId' => 'A', 'capabilityScore' => 90]);
+        $b = $this->bid(['providerId' => 'B', 'capabilityScore' => 80]);
+
+        $result = (new AtlasMaestroProviderBidArbiter())->arbitrateWithReasons(new BidSet([$a, $b]), 'task-1');
+
+        $this->assertArrayHasKey('selected_reason', $result);
+        $this->assertArrayHasKey('rejected_bid_reasons', $result);
+        $this->assertNotEmpty($result['selected_reason']);
+        $this->assertSame('lost_on_capability', $result['rejected_bid_reasons']['B']);
+    }
 }
