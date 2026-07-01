@@ -26,7 +26,11 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *      unresolved gap to pivot toward: work through what already exists before creating more.
  *   5. pivot_to_gap                — theme is saturated but unresolved high-priority gaps exist.
  *   6. keep_originating            — queue is not yet sufficient and nothing above blocks it.
- *   7. consolidate_existing_queue  — default fallback (never silently keep_originating).
+ *   7. pivot_to_gap                — queue depth is ALREADY sufficient, nothing above blocks it,
+ *      but unresolved high-priority gaps remain. Claimable depth is supply-buffer management,
+ *      not the operator's continuous-evolution goal: a "sufficient" number of queued tasks must
+ *      never read as an excuse to go idle while unexhausted high-leverage surfaces exist.
+ *   8. consolidate_existing_queue  — default fallback (never silently keep_originating).
  *
  * Pure: no I/O, no queue mutation; composes 3 already-pure ExternalBrain advisors.
  */
@@ -142,6 +146,10 @@ final class AtlasExternalBrainOriginatorStopOrPivotAdvisor
             ! $queueSufficient && ! $lowValue && ! $saturationHigh && ! $lowDiversity => [
                 self::ACTION_KEEP_ORIGINATING,
                 ['queue_below_target', 'recent_batch_healthy', 'no_saturation_or_novelty_concern'],
+            ],
+            $queueSufficient && $unresolvedHighPriorityGaps !== [] => [
+                self::ACTION_PIVOT_TO_GAP,
+                ['queue_depth_sufficient_is_supply_buffer_not_the_operator_goal', 'unresolved_high_priority_gaps_present_continue_high_leverage_origination'],
             ],
             default => [
                 self::ACTION_CONSOLIDATE_EXISTING_QUEUE,
