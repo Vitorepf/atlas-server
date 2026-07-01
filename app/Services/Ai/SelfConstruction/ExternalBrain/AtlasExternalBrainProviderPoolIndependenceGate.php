@@ -12,10 +12,21 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Evaluates each provider claim against 6 fixed failure scenarios:
  *   provider_outage, quota_exhausted, sdk_missing, ui_only, low_quality, policy_disabled.
  *
- * autonomy_preserved for a (provider, scenario) pair = has_local_fallback AND NOT required_for_steady_state.
+ * autonomy_preserved for a (provider, scenario) pair = is_atlas_native OR (has_exit_path AND NOT
+ * required_for_steady_state). has_exit_path = has_local_fallback OR replacement_path OR
+ * sunset_criteria (AC3: any one of fallback/replacement/sunset satisfies the exit requirement).
  * A provider is required_for_steady_state when the input claims it, regardless of fallback presence.
  *
- * production_promotion_blocked = true when ANY provider is required_for_steady_state=true.
+ * pool_classification (AC2) per provider:
+ *   native                — is_atlas_native=true (no external dependency at all)
+ *   prohibited_dependency — non-native AND required_for_steady_state=true (blocks production
+ *                           regardless of exit path — AC4)
+ *   risky_dependency      — non-native, not required, but has_exit_path=false (no fallback,
+ *                           replacement path or sunset criteria declared)
+ *   acceleration_only     — non-native, not required, has_exit_path=true (safe accelerator)
+ *
+ * production_promotion_blocked = true when ANY NON-native provider is required_for_steady_state=true.
+ * A native provider being required for steady state is the intended architecture, not a violation.
  *
  * Pure: no I/O, no side effects, never creates tasks. It only reports
  * minimal_next_tasks_needed_to_restore_independence as plain strings for a
@@ -27,6 +38,9 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     has_local_fallback?:            bool  (default false)
  *     required_for_steady_state?:     bool  (default false)
  *     missing_fallback_capabilities?: list<string>  (default [])
+ *     is_atlas_native?:               bool  (default false)
+ *     replacement_path?:              string (default '')
+ *     sunset_criteria?:               string (default '')
  *   }>
  */
 final class AtlasExternalBrainProviderPoolIndependenceGate
@@ -54,6 +68,7 @@ final class AtlasExternalBrainProviderPoolIndependenceGate
         $requiredProviders = [];
         $missingFallbackCapabilities = [];
         $tasks = [];
+        $poolClassification = [];
 
         foreach ($providers as $claim) {
             if (! is_array($claim) || ! isset($claim['provider'])) {
@@ -64,8 +79,24 @@ final class AtlasExternalBrainProviderPoolIndependenceGate
             $hasFallback = (bool) ($claim['has_local_fallback'] ?? false);
             $required = (bool) ($claim['required_for_steady_state'] ?? false);
             $missingCaps = is_array($claim['missing_fallback_capabilities'] ?? null) ? $claim['missing_fallback_capabilities'] : [];
+            $isNative = (bool) ($claim['is_atlas_native'] ?? false);
+            $replacementPath = trim((string) ($claim['replacement_path'] ?? ''));
+            $sunsetCriteria = trim((string) ($claim['sunset_criteria'] ?? ''));
+            $hasExitPath = $hasFallback || $replacementPath !== '' || $sunsetCriteria !== '';
 
-            $autonomyPreserved = $hasFallback && ! $required;
+            $autonomyPreserved = $isNative || ($hasExitPath && ! $required);
+
+            $classification = match (true) {
+                $isNative => 'native',
+                $required => 'prohibited_dependency',
+                ! $hasExitPath => 'risky_dependency',
+                default => 'acceleration_only',
+            };
+            $poolClassification[] = [
+                'provider' => $provider,
+                'classification' => $classification,
+                'has_exit_path' => $hasExitPath,
+            ];
 
             foreach (self::SCENARIOS as $scenario) {
                 $scenarioResults[] = [
@@ -75,7 +106,7 @@ final class AtlasExternalBrainProviderPoolIndependenceGate
                 ];
             }
 
-            if ($required) {
+            if ($required && ! $isNative) {
                 $requiredProviders[] = $provider;
             }
 
@@ -103,6 +134,7 @@ final class AtlasExternalBrainProviderPoolIndependenceGate
             'scenario_results' => $scenarioResults,
             'missing_fallback_capabilities' => $missingFallbackCapabilities,
             'minimal_next_tasks_needed_to_restore_independence' => array_values(array_unique($tasks)),
+            'pool_classification' => $poolClassification,
         ];
     }
 }
