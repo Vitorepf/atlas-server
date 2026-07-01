@@ -122,14 +122,16 @@ final class AtlasExternalBrainLearningRetentionPolicy
             return ['revalidation_needed', 'high_utility_stale_needs_revalidation'];
         }
 
+        // 3.7. Contradicted by newer outcome evidence → decay (AC2 new). Checked before the
+        // generic unconfirmed-decay rule so real evidence-based contradiction is never masked
+        // by the vaguer "old_unconfirmed_hint" reason.
+        if ($contradictionEvidence !== []) {
+            return ['decaying', 'contradicted_by_outcome_evidence'];
+        }
+
         // 4. Unconfirmed and too old → decay.
         if (! $confirmed && $ageDays > self::UNCONFIRMED_DECAY_DAYS) {
             return ['decaying', 'old_unconfirmed_hint'];
-        }
-
-        // 4.5. Contradicted by newer outcome evidence → decay (AC2 new).
-        if ($contradictionEvidence !== []) {
-            return ['decaying', 'contradicted_by_outcome_evidence'];
         }
 
         // 5. High utility and recent → retain.

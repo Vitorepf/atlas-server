@@ -237,6 +237,22 @@ final class AtlasExternalBrainLearningRetentionPolicyTest extends TestCase
         $this->assertSame('contradicted_by_outcome_evidence', $r['decaying'][0]['reason']);
     }
 
+    public function test_contradiction_reason_wins_over_old_unconfirmed_hint(): void
+    {
+        // Unconfirmed + older than the 14-day decay window would normally yield
+        // old_unconfirmed_hint, but explicit contradiction evidence must take priority.
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec([
+                'confirmed' => false,
+                'age_days' => 30,
+                'contradiction_evidence' => ['newer_run_failed'],
+            ]),
+        ]]);
+
+        $this->assertSame(1, $r['decaying_count']);
+        $this->assertSame('contradicted_by_outcome_evidence', $r['decaying'][0]['reason']);
+    }
+
     public function test_high_utility_recent_is_not_contradicted_when_evidence_empty(): void
     {
         $r = $this->policy()->evaluate(['learning_records' => [
