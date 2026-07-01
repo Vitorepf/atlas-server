@@ -201,6 +201,64 @@ final class AtlasMaestroQueueAgeHistogramTest extends TestCase
         $this->assertSame(3, $hA['total_claimable']); // read-only: no packets added/removed
     }
 
+    public function test_old_low_value_task_is_reported_in_stale_low_value_bucket(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $packet = $this->claimableFor($now, 7200, 'claimable_since');
+        $packet['value_score'] = 0.1;
+        $queue = $this->inlineQueue([$packet]);
+
+        $h = (new AtlasMaestroQueueAgeHistogram($queue, static fn (): DateTimeImmutable => $now))->histogram();
+
+        $this->assertSame('stale_low_value', $h['packet_classifications'][0]['recommended_action']);
+        $this->assertContains('packet_7200', $h['stale_low_value_ids']);
+        $this->assertSame([], $h['priority_rescue_ids']);
+    }
+
+    public function test_old_high_value_task_is_reported_as_priority_rescue_candidate(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $packet = $this->claimableFor($now, 7200, 'claimable_since');
+        $packet['value_score'] = 0.9;
+        $queue = $this->inlineQueue([$packet]);
+
+        $h = (new AtlasMaestroQueueAgeHistogram($queue, static fn (): DateTimeImmutable => $now))->histogram();
+
+        $this->assertSame('priority_rescue', $h['packet_classifications'][0]['recommended_action']);
+        $this->assertContains('packet_7200', $h['priority_rescue_ids']);
+        $this->assertSame([], $h['stale_low_value_ids']);
+    }
+
+    public function test_histogram_output_includes_age_bucket_value_decay_and_recommended_action(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $packet = $this->claimableFor($now, 30, 'claimable_since');
+        $packet['value_score'] = 0.8;
+        $queue = $this->inlineQueue([$packet]);
+
+        $h = (new AtlasMaestroQueueAgeHistogram($queue, static fn (): DateTimeImmutable => $now))->histogram();
+
+        $classification = $h['packet_classifications'][0];
+        $this->assertArrayHasKey('age_bucket', $classification);
+        $this->assertArrayHasKey('value_decay', $classification);
+        $this->assertArrayHasKey('recommended_action', $classification);
+        $this->assertSame('<1m', $classification['age_bucket']);
+        $this->assertSame('none', $classification['recommended_action']); // fresh, not old
+        $this->assertGreaterThan(0.0, $classification['value_decay']);
+    }
+
+    public function test_young_low_value_task_is_not_classified_stale_or_rescue(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $packet = $this->claimableFor($now, 30, 'claimable_since');
+        $packet['value_score'] = 0.1;
+        $queue = $this->inlineQueue([$packet]);
+
+        $h = (new AtlasMaestroQueueAgeHistogram($queue, static fn (): DateTimeImmutable => $now))->histogram();
+
+        $this->assertSame('none', $h['packet_classifications'][0]['recommended_action']);
+    }
+
     /** @param list<array<string,mixed>> $packets */
     private function inlineQueue(array $packets): object
     {
