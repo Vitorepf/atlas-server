@@ -251,4 +251,50 @@ final class AtlasExternalBrainQueueSaturationQualityGovernorTest extends TestCas
         $this->assertGreaterThanOrEqual(0.0, $r['queue_pressure']);
         $this->assertLessThanOrEqual(1.0, $r['queue_pressure']);
     }
+
+    // ── AC1: value exception — deep queue with strong leverage+diversity still creates ───
+
+    public function test_deep_queue_with_strong_leverage_and_diversity_creates_high_value_batch(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts([
+            'servable_depth' => 50,
+            'active_workers' => 2,
+            'target_diversity' => 0.9,
+            'leverage_evidence_density' => 0.9,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_CREATE_HIGH_VALUE_BATCH, $r['decision']);
+        $this->assertTrue($r['value_exception_applied']);
+        $this->assertNull($r['stop_reason']);
+    }
+
+    public function test_deep_queue_without_leverage_evidence_is_not_a_value_exception(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts([
+            'servable_depth' => 50,
+            'active_workers' => 2,
+            'target_diversity' => 0.9,
+            'leverage_evidence_density' => 0.1,
+        ]));
+
+        $this->assertNotSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_CREATE_HIGH_VALUE_BATCH, $r['decision']);
+        $this->assertFalse($r['value_exception_applied']);
+        $this->assertNotNull($r['stop_reason']);
+    }
+
+    public function test_stop_reason_present_when_repairing(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts(['malformed_rate' => 0.9]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_REPAIR_SPECS_BEFORE_CREATION, $r['decision']);
+        $this->assertNotNull($r['stop_reason']);
+    }
+
+    public function test_output_has_stop_reason_and_value_exception_keys(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts());
+
+        $this->assertArrayHasKey('stop_reason', $r);
+        $this->assertArrayHasKey('value_exception_applied', $r);
+    }
 }

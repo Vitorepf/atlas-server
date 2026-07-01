@@ -92,8 +92,14 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
                 'queue_pressure' => $queuePressure,
                 'diversity_warning' => $lowDiversity,
                 'stop_go_decision' => 'stop',
+                'stop_reason' => 'queue_health_sick:'.implode(',', $causes),
+                'value_exception_applied' => false,
             ];
         }
+
+        // AC1: sufficient_depth is never a stop excuse on its own — a deep queue with strong
+        // leverage evidence and healthy diversity still proceeds via the value exception.
+        $valueExceptionApplied = $isDeep && ! $lowDiversity && ! $leverageInsufficient;
 
         if ($isDeep && $lowDiversity) {
             return [
@@ -109,6 +115,8 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
                 'queue_pressure' => $queuePressure,
                 'diversity_warning' => true,
                 'stop_go_decision' => 'review',
+                'stop_reason' => 'deep_queue_low_diversity',
+                'value_exception_applied' => false,
             ];
         }
 
@@ -128,6 +136,8 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
                 'queue_pressure' => $queuePressure,
                 'diversity_warning' => $lowDiversity,
                 'stop_go_decision' => 'review',
+                'stop_reason' => 'leverage_evidence_density_below_floor',
+                'value_exception_applied' => false,
             ];
         }
 
@@ -149,6 +159,8 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
             'queue_pressure' => $queuePressure,
             'diversity_warning' => $lowDiversity,
             'stop_go_decision' => 'go',
+            'stop_reason' => null,
+            'value_exception_applied' => $valueExceptionApplied,
         ];
     }
 }
