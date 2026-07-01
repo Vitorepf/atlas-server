@@ -21,6 +21,9 @@ final class AtlasSelfConstructionAutonomyPromotionGate
 
     public const VERDICT_REFUSE = 'refuse';
 
+    /** Borderline state requiring operator eyes before either promoting or refusing. */
+    public const VERDICT_REVIEW = 'review';
+
     public const REQUIRED_FACT_KEYS = [
         'queue_health_green',
         'native_implementation_ready',
@@ -80,6 +83,22 @@ final class AtlasSelfConstructionAutonomyPromotionGate
             }
         }
 
+        // Opt-in hard block: a proven regression in human dependency is a stop-ship condition,
+        // not a fixable evidence gap — refuse rather than hold. Absent key ⇒ no regression assumed.
+        if (($facts['human_dependency_regression_detected'] ?? false) === true) {
+            return $this->envelope(self::VERDICT_REFUSE, $fromLevel, $toLevel, [
+                'refusal_reason' => 'human_dependency_regression_detected',
+            ]);
+        }
+
+        // Opt-in borderline state: operator explicitly flagged this promotion for manual review.
+        // Absent key ⇒ automated evaluation proceeds as before.
+        if (($facts['operator_review_required'] ?? false) === true) {
+            return $this->envelope(self::VERDICT_REVIEW, $fromLevel, $toLevel, [
+                'review_reason' => (string) ($facts['review_reason'] ?? 'operator_review_requested'),
+            ]);
+        }
+
         $keysToCheck = $toLevel === AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_24_7
             ? array_merge(self::REQUIRED_FACT_KEYS, self::REQUIRED_FACT_KEYS_24_7)
             : self::REQUIRED_FACT_KEYS;
@@ -95,6 +114,12 @@ final class AtlasSelfConstructionAutonomyPromotionGate
             if ($facts[$key] !== true) {
                 $failing[] = $key;
             }
+        }
+
+        // Opt-in context-freshness check: a stale context pack is a fixable evidence gap
+        // (refresh and retry), so it joins the hold path rather than a hard refuse.
+        if (($facts['context_pack_stale'] ?? false) === true) {
+            $failing[] = 'context_pack_stale';
         }
 
         if ($missing !== [] || $failing !== []) {

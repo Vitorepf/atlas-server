@@ -191,4 +191,75 @@ final class AtlasSelfConstructionAutonomyPromotionGateTest extends TestCase
 
         $this->assertSame('promote', $verdict['verdict']);
     }
+
+    // ── AC: human dependency regression, stale context, missing rollback, review mode ──
+
+    public function test_human_dependency_regression_hard_refuses_even_when_all_other_facts_are_green(): void
+    {
+        $gate = new AtlasSelfConstructionAutonomyPromotionGate(new AtlasSelfConstructionAutonomyLevelLadder);
+
+        $facts = $this->allFactsGreen();
+        $facts['human_dependency_regression_detected'] = true;
+
+        $verdict = $gate->evaluate(
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED,
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_BOUNDED,
+            $facts,
+        );
+
+        $this->assertSame('refuse', $verdict['verdict']);
+        $this->assertSame('human_dependency_regression_detected', $verdict['refusal_reason']);
+    }
+
+    public function test_stale_context_pack_holds_with_blocker_even_when_required_facts_are_green(): void
+    {
+        $gate = new AtlasSelfConstructionAutonomyPromotionGate(new AtlasSelfConstructionAutonomyLevelLadder);
+
+        $facts = $this->allFactsGreen();
+        $facts['context_pack_stale'] = true;
+
+        $verdict = $gate->evaluate(
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED,
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_BOUNDED,
+            $facts,
+        );
+
+        $this->assertSame('hold', $verdict['verdict']);
+        $this->assertContains('context_pack_stale', $verdict['failing_fact_keys']);
+    }
+
+    public function test_missing_rollback_proof_holds_with_it_named_in_missing_fact_keys(): void
+    {
+        $gate = new AtlasSelfConstructionAutonomyPromotionGate(new AtlasSelfConstructionAutonomyLevelLadder);
+
+        $facts = $this->allFactsGreen();
+        unset($facts['rollback_proven']);
+
+        $verdict = $gate->evaluate(
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED,
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_BOUNDED,
+            $facts,
+        );
+
+        $this->assertSame('hold', $verdict['verdict']);
+        $this->assertSame(['rollback_proven'], $verdict['missing_fact_keys']);
+    }
+
+    public function test_operator_review_required_yields_review_verdict_instead_of_promote_or_refuse(): void
+    {
+        $gate = new AtlasSelfConstructionAutonomyPromotionGate(new AtlasSelfConstructionAutonomyLevelLadder);
+
+        $facts = $this->allFactsGreen();
+        $facts['operator_review_required'] = true;
+        $facts['review_reason'] = 'borderline_capability_delta';
+
+        $verdict = $gate->evaluate(
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED,
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_BOUNDED,
+            $facts,
+        );
+
+        $this->assertSame('review', $verdict['verdict']);
+        $this->assertSame('borderline_capability_delta', $verdict['review_reason']);
+    }
 }
