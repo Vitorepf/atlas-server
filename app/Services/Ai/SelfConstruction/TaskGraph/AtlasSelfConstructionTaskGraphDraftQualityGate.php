@@ -217,6 +217,16 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
      * Evaluate a batch of drafts. Runs per-draft checks and adds batch-level checks:
      *  - lane_overconcentration: any single task_shape > LANE_QUOTA_MAX_FRACTION of batch
      *  - chain_coherence_missing: no draft carries a graph signal (unlocks, depends_on, organ_id, task_graph_id)
+     *  - orphan_task: a draft carries no graph signal while at least one sibling does (a floating
+     *    node in an otherwise-connected graph — distinct from chain_coherence_missing, which only
+     *    fires when NONE of the batch has a signal)
+     *  - circular_dependency: a cycle in the depends_on graph
+     *  - duplicate_target: two or more drafts claim the same allowed_files path
+     *
+     * `violations` reports every one of the above (plus weak_proof and over_wide_wave, aggregated
+     * from the per-draft/lane checks) as {violation_code, affected_task_ids, repair_hint} — the
+     * machine-checkable shape AC3 requires — alongside the pre-existing batch_blockers/
+     * batch_repair_hints string lists, which are untouched for backward compatibility.
      *
      * @param  list<array<string,mixed>>  $drafts
      * @param  array<string,mixed>        $queueFacts
@@ -228,17 +238,62 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
 
         $batchBlockers    = [];
         $batchRepairHints = [];
+        $violations       = [];
         $total = count($drafts);
+
+        $weakProofIds = [];
+        foreach ($drafts as $i => $draft) {
+            if (in_array('runnable_proof_missing', $perDraftResults[$i]['blockers'], true)) {
+                $weakProofIds[] = $this->taskId($draft, $i);
+            }
+        }
+        if ($weakProofIds !== []) {
+            $violations[] = [
+                'violation_code' => 'weak_proof',
+                'affected_task_ids' => $weakProofIds,
+                'repair_hint' => 'Add tests_or_gates_result to required_evidence or reference a runnable command (artisan test / phpunit) in acceptance_criteria for the affected tasks.',
+            ];
+        }
+
+        $pathOwners = [];
+        foreach ($drafts as $i => $draft) {
+            $taskId = $this->taskId($draft, $i);
+            foreach ((array) ($draft['allowed_files'] ?? []) as $path) {
+                $pathOwners[(string) $path][] = $taskId;
+            }
+        }
+        $duplicateTargetIds = [];
+        foreach ($pathOwners as $owners) {
+            if (count($owners) > 1) {
+                $duplicateTargetIds = array_merge($duplicateTargetIds, $owners);
+            }
+        }
+        $duplicateTargetIds = array_values(array_unique($duplicateTargetIds));
+        if ($duplicateTargetIds !== []) {
+            $violations[] = [
+                'violation_code' => 'duplicate_target',
+                'affected_task_ids' => $duplicateTargetIds,
+                'repair_hint' => 'Split or de-duplicate allowed_files so no two drafts claim the same target path.',
+            ];
+        }
+
         if ($total >= self::LANE_QUOTA_MIN_BATCH_SIZE) {
             $laneCounts = [];
-            foreach ($drafts as $draft) {
+            $laneTaskIds = [];
+            foreach ($drafts as $i => $draft) {
                 $lane = (string) ($draft['task_shape'] ?? $draft['lane'] ?? 'unknown');
                 $laneCounts[$lane] = ($laneCounts[$lane] ?? 0) + 1;
+                $laneTaskIds[$lane][] = $this->taskId($draft, $i);
             }
             foreach ($laneCounts as $lane => $count) {
                 if ($count / $total > self::LANE_QUOTA_MAX_FRACTION) {
                     $batchBlockers[]    = 'lane_overconcentration:'.$lane;
                     $batchRepairHints[] = "Diversify task_shape — '{$lane}' occupies more than 50% of the batch.";
+                    $violations[] = [
+                        'violation_code' => 'over_wide_wave',
+                        'affected_task_ids' => $laneTaskIds[$lane],
+                        'repair_hint' => "Diversify task_shape — '{$lane}' occupies more than 50% of the batch.",
+                    ];
                 }
             }
 
@@ -246,18 +301,109 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
             if ($graphLinked === []) {
                 $batchBlockers[]    = 'chain_coherence_missing';
                 $batchRepairHints[] = 'Add at least one graph relationship signal to the batch: set unlocks, depends_on, organ_id, or task_graph_id on at least one draft so isolated one-off packets cannot masquerade as a coherent task graph.';
+                // No task in the batch carries a graph relationship — every task is, by definition,
+                // an orphan. A batch where at least ONE task has a signal is deliberately NOT
+                // orphan-flagged: chain_coherence_missing's established contract treats one anchor
+                // as sufficient for the whole batch, and siblings without their own signal are not
+                // individually penalized.
+                $violations[] = [
+                    'violation_code' => 'orphan_task',
+                    'affected_task_ids' => array_values(array_map(fn ($i) => $this->taskId($drafts[$i], $i), array_keys($drafts))),
+                    'repair_hint' => 'Add at least one graph relationship signal to the batch: set unlocks, depends_on, organ_id, or task_graph_id on at least one draft.',
+                ];
             }
+        }
+
+        $idIndex = [];
+        foreach ($drafts as $i => $draft) {
+            $idIndex[$this->taskId($draft, $i)] = true;
+        }
+        $edges = [];
+        foreach ($drafts as $i => $draft) {
+            $from = $this->taskId($draft, $i);
+            $edges[$from] = [];
+            foreach ((array) ($draft['depends_on'] ?? []) as $dep) {
+                $depStr = (string) $dep;
+                if (isset($idIndex[$depStr])) {
+                    $edges[$from][] = $depStr;
+                }
+            }
+        }
+        $cycleIds = $this->detectCycle($edges);
+        if ($cycleIds !== []) {
+            $violations[] = [
+                'violation_code' => 'circular_dependency',
+                'affected_task_ids' => $cycleIds,
+                'repair_hint' => 'Break the dependency cycle among the affected tasks; depends_on must form a DAG.',
+            ];
         }
 
         $allPerDraftPassed = array_reduce($perDraftResults, static fn (bool $carry, array $r): bool => $carry && $r['passed'], true);
 
         return [
             'schema_version'     => self::SCHEMA,
-            'passed'             => $batchBlockers === [] && $allPerDraftPassed,
+            'passed'             => $batchBlockers === [] && $violations === [] && $allPerDraftPassed,
             'batch_blockers'     => $batchBlockers,
             'batch_repair_hints' => $batchRepairHints,
             'per_draft_results'  => $perDraftResults,
+            'violations'         => $violations,
         ];
+    }
+
+    private function taskId(array $draft, int $index): string
+    {
+        $id = (string) ($draft['task_id'] ?? '');
+
+        return $id !== '' ? $id : 'draft_'.$index;
+    }
+
+    /**
+     * Standard 3-color DFS cycle detection. Returns the node ids forming the first cycle found,
+     * or [] when the graph is a DAG.
+     *
+     * @param  array<string,list<string>>  $edges
+     * @return list<string>
+     */
+    private function detectCycle(array $edges): array
+    {
+        $state = [];
+        $path = [];
+        $cycle = [];
+
+        $visit = function (string $node) use (&$visit, &$state, &$path, $edges, &$cycle): void {
+            if ($cycle !== []) {
+                return;
+            }
+            $state[$node] = 1;
+            $path[] = $node;
+            foreach ($edges[$node] ?? [] as $next) {
+                if ($cycle !== []) {
+                    return;
+                }
+                if (($state[$next] ?? 0) === 1) {
+                    $idx = array_search($next, $path, true);
+                    $cycle = array_slice($path, (int) $idx);
+
+                    return;
+                }
+                if (($state[$next] ?? 0) === 0) {
+                    $visit($next);
+                }
+            }
+            array_pop($path);
+            $state[$node] = 2;
+        };
+
+        foreach (array_keys($edges) as $node) {
+            if ($cycle !== []) {
+                break;
+            }
+            if (($state[$node] ?? 0) === 0) {
+                $visit($node);
+            }
+        }
+
+        return $cycle;
     }
 
     /**

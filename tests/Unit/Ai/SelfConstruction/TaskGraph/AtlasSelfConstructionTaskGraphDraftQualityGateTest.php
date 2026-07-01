@@ -164,8 +164,8 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGateTest extends TestCase
     {
         $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
         $drafts = [
-            $this->validDraft(['task_shape' => 'feature', 'objective' => 'Add X']),
-            $this->validDraft(['task_shape' => 'bug-fix', 'objective' => 'Fix Y']),
+            $this->validDraft(['task_shape' => 'feature', 'objective' => 'Add X', 'allowed_files' => ['app/Services/X.php', 'tests/Unit/XTest.php'], 'scope_in' => ['app/Services/X.php', 'tests/Unit/XTest.php']]),
+            $this->validDraft(['task_shape' => 'bug-fix', 'objective' => 'Fix Y', 'allowed_files' => ['app/Services/Y.php', 'tests/Unit/YTest.php'], 'scope_in' => ['app/Services/Y.php', 'tests/Unit/YTest.php']]),
         ];
 
         $result = $gate->evaluateBatch($drafts);
@@ -207,8 +207,8 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGateTest extends TestCase
     {
         $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
         $drafts = [
-            $this->validDraft(['task_shape' => 'feature', 'task_graph_id' => 'tg-1', 'objective' => 'Add X']),
-            $this->validDraft(['task_shape' => 'bug-fix', 'task_graph_id' => '',     'objective' => 'Fix Y']),
+            $this->validDraft(['task_shape' => 'feature', 'task_graph_id' => 'tg-1', 'objective' => 'Add X', 'allowed_files' => ['app/Services/X.php', 'tests/Unit/XTest.php'], 'scope_in' => ['app/Services/X.php', 'tests/Unit/XTest.php']]),
+            $this->validDraft(['task_shape' => 'bug-fix', 'task_graph_id' => '',     'objective' => 'Fix Y', 'allowed_files' => ['app/Services/Y.php', 'tests/Unit/YTest.php'], 'scope_in' => ['app/Services/Y.php', 'tests/Unit/YTest.php']]),
         ];
 
         $result = $gate->evaluateBatch($drafts);
@@ -330,6 +330,101 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGateTest extends TestCase
         $this->assertFalse($verdict['passed']);
         $this->assertNull($verdict['capability_delta']);
         $this->assertNull($verdict['proof_kind']);
+    }
+
+    // ── AC2/AC3: structured violations (violation_code, affected_task_ids, repair_hint) ──
+
+    public function test_valid_graph_batch_has_no_violations(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_id' => 't1', 'task_shape' => 'feature', 'objective' => 'Add X', 'allowed_files' => ['app/Services/X.php', 'tests/Unit/XTest.php'], 'scope_in' => ['app/Services/X.php', 'tests/Unit/XTest.php']]),
+            $this->validDraft(['task_id' => 't2', 'task_shape' => 'bug-fix', 'objective' => 'Fix Y', 'allowed_files' => ['app/Services/Y.php', 'tests/Unit/YTest.php'], 'scope_in' => ['app/Services/Y.php', 'tests/Unit/YTest.php']]),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertTrue($result['passed']);
+        $this->assertSame([], $result['violations']);
+    }
+
+    public function test_orphan_task_violation_reports_all_task_ids_when_batch_has_no_graph_signal(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_id' => 't1', 'task_graph_id' => '', 'depends_on' => [], 'objective' => 'Add A', 'allowed_files' => ['app/Services/A.php', 'tests/Unit/ATest.php'], 'scope_in' => ['app/Services/A.php', 'tests/Unit/ATest.php']]),
+            $this->validDraft(['task_id' => 't2', 'task_graph_id' => '', 'depends_on' => [], 'objective' => 'Add B', 'allowed_files' => ['app/Services/B.php', 'tests/Unit/BTest.php'], 'scope_in' => ['app/Services/B.php', 'tests/Unit/BTest.php']]),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertFalse($result['passed']);
+        $orphan = array_values(array_filter($result['violations'], fn ($v) => $v['violation_code'] === 'orphan_task'))[0];
+        $this->assertSame(['t1', 't2'], $orphan['affected_task_ids']);
+        $this->assertNotEmpty($orphan['repair_hint']);
+    }
+
+    public function test_circular_dependency_violation_reports_the_cycle_task_ids(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_id' => 't1', 'depends_on' => ['t2'], 'objective' => 'Add A', 'allowed_files' => ['app/Services/A.php', 'tests/Unit/ATest.php'], 'scope_in' => ['app/Services/A.php', 'tests/Unit/ATest.php']]),
+            $this->validDraft(['task_id' => 't2', 'depends_on' => ['t1'], 'objective' => 'Add B', 'allowed_files' => ['app/Services/B.php', 'tests/Unit/BTest.php'], 'scope_in' => ['app/Services/B.php', 'tests/Unit/BTest.php']]),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertFalse($result['passed']);
+        $cycle = array_values(array_filter($result['violations'], fn ($v) => $v['violation_code'] === 'circular_dependency'))[0];
+        $this->assertContains('t1', $cycle['affected_task_ids']);
+        $this->assertContains('t2', $cycle['affected_task_ids']);
+    }
+
+    public function test_duplicate_target_violation_reports_task_ids_sharing_a_path(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_id' => 't1', 'objective' => 'Add A', 'allowed_files' => ['app/Services/Shared.php', 'tests/Unit/ATest.php'], 'scope_in' => ['app/Services/Shared.php', 'tests/Unit/ATest.php']]),
+            $this->validDraft(['task_id' => 't2', 'objective' => 'Add B', 'allowed_files' => ['app/Services/Shared.php', 'tests/Unit/BTest.php'], 'scope_in' => ['app/Services/Shared.php', 'tests/Unit/BTest.php']]),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertFalse($result['passed']);
+        $dup = array_values(array_filter($result['violations'], fn ($v) => $v['violation_code'] === 'duplicate_target'))[0];
+        $this->assertContains('t1', $dup['affected_task_ids']);
+        $this->assertContains('t2', $dup['affected_task_ids']);
+    }
+
+    public function test_weak_proof_violation_reports_affected_task_id(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_id' => 't1', 'objective' => 'Add A', 'required_evidence' => ['implementation_notes'], 'acceptance_criteria' => ['Does the thing'], 'allowed_files' => ['app/Services/A.php', 'tests/Unit/ATest.php'], 'scope_in' => ['app/Services/A.php', 'tests/Unit/ATest.php']]),
+            $this->validDraft(['task_id' => 't2', 'objective' => 'Add B', 'allowed_files' => ['app/Services/B.php', 'tests/Unit/BTest.php'], 'scope_in' => ['app/Services/B.php', 'tests/Unit/BTest.php']]),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertFalse($result['passed']);
+        $weak = array_values(array_filter($result['violations'], fn ($v) => $v['violation_code'] === 'weak_proof'))[0];
+        $this->assertSame(['t1'], $weak['affected_task_ids']);
+    }
+
+    public function test_over_wide_wave_violation_reports_lane_task_ids(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_id' => 't1', 'task_shape' => 'bug-fix', 'objective' => 'Fix A', 'allowed_files' => ['app/Services/A.php', 'tests/Unit/ATest.php'], 'scope_in' => ['app/Services/A.php', 'tests/Unit/ATest.php']]),
+            $this->validDraft(['task_id' => 't2', 'task_shape' => 'bug-fix', 'objective' => 'Fix B', 'allowed_files' => ['app/Services/B.php', 'tests/Unit/BTest.php'], 'scope_in' => ['app/Services/B.php', 'tests/Unit/BTest.php']]),
+            $this->validDraft(['task_id' => 't3', 'task_shape' => 'bug-fix', 'objective' => 'Fix C', 'allowed_files' => ['app/Services/C.php', 'tests/Unit/CTest.php'], 'scope_in' => ['app/Services/C.php', 'tests/Unit/CTest.php']]),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertFalse($result['passed']);
+        $wide = array_values(array_filter($result['violations'], fn ($v) => $v['violation_code'] === 'over_wide_wave'))[0];
+        $this->assertSame(['t1', 't2', 't3'], $wide['affected_task_ids']);
     }
 
     public function test_chain_coherence_missing_and_lane_overconcentration_can_both_fire(): void
