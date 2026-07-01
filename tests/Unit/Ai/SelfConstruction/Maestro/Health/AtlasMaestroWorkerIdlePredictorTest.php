@@ -326,6 +326,210 @@ final class AtlasMaestroWorkerIdlePredictorTest extends TestCase
         $this->assertSame('no_consumption_observed', $projection['reason']);
     }
 
+    // ── AC: high drain with falling claimable depth predicts idle risk ─────────
+
+    public function test_high_drain_with_falling_claimable_depth_predicts_idle_risk(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 8, 'claimable_depth_delta' => -4];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 20, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame('high', $projection['idle_risk']);
+        $this->assertSame('urgent_topup', $projection['recommended_topup_mode']);
+    }
+
+    public function test_high_drain_with_rising_claimable_depth_is_not_idle_risk(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 8, 'claimable_depth_delta' => 3];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 20, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame('low', $projection['idle_risk']);
+    }
+
+    public function test_missing_depth_delta_never_asserts_idle_risk(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 8];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 20, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame('low', $projection['idle_risk']);
+    }
+
+    // ── AC: deep queue with weak quality predicts effective_idle_risk ──────────
+
+    public function test_deep_queue_with_weak_quality_predicts_effective_idle_risk(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 15, 'task_quality_floor_breached' => true];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 5, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertTrue($projection['effective_idle_risk']);
+        $this->assertSame('quality_repair_before_topup', $projection['recommended_topup_mode']);
+    }
+
+    public function test_deep_queue_with_healthy_quality_is_not_effective_idle_risk(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 15, 'task_quality_floor_breached' => false];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 5, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertFalse($projection['effective_idle_risk']);
+    }
+
+    public function test_shallow_queue_with_weak_quality_is_not_effective_idle_risk(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 2, 'task_quality_floor_breached' => true];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 5, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertFalse($projection['effective_idle_risk']);
+    }
+
+    // ── AC: output includes forecast_window and recommended_topup_mode ─────────
+
+    public function test_output_includes_forecast_window_and_recommended_topup_mode(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 5];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 5, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertArrayHasKey('forecast_window', $projection);
+        $this->assertSame(60, $projection['forecast_window']['elapsed_seconds']);
+        $this->assertArrayHasKey('estimated', $projection['forecast_window']);
+        $this->assertArrayHasKey('recommended_topup_mode', $projection);
+        $this->assertNotEmpty($projection['recommended_topup_mode']);
+    }
+
+    public function test_empty_queue_recommends_immediate_topup(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 0];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 10, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame('immediate_topup', $projection['recommended_topup_mode']);
+    }
+
     /** @return array<string,mixed> */
     private function project(int $depth, int $serveTotal, int $elapsedSeconds, DateTimeImmutable $now): array
     {

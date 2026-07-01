@@ -17,6 +17,10 @@ final class AtlasMaestroWorkerIdlePredictor
 
     private const MIN_WINDOW_SECONDS = 30;
 
+    private const HIGH_DRAIN_PER_MINUTE = 5.0;
+
+    private const DEEP_QUEUE_THRESHOLD = 10;
+
     private Closure $clock;
 
     /**
@@ -66,6 +70,26 @@ final class AtlasMaestroWorkerIdlePredictor
         $degradedWindow = $windowEstimated || $windowTooSmall;
         $confidence = $degradedWindow ? 'low' : $this->confidence($serveTotal);
 
+        // Falling depth is only asserted when the health snapshot actually reports a delta —
+        // absent evidence never gets read as "falling", to avoid a false idle-risk alarm.
+        $claimableDepthDelta = $this->claimableDepthDelta($health);
+        $fallingDepth = $claimableDepthDelta !== null && $claimableDepthDelta < 0;
+        $highDrain = $serveRatePerMinute >= self::HIGH_DRAIN_PER_MINUTE;
+        $idleRisk = ($highDrain && $fallingDepth) ? 'high' : 'low';
+
+        // Weak-quality supply looks like plenty of raw depth but starves real completion —
+        // reuses the same task_quality_floor_breached vocabulary as AtlasMaestroReplenishUrgencyClassifier.
+        $deepQueue = $claimableDepth >= self::DEEP_QUEUE_THRESHOLD;
+        $weakQuality = (bool) ($health['task_quality_floor_breached'] ?? false);
+        $effectiveIdleRisk = $deepQueue && $weakQuality;
+
+        $recommendedTopupMode = match (true) {
+            $effectiveIdleRisk => 'quality_repair_before_topup',
+            $idleRisk === 'high' => 'urgent_topup',
+            $claimableDepth === 0 => 'immediate_topup',
+            default => 'monitor',
+        };
+
         $projection = [
             'schema' => self::SCHEMA,
             'claimable_depth' => $claimableDepth,
@@ -82,6 +106,13 @@ final class AtlasMaestroWorkerIdlePredictor
             'seconds_until_dry' => null,
             'projected_idle_at_iso8601' => null,
             'confidence' => $confidence,
+            'idle_risk' => $idleRisk,
+            'effective_idle_risk' => $effectiveIdleRisk,
+            'forecast_window' => [
+                'elapsed_seconds' => $elapsedSeconds,
+                'estimated' => $windowEstimated,
+            ],
+            'recommended_topup_mode' => $recommendedTopupMode,
         ];
 
         if ($serveRatePerMinute <= 0.0) {
@@ -185,6 +216,23 @@ final class AtlasMaestroWorkerIdlePredictor
         }
 
         return 0;
+    }
+
+    /**
+     * Signed delta of claimable depth vs the last observed reading, when the health snapshot
+     * reports one. Null (not zero) when absent — a missing delta is unknown, never "flat".
+     *
+     * @param  array<string,mixed>  $health
+     */
+    private function claimableDepthDelta(array $health): ?int
+    {
+        foreach (['claimable_depth_delta', 'claimable_depth_trend'] as $key) {
+            if (isset($health[$key]) && is_numeric($health[$key])) {
+                return (int) $health[$key];
+            }
+        }
+
+        return null;
     }
 
     /** @param array<string,mixed> $serving */
