@@ -21,6 +21,8 @@ final class AtlasContextFreshnessQualityGateService
 
     public const STALENESS_ASSESSMENT_SCHEMA = 'atlas.aucri.context_staleness_assessment.v1';
 
+    public const DECISION_LADDER_SCHEMA = 'atlas.aucri.context_decision_ladder.v1';
+
     public function __construct(
         private readonly AtlasContextRankingSystemService $rankingSystem,
         private readonly ContextPackStalenessClassifier $stalenessClassifier = new ContextPackStalenessClassifier(),
@@ -42,6 +44,7 @@ final class AtlasContextFreshnessQualityGateService
         $contradictions = $this->contradictionReport((array) ($input['contradictions'] ?? []));
         $freshnessReport = $this->freshnessReport($selectedRefs, $risk);
         $qualityGate = $this->qualityGate($ranking, $selectedRefs, $coverage, $freshnessReport, $contradictions, $risk);
+        $decisionLadder = $this->decisionLadder($freshnessReport, $qualityGate, $risk);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -49,6 +52,7 @@ final class AtlasContextFreshnessQualityGateService
             'generated_at' => Carbon::now()->toIso8601String(),
             'freshness_report' => $freshnessReport,
             'context_quality_gate' => $qualityGate,
+            'decision_ladder' => $decisionLadder,
             'contradiction_report' => $contradictions,
             'ranking_ref' => [
                 'schema_version' => (string) ($ranking['schema_version'] ?? AtlasContextRankingSystemService::SCHEMA_VERSION),
@@ -295,6 +299,45 @@ final class AtlasContextFreshnessQualityGateService
                 'degraded' => 'rerun_retrieval_or_continue_only_in_read_only_low_risk_mode',
                 default => 'rerun_ahri_acrs_with_fresh_provider_safe_sources_or_request_operator_review',
             },
+        ];
+    }
+
+    /**
+     * Turns stale, provider-unsafe, weak-authority, and contradiction signals into one concrete
+     * refresh / operator_review / allow_context decision — without ever loosening the fail-closed
+     * behavior of the underlying quality gate (this method only ever sharpens 'block_execution'
+     * into a more specific rung; it never downgrades a block into a pass).
+     *
+     * @param  array<string,mixed>  $freshnessReport
+     * @param  array<string,mixed>  $qualityGate
+     * @return array{schema_version:string, action:string, status:string, provider_unsafe:bool, stale_high_risk:bool, blocking_reasons:list<string>, warnings:list<string>}
+     */
+    private function decisionLadder(array $freshnessReport, array $qualityGate, string $risk): array
+    {
+        $providerUnsafe = (int) ($freshnessReport['provider_unsafe_count'] ?? 0) > 0;
+        $staleHighRisk = (int) ($freshnessReport['stale_count'] ?? 0) > 0 && $this->isHighRisk($risk);
+        $blockingReasons = (array) ($qualityGate['blocking_reasons'] ?? []);
+        $warnings = (array) ($qualityGate['warnings'] ?? []);
+
+        $action = match (true) {
+            // Provider-unsafe context is never allowed through with a mere refresh — it requires
+            // an operator to look at it (stricter than the generic degraded/refresh rung).
+            $providerUnsafe => 'operator_review',
+            $staleHighRisk && $blockingReasons !== [] => 'operator_review',
+            $staleHighRisk => 'refresh_retrieval',
+            $blockingReasons !== [] => 'operator_review',
+            $warnings !== [] => 'refresh_retrieval',
+            default => 'allow_context',
+        };
+
+        return [
+            'schema_version' => self::DECISION_LADDER_SCHEMA,
+            'action' => $action,
+            'status' => $action === 'allow_context' ? 'allowed' : 'blocked',
+            'provider_unsafe' => $providerUnsafe,
+            'stale_high_risk' => $staleHighRisk,
+            'blocking_reasons' => $blockingReasons,
+            'warnings' => $warnings,
         ];
     }
 
