@@ -44,6 +44,12 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
 
     public const MAX_GIVE_BACK_RATE = 0.5;
 
+    /** servable_now below active_leases * this multiplier triggers supply-pressure admission tightening. */
+    public const SUPPLY_PRESSURE_MULTIPLIER = 10;
+
+    /** Under supply pressure, normalized scope wider than this is rejected as broad. */
+    public const MAX_SCOPE_BREADTH_UNDER_PRESSURE = 2;
+
     /**
      * @param  array{
      *     requested_scope?:list<string>,
@@ -138,9 +144,38 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
             }
         }
 
-        sort($blockers, SORT_STRING);
         $normalizedScope = array_values(array_unique($normalizedScope));
         sort($normalizedScope, SORT_STRING);
+
+        // Supply-pressure admission tightening: when servable_now is thin relative to
+        // active_leases, only high-confidence packets (concrete impl+test scope, runnable
+        // acceptance, narrow scope) are admitted — broad/ambiguous packets get starved workers
+        // stuck mid-task instead of being caught early.
+        $servableNow = isset($facts['servable_now']) && is_numeric($facts['servable_now']) ? (int) $facts['servable_now'] : null;
+        $activeLeases = isset($facts['active_leases']) && is_numeric($facts['active_leases']) ? (int) $facts['active_leases'] : null;
+        $supplyPressure = $servableNow !== null && $activeLeases !== null
+            && $servableNow < $activeLeases * self::SUPPLY_PRESSURE_MULTIPLIER;
+
+        if ($supplyPressure) {
+            $hasImplementationScope = (bool) ($facts['has_implementation_scope'] ?? false);
+            $hasTestScope = (bool) ($facts['has_test_scope'] ?? false);
+            $hasRunnableAcceptance = (bool) ($facts['has_runnable_acceptance'] ?? false);
+            if (! ($hasImplementationScope && $hasTestScope && $hasRunnableAcceptance)) {
+                $blockers[] = 'supply_pressure_requires_high_confidence_packet';
+            }
+
+            if (count($normalizedScope) > self::MAX_SCOPE_BREADTH_UNDER_PRESSURE) {
+                $blockers[] = 'supply_pressure_scope_too_broad';
+            }
+
+            foreach ($normalizedScope as $path) {
+                if (! str_contains(basename($path), '.')) {
+                    $blockers[] = 'supply_pressure_ambiguous_scope:'.$path;
+                }
+            }
+        }
+
+        sort($blockers, SORT_STRING);
 
         return [
             'schema' => self::SCHEMA,

@@ -214,4 +214,72 @@ final class AtlasSelfConstructionScopeRiskBudgetGateTest extends TestCase
         $this->assertSame(array_unique($r['normalized_scope']), $r['normalized_scope'], 'normalized_scope must not contain duplicates');
         $this->assertCount(2, $r['normalized_scope']);
     }
+
+    // --- supply-pressure admission tightening ---
+
+    public function test_supply_pressure_rejects_broad_scope_even_if_otherwise_safe(): void
+    {
+        $f = $this->safeFacts();
+        $f['requested_scope'] = ['app/Demo/Foo.php', 'app/Demo/Bar.php', 'app/Demo/Baz.php'];
+        $f['servable_now'] = 5;
+        $f['active_leases'] = 1; // servable_now(5) < active_leases(1) * 10
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('supply_pressure_scope_too_broad', $r['blockers']);
+    }
+
+    public function test_supply_pressure_rejects_ambiguous_bare_directory_scope(): void
+    {
+        $f = $this->safeFacts();
+        $f['requested_scope'] = ['app/Demo'];
+        $f['project_lane'] = ['project_id' => 'atlas', 'allowed_scope_roots' => ['app/']];
+        $f['servable_now'] = 5;
+        $f['active_leases'] = 1;
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('supply_pressure_ambiguous_scope:app/Demo', $r['blockers']);
+    }
+
+    public function test_supply_pressure_rejects_packet_missing_implementation_test_or_runnable_acceptance(): void
+    {
+        $f = $this->safeFacts();
+        $f['servable_now'] = 5;
+        $f['active_leases'] = 1;
+        // has_implementation_scope / has_test_scope / has_runnable_acceptance all default false
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('supply_pressure_requires_high_confidence_packet', $r['blockers']);
+    }
+
+    public function test_supply_pressure_admits_high_confidence_narrow_packet(): void
+    {
+        $f = $this->safeFacts();
+        $f['servable_now'] = 5;
+        $f['active_leases'] = 1;
+        $f['has_implementation_scope'] = true;
+        $f['has_test_scope'] = true;
+        $f['has_runnable_acceptance'] = true;
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertTrue($r['allowed']);
+        $this->assertNotContains('supply_pressure_requires_high_confidence_packet', $r['blockers']);
+        $this->assertNotContains('supply_pressure_scope_too_broad', $r['blockers']);
+    }
+
+    public function test_no_supply_pressure_when_servable_now_meets_multiplier(): void
+    {
+        $f = $this->safeFacts();
+        $f['servable_now'] = 10;
+        $f['active_leases'] = 1; // servable_now(10) is NOT < active_leases(1) * 10
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertTrue($r['allowed']);
+    }
+
+    public function test_no_supply_pressure_when_leases_or_servable_missing(): void
+    {
+        $f = $this->safeFacts();
+        $f['servable_now'] = 1;
+        // no active_leases key
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertTrue($r['allowed']);
+    }
 }
