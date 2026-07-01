@@ -93,4 +93,38 @@ final class AgentControlPlaneLeasePathCanonicalizerTest extends TestCase
 
         $this->assertEmpty($matched);
     }
+
+    // AC: stable lease path
+    public function test_lease_path_is_stable_for_equivalent_ids(): void
+    {
+        $this->assertSame(
+            $this->canonicalizer->leasePath('Lease_ABC-123'),
+            $this->canonicalizer->leasePath(' lease_abc-123 '),
+        );
+        $this->assertSame(
+            'app/atlas/self-construction/leases/lease_abc-123.json',
+            $this->canonicalizer->leasePath('Lease_ABC-123'),
+        );
+    }
+
+    public function test_lease_entry_matches_prune_filters_safe_match(): void
+    {
+        $entry = ['lease_id' => 'lease_abc-1', 'agent_id' => 'worker-1', 'task_prefix' => 'brain/foo'];
+
+        $this->assertTrue($this->canonicalizer->leaseEntryMatchesPruneFilters($entry, ['brain/foo'], [], []));
+    }
+
+    public function test_lease_entry_matches_prune_filters_unrelated_mismatch(): void
+    {
+        $entry = ['lease_id' => 'lease_abc-1', 'agent_id' => 'worker-1', 'task_prefix' => 'brain/foo'];
+
+        $this->assertFalse($this->canonicalizer->leaseEntryMatchesPruneFilters($entry, ['brain/bar'], ['worker-2'], ['lease_xyz']));
+    }
+
+    public function test_lease_entry_matches_prune_filters_broad_empty_rejected(): void
+    {
+        $entry = ['lease_id' => 'lease_abc-1', 'agent_id' => 'worker-1', 'task_prefix' => 'brain/foo'];
+
+        $this->assertFalse($this->canonicalizer->leaseEntryMatchesPruneFilters($entry, [''], [''], ['']));
+    }
 }

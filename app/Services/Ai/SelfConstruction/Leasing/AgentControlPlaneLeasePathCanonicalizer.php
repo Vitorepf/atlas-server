@@ -48,6 +48,82 @@ final class AgentControlPlaneLeasePathCanonicalizer
     }
 
     /**
+     * Normalize a set of strings: trim, lowercase, unique, sort.
+     *
+     * @param  list<string>  $set
+     * @return list<string>
+     */
+    public function normalizeSet(array $set): array
+    {
+        $normalized = array_map(
+            fn ($v) => strtolower(trim((string) $v)),
+            $set
+        );
+        $normalized = array_filter($normalized, fn ($v) => $v !== '');
+        $normalized = array_unique($normalized);
+        sort($normalized, SORT_STRING);
+
+        return array_values($normalized);
+    }
+
+    /**
+     * Normalize a list of strings (without unique/dedup).
+     *
+     * @param  list<string>  $values
+     * @return list<string>
+     */
+    public function stringList(array $values): array
+    {
+        return array_values(array_filter(
+            array_map(fn ($v) => trim((string) $v), $values),
+            fn ($v) => $v !== ''
+        ));
+    }
+
+    /**
+     * Derive the canonical lease storage path for a given lease ID.
+     */
+    public function leasePath(string $leaseId): string
+    {
+        return 'app/atlas/self-construction/leases/' . $this->canonicalizeLeaseId($leaseId) . '.json';
+    }
+
+    /**
+     * Check if a lease entry matches any of the given prune filters.
+     *
+     * @param  array<string,mixed>  $entry
+     * @param  list<string>  $taskPrefixes
+     * @param  list<string>  $agentPrefixes
+     * @param  list<string>  $leasePrefixes
+     */
+    public function leaseEntryMatchesPruneFilters(array $entry, array $taskPrefixes, array $agentPrefixes, array $leasePrefixes): bool
+    {
+        $entryLeaseId = $this->canonicalizeLeaseId((string) ($entry['lease_id'] ?? ''));
+        $entryAgentId = $this->canonicalizeAgentId((string) ($entry['agent_id'] ?? ''));
+        $entryTaskPrefix = $this->canonicalizeTaskPrefix((string) ($entry['task_prefix'] ?? ''));
+
+        foreach ($this->normalizeSet($taskPrefixes) as $prefix) {
+            if ($prefix !== '' && $this->safeMatch($prefix, $entryTaskPrefix)) {
+                return true;
+            }
+        }
+
+        foreach ($this->normalizeSet($agentPrefixes) as $prefix) {
+            if ($prefix !== '' && $this->safeMatch($prefix, $entryAgentId)) {
+                return true;
+            }
+        }
+
+        foreach ($this->normalizeSet($leasePrefixes) as $prefix) {
+            if ($prefix !== '' && $this->safeMatch($prefix, $entryLeaseId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Normalize a file path: forward slashes, no double slashes, no trailing slash.
      */
     public function canonicalizePath(string $path): string
