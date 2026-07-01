@@ -151,4 +151,108 @@ final class AtlasSelfConstructionAutonomyDutyCyclePlannerTest extends TestCase
 
         $this->assertSame($this->plan($input), $this->plan($input));
     }
+
+    // ── planDutyCycle(): 6-lane allocation across origination/execution/self_heal/simplification/docs_sync/rest_window ──
+
+    private function dutyCycle(array $input = []): array
+    {
+        return $this->planner()->planDutyCycle($input);
+    }
+
+    private function assertDutyCycleSumsToOne(array $r): void
+    {
+        $this->assertEqualsWithDelta(1.0, array_sum($r['duty_cycle']), 0.0001);
+        foreach (['origination', 'execution', 'self_heal', 'simplification', 'docs_sync', 'rest_window'] as $lane) {
+            $this->assertArrayHasKey($lane, $r['duty_cycle'], "missing lane {$lane}");
+        }
+    }
+
+    // ── AC: healthy continuous run ────────────────────────────────────────────────
+
+    public function test_healthy_continuous_run_is_balanced_across_origination_and_execution(): void
+    {
+        $r = $this->dutyCycle([
+            'servable_depth' => 20,
+            'give_back_rate' => 0.05,
+            'congestion_score' => 0.10,
+            'simplification_debt_score' => 0.10,
+        ]);
+
+        $this->assertDutyCycleSumsToOne($r);
+        $this->assertGreaterThan($r['duty_cycle']['rest_window'], $r['duty_cycle']['origination']);
+        $this->assertGreaterThan($r['duty_cycle']['rest_window'], $r['duty_cycle']['execution']);
+        $this->assertNotEmpty($r['quality_rationale']);
+    }
+
+    // ── AC: high debt simplification shift ───────────────────────────────────────
+
+    public function test_high_debt_shifts_duty_cycle_toward_simplification(): void
+    {
+        $r = $this->dutyCycle([
+            'servable_depth' => 20,
+            'simplification_debt_score' => 0.80,
+        ]);
+
+        $this->assertDutyCycleSumsToOne($r);
+        $this->assertGreaterThan(0.4, $r['duty_cycle']['simplification']);
+        $this->assertStringContainsString('simplification_debt_score', $r['quality_rationale'][0]);
+    }
+
+    // ── AC: low queue origination shift ──────────────────────────────────────────
+
+    public function test_low_queue_shifts_duty_cycle_toward_origination(): void
+    {
+        $r = $this->dutyCycle(['servable_depth' => 1]);
+
+        $this->assertDutyCycleSumsToOne($r);
+        $this->assertGreaterThan(0.4, $r['duty_cycle']['origination']);
+        $this->assertStringContainsString('servable_depth', $r['quality_rationale'][0]);
+    }
+
+    // ── AC: high give_back self-heal shift ────────────────────────────────────────
+
+    public function test_high_give_back_rate_shifts_duty_cycle_toward_self_heal(): void
+    {
+        $r = $this->dutyCycle([
+            'servable_depth' => 20,
+            'give_back_rate' => 0.60,
+        ]);
+
+        $this->assertDutyCycleSumsToOne($r);
+        $this->assertGreaterThan(0.4, $r['duty_cycle']['self_heal']);
+        $this->assertStringContainsString('give_back_rate', $r['quality_rationale'][0]);
+    }
+
+    // ── AC: overloaded rest window ────────────────────────────────────────────────
+
+    public function test_overloaded_congestion_shifts_duty_cycle_toward_rest_window(): void
+    {
+        $r = $this->dutyCycle([
+            'servable_depth' => 20,
+            'congestion_score' => 0.90,
+        ]);
+
+        $this->assertDutyCycleSumsToOne($r);
+        $this->assertGreaterThan(0.5, $r['duty_cycle']['rest_window']);
+        $this->assertStringContainsString('congestion_score', $r['quality_rationale'][0]);
+    }
+
+    public function test_overloaded_takes_precedence_over_give_back_and_debt(): void
+    {
+        $r = $this->dutyCycle([
+            'servable_depth' => 20,
+            'congestion_score' => 0.90,
+            'give_back_rate' => 0.60,
+            'simplification_debt_score' => 0.80,
+        ]);
+
+        $this->assertGreaterThan(0.5, $r['duty_cycle']['rest_window']);
+    }
+
+    public function test_duty_cycle_planner_output_schema(): void
+    {
+        $r = $this->dutyCycle();
+
+        $this->assertSame(AtlasSelfConstructionAutonomyDutyCyclePlanner::SCHEMA, $r['schema']);
+    }
 }
