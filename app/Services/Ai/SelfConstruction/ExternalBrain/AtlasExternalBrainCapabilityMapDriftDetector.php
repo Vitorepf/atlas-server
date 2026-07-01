@@ -124,6 +124,7 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
         $findings    = [];
         $mappedIds   = [];
         $areaStateMap = [];
+        $nextLeverageByArea = [];
 
         foreach ($mapEntries as $entry) {
             $areaId              = (string) ($entry['area_id']                ?? '');
@@ -139,6 +140,7 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
 
             $mappedIds[]           = $areaId;
             $areaStateMap[$areaId] = $state;
+            $nextLeverageByArea[$areaId] = $nextLeverage === '';
 
             // Confidence reduced by evidence staleness (AC3).
             $confidence = match (true) {
@@ -155,11 +157,13 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
             $badCount = count(array_filter($areaOutcomes, static fn (string $r): bool => in_array($r, self::BAD_OUTCOME_RESULTS, true)));
             $completionConfidence = $successCount > 0 ? self::CONFIDENCE_BOOST[$confidence] : $confidence;
 
+            $nextLeverageRequired = $nextLeverage === '';
+
             $contradictoryFlagged = $state === 'integrated' && ! $hasEvidence;
             if ($contradictoryFlagged) {
-                $findings[] = $this->finding($areaId, self::DRIFT_CONTRADICTORY, 'high', $completionConfidence);
+                $findings[] = $this->finding($areaId, self::DRIFT_CONTRADICTORY, 'high', $completionConfidence, '', $nextLeverageRequired);
             } elseif ($ageDays > self::STALE_AGE_THRESHOLD_DAYS) {
-                $findings[] = $this->finding($areaId, self::DRIFT_STALE, 'medium', $completionConfidence);
+                $findings[] = $this->finding($areaId, self::DRIFT_STALE, 'medium', $completionConfidence, '', $nextLeverageRequired);
             }
 
             // AC2: recent failed/give_back/poison outcomes contradict a claimed advanced/integrated
@@ -167,48 +171,55 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
             $claimsAdvanced = $state === 'integrated' || in_array($maturityBand, self::ADVANCED_MATURITY_BANDS, true);
             if (! $contradictoryFlagged && $claimsAdvanced && $badCount >= self::OUTCOME_CONTRADICTION_MIN_BAD_COUNT && $badCount > $successCount) {
                 $outcomeDrift = $state === 'integrated' ? self::DRIFT_CONTRADICTORY : self::DRIFT_MATURITY_REGRESSION;
-                $findings[] = $this->finding($areaId, $outcomeDrift, 'high', 'high');
+                $findings[] = $this->finding($areaId, $outcomeDrift, 'high', 'high', '', $nextLeverageRequired, [
+                    'bad_outcome_count' => $badCount,
+                    'success_count' => $successCount,
+                    'contradiction_severity' => $successCount === 0 || $badCount >= $successCount * 2 ? 'severe' : 'moderate',
+                ]);
             }
 
             if ($owner === '') {
-                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_OWNER, 'medium', $confidence);
+                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_OWNER, 'medium', $confidence, '', $nextLeverageRequired);
             }
 
             if ($maturityBand === '') {
-                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_MATURITY_BAND, 'medium', $confidence);
+                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_MATURITY_BAND, 'medium', $confidence, '', $nextLeverageRequired);
             }
 
             if ($ownerEvidenceAge > self::STALE_AGE_THRESHOLD_DAYS) {
-                $findings[] = $this->finding($areaId, self::DRIFT_STALE_OWNER_EVIDENCE, 'medium', $confidence);
+                $findings[] = $this->finding($areaId, self::DRIFT_STALE_OWNER_EVIDENCE, 'medium', $confidence, '', $nextLeverageRequired);
             }
 
             if ($prevBand !== '' && $maturityBand !== '' && ! $hasFollowUp) {
                 $prevOrder = self::MATURITY_BAND_ORDER[$prevBand] ?? -1;
                 $currOrder = self::MATURITY_BAND_ORDER[$maturityBand] ?? -1;
                 if ($prevOrder > $currOrder) {
-                    $findings[] = $this->finding($areaId, self::DRIFT_MATURITY_REGRESSION, 'medium', $confidence);
+                    $findings[] = $this->finding($areaId, self::DRIFT_MATURITY_REGRESSION, 'medium', $confidence, '', $nextLeverageRequired);
                 }
             }
 
             // AC2: missing next_leverage for a known domain (AC2).
             if ($nextLeverage === '') {
-                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_NEXT_LEVERAGE, 'medium', $confidence);
+                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_NEXT_LEVERAGE, 'medium', $confidence, '', $nextLeverageRequired);
             }
         }
 
         foreach ($queuedAreas as $area) {
             if (! in_array($area, $mappedIds, true)) {
-                $findings[] = $this->finding($area, self::DRIFT_MISSING, 'high', 'high');
+                $findings[] = $this->finding($area, self::DRIFT_MISSING, 'high', 'high', '', true);
             } elseif (in_array($areaStateMap[$area] ?? '', ['retired', 'blocked'], true)) {
-                $findings[] = $this->finding($area, self::DRIFT_RETIRED_BLOCKED_QUEUE, 'high', 'high', $areaStateMap[$area]);
+                $findings[] = $this->finding($area, self::DRIFT_RETIRED_BLOCKED_QUEUE, 'high', 'high', $areaStateMap[$area], $nextLeverageByArea[$area] ?? true);
             }
         }
 
         usort($findings, static function (array $a, array $b): int {
             $ia = self::IMPACT_ORDER[$a['impact_level']] ?? 99;
             $ib = self::IMPACT_ORDER[$b['impact_level']] ?? 99;
+            if ($ia !== $ib) {
+                return $ia <=> $ib;
+            }
 
-            return $ia !== $ib ? $ia <=> $ib : strcmp($a['area_id'], $b['area_id']);
+            return strcmp($a['area_id'], $b['area_id']) ?: strcmp($a['drift_type'], $b['drift_type']);
         });
 
         return [
@@ -219,26 +230,30 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
         ];
     }
 
-    /** @return array<string,mixed> */
-    private function finding(string $areaId, string $driftType, string $impactLevel, string $confidence, string $queueState = ''): array
+    /**
+     * @param  array<string,mixed>  $extra  Drift-specific extra fields merged into the finding (e.g. outcome-contradiction counters).
+     * @return array<string,mixed>
+     */
+    private function finding(string $areaId, string $driftType, string $impactLevel, string $confidence, string $queueState = '', bool $nextLeverageRequired = true, array $extra = []): array
     {
         $repairAction = $driftType === self::DRIFT_RETIRED_BLOCKED_QUEUE
-            ? ($queueState === 'retired' ? 'queue_redirect' : 'reactivation_gate')
+            ? ($queueState === 'retired' ? 'reactivation_queue_redirect' : 'reactivation_gate')
             : (self::REPAIR_ACTION_BY_DRIFT[$driftType] ?? 'review_finding');
 
         $evidence = self::EVIDENCE_BY_DRIFT[$driftType];
 
         return [
-            'area_id'             => $areaId,
-            'drift_type'          => $driftType,
-            'impact_level'        => $impactLevel,
-            'impact'              => $impactLevel,
-            'confidence'          => $confidence,
-            'evidence_needed'     => $evidence,
-            'required_evidence'   => $evidence,
-            'repair_action'       => $repairAction,
-            'task_fabric_advice'  => self::TASK_FABRIC_ADVICE_BY_DRIFT[$driftType] ?? 'proceed_with_caution_pending_repair',
-            'enqueue_safe'        => $impactLevel !== 'high',
-        ];
+            'area_id'                => $areaId,
+            'drift_type'             => $driftType,
+            'impact_level'           => $impactLevel,
+            'impact'                 => $impactLevel,
+            'confidence'             => $confidence,
+            'evidence_needed'        => $evidence,
+            'required_evidence'      => $evidence,
+            'repair_action'          => $repairAction,
+            'task_fabric_advice'     => self::TASK_FABRIC_ADVICE_BY_DRIFT[$driftType] ?? 'proceed_with_caution_pending_repair',
+            'enqueue_safe'           => $impactLevel !== 'high',
+            'next_leverage_required' => $nextLeverageRequired,
+        ] + $extra;
     }
 }

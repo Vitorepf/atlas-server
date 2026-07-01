@@ -318,7 +318,9 @@ final class AtlasExternalBrainCapabilityMapDriftDetectorTest extends TestCase
         $this->assertSame(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_RETIRED_BLOCKED_QUEUE, $f['drift_type']);
         $this->assertSame('high', $f['impact_level']);
         $this->assertContains('queue_redirect', $f['evidence_needed']);
-        $this->assertSame('queue_redirect', $f['repair_action']);
+        $this->assertSame('reactivation_queue_redirect', $f['repair_action']);
+        $this->assertStringContainsString('reactivation', $f['repair_action']);
+        $this->assertSame('do_not_enqueue_until_reactivation_gate_passes', $f['task_fabric_advice']);
         $this->assertFalse($f['enqueue_safe']);
     }
 
@@ -515,5 +517,191 @@ final class AtlasExternalBrainCapabilityMapDriftDetectorTest extends TestCase
         // Owner staleness is still reported, and its confidence reflects the raw age, NOT
         // boosted by the unrelated successful outcome — stale ownership is never hidden.
         $this->assertSame('medium', $ownerFinding['confidence']);
+    }
+
+    // ── next_leverage_required on every finding ─────────────────────────────
+
+    public function test_every_finding_includes_next_leverage_required_field(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [
+                $this->entry('mod-a', 'known', 999, true),
+                array_merge($this->entry('mod-b'), ['next_leverage' => '']),
+            ],
+            'queued_areas' => ['missing-mod'],
+        ]);
+
+        $this->assertNotEmpty($r['findings']);
+        foreach ($r['findings'] as $f) {
+            $this->assertArrayHasKey('next_leverage_required', $f, "Missing next_leverage_required for {$f['area_id']}/{$f['drift_type']}");
+            $this->assertIsBool($f['next_leverage_required']);
+        }
+    }
+
+    public function test_next_leverage_required_is_false_when_area_already_has_next_leverage(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [$this->entry('mod-a', 'known', 999, true)],
+            'queued_areas' => [],
+        ]);
+
+        $stale = array_values(array_filter(
+            $r['findings'],
+            static fn (array $f): bool => $f['drift_type'] === AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_STALE,
+        ))[0];
+
+        $this->assertFalse($stale['next_leverage_required']);
+    }
+
+    public function test_next_leverage_required_is_true_when_area_next_leverage_is_missing(): void
+    {
+        $entry = array_merge($this->entry('mod-b', 'known', 999, true), ['next_leverage' => '']);
+
+        $r = $this->svc()->detect([
+            'map_entries' => [$entry],
+            'queued_areas' => [],
+        ]);
+
+        $stale = array_values(array_filter(
+            $r['findings'],
+            static fn (array $f): bool => $f['drift_type'] === AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_STALE,
+        ))[0];
+
+        $this->assertTrue($stale['next_leverage_required']);
+    }
+
+    public function test_missing_queued_area_has_next_leverage_required_true(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [],
+            'queued_areas' => ['ghost-area'],
+        ]);
+
+        $f = $this->findingFor($r, 'ghost-area');
+        $this->assertNotNull($f);
+        $this->assertTrue($f['next_leverage_required']);
+    }
+
+    // ── outcome-contradiction findings carry bad/success counters + severity ──
+
+    public function test_outcome_contradiction_finding_carries_bad_and_success_counts_and_severity(): void
+    {
+        $entry = $this->entry('payments', 'integrated', 5, true);
+
+        $r = $this->svc()->detect([
+            'map_entries' => [$entry],
+            'queued_areas' => [],
+            'outcomes' => [
+                ['area_id' => 'payments', 'result' => 'failure'],
+                ['area_id' => 'payments', 'result' => 'give_back'],
+                ['area_id' => 'payments', 'result' => 'poison'],
+            ],
+        ]);
+
+        $f = array_values(array_filter(
+            $r['findings'],
+            static fn (array $x): bool => $x['drift_type'] === AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_CONTRADICTORY,
+        ))[0];
+
+        $this->assertSame(3, $f['bad_outcome_count']);
+        $this->assertSame(0, $f['success_count']);
+        $this->assertSame('severe', $f['contradiction_severity']);
+    }
+
+    public function test_outcome_contradiction_severity_is_moderate_when_bad_count_barely_exceeds_success(): void
+    {
+        $entry = $this->entry('billing', 'known', 5, true, 'team-a', 'advanced');
+
+        $r = $this->svc()->detect([
+            'map_entries' => [$entry],
+            'queued_areas' => [],
+            'outcomes' => [
+                ['area_id' => 'billing', 'result' => 'failure'],
+                ['area_id' => 'billing', 'result' => 'poison'],
+                ['area_id' => 'billing', 'result' => 'give_back'],
+                ['area_id' => 'billing', 'result' => 'success'],
+                ['area_id' => 'billing', 'result' => 'success'],
+            ],
+        ]);
+
+        $f = array_values(array_filter(
+            $r['findings'],
+            static fn (array $x): bool => $x['drift_type'] === AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MATURITY_REGRESSION,
+        ))[0];
+
+        $this->assertSame(3, $f['bad_outcome_count']);
+        $this->assertSame(2, $f['success_count']);
+        $this->assertSame('moderate', $f['contradiction_severity']);
+    }
+
+    public function test_non_outcome_contradiction_findings_do_not_carry_bad_outcome_counters(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [$this->entry('mod-a', 'known', 999, true)],
+            'queued_areas' => [],
+        ]);
+
+        $stale = array_values(array_filter(
+            $r['findings'],
+            static fn (array $f): bool => $f['drift_type'] === AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_STALE,
+        ))[0];
+
+        $this->assertArrayNotHasKey('bad_outcome_count', $stale);
+        $this->assertArrayNotHasKey('success_count', $stale);
+        $this->assertArrayNotHasKey('contradiction_severity', $stale);
+    }
+
+    // ── retired/blocked queue conflict AC4: high impact + do_not_enqueue + reactivation repair ──
+
+    public function test_retired_queue_conflict_has_high_impact_do_not_enqueue_and_reactivation_repair(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [$this->entry('old-module', 'retired')],
+            'queued_areas' => ['old-module'],
+        ]);
+
+        $f = $this->findingFor($r, 'old-module');
+        $this->assertSame('high', $f['impact']);
+        $this->assertStringContainsString('do_not_enqueue', $f['task_fabric_advice']);
+        $this->assertStringContainsString('reactivation', $f['repair_action']);
+    }
+
+    public function test_blocked_queue_conflict_has_high_impact_do_not_enqueue_and_reactivation_repair(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [$this->entry('gated-module', 'blocked')],
+            'queued_areas' => ['gated-module'],
+        ]);
+
+        $f = $this->findingFor($r, 'gated-module');
+        $this->assertSame('high', $f['impact']);
+        $this->assertStringContainsString('do_not_enqueue', $f['task_fabric_advice']);
+        $this->assertStringContainsString('reactivation', $f['repair_action']);
+    }
+
+    // ── deterministic sort: impact, then area_id, then drift_type ──────────
+
+    public function test_sort_uses_drift_type_as_tiebreak_when_impact_and_area_id_are_equal(): void
+    {
+        $entry = $this->entry('payments', 'integrated', 5, true);
+
+        $r = $this->svc()->detect([
+            'map_entries' => [$entry],
+            'queued_areas' => [],
+            'outcomes' => [
+                ['area_id' => 'payments', 'result' => 'failure'],
+                ['area_id' => 'payments', 'result' => 'give_back'],
+            ],
+        ]);
+
+        $sameAreaHighImpact = array_values(array_filter(
+            $r['findings'],
+            static fn (array $f): bool => $f['area_id'] === 'payments' && $f['impact_level'] === 'high',
+        ));
+
+        $driftTypes = array_column($sameAreaHighImpact, 'drift_type');
+        $sorted = $driftTypes;
+        sort($sorted, SORT_STRING);
+        $this->assertSame($sorted, $driftTypes);
     }
 }
