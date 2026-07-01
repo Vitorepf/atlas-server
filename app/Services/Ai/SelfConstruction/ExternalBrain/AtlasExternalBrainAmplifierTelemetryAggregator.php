@@ -54,6 +54,10 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
     private const MUSCLE_OUTCOME_WARNING_FLOOR = 0.10;
     private const DEFAULT_COST_WARNING_CEILING = 5.0;
 
+    // By-model/provider-class quality-first telemetry (AC2/AC3/AC4).
+    private const VOLUME_ONLY_THRESHOLD     = 10;
+    private const QUALITY_LIFT_NOISE_FLOOR  = 0.02;
+
     /**
      * @param  array{
      *   shadow_pass_rate?: float,
@@ -274,5 +278,99 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             self::STATUS_WATCH              => 'continue_monitoring_before_next_promotion_decision',
             default                         => 'promote_if_promotion_gate_passes',
         };
+    }
+
+    /**
+     * Aggregates raw amplifier runs GROUPED by model/provider class into quality-first
+     * telemetry — quality lift vs baseline, proof pass rate, give_back delta, cost saved,
+     * and regression risk — instead of raw task/token volume. A group with large volume
+     * but no quality or give_back improvement over baseline is a volume-only win: it is
+     * discounted to an "investigate" recommendation rather than "promotion".
+     *
+     * @param  array{groups: list<array{
+     *   model?: string,
+     *   provider_class?: string,
+     *   runs?: list<array{passed?:bool, heldout_passed?:bool, cost?:float, regressed?:bool, outcome?:string}>,
+     *   baseline_quality?: float,
+     *   baseline_cost?: float,
+     *   baseline_give_back_rate?: float,
+     * }>}  $input
+     * @return array{schema:string, groups:list<array<string,mixed>>}
+     */
+    public function aggregateByModel(array $input): array
+    {
+        $groups = is_array($input['groups'] ?? null) ? $input['groups'] : [];
+
+        $results = [];
+        foreach ($groups as $group) {
+            if (! is_array($group)) {
+                continue;
+            }
+            $results[] = $this->aggregateGroup($group);
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'groups' => $results,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $group
+     * @return array<string,mixed>
+     */
+    private function aggregateGroup(array $group): array
+    {
+        $model         = (string) ($group['model'] ?? '');
+        $providerClass = (string) ($group['provider_class'] ?? '');
+        $runs          = is_array($group['runs'] ?? null) ? $group['runs'] : [];
+        $volume        = count($runs);
+
+        $heldoutRuns   = array_filter($runs, static fn (mixed $r): bool => is_array($r) && array_key_exists('heldout_passed', $r));
+        $heldoutPassed = count(array_filter($heldoutRuns, static fn (array $r): bool => ! empty($r['heldout_passed'])));
+        $proofPassRate = count($heldoutRuns) > 0
+            ? round($heldoutPassed / count($heldoutRuns), 4)
+            : ($volume > 0 ? round(count(array_filter($runs, static fn (mixed $r): bool => is_array($r) && ! empty($r['passed']))) / $volume, 4) : 0.0);
+
+        $giveBackCount = count(array_filter($runs, static fn (mixed $r): bool => is_array($r) && (string) ($r['outcome'] ?? '') === 'give_back'));
+        $giveBackRate  = $volume > 0 ? round($giveBackCount / $volume, 4) : 0.0;
+
+        $regressedCount = count(array_filter($runs, static fn (mixed $r): bool => is_array($r) && ! empty($r['regressed'])));
+        $regressionRate = $volume > 0 ? round($regressedCount / $volume, 4) : 0.0;
+
+        $totalCost = (float) array_sum(array_map(static fn (mixed $r): float => is_array($r) ? (float) ($r['cost'] ?? 0.0) : 0.0, $runs));
+        $avgCost   = $volume > 0 ? round($totalCost / $volume, 4) : 0.0;
+
+        $baselineQuality      = (float) ($group['baseline_quality'] ?? 0.0);
+        $baselineCost         = (float) ($group['baseline_cost'] ?? $avgCost);
+        $baselineGiveBackRate = (float) ($group['baseline_give_back_rate'] ?? 0.0);
+
+        $qualityLift   = round($proofPassRate - $baselineQuality, 4);
+        $costSaved     = round($baselineCost - $avgCost, 4);
+        $giveBackDelta = round($giveBackRate - $baselineGiveBackRate, 4);
+
+        $volumeOnlyWinDiscounted = $volume >= self::VOLUME_ONLY_THRESHOLD
+            && $qualityLift <= self::QUALITY_LIFT_NOISE_FLOOR
+            && $giveBackDelta >= 0;
+
+        $recommendation = match (true) {
+            $regressionRate >= self::REGRESSION_FAILURE_FLOOR || $giveBackDelta > 0 => 'rollback',
+            $volumeOnlyWinDiscounted => 'investigate',
+            $qualityLift > self::QUALITY_LIFT_NOISE_FLOOR && $giveBackDelta <= 0 => 'promotion',
+            default => 'continue',
+        };
+
+        return [
+            'model' => $model,
+            'provider_class' => $providerClass,
+            'volume' => $volume,
+            'quality_lift' => $qualityLift,
+            'proof_pass_rate' => $proofPassRate,
+            'give_back_delta' => $giveBackDelta,
+            'cost_saved' => $costSaved,
+            'regression_risk' => $regressionRate,
+            'volume_only_win_discounted' => $volumeOnlyWinDiscounted,
+            'recommendation' => $recommendation,
+        ];
     }
 }

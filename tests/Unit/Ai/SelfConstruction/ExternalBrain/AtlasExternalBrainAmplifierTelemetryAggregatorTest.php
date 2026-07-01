@@ -427,4 +427,131 @@ final class AtlasExternalBrainAmplifierTelemetryAggregatorTest extends TestCase
         $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
         $this->assertSame('blocking', $result['signal_rollup']['muscle_outcome']);
     }
+
+    // ── aggregateByModel(): quality-first telemetry per model/provider class ──
+
+    public function test_group_reports_quality_lift_proof_pass_rate_give_back_delta_cost_saved_and_regression_risk(): void
+    {
+        $result = $this->aggregator->aggregateByModel([
+            'groups' => [[
+                'model' => 'gpt-5.5',
+                'provider_class' => 'codex',
+                'baseline_quality' => 0.60,
+                'baseline_cost' => 1.0,
+                'baseline_give_back_rate' => 0.10,
+                'runs' => [
+                    ['passed' => true, 'heldout_passed' => true, 'cost' => 0.50, 'outcome' => 'success'],
+                    ['passed' => true, 'heldout_passed' => true, 'cost' => 0.50, 'outcome' => 'success'],
+                ],
+            ]],
+        ]);
+
+        $group = $result['groups'][0];
+        foreach (['quality_lift', 'proof_pass_rate', 'give_back_delta', 'cost_saved', 'regression_risk', 'recommendation'] as $key) {
+            $this->assertArrayHasKey($key, $group, "Missing key: {$key}");
+        }
+        $this->assertSame(1.0, $group['proof_pass_rate']);
+        $this->assertSame(0.4, $group['quality_lift']); // 1.0 - 0.60
+        $this->assertSame(0.5, $group['cost_saved']); // 1.0 - 0.50
+        $this->assertSame(-0.1, $group['give_back_delta']); // 0.0 - 0.10
+        $this->assertSame('promotion', $group['recommendation']);
+    }
+
+    public function test_volume_only_win_is_discounted_to_investigate_not_promotion(): void
+    {
+        // High volume (>= 10 runs), quality did NOT improve over baseline, give_back did not worsen.
+        $runs = array_fill(0, 40, ['passed' => true, 'heldout_passed' => true, 'cost' => 1.0, 'outcome' => 'success']);
+
+        $result = $this->aggregator->aggregateByModel([
+            'groups' => [[
+                'model' => 'high-volume-noop',
+                'baseline_quality' => 1.0, // already at ceiling — 40 more "passes" add nothing
+                'baseline_give_back_rate' => 0.0,
+                'runs' => $runs,
+            ]],
+        ]);
+
+        $group = $result['groups'][0];
+        $this->assertTrue($group['volume_only_win_discounted']);
+        $this->assertSame('investigate', $group['recommendation']);
+    }
+
+    public function test_low_volume_no_lift_is_not_flagged_as_volume_only_win(): void
+    {
+        $result = $this->aggregator->aggregateByModel([
+            'groups' => [[
+                'model' => 'low-volume-flat',
+                'baseline_quality' => 1.0,
+                'runs' => array_fill(0, 2, ['passed' => true, 'heldout_passed' => true]),
+            ]],
+        ]);
+
+        $group = $result['groups'][0];
+        $this->assertFalse($group['volume_only_win_discounted']);
+    }
+
+    public function test_regression_risk_forces_rollback_recommendation(): void
+    {
+        $result = $this->aggregator->aggregateByModel([
+            'groups' => [[
+                'model' => 'regressing-model',
+                'baseline_quality' => 0.0,
+                'runs' => array_merge(
+                    array_fill(0, 8, ['passed' => true, 'heldout_passed' => true, 'regressed' => false]),
+                    array_fill(0, 2, ['passed' => true, 'heldout_passed' => true, 'regressed' => true]),
+                ),
+            ]],
+        ]);
+
+        $group = $result['groups'][0];
+        $this->assertSame(0.2, $group['regression_risk']);
+        $this->assertSame('rollback', $group['recommendation']);
+    }
+
+    public function test_worsening_give_back_delta_forces_rollback_recommendation(): void
+    {
+        $result = $this->aggregator->aggregateByModel([
+            'groups' => [[
+                'model' => 'give-back-worse',
+                'baseline_quality' => 0.0,
+                'baseline_give_back_rate' => 0.0,
+                'runs' => [
+                    ['passed' => true, 'heldout_passed' => true, 'outcome' => 'give_back'],
+                    ['passed' => true, 'heldout_passed' => true, 'outcome' => 'success'],
+                ],
+            ]],
+        ]);
+
+        $group = $result['groups'][0];
+        $this->assertSame(0.5, $group['give_back_delta']);
+        $this->assertSame('rollback', $group['recommendation']);
+    }
+
+    public function test_flat_no_lift_no_regression_recommends_continue(): void
+    {
+        $result = $this->aggregator->aggregateByModel([
+            'groups' => [[
+                'model' => 'steady-model',
+                'baseline_quality' => 1.0,
+                'runs' => array_fill(0, 2, ['passed' => true, 'heldout_passed' => true]),
+            ]],
+        ]);
+
+        $group = $result['groups'][0];
+        $this->assertSame('continue', $group['recommendation']);
+    }
+
+    public function test_aggregate_by_model_reports_multiple_groups_independently(): void
+    {
+        $result = $this->aggregator->aggregateByModel([
+            'groups' => [
+                ['model' => 'model-a', 'baseline_quality' => 0.0, 'runs' => [['passed' => true, 'heldout_passed' => true]]],
+                ['model' => 'model-b', 'baseline_quality' => 0.0, 'runs' => [['passed' => true, 'heldout_passed' => true]]],
+            ],
+        ]);
+
+        $this->assertCount(2, $result['groups']);
+        $this->assertSame('model-a', $result['groups'][0]['model']);
+        $this->assertSame('model-b', $result['groups'][1]['model']);
+    }
 }
