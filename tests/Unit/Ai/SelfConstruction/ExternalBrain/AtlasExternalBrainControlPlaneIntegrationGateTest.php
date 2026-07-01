@@ -99,6 +99,29 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
         $this->assertStringContainsString('originator', $reasonStr);
     }
 
+    public function test_control_plane_path_evidence_requirements_reflect_evidence_floor(): void
+    {
+        $result = $this->gate()->evaluate([
+            'organ_id'               => 'core-organ',
+            'is_important'           => true,
+            'control_plane_exposure' => true,
+            'evidence_floor'         => 'tests_or_gates_result',
+        ]);
+
+        $this->assertSame(['tests_or_gates_result'], $result['evidence_requirements']);
+    }
+
+    public function test_control_plane_path_evidence_requirements_empty_when_no_evidence_floor(): void
+    {
+        $result = $this->gate()->evaluate([
+            'organ_id'               => 'core-organ',
+            'is_important'           => true,
+            'control_plane_exposure' => true,
+        ]);
+
+        $this->assertSame([], $result['evidence_requirements']);
+    }
+
     // ── rule 3: readiness map exposure ───────────────────────────────────────
 
     public function test_important_organ_with_readiness_map_exposure_delivers(): void

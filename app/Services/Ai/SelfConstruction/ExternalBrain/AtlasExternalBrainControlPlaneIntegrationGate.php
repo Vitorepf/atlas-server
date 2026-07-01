@@ -101,7 +101,7 @@ final class AtlasExternalBrainControlPlaneIntegrationGate
                 $reasons[] = 'decision_effect:'.$decisionEffect;
             }
             $consumer             = $consumerLinks[0] ?? '';
-            $evidenceRequirements = $evidenceFloor !== [] ? [$evidenceFloor] : [];
+            $evidenceRequirements = $evidenceFloor !== '' ? [$evidenceFloor] : [];
 
             if ($consumerLinks !== []) {
                 $reasons[] = 'consumer_links:'.implode(',', $consumerLinks);
