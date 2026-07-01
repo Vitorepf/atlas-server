@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainControlPlaneConvergenceRuntimeBridge;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainControlPlaneIntegrationGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainControlPlaneStopGoBridge;
 use Illuminate\Console\Command;
@@ -33,6 +34,7 @@ final class AtlasExternalBrainControlPlaneConvergenceCommand extends Command
     public function handle(
         AtlasExternalBrainControlPlaneIntegrationGate $integrationGate,
         AtlasExternalBrainControlPlaneStopGoBridge $stopGoBridge,
+        AtlasExternalBrainControlPlaneConvergenceRuntimeBridge $runtimeBridge,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -64,6 +66,15 @@ final class AtlasExternalBrainControlPlaneConvergenceCommand extends Command
 
         $bridgeResult = $stopGoBridge->decide($bridgeInput);
 
+        $runtimeSignals = $runtimeBridge->translate([
+            'total_organs' => $gateResult['total_organs'],
+            'integration_coverage_percent' => $gateResult['integration_coverage_percent'],
+            'blocked_organs' => $gateResult['blocked_organs'],
+            'stop_go_decision' => $bridgeResult['stop_go_decision'],
+            'stop_go_reasons' => $bridgeResult['reasons'],
+            'next_action' => $bridgeResult['next_action'],
+        ]);
+
         $payload = [
             'status' => 'ok',
             'total_organs' => $gateResult['total_organs'],
@@ -75,6 +86,8 @@ final class AtlasExternalBrainControlPlaneConvergenceCommand extends Command
             'stop_go_signal' => $bridgeResult['stop_go_signal'],
             'stop_go_reasons' => $bridgeResult['reasons'],
             'next_action' => $bridgeResult['next_action'],
+            'simplification_pressure' => $runtimeSignals['simplification_pressure'],
+            'blocked_organ_ratio' => $runtimeSignals['blocked_organ_ratio'],
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
