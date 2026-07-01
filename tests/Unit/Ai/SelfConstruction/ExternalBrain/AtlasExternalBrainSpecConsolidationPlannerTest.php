@@ -21,6 +21,7 @@ final class AtlasExternalBrainSpecConsolidationPlannerTest extends TestCase
         array $acceptance = [],
         array $deps = [],
         array $evidence = ['tests_or_gates_result'],
+        string $risk = 'low',
     ): array {
         return [
             'task_id' => $id,
@@ -29,6 +30,7 @@ final class AtlasExternalBrainSpecConsolidationPlannerTest extends TestCase
             'acceptance_criteria' => $acceptance ?: ["{$id} passes tests"],
             'dependencies' => $deps,
             'required_evidence' => $evidence,
+            'risk_level' => $risk,
         ];
     }
 
@@ -169,6 +171,42 @@ final class AtlasExternalBrainSpecConsolidationPlannerTest extends TestCase
 
         $this->assertSame([], $r['consolidated_tasks']);
         $this->assertSame('incompatible_dependencies', $r['rejection_reasons']['t1']);
+    }
+
+    // ── rejection: hidden risk ────────────────────────────────────────────────
+
+    public function test_mixed_risk_levels_blocks_consolidation(): void
+    {
+        $r = $this->plan([
+            $this->candidate('t1', theme: 'brain', files: ['app/A.php'], risk: 'low'),
+            $this->candidate('t2', theme: 'brain', files: ['app/B.php'], risk: 'high'),
+        ]);
+
+        $this->assertSame([], $r['consolidated_tasks']);
+        $this->assertSame('hides_risk', $r['rejection_reasons']['t1']);
+    }
+
+    public function test_uniform_high_risk_group_is_not_flagged_as_hidden(): void
+    {
+        $r = $this->plan([
+            $this->candidate('t1', theme: 'brain', files: ['app/A.php'], risk: 'high'),
+            $this->candidate('t2', theme: 'brain', files: ['app/B.php'], risk: 'high'),
+        ]);
+
+        $this->assertCount(1, $r['consolidated_tasks']);
+    }
+
+    // ── rejection: evidence loss ───────────────────────────────────────────────
+
+    public function test_candidate_with_no_required_evidence_blocks_consolidation(): void
+    {
+        $r = $this->plan([
+            $this->candidate('t1', theme: 'brain', files: ['app/A.php'], evidence: []),
+            $this->candidate('t2', theme: 'brain', files: ['app/B.php']),
+        ]);
+
+        $this->assertSame([], $r['consolidated_tasks']);
+        $this->assertSame('evidence_loss', $r['rejection_reasons']['t1']);
     }
 
     // ── single candidate in theme: no consolidation ───────────────────────────

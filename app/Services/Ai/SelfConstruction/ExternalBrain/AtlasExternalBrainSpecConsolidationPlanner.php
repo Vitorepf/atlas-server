@@ -15,6 +15,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   - no file collision (same path in two candidates' allowed_files)
  *   - no cross-group dependency (a candidate depends on another in the same group)
  *   - combined allowed_files count <= max_consolidated_files (default: MAX_FILES)
+ *   - no mix of elevated risk_level ('high'/'critical') with lower risk in the same group
+ *   - every candidate carries its own required_evidence (none dropped by the merge)
  *
  * On failure, every candidate in the group is marked unconsolidated with a reason.
  * Output: consolidated_tasks (macro-tasks), unconsolidated (ids), rejection_reasons.
@@ -142,6 +144,19 @@ final class AtlasExternalBrainSpecConsolidationPlanner
                 if (in_array($dep, $taskIds, true)) {
                     return [false, 'incompatible_dependencies', []];
                 }
+            }
+        }
+
+        $risks = array_map(static fn (array $c): string => (string) ($c['risk_level'] ?? 'low'), $group);
+        $elevated = array_filter($risks, static fn (string $r): bool => in_array($r, ['high', 'critical'], true));
+        if (count($elevated) > 0 && count($elevated) < count($risks)) {
+            return [false, 'hides_risk', []];
+        }
+
+        foreach ($group as $c) {
+            $evidence = is_array($c['required_evidence'] ?? null) ? $c['required_evidence'] : [];
+            if (count($evidence) === 0) {
+                return [false, 'evidence_loss', []];
             }
         }
 
