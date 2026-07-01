@@ -167,6 +167,59 @@ final class AtlasSelfConstructionCompletionRealityProjectorTest extends TestCase
         $this->assertContains('missing_proof:knowledge_sync', $refs);
     }
 
+    // --- decision_binding_status -------------------------------------------
+
+    public function test_missing_binding_status_prevents_ready_state(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'knowledge_sync_receipt' => ['conformant' => true],
+            'decision_binding_receipt' => ['status' => 'missing_binding'],
+        ]);
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_COMPLETED, $r['reality']);
+        $this->assertNotSame('ready', $r['final_state']);
+        $this->assertContains('missing_proof:decision_binding', $r['missing_proofs']);
+    }
+
+    public function test_bound_status_permits_ready_only_with_knowledge_sync_also_present(): void
+    {
+        $withKnowledge = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'knowledge_sync_receipt' => ['conformant' => true],
+            'decision_binding_receipt' => ['status' => 'bound'],
+        ]);
+        $this->assertSame('ready', $withKnowledge['final_state']);
+
+        $withoutKnowledge = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'decision_binding_receipt' => ['status' => 'bound'],
+        ]);
+        $this->assertNotSame('ready', $withoutKnowledge['final_state']);
+    }
+
+    public function test_rejected_and_rolled_back_precedence_unchanged_with_decision_binding_present(): void
+    {
+        $rejected = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'failed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'decision_binding_receipt' => ['status' => 'bound'],
+        ]);
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_REJECTED, $rejected['reality']);
+        $this->assertSame('blocked', $rejected['final_state']);
+
+        $rolledBack = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'rollback_receipt' => ['performed' => true],
+            'decision_binding_receipt' => ['status' => 'bound'],
+        ]);
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_ROLLED_BACK, $rolledBack['reality']);
+        $this->assertSame('blocked', $rolledBack['final_state']);
+    }
+
     public function test_output_has_no_percent_complete_field(): void
     {
         $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([

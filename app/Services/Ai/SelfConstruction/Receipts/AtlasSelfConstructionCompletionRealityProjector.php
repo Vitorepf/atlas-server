@@ -60,6 +60,7 @@ final class AtlasSelfConstructionCompletionRealityProjector
         $merge = is_array($receipts['merge_receipt'] ?? null) ? $receipts['merge_receipt'] : null;
         $rollback = is_array($receipts['rollback_receipt'] ?? null) ? $receipts['rollback_receipt'] : null;
         $knowledge = is_array($receipts['knowledge_sync_receipt'] ?? null) ? $receipts['knowledge_sync_receipt'] : null;
+        $decisionBinding = is_array($receipts['decision_binding_receipt'] ?? null) ? $receipts['decision_binding_receipt'] : null;
         $workerClaim = (string) ($receipts['worker_claim'] ?? '');
 
         $verdict = (string) ($verification['verdict'] ?? '');
@@ -88,6 +89,9 @@ final class AtlasSelfConstructionCompletionRealityProjector
             $missingProofs[] = 'missing_proof:knowledge_sync';
         } elseif (($knowledge['conformant'] ?? null) === false) {
             $missingProofs[] = 'knowledge_sync_not_conformant';
+        }
+        if ($decisionBinding !== null && (string) ($decisionBinding['status'] ?? '') !== 'bound') {
+            $missingProofs[] = 'missing_proof:decision_binding';
         }
 
         $residualRisks = [];
