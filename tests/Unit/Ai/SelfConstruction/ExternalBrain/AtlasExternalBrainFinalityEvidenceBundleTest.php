@@ -26,7 +26,7 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
             'is_undocumented'     => false,
             'is_queue_unsafe'     => false,
             'has_outcome_learning' => true,
-            'evidence_refs'       => ['ref:coverage-proof'],
+            'evidence_refs'       => ['runtime_receipt:coverage-proof'],
         ], $overrides);
     }
 
@@ -106,11 +106,11 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
     {
         $r = $this->bundle()->assemble([
             'dimensions' => [
-                $this->dim(['evidence_refs' => ['ref:A', 'ref:B']]),
+                $this->dim(['evidence_refs' => ['runtime_receipt:A', 'commit:B']]),
             ],
         ]);
-        $this->assertContains('ref:A', $r['bundle_evidence']);
-        $this->assertContains('ref:B', $r['bundle_evidence']);
+        $this->assertContains('runtime_receipt:A', $r['bundle_evidence']);
+        $this->assertContains('commit:B', $r['bundle_evidence']);
     }
 
     // ── AC2: missing blocker ──────────────────────────────────────────────────
@@ -218,6 +218,81 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
         ]);
         $this->assertSame('unproven', $r['blockers'][0]['blocker_type']);
         $this->assertFalse($r['is_final']);
+    }
+
+    // ── AC: source-class floor ────────────────────────────────────────────────
+
+    public function test_authored_spec_only_evidence_blocked_with_weak_source_class_even_when_proven(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['is_proven' => true, 'evidence_refs' => ['authored_spec:design-doc']])],
+        ]);
+
+        $this->assertFalse($r['is_final']);
+        $this->assertSame('weak_source_class', $r['blockers'][0]['blocker_type']);
+    }
+
+    public function test_queue_count_only_evidence_blocked_with_weak_source_class_even_when_proven(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['is_proven' => true, 'evidence_refs' => ['queue_count:500']])],
+        ]);
+
+        $this->assertFalse($r['is_final']);
+        $this->assertSame('weak_source_class', $r['blockers'][0]['blocker_type']);
+    }
+
+    public function test_mix_of_authored_spec_and_queue_count_refs_still_weak_source_class(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['is_proven' => true, 'evidence_refs' => ['authored_spec:doc', 'queue_count:100']])],
+        ]);
+
+        $this->assertSame('weak_source_class', $r['blockers'][0]['blocker_type']);
+    }
+
+    public function test_runtime_receipt_commit_and_knowledge_sync_refs_satisfy_finality_when_fresh(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [
+                $this->dim(['name' => 'a', 'evidence_refs' => ['runtime_receipt:proof']]),
+                $this->dim(['name' => 'b', 'evidence_refs' => ['commit:abc123']]),
+                $this->dim(['name' => 'c', 'evidence_refs' => ['knowledge_sync:synced']]),
+            ],
+        ]);
+
+        $this->assertTrue($r['is_final']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertSame(['a', 'b', 'c'], $r['satisfied_dimensions']);
+    }
+
+    public function test_one_strong_ref_alongside_weak_refs_is_sufficient(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['evidence_refs' => ['authored_spec:doc', 'runtime_receipt:proof']])],
+        ]);
+
+        $this->assertTrue($r['is_final']);
+    }
+
+    public function test_stale_evidence_refs_emit_stale_source_class_and_lower_readiness_below_final(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['evidence_refs' => ['stale:runtime_receipt:proof']])],
+        ]);
+
+        $this->assertFalse($r['is_final']);
+        $this->assertSame('stale_source_class', $r['blockers'][0]['blocker_type']);
+        $this->assertNotSame('final', $r['readiness_band']);
+    }
+
+    public function test_stale_takes_priority_over_weak_source_class(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['evidence_refs' => ['stale:authored_spec:doc']])],
+        ]);
+
+        $this->assertSame('stale_source_class', $r['blockers'][0]['blocker_type']);
     }
 
     // ── Blocker priority order ────────────────────────────────────────────────
@@ -339,7 +414,7 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
     {
         $facts = [
             'dimensions' => [
-                $this->dim(['name' => 'a', 'evidence_refs' => ['r1']]),
+                $this->dim(['name' => 'a', 'evidence_refs' => ['runtime_receipt:r1']]),
                 $this->dim(['name' => 'b', 'is_stale' => true]),
             ],
         ];

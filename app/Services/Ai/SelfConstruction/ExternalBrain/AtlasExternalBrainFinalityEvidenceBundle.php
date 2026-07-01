@@ -25,8 +25,15 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   7. queue_unsafe        — is_queue_unsafe === true.
  *   8. no_outcome_learning — has_outcome_learning === false.
  *   9. unproven            — is_proven !== true OR evidence_refs is empty.
+ *   10. stale_source_class  — every evidence_ref is marked stale ("stale:" prefix).
+ *   11. weak_source_class   — every evidence_ref belongs to a weak source class
+ *                             (authored_spec, queue_count); strong classes are
+ *                             test_result, runtime_receipt, commit, knowledge_sync.
  *
- * A dimension is satisfied only when it passes all nine checks.
+ * evidence_refs are formatted "[stale:]<source_class>:<detail>". A ref with no
+ * recognized source-class prefix is treated as weak (never sufficient alone).
+ *
+ * A dimension is satisfied only when it passes all eleven checks.
  *
  * is_final = true when every required dimension is satisfied.
  *
@@ -41,6 +48,12 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 final class AtlasExternalBrainFinalityEvidenceBundle
 {
     public const SCHEMA = 'atlas.external_brain.finality_evidence_bundle.v1';
+
+    /** @var list<string> Source classes that alone can never prove finality. */
+    private const WEAK_SOURCE_CLASSES = ['authored_spec', 'queue_count'];
+
+    /** @var list<string> Source classes with real observed-outcome weight. */
+    private const STRONG_SOURCE_CLASSES = ['test_result', 'runtime_receipt', 'commit', 'knowledge_sync'];
 
     /**
      * @param  array<string,mixed>  $facts
@@ -97,6 +110,13 @@ final class AtlasExternalBrainFinalityEvidenceBundle
                 $blocker = 'no_outcome_learning';
             } elseif (! (bool) ($dim['is_proven'] ?? false) || $refs === []) {
                 $blocker = 'unproven';
+            } else {
+                $classified = array_map([$this, 'classifyRef'], $refs);
+                if (array_reduce($classified, static fn (bool $carry, array $c): bool => $carry && $c['stale'], true)) {
+                    $blocker = 'stale_source_class';
+                } elseif (array_reduce($classified, static fn (bool $carry, array $c): bool => $carry && ! in_array($c['class'], self::STRONG_SOURCE_CLASSES, true), true)) {
+                    $blocker = 'weak_source_class';
+                }
             }
 
             if ($blocker !== null) {
@@ -175,6 +195,30 @@ final class AtlasExternalBrainFinalityEvidenceBundle
             'blockers' => $blockers,
             'missing_dimensions' => array_column($blockers, 'dimension'),
         ];
+    }
+
+    /**
+     * Parses an evidence ref formatted "[stale:]<source_class>:<detail>" into its source
+     * class and staleness. A ref with no recognized source-class prefix is classified
+     * 'unknown' (treated as weak — it can never satisfy the strong-class requirement alone).
+     *
+     * @return array{class:string, stale:bool}
+     */
+    private function classifyRef(string $ref): array
+    {
+        $stale = false;
+        if (str_starts_with($ref, 'stale:')) {
+            $stale = true;
+            $ref = substr($ref, strlen('stale:'));
+        }
+
+        $class = strstr($ref, ':', true);
+        $class = $class === false ? 'unknown' : $class;
+        if (! in_array($class, self::STRONG_SOURCE_CLASSES, true) && ! in_array($class, self::WEAK_SOURCE_CLASSES, true)) {
+            $class = 'unknown';
+        }
+
+        return ['class' => $class, 'stale' => $stale];
     }
 
     private function readinessBand(float $score, bool $isFinal): string
