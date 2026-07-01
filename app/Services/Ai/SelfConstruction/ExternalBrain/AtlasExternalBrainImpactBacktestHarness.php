@@ -162,6 +162,14 @@ final class AtlasExternalBrainImpactBacktestHarness
             ];
         }
 
+        $noCapabilityDeltaCount = count(array_filter($penalized, static fn (array $p): bool => $p['actual_outcome'] === 'no_capability_delta'));
+        if ($noCapabilityDeltaCount > 0) {
+            $hints[] = [
+                'hint' => 'downweight_no_capability_delta_predictions',
+                'reason' => sprintf('%d high-predicted tasks delivered no capability delta', $noCapabilityDeltaCount),
+            ];
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'calibration_buckets' => $calibrationBuckets,

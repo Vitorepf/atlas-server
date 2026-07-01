@@ -254,6 +254,14 @@ final class AtlasExternalBrainImpactBacktestHarnessTest extends TestCase
         $this->assertContains('discount_leverage_without_downstream_unlocks', $hints);
     }
 
+    public function test_no_capability_delta_penalty_triggers_downweight_hint(): void
+    {
+        $r = $this->bt([$this->task('nc1', 7.0, 7.0, 'no_capability_delta')]);
+
+        $hints = array_column($r['scorer_adjustment_hints'], 'hint');
+        $this->assertContains('downweight_no_capability_delta_predictions', $hints);
+    }
+
     // ── calibration_error ─────────────────────────────────────────────────────
 
     public function test_calibration_error_is_average_absolute_delta(): void
