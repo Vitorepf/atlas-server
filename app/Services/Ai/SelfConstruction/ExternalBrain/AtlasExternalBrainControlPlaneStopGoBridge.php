@@ -16,7 +16,9 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   drain_existing_queue — queue_pressure=high AND quality_trend≠high
  *   escalate_ambition    — healthy + quality_trend=high + maturity_gap_count>0
  *   create_more_tasks    — healthy + quality_trend=high
- *   pause                — default
+ *   escalate_ambition / create_more_tasks — NO DUMB PAUSE: unexplored_surface_count>0,
+ *                         high_value_candidate_count>0, or exhausted_surface_proof≠true
+ *   pause                — only when exhausted_surface_proof=true and no surface/candidates remain
  *
  * UPSTREAM POLICY INTEROP: accepts an optional `upstream_decision` (vocabulary from queue saturation /
  * backlog cost / originator stop policies — consolidate_or_audit, pause_creation_and_consolidate, drain,
@@ -68,6 +70,10 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         $evidenceFreshnessStatus  = (string) ($input['evidence_freshness_status'] ?? 'fresh');
         $final95GapCount          = max(0, (int) ($input['final95_gap_count'] ?? 0));
 
+        $unexploredSurfaceCount   = max(0, (int) ($input['unexplored_surface_count'] ?? 0));
+        $highValueCandidateCount = max(0, (int) ($input['high_value_candidate_count'] ?? 0));
+        $exhaustedSurfaceProof    = (bool) ($input['exhausted_surface_proof'] ?? false);
+
         $isHealthy   = $queueHealth === 'healthy';
         $isHighValue = $qualityTrend === 'high';
 
@@ -77,6 +83,7 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
             $claimableDepth, $valueDensity, $giveBackPressure, $queueHealth,
             $forceConsolidate, $forceDrain,
             $evidenceFreshnessStatus, $integrationCoverage, $final95GapCount,
+            $unexploredSurfaceCount, $highValueCandidateCount, $exhaustedSurfaceProof,
         );
 
         return [
@@ -107,6 +114,9 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         string $evidenceFreshnessStatus,
         float  $integrationCoverage,
         int    $final95GapCount,
+        int    $unexploredSurfaceCount,
+        int    $highValueCandidateCount,
+        bool   $exhaustedSurfaceProof,
     ): array {
         // 1. SELF_HEAL_QUEUE — safety net first
         $healReasons = [];
@@ -187,7 +197,29 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
             return [self::DECISION_CREATE_MORE_TASKS, ['queue_health:healthy', 'quality_trend:high']];
         }
 
-        return [self::DECISION_PAUSE, ['no_expansion_signal_detected']];
+        // 6. NO DUMB PAUSE — pause is only allowed with explicit exhausted-surface proof.
+        //    Any unexplored surface, remaining high-value candidate, or absence of proof
+        //    forbids pausing; escalate when a high-value candidate remains, else keep creating.
+        $noDumbPauseReasons = [];
+        if ($unexploredSurfaceCount > 0) {
+            $noDumbPauseReasons[] = "unexplored_surface_count:{$unexploredSurfaceCount}";
+        }
+        if ($highValueCandidateCount > 0) {
+            $noDumbPauseReasons[] = "high_value_candidate_count:{$highValueCandidateCount}";
+        }
+        if (! $exhaustedSurfaceProof) {
+            $noDumbPauseReasons[] = 'exhausted_surface_proof:false';
+        }
+        if ($noDumbPauseReasons !== []) {
+            $noDumbPauseReasons[] = 'no_dumb_pause';
+
+            return [
+                $highValueCandidateCount > 0 ? self::DECISION_ESCALATE_AMBITION : self::DECISION_CREATE_MORE_TASKS,
+                $noDumbPauseReasons,
+            ];
+        }
+
+        return [self::DECISION_PAUSE, ['exhausted_surface_proof:true', 'no_expansion_signal_detected']];
     }
 
     /**

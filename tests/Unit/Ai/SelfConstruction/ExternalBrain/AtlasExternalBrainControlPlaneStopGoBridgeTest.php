@@ -204,7 +204,56 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
 
     public function test_medium_quality_no_pressure_returns_pause(): void
     {
+        $result = $this->bridge->decide($this->healthy([
+            'quality_trend' => 'medium',
+            'exhausted_surface_proof' => true,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_PAUSE, $result['stop_go_decision']);
+    }
+
+    // ── AC1/AC2: no dumb pause ─────────────────────────────────────────────────
+
+    public function test_pause_refused_when_unexplored_surface_remains(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'quality_trend' => 'medium',
+            'exhausted_surface_proof' => true,
+            'unexplored_surface_count' => 3,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CREATE_MORE_TASKS, $result['stop_go_decision']);
+        $this->assertContains('no_dumb_pause', $result['reasons']);
+    }
+
+    public function test_pause_refused_and_escalates_when_high_value_candidates_remain(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'quality_trend' => 'medium',
+            'exhausted_surface_proof' => true,
+            'high_value_candidate_count' => 2,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_ESCALATE_AMBITION, $result['stop_go_decision']);
+        $this->assertContains('no_dumb_pause', $result['reasons']);
+    }
+
+    public function test_pause_refused_when_exhausted_surface_proof_missing(): void
+    {
         $result = $this->bridge->decide($this->healthy(['quality_trend' => 'medium']));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CREATE_MORE_TASKS, $result['stop_go_decision']);
+        $this->assertContains('no_dumb_pause', $result['reasons']);
+    }
+
+    public function test_pause_allowed_only_with_exhausted_proof_and_no_candidates(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'quality_trend' => 'medium',
+            'exhausted_surface_proof' => true,
+            'unexplored_surface_count' => 0,
+            'high_value_candidate_count' => 0,
+        ]));
 
         $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_PAUSE, $result['stop_go_decision']);
     }
