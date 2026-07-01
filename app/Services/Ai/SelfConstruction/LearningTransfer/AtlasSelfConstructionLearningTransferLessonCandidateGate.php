@@ -34,6 +34,9 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGate
 
     public const DEFAULT_CONFLICT_TOLERANCE = 1;
 
+    /** The only decision categories a lesson may legitimately claim to change. */
+    public const VALID_DECISION_IMPACTS = ['packet_admission', 'blocked_repair', 'worker_feed_replenishment'];
+
     /**
      * @param  array<string,mixed>  $candidate    {class:string, observations:list<{outcome:string, evidence_refs:list<string>}>}
      * @param  array<string,mixed>  $thresholds   {min_repetitions?:int, min_proven?:int, conflict_tolerance?:int}
@@ -123,6 +126,18 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGate
             $next[] = 'attach_disambiguator_field_to_resolve_negative_result';
 
             return $this->envelope(self::DECISION_HOLD, $reasons, $next);
+        }
+
+        // ANTI-PADDING — a lesson that only restates "the enqueue succeeded" or "the test went
+        // green" is quota-farming, not a lesson. It must claim a concrete future decision category
+        // it changes: packet admission, blocked-repair, or worker-feed replenishment.
+        $decisionImpact = array_values(array_unique(array_map('strval', (array) ($candidate['decision_impact'] ?? []))));
+        $validImpact = array_values(array_intersect($decisionImpact, self::VALID_DECISION_IMPACTS));
+        if ($validImpact === []) {
+            $reasons[] = 'no_future_decision_impact';
+            $next[] = 'attach_decision_impact_field_naming_packet_admission_blocked_repair_or_worker_feed_replenishment';
+
+            return $this->envelope(self::DECISION_REJECT, $reasons, $next);
         }
 
         return $this->envelope(

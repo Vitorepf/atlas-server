@@ -23,6 +23,7 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGateTest extends
     {
         $candidate = [
             'class' => 'duplicate_capability',
+            'decision_impact' => ['packet_admission'],
             'observations' => [
                 $this->provenObs(),
                 $this->provenObs(),
@@ -110,6 +111,7 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGateTest extends
     {
         $candidate = [
             'class' => 'ambiguous_pattern',
+            'decision_impact' => ['blocked_repair'],
             'observations' => [
                 ['outcome' => 'negative_result', 'source' => 'src-a', 'evidence_refs' => ['r1']],
                 ['outcome' => 'negative_result', 'source' => 'src-b', 'evidence_refs' => ['r2']],
@@ -132,6 +134,7 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGateTest extends
     {
         $candidate = [
             'class' => 'scoped_commit_violation',
+            'decision_impact' => ['worker_feed_replenishment'],
             'observations' => [
                 ['outcome' => 'failure', 'source' => 'src-a', 'evidence_refs' => ['evh-aaa']],
                 ['outcome' => 'failure', 'source' => 'src-b', 'evidence_refs' => ['evh-bbb']],
@@ -160,6 +163,7 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGateTest extends
     {
         $candidate = [
             'class' => 'missing_dependency',
+            'decision_impact' => ['packet_admission'],
             'observations' => [$this->provenObs(), $this->provenObs()],
         ];
         // With min_repetitions=2 and min_proven=2, this candidate IS admittable.
@@ -169,5 +173,73 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGateTest extends
 
         // Deterministic — repeated calls produce identical JSON.
         $this->assertSame(json_encode($verdict), json_encode($svc->admit($candidate, ['min_repetitions' => 2, 'min_proven' => 2])));
+    }
+
+    // ── anti-padding: future decision impact ─────────────────────────────────
+
+    public function test_candidate_that_only_restates_successful_enqueue_is_rejected(): void
+    {
+        $candidate = [
+            'class' => 'successful_enqueue_pattern',
+            'decision_impact' => [],
+            'observations' => [
+                $this->provenObs('success'),
+                $this->provenObs('success'),
+                $this->provenObs('success'),
+            ],
+        ];
+
+        $verdict = (new AtlasSelfConstructionLearningTransferLessonCandidateGate)->admit($candidate);
+        $this->assertSame(AtlasSelfConstructionLearningTransferLessonCandidateGate::DECISION_REJECT, $verdict['decision']);
+        $this->assertContains('no_future_decision_impact', $verdict['reasons']);
+    }
+
+    public function test_candidate_with_unrecognized_decision_impact_label_is_rejected(): void
+    {
+        $candidate = [
+            'class' => 'green_test_pattern',
+            'decision_impact' => ['test_went_green'],
+            'observations' => [
+                $this->provenObs('success'),
+                $this->provenObs('success'),
+                $this->provenObs('success'),
+            ],
+        ];
+
+        $verdict = (new AtlasSelfConstructionLearningTransferLessonCandidateGate)->admit($candidate);
+        $this->assertSame(AtlasSelfConstructionLearningTransferLessonCandidateGate::DECISION_REJECT, $verdict['decision']);
+        $this->assertContains('no_future_decision_impact', $verdict['reasons']);
+    }
+
+    public function test_candidate_claiming_packet_admission_impact_is_admitted(): void
+    {
+        $candidate = [
+            'class' => 'admission_pattern',
+            'decision_impact' => ['packet_admission'],
+            'observations' => [
+                $this->provenObs('failure'),
+                $this->provenObs('failure'),
+                $this->provenObs('failure'),
+            ],
+        ];
+
+        $verdict = (new AtlasSelfConstructionLearningTransferLessonCandidateGate)->admit($candidate);
+        $this->assertSame(AtlasSelfConstructionLearningTransferLessonCandidateGate::DECISION_ADMIT, $verdict['decision']);
+    }
+
+    public function test_candidate_claiming_worker_feed_replenishment_impact_is_admitted(): void
+    {
+        $candidate = [
+            'class' => 'replenishment_pattern',
+            'decision_impact' => ['worker_feed_replenishment'],
+            'observations' => [
+                $this->provenObs('failure'),
+                $this->provenObs('failure'),
+                $this->provenObs('failure'),
+            ],
+        ];
+
+        $verdict = (new AtlasSelfConstructionLearningTransferLessonCandidateGate)->admit($candidate);
+        $this->assertSame(AtlasSelfConstructionLearningTransferLessonCandidateGate::DECISION_ADMIT, $verdict['decision']);
     }
 }
