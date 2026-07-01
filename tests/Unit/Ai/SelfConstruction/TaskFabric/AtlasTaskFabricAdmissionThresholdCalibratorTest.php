@@ -223,4 +223,151 @@ final class AtlasTaskFabricAdmissionThresholdCalibratorTest extends TestCase
 
         $this->assertSame(json_encode($this->calibrate($rows)), json_encode($this->calibrate($rows)));
     }
+
+    // ── calibrateAdaptive(): AC2/AC3/AC4 rate-driven threshold movement ────────
+
+    public function test_adaptive_no_signals_is_unchanged_with_all_zero_deltas(): void
+    {
+        $r = $this->cal->calibrateAdaptive([]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::DIRECTION_UNCHANGED, $r['direction']);
+        $this->assertSame(['value_score' => 0.0, 'risk_score' => 0.0, 'duplicate_score' => 0.0, 'template_similarity' => 0.0], $r['threshold_deltas']);
+        $this->assertSame([], $r['raise_reasons']);
+    }
+
+    public function test_adaptive_elevated_give_back_rate_raises_thresholds(): void
+    {
+        $r = $this->cal->calibrateAdaptive(['give_back_rate' => 0.3]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::DIRECTION_RAISED, $r['direction']);
+        $this->assertGreaterThan(0.0, $r['threshold_deltas']['value_score']);
+        $this->assertLessThan(0.0, $r['threshold_deltas']['risk_score']);
+        $this->assertLessThan(0.0, $r['threshold_deltas']['duplicate_score']);
+        $this->assertLessThan(0.0, $r['threshold_deltas']['template_similarity']);
+        $this->assertContains('give_back_rate_elevated:0.3', $r['raise_reasons']);
+    }
+
+    public function test_adaptive_elevated_poison_rate_raises_thresholds(): void
+    {
+        $r = $this->cal->calibrateAdaptive(['poison_rate' => 0.15]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::DIRECTION_RAISED, $r['direction']);
+    }
+
+    public function test_adaptive_elevated_weak_proof_rate_raises_thresholds(): void
+    {
+        $r = $this->cal->calibrateAdaptive(['weak_proof_rate' => 0.3]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::DIRECTION_RAISED, $r['direction']);
+    }
+
+    public function test_adaptive_multiple_elevated_rates_scale_the_delta_larger(): void
+    {
+        $single = $this->cal->calibrateAdaptive(['give_back_rate' => 0.3]);
+        $triple = $this->cal->calibrateAdaptive(['give_back_rate' => 0.3, 'poison_rate' => 0.15, 'weak_proof_rate' => 0.3]);
+
+        $this->assertGreaterThan($single['threshold_deltas']['value_score'], $triple['threshold_deltas']['value_score']);
+        $this->assertCount(3, $triple['raise_reasons']);
+    }
+
+    public function test_adaptive_lowers_only_for_high_value_underserved_healthy_frontier(): void
+    {
+        $r = $this->cal->calibrateAdaptive([
+            'frontier_value_score' => 0.9,
+            'frontier_sample_count' => 2,
+            'give_back_rate' => 0.0,
+            'poison_rate' => 0.0,
+        ]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::DIRECTION_LOWERED, $r['direction']);
+        $this->assertTrue($r['lower_eligible']);
+        $this->assertLessThan(0.0, $r['threshold_deltas']['value_score']);
+        $this->assertGreaterThan(0.0, $r['threshold_deltas']['risk_score']);
+    }
+
+    public function test_adaptive_does_not_lower_for_low_value_frontier_even_if_underserved_and_healthy(): void
+    {
+        $r = $this->cal->calibrateAdaptive([
+            'frontier_value_score' => 0.2,
+            'frontier_sample_count' => 1,
+            'give_back_rate' => 0.0,
+            'poison_rate' => 0.0,
+        ]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::DIRECTION_UNCHANGED, $r['direction']);
+        $this->assertFalse($r['lower_eligible']);
+    }
+
+    public function test_adaptive_does_not_lower_for_well_served_frontier_even_if_high_value_and_healthy(): void
+    {
+        $r = $this->cal->calibrateAdaptive([
+            'frontier_value_score' => 0.9,
+            'frontier_sample_count' => 50,
+            'give_back_rate' => 0.0,
+            'poison_rate' => 0.0,
+        ]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::DIRECTION_UNCHANGED, $r['direction']);
+        $this->assertFalse($r['lower_eligible']);
+    }
+
+    public function test_adaptive_does_not_lower_for_high_value_underserved_but_unhealthy_frontier(): void
+    {
+        $r = $this->cal->calibrateAdaptive([
+            'frontier_value_score' => 0.9,
+            'frontier_sample_count' => 2,
+            'give_back_rate' => 0.5,
+        ]);
+
+        $this->assertNotSame(AtlasTaskFabricAdmissionThresholdCalibrator::DIRECTION_LOWERED, $r['direction']);
+        $this->assertFalse($r['lower_eligible']);
+    }
+
+    public function test_adaptive_never_lowers_while_a_raise_condition_is_active_even_if_frontier_qualifies(): void
+    {
+        $r = $this->cal->calibrateAdaptive([
+            'frontier_value_score' => 0.95,
+            'frontier_sample_count' => 1,
+            'give_back_rate' => 0.3,
+        ]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::DIRECTION_RAISED, $r['direction']);
+        $this->assertFalse($r['lower_eligible']);
+    }
+
+    public function test_adaptive_confidence_is_low_for_small_evidence_count(): void
+    {
+        $r = $this->cal->calibrateAdaptive(['evidence_count' => 2]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::CONFIDENCE_LOW, $r['confidence']);
+        $this->assertSame(2, $r['evidence_count']);
+    }
+
+    public function test_adaptive_confidence_is_medium_for_moderate_evidence_count(): void
+    {
+        $r = $this->cal->calibrateAdaptive(['evidence_count' => 10]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::CONFIDENCE_MEDIUM, $r['confidence']);
+    }
+
+    public function test_adaptive_confidence_is_high_for_large_evidence_count(): void
+    {
+        $r = $this->cal->calibrateAdaptive(['evidence_count' => 25]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::CONFIDENCE_HIGH, $r['confidence']);
+    }
+
+    public function test_adaptive_schema_version_is_the_adaptive_schema(): void
+    {
+        $r = $this->cal->calibrateAdaptive([]);
+
+        $this->assertSame(AtlasTaskFabricAdmissionThresholdCalibrator::SCHEMA_ADAPTIVE, $r['schema_version']);
+    }
+
+    public function test_adaptive_output_is_deterministic(): void
+    {
+        $input = ['give_back_rate' => 0.3, 'frontier_value_score' => 0.9, 'evidence_count' => 10];
+
+        $this->assertSame(json_encode($this->cal->calibrateAdaptive($input)), json_encode($this->cal->calibrateAdaptive($input)));
+    }
 }
