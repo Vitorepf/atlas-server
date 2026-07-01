@@ -107,12 +107,19 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
         $verbs = array_map(fn (array $p): array => $this->extractAcceptanceVerbs(is_array($p['acceptance_criteria'] ?? null) ? $p['acceptance_criteria'] : []), $packets);
         [$repeatedVerbs, $packetsWithRepeatedVerb] = $this->repeatedMultiSignalRatio($verbs);
 
+        // Noun-substitution templates: stems that differ from each other by exactly one word
+        // (e.g. "implement service to validate user accounts" vs "... order accounts") are the
+        // same disguised template even though they are not byte-identical stems.
+        $templateSignatures = array_map(fn (string $stem): array => $this->extractTemplateSignatures($stem), $stems);
+        [$repeatedTemplates, $packetsWithRepeatedTemplate] = $this->repeatedMultiSignalRatio($templateSignatures);
+
         $score = round(max(
             $packetsWithRepeatedStem / $total,
             $packetsWithRepeatedFrag / $total,
             $packetsWithRepeatedShape / $total,
             $packetsWithRepeatedProofPath / $total,
             $packetsWithRepeatedVerb / $total,
+            $packetsWithRepeatedTemplate / $total,
         ), 3);
 
         return [
@@ -123,6 +130,7 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
             'repeated_allowed_files_shapes' => $repeatedShapes,
             'repeated_proof_paths' => $repeatedProofPaths,
             'repeated_acceptance_verbs' => $repeatedVerbs,
+            'repeated_noun_substitution_templates' => $repeatedTemplates,
             'blocking' => $score >= self::BLOCKING_THRESHOLD,
             'packet_count' => $total,
         ];
@@ -257,6 +265,34 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
         }
 
         return $verbs;
+    }
+
+    /**
+     * All single-word-masked variants of a stem — two stems sharing any masked variant differ by
+     * exactly one word (the disguised noun) and are the same underlying template.
+     *
+     * @return list<string>
+     */
+    private function extractTemplateSignatures(string $stem): array
+    {
+        if ($stem === '') {
+            return [];
+        }
+
+        $words = explode(' ', $stem);
+        $wordCount = count($words);
+        if ($wordCount < 3) {
+            return [];
+        }
+
+        $signatures = [];
+        for ($i = 0; $i < $wordCount; $i++) {
+            $masked = $words;
+            $masked[$i] = '*';
+            $signatures[] = implode(' ', $masked);
+        }
+
+        return $signatures;
     }
 
     private function extractStem(string $objective): string

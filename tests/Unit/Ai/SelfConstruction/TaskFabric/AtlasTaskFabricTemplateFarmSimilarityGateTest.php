@@ -36,6 +36,46 @@ final class AtlasTaskFabricTemplateFarmSimilarityGateTest extends TestCase
         $this->assertSame([], $r['repeated_stems']);
     }
 
+    // ── noun-substitution disguised template ────────────────────────────────────
+
+    public function test_batch_differing_only_by_noun_substitution_is_blocked(): void
+    {
+        $acceptance = ['/opt/homebrew/bin/php artisan test --filter=FooTest exits 0'];
+        $files = ['app/Services/Foo.php'];
+
+        $r = $this->svc()->assess([
+            $this->packet('implement service to validate user accounts thoroughly', $acceptance, $files),
+            $this->packet('implement service to validate order accounts thoroughly', $acceptance, $files),
+            $this->packet('implement service to validate ticket accounts thoroughly', $acceptance, $files),
+        ]);
+
+        $this->assertNotEmpty($r['repeated_noun_substitution_templates']);
+        $this->assertTrue($r['blocking']);
+    }
+
+    public function test_diverse_batch_touching_distinct_layers_is_not_blocked(): void
+    {
+        $r = $this->svc()->assess([
+            $this->packet(
+                'harden the queue repository so leases never leak across workers',
+                ['/opt/homebrew/bin/php artisan test --filter=QueueRepoTest exits 0'],
+                ['app/Services/Queue/Repository.php'],
+            ),
+            $this->packet(
+                'teach the drift detector to flag stale capability maps automatically',
+                ['vendor/bin/phpunit --filter=DriftDetectorTest'],
+                ['app/Services/Drift/Detector.php'],
+            ),
+            $this->packet(
+                'extend the console command to print a formatted proof report',
+                ['/opt/homebrew/bin/php artisan test --filter=ProofReportCommandTest exits 0'],
+                ['app/Console/Commands/ProofReportCommand.php'],
+            ),
+        ]);
+
+        $this->assertFalse($r['blocking']);
+    }
+
     // ── template farm detection ───────────────────────────────────────────────
 
     public function test_identical_objectives_produce_repeated_stems(): void
