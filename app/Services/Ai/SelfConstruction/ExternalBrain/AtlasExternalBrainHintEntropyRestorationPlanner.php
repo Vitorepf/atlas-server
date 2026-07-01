@@ -82,12 +82,33 @@ final class AtlasExternalBrainHintEntropyRestorationPlanner
 
         $required = $this->computeRequiredFamilies($starvedPaths, $banned, $dominantVein, $dominantCompounding, $isCritical);
 
+        // AC1/AC4: axis diversity (opt-in via recent_hints) — names the exact axes that have
+        // collapsed to near-single-value coverage, so the plan can be checked against real
+        // recent hint variety, not just the entropy scalar and family bans.
+        $recentHints = is_array($input['recent_hints'] ?? null) ? $input['recent_hints'] : [];
+        $lowAxisDiversity = [];
+        $axisDiversityGaps = [];
+        foreach (self::AXES as $axis) {
+            $values = array_values(array_filter(array_map(
+                static fn ($h): string => is_array($h) ? trim((string) ($h[$axis] ?? '')) : '',
+                $recentHints,
+            ), static fn (string $v): bool => $v !== ''));
+            $diversity = count($recentHints) > 0 ? round(count(array_unique($values)) / count($recentHints), 4) : 0.0;
+            $isLow = $recentHints !== [] && $diversity < self::LOW_AXIS_DIVERSITY_THRESHOLD;
+            $lowAxisDiversity[$axis] = $isLow;
+            if ($isLow) {
+                $axisDiversityGaps[] = $axis;
+            }
+        }
+
         return [
             'schema'                    => self::SCHEMA,
             'target_entropy_floor'      => $targetFloor,
             'required_hint_families'    => $required,
             'banned_repeated_families'  => $banned,
             'allowed_exceptions'        => $allowedExceptions,
+            'low_axis_diversity'        => $lowAxisDiversity,
+            'axis_diversity_gaps'       => $axisDiversityGaps,
         ];
     }
 

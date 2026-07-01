@@ -296,4 +296,46 @@ final class AtlasExternalBrainHintEntropyRestorationPlannerTest extends TestCase
         $this->assertSame(0.0, $r['overall_diversity_score']);
         $this->assertFalse($r['template_collapse_detected']);
     }
+
+    // ── AC: plan() axis diversity ──────────────────────────────────────────────
+
+    public function test_plan_computes_low_axis_diversity_for_all_four_axes(): void
+    {
+        $recentHints = array_fill(0, 5, [
+            'capability_area' => 'loop',
+            'task_family' => 'bug_fix',
+            'evidence_source' => 'grep',
+            'expected_impact' => 'medium',
+        ]);
+
+        $r = $this->planner->plan(['recent_hints' => $recentHints]);
+
+        foreach (['capability_area', 'task_family', 'evidence_source', 'expected_impact'] as $axis) {
+            $this->assertTrue($r['low_axis_diversity'][$axis], "expected {$axis} to be flagged low-diversity");
+            $this->assertContains($axis, $r['axis_diversity_gaps']);
+        }
+    }
+
+    public function test_plan_preserves_compounding_dominant_vein_only_when_orthogonal_probe_required(): void
+    {
+        $r = $this->planner->plan([
+            'hint_entropy' => 0.90,
+            'dominant_vein' => 'compounding_wiring',
+            'dominant_vein_compounding' => true,
+            'starved_paths' => ['orthogonal_family'],
+        ]);
+
+        $this->assertContains('compounding_wiring', $r['allowed_exceptions']);
+        $this->assertNotEmpty($r['required_hint_families']);
+        $this->assertNotContains('compounding_wiring', $r['required_hint_families']);
+    }
+
+    public function test_plan_output_includes_target_entropy_floor_required_families_banned_families_and_axis_gaps(): void
+    {
+        $r = $this->planner->plan([]);
+
+        foreach (['target_entropy_floor', 'required_hint_families', 'banned_repeated_families', 'axis_diversity_gaps'] as $key) {
+            $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
+        }
+    }
 }
