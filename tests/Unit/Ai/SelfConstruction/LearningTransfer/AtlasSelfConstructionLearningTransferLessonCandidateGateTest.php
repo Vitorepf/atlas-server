@@ -242,4 +242,56 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGateTest extends
         $verdict = (new AtlasSelfConstructionLearningTransferLessonCandidateGate)->admit($candidate);
         $this->assertSame(AtlasSelfConstructionLearningTransferLessonCandidateGate::DECISION_ADMIT, $verdict['decision']);
     }
+
+    // ── AC: template-farm patterns are blocked ─────────────────────────────────
+
+    public function test_template_placeholder_class_field_is_rejected_as_template_farm(): void
+    {
+        $candidate = [
+            'class' => '[class] failed to build',
+            'decision_impact' => ['packet_admission'],
+            'observations' => [
+                $this->provenObs(),
+                $this->provenObs(),
+                $this->provenObs(),
+            ],
+        ];
+
+        $verdict = (new AtlasSelfConstructionLearningTransferLessonCandidateGate)->admit($candidate);
+        $this->assertSame(AtlasSelfConstructionLearningTransferLessonCandidateGate::DECISION_REJECT, $verdict['decision']);
+        $this->assertStringContainsString('template_farm_class_placeholder', $verdict['reasons'][0]);
+    }
+
+    public function test_single_evidence_ref_reused_across_observations_is_rejected_as_template_farm(): void
+    {
+        $candidate = [
+            'class' => 'duplicate_capability',
+            'decision_impact' => ['packet_admission'],
+            'observations' => [
+                ['outcome' => 'failure', 'source' => 'src-a', 'evidence_refs' => ['receipt:shared']],
+                ['outcome' => 'failure', 'source' => 'src-b', 'evidence_refs' => ['receipt:shared']],
+                ['outcome' => 'failure', 'source' => 'src-c', 'evidence_refs' => ['receipt:shared']],
+            ],
+        ];
+
+        $verdict = (new AtlasSelfConstructionLearningTransferLessonCandidateGate)->admit($candidate);
+        $this->assertSame(AtlasSelfConstructionLearningTransferLessonCandidateGate::DECISION_REJECT, $verdict['decision']);
+        $this->assertStringContainsString('template_farm_evidence_reuse', $verdict['reasons'][0]);
+    }
+
+    public function test_distinct_evidence_refs_per_observation_are_not_flagged_as_template_farm(): void
+    {
+        $candidate = [
+            'class' => 'duplicate_capability',
+            'decision_impact' => ['packet_admission'],
+            'observations' => [
+                ['outcome' => 'failure', 'source' => 'src-a', 'evidence_refs' => ['receipt:1']],
+                ['outcome' => 'failure', 'source' => 'src-b', 'evidence_refs' => ['receipt:2']],
+                ['outcome' => 'failure', 'source' => 'src-c', 'evidence_refs' => ['receipt:3']],
+            ],
+        ];
+
+        $verdict = (new AtlasSelfConstructionLearningTransferLessonCandidateGate)->admit($candidate);
+        $this->assertSame(AtlasSelfConstructionLearningTransferLessonCandidateGate::DECISION_ADMIT, $verdict['decision']);
+    }
 }

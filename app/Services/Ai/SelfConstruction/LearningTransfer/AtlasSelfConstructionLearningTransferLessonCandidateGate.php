@@ -37,6 +37,10 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGate
     /** The only decision categories a lesson may legitimately claim to change. */
     public const VALID_DECISION_IMPACTS = ['packet_admission', 'blocked_repair', 'worker_feed_replenishment'];
 
+    /** Generic scaffolding text in the class field signals a template-farm generated lesson,
+     *  never a real cross-cycle observation. */
+    private const TEMPLATE_CLASS_SIGNALS = ['[class]', '[category]', '{{', '}}', 'template_pattern', 'example_pattern', 'todo:', 'placeholder'];
+
     /**
      * @param  array<string,mixed>  $candidate    {class:string, observations:list<{outcome:string, evidence_refs:list<string>}>}
      * @param  array<string,mixed>  $thresholds   {min_repetitions?:int, min_proven?:int, conflict_tolerance?:int}
@@ -59,6 +63,16 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGate
             $next[] = 'attach_a_concrete_class_field';
 
             return $this->envelope(self::DECISION_REJECT, $reasons, $next);
+        }
+
+        $lowerClass = strtolower($class);
+        foreach (self::TEMPLATE_CLASS_SIGNALS as $signal) {
+            if (str_contains($lowerClass, $signal)) {
+                $reasons[] = 'template_farm_class_placeholder:'.$signal;
+                $next[] = 'replace_template_placeholder_with_a_concrete_observed_class';
+
+                return $this->envelope(self::DECISION_REJECT, $reasons, $next);
+            }
         }
 
         // Tally proven vs unverified + outcome distribution + source diversity.
@@ -116,6 +130,17 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGate
         if ($proven < $minProven) {
             $reasons[] = 'below_proof_threshold:'.$proven.'<'.$minProven;
             $next[] = 'attach_evidence_refs_to_at_least_'.$minProven.'_observations';
+
+            return $this->envelope(self::DECISION_REJECT, $reasons, $next);
+        }
+
+        // TEMPLATE-FARM EVIDENCE REUSE — proven observations that all cite the exact same single
+        // evidence ref are not independent cross-cycle proof; they're one artifact copy-pasted
+        // across a batch of near-identical candidates.
+        $uniqueEvidenceRefCount = count(array_unique($allEvidenceRefs));
+        if ($proven >= 2 && $uniqueEvidenceRefCount === 1) {
+            $reasons[] = 'template_farm_evidence_reuse:single_ref_reused_'.$proven.'_times';
+            $next[] = 'attach_distinct_evidence_refs_per_independent_observation';
 
             return $this->envelope(self::DECISION_REJECT, $reasons, $next);
         }
