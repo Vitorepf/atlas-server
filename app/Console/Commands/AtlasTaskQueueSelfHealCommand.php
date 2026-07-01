@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmbiguityResolutionPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackToQueueRepairPlanner;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskQueueSelfHealingRespecPlanner;
 use Illuminate\Console\Command;
@@ -14,8 +15,11 @@ use Illuminate\Console\Command;
  *
  * Scans blocked (quarantined) task-packet records through
  * {@see AtlasTaskQueueSelfHealingRespecPlanner} (per-packet malformation
- * detection) and {@see AtlasExternalBrainGiveBackToQueueRepairPlanner}
- * (repair-plan ranking), and emits repair-ready respec proposals.
+ * detection), {@see AtlasExternalBrainGiveBackToQueueRepairPlanner}
+ * (repair-plan ranking), and {@see AtlasExternalBrainAmbiguityResolutionPlanner}
+ * (turns any uncertain model claim recorded on the blocked packet's metadata
+ * into a deterministic local check instead of a speculative respec), and
+ * emits repair-ready respec proposals.
  *
  * Zero queue mutations — never calls updateStatus, never enqueues, never
  * touches leases. Repair candidates are ranked by safety_score so a real
@@ -42,9 +46,11 @@ final class AtlasTaskQueueSelfHealCommand extends Command
 
         $respecPlanner = new AtlasTaskQueueSelfHealingRespecPlanner;
         $repairPlanner = new AtlasExternalBrainGiveBackToQueueRepairPlanner;
+        $ambiguityPlanner = new AtlasExternalBrainAmbiguityResolutionPlanner;
 
         $respecProposals = [];
         $giveBackEvents = [];
+        $ambiguityItems = [];
 
         foreach ($blockedRecords as $record) {
             $taskPacket = is_array($record['task_packet'] ?? null) ? (array) $record['task_packet'] : [];
@@ -77,9 +83,15 @@ final class AtlasTaskQueueSelfHealCommand extends Command
                 'token_savings' => (float) ($metadata['token_savings'] ?? 0.0),
                 'unblock_count' => (int) ($metadata['unblock_count'] ?? 0),
             ];
+
+            $ambiguity = (array) ($metadata['ambiguity'] ?? []);
+            if ($ambiguity !== []) {
+                $ambiguityItems[] = ['task_packet_id' => $taskId] + $ambiguity;
+            }
         }
 
         $repairResult = $repairPlanner->plan(['give_backs' => $giveBackEvents]);
+        $ambiguityResult = $ambiguityPlanner->plan(['ambiguity_items' => $ambiguityItems]);
 
         $payload = [
             'schema' => self::SCHEMA,
@@ -90,6 +102,11 @@ final class AtlasTaskQueueSelfHealCommand extends Command
             // planner) — a real unblock path always outranks originating more fresh work.
             'ranked_repair_candidates' => $repairResult['ranked_repair_candidates'],
             'prioritization_note' => 'ranked_repair_candidates orders real unblock paths above origination; consume this list before enqueuing new work.',
+            'ambiguity_resolution_actions' => $ambiguityResult['resolution_actions'],
+            'unresolved_ambiguity_items' => $ambiguityResult['unresolved_items'],
+            // A blocked packet whose recorded ambiguity cannot be resolved locally must never be
+            // waved through as a speculative respec — the caller consumes this flag before acting.
+            'ambiguity_task_creation_allowed' => $ambiguityResult['task_creation_allowed'],
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
