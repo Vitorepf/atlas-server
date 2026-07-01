@@ -100,4 +100,124 @@ class ReadinessAgentControlPlaneOrchestratorFactoryTest extends TestCase
         self::assertNull($result['orchestrator_config']);
         self::assertStringContainsString('ambiguous_worker_class', $result['blocking_reason']);
     }
+
+    // ── buildReadinessOrchestratorPlan(): workspace/queue/evidence/lane boundaries ──
+
+    private function safeContext(array $overrides = []): array
+    {
+        return array_merge([
+            'workspace' => '/Users/me/atlas-server',
+            'queue_last_synced_seconds_ago' => 30,
+            'evidence_ledger_path' => '/Users/me/atlas-server/storage/evidence-ledger',
+            'project_lane' => 'atlas-server',
+        ], $overrides);
+    }
+
+    public function test_full_safe_context_produces_minimal_orchestrator_plan(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildReadinessOrchestratorPlan($this->safeContext());
+
+        self::assertTrue($result['ready']);
+        self::assertSame([], $result['blockers']);
+        self::assertSame('/Users/me/atlas-server', $result['orchestrator_plan']['workspace']);
+        self::assertSame(30, $result['orchestrator_plan']['queue_context']['last_synced_seconds_ago']);
+        self::assertSame('/Users/me/atlas-server/storage/evidence-ledger', $result['orchestrator_plan']['evidence_boundary']);
+        self::assertSame('atlas-server', $result['orchestrator_plan']['project_lane']);
+    }
+
+    public function test_missing_workspace_is_rejected(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildReadinessOrchestratorPlan(
+            $this->safeContext(['workspace' => '']),
+        );
+
+        self::assertFalse($result['ready']);
+        self::assertNull($result['orchestrator_plan']);
+        self::assertContains('missing_workspace', $result['blockers']);
+    }
+
+    public function test_relative_workspace_is_rejected(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildReadinessOrchestratorPlan(
+            $this->safeContext(['workspace' => 'relative/path']),
+        );
+
+        self::assertFalse($result['ready']);
+        self::assertContains('workspace_must_be_an_absolute_path', $result['blockers']);
+    }
+
+    public function test_stale_queue_context_is_rejected(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildReadinessOrchestratorPlan(
+            $this->safeContext(['queue_last_synced_seconds_ago' => 7200]),
+        );
+
+        self::assertFalse($result['ready']);
+        self::assertNull($result['orchestrator_plan']);
+        $blob = implode(',', $result['blockers']);
+        self::assertStringContainsString('stale_queue_context', $blob);
+    }
+
+    public function test_missing_queue_context_is_rejected(): void
+    {
+        $context = $this->safeContext();
+        unset($context['queue_last_synced_seconds_ago']);
+
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildReadinessOrchestratorPlan($context);
+
+        self::assertFalse($result['ready']);
+        self::assertContains('missing_queue_context', $result['blockers']);
+    }
+
+    public function test_missing_evidence_boundary_is_rejected(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildReadinessOrchestratorPlan(
+            $this->safeContext(['evidence_ledger_path' => '']),
+        );
+
+        self::assertFalse($result['ready']);
+        self::assertNull($result['orchestrator_plan']);
+        self::assertContains('missing_evidence_boundary', $result['blockers']);
+    }
+
+    public function test_evidence_boundary_outside_workspace_is_rejected(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildReadinessOrchestratorPlan(
+            $this->safeContext(['evidence_ledger_path' => '/etc/passwd']),
+        );
+
+        self::assertFalse($result['ready']);
+        self::assertContains('evidence_boundary_outside_workspace', $result['blockers']);
+    }
+
+    public function test_ambiguous_project_lane_with_multiple_candidates_is_rejected(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildReadinessOrchestratorPlan(
+            $this->safeContext(['candidate_lanes' => ['atlas-server', 'atlas-desktop']]),
+        );
+
+        self::assertFalse($result['ready']);
+        self::assertNull($result['orchestrator_plan']);
+        $blob = implode(',', $result['blockers']);
+        self::assertStringContainsString('ambiguous_project_lane', $blob);
+    }
+
+    public function test_missing_project_lane_is_rejected(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildReadinessOrchestratorPlan(
+            $this->safeContext(['project_lane' => '']),
+        );
+
+        self::assertFalse($result['ready']);
+        self::assertContains('missing_project_lane', $result['blockers']);
+    }
+
+    public function test_multiple_blockers_accumulate_and_never_produce_a_partial_plan(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildReadinessOrchestratorPlan([]);
+
+        self::assertFalse($result['ready']);
+        self::assertNull($result['orchestrator_plan']);
+        self::assertGreaterThanOrEqual(4, count($result['blockers']));
+    }
 }

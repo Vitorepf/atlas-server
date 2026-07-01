@@ -75,6 +75,73 @@ final class ReadinessAgentControlPlaneOrchestratorFactory
         ];
     }
 
+    /** Queue context older than this is refused as stale rather than trusted blind. */
+    private const QUEUE_STALE_AFTER_SECONDS = 3600;
+
+    /**
+     * Builds the minimal orchestrator PLAN (queue, evidence and context inputs only — never an
+     * actual orchestrator instance) once workspace, queue freshness, evidence boundary and
+     * project-lane facts are all proven safe. Refuses to construct anything partial: any single
+     * unsafe boundary blocks the whole plan.
+     *
+     * @param  array<string,mixed>  $context  {workspace?, queue_last_synced_seconds_ago?,
+     *   evidence_ledger_path?, project_lane?, candidate_lanes?}
+     * @return array{orchestrator_plan: ?array<string,mixed>, ready: bool, blockers: list<string>}
+     */
+    public static function buildReadinessOrchestratorPlan(array $context): array
+    {
+        $blockers = [];
+
+        $workspace = trim((string) ($context['workspace'] ?? ''));
+        if ($workspace === '') {
+            $blockers[] = 'missing_workspace';
+        } elseif (! str_starts_with($workspace, '/')) {
+            $blockers[] = 'workspace_must_be_an_absolute_path';
+        }
+
+        $queueAgeProvided = array_key_exists('queue_last_synced_seconds_ago', $context);
+        $queueAge = max(0, (int) ($context['queue_last_synced_seconds_ago'] ?? 0));
+        if (! $queueAgeProvided) {
+            $blockers[] = 'missing_queue_context';
+        } elseif ($queueAge > self::QUEUE_STALE_AFTER_SECONDS) {
+            $blockers[] = 'stale_queue_context:'.$queueAge;
+        }
+
+        $evidenceLedgerPath = trim((string) ($context['evidence_ledger_path'] ?? ''));
+        if ($evidenceLedgerPath === '') {
+            $blockers[] = 'missing_evidence_boundary';
+        } elseif ($workspace !== '' && ! str_starts_with($evidenceLedgerPath, $workspace)) {
+            $blockers[] = 'evidence_boundary_outside_workspace';
+        }
+
+        $projectLane = trim((string) ($context['project_lane'] ?? ''));
+        $candidateLanes = array_values(array_filter(array_map('strval', (array) ($context['candidate_lanes'] ?? []))));
+        if ($projectLane === '') {
+            $blockers[] = 'missing_project_lane';
+        } elseif (count($candidateLanes) > 1) {
+            $blockers[] = 'ambiguous_project_lane:'.implode(',', $candidateLanes);
+        }
+
+        if ($blockers !== []) {
+            return [
+                'orchestrator_plan' => null,
+                'ready' => false,
+                'blockers' => $blockers,
+            ];
+        }
+
+        return [
+            'orchestrator_plan' => [
+                'workspace' => $workspace,
+                'queue_context' => ['last_synced_seconds_ago' => $queueAge],
+                'evidence_boundary' => $evidenceLedgerPath,
+                'project_lane' => $projectLane,
+            ],
+            'ready' => true,
+            'blockers' => [],
+        ];
+    }
+
     public static function buildTaskQueueOrchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         return new AgentControlPlaneTaskQueueOrchestrator(
