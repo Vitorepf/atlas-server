@@ -456,6 +456,98 @@ final class AtlasExternalBrainFinalCertificationGateTest extends TestCase
         }
     }
 
+    // ── certifyFinalReadiness: 8-pillar readiness model ──────────────────────────
+
+    private function fullPillarEvidence(): array
+    {
+        $pillars = [];
+        $refs = [
+            'context_pack' => 'context_pack_ref',
+            'domain_map' => 'domain_map_ref',
+            'task_fabric' => 'task_fabric_ref',
+            'outcome_learning' => 'outcome_ledger_ref',
+            'proof_system' => 'proof_system_ref',
+            'refactor_os' => 'refactor_os_ref',
+            'prompt_contracts' => 'prompt_contract_ref',
+            'autonomy_governor' => 'autonomy_assessment_ref',
+        ];
+        foreach ($refs as $pillar => $ref) {
+            $pillars[$pillar] = ['present' => true, 'evidence_refs' => [$ref]];
+        }
+
+        return $pillars;
+    }
+
+    public function test_full_pillar_evidence_yields_ready(): void
+    {
+        $result = $this->gate()->certifyFinalReadiness($this->fullPillarEvidence());
+
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::READINESS_READY, $result['readiness']);
+        $this->assertSame([], $result['missing_capabilities']);
+    }
+
+    public function test_missing_outcome_learning_pillar_is_not_ready(): void
+    {
+        $evidence = $this->fullPillarEvidence();
+        unset($evidence['outcome_learning']);
+
+        $result = $this->gate()->certifyFinalReadiness($evidence);
+
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::READINESS_NOT_READY, $result['readiness']);
+        $this->assertContains('outcome_learning', $result['missing_capabilities']);
+    }
+
+    public function test_missing_proof_system_pillar_is_not_ready(): void
+    {
+        $evidence = $this->fullPillarEvidence();
+        unset($evidence['proof_system']);
+
+        $result = $this->gate()->certifyFinalReadiness($evidence);
+
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::READINESS_NOT_READY, $result['readiness']);
+        $this->assertContains('proof_system', $result['missing_capabilities']);
+    }
+
+    public function test_stale_context_pack_pillar_is_not_ready(): void
+    {
+        $evidence = $this->fullPillarEvidence();
+        $evidence['context_pack']['evidence_age_hours'] = 200;
+
+        $result = $this->gate()->certifyFinalReadiness($evidence);
+
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::READINESS_NOT_READY, $result['readiness']);
+        $this->assertContains('context_pack', $result['missing_capabilities']);
+    }
+
+    public function test_missing_refactor_os_evidence_refs_is_not_ready(): void
+    {
+        $evidence = $this->fullPillarEvidence();
+        $evidence['refactor_os']['evidence_refs'] = [];
+
+        $result = $this->gate()->certifyFinalReadiness($evidence);
+
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::READINESS_NOT_READY, $result['readiness']);
+        $this->assertContains('refactor_os', $result['missing_capabilities']);
+    }
+
+    public function test_pillar_results_covers_all_eight_pillars(): void
+    {
+        $result = $this->gate()->certifyFinalReadiness($this->fullPillarEvidence());
+
+        $this->assertCount(8, $result['pillar_results']);
+        foreach (AtlasExternalBrainFinalCertificationGate::PILLARS as $pillar) {
+            $this->assertArrayHasKey($pillar, $result['pillar_results']);
+        }
+    }
+
+    public function test_empty_evidence_marks_every_pillar_missing(): void
+    {
+        $result = $this->gate()->certifyFinalReadiness([]);
+
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::READINESS_NOT_READY, $result['readiness']);
+        $this->assertCount(8, $result['missing_capabilities']);
+    }
+
     private function dossierFor(array $result, string $dimension): array
     {
         foreach ($result['evidence_dossier'] as $entry) {

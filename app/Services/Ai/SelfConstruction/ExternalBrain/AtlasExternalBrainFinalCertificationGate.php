@@ -54,6 +54,27 @@ final class AtlasExternalBrainFinalCertificationGate
         'autonomy_steady_state'         => ['autonomy_assessment_ref'],
     ];
 
+    public const READINESS_READY     = 'ready';
+    public const READINESS_NOT_READY = 'not_ready';
+
+    /** The 8 pillars a 95%-readiness claim must be backed by — a wider surface than the 7-dimension certify() model. */
+    public const PILLARS = [
+        'context_pack', 'domain_map', 'task_fabric', 'outcome_learning',
+        'proof_system', 'refactor_os', 'prompt_contracts', 'autonomy_governor',
+    ];
+
+    /** Minimum evidence refs required per pillar to count as fresh proof. */
+    private const PILLAR_REQUIRED_REFS = [
+        'context_pack'      => ['context_pack_ref'],
+        'domain_map'        => ['domain_map_ref'],
+        'task_fabric'       => ['task_fabric_ref'],
+        'outcome_learning'  => ['outcome_ledger_ref'],
+        'proof_system'      => ['proof_system_ref'],
+        'refactor_os'       => ['refactor_os_ref'],
+        'prompt_contracts'  => ['prompt_contract_ref'],
+        'autonomy_governor' => ['autonomy_assessment_ref'],
+    ];
+
     /**
      * @param  array<string,mixed>  $evidence
      * @return array{
@@ -220,6 +241,52 @@ final class AtlasExternalBrainFinalCertificationGate
             'evidence_dossier'          => $dossier,
             'finality_risk_score'       => $this->finalityRiskScore($passedCount, $requiredCount, count($blockers)),
             'next_certification_action' => $this->nextCertificationAction($verdict, $blockers),
+        ];
+    }
+
+    /**
+     * Wider 8-pillar readiness check: context pack, domain map, task fabric, outcome learning,
+     * proof system, refactor OS, prompt contracts, and autonomy governor. A pillar counts as
+     * proven only when it is marked present, carries every required evidence_ref, and its
+     * evidence_age_hours (if supplied) is not stale — exactly mirroring the freshness/refs
+     * discipline certify() already enforces for its 7 dimensions.
+     *
+     * @param  array<string,mixed>  $evidence
+     * @return array{schema:string, readiness:string, pillar_results:array<string,bool>, missing_capabilities:list<string>, pillar_dossier:list<array<string,mixed>>}
+     */
+    public function certifyFinalReadiness(array $evidence): array
+    {
+        $pillarResults = [];
+        $missingCapabilities = [];
+        $dossier = [];
+
+        foreach (self::PILLARS as $pillar) {
+            $facts = is_array($evidence[$pillar] ?? null) ? $evidence[$pillar] : [];
+            $present = (bool) ($facts['present'] ?? false);
+            $refs = array_values(array_map('strval', (array) ($facts['evidence_refs'] ?? [])));
+            $ageHours = $facts['evidence_age_hours'] ?? null;
+
+            $requiredRefs = self::PILLAR_REQUIRED_REFS[$pillar] ?? [];
+            $missingRefs = array_values(array_diff($requiredRefs, $refs));
+
+            $entry = $this->dossierEntry($pillar, $present, $refs, $ageHours);
+            $entry['missing_refs'] = $missingRefs;
+            $dossier[] = $entry;
+
+            $hasFreshProof = $present && $missingRefs === [] && ! $entry['stale'];
+            $pillarResults[$pillar] = $hasFreshProof;
+
+            if (! $hasFreshProof) {
+                $missingCapabilities[] = $pillar;
+            }
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'readiness' => $missingCapabilities === [] ? self::READINESS_READY : self::READINESS_NOT_READY,
+            'pillar_results' => $pillarResults,
+            'missing_capabilities' => $missingCapabilities,
+            'pillar_dossier' => $dossier,
         ];
     }
 
