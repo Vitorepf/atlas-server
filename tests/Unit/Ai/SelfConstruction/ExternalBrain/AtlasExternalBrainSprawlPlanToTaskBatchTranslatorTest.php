@@ -335,4 +335,116 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslatorTest extends TestCa
             $this->translator()->translate($plan),
         );
     }
+
+    // ── AC2: sprawling plans split into minimal ordered task batches ─────────
+
+    public function test_sprawling_plan_with_many_actions_splits_into_ordered_task_batches(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['type' => 'retire',   'organ' => 'OrgR1']),
+            $this->validAction(['type' => 'simplify', 'organ' => 'OrgS1']),
+            $this->validAction(['type' => 'merge',    'organ' => 'OrgM1', 'replacement_owner' => 'OrgX1']),
+            $this->validAction(['type' => 'retire',   'organ' => 'OrgR2']),
+            $this->validAction(['type' => 'simplify', 'organ' => 'OrgS2']),
+        ]]);
+
+        $this->assertCount(5, $result['task_specs']);
+        $types = array_column($result['task_specs'], 'action_type');
+        $this->assertSame(['merge', 'simplify', 'simplify', 'retire', 'retire'], $types);
+    }
+
+    // ── AC3: prefers deletion/consolidation over simplify among declared alternatives ──
+
+    public function test_retire_alternative_is_preferred_over_simplify_in_same_decision_group(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['type' => 'simplify', 'organ' => 'AtlasSprawlOrgan', 'decision_group' => 'sprawl-fix-1']),
+            $this->validAction(['type' => 'retire',   'organ' => 'AtlasSprawlOrgan', 'decision_group' => 'sprawl-fix-1']),
+        ]]);
+
+        $this->assertCount(1, $result['task_specs']);
+        $this->assertSame('retire', $result['task_specs'][0]['action_type']);
+        $this->assertCount(1, $result['refused']);
+        $this->assertSame('superseded_by_stronger_alternative_in_decision_group', $result['refused'][0]['reason']);
+    }
+
+    public function test_merge_alternative_is_preferred_over_simplify_in_same_decision_group(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['type' => 'simplify', 'organ' => 'AtlasSprawlOrgan', 'decision_group' => 'sprawl-fix-2']),
+            $this->validAction(['type' => 'merge', 'organ' => 'AtlasSprawlOrgan', 'replacement_owner' => 'AtlasNewOwner', 'decision_group' => 'sprawl-fix-2']),
+        ]]);
+
+        $this->assertCount(1, $result['task_specs']);
+        $this->assertSame('merge', $result['task_specs'][0]['action_type']);
+    }
+
+    public function test_shared_organ_without_decision_group_never_triggers_preference_filtering(): void
+    {
+        // A legitimate merge-then-retire chain for the SAME organ must survive intact —
+        // bare shared organ name is not an alternative-group signal.
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['type' => 'merge', 'organ' => 'OrgA', 'replacement_owner' => 'OrgB']),
+            $this->validAction(['type' => 'retire', 'organ' => 'OrgA']),
+        ]]);
+
+        $this->assertCount(2, $result['task_specs']);
+        $this->assertSame([], $result['refused']);
+    }
+
+    public function test_decision_group_with_only_one_action_is_never_superseded(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['type' => 'simplify', 'organ' => 'OrgOnly', 'decision_group' => 'solo-group']),
+        ]]);
+
+        $this->assertCount(1, $result['task_specs']);
+        $this->assertSame([], $result['refused']);
+    }
+
+    // ── AC4: every task_spec includes dependency_note and proof_floor ─────────
+
+    public function test_task_spec_includes_dependency_note_and_proof_floor(): void
+    {
+        $result = $this->translator()->translate(['actions' => [$this->validAction()]]);
+
+        $spec = $result['task_specs'][0];
+        $this->assertArrayHasKey('dependency_note', $spec);
+        $this->assertArrayHasKey('proof_floor', $spec);
+        $this->assertNotEmpty($spec['dependency_note']);
+        $this->assertNotEmpty($spec['proof_floor']);
+    }
+
+    public function test_dependency_note_reflects_no_dependencies_when_standalone(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['type' => 'retire', 'organ' => 'StandaloneOrgan']),
+        ]]);
+
+        $this->assertStringContainsString('No dependencies', $result['task_specs'][0]['dependency_note']);
+    }
+
+    public function test_dependency_note_mentions_the_dependency_when_present(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['type' => 'merge', 'organ' => 'OrgA', 'replacement_owner' => 'OrgB']),
+            $this->validAction(['type' => 'retire', 'organ' => 'OrgA']),
+        ]]);
+
+        $retireSpec = array_values(array_filter(
+            $result['task_specs'],
+            fn(array $s): bool => $s['action_type'] === 'retire'
+        ))[0];
+
+        $this->assertStringContainsString('merge:OrgA', $retireSpec['dependency_note']);
+    }
+
+    public function test_proof_floor_mentions_behavior_preservation_gate_count(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['behavior_preservation_tests' => ['t1', 't2', 't3']]),
+        ]]);
+
+        $this->assertStringContainsString('3/3', $result['task_specs'][0]['proof_floor']);
+    }
 }

@@ -24,7 +24,15 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * OUTPUT task_spec shape (per action):
  *   action_type, organ, implementation_file, test_file, allowed_files,
  *   acceptance_criteria (runnable), required_evidence,
- *   behavior_preservation_gates, depends_on
+ *   behavior_preservation_gates, depends_on, dependency_note, proof_floor
+ *
+ * DELETION/CONSOLIDATION PREFERENCE (new, opt-in): when 2+ actions declare the SAME non-empty
+ * decision_group (meaning the plan itself marks them as alternatives satisfying one need — a
+ * bare shared `organ` name is NOT enough, since a legitimate merge-then-retire two-step chain
+ * for the same organ must never be treated as competing alternatives), only the
+ * highest-preference action(s) in that group survive: retire (deletion) > merge
+ * (consolidation) > simplify. The rest are refused with
+ * superseded_by_stronger_alternative_in_decision_group before the normal refusal checks run.
  *
  * Pure / deterministic / no I/O.
  */
@@ -33,6 +41,9 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
     public const SCHEMA = 'atlas.external_brain.sprawl_plan_to_task_batch_translator.v1';
 
     private const ACTION_ORDER = ['merge' => 0, 'simplify' => 1, 'retire' => 2];
+
+    // Deletion/consolidation preference — higher wins among declared alternatives.
+    private const ACTION_PREFERENCE = ['retire' => 2, 'merge' => 1, 'simplify' => 0];
 
     /**
      * @param  array<string,mixed>  $plan
@@ -52,8 +63,19 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
             }
         }
 
-        foreach ($rawActions as $action) {
+        $supersededIndexes = $this->supersededByDeletionPreference($rawActions);
+
+        foreach ($rawActions as $index => $action) {
             if (! is_array($action)) {
+                continue;
+            }
+
+            if (isset($supersededIndexes[$index])) {
+                $refused[] = [
+                    'organ' => trim((string) ($action['organ'] ?? '')),
+                    'action_type' => trim(strtolower((string) ($action['type'] ?? ''))),
+                    'reason' => 'superseded_by_stronger_alternative_in_decision_group',
+                ];
                 continue;
             }
 
@@ -74,6 +96,7 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
             }
 
             [$implFile, $testFile] = $this->splitImplAndTest($files, $organ);
+            $dependsOn = $this->buildDeps($type, $organ, $mergeOrgans);
 
             $taskSpecs[] = [
                 'action_type'                => $type,
@@ -84,7 +107,9 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
                 'acceptance_criteria'        => $this->buildAcceptance($type, $organ, $owner, $tests),
                 'required_evidence'          => $this->buildEvidence($type, $organ, $owner),
                 'behavior_preservation_gates' => $this->buildGates($tests, $organ),
-                'depends_on'                 => $this->buildDeps($type, $organ, $mergeOrgans),
+                'depends_on'                 => $dependsOn,
+                'dependency_note'            => $this->buildDependencyNote($dependsOn, $organ),
+                'proof_floor'                => $this->buildProofFloor($tests),
             ];
         }
 
@@ -200,5 +225,69 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
             return ['merge:'.$organ];
         }
         return [];
+    }
+
+    /** @param list<string> $dependsOn */
+    private function buildDependencyNote(array $dependsOn, string $organ): string
+    {
+        if ($dependsOn === []) {
+            return 'No dependencies — this task can run standalone.';
+        }
+
+        return sprintf(
+            'Depends on %s completing first so %s is fully absorbed before this task runs.',
+            implode(', ', $dependsOn),
+            $organ,
+        );
+    }
+
+    /** @param list<string> $tests */
+    private function buildProofFloor(array $tests): string
+    {
+        return sprintf(
+            '%d/%d behavior-preservation gate(s) must be green via /opt/homebrew/bin/php artisan test.',
+            count($tests),
+            count($tests),
+        );
+    }
+
+    /**
+     * Deletion/consolidation preference among explicitly-declared alternatives (AC3). Only
+     * actions sharing the same non-empty decision_group are compared; a bare shared organ name
+     * never triggers this (a legitimate merge-then-retire chain for one organ is not a set of
+     * competing alternatives).
+     *
+     * @param  list<mixed>  $rawActions
+     * @return array<int,true>  set of raw action indexes that lose to a stronger alternative
+     */
+    private function supersededByDeletionPreference(array $rawActions): array
+    {
+        $groups = [];
+        foreach ($rawActions as $index => $action) {
+            if (! is_array($action)) {
+                continue;
+            }
+            $group = trim((string) ($action['decision_group'] ?? ''));
+            if ($group === '') {
+                continue;
+            }
+            $type = trim(strtolower((string) ($action['type'] ?? '')));
+            $groups[$group][] = ['index' => $index, 'preference' => self::ACTION_PREFERENCE[$type] ?? -1];
+        }
+
+        $superseded = [];
+        foreach ($groups as $members) {
+            if (count($members) < 2) {
+                continue;
+            }
+            $maxPreference = max(array_column($members, 'preference'));
+            foreach ($members as $member) {
+                if ($member['preference'] < $maxPreference) {
+                    $superseded[$member['index']] = true;
+                }
+            }
+        }
+
+        return $superseded;
     }
 }
