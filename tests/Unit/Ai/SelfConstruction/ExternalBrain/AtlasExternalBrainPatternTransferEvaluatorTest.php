@@ -267,6 +267,7 @@ final class AtlasExternalBrainPatternTransferEvaluatorTest extends TestCase
             'destination_area'   => 'evidence',
             'destination_fit_score' => 0.80,
             'adaptation_risk'    => 0.10,
+            'rollback_path'      => 'revert_commit',
             'cross_class_outcomes' => [
                 ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90],
             ],
@@ -322,7 +323,7 @@ final class AtlasExternalBrainPatternTransferEvaluatorTest extends TestCase
             'destination_fit_score'  => 0.20,
         ]]]);
 
-        $this->assertCount(3, $r['rejected_transfers'][0]['rejection_reasons']);
+        $this->assertCount(4, $r['rejected_transfers'][0]['rejection_reasons']);
     }
 
     // ── AC3: accepted_transfers fields ────────────────────────────────────────
@@ -347,6 +348,7 @@ final class AtlasExternalBrainPatternTransferEvaluatorTest extends TestCase
             'pattern_id'           => 'X',
             'destination_fit_score' => 0.80,
             'adaptation_risk'       => 0.20,
+            'rollback_path'        => 'revert_commit',
             'cross_class_outcomes'  => [
                 ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90],
             ],
@@ -444,6 +446,7 @@ final class AtlasExternalBrainPatternTransferEvaluatorTest extends TestCase
             'destination_fit_score'         => 0.80,
             'adaptation_risk'               => 0.20,
             'expected_structural_leverage'  => 0.90,
+            'rollback_path'                 => 'revert_commit',
             'cross_class_outcomes'          => [
                 ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90],
             ],
@@ -459,6 +462,7 @@ final class AtlasExternalBrainPatternTransferEvaluatorTest extends TestCase
             'pattern_id'             => 'X',
             'destination_fit_score'  => 0.80,
             'adaptation_risk'        => 0.20,
+            'rollback_path'          => 'revert_commit',
             'cross_class_outcomes'   => [
                 ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90],
             ],
@@ -539,5 +543,65 @@ final class AtlasExternalBrainPatternTransferEvaluatorTest extends TestCase
         ]);
 
         $this->assertSame(0.50, $r['accepted_transfers'][0]['destination_safety_floor']['give_back_threshold']);
+    }
+
+    // ── AC: rollback/guardrail floor ───────────────────────────────────────────
+
+    public function test_high_source_success_but_missing_destination_fit_or_high_risk_is_rejected(): void
+    {
+        $missingFit = $this->evaluator()->evaluate(['patterns' => [array_merge(
+            $this->transferablePattern('MF'),
+            ['destination_fit_score' => 0.20],
+        )]]);
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_REJECTED, $missingFit['results'][0]['transfer_decision']);
+
+        $highRisk = $this->evaluator()->evaluate(['patterns' => [array_merge(
+            $this->transferablePattern('HR'),
+            ['adaptation_risk' => 0.90],
+        )]]);
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_REJECTED, $highRisk['results'][0]['transfer_decision']);
+    }
+
+    public function test_pattern_without_rollback_or_guardrail_is_rejected_despite_good_fit(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [[
+            'pattern_id' => 'NO-ROLLBACK',
+            'destination_fit_score' => 0.90,
+            'adaptation_risk' => 0.05,
+            'cross_class_outcomes' => [
+                ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90],
+            ],
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_REJECTED, $r['results'][0]['transfer_decision']);
+        $this->assertContains(
+            AtlasExternalBrainPatternTransferEvaluator::REJECTION_MISSING_ROLLBACK_OR_GUARDRAIL,
+            $r['rejected_transfers'][0]['rejection_reasons'],
+        );
+    }
+
+    public function test_guardrail_hints_alone_satisfy_rollback_requirement(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [[
+            'pattern_id' => 'GUARDRAIL',
+            'destination_fit_score' => 0.90,
+            'adaptation_risk' => 0.05,
+            'guardrail_hints' => ['run under sandbox worktree before merge'],
+            'cross_class_outcomes' => [
+                ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90],
+            ],
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_TRANSFERABLE, $r['results'][0]['transfer_decision']);
+    }
+
+    public function test_accepted_transfer_output_includes_task_spec_hint_and_injection_rule_matching_decision(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [$this->transferablePattern('MATCH')]]);
+
+        $result = $r['results'][0];
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_TRANSFERABLE, $result['transfer_decision']);
+        $this->assertStringContainsString('MATCH', $result['first_task_spec_hint']);
+        $this->assertSame('inject into all target_task_classes runbooks', $result['injection_rule']);
     }
 }

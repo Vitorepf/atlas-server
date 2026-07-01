@@ -68,6 +68,7 @@ final class AtlasExternalBrainPatternTransferEvaluator
     public const REJECTION_BLIND_COPY               = 'blind_copy';
     public const REJECTION_HYPE_ONLY                = 'hype_only';
     public const REJECTION_DEPENDENCY_HEAVY         = 'dependency_heavy';
+    public const REJECTION_MISSING_ROLLBACK_OR_GUARDRAIL = 'missing_rollback_or_guardrail';
 
     private const DEFAULT_GIVE_BACK_THRESHOLD         = 0.30;
     private const DEFAULT_DUPLICATE_RATE_THRESHOLD    = 0.20;
@@ -332,6 +333,16 @@ final class AtlasExternalBrainPatternTransferEvaluator
 
         if ($destinationFit !== null && $destinationFit < $minDestinationFit) {
             $reasons[] = self::REJECTION_LOW_DESTINATION_FIT;
+        }
+
+        // A transfer decided under the destination-fit pipeline (AC2) must also carry a concrete
+        // way back — a rollback path or guardrail hint — or a bad transfer has no safety net.
+        if ($destinationFit !== null) {
+            $rollbackPath = array_key_exists('rollback_path', $pattern) ? trim((string) $pattern['rollback_path']) : '';
+            $guardrailHints = is_array($pattern['guardrail_hints'] ?? null) ? array_filter($pattern['guardrail_hints']) : [];
+            if ($rollbackPath === '' && $guardrailHints === []) {
+                $reasons[] = self::REJECTION_MISSING_ROLLBACK_OR_GUARDRAIL;
+            }
         }
 
         if ($adaptationRisk !== null && $adaptationRisk > $maxAdaptationRisk) {
