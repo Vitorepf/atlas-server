@@ -81,6 +81,39 @@ final class AgentControlPlaneGovernancePolicyEvaluator
         return $evaluation;
     }
 
+    /**
+     * A compact runtime_action_matrix: classifies canonical request shapes (read-only,
+     * dispatch, ledger-write, provider-call, self-programming) as clear or blocked under the
+     * SAME policy, without ever granting runtime authority — every entry's evaluation carries
+     * the same hardcoded-false runtime_safety block as evaluate() itself.
+     *
+     * @param  array<string,mixed>  $policy
+     * @return array<string, array<string,mixed>>
+     */
+    public function runtimeActionMatrix(array $policy = [], string $riskLevel = 'low'): array
+    {
+        $actionsByLane = [
+            'read_only' => 'read_only_analysis',
+            'dispatch' => 'dispatch_agent',
+            'ledger_write' => 'write_evidence_ledger',
+            'provider_call' => 'start_provider',
+            'self_programming' => 'enable_self_programming',
+        ];
+
+        $matrix = [];
+        foreach ($actionsByLane as $lane => $action) {
+            $evaluation = $this->evaluate(['action' => $action, 'risk_level' => $riskLevel], $policy);
+            $matrix[$lane] = [
+                'action' => $action,
+                'classification' => $evaluation['status'] === 'governance_policy_clear' ? 'clear' : 'blocked',
+                'blockers' => $evaluation['blockers'],
+                'runtime_safety' => $evaluation['runtime_safety'],
+            ];
+        }
+
+        return $matrix;
+    }
+
     /** @return array<string, bool> */
     public function runtimeSafety(): array
     {
