@@ -180,6 +180,34 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
     }
 
     /**
+     * Decide whether to stop replenishing (queue depth is sufficient) or top up the task fabric —
+     * a low claimable_per_active_worker always wins over a "sufficient_depth" recommendation, since
+     * worker starvation is more urgent than raw queue depth.
+     *
+     * @param  array{recommendation?:string, claimable_per_active_worker?:float|null, urgent_repair_signal?:bool}  $facts
+     * @return array{schema:string, action:'no_op'|'task_fabric_top_up'|'replenish', reason:string}
+     */
+    public function decideReplenishmentAction(array $facts): array
+    {
+        $recommendation = (string) ($facts['recommendation'] ?? '');
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $facts) && $facts['claimable_per_active_worker'] !== null
+            ? (float) $facts['claimable_per_active_worker']
+            : null;
+        $urgentRepairSignal = (bool) ($facts['urgent_repair_signal'] ?? false);
+        $lowWorkerFloor = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= self::DEFAULT_WORKER_FEED_FLOOR_RATIO;
+
+        if ($lowWorkerFloor) {
+            return ['schema' => self::SCHEMA, 'action' => 'task_fabric_top_up', 'reason' => 'worker_floor_low'];
+        }
+
+        if ($recommendation === 'sufficient_depth' && ! $urgentRepairSignal) {
+            return ['schema' => self::SCHEMA, 'action' => 'no_op', 'reason' => 'sufficient_depth'];
+        }
+
+        return ['schema' => self::SCHEMA, 'action' => 'replenish', 'reason' => $urgentRepairSignal ? 'urgent_repair_signal' : 'queue_not_sufficient'];
+    }
+
+    /**
      * Convert final-brain coverage gaps into ordered packet drafts.
      *
      * Each gap: { lane: string, depends_on_lanes?: list<string>, category?: string }

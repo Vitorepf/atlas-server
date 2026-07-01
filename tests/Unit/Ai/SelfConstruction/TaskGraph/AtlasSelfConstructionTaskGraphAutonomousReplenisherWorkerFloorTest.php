@@ -64,4 +64,56 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisherWorkerFloorTest e
 
         $this->assertSame('spec-high', $result['ordered'][0]['task_packet_id']);
     }
+
+    // ── decideReplenishmentAction (AC) ───────────────────────────────────────
+
+    public function test_sufficient_depth_with_no_urgent_signal_emits_no_op(): void
+    {
+        $result = $this->replenisher()->decideReplenishmentAction([
+            'recommendation' => 'sufficient_depth',
+        ]);
+
+        $this->assertSame('no_op', $result['action']);
+        $this->assertSame('sufficient_depth', $result['reason']);
+    }
+
+    public function test_low_claimable_per_active_worker_emits_task_fabric_top_up(): void
+    {
+        $result = $this->replenisher()->decideReplenishmentAction([
+            'claimable_per_active_worker' => 1.0,
+        ]);
+
+        $this->assertSame('task_fabric_top_up', $result['action']);
+        $this->assertSame('worker_floor_low', $result['reason']);
+    }
+
+    public function test_low_worker_floor_overrides_sufficient_depth_recommendation(): void
+    {
+        $result = $this->replenisher()->decideReplenishmentAction([
+            'recommendation' => 'sufficient_depth',
+            'claimable_per_active_worker' => 1.0,
+        ]);
+
+        $this->assertSame('task_fabric_top_up', $result['action']);
+    }
+
+    public function test_sufficient_depth_with_urgent_repair_signal_does_not_no_op(): void
+    {
+        $result = $this->replenisher()->decideReplenishmentAction([
+            'recommendation' => 'sufficient_depth',
+            'urgent_repair_signal' => true,
+        ]);
+
+        $this->assertNotSame('no_op', $result['action']);
+    }
+
+    public function test_comfortable_floor_without_sufficient_depth_recommendation_emits_replenish(): void
+    {
+        $result = $this->replenisher()->decideReplenishmentAction([
+            'recommendation' => 'thin_queue',
+            'claimable_per_active_worker' => 10.0,
+        ]);
+
+        $this->assertSame('replenish', $result['action']);
+    }
 }
