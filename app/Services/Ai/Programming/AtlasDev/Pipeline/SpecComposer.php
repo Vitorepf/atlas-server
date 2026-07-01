@@ -95,6 +95,7 @@ class SpecComposer
      */
     public function __construct(
         private readonly IntentActionExtractor $intentActionExtractor = new IntentActionExtractor,
+        private readonly DesignPathSelector $designPathSelector = new DesignPathSelector,
     ) {}
 
     public function composeCompactSdd(
@@ -156,6 +157,8 @@ class SpecComposer
         $forbidden = $this->forbiddenFilesFor($compactSdd, $discovery);
         $expectedFiles = $this->expectedFilesFor($discovery);
         $canonicalContext = $this->buildCanonicalContext($discovery, $projection);
+        $canonicalContext[] = $this->buildDesignPathContextEntry($compactSdd, $discovery);
+        usort($canonicalContext, static fn (array $a, array $b): int => strcmp($a['ref'], $b['ref']));
         $verificationCommands = $this->buildVerificationCommands($envelope, $compactSdd, $discovery);
 
         $acceptance = $this->buildAcceptanceCriteria($compactSdd, $verificationCommands, $expectedFiles, $envelope, $e2);
@@ -728,6 +731,45 @@ class SpecComposer
         usort($items, static fn (array $a, array $b): int => strcmp($a['ref'], $b['ref']));
 
         return $items;
+    }
+
+    /**
+     * Runs the DesignPathSelector on facts the pipeline already produces — task_kind (from the
+     * CompactSdd, sourced from TaskClassifier), risk (RiskLevelScorer), and discovery signals
+     * (likely files, callers via related symbols, tests) — and folds the choice additively into
+     * canonicalContext as a `design_path` entry. Every existing MiniProgrammingSpec field stays
+     * byte-compatible; this only appends one more canonical-context item.
+     *
+     * @return array{kind:string, ref:string, reason:string}
+     */
+    private function buildDesignPathContextEntry(CompactSdd $compactSdd, CodeDiscoveryManifest $discovery): array
+    {
+        $likelyFiles = [];
+        foreach ($discovery->likelyFiles as $candidate) {
+            $likelyFiles[] = $candidate->path;
+        }
+        $callers = [];
+        foreach ($discovery->relatedSymbols as $ref) {
+            $callers[] = $ref->ref;
+        }
+        $tests = [];
+        foreach ($discovery->relatedTests as $ref) {
+            $tests[] = $ref->ref;
+        }
+
+        $selection = $this->designPathSelector->select([
+            'task_kind' => $compactSdd->taskKind,
+            'risk' => $compactSdd->riskLevel,
+            'likely_files' => $likelyFiles,
+            'callers' => $callers,
+            'tests' => $tests,
+        ]);
+
+        return [
+            'kind' => 'design_path',
+            'ref' => (string) $selection['design_path'],
+            'reason' => (string) $selection['reason'],
+        ];
     }
 
     private function mapContextRefKind(ContextRef $ref): string
