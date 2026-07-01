@@ -33,7 +33,29 @@ final class AtlasSelfConstructionCircuitBoundaryExtractor
 
         $consolidationBlockers = [];
         foreach ($crossingEdges as $edge) {
+            $edge = (array) $edge;
+            $source = (string) ($edge['source'] ?? '');
             $target = (string) ($edge['target'] ?? '');
+            $contract = (string) ($edge['contract'] ?? '');
+
+            $malformed = false;
+            if ($source === '') {
+                $consolidationBlockers[] = 'malformed_crossing_edge_missing_source';
+                $malformed = true;
+            }
+            if ($target === '') {
+                $consolidationBlockers[] = 'malformed_crossing_edge_missing_target';
+                $malformed = true;
+            }
+            if ($contract === '') {
+                $consolidationBlockers[] = 'malformed_crossing_edge_missing_contract';
+                $malformed = true;
+            }
+
+            if ($malformed) {
+                continue;
+            }
+
             if (! in_array($target, $allowedFiles, true)) {
                 $consolidationBlockers[] = "crossing_edge_outside_allowed_files:{$target}";
             }

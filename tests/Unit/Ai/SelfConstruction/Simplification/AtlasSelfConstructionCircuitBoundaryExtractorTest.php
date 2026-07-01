@@ -18,7 +18,7 @@ final class AtlasSelfConstructionCircuitBoundaryExtractorTest extends TestCase
             'consumers' => ['AtlasBarService'],
             'allowed_files' => ['app/Services/Ai/Foo.php', 'app/Services/Ai/Bar.php'],
             'crossing_edges' => [
-                ['target' => 'app/Services/Ai/Bar.php'],
+                ['source' => 'app/Services/Ai/Foo.php', 'target' => 'app/Services/Ai/Bar.php', 'contract' => 'BarInterface'],
             ],
         ];
     }
@@ -31,7 +31,10 @@ final class AtlasSelfConstructionCircuitBoundaryExtractorTest extends TestCase
         $this->assertSame(['payload.status'], $result['outputs']);
         $this->assertSame(['atlas_foo_ledger'], $result['ledgers']);
         $this->assertSame(['AtlasBarService'], $result['consumers']);
-        $this->assertSame([['target' => 'app/Services/Ai/Bar.php']], $result['crossing_edges']);
+        $this->assertSame(
+            [['source' => 'app/Services/Ai/Foo.php', 'target' => 'app/Services/Ai/Bar.php', 'contract' => 'BarInterface']],
+            $result['crossing_edges'],
+        );
         $this->assertTrue($result['boundary_confident']);
         $this->assertSame([], $result['consolidation_blockers']);
     }
@@ -83,7 +86,7 @@ final class AtlasSelfConstructionCircuitBoundaryExtractorTest extends TestCase
     {
         $graph = $this->fullGraph();
         $graph['crossing_edges'] = [
-            ['target' => 'app/Services/Ai/OutsideCircuit.php'],
+            ['source' => 'app/Services/Ai/Foo.php', 'target' => 'app/Services/Ai/OutsideCircuit.php', 'contract' => 'OutsideInterface'],
         ];
 
         $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($graph);
@@ -92,6 +95,41 @@ final class AtlasSelfConstructionCircuitBoundaryExtractorTest extends TestCase
             ['crossing_edge_outside_allowed_files:app/Services/Ai/OutsideCircuit.php'],
             $result['consolidation_blockers'],
         );
+    }
+
+    // ── AC: malformed crossing edges are explicit consolidation blockers ───────
+
+    public function test_crossing_edge_without_target_is_blocked_as_missing_target(): void
+    {
+        $graph = $this->fullGraph();
+        $graph['crossing_edges'] = [
+            ['source' => 'app/Services/Ai/Foo.php', 'contract' => 'BarInterface'],
+        ];
+
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($graph);
+
+        $this->assertContains('malformed_crossing_edge_missing_target', $result['consolidation_blockers']);
+    }
+
+    public function test_crossing_edge_without_source_or_contract_is_blocked_with_explicit_reasons(): void
+    {
+        $graph = $this->fullGraph();
+        $graph['crossing_edges'] = [
+            ['target' => 'app/Services/Ai/Bar.php'],
+        ];
+
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($graph);
+
+        $this->assertContains('malformed_crossing_edge_missing_source', $result['consolidation_blockers']);
+        $this->assertContains('malformed_crossing_edge_missing_contract', $result['consolidation_blockers']);
+    }
+
+    public function test_well_formed_in_scope_crossing_edges_do_not_block_and_preserve_safe_to_collapse(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($this->fixtureWithFullBoundaryProof());
+
+        $this->assertSame([], $result['consolidation_blockers']);
+        $this->assertTrue($result['safe_to_collapse']);
     }
 
     private function fixtureWithFullBoundaryProof(): array
