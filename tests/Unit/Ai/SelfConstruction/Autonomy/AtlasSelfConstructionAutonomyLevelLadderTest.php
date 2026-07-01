@@ -187,4 +187,109 @@ class AtlasSelfConstructionAutonomyLevelLadderTest extends TestCase
         self::assertTrue($result['is_paused']);
         self::assertStringContainsString('paused', $result['reasons'][0]);
     }
+
+    // ── AC: each level exposes required_evidence, forbidden_shortcuts, rollback_expectation, promotion_threshold ──
+
+    public function test_every_level_exposes_required_evidence_forbidden_shortcuts_rollback_expectation_and_promotion_threshold(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+
+        foreach ($ladder->levels() as $level) {
+            $this->assertNotEmpty($level['required_evidence'], "{$level['level']} missing required_evidence");
+            $this->assertNotEmpty($level['forbidden_shortcuts'], "{$level['level']} missing forbidden_shortcuts");
+            $this->assertArrayHasKey('rollback_expectation', $level);
+            $this->assertIsString($level['rollback_expectation']);
+            $this->assertNotSame('', $level['rollback_expectation']);
+            $this->assertArrayHasKey('promotion_threshold', $level);
+            $this->assertIsString($level['description']);
+            $this->assertNotSame('', $level['description'], "{$level['level']} missing provider-safe description");
+        }
+    }
+
+    public function test_terminal_level_has_null_promotion_threshold(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+        $terminal = $ladder->describe(AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_24_7);
+
+        $this->assertNull($terminal['promotion_threshold']);
+    }
+
+    public function test_promotion_thresholds_increase_toward_terminal_level(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+
+        $bootstrap = $ladder->describe(AtlasSelfConstructionAutonomyLevelLadder::LEVEL_BOOTSTRAP)['promotion_threshold'];
+        $assisted = $ladder->describe(AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ASSISTED)['promotion_threshold'];
+        $supervised = $ladder->describe(AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED)['promotion_threshold'];
+        $bounded = $ladder->describe(AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_BOUNDED)['promotion_threshold'];
+
+        $this->assertLessThan($assisted, $bootstrap);
+        $this->assertLessThan($supervised, $assisted);
+        $this->assertLessThan($bounded, $supervised);
+    }
+
+    // ── AC: describe ──────────────────────────────────────────────────────────────
+
+    public function test_describe_returns_a_single_level_with_full_contract(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+        $level = $ladder->describe(AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED, $level['level']);
+        $this->assertContains('bypass_operator_merge_approval', $level['forbidden_shortcuts']);
+    }
+
+    // ── AC: levels ────────────────────────────────────────────────────────────────
+
+    public function test_levels_returns_full_ordered_ladder(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+
+        $this->assertCount(5, $ladder->levels());
+    }
+
+    // ── AC: valid transition ─────────────────────────────────────────────────────
+
+    public function test_valid_transition_is_allowed(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+        $verdict = $ladder->transition(
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED,
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_BOUNDED,
+        );
+
+        $this->assertTrue($verdict['allowed']);
+    }
+
+    // ── AC: blocked transition ────────────────────────────────────────────────────
+
+    public function test_blocked_transition_carries_a_reason(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+        $verdict = $ladder->transition(
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_BOUNDED,
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_BOOTSTRAP,
+        );
+
+        $this->assertFalse($verdict['allowed']);
+        $this->assertNotEmpty($verdict['reason']);
+    }
+
+    // ── AC: evaluate output for insufficient evidence ────────────────────────────
+
+    public function test_evaluate_holds_when_no_threshold_is_reached(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+        $result = $ladder->evaluate([
+            'current_level' => AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ASSISTED,
+            'green_deliveries' => 0,
+            'failures' => 0,
+            'safety_stops' => 0,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ASSISTED, $result['level']);
+        $this->assertFalse($result['is_paused']);
+        $this->assertFalse($result['is_degraded']);
+        $this->assertStringContainsString('insufficient_evidence', $result['reasons'][0]);
+    }
 }

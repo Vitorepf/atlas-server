@@ -164,6 +164,10 @@ final class AtlasSelfConstructionAutonomyLevelLadder
                 'self_programming', 'auto_commit', 'auto_merge', 'queue_replenishment', 'continuous_runtime',
             ],
             'evidence_prerequisites' => ['operator_invocation_log'],
+            'required_evidence' => ['operator_invocation_log'],
+            'forbidden_shortcuts' => ['skip_operator_invocation_log'],
+            'rollback_expectation' => 'no rollback needed — the operator directly controls every action at this level',
+            'promotion_threshold' => 1,
             'stop_conditions' => ['operator_pause'],
             'final_runtime_owner' => 'operator',
             'steady_state_runtime_owner' => 'operator',
@@ -186,6 +190,10 @@ final class AtlasSelfConstructionAutonomyLevelLadder
                 'auto_commit', 'auto_merge', 'continuous_runtime', 'unattended_provider_call',
             ],
             'evidence_prerequisites' => ['external_assistant_proposal', 'operator_review'],
+            'required_evidence' => ['external_assistant_proposal', 'operator_review'],
+            'forbidden_shortcuts' => ['skip_operator_review', 'auto_merge_without_review'],
+            'rollback_expectation' => 'revert to bootstrap; require a fresh operator review before re-attempting assisted',
+            'promotion_threshold' => 2,
             'stop_conditions' => ['operator_pause', 'assistant_unavailable'],
             'final_runtime_owner' => 'external_assistant',
             'steady_state_runtime_owner' => 'external_assistant',
@@ -208,6 +216,10 @@ final class AtlasSelfConstructionAutonomyLevelLadder
             ],
             'forbidden_capabilities' => ['auto_merge_without_operator', 'unbounded_continuous_runtime'],
             'evidence_prerequisites' => ['scoped_apply_verdict', 'verification_request_signed', 'operator_merge_approval'],
+            'required_evidence' => ['scoped_apply_verdict', 'verification_request_signed', 'operator_merge_approval'],
+            'forbidden_shortcuts' => ['bypass_operator_merge_approval', 'skip_verification_request'],
+            'rollback_expectation' => 'revert to assisted; operator must re-approve before re-attempting supervised execution',
+            'promotion_threshold' => self::PROMOTION_DELIVERY_THRESHOLD,
             'stop_conditions' => ['operator_pause', 'verification_failed', 'safety_stop'],
             'final_runtime_owner' => 'atlas_supervised_by_operator',
             'steady_state_runtime_owner' => self::STEADY_STATE_RUNTIME_OWNER,
@@ -233,6 +245,12 @@ final class AtlasSelfConstructionAutonomyLevelLadder
             'evidence_prerequisites' => [
                 'bounded_cycle_verdict', 'verification_merge_decision', 'safety_stop_check',
             ],
+            'required_evidence' => [
+                'bounded_cycle_verdict', 'verification_merge_decision', 'safety_stop_check',
+            ],
+            'forbidden_shortcuts' => ['skip_safety_stop_check', 'exceed_cycle_quota_silently'],
+            'rollback_expectation' => 'auto-rollback the bounded cycle and revert to atlas_supervised until the safety stop is cleared',
+            'promotion_threshold' => 5,
             'stop_conditions' => [
                 'cycle_quota_reached', 'verification_failed', 'safety_stop', 'queue_drained',
             ],
@@ -261,6 +279,15 @@ final class AtlasSelfConstructionAutonomyLevelLadder
             'evidence_prerequisites' => [
                 'continuous_cycle_verdict', 'verification_merge_decision', 'safety_stop_check', 'evidence_ledger_write',
             ],
+            'required_evidence' => [
+                'continuous_cycle_verdict', 'verification_merge_decision', 'safety_stop_check', 'evidence_ledger_write',
+            ],
+            'forbidden_shortcuts' => [
+                'disable_safety_stop_self_arm', 'skip_evidence_ledger_write', 'flip_master_switch_without_operator',
+            ],
+            'rollback_expectation' => 'immediate safety_stop, revert to atlas_native_bounded, and require fresh evidence_ledger proof before re-promotion',
+            // terminal level — there is no next rank to promote to.
+            'promotion_threshold' => null,
             'stop_conditions' => ['safety_stop', 'master_switch_off', 'petreo_violation'],
             'final_runtime_owner' => self::FINAL_OWNER_ATLAS_NATIVE,
             'steady_state_runtime_owner' => self::STEADY_STATE_RUNTIME_OWNER,
