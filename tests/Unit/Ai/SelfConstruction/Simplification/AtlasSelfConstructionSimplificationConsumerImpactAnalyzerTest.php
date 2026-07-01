@@ -130,4 +130,44 @@ final class AtlasSelfConstructionSimplificationConsumerImpactAnalyzerTest extend
         $this->assertContains('consumer_risk_exceeds_safe_refactor_floor:high', $result['blocking_reasons']);
         $this->assertFalse($result['safe_to_continue']);
     }
+
+    public function test_transitive_consumer_count_above_floor_without_proof_raises_high_risk(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'T1', 'category' => 'runtime', 'proof_refs' => [], 'transitive' => true],
+                ['name' => 'T2', 'category' => 'runtime', 'proof_refs' => [], 'transitive' => true],
+                ['name' => 'T3', 'category' => 'runtime', 'proof_refs' => [], 'transitive' => true],
+            ],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionSimplificationConsumerImpactAnalyzer::RISK_HIGH, $result['risk_level']);
+        $this->assertContains('transitive_consumer_count_exceeds_floor_without_proof', $result['blockers']);
+        $this->assertFalse($result['safe_to_continue']);
+    }
+
+    public function test_transitive_consumer_count_above_floor_with_proof_does_not_force_high_risk(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'T1', 'category' => 'runtime', 'proof_refs' => ['git:blob1'], 'transitive' => true],
+                ['name' => 'T2', 'category' => 'runtime', 'proof_refs' => ['git:blob2'], 'transitive' => true],
+                ['name' => 'T3', 'category' => 'runtime', 'proof_refs' => ['git:blob3'], 'transitive' => true],
+            ],
+        ]);
+
+        $this->assertNotContains('transitive_consumer_count_exceeds_floor_without_proof', $result['blockers']);
+    }
+
+    public function test_transitive_consumer_count_at_or_below_floor_does_not_require_proof(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'T1', 'category' => 'runtime', 'proof_refs' => ['git:blob1'], 'transitive' => true],
+                ['name' => 'T2', 'category' => 'runtime', 'proof_refs' => [], 'transitive' => true],
+            ],
+        ]);
+
+        $this->assertNotContains('transitive_consumer_count_exceeds_floor_without_proof', $result['blockers']);
+    }
 }

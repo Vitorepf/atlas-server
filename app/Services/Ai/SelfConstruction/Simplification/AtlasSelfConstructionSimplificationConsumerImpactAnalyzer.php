@@ -23,6 +23,9 @@ final class AtlasSelfConstructionSimplificationConsumerImpactAnalyzer
     /** Risk levels at or above this are refused for a plain refactor. */
     private const SAFE_REFACTOR_RISK_FLOOR = self::RISK_HIGH;
 
+    /** Transitive consumer count strictly above this requires explicit transitive proof coverage. */
+    private const TRANSITIVE_CONSUMER_RISK_FLOOR = 2;
+
     /**
      * @param  array<string,mixed>  $candidate
      * @return array<string,mixed>
@@ -35,6 +38,7 @@ final class AtlasSelfConstructionSimplificationConsumerImpactAnalyzer
         $blockers = [];
         $directCount = 0;
         $transitiveCount = 0;
+        $transitiveProofRefs = [];
         $touchesPublicCommand = false;
         $touchesPublicContract = false;
 
@@ -44,6 +48,7 @@ final class AtlasSelfConstructionSimplificationConsumerImpactAnalyzer
 
             if ((bool) ($consumer['transitive'] ?? false)) {
                 $transitiveCount++;
+                $transitiveProofRefs = array_merge($transitiveProofRefs, array_values((array) ($consumer['proof_refs'] ?? [])));
             } else {
                 $directCount++;
             }
@@ -87,6 +92,11 @@ final class AtlasSelfConstructionSimplificationConsumerImpactAnalyzer
             array_intersect($touchedCategories, ['runtime', 'command']) !== [] => self::RISK_MEDIUM,
             default => self::RISK_LOW,
         };
+
+        if ($transitiveCount > self::TRANSITIVE_CONSUMER_RISK_FLOOR && $transitiveProofRefs === []) {
+            $riskLevel = self::RISK_HIGH;
+            $blockers[] = 'transitive_consumer_count_exceeds_floor_without_proof';
+        }
 
         if ($riskLevel === self::SAFE_REFACTOR_RISK_FLOOR) {
             $blockers[] = "consumer_risk_exceeds_safe_refactor_floor:{$riskLevel}";
