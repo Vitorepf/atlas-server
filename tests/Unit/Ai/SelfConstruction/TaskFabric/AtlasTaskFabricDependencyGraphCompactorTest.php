@@ -208,4 +208,133 @@ final class AtlasTaskFabricDependencyGraphCompactorTest extends TestCase
 
         $this->assertSame([], $r['critical_path_nodes']);
     }
+
+    // ── cycle detection ──────────────────────────────────────────────────────
+
+    public function test_acyclic_graph_reports_cycle_detected_false(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('A'), $this->node('B'), $this->node('C')],
+            'edges' => [$this->edge('A', 'B'), $this->edge('B', 'C')],
+        ]);
+
+        $this->assertFalse($r['cycle_detected']);
+        $this->assertSame([], $r['cycle_edges']);
+    }
+
+    public function test_direct_two_node_cycle_is_detected(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('A'), $this->node('B')],
+            'edges' => [$this->edge('A', 'B'), $this->edge('B', 'A')],
+        ]);
+
+        $this->assertTrue($r['cycle_detected']);
+        $this->assertNotEmpty($r['cycle_edges']);
+    }
+
+    public function test_longer_cycle_is_detected_with_back_edge(): void
+    {
+        // A -> B -> C -> A
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('A'), $this->node('B'), $this->node('C')],
+            'edges' => [$this->edge('A', 'B'), $this->edge('B', 'C'), $this->edge('C', 'A')],
+        ]);
+
+        $this->assertTrue($r['cycle_detected']);
+        $this->assertContains(['from' => 'C', 'to' => 'A'], $r['cycle_edges']);
+    }
+
+    public function test_cyclic_graph_never_reports_wave_ready_dependency_layers(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('A'), $this->node('B')],
+            'edges' => [$this->edge('A', 'B'), $this->edge('B', 'A')],
+        ]);
+
+        $this->assertTrue($r['cycle_detected']);
+        $this->assertSame([], $r['dependency_layers']);
+    }
+
+    public function test_self_loop_is_detected_as_a_cycle(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('A')],
+            'edges' => [$this->edge('A', 'A')],
+        ]);
+
+        $this->assertTrue($r['cycle_detected']);
+        $this->assertContains(['from' => 'A', 'to' => 'A'], $r['cycle_edges']);
+    }
+
+    // ── wave-ready dependency_layers (acyclic) ───────────────────────────────
+
+    public function test_dependency_layers_order_leaf_nodes_first(): void
+    {
+        // A depends on B and C (both leaves) -> layer0=[B,C], layer1=[A].
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('A'), $this->node('B'), $this->node('C')],
+            'edges' => [$this->edge('A', 'B'), $this->edge('A', 'C')],
+        ]);
+
+        $this->assertFalse($r['cycle_detected']);
+        $this->assertSame([['B', 'C'], ['A']], $r['dependency_layers']);
+    }
+
+    public function test_dependency_layers_for_linear_chain(): void
+    {
+        // A -> B -> C: C has no deps (layer0), B depends only on C (layer1), A depends only on B (layer2).
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('A'), $this->node('B'), $this->node('C')],
+            'edges' => [$this->edge('A', 'B'), $this->edge('B', 'C')],
+        ]);
+
+        $this->assertSame([['C'], ['B'], ['A']], $r['dependency_layers']);
+    }
+
+    public function test_dead_end_orphan_is_included_in_layer_zero(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('A'), $this->node('B'), $this->node('Orphan')],
+            'edges' => [$this->edge('A', 'B')],
+        ]);
+
+        $this->assertSame(['B', 'Orphan'], $r['dependency_layers'][0]);
+    }
+
+    public function test_missing_prerequisite_edges_never_block_layering(): void
+    {
+        // A depends on B (real) and GHOST (missing) — GHOST must not prevent A from ever
+        // reaching a layer; the missing dependency stays a distinct diagnostic.
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('A'), $this->node('B')],
+            'edges' => [$this->edge('A', 'B'), $this->edge('A', 'GHOST')],
+        ]);
+
+        $this->assertContains('GHOST', $r['missing_prerequisites']);
+        $this->assertSame([['B'], ['A']], $r['dependency_layers']);
+    }
+
+    public function test_critical_path_chain_is_fully_represented_in_dependency_layers(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [$this->node('Brain'), $this->node('TaskFabric'), $this->node('Maestro')],
+            'edges' => [$this->edge('Brain', 'TaskFabric'), $this->edge('TaskFabric', 'Maestro'), $this->edge('Brain', 'Maestro')],
+            'critical_path' => ['Brain', 'TaskFabric', 'Maestro'],
+        ]);
+
+        $flatLayers = array_merge(...$r['dependency_layers']);
+        foreach ($r['critical_path_nodes'] as $node) {
+            $this->assertContains($node, $flatLayers, "critical path node '{$node}' must appear in dependency_layers");
+        }
+        $this->assertSame([['Maestro'], ['TaskFabric'], ['Brain']], $r['dependency_layers']);
+    }
+
+    public function test_empty_graph_yields_empty_dependency_layers(): void
+    {
+        $r = $this->compactor()->compact([]);
+
+        $this->assertFalse($r['cycle_detected']);
+        $this->assertSame([], $r['dependency_layers']);
+    }
 }

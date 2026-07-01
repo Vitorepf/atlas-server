@@ -26,6 +26,17 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  * AC2 distinction: missing_prerequisites (node absent from graph) are kept separate from
  * terminal_prerequisites (present leaf nodes) and dead_end_orphans (fully isolated nodes).
  *
+ * Cycle detection: a DFS over the full node/edge set (independent of transitive reduction, which
+ * only ever REMOVES edges and cannot itself detect a cycle) reports cycle_detected + the exact
+ * back-edges (cycle_edges) that close the loop. A cyclic graph is NEVER treated as wave-ready:
+ * dependency_layers is forced empty rather than silently producing a partial/incorrect ordering.
+ *
+ * dependency_layers (wave-ready strata, acyclic graphs only): Kahn's algorithm over the REAL node
+ * set (edges into a missing/ghost node never block layering — that stays a distinct diagnostic,
+ * per missing_prerequisites). Layer 0 = nodes with zero prerequisites; each subsequent layer
+ * becomes ready once every prerequisite in an earlier layer is satisfied. Each layer is sorted
+ * deterministically.
+ *
  * NO process execution, NO filesystem, NO providers. DETERMINISTIC.
  */
 final class AtlasTaskFabricDependencyGraphCompactor
@@ -135,6 +146,14 @@ final class AtlasTaskFabricDependencyGraphCompactor
             static fn (string $id): bool => isset($nodeIds[$id]),
         ));
 
+        // Cycle detection is independent of transitive reduction (which only ever removes edges
+        // and cannot detect a cycle by itself) — a cyclic graph is never wave-ready.
+        [$cycleDetected, $cycleEdges] = $this->detectCycle(array_keys($nodeIds), $adj);
+
+        $dependencyLayers = $cycleDetected
+            ? []
+            : $this->computeDependencyLayers(array_keys($nodeIds), $parsedEdges);
+
         return [
             'schema_version'           => self::SCHEMA,
             'compacted_edges'          => $compactedEdges,
@@ -146,7 +165,93 @@ final class AtlasTaskFabricDependencyGraphCompactor
             'original_edge_count'      => count($parsedEdges),
             'compacted_edge_count'     => count($compactedEdges),
             'critical_path_nodes'      => $criticalPathNodes,
+            'cycle_detected'           => $cycleDetected,
+            'cycle_edges'              => $cycleEdges,
+            'dependency_layers'        => $dependencyLayers,
         ];
+    }
+
+    /**
+     * DFS-based cycle detection with a 3-color visited state. Returns every back-edge found (the
+     * edges that close a cycle), not just the first one, so all offending edges are reported.
+     *
+     * @param  list<string>  $nodeIds
+     * @param  array<string,list<string>>  $adj
+     * @return array{0:bool, 1:list<array{from:string,to:string}>}
+     */
+    private function detectCycle(array $nodeIds, array $adj): array
+    {
+        $state = []; // node => 0 unvisited (implicit), 1 visiting, 2 done
+        $cycleEdges = [];
+
+        $visit = function (string $node) use (&$visit, &$state, $adj, &$cycleEdges): void {
+            $state[$node] = 1;
+            foreach ($adj[$node] ?? [] as $next) {
+                $nextState = $state[$next] ?? 0;
+                if ($nextState === 1) {
+                    $cycleEdges[] = ['from' => $node, 'to' => $next];
+
+                    continue;
+                }
+                if ($nextState === 0) {
+                    $visit($next);
+                }
+            }
+            $state[$node] = 2;
+        };
+
+        foreach ($nodeIds as $id) {
+            if (($state[$id] ?? 0) === 0) {
+                $visit($id);
+            }
+        }
+
+        return [$cycleEdges !== [], $cycleEdges];
+    }
+
+    /**
+     * Kahn's algorithm over the REAL node set to produce wave-ready dependency strata. An edge
+     * whose 'to' target is not a real node (a missing prerequisite) never blocks layering — that
+     * stays a distinct diagnostic (missing_prerequisites), not a layering failure.
+     *
+     * @param  list<string>  $nodeIds
+     * @param  list<array{from:string,to:string}>  $parsedEdges
+     * @return list<list<string>>
+     */
+    private function computeDependencyLayers(array $nodeIds, array $parsedEdges): array
+    {
+        $remaining = array_fill_keys($nodeIds, 0);
+        $dependents = [];
+
+        foreach ($parsedEdges as $e) {
+            if (! array_key_exists($e['from'], $remaining) || ! array_key_exists($e['to'], $remaining)) {
+                continue;
+            }
+            $remaining[$e['from']]++;
+            $dependents[$e['to']][] = $e['from'];
+        }
+
+        $currentLayer = array_keys(array_filter($remaining, static fn (int $c): bool => $c === 0));
+        sort($currentLayer, SORT_STRING);
+
+        $layers = [];
+        while ($currentLayer !== []) {
+            $layers[] = $currentLayer;
+            $nextLayer = [];
+            foreach ($currentLayer as $node) {
+                foreach ($dependents[$node] ?? [] as $dep) {
+                    $remaining[$dep]--;
+                    if ($remaining[$dep] === 0) {
+                        $nextLayer[] = $dep;
+                    }
+                }
+            }
+            $nextLayer = array_values(array_unique($nextLayer));
+            sort($nextLayer, SORT_STRING);
+            $currentLayer = $nextLayer;
+        }
+
+        return $layers;
     }
 
     /**
