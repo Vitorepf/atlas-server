@@ -41,6 +41,13 @@ final class AtlasTaskFabricConsolidationBudgetAllocator
     private const THIN_QUEUE_DEPTH      = 10;
     private const STEP                  = 0.10;
 
+    /** Minimum consolidation slots always reserved when the batch has any room at all — a hard
+     *  floor, not a debt-trigger-gated one, so a feature-heavy batch can never starve it to zero. */
+    private const HARD_FLOOR_CONSOLIDATION_SLOTS = 1;
+
+    /** active_worker_count at or below this is thin enough to flag as a low-capacity signal. */
+    private const LOW_WORKER_CAPACITY_THRESHOLD = 2;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -53,6 +60,7 @@ final class AtlasTaskFabricConsolidationBudgetAllocator
         $orphanCount   = (int) ($facts['orphaned_capability_count'] ?? 0);
         $blockedPress  = (float) ($facts['blocked_pressure'] ?? 0.0);
         $valueDensity  = (float) ($facts['value_proof_density'] ?? 1.0);
+        $activeWorkerCount = max(0, (int) ($facts['active_worker_count'] ?? 0));
 
         $consolidationRatio = self::BASE_CONSOLIDATION;
         $unblockRatio       = self::BASE_UNBLOCK;
@@ -93,17 +101,26 @@ final class AtlasTaskFabricConsolidationBudgetAllocator
         $unblockRatio       = round(max(0.0, min(self::MAX_UNBLOCK, $unblockRatio)), 4);
 
         // Allocate task slots.
-        $consolidationBudget = (int) floor($batchSize * $consolidationRatio);
+        $naturalConsolidationBudget = (int) floor($batchSize * $consolidationRatio);
+        $consolidationBudget = $naturalConsolidationBudget;
         $unblockBudget       = (int) floor($batchSize * $unblockRatio);
 
-        // High duplication/orphan/weak-value debt must never be silently erased by rounding
-        // or downward relief (thin queue, urgent blockers) -- it can shrink the budget, but a
-        // real debt trigger always keeps at least one reserved slot.
-        $hasHighDebtTrigger = in_array('high_duplicate_pressure', $triggers, true)
-            || in_array('high_orphan_count', $triggers, true)
-            || in_array('weak_value_proof', $triggers, true);
-        if ($hasHighDebtTrigger && $consolidationBudget < 1) {
-            $consolidationBudget = 1;
+        // Hard floor: consolidation is never starved to zero by rounding, downward relief, or a
+        // feature-heavy batch — as long as there is any room in the batch at all, at least
+        // HARD_FLOOR_CONSOLIDATION_SLOTS is reserved. starvation_flag names when this floor was
+        // the thing that actually saved the slot (the natural ratio-computed budget was zero).
+        $starvationFlag = false;
+        if ($batchSize >= self::HARD_FLOOR_CONSOLIDATION_SLOTS && $consolidationBudget < self::HARD_FLOOR_CONSOLIDATION_SLOTS) {
+            $consolidationBudget = min($batchSize, self::HARD_FLOOR_CONSOLIDATION_SLOTS);
+            $starvationFlag = $naturalConsolidationBudget === 0;
+        }
+        if ($starvationFlag) {
+            $triggers[] = 'consolidation_hard_floor_enforced';
+        }
+
+        $lowWorkerCapacity = $activeWorkerCount > 0 && $activeWorkerCount <= self::LOW_WORKER_CAPACITY_THRESHOLD;
+        if ($lowWorkerCapacity) {
+            $triggers[] = 'low_worker_capacity_detected';
         }
 
         // Deletion budget: the portion of the consolidation budget specifically earmarked for
@@ -128,6 +145,8 @@ final class AtlasTaskFabricConsolidationBudgetAllocator
                 'thin_queue_relief' => 'thin queue depth reduces (never erases) consolidation budget',
                 'strong_value_proof_relief' => 'strong value-proof density slightly reduces consolidation budget',
                 'high_blocked_pressure' => 'high blocked pressure reserves unblock budget',
+                'consolidation_hard_floor_enforced' => 'hard floor reserved at least one consolidation slot despite feature-heavy pressure',
+                'low_worker_capacity_detected' => 'active worker capacity is thin — batch size should be trusted over worker headcount',
                 default => $trigger,
             }, $triggers);
 
@@ -148,6 +167,18 @@ final class AtlasTaskFabricConsolidationBudgetAllocator
             'rationale' => $rationale,
             'consolidation_target_families' => $consolidationTargetFamilies,
             'active_triggers'       => $triggers,
+            'reason_codes'          => $triggers,
+            'hard_floor'            => self::HARD_FLOOR_CONSOLIDATION_SLOTS,
+            'starvation_flag'       => $starvationFlag,
+            'pressure_inputs' => [
+                'queue_depth'               => $queueDepth,
+                'duplicate_pressure'        => $dupPressure,
+                'orphaned_capability_count' => $orphanCount,
+                'blocked_pressure'          => $blockedPress,
+                'value_proof_density'       => $valueDensity,
+                'batch_size'                => $batchSize,
+                'active_worker_count'       => $activeWorkerCount,
+            ],
             'diagnostics' => [
                 'queue_depth'               => $queueDepth,
                 'duplicate_pressure'        => $dupPressure,

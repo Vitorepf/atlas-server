@@ -204,4 +204,89 @@ final class AtlasTaskFabricConsolidationBudgetAllocatorTest extends TestCase
         $this->assertArrayHasKey('consolidation_target_families', $r);
         $this->assertSame([], $r['consolidation_target_families']);
     }
+
+    // ── AC: deterministic budget with hard floor, starvation flag, pressure inputs, reason codes ──
+
+    public function test_output_includes_hard_floor_starvation_flag_pressure_inputs_and_reason_codes(): void
+    {
+        $r = $this->allocator()->allocate($this->healthy());
+
+        $this->assertArrayHasKey('hard_floor', $r);
+        $this->assertArrayHasKey('starvation_flag', $r);
+        $this->assertArrayHasKey('pressure_inputs', $r);
+        $this->assertArrayHasKey('reason_codes', $r);
+        $this->assertIsInt($r['hard_floor']);
+        $this->assertIsBool($r['starvation_flag']);
+        $this->assertArrayHasKey('duplicate_pressure', $r['pressure_inputs']);
+        $this->assertArrayHasKey('active_worker_count', $r['pressure_inputs']);
+    }
+
+    // ── feature-heavy starvation: batch skewed fully toward implementation still reserves a slot ──
+
+    public function test_feature_heavy_starvation_still_reserves_hard_floor_consolidation_slot(): void
+    {
+        // Small batch, no debt pressure, high value proof (relief), thin queue (relief) — the
+        // natural ratio-computed consolidation budget rounds down to zero.
+        $r = $this->allocator()->allocate([
+            'batch_size'                => 10,
+            'queue_depth'               => 5,
+            'duplicate_pressure'        => 0.0,
+            'orphaned_capability_count' => 0,
+            'blocked_pressure'          => 0.0,
+            'value_proof_density'       => 0.9,
+        ]);
+
+        $this->assertGreaterThanOrEqual(1, $r['consolidation_budget']);
+        $this->assertTrue($r['starvation_flag'], 'a feature-heavy batch must flag that the hard floor rescued the slot');
+        $this->assertContains('consolidation_hard_floor_enforced', $r['reason_codes']);
+    }
+
+    public function test_healthy_queue_with_real_consolidation_share_does_not_flag_starvation(): void
+    {
+        $r = $this->allocator()->allocate($this->healthy());
+
+        $this->assertFalse($r['starvation_flag']);
+        $this->assertNotContains('consolidation_hard_floor_enforced', $r['reason_codes']);
+    }
+
+    // ── low worker capacity signal ─────────────────────────────────────────────
+
+    public function test_low_worker_capacity_is_flagged_without_changing_total_budget(): void
+    {
+        $r = $this->allocator()->allocate(array_merge($this->healthy(), [
+            'active_worker_count' => 1,
+        ]));
+
+        $this->assertContains('low_worker_capacity_detected', $r['reason_codes']);
+        $this->assertSame(1, $r['pressure_inputs']['active_worker_count']);
+        $this->assertSame(
+            $r['total_budget'],
+            $r['consolidation_budget'] + $r['unblock_budget'] + $r['implementation_budget'],
+        );
+    }
+
+    public function test_ample_worker_capacity_does_not_flag_low_capacity(): void
+    {
+        $r = $this->allocator()->allocate(array_merge($this->healthy(), [
+            'active_worker_count' => 10,
+        ]));
+
+        $this->assertNotContains('low_worker_capacity_detected', $r['reason_codes']);
+    }
+
+    // ── zero-input safety: no crash, no fake padding, budgets stay internally consistent ──
+
+    public function test_zero_input_facts_are_safe_and_produce_no_padding_inconsistency(): void
+    {
+        $r = $this->allocator()->allocate([]);
+
+        $this->assertSame(
+            $r['total_budget'],
+            $r['consolidation_budget'] + $r['unblock_budget'] + $r['implementation_budget'],
+        );
+        $this->assertGreaterThanOrEqual(0, $r['consolidation_budget']);
+        $this->assertGreaterThanOrEqual(0, $r['implementation_budget']);
+        $this->assertSame(0, $r['pressure_inputs']['active_worker_count']);
+        $this->assertNotContains('low_worker_capacity_detected', $r['reason_codes']);
+    }
 }
