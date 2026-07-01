@@ -216,4 +216,110 @@ final class AtlasMaestroLearningPolicyGuardTest extends TestCase
         $this->assertSame([], $allowed['blocked_reasons']);
         $this->assertNull($allowed['rollback_hint']);
     }
+
+    // ── AC1: provider lock-in and repeated poison correlation block promotion ──
+
+    public function test_blocks_promotion_when_provider_lock_in_detected(): void
+    {
+        $result = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.30],
+            'post_policy' => ['give_back_rate' => 0.10],
+            'evidence_sample_size' => 10,
+            'provider_lock_in' => true,
+        ]);
+
+        $this->assertFalse($result['promotion_allowed']);
+        $this->assertContains('provider_lock_in_detected', $result['blocked_reasons']);
+    }
+
+    public function test_blocks_promotion_when_poison_correlation_repeats(): void
+    {
+        $result = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.30],
+            'post_policy' => ['give_back_rate' => 0.10],
+            'evidence_sample_size' => 10,
+            'poison_correlation_count' => 2,
+        ]);
+
+        $this->assertFalse($result['promotion_allowed']);
+        $this->assertContains('repeated_poison_correlation', $result['blocked_reasons']);
+    }
+
+    public function test_single_poison_correlation_does_not_block(): void
+    {
+        $result = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.30],
+            'post_policy' => ['give_back_rate' => 0.10],
+            'evidence_sample_size' => 10,
+            'poison_correlation_count' => 1,
+        ]);
+
+        $this->assertNotContains('repeated_poison_correlation', $result['blocked_reasons']);
+    }
+
+    // ── AC2: opt-in task_family_coverage and rollback_path gates ──────────────
+
+    public function test_blocks_promotion_when_task_family_coverage_explicitly_empty(): void
+    {
+        $result = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.30],
+            'post_policy' => ['give_back_rate' => 0.10],
+            'evidence_sample_size' => 10,
+            'task_family_coverage' => [],
+        ]);
+
+        $this->assertFalse($result['promotion_allowed']);
+        $this->assertContains('insufficient_task_family_coverage', $result['blocked_reasons']);
+    }
+
+    public function test_blocks_promotion_when_rollback_path_explicitly_blank(): void
+    {
+        $result = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.30],
+            'post_policy' => ['give_back_rate' => 0.10],
+            'evidence_sample_size' => 10,
+            'rollback_path' => '   ',
+        ]);
+
+        $this->assertFalse($result['promotion_allowed']);
+        $this->assertContains('missing_rollback_path', $result['blocked_reasons']);
+    }
+
+    public function test_allows_promotion_with_task_family_coverage_and_rollback_path_present(): void
+    {
+        $result = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.30],
+            'post_policy' => ['give_back_rate' => 0.10],
+            'evidence_sample_size' => 10,
+            'task_family_coverage' => ['task_fabric', 'maestro'],
+            'rollback_path' => 'revert to config flag origination_policy_v1',
+        ]);
+
+        $this->assertTrue($result['promotion_allowed']);
+        $this->assertSame([], $result['blocked_reasons']);
+    }
+
+    // ── AC3: minimum_evidence_needed for a safe retry ──────────────────────────
+
+    public function test_minimum_evidence_needed_reflects_shortfall(): void
+    {
+        $result = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.10],
+            'post_policy' => ['give_back_rate' => 0.10],
+            'evidence_sample_size' => 2,
+        ]);
+
+        $this->assertSame(AtlasMaestroLearningPolicyGuard::MIN_EVIDENCE_SAMPLE - 2, $result['minimum_evidence_needed']);
+    }
+
+    public function test_minimum_evidence_needed_is_zero_when_sample_is_sufficient(): void
+    {
+        $result = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.10],
+            'post_policy' => ['give_back_rate' => 0.10],
+            'evidence_sample_size' => 10,
+        ]);
+
+        $this->assertSame(0, $result['minimum_evidence_needed']);
+    }
 }

@@ -49,18 +49,29 @@ final class AtlasMaestroLearningPolicyGuard
         $this->walk($artifact);
     }
 
+    /** Repeated poison-correlation events at/above this count block promotion outright. */
+    private const POISON_CORRELATION_THRESHOLD = 2;
+
     /**
      * Decides whether a learning policy that governs the closed feedback loop may be PROMOTED
      * (applied to future origination), never on evidence volume alone: a policy is blocked when
      * it regressed give_back_rate, poison_rate, or weak_green_rate relative to the pre-policy
-     * baseline, or when the evidence sample is too thin to trust the comparison at all.
+     * baseline, when the evidence sample is too thin to trust the comparison at all, when it
+     * locks origination into a specific external provider, or when it correlates with repeated
+     * poison packets. task_family_coverage and rollback_path are opt-in extra gates — omitting
+     * them entirely preserves prior callers' behavior, but providing them empty/missing blocks
+     * promotion (a policy proven on one family, or with no way back, is never promoted blind).
      *
      * @param  array{
      *   pre_policy?: array{give_back_rate?:float, poison_rate?:float, weak_green_rate?:float},
      *   post_policy?: array{give_back_rate?:float, poison_rate?:float, weak_green_rate?:float},
      *   evidence_sample_size?: int,
+     *   provider_lock_in?: bool,
+     *   poison_correlation_count?: int,
+     *   task_family_coverage?: list<string>,
+     *   rollback_path?: string,
      * }  $input
-     * @return array{promotion_allowed:bool, blocked_reasons:list<string>, evidence_sample_size:int, rollback_hint:?string}
+     * @return array{promotion_allowed:bool, blocked_reasons:list<string>, evidence_sample_size:int, minimum_evidence_needed:int, rollback_hint:?string}
      */
     public function evaluatePromotion(array $input): array
     {
@@ -81,12 +92,35 @@ final class AtlasMaestroLearningPolicyGuard
             $blockedReasons[] = 'insufficient_evidence_sample';
         }
 
+        // AC1: provider lock-in and repeated poison correlation are always-on gates.
+        if ((bool) ($input['provider_lock_in'] ?? false)) {
+            $blockedReasons[] = 'provider_lock_in_detected';
+        }
+        $poisonCorrelationCount = max(0, (int) ($input['poison_correlation_count'] ?? 0));
+        if ($poisonCorrelationCount >= self::POISON_CORRELATION_THRESHOLD) {
+            $blockedReasons[] = 'repeated_poison_correlation';
+        }
+
+        // AC2: task_family_coverage / rollback_path are opt-in — a caller that never mentions
+        // them keeps prior behavior; a caller that supplies them empty is refused.
+        if (array_key_exists('task_family_coverage', $input)) {
+            $coverage = array_values(array_filter((array) $input['task_family_coverage'], static fn ($v): bool => trim((string) $v) !== ''));
+            if ($coverage === []) {
+                $blockedReasons[] = 'insufficient_task_family_coverage';
+            }
+        }
+        if (array_key_exists('rollback_path', $input) && trim((string) $input['rollback_path']) === '') {
+            $blockedReasons[] = 'missing_rollback_path';
+        }
+
         $promotionAllowed = $blockedReasons === [];
+        $minimumEvidenceNeeded = max(0, self::MIN_EVIDENCE_SAMPLE - $evidenceSampleSize);
 
         return [
             'promotion_allowed' => $promotionAllowed,
             'blocked_reasons' => $blockedReasons,
             'evidence_sample_size' => $evidenceSampleSize,
+            'minimum_evidence_needed' => $minimumEvidenceNeeded,
             'rollback_hint' => $promotionAllowed ? null : 'revert_to_pre_policy_baseline_until_regression_resolved_or_evidence_grows',
         ];
     }
