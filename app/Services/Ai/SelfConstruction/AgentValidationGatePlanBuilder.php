@@ -109,10 +109,17 @@ final class AgentValidationGatePlanBuilder
 
         $scopeViolation = $forbiddenIntersection !== [] || $unknownChanged !== [];
 
+        $planQuality = match (true) {
+            $unknownRequested !== [] => 'blocked_unknown_gate_request',
+            $scopeViolation => 'blocked_scope_violation',
+            default => 'ok',
+        };
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
             'status' => $orderedRuns === [] ? 'empty_plan' : 'plan_ready',
+            'plan_quality' => $planQuality,
             'execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
