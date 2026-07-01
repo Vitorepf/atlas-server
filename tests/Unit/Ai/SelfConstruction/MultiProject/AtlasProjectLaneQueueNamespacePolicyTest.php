@@ -210,4 +210,95 @@ final class AtlasProjectLaneQueueNamespacePolicyTest extends TestCase
         $this->assertTrue($result['collision']);
         $this->assertSame('missing_namespace', $result['reason']);
     }
+
+    // ── AC4: validateManifestFacts() — non-throwing repair hints ────────────────
+
+    public function test_validate_manifest_facts_valid_for_healthy_facts(): void
+    {
+        $result = (new AtlasProjectLaneQueueNamespacePolicy)->validateManifestFacts($this->manifestFacts());
+
+        $this->assertTrue($result['valid']);
+        $this->assertSame([], $result['repair_hints']);
+    }
+
+    public function test_validate_manifest_facts_hints_empty_project_id(): void
+    {
+        $result = (new AtlasProjectLaneQueueNamespacePolicy)->validateManifestFacts($this->manifestFacts(''));
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('set_a_non_empty_project_id', $result['repair_hints']);
+    }
+
+    public function test_validate_manifest_facts_hints_unsafe_project_id_characters(): void
+    {
+        $result = (new AtlasProjectLaneQueueNamespacePolicy)->validateManifestFacts($this->manifestFacts('bad project/../etc'));
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('project_id_must_only_contain_letters_digits_underscore_or_hyphen', $result['repair_hints']);
+    }
+
+    public function test_validate_manifest_facts_hints_relative_repo_root(): void
+    {
+        $result = (new AtlasProjectLaneQueueNamespacePolicy)->validateManifestFacts($this->manifestFacts('demo', 'relative/path/proj'));
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('repo_root_must_be_an_absolute_path', $result['repair_hints']);
+    }
+
+    public function test_validate_manifest_facts_hints_filesystem_root_repo_root(): void
+    {
+        $result = (new AtlasProjectLaneQueueNamespacePolicy)->validateManifestFacts($this->manifestFacts('demo', '/'));
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('repo_root_must_not_be_filesystem_root', $result['repair_hints']);
+    }
+
+    public function test_validate_manifest_facts_hints_traversal_in_repo_root(): void
+    {
+        $result = (new AtlasProjectLaneQueueNamespacePolicy)->validateManifestFacts($this->manifestFacts('demo', '/valid/../etc/passwd'));
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('repo_root_must_not_contain_traversal_segments', $result['repair_hints']);
+    }
+
+    public function test_validate_manifest_facts_hints_empty_mainline_branch(): void
+    {
+        $result = (new AtlasProjectLaneQueueNamespacePolicy)->validateManifestFacts($this->manifestFacts('demo', '/abs/path', ''));
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('set_a_non_empty_mainline_branch', $result['repair_hints']);
+    }
+
+    public function test_validate_manifest_facts_accumulates_multiple_hints(): void
+    {
+        $result = (new AtlasProjectLaneQueueNamespacePolicy)->validateManifestFacts([
+            'project_id' => '',
+            'repo_root' => 'relative/path',
+            'mainline_branch' => '',
+        ]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertCount(3, $result['repair_hints']);
+    }
+
+    public function test_validate_manifest_facts_never_throws_unlike_derive(): void
+    {
+        $result = (new AtlasProjectLaneQueueNamespacePolicy)->validateManifestFacts([]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertNotEmpty($result['repair_hints']);
+    }
+
+    public function test_valid_manifest_facts_from_validation_succeed_in_derive(): void
+    {
+        $p = new AtlasProjectLaneQueueNamespacePolicy;
+        $facts = $this->manifestFacts();
+
+        $validation = $p->validateManifestFacts($facts);
+        $this->assertTrue($validation['valid']);
+
+        // No exception should be thrown given valid facts.
+        $derived = $p->derive($facts);
+        $this->assertNotEmpty($derived['namespace']);
+    }
 }

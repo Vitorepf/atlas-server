@@ -153,4 +153,48 @@ final class AtlasProjectLaneQueueNamespacePolicy
 
         return $namespace.':'.$taskId;
     }
+
+    /**
+     * Non-throwing counterpart to derive(): checks the same safety rules and returns a repair
+     * hint per violated rule instead of raising an exception, so a caller assembling a manifest
+     * can surface actionable guidance before ever calling derive().
+     *
+     * @param  array<string,mixed>  $manifestFacts
+     * @return array{valid:bool, repair_hints:list<string>}
+     */
+    public function validateManifestFacts(array $manifestFacts): array
+    {
+        $projectId = trim((string) ($manifestFacts['project_id'] ?? ''));
+        $repoRoot = trim((string) ($manifestFacts['repo_root'] ?? ''));
+        $mainlineRaw = trim((string) ($manifestFacts['mainline_branch'] ?? ''));
+
+        $hints = [];
+
+        if ($projectId === '') {
+            $hints[] = 'set_a_non_empty_project_id';
+        } elseif (! preg_match('/^[A-Za-z0-9_\-]+$/', $projectId)) {
+            $hints[] = 'project_id_must_only_contain_letters_digits_underscore_or_hyphen';
+        }
+
+        if ($repoRoot === '') {
+            $hints[] = 'set_a_non_empty_repo_root';
+        } elseif (! str_starts_with($repoRoot, '/')) {
+            $hints[] = 'repo_root_must_be_an_absolute_path';
+        } elseif ($repoRoot === '/') {
+            $hints[] = 'repo_root_must_not_be_filesystem_root';
+        } elseif (str_contains($repoRoot, '..')) {
+            $hints[] = 'repo_root_must_not_contain_traversal_segments';
+        }
+
+        if ($mainlineRaw === '') {
+            $hints[] = 'set_a_non_empty_mainline_branch';
+        } elseif ((preg_replace('/[^A-Za-z0-9_\-]/', '_', $mainlineRaw) ?? '') === '') {
+            $hints[] = 'mainline_branch_must_sanitize_to_a_non_empty_namespace_segment';
+        }
+
+        return [
+            'valid' => $hints === [],
+            'repair_hints' => $hints,
+        ];
+    }
 }
