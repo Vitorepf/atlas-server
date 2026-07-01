@@ -52710,4 +52710,65 @@ public function releasePacket(array $options = []): array
         );
     }
 
+    /**
+     * Fail-closed go/replenish/stop signal for keeping muscles fed without padding: turns real
+     * queue_health facts and active worker counts into autonomous_os_runway rather than a raw
+     * quota check. Pure — no I/O, callers supply already-gathered facts.
+     *
+     * Priority (first match wins):
+     *   1. stop_and_repair — any malformed, recoverable, or lease-leak signal is present; these
+     *      are concrete blockers that must clear before origination continues.
+     *   2. replenish_now   — no blockers, but claimable_per_active_worker is at/below the floor;
+     *      servable_now alone is never enough, it must be enough PER active worker.
+     *   3. ready           — no blockers and claimable_per_active_worker clears the floor.
+     *
+     * @param  array{
+     *   queue_health?: array{servable_now?: int, malformed_count?: int, recoverable_count?: int, lease_leak_count?: int},
+     *   active_worker_count?: int,
+     *   floor_per_worker?: float,
+     * }  $facts
+     * @return array{schema:string, runway_status:string, servable_now:int, active_worker_count:int, claimable_per_active_worker:float, floor_per_worker:float, blockers:list<string>}
+     */
+    public function autonomousOsRunway(array $facts): array
+    {
+        $queueHealth = (array) ($facts['queue_health'] ?? []);
+        $servableNow = max(0, (int) ($queueHealth['servable_now'] ?? 0));
+        $malformedCount = max(0, (int) ($queueHealth['malformed_count'] ?? 0));
+        $recoverableCount = max(0, (int) ($queueHealth['recoverable_count'] ?? 0));
+        $leaseLeakCount = max(0, (int) ($queueHealth['lease_leak_count'] ?? 0));
+        $activeWorkerCount = max(0, (int) ($facts['active_worker_count'] ?? 0));
+        $floorPerWorker = max(0.0, (float) ($facts['floor_per_worker'] ?? 2.0));
+
+        $claimablePerActiveWorker = $activeWorkerCount > 0
+            ? round($servableNow / $activeWorkerCount, 4)
+            : (float) $servableNow;
+
+        $blockers = [];
+        if ($malformedCount > 0) {
+            $blockers[] = "malformed_tasks:{$malformedCount}";
+        }
+        if ($recoverableCount > 0) {
+            $blockers[] = "recoverable_tasks_pending_recovery:{$recoverableCount}";
+        }
+        if ($leaseLeakCount > 0) {
+            $blockers[] = "lease_leak_detected:{$leaseLeakCount}";
+        }
+
+        $runwayStatus = match (true) {
+            $blockers !== [] => 'stop_and_repair',
+            $claimablePerActiveWorker <= $floorPerWorker => 'replenish_now',
+            default => 'ready',
+        };
+
+        return [
+            'schema' => 'atlas.self_construction.autonomous_os_runway.v1',
+            'runway_status' => $runwayStatus,
+            'servable_now' => $servableNow,
+            'active_worker_count' => $activeWorkerCount,
+            'claimable_per_active_worker' => $claimablePerActiveWorker,
+            'floor_per_worker' => $floorPerWorker,
+            'blockers' => $blockers,
+        ];
+    }
+
 }
