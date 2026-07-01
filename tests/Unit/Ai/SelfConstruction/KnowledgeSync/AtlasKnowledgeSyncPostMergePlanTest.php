@@ -269,4 +269,82 @@ final class AtlasKnowledgeSyncPostMergePlanTest extends TestCase
         $this->assertFalse($result['next_origination_allowed']);
         $this->assertCount(3, $result['missing_refreshes']);
     }
+
+    // ── AC3: avoids full sync when a targeted refresh proves sufficient ────────
+
+    public function test_narrow_non_critical_change_is_targeted_sync_scope(): void
+    {
+        $plan = $this->svc()->planFromChangedFiles(['app/Services/Ai/SelfConstruction/Foo.php']);
+
+        $this->assertSame('targeted', $plan['sync_scope']);
+        $this->assertSame([], $plan['critical_paths_changed']);
+    }
+
+    public function test_wide_breadth_of_file_classes_forces_full_sync_scope(): void
+    {
+        $plan = $this->svc()->planFromChangedFiles([
+            'app/Services/Ai/SelfConstruction/Foo.php',
+            'tests/Unit/Ai/SelfConstruction/FooTest.php',
+            'docs/engineering-knowledge-base/foo.md',
+            'config/atlas.php',
+        ]);
+
+        $this->assertSame('full', $plan['sync_scope']);
+    }
+
+    // ── AC2/AC4: critical paths + stale-brain risk without sync evidence ───────
+
+    public function test_critical_task_fabric_path_change_is_detected(): void
+    {
+        $plan = $this->svc()->planFromChangedFiles([
+            'app/Services/Ai/SelfConstruction/TaskGraph/AtlasSelfConstructionFoo.php',
+        ]);
+
+        $this->assertContains('task_fabric', $plan['critical_paths_changed']);
+        $this->assertSame('full', $plan['sync_scope']);
+    }
+
+    public function test_critical_path_change_without_sync_evidence_marks_stale_brain_risk(): void
+    {
+        $plan = $this->svc()->planFromChangedFiles([
+            'app/Services/Ai/SelfConstruction/VerificationCourt/AtlasFoo.php',
+        ], [], []);
+
+        $this->assertTrue($plan['stale_brain_risk']);
+        $this->assertNotEmpty($plan['stale_brain_risk_reasons']);
+        $reasons = implode(' ', $plan['stale_brain_risk_reasons']);
+        $this->assertStringContainsString('proof_system_changed_without', $reasons);
+    }
+
+    public function test_critical_path_change_with_full_sync_evidence_has_no_stale_brain_risk(): void
+    {
+        $plan = $this->svc()->planFromChangedFiles(
+            ['app/Services/Ai/SelfConstruction/TaskGraph/AtlasFoo.php'],
+            [],
+            ['code_indexed' => true, 'memory_refreshed' => true, 'evidence_recorded' => true],
+        );
+
+        $this->assertContains('task_fabric', $plan['critical_paths_changed']);
+        $this->assertFalse($plan['stale_brain_risk']);
+        $this->assertSame([], $plan['stale_brain_risk_reasons']);
+    }
+
+    public function test_non_critical_path_change_never_raises_stale_brain_risk(): void
+    {
+        $plan = $this->svc()->planFromChangedFiles(['app/Services/Ai/SelfConstruction/Foo.php'], [], []);
+
+        $this->assertFalse($plan['stale_brain_risk']);
+        $this->assertSame([], $plan['critical_paths_changed']);
+    }
+
+    public function test_architecture_and_queue_critical_paths_are_both_detected(): void
+    {
+        $plan = $this->svc()->planFromChangedFiles([
+            'app/Services/Ai/AutonomousEvolution/AtlasFoo.php',
+            'app/Services/Ai/SelfConstruction/TaskServing/AtlasFoo.php',
+        ]);
+
+        $this->assertContains('architecture', $plan['critical_paths_changed']);
+        $this->assertContains('queue', $plan['critical_paths_changed']);
+    }
 }

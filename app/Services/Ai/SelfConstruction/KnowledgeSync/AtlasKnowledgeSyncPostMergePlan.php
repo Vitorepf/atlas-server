@@ -49,6 +49,20 @@ final class AtlasKnowledgeSyncPostMergePlan
     private const DEFAULT_REFRESH_MAX_AGE_SECONDS = 3600;
 
     /**
+     * Substrings identifying critical architecture / queue / task-fabric / proof-system paths.
+     * A changed file matching any of these raises stale-brain risk when sync evidence is missing.
+     */
+    private const CRITICAL_PATH_SUBSTRINGS = [
+        'architecture' => ['AutonomousEvolution', 'ArchitectureCouncil'],
+        'queue' => ['TaskServing', 'QueueSelfHealing'],
+        'task_fabric' => ['TaskGraph', 'TaskFabric'],
+        'proof_system' => ['VerificationCourt', 'ProofSystem', 'EvidenceLedger'],
+    ];
+
+    /** File-class breadth at/above which a targeted sync is no longer sufficient. */
+    private const FULL_SYNC_CLASS_BREADTH_FLOOR = 3;
+
+    /**
      * Explicitly refreshes queue health, queued targets, and code index BEFORE the next
      * origination batch is allowed to rely on them — a next_origination_allowed=true claim can
      * never rest on a refresh that is missing or stale. Pure: only judges supplied refresh facts,
@@ -115,9 +129,10 @@ final class AtlasKnowledgeSyncPostMergePlan
      *
      * @param  list<string>  $changedFiles
      * @param  list<string>  $projectIds
-     * @return array{schema_version:string, actions:list<string>, required_actions:list<string>, optional_actions:list<string>, file_classes:list<string>, has_impl_changes:bool}
+     * @param  array<string,mixed>  $syncEvidence  optional: {code_indexed?:bool, memory_refreshed?:bool, evidence_recorded?:bool}
+     * @return array{schema_version:string, actions:list<string>, required_actions:list<string>, optional_actions:list<string>, file_classes:list<string>, has_impl_changes:bool, critical_paths_changed:list<string>, stale_brain_risk:bool, stale_brain_risk_reasons:list<string>, sync_scope:string}
      */
-    public function planFromChangedFiles(array $changedFiles, array $projectIds = []): array
+    public function planFromChangedFiles(array $changedFiles, array $projectIds = [], array $syncEvidence = []): array
     {
         $classes = array_values(array_unique($this->classifyFiles($changedFiles)));
         $hasImpl = in_array(self::FILE_CLASS_APP, $classes, true) || in_array(self::FILE_CLASS_MIGRATION, $classes, true);
@@ -156,6 +171,32 @@ final class AtlasKnowledgeSyncPostMergePlan
             $actions = [self::ACTION_NO_OP];
         }
 
+        $criticalClasses = $this->criticalPathClasses($changedFiles);
+
+        $codeIndexed = (bool) ($syncEvidence['code_indexed'] ?? false);
+        $memoryRefreshed = (bool) ($syncEvidence['memory_refreshed'] ?? false);
+        $evidenceRecorded = (bool) ($syncEvidence['evidence_recorded'] ?? false);
+
+        $staleBrainRiskReasons = [];
+        foreach ($criticalClasses as $criticalClass) {
+            if ($hasImpl && ! $codeIndexed) {
+                $staleBrainRiskReasons[] = "{$criticalClass}_changed_without_code_index_evidence";
+            }
+            if (! $memoryRefreshed) {
+                $staleBrainRiskReasons[] = "{$criticalClass}_changed_without_memory_refresh_evidence";
+            }
+            if (($hasImpl || $hasTest) && ! $evidenceRecorded) {
+                $staleBrainRiskReasons[] = "{$criticalClass}_changed_without_evidence_ledger_record";
+            }
+        }
+        $staleBrainRiskReasons = array_values(array_unique($staleBrainRiskReasons));
+
+        // AC3: a targeted refresh is sufficient unless a critical path changed or the breadth
+        // of touched file classes is wide enough that partial refresh would leave gaps.
+        $syncScope = ($criticalClasses !== [] || count($classes) >= self::FULL_SYNC_CLASS_BREADTH_FLOOR)
+            ? 'full'
+            : 'targeted';
+
         return [
             'schema_version' => self::SCHEMA,
             'actions' => $actions,
@@ -163,7 +204,35 @@ final class AtlasKnowledgeSyncPostMergePlan
             'optional_actions' => $optional,
             'file_classes' => $classes,
             'has_impl_changes' => $hasImpl,
+            'critical_paths_changed' => $criticalClasses,
+            'stale_brain_risk' => $staleBrainRiskReasons !== [],
+            'stale_brain_risk_reasons' => $staleBrainRiskReasons,
+            'sync_scope' => $syncScope,
         ];
+    }
+
+    /**
+     * @param  list<string>  $changedFiles
+     * @return list<string>
+     */
+    private function criticalPathClasses(array $changedFiles): array
+    {
+        $matched = [];
+        foreach ($changedFiles as $path) {
+            $path = (string) $path;
+            foreach (self::CRITICAL_PATH_SUBSTRINGS as $criticalClass => $substrings) {
+                foreach ($substrings as $needle) {
+                    if (str_contains($path, $needle)) {
+                        $matched[$criticalClass] = true;
+                    }
+                }
+            }
+        }
+
+        $classes = array_keys($matched);
+        sort($classes, SORT_STRING);
+
+        return $classes;
     }
 
     /**
