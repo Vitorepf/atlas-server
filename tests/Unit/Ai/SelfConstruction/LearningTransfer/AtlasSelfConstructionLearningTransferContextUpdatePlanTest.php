@@ -16,6 +16,9 @@ final class AtlasSelfConstructionLearningTransferContextUpdatePlanTest extends T
             'class' => $class,
             'evidence_refs' => ['evidence:run-42'],
             'ttl_seconds' => 86400,
+            'affected_flow' => 'worker packet resolution',
+            'observed_outcome' => 'worker gave back a duplicate task twice in one session',
+            'proposed_prevention_rule' => 'dedupe against the served-task registry before serving',
         ];
     }
 
@@ -148,5 +151,123 @@ final class AtlasSelfConstructionLearningTransferContextUpdatePlanTest extends T
         $lesson['class'] = '';
         $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan($lesson);
         $this->assertSame('', $plan['target_surface']);
+    }
+
+    // --- AC1: memory surface ---
+
+    public function test_memory_route_for_operator_correction(): void
+    {
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan(
+            $this->admittedLesson('operator_correction')
+        );
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferContextUpdatePlan::SURFACE_MEMORY, $plan['target_surface']);
+        $this->assertSame('atlas_memory_registry', $plan['owner_surface']);
+        $this->assertNotEmpty($plan['target_paths']);
+        $this->assertNotEmpty($plan['rollback_hint']);
+    }
+
+    // --- AC2: vague lessons lacking flow / outcome / prevention rule are rejected ---
+
+    public function test_missing_affected_flow_blocks_plan(): void
+    {
+        $lesson = $this->admittedLesson('scope_gap');
+        unset($lesson['affected_flow']);
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan($lesson);
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferContextUpdatePlan::ROLLOUT_BLOCKED, $plan['rollout_class']);
+        $this->assertContains('affected_flow_missing', $plan['blockers']);
+    }
+
+    public function test_missing_observed_outcome_blocks_plan(): void
+    {
+        $lesson = $this->admittedLesson('scope_gap');
+        unset($lesson['observed_outcome']);
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan($lesson);
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferContextUpdatePlan::ROLLOUT_BLOCKED, $plan['rollout_class']);
+        $this->assertContains('observed_outcome_missing', $plan['blockers']);
+    }
+
+    public function test_missing_proposed_prevention_rule_blocks_plan(): void
+    {
+        $lesson = $this->admittedLesson('scope_gap');
+        unset($lesson['proposed_prevention_rule']);
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan($lesson);
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferContextUpdatePlan::ROLLOUT_BLOCKED, $plan['rollout_class']);
+        $this->assertContains('proposed_prevention_rule_missing', $plan['blockers']);
+    }
+
+    public function test_blank_affected_flow_blocks_plan(): void
+    {
+        $lesson = $this->admittedLesson('scope_gap');
+        $lesson['affected_flow'] = '   ';
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan($lesson);
+
+        $this->assertContains('affected_flow_missing', $plan['blockers']);
+    }
+
+    // --- AC3: raw transcripts and secrets are never carried into context updates ---
+
+    public function test_raw_transcript_present_blocks_plan(): void
+    {
+        $lesson = $this->admittedLesson('scope_gap');
+        $lesson['raw_transcript'] = 'full session transcript dump...';
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan($lesson);
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferContextUpdatePlan::ROLLOUT_BLOCKED, $plan['rollout_class']);
+        $this->assertContains('raw_transcript_rejected', $plan['blockers']);
+    }
+
+    public function test_secret_in_observed_outcome_blocks_plan(): void
+    {
+        $lesson = $this->admittedLesson('scope_gap');
+        $lesson['observed_outcome'] = 'used token sk-abcdefghijklmnop to authenticate';
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan($lesson);
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferContextUpdatePlan::ROLLOUT_BLOCKED, $plan['rollout_class']);
+        $this->assertContains('secret_detected', $plan['blockers']);
+    }
+
+    public function test_secret_in_prevention_rule_blocks_plan(): void
+    {
+        $lesson = $this->admittedLesson('scope_gap');
+        $lesson['proposed_prevention_rule'] = 'rotate password=hunter2 immediately';
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan($lesson);
+
+        $this->assertContains('secret_detected', $plan['blockers']);
+    }
+
+    public function test_clean_lesson_without_secrets_is_not_blocked(): void
+    {
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan(
+            $this->admittedLesson('scope_gap')
+        );
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferContextUpdatePlan::ROLLOUT_BOUNDED, $plan['rollout_class']);
+        $this->assertNotContains('secret_detected', $plan['blockers']);
+    }
+
+    // --- context_summary is provider-safe and built only from the vetted facts ---
+
+    public function test_bounded_plan_includes_provider_safe_context_summary(): void
+    {
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan(
+            $this->admittedLesson('scope_gap')
+        );
+
+        $this->assertNotEmpty($plan['context_summary']);
+        $this->assertStringContainsString('worker packet resolution', $plan['context_summary']);
+        $this->assertStringContainsString('dedupe against the served-task registry', $plan['context_summary']);
+    }
+
+    public function test_blocked_plan_has_empty_context_summary(): void
+    {
+        $lesson = $this->admittedLesson('scope_gap');
+        $lesson['class'] = '';
+        $plan = (new AtlasSelfConstructionLearningTransferContextUpdatePlan)->plan($lesson);
+
+        $this->assertSame('', $plan['context_summary']);
     }
 }
