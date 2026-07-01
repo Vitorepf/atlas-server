@@ -241,4 +241,86 @@ final class AtlasMaestroMuscleThroughputContinuityModelTest extends TestCase
 
         $this->assertSame($this->model()->model($input), $this->model()->model($input));
     }
+
+    // ── AC: high queue depth with high give_back rate still reports quality_drain_risk ──
+
+    public function test_high_queue_depth_with_high_give_back_rate_reports_quality_drain_risk(): void
+    {
+        $result = $this->model()->model([
+            'claimable_depth' => 500,
+            'servable_now'    => 100,
+            'burn_rate_floor' => 5,
+            'give_back_rate'  => 0.6,
+        ]);
+
+        $this->assertTrue($result['quality_drain_risk']);
+        $this->assertStringContainsString('quality_drain_risk', implode(' ', $result['reasons']));
+    }
+
+    public function test_low_give_back_rate_does_not_report_quality_drain_risk(): void
+    {
+        $result = $this->model()->model([
+            'claimable_depth' => 500,
+            'servable_now'    => 100,
+            'burn_rate_floor' => 5,
+            'give_back_rate'  => 0.1,
+        ]);
+
+        $this->assertFalse($result['quality_drain_risk']);
+    }
+
+    // ── AC: falling claimable depth with high completion rate recommends replenish_now ──
+
+    public function test_falling_claimable_depth_with_high_completion_rate_recommends_replenish_now(): void
+    {
+        $result = $this->model()->model([
+            'claimable_depth'          => 20,
+            'previous_claimable_depth' => 40,
+            'servable_now'             => 10,
+            'recent_completions'       => 8,
+            'burn_rate_floor'          => 5,
+        ]);
+
+        $this->assertTrue($result['replenish_now']);
+        $this->assertSame('replenish_now', $result['recommendation']);
+    }
+
+    public function test_stable_claimable_depth_does_not_force_replenish_now(): void
+    {
+        $result = $this->model()->model([
+            'claimable_depth'          => 40,
+            'previous_claimable_depth' => 40,
+            'servable_now'             => 10,
+            'recent_completions'       => 8,
+            'burn_rate_floor'          => 5,
+        ]);
+
+        $this->assertFalse($result['replenish_now']);
+    }
+
+    // ── AC: stable depth and low give_back rate recommends maintain ────────────
+
+    public function test_stable_depth_and_low_give_back_rate_recommends_maintain(): void
+    {
+        $result = $this->model()->model([
+            'claimable_depth'          => 40,
+            'previous_claimable_depth' => 40,
+            'servable_now'             => 20,
+            'recent_completions'       => 3,
+            'burn_rate_floor'          => 5,
+            'give_back_rate'           => 0.05,
+        ]);
+
+        $this->assertSame('maintain', $result['recommendation']);
+        $this->assertFalse($result['replenish_now']);
+        $this->assertFalse($result['quality_drain_risk']);
+    }
+
+    public function test_recommendation_key_always_present(): void
+    {
+        $result = $this->model()->model([]);
+
+        $this->assertArrayHasKey('recommendation', $result);
+        $this->assertArrayHasKey('quality_drain_risk', $result);
+    }
 }
