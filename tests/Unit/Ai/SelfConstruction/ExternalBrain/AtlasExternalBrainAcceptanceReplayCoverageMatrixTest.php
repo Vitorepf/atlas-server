@@ -322,4 +322,34 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrixTest extends TestCas
 
         $this->assertNotContains('autonomy', $result['claimed_leverage_gaps']);
     }
+
+    // ── AC: command must be bound to declared scope ───────────────────────────
+
+    public function test_command_not_mentioning_allowed_path_or_symbol_is_rejected(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test exits 0'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_REJECTED, $result['verdict']);
+        $this->assertContains('command_not_bound_to_scope', array_column($result['rejections'], 'reason'));
+        $this->assertFalse($result['coverage_flags']['command_bound_to_scope']);
+    }
+
+    public function test_command_naming_allowed_test_path_is_accepted(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec());
+
+        $this->assertNotContains('command_not_bound_to_scope', array_column($result['rejections'], 'reason'));
+        $this->assertTrue($result['coverage_flags']['command_bound_to_scope']);
+    }
+
+    public function test_claimed_leverage_without_coverage_rejection_remains_active(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective' => 'this closes an anti-goodhart proxy detection gap',
+        ]));
+
+        $this->assertContains('claimed_leverage_without_coverage', array_column($result['rejections'], 'reason'));
+    }
 }

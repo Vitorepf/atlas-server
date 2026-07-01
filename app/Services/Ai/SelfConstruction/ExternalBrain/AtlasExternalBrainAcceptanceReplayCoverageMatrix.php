@@ -35,6 +35,7 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
     public const DIM_EVIDENCE_REFS       = 'evidence_refs';
     public const DIM_BRITTLE_PROXY       = 'brittle_proxy';
     public const DIM_CLAIMED_LEVERAGE    = 'claimed_leverage_coverage';
+    public const DIM_COMMAND_SCOPE_BINDING = 'command_scope_binding';
 
     private const RUNNABLE_MARKERS = ['artisan', 'vendor/bin', 'phpunit'];
 
@@ -77,6 +78,7 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
         $hasEvidenceRefs     = $requiredEvidence === [] || $evidenceRefs !== [];
         $isBrittleProxy      = $this->isBrittleProxy($criteria);
         $claimedLeverageGaps = $this->findLeverageGaps($criteria, $objective, $evidenceRefs);
+        $commandBoundToScope = ! $hasRunnableCommand || $this->commandBoundToScope($criteria, $allowedFiles);
 
         $rejections = [];
         if (! $hasRunnableCommand) {
@@ -104,6 +106,12 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
                 'gaps'      => $claimedLeverageGaps,
             ];
         }
+        if (! $commandBoundToScope) {
+            $rejections[] = [
+                'reason'    => 'command_not_bound_to_scope',
+                'dimension' => self::DIM_COMMAND_SCOPE_BINDING,
+            ];
+        }
 
         return [
             'schema'                => self::SCHEMA,
@@ -114,6 +122,7 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
                 'has_evidence_refs'           => $hasEvidenceRefs,
                 'is_brittle_proxy'            => $isBrittleProxy,
                 'claimed_leverage_coverage_met' => $claimedLeverageGaps === [],
+                'command_bound_to_scope'      => $commandBoundToScope,
             ],
             'rejections'            => $rejections,
             'claimed_leverage_gaps' => $claimedLeverageGaps,
@@ -212,6 +221,48 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
         }
 
         return $claimed;
+    }
+
+    /**
+     * A broad green suite ("php artisan test") can pass while proving nothing about THIS spec —
+     * at least one runnable criterion must name an allowed_files path or its basename symbol
+     * (e.g. "FooTest" for tests/Unit/FooTest.php), otherwise the command is untethered from scope.
+     *
+     * @param  list<string>  $criteria
+     * @param  list<string>  $allowedFiles
+     */
+    private function commandBoundToScope(array $criteria, array $allowedFiles): bool
+    {
+        if ($allowedFiles === []) {
+            return false;
+        }
+
+        $symbols = [];
+        foreach ($allowedFiles as $file) {
+            $symbols[] = strtolower($file);
+            $symbols[] = strtolower(pathinfo($file, PATHINFO_FILENAME));
+        }
+
+        foreach ($criteria as $criterion) {
+            $lower = strtolower($criterion);
+            $hasRunnable = false;
+            foreach (self::RUNNABLE_MARKERS as $marker) {
+                if (str_contains($lower, $marker)) {
+                    $hasRunnable = true;
+                    break;
+                }
+            }
+            if (! $hasRunnable) {
+                continue;
+            }
+            foreach ($symbols as $symbol) {
+                if ($symbol !== '' && str_contains($lower, $symbol)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function isTestPath(string $path): bool
