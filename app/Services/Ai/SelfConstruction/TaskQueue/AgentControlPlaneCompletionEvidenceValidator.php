@@ -118,6 +118,19 @@ final class AgentControlPlaneCompletionEvidenceValidator
         if ($missingRequiredCommands !== []) {
             $blockers[] = 'required_command_not_run';
         }
+        $commandsBoundToAllowedScope = $allowedFiles === [] || $commandsRun === []
+            || ($requiredCommands !== [] && $missingRequiredCommands === [])
+            ? true
+            : array_any($commandsRun, static fn (string $command): bool => array_any(
+                $allowedFiles,
+                static fn (string $file): bool => $file !== '' && (
+                    str_contains($command, $file)
+                    || str_contains($command, pathinfo($file, PATHINFO_FILENAME))
+                ),
+            ));
+        if ($allowedFiles !== [] && $commandsRun !== [] && ! $commandsBoundToAllowedScope) {
+            $blockers[] = 'command_not_bound_to_allowed_scope';
+        }
         $requiredEvidenceLabels = AtlasLoopRefillerPayloadNormalizer::stringList((array) ($expectedBinding['required_evidence'] ?? []));
         $missingRequiredEvidence = [];
         foreach ($requiredEvidenceLabels as $label) {
@@ -158,6 +171,7 @@ final class AgentControlPlaneCompletionEvidenceValidator
             && $filesChangedOutsideAllowedScope === []
             && $commandsRun !== []
             && $missingRequiredCommands === []
+            && $commandsBoundToAllowedScope
             && $missingRequiredEvidence === []
             && $gitStatusShort !== ''
             && in_array($diffCheckResult, ['clean', 'passed', 'pass', 'ok'], true);
@@ -201,6 +215,7 @@ final class AgentControlPlaneCompletionEvidenceValidator
             'commands_run_count' => count($commandsRun),
             'required_commands' => $requiredCommands,
             'missing_required_commands' => $missingRequiredCommands,
+            'commands_bound_to_allowed_scope' => $commandsBoundToAllowedScope,
             'required_evidence_labels' => $requiredEvidenceLabels,
             'missing_required_evidence_labels' => $missingRequiredEvidence,
             'tests_or_gates_result' => $testsOrGates,
