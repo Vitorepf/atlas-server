@@ -115,6 +115,20 @@ final class AtlasExternalBrainControlPlaneConvergenceRuntimeBridgeTest extends T
         self::assertSame('stop', $signals['stop_go_decision']);
     }
 
+    public function test_high_blocked_organ_ratio_reduces_effective_integration_coverage(): void
+    {
+        $signals = (new AtlasExternalBrainControlPlaneConvergenceRuntimeBridge)->translate([
+            'total_organs' => 10,
+            'integration_coverage_percent' => 90.0,
+            'blocked_organs' => ['OrganA', 'OrganB', 'OrganC', 'OrganD', 'OrganE', 'OrganF'],
+            'stop_go_reasons' => [],
+        ]);
+
+        self::assertSame(90.0, $signals['integration_coverage_percent']);
+        self::assertLessThan($signals['integration_coverage_percent'], $signals['effective_integration_coverage_percent']);
+        self::assertContains('blocked_organs_present', $signals['reasons']);
+    }
+
     public function test_stop_go_decision_watch_is_preserved_in_signals(): void
     {
         $signals = (new AtlasExternalBrainControlPlaneConvergenceRuntimeBridge)->translate([

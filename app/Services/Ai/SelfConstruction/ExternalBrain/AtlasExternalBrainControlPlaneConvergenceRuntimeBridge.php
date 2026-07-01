@@ -55,12 +55,16 @@ final class AtlasExternalBrainControlPlaneConvergenceRuntimeBridge
         $ornamentalRatio = $totalOrgans > 0 ? round(count($ornamentalOrgans) / $totalOrgans, 4) : 0.0;
         $simplificationPressure = $blockedRatio >= self::HIGH_BLOCKED_RATIO_THRESHOLD ? 'high' : 'low';
 
-        // Ornamental organs (present but non-functional) never inflate reported coverage —
-        // they reduce the effective figure the control plane actually trusts.
-        $effectiveIntegrationCoverage = round($integrationCoverage * (1.0 - $ornamentalRatio), 4);
+        // Ornamental organs (present but non-functional) and blocked organs (present but
+        // unwired) never inflate reported coverage — both discount the effective figure the
+        // control plane actually trusts.
+        $effectiveIntegrationCoverage = round($integrationCoverage * (1.0 - $ornamentalRatio) * (1.0 - $blockedRatio), 4);
 
         if ($ornamentalOrgans !== [] && ! in_array('ornamental_organs_present', $reasons, true)) {
             $reasons[] = 'ornamental_organs_present';
+        }
+        if ($blockedOrgans !== [] && ! in_array('blocked_organs_present', $reasons, true)) {
+            $reasons[] = 'blocked_organs_present';
         }
 
         return [
