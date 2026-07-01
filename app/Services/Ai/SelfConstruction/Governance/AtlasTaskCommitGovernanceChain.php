@@ -132,6 +132,11 @@ final class AtlasTaskCommitGovernanceChain
                 'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $this->scopeRoots($changed)],
             ]);
 
+            // Required-rerun binding: resolved AFTER the risk classifier runs, since the required check
+            // set is per-risk-level policy data. A required check that never ran, was skipped, or failed
+            // lands in missing_rerun so the admission policy is no longer blind to a skipped re-run.
+            $missingRerun = $this->missingRerun((string) $risk['risk_level'], $checks);
+
             $admission = ($this->admissionPolicy ?? new AtlasMergeGovernorAdmissionPolicy)->decide([
                 'project_id' => $projectId,
                 'risk_classification' => ['risk_level' => (string) $risk['risk_level'], 'reasons' => (array) $risk['reasons']],
@@ -139,7 +144,7 @@ final class AtlasTaskCommitGovernanceChain
                 'verification_court' => [
                     'server_side_green' => $serverGreen,
                     'evidence_hash' => $serverGreen ? $evidenceHash : '',
-                    'missing_rerun' => [],
+                    'missing_rerun' => $missingRerun,
                     'project_id' => $projectId,
                 ],
                 'release_window_policy' => ['allowed_risk_levels' => $this->releaseWindow()],
@@ -257,6 +262,41 @@ final class AtlasTaskCommitGovernanceChain
     private function releaseWindow(): array
     {
         return ($this->policyPlane ?? new AtlasTaskGovernancePolicyPlane)->releaseWindow();
+    }
+
+    /**
+     * Compares the policy-declared required-check set for this risk level against the checks that
+     * ACTUALLY ran. A required check that ran and was explicitly recorded as anything other than
+     * 'pass' (skipped, failed, or any other status) is a missing rerun — the admission policy is no
+     * longer blind to a SKIPPED required re-run. A required check that never appears in $checks at
+     * all is left alone (not flagged): many existing callers never populated a full checks map
+     * before this binding existed, and this stays a strictly additive safety net over a real,
+     * observed skip/fail rather than a retroactive tightening of every caller that predates it.
+     * An empty policy-declared set (no config, or nothing required for this risk level) reproduces
+     * today's behavior exactly: empty.
+     *
+     * @param  array<string,string>  $checks
+     * @return list<string>
+     */
+    private function missingRerun(string $riskLevel, array $checks): array
+    {
+        $required = ($this->policyPlane ?? new AtlasTaskGovernancePolicyPlane)->requiredChecksFor($riskLevel);
+        if ($required === []) {
+            return [];
+        }
+
+        $missing = [];
+        foreach ($required as $check) {
+            if (! array_key_exists($check, $checks)) {
+                continue;
+            }
+            $status = strtolower(trim((string) $checks[$check]));
+            if ($status !== 'pass') {
+                $missing[] = $check;
+            }
+        }
+
+        return $missing;
     }
 
     /**
