@@ -30,6 +30,14 @@ final class AtlasMaestroProviderRecommendationEngine
     /** 0 = staleness check disabled (safe default for historical data with old timestamps). */
     public const DEFAULT_FRESHNESS_WINDOW_SECONDS = 0;
 
+    /** give_back_rate at or above this is poor fit for ANY provider — never recommended. */
+    public const POOR_FIT_GIVE_BACK_CEILING = 0.50;
+
+    /** frontier-tier providers are held to a stricter bar — expensive failures are overuse, not tolerance. */
+    public const FRONTIER_GIVE_BACK_CEILING = 0.30;
+
+    public const FRONTIER_MODEL_TIER = 'frontier';
+
     /** @var callable():int|null */
     private $clock;
 
@@ -53,6 +61,7 @@ final class AtlasMaestroProviderRecommendationEngine
         $rows = [];
         $insufficient = [];
         $staleProviders = [];
+        $poorFitProviders = [];
         foreach ($facts as $provider => $row) {
             $total = (int) ($row['success_count'] ?? 0) + (int) ($row['give_back_count'] ?? 0);
             if ($total < $this->minSampleSize) {
@@ -69,6 +78,23 @@ final class AtlasMaestroProviderRecommendationEngine
                 }
             }
             $successCount = (int) ($row['success_count'] ?? 0);
+            $giveBackRate = $total > 0 ? ((int) $row['give_back_count']) / $total : 0.0;
+            $modelTier = strtolower((string) ($row['model_tier'] ?? ''));
+            $isFrontier = $modelTier === self::FRONTIER_MODEL_TIER;
+
+            // Poor-fit / frontier-overuse guard: never recommend a provider whose failure rate makes
+            // it a bad bet, and hold frontier (expensive) providers to a stricter bar than the rest.
+            if ($giveBackRate >= self::POOR_FIT_GIVE_BACK_CEILING) {
+                $poorFitProviders[(string) $provider] = ['give_back_rate' => $giveBackRate, 'reason' => 'poor_fit_give_back_rate'];
+
+                continue;
+            }
+            if ($isFrontier && $giveBackRate >= self::FRONTIER_GIVE_BACK_CEILING) {
+                $poorFitProviders[(string) $provider] = ['give_back_rate' => $giveBackRate, 'reason' => 'frontier_overuse_risk'];
+
+                continue;
+            }
+
             $evidenceCount = (int) ($row['has_required_evidence_count'] ?? 0);
             $evidenceRate = $successCount > 0 ? $evidenceCount / $successCount : 1.0;
             $costCount = (int) ($row['duration_ms_count'] ?? 0);
@@ -77,22 +103,39 @@ final class AtlasMaestroProviderRecommendationEngine
             $rows[] = [
                 'provider' => (string) $provider,
                 'success_rate' => $total > 0 ? $successCount / $total : 0.0,
-                'give_back_rate' => $total > 0 ? ((int) $row['give_back_count']) / $total : 0.0,
+                'give_back_rate' => $giveBackRate,
                 'sample_size' => $total,
                 'avg_duration_ms' => (int) ($row['avg_duration_ms'] ?? 0),
                 'evidence_rate' => $evidenceRate,
                 'evidence_complete' => $evidenceRate >= 1.0,
                 'avg_token_cost' => $avgTokenCost,
+                'model_tier' => $modelTier,
+                'is_frontier' => $isFrontier,
             ];
         }
 
         if ($rows === []) {
-            if ($staleProviders !== [] && $insufficient === []) {
+            // AC: no_safe_provider is returned specifically when candidates existed but were all
+            // poor fit — distinct from (and preserved alongside) the pre-existing insufficient_data
+            // / stale_data statuses so existing callers keep working unchanged.
+            if ($poorFitProviders !== [] && $insufficient === [] && $staleProviders === []) {
+                return [
+                    'status' => 'no_safe_provider',
+                    'task_class' => $taskClass,
+                    'reason' => 'all_candidates_poor_fit',
+                    'poor_fit_providers' => $poorFitProviders,
+                    'min_required' => $this->minSampleSize,
+                    'providers_needing_samples' => [],
+                ];
+            }
+
+            if ($staleProviders !== [] && $insufficient === [] && $poorFitProviders === []) {
                 return [
                     'status' => 'stale_data',
                     'task_class' => $taskClass,
                     'stale_providers' => $staleProviders,
                     'freshness_window_seconds' => $this->freshnessWindowSeconds,
+                    'poor_fit_providers' => $poorFitProviders,
                 ];
             }
 
@@ -103,6 +146,7 @@ final class AtlasMaestroProviderRecommendationEngine
                 'min_required' => $this->minSampleSize,
                 'providers_needing_samples' => array_keys($insufficient),
                 'stale_providers' => $staleProviders,
+                'poor_fit_providers' => $poorFitProviders,
             ];
         }
 
@@ -163,8 +207,11 @@ final class AtlasMaestroProviderRecommendationEngine
             'evidence_rate' => $winner['evidence_rate'],
             'evidence_complete' => $winner['evidence_complete'],
             'avg_token_cost' => $winner['avg_token_cost'],
+            'model_tier' => $winner['model_tier'],
+            'is_frontier' => $winner['is_frontier'],
             'tied_with' => $tiedWith,
             'tie_reason' => $tieReason,
+            'poor_fit_providers' => $poorFitProviders,
         ];
     }
 
