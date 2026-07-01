@@ -177,4 +177,35 @@ class AtlasMaestroPacketSchemaMigratorTest extends TestCase
         self::assertNotEmpty($a['migration_hash']);
         self::assertSame($a['migration_hash'], $b['migration_hash'], 'same input must produce identical migration_hash');
     }
+
+    public function test_migration_hash_reflects_restored_evidence_not_pre_restoration_payload(): void
+    {
+        $clock = static fn (): string => '2026-06-25T00:00:00Z';
+
+        $migratorA = new AtlasMaestroPacketSchemaMigrator($this->versioningWithSyntheticV2(), $clock);
+        $migratorA->registerTransform(
+            AtlasMaestroPacketSchemaVersioning::CANONICAL_V1,
+            'atlas.self_construction.agent_control_plane_task_packet.v2',
+            'lossy_transform',
+            static fn (array $p): array => ['task_packet_id' => $p['task_packet_id'], 'objective' => $p['objective']],
+        );
+
+        $migratorB = new AtlasMaestroPacketSchemaMigrator($this->versioningWithSyntheticV2(), $clock);
+        $migratorB->registerTransform(
+            AtlasMaestroPacketSchemaVersioning::CANONICAL_V1,
+            'atlas.self_construction.agent_control_plane_task_packet.v2',
+            'lossy_transform',
+            static fn (array $p): array => ['task_packet_id' => $p['task_packet_id'], 'objective' => $p['objective']],
+        );
+
+        $packetA = array_merge($this->v1Packet(), ['acceptance_criteria' => ['criterion-a']]);
+        $packetB = array_merge($this->v1Packet(), ['acceptance_criteria' => ['criterion-b']]);
+
+        $outA = $migratorA->migrateTo($packetA, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+        $outB = $migratorB->migrateTo($packetB, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+
+        self::assertSame(['criterion-a'], $outA['acceptance_criteria']);
+        self::assertSame(['criterion-b'], $outB['acceptance_criteria']);
+        self::assertNotSame($outA['migration_hash'], $outB['migration_hash'], 'migration_hash must change when restored evidence fields differ');
+    }
 }
