@@ -246,6 +246,32 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
         ],
     ];
 
+    /** Outcome-grounded cases: evaluate whether a model predicts actual muscle outcome, not just structure. */
+    private const OUTCOME_GROUNDED_CASES = [
+        [
+            'case_id'             => 'og-1-give-back-trap',
+            'description'         => 'Candidate has high ambiguity and no scaffold path — model must predict give_back, not commit_success.',
+            'input'               => [
+                'candidate' => ['ambiguity_score' => 0.85, 'give_back_risk_score' => 0.80, 'scaffold_available' => false],
+            ],
+            'expected_worker_outcome' => 'give_back',
+            'give_back_trap'      => true,
+            'success_trap'        => false,
+            'required_reasoning_artifacts' => ['ambiguity_score', 'give_back_risk_score', 'scaffold_available'],
+        ],
+        [
+            'case_id'             => 'og-2-success-trap',
+            'description'         => 'Candidate has low ambiguity, low risk, and a proven scaffold path — model must predict commit_success, not give_back.',
+            'input'               => [
+                'candidate' => ['ambiguity_score' => 0.15, 'give_back_risk_score' => 0.10, 'scaffold_available' => true],
+            ],
+            'expected_worker_outcome' => 'commit_success',
+            'give_back_trap'      => false,
+            'success_trap'        => true,
+            'required_reasoning_artifacts' => ['ambiguity_score', 'give_back_risk_score', 'scaffold_available'],
+        ],
+    ];
+
     // Tags that make a case provider-unsafe.
     private const UNSAFE_TRIGGERS = [
         'requires_live_llm', 'needs_frontier_model', 'live_api_call',
@@ -332,6 +358,18 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
             }
         }
 
+        // Outcome-grounded cases are always scanned for provider-safety alongside challenge_cases,
+        // regardless of whether custom cases were supplied — they are Atlas-owned fixtures.
+        foreach (self::OUTCOME_GROUNDED_CASES as $ogc) {
+            $inputJson = json_encode($ogc['input'] ?? []) ?: '';
+            foreach (self::UNSAFE_TRIGGERS as $trigger) {
+                if (str_contains($inputJson, $trigger)) {
+                    $violations[] = $ogc['case_id'];
+                    break;
+                }
+            }
+        }
+
         $isSafe = $violations === [];
 
         return [
@@ -342,6 +380,7 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
             'scoring_dimensions'   => self::SCORING_DIMENSIONS,
             'pass_criteria'        => self::PASS_CRITERIA,
             'trap_checks'          => self::TRAP_CHECKS,
+            'outcome_grounded_cases' => self::OUTCOME_GROUNDED_CASES,
             'provider_safe_status' => [
                 'is_safe'    => $isSafe,
                 'violations' => $violations,
@@ -385,6 +424,7 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
             'scoring_dimensions'   => self::SCORING_DIMENSIONS,
             'pass_criteria'        => self::PASS_CRITERIA,
             'trap_checks'          => self::TRAP_CHECKS,
+            'outcome_grounded_cases' => [],
             'provider_safe_status' => [
                 'is_safe'    => false,
                 'violations' => $reasons,

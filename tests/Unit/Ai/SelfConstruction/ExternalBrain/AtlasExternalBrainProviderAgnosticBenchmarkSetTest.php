@@ -330,4 +330,44 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSetTest extends TestCase
             $this->assertStringNotContainsString($providerName, $blob, "default cases must not mention provider: {$providerName}");
         }
     }
+
+    // ── outcome_grounded_cases ───────────────────────────────────────────────
+
+    public function test_outcome_grounded_cases_present_with_required_fields(): void
+    {
+        $result = $this->benchmarkSet()->load();
+
+        $this->assertNotEmpty($result['outcome_grounded_cases']);
+        foreach ($result['outcome_grounded_cases'] as $case) {
+            foreach (['expected_worker_outcome', 'give_back_trap', 'success_trap', 'required_reasoning_artifacts'] as $k) {
+                $this->assertArrayHasKey($k, $case, "Missing key: {$k}");
+            }
+        }
+    }
+
+    public function test_outcome_grounded_cases_include_give_back_and_success_traps(): void
+    {
+        $result = $this->benchmarkSet()->load();
+
+        $giveBackTraps = array_filter($result['outcome_grounded_cases'], static fn (array $c): bool => $c['give_back_trap']);
+        $successTraps = array_filter($result['outcome_grounded_cases'], static fn (array $c): bool => $c['success_trap']);
+
+        $this->assertNotEmpty($giveBackTraps);
+        $this->assertNotEmpty($successTraps);
+
+        foreach ($giveBackTraps as $c) {
+            $this->assertSame('give_back', $c['expected_worker_outcome']);
+        }
+        foreach ($successTraps as $c) {
+            $this->assertSame('commit_success', $c['expected_worker_outcome']);
+        }
+    }
+
+    public function test_outcome_grounded_cases_are_provider_safe(): void
+    {
+        $result = $this->benchmarkSet()->load();
+
+        $this->assertTrue($result['provider_safe_status']['is_safe']);
+        $this->assertSame([], $result['provider_safe_status']['violations']);
+    }
 }
