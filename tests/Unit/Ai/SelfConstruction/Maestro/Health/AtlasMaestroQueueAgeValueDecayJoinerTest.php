@@ -177,4 +177,27 @@ final class AtlasMaestroQueueAgeValueDecayJoinerTest extends TestCase
 
         $this->assertSame([], $r['recommendations']);
     }
+
+    // ── routing_label vocabulary (AC) ───────────────────────────────────────────
+
+    public function test_high_value_old_packet_is_labeled_rescue(): void
+    {
+        $r = $this->svc()->join([$this->packet('t1', 200000, 0.9)]);
+
+        $this->assertSame(AtlasMaestroQueueAgeValueDecayJoiner::LABEL_RESCUE, $r['recommendations'][0]['routing_label']);
+    }
+
+    public function test_low_value_old_packet_is_labeled_retire_or_refresh(): void
+    {
+        $r = $this->svc()->join([$this->packet('t1', 200000, 0.1)]);
+
+        $this->assertSame(AtlasMaestroQueueAgeValueDecayJoiner::LABEL_RETIRE_OR_REFRESH, $r['recommendations'][0]['routing_label']);
+    }
+
+    public function test_fresh_high_quality_packet_is_labeled_serve(): void
+    {
+        $r = $this->svc()->join([$this->packet('t1', 50, 0.9)]);
+
+        $this->assertSame(AtlasMaestroQueueAgeValueDecayJoiner::LABEL_SERVE, $r['recommendations'][0]['routing_label']);
+    }
 }

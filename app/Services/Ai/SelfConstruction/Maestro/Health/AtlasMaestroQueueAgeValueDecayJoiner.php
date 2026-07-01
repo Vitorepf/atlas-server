@@ -42,6 +42,15 @@ final class AtlasMaestroQueueAgeValueDecayJoiner
 
     public const ACTION_KEEP_WAITING = 'keep_waiting';
 
+    /** Actionable routing label vocabulary — additive alongside `action`, mapped 1:1. */
+    public const LABEL_RESCUE = 'rescue';
+
+    public const LABEL_RETIRE_OR_REFRESH = 'retire_or_refresh';
+
+    public const LABEL_SERVE = 'serve';
+
+    public const LABEL_WAIT = 'wait';
+
     private const AGE_OLD_THRESHOLD_SECONDS = 86400;
 
     private const AGE_AGING_THRESHOLD_SECONDS = 3600;
@@ -110,12 +119,20 @@ final class AtlasMaestroQueueAgeValueDecayJoiner
 
             $decayScore = round(($age / self::AGE_OLD_THRESHOLD_SECONDS) * (1 - $value) * (1 + $riskScore * 0.1), 4);
 
+            $routingLabel = match ($action) {
+                self::ACTION_DRAIN_FIRST => self::LABEL_RESCUE,
+                self::ACTION_DECAY_OR_REVIEW => self::LABEL_RETIRE_OR_REFRESH,
+                self::ACTION_PROTECT_PRIORITY => self::LABEL_SERVE,
+                default => self::LABEL_WAIT,
+            };
+
             $recommendations[] = [
                 'task_packet_id' => $taskId,
                 'age_bucket' => $ageBucket,
                 'value_bucket' => $valueBucket,
                 'decay_score' => $decayScore,
                 'action' => $action,
+                'routing_label' => $routingLabel,
                 'reason_codes' => array_values(array_unique($reasonCodes)),
             ];
         }
