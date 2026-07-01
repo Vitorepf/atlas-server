@@ -14,6 +14,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyDep
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyRegressionOracle;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyRegressionSentinel;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBlindSpotCurriculum;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityRubric;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -65,6 +66,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainAutonomyRegressionOracle $regressionOracle,
         AtlasExternalBrainAutonomyRegressionSentinel $regressionSentinel,
         AtlasExternalBrainBlindSpotCurriculum $blindSpotCurriculum,
+        AtlasExternalBrainCapabilityRubric $capabilityRubric,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -216,6 +218,17 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
                 $curriculumOutput['ranked_learning_items'] = $blindSpotCurriculum->rankLearningItems($curriculumInput);
             }
             $payload['blind_spot_curriculum'] = $curriculumOutput;
+        }
+
+        // Optional capability rubric evaluation: scores external-brain capability against
+        // the 8-dimension 95% target rubric with hard-fail gates. Distinct from the
+        // curriculum above (capability scoring vs. failure-pattern learning), so it only
+        // runs when the caller explicitly supplies a capability_rubric section.
+        if (is_array($decoded['capability_rubric'] ?? null)) {
+            $rubricInput = $decoded['capability_rubric'];
+            $dimensionScores = is_array($rubricInput['dimension_scores'] ?? null) ? $rubricInput['dimension_scores'] : [];
+            $triggeredGates = is_array($rubricInput['triggered_gates'] ?? null) ? $rubricInput['triggered_gates'] : [];
+            $payload['capability_rubric'] = $capabilityRubric->evaluate($dimensionScores, $triggeredGates);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
