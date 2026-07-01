@@ -43,6 +43,12 @@ final class AtlasMaestroParallelMuscleCoordinationPolicy
     // Each active throttle condition reduces the base by this fraction.
     private const THROTTLE_REDUCTION_FRACTION = 0.25;
 
+    /** active_leases at or above this ceiling is unsafe lease pressure — block all new concurrent work. */
+    private const DEFAULT_LEASE_CEILING = 8;
+
+    /** worker_fit_score below this is a poor task/worker match — never admitted concurrently. */
+    private const WORKER_FIT_MINIMUM = 0.50;
+
     /**
      * @param  array{
      *   queue_depth?: int,
@@ -137,6 +143,109 @@ final class AtlasMaestroParallelMuscleCoordinationPolicy
                 'poison_pressure'          => $poisonPressure,
                 'avg_quality'              => $avgQuality,
             ],
+        ];
+    }
+
+    /**
+     * Coordinates a concrete batch of candidate muscle claims: admits concurrent work ONLY when
+     * each candidate's allowed_files are disjoint from every other admitted candidate, lease
+     * pressure is below the ceiling, and worker-task fit is acceptable. First candidate wins any
+     * file conflict (stable, deterministic order); losers are reported in conflict_files.
+     *
+     * @param  array{
+     *   candidates?: list<array{worker_id?:string, allowed_files?:list<string>, worker_fit_score?:float}>,
+     *   active_leases?: int,
+     *   lease_ceiling?: int,
+     * }  $input
+     * @return array{
+     *   schema: string,
+     *   coordination_decision: string,
+     *   conflict_files: list<string>,
+     *   recommended_worker_count: int,
+     *   backoff_or_route: string,
+     *   admitted_worker_ids: list<string>,
+     *   excluded: list<array{worker_id:string, reason:string}>,
+     * }
+     */
+    public function coordinateConcurrentWork(array $input): array
+    {
+        $candidates = array_values((array) ($input['candidates'] ?? []));
+        $activeLeases = max(0, (int) ($input['active_leases'] ?? 0));
+        $leaseCeiling = max(1, (int) ($input['lease_ceiling'] ?? self::DEFAULT_LEASE_CEILING));
+
+        if ($activeLeases >= $leaseCeiling) {
+            return [
+                'schema' => self::SCHEMA,
+                'coordination_decision' => 'block',
+                'conflict_files' => [],
+                'recommended_worker_count' => 0,
+                'backoff_or_route' => 'retry_after_lease_pressure_clears',
+                'admitted_worker_ids' => [],
+                'excluded' => array_map(
+                    static fn (array $c): array => ['worker_id' => (string) ($c['worker_id'] ?? ''), 'reason' => 'lease_pressure_unsafe'],
+                    $candidates,
+                ),
+            ];
+        }
+
+        $claimedFiles = [];
+        $conflictFiles = [];
+        $admittedIds = [];
+        $excluded = [];
+
+        foreach ($candidates as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+            $workerId = (string) ($candidate['worker_id'] ?? '');
+            $allowedFiles = array_values(array_map('strval', (array) ($candidate['allowed_files'] ?? [])));
+            $fitScore = max(0.0, min(1.0, (float) ($candidate['worker_fit_score'] ?? 1.0)));
+
+            $overlap = array_values(array_intersect($allowedFiles, $claimedFiles));
+            if ($overlap !== []) {
+                $conflictFiles = array_values(array_unique(array_merge($conflictFiles, $overlap)));
+                $excluded[] = ['worker_id' => $workerId, 'reason' => 'allowed_files_conflict'];
+
+                continue;
+            }
+            if ($fitScore < self::WORKER_FIT_MINIMUM) {
+                $excluded[] = ['worker_id' => $workerId, 'reason' => 'poor_worker_task_fit'];
+
+                continue;
+            }
+
+            $claimedFiles = array_merge($claimedFiles, $allowedFiles);
+            $admittedIds[] = $workerId;
+        }
+
+        $recommendedWorkerCount = count($admittedIds);
+
+        $coordinationDecision = match (true) {
+            $recommendedWorkerCount === 0 => 'block',
+            $excluded === [] => 'admit_all',
+            default => 'admit_partial',
+        };
+
+        $hasConflictExclusion = array_filter($excluded, static fn (array $e): bool => $e['reason'] === 'allowed_files_conflict') !== [];
+        $hasFitExclusion = array_filter($excluded, static fn (array $e): bool => $e['reason'] === 'poor_worker_task_fit') !== [];
+
+        $backoffOrRoute = match (true) {
+            $coordinationDecision === 'block' && $hasConflictExclusion => 'reroute_conflicting_worker_to_disjoint_task',
+            $coordinationDecision === 'block' && $hasFitExclusion => 'reassign_poor_fit_worker_to_better_matched_task',
+            $coordinationDecision === 'block' => 'no_admittable_candidates',
+            $hasConflictExclusion => 'reroute_conflicting_worker_to_disjoint_task',
+            $hasFitExclusion => 'reassign_poor_fit_worker_to_better_matched_task',
+            default => 'proceed_concurrently',
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'coordination_decision' => $coordinationDecision,
+            'conflict_files' => $conflictFiles,
+            'recommended_worker_count' => $recommendedWorkerCount,
+            'backoff_or_route' => $backoffOrRoute,
+            'admitted_worker_ids' => $admittedIds,
+            'excluded' => $excluded,
         ];
     }
 }

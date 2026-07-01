@@ -232,4 +232,111 @@ final class AtlasMaestroParallelMuscleCoordinationPolicyTest extends TestCase
 
         $this->assertLessThanOrEqual(2, $result['recommended_parallelism']);
     }
+
+    // ── coordinateConcurrentWork() — AC: disjoint files, lease pressure, worker fit ──
+
+    private function candidate(string $workerId, array $allowedFiles, float $fitScore = 1.0): array
+    {
+        return ['worker_id' => $workerId, 'allowed_files' => $allowedFiles, 'worker_fit_score' => $fitScore];
+    }
+
+    public function test_coordination_output_has_required_keys(): void
+    {
+        $result = $this->policy->coordinateConcurrentWork(['candidates' => []]);
+
+        foreach (['coordination_decision', 'conflict_files', 'recommended_worker_count', 'backoff_or_route'] as $key) {
+            $this->assertArrayHasKey($key, $result, "Missing key: {$key}");
+        }
+    }
+
+    public function test_disjoint_concurrent_work_admits_all_candidates(): void
+    {
+        $result = $this->policy->coordinateConcurrentWork(['candidates' => [
+            $this->candidate('w1', ['app/A.php']),
+            $this->candidate('w2', ['app/B.php']),
+            $this->candidate('w3', ['app/C.php']),
+        ]]);
+
+        $this->assertSame('admit_all', $result['coordination_decision']);
+        $this->assertSame(3, $result['recommended_worker_count']);
+        $this->assertSame([], $result['conflict_files']);
+        $this->assertSame('proceed_concurrently', $result['backoff_or_route']);
+    }
+
+    public function test_file_overlap_excludes_the_conflicting_worker(): void
+    {
+        $result = $this->policy->coordinateConcurrentWork(['candidates' => [
+            $this->candidate('w1', ['app/Shared.php']),
+            $this->candidate('w2', ['app/Shared.php', 'app/Other.php']),
+        ]]);
+
+        $this->assertSame('admit_partial', $result['coordination_decision']);
+        $this->assertContains('app/Shared.php', $result['conflict_files']);
+        $this->assertSame(1, $result['recommended_worker_count']);
+        $this->assertContains('w1', $result['admitted_worker_ids']);
+        $this->assertNotContains('w2', $result['admitted_worker_ids']);
+        $this->assertSame('reroute_conflicting_worker_to_disjoint_task', $result['backoff_or_route']);
+    }
+
+    public function test_lease_pressure_blocks_all_candidates(): void
+    {
+        $result = $this->policy->coordinateConcurrentWork([
+            'candidates' => [
+                $this->candidate('w1', ['app/A.php']),
+                $this->candidate('w2', ['app/B.php']),
+            ],
+            'active_leases' => 8,
+            'lease_ceiling' => 8,
+        ]);
+
+        $this->assertSame('block', $result['coordination_decision']);
+        $this->assertSame(0, $result['recommended_worker_count']);
+        $this->assertSame('retry_after_lease_pressure_clears', $result['backoff_or_route']);
+        $this->assertSame([], $result['admitted_worker_ids']);
+    }
+
+    public function test_poor_worker_fit_excludes_that_candidate(): void
+    {
+        $result = $this->policy->coordinateConcurrentWork(['candidates' => [
+            $this->candidate('good_fit', ['app/A.php'], 0.90),
+            $this->candidate('bad_fit', ['app/B.php'], 0.20),
+        ]]);
+
+        $this->assertSame('admit_partial', $result['coordination_decision']);
+        $this->assertContains('good_fit', $result['admitted_worker_ids']);
+        $this->assertNotContains('bad_fit', $result['admitted_worker_ids']);
+        $this->assertSame(1, $result['recommended_worker_count']);
+        $this->assertSame('reassign_poor_fit_worker_to_better_matched_task', $result['backoff_or_route']);
+    }
+
+    public function test_safe_reduced_parallelism_when_some_candidates_excluded(): void
+    {
+        $result = $this->policy->coordinateConcurrentWork([
+            'candidates' => [
+                $this->candidate('w1', ['app/A.php'], 0.9),
+                $this->candidate('w2', ['app/A.php'], 0.9), // conflicts with w1
+                $this->candidate('w3', ['app/C.php'], 0.9),
+            ],
+            'active_leases' => 1,
+            'lease_ceiling' => 8,
+        ]);
+
+        $this->assertSame('admit_partial', $result['coordination_decision']);
+        $this->assertSame(2, $result['recommended_worker_count']);
+        $this->assertContains('w1', $result['admitted_worker_ids']);
+        $this->assertContains('w3', $result['admitted_worker_ids']);
+        $this->assertNotContains('w2', $result['admitted_worker_ids']);
+    }
+
+    public function test_all_candidates_poor_fit_or_conflicting_blocks(): void
+    {
+        $result = $this->policy->coordinateConcurrentWork(['candidates' => [
+            $this->candidate('w1', ['app/A.php'], 0.10),
+            $this->candidate('w2', ['app/B.php'], 0.10),
+        ]]);
+
+        $this->assertSame('block', $result['coordination_decision']);
+        $this->assertSame(0, $result['recommended_worker_count']);
+        $this->assertSame('reassign_poor_fit_worker_to_better_matched_task', $result['backoff_or_route']);
+    }
 }
