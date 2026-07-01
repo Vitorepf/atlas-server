@@ -8,6 +8,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
+use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
 use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
@@ -30,6 +31,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         {--claim-file= : Path to a JSON completion claim to validate against the Definition of Done}
         {--repair-iteration= : Current repair-loop iteration to guard (max-3 contract before escalation)}
         {--veto-events= : Path to a JSON list of veto events to replay through the veto-propagation watchdog}
+        {--doc-maturity= : Path to a JSON sections map to classify DOC L0..L4 maturity}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Show AAEOS per-department maturity (L0..L7) and numeric quality bar.';
@@ -44,6 +46,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         AtlasRepairLoopGuard $repairLoopGuard,
         AtlasAaeosDepartmentQualityBarLevelClassifier $qualityBarLevelClassifier,
         AtlasVetoPropagationWatchdog $vetoPropagationWatchdog,
+        AtlasAaeosDocMaturityClassifier $docMaturityClassifier,
     ): int {
         $qualityBarResult = $qualityBar->qualityBar();
         $maturityResult = $maturity->maturity();
@@ -86,6 +89,18 @@ class AtlasAaeosDepartmentStatusCommand extends Command
             $vetoEvents = json_decode((string) file_get_contents($vetoEventsFile), true);
             if (is_array($vetoEvents)) {
                 $payload['veto_propagation'] = $vetoPropagationWatchdog->watch($vetoEvents);
+            }
+        }
+
+        // Optional: classify the DOC L0..L4 maturity of a documented structural-parts map
+        // (mother doc, contracts, runbook, matrix, quality bar, evidence, gates), so doc
+        // maturity is queryable alongside the department maturity/quality-bar read-model.
+        // runtime_ready is always false here — doc maturity is never runtime proof.
+        $docMaturityFile = trim((string) $this->option('doc-maturity'));
+        if ($docMaturityFile !== '' && is_file($docMaturityFile)) {
+            $docMaturitySections = json_decode((string) file_get_contents($docMaturityFile), true);
+            if (is_array($docMaturitySections)) {
+                $payload['doc_maturity'] = $docMaturityClassifier->classify($docMaturitySections);
             }
         }
 
