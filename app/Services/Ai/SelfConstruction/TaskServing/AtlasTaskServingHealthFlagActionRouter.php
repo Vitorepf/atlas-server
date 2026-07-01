@@ -38,6 +38,9 @@ final class AtlasTaskServingHealthFlagActionRouter
 
     public const ACTION_INSPECT_LEASE_PARITY = 'inspect_lease_parity';
 
+    /** Ghost lease leak: parity mismatch with zero recoverable leases and servable work available — nothing to reap, nothing to repair. */
+    public const ACTION_OBSERVE_NOOP = 'observe_noop';
+
     public const ACTION_TOP_UP_QUEUE_BEFORE_STARVATION = 'top_up_queue_before_starvation';
 
     public const ACTION_CONTINUE_WORK = 'continue_work';
@@ -76,13 +79,21 @@ final class AtlasTaskServingHealthFlagActionRouter
         // Candidate actions in deterministic priority order — first true wins as primary.
         // Lease leak, recoverable backlog, and malformed sweep keep precedence over worker-floor
         // top-up guidance: those describe queue CORRUPTION/leakage, worse than impending starvation.
+        // Ghost leak: parity mismatch, servable work exists, but ZERO recoverable leases — there is
+        // nothing to reap and nothing to repair, so this is pure observation, not an inspection task.
+        $leaseLeakGhost = $leaseLeak && $servableNow > 0 && $recoverableTotal === 0;
+        // Non-ghost leak (recoverableTotal > 0) is unreachable in practice — recoverableBacklog already
+        // wins at higher priority whenever recoverableTotal > 0 — but kept for defensive completeness.
+        $leaseLeakReal = $leaseLeak && $servableNow > 0 && $recoverableTotal > 0;
+
         $candidates = [
             self::ACTION_REPLENISH_OR_REPAIR => $dryQueue || $servingJammed,
             self::ACTION_REAP_LEASES => $recoverableBacklog,
             self::ACTION_SWEEP_MALFORMED => $malformedRisk,
             // Harmless pressure: a lease-count mismatch while the queue still has servable work is not
             // a true jam — investigate parity, don't panic-replenish.
-            self::ACTION_INSPECT_LEASE_PARITY => $leaseLeak && $servableNow > 0,
+            self::ACTION_INSPECT_LEASE_PARITY => $leaseLeakReal,
+            self::ACTION_OBSERVE_NOOP => $leaseLeakGhost,
             self::ACTION_TOP_UP_QUEUE_BEFORE_STARVATION => $workerFloorPressure,
         ];
 
@@ -128,6 +139,7 @@ final class AtlasTaskServingHealthFlagActionRouter
             self::ACTION_REAP_LEASES => sprintf('recoverable backlog of %d lease(s) — reap before claiming more', $recoverableTotal),
             self::ACTION_SWEEP_MALFORMED => 'malformed-packet risk detected — sweep before workers claim poisoned packets',
             self::ACTION_INSPECT_LEASE_PARITY => sprintf('lease count mismatch with servable_now=%d — harmless pressure, inspect parity, do not panic-replenish', $servableNow),
+            self::ACTION_OBSERVE_NOOP => sprintf('ghost lease leak: lease parity mismatch with zero recoverable leases and servable_now=%d — nothing to reap, observe only', $servableNow),
             self::ACTION_TOP_UP_QUEUE_BEFORE_STARVATION => $nearWorkerFloor
                 ? sprintf(
                     'worker_floor: active_leases=%d, claimable_per_active_worker=%s <= 2 — top up the queue before active muscles starve',

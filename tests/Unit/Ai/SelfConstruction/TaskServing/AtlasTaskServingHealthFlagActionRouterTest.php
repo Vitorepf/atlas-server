@@ -83,7 +83,7 @@ final class AtlasTaskServingHealthFlagActionRouterTest extends TestCase
         $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_SWEEP_MALFORMED, $r['primary_action']);
     }
 
-    public function test_lease_leak_with_servable_queue_routes_to_inspect_lease_parity(): void
+    public function test_ghost_lease_leak_with_zero_recoverable_routes_to_observe_noop(): void
     {
         $r = $this->router()->route($this->snapshot([
             'servable_now' => 8,
@@ -91,7 +91,20 @@ final class AtlasTaskServingHealthFlagActionRouterTest extends TestCase
             'health_flags' => ['lease_leak_detected' => true],
         ]));
 
-        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_INSPECT_LEASE_PARITY, $r['primary_action']);
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_OBSERVE_NOOP, $r['primary_action']);
+    }
+
+    public function test_lease_leak_with_nonzero_recoverable_routes_to_reap_leases_not_observe(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'servable_now' => 8,
+            'leases_match_claimed' => false,
+            'recoverable' => ['total' => 2],
+            'health_flags' => ['lease_leak_detected' => true],
+        ]));
+
+        // recoverable_backlog wins priority — a real leak with real backlog is stronger than observe.
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_REAP_LEASES, $r['primary_action']);
     }
 
     public function test_clean_servable_queue_routes_to_continue_work(): void
@@ -112,7 +125,7 @@ final class AtlasTaskServingHealthFlagActionRouterTest extends TestCase
         ]));
 
         $this->assertNotSame(AtlasTaskServingHealthFlagActionRouter::ACTION_REPLENISH_OR_REPAIR, $r['primary_action']);
-        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_INSPECT_LEASE_PARITY, $r['primary_action']);
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_OBSERVE_NOOP, $r['primary_action']);
     }
 
     // ── AC: deterministic priority when multiple flags true ──────────────────
@@ -148,7 +161,7 @@ final class AtlasTaskServingHealthFlagActionRouterTest extends TestCase
         ]));
 
         $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_SWEEP_MALFORMED, $r['primary_action']);
-        $this->assertContains(AtlasTaskServingHealthFlagActionRouter::ACTION_INSPECT_LEASE_PARITY, $r['secondary_actions']);
+        $this->assertContains(AtlasTaskServingHealthFlagActionRouter::ACTION_OBSERVE_NOOP, $r['secondary_actions']);
     }
 
     // ── determinism ───────────────────────────────────────────────────────────
