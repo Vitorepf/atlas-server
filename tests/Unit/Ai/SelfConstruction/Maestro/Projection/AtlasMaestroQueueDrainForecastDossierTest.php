@@ -256,4 +256,93 @@ final class AtlasMaestroQueueDrainForecastDossierTest extends TestCase
             $this->assertIsString($ref);
         }
     }
+
+    // ── AC: SLO fields present ────────────────────────────────────────────────
+
+    public function test_result_has_slo_keys(): void
+    {
+        $result = $this->dossier->compile($this->healthy());
+
+        foreach (['time_to_dry', 'worker_floor_gap', 'quality_floor_status', 'replenish_by', 'starvation_risk'] as $key) {
+            $this->assertArrayHasKey($key, $result, "Missing key: {$key}");
+        }
+    }
+
+    // ── AC4: healthy supply — everything green, no replenishment needed ──────
+
+    public function test_healthy_supply_has_no_starvation_risk_and_null_replenish_by(): void
+    {
+        $result = $this->dossier->compile($this->healthy([
+            'active_worker_count' => 2,
+        ]));
+
+        $this->assertSame(AtlasMaestroQueueDrainForecastDossier::RISK_LOW, $result['starvation_risk']);
+        $this->assertSame('healthy', $result['quality_floor_status']);
+        $this->assertNull($result['replenish_by']);
+        $this->assertSame($result['drain_eta'], $result['time_to_dry']);
+        $this->assertSame(0.0, $result['worker_floor_gap']);
+    }
+
+    // ── AC4: high-drain danger — effective_ready dries up with active workers ─
+
+    public function test_high_drain_danger_has_critical_starvation_risk_and_replenish_by_set(): void
+    {
+        $result = $this->dossier->compile($this->healthy([
+            'queue_health' => ['ready_count' => 1, 'blocked_count' => 1, 'claimed_count' => 0],
+            'active_worker_count' => 3,
+        ]));
+
+        $this->assertSame(0, $result['effective_ready']);
+        $this->assertSame(AtlasMaestroQueueDrainForecastDossier::RISK_CRITICAL, $result['starvation_risk']);
+        $this->assertSame('now', $result['replenish_by']);
+        $this->assertGreaterThan(0.0, $result['worker_floor_gap']);
+    }
+
+    // ── AC4: low-quality backlog — plenty of raw tasks, none high-quality ─────
+
+    public function test_low_quality_backlog_flags_starvation_despite_high_raw_ready_count(): void
+    {
+        $result = $this->dossier->compile($this->healthy([
+            'queue_health' => ['ready_count' => 20, 'blocked_count' => 0, 'claimed_count' => 0],
+            'quality_profile' => ['high_quality_ready_count' => 0, 'low_quality_ready_count' => 20],
+        ]));
+
+        $this->assertSame('low_quality_backlog', $result['quality_floor_status']);
+        $this->assertSame(AtlasMaestroQueueDrainForecastDossier::RISK_HIGH, $result['starvation_risk']);
+        $this->assertNotNull($result['replenish_by']);
+    }
+
+    public function test_below_quality_floor_when_high_quality_supply_thin(): void
+    {
+        $result = $this->dossier->compile($this->healthy([
+            'quality_profile' => ['high_quality_ready_count' => 1, 'low_quality_ready_count' => 9],
+        ]));
+
+        $this->assertSame('below_quality_floor', $result['quality_floor_status']);
+        $this->assertSame(AtlasMaestroQueueDrainForecastDossier::RISK_MEDIUM, $result['starvation_risk']);
+    }
+
+    // ── AC4: no-worker idle — supply is fine, nobody consuming it ─────────────
+
+    public function test_no_active_workers_is_not_starving_despite_zero_worker_floor(): void
+    {
+        $result = $this->dossier->compile($this->healthy([
+            'active_worker_count' => 0,
+        ]));
+
+        $this->assertSame(0.0, $result['worker_floor_gap']);
+        $this->assertSame(AtlasMaestroQueueDrainForecastDossier::RISK_LOW, $result['starvation_risk']);
+        $this->assertFalse($result['below_worker_floor']);
+    }
+
+    public function test_worker_floor_gap_is_positive_when_below_floor(): void
+    {
+        $result = $this->dossier->compile($this->healthy([
+            'queue_health' => ['ready_count' => 2, 'blocked_count' => 0, 'claimed_count' => 0],
+            'active_worker_count' => 5,
+        ]));
+
+        $this->assertTrue($result['below_worker_floor']);
+        $this->assertEqualsWithDelta(3.0, $result['worker_floor_gap'], 0.001);
+    }
 }

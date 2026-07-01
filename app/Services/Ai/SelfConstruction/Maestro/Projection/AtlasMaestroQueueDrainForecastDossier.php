@@ -149,6 +149,41 @@ final class AtlasMaestroQueueDrainForecastDossier
             $etaByWorkerCount[(string) $workerCount] = $this->computeDrainEta($effectiveReady, $throughputPerWorker * $workerCount);
         }
 
+        // ── quality floor: distinguishes a healthy high-quality backlog from a queue
+        // that LOOKS full but is really plenty-of-low-quality-tasks (AC3). Absent an
+        // explicit quality_profile, every effective_ready packet is assumed high-quality.
+        $qualityProfile = is_array($facts['quality_profile'] ?? null) ? $facts['quality_profile'] : [];
+        $highQualityReady = max(0, (int) ($qualityProfile['high_quality_ready_count'] ?? $effectiveReady));
+        $lowQualityReady = max(0, (int) ($qualityProfile['low_quality_ready_count'] ?? 0));
+        $qualityFloorThreshold = max(0, (int) ($qualityProfile['quality_floor_threshold'] ?? self::REPLENISH_EFFECTIVE_THRESHOLD));
+        $qualityFloorStatus = match (true) {
+            $highQualityReady <= 0 && $lowQualityReady > 0 => 'low_quality_backlog',
+            $highQualityReady < $qualityFloorThreshold => 'below_quality_floor',
+            default => 'healthy',
+        };
+
+        // ── worker_floor_gap: numeric shortfall of effective_ready below the worker floor ──
+        $workerFloorGap = round(max(0.0, $workerFloor - $effectiveReady), 2);
+
+        // ── replenish_by: when replenishment must land, null when nothing needs it ──
+        $replenishBy = match (true) {
+            $productivityRisk === self::RISK_LOW && $qualityFloorStatus === 'healthy' => null,
+            $drainEta === 'queue_effectively_empty' => 'now',
+            default => $drainEta,
+        };
+
+        // ── starvation_risk: risk workers run dry of genuinely feedable (high-quality) work.
+        // Distinct from productivity_risk — an idle queue with zero active workers is not
+        // "starving" (nobody is being fed), so it never escalates above low on that basis alone.
+        $starvationRisk = match (true) {
+            $activeWorkerCount > 0 && $effectiveReady <= 0 => self::RISK_CRITICAL,
+            $activeWorkerCount > 0 && $belowWorkerFloor => self::RISK_HIGH,
+            $qualityFloorStatus === 'low_quality_backlog' => self::RISK_HIGH,
+            $qualityFloorStatus === 'below_quality_floor' => self::RISK_MEDIUM,
+            $effectiveReady <= 0 => self::RISK_MEDIUM,
+            default => self::RISK_LOW,
+        };
+
         return [
             'schema'                     => self::SCHEMA,
             'drain_eta'                  => $drainEta,
@@ -164,6 +199,11 @@ final class AtlasMaestroQueueDrainForecastDossier
             'telemetry_blind_spot'       => $telemetryBlindSpot,
             'telemetry_caveat'           => $telemetryCaveat,
             'estimated_dry_time'         => $estimatedDryTime,
+            'time_to_dry'                => $drainEta,
+            'worker_floor_gap'           => $workerFloorGap,
+            'quality_floor_status'       => $qualityFloorStatus,
+            'replenish_by'               => $replenishBy,
+            'starvation_risk'            => $starvationRisk,
         ];
     }
 
