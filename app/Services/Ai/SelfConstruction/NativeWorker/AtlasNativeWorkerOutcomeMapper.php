@@ -35,6 +35,16 @@ final class AtlasNativeWorkerOutcomeMapper
      */
     public const OUTCOME_QUEUE_REPAIR_SIGNAL = 'queue_repair_signal';
 
+    /** A verification failure the caller has explicitly classified as transient (worth another
+     *  attempt) — opt-in via execution/verification `failure_class` so legacy callers that never
+     *  supply it keep the original generic OUTCOME_FAILED behavior unchanged. */
+    public const OUTCOME_RETRYABLE_FAILURE = 'retryable_failure';
+
+    /** A verification failure explicitly classified as poison (never worth retrying), OR a scope
+     *  violation (execution touched files outside the envelope's allowed_files) — the same
+     *  dishonesty pattern as claiming success while acting outside the declared scope. */
+    public const OUTCOME_POISON_FAILURE = 'poison_failure';
+
     /** @var list<string> */
     private const GIVE_BACK_FACTS = [
         'impossible_scope',
@@ -72,16 +82,48 @@ final class AtlasNativeWorkerOutcomeMapper
             return $result;
         }
 
+        // SCOPE VIOLATION — opt-in via execution['changed_files']: any changed file outside the
+        // envelope's declared allowed_files is the same self-serving dishonesty as claiming
+        // success while acting beyond the declared scope. Legacy callers that never supply
+        // changed_files are entirely unaffected.
+        if (array_key_exists('changed_files', $execution)) {
+            $allowedFiles = array_values(array_map('strval', (array) ($envelope['allowed_files'] ?? [])));
+            $changedFiles = array_values(array_map('strval', (array) $execution['changed_files']));
+            $outOfScope = array_values(array_diff($changedFiles, $allowedFiles));
+            if ($outOfScope !== []) {
+                return $this->emit(
+                    self::OUTCOME_POISON_FAILURE,
+                    'scope_violation',
+                    array_map(static fn (string $f): string => 'scope_violation:'.$f, $outOfScope),
+                    $envelope,
+                    $execution,
+                    $verification,
+                );
+            }
+        }
+
         $verificationPassed = (bool) ($verification['passed'] ?? false);
         $executionGreen = $this->executionIsGreen($execution);
         $evidenceComplete = $this->evidenceComplete($envelope, $execution, $verification);
         $unresolvedBlockers = $this->unresolvedBlockers($execution, $verification);
 
         if (! $verificationPassed) {
-            return $this->emit(self::OUTCOME_FAILED, 'verification_failed', array_values(array_unique(array_merge(
+            // Opt-in failure classification: a caller that explicitly names the failure as
+            // retryable or poison gets a distinct, more actionable outcome. Absent this field,
+            // behavior is byte-identical to before (OUTCOME_FAILED).
+            $failureClass = (string) ($execution['failure_class'] ?? $verification['failure_class'] ?? '');
+            $blockers = array_values(array_unique(array_merge(
                 ['verification_failed'],
                 array_values((array) ($verification['blockers'] ?? [])),
-            ))), $envelope, $execution, $verification);
+            )));
+            if ($failureClass === 'retryable') {
+                return $this->emit(self::OUTCOME_RETRYABLE_FAILURE, 'verification_failed', $blockers, $envelope, $execution, $verification);
+            }
+            if ($failureClass === 'poison') {
+                return $this->emit(self::OUTCOME_POISON_FAILURE, 'verification_failed', $blockers, $envelope, $execution, $verification);
+            }
+
+            return $this->emit(self::OUTCOME_FAILED, 'verification_failed', $blockers, $envelope, $execution, $verification);
         }
         if (! $executionGreen) {
             return $this->emit(self::OUTCOME_FAILED, 'execution_red_results', array_values((array) ($execution['failed_results'] ?? ['execution_red_results'])), $envelope, $execution, $verification);

@@ -235,4 +235,69 @@ class AtlasNativeWorkerOutcomeMapperTest extends TestCase
             self::assertStringNotContainsString($forbidden, $src, "outcome mapper must not contain {$forbidden}");
         }
     }
+
+    // ── AC: scope violation ────────────────────────────────────────────────────
+
+    public function test_changed_file_outside_allowed_files_maps_to_poison_failure_scope_violation(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(['allowed_files' => ['app/Foo.php', 'tests/FooTest.php']]),
+            $this->execution(['changed_files' => ['app/Foo.php', 'app/Unrelated.php']]),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_POISON_FAILURE, $verdict['report_outcome']);
+        self::assertSame('scope_violation', $verdict['report_reason']);
+        self::assertContains('scope_violation:app/Unrelated.php', $verdict['blocking_deficiencies']);
+    }
+
+    public function test_changed_files_within_allowed_files_does_not_trigger_scope_violation(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(['allowed_files' => ['app/Foo.php', 'tests/FooTest.php']]),
+            $this->execution(['changed_files' => ['app/Foo.php']]),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_SUCCESS, $verdict['report_outcome']);
+    }
+
+    // ── AC: retryable failure ───────────────────────────────────────────────────
+
+    public function test_verification_failure_classified_retryable_maps_to_retryable_failure(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(['failure_class' => 'retryable']),
+            $this->verification(['passed' => false, 'blockers' => ['flaky_test_x']]),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_RETRYABLE_FAILURE, $verdict['report_outcome']);
+        self::assertContains('flaky_test_x', $verdict['blocking_deficiencies']);
+    }
+
+    // ── AC: poison failure ──────────────────────────────────────────────────────
+
+    public function test_verification_failure_classified_poison_maps_to_poison_failure(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(['failure_class' => 'poison']),
+            $this->verification(['passed' => false, 'blockers' => ['always_fails']]),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_POISON_FAILURE, $verdict['report_outcome']);
+        self::assertContains('always_fails', $verdict['blocking_deficiencies']);
+    }
+
+    public function test_verification_failure_without_failure_class_still_defaults_to_generic_failed(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(),
+            $this->verification(['passed' => false, 'blockers' => ['some_blocker']]),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_FAILED, $verdict['report_outcome']);
+    }
 }
