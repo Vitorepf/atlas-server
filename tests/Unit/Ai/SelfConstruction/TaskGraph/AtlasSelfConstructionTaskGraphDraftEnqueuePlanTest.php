@@ -214,4 +214,125 @@ class AtlasSelfConstructionTaskGraphDraftEnqueuePlanTest extends TestCase
         self::assertSame(1, $verdict['counts']['reject']);
         self::assertSame('quality_gate_blocked', $verdict['reject'][0]['reason']);
     }
+
+    // ── AC3: dependent blocked when prerequisite is rejected (not claimable), not just absent ──
+
+    public function test_dependent_is_deferred_when_its_prerequisite_fails_the_gate(): void
+    {
+        $prereq = $this->validDraft('prereq-1');
+        $prereq['acceptance_criteria'] = []; // fails the gate → rejected, never resolved
+
+        $dependent = $this->validDraft('dep-2');
+        $dependent['depends_on'] = ['prereq-1'];
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$prereq, $dependent]);
+
+        self::assertSame(0, $verdict['counts']['enqueue_now']);
+        self::assertSame(1, $verdict['counts']['reject']);
+        self::assertSame('prereq-1', $verdict['reject'][0]['task_packet_id']);
+        self::assertSame(1, $verdict['counts']['defer']);
+        self::assertSame('dep-2', $verdict['defer'][0]['task_packet_id']);
+        self::assertSame('blocked_prerequisites', $verdict['defer'][0]['reason']);
+        self::assertContains('prereq-1', $verdict['defer'][0]['blockers']);
+    }
+
+    public function test_dependent_is_deferred_when_prerequisite_is_capacity_deferred(): void
+    {
+        $prereq = $this->validDraft('prereq-cap');
+        $dependent = $this->validDraft('dep-cap');
+        $dependent['depends_on'] = ['prereq-cap'];
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan(
+            [$prereq, $dependent],
+            ['queue_at_capacity' => true],
+        );
+
+        self::assertSame(0, $verdict['counts']['enqueue_now']);
+        self::assertContains('prereq-cap', array_column($verdict['defer'], 'task_packet_id'));
+        $depEntry = array_values(array_filter($verdict['defer'], fn ($d) => $d['task_packet_id'] === 'dep-cap'))[0];
+        self::assertSame('blocked_prerequisites', $depEntry['reason']);
+        self::assertContains('prereq-cap', $depEntry['blockers']);
+    }
+
+    public function test_chain_resolves_across_multiple_passes_regardless_of_array_order(): void
+    {
+        // dependent listed BEFORE its prerequisite in the input array.
+        $prereq = $this->validDraft('order-prereq');
+        $dependent = $this->validDraft('order-dep');
+        $dependent['depends_on'] = ['order-prereq'];
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$dependent, $prereq]);
+
+        self::assertSame(2, $verdict['counts']['enqueue_now']);
+        self::assertSame(0, $verdict['counts']['defer']);
+    }
+
+    // ── AC2: chain grouping + prerequisite/unlock/terminal role labels ────────
+
+    public function test_three_link_chain_gets_prerequisite_unlock_terminal_roles(): void
+    {
+        $a = $this->validDraft('chain-a');
+        $b = $this->validDraft('chain-b');
+        $b['depends_on'] = ['chain-a'];
+        $c = $this->validDraft('chain-c');
+        $c['depends_on'] = ['chain-b'];
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$a, $b, $c]);
+
+        self::assertSame(3, $verdict['counts']['enqueue_now']);
+        self::assertCount(1, $verdict['chains']);
+        $roles = array_column($verdict['chains'][0]['members'], 'chain_role', 'task_packet_id');
+        self::assertSame('prerequisite', $roles['chain-a']);
+        self::assertSame('unlock', $roles['chain-b']);
+        self::assertSame('terminal', $roles['chain-c']);
+    }
+
+    public function test_enqueue_now_entries_carry_chain_role(): void
+    {
+        $a = $this->validDraft('role-a');
+        $b = $this->validDraft('role-b');
+        $b['depends_on'] = ['role-a'];
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$a, $b]);
+
+        $byId = [];
+        foreach ($verdict['enqueue_now'] as $entry) {
+            $byId[$entry['task_packet']['task_packet_id']] = $entry['chain_role'];
+        }
+        self::assertSame('prerequisite', $byId['role-a']);
+        self::assertSame('terminal', $byId['role-b']);
+    }
+
+    public function test_standalone_draft_has_no_chain_role_and_is_not_in_any_chain(): void
+    {
+        $chained = $this->validDraft('solo-chain-a');
+        $partner = $this->validDraft('solo-chain-b');
+        $partner['depends_on'] = ['solo-chain-a'];
+        $standalone = $this->validDraft('solo-standalone');
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$chained, $partner, $standalone]);
+
+        $byId = [];
+        foreach ($verdict['enqueue_now'] as $entry) {
+            $byId[$entry['task_packet']['task_packet_id']] = $entry['chain_role'];
+        }
+        self::assertNull($byId['solo-standalone']);
+        self::assertContains('solo-standalone', $verdict['chain_summary']['standalone_task_ids']);
+        self::assertNotContains('solo-standalone', $verdict['chain_summary']['chained_task_ids']);
+    }
+
+    public function test_chain_summary_reports_chained_and_standalone_enqueued_counts(): void
+    {
+        $chained = $this->validDraft('sum-chain-a');
+        $partner = $this->validDraft('sum-chain-b');
+        $partner['depends_on'] = ['sum-chain-a'];
+        $standalone1 = $this->validDraft('sum-solo-1');
+        $standalone2 = $this->validDraft('sum-solo-2');
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$chained, $partner, $standalone1, $standalone2]);
+
+        self::assertSame(1, $verdict['chain_summary']['chains']);
+        self::assertSame(2, $verdict['chain_summary']['enqueued_chained_count']);
+        self::assertSame(2, $verdict['chain_summary']['enqueued_standalone_count']);
+    }
 }
