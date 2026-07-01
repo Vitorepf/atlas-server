@@ -390,4 +390,38 @@ final class AtlasExternalBrainTaskFamilyYieldModelTest extends TestCase
         $this->assertSame('watch', $actionsById['new']);
         $this->assertSame('stop_farming', $actionsById['farm']);
     }
+
+    // ── new AC: claimable conversion penalty/boost ───────────────────────────
+
+    public function test_many_accepted_specs_zero_claimable_conversions_is_low_yield(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['family_id' => 'spec_bulk_no_claims', 'accepted_specs' => 6, 'resolved_capability_deltas' => 2, 'claimable_conversions' => 0]),
+        ]]);
+
+        $entry = $r['family_yields'][0];
+        $this->assertSame('low_yield', $entry['classification']);
+        $this->assertSame('zero_claimable_conversion_penalty', $entry['penalty_applied']);
+    }
+
+    public function test_fewer_specs_high_deltas_and_conversions_ranks_above_spec_bulk_family(): void
+    {
+        $specBulk = $this->family(['family_id' => 'spec_bulk', 'accepted_specs' => 10, 'resolved_capability_deltas' => 2, 'claimable_conversions' => 0]);
+        $smallStrong = $this->family(['family_id' => 'small_strong', 'accepted_specs' => 2, 'resolved_capability_deltas' => 3, 'claimable_conversions' => 3]);
+
+        $r = $this->model()->model(['families' => [$specBulk, $smallStrong]]);
+
+        $this->assertSame('small_strong', $r['ranked_families'][0]);
+        $this->assertSame('spec_bulk', $r['ranked_families'][1]);
+    }
+
+    public function test_high_give_back_rate_still_stop_farming_with_claimable_conversions_present(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['give_back_rate' => 0.70, 'resolved_capability_deltas' => 3, 'claimable_conversions' => 2]),
+        ]]);
+
+        $this->assertSame('stop_farming', $r['family_yields'][0]['recommended_action']);
+        $this->assertContains('high_give_back_rate', $r['family_yields'][0]['stop_farming_reasons']);
+    }
 }

@@ -275,6 +275,8 @@ final class AtlasExternalBrainTaskFamilyYieldModel
         $deltas        = max(0, (int) ($raw['resolved_capability_deltas']  ?? 0));
         $unlocks       = max(0, (int) ($raw['architecture_unlocks']        ?? 0));
         $wiring        = max(0, (int) ($raw['verified_wiring_changes']     ?? 0));
+        $hasClaimableConversions = array_key_exists('claimable_conversions', $raw);
+        $claimableConversions    = max(0, (int) ($raw['claimable_conversions'] ?? 0));
 
         $deliveryScore = $deltas + $unlocks + $wiring;
         $rawYield      = round($deliveryScore / ($acceptedSpecs + 1), 6);
@@ -286,10 +288,13 @@ final class AtlasExternalBrainTaskFamilyYieldModel
         } elseif ($acceptedSpecs > 0 && ($deltas / $acceptedSpecs) < self::DELTA_RATIO_THRESHOLD) {
             $rawYield       = round($rawYield * self::PENALTY_LOW_RATIO, 6);
             $penaltyApplied = 'low_ratio_penalty';
+        } elseif ($acceptedSpecs >= self::SPEC_BULK_THRESHOLD && $hasClaimableConversions && $claimableConversions === 0) {
+            $rawYield       = round($rawYield * self::PENALTY_ZERO_DELTA, 6);
+            $penaltyApplied = 'zero_claimable_conversion_penalty';
         }
 
         $yieldScore = max(0.0, min(1.0, $rawYield));
-        $roiScore   = round(max(0.0, min(1.0, $yieldScore * (1.0 - $giveBackRate * 0.5))), 4);
+        $roiScore   = round(max(0.0, min(1.0, $yieldScore * (1.0 - $giveBackRate * 0.5) + $claimableConversions * 0.05)), 4);
 
         $classification = $this->classify($yieldScore);
 
@@ -307,6 +312,8 @@ final class AtlasExternalBrainTaskFamilyYieldModel
             $reasons[] = 'spec_bulk_no_delta';
         } elseif ($penaltyApplied === 'low_ratio_penalty') {
             $reasons[] = 'low_delta_ratio';
+        } elseif ($penaltyApplied === 'zero_claimable_conversion_penalty') {
+            $reasons[] = 'spec_bulk_no_claimable_conversion';
         }
         if ($giveBackRate > self::GIVE_BACK_DOWNRANK_FLOOR) {
             $reasons[] = 'high_give_back_rate';
