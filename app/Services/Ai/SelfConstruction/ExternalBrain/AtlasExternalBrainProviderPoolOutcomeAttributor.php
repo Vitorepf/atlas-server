@@ -20,10 +20,26 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   medium — sample_size in [3, 10) OR evidence_quality < 0.5
  *   high   — sample_size >= 10 AND evidence_quality >= 0.5
  *
- * routing_lessons / do_not_route_reasons (AC3) are plain strings describing
- * what was learned; this attributor NEVER mutates a queue, claims a task, or
+ * routing_lessons / do_not_route_reasons are plain strings describing what
+ * was learned; this attributor NEVER mutates a queue, claims a task, or
  * calls a provider — it only reports facts for a separate routing layer to
  * consume.
+ *
+ * causal_classification (never overclaims causality):
+ *   unknown_cause  — confidence=low (sample_size < 3)
+ *   correlation    — confidence>=medium but proof_result_summary is not mostly_verified,
+ *                    i.e. the outcomes were not reliably evidence-backed
+ *   likely_cause   — confidence=high AND proof_result_summary=mostly_verified
+ *
+ * proof_result_summary per group, from evidence_quality (share of rows with both
+ * tests_reported and evidence_refs): mostly_verified (>=0.7), mostly_unverified (<=0.3),
+ * mixed_proof (otherwise).
+ *
+ * routing_recommendations (structured, for Maestro assignment and model-amplifier
+ * policy consumers): action is route_here only when causal_classification=likely_cause
+ * AND success_rate clears ROUTING_LESSON_SUCCESS_FLOOR; avoid when poison is present or
+ * causality is established (not unknown_cause) with a low success_rate; otherwise
+ * insufficient_data.
  *
  * Pure, deterministic, no providers, no I/O.
  */
@@ -31,7 +47,7 @@ final class AtlasExternalBrainProviderPoolOutcomeAttributor
 {
     public const SCHEMA = 'atlas.external_brain.provider_pool_outcome_attributor.v1';
 
-    private const GROUP_KEYS = ['provider_id', 'model_id', 'task_family', 'complexity_tier', 'role'];
+    private const GROUP_KEYS = ['provider_id', 'model_id', 'task_family', 'complexity_tier', 'role', 'prompt_scaffold'];
 
     private const ROUTING_LESSON_SUCCESS_FLOOR = 0.70;
     private const DO_NOT_ROUTE_SUCCESS_CEILING = 0.40;
@@ -91,6 +107,7 @@ final class AtlasExternalBrainProviderPoolOutcomeAttributor
         $outputGroups = [];
         $routingLessons = [];
         $doNotRouteReasons = [];
+        $routingRecommendations = [];
 
         foreach ($groups as $acc) {
             $total = $acc['total'];
@@ -109,6 +126,21 @@ final class AtlasExternalBrainProviderPoolOutcomeAttributor
                 default => 'medium',
             };
 
+            $proofResultSummary = match (true) {
+                $evidenceQuality >= 0.7 => 'mostly_verified',
+                $evidenceQuality <= 0.3 => 'mostly_unverified',
+                default => 'mixed_proof',
+            };
+
+            // AC2/AC3: never overclaim causality — a group only reaches likely_cause when it
+            // has both statistical confidence AND its outcomes were actually proof-verified.
+            $causalClassification = match (true) {
+                $confidence === 'low' => 'unknown_cause',
+                $proofResultSummary !== 'mostly_verified' => 'correlation',
+                $confidence === 'high' => 'likely_cause',
+                default => 'correlation',
+            };
+
             $row = array_merge($acc['dims'], [
                 'sample_size' => $total,
                 'success_rate' => $successRate,
@@ -118,16 +150,19 @@ final class AtlasExternalBrainProviderPoolOutcomeAttributor
                 'median_cost' => $medianCost,
                 'evidence_quality' => $evidenceQuality,
                 'confidence' => $confidence,
+                'proof_result_summary' => $proofResultSummary,
+                'causal_classification' => $causalClassification,
             ]);
             $outputGroups[] = $row;
 
             $label = sprintf(
-                'provider=%s model=%s task_family=%s complexity_tier=%s role=%s',
+                'provider=%s model=%s task_family=%s complexity_tier=%s role=%s prompt_scaffold=%s',
                 $row['provider_id'],
                 $row['model_id'],
                 $row['task_family'],
                 $row['complexity_tier'],
                 $row['role'],
+                $row['prompt_scaffold'],
             );
 
             if ($confidence !== 'low' && $successRate >= self::ROUTING_LESSON_SUCCESS_FLOOR) {
@@ -139,6 +174,30 @@ final class AtlasExternalBrainProviderPoolOutcomeAttributor
             } elseif ($confidence !== 'low' && $successRate < self::DO_NOT_ROUTE_SUCCESS_CEILING) {
                 $doNotRouteReasons[] = sprintf('%s: low_success_rate (success_rate=%.2f, confidence=%s, n=%d)', $label, $successRate, $confidence, $total);
             }
+
+            $action = match (true) {
+                $poisonRate > 0.0 => 'avoid',
+                $causalClassification === 'likely_cause' && $successRate >= self::ROUTING_LESSON_SUCCESS_FLOOR => 'route_here',
+                $causalClassification !== 'unknown_cause' && $successRate < self::DO_NOT_ROUTE_SUCCESS_CEILING => 'avoid',
+                default => 'insufficient_data',
+            };
+
+            $routingRecommendations[] = array_merge($acc['dims'], [
+                'action' => $action,
+                'applies_to' => ['maestro_assignment', 'model_amplifier_policy'],
+                'reason' => sprintf(
+                    '%s: causal_classification=%s success_rate=%.2f poison_rate=%.2f confidence=%s n=%d',
+                    $label,
+                    $causalClassification,
+                    $successRate,
+                    $poisonRate,
+                    $confidence,
+                    $total,
+                ),
+                'causal_classification' => $causalClassification,
+                'confidence' => $confidence,
+                'sample_size' => $total,
+            ]);
         }
 
         return [
@@ -147,6 +206,7 @@ final class AtlasExternalBrainProviderPoolOutcomeAttributor
             'group_count' => count($outputGroups),
             'routing_lessons' => $routingLessons,
             'do_not_route_reasons' => $doNotRouteReasons,
+            'routing_recommendations' => $routingRecommendations,
             'mutates_queues' => false,
         ];
     }
