@@ -14,10 +14,18 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   2. lacks_source_evidence         : evidence_refs empty AND strength <= 0
  *   3. lacks_destination_context     : destination_gap.has_required_context === false
  *   4. lacks_destination_evidence    : destination_gap.has_required_evidence === false
- *   5. name_only_similarity          : word overlap >= NAME_OVERLAP_MIN AND strength < EVIDENCE_THRESHOLD
- *   6. low_destination_fit           : destination_fit_score < DESTINATION_FIT_THRESHOLD
- *   7. missing_behavior_proof        : strength < EVIDENCE_THRESHOLD AND refs non-empty AND no behavior-proof prefix
- *   8. adaptation_risk_too_high      : pair risk count > ADAPTATION_RISK_CEILING
+ *   5. ambiguous_project_context     : destination_gap.project_context_ambiguous === true (default false)
+ *   6. ambiguous_verification_policy : destination_gap.verification_policy_ambiguous === true (default false)
+ *   7. ambiguous_ownership_boundary  : destination_gap.ownership_boundary_ambiguous === true (default false)
+ *   8. name_only_similarity          : word overlap >= NAME_OVERLAP_MIN AND strength < EVIDENCE_THRESHOLD
+ *   9. low_destination_fit           : destination_fit_score < DESTINATION_FIT_THRESHOLD
+ *  10. missing_behavior_proof        : strength < EVIDENCE_THRESHOLD AND refs non-empty AND no behavior-proof prefix
+ *  11. adaptation_risk_too_high      : pair risk count > ADAPTATION_RISK_CEILING
+ *
+ * Entries 5-7 (AC3) are opt-in destination_gap facts, all defaulting to false, so a destination_gap
+ * that never supplies them behaves exactly as before — cross-project transfer is only blocked for
+ * ambiguity when a caller explicitly flags the project context, verification policy or ownership
+ * boundary as ambiguous.
  *
  * Each recommendation includes: priority_score, required_adaptations, proof_requirements,
  *   destination_fit_score, risk_penalty, transfer_type, transfer_value, adaptation_risk,
@@ -72,10 +80,14 @@ final class AtlasExternalBrainCapabilityTransferMapper
                 $dstFitScore = (float)  ($dst['destination_fit_score'] ?? 1.0);
                 $dstHasContext  = (bool) ($dst['has_required_context']  ?? true);
                 $dstHasEvidence = (bool) ($dst['has_required_evidence'] ?? true);
+                $dstContextAmbiguous    = (bool) ($dst['project_context_ambiguous']    ?? false);
+                $dstVerificationAmbiguous = (bool) ($dst['verification_policy_ambiguous'] ?? false);
+                $dstOwnershipAmbiguous  = (bool) ($dst['ownership_boundary_ambiguous']  ?? false);
 
                 $reason = $this->rejectionReason(
                     $srcName, $srcArea, $srcEvidence, $srcStrength,
                     $dstArea, $dstName, $dstFitScore, $dstHasContext, $dstHasEvidence,
+                    $dstContextAmbiguous, $dstVerificationAmbiguous, $dstOwnershipAmbiguous,
                 );
                 if ($reason !== null) {
                     $rejected[] = ['source_id' => $srcId, 'destination_id' => $dstId, 'rejection_reason' => $reason];
@@ -145,6 +157,7 @@ final class AtlasExternalBrainCapabilityTransferMapper
         array $srcEvidence, float $srcStrength,
         string $dstArea, string $dstName, float $dstFitScore,
         bool $dstHasContext, bool $dstHasEvidence,
+        bool $dstContextAmbiguous, bool $dstVerificationAmbiguous, bool $dstOwnershipAmbiguous,
     ): ?string {
         if ($srcArea !== '' && $srcArea === $dstArea) {
             return 'circular_dependency';
@@ -157,6 +170,15 @@ final class AtlasExternalBrainCapabilityTransferMapper
         }
         if (! $dstHasEvidence) {
             return 'lacks_destination_evidence';
+        }
+        if ($dstContextAmbiguous) {
+            return 'ambiguous_project_context';
+        }
+        if ($dstVerificationAmbiguous) {
+            return 'ambiguous_verification_policy';
+        }
+        if ($dstOwnershipAmbiguous) {
+            return 'ambiguous_ownership_boundary';
         }
         if ($srcStrength < self::EVIDENCE_THRESHOLD && $this->wordOverlap($srcName, $dstName) >= self::NAME_OVERLAP_MIN) {
             return 'name_only_similarity';

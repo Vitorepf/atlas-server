@@ -344,4 +344,69 @@ final class AtlasExternalBrainCapabilityTransferMapperTest extends TestCase
         $this->assertSame(['prove_direct_transfer:cap-1->gap-1:direct_transfer_test'], $rec['first_safe_task_chain']);
         $this->assertSame($rec['proof_requirements'], $rec['behavior_proof_requirements']);
     }
+
+    // ── AC3: block transfer on ambiguous context / verification policy / ownership ──
+
+    public function test_ambiguous_project_context_blocks_transfer(): void
+    {
+        $r = $this->mapper->map([
+            'source_capabilities' => [$this->src('cap-1', 'Health monitor', 'loop')],
+            'destination_gaps'    => [array_merge($this->dst('gap-1', 'Health integration', 'maestro'), ['project_context_ambiguous' => true])],
+            'evidence_strength'   => ['cap-1' => 0.8],
+        ]);
+
+        $this->assertEmpty($r['transfer_recommendations']);
+        $this->assertSame('ambiguous_project_context', $r['rejected_transfers'][0]['rejection_reason']);
+    }
+
+    public function test_ambiguous_verification_policy_blocks_transfer(): void
+    {
+        $r = $this->mapper->map([
+            'source_capabilities' => [$this->src('cap-1', 'Health monitor', 'loop')],
+            'destination_gaps'    => [array_merge($this->dst('gap-1', 'Health integration', 'maestro'), ['verification_policy_ambiguous' => true])],
+            'evidence_strength'   => ['cap-1' => 0.8],
+        ]);
+
+        $this->assertEmpty($r['transfer_recommendations']);
+        $this->assertSame('ambiguous_verification_policy', $r['rejected_transfers'][0]['rejection_reason']);
+    }
+
+    public function test_ambiguous_ownership_boundary_blocks_transfer(): void
+    {
+        $r = $this->mapper->map([
+            'source_capabilities' => [$this->src('cap-1', 'Health monitor', 'loop')],
+            'destination_gaps'    => [array_merge($this->dst('gap-1', 'Health integration', 'maestro'), ['ownership_boundary_ambiguous' => true])],
+            'evidence_strength'   => ['cap-1' => 0.8],
+        ]);
+
+        $this->assertEmpty($r['transfer_recommendations']);
+        $this->assertSame('ambiguous_ownership_boundary', $r['rejected_transfers'][0]['rejection_reason']);
+    }
+
+    public function test_ambiguity_precedence_context_before_verification_before_ownership(): void
+    {
+        $r = $this->mapper->map([
+            'source_capabilities' => [$this->src('cap-1', 'Health monitor', 'loop')],
+            'destination_gaps'    => [array_merge($this->dst('gap-1', 'Health integration', 'maestro'), [
+                'project_context_ambiguous' => true,
+                'verification_policy_ambiguous' => true,
+                'ownership_boundary_ambiguous' => true,
+            ])],
+            'evidence_strength'   => ['cap-1' => 0.8],
+        ]);
+
+        $this->assertSame('ambiguous_project_context', $r['rejected_transfers'][0]['rejection_reason']);
+    }
+
+    public function test_no_ambiguity_flags_transfers_as_before(): void
+    {
+        $r = $this->mapper->map([
+            'source_capabilities' => [$this->src('cap-1', 'Health monitor', 'loop')],
+            'destination_gaps'    => [$this->dst('gap-1', 'Health integration', 'maestro')],
+            'evidence_strength'   => ['cap-1' => 0.8],
+        ]);
+
+        $this->assertNotEmpty($r['transfer_recommendations']);
+        $this->assertSame([], $r['rejected_transfers']);
+    }
 }
