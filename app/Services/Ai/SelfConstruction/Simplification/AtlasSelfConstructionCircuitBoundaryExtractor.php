@@ -12,6 +12,12 @@ namespace App\Services\Ai\SelfConstruction\Simplification;
  * supplied at all) rather than merely empty, and crossing edges that reach
  * outside the planned allowed_files set are surfaced as consolidation
  * blockers instead of silently permitted.
+ *
+ * Circuit boundaries are drawn from real producer/consumer crossing_edges,
+ * never from filename similarity alone. Callers may pass
+ * filename_similarity_candidates (pairs a caller's naive name-matching heuristic
+ * proposed as "possibly the same circuit"); any pair with no backing crossing_edge
+ * is reported as weak_boundary_evidence instead of being trusted.
  */
 final class AtlasSelfConstructionCircuitBoundaryExtractor
 {
@@ -32,6 +38,8 @@ final class AtlasSelfConstructionCircuitBoundaryExtractor
         $crossingEdges = array_values((array) ($graph['crossing_edges'] ?? []));
 
         $consolidationBlockers = [];
+        $externalConsumers = [];
+        $edgePairs = [];
         foreach ($crossingEdges as $edge) {
             $edge = (array) $edge;
             $source = (string) ($edge['source'] ?? '');
@@ -56,8 +64,39 @@ final class AtlasSelfConstructionCircuitBoundaryExtractor
                 continue;
             }
 
+            $edgePairs[] = [$source, $target];
+
             if (! in_array($target, $allowedFiles, true)) {
                 $consolidationBlockers[] = "crossing_edge_outside_allowed_files:{$target}";
+                $externalConsumers[] = $target;
+            }
+        }
+        $externalConsumers = array_values(array_unique($externalConsumers));
+
+        // AC: filename-only similarity without a real producer/consumer edge is weak evidence.
+        $weakBoundaryEvidence = [];
+        foreach ((array) ($graph['filename_similarity_candidates'] ?? []) as $candidate) {
+            $candidate = (array) $candidate;
+            $a = (string) ($candidate['a'] ?? '');
+            $b = (string) ($candidate['b'] ?? '');
+            if ($a === '' || $b === '') {
+                continue;
+            }
+
+            $backedByRealEdge = false;
+            foreach ($edgePairs as [$s, $t]) {
+                if (($s === $a && $t === $b) || ($s === $b && $t === $a)) {
+                    $backedByRealEdge = true;
+                    break;
+                }
+            }
+
+            if (! $backedByRealEdge) {
+                $weakBoundaryEvidence[] = [
+                    'a' => $a,
+                    'b' => $b,
+                    'reason' => 'filename_only_similarity_without_call_edges',
+                ];
             }
         }
 
@@ -86,6 +125,10 @@ final class AtlasSelfConstructionCircuitBoundaryExtractor
 
         $safeToCollapse = $missingBoundaryProof === [];
 
+        // AC: proof_paths are the concrete files a worker must keep green/stable —
+        // the circuit's own implementation files plus their test anchors.
+        $proofPaths = array_values(array_unique(array_merge($allowedFiles, $tests)));
+
         return [
             'entrypoints' => array_values((array) ($graph['entrypoints'] ?? [])),
             'outputs' => array_values((array) ($graph['outputs'] ?? [])),
@@ -102,6 +145,9 @@ final class AtlasSelfConstructionCircuitBoundaryExtractor
             'missing_boundary_proof' => $missingBoundaryProof,
             'safe_to_collapse' => $safeToCollapse,
             'unsafe_to_collapse' => ! $safeToCollapse,
+            'proof_paths' => $proofPaths,
+            'external_consumers' => $externalConsumers,
+            'weak_boundary_evidence' => $weakBoundaryEvidence,
         ];
     }
 }

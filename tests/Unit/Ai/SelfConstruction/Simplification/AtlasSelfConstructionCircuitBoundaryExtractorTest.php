@@ -178,4 +178,76 @@ final class AtlasSelfConstructionCircuitBoundaryExtractorTest extends TestCase
 
         $this->assertSame($extractor->extract($graph), $extractor->extract($graph));
     }
+
+    // ── AC: producer-consumer edges define boundaries even with dissimilar filenames ──
+
+    public function test_crossing_edge_defines_boundary_between_dissimilarly_named_files(): void
+    {
+        $graph = $this->fullGraph();
+        $graph['crossing_edges'] = [
+            ['source' => 'app/Services/Ai/Zorblax.php', 'target' => 'app/Services/Ai/Bar.php', 'contract' => 'BarInterface'],
+        ];
+        $graph['allowed_files'] = ['app/Services/Ai/Zorblax.php', 'app/Services/Ai/Bar.php'];
+        $graph['filename_similarity_candidates'] = [
+            ['a' => 'app/Services/Ai/Zorblax.php', 'b' => 'app/Services/Ai/Bar.php'],
+        ];
+
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($graph);
+
+        $this->assertSame([], $result['weak_boundary_evidence'], 'a real crossing edge backs this pair, not just filename similarity');
+    }
+
+    // ── AC: filename-only similarity without call edges is weak_boundary_evidence ──
+
+    public function test_filename_similarity_candidate_without_crossing_edge_is_weak_boundary_evidence(): void
+    {
+        $graph = $this->fullGraph();
+        $graph['filename_similarity_candidates'] = [
+            ['a' => 'app/Services/Ai/FooService.php', 'b' => 'app/Services/Ai/FooServiceHelper.php'],
+        ];
+
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($graph);
+
+        $this->assertCount(1, $result['weak_boundary_evidence']);
+        $this->assertSame('app/Services/Ai/FooService.php', $result['weak_boundary_evidence'][0]['a']);
+        $this->assertSame('app/Services/Ai/FooServiceHelper.php', $result['weak_boundary_evidence'][0]['b']);
+        $this->assertSame('filename_only_similarity_without_call_edges', $result['weak_boundary_evidence'][0]['reason']);
+    }
+
+    public function test_no_filename_similarity_candidates_yields_empty_weak_boundary_evidence(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($this->fullGraph());
+
+        $this->assertSame([], $result['weak_boundary_evidence']);
+    }
+
+    // ── AC: extracted boundaries include proof_paths and external_consumers ────
+
+    public function test_proof_paths_include_allowed_files_and_tests(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($this->fixtureWithFullBoundaryProof());
+
+        foreach (['app/Services/Ai/Foo.php', 'app/Services/Ai/Bar.php', 'FooServiceTest::test_handles'] as $path) {
+            $this->assertContains($path, $result['proof_paths']);
+        }
+    }
+
+    public function test_external_consumers_lists_crossing_edge_targets_outside_allowed_files(): void
+    {
+        $graph = $this->fullGraph();
+        $graph['crossing_edges'] = [
+            ['source' => 'app/Services/Ai/Foo.php', 'target' => 'app/Services/Ai/OutsideCircuit.php', 'contract' => 'OutsideInterface'],
+        ];
+
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($graph);
+
+        $this->assertSame(['app/Services/Ai/OutsideCircuit.php'], $result['external_consumers']);
+    }
+
+    public function test_external_consumers_empty_when_all_crossing_edges_stay_in_scope(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($this->fullGraph());
+
+        $this->assertSame([], $result['external_consumers']);
+    }
 }
