@@ -420,6 +420,118 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
         $this->assertArrayHasKey('dominated_frontier_dependency', $result);
     }
 
+    // ── AC: quality_floor_failures ────────────────────────────────────────────
+
+    public function test_quality_floor_failures_lists_option_id_and_failed_floors(): void
+    {
+        $result = $this->front()->compute([
+            'quality_floor' => 0.90,
+            'safety_floor' => 0.90,
+            'autonomy_floor' => 0.90,
+            'evidence_confidence_floor' => 0.90,
+            'proxy_risk_ceiling' => 0.10,
+            'options' => [
+                array_merge($this->option('weak', 0.10, 1.0), [
+                    'safety' => 0.10,
+                    'autonomy' => 0.10,
+                    'evidence_confidence' => 0.10,
+                    'proxy_risk' => 0.90,
+                ]),
+            ],
+        ]);
+
+        $failure = $result['quality_floor_failures'][0];
+        $this->assertSame('weak', $failure['option_id']);
+        foreach (['quality', 'safety', 'autonomy', 'evidence_confidence', 'proxy_risk'] as $floor) {
+            $this->assertContains($floor, $failure['failed_floors']);
+        }
+    }
+
+    // ── AC: cheap scaffolded model blocked by evidence_confidence/proxy_risk ──
+
+    public function test_cheap_scaffolded_model_not_recommended_when_evidence_confidence_below_floor(): void
+    {
+        $result = $this->front()->compute([
+            'quality_floor' => 0.50,
+            'evidence_confidence_floor' => 0.80,
+            'options' => [
+                array_merge(
+                    $this->option('cheap-weak-evidence', 0.80, 1.0),
+                    ['is_scaffolded_small_model' => true, 'evidence_confidence' => 0.20],
+                ),
+                array_merge($this->option('expensive-strong', 0.85, 5.0), ['evidence_confidence' => 0.90]),
+            ],
+        ]);
+
+        $this->assertNotSame('cheap-weak-evidence', $result['recommended_option']);
+        $this->assertSame('expensive-strong', $result['recommended_option']);
+    }
+
+    public function test_cheap_scaffolded_model_not_recommended_when_proxy_risk_exceeds_ceiling(): void
+    {
+        $result = $this->front()->compute([
+            'quality_floor' => 0.50,
+            'proxy_risk_ceiling' => 0.20,
+            'options' => [
+                array_merge(
+                    $this->option('cheap-risky', 0.80, 1.0),
+                    ['is_scaffolded_small_model' => true, 'proxy_risk' => 0.90],
+                ),
+                array_merge($this->option('expensive-safe', 0.85, 5.0), ['proxy_risk' => 0.05]),
+            ],
+        ]);
+
+        $this->assertNotSame('cheap-risky', $result['recommended_option']);
+        $this->assertSame('expensive-safe', $result['recommended_option']);
+    }
+
+    // ── AC: high-cost recommended only when lift/risk_reduction clears threshold ──
+
+    public function test_high_cost_option_recommended_only_when_expected_lift_clears_escalation_threshold(): void
+    {
+        $blocked = $this->front()->compute([
+            'quality_floor' => 0.50,
+            'options' => [
+                array_merge($this->option('cheap', 0.60, 1.0), ['is_scaffolded_small_model' => true]),
+                array_merge($this->option('expensive-low-lift', 0.65, 10.0), ['expected_lift' => 0.02]),
+            ],
+        ]);
+        $this->assertSame('cheap', $blocked['recommended_option']);
+
+        $allowed = $this->front()->compute([
+            'quality_floor' => 0.50,
+            'benchmark_failed' => true,
+            'options' => [
+                array_merge($this->option('cheap', 0.60, 1.0), ['is_scaffolded_small_model' => true]),
+                array_merge($this->option('expensive-high-lift', 0.65, 10.0), ['expected_lift' => 0.20]),
+            ],
+        ]);
+        $this->assertContains('benchmark_miss', $allowed['escalation_triggers']);
+    }
+
+    // ── AC: recommendation_reason ──────────────────────────────────────────────
+
+    public function test_recommendation_reason_present_and_explains_floor_choice(): void
+    {
+        $result = $this->front()->compute([
+            'quality_floor' => 0.50,
+            'options' => [$this->option('opt', 0.80, 1.0)],
+        ]);
+
+        $this->assertArrayHasKey('recommendation_reason', $result);
+        $this->assertStringContainsString('opt', $result['recommendation_reason']);
+    }
+
+    public function test_recommendation_reason_present_for_ratio_based_choice(): void
+    {
+        $result = $this->front()->compute([
+            'options' => [$this->option('opt', 0.80, 1.0)],
+        ]);
+
+        $this->assertArrayHasKey('recommendation_reason', $result);
+        $this->assertNotEmpty($result['recommendation_reason']);
+    }
+
     // ── determinism ──────────────────────────────────────────────────────────
 
     public function test_identical_input_yields_identical_output(): void

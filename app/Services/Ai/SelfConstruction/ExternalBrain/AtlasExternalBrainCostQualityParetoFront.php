@@ -73,7 +73,10 @@ final class AtlasExternalBrainCostQualityParetoFront
         $qualityFloor    = max(0.0, (float) ($input['quality_floor']    ?? 0.0));
         $safetyFloor     = max(0.0, (float) ($input['safety_floor']     ?? 0.0));
         $autonomyFloor   = max(0.0, (float) ($input['autonomy_floor']   ?? 0.0));
-        $floorsActive    = $qualityFloor > 0.0 || $safetyFloor > 0.0 || $autonomyFloor > 0.0;
+        $evidenceConfidenceFloor = max(0.0, (float) ($input['evidence_confidence_floor'] ?? 0.0));
+        $proxyRiskCeiling = min(1.0, max(0.0, (float) ($input['proxy_risk_ceiling'] ?? 1.0)));
+        $floorsActive    = $qualityFloor > 0.0 || $safetyFloor > 0.0 || $autonomyFloor > 0.0
+            || $evidenceConfidenceFloor > 0.0 || $proxyRiskCeiling < 1.0;
         $benchmarkFailed = (bool) ($input['benchmark_failed']    ?? false);
         $proxyFailed     = (bool) ($input['proxy_failed']        ?? false);
         $repairLoopFailed= (bool) ($input['repair_loop_failed']  ?? false);
@@ -93,6 +96,8 @@ final class AtlasExternalBrainCostQualityParetoFront
                 'autonomy'                => max(0.0, min(1.0, (float) ($o['autonomy'] ?? 1.0))),
                 'expected_lift'           => max(0.0, (float) ($o['expected_lift']    ?? 0.0)),
                 'risk_reduction'          => max(0.0, (float) ($o['risk_reduction']   ?? 0.0)),
+                'evidence_confidence'     => max(0.0, min(1.0, (float) ($o['evidence_confidence'] ?? 1.0))),
+                'proxy_risk'              => max(0.0, min(1.0, (float) ($o['proxy_risk'] ?? 0.0))),
                 'is_scaffolded_small_model' => (bool) ($o['is_scaffolded_small_model'] ?? false),
                 'frontier_justification'  => isset($o['frontier_justification'])
                     ? (string) $o['frontier_justification']
@@ -169,6 +174,33 @@ final class AtlasExternalBrainCostQualityParetoFront
         // scaffolded small model untrustworthy even if it's the cheapest floor-meeting option.
         $smallModelUnsafe = $benchmarkFailed || $proxyFailed || $repairLoopFailed;
 
+        // Quality floor failures: per-option list of which floors/ceilings it fails, so a
+        // cheap-but-weak option can never be recommended silently — the reason is always visible.
+        $qualityFloorFailures = [];
+        if ($floorsActive) {
+            foreach ($options as $o) {
+                $failed = [];
+                if ($o['quality'] < $qualityFloor) {
+                    $failed[] = 'quality';
+                }
+                if ($o['safety'] < $safetyFloor) {
+                    $failed[] = 'safety';
+                }
+                if ($o['autonomy'] < $autonomyFloor) {
+                    $failed[] = 'autonomy';
+                }
+                if ($o['evidence_confidence'] < $evidenceConfidenceFloor) {
+                    $failed[] = 'evidence_confidence';
+                }
+                if ($o['proxy_risk'] > $proxyRiskCeiling) {
+                    $failed[] = 'proxy_risk';
+                }
+                if ($failed !== []) {
+                    $qualityFloorFailures[] = ['option_id' => $o['option_id'], 'failed_floors' => $failed];
+                }
+            }
+        }
+
         // Floor-based recommendation (model-amplifier policy).
         $floorRecommended = null;
         if ($floorsActive) {
@@ -176,6 +208,8 @@ final class AtlasExternalBrainCostQualityParetoFront
                 $o['quality']  >= $qualityFloor
                 && $o['safety']  >= $safetyFloor
                 && $o['autonomy'] >= $autonomyFloor
+                && $o['evidence_confidence'] >= $evidenceConfidenceFloor
+                && $o['proxy_risk'] <= $proxyRiskCeiling
                 && ! ($smallModelUnsafe && $o['is_scaffolded_small_model'])
             );
             if ($floorMeeting !== []) {
@@ -253,6 +287,13 @@ final class AtlasExternalBrainCostQualityParetoFront
         // Sort pareto_front for determinism (by option_id).
         usort($paretoFront, static fn (array $a, array $b): int => strcmp($a['option_id'], $b['option_id']));
 
+        $recommendationReason = match (true) {
+            $recommended === null => 'no_options_available',
+            $floorRecommended !== null => "cheapest_option_meeting_all_floors:{$floorRecommended}",
+            $floorsActive => 'no_option_meets_all_floors_no_recommendation_possible',
+            default => "highest_quality_per_cost_ratio_on_pareto_front:{$recommended}",
+        };
+
         return [
             'schema'                       => self::SCHEMA,
             'pareto_options'               => $paretoFront,
@@ -263,6 +304,8 @@ final class AtlasExternalBrainCostQualityParetoFront
             'risk_notes'                   => $riskNotes,
             'escalation_triggers'          => $escalationTriggers,
             'dominated_frontier_dependency' => $dominatedFrontierDependency,
+            'quality_floor_failures'       => $qualityFloorFailures,
+            'recommendation_reason'        => $recommendationReason,
         ];
     }
 
@@ -289,6 +332,8 @@ final class AtlasExternalBrainCostQualityParetoFront
             'risk_notes'                   => [],
             'escalation_triggers'          => [],
             'dominated_frontier_dependency' => [],
+            'quality_floor_failures'       => [],
+            'recommendation_reason'        => 'no_options_available',
         ];
     }
 }
