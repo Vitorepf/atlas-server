@@ -523,4 +523,82 @@ final class AtlasExternalBrainAntiGoodhartAuditorTest extends TestCase
         $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_REPAIR_REQUIRED, $result['verdict']);
         $this->assertContains('high_score_missing_proof', array_column($result['findings'], 'finding'));
     }
+
+    // ── AntiGoodhart circuit: template_farm + high_score_missing_proof + value_mechanism_clone
+    // must all survive aggregation into a single fail-closed verdict, never collapse to a
+    // weaker one. ──
+
+    public function test_simultaneous_template_farm_high_score_missing_proof_and_value_mechanism_clone_all_survive(): void
+    {
+        $batch = array_map(static fn (int $i): array => [
+            'label'           => "clone-{$i}",
+            'category'        => 'bug_fix',
+            'allowed_files'   => ["app/Services/Ai/SelfConstruction/Clone{$i}.php"],
+            'value_mechanism' => 'shared_mechanism',
+            'final_score'     => 0.90,
+            // no runnable_acceptance / implementation_proof — high score but self-declared.
+        ], range(1, 4));
+
+        $result = $this->auditor()->audit($batch);
+
+        $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_REJECT, $result['verdict']);
+        $this->assertFalse($result['passed']);
+
+        $findingNames = array_column($result['findings'], 'finding');
+        $this->assertContains('template_farm', $findingNames);
+        $this->assertContains('high_score_missing_proof', $findingNames);
+        $this->assertContains('value_mechanism_clone', $findingNames);
+
+        foreach ($result['findings'] as $finding) {
+            $this->assertNotSame('', $finding['repair_hint']);
+            // Percent formatting is consistent: fraction is a 0..1 float, and any
+            // percentage embedded in the repair hint text matches round(fraction*100).
+            if (preg_match('/(\d+)%/', $finding['repair_hint'], $m) === 1) {
+                $this->assertSame((string) round($finding['fraction'] * 100), $m[1]);
+            }
+        }
+
+        // Deterministic priority: same input audited twice yields the identical verdict and
+        // finding order — aggregation never silently drops or reorders findings.
+        $again = $this->auditor()->audit($batch);
+        $this->assertSame($result['verdict'], $again['verdict']);
+        $this->assertSame(array_column($result['findings'], 'finding'), array_column($again['findings'], 'finding'));
+    }
+
+    public function test_genuinely_diverse_proof_backed_batch_still_passes(): void
+    {
+        $batch = [
+            [
+                'category'             => 'bug_fix',
+                'allowed_files'        => ['app/Services/Ai/SelfConstruction/A.php'],
+                'value_mechanism'      => 'closes_runtime_gap:a',
+                'final_score'          => 0.90,
+                'runnable_acceptance'  => 'php artisan test tests/Unit/ATest.php',
+                'implementation_proof' => 'commit aaa111',
+            ],
+            [
+                'category'             => 'architecture_unlock',
+                'allowed_files'        => ['app/Console/Commands/B.php'],
+                'value_mechanism'      => 'new_capability:b',
+                'final_score'          => 0.85,
+                'runnable_acceptance'  => 'php artisan test tests/Feature/BTest.php',
+                'implementation_proof' => 'commit bbb222',
+            ],
+            [
+                'category'             => 'test_gate',
+                'allowed_files'        => ['tests/Unit/CTest.php', 'app/Models/C.php'],
+                'value_mechanism'      => 'closes_runtime_gap:c',
+                'final_score'          => 0.70,
+                'runnable_acceptance'  => 'php artisan test tests/Unit/CTest.php',
+                'implementation_proof' => 'commit ccc333',
+            ],
+        ];
+
+        $result = $this->auditor()->audit($batch);
+
+        $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_PASS, $result['verdict']);
+        $this->assertTrue($result['passed']);
+        $this->assertSame([], $result['findings']);
+        $this->assertEqualsWithDelta(1.0, $result['countermetric_floor'], 0.001);
+    }
 }
