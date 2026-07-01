@@ -22,6 +22,24 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * ready_for_headless_trial=true only when paid_api_required=false and every
  * required headless fact is true (no blockers present).
  *
+ * interaction_mode distinguishes an interactive-only client from one that can run a
+ * repeatable headless task loop with evidence:
+ *   interactive_only                       — ui_only_client blocker present
+ *   headless_repeatable_loop_with_evidence  — headless AND loop_execution_supported
+ *                                             AND reporting_supported AND proof_capture_supported
+ *   headless_single_shot_only               — headless but missing loop/reporting/proof capture
+ *
+ * safe_use_class (AC4 fail-closed autonomy gate): a subscription client is only ever
+ * classified autonomous_muscle when ready_for_headless_trial=true AND
+ * loop_execution_supported AND reporting_supported AND proof_capture_supported are ALL
+ * true — missing any one of those keeps it at supervised_accelerator at best, no matter
+ * how capable the client otherwise looks.
+ *   not_usable          — binary_missing or missing_login_state
+ *   manual_only          — interaction_mode=interactive_only
+ *   supervised_accelerator — headless but loop/reporting/proof capture incomplete, or
+ *                            blocked by patch_output/workspace_scoping/paid_api
+ *   autonomous_muscle     — ready_for_headless_trial AND full loop+reporting+proof capture
+ *
  * INPUT:
  *   binary_exists?:                  bool (default false)
  *   login_state_known?:              bool (default false)
@@ -30,11 +48,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   patch_output_supported?:         bool (default false)
  *   workspace_scoping_supported?:    bool (default false)
  *   paid_api_required?:              bool (default false)
+ *   loop_execution_supported?:       bool (default false)
+ *   reporting_supported?:            bool (default false)
+ *   proof_capture_supported?:        bool (default false)
  *
  * OUTPUT:
  *   { schema, status, facts, blockers, blocker_count,
  *     ready_for_headless_trial, provider_call_allowed=false,
- *     token_spend_allowed=false, adapter_execution_allowed=false }
+ *     token_spend_allowed=false, adapter_execution_allowed=false,
+ *     interaction_mode, safe_use_class, capability, limitation,
+ *     required_manual_surface, expected_failure_mode }
  *
  * Pure: no I/O, no network calls, no credential reads, no side effects.
  */
@@ -56,6 +79,9 @@ final class AtlasExternalBrainLocalClientHeadlessCapabilityProbe
             'patch_output_supported' => (bool) ($input['patch_output_supported'] ?? false),
             'workspace_scoping_supported' => (bool) ($input['workspace_scoping_supported'] ?? false),
             'paid_api_required' => (bool) ($input['paid_api_required'] ?? false),
+            'loop_execution_supported' => (bool) ($input['loop_execution_supported'] ?? false),
+            'reporting_supported' => (bool) ($input['reporting_supported'] ?? false),
+            'proof_capture_supported' => (bool) ($input['proof_capture_supported'] ?? false),
         ];
 
         $blockers = [];
@@ -102,6 +128,53 @@ final class AtlasExternalBrainLocalClientHeadlessCapabilityProbe
             default => 'low',
         };
 
+        $uiOnly = in_array('ui_only_client', $blockers, true);
+        $fullLoopCapability = $facts['loop_execution_supported']
+            && $facts['reporting_supported']
+            && $facts['proof_capture_supported'];
+
+        $interactionMode = match (true) {
+            $uiOnly => 'interactive_only',
+            $fullLoopCapability => 'headless_repeatable_loop_with_evidence',
+            default => 'headless_single_shot_only',
+        };
+
+        $notUsable = in_array('binary_missing', $blockers, true) || in_array('missing_login_state', $blockers, true);
+
+        $safeUseClass = match (true) {
+            $notUsable => 'not_usable',
+            $uiOnly => 'manual_only',
+            $ready && $fullLoopCapability => 'autonomous_muscle',
+            default => 'supervised_accelerator',
+        };
+
+        [$capability, $limitation, $requiredManualSurface, $expectedFailureMode] = match ($safeUseClass) {
+            'not_usable' => [
+                'none',
+                'binary missing or login state unknown',
+                'install and authenticate the client, then re-probe',
+                'any invocation fails immediately with no usable output',
+            ],
+            'manual_only' => [
+                'usable only through its interactive UI',
+                'no print mode or no noninteractive prompt support',
+                'a human must drive every interaction manually',
+                'unattended automation attempts hang waiting on interactive input',
+            ],
+            'autonomous_muscle' => [
+                'runs repeatable headless task loops end-to-end with reporting and proof capture',
+                'still bounded by whatever workspace scope and patch permissions are granted',
+                'none for routine loop execution; human review remains for merge and release decisions',
+                'silent drift if loop, reporting or proof capture is later revoked without re-probing',
+            ],
+            default => [
+                'executes individual headless tasks but cannot be trusted to loop, report or prove work unattended',
+                'missing loop_execution_supported, reporting_supported or proof_capture_supported (or blocked on patch/workspace/paid-api facts)',
+                'a human or governance layer must review each output and re-trigger the next task',
+                'unattended runs stall silently or produce unproven output with no evidence trail',
+            ],
+        };
+
         return [
             'schema' => self::SCHEMA,
             'status' => $ready ? 'ready_for_headless_trial' : 'blocked',
@@ -114,6 +187,12 @@ final class AtlasExternalBrainLocalClientHeadlessCapabilityProbe
             'provider_call_allowed' => false,
             'token_spend_allowed' => false,
             'adapter_execution_allowed' => false,
+            'interaction_mode' => $interactionMode,
+            'safe_use_class' => $safeUseClass,
+            'capability' => $capability,
+            'limitation' => $limitation,
+            'required_manual_surface' => $requiredManualSurface,
+            'expected_failure_mode' => $expectedFailureMode,
         ];
     }
 }
