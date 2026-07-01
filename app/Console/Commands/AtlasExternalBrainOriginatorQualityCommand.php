@@ -15,6 +15,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyReg
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyRegressionSentinel;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBlindSpotCurriculum;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityRubric;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCausalAblationBatchStudy;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -67,6 +68,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainAutonomyRegressionSentinel $regressionSentinel,
         AtlasExternalBrainBlindSpotCurriculum $blindSpotCurriculum,
         AtlasExternalBrainCapabilityRubric $capabilityRubric,
+        AtlasExternalBrainCausalAblationBatchStudy $causalAblationBatchStudy,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -229,6 +231,27 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
             $dimensionScores = is_array($rubricInput['dimension_scores'] ?? null) ? $rubricInput['dimension_scores'] : [];
             $triggeredGates = is_array($rubricInput['triggered_gates'] ?? null) ? $rubricInput['triggered_gates'] : [];
             $payload['capability_rubric'] = $capabilityRubric->evaluate($dimensionScores, $triggeredGates);
+        }
+
+        // Optional causal ablation batch study: correlates batch-design dimensions against
+        // outcome dimensions to find likely causes of value/failure. Distinct from the
+        // capability rubric above (causal inference over historical batches vs. static
+        // dimension scoring), so it only runs when the caller explicitly supplies a
+        // causal_ablation_batch_study section.
+        if (is_array($decoded['causal_ablation_batch_study'] ?? null)) {
+            $payload['causal_ablation_batch_study'] = $causalAblationBatchStudy->study($decoded['causal_ablation_batch_study']);
+        }
+
+        // Optional causal ablation control/treatment compare: decides keep/rollback/collect-more
+        // for a single policy change given control and treatment batch metrics. Distinct from the
+        // aggregate batch study above (one contrast vs. many dimensions), so it only runs when the
+        // caller explicitly supplies both control and treatment.
+        if (is_array($decoded['causal_ablation_compare']['control'] ?? null)
+            && is_array($decoded['causal_ablation_compare']['treatment'] ?? null)) {
+            $payload['causal_ablation_compare'] = $causalAblationBatchStudy->compare(
+                $decoded['causal_ablation_compare']['control'],
+                $decoded['causal_ablation_compare']['treatment'],
+            );
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
