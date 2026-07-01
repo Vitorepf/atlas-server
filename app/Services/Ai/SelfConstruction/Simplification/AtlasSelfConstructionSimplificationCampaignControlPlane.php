@@ -76,6 +76,8 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
         $proofReadiness = [];
         $rollbackReadiness = [];
         $blockedWaves = [];
+        $redundancyStrengths = [];
+        $referenceStrengths = [];
 
         foreach ($candidates as $candidate) {
             $candidate = (array) $candidate;
@@ -86,6 +88,8 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
             $evaluation = $this->evaluateCandidate($candidate);
             $proofReadiness[$id] = $evaluation['proof_readiness'];
             $rollbackReadiness[$id] = $evaluation['rollback_readiness'];
+            $redundancyStrengths[] = max(0.0, min(1.0, (float) ($candidate['redundancy_evidence_strength'] ?? 0.5)));
+            $referenceStrengths[] = max(0.0, min(1.0, (float) ($candidate['reference_evidence_strength'] ?? 0.5)));
 
             $isHighRiskMissingProof = $risk === 'high'
                 && (! $evaluation['proof_readiness'] || ! $evaluation['rollback_readiness']);
@@ -120,6 +124,37 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
         $waveBudget = max(0, (int) ($input['max_risky_wave_size'] ?? PHP_INT_MAX));
         $admittedDeletionFirst = array_slice($deletionFirst, 0, $waveBudget);
         $deferredCandidates = array_slice($deletionFirst, $waveBudget);
+        $workerReadyWave = array_merge($admittedDeletionFirst, $additive);
+        $heldWave = array_values(array_unique(array_merge($held, $blockedHighRisk)));
+
+        $candidateCount = count($candidates);
+        $avgRedundancy = $redundancyStrengths === [] ? 0.0 : array_sum($redundancyStrengths) / count($redundancyStrengths);
+        $avgReference = $referenceStrengths === [] ? 0.0 : array_sum($referenceStrengths) / count($referenceStrengths);
+        $proofCoverage = $candidateCount === 0 ? 0.0 : count(array_filter($proofReadiness)) / $candidateCount;
+
+        if ($avgReference < 0.5 || $proofCoverage < 0.5) {
+            $strategy = 'prove_first';
+            $reason = sprintf(
+                'prove_first: equivalence/reference evidence weak (avg reference %.2f, proof coverage %.2f)',
+                $avgReference,
+                $proofCoverage,
+            );
+        } elseif ($avgRedundancy >= 0.7 && $proofCoverage >= 0.7) {
+            $strategy = 'deletion_first';
+            $reason = sprintf(
+                'deletion_first: redundancy evidence strong (avg %.2f) and proof coverage strong (%.2f)',
+                $avgRedundancy,
+                $proofCoverage,
+            );
+        } else {
+            $strategy = 'mixed';
+            $reason = sprintf(
+                'mixed: redundancy %.2f, reference %.2f, proof coverage %.2f — neither deletion_first nor prove_first threshold met',
+                $avgRedundancy,
+                $avgReference,
+                $proofCoverage,
+            );
+        }
 
         return [
             'schema' => self::SCHEMA,
@@ -127,13 +162,17 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
             'additive_candidates' => $additive,
             'blocked_high_risk_candidates' => $blockedHighRisk,
             'held_candidates' => $held,
-            'next_wave' => array_merge($admittedDeletionFirst, $additive),
+            'next_wave' => $workerReadyWave,
             'wave_budget' => $waveBudget,
             'deferred_candidates' => $deferredCandidates,
             'knowledge_sync_required' => $knowledgeSyncRequired,
             'proof_readiness' => $proofReadiness,
             'rollback_readiness' => $rollbackReadiness,
             'blocked_waves' => $blockedWaves,
+            'strategy' => $strategy,
+            'reason' => $reason,
+            'worker_ready_wave' => $workerReadyWave,
+            'held_wave' => $heldWave,
         ];
     }
 

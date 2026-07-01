@@ -258,4 +258,79 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlaneTest extends 
         $this->assertSame([], $result['deferred_candidates']);
         $this->assertSame(['organ-a', 'organ-b'], $result['next_wave']);
     }
+
+    // ── AC: deletion_first strategy when redundancy evidence + proof coverage strong ──
+
+    public function test_strategy_is_deletion_first_when_redundancy_evidence_and_proof_coverage_are_strong(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('organ-a', 'delete', 'low', ['redundancy_evidence_strength' => 0.9, 'reference_evidence_strength' => 0.9]),
+                $this->candidate('organ-b', 'merge', 'low', ['redundancy_evidence_strength' => 0.85, 'reference_evidence_strength' => 0.9]),
+            ],
+        ]);
+
+        $this->assertSame('deletion_first', $result['strategy']);
+        $this->assertStringContainsString('deletion_first', $result['reason']);
+    }
+
+    // ── AC: prove_first strategy when equivalence/reference evidence is weak ────
+
+    public function test_strategy_is_prove_first_when_reference_evidence_is_weak(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('organ-a', 'delete', 'low', ['redundancy_evidence_strength' => 0.9, 'reference_evidence_strength' => 0.2]),
+            ],
+        ]);
+
+        $this->assertSame('prove_first', $result['strategy']);
+        $this->assertStringContainsString('prove_first', $result['reason']);
+    }
+
+    public function test_strategy_is_prove_first_when_proof_coverage_is_low(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('organ-a', 'delete', 'low', [
+                    'redundancy_evidence_strength' => 0.9,
+                    'reference_evidence_strength' => 0.9,
+                    'equivalence_dossier' => ['behavior_equivalence_proven' => false],
+                ]),
+            ],
+        ]);
+
+        $this->assertSame('prove_first', $result['strategy']);
+    }
+
+    // ── AC: worker_ready_wave / held_wave / reason for Maestro ──────────────────
+
+    public function test_output_includes_worker_ready_wave_held_wave_and_reason(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('organ-a', 'delete', 'low'),
+                $this->candidate('risky-delete', 'delete', 'high', ['replay_plan' => ['ready' => false]]),
+                $this->candidate('unproven', 'delete', 'low', ['equivalence_dossier' => ['behavior_equivalence_proven' => false]]),
+            ],
+        ]);
+
+        $this->assertArrayHasKey('worker_ready_wave', $result);
+        $this->assertArrayHasKey('held_wave', $result);
+        $this->assertArrayHasKey('reason', $result);
+        $this->assertNotEmpty($result['reason']);
+        $this->assertSame($result['next_wave'], $result['worker_ready_wave']);
+        $this->assertContains('risky-delete', $result['held_wave']);
+        $this->assertContains('unproven', $result['held_wave']);
+        $this->assertContains('organ-a', $result['worker_ready_wave']);
+    }
+
+    public function test_held_wave_empty_when_all_candidates_admitted(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [$this->candidate('organ-a', 'delete', 'low')],
+        ]);
+
+        $this->assertSame([], $result['held_wave']);
+    }
 }
