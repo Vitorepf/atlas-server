@@ -193,9 +193,16 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
      * what to do about it, roughly how many tokens are recovered by not re-serving dead packets,
      * and what evidence is required before a "success" claim on this family will be trusted.
      *
+     * recommended_next_action / root_cause_family (AC2/AC3/AC4 new) are additive aliases of
+     * recommended_repair / root_cause with one refinement: a partially_converted family (proven
+     * at least one real success, not dead-end) is labeled respec_worthwhile instead of falling
+     * into the generic continue_repair_attempts bucket — the tracker now distinguishes "this
+     * family's respec pattern is proven to convert, keep respeccing" from "this family shows no
+     * evidence yet either way".
+     *
      * @param  array<string,array<string,mixed>>  $familyMetrics
      * @param  list<string>  $deadEndFamilies
-     * @return list<array{root_cause:string,recommended_repair:string,expected_token_savings:int,required_packet_evidence:list<string>}>
+     * @return list<array{root_cause:string,recommended_repair:string,expected_token_savings:int,required_packet_evidence:list<string>,root_cause_family:string,recommended_next_action:string}>
      */
     private function actionableRepairTasks(array $familyMetrics, array $deadEndFamilies): array
     {
@@ -213,6 +220,14 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
                 default => 'continue_repair_attempts',
             };
 
+            $recommendedNextAction = match (true) {
+                $isDeadEnd => 'retire_family',
+                $metrics['repair_status'] === 'partially_converted' => 'respec_worthwhile',
+                in_array('stop_retrying_unchanged', $metrics['signals'], true) => 'respec_root_cause_before_retry',
+                $metrics['rejected_success_claims'] > 0 => 'require_claimable_packet_evidence',
+                default => 'continue_repair_attempts',
+            };
+
             $tasks[] = [
                 'root_cause' => $family,
                 'recommended_repair' => $recommendedRepair,
@@ -221,6 +236,8 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
                     'output_allowed_files_with_implementation_and_test_scope',
                     'output_acceptance_criteria_with_runnable_command',
                 ],
+                'root_cause_family' => $family,
+                'recommended_next_action' => $recommendedNextAction,
             ];
         }
 

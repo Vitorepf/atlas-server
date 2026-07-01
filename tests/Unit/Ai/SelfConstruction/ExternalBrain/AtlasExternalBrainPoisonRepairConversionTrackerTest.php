@@ -423,4 +423,49 @@ final class AtlasExternalBrainPoisonRepairConversionTrackerTest extends TestCase
         $task = $r['actionable_repair_tasks'][0];
         $this->assertSame('respec_root_cause_before_retry', $task['recommended_repair']);
     }
+
+    // ── AC2: repaired families with later success are respec_worthwhile ──────
+
+    public function test_partially_converted_family_with_later_success_is_respec_worthwhile(): void
+    {
+        $r = $this->svc()->track([
+            $this->event('fam-partial', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_UNCHANGED),
+            $this->event('fam-partial', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS),
+            $this->event('fam-partial', 'pending'),
+        ]);
+
+        $this->assertSame('partially_converted', $r['family_metrics']['fam-partial']['repair_status']);
+        $task = $r['actionable_repair_tasks'][0];
+        $this->assertSame('respec_worthwhile', $task['recommended_next_action']);
+    }
+
+    // ── AC3: repeated failed respec families are retire_family ───────────────
+
+    public function test_repeated_failed_respec_family_is_retire_family_via_next_action(): void
+    {
+        $r = $this->svc()->track([
+            $this->event('fam-repeated-fail', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_RETIRED),
+            $this->event('fam-repeated-fail', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_RETIRED),
+            $this->event('fam-repeated-fail', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_RETIRED),
+        ]);
+
+        $this->assertContains('fam-repeated-fail', $r['dead_end_families']);
+        $task = $r['actionable_repair_tasks'][0];
+        $this->assertSame('retire_family', $task['recommended_next_action']);
+    }
+
+    // ── AC4: tracker output includes recommended_next_action and root_cause_family ──
+
+    public function test_actionable_repair_tasks_include_recommended_next_action_and_root_cause_family(): void
+    {
+        $r = $this->svc()->track([
+            $this->event('fam-gamma', 'pending'),
+        ]);
+
+        $task = $r['actionable_repair_tasks'][0];
+        $this->assertArrayHasKey('recommended_next_action', $task);
+        $this->assertArrayHasKey('root_cause_family', $task);
+        $this->assertSame('fam-gamma', $task['root_cause_family']);
+        $this->assertSame($task['root_cause'], $task['root_cause_family']);
+    }
 }
