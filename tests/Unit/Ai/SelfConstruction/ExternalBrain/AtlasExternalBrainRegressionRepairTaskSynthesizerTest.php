@@ -497,4 +497,88 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizerTest extends TestCa
             $result['rejected_diagnostics'][0]['rejection_reason'],
         );
     }
+
+    // ── AC: reproduction command is the first acceptance criterion ────────────
+
+    public function test_reproduction_command_is_first_acceptance_criterion(): void
+    {
+        $diag = $this->good(['runnable_proof_command' => './vendor/bin/phpunit tests/Unit/ReproTest.php']);
+
+        $result = $this->synthesizer->synthesize($this->input($diag));
+
+        $first = $result['repair_specs'][0]['acceptance_criteria'][0];
+        $this->assertStringContainsString('./vendor/bin/phpunit tests/Unit/ReproTest.php', $first);
+    }
+
+    // ── AC: packet_bug classification requests respec instead of implementation change ──
+
+    public function test_packet_bug_classification_requests_respec(): void
+    {
+        $diag = $this->good(['failure_classification' => 'packet_bug']);
+
+        $result = $this->synthesizer->synthesize($this->input($diag));
+
+        $spec = $result['repair_specs'][0];
+        $this->assertSame('respec', $spec['request_type']);
+        $this->assertSame([], $spec['allowed_files']);
+        $acText = implode(' ', $spec['acceptance_criteria']);
+        $this->assertStringContainsString('Respec required', $acText);
+    }
+
+    public function test_implementation_bug_classification_keeps_normal_repair_spec(): void
+    {
+        $diag = $this->good(['failure_classification' => 'implementation_bug']);
+
+        $result = $this->synthesizer->synthesize($this->input($diag));
+
+        $spec = $result['repair_specs'][0];
+        $this->assertSame('implementation_repair', $spec['request_type']);
+        $this->assertNotEmpty($spec['allowed_files']);
+    }
+
+    public function test_default_failure_classification_produces_implementation_repair(): void
+    {
+        // No failure_classification supplied at all — backward compatible default.
+        $result = $this->synthesizer->synthesize($this->input($this->good()));
+
+        $this->assertSame('implementation_repair', $result['repair_specs'][0]['request_type']);
+    }
+
+    // ── AC: dedup against already-queued targets ───────────────────────────────
+
+    public function test_target_already_queued_produces_empty_allowed_files(): void
+    {
+        $diag = $this->good(['target_path' => 'app/Services/Ai/ExternalBrain/AtlasAlreadyQueued.php']);
+
+        $result = $this->synthesizer->synthesize([
+            'diagnostics' => [$diag],
+            'existing_queued_targets' => ['app/Services/Ai/ExternalBrain/AtlasAlreadyQueued.php'],
+        ]);
+
+        $spec = $result['repair_specs'][0];
+        $this->assertSame([], $spec['allowed_files']);
+        $this->assertTrue($spec['duplicate_of_existing_queued_target']);
+    }
+
+    public function test_target_not_already_queued_includes_impl_and_test_files(): void
+    {
+        $diag = $this->good(['target_path' => 'app/Services/Ai/ExternalBrain/AtlasFresh.php']);
+
+        $result = $this->synthesizer->synthesize([
+            'diagnostics' => [$diag],
+            'existing_queued_targets' => ['app/Services/Ai/ExternalBrain/AtlasOther.php'],
+        ]);
+
+        $spec = $result['repair_specs'][0];
+        $this->assertCount(2, $spec['allowed_files']);
+        $this->assertFalse($spec['duplicate_of_existing_queued_target']);
+    }
+
+    public function test_no_existing_queued_targets_defaults_to_not_duplicate(): void
+    {
+        $result = $this->synthesizer->synthesize($this->input($this->good()));
+
+        $this->assertFalse($result['repair_specs'][0]['duplicate_of_existing_queued_target']);
+        $this->assertCount(2, $result['repair_specs'][0]['allowed_files']);
+    }
 }

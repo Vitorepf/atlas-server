@@ -20,6 +20,19 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * merged into one bounded macro repair spec with deduped allowed_files (impl + test)
  * and gate-specific runnable acceptance criteria.
  *
+ * REQUEST TYPE (per repair spec):
+ *   implementation_repair (default) — normal code repair, allowed_files carries impl + test.
+ *   respec                          — diag['failure_classification'] === 'packet_bug': the
+ *                                      diagnostic itself is wrong (bad target/gate/proof), so
+ *                                      the spec requests the packet be corrected instead of
+ *                                      proposing any implementation change; allowed_files is
+ *                                      empty and the sole acceptance criterion asks for respec.
+ *
+ * ALREADY-QUEUED DEDUP: when input['existing_queued_targets'] already lists a group's resolved
+ * impl target, the group's allowed_files stays empty (never duplicate impl+test files onto a
+ * target another queued task already owns) and the spec is flagged
+ * duplicate_of_existing_queued_target.
+ *
  * Pure: no I/O, no side effects.
  */
 final class AtlasExternalBrainRegressionRepairTaskSynthesizer
@@ -39,6 +52,7 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
     public function synthesize(array $input): array
     {
         $diagnostics = (array) ($input['diagnostics'] ?? []);
+        $existingQueuedTargets = array_values(array_map('strval', (array) ($input['existing_queued_targets'] ?? [])));
 
         $promoted            = [];
         $rejectedDiagnostics = [];
@@ -68,7 +82,7 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
 
         $repairSpecs = [];
         foreach ($groups as $implTarget => $groupDiags) {
-            $repairSpecs[] = $this->buildGroupRepairSpec($implTarget, $groupDiags);
+            $repairSpecs[] = $this->buildGroupRepairSpec($implTarget, $groupDiags, $existingQueuedTargets);
         }
 
         $allAllowedFiles       = [];
@@ -159,11 +173,15 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
 
     /**
      * @param list<array{string, array<string,mixed>}> $groupDiags
+     * @param list<string> $existingQueuedTargets
      * @return array<string,mixed>
      */
-    private function buildGroupRepairSpec(string $implTarget, array $groupDiags): array
+    private function buildGroupRepairSpec(string $implTarget, array $groupDiags, array $existingQueuedTargets = []): array
     {
-        $allowedFiles  = $this->deriveAllowedFiles($implTarget);
+        $isPacketBug = strtolower(trim((string) ($groupDiags[0][1]['failure_classification'] ?? ''))) === 'packet_bug';
+        $isDuplicateOfQueuedTarget = in_array($implTarget, $existingQueuedTargets, true);
+
+        $allowedFiles = ($isPacketBug || $isDuplicateOfQueuedTarget) ? [] : $this->deriveAllowedFiles($implTarget);
         $acceptance    = [];
         $gateNames     = [];
         $diagIds       = [];
@@ -176,6 +194,17 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
             $proofCmd   = trim((string) $diag['runnable_proof_command']);
             $failReason = trim((string) ($diag['failing_reason'] ?? "gate {$gateName} failed on {$implTarget}"));
             $plan       = trim((string) ($diag['unblock_plan']   ?? ''));
+
+            if ($isPacketBug) {
+                $c1 = "Respec required: diagnostic packet for gate {$gateName} on {$implTarget} must be corrected (target/gate/proof) — no implementation change requested.";
+                if (! in_array($c1, $acceptance, true)) {
+                    $acceptance[] = $c1;
+                }
+                if ($unblockReason === null) {
+                    $unblockReason = "Diagnostic packet for gate {$gateName} on {$implTarget} is itself wrong: {$failReason}. Respec the packet before any implementation attempt.";
+                }
+                continue;
+            }
 
             $c1 = "Runnable: {$proofCmd} must exit 0 after repair.";
             $c2 = "Gate {$gateName} must pass for target {$implTarget}.";
@@ -190,6 +219,10 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
             if ($unblockReason === null) {
                 $unblockReason = $plan !== '' ? $plan : "Fix {$gateName} regression on {$implTarget}: {$failReason}";
             }
+        }
+
+        if ($isDuplicateOfQueuedTarget && $unblockReason !== null) {
+            $unblockReason .= ' (target already covered by an existing queued task — no duplicate allowed_files emitted.)';
         }
 
         $uniqueGates = array_unique($gateNames);
@@ -207,6 +240,8 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
             'acceptance_criteria'   => $acceptance,
             'required_evidence'     => ['tests_or_gates_result', 'implementation_notes'],
             'unblock_reason'        => $unblockReason,
+            'request_type'          => $isPacketBug ? 'respec' : 'implementation_repair',
+            'duplicate_of_existing_queued_target' => $isDuplicateOfQueuedTarget,
         ];
     }
 
