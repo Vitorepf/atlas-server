@@ -31,7 +31,10 @@ final class AtlasMaestroPacketSchemaMigrator
     public const SCHEMA = 'atlas.maestro.packet_schema_migrator.v1';
 
     /** Fields that must survive every transform hop regardless of what the transform returns. */
-    public const LOSSLESS_FIELDS = ['required_evidence', 'acceptance_criteria', 'allowed_files', 'scope_in', 'depends_on', 'wave'];
+    public const LOSSLESS_FIELDS = ['objective', 'required_evidence', 'acceptance_criteria', 'allowed_files', 'scope_in', 'depends_on', 'wave'];
+
+    /** Fields whose EXPLICIT change (not just a drop) must leave a receipt on the trail hop. */
+    public const PROTECTED_FIELDS_REQUIRING_RECEIPT = ['objective', 'allowed_files', 'acceptance_criteria', 'required_evidence'];
 
     /** @var array<string, array{transform_id:string, transform: callable}> keyed by "<from>->>><to>" */
     private array $transforms = [];
@@ -104,12 +107,6 @@ final class AtlasMaestroPacketSchemaMigrator
             $before = $current;
             $transformed = ($row['transform'])($current);
             $appliedAt = ($this->clock)();
-            $trail[] = [
-                'from' => $cursor,
-                'to' => $nextId,
-                'transform_id' => $row['transform_id'],
-                'applied_at' => $appliedAt,
-            ];
             $current = is_array($transformed) ? $transformed : [];
             $current['schema_version'] = $nextId;
             // Lossless contract: restore evidence fields a buggy transform may have dropped.
@@ -118,6 +115,21 @@ final class AtlasMaestroPacketSchemaMigrator
                     $current[$field] = $before[$field];
                 }
             }
+            // Receipt: a transform MAY explicitly change a protected field (not just drop it) —
+            // that is allowed, but it must be visible on the trail hop, never silent.
+            $changedProtectedFields = [];
+            foreach (self::PROTECTED_FIELDS_REQUIRING_RECEIPT as $field) {
+                if (array_key_exists($field, $before) && array_key_exists($field, $current) && $current[$field] !== $before[$field]) {
+                    $changedProtectedFields[] = $field;
+                }
+            }
+            $trail[] = [
+                'from' => $cursor,
+                'to' => $nextId,
+                'transform_id' => $row['transform_id'],
+                'applied_at' => $appliedAt,
+                'changed_protected_fields' => $changedProtectedFields,
+            ];
             $cursor = $nextId;
         }
 
