@@ -286,6 +286,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributorTest extends TestCase
         ]);
         $this->assertSame('pkt-scope', $r['graph_adjustment']['task_packet_id']);
         $this->assertSame('fam-scope', $r['graph_adjustment']['family']);
+        $this->assertSame('fix_scope_in_originator', $r['recommended_originator_adjustment']);
     }
 
     public function test_poisoned_acceptance_graph_adjustment_is_block_chain_or_respec(): void
@@ -304,6 +305,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributorTest extends TestCase
         ]);
         $this->assertSame('pkt-poison', $r['graph_adjustment']['task_packet_id']);
         $this->assertSame('fam-poison', $r['graph_adjustment']['family']);
+        $this->assertSame('resolve_contradictory_acceptance', $r['recommended_originator_adjustment']);
     }
 
     public function test_graph_adjustment_refs_are_null_when_not_supplied(): void
@@ -359,6 +361,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributorTest extends TestCase
         $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_WORKER_MISMATCH, $r['primary_cause']);
         $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_REROUTE_WORKER, $r['graph_adjustment']['action']);
         $this->assertNotSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_SPLIT_BEFORE_RETRY, $r['graph_adjustment']['action']);
+        $this->assertSame('route_to_better_worker', $r['recommended_originator_adjustment']);
     }
 
     public function test_routing_family_mismatch_graph_adjustment_is_reroute_worker(): void
