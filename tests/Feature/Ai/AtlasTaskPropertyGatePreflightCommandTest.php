@@ -65,6 +65,40 @@ final class AtlasTaskPropertyGatePreflightCommandTest extends TestCase
         );
     }
 
+    public function test_brain_core_commands_are_no_longer_classified_as_ordinary(): void
+    {
+        $result = $this->preflight([
+            'app/Console/Commands/AtlasBrainNextCommand.php',
+            'app/Console/Commands/AtlasBrainWorkerPromptCommand.php',
+            'app/Console/Commands/AtlasBrainAuditCommand.php',
+            'app/Console/Commands/AtlasBrainSummaryCommand.php',
+        ]);
+
+        $this->assertNotSame(0, $result['exit_code'], 'forbidden brain core targets must cause non-zero exit');
+        $this->assertSame([], $result['data']['ordinary'], 'brain core commands must not be classified as ordinary');
+        foreach ([
+            'app/Console/Commands/AtlasBrainNextCommand.php',
+            'app/Console/Commands/AtlasBrainWorkerPromptCommand.php',
+            'app/Console/Commands/AtlasBrainAuditCommand.php',
+            'app/Console/Commands/AtlasBrainSummaryCommand.php',
+        ] as $path) {
+            $this->assertContains($path, $result['data']['forbidden']);
+        }
+    }
+
+    public function test_brain_seed_quality_gate_uses_forbidden_semantics_matching_seed_harness(): void
+    {
+        $result = $this->preflight([
+            'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSeedQualityGate.php',
+        ]);
+
+        $this->assertNotSame(0, $result['exit_code']);
+        $this->assertContains(
+            'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSeedQualityGate.php',
+            $result['data']['forbidden'],
+        );
+    }
+
     public function test_mixed_fixture_emits_all_three_classification_fields(): void
     {
         $result = $this->preflight([

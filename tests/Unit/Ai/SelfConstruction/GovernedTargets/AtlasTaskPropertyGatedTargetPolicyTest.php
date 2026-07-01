@@ -63,6 +63,27 @@ final class AtlasTaskPropertyGatedTargetPolicyTest extends TestCase
         }
     }
 
+    public function test_external_brain_core_commands_and_seed_gate_are_forbidden_not_ordinary(): void
+    {
+        // AtlasLoopHarnessGuard::FORBIDDEN_SELF_TARGETS already lists these as pétreo — the réu never
+        // edits its own seed harness. Preflight must agree, not classify them as ordinary.
+        $p = $this->policy();
+        $cases = [
+            'app/Console/Commands/AtlasBrainNextCommand.php',
+            'app/Console/Commands/AtlasBrainWorkerPromptCommand.php',
+            'app/Console/Commands/AtlasBrainAuditCommand.php',
+            'app/Console/Commands/AtlasBrainSummaryCommand.php',
+            'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSeedQualityGate.php',
+        ];
+        foreach ($cases as $path) {
+            $this->assertSame(
+                AtlasTaskPropertyGatedTargetPolicy::CLASSIFICATION_FORBIDDEN,
+                $p->classify($path),
+                "external brain core target must be forbidden, matching the seed harness: {$path}"
+            );
+        }
+    }
+
     public function test_forbidden_wins_over_property_gated_for_petreo_paths_inside_autonomous_evolution(): void
     {
         // AtlasLoopHarnessGuard lives under AutonomousEvolution/ but must remain forbidden.

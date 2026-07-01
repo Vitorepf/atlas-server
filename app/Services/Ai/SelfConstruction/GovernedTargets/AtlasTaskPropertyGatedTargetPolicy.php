@@ -43,6 +43,17 @@ final class AtlasTaskPropertyGatedTargetPolicy
         'atlas-loop-watchdog',            // watchdog script — keep-alive safety
         'AtlasTaskScopedCommitter',        // committer safety — scoped-commit guarantor
         'AtlasTaskPacketQualityInspector', // inspector safety — quality gate
+
+        // External Brain core commands + its seed quality gate — AtlasLoopHarnessGuard already
+        // lists these as FORBIDDEN_SELF_TARGETS (the réu never edits its own seed harness), but
+        // they live outside AutonomousEvolution/ (app/Console/Commands/) so PROPERTY_GATED_PATTERNS
+        // never caught them and they fell through to ordinary. Align with the harness guard so
+        // preflight and the seed harness never disagree on these targets.
+        'app/Console/Commands/AtlasBrainNextCommand.php',
+        'app/Console/Commands/AtlasBrainWorkerPromptCommand.php',
+        'app/Console/Commands/AtlasBrainAuditCommand.php',
+        'app/Console/Commands/AtlasBrainSummaryCommand.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSeedQualityGate.php',
     ];
 
     /**
