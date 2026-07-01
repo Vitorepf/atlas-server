@@ -43,6 +43,8 @@ final class AtlasExternalBrainTaskFamilyYieldModel
     private const HIGH_THRESHOLD          = 0.70;
     private const MID_THRESHOLD           = 0.30;
     private const GIVE_BACK_DOWNRANK_FLOOR = 0.30;
+    /** Above this, a family's give_back cost is ruinous enough to stop farming it outright. */
+    private const STOP_FARMING_GIVE_BACK_FLOOR = 0.60;
     private const HIGH_CONFIDENCE_SPECS   = 5;
     private const MID_CONFIDENCE_SPECS    = 2;
     // AC1/AC2: outcome-count formula path
@@ -218,10 +220,19 @@ final class AtlasExternalBrainTaskFamilyYieldModel
             }
             $recommendedAction = match(true) {
                 $classification === 'high_yield' && $poisonRate < self::HIGH_POISON_RATE => 'promote',
-                $poisonRate >= self::HIGH_POISON_RATE                                    => 'quarantine_pattern',
+                $poisonRate >= self::HIGH_POISON_RATE                                    => 'stop_farming',
+                $giveBackRate > self::STOP_FARMING_GIVE_BACK_FLOOR                        => 'stop_farming',
                 $classification === 'moderate_yield'                                     => 'watch',
                 default                                                                  => 'deprioritize',
             };
+        }
+
+        $stopFarmingReasons = [];
+        if ($poisonRate >= self::HIGH_POISON_RATE) {
+            $stopFarmingReasons[] = 'high_poison_rate';
+        }
+        if ($giveBackRate > self::STOP_FARMING_GIVE_BACK_FLOOR) {
+            $stopFarmingReasons[] = 'high_give_back_rate';
         }
 
         $lowYieldEntry = in_array($classification, ['low_yield', 'insufficient_evidence'], true)
@@ -243,6 +254,7 @@ final class AtlasExternalBrainTaskFamilyYieldModel
                 'recommended_action'     => $recommendedAction,
                 'recommended_family_action' => $recommendedAction,
                 'reasons'                => $reasons,
+                'stop_farming_reasons'   => $stopFarmingReasons,
             ],
             'low_yield_entry' => $lowYieldEntry,
         ];
@@ -306,7 +318,19 @@ final class AtlasExternalBrainTaskFamilyYieldModel
             $reasons[] = 'insufficient_delivery';
         }
 
+        // stop_farming_reasons: a family that keeps producing specs but almost never converts
+        // into real capability delta (or that converts but at a ruinous give_back cost) should
+        // stop being farmed for more specs, not merely be deprioritized.
+        $stopFarmingReasons = [];
+        if ($acceptedSpecs >= self::SPEC_BULK_THRESHOLD && $deltas === 0) {
+            $stopFarmingReasons[] = 'high_accepted_specs_zero_capability_delta';
+        }
+        if ($giveBackRate > self::STOP_FARMING_GIVE_BACK_FLOOR) {
+            $stopFarmingReasons[] = 'high_give_back_rate';
+        }
+
         $recommendedAction = match(true) {
+            $stopFarmingReasons !== []                                                        => 'stop_farming',
             $roiScore >= self::HIGH_THRESHOLD                                                 => 'invest',
             $penaltyApplied !== null || $giveBackRate > self::GIVE_BACK_DOWNRANK_FLOOR        => 'deprioritize',
             $roiScore >= self::MID_THRESHOLD                                                  => 'watch',
@@ -329,6 +353,7 @@ final class AtlasExternalBrainTaskFamilyYieldModel
                 'recommended_action'     => $recommendedAction,
                 'recommended_family_action' => $recommendedAction,
                 'reasons'                => $reasons,
+                'stop_farming_reasons'   => $stopFarmingReasons,
             ],
             'low_yield_entry' => $lowYieldEntry,
         ];

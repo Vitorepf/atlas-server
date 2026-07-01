@@ -292,4 +292,102 @@ final class AtlasExternalBrainTaskFamilyYieldModelTest extends TestCase
 
         $this->assertSame($baseline, $withPressure);
     }
+
+    // ── new AC1: stop_farming_reasons ────────────────────────────────────────
+
+    public function test_stop_farming_reasons_for_high_accepted_specs_zero_delta(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['accepted_specs' => 6, 'resolved_capability_deltas' => 0]),
+        ]]);
+
+        $entry = $r['family_yields'][0];
+        $this->assertContains('high_accepted_specs_zero_capability_delta', $entry['stop_farming_reasons']);
+        $this->assertSame('stop_farming', $entry['recommended_action']);
+    }
+
+    public function test_stop_farming_reasons_for_high_poison_rate(): void
+    {
+        $r = $this->model()->model(['families' => [
+            [
+                'family_id' => 'poison-fam',
+                'success_count' => 1,
+                'give_back_count' => 0,
+                'poison_count' => 5,
+                'quarantine_count' => 0,
+            ],
+        ]]);
+
+        $entry = $r['family_yields'][0];
+        $this->assertContains('high_poison_rate', $entry['stop_farming_reasons']);
+        $this->assertSame('stop_farming', $entry['recommended_action']);
+    }
+
+    public function test_stop_farming_reasons_for_high_give_back_rate(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['give_back_rate' => 0.70, 'resolved_capability_deltas' => 3]),
+        ]]);
+
+        $entry = $r['family_yields'][0];
+        $this->assertContains('high_give_back_rate', $entry['stop_farming_reasons']);
+        $this->assertSame('stop_farming', $entry['recommended_action']);
+    }
+
+    // ── new AC2: worker_floor_low promotion/downrank ─────────────────────────
+
+    public function test_worker_floor_low_promotes_family_with_recent_claimable_conversions(): void
+    {
+        $r = $this->model()->modelWithWorkerFloorPressure([
+            'worker_floor_low' => true,
+            'families' => [
+                $this->family(['family_id' => 'reliable', 'recent_claimable_conversions' => 3]),
+            ],
+        ]);
+
+        $this->assertSame('promote_for_replenishment', $r['family_yields'][0]['recommended_action']);
+    }
+
+    public function test_worker_floor_low_downranks_family_with_recent_negative_evidence(): void
+    {
+        $r = $this->model()->modelWithWorkerFloorPressure([
+            'worker_floor_low' => true,
+            'families' => [
+                $this->family(['family_id' => 'flaky', 'recent_no_claimable_count' => 2]),
+            ],
+        ]);
+
+        $this->assertSame('deprioritize_worker_floor_pressure', $r['family_yields'][0]['recommended_action']);
+    }
+
+    // ── new AC3: insufficient_evidence never ranked above proven high-yield ──
+
+    public function test_insufficient_evidence_never_ranked_above_proven_high_yield_family(): void
+    {
+        $r = $this->model()->model(['families' => [
+            ['family_id' => 'new-family', 'success_count' => 1, 'give_back_count' => 0, 'poison_count' => 0, 'quarantine_count' => 0],
+            $this->family(['family_id' => 'proven', 'accepted_specs' => 2, 'resolved_capability_deltas' => 5, 'architecture_unlocks' => 2]),
+        ]]);
+
+        $this->assertSame('proven', $r['ranked_families'][0]);
+        $this->assertSame('new-family', $r['ranked_families'][1]);
+    }
+
+    // ── new AC4: recommended_family_actions vocabulary ───────────────────────
+
+    public function test_recommended_family_actions_uses_documented_vocabulary(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['family_id' => 'high', 'accepted_specs' => 2, 'resolved_capability_deltas' => 5, 'architecture_unlocks' => 2]),
+            $this->family(['family_id' => 'give-back', 'give_back_rate' => 0.40, 'resolved_capability_deltas' => 2]),
+            ['family_id' => 'new', 'success_count' => 1, 'give_back_count' => 0, 'poison_count' => 0, 'quarantine_count' => 0],
+            $this->family(['family_id' => 'farm', 'accepted_specs' => 6, 'resolved_capability_deltas' => 0]),
+        ]]);
+
+        $actionsById = array_column($r['recommended_family_actions'], 'action', 'family_id');
+        $this->assertContains($actionsById['high'], ['promote', 'invest']);
+        $this->assertSame('deprioritize', $actionsById['give-back']);
+        $this->assertSame('watch', $actionsById['new']);
+        $this->assertSame('stop_farming', $actionsById['farm']);
+    }
 }
