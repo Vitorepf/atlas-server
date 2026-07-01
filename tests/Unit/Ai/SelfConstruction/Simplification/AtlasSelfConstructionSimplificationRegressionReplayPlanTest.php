@@ -14,6 +14,37 @@ final class AtlasSelfConstructionSimplificationRegressionReplayPlanTest extends 
         return new AtlasSelfConstructionSimplificationRegressionReplayPlan;
     }
 
+    public function test_queue_health_gate_defaults_to_self_heal_command_when_not_provided(): void
+    {
+        $result = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'tests_covering_targets' => ['tests/Unit/OrganATest.php'],
+            'behavior_equivalence_proven' => true,
+            'rollback_plan_present' => true,
+        ]);
+
+        $this->assertContains('php artisan atlas:task:self-heal --json', $result['pre_checks']);
+    }
+
+    public function test_queue_health_gate_uses_provided_command_deterministically(): void
+    {
+        $planner = $this->planner();
+        $input = [
+            'target_organs' => ['OrganA'],
+            'tests_covering_targets' => ['tests/Unit/OrganATest.php'],
+            'behavior_equivalence_proven' => true,
+            'rollback_plan_present' => true,
+            'queue_health_gate' => 'php artisan atlas:task:queue-status --json',
+        ];
+
+        $a = $planner->compile($input);
+        $b = $planner->compile($input);
+
+        $this->assertContains('php artisan atlas:task:queue-status --json', $a['pre_checks']);
+        $this->assertNotContains('php artisan atlas:task:self-heal --json', $a['pre_checks']);
+        $this->assertSame($a['pre_checks'], $b['pre_checks']);
+    }
+
     public function test_every_plan_includes_all_four_check_sections(): void
     {
         $result = $this->planner()->compile([
