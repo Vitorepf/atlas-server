@@ -100,6 +100,16 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
 
                 continue;
             }
+            $requiresProof = (bool) ($action['requires_proof'] ?? false);
+            $proofRef = trim((string) ($action['proof_ref'] ?? ''));
+            if ($requiresProof && $proofRef === '') {
+                $withheldActions[] = [
+                    'kind' => $kind,
+                    'reason' => 'missing_proof',
+                ];
+
+                continue;
+            }
             if (! $apply) {
                 $withheldActions[] = [
                     'kind' => $kind,
@@ -140,6 +150,29 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
         }
 
         $cycleReceiptHash = $this->cycleReceiptHash($nextState, $appliedActions, $blockedActions, $poolReceipt);
+        $actionFeedback = $this->buildActionFeedback($appliedActions, $withheldActions, $blockedActions);
+
+        // Single-action-per-tick summary (AC): the first planned action IS the action this tick
+        // decided on — its proof requirement, retry policy, and any safety refusal it hit.
+        $selectedAction = $plannedActions[0] ?? null;
+        $selectedActionKind = is_array($selectedAction) ? (string) ($selectedAction['kind'] ?? '') : null;
+        $selectedFeedback = null;
+        if ($selectedActionKind !== null) {
+            foreach ($actionFeedback as $entry) {
+                if ($entry['kind'] === $selectedActionKind) {
+                    $selectedFeedback = $entry;
+                    break;
+                }
+            }
+        }
+
+        $safetyBlockers = $cycleBlockedReasons;
+        if ($selectedActionKind !== null && in_array($selectedActionKind, self::REFUSED_ACTION_KINDS, true)) {
+            $safetyBlockers[] = 'refused_action_kind:'.$selectedActionKind;
+        }
+        if (is_array($selectedAction) && (bool) ($selectedAction['requires_proof'] ?? false) && trim((string) ($selectedAction['proof_ref'] ?? '')) === '') {
+            $safetyBlockers[] = 'missing_proof';
+        }
 
         $payload = [
             'schema_version' => self::SCHEMA,
@@ -149,11 +182,19 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
             'applied_actions' => $appliedActions,
             'withheld_actions' => $withheldActions,
             'blocked_actions' => $blockedActions,
-            'action_feedback' => $this->buildActionFeedback($appliedActions, $withheldActions, $blockedActions),
+            'action_feedback' => $actionFeedback,
             'heartbeat_event' => $heartbeatEvent,
             'cycle_receipt_hash' => $cycleReceiptHash,
             'cycle_blocked_reasons' => $cycleBlockedReasons,
             'next_state' => $nextState,
+            'selected_action' => $selectedAction,
+            'action_kind' => $selectedActionKind,
+            'proof_required' => is_array($selectedAction) ? (bool) ($selectedAction['requires_proof'] ?? false) : false,
+            'retry_policy' => [
+                'retryable' => $selectedFeedback['retryable'] ?? false,
+                'next_safe_action' => $selectedFeedback['next_safe_action'] ?? 'no_action_this_tick',
+            ],
+            'safety_blockers' => array_values(array_unique($safetyBlockers)),
         ];
         $payload['daemon_cycle_hash'] = $this->hash($payload);
 
@@ -287,6 +328,9 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
         }
         if ($reason === 'no_callback_supplied') {
             return [false, 'supply_callback_for:'.$kind];
+        }
+        if ($reason === 'missing_proof') {
+            return [true, 'attach_proof_ref_then_retry:'.$kind];
         }
 
         return [true, 'retry_after_investigating_reason:'.$reason];

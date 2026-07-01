@@ -310,4 +310,90 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         $this->assertFalse($fb[0]['retryable']);
         $this->assertStringContainsString('supply_callback', $fb[0]['next_safe_action']);
     }
+
+    // ── AC: selected_action / action_kind / proof_required / retry_policy / safety_blockers ──
+
+    public function test_output_has_single_action_summary_keys(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick($this->readyFacts());
+
+        foreach (['selected_action', 'action_kind', 'proof_required', 'retry_policy', 'safety_blockers'] as $key) {
+            $this->assertArrayHasKey($key, $out);
+        }
+    }
+
+    public function test_safe_action_applied_has_no_safety_blockers_and_not_retryable(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick(
+            $this->readyFacts(),
+            ['apply' => true, 'action_callbacks' => ['native_tick' => static fn () => ['ok' => true]]],
+        );
+
+        $this->assertSame('native_tick', $out['action_kind']);
+        $this->assertSame([], $out['safety_blockers']);
+        $this->assertFalse($out['proof_required']);
+        $this->assertFalse($out['retry_policy']['retryable']);
+    }
+
+    public function test_blocked_cycle_state_surfaces_in_safety_blockers(): void
+    {
+        $cycle = new AtlasSelfConstructionRuntimeDaemonCycle;
+        $facts = $this->readyFacts();
+        $facts['daemon_state']['safety_stop'] = true;
+        $facts['daemon_state']['status'] = 'safety_stopped';
+
+        $out = $cycle->tick($facts, [
+            'apply' => true,
+            'action_callbacks' => ['native_tick' => static fn () => ['ok' => true]],
+        ]);
+
+        $this->assertNotEmpty($out['safety_blockers']);
+        $this->assertContains('daemon_state_blocks_tick:safety_stopped', $out['safety_blockers']);
+    }
+
+    public function test_manual_action_refusal_surfaces_in_safety_blockers(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick(
+            $this->readyFacts(['planned_actions' => [['kind' => 'operator_action']]]),
+            ['apply' => true, 'action_callbacks' => ['operator_action' => static fn () => ['ok' => true]]],
+        );
+
+        $this->assertSame('operator_action', $out['action_kind']);
+        $this->assertContains('refused_action_kind:operator_action', $out['safety_blockers']);
+    }
+
+    public function test_missing_proof_withholds_action_and_flags_proof_required(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick(
+            $this->readyFacts(['planned_actions' => [['kind' => 'native_tick', 'requires_proof' => true]]]),
+            ['apply' => true, 'action_callbacks' => ['native_tick' => static fn () => ['ok' => true]]],
+        );
+
+        $this->assertSame([], $out['applied_actions']);
+        $this->assertContains('missing_proof', array_column($out['withheld_actions'], 'reason'));
+        $this->assertTrue($out['proof_required']);
+        $this->assertContains('missing_proof', $out['safety_blockers']);
+    }
+
+    public function test_proof_ref_present_allows_action_to_apply(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick(
+            $this->readyFacts(['planned_actions' => [
+                ['kind' => 'native_tick', 'requires_proof' => true, 'proof_ref' => 'phpunit:t1'],
+            ]]),
+            ['apply' => true, 'action_callbacks' => ['native_tick' => static fn () => ['ok' => true]]],
+        );
+
+        $this->assertCount(1, $out['applied_actions']);
+        $this->assertTrue($out['proof_required']);
+        $this->assertNotContains('missing_proof', $out['safety_blockers']);
+    }
+
+    public function test_retry_policy_reflects_dry_run_retryable(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick($this->readyFacts());
+
+        $this->assertTrue($out['retry_policy']['retryable']);
+        $this->assertStringContainsString('retry_with_apply_true', $out['retry_policy']['next_safe_action']);
+    }
 }
