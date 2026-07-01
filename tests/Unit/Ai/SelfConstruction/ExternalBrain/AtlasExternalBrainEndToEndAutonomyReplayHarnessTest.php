@@ -251,6 +251,17 @@ final class AtlasExternalBrainEndToEndAutonomyReplayHarnessTest extends TestCase
         $this->assertSame('outcome_learning', $result['failed_step']);
     }
 
+    public function test_cycle_refused_when_evidence_ref_is_missing_even_with_valid_atlas_owner(): void
+    {
+        $result = $this->harness()->replay($this->healthyScenario([
+            'next_action' => ['owner' => 'atlas', 'evidence_ref' => ''],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainEndToEndAutonomyReplayHarness::STATUS_EVIDENCE_MISSING, $result['autonomy_replay_status']);
+        $this->assertSame('next_action', $result['failed_step']);
+        $this->assertStringContainsString('evidence_ref', (string) $result['next_repair_hint']);
+    }
+
     // ── determinism ──────────────────────────────────────────────────────────
 
     public function test_identical_input_yields_identical_output(): void
