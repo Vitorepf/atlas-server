@@ -66,6 +66,19 @@ final class AtlasExternalBrainFrontierExhaustionEscalator
         self::STRATEGY_CONSOLIDATE,
     ];
 
+    public const ACTION_SWITCH_PATTERN = 'switch_pattern';
+
+    public const ACTION_KEEP_CURRENT_STRATEGY = 'keep_current_strategy';
+
+    /** Next probe pattern to run for each strategy — never the same search shape as before. */
+    private const NEXT_PROBE_PATTERN_BY_STRATEGY = [
+        self::STRATEGY_UNBLOCK_FORBIDDEN_WALL => 'bypass_forbidden_surface_via_alternate_entrypoint',
+        self::STRATEGY_SIMPLIFY => 'reduce_scope_to_minimal_reproducible_shape',
+        self::STRATEGY_CONSOLIDATE => 'merge_duplicate_candidates_before_next_scan',
+        self::STRATEGY_AUDIT_CODE => 'static_audit_pass_over_previously_unscanned_modules',
+        self::STRATEGY_RESEARCH_EXTERNAL => 'external_research_grounded_probe',
+    ];
+
     /**
      * Detect frontier exhaustion and recommend a strategy CHANGE — never another
      * identical-strategy frontier pass. Separate from escalate()'s pass-ladder model.
@@ -116,12 +129,25 @@ final class AtlasExternalBrainFrontierExhaustionEscalator
             $strategy = self::STRATEGY_RESEARCH_EXTERNAL;
         }
 
+        // AC: a strategy switch must name a concrete next probe pattern and forbid repeating
+        // the same search shape — never just a bare strategy label.
+        $currentPattern = trim((string) ($context['current_pattern'] ?? ''));
+        $nextProbePattern = $exhaustionProven && $strategy !== null
+            ? (self::NEXT_PROBE_PATTERN_BY_STRATEGY[$strategy] ?? null)
+            : null;
+        $forbiddenRepeatPattern = $exhaustionProven
+            ? ($currentPattern !== '' ? $currentPattern : 'same_search_shape_as_last_wave')
+            : null;
+
         return [
             'schema_version'                => self::SCHEMA,
             'exhaustion_proven'             => $exhaustionProven,
             'exhaustion_signals'            => $signals,
-            'recommended_strategy'          => $strategy,
+            'recommended_strategy'          => $exhaustionProven ? $strategy : ($context['current_strategy'] ?? null),
             'must_not_repeat_same_strategy' => $exhaustionProven,
+            'action'                        => $exhaustionProven ? self::ACTION_SWITCH_PATTERN : self::ACTION_KEEP_CURRENT_STRATEGY,
+            'next_probe_pattern'            => $nextProbePattern,
+            'forbidden_repeat_pattern'      => $forbiddenRepeatPattern,
         ];
     }
 

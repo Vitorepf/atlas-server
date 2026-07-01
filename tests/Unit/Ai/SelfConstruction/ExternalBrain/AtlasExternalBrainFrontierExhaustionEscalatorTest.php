@@ -291,4 +291,56 @@ final class AtlasExternalBrainFrontierExhaustionEscalatorTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainFrontierExhaustionEscalator::STRATEGY_UNBLOCK_FORBIDDEN_WALL, $r['recommended_strategy']);
     }
+
+    // ── AC: repeated same-pattern low yield recommends switch_pattern ─────────
+
+    public function test_repeated_same_pattern_low_yield_recommends_switch_pattern(): void
+    {
+        $r = $this->svc()->recommendStrategyChange(
+            [$this->thinWave(10, 0, 100), $this->thinWave(3, 0, 200)],
+            ['current_pattern' => 'bug_hunt_same_shape'],
+        );
+
+        $this->assertTrue($r['exhaustion_proven']);
+        $this->assertSame(AtlasExternalBrainFrontierExhaustionEscalator::ACTION_SWITCH_PATTERN, $r['action']);
+    }
+
+    // ── AC: strategy changes include next_probe_pattern and forbidden_repeat_pattern ──
+
+    public function test_strategy_change_includes_next_probe_pattern_and_forbidden_repeat_pattern(): void
+    {
+        $r = $this->svc()->recommendStrategyChange(
+            [$this->thinWave(3, 10, 100)],
+            ['current_pattern' => 'bug_hunt_same_shape'],
+        );
+
+        $this->assertNotEmpty($r['next_probe_pattern']);
+        $this->assertSame('bug_hunt_same_shape', $r['forbidden_repeat_pattern']);
+        $this->assertNotSame($r['next_probe_pattern'], $r['forbidden_repeat_pattern']);
+    }
+
+    public function test_forbidden_repeat_pattern_defaults_when_current_pattern_not_supplied(): void
+    {
+        $r = $this->svc()->recommendStrategyChange([$this->thinWave(3, 10, 100)]);
+
+        $this->assertSame('same_search_shape_as_last_wave', $r['forbidden_repeat_pattern']);
+    }
+
+    // ── AC: high-yield wave history keeps the current strategy ────────────────
+
+    public function test_high_yield_wave_history_keeps_current_strategy(): void
+    {
+        $waves = [
+            $this->thinWave(5, 1, 300),
+            $this->thinWave(12, 1, 200),
+        ];
+
+        $r = $this->svc()->recommendStrategyChange($waves, ['current_strategy' => AtlasExternalBrainFrontierExhaustionEscalator::STRATEGY_AUDIT_CODE]);
+
+        $this->assertFalse($r['exhaustion_proven']);
+        $this->assertSame(AtlasExternalBrainFrontierExhaustionEscalator::ACTION_KEEP_CURRENT_STRATEGY, $r['action']);
+        $this->assertSame(AtlasExternalBrainFrontierExhaustionEscalator::STRATEGY_AUDIT_CODE, $r['recommended_strategy']);
+        $this->assertNull($r['next_probe_pattern']);
+        $this->assertNull($r['forbidden_repeat_pattern']);
+    }
 }
