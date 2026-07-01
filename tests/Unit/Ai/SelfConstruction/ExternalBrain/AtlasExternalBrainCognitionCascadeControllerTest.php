@@ -527,4 +527,43 @@ final class AtlasExternalBrainCognitionCascadeControllerTest extends TestCase
 
         $this->assertSame($this->controller()->cascadePlan($input), $this->controller()->cascadePlan($input));
     }
+
+    // ── AC3: selected_stages, minimum_cost_path, safety_invariants_satisfied ─
+
+    public function test_control_output_includes_selected_stages_and_minimum_cost_path(): void
+    {
+        $result = $this->controller()->control([
+            'evidence_quality' => 0.80,
+            'ambiguity_score'  => 0.10,
+            'risk_score'       => 0.10,
+        ]);
+
+        $this->assertSame($result['selected_path'], $result['selected_stages']);
+        $this->assertSame($result['selected_path'], $result['minimum_cost_path']);
+    }
+
+    public function test_safety_invariants_satisfied_true_for_safe_local_only_path(): void
+    {
+        $result = $this->controller()->control([
+            'evidence_quality' => 0.80,
+            'ambiguity_score'  => 0.10,
+            'risk_score'       => 0.10,
+        ]);
+
+        $this->assertTrue($result['safety_invariants_satisfied']);
+        $this->assertContains(AtlasExternalBrainCognitionCascadeController::STAGE_DETERMINISTIC_PREFLIGHT, $result['selected_stages']);
+    }
+
+    public function test_safety_invariants_satisfied_true_when_frontier_correctly_escalated(): void
+    {
+        $result = $this->controller()->control([
+            'evidence_quality'         => 0.80,
+            'ambiguity_score'          => 0.80,
+            'risk_score'               => 0.20,
+            'has_conflicting_evidence' => true,
+        ]);
+
+        $this->assertContains(AtlasExternalBrainCognitionCascadeController::STAGE_FRONTIER_REVIEW, $result['selected_stages']);
+        $this->assertTrue($result['safety_invariants_satisfied']);
+    }
 }

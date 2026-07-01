@@ -257,16 +257,25 @@ final class AtlasExternalBrainCognitionCascadeController
 
         $skipped = array_values(array_diff(self::ALL_STAGES, $path));
 
+        // Safety invariant: deterministic_preflight must always be present, and frontier_review
+        // may only appear when a genuine escalation condition (ambiguity+conflict or high-leverage
+        // with low scaffold confidence) actually fired for this input.
+        $safetyInvariantsSatisfied = in_array(self::STAGE_DETERMINISTIC_PREFLIGHT, $path, true)
+            && (in_array(self::STAGE_FRONTIER_REVIEW, $path, true) === $needsFrontier);
+
         return [
-            'schema'               => self::SCHEMA,
-            'selected_path'        => $path,
-            'selected_stage'       => end($path),   // backward-compat: deepest stage
-            'skipped_stages'       => $skipped,
-            'escalation_reasons'   => $escalationReasons,
-            'stop_conditions'      => $this->stopConditions($path),
-            'rollback_conditions'  => $this->rollbackConditions($path),
-            'fallback_plan'        => $this->fallbackPlan($path),    // backward-compat
-            'required_local_gates' => self::REQUIRED_LOCAL_GATES,
+            'schema'                      => self::SCHEMA,
+            'selected_path'               => $path,
+            'selected_stages'             => $path,
+            'minimum_cost_path'           => $path,
+            'safety_invariants_satisfied' => $safetyInvariantsSatisfied,
+            'selected_stage'              => end($path),   // backward-compat: deepest stage
+            'skipped_stages'              => $skipped,
+            'escalation_reasons'          => $escalationReasons,
+            'stop_conditions'             => $this->stopConditions($path),
+            'rollback_conditions'         => $this->rollbackConditions($path),
+            'fallback_plan'               => $this->fallbackPlan($path),    // backward-compat
+            'required_local_gates'        => self::REQUIRED_LOCAL_GATES,
         ];
     }
 
