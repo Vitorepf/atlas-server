@@ -125,6 +125,13 @@ final class AtlasExternalBrainFinalReadinessMap
             if ((bool) ($evidence['poison_blocker_open'] ?? false)) {
                 $missingSignals[] = 'poison_or_give_back_blocker_open';
             }
+            $evidenceRefs = array_values(array_filter(array_map('strval', (array) ($evidence['evidence_refs'] ?? []))));
+            if ($evidenceRefs === []) {
+                $missingSignals[] = 'evidence_refs';
+            }
+            if (trim((string) ($evidence['owner'] ?? '')) === '') {
+                $missingSignals[] = 'owner';
+            }
 
             $fullyReady = $status === self::STATUS_PROVEN && $unresolved === 0 && $missingSignals === [];
             $areaAction = $this->areaClosureAction($area, $status, $unresolved, $missingSignals);

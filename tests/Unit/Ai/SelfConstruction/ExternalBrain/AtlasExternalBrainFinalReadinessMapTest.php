@@ -31,6 +31,8 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
                 'knowledge_sync_current'  => true,
                 'operator_independence'   => true,
                 'poison_blocker_open'     => false,
+                'evidence_refs'           => ['ev-default'],
+                'owner'                   => 'atlas',
             ];
         }
 
@@ -239,6 +241,8 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
             'knowledge_sync_current'  => true,
             'operator_independence'   => true,
             'poison_blocker_open'     => false,
+            'evidence_refs'           => ['ev-1'],
+            'owner'                   => 'atlas',
         ]]);
 
         $entry = $result['area_readiness'][0];
@@ -462,5 +466,30 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
         $result = $this->map()->map($evidence);
 
         $this->assertContains('model_amplifier', $result['blocking_areas']);
+    }
+
+    // ── AC: evidence_refs and owner are mandatory readiness gates ────────────────
+
+    public function test_critical_area_proven_but_missing_evidence_refs_blocks_final_ready(): void
+    {
+        $evidence = $this->allProven();
+        $evidence['learning']['evidence_refs'] = [];
+
+        $result = $this->map()->map($evidence);
+
+        $this->assertContains('learning', $result['blocking_areas']);
+        $this->assertContains('evidence_refs', $result['missing_evidence_by_area']['learning']);
+        $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_NOT_READY, $result['overall_status']);
+    }
+
+    public function test_critical_area_proven_but_missing_owner_blocks_final_ready(): void
+    {
+        $evidence = $this->allProven();
+        $evidence['learning']['owner'] = '';
+
+        $result = $this->map()->map($evidence);
+
+        $this->assertContains('learning', $result['blocking_areas']);
+        $this->assertContains('owner', $result['missing_evidence_by_area']['learning']);
     }
 }
