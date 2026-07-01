@@ -44,6 +44,14 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
 
     public const QUALITY_FLOOR_THRESHOLD = 7;
 
+    /** Below this fraction, queue health / worker throughput / proof coverage / worker capacity are weak. */
+    private const WEAK_FRACTION_THRESHOLD = 0.5;
+
+    /** Structural leverage evidence, proof coverage, dedup state, and worker capacity floors for bold. */
+    private const BOLD_PROOF_COVERAGE_FLOOR = 0.8;
+
+    private const BOLD_WORKER_CAPACITY_FLOOR = 0.8;
+
     /**
      * @param  array{
      *     leverage_rank?:string,
@@ -65,12 +73,25 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
         $mode = (string) ($facts['autonomy_mode'] ?? '');
         $dep = is_array($facts['dependency_readiness'] ?? null) ? $facts['dependency_readiness'] : [];
         $evidence = (bool) ($facts['evidence_present'] ?? false);
+        // Defaults preserve prior behavior when a fact is not supplied: absence never blocks by itself.
+        $queueHealth = (float) ($facts['queue_health'] ?? 1.0);
+        $workerThroughput = (float) ($facts['worker_throughput'] ?? 1.0);
+        $contextFresh = (bool) ($facts['context_fresh'] ?? true);
 
         $reasons = [];
 
         // HOLD triggers
         if (! $evidence) {
             $reasons[] = 'hold:evidence_missing';
+        }
+        if ($queueHealth < self::WEAK_FRACTION_THRESHOLD) {
+            $reasons[] = 'hold:queue_health_weak';
+        }
+        if ($workerThroughput < self::WEAK_FRACTION_THRESHOLD) {
+            $reasons[] = 'hold:worker_throughput_weak';
+        }
+        if (! $contextFresh) {
+            $reasons[] = 'hold:context_stale';
         }
         if ($mode === 'disabled') {
             $reasons[] = 'hold:autonomy_disabled';
@@ -91,15 +112,22 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
             return $this->envelope(self::LEVEL_HOLD, $reasons);
         }
 
-        // BOLD test
+        // BOLD test — structural leverage evidence, proof coverage, dedup state, and worker
+        // capacity must ALL be strong; defaults preserve prior behavior when unsupplied.
         $allDeps = (bool) ($dep['verification'] ?? false)
             && (bool) ($dep['rollback'] ?? false)
             && (bool) ($dep['knowledge_sync'] ?? false);
+        $proofCoverage = (float) ($facts['proof_coverage'] ?? 1.0);
+        $dedupState = (string) ($facts['dedup_state'] ?? 'clean');
+        $workerCapacity = (float) ($facts['worker_capacity'] ?? 1.0);
         if (
             $leverage === 'high'
             && in_array($risk, ['low', 'medium'], true)
             && $mode === 'execute_continuous'
             && $allDeps
+            && $proofCoverage >= self::BOLD_PROOF_COVERAGE_FLOOR
+            && $dedupState === 'clean'
+            && $workerCapacity >= self::BOLD_WORKER_CAPACITY_FLOOR
         ) {
             return $this->envelope(self::LEVEL_BOLD, ['bold:high_leverage+ready_deps']);
         }
@@ -155,6 +183,43 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
             'lanes' => ['bugfix' => $perLane, 'capability' => $perLane, 'refactor' => $perLane, 'proof' => $perLane, 'expansion' => $perLane],
             'quality_floor_met' => true,
             'reasons' => ['balanced:even_distribution'],
+        ];
+    }
+
+    /**
+     * Allocates total_budget_units across research/refactor/task_fabric/proof/knowledge_sync
+     * lanes. Anti-quota-farming: a lane whose recent_output_is_farmed flag is set gets its
+     * share redirected to proof (forcing real verification work) instead of more of the same lane.
+     *
+     * @param  array{total_budget_units?:int, farmed_lanes?:list<string>}  $facts
+     * @return array{lanes:array<string,int>, farmed_lanes_redirected:list<string>, reasons:list<string>}
+     */
+    public function allocateBudgetSlices(array $facts): array
+    {
+        $total = max(0, (int) ($facts['total_budget_units'] ?? 0));
+        $farmedLanes = array_values(array_intersect(
+            array_map('strval', (array) ($facts['farmed_lanes'] ?? [])),
+            ['research', 'refactor', 'task_fabric', 'proof', 'knowledge_sync'],
+        ));
+
+        $lanes = ['research', 'refactor', 'task_fabric', 'proof', 'knowledge_sync'];
+        $perLane = (int) ($total / count($lanes));
+        $allocation = array_fill_keys($lanes, $perLane);
+
+        foreach ($farmedLanes as $lane) {
+            $redirected = $allocation[$lane];
+            $allocation[$lane] = 0;
+            $allocation['proof'] += $redirected;
+        }
+
+        $reasons = $farmedLanes === []
+            ? ['balanced:even_distribution_across_five_lanes']
+            : array_map(static fn (string $lane): string => "quota_farming_detected:{$lane}:redirected_to_proof", $farmedLanes);
+
+        return [
+            'lanes' => $allocation,
+            'farmed_lanes_redirected' => $farmedLanes,
+            'reasons' => $reasons,
         ];
     }
 

@@ -164,4 +164,104 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicyTest extends TestCase
         $this->assertSame($a['reasons'], $b['reasons']);
         $this->assertSame($a['lanes'], $b['lanes']);
     }
+
+    // ── AC: weak queue/worker/context facts force hold or narrow even at high leverage ──
+
+    public function test_hold_when_queue_health_is_weak_despite_high_leverage(): void
+    {
+        $f = $this->readyFacts();
+        $f['queue_health'] = 0.2;
+        $r = (new AtlasStrategyCouncilAmbitionBudgetPolicy)->decide($f);
+
+        $this->assertSame(AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_HOLD, $r['ambition_level']);
+        $this->assertContains('hold:queue_health_weak', $r['reasons']);
+    }
+
+    public function test_hold_when_worker_throughput_is_weak(): void
+    {
+        $f = $this->readyFacts();
+        $f['worker_throughput'] = 0.1;
+        $r = (new AtlasStrategyCouncilAmbitionBudgetPolicy)->decide($f);
+
+        $this->assertSame(AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_HOLD, $r['ambition_level']);
+        $this->assertContains('hold:worker_throughput_weak', $r['reasons']);
+    }
+
+    public function test_hold_when_context_is_stale(): void
+    {
+        $f = $this->readyFacts();
+        $f['context_fresh'] = false;
+        $r = (new AtlasStrategyCouncilAmbitionBudgetPolicy)->decide($f);
+
+        $this->assertSame(AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_HOLD, $r['ambition_level']);
+        $this->assertContains('hold:context_stale', $r['reasons']);
+    }
+
+    // ── AC: bold requires strong proof coverage, dedup state, and worker capacity ────────
+
+    public function test_bold_blocked_when_proof_coverage_is_weak(): void
+    {
+        $f = $this->readyFacts();
+        $f['proof_coverage'] = 0.3;
+        $r = (new AtlasStrategyCouncilAmbitionBudgetPolicy)->decide($f);
+
+        $this->assertNotSame(AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_BOLD, $r['ambition_level']);
+    }
+
+    public function test_bold_blocked_when_dedup_state_is_not_clean(): void
+    {
+        $f = $this->readyFacts();
+        $f['dedup_state'] = 'duplicates_present';
+        $r = (new AtlasStrategyCouncilAmbitionBudgetPolicy)->decide($f);
+
+        $this->assertNotSame(AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_BOLD, $r['ambition_level']);
+    }
+
+    public function test_bold_blocked_when_worker_capacity_is_weak(): void
+    {
+        $f = $this->readyFacts();
+        $f['worker_capacity'] = 0.2;
+        $r = (new AtlasStrategyCouncilAmbitionBudgetPolicy)->decide($f);
+
+        $this->assertNotSame(AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_BOLD, $r['ambition_level']);
+    }
+
+    public function test_bold_when_all_strong_signals_present(): void
+    {
+        $f = array_merge($this->readyFacts(), [
+            'queue_health' => 1.0,
+            'worker_throughput' => 1.0,
+            'context_fresh' => true,
+            'proof_coverage' => 0.95,
+            'dedup_state' => 'clean',
+            'worker_capacity' => 0.9,
+        ]);
+        $r = (new AtlasStrategyCouncilAmbitionBudgetPolicy)->decide($f);
+
+        $this->assertSame(AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_BOLD, $r['ambition_level']);
+    }
+
+    // ── AC: allocateBudgetSlices() emits research/refactor/task_fabric/proof/knowledge_sync ──
+
+    public function test_allocate_budget_slices_emits_five_named_lanes(): void
+    {
+        $r = (new AtlasStrategyCouncilAmbitionBudgetPolicy)->allocateBudgetSlices(['total_budget_units' => 100]);
+
+        foreach (['research', 'refactor', 'task_fabric', 'proof', 'knowledge_sync'] as $lane) {
+            $this->assertArrayHasKey($lane, $r['lanes']);
+        }
+        $this->assertSame(20, $r['lanes']['research']);
+    }
+
+    public function test_allocate_budget_slices_redirects_farmed_lane_to_proof(): void
+    {
+        $r = (new AtlasStrategyCouncilAmbitionBudgetPolicy)->allocateBudgetSlices([
+            'total_budget_units' => 100,
+            'farmed_lanes' => ['research'],
+        ]);
+
+        $this->assertSame(0, $r['lanes']['research']);
+        $this->assertSame(40, $r['lanes']['proof']);
+        $this->assertContains('research', $r['farmed_lanes_redirected']);
+    }
 }
