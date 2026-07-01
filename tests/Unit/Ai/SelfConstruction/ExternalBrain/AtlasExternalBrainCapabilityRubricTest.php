@@ -253,4 +253,44 @@ final class AtlasExternalBrainCapabilityRubricTest extends TestCase
         $result = $this->rubric->evaluate([]);
         $this->assertArrayHasKey('weak_dimensions', $result);
     }
+
+    // ── AC: hard-fail gate detail, weak_dimension_details, readiness output shape ──
+
+    public function test_final_is_false_when_hard_fail_gate_triggered_regardless_of_weighted_score(): void
+    {
+        $scores = array_fill_keys(array_column($this->rubric->dimensions(), 'name'), 1.0);
+        $result = $this->rubric->evaluate($scores, ['template_farm_volume']);
+
+        $this->assertFalse($result['final']);
+        $this->assertContains('template_farm_volume', $result['blocking_gates']);
+    }
+
+    public function test_weak_dimensions_below_floor_have_score_weight_and_remediation_hint(): void
+    {
+        $scores = array_fill_keys(array_column($this->rubric->dimensions(), 'name'), 1.0);
+        $scores['strategic_origination'] = 0.10;
+
+        $result = $this->rubric->evaluate($scores);
+
+        $detail = null;
+        foreach ($result['weak_dimension_details'] as $d) {
+            if ($d['name'] === 'strategic_origination') {
+                $detail = $d;
+            }
+        }
+        $this->assertNotNull($detail);
+        $this->assertSame(0.10, $detail['score']);
+        $this->assertSame(0.14, $detail['weight']);
+        $this->assertNotEmpty($detail['remediation_hint']);
+    }
+
+    public function test_output_includes_readiness_band_blocking_gates_weak_dimensions_and_next_capability_focus(): void
+    {
+        $result = $this->rubric->evaluate([]);
+
+        foreach (['readiness_band', 'blocking_gates', 'weak_dimensions', 'next_capability_focus'] as $key) {
+            $this->assertArrayHasKey($key, $result, "Missing key: {$key}");
+        }
+        $this->assertNotNull($result['next_capability_focus']);
+    }
 }

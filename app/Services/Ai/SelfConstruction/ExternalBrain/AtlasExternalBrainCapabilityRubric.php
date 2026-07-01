@@ -171,14 +171,19 @@ final class AtlasExternalBrainCapabilityRubric
             return [
                 'schema'              => self::SCHEMA,
                 'band'                => [0.0, 0.69],
+                'readiness_band'      => [0.0, 0.69],
                 'weighted_score'      => 0.0,
                 'final'               => false,
                 'triggered_gates'     => $active,
+                'blocking_gates'      => $active,
+                'weak_dimensions'     => $weakDimensions,
+                'weak_dimension_details' => $this->weakDimensionDetails($dimensionBreakdown),
                 'dimension_breakdown' => $dimensionBreakdown,
                 'gate_cap_reason'     => 'hard_fail_gate_triggered:'.implode(',', $active),
                 'finality_blockers'   => $active,
                 'next_gap_to_95'      => round(self::FINAL_THRESHOLD, 4),
                 'recommended_improvement_path' => [],
+                'next_capability_focus' => $active[0],
             ];
         }
 
@@ -192,11 +197,15 @@ final class AtlasExternalBrainCapabilityRubric
         $result = [
             'schema'              => self::SCHEMA,
             'band'                => $band,
+            'readiness_band'      => $band,
             'weighted_score'      => round($weightedSum, 4),
             'weak_dimensions'     => $weakDimensions,
+            'weak_dimension_details' => $this->weakDimensionDetails($dimensionBreakdown),
             'final'               => $final,
             'triggered_gates'     => [],
+            'blocking_gates'      => [],
             'dimension_breakdown' => $dimensionBreakdown,
+            'next_capability_focus' => $weakDimensions[0] ?? null,
         ];
 
         if (! $final) {
@@ -213,8 +222,31 @@ final class AtlasExternalBrainCapabilityRubric
             $result['recommended_improvement_path'] = array_column($weakBreakdown, 'name');
             $result['gate_cap_reason'] = '';
             $result['finality_blockers'] = $weakDimensions;
+            $result['next_capability_focus'] = $result['recommended_improvement_path'][0] ?? $result['next_capability_focus'];
         }
 
         return $result;
+    }
+
+    /**
+     * @param  list<array{name:string,weight:float,score:float,finality_floor_met:bool}>  $dimensionBreakdown
+     * @return list<array{name:string,score:float,weight:float,remediation_hint:string}>
+     */
+    private function weakDimensionDetails(array $dimensionBreakdown): array
+    {
+        $details = [];
+        foreach ($dimensionBreakdown as $dim) {
+            if ($dim['finality_floor_met']) {
+                continue;
+            }
+            $details[] = [
+                'name'             => $dim['name'],
+                'score'            => $dim['score'],
+                'weight'           => $dim['weight'],
+                'remediation_hint' => "provide_verified_evidence_for_{$dim['name']}_above_floor_".self::FINALITY_FLOOR,
+            ];
+        }
+
+        return $details;
     }
 }
