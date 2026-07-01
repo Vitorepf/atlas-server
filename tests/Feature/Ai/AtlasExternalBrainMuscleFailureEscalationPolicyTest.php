@@ -103,4 +103,55 @@ final class AtlasExternalBrainMuscleFailureEscalationPolicyTest extends TestCase
 
         $this->assertSame('adjust_prompt_variant', $result['escalation_action']);
     }
+
+    public function test_repeat_count_above_threshold_never_returns_continue_retry(): void
+    {
+        foreach ([1, 2, 5, 10] as $repeatCount) {
+            $result = $this->policy()->escalate([
+                'root_cause' => 'give_back',
+                'repeat_count' => $repeatCount,
+                'threshold' => 0,
+            ]);
+
+            $this->assertNotSame('continue_retry', $result['escalation_action']);
+        }
+    }
+
+    public function test_last_action_adjust_prompt_variant_with_increasing_repeat_escalates_to_switch_muscle_or_stronger(): void
+    {
+        $result = $this->policy()->escalate([
+            'root_cause' => 'give_back',
+            'repeat_count' => 2,
+            'last_action' => 'adjust_prompt_variant',
+        ]);
+
+        $this->assertContains($result['escalation_action'], ['switch_muscle', 'operator_fix_required']);
+        $this->assertTrue($result['forced_by_last_action']);
+    }
+
+    public function test_cooldown_active_prevents_switch_muscle_oscillation_and_returns_repair_task_spec(): void
+    {
+        $result = $this->policy()->escalate([
+            'root_cause' => 'local_client_stall',
+            'repeat_count' => 1,
+            'cooldown_active' => true,
+        ]);
+
+        $this->assertNotSame('switch_muscle', $result['escalation_action']);
+        $this->assertSame('operator_fix_required', $result['escalation_action']);
+        $this->assertTrue($result['forced_by_cooldown']);
+    }
+
+    public function test_cooldown_active_with_repair_task_spec_available_in_ladder_returns_repair_task_spec(): void
+    {
+        $result = $this->policy()->escalate([
+            'root_cause' => 'give_back',
+            'repeat_count' => 3,
+            'cooldown_active' => true,
+        ]);
+
+        $this->assertSame('switch_muscle', $this->policy()->escalate(['root_cause' => 'give_back', 'repeat_count' => 3])['escalation_action']);
+        $this->assertNotSame('switch_muscle', $result['escalation_action']);
+        $this->assertTrue($result['forced_by_cooldown']);
+    }
 }

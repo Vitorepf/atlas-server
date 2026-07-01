@@ -34,6 +34,16 @@ final class AtlasExternalBrainMuscleFailureEscalationPolicy
 
     private const DEFAULT_THRESHOLD = 3;
 
+    /** Relative severity so "escalate to X or stronger" comparisons are well-defined. */
+    private const ACTION_RANK = [
+        self::ACTION_CONTINUE_RETRY => 0,
+        self::ACTION_ADJUST_PROMPT_VARIANT => 1,
+        self::ACTION_REPAIR_TASK_SPEC => 2,
+        self::ACTION_QUARANTINE_CANDIDATE => 2,
+        self::ACTION_SWITCH_MUSCLE => 3,
+        self::ACTION_OPERATOR_FIX_REQUIRED => 4,
+    ];
+
     /** @var array<string, list<string>> */
     private const ESCALATION_LADDERS = [
         'give_back' => [
@@ -78,6 +88,8 @@ final class AtlasExternalBrainMuscleFailureEscalationPolicy
         $rootCause = strtolower(trim((string) ($facts['root_cause'] ?? '')));
         $repeatCount = max(1, (int) ($facts['repeat_count'] ?? 1));
         $threshold = max(0, (int) ($facts['threshold'] ?? self::DEFAULT_THRESHOLD));
+        $lastAction = (string) ($facts['last_action'] ?? '');
+        $cooldownActive = (bool) ($facts['cooldown_active'] ?? false);
 
         $ladder = self::ESCALATION_LADDERS[$rootCause] ?? [
             self::ACTION_ADJUST_PROMPT_VARIANT,
@@ -100,6 +112,25 @@ final class AtlasExternalBrainMuscleFailureEscalationPolicy
                 : $ladder[$nextIndex];
         }
 
+        // Last-action awareness: repeating adjust_prompt_variant is oscillation, not
+        // progress — force the next step to at least switch_muscle severity.
+        $forcedByLastAction = false;
+        if ($lastAction === self::ACTION_ADJUST_PROMPT_VARIANT
+            && (self::ACTION_RANK[$action] ?? 0) < self::ACTION_RANK[self::ACTION_SWITCH_MUSCLE]) {
+            $action = self::ACTION_SWITCH_MUSCLE;
+            $forcedByLastAction = true;
+        }
+
+        // Cooldown: never immediately re-trigger switch_muscle while a prior switch is
+        // still cooling down — fall back to a spec-level fix (or operator) instead.
+        $forcedByCooldown = false;
+        if ($cooldownActive && $action === self::ACTION_SWITCH_MUSCLE) {
+            $action = in_array(self::ACTION_REPAIR_TASK_SPEC, $ladder, true)
+                ? self::ACTION_REPAIR_TASK_SPEC
+                : self::ACTION_OPERATOR_FIX_REQUIRED;
+            $forcedByCooldown = true;
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'root_cause' => $rootCause,
@@ -109,6 +140,8 @@ final class AtlasExternalBrainMuscleFailureEscalationPolicy
             'escalation_ladder' => $ladder,
             'escalation_action' => $action,
             'forced_off_continue_retry' => $forcedOffContinueRetry,
+            'forced_by_last_action' => $forcedByLastAction,
+            'forced_by_cooldown' => $forcedByCooldown,
         ];
     }
 }
