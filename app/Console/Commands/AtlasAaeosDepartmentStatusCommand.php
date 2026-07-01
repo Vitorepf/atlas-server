@@ -10,6 +10,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
+use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
 use Illuminate\Console\Command;
 
 /**
@@ -28,6 +29,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         {--quality-bar : Include the quality-bar breach signal emission}
         {--claim-file= : Path to a JSON completion claim to validate against the Definition of Done}
         {--repair-iteration= : Current repair-loop iteration to guard (max-3 contract before escalation)}
+        {--veto-events= : Path to a JSON list of veto events to replay through the veto-propagation watchdog}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Show AAEOS per-department maturity (L0..L7) and numeric quality bar.';
@@ -41,6 +43,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         AaeosDepartmentLevelClassifier $levelClassifier,
         AtlasRepairLoopGuard $repairLoopGuard,
         AtlasAaeosDepartmentQualityBarLevelClassifier $qualityBarLevelClassifier,
+        AtlasVetoPropagationWatchdog $vetoPropagationWatchdog,
     ): int {
         $qualityBarResult = $qualityBar->qualityBar();
         $maturityResult = $maturity->maturity();
@@ -73,6 +76,17 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         $repairIterationOption = $this->option('repair-iteration');
         if ($repairIterationOption !== null && trim((string) $repairIterationOption) !== '') {
             $payload['repair_loop_guard'] = $repairLoopGuard->guard((int) $repairIterationOption);
+        }
+
+        // Optional: replay a sequence of veto events through the veto-propagation watchdog,
+        // so cross-department pause/lift state is queryable alongside the maturity/quality-bar
+        // read-model instead of only being available as raw choreography evaluations.
+        $vetoEventsFile = trim((string) $this->option('veto-events'));
+        if ($vetoEventsFile !== '' && is_file($vetoEventsFile)) {
+            $vetoEvents = json_decode((string) file_get_contents($vetoEventsFile), true);
+            if (is_array($vetoEvents)) {
+                $payload['veto_propagation'] = $vetoPropagationWatchdog->watch($vetoEvents);
+            }
         }
 
         if ((bool) $this->option('json')) {
