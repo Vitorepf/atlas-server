@@ -298,6 +298,52 @@ final class AtlasExternalBrainDecisionQualityRegressionSuiteTest extends TestCas
         $this->assertSame('pass', $result['verdict']);
     }
 
+    // ── new scenario: false_wait_on_sufficient_depth ───────────────────────────
+
+    public function test_false_wait_on_sufficient_depth_rejected_is_regression(): void
+    {
+        $result = $this->suite->score([
+            ['scenario_id' => AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH, 'admitted' => false],
+        ]);
+
+        $this->assertSame(0.0, $result['quality_score']);
+        $this->assertContains(AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH, $result['failed_scenarios']);
+        $this->assertNotEmpty($result['regression_reasons']);
+    }
+
+    public function test_false_wait_on_sufficient_depth_admitted_passes(): void
+    {
+        $result = $this->suite->score([
+            ['scenario_id' => AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH, 'admitted' => true],
+        ]);
+
+        $this->assertSame(1.0, $result['quality_score']);
+        $this->assertSame([], $result['failed_scenarios']);
+    }
+
+    // ── AC3: failed_regressions / repair_hint ─────────────────────────────────
+
+    public function test_failed_regressions_and_repair_hint_present_on_failure(): void
+    {
+        $result = $this->suite->score([
+            $this->decision(AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_TEMPLATE_FARM, true),
+        ]);
+
+        $this->assertSame($result['failed_scenarios'], $result['failed_regressions']);
+        $this->assertNotNull($result['repair_hint']);
+        $this->assertStringContainsString('template-farm', $result['repair_hint']);
+    }
+
+    public function test_repair_hint_is_null_when_no_regressions(): void
+    {
+        $result = $this->suite->score([
+            $this->decision(AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_TEMPLATE_FARM, false),
+        ]);
+
+        $this->assertNull($result['repair_hint']);
+        $this->assertSame([], $result['failed_regressions']);
+    }
+
     public function test_frozen_suite_includes_rejected_padding_and_proxy_and_duplicate_and_wrapper_cases(): void
     {
         // Re-derive expectations independently from the frozen cases via score()

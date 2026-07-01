@@ -15,6 +15,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   poison_packet         — poisoned / unrecoverable; must be REJECTED
  *   high_leverage_genuine — real high-impact task; must be ADMITTED
  *   consolidation_needed  — system-quality consolidation task; must be ADMITTED
+ *   false_wait_on_sufficient_depth — evidence depth is already sufficient; must be ADMITTED,
+ *                            never stalled on a further wait
  *
  * Decision outputs supplied to score() must each carry:
  *   scenario_id: string   — one of the scenario keys above
@@ -39,6 +41,10 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
     public const SCENARIO_PROXY_PROOF      = 'proxy_proof';
     public const SCENARIO_SHALLOW_WRAPPER  = 'shallow_wrapper_spec';
 
+    // A decision that WAITS/rejects even though evidence depth is already sufficient is itself
+    // a regression — the correct outcome is admission, not more stalling.
+    public const SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH = 'false_wait_on_sufficient_depth';
+
     // Scenarios that must be ADMITTED
     public const SCENARIO_HIGH_LEVERAGE_GENUINE = 'high_leverage_genuine';
     public const SCENARIO_CONSOLIDATION_NEEDED  = 'consolidation_needed';
@@ -54,6 +60,7 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
         self::SCENARIO_HIGH_LEVERAGE_GENUINE => true,
         self::SCENARIO_CONSOLIDATION_NEEDED  => true,
         self::SCENARIO_AMBITIOUS_MULTI_STEP_GENUINE => true,
+        self::SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH => true,
     ];
 
     private const REGRESSION_RULES = [
@@ -63,6 +70,7 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
         self::SCENARIO_POISON_PACKET    => 'poison packet must not be admitted; it is unrecoverable',
         self::SCENARIO_PROXY_PROOF      => 'proxy-proof candidate must not be admitted; it gates on a non-runnable or gameable metric instead of real evidence',
         self::SCENARIO_SHALLOW_WRAPPER  => 'shallow-wrapper-spec candidate must not be admitted; it wraps an existing capability with no new behavior',
+        self::SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH => 'candidate with sufficient evidence depth must be admitted, not stalled on a false wait',
     ];
 
     private const CONTENT_LOW_VALUE_LABELS = ['template_farming', 'shallow_duplication', 'fake_confidence', 'proxy_proof', 'shallow_wrapper'];
@@ -85,6 +93,7 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
         ['case_id' => 'frozen_high_leverage_genuine', 'scenario_id' => self::SCENARIO_HIGH_LEVERAGE_GENUINE, 'admitted' => true],
         ['case_id' => 'frozen_consolidation_needed', 'scenario_id' => self::SCENARIO_CONSOLIDATION_NEEDED, 'admitted' => true],
         ['case_id' => 'frozen_ambitious_multi_step_genuine', 'scenario_id' => self::SCENARIO_AMBITIOUS_MULTI_STEP_GENUINE, 'admitted' => true],
+        ['case_id' => 'frozen_false_wait_on_sufficient_depth', 'scenario_id' => self::SCENARIO_FALSE_WAIT_ON_SUFFICIENT_DEPTH, 'admitted' => true],
     ];
 
     /**
@@ -132,6 +141,10 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
             'failed_scenarios'   => $failed,
             'quality_score'      => $qualityScore,
             'regression_reasons' => $regressionReasons,
+            // AC3: failed_regressions/repair_hint alias failed_scenarios/regression_reasons under
+            // the vocabulary the brain-prompt/policy caller expects, without renaming the originals.
+            'failed_regressions' => $failed,
+            'repair_hint'        => $failed === [] ? null : (self::REGRESSION_RULES[$failed[0]] ?? $regressionReasons[0]),
         ];
     }
 
