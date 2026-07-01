@@ -101,4 +101,84 @@ final class AtlasTaskWorkerInstructionLintTest extends TestCase
         ]);
         $this->assertContains('lower_acceptance_criteria', $r['findings']);
     }
+
+    // ── idle before drain ────────────────────────────────────────────────────────
+
+    public function test_idle_before_drain_wording_is_flagged(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'It is okay to stop early once you feel done.',
+        ]);
+        $this->assertContains('idle_before_drain', $r['findings']);
+    }
+
+    public function test_negated_idle_before_drain_wording_is_not_flagged(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'Never stop at a good point; keep pulling tasks until told otherwise.',
+        ]);
+        $this->assertNotContains('idle_before_drain', $r['findings']);
+    }
+
+    // ── proxy green ───────────────────────────────────────────────────────────────
+
+    public function test_proxy_green_wording_is_flagged(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'If unsure, just assume the tests pass and move on.',
+        ]);
+        $this->assertContains('proxy_green_language', $r['findings']);
+    }
+
+    // ── missing give_back protocol ───────────────────────────────────────────────
+
+    public function test_missing_give_back_protocol_is_flagged_when_resolution_step_has_no_give_back_mention(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'When done, report --outcome=success to resolve the task.',
+        ]);
+        $this->assertContains('missing_give_back_protocol', $r['findings']);
+    }
+
+    public function test_missing_give_back_protocol_is_not_flagged_when_give_back_is_mentioned(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'When done, report --outcome=success to resolve the task. If impossible, use give_back.',
+        ]);
+        $this->assertNotContains('missing_give_back_protocol', $r['findings']);
+    }
+
+    // ── AC3: violations carry severity, violation_code, and repair_hint ──────────
+
+    public function test_violations_carry_severity_violation_code_and_repair_hint(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'After implementation, git push to main and merge.',
+        ]);
+
+        $this->assertArrayHasKey('violations', $r);
+        $violation = $r['violations'][0];
+        $this->assertSame('run_git_manually', $violation['violation_code']);
+        $this->assertSame('critical', $violation['severity']);
+        $this->assertNotEmpty($violation['repair_hint']);
+    }
+
+    public function test_valid_worker_prompt_has_no_violations(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'objective' => 'add a small helper',
+            'worker_instructions' => 'implement the helper inside the allowed_files; run phpunit.',
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $this->assertTrue($r['accepted']);
+        $this->assertSame([], $r['violations']);
+    }
 }
