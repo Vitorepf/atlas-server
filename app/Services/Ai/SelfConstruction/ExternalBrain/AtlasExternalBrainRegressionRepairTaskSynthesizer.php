@@ -30,6 +30,7 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
     public const REJECTION_TEST_ONLY        = 'test_only_target_without_impl_file';
     public const REJECTION_FORBIDDEN_TARGET = 'forbidden_self_target_without_unblock_plan';
     public const REJECTION_MANUAL_OPERATOR  = 'manual_operator_required_steady_state';
+    public const REJECTION_ANALYSIS_ONLY    = 'analysis_only_repair_note_not_claimable';
 
     /**
      * @param  array{diagnostics?: list<array<string,mixed>>}  $input
@@ -121,6 +122,13 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
         $component       = trim((string) ($diag['component']              ?? ''));
         $effectiveTarget = $targetPath !== '' ? $targetPath : $component;
         $proofCommand    = trim((string) ($diag['runnable_proof_command'] ?? ''));
+
+        // 0. Analysis-only — an explicit note-only diagnostic is never claimable, regardless of
+        // whether it happens to also carry a gate/target/proof; a repair task must DO something,
+        // not just describe the regression.
+        if ((bool) ($diag['analysis_only'] ?? false)) {
+            return self::REJECTION_ANALYSIS_ONLY;
+        }
 
         // 1. Vague — missing required signals
         if ($gateName === '' || $effectiveTarget === '' || $proofCommand === '') {

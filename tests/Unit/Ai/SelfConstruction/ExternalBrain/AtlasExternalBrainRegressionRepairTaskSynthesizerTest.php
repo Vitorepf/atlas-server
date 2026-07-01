@@ -440,4 +440,61 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizerTest extends TestCa
         $this->assertContains('diag-forbidden', $safetyIds);
         $this->assertNotContains('diag-vague', $safetyIds);
     }
+
+    // ── queue-starvation regressions + analysis-only rejection ────────────────
+
+    public function test_queue_starvation_regression_emits_concrete_repair_spec(): void
+    {
+        $diag = $this->good([
+            'diagnostic_id' => 'diag-starvation',
+            'regression_type' => 'queue_starvation',
+            'gate_name' => 'worker_floor_gate',
+            'target_path' => 'app/Services/Ai/SelfConstruction/Replenisher/AtlasSelfConstructionNativeReplenisherPreflight.php',
+            'runnable_proof_command' => './vendor/bin/phpunit tests/Unit/Replenisher/PreflightTest.php',
+        ]);
+
+        $result = $this->synthesizer->synthesize($this->input($diag));
+
+        $this->assertCount(1, $result['repair_specs']);
+        $spec = $result['repair_specs'][0];
+        $this->assertNotEmpty($spec['allowed_files']);
+        $this->assertContains(
+            'app/Services/Ai/SelfConstruction/Replenisher/AtlasSelfConstructionNativeReplenisherPreflight.php',
+            $spec['allowed_files'],
+        );
+        $this->assertNotEmpty($spec['acceptance_criteria']);
+        $this->assertNotEmpty($result['allowed_files']);
+        $this->assertNotEmpty($result['acceptance_criteria']);
+    }
+
+    public function test_analysis_only_repair_note_is_rejected_as_non_claimable(): void
+    {
+        $diag = $this->good([
+            'diagnostic_id' => 'diag-analysis-only',
+            'regression_type' => 'queue_starvation',
+            'analysis_only' => true,
+        ]);
+
+        $result = $this->synthesizer->synthesize($this->input($diag));
+
+        $this->assertSame([], $result['repair_specs']);
+        $this->assertCount(1, $result['rejected_diagnostics']);
+        $this->assertSame(
+            AtlasExternalBrainRegressionRepairTaskSynthesizer::REJECTION_ANALYSIS_ONLY,
+            $result['rejected_diagnostics'][0]['rejection_reason'],
+        );
+    }
+
+    public function test_analysis_only_flag_rejects_even_with_otherwise_valid_diagnostic(): void
+    {
+        $diag = $this->good(['analysis_only' => true]);
+
+        $result = $this->synthesizer->synthesize($this->input($diag));
+
+        $this->assertSame([], $result['repair_specs']);
+        $this->assertSame(
+            AtlasExternalBrainRegressionRepairTaskSynthesizer::REJECTION_ANALYSIS_ONLY,
+            $result['rejected_diagnostics'][0]['rejection_reason'],
+        );
+    }
 }
