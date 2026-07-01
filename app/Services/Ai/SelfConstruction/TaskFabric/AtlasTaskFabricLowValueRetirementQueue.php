@@ -49,6 +49,9 @@ final class AtlasTaskFabricLowValueRetirementQueue
     private const GIVE_BACK_THRESHOLD             = 3;
     private const QUARANTINE_COUNT_THRESHOLD      = 2;
 
+    /** respec_draft_confidence at/above this, combined with runnable acceptance, blocks retirement. */
+    private const RESPEC_CONFIDENCE_THRESHOLD     = 0.70;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -72,6 +75,15 @@ final class AtlasTaskFabricLowValueRetirementQueue
             // AC2: critical dependency chain — absolute block on retirement.
             if (isset($criticalChainIds[$id])) {
                 $protected[] = array_merge($entry, ['protection_reason' => 'on_critical_dependency_chain']);
+                continue;
+            }
+
+            // Safe claimable recovery path: a high-confidence respec draft with runnable
+            // acceptance means retirement is not the only option — refuse retirement.
+            $respecConfidence = (float) ($c['respec_draft_confidence'] ?? 0.0);
+            $hasRunnableAcceptance = (bool) ($c['has_runnable_acceptance'] ?? false);
+            if ($respecConfidence >= self::RESPEC_CONFIDENCE_THRESHOLD && $hasRunnableAcceptance) {
+                $protected[] = array_merge($entry, ['protection_reason' => 'has_safe_claimable_recovery_path']);
                 continue;
             }
 

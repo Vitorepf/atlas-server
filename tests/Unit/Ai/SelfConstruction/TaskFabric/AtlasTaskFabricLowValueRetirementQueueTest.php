@@ -287,4 +287,63 @@ final class AtlasTaskFabricLowValueRetirementQueueTest extends TestCase
         $this->assertCount(1, $r['protected']);
         $this->assertSame('on_critical_dependency_chain', $r['protected'][0]['protection_reason']);
     }
+
+    // ── safe claimable recovery path (AC) ─────────────────────────────────────
+
+    public function test_high_confidence_respec_draft_with_runnable_acceptance_is_protected(): void
+    {
+        $r = $this->queue()->evaluate([
+            'candidates' => [[
+                'id'                       => 't1',
+                'value_estimate'           => 0.0,
+                'is_stale'                 => true,
+                'respec_draft_confidence'  => 0.9,
+                'has_runnable_acceptance'  => true,
+            ]],
+        ]);
+
+        $this->assertEmpty($r['retired']);
+        $this->assertCount(1, $r['protected']);
+        $this->assertSame('has_safe_claimable_recovery_path', $r['protected'][0]['protection_reason']);
+    }
+
+    public function test_high_confidence_respec_draft_without_runnable_acceptance_still_retires(): void
+    {
+        $r = $this->queue()->evaluate([
+            'candidates' => [[
+                'id'                       => 't1',
+                'is_stale'                 => true,
+                'respec_draft_confidence'  => 0.9,
+                'has_runnable_acceptance'  => false,
+            ]],
+        ]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertEmpty($r['protected']);
+    }
+
+    public function test_low_confidence_respec_draft_with_runnable_acceptance_still_retires(): void
+    {
+        $r = $this->queue()->evaluate([
+            'candidates' => [[
+                'id'                       => 't1',
+                'is_stale'                 => true,
+                'respec_draft_confidence'  => 0.3,
+                'has_runnable_acceptance'  => true,
+            ]],
+        ]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertEmpty($r['protected']);
+    }
+
+    public function test_no_recovery_signals_present_retires_normally(): void
+    {
+        $r = $this->queue()->evaluate([
+            'candidates' => [['id' => 't1', 'is_duplicate' => true]],
+        ]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertEmpty($r['protected']);
+    }
 }
