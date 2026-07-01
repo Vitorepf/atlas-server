@@ -22,6 +22,17 @@ use Throwable;
  */
 final class AtlasMaestroWorkerFleetProbe
 {
+    public const CLASS_ACTIVE = 'active_worker';
+
+    public const CLASS_IDLE = 'idle_worker';
+
+    public const CLASS_STALE = 'stale_worker';
+
+    public const CLASS_GHOST = 'ghost_worker_signal';
+
+    /** In-flight lease age (seconds) at/above which the lease is a ghost — claimed but never freed. */
+    private const DEFAULT_GHOST_THRESHOLD_SECONDS = 3600;
+
     /** @var callable():iterable<array{client_id:string, opened_at:int, released_at:?int, packet_id?:string, outcome?:?string}> */
     private $leaseSource;
 
@@ -90,13 +101,103 @@ final class AtlasMaestroWorkerFleetProbe
 
         $claimsPerWorker = $activeWorkers > 0 ? round($totalInFlight / $activeWorkers, 4) : 0.0;
 
+        $classifications = $this->workerClassifications($now, $staleThresholdSeconds);
+        $ghostCount = 0;
+        $staleCount = 0;
+        foreach ($classifications as $c) {
+            if ($c['classification'] === self::CLASS_GHOST) {
+                $ghostCount++;
+            } elseif ($c['classification'] === self::CLASS_STALE) {
+                $staleCount++;
+            }
+        }
+
+        $hints = [];
+        if ($ghostCount > 0) {
+            $hints[] = $ghostCount.' worker(s) show ghost_worker_signal: lease claimed but never released beyond ghost threshold';
+        }
+        if ($staleCount > 0) {
+            $hints[] = $staleCount.' worker(s) are stale_worker: no lease activity within '.$staleThresholdSeconds.'s';
+        }
+
         return [
             'active_workers' => $activeWorkers,
             'stale_workers' => $staleWorkers,
             'median_lease_age_seconds' => $this->median($inFlightAges),
             'claims_per_worker' => $claimsPerWorker,
             'overload_signal' => $this->overloadSignal($claimsPerWorker, $staleWorkers, $activeWorkers),
+            'worker_classifications' => $classifications,
+            'ghost_worker_count' => $ghostCount,
+            'coordination_hints' => $hints,
         ];
+    }
+
+    /**
+     * Per-worker classification — pure FACT labels, never a block/kill decision. A caller may
+     * choose to act on `ghost_worker_signal`/`stale_worker`, but healthy workers are always
+     * classified `active_worker`/`idle_worker` and are never held back by this probe.
+     *
+     * @return list<array{client_id:string, classification:string}>
+     */
+    public function workerClassifications(
+        int $now,
+        int $staleThresholdSeconds = 300,
+        int $ghostThresholdSeconds = self::DEFAULT_GHOST_THRESHOLD_SECONDS,
+    ): array {
+        $staleThresholdSeconds = max(1, $staleThresholdSeconds);
+        $ghostThresholdSeconds = max(1, $ghostThresholdSeconds);
+        $activeThreshold = $now - $staleThresholdSeconds;
+
+        $lastSeenByWorker = [];
+        $maxInFlightAgeByWorker = [];
+        $inFlightCountByWorker = [];
+
+        try {
+            foreach (($this->leaseSource)() as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $clientId = (string) ($row['client_id'] ?? '');
+                if ($clientId === '') {
+                    continue;
+                }
+                $opened = (int) ($row['opened_at'] ?? 0);
+                $released = array_key_exists('released_at', $row) && $row['released_at'] !== null
+                    ? (int) $row['released_at']
+                    : null;
+
+                $touchedAt = max($opened, $released ?? 0);
+                $lastSeenByWorker[$clientId] = max($lastSeenByWorker[$clientId] ?? 0, $touchedAt);
+
+                if ($released === null) {
+                    $age = max(0, $now - $opened);
+                    $maxInFlightAgeByWorker[$clientId] = max($maxInFlightAgeByWorker[$clientId] ?? 0, $age);
+                    $inFlightCountByWorker[$clientId] = ($inFlightCountByWorker[$clientId] ?? 0) + 1;
+                }
+            }
+        } catch (Throwable) {
+        }
+
+        $out = [];
+        foreach ($lastSeenByWorker as $clientId => $lastSeen) {
+            $maxAge = $maxInFlightAgeByWorker[$clientId] ?? 0;
+            $inFlight = $inFlightCountByWorker[$clientId] ?? 0;
+
+            if ($maxAge >= $ghostThresholdSeconds) {
+                $classification = self::CLASS_GHOST;
+            } elseif ($lastSeen < $activeThreshold) {
+                $classification = self::CLASS_STALE;
+            } elseif ($inFlight === 0) {
+                $classification = self::CLASS_IDLE;
+            } else {
+                $classification = self::CLASS_ACTIVE;
+            }
+
+            $out[] = ['client_id' => (string) $clientId, 'classification' => $classification];
+        }
+        usort($out, static fn (array $a, array $b): int => $a['client_id'] <=> $b['client_id']);
+
+        return $out;
     }
 
     /**
