@@ -63,6 +63,9 @@ final class AtlasExternalBrainCostQualityParetoFront
     /** An option's expected_lift or risk_reduction must clear this to permit escalation. */
     private const ESCALATION_QUALITY_DELTA_THRESHOLD = 0.10;
 
+    /** An option whose retry_risk exceeds this is never recommended, no matter how good its ratio. */
+    private const RETRY_RISK_CEILING = 0.50;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -98,6 +101,9 @@ final class AtlasExternalBrainCostQualityParetoFront
                 'risk_reduction'          => max(0.0, (float) ($o['risk_reduction']   ?? 0.0)),
                 'evidence_confidence'     => max(0.0, min(1.0, (float) ($o['evidence_confidence'] ?? 1.0))),
                 'proxy_risk'              => max(0.0, min(1.0, (float) ($o['proxy_risk'] ?? 0.0))),
+                'latency'                 => max(0.0, (float) ($o['latency'] ?? 0.0)),
+                'retry_risk'              => max(0.0, min(1.0, (float) ($o['retry_risk'] ?? 0.0))),
+                'leverage'                => max(0.0, (float) ($o['leverage'] ?? 0.0)),
                 'is_scaffolded_small_model' => (bool) ($o['is_scaffolded_small_model'] ?? false),
                 'frontier_justification'  => isset($o['frontier_justification'])
                     ? (string) $o['frontier_justification']
@@ -162,14 +168,21 @@ final class AtlasExternalBrainCostQualityParetoFront
         }
         usort($tradeoffs, static fn (array $a, array $b): int => $b['quality_per_cost'] <=> $a['quality_per_cost']);
 
-        // Recommended: highest quality/cost ratio from Pareto front.
+        // Recommended: highest leverage/latency-adjusted quality-per-cost routing score from the
+        // Pareto front. With leverage=0 and latency=0 (the defaults) this reduces to the plain
+        // quality/cost ratio, so callers who never set these new dimensions see identical behavior.
+        // An option whose retry_risk exceeds the ceiling is never recommended, however strong its
+        // routing score — a good ratio does not excuse an unreliable option.
         $recommended = null;
-        $bestRatio   = -1.0;
+        $bestScore   = -1.0;
         $bestCost    = PHP_FLOAT_MAX;
         foreach ($paretoFront as $o) {
-            $ratio = $o['quality'] / $o['cost'];
-            if ($ratio > $bestRatio || ($ratio === $bestRatio && $o['cost'] < $bestCost)) {
-                $bestRatio   = $ratio;
+            if ($o['retry_risk'] > self::RETRY_RISK_CEILING) {
+                continue;
+            }
+            $score = ($o['quality'] * (1.0 + $o['leverage'])) / ($o['cost'] * (1.0 + $o['latency']));
+            if ($score > $bestScore || ($score === $bestScore && $o['cost'] < $bestCost)) {
+                $bestScore   = $score;
                 $bestCost    = $o['cost'];
                 $recommended = $o['option_id'];
             }
@@ -215,6 +228,7 @@ final class AtlasExternalBrainCostQualityParetoFront
                 && $o['autonomy'] >= $autonomyFloor
                 && $o['evidence_confidence'] >= $evidenceConfidenceFloor
                 && $o['proxy_risk'] <= $proxyRiskCeiling
+                && $o['retry_risk'] <= self::RETRY_RISK_CEILING
                 && ! ($smallModelUnsafe && $o['is_scaffolded_small_model'])
             );
             if ($floorMeeting !== []) {
@@ -296,8 +310,22 @@ final class AtlasExternalBrainCostQualityParetoFront
             $recommended === null => 'no_options_available',
             $floorRecommended !== null => "cheapest_option_meeting_all_floors:{$floorRecommended}",
             $floorsActive => 'no_option_meets_all_floors_no_recommendation_possible',
-            default => "highest_quality_per_cost_ratio_on_pareto_front:{$recommended}",
+            default => "highest_leverage_adjusted_quality_per_cost_on_pareto_front:{$recommended}",
         };
+
+        // AC3: routing_reason per pareto option — never leave a selected/kept option unexplained.
+        foreach ($paretoFront as &$po) {
+            if ($po['option_id'] === $recommended) {
+                $po['routing_reason'] = $recommendationReason;
+            } elseif ($po['retry_risk'] > self::RETRY_RISK_CEILING) {
+                $po['routing_reason'] = 'excluded_from_selection:retry_risk_exceeds_ceiling';
+            } elseif ($po['frontier_justification'] !== '') {
+                $po['routing_reason'] = 'frontier_preserved:'.$po['frontier_justification'];
+            } else {
+                $po['routing_reason'] = 'on_pareto_front_not_selected';
+            }
+        }
+        unset($po);
 
         return [
             'schema'                       => self::SCHEMA,
@@ -317,8 +345,10 @@ final class AtlasExternalBrainCostQualityParetoFront
     /** @param array<string,mixed> $a @param array<string,mixed> $b */
     private function dominates(array $a, array $b): bool
     {
-        // A dominates B only when A is at least as safe (no higher risk).
+        // A dominates B only when A is at least as safe (no higher risk) and no more retry-prone —
+        // a cheaper/higher-quality option that is also flakier never earns dominance for free.
         return $a['safety'] >= $b['safety']
+            && $a['retry_risk'] <= $b['retry_risk']
             && $a['quality'] >= $b['quality']
             && $a['cost'] <= $b['cost']
             && ($a['quality'] > $b['quality'] || $a['cost'] < $b['cost']);

@@ -554,6 +554,82 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
 
     // ── determinism ──────────────────────────────────────────────────────────
 
+    // ── AC2/AC3: routing_reason present per pareto option ─────────────────────
+
+    public function test_routing_reason_present_on_every_pareto_option(): void
+    {
+        $result = $this->front()->compute([
+            'options' => [
+                $this->option('opt-cheap', 0.70, 1.0),
+                $this->option('opt-good', 0.90, 3.0),
+            ],
+        ]);
+
+        foreach ($result['pareto_options'] as $po) {
+            $this->assertArrayHasKey('routing_reason', $po);
+            $this->assertNotEmpty($po['routing_reason']);
+        }
+        $recommended = array_values(array_filter($result['pareto_options'], fn ($o) => $o['option_id'] === $result['recommended_option']))[0];
+        $this->assertSame($result['recommendation_reason'], $recommended['routing_reason']);
+    }
+
+    // ── AC4: high retry risk excludes an option from recommendation ──────────
+
+    public function test_high_retry_risk_option_is_never_recommended(): void
+    {
+        $result = $this->front()->compute([
+            'options' => [
+                array_merge($this->option('risky-best-ratio', 0.90, 1.0), ['retry_risk' => 0.80]),
+                $this->option('safe-lower-ratio', 0.70, 2.0),
+            ],
+        ]);
+
+        $this->assertNotSame('risky-best-ratio', $result['recommended_option']);
+        $this->assertSame('safe-lower-ratio', $result['recommended_option']);
+    }
+
+    public function test_high_retry_risk_option_routing_reason_explains_exclusion(): void
+    {
+        $result = $this->front()->compute([
+            'options' => [
+                array_merge($this->option('risky', 0.90, 1.0), ['retry_risk' => 0.80]),
+                $this->option('safe', 0.70, 2.0),
+            ],
+        ]);
+
+        $risky = array_values(array_filter($result['pareto_options'], fn ($o) => $o['option_id'] === 'risky'))[0];
+        $this->assertStringContainsString('retry_risk_exceeds_ceiling', $risky['routing_reason']);
+    }
+
+    // ── AC4: leverage-adjusted selection ──────────────────────────────────────
+
+    public function test_leverage_adjusted_selection_prefers_higher_leverage_option(): void
+    {
+        // Equal quality/cost ratio (0.80/2.0 = 0.40), but 'high-leverage' carries measurable
+        // expected leverage — it should win the routing score even though the raw ratio ties.
+        $result = $this->front()->compute([
+            'options' => [
+                array_merge($this->option('plain', 0.80, 2.0), ['leverage' => 0.0]),
+                array_merge($this->option('high-leverage', 0.80, 2.0), ['leverage' => 1.0]),
+            ],
+        ]);
+
+        $this->assertSame('high-leverage', $result['recommended_option']);
+    }
+
+    public function test_zero_leverage_and_latency_preserve_existing_ratio_behavior(): void
+    {
+        $result = $this->front()->compute([
+            'options' => [
+                $this->option('opt-a', 0.80, 2.0),
+                $this->option('opt-b', 0.70, 1.0),
+                $this->option('opt-c', 0.90, 4.0),
+            ],
+        ]);
+
+        $this->assertSame('opt-b', $result['recommended_option']);
+    }
+
     public function test_identical_input_yields_identical_output(): void
     {
         $input = [
