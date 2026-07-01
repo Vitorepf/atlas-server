@@ -125,6 +125,8 @@ final class AtlasExternalBrainCapabilityTransferMapper
                         'penalty' => $riskPenalty,
                     ],
                     'first_safe_task'        => $firstSafeTask,
+                    'first_safe_task_chain'  => [$firstSafeTask],
+                    'behavior_proof_requirements' => $proofReqs,
                 ];
             }
         }

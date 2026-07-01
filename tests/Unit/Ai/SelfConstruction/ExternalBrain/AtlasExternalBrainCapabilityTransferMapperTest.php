@@ -329,4 +329,19 @@ final class AtlasExternalBrainCapabilityTransferMapperTest extends TestCase
 
         $this->assertSame(json_encode($this->mapper->map($facts)), json_encode($this->mapper->map($facts)));
     }
+
+    // ── first_safe_task_chain / behavior_proof_requirements ──────────────────
+
+    public function test_recommendation_includes_first_safe_task_chain_and_behavior_proof_requirements(): void
+    {
+        $r = $this->mapper->map([
+            'source_capabilities' => [$this->src('cap-1', 'Health monitor', 'loop')],
+            'destination_gaps'    => [$this->dst('gap-1', 'Health integration', 'maestro')],
+            'evidence_strength'   => ['cap-1' => 0.8],
+        ]);
+
+        $rec = $r['transfer_recommendations'][0];
+        $this->assertSame(['prove_direct_transfer:cap-1->gap-1:direct_transfer_test'], $rec['first_safe_task_chain']);
+        $this->assertSame($rec['proof_requirements'], $rec['behavior_proof_requirements']);
+    }
 }
