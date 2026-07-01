@@ -13,6 +13,16 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  * transferred, no provider is called, no token is spent, no process is
  * started, and no ledger entry is written. The plan is advisory and the
  * orchestrator/operator decides whether to act on it.
+ *
+ * lease_id / allowed_files / runnable_gates (AC2) are echoed straight from the task packet so a
+ * receiving agent knows exactly what scope and gates it inherits.
+ *
+ * Blocking checks (AC3) now cover BOTH agents' capability match (not just the target), evidence
+ * freshness at handoff time (evidence_age_seconds vs FRESHNESS_STALE_AFTER_SECONDS), and the
+ * pre-existing continuation-summary/evidence-refs proof-continuity checks.
+ *
+ * rollback_instructions / give_back_instructions (AC4) are always present, deterministic strings
+ * describing how to recover the task packet without duplicating work if the handoff fails partway.
  */
 final class AgentRuntimeRegistryHandoffProtocolBuilder
 {
@@ -20,6 +30,8 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_registry_handoff_protocol.v1';
 
     public const MODE = 'read_only_agent_runtime_registry_handoff_protocol';
+
+    public const FRESHNESS_STALE_AFTER_SECONDS = 3600;
 
     public function __construct(
         private readonly AgentRuntimeRegistryCapabilityCatalog $catalog = new AgentRuntimeRegistryCapabilityCatalog,
@@ -72,6 +84,20 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
             $blockers[] = 'to_agent_missing_capabilities';
         }
 
+        // AC3: capability match must hold on BOTH sides, not just the target — a source agent that
+        // no longer holds the required capabilities cannot attest continuity of the work either.
+        $fromCapabilities = $this->catalog->normalizeCapabilities((array) ($fromAgent['capabilities'] ?? []));
+        $fromCapabilityMatch = $this->catalog->match($requiredCapabilities, $fromCapabilities);
+        if ($requiredCapabilities !== [] && $fromCapabilityMatch['match_status'] !== 'matched') {
+            $blockers[] = 'from_agent_missing_capabilities';
+        }
+
+        // AC3: evidence freshness at handoff time.
+        $evidenceAgeSeconds = (int) ($taskPacket['evidence_age_seconds'] ?? 0);
+        if ($evidenceAgeSeconds > self::FRESHNESS_STALE_AFTER_SECONDS) {
+            $blockers[] = 'stale_evidence_at_handoff';
+        }
+
         $evidenceRefs = $this->normalizeStringList((array) ($options['evidence_refs'] ?? ($taskPacket['evidence_refs'] ?? [])));
         if ($evidenceRefs === [] && (bool) ($taskPacket['evidence_required'] ?? true)) {
             $blockers[] = 'missing_evidence_refs';
@@ -80,9 +106,16 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
         $leasePolicy = (string) ($options['lease_transfer_policy'] ?? 'plan_only_no_real_transfer');
         $workspacePolicy = (string) ($options['workspace_transfer_policy'] ?? 'plan_only_no_real_transfer');
         $requiresLeaseSupport = (bool) ($taskPacket['requires_lease'] ?? false);
+        $leaseId = (string) ($taskPacket['lease_id'] ?? '');
         if ($requiresLeaseSupport && ! (bool) ($toAgent['lease_supported'] ?? false)) {
             $blockers[] = 'to_agent_lease_support_missing';
         }
+        if ($requiresLeaseSupport && $leaseId === '') {
+            $blockers[] = 'missing_lease_id_for_required_lease';
+        }
+
+        $allowedFiles = $this->normalizeStringList((array) ($taskPacket['allowed_files'] ?? []));
+        $runnableGates = $this->normalizeStringList((array) ($taskPacket['runnable_gates'] ?? []));
 
         $workspaceRequired = (string) ($taskPacket['workspace_policy'] ?? 'none') !== 'none';
         if ($workspaceRequired && ! (bool) ($toAgent['workspace_isolation_supported'] ?? false)) {
@@ -103,6 +136,7 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
         }
 
         $status = $blockers === [] ? 'planned' : 'blocked';
+        $uniqueBlockers = array_values(array_unique($blockers));
 
         $hashPayload = [
             'protocol_id' => $protocolId,
@@ -119,6 +153,21 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
             'warnings' => $warnings,
         ];
 
+        // AC4: always-present, deterministic recovery instructions so a failed handoff can be
+        // reversed or given back without duplicating work on the same task packet.
+        $rollbackInstructions = sprintf(
+            'If this handoff was acted on and then failed, restore task_packet_id=%s to from_agent_id=%s (lease_id=%s); do not let to_agent_id=%s continue work on it until the failure is resolved.',
+            $taskPacketId !== '' ? $taskPacketId : 'unknown',
+            $fromId !== '' ? $fromId : 'unknown',
+            $leaseId !== '' ? $leaseId : 'unknown',
+            $toId !== '' ? $toId : 'unknown',
+        );
+        $giveBackInstructions = sprintf(
+            'Report give_back for task_packet_id=%s with reason=handoff_blocked:%s; do not requeue or originate a new task packet for the same work.',
+            $taskPacketId !== '' ? $taskPacketId : 'unknown',
+            $uniqueBlockers !== [] ? implode(',', $uniqueBlockers) : 'none',
+        );
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -129,6 +178,9 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
             'to_agent_id' => $toId,
             'task_packet_id' => $taskPacketId,
             'task_packet_hash' => $taskPacketHash,
+            'lease_id' => $leaseId,
+            'allowed_files' => $allowedFiles,
+            'runnable_gates' => $runnableGates,
             'required_continuation_summary' => $continuationHash !== '',
             'continuation_summary_hash' => $continuationHash,
             'required_evidence_refs' => $evidenceRefs,
@@ -137,8 +189,11 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
             'operator_approval_required' => $operatorApprovalRequired,
             'risk_level' => $risk,
             'capability_match' => $capabilityMatch,
-            'blockers' => array_values(array_unique($blockers)),
+            'from_capability_match' => $fromCapabilityMatch,
+            'blockers' => $uniqueBlockers,
             'warnings' => array_values(array_unique($warnings)),
+            'rollback_instructions' => $rollbackInstructions,
+            'give_back_instructions' => $giveBackInstructions,
             'handoff_hash' => $this->stableHash($hashPayload),
             'handoff_execution_allowed' => false,
             'runtime_execution_allowed' => false,
