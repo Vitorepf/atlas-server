@@ -46,10 +46,32 @@ final class AtlasSelfConstructionOrganReadinessComposer
     public const CRITICAL_ORGANS = self::CANONICAL_ORGANS; // every canonical organ is critical for continuous autonomy
 
     /**
+     * Canonical circuit edges — the integrated path from Brain to Outcome Learning.
+     * Each edge connects two consecutive organs in the CANONICAL_ORGANS chain plus
+     * the extra edges that close the learning loop.
+     */
+    public const CIRCUIT_EDGES = [
+        'cortex_to_goal_value',
+        'goal_value_to_strategy',
+        'strategy_to_architecture',
+        'architecture_to_task_fabric',
+        'task_fabric_to_maestro',
+        'maestro_to_native_worker',
+        'native_worker_to_verification_court',
+        'verification_court_to_merge_governor',
+        'merge_governor_to_knowledge_sync',
+        'knowledge_sync_to_learning_transfer',
+        'learning_transfer_to_cortex',
+        // Extra domain edges for the full circuit
+        'proof_to_outcome_learning',
+    ];
+
+    /**
      * @param  array<string,array<string,mixed>>  $organFacts  organ_id => {status, reason?, blockers?}
+     * @param  array<string,array<string,mixed>>  $circuitEdges  edge_id => {connected:bool}
      * @return array<string,mixed>
      */
-    public function compose(array $organFacts): array
+    public function compose(array $organFacts, array $circuitEdges = []): array
     {
         $ready = [];
         $blocked = [];
@@ -125,9 +147,27 @@ final class AtlasSelfConstructionOrganReadinessComposer
         $topBlockers = array_values(array_unique($topBlockers));
         sort($topBlockers, SORT_STRING);
 
+        // ── Integrated circuit-path validation ──────────────────────────────
+        $missingEdges = [];
+        $firstMissingEdge = null;
+        foreach (self::CIRCUIT_EDGES as $edge) {
+            $edgeRow = $circuitEdges[$edge] ?? null;
+            $connected = is_array($edgeRow) && ($edgeRow['connected'] ?? false) === true;
+            if (! $connected) {
+                $missingEdges[] = $edge;
+                if ($firstMissingEdge === null) {
+                    $firstMissingEdge = $edge;
+                }
+            }
+        }
+
+        $circuitComplete = $missingEdges === [];
+        $organsReady = $blocked === [] && $missing === [] && $degraded === [];
+        $allReady = $organsReady && $circuitComplete;
+
         return [
             'schema_version' => self::SCHEMA,
-            'all_ready' => $blocked === [] && $missing === [] && $degraded === [],
+            'all_ready' => $allReady,
             'ready_organs' => $ready,
             'blocked_organs' => $blocked,
             'degraded_organs' => $degraded,
@@ -135,6 +175,10 @@ final class AtlasSelfConstructionOrganReadinessComposer
             'next_required_organs' => array_values(array_unique($nextRequired)),
             'readiness_ratio' => $readinessRatio,
             'top_blockers' => $topBlockers,
+            'circuit_complete' => $circuitComplete,
+            'missing_edges' => $missingEdges,
+            'missing_edge' => $firstMissingEdge,
+            'circuit_path' => self::CANONICAL_ORGANS,
         ];
     }
 
