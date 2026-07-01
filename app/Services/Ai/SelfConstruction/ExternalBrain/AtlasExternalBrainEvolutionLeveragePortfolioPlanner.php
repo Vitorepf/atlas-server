@@ -162,8 +162,10 @@ final class AtlasExternalBrainEvolutionLeveragePortfolioPlanner
             }
             $key = (string) ($c['layer'] ?? '').'|'.(string) ($c['template_family'] ?? '');
             $leverage = (float) ($c['structural_leverage'] ?? 0.0);
+            $bypassReason = trim((string) ($c['bypass_reason'] ?? ''));
+            $canBypass = $leverage >= self::HIGH_LEVERAGE_BYPASS && $bypassReason !== '';
 
-            if ($tunnelRisk && $key === $dominantKey && $leverage < self::HIGH_LEVERAGE_BYPASS) {
+            if ($tunnelRisk && $key === $dominantKey && ! $canBypass) {
                 $withheld[] = $id;
 
                 continue;
@@ -179,11 +181,17 @@ final class AtlasExternalBrainEvolutionLeveragePortfolioPlanner
         )));
         sort($layersIncluded);
 
+        $layerCoverage = [];
+        foreach (self::CANONICAL_LAYERS as $layer) {
+            $layerCoverage[$layer] = in_array($layer, $layersIncluded, true);
+        }
+
         return [
             'schema' => self::SCHEMA,
             'batch' => array_values($selected),
             'layers_included' => $layersIncluded,
             'distinct_layer_count' => count($layersIncluded),
+            'layer_coverage' => $layerCoverage,
             'tunnel_risk' => $tunnelRisk,
             'dominant_tunnel_key' => $dominantKey,
             'reasons' => $reasons,

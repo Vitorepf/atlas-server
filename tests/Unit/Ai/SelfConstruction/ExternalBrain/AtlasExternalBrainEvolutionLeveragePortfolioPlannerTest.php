@@ -87,6 +87,59 @@ final class AtlasExternalBrainEvolutionLeveragePortfolioPlannerTest extends Test
         $this->assertNotContains('starved', $batchIds);
     }
 
+    public function test_high_leverage_duplicate_without_bypass_reason_is_still_withheld(): void
+    {
+        $candidates = [];
+        for ($i = 0; $i < 7; $i++) {
+            $candidates[] = $this->candidate("bug{$i}", 'bug_hunt', 0.95, ['template_family' => 'wrapper_farm']);
+        }
+        $candidates[] = $this->candidate('other1', 'simplification', 0.5);
+
+        $result = (new AtlasExternalBrainEvolutionLeveragePortfolioPlanner)->plan($candidates, ['max_batch' => 10]);
+
+        $this->assertTrue($result['tunnel_risk']);
+        $this->assertNotEmpty($result['withheld_low_leverage_duplicates']);
+
+        $batchIds = array_column($result['batch'], 'task_id');
+        $bugHuntCount = count(array_filter($batchIds, static fn (string $id): bool => str_starts_with($id, 'bug')));
+        $this->assertSame(1, $bugHuntCount, 'without bypass_reason, high leverage alone must not bypass diversity — only the diversity-round pick survives');
+    }
+
+    public function test_high_leverage_duplicate_with_explicit_bypass_reason_is_included(): void
+    {
+        $candidates = [];
+        $candidates[] = $this->candidate('bug_diversity_pick', 'bug_hunt', 0.99, ['template_family' => 'wrapper_farm']);
+        for ($i = 0; $i < 6; $i++) {
+            $candidates[] = $this->candidate("bug{$i}", 'bug_hunt', 0.3, ['template_family' => 'wrapper_farm']);
+        }
+        $candidates[] = $this->candidate('bug_highlev', 'bug_hunt', 0.95, [
+            'template_family' => 'wrapper_farm',
+            'bypass_reason' => 'critical_security_regression',
+        ]);
+        $candidates[] = $this->candidate('other1', 'simplification', 0.5);
+
+        $result = (new AtlasExternalBrainEvolutionLeveragePortfolioPlanner)->plan($candidates, ['max_batch' => 10]);
+
+        $batchIds = array_column($result['batch'], 'task_id');
+        $this->assertContains('bug_highlev', $batchIds, 'a candidate with an explicit bypass_reason must survive tunnel withholding even outside the diversity-round pick');
+        $this->assertNotContains('bug_highlev', $result['withheld_low_leverage_duplicates']);
+    }
+
+    public function test_selected_portfolio_includes_layer_coverage_field(): void
+    {
+        $candidates = [
+            $this->candidate('a', 'bug_hunt', 0.9),
+            $this->candidate('b', 'task_fabric', 0.8),
+        ];
+
+        $result = (new AtlasExternalBrainEvolutionLeveragePortfolioPlanner)->plan($candidates);
+
+        $this->assertArrayHasKey('layer_coverage', $result);
+        $this->assertTrue($result['layer_coverage']['bug_hunt']);
+        $this->assertTrue($result['layer_coverage']['task_fabric']);
+        $this->assertFalse($result['layer_coverage']['control_plane']);
+    }
+
     public function test_empty_candidates_yields_empty_batch(): void
     {
         $result = (new AtlasExternalBrainEvolutionLeveragePortfolioPlanner)->plan([]);
