@@ -76,6 +76,8 @@ final class AtlasMaestroPoisonEarlyWarningModel
         'schema_mismatch' => 'align_the_packet_payload_with_the_declared_schema_version',
         'missing_implementation_file' => 'add_the_missing_implementation_file_to_allowed_files',
         'repeated_give_back' => 'respec_the_packet_before_next_claim_do_not_reserve_unchanged',
+        'duplicate_capability' => 'merge_or_retire_the_duplicate_capability_before_serving',
+        'missing_runnable_proof' => 'add_a_runnable_test_or_gate_to_required_evidence_before_serving',
     ];
 
     /** rescope/repairable signal => the concrete packet field the respec must change. */
@@ -159,6 +161,26 @@ final class AtlasMaestroPoisonEarlyWarningModel
             $familyWeights[] = ['family' => self::FAMILY_CONTRACT, 'weight' => 2];
         }
 
+        $duplicateCapabilityNames = array_merge(
+            is_array($facts['duplicate_capability_names'] ?? null) ? $facts['duplicate_capability_names'] : [],
+            is_array($packet['duplicate_capability_names'] ?? null) ? $packet['duplicate_capability_names'] : [],
+        );
+        $hasDuplicateCapability = $duplicateCapabilityNames !== [] || (bool) ($packet['duplicate_capability'] ?? false);
+        if ($hasDuplicateCapability) {
+            $totalScore += 2;
+            $reasons[] = 'duplicate_capability';
+            $rescopeSignals[] = 'duplicate_capability';
+            $familyWeights[] = ['family' => self::FAMILY_STRUCTURAL, 'weight' => 2];
+        }
+
+        $missingRunnableProof = (bool) ($packet['missing_runnable_proof'] ?? ($facts['missing_runnable_proof'] ?? false));
+        if ($missingRunnableProof) {
+            $totalScore += 2;
+            $reasons[] = 'missing_runnable_proof';
+            $rescopeSignals[] = 'missing_runnable_proof';
+            $familyWeights[] = ['family' => self::FAMILY_CONTRACT, 'weight' => 2];
+        }
+
         if ($allowed !== []) {
             $hasTest = array_filter($allowed, static fn (string $f): bool => str_contains($f, 'Test.php') || str_contains($f, '/tests/')) !== [];
             $hasImpl = array_filter($allowed, static fn (string $f): bool => ! str_contains($f, 'Test.php') && ! str_contains($f, '/tests/')) !== [];
@@ -227,6 +249,8 @@ final class AtlasMaestroPoisonEarlyWarningModel
             'safe_next_action' => $safeNextAction,
             'repair_route' => $repairRoute,
             'repair_route_fields' => $repairRouteFields === [] ? [] : array_fill_keys(array_keys($repairRouteFields), true),
+            'repair_reasons' => $reasons,
+            'safe_to_serve' => $risk === self::RISK_LOW,
         ];
     }
 

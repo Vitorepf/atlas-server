@@ -338,4 +338,60 @@ final class AtlasMaestroPoisonEarlyWarningModelTest extends TestCase
         $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::RISK_LOW, $r['poison_risk']);
         $this->assertEqualsWithDelta(0.95, $r['confidence'], 0.001);
     }
+
+    // ── new AC: duplicate_capability scores medium and is repairable structural ──
+
+    public function test_duplicate_capability_scores_medium_and_is_repairable(): void
+    {
+        $r = $this->svc()->score(array_merge($this->cleanPacket(), [
+            'duplicate_capability_names' => ['AtlasFooService'],
+        ]));
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::RISK_MEDIUM, $r['poison_risk']);
+        $this->assertContains('duplicate_capability', $r['reasons']);
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_REPAIRABLE, $r['repairability']);
+        $this->assertNotEmpty($r['repair_route']);
+    }
+
+    // ── new AC: missing_runnable_proof scores medium and is repairable ────────
+
+    public function test_missing_runnable_proof_scores_medium_and_is_repairable(): void
+    {
+        $r = $this->svc()->score(array_merge($this->cleanPacket(), [
+            'missing_runnable_proof' => true,
+        ]));
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::RISK_MEDIUM, $r['poison_risk']);
+        $this->assertContains('missing_runnable_proof', $r['reasons']);
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_REPAIRABLE, $r['repairability']);
+        $this->assertNotEmpty($r['repair_route']);
+    }
+
+    // ── new AC: repair_reasons and safe_to_serve ───────────────────────────────
+
+    public function test_clean_packet_is_safe_to_serve_with_empty_repair_reasons(): void
+    {
+        $r = $this->svc()->score($this->cleanPacket());
+
+        $this->assertTrue($r['safe_to_serve']);
+        $this->assertSame([], $r['repair_reasons']);
+    }
+
+    public function test_high_risk_packet_is_not_safe_to_serve_and_has_repair_reasons(): void
+    {
+        $r = $this->svc()->score(array_merge($this->cleanPacket(), [
+            'forbidden_self_target' => true,
+        ]));
+
+        $this->assertFalse($r['safe_to_serve']);
+        $this->assertContains('forbidden_self_target', $r['repair_reasons']);
+    }
+
+    public function test_medium_risk_packet_is_not_safe_to_serve(): void
+    {
+        $r = $this->svc()->score(array_merge($this->cleanPacket(), ['schema_mismatch' => true]));
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::RISK_MEDIUM, $r['poison_risk']);
+        $this->assertFalse($r['safe_to_serve']);
+    }
 }
