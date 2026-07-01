@@ -114,4 +114,27 @@ final class AtlasExternalBrainDocsMemorySyncVerifierTest extends TestCase
 
         $this->assertSame($verifier->verify($change), $verifier->verify($change));
     }
+
+    public function test_test_only_change_with_stale_index_still_returns_index_stale(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'is_test_only' => true,
+            'code_index_fresh' => false,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainDocsMemorySyncVerifier::STATUS_INDEX_STALE, $result['sync_status']);
+        $this->assertContains('index_code_refresh', $result['required_actions']);
+    }
+
+    public function test_internal_refactor_with_stale_index_still_returns_index_stale(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'is_internal_refactor' => true,
+            'code_index_fresh' => false,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainDocsMemorySyncVerifier::STATUS_INDEX_STALE, $result['sync_status']);
+    }
 }
