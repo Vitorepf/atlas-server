@@ -41,7 +41,15 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
     public const CAUSE_QUEUE_CONTENTION      = 'queue_contention';
     public const CAUSE_GOOD_EXECUTION           = 'good_execution';
     public const CAUSE_ROUTING_FAMILY_MISMATCH = 'routing_family_mismatch';
+    public const CAUSE_QUARANTINED             = 'quarantined_pattern';
     public const CAUSE_UNKNOWN                 = 'unknown';
+
+    public const NEXT_BATCH_PROMOTE     = 'promote';
+    public const NEXT_BATCH_AVOID       = 'avoid';
+    public const NEXT_BATCH_RESPEC      = 'respec';
+    public const NEXT_BATCH_SPLIT       = 'split';
+    public const NEXT_BATCH_CONSOLIDATE = 'consolidate';
+    public const NEXT_BATCH_WORKER_ROUTE = 'worker-route';
 
     public const ROUTING_SIGNAL_POSITIVE = 'positive';
     public const ROUTING_SIGNAL_NEGATIVE = 'negative';
@@ -105,6 +113,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
         $isSuccess   = $result === 'success';
         $isGiveBack  = $result === 'give_back';
         $isFailedGate = $result === 'failed_gate';
+        $isQuarantine = $result === 'quarantine';
         $poorSpec            = $specQuality < self::SPEC_QUALITY_THRESHOLD || ! $hasAC;
         $workerMismatch      = $taskClass !== '' && in_array($taskClass, $avoidClasses, true);
         $weakEvidence        = $evidenceSt < self::EVIDENCE_WEAK_THRESHOLD || ! $hadEvidence;
@@ -125,6 +134,14 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
             }
             if ($missingAllowedFiles) {
                 $contributing[] = 'missing_allowed_files:true';
+            }
+        }
+        // 0.5. Quarantine — outcome was quarantined; strongest possible negative signal, avoid the pattern
+        elseif ($isQuarantine) {
+            $primaryCause = self::CAUSE_QUARANTINED;
+            $contributing[] = 'outcome:quarantine';
+            if ($taskClass !== '') {
+                $contributing[] = 'task_class:'.$taskClass;
             }
         }
         // 1. Poor spec — checked first; overrides everything except mismatch when spec is actually good
@@ -234,6 +251,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
             'routing_signal'                  => $routingSignal,
             'recommended_originator_adjustment' => $adjustment,
             'attribution_id'                  => $attributionId,
+            'next_batch_adjustments'          => $this->nextBatchAdjustments($primaryCause, $repeatedSuccess, $successThreshold),
             'graph_adjustment'                => [
                 'action'         => $this->graphAdjustmentAction($primaryCause, $repeatedSuccess, $successThreshold),
                 'task_packet_id' => $taskPacketId,
@@ -241,6 +259,28 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
                 'reason'         => $primaryCause,
             ],
         ];
+    }
+
+    /**
+     * What the NEXT batch of originated tasks should do differently, in the shared
+     * vocabulary consumed by the originator/planner: promote, avoid, respec, split,
+     * consolidate, or worker-route. quarantine is the strongest negative signal (avoid);
+     * good_execution promotes on a proven streak, else consolidates the steady pattern.
+     *
+     * @return list<string>
+     */
+    private function nextBatchAdjustments(string $primaryCause, int $repeatedSuccess, int $successThreshold): array
+    {
+        return match ($primaryCause) {
+            self::CAUSE_QUARANTINED => [self::NEXT_BATCH_AVOID],
+            self::CAUSE_POISONED_ACCEPTANCE, self::CAUSE_AMBIGUOUS_CONTRACT => [self::NEXT_BATCH_RESPEC],
+            self::CAUSE_POOR_SPEC, self::CAUSE_COMPLEXITY => [self::NEXT_BATCH_SPLIT],
+            self::CAUSE_WORKER_MISMATCH, self::CAUSE_ROUTING_FAMILY_MISMATCH, self::CAUSE_WORKER_CAPABILITY_GAP => [self::NEXT_BATCH_WORKER_ROUTE],
+            self::CAUSE_GOOD_EXECUTION => $repeatedSuccess >= $successThreshold
+                ? [self::NEXT_BATCH_PROMOTE]
+                : [self::NEXT_BATCH_CONSOLIDATE],
+            default => [],
+        };
     }
 
     /**
@@ -252,7 +292,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
     private function graphAdjustmentAction(string $primaryCause, int $repeatedSuccess, int $successThreshold): string
     {
         return match ($primaryCause) {
-            self::CAUSE_SCOPE_FAILURE => self::ADJUSTMENT_BLOCK_CHAIN,
+            self::CAUSE_SCOPE_FAILURE, self::CAUSE_QUARANTINED => self::ADJUSTMENT_BLOCK_CHAIN,
             self::CAUSE_POISONED_ACCEPTANCE => self::ADJUSTMENT_RESPEC_BEFORE_RETRY,
             self::CAUSE_POOR_SPEC, self::CAUSE_COMPLEXITY => self::ADJUSTMENT_SPLIT_BEFORE_RETRY,
             self::CAUSE_WORKER_MISMATCH, self::CAUSE_ROUTING_FAMILY_MISMATCH, self::CAUSE_WORKER_CAPABILITY_GAP => self::ADJUSTMENT_REROUTE_WORKER,
@@ -266,7 +306,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
 
     private function computeConfidence(string $primaryCause, bool $poorSpec, bool $workerMismatch, bool $isSuccess): string
     {
-        if (in_array($primaryCause, [self::CAUSE_SCOPE_FAILURE, self::CAUSE_POOR_SPEC, self::CAUSE_WORKER_MISMATCH, self::CAUSE_ROUTING_FAMILY_MISMATCH, self::CAUSE_GOOD_EXECUTION], true)) {
+        if (in_array($primaryCause, [self::CAUSE_SCOPE_FAILURE, self::CAUSE_QUARANTINED, self::CAUSE_POOR_SPEC, self::CAUSE_WORKER_MISMATCH, self::CAUSE_ROUTING_FAMILY_MISMATCH, self::CAUSE_GOOD_EXECUTION], true)) {
             return 'high';
         }
         if (in_array($primaryCause, [self::CAUSE_POISONED_ACCEPTANCE, self::CAUSE_AMBIGUOUS_CONTRACT], true)) {
@@ -283,6 +323,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
     {
         return match ($primaryCause) {
             self::CAUSE_SCOPE_FAILURE           => 'fix_scope_in_originator',
+            self::CAUSE_QUARANTINED             => 'avoid_pattern_in_next_batch',
             self::CAUSE_POOR_SPEC               => 'improve_spec_quality',
             self::CAUSE_POISONED_ACCEPTANCE     => 'resolve_contradictory_acceptance',
             self::CAUSE_AMBIGUOUS_CONTRACT      => 'clarify_acceptance_criteria',

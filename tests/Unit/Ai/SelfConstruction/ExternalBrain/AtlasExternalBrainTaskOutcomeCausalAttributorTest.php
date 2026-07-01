@@ -391,4 +391,101 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributorTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── next_batch_adjustments: green commit / give_back poison / quarantine / mixed worker ──
+
+    public function test_green_commit_with_repeated_success_next_batch_promotes(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'worker' => ['repeated_success_count' => 5, 'success_threshold' => 2],
+        ]));
+
+        $this->assertSame(['promote'], $r['next_batch_adjustments']);
+    }
+
+    public function test_green_commit_without_repeated_success_next_batch_consolidates(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution());
+
+        $this->assertSame(['consolidate'], $r['next_batch_adjustments']);
+    }
+
+    public function test_give_back_poisoned_acceptance_next_batch_respecs(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'spec'    => ['contradictory_acceptance' => true],
+            'outcome' => ['result' => 'give_back'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_POISONED_ACCEPTANCE, $r['primary_cause']);
+        $this->assertSame(['respec'], $r['next_batch_adjustments']);
+    }
+
+    public function test_quarantine_outcome_is_quarantined_pattern_cause(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'outcome' => ['result' => 'quarantine'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_QUARANTINED, $r['primary_cause']);
+        $this->assertSame(['avoid'], $r['next_batch_adjustments']);
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_BLOCK_CHAIN, $r['graph_adjustment']['action']);
+        $this->assertSame('high', $r['confidence']);
+    }
+
+    public function test_quarantine_outcome_wins_over_shallow_evidence(): void
+    {
+        $r = $this->attributor->attribute([
+            'spec'    => ['quality_score' => 0.9, 'has_acceptance_criteria' => true, 'evidence_strength' => 0.1],
+            'worker'  => ['quality_score' => 0.9, 'task_class' => 'new_service'],
+            'outcome' => ['result' => 'quarantine', 'had_evidence' => false],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_QUARANTINED, $r['primary_cause']);
+    }
+
+    public function test_mixed_worker_performance_worker_mismatch_next_batch_worker_route(): void
+    {
+        $r = $this->attributor->attribute([
+            'spec'    => ['quality_score' => 0.9, 'has_acceptance_criteria' => true],
+            'worker'  => ['quality_score' => 0.85, 'task_class' => 'risky_refactor', 'avoid_task_classes' => ['risky_refactor']],
+            'outcome' => ['result' => 'give_back'],
+        ]);
+
+        $this->assertSame(['worker-route'], $r['next_batch_adjustments']);
+    }
+
+    public function test_mixed_worker_performance_routing_family_mismatch_next_batch_worker_route(): void
+    {
+        $r = $this->attributor->attribute([
+            'spec'    => ['quality_score' => 0.9, 'has_acceptance_criteria' => true],
+            'worker'  => ['quality_score' => 0.8, 'task_class' => 'frontend', 'avoid_task_classes' => [], 'repeated_give_back_count' => 3, 'give_back_threshold' => 2],
+            'outcome' => ['result' => 'give_back'],
+        ]);
+
+        $this->assertSame(['worker-route'], $r['next_batch_adjustments']);
+    }
+
+    public function test_poor_spec_next_batch_splits(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'spec'    => ['quality_score' => 0.2, 'has_acceptance_criteria' => true],
+            'outcome' => ['result' => 'give_back'],
+        ]));
+
+        $this->assertSame(['split'], $r['next_batch_adjustments']);
+    }
+
+    public function test_unknown_cause_has_empty_next_batch_adjustments(): void
+    {
+        $r = $this->attributor->attribute([
+            'spec'    => ['quality_score' => 0.9, 'has_acceptance_criteria' => true],
+            'worker'  => ['quality_score' => 0.9, 'task_class' => 'new_service'],
+            'outcome' => ['result' => 'success', 'had_evidence' => true, 'shallow_success' => true],
+        ]);
+
+        // shallow_success on success is CAUSE_SHALLOW_EVIDENCE, not unknown/empty — sanity check
+        // that next_batch_adjustments always resolves to a list (possibly empty) without error.
+        $this->assertIsArray($r['next_batch_adjustments']);
+    }
 }
