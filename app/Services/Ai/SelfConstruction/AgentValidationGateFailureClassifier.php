@@ -179,7 +179,9 @@ final class AgentValidationGateFailureClassifier
 
             $supplyImpact = $blocksSupply ? self::SUPPLY_IMPACT_BLOCKER : self::SUPPLY_IMPACT_ISOLATED;
             if ($blocksSupply && ! in_array($severity, ['high', 'critical'], true)) {
-                $severity = $this->bumpSeverity($severity);
+                // Supply-blocking gates always read as at least "high": a queue admission
+                // blocker is never merely "medium", regardless of how low it started.
+                $severity = 'high';
             }
         }
 
