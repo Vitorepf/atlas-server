@@ -147,6 +147,48 @@ final class AtlasMaestroOutcomePatternMiner
     }
 
     /**
+     * Return negative patterns — dimension/bucket pairs at or above MIN_SUPPORT where
+     * give_back + rejected + stale outnumber delivered. Sorted by failure_rate DESC,
+     * then support DESC, so the brain can avoid the most-proven-bad task shapes first.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function negativePatterns(): array
+    {
+        $patterns = [];
+
+        foreach ($this->mine() as $dimension => $buckets) {
+            foreach ($buckets as $bucket => $entry) {
+                if ((bool) $entry['insufficient_support']) {
+                    continue;
+                }
+                $failureCount = (int) $entry['give_back'] + (int) $entry['rejected'] + (int) $entry['stale'];
+                if ($failureCount <= (int) $entry['delivered']) {
+                    continue;
+                }
+                $patterns[] = [
+                    'dimension'     => $dimension,
+                    'bucket'        => $bucket,
+                    'failure_rate'  => (float) ($failureCount / (int) $entry['total']),
+                    'support'       => (int) $entry['total'],
+                    'give_back'     => (int) $entry['give_back'],
+                    'rejected'      => (int) $entry['rejected'],
+                    'stale'         => (int) $entry['stale'],
+                    'delivered'     => (int) $entry['delivered'],
+                ];
+            }
+        }
+
+        usort($patterns, static function (array $a, array $b): int {
+            $r = $b['failure_rate'] <=> $a['failure_rate'];
+
+            return $r !== 0 ? $r : $b['support'] <=> $a['support'];
+        });
+
+        return $patterns;
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function emptyBucket(string $dimension, string $bucket): array

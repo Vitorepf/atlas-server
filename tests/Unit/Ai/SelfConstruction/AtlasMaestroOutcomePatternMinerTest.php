@@ -221,6 +221,69 @@ final class AtlasMaestroOutcomePatternMinerTest extends TestCase
         ];
     }
 
+    /**
+     * @param  list<string>  $outcomes
+     */
+    private function writeRawRows(string $fileFamily, array $outcomes): void
+    {
+        $schema = AtlasMaestroOutcomeShapeLedger::SCHEMA;
+        foreach ($outcomes as $i => $outcome) {
+            file_put_contents($this->path, json_encode([
+                'schema' => $schema, 'task_packet_id' => $fileFamily.'-'.$i,
+                'origin_kind' => 'orphan', 'allowed_files_count' => 2,
+                'scope_in_size' => 2, 'acceptance_criteria_count' => 3,
+                'required_evidence_count' => 1, 'has_tests_path' => true,
+                'wave_bucket' => 'w0', 'file_family' => $fileFamily,
+                'task_shape' => 'bug-fix', 'worker_id' => 'claude-muscle-2',
+                'proof_command_class' => 'artisan-test', 'outcome' => $outcome,
+            ])."\n", FILE_APPEND);
+        }
+    }
+
+    public function test_negative_patterns_returns_buckets_where_failures_dominate_delivered_at_min_support(): void
+    {
+        $this->writeRawRows('BadFamily', ['give_back', 'give_back', 'give_back', 'give_back', 'give_back', 'rejected', 'stale', 'delivered']);
+
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        $patterns = (new AtlasMaestroOutcomePatternMiner($ledger))->negativePatterns();
+
+        $match = array_values(array_filter($patterns, static fn (array $p): bool => $p['dimension'] === 'file_family' && $p['bucket'] === 'BadFamily'));
+        $this->assertNotEmpty($match);
+        $this->assertSame(8, $match[0]['support']);
+        $this->assertSame(1, $match[0]['delivered']);
+        $this->assertGreaterThan(0.5, $match[0]['failure_rate']);
+        $this->assertNoCompositeScore($patterns);
+    }
+
+    public function test_negative_patterns_excludes_insufficient_support_even_with_high_failure_rate(): void
+    {
+        $this->writeRawRows('TinyBadFamily', ['give_back', 'rejected']);
+
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        $patterns = (new AtlasMaestroOutcomePatternMiner($ledger))->negativePatterns();
+
+        $match = array_values(array_filter($patterns, static fn (array $p): bool => $p['bucket'] === 'TinyBadFamily'));
+        $this->assertEmpty($match);
+    }
+
+    public function test_strategy_patterns_for_delivered_successes_remains_unchanged_alongside_negative_patterns(): void
+    {
+        $this->writeRawRows('GoodFamily', array_fill(0, 8, 'delivered'));
+        $this->writeRawRows('BadFamily2', array_fill(0, 8, 'give_back'));
+
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        $miner = new AtlasMaestroOutcomePatternMiner($ledger);
+        $strategyPatterns = $miner->strategyPatterns();
+        $negativePatterns = $miner->negativePatterns();
+
+        $goodStrategy = array_values(array_filter($strategyPatterns, static fn (array $p): bool => $p['bucket'] === 'GoodFamily'));
+        $this->assertNotEmpty($goodStrategy);
+        $this->assertSame(8, $goodStrategy[0]['delivered']);
+
+        $badNegative = array_values(array_filter($negativePatterns, static fn (array $p): bool => $p['bucket'] === 'BadFamily2'));
+        $this->assertNotEmpty($badNegative);
+    }
+
     private function assertNoCompositeScore(mixed $value): void
     {
         if (! is_array($value)) {
