@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAdaptiveBatchSizeGovernor;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmbitionBudgetGovernor;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainQueuePressureGovernor;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainWorkerDrainRateForecaster;
 use Illuminate\Console\Command;
@@ -44,6 +45,11 @@ final class AtlasExternalBrainQueuePressureCommand extends Command
         {--high-priority-gap-count=0 : Count of high-priority gaps needing fill}
         {--claimable-per-active-worker= : Claimable depth per active worker}
         {--malformed-count=0 : Malformed packet count}
+        {--queue-health=1.0 : Queue health ratio 0..1 (fed to the ambition budget governor)}
+        {--stale-backlog-ratio=0 : Stale backlog ratio 0..1}
+        {--structural-leverage=0 : Structural leverage score 0..1}
+        {--backlog-pressure=0 : Backlog pressure ratio 0..1}
+        {--ambition-budget-total=100 : Total ambition budget for this cycle}
         {--json : Emit JSON output (always on)}';
 
     /** @var string */
@@ -54,6 +60,7 @@ final class AtlasExternalBrainQueuePressureCommand extends Command
         $forecaster = new AtlasExternalBrainWorkerDrainRateForecaster;
         $batchGovernor = new AtlasExternalBrainAdaptiveBatchSizeGovernor;
         $pressureGovernor = new AtlasExternalBrainQueuePressureGovernor;
+        $ambitionBudgetGovernor = new AtlasExternalBrainAmbitionBudgetGovernor;
 
         $activeLeases = (int) $this->option('active-leases');
         $queueDepth = (int) $this->option('queue-depth');
@@ -86,11 +93,20 @@ final class AtlasExternalBrainQueuePressureCommand extends Command
                 : null,
         ]);
 
+        $ambitionBudget = $ambitionBudgetGovernor->governQueueAmbition([
+            'queue_health' => (float) $this->option('queue-health'),
+            'stale_backlog_ratio' => (float) $this->option('stale-backlog-ratio'),
+            'structural_leverage' => (float) $this->option('structural-leverage'),
+            'backlog_pressure' => (float) $this->option('backlog-pressure'),
+            'budget_total' => (int) $this->option('ambition-budget-total'),
+        ]);
+
         $payload = [
             'schema' => self::SCHEMA,
             'drain_forecast' => $drainForecast,
             'adaptive_batch' => $adaptiveBatch,
             'worker_floor' => $workerFloor,
+            'ambition_budget' => $ambitionBudget,
             // Worker-floor pressure and the drain-informed adaptive batch both feed the final
             // recommendation; a starvation signal from either organ wins over a habitual batch.
             'recommended_batch_size' => $workerFloor['action'] === AtlasExternalBrainQueuePressureGovernor::ACTION_REQUEST_BOUNDED_BATCH
