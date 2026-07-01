@@ -174,4 +174,54 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilderTest extends TestCase
         $this->assertNull($e['provider_prompt']);
         $this->assertSame(AtlasNativeWorkerExecutionEnvelopeBuilder::RUNTIME_OWNER, $e['runtime_owner']);
     }
+
+    // ── AC: task id, allowed_files hash, command boundary, proof fields ────────
+
+    public function test_envelope_includes_task_id_allowed_files_hash_command_boundary_and_proof_fields(): void
+    {
+        $p = $this->validPacket();
+        $p['task_id'] = 'pkt-42';
+        $e = (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+
+        $this->assertSame('pkt-42', $e['task_id']);
+        $this->assertSame(64, strlen($e['allowed_files_hash']));
+        $this->assertSame(['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'], $e['command_boundary']);
+        $this->assertSame(['tests_or_gates_result', 'implementation_notes'], $e['proof_fields']);
+    }
+
+    public function test_allowed_files_hash_is_deterministic_for_same_allowed_files(): void
+    {
+        $b = new AtlasNativeWorkerExecutionEnvelopeBuilder;
+        $a = $b->build($this->validPacket())['allowed_files_hash'];
+        $c = $b->build($this->validPacket())['allowed_files_hash'];
+
+        $this->assertSame($a, $c);
+    }
+
+    public function test_command_boundary_excludes_non_artisan_gates(): void
+    {
+        $p = $this->validPacket();
+        $p['gates'] = ['static_analysis', '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'];
+        $e = (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+
+        $this->assertNotContains('static_analysis', $e['command_boundary']);
+        $this->assertContains('/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php', $e['command_boundary']);
+    }
+
+    public function test_missing_task_id_defaults_to_empty_string_not_a_crash(): void
+    {
+        $e = (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($this->validPacket());
+
+        $this->assertSame('', $e['task_id']);
+    }
+
+    public function test_rollback_plan_omits_provider_unsafe_fields(): void
+    {
+        $p = $this->validPacket();
+        $p['rollback_plan'] = ['mode' => 'revert_commit', 'api_key' => 'sk-live-abc123'];
+        $e = (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+
+        $this->assertArrayNotHasKey('api_key', $e['rollback_plan']);
+        $this->assertSame('revert_commit', $e['rollback_plan']['mode']);
+    }
 }

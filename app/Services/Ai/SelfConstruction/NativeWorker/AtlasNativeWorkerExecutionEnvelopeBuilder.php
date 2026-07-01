@@ -28,6 +28,9 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilder
 
     public const SIMPLICITY_CONTRACT_NATIVE = 'atlas_native';
 
+    /** Key-name substrings (case-insensitive) that mark a rollback_plan/evidence_template field as provider-unsafe. */
+    private const SENSITIVE_KEY_MARKERS = ['secret', 'token', 'api_key', 'apikey', 'credential', 'password', 'bearer', 'auth_key'];
+
     /**
      * @param  array<string,mixed>  $packet
      * @return array{schema:string, runtime_owner:string, execution_topology:string, provider_prompt:null, objective:string, allowed_files:list<string>, scope_in:list<string>, acceptance_criteria:list<string>, required_evidence:list<string>, gates:list<string>, rollback_plan:array<string,mixed>, evidence_template:array<string,mixed>, envelope_hash:string}
@@ -70,24 +73,55 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilder
             throw new RuntimeException('execution envelope fail-closed: non Atlas-native simplicity_contract: '.$simplicity);
         }
 
+        $commandBoundary = array_values(array_unique(array_filter(
+            array_merge($acceptance, $this->normalizeStringList($packet['gates'] ?? null)),
+            static fn (string $c): bool => str_contains($c, '/opt/homebrew/bin/php artisan'),
+        )));
+
         $envelope = [
             'schema' => self::SCHEMA,
             'runtime_owner' => self::RUNTIME_OWNER,
             'execution_topology' => self::EXECUTION_TOPOLOGY,
             'provider_prompt' => null,
+            'task_id' => trim((string) ($packet['task_id'] ?? '')),
             'objective' => trim((string) ($packet['objective'] ?? '')),
             'allowed_files' => $allowedFiles,
+            'allowed_files_hash' => hash('sha256', (string) json_encode($allowedFiles, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
             'scope_in' => $this->normalizeStringList($packet['scope_in'] ?? null) ?: $allowedFiles,
             'acceptance_criteria' => $acceptance,
             'required_evidence' => $requiredEvidence,
             'gates' => $this->normalizeStringList($packet['gates'] ?? null),
-            'rollback_plan' => is_array($packet['rollback_plan'] ?? null) ? $packet['rollback_plan'] : ['mode' => 'revert_commit'],
-            'evidence_template' => is_array($packet['evidence_template'] ?? null) ? $packet['evidence_template'] : array_fill_keys($requiredEvidence, null),
+            'command_boundary' => $commandBoundary,
+            'rollback_plan' => $this->redactSensitive(is_array($packet['rollback_plan'] ?? null) ? $packet['rollback_plan'] : ['mode' => 'revert_commit']),
+            'evidence_template' => $this->redactSensitive(is_array($packet['evidence_template'] ?? null) ? $packet['evidence_template'] : array_fill_keys($requiredEvidence, null)),
+            'proof_fields' => $requiredEvidence,
         ];
 
         $envelope['envelope_hash'] = $this->hash($envelope);
 
         return $envelope;
+    }
+
+    /**
+     * @param  array<string,mixed>  $value
+     * @return array<string,mixed>
+     */
+    private function redactSensitive(array $value): array
+    {
+        $out = [];
+        foreach ($value as $k => $v) {
+            if (is_string($k)) {
+                $lower = strtolower($k);
+                foreach (self::SENSITIVE_KEY_MARKERS as $marker) {
+                    if (str_contains($lower, $marker)) {
+                        continue 2;
+                    }
+                }
+            }
+            $out[$k] = is_array($v) ? $this->redactSensitive($v) : $v;
+        }
+
+        return $out;
     }
 
     /**
