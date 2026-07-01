@@ -23,7 +23,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   { task_family, forecast_error:float[0..1], confidence_adjustment:float[-1..1],
  *     repeated_overclaim_flags:list<string>, next_ranking_hint:string(up|down|hold) }
  *
- * Top-level: schema, calibrations, repeated_overclaim_flags (cross-family summary)
+ * Top-level: schema, calibrations, repeated_overclaim_flags (cross-family summary),
+ * source_calibrations, repeated_overclaim_sources (the same computation grouped by an optional
+ * `source` field on each forecast/outcome — e.g. which forecaster/model produced the prediction —
+ * so repeated overclaim can be traced to a SOURCE, not only a task family). Forecasts/outcomes
+ * without a `source` field are simply excluded from source_calibrations; every existing caller that
+ * never supplies `source` gets an empty source_calibrations/repeated_overclaim_sources, so this is
+ * fully additive.
  *
  * PURE / DETERMINISTIC. No I/O.
  */
@@ -65,23 +71,46 @@ final class AtlasExternalBrainImpactForecastCalibrator
      */
     public function calibrate(array $forecasts, array $outcomes): array
     {
-        $forecastsByFamily = $this->groupBy('task_family', $forecasts);
-        $outcomesByFamily  = $this->groupBy('task_family', $outcomes);
+        [$calibrations, $repeatedOverclaimFlags] = $this->buildCalibrations('task_family', $forecasts, $outcomes);
+        [$sourceCalibrations, $repeatedOverclaimSources] = $this->buildCalibrations('source', $forecasts, $outcomes);
 
-        $allFamilies = array_unique(array_merge(array_keys($forecastsByFamily), array_keys($outcomesByFamily)));
-        sort($allFamilies, SORT_STRING);
+        return [
+            'schema'                     => self::SCHEMA,
+            'calibrations'               => $calibrations,
+            'repeated_overclaim_flags'   => $repeatedOverclaimFlags,
+            'source_calibrations'        => $sourceCalibrations,
+            'repeated_overclaim_sources' => $repeatedOverclaimSources,
+        ];
+    }
+
+    /**
+     * Builds one calibration record per distinct value of $groupKey (e.g. 'task_family' or
+     * 'source') present on the forecasts/outcomes. Identical computation regardless of which
+     * field is grouped on — only the grouping key and the entry's identifying field name change.
+     *
+     * @param  list<array<string,mixed>>  $forecasts
+     * @param  list<array<string,mixed>>  $outcomes
+     * @return array{0:list<array<string,mixed>>, 1:list<string>}
+     */
+    private function buildCalibrations(string $groupKey, array $forecasts, array $outcomes): array
+    {
+        $forecastsByGroup = $this->groupBy($groupKey, $forecasts);
+        $outcomesByGroup  = $this->groupBy($groupKey, $outcomes);
+
+        $allGroups = array_unique(array_merge(array_keys($forecastsByGroup), array_keys($outcomesByGroup)));
+        sort($allGroups, SORT_STRING);
 
         $calibrations           = [];
         $repeatedOverclaimFlags = [];
 
-        foreach ($allFamilies as $family) {
-            $familyForecasts = $forecastsByFamily[$family] ?? [];
-            $familyOutcomes  = $outcomesByFamily[$family] ?? [];
+        foreach ($allGroups as $group) {
+            $groupForecasts = $forecastsByGroup[$group] ?? [];
+            $groupOutcomes  = $outcomesByGroup[$group] ?? [];
 
-            $predictedScore = $this->averagePredictedScore($familyForecasts);
-            $actualScore    = $this->averageActualScore($familyOutcomes);
+            $predictedScore = $this->averagePredictedScore($groupForecasts);
+            $actualScore    = $this->averageActualScore($groupOutcomes);
 
-            $sampleSize          = max(count($familyForecasts), count($familyOutcomes));
+            $sampleSize          = max(count($groupForecasts), count($groupOutcomes));
             $hasEnoughEvidence   = $sampleSize >= self::SAMPLE_SIZE_FLOOR;
             $adjustmentStatus    = $hasEnoughEvidence ? self::ADJUSTMENT_STATUS_SUFFICIENT : self::ADJUSTMENT_STATUS_INSUFFICIENT;
             // Confidence band shrinks as evidence accumulates (never reaches 0, never exceeds 1).
@@ -92,21 +121,21 @@ final class AtlasExternalBrainImpactForecastCalibrator
             // AC2: below the sample-size floor, a single lucky/unlucky outcome must never
             // produce an aggressive up/down ranking hint — hold until more evidence arrives.
             $nextRankingHint     = $hasEnoughEvidence ? $this->rankingHint($actualScore, $predictedScore) : 'hold';
-            $familyOverclaimFlags = $this->familyOverclaimFlags($family, $familyForecasts, $familyOutcomes);
+            $groupOverclaimFlags = $this->familyOverclaimFlags($group, $groupForecasts, $groupOutcomes);
 
-            if ($familyOverclaimFlags !== []) {
-                $repeatedOverclaimFlags = array_merge($repeatedOverclaimFlags, $familyOverclaimFlags);
+            if ($groupOverclaimFlags !== []) {
+                $repeatedOverclaimFlags = array_merge($repeatedOverclaimFlags, $groupOverclaimFlags);
             }
 
             [$overclaim, $underclaim, $multiplier] = $this->perFamilyRates(
-                $familyForecasts,
-                $familyOutcomes,
+                $groupForecasts,
+                $groupOutcomes,
             );
 
-            $nextBatchConstraints = $this->nextBatchConstraints($overclaim, $multiplier, $nextRankingHint, $familyOverclaimFlags);
+            $nextBatchConstraints = $this->nextBatchConstraints($overclaim, $multiplier, $nextRankingHint, $groupOverclaimFlags);
 
             $calibrations[] = [
-                'task_family'              => $family,
+                $groupKey                  => $group,
                 'sample_size'              => $sampleSize,
                 'confidence_band'          => $confidenceBand,
                 'adjustment_status'        => $adjustmentStatus,
@@ -116,7 +145,7 @@ final class AtlasExternalBrainImpactForecastCalibrator
                 'overclaim_rate'           => $overclaim,
                 'underclaim_rate'          => $underclaim,
                 'next_forecast_multiplier' => $multiplier,
-                'repeated_overclaim_flags' => $familyOverclaimFlags,
+                'repeated_overclaim_flags' => $groupOverclaimFlags,
                 'next_ranking_hint'        => $nextRankingHint,
                 'next_batch_constraints'   => $nextBatchConstraints,
             ];
@@ -125,11 +154,7 @@ final class AtlasExternalBrainImpactForecastCalibrator
         sort($repeatedOverclaimFlags, SORT_STRING);
         $repeatedOverclaimFlags = array_values(array_unique($repeatedOverclaimFlags));
 
-        return [
-            'schema'                  => self::SCHEMA,
-            'calibrations'            => $calibrations,
-            'repeated_overclaim_flags' => $repeatedOverclaimFlags,
-        ];
+        return [$calibrations, $repeatedOverclaimFlags];
     }
 
     /**

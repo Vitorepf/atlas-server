@@ -559,6 +559,84 @@ final class AtlasExternalBrainImpactForecastCalibratorTest extends TestCase
         $this->assertContains('eligible_for_increased_batch_size', $cal['next_batch_constraints']);
     }
 
+    // ── AC3: per-source calibration (repeated overclaim traced to a source) ──
+
+    public function test_schema_includes_source_calibration_keys(): void
+    {
+        $result = $this->calibrator()->calibrate([], []);
+
+        $this->assertArrayHasKey('source_calibrations', $result);
+        $this->assertArrayHasKey('repeated_overclaim_sources', $result);
+        $this->assertSame([], $result['source_calibrations']);
+        $this->assertSame([], $result['repeated_overclaim_sources']);
+    }
+
+    public function test_forecasts_without_source_field_produce_no_source_calibrations(): void
+    {
+        $result = $this->calibrator()->calibrate(
+            [['task_family' => 'gate', 'predicted_leverage' => 'high']],
+            [['task_family' => 'gate', 'actual_outcome' => 'delivered', 'capability_delta' => 'high']],
+        );
+
+        $this->assertSame([], $result['source_calibrations']);
+    }
+
+    public function test_repeated_overclaiming_source_is_flagged_and_penalized(): void
+    {
+        $forecasts = [
+            ['task_family' => 'a', 'source' => 'model-x', 'predicted_leverage' => 'high'],
+            ['task_family' => 'b', 'source' => 'model-x', 'predicted_leverage' => 'high'],
+        ];
+        $outcomes = [
+            ['task_family' => 'a', 'source' => 'model-x', 'actual_outcome' => 'give_back'],
+            ['task_family' => 'b', 'source' => 'model-x', 'actual_outcome' => 'give_back'],
+        ];
+
+        $result = $this->calibrator()->calibrate($forecasts, $outcomes);
+
+        $this->assertCount(1, $result['source_calibrations']);
+        $sourceCal = $result['source_calibrations'][0];
+        $this->assertSame('model-x', $sourceCal['source']);
+        $this->assertLessThan(1.0, $sourceCal['next_forecast_multiplier']);
+        $this->assertNotEmpty($result['repeated_overclaim_sources']);
+        $this->assertStringContainsString('repeated_overclaim:model-x', $result['repeated_overclaim_sources'][0]);
+    }
+
+    public function test_accurate_source_does_not_appear_in_repeated_overclaim_sources(): void
+    {
+        $forecasts = [
+            ['task_family' => 'a', 'source' => 'model-y', 'predicted_leverage' => 'medium'],
+            ['task_family' => 'b', 'source' => 'model-y', 'predicted_leverage' => 'medium'],
+        ];
+        $outcomes = [
+            ['task_family' => 'a', 'source' => 'model-y', 'actual_outcome' => 'delivered', 'capability_delta' => 'medium'],
+            ['task_family' => 'b', 'source' => 'model-y', 'actual_outcome' => 'delivered', 'capability_delta' => 'medium'],
+        ];
+
+        $result = $this->calibrator()->calibrate($forecasts, $outcomes);
+
+        $this->assertSame([], $result['repeated_overclaim_sources']);
+    }
+
+    public function test_multiple_sources_produce_separate_source_calibration_records(): void
+    {
+        $forecasts = [
+            ['task_family' => 'a', 'source' => 'model-x', 'predicted_leverage' => 'high'],
+            ['task_family' => 'a', 'source' => 'model-y', 'predicted_leverage' => 'low'],
+        ];
+        $outcomes = [
+            ['task_family' => 'a', 'source' => 'model-x', 'actual_outcome' => 'delivered', 'capability_delta' => 'high'],
+            ['task_family' => 'a', 'source' => 'model-y', 'actual_outcome' => 'delivered', 'capability_delta' => 'high'],
+        ];
+
+        $result = $this->calibrator()->calibrate($forecasts, $outcomes);
+
+        $this->assertCount(2, $result['source_calibrations']);
+        $sources = array_column($result['source_calibrations'], 'source');
+        $this->assertContains('model-x', $sources);
+        $this->assertContains('model-y', $sources);
+    }
+
     public function test_accurate_family_has_no_constraint(): void
     {
         $result = $this->calibrator()->calibrate(
