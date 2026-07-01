@@ -43,6 +43,7 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
     private const SECTION_ACCEPTANCE_FLOOR = 'acceptance_floor';
     private const SECTION_BUDGET_GUARD     = 'budget_guard';
     private const SECTION_NO_WAIT_POLICY   = 'no_wait_policy';
+    private const SECTION_NO_COMFORTABLE_QUEUE_STOP = 'no_comfortable_queue_stop';
     private const SECTION_OUTPUT_CONTRACT  = 'output_contract';
 
     private const REQUIRED_ARTIFACTS = [
@@ -94,6 +95,7 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
             ['section' => self::SECTION_ACCEPTANCE_FLOOR, 'content' => $this->renderAcceptanceFloor()],
             ['section' => self::SECTION_BUDGET_GUARD,     'content' => $this->renderBudgetGuard($budgetChars)],
             ['section' => self::SECTION_NO_WAIT_POLICY,   'content' => $this->renderNoWaitPolicy()],
+            ['section' => self::SECTION_NO_COMFORTABLE_QUEUE_STOP, 'content' => $this->renderNoComfortableQueueStop()],
             ['section' => self::SECTION_OUTPUT_CONTRACT,  'content' => $this->renderOutputContract($requiredArtifacts)],
         ];
 
@@ -269,6 +271,16 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
             '- The only valid stop condition is "no valuable task exists" — a claim you must prove, not assume.',
             '- If unexplored surfaces remain, either produce a candidate batch or a structured exhausted_surface_proof.',
             '- Queue depth measures throughput capacity, not the existence of remaining value; do not conflate the two.',
+        ]);
+    }
+
+    private function renderNoComfortableQueueStop(): string
+    {
+        return implode("\n", [
+            '[NO COMFORTABLE QUEUE STOP — read before deciding whether to stop originating]',
+            '- Healthy or sufficient queue depth changes batch sizing (how many tasks to originate now), but it does NOT permit stopping.',
+            '- A comfortable queue is never itself a stop condition; it must pivot the search to deeper leverage, not end it.',
+            '- Continue searching for the highest-leverage gap even when the queue looks well-stocked.',
         ]);
     }
 

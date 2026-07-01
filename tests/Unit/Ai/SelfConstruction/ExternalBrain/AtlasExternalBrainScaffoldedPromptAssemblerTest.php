@@ -71,6 +71,7 @@ final class AtlasExternalBrainScaffoldedPromptAssemblerTest extends TestCase
             'acceptance_floor',
             'budget_guard',
             'no_wait_policy',
+            'no_comfortable_queue_stop',
             'output_contract',
         ], $sectionNames);
     }
@@ -339,6 +340,36 @@ final class AtlasExternalBrainScaffoldedPromptAssemblerTest extends TestCase
         $result = $this->assembler->assemble($this->validInput());
 
         $this->assertNotContains('candidate_batch_or_exhausted_surface_proof', $result['required_artifacts']);
+    }
+
+    public function test_no_comfortable_queue_stop_section_present(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+        $section = $this->findSection($result, 'no_comfortable_queue_stop');
+
+        $this->assertNotEmpty($section['content']);
+    }
+
+    public function test_no_comfortable_queue_stop_section_says_healthy_depth_changes_sizing_not_stop(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+        $section = $this->findSection($result, 'no_comfortable_queue_stop');
+
+        $this->assertStringContainsString('batch sizing', $section['content']);
+        $this->assertStringContainsString('does NOT permit stopping', $section['content']);
+    }
+
+    public function test_fail_closed_behavior_for_missing_evidence_intake_or_queued_targets_unchanged(): void
+    {
+        $missingEvidence = $this->assembler->assemble($this->validInput(['evidence_intake' => []]));
+        $this->assertFalse($missingEvidence['assembled']);
+        $this->assertStringContainsString('evidence_intake_empty', $missingEvidence['failure_reason']);
+
+        $input = $this->validInput();
+        unset($input['queued_targets']);
+        $result = $this->assembler->assemble($input);
+        $this->assertFalse($result['assembled']);
+        $this->assertStringContainsString('queued_target_dedup_missing', $result['failure_reason']);
     }
 
     // ── helper ────────────────────────────────────────────────────────────────
