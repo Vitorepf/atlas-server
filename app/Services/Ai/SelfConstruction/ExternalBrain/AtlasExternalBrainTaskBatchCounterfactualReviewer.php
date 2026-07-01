@@ -73,16 +73,39 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
         }
 
         $opportunityCost = round(max(0.0, $counterEval['score'] - $proposedEval['score']), 2);
+        $chainValueDelta = round($proposedEval['chain_value'] - $counterEval['chain_value'], 2);
+
+        $opportunityCostBreakdown = [
+            'score_gap' => $opportunityCost,
+            'chain_value_gap' => round(max(0.0, $counterEval['chain_value'] - $proposedEval['chain_value']), 2),
+            'high_leverage_gap' => max(0, $counterEval['high_leverage'] - $proposedEval['high_leverage']),
+        ];
+
+        // Discarded high-value risk: the proposed batch is being kept/shrunk/split while the
+        // counterfactual actually carried more downstream unlock value or high-leverage work —
+        // name that explicitly so it never disappears silently just because score won on paper.
+        $discardedHighValueRisks = [];
+        if ($decision !== self::DECISION_REPLACE) {
+            if ($counterEval['chain_value'] > $proposedEval['chain_value']) {
+                $discardedHighValueRisks[] = 'counterfactual_had_higher_dependency_chain_unlock_value';
+            }
+            if ($counterEval['high_leverage'] > $proposedEval['high_leverage']) {
+                $discardedHighValueRisks[] = 'counterfactual_had_more_high_leverage_tasks';
+            }
+        }
 
         return [
-            'schema'                   => self::SCHEMA,
-            'proposed_score'           => $proposedEval['score'],
-            'counterfactual_score'     => $counterEval['score'],
-            'decision'                 => $decision,
-            'evidence'                 => $evidence,
-            'risks'                    => $risks,
-            'opportunity_cost'         => $opportunityCost,
-            'recommended_batch_delta'  => $this->recommendedBatchDelta($decision, $proposedEval),
+            'schema'                     => self::SCHEMA,
+            'proposed_score'             => $proposedEval['score'],
+            'counterfactual_score'       => $counterEval['score'],
+            'decision'                   => $decision,
+            'evidence'                   => $evidence,
+            'risks'                      => $risks,
+            'opportunity_cost'           => $opportunityCost,
+            'opportunity_cost_breakdown' => $opportunityCostBreakdown,
+            'chain_value_delta'          => $chainValueDelta,
+            'discarded_high_value_risks' => $discardedHighValueRisks,
+            'recommended_batch_delta'    => $this->recommendedBatchDelta($decision, $proposedEval),
         ];
     }
 

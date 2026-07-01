@@ -168,4 +168,32 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewerTest extends TestCa
         $this->assertGreaterThan(count($proposed), count($counterfactual));
         $this->assertGreaterThanOrEqual($r['counterfactual_score'], $r['proposed_score']);
     }
+
+    public function test_output_includes_new_ac1_fields(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+        $r = $reviewer->review([
+            ['objective' => 'X', 'type' => 'feature', 'leverage' => 'high'],
+        ]);
+
+        $this->assertArrayHasKey('chain_value_delta', $r);
+        $this->assertArrayHasKey('opportunity_cost_breakdown', $r);
+        $this->assertArrayHasKey('discarded_high_value_risks', $r);
+        $this->assertArrayHasKey('recommended_batch_delta', $r);
+    }
+
+    public function test_chain_value_delta_is_positive_when_proposed_carries_more_downstream_unlock_value(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+        $proposed = [
+            ['objective' => 'A', 'type' => 'feature', 'leverage' => 'high', 'dependency_chain_unlock_value' => 2.0],
+        ];
+        $counterfactual = [
+            ['objective' => 'B', 'type' => 'feature', 'leverage' => 'low'],
+        ];
+
+        $r = $reviewer->review($proposed, $counterfactual);
+
+        $this->assertGreaterThan(0.0, $r['chain_value_delta']);
+    }
 }
