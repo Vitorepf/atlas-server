@@ -298,10 +298,11 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
 
     public function test_entry_below_minimum_adoption_score_is_rejected(): void
     {
-        // no trusted prefix → -0.20; vague hypothesis (<30 chars) → -0.25; no files hint → -0.15 = 0.40
+        // trusted provenance (passes the hard gate) but vague hypothesis (<30 chars,
+        // -0.25) and no files hint (-0.15) = 0.60 — not enough alone, add hype too.
         $r = $this->planner->toTaskOpportunity([
-            'provenance'                  => 'some-old-source-without-prefix',
-            'comparison_summary'          => 'A is better than B',
+            'provenance'                  => 'github:example/repo',
+            'comparison_summary'          => 'this is a game changer for A vs B',
             'atlas_adaptation_hypothesis' => 'use it',
         ]);
 
@@ -309,6 +310,20 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
         $this->assertSame('below_minimum_adoption_score', $r['rejection_reason']);
         $this->assertNull($r['draft']);
         $this->assertLessThan(0.50, $r['adoption_score']);
+    }
+
+    public function test_untrusted_provenance_is_hard_rejected_even_with_strong_text_fields(): void
+    {
+        $r = $this->planner->toTaskOpportunity([
+            'provenance'                  => 'some-old-source-without-prefix',
+            'comparison_summary'          => 'A is better than B based on production data across three teams',
+            'atlas_adaptation_hypothesis' => 'Replace the internal cache eviction policy with this LRU variant, wiring it through AtlasCacheAligner',
+            'allowed_files_hint'          => ['app/Services/Ai/SomeFile.php'],
+        ]);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertSame('untrusted_provenance_prefix', $r['rejection_reason']);
+        $this->assertNull($r['draft']);
     }
 
     public function test_adoption_score_is_deterministic(): void
@@ -322,21 +337,17 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
 
     // ── AC2: score explanations for each penalty ──────────────────────────────
 
-    public function test_stale_provenance_lowers_score(): void
+    public function test_untrusted_provenance_is_hard_rejected_not_merely_score_penalised(): void
     {
-        $trusted = $this->planner->toTaskOpportunity($this->acceptedEntry());
-        $stale   = $this->planner->toTaskOpportunity($this->acceptedEntry([
+        // Untrusted provenance is now a hard gate (see test_untrusted_provenance_is_hard_rejected_...
+        // above) — it never reaches the scoring/draft stage, so no draft/score is produced.
+        $stale = $this->planner->toTaskOpportunity($this->acceptedEntry([
             'provenance' => 'some-old-book-without-prefix',
         ]));
 
-        $this->assertLessThan(
-            $trusted['draft']['adoption_score'],
-            $stale['draft']['adoption_score'],
-        );
-        $this->assertContains(
-            'stale_or_unverifiable_provenance:-0.20',
-            $stale['draft']['score_explanation'],
-        );
+        $this->assertFalse($stale['accepted']);
+        $this->assertSame('untrusted_provenance_prefix', $stale['rejection_reason']);
+        $this->assertNull($stale['draft']);
     }
 
     public function test_hype_wording_lowers_score(): void

@@ -84,6 +84,12 @@ final class AtlasExternalBrainResearchPatternPlan
             return ['accepted' => false, 'rejection_reason' => $this->rejectionReason($entry), 'draft' => null];
         }
 
+        // AC1: hard-reject provenance without a trusted, verifiable source prefix —
+        // untrusted provenance must never influence origination, even with strong text fields.
+        if (! $this->hasTrustedProvenance((string) $entry['provenance'])) {
+            return ['accepted' => false, 'rejection_reason' => 'untrusted_provenance_prefix', 'draft' => null];
+        }
+
         // AC1: score-gate — reject even valid entries that score below the adoption floor.
         [$adoptionScore, $scoreExplanation] = $this->computeAdoptionScore($entry);
         if ($adoptionScore < self::MIN_ADOPTION_SCORE) {
@@ -173,20 +179,26 @@ final class AtlasExternalBrainResearchPatternPlan
         }
 
         // Penalty: stale/unverifiable provenance (no recognised source prefix).
-        $provenance = trim((string) ($entry['provenance'] ?? ''));
-        $trusted = false;
-        foreach (self::TRUSTED_PROVENANCE_PREFIXES as $prefix) {
-            if (str_starts_with($provenance, $prefix)) {
-                $trusted = true;
-                break;
-            }
-        }
-        if (! $trusted) {
+        // Untrusted provenance is already hard-rejected earlier in toTaskOpportunity();
+        // this penalty covers callers that invoke computeAdoptionScore() directly.
+        if (! $this->hasTrustedProvenance((string) ($entry['provenance'] ?? ''))) {
             $score      -= 0.20;
             $penalties[] = 'stale_or_unverifiable_provenance:-0.20';
         }
 
         return [round(max(0.0, min(1.0, $score)), 3), $penalties];
+    }
+
+    private function hasTrustedProvenance(string $provenance): bool
+    {
+        $provenance = trim($provenance);
+        foreach (self::TRUSTED_PROVENANCE_PREFIXES as $prefix) {
+            if (str_starts_with($provenance, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param  array<string,mixed>  $entry */
