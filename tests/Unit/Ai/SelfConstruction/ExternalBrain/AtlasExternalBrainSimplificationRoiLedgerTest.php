@@ -371,4 +371,73 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         $this->assertCount(1, $r['approved']);
         $this->assertSame('roi_positive_no_proof', $r['approved'][0]['behavior_preservation_status']);
     }
+
+    // ── new AC1: simplify/merge with requires_behavior_preservation_proof=true and no proof refused ──
+
+    public function test_simplify_action_with_required_proof_missing_is_refused(): void
+    {
+        $candidate = [
+            'id' => 'S1', 'action' => 'simplify', 'target' => 'app/S1.php', 'roi_estimate' => 1.0,
+            'requires_behavior_preservation_proof' => true,
+        ];
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertEmpty($r['approved']);
+        $this->assertSame('missing_behavior_preservation_proof', $r['refused'][0]['refusal_reason']);
+    }
+
+    // ── new AC2: rollback proof absence reduces/refuses risk_adjusted_roi for high-risk candidates ──
+
+    public function test_high_risk_candidate_without_rollback_proof_has_zero_risk_adjusted_roi(): void
+    {
+        $candidate = array_merge($this->merge('HR1', 1.0), ['risk_level' => 'high']);
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertCount(1, $r['approved']);
+        $this->assertSame(1.0, $r['approved'][0]['raw_roi']);
+        $this->assertSame(0.0, $r['approved'][0]['risk_adjusted_roi']);
+    }
+
+    public function test_high_risk_candidate_with_rollback_proof_has_reduced_but_nonzero_risk_adjusted_roi(): void
+    {
+        $candidate = array_merge($this->merge('HR2', 1.0), [
+            'risk_level' => 'high',
+            'rollback_proof' => 'receipt:rb1',
+        ]);
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertSame(1.0, $r['approved'][0]['raw_roi']);
+        $this->assertLessThan(1.0, $r['approved'][0]['risk_adjusted_roi']);
+        $this->assertGreaterThan(0.0, $r['approved'][0]['risk_adjusted_roi']);
+    }
+
+    public function test_low_risk_candidate_keeps_full_risk_adjusted_roi(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->merge('LR1', 1.0)]]);
+
+        $this->assertSame(1.0, $r['approved'][0]['raw_roi']);
+        $this->assertSame(1.0, $r['approved'][0]['risk_adjusted_roi']);
+    }
+
+    // ── new AC3: approved entries include raw_roi, risk_adjusted_roi, next_simplification_action ──
+
+    public function test_approved_entries_include_raw_roi_risk_adjusted_roi_and_next_action_deterministically(): void
+    {
+        $candidate = array_merge($this->deletion('D9'), ['risk_level' => 'medium', 'rollback_proof' => 'receipt:rb2']);
+
+        $a = $this->ledger()->record(['candidates' => [$candidate]]);
+        $b = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        foreach ([$a, $b] as $r) {
+            $entry = $r['approved'][0];
+            $this->assertArrayHasKey('raw_roi', $entry);
+            $this->assertArrayHasKey('risk_adjusted_roi', $entry);
+            $this->assertArrayHasKey('next_simplification_action', $entry);
+            $this->assertStringContainsString('D9', $entry['next_simplification_action']);
+        }
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }

@@ -71,6 +71,7 @@ final class AtlasExternalBrainSimplificationRoiLedger
                 $refusedRoi += $roiEstimate;
             } else {
                 $bpStatus   = ($action === 'delete') ? 'proof_verified' : 'roi_positive_no_proof';
+                $riskAdjustedRoi = $this->riskAdjustedRoi($roiEstimate, $candidate);
                 $approved[] = [
                     'id'                          => $id,
                     'action'                      => $action,
@@ -82,6 +83,8 @@ final class AtlasExternalBrainSimplificationRoiLedger
                     'cognitive_load_delta'        => (float) ($candidate['cognitive_load_delta'] ?? 0.0),
                     'compounding_benefit'         => (float) ($candidate['compounding_benefit'] ?? 0.0),
                     'approved_roi'                => $roiEstimate,
+                    'raw_roi'                     => $roiEstimate,
+                    'risk_adjusted_roi'           => $riskAdjustedRoi,
                     'next_simplification_action'  => 'execute_simplification:'.$id,
                 ];
                 $totalRoi   += $roiEstimate;
@@ -127,6 +130,27 @@ final class AtlasExternalBrainSimplificationRoiLedger
         }
 
         return null;
+    }
+
+    /**
+     * Discounts raw ROI by risk and rollback-proof presence so a high-risk simplification with no
+     * rollback proof never carries the same weight as a proven, low-risk one — even though it is
+     * still allowed through (never silently refused outright; the ROI credit itself is refused).
+     */
+    private function riskAdjustedRoi(float $roiEstimate, array $candidate): float
+    {
+        $riskLevel = strtolower(trim((string) ($candidate['risk_level'] ?? 'low')));
+        $hasRollbackProof = (string) ($candidate['rollback_proof'] ?? '') !== '';
+
+        $factor = match (true) {
+            $riskLevel === 'high' && ! $hasRollbackProof => 0.0,
+            $riskLevel === 'high' => 0.9,
+            $riskLevel === 'medium' && ! $hasRollbackProof => 0.5,
+            $riskLevel === 'medium' => 0.85,
+            default => 1.0,
+        };
+
+        return round($roiEstimate * $factor, 3);
     }
 
     private function globalBpStatus(array $approved): string
