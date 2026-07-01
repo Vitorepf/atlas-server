@@ -34,6 +34,45 @@ final class AtlasExternalBrainAmplifierComplexityBudgetTest extends TestCase
         return $result;
     }
 
+    // ── queue-debt complexity charge ────────────────────────────────────────────
+
+    public function test_high_queue_debt_lowers_allowed_complexity_and_retires_component(): void
+    {
+        $result = $this->budget()->evaluate([
+            'components' => [
+                $this->comp(['prompt_length' => 1500, 'dependency_count' => 1, 'maintenance_cost' => 0.5, 'measured_lift' => 0.5]),
+            ],
+            'queue_debt' => [
+                'blocked_count' => 40,
+                'quarantined_count' => 10,
+                'claimable_count' => 10,
+            ],
+        ]);
+
+        $this->assertGreaterThan(1.0, $result['queue_debt_ratio']);
+        $this->assertLessThan(1.0, $result['queue_debt_penalty_factor']);
+        $this->assertSame('over_budget', $result['component_budget_evaluations'][0]['budget_status']);
+        $this->assertSame('retire', $result['recommended_simplifications'][0]['recommendation']);
+    }
+
+    public function test_low_queue_debt_preserves_complexity_allowance_with_strong_proof(): void
+    {
+        $result = $this->budget()->evaluate([
+            'components' => [
+                $this->comp(['prompt_length' => 100, 'dependency_count' => 1, 'maintenance_cost' => 0.1, 'measured_lift' => 0.5]),
+            ],
+            'queue_debt' => [
+                'blocked_count' => 1,
+                'quarantined_count' => 0,
+                'claimable_count' => 20,
+            ],
+        ]);
+
+        $this->assertSame(1.0, $result['queue_debt_penalty_factor']);
+        $this->assertSame('within_budget', $result['component_budget_evaluations'][0]['budget_status']);
+        $this->assertSame('c1', $result['preserved_items'][0]);
+    }
+
     // ── AC4: output shape ─────────────────────────────────────────────────────
 
     public function test_output_has_required_keys(): void

@@ -48,6 +48,14 @@ final class AtlasExternalBrainAmplifierComplexityBudget
     private const WEIGHT_DEPENDENCY      = 1.0;
     private const WEIGHT_MAINTENANCE     = 2.0;
 
+    /** Blocked+quarantined / claimable ratio at or below this is healthy — no budget penalty. */
+    private const DEFAULT_DEBT_RATIO_THRESHOLD = 1.0;
+
+    /** Budget shrinks by this much per unit of debt ratio above the threshold, floored at 0.2. */
+    private const DEBT_PENALTY_PER_RATIO_UNIT = 0.2;
+
+    private const MIN_DEBT_PENALTY_FACTOR = 0.2;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -56,8 +64,10 @@ final class AtlasExternalBrainAmplifierComplexityBudget
     {
         $rawComponents = is_array($facts['components'] ?? null) ? $facts['components'] : [];
         $rawBudgets    = is_array($facts['budgets']    ?? null) ? $facts['budgets']    : [];
+        $queueDebt     = is_array($facts['queue_debt'] ?? null) ? $facts['queue_debt'] : [];
 
         $limits = $this->resolveLimits($rawBudgets);
+        [$queueDebtRatio, $queueDebtPenaltyFactor] = $this->queueDebtPenalty($queueDebt);
 
         // Count active components per type and collect metadata.
         $countByType    = array_fill_keys(self::VALID_TYPES, 0);
@@ -103,7 +113,7 @@ final class AtlasExternalBrainAmplifierComplexityBudget
             [$rec, $reason] = $this->recommend($c['usage'], $c['sloMet'], $c['valueProof']);
 
             $complexityScore  = $this->complexityScore($c['promptLength'], $c['dependencyCount'], $c['maintenanceCost']);
-            $liftAdjustedLimit = $this->liftAdjustedLimit($c['measuredLift']);
+            $liftAdjustedLimit = $this->liftAdjustedLimit($c['measuredLift']) * $queueDebtPenaltyFactor;
             $overComplexityBudget = $complexityScore > $liftAdjustedLimit;
 
             if ($overComplexityBudget) {
@@ -150,7 +160,42 @@ final class AtlasExternalBrainAmplifierComplexityBudget
             'preserved_items'            => $preserved,
             'budget_status'              => (empty($overBudget) && ! $anyOverComplexityBudget) ? 'within_budget' : 'over_budget',
             'component_budget_evaluations' => $componentEvaluations,
+            'queue_debt_ratio'           => round($queueDebtRatio, 4),
+            'queue_debt_penalty_factor'  => round($queueDebtPenaltyFactor, 4),
         ];
+    }
+
+    /**
+     * Charges allowed complexity against queue debt: high blocked/quarantined debt relative to
+     * claimable supply shrinks the lift-adjusted complexity limit until self-healing improves.
+     *
+     * @param  array<string,mixed>  $queueDebt
+     * @return array{0:float,1:float} [debt_ratio, penalty_factor]
+     */
+    private function queueDebtPenalty(array $queueDebt): array
+    {
+        $blockedCount = max(0, (int) ($queueDebt['blocked_count'] ?? 0));
+        $quarantinedCount = max(0, (int) ($queueDebt['quarantined_count'] ?? 0));
+        $claimableCount = max(0, (int) ($queueDebt['claimable_count'] ?? 0));
+        $threshold = (float) ($queueDebt['debt_ratio_threshold'] ?? self::DEFAULT_DEBT_RATIO_THRESHOLD);
+
+        $debtCount = $blockedCount + $quarantinedCount;
+        if ($debtCount === 0) {
+            return [0.0, 1.0];
+        }
+
+        $debtRatio = $claimableCount > 0 ? $debtCount / $claimableCount : (float) $debtCount;
+
+        if ($debtRatio <= $threshold) {
+            return [$debtRatio, 1.0];
+        }
+
+        $penaltyFactor = max(
+            self::MIN_DEBT_PENALTY_FACTOR,
+            1.0 - min(0.8, ($debtRatio - $threshold) * self::DEBT_PENALTY_PER_RATIO_UNIT),
+        );
+
+        return [$debtRatio, $penaltyFactor];
     }
 
     private function complexityScore(int $promptLength, int $dependencyCount, float $maintenanceCost): float
