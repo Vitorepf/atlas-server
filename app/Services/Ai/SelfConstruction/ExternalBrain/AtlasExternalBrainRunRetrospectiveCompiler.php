@@ -90,7 +90,7 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
         $rootCauseMap = $this->buildRootCauseMap($index);
         $policies     = $this->buildPolicyAdjustments($outcomes, $byCategory, $integrity, $rootCauseMap);
         $hints        = $this->buildNextCycleHints($summary, $byCategory, $integrity, $policies);
-        $adjustments  = $this->buildNextCycleAdjustments($summary, $byCategory, $integrity, $rootCauseMap);
+        $adjustments  = $this->buildNextCycleAdjustments($outcomes, $summary, $byCategory, $integrity, $rootCauseMap);
 
         return [
             'schema'                 => self::SCHEMA,
@@ -506,17 +506,24 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
      * AC2: Build next_cycle_adjustments with promote_patterns, avoid_patterns,
      * consolidate_targets and research_gaps derived from evidence (no self-declarations).
      *
+     * `adjustments` additionally carries an explicit policy_strength/confidence/evidence_window
+     * per reason: a reason seen only once cannot fund a hard avoid/prefer policy on the strength
+     * of one anecdote — it degrades to advisory/low-confidence until it recurs (evidence_window
+     * >= 2), except padding, which is always a hard reject regardless of recurrence.
+     *
+     * @param  list<array<string,mixed>>        $outcomes
      * @param  array<string,mixed>              $summary
      * @param  array<string,array<string,mixed>> $byCategory
      * @param  array<string,list<array<string,mixed>>> $rootCauseMap
-     * @return array{promote_patterns:list<string>,avoid_patterns:list<string>,consolidate_targets:list<string>,research_gaps:list<string>}
+     * @return array{promote_patterns:list<string>,avoid_patterns:list<string>,consolidate_targets:list<string>,research_gaps:list<string>,adjustments:list<array<string,mixed>>}
      */
-    private function buildNextCycleAdjustments(array $summary, array $byCategory, string $integrity, array $rootCauseMap): array
+    private function buildNextCycleAdjustments(array $outcomes, array $summary, array $byCategory, string $integrity, array $rootCauseMap): array
     {
         $promotePatterns    = [];
         $avoidPatterns      = [];
         $consolidateTargets = [];
         $researchGaps       = [];
+        $adjustments        = [];
 
         // promote: high-yield categories (≥70% success, ≥2 outcomes)
         foreach ($byCategory as $cat => $stats) {
@@ -536,6 +543,68 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
         }
         if ($summary['wasted_token_ratio'] > 0.50) {
             $avoidPatterns[] = 'high_token_waste:reduce_expensive_patterns';
+        }
+
+        // Padding is always a hard reject regardless of how many occurrences funded it —
+        // quota gaming is never given the benefit of the doubt as an anecdote.
+        if ($integrity === self::SIGNAL_PADDING_DETECTED) {
+            $paddingCount = 0;
+            foreach ($outcomes as $o) {
+                foreach ((array) ($o['poison_patterns'] ?? []) as $pattern) {
+                    if (in_array((string) $pattern, self::PADDING_PATTERNS, true)) {
+                        $paddingCount++;
+
+                        break;
+                    }
+                }
+            }
+            $adjustments[] = [
+                'action'          => 'reject',
+                'applies_to'      => 'template_farm',
+                'policy_strength' => 'hard',
+                'confidence'      => 'high',
+                'evidence_window' => max(1, $paddingCount),
+            ];
+        }
+
+        // Bad-prompt reasons: repeated (>=2) → high-confidence hard repair_prompt policy.
+        // A single occurrence is an anecdote, not a pattern — advisory/low-confidence until it recurs.
+        $badPromptReasonCounts = [];
+        foreach ($outcomes as $o) {
+            $reason = (string) ($o['reason'] ?? '');
+            if (in_array($reason, self::BAD_PROMPT_REASONS, true)) {
+                $badPromptReasonCounts[$reason] = ($badPromptReasonCounts[$reason] ?? 0) + 1;
+            }
+        }
+        foreach ($badPromptReasonCounts as $reason => $count) {
+            $recurring = $count >= 2;
+            $adjustments[] = [
+                'action'          => 'repair_prompt',
+                'applies_to'      => "reason:{$reason}",
+                'policy_strength' => $recurring ? 'hard' : 'advisory',
+                'confidence'      => $recurring ? 'high' : 'low',
+                'evidence_window' => $count,
+            ];
+        }
+
+        // Honest give_back reasons: same recurrence rule, but they never escalate past 'avoid' —
+        // legitimate task-complexity signals are advice for the originator, not a hard block.
+        $honestReasonCounts = [];
+        foreach ($outcomes as $o) {
+            $reason = (string) ($o['reason'] ?? '');
+            if ((string) ($o['outcome'] ?? '') === self::OUTCOME_GIVE_BACK && in_array($reason, self::HONEST_REASONS, true)) {
+                $honestReasonCounts[$reason] = ($honestReasonCounts[$reason] ?? 0) + 1;
+            }
+        }
+        foreach ($honestReasonCounts as $reason => $count) {
+            $recurring = $count >= 2;
+            $adjustments[] = [
+                'action'          => 'avoid',
+                'applies_to'      => "reason:{$reason}",
+                'policy_strength' => $recurring ? 'hard' : 'advisory',
+                'confidence'      => $recurring ? 'high' : 'low',
+                'evidence_window' => $count,
+            ];
         }
 
         // consolidate: repeated rejection of same target (AC3)
@@ -566,6 +635,7 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
             'avoid_patterns'      => array_values(array_unique($avoidPatterns)),
             'consolidate_targets' => array_values(array_unique($consolidateTargets)),
             'research_gaps'       => array_values(array_unique($researchGaps)),
+            'adjustments'         => $adjustments,
         ];
     }
 

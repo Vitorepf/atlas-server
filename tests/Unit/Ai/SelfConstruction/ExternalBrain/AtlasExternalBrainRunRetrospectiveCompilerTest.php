@@ -346,6 +346,63 @@ final class AtlasExternalBrainRunRetrospectiveCompilerTest extends TestCase
         }
     }
 
+    // ── policy_strength / confidence / evidence_window on next_cycle_adjustments ──
+
+    public function test_repeated_bad_prompt_reason_produces_high_confidence_hard_repair_prompt_adjustment(): void
+    {
+        $outcomes = [
+            $this->outcome('s1', 'rejected', 'arch', ['reason' => 'contradictory_acceptance']),
+            $this->outcome('s2', 'rejected', 'arch', ['reason' => 'contradictory_acceptance']),
+        ];
+        $result = $this->compiler()->compile($outcomes);
+
+        $adjustments = $result['next_cycle_adjustments']['adjustments'];
+        $repair = array_values(array_filter($adjustments, fn (array $a): bool => $a['action'] === 'repair_prompt'));
+
+        $this->assertNotEmpty($repair);
+        $this->assertSame('high', $repair[0]['confidence']);
+        $this->assertSame('hard', $repair[0]['policy_strength']);
+        $this->assertSame(2, $repair[0]['evidence_window']);
+    }
+
+    public function test_one_off_give_back_reason_produces_advisory_policy_strength(): void
+    {
+        $outcomes = [
+            $this->outcome('t-1', 'give_back', 'bug_fix', ['reason' => 'scope_too_large']),
+            $this->outcome('t-2', 'success',   'bug_fix'),
+        ];
+        $result = $this->compiler()->compile($outcomes);
+
+        $adjustments = $result['next_cycle_adjustments']['adjustments'];
+        $avoid = array_values(array_filter(
+            $adjustments,
+            fn (array $a): bool => $a['action'] === 'avoid' && $a['applies_to'] === 'reason:scope_too_large',
+        ));
+
+        $this->assertNotEmpty($avoid);
+        $this->assertSame('advisory', $avoid[0]['policy_strength']);
+        $this->assertSame('low', $avoid[0]['confidence']);
+        $this->assertSame(1, $avoid[0]['evidence_window']);
+    }
+
+    public function test_padding_detected_still_creates_hard_reject_template_farm_adjustment(): void
+    {
+        $outcomes = [
+            $this->outcome('t-1', 'success', 'test_gate', ['poison_patterns' => ['test_count_padding']]),
+        ];
+        $result = $this->compiler()->compile($outcomes);
+
+        $adjustments = $result['next_cycle_adjustments']['adjustments'];
+        $reject = array_values(array_filter(
+            $adjustments,
+            fn (array $a): bool => $a['action'] === 'reject' && $a['applies_to'] === 'template_farm',
+        ));
+
+        $this->assertNotEmpty($reject);
+        $this->assertSame('hard', $reject[0]['policy_strength']);
+        $this->assertSame('high', $reject[0]['confidence']);
+    }
+
     public function test_single_occurrence_bad_prompt_has_no_measurable_acceptance_target(): void
     {
         $outcomes = [
