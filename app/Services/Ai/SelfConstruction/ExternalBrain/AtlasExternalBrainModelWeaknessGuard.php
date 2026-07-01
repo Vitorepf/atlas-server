@@ -31,7 +31,11 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   max_files_per_task?:    int           (default 5)
  *
  * OUTPUT:
- *   { schema, passed, weakness_findings, repair_steps, blocked_until_fixed }
+ *   { schema, passed, weakness_findings, repair_steps, blocked_until_fixed,
+ *     model_tier, weakness, decision, escalation_rationale,
+ *     scaffold_requirements, escalation_required }
+ *   scaffold_requirements: repair_steps carried over when decision=allow_scaffolded, else [].
+ *   escalation_required: true when decision=escalate.
  *
  * PURE / DETERMINISTIC / NO I/O.
  */
@@ -229,15 +233,20 @@ final class AtlasExternalBrainModelWeaknessGuard
         $decisionResult = $this->assembleDecision($findings, $recoveryEvidence);
 
         return [
-            'schema'              => self::SCHEMA,
-            'passed'              => $decisionResult['passed'],
-            'weakness_findings'   => $findings,
-            'repair_steps'        => $repairSteps,
-            'blocked_until_fixed' => $decisionResult['blocked_until_fixed'],
-            'model_tier'          => $modelTier,
-            'weakness'            => $decisionResult['primary_weakness'],
-            'decision'            => $decisionResult['decision'],
-            'escalation_rationale' => $decisionResult['escalation_rationale'],
+            'schema'                => self::SCHEMA,
+            'passed'                => $decisionResult['passed'],
+            'weakness_findings'     => $findings,
+            'repair_steps'          => $repairSteps,
+            'blocked_until_fixed'   => $decisionResult['blocked_until_fixed'],
+            'model_tier'            => $modelTier,
+            'weakness'              => $decisionResult['primary_weakness'],
+            'decision'              => $decisionResult['decision'],
+            'escalation_rationale'  => $decisionResult['escalation_rationale'],
+            // Concrete prevention actions before admission (AC3): a scaffolded candidate carries
+            // the exact repair steps it must follow; an escalated candidate is flagged explicitly
+            // so it is never silently dispatched to the weak model unchanged.
+            'scaffold_requirements' => $decisionResult['decision'] === self::DECISION_ALLOW_SCAFFOLDED ? $repairSteps : [],
+            'escalation_required'  => $decisionResult['decision'] === self::DECISION_ESCALATE,
         ];
     }
 

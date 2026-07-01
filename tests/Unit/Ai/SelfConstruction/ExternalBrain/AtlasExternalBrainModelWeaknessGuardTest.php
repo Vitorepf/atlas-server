@@ -461,4 +461,73 @@ final class AtlasExternalBrainModelWeaknessGuardTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_ALLOW_SCAFFOLDED, $result['decision']);
     }
+
+    // ── AC3: scaffold_requirements / escalation_required before admission ────
+
+    public function test_scaffold_requirements_populated_when_allow_scaffolded(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate'         => $this->cleanCandidate(),
+            'queued_targets'    => ['app/Services/Foo/AtlasFooService.php'],
+            'recovery_evidence' => [
+                AtlasExternalBrainModelWeaknessGuard::WEAKNESS_SHALLOW_DUPLICATION => 0.9,
+            ],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_ALLOW_SCAFFOLDED, $result['decision']);
+        $this->assertSame($result['repair_steps'], $result['scaffold_requirements']);
+        $this->assertNotEmpty($result['scaffold_requirements']);
+        $this->assertFalse($result['escalation_required']);
+    }
+
+    public function test_escalation_required_true_when_decision_is_escalate(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => [
+                'task_id'             => 'task-medium',
+                'objective'           => 'Implement AtlasQuxService so it works.',
+                'allowed_files'       => ['app/Services/Qux/AtlasQuxService.php'],
+                'acceptance_criteria' => [
+                    'The AtlasQuxService::go() method must return true or false.',
+                    'The service must handle edge cases.',
+                ],
+            ],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_ESCALATE, $result['decision']);
+        $this->assertTrue($result['escalation_required']);
+        $this->assertSame([], $result['scaffold_requirements']);
+    }
+
+    public function test_scaffold_requirements_and_escalation_required_absent_when_passed(): void
+    {
+        $result = $this->guard()->guard(['candidate' => $this->cleanCandidate()]);
+
+        $this->assertSame([], $result['scaffold_requirements']);
+        $this->assertFalse($result['escalation_required']);
+    }
+
+    // ── AC4: combined weakness escalation ─────────────────────────────────────
+
+    public function test_combined_weaknesses_without_recovery_evidence_escalate_on_highest_severity(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => [
+                'task_id'             => 'task-combined',
+                'objective'           => 'Ensure that AtlasQuxService works.',
+                'allowed_files'       => ['app/Services/Qux/AtlasQuxService.php'],
+                'acceptance_criteria' => [
+                    'The AtlasQuxService::go() method must return true or false.',
+                    'The service should work correctly.',
+                ],
+            ],
+        ]);
+
+        $ids = array_column($result['weakness_findings'], 'weakness_id');
+        $this->assertContains(AtlasExternalBrainModelWeaknessGuard::WEAKNESS_MISSING_CODE_SEARCH, $ids);
+        $this->assertContains(AtlasExternalBrainModelWeaknessGuard::WEAKNESS_WEAK_ACCEPTANCE, $ids);
+        $this->assertGreaterThanOrEqual(2, count($ids));
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_ESCALATE, $result['decision']);
+        $this->assertTrue($result['escalation_required']);
+    }
 }
