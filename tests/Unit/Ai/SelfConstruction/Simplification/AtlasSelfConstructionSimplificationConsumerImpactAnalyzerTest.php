@@ -170,4 +170,112 @@ final class AtlasSelfConstructionSimplificationConsumerImpactAnalyzerTest extend
 
         $this->assertNotContains('transitive_consumer_count_exceeds_floor_without_proof', $result['blockers']);
     }
+
+    // ── AC: blast_radius, required_parity_checks, migration_notes, rollback_hooks, unsafe_consumers, promotable ──
+
+    public function test_no_consumer_case_has_zero_blast_radius_and_is_promotable(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze(['consumers' => []]);
+
+        $this->assertSame(
+            ['total_consumers' => 0, 'direct_consumer_count' => 0, 'transitive_consumer_count' => 0, 'categories_touched' => 0, 'touches_public_surface' => false],
+            $result['blast_radius'],
+        );
+        $this->assertSame([], $result['required_parity_checks']);
+        $this->assertSame([], $result['migration_notes']);
+        $this->assertSame([], $result['rollback_hooks']);
+        $this->assertSame([], $result['unsafe_consumers']);
+        $this->assertTrue($result['promotable']);
+    }
+
+    public function test_safe_consumer_case_is_promotable_with_no_unsafe_consumers(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'CallerService', 'category' => 'runtime', 'proof_refs' => ['git:blob1']],
+            ],
+        ]);
+
+        $this->assertTrue($result['promotable']);
+        $this->assertSame([], $result['unsafe_consumers']);
+        $this->assertContains('runtime_behavior_parity_check', $result['required_parity_checks']);
+        $this->assertContains('git_revert_last_commit', $result['rollback_hooks']);
+        $this->assertSame(1, $result['blast_radius']['total_consumers']);
+    }
+
+    public function test_unsafe_consumer_case_names_the_unclassified_consumer_and_blocks_promotion(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'MysteryCaller', 'category' => 'unknown_thing', 'proof_refs' => []],
+            ],
+        ]);
+
+        $this->assertFalse($result['promotable']);
+        $this->assertContains('MysteryCaller', $result['unsafe_consumers']);
+        $this->assertContains('classify every consumer into a known category before promoting', $result['migration_notes']);
+    }
+
+    public function test_missing_parity_case_names_the_category_needing_proof_and_blocks_promotion(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'CallerService', 'category' => 'runtime', 'proof_refs' => []],
+            ],
+        ]);
+
+        $this->assertFalse($result['promotable']);
+        $this->assertContains('CallerService', $result['unsafe_consumers']);
+        $this->assertContains('attach at least one proof_ref for the runtime category before promoting', $result['migration_notes']);
+        $this->assertContains('runtime_behavior_parity_check', $result['required_parity_checks']);
+    }
+
+    public function test_public_command_touch_adds_signature_parity_check_and_docs_migration_note(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'ArtisanCommand', 'category' => 'command', 'proof_refs' => ['app/Console/Commands/FooCommand.php'], 'is_public_command' => true],
+            ],
+        ]);
+
+        $this->assertContains('public_command_signature_parity_check', $result['required_parity_checks']);
+        $this->assertContains('update CLI help/usage docs alongside the public command signature change', $result['migration_notes']);
+        $this->assertContains('restore_prior_symbol_from_worktree_snapshot', $result['rollback_hooks']);
+        $this->assertTrue($result['blast_radius']['touches_public_surface']);
+    }
+
+    public function test_transitive_consumers_add_reindex_rollback_hook(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer)->analyze([
+            'consumers' => [
+                ['name' => 'DirectCaller', 'category' => 'runtime', 'proof_refs' => ['git:blob1']],
+                ['name' => 'TransitiveCaller', 'category' => 'runtime', 'proof_refs' => ['git:blob2'], 'transitive' => true],
+            ],
+        ]);
+
+        $this->assertContains('reindex_transitive_consumer_call_graph', $result['rollback_hooks']);
+        $this->assertSame(2, $result['blast_radius']['total_consumers']);
+    }
+
+    public function test_output_is_deterministic_and_provider_safe_across_repeat_calls(): void
+    {
+        $candidate = [
+            'consumers' => [
+                ['name' => 'CallerService', 'category' => 'runtime', 'proof_refs' => ['git:blob1'], 'internal_provider_prompt' => 'super secret system prompt', 'api_key' => 'sk-secret-123'],
+            ],
+        ];
+
+        $analyzer = new AtlasSelfConstructionSimplificationConsumerImpactAnalyzer;
+        $first = $analyzer->analyze($candidate);
+        $second = $analyzer->analyze($candidate);
+
+        $this->assertSame(
+            json_encode($first, JSON_UNESCAPED_SLASHES),
+            json_encode($second, JSON_UNESCAPED_SLASHES),
+        );
+
+        $encoded = (string) json_encode($first);
+        $this->assertStringNotContainsString('super secret system prompt', $encoded);
+        $this->assertStringNotContainsString('sk-secret-123', $encoded);
+    }
 }

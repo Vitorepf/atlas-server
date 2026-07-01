@@ -66,7 +66,7 @@ final class AtlasSelfConstructionSimplificationConsumerImpactAnalyzer
                 continue;
             }
 
-            $byCategory[$category][] = $consumer;
+            $byCategory[$category][] = $this->sanitizeConsumer($consumer, $name, $category);
         }
 
         foreach ($byCategory as $category => $categoryConsumers) {
@@ -104,6 +104,72 @@ final class AtlasSelfConstructionSimplificationConsumerImpactAnalyzer
 
         $failClosed = $blockers !== [];
 
+        // unsafe_consumers: names directly implicated in a blocker (unclassified, or belonging to
+        // an under-proven category) — a second pass since missing_proof_coverage is only known
+        // once the full category grouping above has completed.
+        $unsafeConsumers = [];
+        foreach ($consumers as $consumer) {
+            $name = (string) ($consumer['name'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+            $category = (string) ($consumer['category'] ?? '');
+            if (! in_array($category, self::KNOWN_CATEGORIES, true)) {
+                $unsafeConsumers[] = $name;
+
+                continue;
+            }
+            if (in_array("missing_proof_coverage:{$category}", $blockers, true)
+                && array_values((array) ($consumer['proof_refs'] ?? [])) === []
+            ) {
+                $unsafeConsumers[] = $name;
+            }
+        }
+        $unsafeConsumers = array_values(array_unique($unsafeConsumers));
+
+        // required_parity_checks: one behavior-parity check per touched category, plus explicit
+        // checks for public-surface touches and unproven transitive fan-out.
+        $requiredParityChecks = array_map(static fn (string $c): string => "{$c}_behavior_parity_check", $touchedCategories);
+        if ($touchesPublicCommand) {
+            $requiredParityChecks[] = 'public_command_signature_parity_check';
+        }
+        if ($touchesPublicContract) {
+            $requiredParityChecks[] = 'public_contract_signature_parity_check';
+        }
+        if ($transitiveCount > self::TRANSITIVE_CONSUMER_RISK_FLOOR) {
+            $requiredParityChecks[] = 'transitive_consumer_proof_parity_check';
+        }
+        $requiredParityChecks = array_values(array_unique($requiredParityChecks));
+
+        // migration_notes: deterministic guidance strings derived from state — never free text.
+        $migrationNotes = [];
+        foreach ($blockers as $blocker) {
+            if (str_starts_with($blocker, 'missing_proof_coverage:')) {
+                $category = substr($blocker, strlen('missing_proof_coverage:'));
+                $migrationNotes[] = "attach at least one proof_ref for the {$category} category before promoting";
+            }
+            if (str_starts_with($blocker, 'consumer_unclassified:')) {
+                $migrationNotes[] = 'classify every consumer into a known category before promoting';
+            }
+        }
+        if ($touchesPublicCommand) {
+            $migrationNotes[] = 'update CLI help/usage docs alongside the public command signature change';
+        }
+        if ($touchesPublicContract) {
+            $migrationNotes[] = 'bump the contract version or provide a compatibility shim for public contract consumers';
+        }
+        $migrationNotes = array_values(array_unique($migrationNotes));
+
+        // rollback_hooks: what to run to undo, scaled to touched surface and risk.
+        $rollbackHooks = $touchedCategories === [] ? [] : ['git_revert_last_commit'];
+        if ($riskLevel !== self::RISK_LOW) {
+            $rollbackHooks[] = 'restore_prior_symbol_from_worktree_snapshot';
+        }
+        if ($transitiveCount > 0) {
+            $rollbackHooks[] = 'reindex_transitive_consumer_call_graph';
+        }
+        $rollbackHooks = array_values(array_unique($rollbackHooks));
+
         return [
             'impacted_classes' => $touchedCategories,
             'consumers_by_category' => $byCategory,
@@ -116,6 +182,38 @@ final class AtlasSelfConstructionSimplificationConsumerImpactAnalyzer
             'blocking_reasons' => $blockers,
             'fail_closed' => $failClosed,
             'safe_to_continue' => ! $failClosed,
+            'blast_radius' => [
+                'total_consumers' => $directCount + $transitiveCount,
+                'direct_consumer_count' => $directCount,
+                'transitive_consumer_count' => $transitiveCount,
+                'categories_touched' => count($touchedCategories),
+                'touches_public_surface' => $touchesPublicCommand || $touchesPublicContract,
+            ],
+            'required_parity_checks' => $requiredParityChecks,
+            'migration_notes' => $migrationNotes,
+            'rollback_hooks' => $rollbackHooks,
+            'unsafe_consumers' => $unsafeConsumers,
+            'promotable' => ! $failClosed,
+        ];
+    }
+
+    /**
+     * Whitelists the fields echoed back into consumers_by_category — the raw $consumer array is
+     * caller-supplied and may carry arbitrary extra keys (e.g. an accidental raw provider prompt or
+     * secret); only structural facts this analyzer actually reasons about survive.
+     *
+     * @param  array<string,mixed>  $consumer
+     * @return array{name:string, category:string, proof_refs:list<string>, transitive:bool, is_public_command:bool, is_public_contract:bool}
+     */
+    private function sanitizeConsumer(array $consumer, string $name, string $category): array
+    {
+        return [
+            'name' => $name,
+            'category' => $category,
+            'proof_refs' => array_values(array_map('strval', (array) ($consumer['proof_refs'] ?? []))),
+            'transitive' => (bool) ($consumer['transitive'] ?? false),
+            'is_public_command' => (bool) ($consumer['is_public_command'] ?? false),
+            'is_public_contract' => (bool) ($consumer['is_public_contract'] ?? false),
         ];
     }
 }
