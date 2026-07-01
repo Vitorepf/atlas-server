@@ -206,4 +206,76 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdaterTest exten
         $this->assertFalse($result['applied']);
         $this->assertContains('claimable_contract_violated:missing_required_evidence', $result['blockers']);
     }
+
+    // ── AC: allowed_files guidance and poison-prevention guidance routing ──────
+
+    public function test_allowed_files_gap_routes_to_allowed_files_guidance(): void
+    {
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($this->admittedPlan('allowed_files_gap'), $this->validTemplate());
+
+        $this->assertTrue($result['applied']);
+        $this->assertSame('allowed_files_guidance', $result['target_field']);
+        $this->assertContains('lesson:allowed_files_gap', $result['updated_template']['allowed_files_guidance']);
+    }
+
+    public function test_poison_pattern_routes_to_poison_prevention_guidance(): void
+    {
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($this->admittedPlan('poison_pattern'), $this->validTemplate());
+
+        $this->assertTrue($result['applied']);
+        $this->assertSame('poison_prevention_guidance', $result['target_field']);
+        $this->assertContains('lesson:poison_pattern', $result['updated_template']['poison_prevention_guidance']);
+    }
+
+    // ── AC: weak lessons are ignored, strong lessons update the template ───────
+
+    public function test_weak_lesson_is_ignored(): void
+    {
+        $plan = $this->admittedPlan('scope_gap', ['lesson_strength' => 0.2]);
+
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($plan, $this->validTemplate());
+
+        $this->assertFalse($result['applied']);
+        $this->assertContains('lesson_too_weak:0.2', $result['blockers']);
+        $this->assertSame($this->validTemplate(), $result['updated_template']);
+    }
+
+    public function test_strong_lesson_updates_the_template(): void
+    {
+        $plan = $this->admittedPlan('scope_gap', ['lesson_strength' => 0.9]);
+
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($plan, $this->validTemplate());
+
+        $this->assertTrue($result['applied']);
+        $this->assertSame('scope_guidance', $result['target_field']);
+    }
+
+    public function test_omitted_lesson_strength_preserves_legacy_apply_behavior(): void
+    {
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($this->admittedPlan('scope_gap'), $this->validTemplate());
+
+        $this->assertTrue($result['applied'], 'no strength signal => treated as strong, unchanged legacy path');
+    }
+
+    // ── AC: existing template intent is preserved ───────────────────────────────
+
+    public function test_existing_template_intent_and_other_guidance_fields_are_preserved(): void
+    {
+        $template = $this->validTemplate([
+            'objective' => 'do the important thing',
+            'give_back_guidance' => ['lesson:prior_lesson'],
+        ]);
+
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($this->admittedPlan('allowed_files_gap'), $template);
+
+        $this->assertTrue($result['applied']);
+        $this->assertSame('do the important thing', $result['updated_template']['objective']);
+        $this->assertSame(['lesson:prior_lesson'], $result['updated_template']['give_back_guidance']);
+    }
 }

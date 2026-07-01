@@ -17,8 +17,15 @@ namespace App\Services\Ai\SelfConstruction\LearningTransfer;
  *   - dependency_guidance
  *   - scope_guidance
  *   - give_back_guidance
+ *   - allowed_files_guidance
+ *   - poison_prevention_guidance
  *
  * Guidance is added once per (field, lesson_class) — repeated application is idempotent.
+ *
+ * lesson_strength (optional, float 0..1 on the plan): a plan with an explicit strength below
+ * MIN_LESSON_STRENGTH is refused with lesson_too_weak — weak lessons must not update the template.
+ * Omitted entirely ⇒ no-op (treated as strong), preserving prior behavior for every plan that never
+ * declared a strength.
  */
 final class AtlasSelfConstructionLearningTransferPacketTemplateUpdater
 {
@@ -30,11 +37,15 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdater
         'dependency_guidance',
         'scope_guidance',
         'give_back_guidance',
+        'allowed_files_guidance',
+        'poison_prevention_guidance',
     ];
 
     public const FORBIDDEN_STEADY_STATE_DEPENDENCIES = [
         'operator', 'human_action', 'claude_code', 'codex', 'cursor', 'network', 'git',
     ];
+
+    public const MIN_LESSON_STRENGTH = 0.5;
 
     private const REQUIRED_TEMPLATE_KEYS = ['allowed_files', 'acceptance_criteria', 'required_evidence'];
 
@@ -50,6 +61,8 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdater
         'missing_dependency' => 'dependency_guidance',
         'stale_context' => 'evidence_guidance',
         'insufficient_evidence' => 'evidence_guidance',
+        'allowed_files_gap' => 'allowed_files_guidance',
+        'poison_pattern' => 'poison_prevention_guidance',
     ];
 
     /**
@@ -76,6 +89,9 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdater
         $evidenceRefs = array_values(array_filter(array_map('strval', (array) ($plan['evidence_refs'] ?? []))));
         if ($evidenceRefs === []) {
             $blockers[] = 'plan_evidence_refs_missing';
+        }
+        if (array_key_exists('lesson_strength', $plan) && (float) $plan['lesson_strength'] < self::MIN_LESSON_STRENGTH) {
+            $blockers[] = 'lesson_too_weak:'.((float) $plan['lesson_strength']);
         }
         if ($blockers !== []) {
             return $fail($blockers);
