@@ -323,4 +323,71 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         $this->assertSame([], $result['promoted_patterns']);
         $this->assertSame(AtlasExternalBrainPatternDesignFailureModeMiner::REJECTION_ONE_OFF_ANECDOTE, $result['rejected_candidates'][0]['rejection_reason']);
     }
+
+    // ── AC: repeated scope repair failures produce missing_scope_closure ───────
+
+    public function test_repeated_scope_repair_failures_produce_missing_scope_closure_mode(): void
+    {
+        $result = $this->miner->mine($this->input($this->good([
+            'failure_id'           => 'f-scope-1',
+            'root_cause_label'     => 'missing_scope_closure',
+            'task_count'           => 4,
+            'description'          => 'Scope repair repeatedly leaves allowed_files without a matching test file',
+            'prevention_rule'      => 'require scope repair to close both impl and test file pairs',
+            'enforcement_hook'     => 'AtlasTaskFabricScopeMinimalityAuditor::audit',
+            'affected_task_family' => 'task_fabric:scope_repair',
+            'falsification_check'  => 'passes_if_all_repaired_scopes_have_impl_and_test',
+        ])));
+
+        $this->assertCount(1, $result['promoted_patterns']);
+        $this->assertSame('missing_scope_closure', $result['promoted_patterns'][0]['root_cause_label']);
+    }
+
+    // ── AC: repeated proxy specs produce proxy_value_pattern ────────────────────
+
+    public function test_repeated_proxy_specs_produce_proxy_value_pattern_mode(): void
+    {
+        $result = $this->miner->mine($this->input($this->good([
+            'failure_id'           => 'f-proxy-1',
+            'root_cause_label'     => 'proxy_value_pattern',
+            'task_count'           => 6,
+            'description'          => 'Specs repeatedly claim value via test_count/task_count deltas alone',
+            'prevention_rule'      => 'require capability_lift_refs or failure_removal_refs alongside any proxy signal',
+            'enforcement_hook'     => 'AtlasGoalValueAntiProxyGate::evaluate',
+            'affected_task_family' => 'task_fabric:origination_quality',
+            'falsification_check'  => 'passes_if_no_promoted_spec_relies_on_proxy_signal_alone',
+        ])));
+
+        $this->assertCount(1, $result['promoted_patterns']);
+        $this->assertSame('proxy_value_pattern', $result['promoted_patterns'][0]['root_cause_label']);
+        $this->assertSame(
+            AtlasExternalBrainPatternDesignFailureModeMiner::CONFIDENCE_HIGH,
+            $result['promoted_patterns'][0]['confidence'],
+        );
+    }
+
+    // ── AC: each mined mode includes guardrail_task_hint and evidence_count ────
+
+    public function test_promoted_pattern_has_guardrail_task_hint_and_evidence_count(): void
+    {
+        $result = $this->miner->mine($this->input($this->good(['task_count' => 4])));
+        $pattern = $result['promoted_patterns'][0];
+
+        $this->assertArrayHasKey('guardrail_task_hint', $pattern);
+        $this->assertArrayHasKey('evidence_count', $pattern);
+        $this->assertNotEmpty($pattern['guardrail_task_hint']);
+        $this->assertSame(4, $pattern['evidence_count']);
+    }
+
+    public function test_guardrail_task_hint_names_prevention_rule_and_enforcement_hook(): void
+    {
+        $result = $this->miner->mine($this->input($this->good([
+            'prevention_rule'  => 'require runnable acceptance command',
+            'enforcement_hook' => 'SomeGate::check',
+        ])));
+
+        $hint = $result['promoted_patterns'][0]['guardrail_task_hint'];
+        $this->assertStringContainsString('require runnable acceptance command', $hint);
+        $this->assertStringContainsString('SomeGate::check', $hint);
+    }
 }

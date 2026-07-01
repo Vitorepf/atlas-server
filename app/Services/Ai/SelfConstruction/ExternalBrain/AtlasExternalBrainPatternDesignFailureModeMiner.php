@@ -116,6 +116,13 @@ final class AtlasExternalBrainPatternDesignFailureModeMiner
                     'prevention_rule' => $preventionRule,
                     'failure_id'      => $failureId,
                 ],
+                // AC: every mined mode names a concrete guardrail task to create, and the
+                // raw evidence volume that justified promoting it.
+                'guardrail_task_hint' => sprintf(
+                    'add guardrail for %s: %s (enforce via %s on %s; falsify via %s)',
+                    $rootCauseLabel, $preventionRule, $enforcementHook, $affectedTaskFamily, $falsificationCheck,
+                ),
+                'evidence_count' => $taskCount,
             ];
 
             $confidenceReasons[] = [
