@@ -70,6 +70,16 @@ final class AtlasArchitectureCouncilBoundaryMapTest extends TestCase
         $this->assertSame('strategy_may_not_create_executable_packets_directly', $r['forbidden_edges'][0]['reason']);
     }
 
+    public function test_task_fabric_merge_execution_edge_is_forbidden(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Task Fabric', 'non_authority' => ['x'], 'integrations' => [
+                ['from' => 'Task Fabric', 'to' => 'Merge Governor', 'action' => 'execute_merge'],
+            ]],
+        ]);
+        $this->assertSame('task_fabric_may_not_merge', $r['forbidden_edges'][0]['reason']);
+    }
+
     public function test_missing_organ_contract_surfaces_as_boundary_risk(): void
     {
         $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
