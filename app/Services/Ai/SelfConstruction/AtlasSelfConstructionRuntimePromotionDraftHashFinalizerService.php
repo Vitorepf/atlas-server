@@ -7,6 +7,20 @@ use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * computeDraftHash() is a self-contained, file-free hashing contract over an operator-supplied
+ * runtime promotion draft structure (evidence_refs, verdict, blockers, rollback_plan,
+ * runtime_target, plus arbitrary other fields). It is independent of finalize()'s
+ * manifest/draft-file loading pipeline and never touches storage.
+ *
+ *   - Stability (AC2): the draft is recursively ksorted before hashing, so key order never
+ *     affects draft_hash; volatile timestamp-shaped fields are excluded from the hash entirely.
+ *   - Sensitivity (AC3): draft_hash changes whenever evidence_refs, verdict, blockers,
+ *     rollback_plan or runtime_target changes, since each is hashed verbatim (not excluded).
+ *   - Provider-safety (AC4): provider-sensitive fields (raw transcripts/responses, API keys,
+ *     session/request ids) are stripped from the hash input; excluded_field_paths reports every
+ *     dotted path that was actually present and stripped from THIS draft.
+ */
 final class AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService
 {
     use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
@@ -15,7 +29,80 @@ final class AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService
 
     public const MODE = 'read_only_runtime_promotion_draft_hash_finalizer';
 
+    public const DRAFT_HASH_SCHEMA_VERSION = 'atlas.self_construction.runtime_promotion_draft_hash.v1';
+
+    private const EXCLUDED_DRAFT_FIELDS = [
+        'generated_at',
+        'computed_at',
+        'finalized_at',
+        'timestamp',
+        'created_at',
+        'updated_at',
+        'provider_transcript',
+        'provider_response',
+        'raw_provider_output',
+        'api_key',
+        'session_id',
+        'request_id',
+    ];
+
     private const DISK = 'local';
+
+    /**
+     * @param  array<string, mixed>  $draft
+     * @return array<string, mixed>
+     */
+    public function computeDraftHash(array $draft): array
+    {
+        $excludedFieldPaths = $this->excludedFieldPaths($draft, '');
+        $canonical = $this->ksortRecursive($this->stripExcludedFields($draft));
+        $draftHash = hash('sha256', (string) json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        return [
+            'schema_version' => self::DRAFT_HASH_SCHEMA_VERSION,
+            'draft_hash' => $draftHash,
+            'excluded_field_paths' => $excludedFieldPaths,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $node
+     * @return list<string>
+     */
+    private function excludedFieldPaths(array $node, string $prefix): array
+    {
+        $paths = [];
+        foreach ($node as $key => $value) {
+            $path = $prefix === '' ? (string) $key : $prefix.'.'.$key;
+            if (in_array((string) $key, self::EXCLUDED_DRAFT_FIELDS, true)) {
+                $paths[] = $path;
+
+                continue;
+            }
+            if (is_array($value)) {
+                $paths = array_merge($paths, $this->excludedFieldPaths($value, $path));
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
+     * @param  array<string, mixed>  $node
+     * @return array<string, mixed>
+     */
+    private function stripExcludedFields(array $node): array
+    {
+        $out = [];
+        foreach ($node as $key => $value) {
+            if (in_array((string) $key, self::EXCLUDED_DRAFT_FIELDS, true)) {
+                continue;
+            }
+            $out[$key] = is_array($value) ? $this->stripExcludedFields($value) : $value;
+        }
+
+        return $out;
+    }
 
     /**
      * @param  array<string, mixed>  $options
