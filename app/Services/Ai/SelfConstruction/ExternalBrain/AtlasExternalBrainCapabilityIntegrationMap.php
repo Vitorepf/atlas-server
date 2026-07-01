@@ -71,6 +71,7 @@ final class AtlasExternalBrainCapabilityIntegrationMap
             $consumerCount      = array_key_exists('consumer_count', $cap) ? (int) $cap['consumer_count'] : null;
             $hasContract        = ! array_key_exists('has_contract', $cap) || (bool) $cap['has_contract'];
             $controlPlaneExists = (bool) ($cap['control_plane_exists'] ?? false);
+            $ownerDomain        = (string) ($cap['owner_domain'] ?? '');
 
             $missingConnections = array_values(array_diff($integPoints, $connectedTo));
 
@@ -84,6 +85,7 @@ final class AtlasExternalBrainCapabilityIntegrationMap
                 $totalContractMissing++;
                 $debtItems[] = [
                     'capability_id'       => $id,
+                    'owner_domain'        => $ownerDomain,
                     'missing_connections' => $missingConnections,
                     'next_wiring_actions' => array_merge(
                         ['add_contract: define capability contract before this can affect a real decision'],
@@ -103,6 +105,7 @@ final class AtlasExternalBrainCapabilityIntegrationMap
                 }
                 $debtItems[] = [
                     'capability_id'       => $id,
+                    'owner_domain'        => $ownerDomain,
                     'missing_connections' => $missingConnections,
                     'next_wiring_actions' => $this->nextWiringActions($isWired, $missingConnections, $consumerCount),
                 ];
@@ -123,7 +126,9 @@ final class AtlasExternalBrainCapabilityIntegrationMap
 
             $capabilityMap[] = [
                 'capability_id'       => $id,
+                'owner_domain'        => $ownerDomain,
                 'integration_status'  => $status,
+                'integration_points'  => $integPoints,
                 'missing_connections' => $missingConnections,
                 'coverage_score'      => $coverageScore,
                 'wiring_coverage'     => $wiringCoverage,

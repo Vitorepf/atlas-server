@@ -445,6 +445,36 @@ final class AtlasExternalBrainCapabilityIntegrationMapTest extends TestCase
         $this->assertSame([], $r['circuits'][0]['missing_edges']);
     }
 
+    // ── owner_domain ──────────────────────────────────────────────────────────
+
+    public function test_capability_with_owner_domain_and_consumers_exposes_domain_map_fields(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'id'             => 'domain_cap',
+            'owner_domain'   => 'engineering',
+            'consumer_count' => 2,
+        ])]]);
+
+        $entry = $r['capability_map'][0];
+        $this->assertSame('engineering', $entry['owner_domain']);
+        $this->assertSame(2, $entry['consumer_count']);
+        $this->assertSame(['orchestrator', 'task_fabric'], $entry['integration_points']);
+        $this->assertArrayHasKey('missing_connections', $entry);
+    }
+
+    public function test_integration_debt_item_includes_owner_domain(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'id'           => 'unwired_domain',
+            'owner_domain' => 'marketing',
+            'is_wired'     => false,
+        ])]]);
+
+        $debt = $r['integration_debt_items'][0];
+        $this->assertSame('marketing', $debt['owner_domain']);
+        $this->assertArrayHasKey('next_wiring_actions', $debt);
+    }
+
     public function test_wrapper_only_debt_organ_does_not_produce_high_leverage_connect(): void
     {
         // Organ is integration_debt (is_wired=false) but all integration_points are already connected_to
