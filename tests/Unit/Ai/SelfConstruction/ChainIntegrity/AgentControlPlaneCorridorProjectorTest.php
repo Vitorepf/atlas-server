@@ -157,6 +157,34 @@ class AgentControlPlaneCorridorProjectorTest extends TestCase
         $this->assertNotEmpty($result['next_repair_hint']);
     }
 
+    public function test_provider_to_runtime_first_bottleneck_exposes_only_false_artifact_checks(): void
+    {
+        $sliceKey = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate';
+        $reports = [
+            ['slice_key' => $sliceKey, 'ok' => false, 'checks' => ['contract_method_exists' => true]],
+        ];
+        $result = AgentControlPlaneCorridorProjector::providerToRuntimeCorridor($reports, 'x');
+
+        $this->assertSame('post_start_provider_start_driver_gate', $result['first_bottleneck']);
+        $this->assertNotContains('contract_method_exists', $result['missing_artifact_kinds']);
+        $this->assertContains('preflight_method_exists', $result['missing_artifact_kinds']);
+        $this->assertNotEmpty($result['next_repair_hint']);
+    }
+
+    public function test_implementation_to_operator_first_bottleneck_exposes_only_false_artifact_checks(): void
+    {
+        $sliceKey = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate';
+        $reports = [
+            ['slice_key' => $sliceKey, 'ok' => false, 'checks' => ['contract_method_exists' => true]],
+        ];
+        $result = AgentControlPlaneCorridorProjector::implementationToOperatorHandoffCorridor($reports, 'x');
+
+        $this->assertSame('post_start_implementation_boundary_gate', $result['first_bottleneck']);
+        $this->assertNotContains('contract_method_exists', $result['missing_artifact_kinds']);
+        $this->assertContains('preflight_method_exists', $result['missing_artifact_kinds']);
+        $this->assertNotEmpty($result['next_repair_hint']);
+    }
+
     public function test_bottleneck_fields_are_deterministic(): void
     {
         $a = AgentControlPlaneCorridorProjector::postStartEvidenceCorridor([], 'x');
