@@ -104,6 +104,22 @@ final class AtlasExternalBrainOriginatorThemeSaturationMeter
             }
         }
 
+        $noveltyScores = [];
+        foreach ($tasksByTheme as $theme => $themeTasks) {
+            $hasUnlock = false;
+            $themeImpactClasses = [];
+            foreach ($themeTasks as $task) {
+                if ((bool) ($task['new_prerequisite_unlock'] ?? false)) {
+                    $hasUnlock = true;
+                }
+                $themeImpactClasses[(string) ($task['distinct_impact_class'] ?? '')] = true;
+            }
+            $noveltyScores[$theme] = round(
+                ($hasUnlock ? 0.5 : 0.0) + (count($themeImpactClasses) > 1 ? 0.5 : 0.0),
+                4,
+            );
+        }
+
         $saturationHigh = false;
         if ($dominantTheme !== null && in_array($dominantTheme, $overrepresentedThemes, true)) {
             $dominantTasks = $tasksByTheme[$dominantTheme] ?? [];
@@ -135,6 +151,7 @@ final class AtlasExternalBrainOriginatorThemeSaturationMeter
             'allowed_file_directory_counts' => $directoryCounts,
             'dominant_theme' => $dominantTheme,
             'saturation_ratio' => round($saturationRatio, 4),
+            'novelty_scores' => $noveltyScores,
             'overrepresented_themes' => $overrepresentedThemes,
             'saturation_high' => $saturationHigh,
             'recommended_next_theme' => $recommendedNextTheme,

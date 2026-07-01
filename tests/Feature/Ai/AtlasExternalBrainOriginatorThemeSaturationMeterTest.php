@@ -127,6 +127,39 @@ final class AtlasExternalBrainOriginatorThemeSaturationMeterTest extends TestCas
         $this->assertNull($result['recommended_next_theme']);
     }
 
+    public function test_novelty_score_is_zero_for_repeated_theme_without_novelty(): void
+    {
+        $result = $this->meter->measure([
+            $this->task('local_clients'),
+            $this->task('local_clients'),
+            $this->task('local_clients'),
+        ], ['saturation_threshold' => 0.6]);
+
+        $this->assertSame(0.0, $result['novelty_scores']['local_clients']);
+    }
+
+    public function test_novelty_score_reflects_new_unlock_and_impact_class_diversity(): void
+    {
+        $result = $this->meter->measure([
+            $this->task('local_clients', ['new_prerequisite_unlock' => true]),
+            $this->task('local_clients', ['distinct_impact_class' => 'class_a']),
+            $this->task('local_clients', ['distinct_impact_class' => 'class_b']),
+        ], ['saturation_threshold' => 0.6]);
+
+        $this->assertSame(1.0, $result['novelty_scores']['local_clients']);
+        $this->assertFalse($result['saturation_high']);
+    }
+
+    public function test_novelty_score_half_when_only_unlock_present(): void
+    {
+        $result = $this->meter->measure([
+            $this->task('local_clients', ['new_prerequisite_unlock' => true]),
+            $this->task('local_clients'),
+        ], ['saturation_threshold' => 0.6]);
+
+        $this->assertSame(0.5, $result['novelty_scores']['local_clients']);
+    }
+
     public function test_empty_input_is_safe_and_not_saturated(): void
     {
         $result = $this->meter->measure([]);
