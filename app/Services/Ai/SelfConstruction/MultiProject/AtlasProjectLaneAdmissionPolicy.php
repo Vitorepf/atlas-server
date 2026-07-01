@@ -11,6 +11,14 @@ namespace App\Services\Ai\SelfConstruction\MultiProject;
  * project work can be generated for that lane. Validates required fields, normalizes the workspace policy
  * to `shared_local_main_with_scope_lock`, and fails closed when anything load-bearing is missing or unsafe.
  *
+ * AUTONOMY BUDGET + PROVIDER-INDEPENDENCE FLOOR:
+ *   - autonomy_budget must declare max_parallel_workers, max_daily_tasks, and max_risk_band —
+ *     every lane explicitly bounds its own blast radius, never an unbounded default.
+ *   - context_freshness_command must be Atlas-local (no http(s):// URL, no provider/API markers) —
+ *     a lane can never depend on reaching an external provider just to refresh context.
+ *   - provider_dependency_policy must be 'none' — steady state never depends on an external
+ *     provider, matching steady_state_owner=atlas_server.
+ *
  * PURE: no provider calls, no shell, no git, no human approval surfaces.
  */
 final class AtlasProjectLaneAdmissionPolicy
@@ -35,7 +43,15 @@ final class AtlasProjectLaneAdmissionPolicy
         'receipt_ledger_path',
         'rollback_verification_command',
         'steady_state_owner',
+        // Autonomy budget + provider-independence floor.
+        'autonomy_budget',
+        'provider_dependency_policy',
     ];
+
+    public const AUTONOMY_BUDGET_REQUIRED_KEYS = ['max_parallel_workers', 'max_daily_tasks', 'max_risk_band'];
+
+    /** Markers that indicate context_freshness_command reaches out to a provider/API instead of running Atlas-local. */
+    private const PROVIDER_BOUND_MARKERS = ['http://', 'https://', 'curl ', 'openai', 'anthropic', 'claude', 'gpt-', 'api.', '.com/'];
 
     /**
      * @param  array<string,mixed>  $manifest
@@ -93,8 +109,11 @@ final class AtlasProjectLaneAdmissionPolicy
         }
 
         // Self-Construction proof floor: each field must be non-empty.
-        if (trim((string) ($manifest['context_freshness_command'] ?? '')) === '') {
+        $contextFreshnessCommand = trim((string) ($manifest['context_freshness_command'] ?? ''));
+        if ($contextFreshnessCommand === '') {
             $reasons[] = 'context_freshness_command_empty';
+        } elseif ($this->looksProviderBound($contextFreshnessCommand)) {
+            $reasons[] = 'context_freshness_command_provider_bound';
         }
         if (trim((string) ($manifest['queue_namespace'] ?? '')) === '') {
             $reasons[] = 'queue_namespace_empty';
@@ -108,6 +127,23 @@ final class AtlasProjectLaneAdmissionPolicy
         // steady_state_owner must explicitly declare atlas_server — no vague ownership.
         if (array_key_exists('steady_state_owner', $manifest) && (string) ($manifest['steady_state_owner'] ?? '') !== 'atlas_server') {
             $reasons[] = 'steady_state_owner_must_be_atlas_server';
+        }
+
+        // Bounded autonomy budget: every lane must explicitly cap its own blast radius.
+        $autonomyBudget = is_array($manifest['autonomy_budget'] ?? null) ? $manifest['autonomy_budget'] : [];
+        $missingBudgetKeys = array_values(array_filter(
+            self::AUTONOMY_BUDGET_REQUIRED_KEYS,
+            static fn (string $key): bool => ! array_key_exists($key, $autonomyBudget),
+        ));
+        if (array_key_exists('autonomy_budget', $manifest) && $missingBudgetKeys !== []) {
+            foreach ($missingBudgetKeys as $key) {
+                $reasons[] = 'autonomy_budget_missing:'.$key;
+            }
+        }
+
+        // provider_dependency_policy must explicitly declare 'none' — steady state is Atlas-native only.
+        if (array_key_exists('provider_dependency_policy', $manifest) && (string) ($manifest['provider_dependency_policy'] ?? '') !== 'none') {
+            $reasons[] = 'provider_dependency_policy_must_be_none';
         }
 
         // Dependency flags block admission — they are hard stops, not advisory defaults.
@@ -137,6 +173,8 @@ final class AtlasProjectLaneAdmissionPolicy
             'merge_policy' => is_array($mergePolicy) ? $mergePolicy : null,
             'rollback_policy' => is_array($rollbackPolicy) ? $rollbackPolicy : null,
             'knowledge_sync_policy' => is_array($knowledgeSync) ? $knowledgeSync : null,
+            'autonomy_budget' => $autonomyBudget !== [] ? $autonomyBudget : null,
+            'provider_dependency_policy' => array_key_exists('provider_dependency_policy', $manifest) ? (string) $manifest['provider_dependency_policy'] : null,
             'autonomy_defaults' => [
                 'requires_human_approval' => false,
                 'calls_external_providers' => false,
@@ -145,6 +183,18 @@ final class AtlasProjectLaneAdmissionPolicy
         ];
 
         return $facts;
+    }
+
+    private function looksProviderBound(string $command): bool
+    {
+        $lower = strtolower($command);
+        foreach (self::PROVIDER_BOUND_MARKERS as $marker) {
+            if (str_contains($lower, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isSafeRepoRoot(string $repoRoot): bool

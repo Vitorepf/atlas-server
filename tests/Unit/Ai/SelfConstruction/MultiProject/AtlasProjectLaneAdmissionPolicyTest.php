@@ -30,6 +30,12 @@ final class AtlasProjectLaneAdmissionPolicyTest extends TestCase
             'receipt_ledger_path'           => '/Users/vitorepf/develop/Atlas/atlas-server/storage/ledger',
             'rollback_verification_command' => 'php artisan atlas:rollback --verify',
             'steady_state_owner'            => 'atlas_server',
+            'autonomy_budget'               => [
+                'max_parallel_workers' => 3,
+                'max_daily_tasks' => 50,
+                'max_risk_band' => 'medium',
+            ],
+            'provider_dependency_policy'    => 'none',
         ];
     }
 
@@ -212,5 +218,104 @@ final class AtlasProjectLaneAdmissionPolicyTest extends TestCase
 
         $this->assertFalse($verdict['admitted']);
         $this->assertContains('external_provider_dependency_blocks_admission', $verdict['blocking_reasons']);
+    }
+
+    // ── AC: autonomy_budget must declare max_parallel_workers, max_daily_tasks, max_risk_band ──
+
+    public function test_missing_autonomy_budget_field_blocks_admission(): void
+    {
+        $manifest = $this->validManifest();
+        unset($manifest['autonomy_budget']);
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertFalse($verdict['admitted']);
+        $this->assertContains('missing_required_field:autonomy_budget', $verdict['blocking_reasons']);
+    }
+
+    public function test_autonomy_budget_missing_max_parallel_workers_blocks_admission(): void
+    {
+        $manifest = $this->validManifest();
+        unset($manifest['autonomy_budget']['max_parallel_workers']);
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertFalse($verdict['admitted']);
+        $this->assertContains('autonomy_budget_missing:max_parallel_workers', $verdict['blocking_reasons']);
+    }
+
+    public function test_autonomy_budget_missing_max_daily_tasks_blocks_admission(): void
+    {
+        $manifest = $this->validManifest();
+        unset($manifest['autonomy_budget']['max_daily_tasks']);
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertFalse($verdict['admitted']);
+        $this->assertContains('autonomy_budget_missing:max_daily_tasks', $verdict['blocking_reasons']);
+    }
+
+    public function test_autonomy_budget_missing_max_risk_band_blocks_admission(): void
+    {
+        $manifest = $this->validManifest();
+        unset($manifest['autonomy_budget']['max_risk_band']);
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertFalse($verdict['admitted']);
+        $this->assertContains('autonomy_budget_missing:max_risk_band', $verdict['blocking_reasons']);
+    }
+
+    // ── AC: context_freshness_command must be Atlas-local, not provider/API bound ──
+
+    public function test_provider_bound_context_freshness_command_blocks_admission(): void
+    {
+        foreach (['curl https://api.openai.com/v1/models', 'https://anthropic.com/api/context', 'call gpt-4 to refresh context'] as $badCommand) {
+            $manifest = $this->validManifest();
+            $manifest['context_freshness_command'] = $badCommand;
+            $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+            $this->assertFalse($verdict['admitted'], "expected '$badCommand' to be blocked");
+            $this->assertContains('context_freshness_command_provider_bound', $verdict['blocking_reasons']);
+        }
+    }
+
+    public function test_atlas_local_context_freshness_command_is_accepted(): void
+    {
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($this->validManifest());
+        $this->assertTrue($verdict['admitted']);
+    }
+
+    // ── AC: provider_dependency_policy must be 'none' ──────────────────────────
+
+    public function test_missing_provider_dependency_policy_blocks_admission(): void
+    {
+        $manifest = $this->validManifest();
+        unset($manifest['provider_dependency_policy']);
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertFalse($verdict['admitted']);
+        $this->assertContains('missing_required_field:provider_dependency_policy', $verdict['blocking_reasons']);
+    }
+
+    public function test_provider_dependency_policy_not_none_blocks_admission(): void
+    {
+        $manifest = $this->validManifest();
+        $manifest['provider_dependency_policy'] = 'claude_code';
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertFalse($verdict['admitted']);
+        $this->assertContains('provider_dependency_policy_must_be_none', $verdict['blocking_reasons']);
+    }
+
+    // ── AC: admitted verdicts include autonomy_budget and provider_dependency_policy ──
+
+    public function test_admitted_verdict_includes_autonomy_budget_and_provider_dependency_policy(): void
+    {
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($this->validManifest());
+
+        $this->assertTrue($verdict['admitted']);
+        $this->assertSame([
+            'max_parallel_workers' => 3,
+            'max_daily_tasks' => 50,
+            'max_risk_band' => 'medium',
+        ], $verdict['autonomy_budget']);
+        $this->assertSame('none', $verdict['provider_dependency_policy']);
     }
 }
