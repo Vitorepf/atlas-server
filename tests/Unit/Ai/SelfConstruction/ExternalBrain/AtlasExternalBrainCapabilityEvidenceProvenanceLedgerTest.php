@@ -205,6 +205,41 @@ final class AtlasExternalBrainCapabilityEvidenceProvenanceLedgerTest extends Tes
         $this->assertSame(AtlasExternalBrainCapabilityEvidenceProvenanceLedger::FRESHNESS_UNKNOWN, $r['freshness_status']);
     }
 
+    // ── AC: downstream use + evidence-tier threshold for high-confidence claims ─
+
+    public function test_one_downstream_use_without_runnable_proof_does_not_produce_high_confidence(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'evidence' => [['type' => 'docs_only', 'age_days' => 1]],
+            'downstream_uses' => ['organ-x'],
+        ]));
+
+        $this->assertNotSame('high', $r['confidence']);
+    }
+
+    public function test_fresh_runnable_proof_with_enough_downstream_uses_yields_proven_and_high_confidence(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'evidence' => [['type' => 'runnable_test_or_gate', 'age_days' => 1]],
+            'downstream_uses' => ['organ-x', 'organ-y'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainCapabilityEvidenceProvenanceLedger::LEVERAGE_PROVEN, $r['leverage_proven']);
+        $this->assertSame('high', $r['confidence']);
+    }
+
+    public function test_stale_runnable_proof_downgrades_confidence_and_requires_refresh(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'evidence' => [['type' => 'runnable_test_or_gate', 'age_days' => 45]],
+            'downstream_uses' => ['organ-x', 'organ-y'],
+        ]));
+
+        $this->assertNotSame('high', $r['confidence']);
+        $this->assertTrue($r['refresh_required']);
+        $this->assertSame(AtlasExternalBrainCapabilityEvidenceProvenanceLedger::LEVERAGE_PROVEN, $r['leverage_proven']);
+    }
+
     // ── determinism ───────────────────────────────────────────────────────────
 
     public function test_assess_is_deterministic(): void
