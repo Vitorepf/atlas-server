@@ -26,8 +26,15 @@ final class AtlasMaestroPacketProvenanceComposer
      * status, claim state, give_back_count, timestamps, ...) never change a packet's identity
      * hash just because it moved through the queue.
      *
+     * The hash itself only ever derives from CANONICAL_CONTENT_FIELDS (order-independent: fields
+     * are read by name, then json-canonicalized with recursive ksort, so associative key order in
+     * $packet can never change content_hash). `source`, `allowed_files_fingerprint` and
+     * `acceptance_fingerprint` are supplementary provenance metadata alongside the hash — never
+     * derived from raw provider prompts or secret-bearing transient fields, only from the caller's
+     * declared `source` and the same canonical allowed_files/acceptance_criteria lists.
+     *
      * @param  array<string,mixed>  $packet
-     * @return array{provenance_record:array<string,mixed>, content_hash:string, canonical_fields:list<string>, omitted_transient_fields:list<string>}
+     * @return array{provenance_record:array<string,mixed>, content_hash:string, canonical_fields:list<string>, omitted_transient_fields:list<string>, source:string, allowed_files_fingerprint:string, acceptance_fingerprint:string}
      */
     public function composeContentHash(array $packet): array
     {
@@ -45,6 +52,9 @@ final class AtlasMaestroPacketProvenanceComposer
         }
 
         $contentHash = hash('sha256', $this->canonicalJson($canonicalPayload));
+        $allowedFilesFingerprint = hash('sha256', $this->canonicalJson($canonicalPayload['allowed_files']));
+        $acceptanceFingerprint = hash('sha256', $this->canonicalJson($canonicalPayload['acceptance_criteria']));
+        $source = trim((string) ($packet['source'] ?? ''));
 
         $omittedTransientFields = array_values(array_diff(
             array_keys($packet),
@@ -56,10 +66,16 @@ final class AtlasMaestroPacketProvenanceComposer
             'provenance_record' => [
                 'content_hash' => $contentHash,
                 'canonical_fields' => self::CANONICAL_CONTENT_FIELDS,
+                'source' => $source,
+                'allowed_files_fingerprint' => $allowedFilesFingerprint,
+                'acceptance_fingerprint' => $acceptanceFingerprint,
             ],
             'content_hash' => $contentHash,
             'canonical_fields' => self::CANONICAL_CONTENT_FIELDS,
             'omitted_transient_fields' => $omittedTransientFields,
+            'source' => $source,
+            'allowed_files_fingerprint' => $allowedFilesFingerprint,
+            'acceptance_fingerprint' => $acceptanceFingerprint,
         ];
     }
 

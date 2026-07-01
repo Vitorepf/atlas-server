@@ -234,4 +234,80 @@ final class AtlasMaestroPacketProvenanceComposerTest extends TestCase
         );
         $this->assertContains('lease_id', $r['omitted_transient_fields']);
     }
+
+    // ── AC: content_hash stable across associative key order ──────────────────
+
+    public function test_content_hash_is_stable_across_associative_key_order(): void
+    {
+        $composer = new AtlasMaestroPacketProvenanceComposer;
+
+        $inOrder = [
+            'objective' => 'Fix the widget so it renders correctly',
+            'allowed_files' => ['app/Widget.php', 'tests/Unit/WidgetTest.php'],
+            'acceptance_criteria' => ['php artisan test tests/Unit/WidgetTest.php exits 0'],
+            'required_evidence' => ['tests_or_gates_result'],
+        ];
+        $reordered = [
+            'required_evidence' => ['tests_or_gates_result'],
+            'acceptance_criteria' => ['php artisan test tests/Unit/WidgetTest.php exits 0'],
+            'objective' => 'Fix the widget so it renders correctly',
+            'allowed_files' => ['app/Widget.php', 'tests/Unit/WidgetTest.php'],
+        ];
+
+        $r1 = $composer->composeContentHash($inOrder);
+        $r2 = $composer->composeContentHash($reordered);
+
+        $this->assertSame($r1['content_hash'], $r2['content_hash']);
+    }
+
+    // ── AC: provenance includes source, allowed_files_fingerprint, acceptance_fingerprint ──
+
+    public function test_composed_content_hash_includes_source_and_fingerprints(): void
+    {
+        $composer = new AtlasMaestroPacketProvenanceComposer;
+
+        $r = $composer->composeContentHash($this->packet(['source' => 'cortex_fact']));
+
+        $this->assertSame('cortex_fact', $r['source']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $r['allowed_files_fingerprint']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $r['acceptance_fingerprint']);
+        $this->assertSame($r['source'], $r['provenance_record']['source']);
+        $this->assertSame($r['allowed_files_fingerprint'], $r['provenance_record']['allowed_files_fingerprint']);
+        $this->assertSame($r['acceptance_fingerprint'], $r['provenance_record']['acceptance_fingerprint']);
+    }
+
+    public function test_allowed_files_fingerprint_changes_when_allowed_files_change_but_not_when_objective_changes(): void
+    {
+        $composer = new AtlasMaestroPacketProvenanceComposer;
+
+        $base = $composer->composeContentHash($this->packet());
+        $sameFilesDifferentObjective = $composer->composeContentHash($this->packet(['objective' => 'A totally different objective']));
+        $differentFiles = $composer->composeContentHash($this->packet(['allowed_files' => ['app/Other.php']]));
+
+        $this->assertSame($base['allowed_files_fingerprint'], $sameFilesDifferentObjective['allowed_files_fingerprint']);
+        $this->assertNotSame($base['allowed_files_fingerprint'], $differentFiles['allowed_files_fingerprint']);
+    }
+
+    // ── AC: raw provider prompts or secrets are omitted from composed provenance ──
+
+    public function test_composed_content_hash_omits_raw_provider_prompts_or_secrets(): void
+    {
+        $composer = new AtlasMaestroPacketProvenanceComposer;
+
+        $r = $composer->composeContentHash($this->packet([
+            'source' => 'cortex_fact',
+            'raw_provider_prompt' => 'SYSTEM PROMPT: you are a super secret internal assistant...',
+            'api_key' => 'sk-super-secret-provider-key',
+            'provider_raw_response' => 'entire raw completion body from the provider',
+        ]));
+
+        $encoded = (string) json_encode($r);
+
+        $this->assertStringNotContainsString('SYSTEM PROMPT', $encoded);
+        $this->assertStringNotContainsString('sk-super-secret-provider-key', $encoded);
+        $this->assertStringNotContainsString('entire raw completion body', $encoded);
+        $this->assertContains('raw_provider_prompt', $r['omitted_transient_fields']);
+        $this->assertContains('api_key', $r['omitted_transient_fields']);
+        $this->assertContains('provider_raw_response', $r['omitted_transient_fields']);
+    }
 }
