@@ -165,6 +165,59 @@ final class AtlasMaestroPriorityReshaperTest extends TestCase
         $this->assertSame(['pkt-new', 'pkt-old'], array_column($onOrder, 'task_packet_id'), 'starvation-unblock must precede FIFO peers');
     }
 
+    public function test_fairness_starvation_unblock_by_task_id_alias_raises_task_above_fifo_peers(): void
+    {
+        $packets = [
+            ['task_packet_id' => 'pkt-old', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-new', 'enqueued_at' => '2026-06-25T05:00:00Z'],
+        ];
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'fairness_starvation_unblock_by_task_id' => ['pkt-new' => true],
+            ],
+        ];
+
+        $order = $this->reshaper(masterOn: true)->reshape($packets, $snapshot, 'loop');
+        $this->assertSame(['pkt-new', 'pkt-old'], array_column($order, 'task_packet_id'));
+    }
+
+    public function test_dependency_criticality_still_outranks_fairness_starvation_boost(): void
+    {
+        $packets = [
+            ['task_packet_id' => 'pkt-critical', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-starved', 'enqueued_at' => '2026-06-25T05:00:00Z'],
+        ];
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => ['pkt-critical' => 5],
+                'fairness_starvation_unblock_by_task_id' => ['pkt-starved' => true],
+            ],
+        ];
+
+        $order = $this->reshaper(masterOn: true)->reshape($packets, $snapshot, 'loop');
+        $this->assertSame(['pkt-critical', 'pkt-starved'], array_column($order, 'task_packet_id'));
+    }
+
+    public function test_poison_and_high_give_back_risk_still_sink_behind_clean_work_after_starvation_and_criticality(): void
+    {
+        $packets = [
+            ['task_packet_id' => 'pkt-poison', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-risky', 'enqueued_at' => '2026-06-25T01:00:00Z'],
+            ['task_packet_id' => 'pkt-clean', 'enqueued_at' => '2026-06-25T02:00:00Z'],
+        ];
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'poison_family_by_task_id' => ['pkt-poison' => true],
+                'high_give_back_risk_by_task_id' => ['pkt-risky' => true],
+            ],
+        ];
+
+        $order = $this->reshaper(masterOn: true)->reshape($packets, $snapshot, 'loop');
+        $this->assertSame(['pkt-clean', 'pkt-risky', 'pkt-poison'], array_column($order, 'task_packet_id'));
+    }
+
     public function test_high_give_back_risk_sinks_below_clean_peer_with_equal_criticality(): void
     {
         $snapshot = [

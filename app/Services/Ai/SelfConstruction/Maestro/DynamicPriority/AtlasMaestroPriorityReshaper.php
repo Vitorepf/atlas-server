@@ -67,7 +67,7 @@ final class AtlasMaestroPriorityReshaper
         $facts = (array) ($snapshot['facts'] ?? []);
         $criticality = (array) ($facts['dependency_criticality_by_task_id'] ?? []);
         $poison = (array) ($facts['poison_family_by_task_id'] ?? []);
-        $starvation = (array) ($facts['worker_starvation_unblock_by_task_id'] ?? []);
+        $starvation = (array) ($facts['worker_starvation_unblock_by_task_id'] ?? $facts['fairness_starvation_unblock_by_task_id'] ?? []);
         $giveBackRisk = (array) ($facts['high_give_back_risk_by_task_id'] ?? []);
 
         $augmented = array_map(static function (array $packet) use ($criticality, $poison, $starvation, $giveBackRisk): array {
