@@ -62,6 +62,29 @@ final class AtlasExternalBrainFrontierEscalationJustifier
         $expectedLift      = max(0.0, min(1.0, (float) ($facts['expected_lift']                   ?? 0.0)));
         $architecturalLeverage = max(0.0, min(1.0, (float) ($facts['architectural_leverage_score'] ?? 0.0)));
 
+        // Lower-cost paths tried (e.g. local model, subscription model) before considering
+        // frontier — normalized to {path, failed}. A failed lower-cost path is concrete evidence
+        // that cheaper options were exhausted, not a vague ambition claim.
+        $lowerCostPathsTriedRaw = is_array($facts['lower_cost_paths_tried'] ?? null) ? $facts['lower_cost_paths_tried'] : [];
+        $lowerCostPathsTried = [];
+        $hasFailedLowerCostPath = false;
+        foreach ($lowerCostPathsTriedRaw as $p) {
+            $path = is_array($p) ? (string) ($p['path'] ?? '') : (string) $p;
+            $failed = is_array($p) ? (bool) ($p['failed'] ?? false) : false;
+            if ($path === '') {
+                continue;
+            }
+            $lowerCostPathsTried[] = ['path' => $path, 'failed' => $failed];
+            if ($failed) {
+                $hasFailedLowerCostPath = true;
+            }
+        }
+
+        // Expected capability unlock, always reported so the caller can see what the claimed
+        // ambition actually is — never a scalar score alone.
+        $majorUnlockClaimed = $expectedLift >= self::EXPECTED_LIFT_THRESHOLD || $architecturalLeverage >= self::ARCHITECTURAL_LEVERAGE_THRESHOLD;
+        $expectedUnlock = $majorUnlockClaimed ? 'major_capability_unlock' : 'incremental_capability_unlock';
+
         // AC2: escalation reasons.
         $escalationReasons = [];
         if ($ambiguity >= self::AMBIGUITY_THRESHOLD) {
@@ -78,6 +101,13 @@ final class AtlasExternalBrainFrontierEscalationJustifier
         }
         if ($architecturalLeverage >= self::ARCHITECTURAL_LEVERAGE_THRESHOLD) {
             $escalationReasons[] = 'high_architectural_leverage';
+        }
+        // Vague ambition (a claimed major unlock with NO evidence that a cheaper path was even
+        // tried) never earns its OWN escalation reason beyond the raw threshold signals above —
+        // but when a lower-cost path was concretely tried and failed alongside a major-unlock
+        // claim, that is real evidence, not ambition, and gets its own explicit reason.
+        if ($hasFailedLowerCostPath && $majorUnlockClaimed) {
+            $escalationReasons[] = 'failed_lower_cost_paths_with_capability_unlock';
         }
 
         // AC3: small-model sufficiency reasons.
@@ -146,6 +176,8 @@ final class AtlasExternalBrainFrontierEscalationJustifier
             'escalation_reason'               => $escalationReasons === [] ? 'none' : implode('; ', $escalationReasons),
             'fallback_route'                  => $fallbackRoute,
             'provider_specific_dependency'    => false,
+            'lower_cost_paths_tried'          => $lowerCostPathsTried,
+            'expected_unlock'                 => $expectedUnlock,
         ];
     }
 

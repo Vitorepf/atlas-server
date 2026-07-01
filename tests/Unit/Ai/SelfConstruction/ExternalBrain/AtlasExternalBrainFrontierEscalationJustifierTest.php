@@ -294,4 +294,119 @@ final class AtlasExternalBrainFrontierEscalationJustifierTest extends TestCase
         $r = $this->justifier()->justify([]);
         $this->assertSame('none', $r['escalation_reason']);
     }
+
+    // ── AC: vague ambition alone does not justify escalation ────────────────────
+
+    public function test_empty_facts_never_escalate(): void
+    {
+        $r = $this->justifier()->justify([]);
+
+        $this->assertSame([], $r['escalation_reasons']);
+        $this->assertSame(AtlasExternalBrainFrontierEscalationJustifier::DECISION_USE_SCAFFOLDED_STANDARD_MODEL, $r['decision']);
+    }
+
+    public function test_unrecognized_ambition_field_alone_never_escalates(): void
+    {
+        // A free-text "ambition" claim that isn't one of the five measurable threshold
+        // factors must never move the needle — only concrete crossed thresholds do.
+        $r = $this->justifier()->justify([
+            'ambition' => 'this could be revolutionary',
+            'notes' => 'trust me, this is huge',
+        ]);
+
+        $this->assertSame([], $r['escalation_reasons']);
+        $this->assertSame(AtlasExternalBrainFrontierEscalationJustifier::DECISION_USE_SCAFFOLDED_STANDARD_MODEL, $r['decision']);
+    }
+
+    public function test_major_unlock_claim_without_any_failed_lower_cost_path_does_not_get_the_evidence_reason(): void
+    {
+        $r = $this->justifier()->justify([
+            'expected_lift' => 0.9,
+            'lower_cost_paths_tried' => [],
+        ]);
+
+        $this->assertNotContains('failed_lower_cost_paths_with_capability_unlock', $r['escalation_reasons']);
+    }
+
+    // ── AC: failed local/subscription paths + high capability unlock justifies escalation ──
+
+    public function test_failed_lower_cost_paths_with_high_expected_lift_justifies_escalation(): void
+    {
+        $r = $this->justifier()->justify([
+            'expected_lift' => 0.9,
+            'lower_cost_paths_tried' => [
+                ['path' => 'local_model', 'failed' => true],
+                ['path' => 'subscription_model', 'failed' => true],
+            ],
+            'estimated_frontier_cost_units' => 2.0,
+            'estimated_small_cost_units' => 1.0,
+        ]);
+
+        $this->assertContains('failed_lower_cost_paths_with_capability_unlock', $r['escalation_reasons']);
+        $this->assertSame(AtlasExternalBrainFrontierEscalationJustifier::DECISION_FRONTIER_REQUIRED, $r['decision']);
+    }
+
+    public function test_failed_lower_cost_paths_without_capability_unlock_does_not_add_the_evidence_reason(): void
+    {
+        $r = $this->justifier()->justify([
+            'expected_lift' => 0.1,
+            'architectural_leverage_score' => 0.1,
+            'lower_cost_paths_tried' => [
+                ['path' => 'local_model', 'failed' => true],
+            ],
+        ]);
+
+        $this->assertNotContains('failed_lower_cost_paths_with_capability_unlock', $r['escalation_reasons']);
+    }
+
+    public function test_lower_cost_paths_tried_but_not_failed_does_not_add_the_evidence_reason(): void
+    {
+        $r = $this->justifier()->justify([
+            'expected_lift' => 0.9,
+            'lower_cost_paths_tried' => [
+                ['path' => 'local_model', 'failed' => false],
+            ],
+        ]);
+
+        $this->assertNotContains('failed_lower_cost_paths_with_capability_unlock', $r['escalation_reasons']);
+    }
+
+    // ── AC: output includes lower_cost_paths_tried and expected_unlock ──────────
+
+    public function test_output_includes_lower_cost_paths_tried_and_expected_unlock(): void
+    {
+        $r = $this->justifier()->justify([]);
+
+        $this->assertArrayHasKey('lower_cost_paths_tried', $r);
+        $this->assertArrayHasKey('expected_unlock', $r);
+        $this->assertSame([], $r['lower_cost_paths_tried']);
+        $this->assertSame('incremental_capability_unlock', $r['expected_unlock']);
+    }
+
+    public function test_lower_cost_paths_tried_normalizes_input_shape(): void
+    {
+        $r = $this->justifier()->justify([
+            'lower_cost_paths_tried' => [
+                ['path' => 'local_model', 'failed' => true],
+                'subscription_model',
+            ],
+        ]);
+
+        $this->assertSame(
+            [
+                ['path' => 'local_model', 'failed' => true],
+                ['path' => 'subscription_model', 'failed' => false],
+            ],
+            $r['lower_cost_paths_tried'],
+        );
+    }
+
+    public function test_expected_unlock_is_major_when_lift_or_leverage_crosses_threshold(): void
+    {
+        $liftResult = $this->justifier()->justify(['expected_lift' => 0.9]);
+        $leverageResult = $this->justifier()->justify(['architectural_leverage_score' => 0.9]);
+
+        $this->assertSame('major_capability_unlock', $liftResult['expected_unlock']);
+        $this->assertSame('major_capability_unlock', $leverageResult['expected_unlock']);
+    }
 }
