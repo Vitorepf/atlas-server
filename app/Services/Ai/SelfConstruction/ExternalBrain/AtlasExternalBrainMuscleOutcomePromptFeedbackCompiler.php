@@ -38,6 +38,15 @@ final class AtlasExternalBrainMuscleOutcomePromptFeedbackCompiler
 
     private const LOW_SUCCESS_THRESHOLD = 0.50;
 
+    /** Average proof_strength below this marks a worker for suppression. */
+    private const WEAK_PROOF_THRESHOLD = 0.30;
+
+    /** give_back / total ratio at or above this marks a worker for suppression. */
+    private const HIGH_GIVE_BACK_RATE = 0.50;
+
+    /** give_back_reason values treated as test-only/proxy anti-patterns. */
+    private const TEST_ONLY_OR_PROXY_REASONS = ['test_only_change', 'proxy_implementation', 'proxy_only_change'];
+
     /**
      * @param  array{outcomes?: list<array<string,mixed>>}  $input
      * @return array<string,mixed>
@@ -51,7 +60,155 @@ final class AtlasExternalBrainMuscleOutcomePromptFeedbackCompiler
             'prompt_patches' => $this->compilePromptPatches($outcomes),
             'routing_hints' => $this->compileRoutingHints($outcomes),
             'promoted_spec_patterns' => $this->compilePromotedPatterns($outcomes),
+            'worker_routing_updates' => $this->compileWorkerRoutingUpdates($outcomes),
+            'prompt_hardening_updates' => $this->compilePromptHardeningUpdates($outcomes),
         ];
+    }
+
+    /**
+     * AC1: promote workers whose successes are consistently fast and strong-proof;
+     * suppress workers with repeated retries, a high give_back rate, or weak proof
+     * strength. Suppression takes priority over promotion when both signals fire.
+     *
+     * @param  list<array<string,mixed>>  $outcomes
+     */
+    private function compileWorkerRoutingUpdates(array $outcomes): array
+    {
+        $byWorker = [];
+        foreach ($outcomes as $o) {
+            $worker = (string) ($o['worker_id'] ?? $o['model'] ?? '');
+            if ($worker === '') {
+                continue;
+            }
+            $byWorker[$worker][] = $o;
+        }
+
+        $updates = [];
+        foreach ($byWorker as $worker => $list) {
+            $total = count($list);
+            $retries = array_values(array_filter(
+                $list,
+                static fn (array $o): bool => (string) ($o['outcome'] ?? '') === 'retry',
+            ));
+            $giveBacks = array_values(array_filter(
+                $list,
+                static fn (array $o): bool => (string) ($o['outcome'] ?? '') === 'give_back',
+            ));
+            $giveBackRate = $total > 0 ? count($giveBacks) / $total : 0.0;
+
+            $proofSum = 0.0;
+            foreach ($list as $o) {
+                $proofSum += (float) ($o['proof_strength'] ?? 0.0);
+            }
+            $avgProof = $total > 0 ? $proofSum / $total : 0.0;
+
+            $suppressReasons = [];
+            if (count($retries) >= self::MIN_REPEATS) {
+                $suppressReasons[] = 'repeated_retries';
+            }
+            if ($giveBackRate >= self::HIGH_GIVE_BACK_RATE) {
+                $suppressReasons[] = 'high_give_back_rate';
+            }
+            if ($avgProof < self::WEAK_PROOF_THRESHOLD) {
+                $suppressReasons[] = 'weak_proof_strength';
+            }
+
+            if ($suppressReasons !== []) {
+                $updates[] = [
+                    'worker' => $worker,
+                    'action' => 'suppress',
+                    'reasons' => $suppressReasons,
+                    'retry_count' => count($retries),
+                    'give_back_rate' => round($giveBackRate, 4),
+                    'average_proof_strength' => round($avgProof, 4),
+                ];
+                continue;
+            }
+
+            $fastStrongSuccesses = array_values(array_filter(
+                $list,
+                static fn (array $o): bool => (string) ($o['outcome'] ?? '') === 'success'
+                    && (int) ($o['elapsed_seconds'] ?? PHP_INT_MAX) <= self::FAST_ELAPSED_SECONDS
+                    && (float) ($o['proof_strength'] ?? 0.0) >= self::STRONG_PROOF_THRESHOLD,
+            ));
+
+            if (count($fastStrongSuccesses) >= self::MIN_REPEATS) {
+                $updates[] = [
+                    'worker' => $worker,
+                    'action' => 'promote',
+                    'reason' => 'fast_strong_proof_success',
+                    'occurrences' => count($fastStrongSuccesses),
+                ];
+            }
+        }
+
+        return $updates;
+    }
+
+    /**
+     * AC2: deterministic prompt-hardening signals per family — high template
+     * similarity, repeated allowed_files_too_narrow give-backs, and repeated
+     * test-only/proxy give-backs — each with an occurrence count and a
+     * recommended_patch_id.
+     *
+     * @param  list<array<string,mixed>>  $outcomes
+     */
+    private function compilePromptHardeningUpdates(array $outcomes): array
+    {
+        $byFamily = [];
+        foreach ($outcomes as $o) {
+            $family = (string) ($o['family'] ?? '');
+            if ($family === '') {
+                continue;
+            }
+            $byFamily[$family][] = $o;
+        }
+
+        $updates = [];
+        foreach ($byFamily as $family => $list) {
+            $narrowGiveBacks = array_values(array_filter(
+                $list,
+                static fn (array $o): bool => (string) ($o['outcome'] ?? '') === 'give_back'
+                    && (string) ($o['give_back_reason'] ?? '') === 'allowed_files_too_narrow',
+            ));
+            if (count($narrowGiveBacks) >= self::MIN_REPEATS) {
+                $updates[] = [
+                    'family' => $family,
+                    'signal' => 'allowed_files_too_narrow',
+                    'occurrences' => count($narrowGiveBacks),
+                    'recommended_patch_id' => 'require_implementation_plus_test_scope_and_closure_verification',
+                ];
+            }
+
+            $proxyLikeGiveBacks = array_values(array_filter(
+                $list,
+                static fn (array $o): bool => (string) ($o['outcome'] ?? '') === 'give_back'
+                    && in_array((string) ($o['give_back_reason'] ?? ''), self::TEST_ONLY_OR_PROXY_REASONS, true),
+            ));
+            if (count($proxyLikeGiveBacks) >= self::MIN_REPEATS) {
+                $updates[] = [
+                    'family' => $family,
+                    'signal' => 'test_only_or_proxy_pattern',
+                    'occurrences' => count($proxyLikeGiveBacks),
+                    'recommended_patch_id' => 'require_real_behavior_change_not_test_only_or_proxy',
+                ];
+            }
+
+            $highSimilarity = array_values(array_filter(
+                $list,
+                static fn (array $o): bool => (float) ($o['template_similarity'] ?? 0.0) >= self::TEMPLATE_FARM_THRESHOLD,
+            ));
+            if (count($highSimilarity) >= self::MIN_REPEATS) {
+                $updates[] = [
+                    'family' => $family,
+                    'signal' => 'high_template_similarity',
+                    'occurrences' => count($highSimilarity),
+                    'recommended_patch_id' => 'diversify_spec_pattern_away_from_template_farm',
+                ];
+            }
+        }
+
+        return $updates;
     }
 
     /** @param  list<array<string,mixed>>  $outcomes */
