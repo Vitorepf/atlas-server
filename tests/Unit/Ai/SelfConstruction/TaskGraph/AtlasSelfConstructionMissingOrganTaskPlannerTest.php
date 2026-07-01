@@ -367,4 +367,68 @@ class AtlasSelfConstructionMissingOrganTaskPlannerTest extends TestCase
             array_column($b['drafts'], 'dependency_wave'),
         );
     }
+
+    // ── AC1/AC2: consumer, proof, unlock metadata; orphan rejection ────────────
+
+    public function test_valid_missing_organ_draft_carries_consumer_proof_and_unlock_metadata(): void
+    {
+        $organs = $this->organs();
+        $organs[1]['depends_on'] = ['cortex']; // verification_court depends on cortex
+
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex', 'verification_court']],
+            $organs,
+        );
+
+        $byId = array_column($verdict['drafts'], null, 'task_packet_id');
+        $cortexDraft = $byId['coverage-cortex-missing-v1'];
+
+        self::assertArrayHasKey('consumers', $cortexDraft);
+        self::assertArrayHasKey('unlocks', $cortexDraft);
+        self::assertContains('verification_court', $cortexDraft['unlocks']);
+        self::assertContains('verification_court', $cortexDraft['consumers']);
+        self::assertNotEmpty($cortexDraft['required_proof']);
+    }
+
+    public function test_orphan_organ_with_declared_empty_consumers_and_no_dependency_fit_is_withheld(): void
+    {
+        $organs = $this->organs();
+        $organs[0]['consumers'] = []; // cortex explicitly declares no consumers, no depends_on, no unlocks
+
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $organs,
+        );
+
+        self::assertSame(0, $verdict['draft_count']);
+        self::assertSame('orphan_no_consumer_or_dependency_fit', $verdict['withheld_gaps'][0]['reason']);
+    }
+
+    public function test_organ_with_declared_consumers_is_not_withheld_as_orphan(): void
+    {
+        $organs = $this->organs();
+        $organs[0]['consumers'] = ['some_downstream_task'];
+
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $organs,
+        );
+
+        self::assertSame(1, $verdict['draft_count']);
+        self::assertSame([], $verdict['withheld_gaps']);
+    }
+
+    public function test_organ_with_declared_empty_consumers_but_a_dependency_fit_is_not_orphaned(): void
+    {
+        $organs = $this->organs();
+        $organs[0]['consumers'] = [];
+        $organs[0]['depends_on'] = ['some_external_prereq'];
+
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $organs,
+        );
+
+        self::assertSame(1, $verdict['draft_count']);
+    }
 }

@@ -51,6 +51,17 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
             $dependencyWaves[$organId] = $this->dependencyWave($organId, $organsById, $waveMemo);
         }
 
+        // In-batch "unlocks": organ_ids that declare this organ as a dependency — what building
+        // this organ unblocks, distinct from consumers declared outside the batch.
+        $unlocksById = [];
+        foreach ($organsById as $organId => $organ) {
+            foreach (array_values(array_map('strval', (array) ($organ['depends_on'] ?? []))) as $dep) {
+                if (isset($organsById[$dep])) {
+                    $unlocksById[$dep][] = $organId;
+                }
+            }
+        }
+
         $drafts = [];
         $withheld = [];
         $drafted = [];  // dedup: organ_id → true once a draft is emitted
@@ -65,12 +76,12 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
                 $withheld[] = ['organ_id' => $organId, 'reason' => 'organ_metadata_not_supplied'];
                 continue;
             }
-            $withReason = $this->withholdReason($organ, $liveTargets);
+            $withReason = $this->withholdReason($organ, $liveTargets, $unlocksById[$organId] ?? []);
             if ($withReason !== null) {
                 $withheld[] = ['organ_id' => $organId, 'reason' => $withReason];
                 continue;
             }
-            $draft = $this->makeDraft($organId, $organ, 'missing', [], $wave, $dependencyWaves[$organId] ?? 1);
+            $draft = $this->makeDraft($organId, $organ, 'missing', [], $wave, $dependencyWaves[$organId] ?? 1, $unlocksById[$organId] ?? []);
             if ($draft === null) {
                 $withheld[] = ['organ_id' => $organId, 'reason' => 'safe_targets_unavailable'];
                 continue;
@@ -91,12 +102,12 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
                 $withheld[] = ['organ_id' => $organId, 'reason' => 'organ_metadata_not_supplied'];
                 continue;
             }
-            $withReason = $this->withholdReason($organ, $liveTargets);
+            $withReason = $this->withholdReason($organ, $liveTargets, $unlocksById[$organId] ?? []);
             if ($withReason !== null) {
                 $withheld[] = ['organ_id' => $organId, 'reason' => $withReason];
                 continue;
             }
-            $draft = $this->makeDraft($organId, $organ, 'thin', $missingClasses, $wave, $dependencyWaves[$organId] ?? 1);
+            $draft = $this->makeDraft($organId, $organ, 'thin', $missingClasses, $wave, $dependencyWaves[$organId] ?? 1, $unlocksById[$organId] ?? []);
             if ($draft === null) {
                 $withheld[] = ['organ_id' => $organId, 'reason' => 'safe_targets_unavailable'];
                 continue;
@@ -128,9 +139,10 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
     /**
      * @param  array<string,mixed>  $organ
      * @param  list<string>  $liveTargets
+     * @param  list<string>  $unlocks  organ_ids in this batch that depend_on this organ
      * @return string|null  null = pass, non-null = withheld reason code
      */
-    private function withholdReason(array $organ, array $liveTargets): ?string
+    private function withholdReason(array $organ, array $liveTargets, array $unlocks = []): ?string
     {
         if ($liveTargets !== []) {
             $safeTargets = is_array($organ['safe_targets'] ?? null) ? $organ['safe_targets'] : [];
@@ -139,6 +151,18 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
             if (($impl !== '' && in_array($impl, $liveTargets, true)) ||
                 ($test !== '' && in_array($test, $liveTargets, true))) {
                 return 'live_target_exists';
+            }
+        }
+
+        // Orphan check: only opt-in — an organ that EXPLICITLY declares its consumers list (even
+        // empty) must also have a dependency fit (depends_on this batch, or is unlocked by
+        // something in it); otherwise it is a stub nobody will ever consume. Organs that never
+        // mention 'consumers' at all are unaffected — the coverage gap itself is their consumer.
+        if (array_key_exists('consumers', $organ)) {
+            $consumers = array_values(array_map('strval', (array) $organ['consumers']));
+            $dependsOn = array_values(array_map('strval', (array) ($organ['depends_on'] ?? [])));
+            if ($consumers === [] && $dependsOn === [] && $unlocks === []) {
+                return 'orphan_no_consumer_or_dependency_fit';
             }
         }
 
@@ -182,9 +206,10 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
     /**
      * @param  array<string,mixed>  $organ
      * @param  list<string>  $missingClasses
+     * @param  list<string>  $unlocks  organ_ids in this batch that depend_on this organ
      * @return array<string,mixed>|null  null ⇒ safe_targets unavailable, draft withheld
      */
-    private function makeDraft(string $organId, array $organ, string $coverageKind, array $missingClasses, string $wave, int $dependencyWave = 1): array|null
+    private function makeDraft(string $organId, array $organ, string $coverageKind, array $missingClasses, string $wave, int $dependencyWave = 1, array $unlocks = []): array|null
     {
         $safeTargets = is_array($organ['safe_targets'] ?? null) ? $organ['safe_targets'] : [];
         $impl = (string) ($safeTargets['implementation'] ?? '');
@@ -225,6 +250,11 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
             'implementation_notes_required',
         ];
 
+        $consumers = array_values(array_unique(array_merge(
+            array_values(array_map('strval', (array) ($organ['consumers'] ?? []))),
+            $unlocks,
+        )));
+
         return [
             'task_packet_id'     => $taskId,
             'objective'          => sprintf('Cover organ "%s" (%s gap): %s', $organId, $coverageKind, $purpose),
@@ -234,6 +264,8 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
             'required_evidence'  => ['tests_or_gates_result', 'implementation_notes'],
             'depends_on'         => $prerequisiteIds,
             'prerequisite_ids'   => $prerequisiteIds,
+            'consumers'          => $consumers,
+            'unlocks'            => $unlocks,
             'required_proof'     => $requiredProof,
             'priority'           => ['value' => $priorityValue, 'reason' => $priorityReason],
             'wave'               => $wave,
