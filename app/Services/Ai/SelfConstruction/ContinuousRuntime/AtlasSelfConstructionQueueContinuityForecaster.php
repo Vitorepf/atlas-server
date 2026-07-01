@@ -46,6 +46,9 @@ final class AtlasSelfConstructionQueueContinuityForecaster
 
     private const DEFAULT_SAFETY_WINDOW_HOURS = 2.0;
 
+    /** Above this give_back_rate (0..1), healthy supply is materially degraded — warn. */
+    private const GIVE_BACK_RATE_WARNING_THRESHOLD = 0.3;
+
     /**
      * @param  array<string,mixed>  $snapshot  claimable_depth, servable_depth, blocked_count,
      *                                          throughput_per_hour, throughput_data_age_seconds,
@@ -106,6 +109,22 @@ final class AtlasSelfConstructionQueueContinuityForecaster
             ? self::CONTINUITY_REPLENISH_BEFORE_EMPTY
             : self::CONTINUITY_STABLE;
 
+        // Worker-drain horizon: a queue can look fine on servable-depth/throughput alone while
+        // the muscle pool itself is shrinking — drain rate caps the useful forecast horizon
+        // independently of how deep the queue is.
+        $workerDrainRate = max(0.0, (float) ($snapshot['worker_drain_rate'] ?? 0.0));
+        $workerSustainabilityHours = $workerDrainRate > 0.0 ? 1.0 / $workerDrainRate : null;
+        $forecastHorizonHours = $workerSustainabilityHours !== null
+            ? min($hoursUntilDry, $workerSustainabilityHours)
+            : $hoursUntilDry;
+
+        // give_back_rate: tasks that bounce back to the queue don't count as productive supply.
+        $giveBackRate = min(1.0, max(0.0, (float) ($snapshot['give_back_rate'] ?? 0.0)));
+        $healthySupply = round($servable * (1.0 - $giveBackRate), 2);
+        $qualityWarning = $giveBackRate > self::GIVE_BACK_RATE_WARNING_THRESHOLD
+            ? 'high_give_back_rate_reduces_effective_healthy_supply'
+            : null;
+
         return [
             'schema_version' => self::SCHEMA,
             'hours_until_dry' => round($hoursUntilDry, 2),
@@ -123,6 +142,13 @@ final class AtlasSelfConstructionQueueContinuityForecaster
             'worker_floor_gap' => $workerFloorGap,
             'time_to_no_claimable_hours' => $timeToNoClaimableHours !== null ? round($timeToNoClaimableHours, 2) : null,
             'continuity_status' => $continuityStatus,
+            'forecast_horizon_hours' => round($forecastHorizonHours, 2),
+            'healthy_supply' => $healthySupply,
+            'quality_warning' => $qualityWarning,
+            'replenish_window' => [
+                'start_hours' => round(max(0.0, $replenishBy), 2),
+                'end_hours' => round($hoursUntilDry, 2),
+            ],
         ];
     }
 
@@ -183,6 +209,10 @@ final class AtlasSelfConstructionQueueContinuityForecaster
                 'servable' => $servable,
                 'blocked' => $blocked,
             ],
+            'forecast_horizon_hours' => 0.0,
+            'healthy_supply' => 0.0,
+            'quality_warning' => null,
+            'replenish_window' => ['start_hours' => 0.0, 'end_hours' => 0.0],
         ];
 
         // continuity_status is only meaningful when the caller supplied worker-floor signals

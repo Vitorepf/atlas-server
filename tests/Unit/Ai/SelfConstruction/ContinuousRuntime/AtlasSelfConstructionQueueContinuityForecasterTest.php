@@ -146,4 +146,68 @@ final class AtlasSelfConstructionQueueContinuityForecasterTest extends TestCase
         $r = $this->svc()->forecast($this->snap(['throughput_per_hour' => 0.0]));
         $this->assertSame(10, $r['recommended_originator_batch_size']);
     }
+
+    // ── AC: high worker drain shortens forecast horizon even at high queue depth ──
+
+    public function test_high_worker_drain_shortens_forecast_horizon_even_at_high_queue_depth(): void
+    {
+        // Very deep queue (hours_until_dry is huge), but workers are draining fast.
+        $r = $this->svc()->forecast($this->snap([
+            'servable_depth' => 1000,
+            'throughput_per_hour' => 5.0,
+            'worker_drain_rate' => 0.5, // 1/0.5 = 2h worker sustainability
+        ]));
+
+        $this->assertGreaterThan(100.0, $r['hours_until_dry'], 'queue depth alone would suggest a long runway');
+        $this->assertEqualsWithDelta(2.0, $r['forecast_horizon_hours'], 0.01, 'worker drain must cap the forecast horizon');
+        $this->assertLessThan($r['hours_until_dry'], $r['forecast_horizon_hours']);
+    }
+
+    public function test_no_worker_drain_leaves_forecast_horizon_equal_to_hours_until_dry(): void
+    {
+        $r = $this->svc()->forecast($this->snap());
+
+        $this->assertEqualsWithDelta($r['hours_until_dry'], $r['forecast_horizon_hours'], 0.01);
+    }
+
+    // ── AC: high give_back rate lowers healthy supply ──────────────────────────
+
+    public function test_high_give_back_rate_lowers_healthy_supply(): void
+    {
+        $r = $this->svc()->forecast($this->snap([
+            'servable_depth' => 20,
+            'give_back_rate' => 0.5,
+        ]));
+
+        $this->assertEqualsWithDelta(10.0, $r['healthy_supply'], 0.01);
+        $this->assertLessThan(20, $r['healthy_supply']);
+        $this->assertSame('high_give_back_rate_reduces_effective_healthy_supply', $r['quality_warning']);
+    }
+
+    public function test_low_give_back_rate_does_not_trigger_quality_warning(): void
+    {
+        $r = $this->svc()->forecast($this->snap(['give_back_rate' => 0.05]));
+
+        $this->assertNull($r['quality_warning']);
+    }
+
+    // ── AC: forecast output includes replenish_window and quality_warning ─────
+
+    public function test_forecast_output_includes_replenish_window_and_quality_warning(): void
+    {
+        $r = $this->svc()->forecast($this->snap());
+
+        $this->assertArrayHasKey('quality_warning', $r);
+        $this->assertArrayHasKey('replenish_window', $r);
+        $this->assertArrayHasKey('start_hours', $r['replenish_window']);
+        $this->assertArrayHasKey('end_hours', $r['replenish_window']);
+    }
+
+    public function test_fail_closed_response_also_includes_replenish_window_and_quality_warning(): void
+    {
+        $r = $this->svc()->forecast($this->snap(['throughput_per_hour' => 0.0]));
+
+        $this->assertArrayHasKey('quality_warning', $r);
+        $this->assertArrayHasKey('replenish_window', $r);
+    }
 }
