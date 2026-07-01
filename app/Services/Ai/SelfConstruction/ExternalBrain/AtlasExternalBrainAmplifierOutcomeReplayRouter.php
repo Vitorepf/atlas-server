@@ -24,12 +24,25 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   frontier_candidate  → scaffold_variant_learning, frontier_escalation_signal
  *
  * Unknown outcome_type → ignored (reason: unknown_outcome_type).
+ *
+ * Every routed outcome also gets a concrete `action` instead of passive sink
+ * telemetry alone:
+ *   rejection_rule            → poison / proxy_success / no_capability_delta,
+ *                                or ANY outcome carrying regression_flags
+ *   escalation_policy_update  → heldout_failure / frontier_candidate
+ *   scaffold_patch            → outcome clears every learning_promotion gate
+ *   replay_case               → everything else (needs investigation first)
  */
 final class AtlasExternalBrainAmplifierOutcomeReplayRouter
 {
     public const SCHEMA = 'atlas.external_brain.amplifier_outcome_replay_router.v1';
 
     public const MIN_EVIDENCE = 3;
+
+    public const ACTION_REPLAY_CASE              = 'replay_case';
+    public const ACTION_SCAFFOLD_PATCH            = 'scaffold_patch';
+    public const ACTION_ESCALATION_POLICY_UPDATE  = 'escalation_policy_update';
+    public const ACTION_REJECTION_RULE            = 'rejection_rule';
 
     private const SINK_MAP = [
         // original amplifier sinks
@@ -80,19 +93,14 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
             }
 
             $sinks = self::SINK_MAP[$type];
-            $routedUpdates[] = [
-                'outcome_id' => $id,
-                'outcome_type' => $type,
-                'sinks' => $sinks,
-                'scaffold_variant' => $scaffold,
-                'model_tier' => $tier,
-            ];
 
             // learning_promotion_candidates: positive amplifier learning (scaffold promotion) must
-            // clear ALL four gates — sink eligibility, real capability delta, no proxy, held-out pass.
+            // clear ALL five gates — sink eligibility, real capability delta, no proxy, held-out
+            // pass, and no regression flags.
             $capabilityDelta = (float) ($outcome['capability_delta'] ?? 0.0);
             $proxyDetected = (bool) ($outcome['proxy_detected'] ?? false);
             $heldoutPassed = (bool) ($outcome['heldout_passed'] ?? false);
+            $regressionFlags = is_array($outcome['regression_flags'] ?? null) ? $outcome['regression_flags'] : [];
 
             $promotionBlockers = [];
             if (! in_array('scaffold_selection', $sinks, true)) {
@@ -107,6 +115,20 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
             if (! $heldoutPassed) {
                 $promotionBlockers[] = 'heldout_not_passed';
             }
+            if ($regressionFlags !== []) {
+                $promotionBlockers[] = 'regression_flags_present';
+            }
+
+            $eligibleForPromotion = $promotionBlockers === [];
+
+            $routedUpdates[] = [
+                'outcome_id' => $id,
+                'outcome_type' => $type,
+                'sinks' => $sinks,
+                'scaffold_variant' => $scaffold,
+                'model_tier' => $tier,
+                'action' => $this->classifyAction($type, $eligibleForPromotion, $regressionFlags),
+            ];
 
             $learningPromotionCandidates[] = [
                 'outcome_id' => $id,
@@ -114,7 +136,8 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
                 'capability_delta' => $capabilityDelta,
                 'proxy_detected' => $proxyDetected,
                 'heldout_passed' => $heldoutPassed,
-                'eligible_for_promotion' => $promotionBlockers === [],
+                'regression_flags' => $regressionFlags,
+                'eligible_for_promotion' => $eligibleForPromotion,
                 'promotion_blockers' => $promotionBlockers,
             ];
 
@@ -143,5 +166,19 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
             'regression_case_candidates' => $regressionCaseCandidates,
             'learning_promotion_candidates' => $learningPromotionCandidates,
         ];
+    }
+
+    /** @param  string[]  $regressionFlags */
+    private function classifyAction(string $type, bool $eligibleForPromotion, array $regressionFlags): string
+    {
+        if ($regressionFlags !== []) {
+            return self::ACTION_REJECTION_RULE;
+        }
+
+        return match ($type) {
+            'poison', 'proxy_success', 'no_capability_delta' => self::ACTION_REJECTION_RULE,
+            'heldout_failure', 'frontier_candidate' => self::ACTION_ESCALATION_POLICY_UPDATE,
+            default => $eligibleForPromotion ? self::ACTION_SCAFFOLD_PATCH : self::ACTION_REPLAY_CASE,
+        };
     }
 }

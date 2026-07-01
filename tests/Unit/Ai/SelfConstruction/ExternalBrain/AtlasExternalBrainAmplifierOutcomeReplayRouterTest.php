@@ -305,4 +305,56 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouterTest extends TestCase
         $this->assertFalse($candidate['eligible_for_promotion']);
         $this->assertContains('proxy_detected', $candidate['promotion_blockers']);
     }
+
+    // ── AC: routed action (replay_case / scaffold_patch / escalation_policy_update / rejection_rule) ─
+
+    public function test_successful_pattern_promotion_routes_to_scaffold_patch(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'commit_success', capabilityDelta: 0.4, heldoutPassed: true)]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierOutcomeReplayRouter::ACTION_SCAFFOLD_PATCH, $r['routed_updates'][0]['action']);
+    }
+
+    public function test_weak_model_failure_routes_to_replay_case(): void
+    {
+        // give_back never clears the promotion gates (no positive delta, no heldout) — needs replay, not a patch.
+        $r = $this->route([$this->outcome('o1', 'give_back', tier: 'small')]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierOutcomeReplayRouter::ACTION_REPLAY_CASE, $r['routed_updates'][0]['action']);
+    }
+
+    public function test_missing_evidence_outcome_is_never_assigned_an_action(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'commit_success', evidence: 1)]);
+
+        $this->assertSame([], $r['routed_updates']);
+        $this->assertSame('low_evidence', $r['ignored_outcomes'][0]['reason']);
+    }
+
+    public function test_regression_flags_force_rejection_rule_even_with_positive_delta(): void
+    {
+        $outcome = $this->outcome('o1', 'commit_success', capabilityDelta: 0.9, heldoutPassed: true);
+        $outcome['regression_flags'] = ['evidence_strength'];
+
+        $r = $this->route([$outcome]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierOutcomeReplayRouter::ACTION_REJECTION_RULE, $r['routed_updates'][0]['action']);
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertFalse($candidate['eligible_for_promotion']);
+        $this->assertContains('regression_flags_present', $candidate['promotion_blockers']);
+    }
+
+    public function test_poison_routes_to_rejection_rule(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'poison')]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierOutcomeReplayRouter::ACTION_REJECTION_RULE, $r['routed_updates'][0]['action']);
+    }
+
+    public function test_heldout_failure_routes_to_escalation_policy_update(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'heldout_failure')]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierOutcomeReplayRouter::ACTION_ESCALATION_POLICY_UPDATE, $r['routed_updates'][0]['action']);
+    }
 }
