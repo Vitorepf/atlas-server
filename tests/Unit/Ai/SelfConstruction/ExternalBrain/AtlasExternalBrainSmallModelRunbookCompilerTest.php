@@ -57,11 +57,11 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
 
     // ── runbook_steps ─────────────────────────────────────────────────────────
 
-    public function test_eight_steps_emitted(): void
+    public function test_ten_steps_emitted(): void
     {
         $result = $this->compiler()->compile([]);
 
-        $this->assertCount(8, $result['runbook_steps']);
+        $this->assertCount(10, $result['runbook_steps']);
     }
 
     public function test_steps_ordered_sequentially(): void
@@ -69,7 +69,7 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
         $result = $this->compiler()->compile([]);
 
         $orders = array_column($result['runbook_steps'], 'order');
-        $this->assertSame([1, 2, 3, 4, 5, 6, 7, 8], $orders);
+        $this->assertSame([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], $orders);
     }
 
     public function test_steps_have_required_fields(): void
@@ -93,11 +93,13 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
             'read_state',
             'dedup',
             'propose',
+            'design_path_selection',
             'critique',
-            'repair',
-            'evidence_proof',
+            'anti_proxy_repair',
+            'evidence_replay',
             'escalate',
             'final_enqueue_readiness',
+            'final_batch_self_audit',
         ], $stepIds);
     }
 
@@ -106,20 +108,24 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
         $result = $this->compiler()->compile([]);
         $stepIds = array_column($result['runbook_steps'], 'step_id');
 
-        foreach (['read_state', 'dedup', 'propose', 'critique', 'repair', 'escalate'] as $required) {
+        foreach ([
+            'read_state', 'dedup', 'propose', 'design_path_selection', 'critique',
+            'anti_proxy_repair', 'evidence_replay', 'escalate', 'final_batch_self_audit',
+        ] as $required) {
             $this->assertContains($required, $stepIds);
         }
     }
 
     // ── mandatory_artifacts ───────────────────────────────────────────────────
 
-    public function test_mandatory_artifacts_lists_all_eight_artifact_names(): void
+    public function test_mandatory_artifacts_lists_all_expected_artifact_names(): void
     {
         $result = $this->compiler()->compile([]);
 
         $expected = [
-            'evidence_list', 'dedup_proof', 'candidate_list', 'critique_report',
-            'repair_log', 'grep_evidence', 'escalation_decision', 'final_batch',
+            'evidence_list', 'dedup_proof', 'candidate_list', 'design_path_selection_log',
+            'critique_report', 'repair_log', 'grep_evidence', 'escalation_decision',
+            'final_batch', 'final_batch_self_audit_log',
         ];
         $this->assertSame($expected, $result['mandatory_artifacts']);
     }
@@ -142,12 +148,23 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
         $this->assertContains('all_candidates_duplicate_existing_work', $result['stop_conditions']['dedup']);
     }
 
-    public function test_evidence_proof_has_no_files_match_stop_condition(): void
+    public function test_evidence_replay_has_no_files_match_stop_condition(): void
     {
         $result = $this->compiler()->compile([]);
 
-        $this->assertArrayHasKey('evidence_proof', $result['stop_conditions']);
-        $this->assertContains('no_files_match_grep_pattern', $result['stop_conditions']['evidence_proof']);
+        $this->assertArrayHasKey('evidence_replay', $result['stop_conditions']);
+        $this->assertContains('no_files_match_grep_pattern', $result['stop_conditions']['evidence_replay']);
+    }
+
+    public function test_design_path_selection_distinguishes_lazy_no_more_ideas_from_honest_no_evidence(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $this->assertArrayHasKey('read_state', $result['stop_conditions']);
+        $this->assertContains('no_evidence_available', $result['stop_conditions']['read_state']);
+
+        $this->assertArrayHasKey('design_path_selection', $result['stop_conditions']);
+        $this->assertContains('lazy_no_more_ideas_requires_another_search_or_design_path_pass', $result['stop_conditions']['design_path_selection']);
     }
 
     public function test_final_enqueue_readiness_has_anti_padding_stop_condition(): void
@@ -162,7 +179,7 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
     {
         $result = $this->compiler()->compile([]);
 
-        foreach (['propose', 'critique', 'repair', 'escalate'] as $stepId) {
+        foreach (['critique', 'anti_proxy_repair', 'escalate'] as $stepId) {
             $this->assertArrayNotHasKey($stepId, $result['stop_conditions']);
         }
     }
