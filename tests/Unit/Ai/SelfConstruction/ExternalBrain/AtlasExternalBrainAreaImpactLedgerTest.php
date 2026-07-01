@@ -483,4 +483,122 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
         $this->assertNotSame('mature', $entry['maturity_band']);
         $this->assertNotSame('developing', $entry['maturity_band']);
     }
+
+    // ── AC2/AC4: high-impact area from risk_reduction/autonomy_gain/downstream_unlocks ──
+
+    public function test_high_impact_area_from_risk_reduction_and_autonomy_gain(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample([
+                'area' => 'safety_engine',
+                'risk_reduction' => 2.5,
+                'autonomy_gain' => 1.5,
+            ]),
+        ]]);
+
+        $area = $result['areas']['safety_engine'];
+        $this->assertSame(2.5, $area['risk_reduction']);
+        $this->assertSame(1.5, $area['autonomy_gain']);
+        $this->assertGreaterThan(3, $area['compound_impact_score']);
+    }
+
+    // ── AC4: downstream unlock ─────────────────────────────────────────────────
+
+    public function test_downstream_unlocks_boost_compound_score_and_rank(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['area' => 'low_unlock', 'value_class' => 'real_capability', 'integration_evidence' => true]),
+            $this->sample(['area' => 'high_unlock', 'value_class' => 'real_capability', 'integration_evidence' => true, 'downstream_unlocks' => 4]),
+        ]]);
+
+        $this->assertSame(4, $result['areas']['high_unlock']['downstream_unlocks']);
+        $this->assertLessThan(
+            $result['areas']['low_unlock']['impact_rank'],
+            $result['areas']['high_unlock']['impact_rank'],
+            'higher downstream_unlocks must rank at least as well as an area with none',
+        );
+        $this->assertGreaterThan(
+            $result['areas']['low_unlock']['compound_impact_score'],
+            $result['areas']['high_unlock']['compound_impact_score'],
+        );
+    }
+
+    // ── AC4: stale proof downgrade ─────────────────────────────────────────────
+
+    public function test_stale_proof_downgrades_mature_to_developing(): void
+    {
+        $samples = array_fill(0, 3, $this->sample([
+            'area' => 'stale_mature',
+            'value_class' => 'real_capability',
+            'integration_evidence' => true,
+            'evidence_age_days' => 45,
+        ]));
+
+        $result = $this->ledger->aggregate(['samples' => $samples]);
+
+        $this->assertSame('stale', $result['areas']['stale_mature']['evidence_freshness']);
+        $this->assertSame('developing', $result['areas']['stale_mature']['maturity_band']);
+    }
+
+    public function test_stale_proof_downgrades_developing_to_emerging(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample([
+                'area' => 'stale_developing',
+                'value_class' => 'real_capability',
+                'integration_evidence' => true,
+                'evidence_age_days' => 45,
+            ]),
+        ]]);
+
+        $this->assertSame('emerging', $result['areas']['stale_developing']['maturity_band']);
+    }
+
+    public function test_stale_proof_downgrades_owner_signal_from_proven_to_claimed(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample([
+                'area' => 'stale_owner',
+                'value_class' => 'real_capability',
+                'integration_evidence' => true,
+                'evidence_age_days' => 45,
+            ]),
+        ]]);
+
+        $this->assertSame('claimed', $result['areas']['stale_owner']['owner_signal']);
+    }
+
+    public function test_fresh_proof_does_not_downgrade_maturity_or_owner_signal(): void
+    {
+        $samples = array_fill(0, 3, $this->sample([
+            'area' => 'fresh_mature',
+            'value_class' => 'real_capability',
+            'integration_evidence' => true,
+            'evidence_age_days' => 5,
+        ]));
+
+        $result = $this->ledger->aggregate(['samples' => $samples]);
+
+        $this->assertSame('mature', $result['areas']['fresh_mature']['maturity_band']);
+        $this->assertSame('proven', $result['areas']['fresh_mature']['owner_signal']);
+    }
+
+    // ── proof_strength field presence ──────────────────────────────────────────
+
+    public function test_proof_strength_defaults_to_one_when_absent(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [$this->sample(['area' => 'default_proof'])]]);
+
+        $this->assertSame(1.0, $result['areas']['default_proof']['proof_strength']);
+    }
+
+    public function test_proof_strength_takes_the_min_across_samples_in_the_same_area(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['area' => 'mixed_proof', 'proof_strength' => 0.90]),
+            $this->sample(['area' => 'mixed_proof', 'proof_strength' => 0.40]),
+        ]]);
+
+        $this->assertSame(0.40, $result['areas']['mixed_proof']['proof_strength']);
+    }
 }

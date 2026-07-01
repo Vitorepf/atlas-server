@@ -38,6 +38,17 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   claimed  — integration_evidence AND capability_gain = 0
  *   unowned  — no integration_evidence
  *
+ * Additional impact dimensions (AC2), accumulated per area from optional sample fields —
+ * absent on a sample contributes 0.0/0, so existing callers that never set them see no change:
+ *   risk_reduction     — float, sums into compound_impact_score (real risk mitigated)
+ *   autonomy_gain      — float, sums into compound_impact_score (less human/operator dependency)
+ *   downstream_unlocks — int, weighted 2x into compound_impact_score (this area's work unblocked
+ *                        other areas — a downstream multiplier, not raw task/file volume)
+ *   proof_strength     — float 0..1 (default 1.0), the min across an area's samples; a stale
+ *                        evidence_age_days downgrades maturity_band/owner_signal by one step
+ *                        (mature→developing, developing→emerging, proven→claimed) — a proof that
+ *                        has gone stale can never keep asserting full maturity/ownership.
+ *
  * Pure: no I/O, no side effects.
  */
 final class AtlasExternalBrainAreaImpactLedger
@@ -89,6 +100,10 @@ final class AtlasExternalBrainAreaImpactLedger
                     'total_tasks'            => 0,
                     'integration_evidence'   => false,
                     'max_evidence_age_days'  => null,
+                    'risk_reduction'         => 0.0,
+                    'autonomy_gain'          => 0.0,
+                    'downstream_unlocks'     => 0,
+                    'min_proof_strength'     => 1.0,
                 ];
             }
 
@@ -97,6 +112,12 @@ final class AtlasExternalBrainAreaImpactLedger
             if ($integrated) {
                 $buckets[$area]['integration_evidence'] = true;
             }
+
+            $buckets[$area]['risk_reduction'] += max(0.0, (float) ($sample['risk_reduction'] ?? 0.0));
+            $buckets[$area]['autonomy_gain'] += max(0.0, (float) ($sample['autonomy_gain'] ?? 0.0));
+            $buckets[$area]['downstream_unlocks'] += max(0, (int) ($sample['downstream_unlocks'] ?? 0));
+            $proofStrength = max(0.0, min(1.0, (float) ($sample['proof_strength'] ?? 1.0)));
+            $buckets[$area]['min_proof_strength'] = min($buckets[$area]['min_proof_strength'], $proofStrength);
 
             if (isset($sample['evidence_age_days'])) {
                 $age = max(0, (int) $sample['evidence_age_days']);
@@ -126,8 +147,26 @@ final class AtlasExternalBrainAreaImpactLedger
                 ? round(min(1.0, ($b['scaffolding_risk'] + $b['unknown_count']) / $b['total_tasks']), 4)
                 : 0.0;
 
-            // Compound score: capability weighted highest, observability neutral, scaffolding penalised.
-            $compoundImpactScore = ($b['capability_gain'] * 3) + $b['observability_gain'] - ($b['scaffolding_risk'] * 2);
+            // Compound score: capability weighted highest, observability neutral, scaffolding
+            // penalised, plus real risk reduction, autonomy gain, and downstream unlocks (weighted
+            // 2x — unlocking OTHER areas' work is a multiplier, not raw task/file volume).
+            $compoundImpactScore = ($b['capability_gain'] * 3) + $b['observability_gain'] - ($b['scaffolding_risk'] * 2)
+                + $b['risk_reduction'] + $b['autonomy_gain'] + ($b['downstream_unlocks'] * 2);
+
+            $evidenceFreshness = $this->computeEvidenceFreshness($b['max_evidence_age_days']);
+            $maturityBand = $this->computeMaturityBand($b, $volumeWithoutEvidence);
+            $ownerSignal = $this->computeOwnerSignal($b);
+
+            // AC4: a stale proof can never keep asserting full maturity/ownership — downgrade
+            // one step regardless of how strong the underlying counts looked.
+            if ($evidenceFreshness === 'stale') {
+                $maturityBand = match ($maturityBand) {
+                    'mature' => 'developing',
+                    'developing' => 'emerging',
+                    default => $maturityBand,
+                };
+                $ownerSignal = $ownerSignal === 'proven' ? 'claimed' : $ownerSignal;
+            }
 
             $areas[$area] = [
                 'area'                    => $area,
@@ -139,14 +178,18 @@ final class AtlasExternalBrainAreaImpactLedger
                 'integration_evidence'    => $b['integration_evidence'],
                 'volume_without_evidence' => $volumeWithoutEvidence,
                 'backlog_pressure'        => $backlogPressure,
+                'risk_reduction'          => round($b['risk_reduction'], 4),
+                'autonomy_gain'           => round($b['autonomy_gain'], 4),
+                'downstream_unlocks'      => $b['downstream_unlocks'],
+                'proof_strength'          => round($b['min_proof_strength'], 4),
                 'compound_impact_score'   => $compoundImpactScore,
                 'impact_rank'             => 0,
-                'maturity_band'           => $this->computeMaturityBand($b, $volumeWithoutEvidence),
+                'maturity_band'           => $maturityBand,
                 'risk_level'              => $this->computeRiskLevel($b),
-                'owner_signal'            => $this->computeOwnerSignal($b),
+                'owner_signal'            => $ownerSignal,
                 'next_structural_lever'   => $this->computeLever($b, $volumeWithoutEvidence),
                 'evidence_age_days'       => $b['max_evidence_age_days'],
-                'evidence_freshness'      => $this->computeEvidenceFreshness($b['max_evidence_age_days']),
+                'evidence_freshness'      => $evidenceFreshness,
             ];
         }
 
