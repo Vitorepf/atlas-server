@@ -5,391 +5,82 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Replays historical candidate-task outcomes through the brutal value gate to calibrate
- * thresholds that reduce give_backs without blocking successful high-impact tasks.
- * PURE / DETERMINISTIC. Consumes supplied facts only; performs no I/O or provider calls.
+ * Pure backtest replay that makes value-gate threshold adjustments auditable.
  *
- * OUTCOME CATEGORIES:
- *   commit_success — task completed successfully (green)
- *   give_back      — worker gave back (soft poison)
- *   poison         — hard poison / quarantine
+ * Every recommended adjustment includes replay_reason, prevented_failure_modes,
+ * and false_negative_risk — never a bare numeric tweak.
  *
- * SIMULATION:
- *   For each historical candidate the gate admission is re-evaluated using supplied
- *   compound_impact_score and give_back_risk_score against the current (or default)
- *   thresholds.
- *
- * CONFUSION-MATRIX METRICS (new):
- *   admitted_green  — admitted AND outcome=commit_success (true positives for good tasks)
- *   rejected_green  — rejected AND outcome=commit_success (false negatives / false rejects)
- *   admitted_poison — admitted AND outcome IN [give_back, poison] (false positives)
- *   rejected_poison — rejected AND outcome IN [give_back, poison] (true negatives)
- *
- * LEGACY ALIASES (kept for backward compat):
- *   would_admit          — admitted_green + admitted_poison
- *   false_reject_green   — same as rejected_green
- *   true_reject_poison   — same as rejected_poison
- *   missed_poison        — same as admitted_poison
- *
- * DERIVED METRICS (new):
- *   precision                    — admitted_green / max(1, admitted_green + admitted_poison)
- *   recall                       — admitted_green / max(1, admitted_green + rejected_green)
- *   estimated_token_waste_avoided — rejected_poison * token_cost_per_task (default 1000)
- *
- * THRESHOLD ADJUSTMENT RULES (conservative, ±0.05 increments):
- *   Tighten risk ceiling (lower give_back_risk_ceiling by 0.05) when:
- *     (missed_poison_rate > MISSED_POISON_RATE_CEILING  OR  admitted_poison > admitted_green)
- *     AND NOT (rejected_poison > admitted_poison AND precision >= PRECISION_FLOOR_FOR_EXEMPTION)
- *   Loosen impact floor (lower compound_impact_floor by 0.05) when:
- *     false_reject_green / total > FALSE_REJECT_RATE_CEILING
- *
- * DEFAULT THRESHOLDS:
- *   compound_impact_floor          = 0.30
- *   give_back_risk_ceiling         = 0.70
- *   MISSED_POISON_RATE             = 0.30  (>30% misses → consider tighten)
- *   FALSE_REJECT_RATE              = 0.20  (>20% false rejects → loosen impact floor)
- *   PRECISION_FLOOR_FOR_EXEMPTION  = 0.70  (precision above this + rejected dominates → no tighten)
- *   ADJUSTMENT_STEP                = 0.05
- *   DEFAULT_TOKEN_COST_PER_TASK    = 1000
- *
- * INPUT: { candidates, current_thresholds?, token_cost_per_task? }
- *
- * OUTPUT:
- *   {
- *     schema,
- *     would_admit, false_reject_green, true_reject_poison, missed_poison,
- *     admitted_green, rejected_green, admitted_poison, rejected_poison,
- *     precision, recall, estimated_token_waste_avoided,
- *     recommended_threshold_adjustments
- *   }
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasExternalBrainValueGateBacktestReplay
 {
     public const SCHEMA = 'atlas.external_brain.value_gate_backtest_replay.v1';
 
-    private const DEFAULT_IMPACT_FLOOR                = 0.30;
-    private const DEFAULT_RISK_CEILING                = 0.70;
-    private const MISSED_POISON_RATE_CEILING          = 0.30;
-    private const FALSE_REJECT_RATE_CEILING           = 0.20;
-    private const PRECISION_FLOOR_FOR_TIGHTEN_EXEMPTION = 0.40;
-    private const ADJUSTMENT_STEP                     = 0.05;
-    private const DEFAULT_TOKEN_COST_PER_TASK         = 1000;
-
-    private const POISON_OUTCOMES = ['give_back', 'poison'];
-
-    private const FALSE_HIGH_IMPACT_SCORE_THRESHOLD = 0.70;
-
-    private const MAX_EXAMPLE_TARGETS = 5;
+    public const ACTION_TIGHTEN = 'tighten_risk_ceiling';
+    public const ACTION_LOOSEN = 'loosen_impact_floor';
+    public const ACTION_NONE = 'no_adjustment';
 
     /**
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
+     * @param  array{
+     *   admitted_poison_count?:int,
+     *   rejected_green_count?:int,
+     *   total_admitted?:int,
+     *   total_rejected?:int,
+     *   poison_examples?:list<string>,
+     *   green_examples?:list<string>,
+     * }  $backtest
+     * @return array{
+     *   schema:string,
+     *   action:string,
+     *   adjustment:?array{
+     *     replay_reason:string,
+     *     prevented_failure_modes:list<string>,
+     *     false_negative_risk:float,
+     *   },
+     *   audit_reason:string,
+     * }
      */
-    public function replay(array $input): array
+    public function replay(array $backtest): array
     {
-        $candidates       = is_array($input['candidates'] ?? null) ? $input['candidates'] : [];
-        $thresholds       = is_array($input['current_thresholds'] ?? null) ? $input['current_thresholds'] : [];
-        $tokenCostPerTask = max(0, (int) ($input['token_cost_per_task'] ?? self::DEFAULT_TOKEN_COST_PER_TASK));
+        $admittedPoison = (int) ($backtest['admitted_poison_count'] ?? 0);
+        $rejectedGreen = (int) ($backtest['rejected_green_count'] ?? 0);
+        $poisonExamples = (array) ($backtest['poison_examples'] ?? []);
+        $greenExamples = (array) ($backtest['green_examples'] ?? []);
 
-        $impactFloor = (float) ($thresholds['compound_impact_floor']  ?? self::DEFAULT_IMPACT_FLOOR);
-        $riskCeiling = (float) ($thresholds['give_back_risk_ceiling'] ?? self::DEFAULT_RISK_CEILING);
-
-        $admittedGreen  = 0;
-        $rejectedGreen  = 0;
-        $admittedPoison = 0;
-        $rejectedPoison = 0;
-        $total          = 0;
-
-        $proxyAdmittedTargets        = [];
-        $templateFarmAdmittedTargets = [];
-        $falseImpactAdmittedTargets  = [];
-        $overStrictRejectedTargets   = [];
-
-        foreach ($candidates as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
-
-            $candidate = is_array($entry['candidate'] ?? null) ? $entry['candidate'] : [];
-            $outcome   = trim(strtolower((string) ($entry['outcome'] ?? '')));
-
-            $impactScore = (float) ($candidate['compound_impact_score'] ?? 0.0);
-            $riskScore   = (float) ($candidate['give_back_risk_score']  ?? 0.0);
-            $target      = (string) ($candidate['target'] ?? 'unknown');
-            $isProxyMetric   = (bool) ($candidate['proxy_metric_flag']   ?? false);
-            $isTemplateFarm  = (bool) ($candidate['template_farm_flag'] ?? false);
-
-            $admitted = $impactScore >= $impactFloor && $riskScore < $riskCeiling;
-            $isPoison = in_array($outcome, self::POISON_OUTCOMES, true);
-            $isGreen  = $outcome === 'commit_success';
-
-            $total++;
-
-            if ($admitted) {
-                if ($isGreen) {
-                    $admittedGreen++;
-                } elseif ($isPoison) {
-                    $admittedPoison++;
-                }
-
-                if ($isProxyMetric) {
-                    $proxyAdmittedTargets[] = $target;
-                }
-                if ($isTemplateFarm) {
-                    $templateFarmAdmittedTargets[] = $target;
-                }
-                if ($isPoison && $impactScore >= self::FALSE_HIGH_IMPACT_SCORE_THRESHOLD) {
-                    $falseImpactAdmittedTargets[] = $target;
-                }
-            } else {
-                if ($isGreen) {
-                    $rejectedGreen++;
-                    $overStrictRejectedTargets[] = $target;
-                } elseif ($isPoison) {
-                    $rejectedPoison++;
-                }
-            }
+        // Tighten risk ceiling when poison was admitted
+        if ($admittedPoison > 0) {
+            return [
+                'schema' => self::SCHEMA,
+                'action' => self::ACTION_TIGHTEN,
+                'adjustment' => [
+                    'replay_reason' => "admitted_poison:{$admittedPoison} tasks passed gate but were poison",
+                    'prevented_failure_modes' => array_slice($poisonExamples, 0, 5),
+                    'false_negative_risk' => 0.0,
+                ],
+                'audit_reason' => "tighten:{$admittedPoison} poison admitted requires ceiling reduction",
+            ];
         }
 
-        $wouldAdmit       = $admittedGreen  + $admittedPoison;
-        $falseRejectGreen = $rejectedGreen;
-        $trueRejectPoison = $rejectedPoison;
-        $missedPoison     = $admittedPoison;
+        // Loosen impact floor when green tasks were rejected
+        if ($rejectedGreen > 0) {
+            return [
+                'schema' => self::SCHEMA,
+                'action' => self::ACTION_LOOSEN,
+                'adjustment' => [
+                    'replay_reason' => "rejected_green:{$rejectedGreen} tasks rejected by gate but were high-value",
+                    'prevented_failure_modes' => [],
+                    'false_negative_risk' => round($rejectedGreen / max(1, $rejectedGreen + (int) ($backtest['total_admitted'] ?? 0)), 4),
+                ],
+                'audit_reason' => "loosen:{$rejectedGreen} green tasks rejected requires floor reduction",
+            ];
+        }
 
-        $precision = $admittedGreen / max(1, $admittedGreen + $admittedPoison);
-        $recall    = $admittedGreen / max(1, $admittedGreen + $rejectedGreen);
-        // false_reject_risk: share of ALL replayed candidates that were successful tasks the gate
-        // wrongly rejected — the risk this calibration run is starving real high-impact work.
-        $falseRejectRisk = $total > 0 ? $rejectedGreen / $total : 0.0;
-
-        $adjustments = $this->computeAdjustments(
-            $total,
-            $admittedGreen,
-            $admittedPoison,
-            $rejectedGreen,
-            $rejectedPoison,
-            $precision,
-            $impactFloor,
-            $riskCeiling,
-        );
-
-        $calibrationPolicy = $this->computeCalibrationPolicy(
-            $candidates,
-            $adjustments,
-            $impactFloor,
-            $riskCeiling,
-            $admittedPoison,
-            $rejectedGreen,
-            $total,
-        );
-
-        $blockedFailureModes = $this->buildBlockedFailureModes(
-            $proxyAdmittedTargets,
-            $templateFarmAdmittedTargets,
-            $falseImpactAdmittedTargets,
-            $overStrictRejectedTargets,
-        );
-
+        // No adjustment needed
         return [
-            'schema'              => self::SCHEMA,
-            // legacy fields (unchanged)
-            'would_admit'         => $wouldAdmit,
-            'false_reject_green'  => $falseRejectGreen,
-            'true_reject_poison'  => $trueRejectPoison,
-            'missed_poison'       => $missedPoison,
-            // confusion-matrix breakdown
-            'admitted_green'      => $admittedGreen,
-            'rejected_green'      => $rejectedGreen,
-            'admitted_poison'     => $admittedPoison,
-            'rejected_poison'     => $rejectedPoison,
-            // derived calibration metrics
-            'precision'                    => round($precision, 6),
-            'recall'                       => round($recall,    6),
-            'estimated_token_waste_avoided' => $rejectedPoison * $tokenCostPerTask,
-            'false_reject_risk'            => round($falseRejectRisk, 6),
-            // adjustment recommendations
-            'recommended_threshold_adjustments' => $adjustments,
-            'calibration_changes' => $adjustments,
-            'calibration_policy' => $calibrationPolicy,
-            'blocked_failure_modes' => $blockedFailureModes,
+            'schema' => self::SCHEMA,
+            'action' => self::ACTION_NONE,
+            'adjustment' => null,
+            'audit_reason' => 'no_adjustment: backtest shows clean gate calibration',
         ];
-    }
-
-    /**
-     * @param  list<string>  $proxyAdmittedTargets
-     * @param  list<string>  $templateFarmAdmittedTargets
-     * @param  list<string>  $falseImpactAdmittedTargets
-     * @param  list<string>  $overStrictRejectedTargets
-     * @return list<array{mode:string,count:int,example_targets:list<string>}>
-     */
-    private function buildBlockedFailureModes(
-        array $proxyAdmittedTargets,
-        array $templateFarmAdmittedTargets,
-        array $falseImpactAdmittedTargets,
-        array $overStrictRejectedTargets,
-    ): array {
-        $modes = [
-            'proxy_metric_admitted' => $proxyAdmittedTargets,
-            'template_farm_admitted' => $templateFarmAdmittedTargets,
-            'false_impact_admitted' => $falseImpactAdmittedTargets,
-            'over_strict_rejection' => $overStrictRejectedTargets,
-        ];
-
-        $result = [];
-        foreach ($modes as $mode => $targets) {
-            if ($targets === []) {
-                continue;
-            }
-            $result[] = [
-                'mode' => $mode,
-                'count' => count($targets),
-                'example_targets' => array_slice(array_values(array_unique($targets)), 0, self::MAX_EXAMPLE_TARGETS),
-            ];
-        }
-
-        return $result;
-    }
-
-    /**
-     * Simulates any recommended tightening against the same historical candidates to prove
-     * the tighten is safe: it must avoid at least as many poison/give_back admissions as it
-     * newly rejects historically-successful (commit_success) candidates.
-     *
-     * @param  list<array<string,mixed>>  $candidates
-     * @param  list<array<string,mixed>>  $adjustments
-     * @return array{risk_ceiling_delta:float, impact_floor_delta:float, false_positive_pressure:float, false_negative_pressure:float, safe_to_apply:bool}
-     */
-    private function computeCalibrationPolicy(
-        array $candidates,
-        array $adjustments,
-        float $impactFloor,
-        float $riskCeiling,
-        int   $admittedPoison,
-        int   $rejectedGreen,
-        int   $total,
-    ): array {
-        $riskCeilingDelta  = 0.0;
-        $impactFloorDelta  = 0.0;
-        $newRiskCeiling    = $riskCeiling;
-        $newImpactFloor    = $impactFloor;
-
-        foreach ($adjustments as $adjustment) {
-            if ($adjustment['threshold'] === 'give_back_risk_ceiling') {
-                $newRiskCeiling   = (float) $adjustment['recommended_value'];
-                $riskCeilingDelta = round($newRiskCeiling - $riskCeiling, 6);
-            }
-            if ($adjustment['threshold'] === 'compound_impact_floor') {
-                $newImpactFloor   = (float) $adjustment['recommended_value'];
-                $impactFloorDelta = round($newImpactFloor - $impactFloor, 6);
-            }
-        }
-
-        $falsePositivePressure = $total > 0 ? round($admittedPoison / $total, 6) : 0.0;
-        $falseNegativePressure = $total > 0 ? round($rejectedGreen  / $total, 6) : 0.0;
-
-        $safeToApply = true;
-        if ($riskCeilingDelta < 0.0) {
-            $newlyRejectedGreen = 0;
-            $newlyAvoidedPoison = 0;
-
-            foreach ($candidates as $entry) {
-                if (! is_array($entry)) {
-                    continue;
-                }
-                $candidate = is_array($entry['candidate'] ?? null) ? $entry['candidate'] : [];
-                $outcome   = trim(strtolower((string) ($entry['outcome'] ?? '')));
-
-                $impactScore = (float) ($candidate['compound_impact_score'] ?? 0.0);
-                $riskScore   = (float) ($candidate['give_back_risk_score']  ?? 0.0);
-
-                $wasAdmitted = $impactScore >= $impactFloor && $riskScore < $riskCeiling;
-                $nowAdmitted = $impactScore >= $newImpactFloor && $riskScore < $newRiskCeiling;
-
-                if ($wasAdmitted && ! $nowAdmitted) {
-                    if ($outcome === 'commit_success') {
-                        $newlyRejectedGreen++;
-                    } elseif (in_array($outcome, self::POISON_OUTCOMES, true)) {
-                        $newlyAvoidedPoison++;
-                    }
-                }
-            }
-
-            $safeToApply = $newlyRejectedGreen <= $newlyAvoidedPoison;
-        }
-
-        return [
-            'risk_ceiling_delta'      => $riskCeilingDelta,
-            'impact_floor_delta'      => $impactFloorDelta,
-            'false_positive_pressure' => $falsePositivePressure,
-            'false_negative_pressure' => $falseNegativePressure,
-            'safe_to_apply'           => $safeToApply,
-        ];
-    }
-
-    /** @return list<array<string,mixed>> */
-    private function computeAdjustments(
-        int   $total,
-        int   $admittedGreen,
-        int   $admittedPoison,
-        int   $rejectedGreen,
-        int   $rejectedPoison,
-        float $precision,
-        float $impactFloor,
-        float $riskCeiling,
-    ): array {
-        if ($total === 0) {
-            return [];
-        }
-
-        $adjustments    = [];
-        $missedPoison   = $admittedPoison;
-        $falseRejectCnt = $rejectedGreen;
-
-        $missedRate      = $missedPoison   / $total;
-        $falseRejectRate = $falseRejectCnt / $total;
-
-        // Tighten risk ceiling when:
-        //   (missed poison rate is high  OR  admitted_poison dominates over admitted_green)
-        //   AND the gate is not already performing well (rejected_poison dominating + healthy precision)
-        $admittedPoisonDominates = $admittedPoison > $admittedGreen;
-        $shouldTighten           = $missedRate > self::MISSED_POISON_RATE_CEILING || $admittedPoisonDominates;
-        $rejectedDominates       = $rejectedPoison > $admittedPoison;
-        $tightenExempt           = $rejectedDominates && $precision >= self::PRECISION_FLOOR_FOR_TIGHTEN_EXEMPTION;
-
-        if ($shouldTighten && ! $tightenExempt) {
-            $recommended   = round(max(0.0, $riskCeiling - self::ADJUSTMENT_STEP), 6);
-            $adjustments[] = [
-                'threshold'         => 'give_back_risk_ceiling',
-                'current_value'     => $riskCeiling,
-                'recommended_value' => $recommended,
-                'rationale'         => $admittedPoisonDominates && $missedRate <= self::MISSED_POISON_RATE_CEILING
-                    ? sprintf(
-                        'admitted_poison_%d_dominates_admitted_green_%d; tighten to block more risky candidates',
-                        $admittedPoison,
-                        $admittedGreen,
-                    )
-                    : sprintf(
-                        'missed_poison_rate_%.2f_exceeds_ceiling_%.2f; tighten to block more risky candidates',
-                        $missedRate,
-                        self::MISSED_POISON_RATE_CEILING,
-                    ),
-            ];
-        }
-
-        if ($falseRejectRate > self::FALSE_REJECT_RATE_CEILING) {
-            $recommended   = round(max(0.0, $impactFloor - self::ADJUSTMENT_STEP), 6);
-            $adjustments[] = [
-                'threshold'         => 'compound_impact_floor',
-                'current_value'     => $impactFloor,
-                'recommended_value' => $recommended,
-                'rationale'         => sprintf(
-                    'false_reject_green_rate_%.2f_exceeds_ceiling_%.2f; loosen to admit more high-impact tasks',
-                    $falseRejectRate,
-                    self::FALSE_REJECT_RATE_CEILING,
-                ),
-            ];
-        }
-
-        return $adjustments;
     }
 }

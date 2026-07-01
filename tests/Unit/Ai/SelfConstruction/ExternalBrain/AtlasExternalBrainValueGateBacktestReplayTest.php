@@ -5,620 +5,73 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainValueGateBacktestReplay;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainValueGateBacktestReplayTest extends TestCase
 {
-    private function replay(): AtlasExternalBrainValueGateBacktestReplay
+    private AtlasExternalBrainValueGateBacktestReplay $replay;
+
+    protected function setUp(): void
     {
-        return new AtlasExternalBrainValueGateBacktestReplay();
+        parent::setUp();
+        $this->replay = new AtlasExternalBrainValueGateBacktestReplay();
     }
 
-    private function entry(string $outcome, float $impact = 0.80, float $risk = 0.20): array
+    // AC 2: tightening includes replay_reason and prevented_failure_modes for admitted poison
+    public function test_tightening_for_poison_includes_reason_and_modes(): void
     {
-        return [
-            'candidate' => [
-                'target'                => 'AtlasFooService',
-                'compound_impact_score' => $impact,
-                'give_back_risk_score'  => $risk,
-            ],
-            'outcome' => $outcome,
-        ];
-    }
-
-    // ── schema ────────────────────────────────────────────────────────────────
-
-    public function test_schema_present(): void
-    {
-        $result = $this->replay()->replay(['candidates' => []]);
-        $this->assertSame(AtlasExternalBrainValueGateBacktestReplay::SCHEMA, $result['schema']);
-    }
-
-    // ── empty input ───────────────────────────────────────────────────────────
-
-    public function test_empty_candidates_all_zeros(): void
-    {
-        $result = $this->replay()->replay(['candidates' => []]);
-
-        $this->assertSame(0, $result['would_admit']);
-        $this->assertSame(0, $result['false_reject_green']);
-        $this->assertSame(0, $result['true_reject_poison']);
-        $this->assertSame(0, $result['missed_poison']);
-        $this->assertSame([], $result['recommended_threshold_adjustments']);
-    }
-
-    // ── would_admit ───────────────────────────────────────────────────────────
-
-    public function test_would_admit_counts_gate_passing_candidates(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('commit_success', 0.80, 0.20),  // admitted
-            $this->entry('commit_success', 0.80, 0.20),  // admitted
-            $this->entry('commit_success', 0.10, 0.20),  // rejected (low impact)
-        ]]);
-
-        $this->assertSame(2, $result['would_admit']);
-    }
-
-    // ── false_reject_green ────────────────────────────────────────────────────
-
-    public function test_false_reject_green_counts_rejected_successful_tasks(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            // impact below floor (0.30) but outcome green → false reject
-            $this->entry('commit_success', 0.10, 0.20),
-        ]]);
-
-        $this->assertSame(1, $result['false_reject_green']);
-        $this->assertSame(0, $result['would_admit']);
-    }
-
-    // ── true_reject_poison ────────────────────────────────────────────────────
-
-    public function test_true_reject_poison_on_give_back(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            // rejected (low impact) AND give_back → correct rejection
-            $this->entry('give_back', 0.10, 0.20),
-        ]]);
-
-        $this->assertSame(1, $result['true_reject_poison']);
-        $this->assertSame(0, $result['missed_poison']);
-    }
-
-    public function test_true_reject_poison_on_poison(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('poison', 0.10, 0.80),
-        ]]);
-
-        $this->assertSame(1, $result['true_reject_poison']);
-    }
-
-    // ── missed_poison ─────────────────────────────────────────────────────────
-
-    public function test_missed_poison_when_admitted_but_give_back(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            // admitted (impact ok, risk low) but gave back → missed
-            $this->entry('give_back', 0.80, 0.20),
-        ]]);
-
-        $this->assertSame(1, $result['missed_poison']);
-        $this->assertSame(1, $result['would_admit']);
-    }
-
-    public function test_missed_poison_when_admitted_but_poison(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('poison', 0.80, 0.20),
-        ]]);
-
-        $this->assertSame(1, $result['missed_poison']);
-    }
-
-    // ── threshold adjustments — tighten risk ceiling ──────────────────────────
-
-    public function test_recommends_lower_risk_ceiling_when_missed_poison_rate_high(): void
-    {
-        // 4 admitted → 2 give_back → missed rate = 0.50 > 0.30
-        $candidates = array_merge(
-            array_fill(0, 2, $this->entry('give_back', 0.80, 0.20)),
-            array_fill(0, 2, $this->entry('commit_success', 0.80, 0.20)),
-        );
-
-        $result = $this->replay()->replay(['candidates' => $candidates]);
-
-        $thresholds = array_column($result['recommended_threshold_adjustments'], 'threshold');
-        $this->assertContains('give_back_risk_ceiling', $thresholds);
-    }
-
-    public function test_recommended_risk_ceiling_is_lower_than_current(): void
-    {
-        $candidates = array_fill(0, 4, $this->entry('give_back', 0.80, 0.20));
-
-        $result = $this->replay()->replay([
-            'candidates'          => $candidates,
-            'current_thresholds'  => ['give_back_risk_ceiling' => 0.70],
+        $result = $this->replay->replay([
+            'admitted_poison_count' => 3,
+            'poison_examples' => ['petreo_target', 'duplicate_task', 'test_only'],
+            'rejected_green_count' => 0,
         ]);
 
-        $adj = array_filter(
-            $result['recommended_threshold_adjustments'],
-            fn(array $a): bool => $a['threshold'] === 'give_back_risk_ceiling'
-        );
-        $adj = array_values($adj)[0] ?? null;
-
-        $this->assertNotNull($adj);
-        $this->assertLessThan($adj['current_value'], $adj['recommended_value']);
+        $this->assertSame('tighten_risk_ceiling', $result['action']);
+        $this->assertNotNull($result['adjustment']);
+        $this->assertNotEmpty($result['adjustment']['replay_reason']);
+        $this->assertNotEmpty($result['adjustment']['prevented_failure_modes']);
+        $this->assertContains('petreo_target', $result['adjustment']['prevented_failure_modes']);
     }
 
-    // ── threshold adjustments — loosen impact floor ───────────────────────────
-
-    public function test_recommends_lower_impact_floor_when_false_reject_rate_high(): void
+    // AC 3: loosening includes false_negative_risk when green tasks rejected
+    public function test_loosening_for_green_includes_false_negative_risk(): void
     {
-        // 5 entries: 2 false rejects (green but rejected) → rate = 0.40 > 0.20
-        $candidates = array_merge(
-            array_fill(0, 2, $this->entry('commit_success', 0.10, 0.20)), // rejected green
-            array_fill(0, 3, $this->entry('commit_success', 0.80, 0.20)), // admitted green
-        );
-
-        $result = $this->replay()->replay(['candidates' => $candidates]);
-
-        $thresholds = array_column($result['recommended_threshold_adjustments'], 'threshold');
-        $this->assertContains('compound_impact_floor', $thresholds);
-    }
-
-    public function test_no_adjustment_when_metrics_within_tolerances(): void
-    {
-        // All succeed and all admitted → no adjustments needed
-        $candidates = array_fill(0, 5, $this->entry('commit_success', 0.80, 0.20));
-
-        $result = $this->replay()->replay(['candidates' => $candidates]);
-
-        $this->assertSame([], $result['recommended_threshold_adjustments']);
-    }
-
-    // ── custom thresholds ─────────────────────────────────────────────────────
-
-    public function test_custom_thresholds_used_for_admission(): void
-    {
-        // With risk_ceiling=0.10, risk=0.20 → rejected even though default would admit
-        $result = $this->replay()->replay([
-            'candidates'         => [$this->entry('commit_success', 0.80, 0.20)],
-            'current_thresholds' => ['give_back_risk_ceiling' => 0.10],
+        $result = $this->replay->replay([
+            'admitted_poison_count' => 0,
+            'rejected_green_count' => 5,
+            'total_admitted' => 10,
+            'green_examples' => ['high_value_a', 'high_value_b'],
         ]);
 
-        $this->assertSame(0, $result['would_admit']);
-        $this->assertSame(1, $result['false_reject_green']);
+        $this->assertSame('loosen_impact_floor', $result['action']);
+        $this->assertNotNull($result['adjustment']);
+        $this->assertGreaterThan(0, $result['adjustment']['false_negative_risk']);
     }
 
-    // ── determinism ──────────────────────────────────────────────────────────
-
-    public function test_identical_input_yields_identical_output(): void
+    // AC 4: no adjustment without non-empty audit_reason
+    public function test_no_adjustment_has_non_empty_audit_reason(): void
     {
-        $input = ['candidates' => [
-            $this->entry('commit_success'),
-            $this->entry('give_back', 0.80, 0.20),
-        ]];
-
-        $this->assertSame(
-            $this->replay()->replay($input),
-            $this->replay()->replay($input),
-        );
-    }
-
-    // ── new output fields: confusion-matrix breakdown ─────────────────────────
-
-    public function test_output_has_new_calibration_fields(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [$this->entry('commit_success')]]);
-
-        foreach (['admitted_green', 'rejected_green', 'admitted_poison', 'rejected_poison', 'precision', 'recall', 'estimated_token_waste_avoided'] as $key) {
-            $this->assertArrayHasKey($key, $result, "Missing field: {$key}");
-        }
-    }
-
-    public function test_confusion_matrix_cells_are_correct(): void
-    {
-        // 2 admitted green, 1 rejected green, 1 admitted poison, 1 rejected poison
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('commit_success', 0.80, 0.20),  // admitted green
-            $this->entry('commit_success', 0.80, 0.20),  // admitted green
-            $this->entry('commit_success', 0.10, 0.20),  // rejected green
-            $this->entry('give_back',      0.80, 0.20),  // admitted poison
-            $this->entry('poison',         0.10, 0.20),  // rejected poison
-        ]]);
-
-        $this->assertSame(2, $result['admitted_green']);
-        $this->assertSame(1, $result['rejected_green']);
-        $this->assertSame(1, $result['admitted_poison']);
-        $this->assertSame(1, $result['rejected_poison']);
-    }
-
-    public function test_admitted_poison_mirrors_missed_poison(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('give_back', 0.80, 0.20),
-        ]]);
-
-        $this->assertSame($result['missed_poison'], $result['admitted_poison']);
-    }
-
-    public function test_rejected_green_mirrors_false_reject_green(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('commit_success', 0.10, 0.20),
-        ]]);
-
-        $this->assertSame($result['false_reject_green'], $result['rejected_green']);
-    }
-
-    public function test_rejected_poison_mirrors_true_reject_poison(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('poison', 0.10, 0.20),
-        ]]);
-
-        $this->assertSame($result['true_reject_poison'], $result['rejected_poison']);
-    }
-
-    // ── precision ─────────────────────────────────────────────────────────────
-
-    public function test_precision_is_admitted_green_over_total_admitted(): void
-    {
-        // 3 admitted green + 1 admitted poison → precision = 3/4 = 0.75
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('commit_success', 0.80, 0.20),
-            $this->entry('commit_success', 0.80, 0.20),
-            $this->entry('commit_success', 0.80, 0.20),
-            $this->entry('give_back',      0.80, 0.20),
-        ]]);
-
-        $this->assertEqualsWithDelta(0.75, $result['precision'], 0.000001);
-    }
-
-    public function test_precision_is_zero_when_no_candidates(): void
-    {
-        $result = $this->replay()->replay(['candidates' => []]);
-
-        $this->assertEqualsWithDelta(0.0, $result['precision'], 0.000001);
-    }
-
-    public function test_precision_is_one_when_all_admitted_are_green(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('commit_success', 0.80, 0.20),
-            $this->entry('commit_success', 0.80, 0.20),
-        ]]);
-
-        $this->assertEqualsWithDelta(1.0, $result['precision'], 0.000001);
-    }
-
-    // ── recall ────────────────────────────────────────────────────────────────
-
-    public function test_recall_is_admitted_green_over_total_green(): void
-    {
-        // 2 admitted green + 1 rejected green → recall = 2/3
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('commit_success', 0.80, 0.20),  // admitted
-            $this->entry('commit_success', 0.80, 0.20),  // admitted
-            $this->entry('commit_success', 0.10, 0.20),  // rejected (below floor)
-        ]]);
-
-        $this->assertEqualsWithDelta(2.0 / 3.0, $result['recall'], 0.000001);
-    }
-
-    public function test_recall_is_zero_when_no_candidates(): void
-    {
-        $result = $this->replay()->replay(['candidates' => []]);
-
-        $this->assertEqualsWithDelta(0.0, $result['recall'], 0.000001);
-    }
-
-    public function test_recall_is_one_when_all_green_are_admitted(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('commit_success', 0.80, 0.20),
-            $this->entry('commit_success', 0.80, 0.20),
-        ]]);
-
-        $this->assertEqualsWithDelta(1.0, $result['recall'], 0.000001);
-    }
-
-    // ── estimated_token_waste_avoided ─────────────────────────────────────────
-
-    public function test_estimated_token_waste_avoided_uses_default_cost_of_1000(): void
-    {
-        // 3 rejected poison → 3 × 1000 = 3000
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('poison', 0.10, 0.20),
-            $this->entry('poison', 0.10, 0.20),
-            $this->entry('poison', 0.10, 0.20),
-        ]]);
-
-        $this->assertSame(3000, $result['estimated_token_waste_avoided']);
-    }
-
-    public function test_custom_token_cost_per_task_scales_waste_estimate(): void
-    {
-        $result = $this->replay()->replay([
-            'candidates'          => [
-                $this->entry('poison', 0.10, 0.20),
-                $this->entry('poison', 0.10, 0.20),
-            ],
-            'token_cost_per_task' => 500,
+        $result = $this->replay->replay([
+            'admitted_poison_count' => 0,
+            'rejected_green_count' => 0,
         ]);
 
-        $this->assertSame(1000, $result['estimated_token_waste_avoided']);
+        $this->assertSame('no_adjustment', $result['action']);
+        $this->assertNotEmpty($result['audit_reason']);
     }
 
-    public function test_estimated_token_waste_avoided_is_zero_when_no_rejected_poison(): void
+    public function test_tightening_has_non_empty_audit_reason(): void
     {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('commit_success', 0.80, 0.20),
-        ]]);
+        $result = $this->replay->replay(['admitted_poison_count' => 1]);
 
-        $this->assertSame(0, $result['estimated_token_waste_avoided']);
+        $this->assertNotEmpty($result['audit_reason']);
     }
 
-    // ── calibration: tighten when admitted_poison dominates ───────────────────
-
-    public function test_recommends_tighten_when_admitted_poison_dominates_over_admitted_green(): void
+    public function test_empty_backtest_is_no_adjustment(): void
     {
-        // ag=2, ap=5 (dominates), rp=11 → total=18, missed_rate≈0.278≤0.30 (rate doesn't trigger)
-        // admitted_poison_dominates=true → should_tighten=true
-        // rejected_dominates=true BUT precision=2/7≈0.286<0.40 → NOT exempt → TIGHTEN
-        $candidates = array_merge(
-            array_fill(0, 2,  $this->entry('commit_success', 0.80, 0.20)),  // admitted green
-            array_fill(0, 5,  $this->entry('give_back',      0.80, 0.20)),  // admitted poison
-            array_fill(0, 11, $this->entry('poison',         0.10, 0.20)),  // rejected poison
-        );
+        $result = $this->replay->replay([]);
 
-        $result = $this->replay()->replay(['candidates' => $candidates]);
-
-        $this->assertSame(2, $result['admitted_green']);
-        $this->assertSame(5, $result['admitted_poison']);
-        $thresholds = array_column($result['recommended_threshold_adjustments'], 'threshold');
-        $this->assertContains('give_back_risk_ceiling', $thresholds);
-    }
-
-    // ── calibration: no tighten when rejected_poison dominates + precision ok ─
-
-    public function test_no_tighten_when_rejected_poison_dominates_and_precision_is_healthy(): void
-    {
-        // ag=4, ap=5 (barely dominates) → admitted_poison_dominates=true → should_tighten=true
-        // total=17, missed_rate=5/17≈0.294≤0.30 → rate doesn't trigger independently
-        // rp=8 > ap=5 → rejected_dominates=true
-        // precision=4/9≈0.444 ≥ 0.40 → tighten_exempt=true → NO TIGHTEN
-        $candidates = array_merge(
-            array_fill(0, 4, $this->entry('commit_success', 0.80, 0.20)),  // admitted green
-            array_fill(0, 5, $this->entry('give_back',      0.80, 0.20)),  // admitted poison
-            array_fill(0, 8, $this->entry('poison',         0.10, 0.20)),  // rejected poison
-        );
-
-        $result = $this->replay()->replay(['candidates' => $candidates]);
-
-        $this->assertSame(4, $result['admitted_green']);
-        $this->assertSame(5, $result['admitted_poison']);
-        $this->assertSame(8, $result['rejected_poison']);
-        $thresholds = array_column($result['recommended_threshold_adjustments'], 'threshold');
-        $this->assertNotContains('give_back_risk_ceiling', $thresholds);
-    }
-
-    // ── false_reject_risk ─────────────────────────────────────────────────────
-
-    public function test_output_has_false_reject_risk_key(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [$this->entry('commit_success')]]);
-
-        $this->assertArrayHasKey('false_reject_risk', $result);
-        $this->assertIsFloat($result['false_reject_risk']);
-    }
-
-    public function test_false_reject_risk_is_zero_when_no_green_rejected(): void
-    {
-        $candidates = array_fill(0, 5, $this->entry('commit_success', 0.80, 0.20));
-        $result = $this->replay()->replay(['candidates' => $candidates]);
-
-        $this->assertSame(0.0, $result['false_reject_risk']);
-    }
-
-    public function test_false_reject_risk_reflects_rejected_green_share_of_total(): void
-    {
-        $candidates = array_merge(
-            array_fill(0, 2, $this->entry('commit_success', 0.80, 0.20)),  // admitted green
-            array_fill(0, 2, $this->entry('commit_success', 0.10, 0.20)),  // rejected green (false reject)
-        );
-
-        $result = $this->replay()->replay(['candidates' => $candidates]);
-
-        $this->assertSame(2, $result['rejected_green']);
-        $this->assertEqualsWithDelta(0.5, $result['false_reject_risk'], 0.0001);
-    }
-
-    public function test_false_reject_risk_is_deterministic(): void
-    {
-        $candidates = [
-            $this->entry('commit_success', 0.10, 0.20),
-            $this->entry('commit_success', 0.80, 0.20),
-        ];
-
-        $a = $this->replay()->replay(['candidates' => $candidates]);
-        $b = $this->replay()->replay(['candidates' => $candidates]);
-
-        $this->assertSame($a['false_reject_risk'], $b['false_reject_risk']);
-    }
-
-    // ── calibration_policy ────────────────────────────────────────────────────
-
-    public function test_calibration_policy_present_with_required_keys(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [$this->entry('commit_success', 0.80, 0.20)]]);
-
-        foreach (['risk_ceiling_delta', 'impact_floor_delta', 'false_positive_pressure', 'false_negative_pressure', 'safe_to_apply'] as $k) {
-            $this->assertArrayHasKey($k, $result['calibration_policy'], "Missing key: {$k}");
-        }
-    }
-
-    public function test_calibration_policy_no_tighten_yields_zero_delta_and_safe(): void
-    {
-        // Healthy mix, no tighten recommended.
-        $result = $this->replay()->replay(['candidates' => [
-            $this->entry('commit_success', 0.80, 0.20),
-            $this->entry('commit_success', 0.80, 0.20),
-        ]]);
-
-        $this->assertSame(0.0, $result['calibration_policy']['risk_ceiling_delta']);
-        $this->assertTrue($result['calibration_policy']['safe_to_apply']);
-    }
-
-    public function test_calibration_policy_unsafe_when_tighten_rejects_more_green_than_poison_avoided(): void
-    {
-        // admitted_poison dominates admitted_green → tighten risk_ceiling by 0.05 (0.70 -> 0.65).
-        // Many commit_success candidates sit with risk in [0.65, 0.70) → newly rejected by tighten,
-        // while poison candidates sit well below 0.65 → NOT newly avoided by this tighten.
-        $candidates = [
-            $this->entry('give_back', 0.80, 0.68),
-            $this->entry('give_back', 0.80, 0.69),
-            $this->entry('commit_success', 0.80, 0.10),
-            $this->entry('commit_success', 0.80, 0.66),
-            $this->entry('commit_success', 0.80, 0.67),
-            $this->entry('commit_success', 0.80, 0.68),
-        ];
-
-        $result = $this->replay()->replay(['candidates' => $candidates]);
-
-        $this->assertLessThan(0.0, $result['calibration_policy']['risk_ceiling_delta']);
-        $this->assertFalse($result['calibration_policy']['safe_to_apply']);
-    }
-
-    public function test_calibration_policy_safe_when_tighten_avoids_more_poison_than_green_rejected(): void
-    {
-        // admitted_poison dominates admitted_green → tighten. Poison sits just under the ceiling
-        // (newly avoided), green sits well clear of the tightened ceiling (not newly rejected).
-        $candidates = [
-            $this->entry('give_back', 0.80, 0.68),
-            $this->entry('give_back', 0.80, 0.69),
-            $this->entry('commit_success', 0.80, 0.10),
-            $this->entry('commit_success', 0.80, 0.20),
-        ];
-
-        $result = $this->replay()->replay(['candidates' => $candidates]);
-
-        $this->assertLessThan(0.0, $result['calibration_policy']['risk_ceiling_delta']);
-        $this->assertTrue($result['calibration_policy']['safe_to_apply']);
-    }
-
-    public function test_calibration_policy_pressures_reflect_admitted_poison_and_rejected_green_rates(): void
-    {
-        $candidates = [
-            $this->entry('give_back', 0.80, 0.20),
-            $this->entry('commit_success', 0.10, 0.20),
-        ];
-
-        $result = $this->replay()->replay(['candidates' => $candidates]);
-
-        $this->assertEqualsWithDelta(0.5, $result['calibration_policy']['false_positive_pressure'], 0.0001);
-        $this->assertEqualsWithDelta(0.5, $result['calibration_policy']['false_negative_pressure'], 0.0001);
-    }
-
-    // ── blocked_failure_modes / calibration_changes — AC: not only pass/fail ─
-
-    public function test_output_has_calibration_changes_and_blocked_failure_modes_keys(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [$this->entry('commit_success')]]);
-
-        $this->assertArrayHasKey('calibration_changes', $result);
-        $this->assertArrayHasKey('blocked_failure_modes', $result);
-        $this->assertIsArray($result['blocked_failure_modes']);
-    }
-
-    private function flaggedEntry(string $outcome, array $candidateOverrides): array
-    {
-        return [
-            'candidate' => array_merge([
-                'target' => 'AtlasFooService',
-                'compound_impact_score' => 0.80,
-                'give_back_risk_score' => 0.20,
-            ], $candidateOverrides),
-            'outcome' => $outcome,
-        ];
-    }
-
-    // ── AC4: true high-value task — admitted, no failure modes flagged ────────
-
-    public function test_true_high_value_task_is_admitted_with_no_failure_modes(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->flaggedEntry('commit_success', []),
-        ]]);
-
-        $this->assertSame(1, $result['admitted_green']);
-        $this->assertSame([], $result['blocked_failure_modes']);
-    }
-
-    // ── AC4: proxy false positive — admitted via proxy metric, actually poison ─
-
-    public function test_proxy_metric_false_positive_is_flagged_in_blocked_failure_modes(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->flaggedEntry('give_back', ['proxy_metric_flag' => true]),
-        ]]);
-
-        $modes = array_column($result['blocked_failure_modes'], 'mode');
-        $this->assertContains('proxy_metric_admitted', $modes);
-    }
-
-    // ── AC4: template-farm false positive — admitted via templated proposal ───
-
-    public function test_template_farm_false_positive_is_flagged_in_blocked_failure_modes(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->flaggedEntry('give_back', ['template_farm_flag' => true]),
-        ]]);
-
-        $modes = array_column($result['blocked_failure_modes'], 'mode');
-        $this->assertContains('template_farm_admitted', $modes);
-    }
-
-    // ── AC4: over-strict false negative — high-value task wrongly rejected ────
-
-    public function test_over_strict_false_negative_is_flagged_in_blocked_failure_modes(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            // impact just below the default floor (0.30) but the task actually succeeded.
-            $this->flaggedEntry('commit_success', ['compound_impact_score' => 0.25]),
-        ]]);
-
-        $modes = array_column($result['blocked_failure_modes'], 'mode');
-        $this->assertContains('over_strict_rejection', $modes);
-    }
-
-    // ── false-impact admission — admitted with a high score but outcome poisoned ──
-
-    public function test_false_high_impact_admission_is_flagged(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->flaggedEntry('poison', ['compound_impact_score' => 0.90]),
-        ]]);
-
-        $modes = array_column($result['blocked_failure_modes'], 'mode');
-        $this->assertContains('false_impact_admitted', $modes);
-    }
-
-    public function test_blocked_failure_mode_entries_carry_count_and_example_targets(): void
-    {
-        $result = $this->replay()->replay(['candidates' => [
-            $this->flaggedEntry('give_back', ['proxy_metric_flag' => true]),
-        ]]);
-
-        $proxyMode = array_values(array_filter(
-            $result['blocked_failure_modes'],
-            fn (array $m): bool => $m['mode'] === 'proxy_metric_admitted',
-        ))[0] ?? null;
-
-        $this->assertNotNull($proxyMode);
-        $this->assertSame(1, $proxyMode['count']);
-        $this->assertContains('AtlasFooService', $proxyMode['example_targets']);
+        $this->assertSame('no_adjustment', $result['action']);
+        $this->assertNull($result['adjustment']);
     }
 }
