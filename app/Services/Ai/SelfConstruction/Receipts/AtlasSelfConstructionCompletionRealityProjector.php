@@ -132,4 +132,60 @@ final class AtlasSelfConstructionCompletionRealityProjector
             'deltas' => $deltas,
         ];
     }
+
+    /**
+     * Aggregates project() over a BATCH of completion attempts into a fleet-level truth surface:
+     * how much real (green) impact landed, how much drag give-backs added, what residue is still
+     * blocked, and the net capability delta (ready completions minus blocked/rolled-back
+     * regressions) — never inflated by raw attempt count alone.
+     *
+     * @param  list<array<string,mixed>>  $receiptSets  each element is a project() input bundle,
+     *                                                    optionally with an extra `give_back:bool`
+     * @return array{schema:string, green_impact:float, give_back_drag:float, blocked_residue:list<string>, capability_delta:int, confidence:string, batch_size:int}
+     */
+    public function projectBatch(array $receiptSets): array
+    {
+        $sets = array_values(array_filter($receiptSets, 'is_array'));
+        $total = count($sets);
+
+        $greenCount = 0;
+        $giveBackCount = 0;
+        $readyCount = 0;
+        $blockedResidue = [];
+
+        foreach ($sets as $set) {
+            $projection = $this->project($set);
+
+            if ($projection['reality'] === self::REALITY_COMPLETED) {
+                $greenCount++;
+            }
+            if ($projection['final_state'] === 'ready') {
+                $readyCount++;
+            }
+            if ($projection['final_state'] === 'blocked') {
+                $blockedResidue[] = $projection['reality'];
+            }
+            if ((bool) ($set['give_back'] ?? false)) {
+                $giveBackCount++;
+            }
+        }
+
+        sort($blockedResidue, SORT_STRING);
+
+        $confidence = match (true) {
+            $total >= 5 => 'high',
+            $total >= 1 => 'medium',
+            default => 'low',
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'green_impact' => $total > 0 ? round($greenCount / $total, 4) : 0.0,
+            'give_back_drag' => $total > 0 ? round($giveBackCount / $total, 4) : 0.0,
+            'blocked_residue' => $blockedResidue,
+            'capability_delta' => $readyCount - count($blockedResidue),
+            'confidence' => $confidence,
+            'batch_size' => $total,
+        ];
+    }
 }

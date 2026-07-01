@@ -229,4 +229,84 @@ final class AtlasSelfConstructionCompletionRealityProjectorTest extends TestCase
         ]);
         $this->assertArrayNotHasKey('percent_complete', $r);
     }
+
+    // ── AC: projectBatch() green impact / give_back drag / blocked residue / capability delta / confidence ──
+
+    private function completedReceipt(): array
+    {
+        return [
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'knowledge_sync_receipt' => ['conformant' => true],
+        ];
+    }
+
+    private function rejectedReceipt(): array
+    {
+        return [
+            'verification_receipt' => ['verdict' => 'failed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+        ];
+    }
+
+    // ── all-success ──────────────────────────────────────────────────────────────
+
+    public function test_all_success_batch_reports_full_green_impact_and_zero_drag(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->projectBatch([
+            $this->completedReceipt(),
+            $this->completedReceipt(),
+        ]);
+
+        $this->assertSame(1.0, $r['green_impact']);
+        $this->assertSame(0.0, $r['give_back_drag']);
+        $this->assertSame([], $r['blocked_residue']);
+        $this->assertSame(2, $r['capability_delta']);
+        $this->assertSame('medium', $r['confidence']);
+        $this->assertSame(2, $r['batch_size']);
+    }
+
+    // ── mixed give_back ──────────────────────────────────────────────────────────
+
+    public function test_mixed_give_back_batch_reports_partial_drag(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->projectBatch([
+            $this->completedReceipt(),
+            $this->completedReceipt() + ['give_back' => true],
+            $this->completedReceipt() + ['give_back' => true],
+            $this->completedReceipt(),
+        ]);
+
+        $this->assertSame(0.5, $r['give_back_drag']);
+        $this->assertSame(1.0, $r['green_impact']);
+        $this->assertSame('medium', $r['confidence']);
+    }
+
+    // ── blocked residue ──────────────────────────────────────────────────────────
+
+    public function test_blocked_receipts_surface_as_blocked_residue_and_reduce_capability_delta(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->projectBatch([
+            $this->completedReceipt(),
+            $this->rejectedReceipt(),
+        ]);
+
+        $this->assertSame(0.5, $r['green_impact']);
+        $this->assertContains(AtlasSelfConstructionCompletionRealityProjector::REALITY_REJECTED, $r['blocked_residue']);
+        $this->assertSame(0, $r['capability_delta'], '1 ready completion minus 1 blocked residue nets to zero');
+    }
+
+    // ── no-receipt cases with honest low confidence ─────────────────────────────
+
+    public function test_empty_batch_is_honest_low_confidence_with_zero_impact(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->projectBatch([]);
+
+        $this->assertSame(0.0, $r['green_impact']);
+        $this->assertSame(0.0, $r['give_back_drag']);
+        $this->assertSame([], $r['blocked_residue']);
+        $this->assertSame(0, $r['capability_delta']);
+        $this->assertSame('low', $r['confidence']);
+        $this->assertSame(0, $r['batch_size']);
+    }
 }
