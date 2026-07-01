@@ -74,4 +74,105 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlannerTest extends TestCase
         $this->assertSame('high', $r['worker_feed_risk']);
         $this->assertSame(['good-rescue'], $r['starvation_rescue_task_ids']);
     }
+
+    // ── worker_feed_score / chain_unlock_count / critical_path_worker_safe / next_best_parallel_task_ids ──
+
+    public function test_critical_path_worker_safe_true_when_worker_feed_risk_low(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued', 'active_worker_drain' => 0.1],
+            ],
+        ]);
+
+        $this->assertSame('low', $r['worker_feed_risk']);
+        $this->assertTrue($r['critical_path_worker_safe']);
+    }
+
+    public function test_critical_path_worker_safe_false_when_worker_feed_risk_high(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued', 'active_worker_drain' => 1.5],
+            ],
+        ]);
+
+        $this->assertSame('high', $r['worker_feed_risk']);
+        $this->assertFalse($r['critical_path_worker_safe']);
+    }
+
+    public function test_worker_feed_score_present_and_bounded_between_zero_and_one(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued', 'active_worker_drain' => 0.5],
+            ],
+        ]);
+
+        $this->assertGreaterThanOrEqual(0.0, $r['worker_feed_score']);
+        $this->assertLessThanOrEqual(1.0, $r['worker_feed_score']);
+    }
+
+    public function test_worker_feed_score_lower_with_higher_drain(): void
+    {
+        $low = $this->planner()->plan([
+            'tasks' => [['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued', 'active_worker_drain' => 0.1]],
+        ]);
+        $high = $this->planner()->plan([
+            'tasks' => [['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued', 'active_worker_drain' => 0.9]],
+        ]);
+
+        $this->assertGreaterThan($high['worker_feed_score'], $low['worker_feed_score']);
+    }
+
+    public function test_chain_unlock_count_counts_downstream_dependents_of_critical_path(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued'],
+                ['task_id' => 'dep-a', 'leverage_score' => 0.1, 'effort' => 20, 'status' => 'queued', 'depends_on' => ['root']],
+                ['task_id' => 'dep-b', 'leverage_score' => 0.1, 'effort' => 20, 'status' => 'queued', 'depends_on' => ['root']],
+            ],
+        ]);
+
+        $this->assertSame(['root'], $r['critical_path_task_ids']);
+        $this->assertSame(2, $r['chain_unlock_count']);
+    }
+
+    public function test_chain_unlock_count_zero_when_no_downstream_dependents(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued'],
+            ],
+        ]);
+
+        $this->assertSame(0, $r['chain_unlock_count']);
+    }
+
+    public function test_next_best_parallel_task_ids_surfaces_best_task_per_branch(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'critical-root', 'leverage_score' => 1.9, 'status' => 'queued'],
+                ['task_id' => 'branch-low', 'leverage_score' => 0.2, 'status' => 'queued'],
+                ['task_id' => 'branch-high', 'leverage_score' => 0.8, 'status' => 'queued', 'depends_on' => ['branch-low']],
+            ],
+        ]);
+
+        $this->assertSame(['critical-root'], $r['critical_path_task_ids']);
+        $this->assertContains('branch-high', $r['next_best_parallel_task_ids']);
+        $this->assertNotContains('branch-low', $r['next_best_parallel_task_ids']);
+    }
+
+    public function test_next_best_parallel_task_ids_empty_when_no_parallelizable_branches(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'only', 'leverage_score' => 0.9, 'status' => 'queued'],
+            ],
+        ]);
+
+        $this->assertSame([], $r['next_best_parallel_task_ids']);
+    }
 }

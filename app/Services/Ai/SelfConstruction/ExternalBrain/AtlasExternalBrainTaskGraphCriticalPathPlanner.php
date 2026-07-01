@@ -170,6 +170,21 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
 
         [$workerFeedRisk, $workerFeedReason] = $this->workerFeedRisk($criticalPath, $tasks);
 
+        $totalDrain = array_sum(array_map(static fn (string $id): float => $tasks[$id]['active_worker_drain'], $criticalPath));
+        $workerFeedScore = max(0.0, round(1.0 - min(1.0, $totalDrain / self::WORKER_FEED_DRAIN_HIGH_THRESHOLD), 4));
+        $criticalPathWorkerSafe = $workerFeedRisk !== 'high';
+
+        $criticalPathSetForUnlock = array_flip($criticalPath);
+        $unlockedDownstream = [];
+        foreach ($criticalPath as $id) {
+            foreach (array_keys($dependents[$id] ?? []) as $dependentId) {
+                if (! isset($criticalPathSetForUnlock[$dependentId])) {
+                    $unlockedDownstream[$dependentId] = true;
+                }
+            }
+        }
+        $chainUnlockCount = count($unlockedDownstream);
+
         // Only surfaced when the critical path itself starves the worker feed — a rescue node is
         // a usable (never blocked/stale/duplicate/done/low-evidence) replenishment/unblock task
         // not already on the critical path, ranked by effective_score so the best rescue leads.
@@ -189,6 +204,24 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
             $starvationRescueTaskIds = array_keys($candidates);
         }
 
+        // Best (highest effective_score) usable task per parallelizable branch — a standing
+        // recommendation for what active workers can claim alongside the critical path, not
+        // gated on starvation risk (starvation_rescue_task_ids remains the risk-gated signal).
+        $nextBestParallelTaskIds = [];
+        foreach ($parallelizableBranches as $branch) {
+            $best = null;
+            $bestScore = -INF;
+            foreach ($branch as $id) {
+                if ($effectiveScore[$id] > $bestScore) {
+                    $bestScore = $effectiveScore[$id];
+                    $best = $id;
+                }
+            }
+            if ($best !== null) {
+                $nextBestParallelTaskIds[] = $best;
+            }
+        }
+
         return [
             'schema' => self::SCHEMA,
             'critical_path_task_ids' => $criticalPath,
@@ -199,6 +232,10 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
             'worker_feed_risk' => $workerFeedRisk,
             'worker_feed_risk_reason' => $workerFeedReason,
             'starvation_rescue_task_ids' => $starvationRescueTaskIds,
+            'worker_feed_score' => $workerFeedScore,
+            'chain_unlock_count' => $chainUnlockCount,
+            'critical_path_worker_safe' => $criticalPathWorkerSafe,
+            'next_best_parallel_task_ids' => $nextBestParallelTaskIds,
         ];
     }
 
