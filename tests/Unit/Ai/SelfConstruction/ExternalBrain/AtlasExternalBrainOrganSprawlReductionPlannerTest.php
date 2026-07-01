@@ -538,4 +538,83 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
 
         $this->assertNull($entry['prerequisite_task_hint']);
     }
+
+    // ── AC2: capability_groups also detect duplicated inputs, outputs, shared consumers ──
+
+    public function test_organs_sharing_duplicated_inputs_form_a_group(): void
+    {
+        $result = $this->plan(
+            $this->organ('in-a', ['capability_labels' => ['unique_a'], 'inputs' => ['task_packet']]),
+            $this->organ('in-b', ['capability_labels' => ['unique_b'], 'inputs' => ['task_packet']]),
+        );
+
+        $groups = $result['capability_groups'];
+        $this->assertCount(1, $groups);
+        $this->assertContains('duplicated_inputs', $groups[0]['overlap_signals']);
+        $this->assertContains('in-a', $groups[0]['organ_ids']);
+        $this->assertContains('in-b', $groups[0]['organ_ids']);
+    }
+
+    public function test_organs_sharing_duplicated_outputs_form_a_group(): void
+    {
+        $result = $this->plan(
+            $this->organ('out-a', ['capability_labels' => ['unique_a'], 'outputs' => ['decision_receipt']]),
+            $this->organ('out-b', ['capability_labels' => ['unique_b'], 'outputs' => ['decision_receipt']]),
+        );
+
+        $groups = $result['capability_groups'];
+        $this->assertCount(1, $groups);
+        $this->assertContains('duplicated_outputs', $groups[0]['overlap_signals']);
+    }
+
+    public function test_organs_sharing_consumers_form_a_group(): void
+    {
+        $result = $this->plan(
+            $this->organ('cons-a', ['capability_labels' => ['unique_a'], 'consumer_ids' => ['MaestroDispatcher']]),
+            $this->organ('cons-b', ['capability_labels' => ['unique_b'], 'consumer_ids' => ['MaestroDispatcher']]),
+        );
+
+        $groups = $result['capability_groups'];
+        $this->assertCount(1, $groups);
+        $this->assertContains('shared_consumers', $groups[0]['overlap_signals']);
+    }
+
+    public function test_capability_label_group_reports_responsibility_overlap_signal(): void
+    {
+        $result = $this->plan(
+            $this->organ('a', ['capability_labels' => ['emit_tasks']]),
+            $this->organ('b', ['capability_labels' => ['emit_tasks']]),
+        );
+
+        $groups = $result['capability_groups'];
+        $this->assertContains('responsibility_overlap', $groups[0]['overlap_signals']);
+    }
+
+    // ── AC4: rename/wrap-only proposals are penalized (no fake complexity reduction) ──
+
+    public function test_wrapper_without_unique_value_is_penalized_with_zero_line_delta(): void
+    {
+        $result = $this->plan($this->organ('wrap-rename', [
+            'organ_type'         => 'wrapper',
+            'line_count'         => 150,
+            'adds_unique_value'  => false,
+        ]));
+
+        $entry = $this->findEntry($result, 'wrap-rename');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_SIMPLIFY, $entry['action']);
+        $this->assertSame(0, $entry['line_delta']);
+        $this->assertStringContainsString('rename_or_wrap_only_no_complexity_reduction', implode(' ', $entry['reasons']));
+    }
+
+    public function test_wrapper_with_unique_value_still_earns_line_delta_credit(): void
+    {
+        $result = $this->plan($this->organ('wrap-real', [
+            'organ_type'        => 'wrapper',
+            'line_count'        => 150,
+            'adds_unique_value' => true,
+        ]));
+
+        $entry = $this->findEntry($result, 'wrap-real');
+        $this->assertLessThan(0, $entry['line_delta']);
+    }
 }

@@ -21,7 +21,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * first_safe_batch: retire + simplify organs, sorted by highest |line_delta|
  *   then fewest capability_labels (AC3: highest line reduction with lowest risk).
  *
- * AC4: pure PHP, deterministic, no file mutations.
+ * AC2: capability_groups detect overlap across four signals — responsibility_overlap
+ *   (capability_labels), duplicated_inputs (organ['inputs']), duplicated_outputs
+ *   (organ['outputs']), shared_consumers (organ['consumer_ids']) — any shared key merges
+ *   organs into one group; each group reports its overlap_signals.
+ *
+ * AC4: wrapper/template/scaffold organs only earn line-delta credit when
+ *   adds_unique_value !== false; a pure rename/wrap is penalized with zero credit and a
+ *   distinct reason so it can't fake a complexity reduction.
+ *
+ * Pure PHP, deterministic, no file mutations.
  */
 final class AtlasExternalBrainOrganSprawlReductionPlanner
 {
@@ -244,8 +253,21 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
             'low');
         }
 
-        // AC2: Wrapper/template organs are lower-value consolidation candidates.
+        // AC2/AC4: Wrapper/template organs are lower-value consolidation candidates —
+        // but only earn a real line-delta credit when they add value beyond a rename/wrap.
+        // A pure rename/wrap (adds_unique_value === false) is penalized: no credit, distinct
+        // reason, so it can't game first_safe_batch ranking with a fake complexity reduction.
         if (in_array($organType, ['wrapper', 'template', 'scaffold'], true)) {
+            $addsUniqueValue = (bool) ($organ['adds_unique_value'] ?? true);
+
+            if (! $addsUniqueValue) {
+                return $this->entry($id, self::ACTION_SIMPLIFY, [
+                    "organ_type:{$organType}:rename_or_wrap_only_no_complexity_reduction",
+                ], 0, $this->requiredTests($id, $labels),
+                'Rename/wrap-only proposal adds no unique value; penalized — no line-delta credit until it fully delegates and is deleted.',
+                'low');
+            }
+
             return $this->entry($id, self::ACTION_SIMPLIFY, [
                 "organ_type:{$organType}:consolidation_candidate",
             ], -(int) ($lineCount * 0.40), $this->requiredTests($id, $labels),
@@ -296,11 +318,18 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
         ];
     }
 
-    /** @param list<array<string,mixed>> $organs @return list<array<string,mixed>> */
+    /**
+     * AC2: groups organs by responsibility overlap (capability_labels), duplicated inputs,
+     * duplicated outputs, and shared consumers — any shared key merges organs into one group.
+     *
+     * @param  list<array<string,mixed>>  $organs
+     * @return list<array<string,mixed>>
+     */
     private function buildCapabilityGroups(array $organs): array
     {
-        $labelToOrgans = [];
-        $organTypes    = [];
+        $keyToOrgans = []; // key → [organ_id, ...]
+        $keyToSignal = []; // key → overlap signal name
+        $organTypes  = [];
 
         foreach ($organs as $organ) {
             $id   = (string) ($organ['organ_id']    ?? 'unknown');
@@ -308,15 +337,33 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
             $organTypes[$id] = $type;
 
             foreach ((array) ($organ['capability_labels'] ?? []) as $label) {
-                $labelToOrgans[(string) $label][] = $id;
+                $key = 'capability:'.$label;
+                $keyToOrgans[$key][] = $id;
+                $keyToSignal[$key]   = 'responsibility_overlap';
+            }
+            foreach ((array) ($organ['inputs'] ?? []) as $input) {
+                $key = 'input:'.$input;
+                $keyToOrgans[$key][] = $id;
+                $keyToSignal[$key]   = 'duplicated_inputs';
+            }
+            foreach ((array) ($organ['outputs'] ?? []) as $output) {
+                $key = 'output:'.$output;
+                $keyToOrgans[$key][] = $id;
+                $keyToSignal[$key]   = 'duplicated_outputs';
+            }
+            foreach ((array) ($organ['consumer_ids'] ?? []) as $consumer) {
+                $key = 'consumer:'.$consumer;
+                $keyToOrgans[$key][] = $id;
+                $keyToSignal[$key]   = 'shared_consumers';
             }
         }
 
-        // Build overlap groups: organs sharing at least one label.
-        $groups  = []; // groupKey → ['labels'=>[], 'organ_ids'=>[]]
+        // Build overlap groups: organs sharing at least one key of any signal type.
+        $groups   = []; // groupKey → ['labels'=>[], 'organ_ids'=>[], 'overlap_signals'=>[]]
         $assigned = []; // organ_id → groupKey
 
-        foreach ($labelToOrgans as $label => $ids) {
+        foreach ($keyToOrgans as $key => $ids) {
+            $ids = array_values(array_unique($ids));
             if (count($ids) < 2) {
                 continue;
             }
@@ -332,7 +379,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
 
             if ($groupKey === null) {
                 $groupKey = implode('|', $ids);
-                $groups[$groupKey] = ['labels' => [], 'organ_ids' => []];
+                $groups[$groupKey] = ['labels' => [], 'organ_ids' => [], 'overlap_signals' => []];
             }
 
             foreach ($ids as $oid) {
@@ -342,8 +389,16 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
                 }
             }
 
-            if (! in_array($label, $groups[$groupKey]['labels'], true)) {
-                $groups[$groupKey]['labels'][] = $label;
+            $signal = $keyToSignal[$key];
+            if (! in_array($signal, $groups[$groupKey]['overlap_signals'], true)) {
+                $groups[$groupKey]['overlap_signals'][] = $signal;
+            }
+
+            if ($signal === 'responsibility_overlap') {
+                $label = substr($key, strlen('capability:'));
+                if (! in_array($label, $groups[$groupKey]['labels'], true)) {
+                    $groups[$groupKey]['labels'][] = $label;
+                }
             }
         }
 
@@ -362,9 +417,12 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
             };
 
             $result[] = [
-                'capability_intent'              => implode('+', $group['labels']),
+                'capability_intent'              => $group['labels'] !== []
+                    ? implode('+', $group['labels'])
+                    : implode('+', $group['overlap_signals']),
                 'organ_ids'                      => array_values($ids),
                 'overlap_type'                   => $overlapType,
+                'overlap_signals'                => $group['overlap_signals'],
                 'consolidation_recommendation'   => in_array($overlapType, ['wrapper', 'template'], true)
                     ? 'consolidate_into_core_service'
                     : 'merge_or_delegate_to_primary',
