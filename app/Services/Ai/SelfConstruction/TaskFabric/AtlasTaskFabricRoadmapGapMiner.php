@@ -406,6 +406,10 @@ final class AtlasTaskFabricRoadmapGapMiner
                 $tags[] = 'lane:'.$lane;
             }
 
+            $hasImplementationScope = $files !== [];
+            $hasAcceptanceEvidence  = (bool) ($row['runnable_acceptance'] ?? false);
+            $claimable = $hasImplementationScope && $hasAcceptanceEvidence;
+
             $candidate = array_merge([
                 'schema_version'   => self::SCHEMA,
                 'organ'            => $organ,
@@ -417,9 +421,22 @@ final class AtlasTaskFabricRoadmapGapMiner
                 'leverage_score'   => $leverageScore,
                 'leverage_reasons' => $reasonParts,
                 'tags'             => $tags,
+                'claimable'        => $claimable,
             ], $this->extractChainFields($row));
             if ($lane !== '') {
                 $candidate['lane'] = $lane;
+            }
+
+            if ($claimable) {
+                $candidate['claimable_output_contract'] = [
+                    'allowed_files'             => $files,
+                    'runnable_acceptance'       => true,
+                    'worker_feed_contribution'  => min($leverageScore, 10),
+                ];
+            } else {
+                $candidate['non_claimable_reason'] = ! $hasImplementationScope
+                    ? 'missing_implementation_scope'
+                    : 'missing_acceptance_evidence';
             }
 
             $candidates[] = $candidate;

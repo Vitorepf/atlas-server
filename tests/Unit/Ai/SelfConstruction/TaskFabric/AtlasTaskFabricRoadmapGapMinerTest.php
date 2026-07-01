@@ -584,4 +584,59 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         $this->assertContains('unblock_value:2',    $reasons);
         $this->assertContains('maturity_risk:2',    $reasons);
     }
+
+    // ── claimable_output_contract (AC) ────────────────────────────────────────
+
+    public function test_mine_ranked_emits_claimable_output_contract_when_scope_and_acceptance_present(): void
+    {
+        $row = $this->row('Task Fabric', 'dep_ladder', [
+            'suggested_files' => ['app/Foo.php', 'tests/FooTest.php'],
+            'runnable_acceptance' => true,
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row]);
+        $candidate = $out['candidates'][0];
+
+        $this->assertTrue($candidate['claimable']);
+        $this->assertArrayHasKey('claimable_output_contract', $candidate);
+        $this->assertSame(['app/Foo.php', 'tests/FooTest.php'], $candidate['claimable_output_contract']['allowed_files']);
+        $this->assertTrue($candidate['claimable_output_contract']['runnable_acceptance']);
+        $this->assertArrayHasKey('worker_feed_contribution', $candidate['claimable_output_contract']);
+    }
+
+    public function test_mine_ranked_marks_non_claimable_when_no_implementation_scope(): void
+    {
+        $row = $this->row('Task Fabric', 'dep_ladder', [
+            'suggested_files' => [],
+            'runnable_acceptance' => true,
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row]);
+        $candidate = $out['candidates'][0];
+
+        $this->assertFalse($candidate['claimable']);
+        $this->assertSame('missing_implementation_scope', $candidate['non_claimable_reason']);
+        $this->assertArrayNotHasKey('claimable_output_contract', $candidate);
+    }
+
+    public function test_mine_ranked_marks_non_claimable_when_no_acceptance_evidence(): void
+    {
+        $row = $this->row('Task Fabric', 'dep_ladder', [
+            'suggested_files' => ['app/Foo.php'],
+            'runnable_acceptance' => false,
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row]);
+        $candidate = $out['candidates'][0];
+
+        $this->assertFalse($candidate['claimable']);
+        $this->assertSame('missing_acceptance_evidence', $candidate['non_claimable_reason']);
+        $this->assertArrayNotHasKey('claimable_output_contract', $candidate);
+    }
+
+    public function test_mine_ranked_claimable_defaults_false_when_runnable_acceptance_absent(): void
+    {
+        $row = $this->row('Task Fabric', 'dep_ladder');
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row]);
+        $candidate = $out['candidates'][0];
+
+        $this->assertFalse($candidate['claimable']);
+    }
 }
