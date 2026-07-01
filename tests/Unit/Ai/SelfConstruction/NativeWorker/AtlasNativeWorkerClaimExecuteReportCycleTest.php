@@ -76,6 +76,13 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         self::assertContains('map_outcome', $verdict['applied_steps']);
         self::assertContains('report', $verdict['applied_steps']);
 
+        // Evidence write must precede map_outcome, which must precede report.
+        $evidenceIdx = array_search('write_evidence', $verdict['applied_steps'], true);
+        $mapIdx = array_search('map_outcome', $verdict['applied_steps'], true);
+        $reportIdx = array_search('report', $verdict['applied_steps'], true);
+        self::assertLessThan($mapIdx, $evidenceIdx, 'write_evidence must run before map_outcome');
+        self::assertLessThan($reportIdx, $mapIdx, 'map_outcome must run before report');
+
         // Evidence MUST be written before report — so evidence file must exist now.
         self::assertFileExists($ledger);
 
