@@ -13,17 +13,21 @@ namespace App\Services\Ai\SelfConstruction\Cortex;
  *   { sources:list<{source_id, kind, authority?, freshness_requirement?, workspace_boundary?,
  *                   read_only_available?:bool}> }
  *
- * REQUIRED kinds (any missing ⇒ blocker missing_required_source:<kind>):
+ * REQUIRED kinds (any missing ⇒ blocker missing_required_source:<kind> AND context_status=context_not_ready):
  *   - docs                (authoring source-of-truth)
  *   - code_index          (read model)
  *   - memory              (Atlas memory)
  *   - evidence_ledger     (audited runtime events)
  *   - task_queue          (atlas:task queue)
+ *   - queue_health        (live queue-health signal for origination decisions)
+ *   - malformed_sweep     (malformed/poison packet sweep results)
+ *   - queued_targets      (targets already queued, for duplicate-target checks)
+ *   - outcome_learning    (recorded worker outcomes feeding origination)
  *
  * OUTPUT:
  *   { schema, inventory:list<{source_id, kind, authority, freshness_requirement, workspace_boundary,
  *                            read_only_available}>,
- *     blockers:list<string> }
+ *     blockers:list<string>, context_status:'context_ready'|'context_not_ready' }
  *
  * INVARIANTS:
  *   - DETERMINISTIC: inventory sorted by (kind, source_id).
@@ -36,7 +40,14 @@ final class AtlasSelfConstructionCortexSourceInventory
 {
     public const SCHEMA = 'atlas.cortex.source_inventory.v1';
 
-    public const REQUIRED_KINDS = ['docs', 'code_index', 'memory', 'evidence_ledger', 'task_queue'];
+    public const REQUIRED_KINDS = [
+        'docs', 'code_index', 'memory', 'evidence_ledger', 'task_queue',
+        'queue_health', 'malformed_sweep', 'queued_targets', 'outcome_learning',
+    ];
+
+    public const CONTEXT_READY = 'context_ready';
+
+    public const CONTEXT_NOT_READY = 'context_not_ready';
 
     /** Recognized but not blocking-required — the Cortex still owns a real map of these. */
     public const OPTIONAL_KINDS = ['provider_projection', 'worker_outcome', 'project_lane'];
@@ -129,6 +140,7 @@ final class AtlasSelfConstructionCortexSourceInventory
             'inventory' => $normalized,
             'blockers' => $blockers,
             'required_summary' => ['present' => $presentKinds, 'missing' => $missingKinds],
+            'context_status' => $missingKinds === [] ? self::CONTEXT_READY : self::CONTEXT_NOT_READY,
         ];
     }
 }

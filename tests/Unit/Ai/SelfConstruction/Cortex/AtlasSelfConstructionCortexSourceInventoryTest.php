@@ -22,6 +22,10 @@ final class AtlasSelfConstructionCortexSourceInventoryTest extends TestCase
             ['source_id' => 'atlas.memory', 'kind' => 'memory'],
             ['source_id' => 'evidence.ledger', 'kind' => 'evidence_ledger'],
             ['source_id' => 'atlas.task.queue', 'kind' => 'task_queue'],
+            ['source_id' => 'atlas.queue.health', 'kind' => 'queue_health'],
+            ['source_id' => 'atlas.malformed.sweep', 'kind' => 'malformed_sweep'],
+            ['source_id' => 'atlas.queued.targets', 'kind' => 'queued_targets'],
+            ['source_id' => 'atlas.outcome.learning', 'kind' => 'outcome_learning'],
         ];
     }
 
@@ -29,13 +33,31 @@ final class AtlasSelfConstructionCortexSourceInventoryTest extends TestCase
     {
         $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $this->completeSources()]);
         $this->assertSame([], $r['blockers']);
-        $this->assertCount(5, $r['inventory']);
+        $this->assertCount(9, $r['inventory']);
+        $this->assertSame(AtlasSelfConstructionCortexSourceInventory::CONTEXT_READY, $r['context_status']);
         foreach ($r['inventory'] as $row) {
             $this->assertSame(AtlasSelfConstructionCortexSourceInventory::DEFAULT_AUTHORITY, $row['authority']);
             $this->assertSame(AtlasSelfConstructionCortexSourceInventory::DEFAULT_FRESHNESS, $row['freshness_requirement']);
             $this->assertSame(AtlasSelfConstructionCortexSourceInventory::DEFAULT_WORKSPACE_BOUNDARY, $row['workspace_boundary']);
             $this->assertTrue($row['read_only_available']);
         }
+    }
+
+    public function test_new_required_kinds_marked_required_for_origination(): void
+    {
+        foreach (['queue_health', 'malformed_sweep', 'queued_targets', 'outcome_learning'] as $kind) {
+            $this->assertContains($kind, AtlasSelfConstructionCortexSourceInventory::REQUIRED_KINDS);
+        }
+    }
+
+    public function test_missing_new_required_kind_yields_context_not_ready(): void
+    {
+        $sources = $this->completeSources();
+        // drop malformed_sweep (index 6)
+        array_splice($sources, 6, 1);
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
+        $this->assertContains('missing_required_source:malformed_sweep', $r['blockers']);
+        $this->assertSame(AtlasSelfConstructionCortexSourceInventory::CONTEXT_NOT_READY, $r['context_status']);
     }
 
     public function test_missing_required_kind_yields_named_blocker(): void
@@ -53,8 +75,8 @@ final class AtlasSelfConstructionCortexSourceInventoryTest extends TestCase
         $sources[] = ['source_id' => 'docs.canonical', 'kind' => 'docs']; // duplicate id
         $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
         $this->assertContains('duplicate_source_id:docs.canonical', $r['blockers']);
-        // first occurrence preserved (only 5 inventory rows total, dup dropped)
-        $this->assertCount(5, $r['inventory']);
+        // first occurrence preserved (only 9 inventory rows total, dup dropped)
+        $this->assertCount(9, $r['inventory']);
     }
 
     public function test_inventory_is_sorted_by_kind_then_source_id(): void
@@ -109,7 +131,10 @@ final class AtlasSelfConstructionCortexSourceInventoryTest extends TestCase
         ];
         $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
         $this->assertEqualsCanonicalizing(['docs', 'memory', 'task_queue'], $r['required_summary']['present']);
-        $this->assertEqualsCanonicalizing(['code_index', 'evidence_ledger'], $r['required_summary']['missing']);
+        $this->assertEqualsCanonicalizing(
+            ['code_index', 'evidence_ledger', 'queue_health', 'malformed_sweep', 'queued_targets', 'outcome_learning'],
+            $r['required_summary']['missing'],
+        );
     }
 
     public function test_bounded_provider_safe_output_has_exactly_known_top_level_keys(): void
@@ -117,7 +142,7 @@ final class AtlasSelfConstructionCortexSourceInventoryTest extends TestCase
         $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $this->completeSources()]);
         $keys = array_keys($r);
         sort($keys);
-        $this->assertSame(['blockers', 'inventory', 'required_summary', 'schema'], $keys);
+        $this->assertSame(['blockers', 'context_status', 'inventory', 'required_summary', 'schema'], $keys);
     }
 
     public function test_optional_kinds_provider_projection_worker_outcome_project_lane_are_recognized(): void
@@ -131,7 +156,7 @@ final class AtlasSelfConstructionCortexSourceInventoryTest extends TestCase
         $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
 
         $this->assertSame([], $r['blockers']);
-        $this->assertCount(8, $r['inventory']);
+        $this->assertCount(12, $r['inventory']);
     }
 
     public function test_unrecognized_kind_yields_named_blocker(): void
