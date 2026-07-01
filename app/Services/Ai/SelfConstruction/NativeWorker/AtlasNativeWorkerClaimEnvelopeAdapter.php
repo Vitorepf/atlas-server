@@ -52,6 +52,9 @@ final class AtlasNativeWorkerClaimEnvelopeAdapter
 
     public const REASON_NO_RUNNABLE_PROOF = 'no_runnable_proof_in_acceptance';
 
+    /** Key-name substrings (case-insensitive) marking a rollback_plan field as provider-unsafe — never normalized through. */
+    private const SENSITIVE_KEY_MARKERS = ['secret', 'token', 'api_key', 'apikey', 'credential', 'password', 'bearer', 'auth_key'];
+
     /**
      * @param  array<string,mixed>  $claim
      * @return array<string,mixed>
@@ -147,7 +150,7 @@ final class AtlasNativeWorkerClaimEnvelopeAdapter
         }
 
         $gates = array_values((array) ($packet['gates'] ?? []));
-        $rollbackPlan = is_array($packet['rollback_plan'] ?? null) ? $packet['rollback_plan'] : [];
+        $rollbackPlan = $this->redactSensitive(is_array($packet['rollback_plan'] ?? null) ? $packet['rollback_plan'] : []);
 
         $normalized = [
             'task_packet_id' => $taskPacketId,
@@ -226,6 +229,28 @@ final class AtlasNativeWorkerClaimEnvelopeAdapter
         }
 
         return $default;
+    }
+
+    /**
+     * @param  array<string,mixed>  $value
+     * @return array<string,mixed>
+     */
+    private function redactSensitive(array $value): array
+    {
+        $out = [];
+        foreach ($value as $k => $v) {
+            if (is_string($k)) {
+                $lower = strtolower($k);
+                foreach (self::SENSITIVE_KEY_MARKERS as $marker) {
+                    if (str_contains($lower, $marker)) {
+                        continue 2;
+                    }
+                }
+            }
+            $out[$k] = is_array($v) ? $this->redactSensitive($v) : $v;
+        }
+
+        return $out;
     }
 
     /**

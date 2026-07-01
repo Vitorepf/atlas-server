@@ -213,6 +213,40 @@ class AtlasNativeWorkerClaimEnvelopeAdapterTest extends TestCase
         self::assertSame('ok', $verdict['reason']);
     }
 
+    public function test_missing_scope_in_defaults_gracefully_to_allowed_files(): void
+    {
+        $claim = $this->validClaim();
+        unset($claim['task_packet']['scope_in']);
+
+        $verdict = (new AtlasNativeWorkerClaimEnvelopeAdapter)->adapt($claim);
+
+        self::assertTrue($verdict['ok']);
+        self::assertSame($verdict['normalized_packet']['allowed_files'], $verdict['normalized_packet']['scope_in']);
+    }
+
+    public function test_normalized_rollback_plan_omits_provider_unsafe_fields(): void
+    {
+        $verdict = (new AtlasNativeWorkerClaimEnvelopeAdapter)->adapt($this->validClaim([
+            'rollback_plan' => ['mode' => 'revert_commit', 'api_key' => 'sk-live-abc123'],
+        ]));
+
+        self::assertTrue($verdict['ok']);
+        self::assertArrayNotHasKey('api_key', $verdict['normalized_packet']['rollback_plan']);
+        self::assertSame('revert_commit', $verdict['normalized_packet']['rollback_plan']['mode']);
+    }
+
+    public function test_normalized_envelope_never_leaks_raw_packet_fields_outside_whitelist(): void
+    {
+        $verdict = (new AtlasNativeWorkerClaimEnvelopeAdapter)->adapt($this->validClaim([
+            'internal_secret_token' => 'should-never-leak',
+        ]));
+
+        self::assertTrue($verdict['ok']);
+        self::assertArrayNotHasKey('internal_secret_token', $verdict['normalized_packet']);
+        $json = (string) json_encode($verdict);
+        self::assertStringNotContainsString('should-never-leak', $json);
+    }
+
     public function test_adapter_source_does_not_call_providers_or_processes(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimEnvelopeAdapter.php'));
