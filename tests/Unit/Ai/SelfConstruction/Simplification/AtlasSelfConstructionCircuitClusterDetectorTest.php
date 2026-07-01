@@ -19,6 +19,8 @@ final class AtlasSelfConstructionCircuitClusterDetectorTest extends TestCase
                 'outputs' => ['verdict'],
                 'proof_refs' => ['test_run_1'],
                 'consumers' => ['TaskFabricCommand'],
+                'responsibility_tags' => ['admits_packet'],
+                'tests' => ['AdmissionTest::test_admits'],
             ],
             [
                 'name' => 'OrganB',
@@ -27,6 +29,8 @@ final class AtlasSelfConstructionCircuitClusterDetectorTest extends TestCase
                 'outputs' => ['verdict'],
                 'proof_refs' => ['test_run_1'],
                 'consumers' => ['TaskFabricCommand'],
+                'responsibility_tags' => ['admits_packet'],
+                'tests' => ['AdmissionTest::test_admits'],
             ],
         ]);
 
@@ -38,6 +42,60 @@ final class AtlasSelfConstructionCircuitClusterDetectorTest extends TestCase
         self::assertTrue($cluster['merge_ready']);
         self::assertSame(1.0, $cluster['overlap_score']);
         self::assertSame([], $cluster['false_positive_risks']);
+        self::assertSame('high', $cluster['duplicate_confidence']);
+        self::assertNotSame('', $cluster['cluster_id']);
+    }
+
+    public function test_similar_names_but_different_behavior_signatures_are_not_clustered(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'AtlasPacketValidatorAlpha',
+                'capability_label' => 'validation_alpha',
+                'inputs' => ['packet_alpha'],
+                'outputs' => ['verdict_alpha'],
+                'proof_refs' => ['test_run_alpha'],
+                'consumers' => ['CallerAlpha'],
+            ],
+            [
+                'name' => 'AtlasPacketValidatorBeta',
+                'capability_label' => 'validation_beta',
+                'inputs' => ['packet_beta'],
+                'outputs' => ['verdict_beta'],
+                'proof_refs' => ['test_run_beta'],
+                'consumers' => ['CallerBeta'],
+            ],
+        ]);
+
+        self::assertSame([], $result['clusters']);
+    }
+
+    public function test_cluster_ids_and_member_ordering_are_deterministic(): void
+    {
+        $organs = [
+            [
+                'name' => 'OrganB',
+                'capability_label' => 'task_admission',
+                'inputs' => ['packet'],
+                'outputs' => ['verdict'],
+                'proof_refs' => ['test_run_1'],
+                'consumers' => ['TaskFabricCommand'],
+            ],
+            [
+                'name' => 'OrganA',
+                'capability_label' => 'task_admission',
+                'inputs' => ['packet'],
+                'outputs' => ['verdict'],
+                'proof_refs' => ['test_run_1'],
+                'consumers' => ['TaskFabricCommand'],
+            ],
+        ];
+
+        $first = (new AtlasSelfConstructionCircuitClusterDetector)->detect($organs);
+        $second = (new AtlasSelfConstructionCircuitClusterDetector)->detect($organs);
+
+        self::assertSame(['OrganA', 'OrganB'], $first['clusters'][0]['members']);
+        self::assertSame($first['clusters'][0]['cluster_id'], $second['clusters'][0]['cluster_id']);
     }
 
     public function test_capability_label_match_alone_without_other_overlap_is_not_merge_ready(): void

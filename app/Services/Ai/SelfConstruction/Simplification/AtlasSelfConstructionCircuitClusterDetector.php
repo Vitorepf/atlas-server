@@ -28,6 +28,8 @@ final class AtlasSelfConstructionCircuitClusterDetector
      *   outputs?: list<string>,
      *   proof_refs?: list<string>,
      *   consumers?: list<string>,
+     *   responsibility_tags?: list<string>,
+     *   tests?: list<string>,
      * }>  $organs
      * @return array{schema:string, clusters:list<array<string,mixed>>}
      */
@@ -49,13 +51,16 @@ final class AtlasSelfConstructionCircuitClusterDetector
             }
 
             $names = array_values(array_map(static fn (array $o): string => (string) ($o['name'] ?? ''), $members));
+            sort($names, SORT_STRING);
 
             $sharedInputs = $this->intersectAcross($members, 'inputs');
             $sharedOutputs = $this->intersectAcross($members, 'outputs');
             $proofOverlap = $this->intersectAcross($members, 'proof_refs');
             $consumerOverlap = $this->intersectAcross($members, 'consumers');
+            $responsibilityOverlap = $this->intersectAcross($members, 'responsibility_tags');
+            $testOverlap = $this->intersectAcross($members, 'tests');
 
-            $overlapScore = $this->overlapScore($members, $sharedInputs, $sharedOutputs, $proofOverlap, $consumerOverlap);
+            $overlapScore = $this->overlapScore($sharedInputs, $sharedOutputs, $proofOverlap, $consumerOverlap, $responsibilityOverlap, $testOverlap);
 
             $falsePositiveRisks = [];
             if ($sharedInputs === [] && $sharedOutputs === []) {
@@ -67,17 +72,37 @@ final class AtlasSelfConstructionCircuitClusterDetector
             if ($consumerOverlap === []) {
                 $falsePositiveRisks[] = 'no_consumer_overlap';
             }
+            if ($responsibilityOverlap === []) {
+                $falsePositiveRisks[] = 'no_responsibility_overlap';
+            }
+            if ($testOverlap === []) {
+                $falsePositiveRisks[] = 'no_test_overlap';
+            }
 
             $mergeReady = $proofOverlap !== [] && $consumerOverlap !== [];
 
+            // duplicate_confidence: behavior-signature based, never derived from name similarity —
+            // it requires proof+consumer evidence (merge_ready) AND a high overlap_score.
+            $duplicateConfidence = match (true) {
+                $mergeReady && $overlapScore >= 0.80 => 'high',
+                $mergeReady && $overlapScore >= 0.50 => 'medium',
+                default => 'low',
+            };
+
+            $clusterId = 'cluster_'.substr(hash('sha256', $label.'|'.implode(',', $names)), 0, 16);
+
             $clusters[] = [
+                'cluster_id' => $clusterId,
                 'capability_label' => $label,
                 'members' => $names,
                 'shared_contracts' => [
                     'inputs' => $sharedInputs,
                     'outputs' => $sharedOutputs,
                 ],
+                'shared_responsibility_tags' => $responsibilityOverlap,
+                'shared_tests' => $testOverlap,
                 'overlap_score' => $overlapScore,
+                'duplicate_confidence' => $duplicateConfidence,
                 'merge_ready' => $mergeReady,
                 'consolidation_reason' => sprintf(
                     '%d organs share capability "%s"%s',
@@ -88,6 +113,8 @@ final class AtlasSelfConstructionCircuitClusterDetector
                 'false_positive_risks' => $falsePositiveRisks,
             ];
         }
+
+        usort($clusters, static fn (array $a, array $b): int => strcmp((string) $a['cluster_id'], (string) $b['cluster_id']));
 
         return [
             'schema' => self::SCHEMA,
@@ -122,15 +149,16 @@ final class AtlasSelfConstructionCircuitClusterDetector
     }
 
     /**
-     * @param  list<array<string,mixed>>  $members
      * @param  list<string>  $sharedInputs
      * @param  list<string>  $sharedOutputs
      * @param  list<string>  $proofOverlap
      * @param  list<string>  $consumerOverlap
+     * @param  list<string>  $responsibilityOverlap
+     * @param  list<string>  $testOverlap
      */
-    private function overlapScore(array $members, array $sharedInputs, array $sharedOutputs, array $proofOverlap, array $consumerOverlap): float
+    private function overlapScore(array $sharedInputs, array $sharedOutputs, array $proofOverlap, array $consumerOverlap, array $responsibilityOverlap, array $testOverlap): float
     {
-        $dimensions = [$sharedInputs, $sharedOutputs, $proofOverlap, $consumerOverlap];
+        $dimensions = [$sharedInputs, $sharedOutputs, $proofOverlap, $consumerOverlap, $responsibilityOverlap, $testOverlap];
         $nonEmpty = count(array_filter($dimensions, static fn (array $d): bool => $d !== []));
 
         return round($nonEmpty / count($dimensions), 4);
