@@ -72,143 +72,15 @@ final class AtlasExternalBrainTaskFamilyYieldModel
                 || array_key_exists('poison_count', $raw)
                 || array_key_exists('quarantine_count', $raw);
 
-            if ($hasOutcomeCounts) {
-                $successCount    = max(0, (int) ($raw['success_count']    ?? 0));
-                $giveBackCount   = max(0, (int) ($raw['give_back_count']  ?? 0));
-                $poisonCount     = max(0, (int) ($raw['poison_count']     ?? 0));
-                $quarantineCount = max(0, (int) ($raw['quarantine_count'] ?? 0));
-                $totalAttempted  = $successCount + $giveBackCount + $poisonCount + $quarantineCount;
+            $entry = $hasOutcomeCounts
+                ? $this->evaluateFamilyByOutcomeCounts($familyId, $raw, $giveBackRate)
+                : $this->evaluateFamilyLegacy($familyId, $raw, $giveBackRate);
 
-                // AC2 (rank02): low-sample families cannot outrank proven ones.
-                if ($totalAttempted < self::MIN_SAMPLE_FOR_EVIDENCE) {
-                    $yieldScore      = 0.0;
-                    $roiScore        = 0.0;
-                    $penaltyApplied  = null;
-                    $poisonRate      = 0.0;
-                    $classification  = 'insufficient_evidence';
-                    $confidence      = 'low';
-                    $reasons         = ['insufficient_sample'];
-                    $recommendedAction = 'watch';
-                } else {
-                    $greenRate   = $successCount / $totalAttempted;
-                    $poisonRate  = ($giveBackCount + $poisonCount + $quarantineCount) / $totalAttempted;
-                    $yieldScore  = max(0.0, min(1.0, $greenRate - $poisonRate * self::POISON_PENALTY_FACTOR));
-                    $roiScore    = round(max(0.0, min(1.0, $yieldScore * (1.0 - $giveBackRate * 0.5))), 4);
-                    $penaltyApplied = $poisonRate >= self::HIGH_POISON_RATE ? 'high_poison_rate_penalty' : null;
-                    $classification = $this->classify($yieldScore);
-                    $confidence  = 'high'; // sufficient evidence
-                    $reasons     = [];
-                    if ($poisonRate >= self::HIGH_POISON_RATE) {
-                        $reasons[] = 'high_poison_rate';
-                    }
-                    if ($giveBackRate > self::GIVE_BACK_DOWNRANK_FLOOR) {
-                        $reasons[] = 'high_give_back_rate';
-                    }
-                    $recommendedAction = match(true) {
-                        $classification === 'high_yield' && $poisonRate < self::HIGH_POISON_RATE => 'promote',
-                        $poisonRate >= self::HIGH_POISON_RATE                                    => 'quarantine_pattern',
-                        $classification === 'moderate_yield'                                     => 'watch',
-                        default                                                                  => 'deprioritize',
-                    };
-                }
+            $counts[$entry['classification']]++;
+            $familyYields[] = $entry['family_yield'];
 
-                $counts[$classification]++;
-
-                $familyYields[] = [
-                    'family_id'              => $familyId,
-                    'yield_score'            => round($yieldScore, 4),
-                    'roi_score'              => $roiScore,
-                    'classification'         => $classification,
-                    'penalty_applied'        => $penaltyApplied,
-                    'confidence'             => $confidence,
-                    'recommended_action'     => $recommendedAction,
-                    'recommended_family_action' => $recommendedAction,
-                    'reasons'                => $reasons,
-                ];
-
-                if (in_array($classification, ['low_yield', 'insufficient_evidence'], true)) {
-                    $lowYield[] = [
-                        'family_id' => $familyId,
-                        'reason'    => $penaltyApplied ?? ($classification === 'insufficient_evidence' ? 'insufficient_sample' : 'insufficient_delivery'),
-                    ];
-                }
-
-                continue;
-            }
-
-            // ── Legacy path (original formula, backward-compat) ─────────────────
-            $acceptedSpecs = max(0, (int) ($raw['accepted_specs']              ?? 0));
-            $deltas        = max(0, (int) ($raw['resolved_capability_deltas']  ?? 0));
-            $unlocks       = max(0, (int) ($raw['architecture_unlocks']        ?? 0));
-            $wiring        = max(0, (int) ($raw['verified_wiring_changes']     ?? 0));
-
-            $deliveryScore = $deltas + $unlocks + $wiring;
-            $rawYield      = round($deliveryScore / ($acceptedSpecs + 1), 6);
-
-            $penaltyApplied = null;
-            if ($acceptedSpecs >= self::SPEC_BULK_THRESHOLD && $deltas === 0) {
-                $rawYield       = round($rawYield * self::PENALTY_ZERO_DELTA, 6);
-                $penaltyApplied = 'zero_delta_penalty';
-            } elseif ($acceptedSpecs > 0 && ($deltas / $acceptedSpecs) < self::DELTA_RATIO_THRESHOLD) {
-                $rawYield       = round($rawYield * self::PENALTY_LOW_RATIO, 6);
-                $penaltyApplied = 'low_ratio_penalty';
-            }
-
-            $yieldScore = max(0.0, min(1.0, $rawYield));
-            $roiScore   = round(max(0.0, min(1.0, $yieldScore * (1.0 - $giveBackRate * 0.5))), 4);
-
-            $classification = $this->classify($yieldScore);
-            $counts[$classification]++;
-
-            $confidence = match(true) {
-                $acceptedSpecs >= self::HIGH_CONFIDENCE_SPECS => 'high',
-                $acceptedSpecs >= self::MID_CONFIDENCE_SPECS  => 'medium',
-                default                                        => 'low',
-            };
-
-            $reasons = [];
-            if ($roiScore >= self::HIGH_THRESHOLD) {
-                $reasons[] = 'high_roi';
-            }
-            if ($penaltyApplied === 'zero_delta_penalty') {
-                $reasons[] = 'spec_bulk_no_delta';
-            } elseif ($penaltyApplied === 'low_ratio_penalty') {
-                $reasons[] = 'low_delta_ratio';
-            }
-            if ($giveBackRate > self::GIVE_BACK_DOWNRANK_FLOOR) {
-                $reasons[] = 'high_give_back_rate';
-            }
-            if ($roiScore >= self::MID_THRESHOLD && $roiScore < self::HIGH_THRESHOLD && $reasons === []) {
-                $reasons[] = 'moderate_delivery';
-            }
-            if ($roiScore < self::MID_THRESHOLD && $penaltyApplied === null && $giveBackRate <= self::GIVE_BACK_DOWNRANK_FLOOR) {
-                $reasons[] = 'insufficient_delivery';
-            }
-
-            $recommendedAction = match(true) {
-                $roiScore >= self::HIGH_THRESHOLD                                                 => 'invest',
-                $penaltyApplied !== null || $giveBackRate > self::GIVE_BACK_DOWNRANK_FLOOR        => 'deprioritize',
-                $roiScore >= self::MID_THRESHOLD                                                  => 'watch',
-                default                                                                           => 'investigate',
-            };
-
-            $familyYields[] = [
-                'family_id'              => $familyId,
-                'yield_score'            => round($yieldScore, 4),
-                'roi_score'              => $roiScore,
-                'classification'         => $classification,
-                'penalty_applied'        => $penaltyApplied,
-                'confidence'             => $confidence,
-                'recommended_action'     => $recommendedAction,
-                'recommended_family_action' => $recommendedAction,
-                'reasons'                => $reasons,
-            ];
-
-            if ($classification === 'low_yield') {
-                $lowYield[] = [
-                    'family_id' => $familyId,
-                    'reason'    => $penaltyApplied ?? 'insufficient_delivery',
-                ];
+            if ($entry['low_yield_entry'] !== null) {
+                $lowYield[] = $entry['low_yield_entry'];
             }
         }
 
@@ -301,6 +173,165 @@ final class AtlasExternalBrainTaskFamilyYieldModel
         ], $adjustedYields);
 
         return $result;
+    }
+
+    /**
+     * Single yield-evaluation circuit (outcome-count path): derives classification,
+     * confidence, recommended_action, and reasons from the same counts in one pass —
+     * so a family's yield_score, confidence, and action can never disagree.
+     *
+     * @param  array<string,mixed>  $raw
+     * @return array{classification:string, family_yield:array<string,mixed>, low_yield_entry:?array<string,string>}
+     */
+    private function evaluateFamilyByOutcomeCounts(string $familyId, array $raw, float $giveBackRate): array
+    {
+        $successCount    = max(0, (int) ($raw['success_count']    ?? 0));
+        $giveBackCount   = max(0, (int) ($raw['give_back_count']  ?? 0));
+        $poisonCount     = max(0, (int) ($raw['poison_count']     ?? 0));
+        $quarantineCount = max(0, (int) ($raw['quarantine_count'] ?? 0));
+        $totalAttempted  = $successCount + $giveBackCount + $poisonCount + $quarantineCount;
+
+        // AC2 (rank02): low-sample families cannot outrank proven ones.
+        if ($totalAttempted < self::MIN_SAMPLE_FOR_EVIDENCE) {
+            $yieldScore      = 0.0;
+            $roiScore        = 0.0;
+            $penaltyApplied  = null;
+            $poisonRate      = 0.0;
+            $classification  = 'insufficient_evidence';
+            $confidence      = 'low';
+            $reasons         = ['insufficient_sample'];
+            $recommendedAction = 'watch';
+        } else {
+            $greenRate   = $successCount / $totalAttempted;
+            $poisonRate  = ($giveBackCount + $poisonCount + $quarantineCount) / $totalAttempted;
+            $yieldScore  = max(0.0, min(1.0, $greenRate - $poisonRate * self::POISON_PENALTY_FACTOR));
+            $roiScore    = round(max(0.0, min(1.0, $yieldScore * (1.0 - $giveBackRate * 0.5))), 4);
+            $penaltyApplied = $poisonRate >= self::HIGH_POISON_RATE ? 'high_poison_rate_penalty' : null;
+            $classification = $this->classify($yieldScore);
+            $confidence  = 'high'; // sufficient evidence
+            $reasons     = [];
+            if ($poisonRate >= self::HIGH_POISON_RATE) {
+                $reasons[] = 'high_poison_rate';
+            }
+            if ($giveBackRate > self::GIVE_BACK_DOWNRANK_FLOOR) {
+                $reasons[] = 'high_give_back_rate';
+            }
+            $recommendedAction = match(true) {
+                $classification === 'high_yield' && $poisonRate < self::HIGH_POISON_RATE => 'promote',
+                $poisonRate >= self::HIGH_POISON_RATE                                    => 'quarantine_pattern',
+                $classification === 'moderate_yield'                                     => 'watch',
+                default                                                                  => 'deprioritize',
+            };
+        }
+
+        $lowYieldEntry = in_array($classification, ['low_yield', 'insufficient_evidence'], true)
+            ? [
+                'family_id' => $familyId,
+                'reason'    => $penaltyApplied ?? ($classification === 'insufficient_evidence' ? 'insufficient_sample' : 'insufficient_delivery'),
+            ]
+            : null;
+
+        return [
+            'classification' => $classification,
+            'family_yield' => [
+                'family_id'              => $familyId,
+                'yield_score'            => round($yieldScore, 4),
+                'roi_score'              => $roiScore,
+                'classification'         => $classification,
+                'penalty_applied'        => $penaltyApplied,
+                'confidence'             => $confidence,
+                'recommended_action'     => $recommendedAction,
+                'recommended_family_action' => $recommendedAction,
+                'reasons'                => $reasons,
+            ],
+            'low_yield_entry' => $lowYieldEntry,
+        ];
+    }
+
+    /**
+     * Single yield-evaluation circuit (legacy path): derives classification,
+     * confidence, recommended_action, and reasons from the same delivery/spec
+     * counts in one pass — so a family's yield_score, confidence, and action
+     * can never disagree.
+     *
+     * @param  array<string,mixed>  $raw
+     * @return array{classification:string, family_yield:array<string,mixed>, low_yield_entry:?array<string,string>}
+     */
+    private function evaluateFamilyLegacy(string $familyId, array $raw, float $giveBackRate): array
+    {
+        $acceptedSpecs = max(0, (int) ($raw['accepted_specs']              ?? 0));
+        $deltas        = max(0, (int) ($raw['resolved_capability_deltas']  ?? 0));
+        $unlocks       = max(0, (int) ($raw['architecture_unlocks']        ?? 0));
+        $wiring        = max(0, (int) ($raw['verified_wiring_changes']     ?? 0));
+
+        $deliveryScore = $deltas + $unlocks + $wiring;
+        $rawYield      = round($deliveryScore / ($acceptedSpecs + 1), 6);
+
+        $penaltyApplied = null;
+        if ($acceptedSpecs >= self::SPEC_BULK_THRESHOLD && $deltas === 0) {
+            $rawYield       = round($rawYield * self::PENALTY_ZERO_DELTA, 6);
+            $penaltyApplied = 'zero_delta_penalty';
+        } elseif ($acceptedSpecs > 0 && ($deltas / $acceptedSpecs) < self::DELTA_RATIO_THRESHOLD) {
+            $rawYield       = round($rawYield * self::PENALTY_LOW_RATIO, 6);
+            $penaltyApplied = 'low_ratio_penalty';
+        }
+
+        $yieldScore = max(0.0, min(1.0, $rawYield));
+        $roiScore   = round(max(0.0, min(1.0, $yieldScore * (1.0 - $giveBackRate * 0.5))), 4);
+
+        $classification = $this->classify($yieldScore);
+
+        $confidence = match(true) {
+            $acceptedSpecs >= self::HIGH_CONFIDENCE_SPECS => 'high',
+            $acceptedSpecs >= self::MID_CONFIDENCE_SPECS  => 'medium',
+            default                                        => 'low',
+        };
+
+        $reasons = [];
+        if ($roiScore >= self::HIGH_THRESHOLD) {
+            $reasons[] = 'high_roi';
+        }
+        if ($penaltyApplied === 'zero_delta_penalty') {
+            $reasons[] = 'spec_bulk_no_delta';
+        } elseif ($penaltyApplied === 'low_ratio_penalty') {
+            $reasons[] = 'low_delta_ratio';
+        }
+        if ($giveBackRate > self::GIVE_BACK_DOWNRANK_FLOOR) {
+            $reasons[] = 'high_give_back_rate';
+        }
+        if ($roiScore >= self::MID_THRESHOLD && $roiScore < self::HIGH_THRESHOLD && $reasons === []) {
+            $reasons[] = 'moderate_delivery';
+        }
+        if ($roiScore < self::MID_THRESHOLD && $penaltyApplied === null && $giveBackRate <= self::GIVE_BACK_DOWNRANK_FLOOR) {
+            $reasons[] = 'insufficient_delivery';
+        }
+
+        $recommendedAction = match(true) {
+            $roiScore >= self::HIGH_THRESHOLD                                                 => 'invest',
+            $penaltyApplied !== null || $giveBackRate > self::GIVE_BACK_DOWNRANK_FLOOR        => 'deprioritize',
+            $roiScore >= self::MID_THRESHOLD                                                  => 'watch',
+            default                                                                           => 'investigate',
+        };
+
+        $lowYieldEntry = $classification === 'low_yield'
+            ? ['family_id' => $familyId, 'reason' => $penaltyApplied ?? 'insufficient_delivery']
+            : null;
+
+        return [
+            'classification' => $classification,
+            'family_yield' => [
+                'family_id'              => $familyId,
+                'yield_score'            => round($yieldScore, 4),
+                'roi_score'              => $roiScore,
+                'classification'         => $classification,
+                'penalty_applied'        => $penaltyApplied,
+                'confidence'             => $confidence,
+                'recommended_action'     => $recommendedAction,
+                'recommended_family_action' => $recommendedAction,
+                'reasons'                => $reasons,
+            ],
+            'low_yield_entry' => $lowYieldEntry,
+        ];
     }
 
     private function classify(float $yield): string
