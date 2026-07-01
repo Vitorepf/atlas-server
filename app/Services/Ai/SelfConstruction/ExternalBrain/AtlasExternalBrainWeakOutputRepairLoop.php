@@ -361,9 +361,52 @@ final class AtlasExternalBrainWeakOutputRepairLoop
         return $proposal;
     }
 
+    /**
+     * Synthesizes a CONCRETE implementation/test allowed_files pair instead of a vague
+     * placeholder path — a repaired candidate must name a real target, not a template.
+     */
     private function applyImplFileRepairs(array $proposal): array
     {
-        $proposal['_suggested_implementation_file'] = 'app/Services/<DeriveFromObjective>.php';
+        $files = (array) ($proposal['allowed_files'] ?? []);
+
+        $symbol = trim((string) ($proposal['target_symbol'] ?? ''));
+        $hasExistingTestFile = false;
+        if ($symbol === '') {
+            foreach ($files as $file) {
+                $file = (string) $file;
+                if ($this->isTestFile($file)) {
+                    $hasExistingTestFile = true;
+                    $base = basename($file, '.php');
+                    $base = preg_replace('/Test$/', '', $base) ?? $base;
+                    if ($base !== '') {
+                        $symbol = $base;
+                        break;
+                    }
+                }
+            }
+        } else {
+            foreach ($files as $file) {
+                if ($this->isTestFile((string) $file)) {
+                    $hasExistingTestFile = true;
+                    break;
+                }
+            }
+        }
+
+        if ($symbol === '') {
+            $symbol = 'AtlasGeneratedComponent';
+        }
+
+        $implementationPath = "app/Services/Ai/SelfConstruction/ExternalBrain/{$symbol}.php";
+        $testPath = "tests/Unit/Ai/SelfConstruction/ExternalBrain/{$symbol}Test.php";
+
+        $files[] = $implementationPath;
+        if (! $hasExistingTestFile) {
+            $files[] = $testPath;
+        }
+
+        $proposal['allowed_files'] = array_values(array_unique($files));
+        $proposal['_suggested_implementation_file'] = $implementationPath;
 
         return $proposal;
     }

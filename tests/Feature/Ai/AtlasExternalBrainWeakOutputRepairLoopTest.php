@@ -236,4 +236,51 @@ final class AtlasExternalBrainWeakOutputRepairLoopTest extends TestCase
 
         self::assertNotSame('escalated_repeated_unrepaired', $r['failure_class']);
     }
+
+    // ── AC: synthesized implementation/test allowed_files pair ─────────────
+
+    public function test_target_symbol_with_only_test_file_repairs_allowed_files_with_impl_and_test_path(): void
+    {
+        $proposal = $this->baseProposal();
+        $proposal['target_symbol'] = 'AtlasFooBar';
+        $proposal['allowed_files'] = ['tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasFooBarTest.php'];
+
+        $r = $this->loop()->repair(['proposal' => $proposal]);
+
+        self::assertSame('fixable_missing_implementation_file', $r['failure_class']);
+        $files = $r['repaired_candidate']['allowed_files'];
+        self::assertContains('app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFooBar.php', $files);
+        self::assertContains('tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasFooBarTest.php', $files);
+    }
+
+    public function test_repaired_candidates_keep_required_evidence_tests_or_gates_result_and_implementation_notes(): void
+    {
+        $proposal = $this->baseProposal();
+        $proposal['target_symbol'] = 'AtlasFooBar';
+        $proposal['allowed_files'] = [];
+        $proposal['required_evidence'] = [];
+
+        $r = $this->loop()->repair(['proposal' => $proposal]);
+
+        // missing evidence is classified before missing impl file, so this proves the repair
+        // chain never drops evidence requirements even when allowed_files also needs repair.
+        self::assertSame('fixable_missing_evidence', $r['failure_class']);
+        self::assertContains('tests_or_gates_result', $r['repaired_candidate']['required_evidence']);
+    }
+
+    public function test_duplicate_poison_and_fake_value_outputs_are_never_repaired_into_synthetic_allowed_files(): void
+    {
+        $proposal = $this->baseProposal();
+        $proposal['target_symbol'] = 'AtlasFooBar';
+        $proposal['allowed_files'] = [];
+
+        $duplicate = $this->loop()->repair(['proposal' => $proposal, 'is_duplicate' => true]);
+        self::assertNull($duplicate['repaired_candidate']);
+
+        $poison = $this->loop()->repair(['proposal' => $proposal, 'is_poison' => true]);
+        self::assertNull($poison['repaired_candidate']);
+
+        $fakeValue = $this->loop()->repair(['proposal' => $proposal, 'weakness_labels' => ['fake_value']]);
+        self::assertNull($fakeValue['repaired_candidate']);
+    }
 }
