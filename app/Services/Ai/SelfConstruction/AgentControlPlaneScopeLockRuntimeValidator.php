@@ -82,6 +82,21 @@ final class AgentControlPlaneScopeLockRuntimeValidator
             $blockers[] = 'allowed_files_empty';
         }
 
+        // AC: an allowed_files entry that names a bare directory root (not a concrete file) is
+        // a broad-scope claim -- opt-in via options so existing callers whose allowed_files are
+        // already builder-normalized concrete paths are never newly blocked.
+        $broadRootScope = [];
+        if ((bool) ($options['enforce_narrow_scope'] ?? false)) {
+            foreach ($allowed as $path) {
+                if ($path === '' || str_ends_with($path, '/') || ! str_contains(basename($path), '.')) {
+                    $broadRootScope[] = $path;
+                }
+            }
+            if ($broadRootScope !== []) {
+                $blockers[] = 'broad_root_scope';
+            }
+        }
+
         $forbiddenInAllowed = WriteSetOverlap::collidingPaths($allowed, $forbidden); // A5/MF-12: prefix-aware dir-vs-file
         if ($forbiddenInAllowed !== []) {
             $blockers[] = 'forbidden_overlap';
@@ -182,6 +197,15 @@ final class AgentControlPlaneScopeLockRuntimeValidator
             $blockers[] = 'missing_lock_proof';
         }
 
+        $staleScopeLockThresholdSeconds = isset($options['stale_scope_lock_threshold_seconds'])
+            ? (int) $options['stale_scope_lock_threshold_seconds']
+            : 3600;
+        $scopeLockAgeSeconds = isset($options['scope_lock_age_seconds']) ? (int) $options['scope_lock_age_seconds'] : null;
+        $staleScopeLock = $scopeLockAgeSeconds !== null && $scopeLockAgeSeconds > $staleScopeLockThresholdSeconds;
+        if ($staleScopeLock) {
+            $blockers[] = 'stale_scope_lock';
+        }
+
         $status = $blockers === [] ? 'valid' : 'blocked';
 
         $hasHardBlocker = array_intersect($blockers, self::HARD_BLOCKERS) !== [];
@@ -214,12 +238,16 @@ final class AgentControlPlaneScopeLockRuntimeValidator
             'mode' => self::MODE,
             'generated_at' => CarbonImmutable::now()->toIso8601String(),
             'status' => $status,
+            'passed' => $status === 'valid',
             'commit_decision' => $commitDecision,
             'task_packet_id' => (string) ($taskPacket['task_packet_id'] ?? ''),
             'task_packet_hash' => (string) ($taskPacket['task_packet_hash'] ?? ''),
             'blockers' => $blockers,
             'warnings' => $warnings,
             'drifted_files' => $driftedFiles,
+            'observed_out_of_scope_files' => $driftedFiles,
+            'stale_scope_lock' => $staleScopeLock,
+            'repair_action' => $this->repairAction($blockers),
             'active_lease_scope_overlaps' => $activeLeaseOverlaps,
             'lock_proof_valid' => $requireLockProof ? $hasValidLockProof : null,
             'normalized_scope_lock' => $normalizedScopeLock,
@@ -290,6 +318,33 @@ final class AgentControlPlaneScopeLockRuntimeValidator
         sort($out);
 
         return $out;
+    }
+
+    /** @param  list<string>  $blockers */
+    private function repairAction(array $blockers): string
+    {
+        if ($blockers === []) {
+            return 'none';
+        }
+
+        return match ($blockers[0]) {
+            'allowed_files_empty' => 'declare_concrete_allowed_files',
+            'broad_root_scope' => 'narrow_allowed_files_to_concrete_paths',
+            'forbidden_overlap' => 'remove_forbidden_files_from_allowed_scope',
+            'path_traversal' => 'remove_path_traversal_sequences',
+            'forbidden_axis' => 'remove_targets_inside_forbidden_axis',
+            'too_many_allowed_files' => 'split_into_smaller_scope',
+            'risk_level_too_high_for_runtime_claim' => 'route_to_operator_review',
+            'rollback_strategy_missing' => 'declare_rollback_strategy',
+            'continuation_summary_required' => 'declare_continuation_requirements',
+            'evidence_requirements_missing' => 'declare_required_evidence',
+            'task_packet_not_planned' => 'return_packet_to_planned_status',
+            'files_edited_outside_allowed_scope' => 'respec_allowed_files_or_revert_out_of_scope_edits',
+            'active_lease_scope_overlap' => 'wait_for_conflicting_lease_release',
+            'missing_lock_proof' => 'supply_valid_lock_proof',
+            'stale_scope_lock' => 'refresh_scope_lock',
+            default => 'investigate_blocker:'.$blockers[0],
+        };
     }
 
     /**
