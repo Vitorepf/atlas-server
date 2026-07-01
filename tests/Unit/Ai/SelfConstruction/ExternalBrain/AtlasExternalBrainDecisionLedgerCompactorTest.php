@@ -220,6 +220,68 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
         $this->assertContains('irreversible', $reasons);
     }
 
+    // ── AC2: expired trace kept separate ─────────────────────────────────────
+
+    public function test_expired_trace_kept_separate(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1']),
+            $this->trace(['trace_id' => 'T2']),
+            $this->trace(['trace_id' => 'T3', 'is_expired' => true]),
+        ]]);
+
+        $this->assertSame(2, $result['lesson_count']);
+        $reasons = array_column($result['lessons'], 'kept_separate_reason');
+        $this->assertContains('expired', $reasons);
+    }
+
+    public function test_expired_lesson_has_occurrence_count_one(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'is_expired' => true]),
+        ]]);
+
+        $this->assertSame(1, $result['lessons'][0]['occurrence_count']);
+        $this->assertSame('expired', $result['lessons'][0]['kept_separate_reason']);
+    }
+
+    // ── AC3: compaction_savings ───────────────────────────────────────────────
+
+    public function test_compaction_savings_counts_repeated_traces_removed(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1']),
+            $this->trace(['trace_id' => 'T2']),
+            $this->trace(['trace_id' => 'T3']),
+        ]]);
+
+        $this->assertArrayHasKey('compaction_savings', $result);
+        $this->assertSame(2, $result['compaction_savings']);
+    }
+
+    public function test_compaction_savings_zero_when_nothing_merges(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'is_contradictory' => true]),
+        ]]);
+
+        $this->assertSame(0, $result['compaction_savings']);
+    }
+
+    // ── contributor_ids preserved on merged lessons ──────────────────────────
+
+    public function test_merged_lesson_preserves_contributor_ids(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1']),
+            $this->trace(['trace_id' => 'T2']),
+        ]]);
+
+        $this->assertArrayHasKey('contributor_ids', $result['lessons'][0]);
+        $this->assertContains('T1', $result['lessons'][0]['contributor_ids']);
+        $this->assertContains('T2', $result['lessons'][0]['contributor_ids']);
+    }
+
     // ── scope: different scopes not merged ────────────────────────────────────
 
     public function test_different_scope_not_merged(): void

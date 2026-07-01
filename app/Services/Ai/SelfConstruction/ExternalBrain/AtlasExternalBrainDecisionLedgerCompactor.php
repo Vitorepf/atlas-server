@@ -41,6 +41,7 @@ final class AtlasExternalBrainDecisionLedgerCompactor
     private const SEPARATE_REASON_HIGH_UNCERTAINTY = 'high_uncertainty';
     private const SEPARATE_REASON_STALE            = 'stale';
     private const SEPARATE_REASON_IRREVERSIBLE     = 'irreversible';
+    private const SEPARATE_REASON_EXPIRED          = 'expired';
 
     /**
      * @param  array{traces?: list<array<string,mixed>>}  $input
@@ -62,6 +63,7 @@ final class AtlasExternalBrainDecisionLedgerCompactor
             $uncertainty   = (string)  ($trace['uncertainty']      ?? 'low');
             $contradictory = (bool)    ($trace['is_contradictory'] ?? false);
             $isStale       = (bool)    ($trace['is_stale']         ?? false);
+            $isExpired     = (bool)    ($trace['is_expired']       ?? false);
             $reversibility = (string)  ($trace['reversibility']    ?? 'reversible');
             $scope         = (string)  ($trace['scope']            ?? '');
             $expiresAt     = isset($trace['expires_at']) ? (string) $trace['expires_at'] : null;
@@ -98,6 +100,14 @@ final class AtlasExternalBrainDecisionLedgerCompactor
                 );
                 continue;
             }
+            if ($isExpired) {
+                $standalone[] = $this->lesson(
+                    $traceId, $causes, $outcome, 1, self::CONFIDENCE_LOW,
+                    $evidenceRefs, [$traceId], $uncertainty, $reversibility, $scope, $expiresAt,
+                    self::SEPARATE_REASON_EXPIRED,
+                );
+                continue;
+            }
 
             $key = $this->groupKey($causes, $outcome, $scope);
             $mergeable[$key][] = [
@@ -120,10 +130,11 @@ final class AtlasExternalBrainDecisionLedgerCompactor
         usort($lessons, static fn (array $a, array $b): int => strcmp($a['lesson_id'], $b['lesson_id']));
 
         return [
-            'schema'         => self::SCHEMA,
-            'lessons'        => $lessons,
-            'lesson_count'   => count($lessons),
-            'compacted_from' => $total,
+            'schema'             => self::SCHEMA,
+            'lessons'            => $lessons,
+            'lesson_count'       => count($lessons),
+            'compacted_from'     => $total,
+            'compaction_savings' => max(0, $total - count($lessons)),
         ];
     }
 
@@ -206,6 +217,7 @@ final class AtlasExternalBrainDecisionLedgerCompactor
             'confidence'           => $confidence,
             'retained_evidence'    => $retainedEvidence,
             'superseded_trace_ids' => $supersededIds,
+            'contributor_ids'      => $supersededIds,
             'uncertainty'          => $uncertainty,
             'reversibility'        => $reversibility,
             'scope'                => $scope,
