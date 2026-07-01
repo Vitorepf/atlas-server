@@ -82,4 +82,68 @@ final class AtlasSelfConstructionSimplificationRollbackReceiptComposerTest exten
             $receipt['blockers'],
         );
     }
+
+    // ── checkRollbackPreimage(): fail-closed pre-image sentinel ───────────────
+
+    private function preimageInput(array $overrides = []): array
+    {
+        return array_merge([
+            'action_type' => 'delete',
+            'pre_image_refs' => ['sha1:preimage-abc'],
+            'touched_files' => ['app/Services/Ai/Foo.php'],
+            'replay_gates' => ['php artisan test tests/Unit/Ai/FooTest.php'],
+            'restore_steps' => ['git revert <sha>'],
+        ], $overrides);
+    }
+
+    public function test_destructive_action_with_empty_preimage_refs_is_blocked(): void
+    {
+        foreach (['merge', 'delete', 'extract'] as $actionType) {
+            $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+                $this->preimageInput(['action_type' => $actionType, 'pre_image_refs' => []]),
+            );
+
+            $this->assertTrue($result['blocked'], "action_type={$actionType} should be blocked");
+            $this->assertContains('pre_image_refs_missing', $result['reasons']);
+            $this->assertNull($result['rollback_receipt_hash']);
+        }
+    }
+
+    public function test_complete_preimage_input_returns_hash_and_restore_steps(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage($this->preimageInput());
+
+        $this->assertFalse($result['blocked']);
+        $this->assertNotNull($result['rollback_receipt_hash']);
+        $this->assertSame(['git revert <sha>'], $result['restore_steps']);
+    }
+
+    public function test_receipt_hash_changes_when_touched_files_change(): void
+    {
+        $first = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage($this->preimageInput());
+        $second = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput(['touched_files' => ['app/Services/Ai/Bar.php']]),
+        );
+
+        $this->assertNotSame($first['rollback_receipt_hash'], $second['rollback_receipt_hash']);
+    }
+
+    public function test_receipt_hash_changes_when_replay_gates_change(): void
+    {
+        $first = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage($this->preimageInput());
+        $second = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput(['replay_gates' => ['php artisan test tests/Unit/Ai/BarTest.php']]),
+        );
+
+        $this->assertNotSame($first['rollback_receipt_hash'], $second['rollback_receipt_hash']);
+    }
+
+    public function test_non_destructive_action_with_empty_preimage_refs_is_not_blocked(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput(['action_type' => 'additive_cleanup', 'pre_image_refs' => []]),
+        );
+
+        $this->assertFalse($result['blocked']);
+    }
 }
