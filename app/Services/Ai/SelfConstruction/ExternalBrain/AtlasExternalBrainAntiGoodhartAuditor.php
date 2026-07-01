@@ -51,6 +51,7 @@ final class AtlasExternalBrainAntiGoodhartAuditor
                 $this->checkAlreadySatisfied($batch, $total),
                 $this->checkHighScoreMissingProof($batch, $total),
                 $this->checkValueMechanismClone($batch, $total),
+                $this->checkHighScoreMissingDeliveryEvidence($batch, $total),
             ]);
         }
 
@@ -67,6 +68,7 @@ final class AtlasExternalBrainAntiGoodhartAuditor
             'template_farm', 'template_similarity_farm', 'low_variety',
             'test_count_padding', 'unverifiable_value_claim', 'file_overconcentration',
             'already_satisfied_work', 'high_score_missing_proof', 'value_mechanism_clone',
+            'high_score_missing_delivery_evidence',
         ];
 
         // countermetric_floor: fraction of checks the batch cleared cleanly — the
@@ -395,6 +397,39 @@ final class AtlasExternalBrainAntiGoodhartAuditor
             'affected'    => $topCount,
             'fraction'    => round($fraction, 3),
             'repair_hint' => "{$topCount} tasks ({$this->pct($fraction)}%) share identical value_mechanism '{$topVm}'. Each task must unlock a distinct capability — different mechanism, different gap closed, different system improved.",
+        ];
+    }
+
+    /**
+     * A high final_score alone never proves delivered value — a batch of high-value claims
+     * must be backed by claimable_conversion_evidence (this spec became real claimable work)
+     * or implementation_evidence (this spec already shipped a real change), not just a score.
+     *
+     * @param list<array<string,mixed>> $batch
+     */
+    private function checkHighScoreMissingDeliveryEvidence(array $batch, int $total): ?array
+    {
+        $bad = array_filter($batch, static function (array $t): bool {
+            if ((float) ($t['final_score'] ?? 0.0) < 0.80) {
+                return false;
+            }
+            $conversion = trim((string) ($t['claimable_conversion_evidence'] ?? ''));
+            $implementation = trim((string) ($t['implementation_evidence'] ?? ''));
+
+            return $conversion === '' && $implementation === '';
+        });
+
+        $count = count($bad);
+        if ($count === 0) {
+            return null;
+        }
+
+        return [
+            'finding'     => 'high_score_missing_delivery_evidence',
+            'severity'    => 'warning',
+            'affected'    => $count,
+            'fraction'    => round($count / $total, 3),
+            'repair_hint' => "{$count} high-score task(s) (score≥0.80) lack claimable_conversion_evidence or implementation_evidence. Attach proof this claim actually converted into claimable work or a shipped change, not just a high score.",
         ];
     }
 

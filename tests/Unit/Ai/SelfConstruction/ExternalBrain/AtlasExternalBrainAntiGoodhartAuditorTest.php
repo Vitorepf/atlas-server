@@ -514,14 +514,16 @@ final class AtlasExternalBrainAntiGoodhartAuditorTest extends TestCase
                 'final_score'     => 0.85,
                 'runnable_acceptance'  => 'php artisan test tests/Unit/HasProof2Test.php',
                 'implementation_proof' => 'commit abc123',
+                'implementation_evidence' => 'commit abc123',
             ],
         ];
 
         $result = $this->auditor()->audit($batch);
 
         $this->assertNotSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_PASS, $result['verdict']);
-        $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_REPAIR_REQUIRED, $result['verdict']);
-        $this->assertContains('high_score_missing_proof', array_column($result['findings'], 'finding'));
+        $findingNames = array_column($result['findings'], 'finding');
+        $this->assertContains('high_score_missing_proof', $findingNames);
+        $this->assertContains('high_score_missing_delivery_evidence', $findingNames);
     }
 
     // ── AntiGoodhart circuit: template_farm + high_score_missing_proof + value_mechanism_clone
@@ -575,6 +577,7 @@ final class AtlasExternalBrainAntiGoodhartAuditorTest extends TestCase
                 'final_score'          => 0.90,
                 'runnable_acceptance'  => 'php artisan test tests/Unit/ATest.php',
                 'implementation_proof' => 'commit aaa111',
+                'implementation_evidence' => 'commit aaa111',
             ],
             [
                 'category'             => 'architecture_unlock',
@@ -583,6 +586,7 @@ final class AtlasExternalBrainAntiGoodhartAuditorTest extends TestCase
                 'final_score'          => 0.85,
                 'runnable_acceptance'  => 'php artisan test tests/Feature/BTest.php',
                 'implementation_proof' => 'commit bbb222',
+                'implementation_evidence' => 'commit bbb222',
             ],
             [
                 'category'             => 'test_gate',
@@ -591,6 +595,7 @@ final class AtlasExternalBrainAntiGoodhartAuditorTest extends TestCase
                 'final_score'          => 0.70,
                 'runnable_acceptance'  => 'php artisan test tests/Unit/CTest.php',
                 'implementation_proof' => 'commit ccc333',
+                'implementation_evidence' => 'commit ccc333',
             ],
         ];
 
@@ -600,5 +605,74 @@ final class AtlasExternalBrainAntiGoodhartAuditorTest extends TestCase
         $this->assertTrue($result['passed']);
         $this->assertSame([], $result['findings']);
         $this->assertEqualsWithDelta(1.0, $result['countermetric_floor'], 0.001);
+    }
+
+    // ── AC: high-score claims require claimable_conversion_evidence or implementation_evidence ──
+
+    public function test_high_score_tasks_without_delivery_evidence_trigger_finding(): void
+    {
+        $batch = [
+            [
+                'label' => 'high-1',
+                'category' => 'bug_fix',
+                'allowed_files' => ['app/Services/Ai/A.php'],
+                'value_mechanism' => 'closes_runtime_gap:a',
+                'final_score' => 0.90,
+                // no claimable_conversion_evidence / implementation_evidence
+            ],
+            [
+                'label' => 'high-2',
+                'category' => 'architecture_unlock',
+                'allowed_files' => ['app/Console/Commands/B.php'],
+                'value_mechanism' => 'new_capability:b',
+                'final_score' => 0.85,
+            ],
+        ];
+
+        $result = $this->auditor()->audit($batch);
+
+        $this->assertContains('high_score_missing_delivery_evidence', array_column($result['findings'], 'finding'));
+    }
+
+    public function test_varied_high_value_tasks_with_delivery_evidence_pass_new_check(): void
+    {
+        $batch = [
+            [
+                'category' => 'bug_fix',
+                'allowed_files' => ['app/Services/Ai/A.php'],
+                'value_mechanism' => 'closes_runtime_gap:a',
+                'final_score' => 0.90,
+                'claimable_conversion_evidence' => 'converted into task-123',
+            ],
+            [
+                'category' => 'architecture_unlock',
+                'allowed_files' => ['app/Console/Commands/B.php'],
+                'value_mechanism' => 'new_capability:b',
+                'final_score' => 0.85,
+                'implementation_evidence' => 'commit bbb222',
+            ],
+        ];
+
+        $result = $this->auditor()->audit($batch);
+
+        $this->assertNotContains('high_score_missing_delivery_evidence', array_column($result['findings'], 'finding'));
+    }
+
+    public function test_template_farm_and_low_variety_remain_critical_findings_with_new_check_present(): void
+    {
+        $batch = array_map(static fn (int $i): array => [
+            'label' => "clone-{$i}",
+            'category' => 'bug_fix',
+            'allowed_files' => ["app/Services/Ai/SelfConstruction/Clone{$i}.php"],
+            'value_mechanism' => "mechanism_{$i}",
+            'final_score' => 0.90,
+        ], range(1, 5));
+
+        $result = $this->auditor()->audit($batch);
+
+        $findingNames = array_column($result['findings'], 'finding');
+        $this->assertContains('template_farm', $findingNames);
+        $this->assertContains('low_variety', $findingNames);
+        $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_REJECT, $result['verdict']);
     }
 }
