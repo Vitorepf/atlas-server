@@ -186,6 +186,27 @@ final class AtlasExternalBrainNegativeResultLedgerTest extends TestCase
         $this->assertSame('freshness_expired', $result['reason']);
     }
 
+    public function test_evaluate_skip_surface_includes_anti_repeat_constraint(): void
+    {
+        $l = $this->ledger();
+        $l->record($this->validEntry(['recorded_at' => 1000, 'ttl_seconds' => 3600]));
+        $result = $l->evaluate('github_issues', 'keyword_scan', 3000);
+
+        $this->assertArrayHasKey('anti_repeat_constraint', $result);
+        $this->assertSame('github_issues', $result['anti_repeat_constraint']['surface']);
+        $this->assertArrayHasKey('retry_after', $result['anti_repeat_constraint']);
+        $this->assertArrayHasKey('invalidation_conditions', $result['anti_repeat_constraint']);
+    }
+
+    public function test_evaluate_retry_allowed_includes_revalidation_reason(): void
+    {
+        $l = $this->ledger();
+        $l->record($this->validEntry(['recorded_at' => 1000, 'ttl_seconds' => 3600]));
+        $result = $l->evaluate('github_issues', 'keyword_scan', 5000);
+
+        $this->assertSame('freshness_expired', $result['revalidation_reason']);
+    }
+
     public function test_evaluate_retry_allowed_at_exact_expiry_boundary(): void
     {
         $l = $this->ledger();

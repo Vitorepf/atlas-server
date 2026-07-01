@@ -124,16 +124,18 @@ final class AtlasExternalBrainNegativeResultLedger
         $retryConditions = is_array($entry['retry_conditions'] ?? null) ? array_values($entry['retry_conditions']) : [];
 
         $stored = [
-            'surface'          => $surface,
-            'method'           => $method,
-            'evidence'         => $evidence,
-            'inspected_count'  => $inspectedCount,
-            'search_depth'     => $searchDepth,
-            'reason'           => (string) ($entry['reason'] ?? ''),
-            'recorded_at'      => $recordedAt,
-            'ttl_seconds'      => $ttl,
-            'expires_at'       => $recordedAt + $ttl,
-            'retry_conditions' => $retryConditions,
+            'surface'                => $surface,
+            'method'                 => $method,
+            'evidence'               => $evidence,
+            'inspected_count'        => $inspectedCount,
+            'search_depth'           => $searchDepth,
+            'reason'                 => (string) ($entry['reason'] ?? ''),
+            'recorded_at'            => $recordedAt,
+            'ttl_seconds'            => $ttl,
+            'expires_at'             => $recordedAt + $ttl,
+            'retry_after'            => $recordedAt + $ttl,
+            'retry_conditions'       => $retryConditions,
+            'invalidation_conditions' => $retryConditions,
         ];
 
         $key = $this->dedupKey($surface, $method);
@@ -172,27 +174,34 @@ final class AtlasExternalBrainNegativeResultLedger
 
         // Freshness expired → retry allowed.
         if ($now >= $entry['expires_at']) {
+            $reason = 'freshness_expired';
+
             return [
-                'schema'   => self::SCHEMA,
-                'decision' => self::DECISION_RETRY_ALLOWED,
-                'reason'   => 'freshness_expired',
+                'schema'              => self::SCHEMA,
+                'decision'            => self::DECISION_RETRY_ALLOWED,
+                'reason'              => $reason,
+                'revalidation_reason' => $reason,
             ];
         }
 
         // Any active condition matches a retry condition → retry allowed.
         $matchedConditions = array_intersect($activeConditions, $entry['retry_conditions']);
         if ($matchedConditions !== []) {
+            $reason = 'retry_condition_met:'.implode(',', array_values($matchedConditions));
+
             return [
-                'schema'   => self::SCHEMA,
-                'decision' => self::DECISION_RETRY_ALLOWED,
-                'reason'   => 'retry_condition_met:'.implode(',', array_values($matchedConditions)),
+                'schema'              => self::SCHEMA,
+                'decision'            => self::DECISION_RETRY_ALLOWED,
+                'reason'              => $reason,
+                'revalidation_reason' => $reason,
             ];
         }
 
         return [
-            'schema'   => self::SCHEMA,
-            'decision' => self::DECISION_SKIP_SURFACE,
-            'reason'   => 'still_fresh_until:'.$entry['expires_at'],
+            'schema'                 => self::SCHEMA,
+            'decision'               => self::DECISION_SKIP_SURFACE,
+            'reason'                 => 'still_fresh_until:'.$entry['expires_at'],
+            'anti_repeat_constraint' => $entry,
         ];
     }
 
