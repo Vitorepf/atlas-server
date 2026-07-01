@@ -55,6 +55,33 @@ final class AtlasTaskWorkerInstructionLintTest extends TestCase
         $this->assertContains('ask_human_for_normal_progress', $r['findings']);
     }
 
+    public function test_operator_approval_required_wording_is_flagged(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'Operator approval is required before continuing.',
+        ]);
+        $this->assertContains('ask_human_for_normal_progress', $r['findings']);
+    }
+
+    public function test_depends_on_operator_approval_wording_is_flagged(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'This step depends on operator approval to proceed.',
+        ]);
+        $this->assertContains('ask_human_for_normal_progress', $r['findings']);
+    }
+
+    public function test_operator_sign_off_wording_is_flagged(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'Wait for operator sign-off before merging.',
+        ]);
+        $this->assertContains('ask_human_for_normal_progress', $r['findings']);
+    }
+
     public function test_bootstrap_visibility_wording_is_allowed(): void
     {
         $r = (new AtlasTaskWorkerInstructionLint)->lint([

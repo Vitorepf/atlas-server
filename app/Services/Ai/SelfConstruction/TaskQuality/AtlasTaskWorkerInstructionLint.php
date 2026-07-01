@@ -39,7 +39,7 @@ final class AtlasTaskWorkerInstructionLint
 
     public const FORBIDDEN_GIT_REGEX = '/(?<!do not |never |may not |bootstrap )(git\s+(commit|push|merge|reset|rebase|cherry-pick))/i';
 
-    public const ASK_HUMAN_REGEX = '/ask\s+(the\s+)?(human|operator)|wait\s+for\s+human\s+approval|request\s+manual\s+approval/i';
+    public const ASK_HUMAN_REGEX = '/ask\s+(the\s+)?(human|operator)|wait(?:s|ing)?\s+for\s+(human|operator)\s+approval|request\s+(manual|human|operator)\s+approval|(human|operator)\s+approval\s+(is\s+|are\s+)?(required|needed)|depend(?:s|ing)?\s+on\s+(human|operator)\s+approval|(human|operator)\s+sign[-\s]?off/i';
 
     /** Bootstrap exception — phrases that legitimately reference one-time bootstrap, visibility, or emergency. */
     public const BOOTSTRAP_EXCEPTION_REGEX = '/bootstrap[- ]only|emergency\s+(stop|halt)|operator\s+(visibility|dashboard|read[- ]?only)|one[- ]?time/i';
