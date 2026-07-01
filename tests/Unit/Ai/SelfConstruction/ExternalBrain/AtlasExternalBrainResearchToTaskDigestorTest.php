@@ -65,7 +65,7 @@ final class AtlasExternalBrainResearchToTaskDigestorTest extends TestCase
         $result = $this->digestor->digest($this->input($this->goodItem()));
         $candidate = $result['promoted'][0];
 
-        foreach (['source', 'source_type', 'pattern_summary', 'atlas_failure_mode', 'target_path', 'adaptation_notes', 'allowed_files', 'test_path', 'anti_goodhart_risks', 'runnable_acceptance'] as $k) {
+        foreach (['source', 'source_type', 'pattern_summary', 'atlas_failure_mode', 'target_path', 'adaptation_notes', 'allowed_files', 'test_path', 'anti_goodhart_risks', 'runnable_acceptance', 'leverage_claim', 'source_evidence'] as $k) {
             $this->assertArrayHasKey($k, $candidate, "Promoted candidate missing field: {$k}");
         }
     }
@@ -225,6 +225,58 @@ final class AtlasExternalBrainResearchToTaskDigestorTest extends TestCase
         $result = $this->digestor->digest($this->input($this->goodItem(['source_type' => 'oss_repo'])));
 
         $this->assertSame('oss_repo', $result['promoted'][0]['source_type']);
+    }
+
+    // ── AC4: leverage_claim is deterministic, tied to pattern+failure mode ────
+
+    public function test_leverage_claim_is_derived_from_pattern_summary_and_atlas_failure_mode(): void
+    {
+        $result = $this->digestor->digest($this->input($this->goodItem()));
+        $claim = $result['promoted'][0]['leverage_claim'];
+
+        $this->assertStringContainsString('Attention residuals over depth layers improve recall', $claim);
+        $this->assertStringContainsString('Brain comprehension degrades when depth signals are ignored', $claim);
+    }
+
+    public function test_leverage_claim_changes_when_pattern_summary_or_failure_mode_changes(): void
+    {
+        $base = $this->digestor->digest($this->input($this->goodItem()));
+        $changed = $this->digestor->digest($this->input($this->goodItem([
+            'pattern_summary' => 'Sparse routing reduces token cost',
+        ])));
+
+        $this->assertNotSame(
+            $base['promoted'][0]['leverage_claim'],
+            $changed['promoted'][0]['leverage_claim'],
+        );
+    }
+
+    public function test_leverage_claim_never_contains_generic_marketing_language(): void
+    {
+        $result = $this->digestor->digest($this->input($this->goodItem()));
+        $claim = strtolower($result['promoted'][0]['leverage_claim']);
+
+        foreach (['game changer', 'revolutionary', '10x', 'unlimited', 'completely transforms'] as $marketingPhrase) {
+            $this->assertStringNotContainsString($marketingPhrase, $claim);
+        }
+    }
+
+    public function test_leverage_claim_is_deterministic_for_identical_input(): void
+    {
+        $item = $this->goodItem();
+
+        $a = $this->digestor->digest($this->input($item))['promoted'][0]['leverage_claim'];
+        $b = $this->digestor->digest($this->input($item))['promoted'][0]['leverage_claim'];
+
+        $this->assertSame($a, $b);
+    }
+
+    public function test_promoted_candidate_carries_source_evidence(): void
+    {
+        $result = $this->digestor->digest($this->input($this->goodItem()));
+
+        $this->assertArrayHasKey('source_evidence', $result['promoted'][0]);
+        $this->assertNotSame('', $result['promoted'][0]['source_evidence']);
     }
 
     // ── Mixed batch ───────────────────────────────────────────────────────────
