@@ -134,6 +134,10 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
             'claimable_per_active_worker' => round($claimablePerActiveWorker, 4),
             'worker_feed_floor_required' => $workerFeedFloorRequired,
             'worker_feed_floor_breached' => $workerFeedFloorBreached,
+            'refill_recommendation' => [
+                'target_new_task_count' => max(0, $workerFeedFloorRequired - count($claimableRecords)),
+                'reason' => $workerFeedFloorBreached ? 'worker_feed_floor_breached' : 'worker_feed_floor_not_breached',
+            ],
             'active_worker_tasks' => $activeWorkerRows,
             'violation_summary_by_code' => $violationSummaryByCode,
             'worker_candidate_summary' => [
