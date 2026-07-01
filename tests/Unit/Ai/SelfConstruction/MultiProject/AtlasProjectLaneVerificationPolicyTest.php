@@ -151,6 +151,88 @@ final class AtlasProjectLaneVerificationPolicyTest extends TestCase
         $this->assertSame([], $v['blockers']);
     }
 
+    // ── AC3: lane_decision, missing_artifacts, risk_band, required_next_checks ────
+
+    public function test_verified_lane_returns_admit_decision_and_none_risk_band(): void
+    {
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide(
+            $this->admittedManifest(),
+            $this->conformantFreshness(),
+            $this->evidenceAllPassing(),
+        );
+
+        $this->assertSame('admit', $v['lane_decision']);
+        $this->assertSame('none', $v['risk_band']);
+        $this->assertSame([], $v['missing_artifacts']);
+        $this->assertSame([], $v['required_next_checks']);
+    }
+
+    public function test_blocked_lane_returns_block_decision_with_next_checks(): void
+    {
+        $evidence = ['evidence' => ['phpunit' => ['passed' => true]]]; // pint missing
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $this->conformantFreshness(), $evidence);
+
+        $this->assertSame('block', $v['lane_decision']);
+        $this->assertContains('evidence_missing_for:pint', $v['missing_artifacts']);
+        $this->assertNotEmpty($v['required_next_checks']);
+    }
+
+    public function test_failing_evidence_is_not_counted_as_a_missing_artifact(): void
+    {
+        $evidence = [
+            'rollback_proof' => true,
+            'evidence' => [
+                'phpunit' => ['passed' => true],
+                'pint' => ['passed' => false],
+            ],
+        ];
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $this->conformantFreshness(), $evidence);
+
+        $this->assertNotContains('evidence_failing_for:pint', $v['missing_artifacts']);
+    }
+
+    // ── boundary risk ─────────────────────────────────────────────────────────────
+
+    public function test_scope_path_escaping_project_root_is_a_critical_boundary_risk(): void
+    {
+        $admission = $this->admittedManifest();
+        $admission['project_root'] = 'projects/demo-lane';
+        $admission['scope_paths'] = ['projects/demo-lane/app/Foo.php', 'projects/other-lane/app/Bar.php'];
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($admission, $this->conformantFreshness(), $this->evidenceAllPassing());
+
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('project_boundary_violation:projects/other-lane/app/Bar.php', $v['blockers']);
+        $this->assertContains('projects/other-lane/app/Bar.php', $v['sources']['boundary_violations']);
+        $this->assertSame('critical', $v['risk_band']);
+    }
+
+    public function test_scope_paths_within_project_root_are_not_boundary_violations(): void
+    {
+        $admission = $this->admittedManifest();
+        $admission['project_root'] = 'projects/demo-lane';
+        $admission['scope_paths'] = ['projects/demo-lane/app/Foo.php'];
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($admission, $this->conformantFreshness(), $this->evidenceAllPassing());
+
+        $this->assertTrue($v['allowed']);
+        $this->assertSame([], $v['sources']['boundary_violations']);
+    }
+
+    // ── insufficient verification ──────────────────────────────────────────────────
+
+    public function test_empty_verification_commands_is_insufficient_verification(): void
+    {
+        $admission = $this->admittedManifest();
+        $admission['verification_commands'] = [];
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($admission, $this->conformantFreshness(), $this->evidenceAllPassing());
+
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('verification_commands_missing', $v['blockers']);
+        $this->assertSame('medium', $v['risk_band']);
+    }
+
     public function test_two_decides_with_same_input_byte_identical_json(): void
     {
         $p = new AtlasProjectLaneVerificationPolicy;
