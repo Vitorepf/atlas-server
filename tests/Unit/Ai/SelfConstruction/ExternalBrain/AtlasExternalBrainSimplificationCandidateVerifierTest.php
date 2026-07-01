@@ -16,7 +16,9 @@ final class AtlasExternalBrainSimplificationCandidateVerifierTest extends TestCa
             'kind' => 'deletion',
             'consumer_count' => 0,
             'migration_plan' => null,
+            'consumer_paths' => [],
             'behavior_coverage' => true,
+            'behavior_equivalence_commands' => ['php artisan test --filter=RemoveDeadHelperEquivalence'],
             'test_coverage' => true,
             'rollback_notes' => 'revert commit if regression observed in 24h soak',
             'lines_deleted' => 120,
@@ -51,6 +53,7 @@ final class AtlasExternalBrainSimplificationCandidateVerifierTest extends TestCa
         $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
             'consumer_count' => 2,
             'migration_plan' => 'swap callers to NewService over two releases',
+            'consumer_paths' => ['app/Foo.php', 'app/Bar.php'],
         ]));
 
         $this->assertTrue($result['approved']);
@@ -238,5 +241,44 @@ final class AtlasExternalBrainSimplificationCandidateVerifierTest extends TestCa
 
         $this->assertTrue($result['approved']);
         $this->assertTrue($result['worker_continuity_safe']);
+    }
+
+    // ── consumer enumeration + behavior equivalence commands ─────────────────
+
+    public function test_consumer_count_without_consumer_paths_is_rejected(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'consumer_count' => 3,
+            'migration_plan' => 'swap callers to NewService over two releases',
+            'consumer_paths' => [],
+        ]));
+
+        $this->assertFalse($result['approved']);
+        $this->assertContains('missing_consumer_enumeration', $result['blockers']);
+    }
+
+    public function test_behavior_coverage_true_without_behavior_equivalence_commands_is_rejected(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'behavior_coverage' => true,
+            'behavior_equivalence_commands' => [],
+        ]));
+
+        $this->assertFalse($result['approved']);
+        $this->assertContains('missing_behavior_equivalence_commands', $result['blockers']);
+    }
+
+    public function test_approved_output_includes_consumer_paths_and_behavior_equivalence_commands(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'consumer_count' => 1,
+            'migration_plan' => 'swap caller to NewService',
+            'consumer_paths' => ['app/Foo.php'],
+            'behavior_equivalence_commands' => ['php artisan test --filter=FooEquivalence'],
+        ]));
+
+        $this->assertTrue($result['approved']);
+        $this->assertSame(['app/Foo.php'], $result['consumer_paths']);
+        $this->assertSame(['php artisan test --filter=FooEquivalence'], $result['behavior_equivalence_commands']);
     }
 }

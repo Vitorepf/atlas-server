@@ -13,8 +13,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * Input candidate shape:
  *   {candidate_id, kind: 'deletion'|'merge'|'replacement', consumer_count:int, migration_plan?:string,
- *    behavior_coverage:bool, test_coverage:bool, rollback_notes?:string, lines_deleted:int,
- *    preserved_behavior_tests?:list<string>}
+ *    consumer_paths?:list<string>, behavior_coverage:bool, behavior_equivalence_commands?:list<string>,
+ *    test_coverage:bool, rollback_notes?:string, lines_deleted:int, preserved_behavior_tests?:list<string>}
+ *
+ * consumer_count and behavior_coverage are claims, not proof: consumer_count>0 requires the caller to
+ * explicitly ENUMERATE those consumers via consumer_paths (a bare count alone never justifies a large
+ * deletion), and behavior_coverage=true requires runnable behavior_equivalence_commands — a boolean
+ * flag with no attached proof is treated as unproven.
  */
 final class AtlasExternalBrainSimplificationCandidateVerifier
 {
@@ -25,6 +30,10 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
     public const BLOCKER_MISSING_WORKER_CONTINUITY_SAFETY_EVIDENCE = 'missing_worker_continuity_safety_evidence';
 
     public const BLOCKER_MISSING_LIVE_SHADOW_EQUIVALENCE_EVIDENCE = 'missing_live_shadow_equivalence_evidence';
+
+    public const BLOCKER_MISSING_CONSUMER_ENUMERATION = 'missing_consumer_enumeration';
+
+    public const BLOCKER_MISSING_BEHAVIOR_EQUIVALENCE_COMMANDS = 'missing_behavior_equivalence_commands';
 
     /**
      * @param  array<string, mixed>  $candidate
@@ -44,6 +53,14 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
             'strval',
             (array) ($candidate['preserved_behavior_tests'] ?? []),
         ), static fn (string $t): bool => $t !== ''));
+        $consumerPaths = array_values(array_filter(array_map(
+            'strval',
+            (array) ($candidate['consumer_paths'] ?? []),
+        ), static fn (string $p): bool => $p !== ''));
+        $behaviorEquivalenceCommands = array_values(array_filter(array_map(
+            'strval',
+            (array) ($candidate['behavior_equivalence_commands'] ?? []),
+        ), static fn (string $c): bool => $c !== ''));
 
         $blockers = [];
         $requiredTests = [];
@@ -52,8 +69,18 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
             $blockers[] = 'live_consumers_without_migration_plan';
         }
 
+        // A bare consumer_count is a claim, not proof — the caller must name every consumer it
+        // claims to have accounted for.
+        if ($consumerCount > 0 && $consumerPaths === []) {
+            $blockers[] = self::BLOCKER_MISSING_CONSUMER_ENUMERATION;
+        }
+
         if (! $behaviorCoverage) {
             $blockers[] = 'missing_behavior_coverage';
+        } elseif ($behaviorEquivalenceCommands === []) {
+            // behavior_coverage=true is a boolean claim — it needs a runnable command attached,
+            // or it is indistinguishable from an unverified assertion.
+            $blockers[] = self::BLOCKER_MISSING_BEHAVIOR_EQUIVALENCE_COMMANDS;
         }
 
         if (! $testCoverage) {
@@ -125,6 +152,8 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
             'net_reduction_score' => $netReductionScore,
             'blockers' => $blockers,
             'required_tests' => array_values(array_unique($requiredTests)),
+            'consumer_paths' => $consumerPaths,
+            'behavior_equivalence_commands' => $behaviorEquivalenceCommands,
             'rollback_requirement' => $rollbackRequirement,
             'behavior_proof_status' => $behaviorProofStatus,
             'consumer_migration_status' => $consumerMigrationStatus,
