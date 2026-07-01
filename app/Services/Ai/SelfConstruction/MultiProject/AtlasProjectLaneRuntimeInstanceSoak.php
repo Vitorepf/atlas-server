@@ -69,9 +69,55 @@ final class AtlasProjectLaneRuntimeInstanceSoak
         $passed = $leakAttempts === [] && $dependencyViolations === []
             && $this->allowedHealthyLanesProgressed($laneResults, $globalSafety);
 
+        // Per-lane soak_status/blockers -- independent of `passed`, which intentionally masks
+        // (it only asks "did ANY healthy lane make progress"). `ready` never masks: it is false
+        // the instant ANY single lane carries a blocker, even if a sibling lane is fully green.
+        $anyLaneBlocked = false;
+        foreach ($laneResults as $laneId => &$result) {
+            $blockers = [];
+            foreach ($isolatedFailures as $f) {
+                if ($f['lane_id'] === $laneId) {
+                    $blockers[] = ['kind' => 'failed_worker', 'reason' => $f['reason']];
+                }
+            }
+            foreach ($leakAttempts as $l) {
+                if (($l['lane_id'] ?? null) === $laneId) {
+                    $blockers[] = ['kind' => 'leak_attempt', 'reason' => $l['kind']];
+                }
+            }
+            foreach ($dependencyViolations as $d) {
+                if ($d['lane_id'] === $laneId) {
+                    $blockers[] = ['kind' => 'dependency_violation', 'reason' => $d['dependency']];
+                }
+            }
+            $lastTick = $result['ticks'] !== [] ? $result['ticks'][count($result['ticks']) - 1] : null;
+            $endedOnUnrecoveredStaleHeartbeat = $lastTick !== null
+                && ($lastTick['type'] ?? null) === 'stale_heartbeat'
+                && ! $result['recovered'];
+            if ($endedOnUnrecoveredStaleHeartbeat) {
+                $blockers[] = ['kind' => 'queue_blocker', 'reason' => 'stale_heartbeat_unrecovered'];
+            }
+
+            $result['blockers'] = $blockers;
+            if ($blockers !== []) {
+                $result['soak_status'] = 'blocked';
+                $anyLaneBlocked = true;
+            } elseif ($globalSafety || $result['safety_stop']) {
+                $result['soak_status'] = 'held';
+            } elseif ($result['progress_count'] > 0) {
+                $result['soak_status'] = 'green';
+            } else {
+                $result['soak_status'] = 'held';
+            }
+        }
+        unset($result);
+
+        $ready = ! $anyLaneBlocked && $leakAttempts === [] && $dependencyViolations === [];
+
         $payload = [
             'schema_version' => self::SCHEMA,
             'passed' => $passed,
+            'ready' => $ready,
             'global_safety_stop' => $globalSafety,
             'lane_results' => $laneResults,
             'leak_attempts' => $leakAttempts,

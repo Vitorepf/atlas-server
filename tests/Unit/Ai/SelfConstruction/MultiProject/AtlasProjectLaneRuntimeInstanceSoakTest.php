@@ -246,6 +246,78 @@ final class AtlasProjectLaneRuntimeInstanceSoakTest extends TestCase
         $this->assertFalse($verdict['passed']);
     }
 
+    public function test_each_instance_reports_independent_soak_status_and_blockers(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceSoak)->run([
+            $this->instanceA(),
+            $this->instanceB(),
+        ], [
+            'scripts' => [
+                'lane-a' => [['type' => 'failure', 'reason' => 'verifier_red']],
+                'lane-b' => [['type' => 'tick', 'action' => $this->action('lane-b', 'pb.ns', 'projects/pb/src/y')]],
+            ],
+        ]);
+
+        $this->assertSame('blocked', $verdict['lane_results']['lane-a']['soak_status']);
+        $this->assertNotEmpty($verdict['lane_results']['lane-a']['blockers']);
+        $this->assertSame('failed_worker', $verdict['lane_results']['lane-a']['blockers'][0]['kind']);
+
+        $this->assertSame('green', $verdict['lane_results']['lane-b']['soak_status']);
+        $this->assertSame([], $verdict['lane_results']['lane-b']['blockers']);
+    }
+
+    public function test_global_ready_is_false_when_any_instance_is_blocked(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceSoak)->run([
+            $this->instanceA(),
+            $this->instanceB(),
+        ], [
+            'scripts' => [
+                'lane-a' => [['type' => 'failure', 'reason' => 'verifier_red']],
+                'lane-b' => [['type' => 'tick', 'action' => $this->action('lane-b', 'pb.ns', 'projects/pb/src/y')]],
+            ],
+        ]);
+
+        // `passed` masks (a healthy lane progressed) -- `ready` must not.
+        $this->assertTrue($verdict['passed']);
+        $this->assertFalse($verdict['ready'], 'one blocked lane must not be masked by a green sibling lane');
+    }
+
+    public function test_one_green_lane_does_not_mask_a_sibling_stale_heartbeat_blocker(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceSoak)->run([
+            $this->instanceA(),
+            $this->instanceB(),
+        ], [
+            'scripts' => [
+                'lane-a' => [['type' => 'stale_heartbeat']],
+                'lane-b' => [['type' => 'tick', 'action' => $this->action('lane-b', 'pb.ns', 'projects/pb/src/y')]],
+            ],
+        ]);
+
+        $this->assertSame('blocked', $verdict['lane_results']['lane-a']['soak_status']);
+        $this->assertSame('queue_blocker', $verdict['lane_results']['lane-a']['blockers'][0]['kind']);
+        $this->assertSame('green', $verdict['lane_results']['lane-b']['soak_status']);
+        $this->assertFalse($verdict['ready']);
+    }
+
+    public function test_all_lanes_green_yields_ready_true(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceSoak)->run([
+            $this->instanceA(),
+            $this->instanceB(),
+        ], [
+            'scripts' => [
+                'lane-a' => [['type' => 'tick', 'action' => $this->action('lane-a', 'pa.ns', 'projects/pa/src/x')]],
+                'lane-b' => [['type' => 'tick', 'action' => $this->action('lane-b', 'pb.ns', 'projects/pb/src/y')]],
+            ],
+        ]);
+
+        $this->assertTrue($verdict['ready']);
+        $this->assertSame('green', $verdict['lane_results']['lane-a']['soak_status']);
+        $this->assertSame('green', $verdict['lane_results']['lane-b']['soak_status']);
+    }
+
     public function test_dependency_violations_are_deterministic(): void
     {
         $options = [
