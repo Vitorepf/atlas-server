@@ -35,23 +35,46 @@ final class AtlasSelfConstructionCompletionEvidenceHashService
         return $this->stableHash($this->withoutVolatileReceiptFields($smoke, 'smoke_hash'));
     }
 
+    /** @var list<string> */
+    private const VOLATILE_FIELDS = [
+        'receipt_hash',
+        'smoke_hash',
+        'schema_version',
+        'persisted_at',
+        'verified_at',
+        'certified_at',
+        'receipt_verification_hash',
+        'certification_hash',
+    ];
+
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     private function withoutVolatileReceiptFields(array $payload, string $hashField): array
     {
-        unset(
-            $payload[$hashField],
-            $payload['schema_version'],
-            $payload['persisted_at'],
-            $payload['verified_at'],
-            $payload['certified_at'],
-            $payload['receipt_verification_hash'],
-            $payload['certification_hash'],
-        );
+        unset($payload[$hashField]);
 
-        return $payload;
+        return $this->stripVolatileFieldsRecursive($payload);
+    }
+
+    /**
+     * @param  array<mixed, mixed>  $value
+     * @return array<mixed, mixed>
+     */
+    private function stripVolatileFieldsRecursive(array $value): array
+    {
+        foreach (self::VOLATILE_FIELDS as $field) {
+            unset($value[$field]);
+        }
+
+        foreach ($value as $key => $entry) {
+            if (is_array($entry)) {
+                $value[$key] = $this->stripVolatileFieldsRecursive($entry);
+            }
+        }
+
+        return $value;
     }
 
     /** @param array<string, mixed> $payload */
