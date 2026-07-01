@@ -97,12 +97,14 @@ final class AtlasSelfConstructionQueueTopUpPolicy
         // count, even though it may still be thin relative to a healthy buffer target. When a
         // target is supplied, the real gap is active_leases * target - netClaimable.
         $workerBufferTargetPerWorker = (float) ($facts['worker_buffer_target_per_worker'] ?? 0.0);
-        $bufferTargetNeed = $workerBufferTargetPerWorker > 0.0
-            ? (int) ceil($activeLeasesForHysteresis * $workerBufferTargetPerWorker) - $netClaimable
-            : $activeLeasesForHysteresis - $netClaimable;
-        $hysteresisNeed = $workerFloorHysteresisTrigger
-            ? max(0, $bufferTargetNeed, $workerNeed)
-            : 0;
+        if ($workerFloorHysteresisTrigger && $workerBufferTargetPerWorker > 0.0 && $activeLeasesForHysteresis > 0) {
+            $bufferTarget = (int) ceil($activeLeasesForHysteresis * $workerBufferTargetPerWorker);
+            $hysteresisNeed = max(0, $bufferTarget - $netClaimable);
+        } else {
+            $hysteresisNeed = $workerFloorHysteresisTrigger
+                ? max(0, $activeLeasesForHysteresis - $netClaimable, $workerNeed)
+                : 0;
+        }
 
         // Stale-claimable backlog signal: raw claimable_depth overstates real supply when a
         // chunk of it has sat unclaimed long enough to be effectively dead.

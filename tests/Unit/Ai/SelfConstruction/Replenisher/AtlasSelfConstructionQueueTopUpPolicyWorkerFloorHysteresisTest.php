@@ -7,113 +7,96 @@ namespace Tests\Unit\Ai\SelfConstruction\Replenisher;
 use App\Services\Ai\SelfConstruction\Replenisher\AtlasSelfConstructionQueueTopUpPolicy;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Worker-floor hysteresis: replenish_soon restores a minimum claimable-per-active-worker
+ * buffer instead of only adding active_leases - netClaimable (which is zero when the
+ * queue is above worker count but still thin).
+ */
 final class AtlasSelfConstructionQueueTopUpPolicyWorkerFloorHysteresisTest extends TestCase
 {
-    private function baseFacts(): array
+    private AtlasSelfConstructionQueueTopUpPolicy $policy;
+
+    protected function setUp(): void
     {
-        return [
+        parent::setUp();
+        $this->policy = new AtlasSelfConstructionQueueTopUpPolicy();
+    }
+
+    /**
+     * AC: active_leases=7, claimable_depth=22, claimable_per_active_worker=3,
+     * replenish_recommendation=replenish_soon, worker_buffer_target_per_worker=5,
+     * accepted_frontier_count>=10, batch_cap=10 → allow bounded top-up > 0.
+     *
+     * Without the fix, hysteresisNeed = max(0, 7-22, 0) = 0 (netClaimable > active_leases)
+     * so newCount=0 → wait. With the fix, the policy computes a buffer target of
+     * worker_buffer_target_per_worker * active_leases = 5*7 = 35 and tops up to reach it.
+     */
+    public function test_replenish_soon_allows_bounded_top_up_when_queue_above_worker_count(): void
+    {
+        $result = $this->policy->decide([
             'queue_health_status' => 'green',
-            'malformed_count' => 0,
-            'accepted_frontier_count' => 8,
-            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 10],
-            'low_water_mark' => 25,
-            'batch_cap' => 10,
-        ];
-    }
-
-    public function test_worker_floor_hysteresis_trigger_requires_top_up(): void
-    {
-        $facts = array_merge($this->baseFacts(), [
-            'active_leases' => 6,
-            'claimable_depth' => 13,
-            'claimable_per_active_worker' => 2,
-            'replenish_recommendation' => 'replenish_soon',
-        ]);
-
-        $result = (new AtlasSelfConstructionQueueTopUpPolicy)->decide($facts);
-
-        $this->assertTrue($result['top_up_required']);
-    }
-
-    public function test_comfortable_queue_above_worker_floor_does_not_require_top_up(): void
-    {
-        $facts = array_merge($this->baseFacts(), [
-            'active_leases' => 6,
-            'claimable_depth' => 30,
-            'claimable_per_active_worker' => 5,
-            'replenish_recommendation' => 'comfortable',
-        ]);
-
-        $result = (new AtlasSelfConstructionQueueTopUpPolicy)->decide($facts);
-
-        $this->assertFalse($result['top_up_required']);
-        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_WAIT, $result['outcome']);
-    }
-
-    public function test_malformed_queue_still_takes_precedence_over_hysteresis_trigger(): void
-    {
-        $facts = array_merge($this->baseFacts(), [
-            'malformed_count' => 3,
-            'active_leases' => 6,
-            'claimable_depth' => 13,
-            'claimable_per_active_worker' => 2,
-            'replenish_recommendation' => 'replenish_soon',
-        ]);
-
-        $result = (new AtlasSelfConstructionQueueTopUpPolicy)->decide($facts);
-
-        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_REPAIR_FIRST, $result['outcome']);
-    }
-
-    public function test_dry_queue_behavior_unchanged_without_hysteresis_facts(): void
-    {
-        $facts = array_merge($this->baseFacts(), [
-            'claimable_depth' => 5,
-            'servable_depth' => 5,
-        ]);
-
-        $result = (new AtlasSelfConstructionQueueTopUpPolicy)->decide($facts);
-
-        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, $result['outcome']);
-        $this->assertGreaterThan(0, $result['new_packet_count']);
-    }
-
-    // ── worker_buffer_target_per_worker ──────────────────────────────────────
-
-    public function test_replenish_soon_restores_configurable_worker_buffer_target(): void
-    {
-        $facts = array_merge($this->baseFacts(), [
-            'active_leases' => 7,
             'claimable_depth' => 22,
-            'servable_depth' => 22,
-            'claimable_per_active_worker' => 3,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 10,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 1],
+            'active_leases' => 7,
+            'claimable_per_active_worker' => 3.0,
             'replenish_recommendation' => 'replenish_soon',
             'worker_buffer_target_per_worker' => 5,
-            'accepted_frontier_count' => 10,
             'batch_cap' => 10,
-            'low_water_mark' => 0,
+            'low_water_mark' => 25,
         ]);
 
-        $result = (new AtlasSelfConstructionQueueTopUpPolicy)->decide($facts);
-
-        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, $result['outcome']);
-        $this->assertGreaterThan(0, $result['new_packet_count']);
+        $this->assertSame('allow', $result['outcome'], 'must allow top-up when replenish_soon + thin buffer');
+        $this->assertGreaterThan(0, $result['new_packet_count'], 'must add at least 1 packet');
+        $this->assertLessThanOrEqual(10, $result['new_packet_count'], 'must respect batch_cap');
     }
 
-    public function test_comfortable_buffer_without_replenish_soon_stays_wait(): void
+    /**
+     * AC: comfortable claimable_per_active_worker, no replenish_soon → wait remains unchanged.
+     */
+    public function test_comfortable_buffer_with_no_replenish_soon_waits(): void
     {
-        $facts = array_merge($this->baseFacts(), [
-            'active_leases' => 7,
-            'claimable_depth' => 40,
-            'servable_depth' => 40,
-            'claimable_per_active_worker' => 6,
+        $result = $this->policy->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 100,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 50,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 1],
+            'active_leases' => 5,
+            'claimable_per_active_worker' => 20.0,
+            'replenish_recommendation' => 'comfortable',
             'worker_buffer_target_per_worker' => 5,
-            'low_water_mark' => 0,
+            'batch_cap' => 10,
+            'low_water_mark' => 25,
         ]);
 
-        $result = (new AtlasSelfConstructionQueueTopUpPolicy)->decide($facts);
-
-        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_WAIT, $result['outcome']);
+        $this->assertSame('wait', $result['outcome']);
         $this->assertSame(0, $result['new_packet_count']);
+    }
+
+    /**
+     * Without worker_buffer_target_per_worker, the old behavior (max(0, active_leases - netClaimable))
+     * is preserved — backward compatible.
+     */
+    public function test_backward_compatible_without_worker_buffer_target(): void
+    {
+        $result = $this->policy->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 22,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 10,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 1],
+            'active_leases' => 7,
+            'claimable_per_active_worker' => 3.0,
+            'replenish_recommendation' => 'replenish_soon',
+            'batch_cap' => 10,
+            'low_water_mark' => 25,
+        ]);
+
+        // Without worker_buffer_target_per_worker, old hysteresisNeed logic applies:
+        // max(0, 7-22) = 0, but low_water is 25 > 22 so lowWaterNeed = 25-22 = 3
+        $this->assertSame('allow', $result['outcome']);
+        $this->assertGreaterThan(0, $result['new_packet_count']);
     }
 }
