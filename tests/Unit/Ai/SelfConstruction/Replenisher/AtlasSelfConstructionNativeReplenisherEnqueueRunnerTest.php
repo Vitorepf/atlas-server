@@ -149,6 +149,48 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunnerTest extends Test
         $this->assertSame(1, $r['counts']['attempted']);
     }
 
+    public function test_effective_topup_failure_reasons_are_emitted_when_all_attempts_fail_to_produce(): void
+    {
+        $accepted = [
+            ['packet' => ['frontier_id' => 'f-dup']],
+            ['packet' => ['frontier_id' => 'f-block']],
+        ];
+        $decision = ['outcome' => AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, 'new_packet_count' => 5];
+        $orchestrator = $this->fakeOrchestrator(['f-dup' => 'existing', 'f-block' => 'prepare_blocked']);
+
+        $r = (new AtlasSelfConstructionNativeReplenisherEnqueueRunner)->run($accepted, $decision, $orchestrator);
+
+        $this->assertFalse($r['top_up_effective']);
+        $this->assertSame([
+            'existing:f-dup',
+            'prepare_blocked:f-block:inspector_red',
+        ], $r['effective_topup_failure_reasons']);
+    }
+
+    public function test_effective_topup_failure_reasons_empty_when_top_up_effective(): void
+    {
+        $accepted = [['packet' => ['frontier_id' => 'f-1']]];
+        $decision = ['outcome' => AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, 'new_packet_count' => 5];
+        $orchestrator = $this->fakeOrchestrator([]);
+
+        $r = (new AtlasSelfConstructionNativeReplenisherEnqueueRunner)->run($accepted, $decision, $orchestrator);
+
+        $this->assertTrue($r['top_up_effective']);
+        $this->assertSame([], $r['effective_topup_failure_reasons']);
+    }
+
+    public function test_effective_topup_failure_reasons_empty_when_outcome_not_allow(): void
+    {
+        $accepted = [['packet' => ['frontier_id' => 'f-1']]];
+        $decision = ['outcome' => AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_WAIT, 'new_packet_count' => 5];
+        $orchestrator = $this->fakeOrchestrator([]);
+
+        $r = (new AtlasSelfConstructionNativeReplenisherEnqueueRunner)->run($accepted, $decision, $orchestrator);
+
+        $this->assertFalse($r['top_up_effective']);
+        $this->assertSame([], $r['effective_topup_failure_reasons']);
+    }
+
     public function test_lists_are_sorted_byte_stably(): void
     {
         $accepted = [

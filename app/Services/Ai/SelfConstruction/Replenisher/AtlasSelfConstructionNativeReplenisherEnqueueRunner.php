@@ -91,12 +91,27 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunner
      * @param  list<string>  $skippedRejected
      * @param  list<array{packet_id:string, reason:string}>  $blocked
      * @param  array<string,mixed>  $workerFloorInputs
-     * @return array{schema:string, enqueued:list<string>, skipped_existing:list<string>, skipped_rejected:list<string>, prepare_blocked:list<array{packet_id:string, reason:string}>, counts:array<string,int>, worker_floor:array<string,mixed>, produced_claimable_count:int, top_up_effective:bool}
+     * @return array{schema:string, enqueued:list<string>, skipped_existing:list<string>, skipped_rejected:list<string>, prepare_blocked:list<array{packet_id:string, reason:string}>, counts:array<string,int>, worker_floor:array<string,mixed>, produced_claimable_count:int, top_up_effective:bool, effective_topup_failure_reasons:list<string>}
      */
     private function envelope(array $enqueued, array $skippedExisting, array $skippedRejected, array $blocked, int $attempted, array $workerFloorInputs = []): array
     {
         $producedClaimableCount = count($enqueued);
         $rejectedCount = count($skippedRejected) + count($blocked);
+        $topUpEffective = $producedClaimableCount > 0;
+
+        $failureReasons = [];
+        if (! $topUpEffective && $attempted > 0) {
+            foreach ($skippedExisting as $id) {
+                $failureReasons[] = "existing:{$id}";
+            }
+            foreach ($skippedRejected as $id) {
+                $failureReasons[] = "rejected:{$id}";
+            }
+            foreach ($blocked as $entry) {
+                $failureReasons[] = "prepare_blocked:{$entry['packet_id']}:{$entry['reason']}";
+            }
+            sort($failureReasons, SORT_STRING);
+        }
 
         return [
             'schema' => self::SCHEMA,
@@ -115,7 +130,8 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunner
             ],
             'worker_floor' => $workerFloorInputs,
             'produced_claimable_count' => $producedClaimableCount,
-            'top_up_effective' => $producedClaimableCount > 0,
+            'top_up_effective' => $topUpEffective,
+            'effective_topup_failure_reasons' => $failureReasons,
         ];
     }
 }
