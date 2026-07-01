@@ -109,6 +109,12 @@ final class AtlasExternalBrainOutcomeLearner
         $accumulated  = [];
         $reasons      = [];
 
+        // Confidence tracking: a single noisy low/medium delivered outcome must never promote
+        // a family, but a single high-impact outcome is still enough signal to promote.
+        $deliveredCount            = [];
+        $deliveredHighImpactCount  = [];
+        $highImpactValueProofCount = [];
+
         // New: accumulate task_family and worker stats.
         $familyStats = [];  // [task_family => [total, delivered, give_back, proxy]]
         $workerStats = [];  // [worker_id => [task_family => [total, delivered, give_back]]]
@@ -135,6 +141,16 @@ final class AtlasExternalBrainOutcomeLearner
                 };
 
                 $accumulated[$family] = ($accumulated[$family] ?? 0.0) + $delta;
+
+                if ($outcome === self::OUTCOME_DELIVERED) {
+                    $deliveredCount[$family] = ($deliveredCount[$family] ?? 0) + 1;
+                    if ($impact === self::IMPACT_HIGH) {
+                        $deliveredHighImpactCount[$family] = ($deliveredHighImpactCount[$family] ?? 0) + 1;
+                        if ((bool) ($o['value_proof'] ?? false)) {
+                            $highImpactValueProofCount[$family] = ($highImpactValueProofCount[$family] ?? 0) + 1;
+                        }
+                    }
+                }
 
                 $reasons[$family][] = match ($outcome) {
                     self::OUTCOME_DELIVERED  => "delivered:{$impact}",
@@ -187,13 +203,26 @@ final class AtlasExternalBrainOutcomeLearner
             $clamped   = max(-1.0, min(1.0, round($totalDelta, 4)));
             $reasonStr = implode(';', $reasons[$family] ?? []);
 
+            $delivered           = $deliveredCount[$family] ?? 0;
+            $deliveredHighImpact = $deliveredHighImpactCount[$family] ?? 0;
+            $highImpactValidated = $highImpactValueProofCount[$family] ?? 0;
+            $confidence = match (true) {
+                $delivered >= 2 && $highImpactValidated >= 1 => 'high',
+                $delivered >= 2 => 'medium',
+                $delivered === 1 && $deliveredHighImpact >= 1 => 'medium',
+                default => 'low',
+            };
+
             $adjustments[] = [
                 'pattern_family' => $family,
                 'delta'          => $clamped,
                 'reason'         => $reasonStr,
+                'confidence'     => $confidence,
             ];
 
-            if ($clamped >= self::PROMOTE_THRESHOLD) {
+            // A positive delta only promotes when there is more than a single noisy
+            // sample behind it, or a single high-impact outcome with explicit value proof.
+            if ($clamped >= self::PROMOTE_THRESHOLD && $confidence !== 'low') {
                 $promoted[] = $family;
             } elseif ($clamped <= -self::PROMOTE_THRESHOLD) {
                 $demoted[] = $family;

@@ -536,6 +536,56 @@ final class AtlasExternalBrainOutcomeLearnerTest extends TestCase
         $this->assertGreaterThan($capRisky, $capGood, 'risky family must have a lower risk_cap');
     }
 
+    // ── confidence floor (single noisy outcome must not promote) ─────────────
+
+    public function test_single_medium_delivered_outcome_does_not_promote_without_confidence(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'noisy', 'outcome' => 'delivered', 'impact' => 'medium'],
+        ]);
+
+        $this->assertNotContains('noisy', $r['promoted']);
+        $this->assertSame('low', $r['priority_adjustments'][0]['confidence']);
+    }
+
+    public function test_single_low_delivered_outcome_does_not_promote_without_confidence(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'noisy_low', 'outcome' => 'delivered', 'impact' => 'low'],
+        ]);
+
+        $this->assertNotContains('noisy_low', $r['promoted']);
+        $this->assertSame('low', $r['priority_adjustments'][0]['confidence']);
+    }
+
+    public function test_repeated_high_impact_delivered_with_value_proof_yields_high_confidence_and_promotion(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'proven', 'outcome' => 'delivered', 'impact' => 'high', 'value_proof' => true],
+            ['task_packet_id' => 't2', 'pattern_family' => 'proven', 'outcome' => 'delivered', 'impact' => 'high', 'value_proof' => true],
+        ]);
+
+        $this->assertSame('high', $r['priority_adjustments'][0]['confidence']);
+        $this->assertContains('proven', $r['promoted']);
+    }
+
+    public function test_poison_and_quarantine_still_demote_immediately_with_repair_and_self_heal(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'harmful', 'outcome' => 'poison', 'task_family' => 'harmful_family'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'isolate', 'outcome' => 'quarantine', 'task_family' => 'isolate_family'],
+        ]);
+
+        $this->assertContains('harmful', $r['demoted']);
+        $this->assertContains('isolate', $r['demoted']);
+
+        $repair = $this->findByKey($r['recommendations'], 'task_family', 'harmful_family');
+        $this->assertSame('repair', $repair['action']);
+
+        $selfHeal = $this->findByKey($r['recommendations'], 'task_family', 'isolate_family');
+        $this->assertSame('self_heal', $selfHeal['action']);
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private function findByKey(array $list, string $key, string $value): array
