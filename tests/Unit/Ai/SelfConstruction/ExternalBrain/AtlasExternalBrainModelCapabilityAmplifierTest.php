@@ -378,4 +378,94 @@ final class AtlasExternalBrainModelCapabilityAmplifierTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    public function test_heldout_regression_pack_summary_has_required_fields(): void
+    {
+        $r = $this->svc()->amplify([
+            'baseline_pass_rate' => 0.4,
+            'scaffolded_pass_rate' => 0.8,
+            'heldout_sample_size' => 20,
+        ]);
+
+        $pack = $r['heldout_regression_pack'];
+        foreach (['sample_size', 'lift_delta', 'proxy_leak_delta', 'cost_delta', 'promotion_verdict'] as $key) {
+            $this->assertArrayHasKey($key, $pack, "Missing key: {$key}");
+        }
+    }
+
+    public function test_positive_lift_with_higher_proxy_leakage_is_not_allowed_for_autonomous_execution(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size' => 'small',
+            'baseline_pass_rate' => 0.4,
+            'scaffolded_pass_rate' => 0.9,
+            'heldout_sample_size' => 20,
+            'confidence' => 0.9,
+            'baseline_proxy_leak_rate' => 0.02,
+            'proxy_leak_rate' => 0.05,
+        ]);
+
+        $this->assertFalse($r['autonomous_execution_allowed']);
+        $this->assertGreaterThan(0.0, $r['heldout_regression_pack']['proxy_leak_delta']);
+        $this->assertSame('reject', $r['heldout_regression_pack']['promotion_verdict']);
+    }
+
+    public function test_positive_lift_with_insufficient_heldout_sample_is_not_allowed_for_autonomous_execution(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size' => 'small',
+            'baseline_pass_rate' => 0.4,
+            'scaffolded_pass_rate' => 0.9,
+            'heldout_sample_size' => 2,
+            'confidence' => 0.9,
+        ]);
+
+        $this->assertFalse($r['autonomous_execution_allowed']);
+        $this->assertSame('reject', $r['heldout_regression_pack']['promotion_verdict']);
+        $this->assertContains('insufficient_heldout_sample', $r['heldout_regression_pack']['reasons']);
+    }
+
+    public function test_negative_lift_emits_rollback_candidate_verdict_with_machine_readable_reasons(): void
+    {
+        $r = $this->svc()->amplify([
+            'baseline_pass_rate' => 0.8,
+            'scaffolded_pass_rate' => 0.5,
+            'heldout_sample_size' => 20,
+        ]);
+
+        $this->assertSame('rollback_candidate', $r['heldout_regression_pack']['promotion_verdict']);
+        $this->assertContains('negative_lift_regression', $r['heldout_regression_pack']['reasons']);
+    }
+
+    public function test_no_capability_delta_emits_reject_verdict(): void
+    {
+        $r = $this->svc()->amplify([
+            'baseline_pass_rate' => 0.6,
+            'scaffolded_pass_rate' => 0.6,
+            'heldout_sample_size' => 20,
+        ]);
+
+        $this->assertSame('reject', $r['heldout_regression_pack']['promotion_verdict']);
+        $this->assertContains('no_capability_delta', $r['heldout_regression_pack']['reasons']);
+    }
+
+    public function test_steady_state_output_does_not_require_frontier_unless_escalation_recommended(): void
+    {
+        $noEscalation = $this->svc()->amplify([
+            'model_size' => 'small',
+            'baseline_pass_rate' => 0.4,
+            'scaffolded_pass_rate' => 0.9,
+            'heldout_sample_size' => 20,
+            'confidence' => 0.9,
+        ]);
+        $this->assertFalse($noEscalation['escalation_recommendation']['escalate']);
+        $this->assertSame('none_provider_agnostic', $noEscalation['steady_state_provider_requirement']);
+
+        $withEscalation = $this->svc()->amplify([
+            'model_size' => 'small',
+            'proxy_leak_detected' => true,
+        ]);
+        $this->assertTrue($withEscalation['escalation_recommendation']['escalate']);
+        $this->assertSame('none_provider_agnostic', $withEscalation['steady_state_provider_requirement']);
+    }
 }

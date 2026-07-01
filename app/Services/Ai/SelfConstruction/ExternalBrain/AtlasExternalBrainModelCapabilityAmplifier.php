@@ -155,13 +155,18 @@ final class AtlasExternalBrainModelCapabilityAmplifier
         );
 
         $heldoutLiftProof = $this->heldoutLiftProof($input, $confidence);
+        $baselineProxyLeakRate = max(0.0, min(1.0, (float) ($input['baseline_proxy_leak_rate'] ?? 0.0)));
+        $proxyLeakDelta = round($proxyLeakRate - $baselineProxyLeakRate, 4);
+        $heldoutRegressionPack = $this->heldoutRegressionPack($heldoutLiftProof, $proxyLeakDelta);
 
         // AC3: autonomous execution is allowed ONLY when held-out lift is positive, proxy leakage
-        // is below ceiling, evidence confidence meets the profile floor, and no escalation trigger
-        // fired — never inferred from prompt strictness alone.
+        // is below ceiling AND never increased vs baseline, evidence confidence meets the profile
+        // floor, and no escalation trigger fired — never inferred from prompt strictness alone.
         $autonomousExecutionAllowed = ! $escalation['escalate']
             && $heldoutLiftProof['lift_delta'] > 0.0
+            && $heldoutLiftProof['heldout_sample_size'] >= self::MIN_HELDOUT_SAMPLE_SIZE
             && $proxyLeakRate < self::PROXY_LEAK_CEILING
+            && $proxyLeakDelta <= 0.0
             && $confidence >= $profile['evidence_confidence_floor'];
 
         return [
@@ -181,6 +186,7 @@ final class AtlasExternalBrainModelCapabilityAmplifier
             'proof_required'             => $profile['proof_required'],
             'escalation_recommendation'  => $escalation,
             'heldout_lift_proof'         => $heldoutLiftProof,
+            'heldout_regression_pack'    => $heldoutRegressionPack,
             'autonomous_execution_allowed' => $autonomousExecutionAllowed,
             // AC4: frontier is reachable ONLY via escalation_recommendation (advisory: frontier OR
             // human review) — steady-state output never requires a frontier provider to function.
@@ -221,6 +227,57 @@ final class AtlasExternalBrainModelCapabilityAmplifier
             'confidence'           => round($confidence, 4),
             'proof_status'         => $proofStatus,
             'heldout_sample_size'  => $sampleSize,
+        ];
+    }
+
+    /**
+     * Held-out regression pack summary: promotes a scaffold ONLY from replayed evidence, never
+     * from strictness or intent — rejects thin samples, negative/zero lift, and proxy-leakage
+     * regressions, and flags cost growth without quality gain as a rollback candidate.
+     *
+     * @param  array{lift_delta:float, cost_delta:float, heldout_sample_size:int}  $heldoutLiftProof
+     * @return array{schema_version:string, sample_size:int, lift_delta:float, proxy_leak_delta:float, cost_delta:float, promotion_verdict:string, reasons:list<string>}
+     */
+    private function heldoutRegressionPack(array $heldoutLiftProof, float $proxyLeakDelta): array
+    {
+        $sampleSize = $heldoutLiftProof['heldout_sample_size'];
+        $liftDelta = $heldoutLiftProof['lift_delta'];
+        $costDelta = $heldoutLiftProof['cost_delta'];
+
+        $reasons = [];
+        $verdict = match (true) {
+            $sampleSize < self::MIN_HELDOUT_SAMPLE_SIZE => 'reject',
+            $liftDelta < 0.0 => 'rollback_candidate',
+            $liftDelta === 0.0 => 'reject',
+            $proxyLeakDelta > 0.0 => 'reject',
+            $costDelta > 0.0 && $liftDelta <= 0.0 => 'reject',
+            default => 'promote',
+        };
+
+        if ($sampleSize < self::MIN_HELDOUT_SAMPLE_SIZE) {
+            $reasons[] = 'insufficient_heldout_sample';
+        }
+        if ($liftDelta < 0.0) {
+            $reasons[] = 'negative_lift_regression';
+        }
+        if ($liftDelta === 0.0 && $sampleSize >= self::MIN_HELDOUT_SAMPLE_SIZE) {
+            $reasons[] = 'no_capability_delta';
+        }
+        if ($proxyLeakDelta > 0.0) {
+            $reasons[] = 'proxy_leakage_increased';
+        }
+        if ($costDelta > 0.0 && $liftDelta <= 0.0) {
+            $reasons[] = 'cost_grew_without_quality_gain';
+        }
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'sample_size' => $sampleSize,
+            'lift_delta' => $liftDelta,
+            'proxy_leak_delta' => $proxyLeakDelta,
+            'cost_delta' => $costDelta,
+            'promotion_verdict' => $verdict,
+            'reasons' => $reasons,
         ];
     }
 
