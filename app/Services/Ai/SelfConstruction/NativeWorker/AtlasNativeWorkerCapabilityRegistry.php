@@ -120,14 +120,26 @@ final class AtlasNativeWorkerCapabilityRegistry
         ];
     }
 
+    /** proof_count at or above this is mature proof coverage. */
+    private const MATURE_PROOF_THRESHOLD = 2;
+
+    /** last_verified_days_ago above this signals stale capability drift. */
+    private const STALE_DRIFT_DAYS = 90;
+
     /**
      * Match task packet needs to native worker capabilities and return ordered candidates.
      *
-     * @param  array{required_capabilities?:list<string>, risk_ceiling?:string}  $taskNeeds
+     * @param  array{
+     *   required_capabilities?:list<string>, risk_ceiling?:string,
+     *   capability_maturity?:array<string,array{proof_count?:int,owner_present?:bool,last_verified_days_ago?:int}>,
+     * }  $taskNeeds
      *   required_capabilities: capability_ids the task declares it needs.
      *   risk_ceiling: AUTONOMY_* constant; capabilities with a higher-risk autonomy level are excluded.
      *                 Defaults to AUTONOMY_NATIVE_SUPERVISED (all native levels allowed).
-     * @return array{candidates:list<array{capability_id:string,autonomy_level:string}>, unsupported_gap:list<string>}
+     *   capability_maturity: opt-in per-capability proof/ownership/freshness facts used to compute
+     *                        fit_score, proof_maturity, owner_coverage and stale_drift — never used
+     *                        to reorder candidates, only to explain the routing decision.
+     * @return array{candidates:list<array{capability_id:string,autonomy_level:string,fit_score:int,proof_maturity:string,risk_tier:string,owner_coverage:bool,stale_drift:bool,route_reason:string}>, unsupported_gap:list<string>}
      *   candidates: matched capabilities ordered autonomous-before-supervised then by canonical registry order.
      *   unsupported_gap: required_capabilities absent from the registry or above the risk ceiling.
      */
@@ -136,6 +148,7 @@ final class AtlasNativeWorkerCapabilityRegistry
         $required    = array_values(array_map('strval', (array) ($taskNeeds['required_capabilities'] ?? [])));
         $ceiling     = (string) ($taskNeeds['risk_ceiling'] ?? self::AUTONOMY_NATIVE_SUPERVISED);
         $ceilingRank = $this->autonomyRank($ceiling);
+        $maturityMap = is_array($taskNeeds['capability_maturity'] ?? null) ? $taskNeeds['capability_maturity'] : [];
 
         $canonicalOrder = [];
         $byId           = [];
@@ -158,9 +171,43 @@ final class AtlasNativeWorkerCapabilityRegistry
                 $unsupportedGap[] = $reqId;
                 continue;
             }
+
+            $maturity = is_array($maturityMap[$reqId] ?? null) ? $maturityMap[$reqId] : null;
+            $hasMaturityInfo = $maturity !== null;
+            $proofCount = (int) ($maturity['proof_count'] ?? 0);
+            $proofMaturity = $hasMaturityInfo
+                ? ($proofCount >= self::MATURE_PROOF_THRESHOLD ? 'mature' : 'immature')
+                : 'unknown';
+            $ownerCoverage = $hasMaturityInfo ? (bool) ($maturity['owner_present'] ?? false) : true;
+            $daysAgo = (int) ($maturity['last_verified_days_ago'] ?? 0);
+            $staleDrift = $hasMaturityInfo && $daysAgo > self::STALE_DRIFT_DAYS;
+
+            $fitSignals = 1; // capability is registered and within the risk ceiling
+            $fitSignals += $proofMaturity === 'mature' ? 1 : 0;
+            $fitSignals += $ownerCoverage ? 1 : 0;
+            $fitSignals += $staleDrift ? 0 : 1;
+
+            $reasonParts = ['capability_supported'];
+            if ($proofMaturity === 'immature') {
+                $reasonParts[] = 'weak_proof_maturity';
+            }
+            if (! $ownerCoverage) {
+                $reasonParts[] = 'missing_owner_coverage';
+            }
+            if ($staleDrift) {
+                $reasonParts[] = 'stale_capability_drift';
+            }
+            $routeReason = count($reasonParts) === 1 ? 'strong_fit' : implode(',', $reasonParts);
+
             $candidates[] = [
                 'capability_id'  => $cap['capability_id'],
                 'autonomy_level' => $cap['autonomy_level'],
+                'fit_score'      => $fitSignals,
+                'proof_maturity' => $proofMaturity,
+                'risk_tier'      => $cap['autonomy_level'] === self::AUTONOMY_NATIVE_AUTONOMOUS ? 'low' : 'medium',
+                'owner_coverage' => $ownerCoverage,
+                'stale_drift'    => $staleDrift,
+                'route_reason'   => $routeReason,
                 '_rank'          => $rank,
                 '_order'         => $canonicalOrder[$reqId],
             ];

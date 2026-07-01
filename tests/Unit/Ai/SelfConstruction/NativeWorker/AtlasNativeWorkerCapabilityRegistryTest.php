@@ -215,4 +215,100 @@ final class AtlasNativeWorkerCapabilityRegistryTest extends TestCase
         $json = (string) json_encode(array_merge($r->capabilities(), $r->bootstrapOwners()));
         $this->assertDoesNotMatchRegularExpression('/"(score|grade|percent|readiness_score)"/i', $json);
     }
+
+    // ── AC: route output includes fit score, proof maturity, risk tier, owner coverage, stale drift, route reason ──
+
+    public function test_strong_fit_capability_reports_strong_fit_reason(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        $result = $r->route([
+            'required_capabilities' => ['inspect_task_packet'],
+            'capability_maturity' => [
+                'inspect_task_packet' => ['proof_count' => 5, 'owner_present' => true, 'last_verified_days_ago' => 3],
+            ],
+        ]);
+
+        $c = $result['candidates'][0];
+        $this->assertSame('mature', $c['proof_maturity']);
+        $this->assertTrue($c['owner_coverage']);
+        $this->assertFalse($c['stale_drift']);
+        $this->assertSame('strong_fit', $c['route_reason']);
+        $this->assertSame(4, $c['fit_score']);
+        $this->assertSame('low', $c['risk_tier']);
+    }
+
+    public function test_weak_fit_capability_with_low_proof_count_reports_weak_proof_maturity(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        $result = $r->route([
+            'required_capabilities' => ['run_gates'],
+            'capability_maturity' => [
+                'run_gates' => ['proof_count' => 1, 'owner_present' => true, 'last_verified_days_ago' => 3],
+            ],
+        ]);
+
+        $c = $result['candidates'][0];
+        $this->assertSame('immature', $c['proof_maturity']);
+        $this->assertStringContainsString('weak_proof_maturity', $c['route_reason']);
+        $this->assertLessThan(4, $c['fit_score']);
+    }
+
+    public function test_stale_capability_drift_is_reported(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        $result = $r->route([
+            'required_capabilities' => ['write_evidence'],
+            'capability_maturity' => [
+                'write_evidence' => ['proof_count' => 5, 'owner_present' => true, 'last_verified_days_ago' => 200],
+            ],
+        ]);
+
+        $c = $result['candidates'][0];
+        $this->assertTrue($c['stale_drift']);
+        $this->assertStringContainsString('stale_capability_drift', $c['route_reason']);
+    }
+
+    public function test_missing_owner_is_reported(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        $result = $r->route([
+            'required_capabilities' => ['learn_from_receipt'],
+            'capability_maturity' => [
+                'learn_from_receipt' => ['proof_count' => 5, 'owner_present' => false, 'last_verified_days_ago' => 1],
+            ],
+        ]);
+
+        $c = $result['candidates'][0];
+        $this->assertFalse($c['owner_coverage']);
+        $this->assertStringContainsString('missing_owner_coverage', $c['route_reason']);
+    }
+
+    public function test_route_without_capability_maturity_defaults_to_unknown_proof_maturity_and_full_owner_coverage(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        $result = $r->route(['required_capabilities' => ['inspect_task_packet']]);
+
+        $c = $result['candidates'][0];
+        $this->assertSame('unknown', $c['proof_maturity']);
+        $this->assertTrue($c['owner_coverage']);
+        $this->assertFalse($c['stale_drift']);
+        $this->assertSame('strong_fit', $c['route_reason']);
+    }
+
+    public function test_route_with_maturity_facts_is_still_deterministic_and_preserves_ordering(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        $needs = [
+            'required_capabilities' => ['apply_scoped_patch', 'inspect_task_packet'],
+            'capability_maturity' => [
+                'apply_scoped_patch' => ['proof_count' => 1, 'owner_present' => false, 'last_verified_days_ago' => 200],
+            ],
+        ];
+        $first = $r->route($needs);
+        $second = $r->route($needs);
+
+        $this->assertSame(json_encode($first), json_encode($second));
+        $ids = array_column($first['candidates'], 'capability_id');
+        $this->assertSame('inspect_task_packet', $ids[0], 'autonomous capability must still be first regardless of maturity facts');
+    }
 }
