@@ -156,6 +156,22 @@ final class AtlasProjectLaneCrossProjectLeakDetectorTest extends TestCase
         $this->assertContains('memory_scope_shared', $r['blockers']);
     }
 
+    public function test_shared_code_index_scope_between_two_lanes_emits_named_leak(): void
+    {
+        $lanes = [
+            'a' => ['project_id' => 'a', 'namespace' => 'ns-a', 'allowed_scope_roots' => ['/a'],
+                    'queue_namespace' => 'q-a', 'evidence_ledger_path' => '/a/ledger',
+                    'memory_scope' => 'mem-a', 'code_index_scope' => 'shared-code-index'],
+            'b' => ['project_id' => 'b', 'namespace' => 'ns-b', 'allowed_scope_roots' => ['/b'],
+                    'queue_namespace' => 'q-b', 'evidence_ledger_path' => '/b/ledger',
+                    'memory_scope' => 'mem-b', 'code_index_scope' => 'shared-code-index'],
+        ];
+
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($lanes, []);
+
+        $this->assertContains('code_index_scope_shared', $r['blockers']);
+    }
+
     public function test_isolated_lane_manifest_facts_pass_with_no_leaks(): void
     {
         $lanes = [
@@ -182,5 +198,18 @@ final class AtlasProjectLaneCrossProjectLeakDetectorTest extends TestCase
         }
         $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($this->lanes(), ['packets' => $packets]);
         $this->assertLessThanOrEqual(AtlasProjectLaneCrossProjectLeakDetector::MAX_SAMPLES, count($r['leaks']));
+    }
+
+    public function test_proof_summary_leak_count_counts_all_leaks_not_just_the_capped_sample(): void
+    {
+        $packets = [];
+        for ($i = 0; $i < 200; $i++) {
+            $packets[] = ['project_id' => 'phantom-lane', 'task_packet_id' => 'x'.$i, 'allowed_files' => []];
+        }
+
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($this->lanes(), ['packets' => $packets]);
+
+        $this->assertLessThanOrEqual(AtlasProjectLaneCrossProjectLeakDetector::MAX_SAMPLES, count($r['leaks']));
+        $this->assertSame(200, $r['proof_summary']['leak_count']);
     }
 }

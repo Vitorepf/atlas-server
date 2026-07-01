@@ -124,6 +124,10 @@ final class AtlasProjectLaneCrossProjectLeakDetector
             }
         }
 
+        // Leak samples are bounded to MAX_SAMPLES so the envelope can never blow up, but the
+        // count itself must reflect every leak actually found — not just the capped sample —
+        // so an operator can never mistake "50 samples shown" for "only 50 leaks exist".
+        $totalLeakCount = count($leaks);
         $leaks = array_slice($leaks, 0, self::MAX_SAMPLES);
         $blockers = array_keys($blockerSet);
         sort($blockers, SORT_STRING);
@@ -132,7 +136,7 @@ final class AtlasProjectLaneCrossProjectLeakDetector
             'packets_inspected' => count($packets),
             'receipts_inspected' => count($receipts),
             'releases_inspected' => count($releases),
-            'leak_count' => count($leaks),
+            'leak_count' => $totalLeakCount,
             'distinct_blocker_families' => count($blockers),
         ];
 
