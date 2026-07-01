@@ -106,17 +106,28 @@ final class AtlasSelfConstructionOriginatorCadencePolicy
             $reasons[] = 'batch_size_reduced_due_to_risk';
         }
 
-        return $this->result(self::ACTION_SEED_NOW, $batchSize, $reasons);
+        $coverageBridge = is_array($snapshot['coverage_bridge'] ?? null) ? $snapshot['coverage_bridge'] : [];
+        $pivotRequired = (bool) ($coverageBridge['pivot_required'] ?? false);
+        $targetGaps = $pivotRequired ? array_values((array) ($coverageBridge['target_gaps'] ?? [])) : [];
+        if ($pivotRequired) {
+            $reasons[] = 'pivot_to_undercovered_gaps';
+        }
+
+        return $this->result(self::ACTION_SEED_NOW, $batchSize, $reasons, $targetGaps);
     }
 
-    /** @param  list<string>  $reasons */
-    private function result(string $action, int $batchSize, array $reasons): array
+    /**
+     * @param  list<string>  $reasons
+     * @param  list<string>  $targetGaps
+     */
+    private function result(string $action, int $batchSize, array $reasons, array $targetGaps = []): array
     {
         return [
             'schema'                  => self::SCHEMA,
             'action'                  => $action,
             'recommended_batch_size'  => $batchSize,
             'reasons'                 => $reasons,
+            'target_gaps'             => $targetGaps,
         ];
     }
 }
