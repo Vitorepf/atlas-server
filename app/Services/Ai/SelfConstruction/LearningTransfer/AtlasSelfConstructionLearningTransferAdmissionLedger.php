@@ -8,10 +8,22 @@ namespace App\Services\Ai\SelfConstruction\LearningTransfer;
  * Append-only JSONL ledger of admitted lesson plans. Idempotent on plan_hash: a second append
  * with the same plan_hash returns ['status' => 'already_recorded', ...] without writing a new
  * line. flock(LOCK_EX) so concurrent admit() calls don't interleave.
+ *
+ * ADMISSION GUARDS (throw InvalidArgumentException before hash or disk access):
+ *   - source_evidence_refs must be non-empty and free of placeholder markers (todo, fake,
+ *     synthetic, example, tbd) — a lesson cannot be admitted on the strength of a stub reference.
+ *   - context.muscle_outcome.status must be one of success|resolved|green_commit — a lesson can
+ *     only influence future origination when it is bound to a REAL muscle outcome.
+ *   - plan.impact_class and plan.design_path_refs must both be present and non-empty — a lesson
+ *     with no declared impact class or no reusable design path is not transferable.
  */
 final class AtlasSelfConstructionLearningTransferAdmissionLedger
 {
     public const SCHEMA = 'atlas.learning_transfer.admission_ledger.v1';
+
+    private const VALID_MUSCLE_OUTCOME_STATUSES = ['success', 'resolved', 'green_commit'];
+
+    private const PLACEHOLDER_MARKERS = ['todo', 'fake', 'synthetic', 'example', 'tbd'];
 
     public function __construct(private readonly string $ledgerPath) {}
 
@@ -26,6 +38,29 @@ final class AtlasSelfConstructionLearningTransferAdmissionLedger
         $sourceRefs = array_values(array_filter(array_map('strval', (array) ($plan['source_evidence_refs'] ?? []))));
         if ($sourceRefs === []) {
             throw new \InvalidArgumentException('learning_transfer_admission_refused:missing_source_evidence_refs');
+        }
+        foreach ($sourceRefs as $ref) {
+            $refLower = strtolower($ref);
+            foreach (self::PLACEHOLDER_MARKERS as $marker) {
+                if (str_contains($refLower, $marker)) {
+                    throw new \InvalidArgumentException('learning_transfer_admission_refused:placeholder_evidence_ref:'.$ref);
+                }
+            }
+        }
+
+        $muscleOutcomeStatus = strtolower((string) ($context['muscle_outcome']['status'] ?? ''));
+        if (! in_array($muscleOutcomeStatus, self::VALID_MUSCLE_OUTCOME_STATUSES, true)) {
+            throw new \InvalidArgumentException('learning_transfer_admission_refused:missing_or_invalid_muscle_outcome:'.$muscleOutcomeStatus);
+        }
+
+        $impactClass = trim((string) ($plan['impact_class'] ?? ''));
+        if ($impactClass === '') {
+            throw new \InvalidArgumentException('learning_transfer_admission_refused:missing_impact_class');
+        }
+
+        $designPathRefs = array_values(array_filter(array_map('strval', (array) ($plan['design_path_refs'] ?? []))));
+        if ($designPathRefs === []) {
+            throw new \InvalidArgumentException('learning_transfer_admission_refused:missing_design_path_refs');
         }
 
         $classLabel = strtolower((string) ($context['classification']['label'] ?? $context['classification']['class'] ?? ''));
@@ -59,6 +94,9 @@ final class AtlasSelfConstructionLearningTransferAdmissionLedger
             'plan' => $plan,
             'classification' => (array) ($context['classification'] ?? []),
             'gate_decision' => (array) ($context['gate_decision'] ?? []),
+            'muscle_outcome' => (array) ($context['muscle_outcome'] ?? []),
+            'impact_class' => $impactClass,
+            'design_path_refs' => $designPathRefs,
         ];
         ksort($row, SORT_STRING);
         $line = (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
