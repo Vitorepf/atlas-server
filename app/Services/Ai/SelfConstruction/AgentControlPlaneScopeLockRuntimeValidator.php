@@ -115,17 +115,35 @@ final class AgentControlPlaneScopeLockRuntimeValidator
             $blockers[] = 'path_traversal';
         }
 
+        // AC: a packet whose payload carries axis_exception_granted, stamped ONLY by
+        // autonomous-gov-bootstrap, exempts the exact FORBIDDEN_AXES prefixes it names — a
+        // grant stamped by any other source is disregarded entirely (fail-closed).
+        $axisExceptionGranted = (array) data_get($taskPacket, 'axis_exception_granted', []);
+        $axisExceptionSource = (string) ($axisExceptionGranted['source'] ?? '');
+        $grantedAxisPrefixes = $axisExceptionSource === 'autonomous-gov-bootstrap'
+            ? array_values(array_map('strval', (array) ($axisExceptionGranted['axes'] ?? [])))
+            : [];
+
         $axisHits = [];
+        $axisExceptionHonored = [];
         foreach ($allowed as $path) {
             foreach (self::FORBIDDEN_AXES as $axis => $prefix) {
-                if (str_starts_with($path, $prefix)) {
-                    $axisHits[] = ['axis' => $axis, 'path' => $path, 'prefix' => $prefix];
+                if (! str_starts_with($path, $prefix)) {
+                    continue;
                 }
+                if (in_array($prefix, $grantedAxisPrefixes, true)) {
+                    $axisExceptionHonored[] = $prefix;
+
+                    continue;
+                }
+                $axisHits[] = ['axis' => $axis, 'path' => $path, 'prefix' => $prefix];
             }
         }
         if ($axisHits !== []) {
             $blockers[] = 'forbidden_axis';
         }
+        $axisExceptionHonored = array_values(array_unique($axisExceptionHonored));
+        sort($axisExceptionHonored);
 
         $maxFiles = isset($options['max_files']) ? (int) $options['max_files'] : self::DEFAULT_MAX_FILES;
         if ($maxFiles > 0 && count($allowed) > $maxFiles) {
@@ -252,6 +270,7 @@ final class AgentControlPlaneScopeLockRuntimeValidator
             'lock_proof_valid' => $requireLockProof ? $hasValidLockProof : null,
             'normalized_scope_lock' => $normalizedScopeLock,
             'scope_lock_hash' => $scopeLockHash,
+            'axis_exception_honored' => $axisExceptionHonored,
             'forbidden_axis_count' => count($axisHits),
             'traversal_count' => count($traversal),
             'forbidden_overlap_count' => count($forbiddenInAllowed),
