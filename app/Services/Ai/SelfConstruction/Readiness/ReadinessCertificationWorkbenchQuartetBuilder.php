@@ -16,6 +16,110 @@ use App\Services\Ai\SelfConstruction\ReadinessHash;
  */
 final class ReadinessCertificationWorkbenchQuartetBuilder
 {
+    public const READINESS_QUARTET_SCHEMA = 'atlas.self_construction.readiness_certification_workbench_quartet.v1';
+
+    public const STATUS_PASS = 'pass';
+
+    public const STATUS_BLOCKER = 'blocker';
+
+    public const STATUS_MISSING = 'missing';
+
+    /** @var list<string> */
+    private const QUARTET_SECTIONS = ['code', 'queue', 'evidence', 'knowledge_sync'];
+
+    /**
+     * Assembles the four MINIMAL proof surfaces needed for an autonomous engineering decision —
+     * code, queue, evidence, and knowledge-sync readiness — and never more. Each section is
+     * independently evaluated pass/blocker/missing; a missing or failing section always names a
+     * repair_action and a source_expectation instead of silently defaulting to ready.
+     *
+     * Input facts shape (each key optional; an absent section is reported missing):
+     *   code:           {tests_green?: bool, lint_clean?: bool}
+     *   queue:          {claimable_depth?: int, give_back_rate?: float}
+     *   evidence:       {receipts_present?: bool, receipts_verified?: bool}
+     *   knowledge_sync: {docs_synced?: bool, code_index_fresh?: bool}
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    public static function buildReadinessQuartet(array $facts): array
+    {
+        $sections = [];
+        foreach (self::QUARTET_SECTIONS as $sectionKey) {
+            $sections[$sectionKey] = self::evaluateSection($sectionKey, is_array($facts[$sectionKey] ?? null) ? $facts[$sectionKey] : null);
+        }
+
+        $blockingSections = array_values(array_filter(
+            self::QUARTET_SECTIONS,
+            static fn (string $key): bool => $sections[$key]['status'] !== self::STATUS_PASS,
+        ));
+
+        $payload = [
+            'schema_version' => self::READINESS_QUARTET_SCHEMA,
+            'sections' => $sections,
+            'blocking_sections' => $blockingSections,
+            'overall_status' => $blockingSections === [] ? 'ready' : 'blocked',
+        ];
+        $payload['quartet_hash'] = ReadinessHash::stable($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $sectionFacts
+     * @return array<string,mixed>
+     */
+    private static function evaluateSection(string $sectionKey, ?array $sectionFacts): array
+    {
+        [$repairAction, $sourceExpectation] = self::sectionExpectations($sectionKey);
+
+        if ($sectionFacts === null) {
+            return [
+                'section' => $sectionKey,
+                'status' => self::STATUS_MISSING,
+                'repair_action' => $repairAction,
+                'source_expectation' => $sourceExpectation,
+                'checked_facts' => [],
+            ];
+        }
+
+        $pass = self::sectionPasses($sectionKey, $sectionFacts);
+
+        return [
+            'section' => $sectionKey,
+            'status' => $pass ? self::STATUS_PASS : self::STATUS_BLOCKER,
+            'repair_action' => $pass ? null : $repairAction,
+            'source_expectation' => $pass ? null : $sourceExpectation,
+            'checked_facts' => $sectionFacts,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $sectionFacts
+     */
+    private static function sectionPasses(string $sectionKey, array $sectionFacts): bool
+    {
+        return match ($sectionKey) {
+            'code' => (bool) ($sectionFacts['tests_green'] ?? false) && (bool) ($sectionFacts['lint_clean'] ?? false),
+            'queue' => (int) ($sectionFacts['claimable_depth'] ?? 0) > 0 && (float) ($sectionFacts['give_back_rate'] ?? 1.0) < 0.3,
+            'evidence' => (bool) ($sectionFacts['receipts_present'] ?? false) && (bool) ($sectionFacts['receipts_verified'] ?? false),
+            'knowledge_sync' => (bool) ($sectionFacts['docs_synced'] ?? false) && (bool) ($sectionFacts['code_index_fresh'] ?? false),
+            default => false,
+        };
+    }
+
+    /** @return array{0:string,1:string} */
+    private static function sectionExpectations(string $sectionKey): array
+    {
+        return match ($sectionKey) {
+            'code' => ['run_tests_and_lint_then_fix_failures', 'php_artisan_test_and_lint_tool_output'],
+            'queue' => ['repair_or_replenish_the_task_queue', 'atlas_task_health_histogram_snapshot'],
+            'evidence' => ['generate_and_verify_evidence_receipts', 'evidence_ledger_receipts'],
+            'knowledge_sync' => ['run_engineering_knowledge_sync_and_index_code_with_prune', 'knowledge_sync_command_output'],
+            default => ['unknown_section', 'unknown_source'],
+        };
+    }
+
     /**
      * @param  string  $keyPrefix
      * @param  string  $label
