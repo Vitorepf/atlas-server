@@ -12,7 +12,9 @@ final class AtlasMaestroOutcomeShapeLedger
 {
     public const SCHEMA = 'atlas.maestro.closed_loop.outcome_shape_ledger.v1';
 
-    private const OUTCOMES = ['delivered', 'give_back', 'rejected', 'stale'];
+    private const OUTCOMES = ['delivered', 'give_back', 'rejected', 'stale', 'quarantine'];
+
+    private const PROOF_RESULTS = ['passed', 'failed'];
 
     private const GIVE_BACK_ROOT_CAUSES = [
         'malformed_spec',
@@ -50,6 +52,14 @@ final class AtlasMaestroOutcomeShapeLedger
             'has_tests_path' => (bool) ($shapeFacts['has_tests_path'] ?? false),
             'wave_bucket' => (string) ($shapeFacts['wave_bucket'] ?? 'unknown'),
             'give_back_root_cause' => $giveBackRootCause,
+            // AC2: task family, worker class, proof result and poison signal — bounded
+            // categorical/boolean facts only, never a raw transcript.
+            'file_family' => $this->normalizeBoundedString($shapeFacts['file_family'] ?? null),
+            'task_shape' => $this->normalizeBoundedString($shapeFacts['task_shape'] ?? null),
+            'worker_id' => $this->normalizeBoundedString($shapeFacts['worker_id'] ?? null),
+            'proof_command_class' => $this->normalizeBoundedString($shapeFacts['proof_command_class'] ?? null),
+            'proof_result' => $this->normalizeProofResult($shapeFacts['proof_result'] ?? null),
+            'poison_signal' => (bool) ($shapeFacts['poison_signal'] ?? false),
         ];
 
         $entry = array_merge(
@@ -143,6 +153,59 @@ final class AtlasMaestroOutcomeShapeLedger
     private function originKind(mixed $originKind): string
     {
         return in_array($originKind, ['orphan', 'doc_gap'], true) ? (string) $originKind : 'orphan';
+    }
+
+    /** Bounded categorical label — trimmed and length-capped so a caller can never smuggle a raw transcript in. */
+    private function normalizeBoundedString(mixed $value): string
+    {
+        $clean = trim((string) $value);
+
+        return $clean === '' ? 'unknown' : substr($clean, 0, 80);
+    }
+
+    private function normalizeProofResult(mixed $proofResult): string
+    {
+        return in_array($proofResult, self::PROOF_RESULTS, true) ? (string) $proofResult : 'unknown';
+    }
+
+    /**
+     * AC4: aggregate success/give_back/quarantine/false-green-risk counts per task family
+     * (file_family), for closed-loop routing and respec decisions.
+     *
+     * @return array<string, array{success_count:int, give_back_count:int, quarantine_count:int, false_green_risk_count:int, total:int}>
+     */
+    public function aggregateByTaskFamily(): array
+    {
+        $aggregate = [];
+        foreach ($this->stream() as $row) {
+            $family = (string) ($row['file_family'] ?? 'unknown');
+            $aggregate[$family] ??= [
+                'success_count' => 0,
+                'give_back_count' => 0,
+                'quarantine_count' => 0,
+                'false_green_risk_count' => 0,
+                'total' => 0,
+            ];
+
+            $outcome = (string) ($row['outcome'] ?? '');
+            if ($outcome === 'delivered') {
+                $aggregate[$family]['success_count']++;
+            }
+            if ($outcome === 'give_back') {
+                $aggregate[$family]['give_back_count']++;
+            }
+            if ($outcome === 'quarantine') {
+                $aggregate[$family]['quarantine_count']++;
+            }
+            if ((bool) ($row['poison_signal'] ?? false)) {
+                $aggregate[$family]['false_green_risk_count']++;
+            }
+            $aggregate[$family]['total']++;
+        }
+
+        ksort($aggregate);
+
+        return $aggregate;
     }
 
     private function ledgerPath(): string

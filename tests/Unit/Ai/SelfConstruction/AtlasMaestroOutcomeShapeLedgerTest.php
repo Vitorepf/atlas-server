@@ -124,4 +124,103 @@ final class AtlasMaestroOutcomeShapeLedgerTest extends TestCase
             $this->assertArrayNotHasKey($key, $row);
         }
     }
+
+    // ── AC2: task family, worker class, proof result, poison signal ───────────
+
+    public function test_record_stores_task_family_worker_class_proof_result_and_poison_signal(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record('packet-a', $this->shapeFacts([
+            'file_family' => 'SelfConstruction',
+            'task_shape' => 'bug-fix',
+            'worker_id' => 'claude-muscle-1',
+            'proof_command_class' => 'artisan-test',
+            'proof_result' => 'passed',
+            'poison_signal' => true,
+        ]), 'delivered');
+
+        $row = iterator_to_array($ledger->stream())[0];
+
+        $this->assertSame('SelfConstruction', $row['file_family']);
+        $this->assertSame('bug-fix', $row['task_shape']);
+        $this->assertSame('claude-muscle-1', $row['worker_id']);
+        $this->assertSame('artisan-test', $row['proof_command_class']);
+        $this->assertSame('passed', $row['proof_result']);
+        $this->assertTrue($row['poison_signal']);
+    }
+
+    public function test_new_fields_default_to_unknown_or_false_when_absent(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record('packet-b', $this->shapeFacts(), 'delivered');
+
+        $row = iterator_to_array($ledger->stream())[0];
+
+        $this->assertSame('unknown', $row['file_family']);
+        $this->assertSame('unknown', $row['task_shape']);
+        $this->assertSame('unknown', $row['worker_id']);
+        $this->assertSame('unknown', $row['proof_command_class']);
+        $this->assertSame('unknown', $row['proof_result']);
+        $this->assertFalse($row['poison_signal']);
+    }
+
+    public function test_invalid_proof_result_normalizes_to_unknown(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record('packet-c', $this->shapeFacts(['proof_result' => 'invented_status']), 'delivered');
+
+        $row = iterator_to_array($ledger->stream())[0];
+
+        $this->assertSame('unknown', $row['proof_result']);
+    }
+
+    public function test_quarantine_is_a_valid_outcome(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record('packet-d', $this->shapeFacts(), 'quarantine');
+
+        $row = iterator_to_array($ledger->stream())[0];
+
+        $this->assertSame('quarantine', $row['outcome']);
+    }
+
+    // ── AC4: aggregate counts by task family ───────────────────────────────────
+
+    public function test_aggregate_by_task_family_counts_success_give_back_quarantine_and_false_green_risk(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record('p1', $this->shapeFacts(['file_family' => 'Alpha']), 'delivered');
+        $ledger->record('p2', $this->shapeFacts(['file_family' => 'Alpha']), 'give_back');
+        $ledger->record('p3', $this->shapeFacts(['file_family' => 'Alpha']), 'quarantine');
+        $ledger->record('p4', $this->shapeFacts(['file_family' => 'Alpha', 'poison_signal' => true]), 'delivered');
+        $ledger->record('p5', $this->shapeFacts(['file_family' => 'Beta']), 'delivered');
+
+        $aggregate = $ledger->aggregateByTaskFamily();
+
+        $this->assertSame(2, $aggregate['Alpha']['success_count']);
+        $this->assertSame(1, $aggregate['Alpha']['give_back_count']);
+        $this->assertSame(1, $aggregate['Alpha']['quarantine_count']);
+        $this->assertSame(1, $aggregate['Alpha']['false_green_risk_count']);
+        $this->assertSame(4, $aggregate['Alpha']['total']);
+        $this->assertSame(1, $aggregate['Beta']['success_count']);
+        $this->assertSame(1, $aggregate['Beta']['total']);
+    }
+
+    public function test_aggregate_by_task_family_is_empty_for_empty_ledger(): void
+    {
+        $ledger = $this->ledger();
+
+        $this->assertSame([], $ledger->aggregateByTaskFamily());
+    }
+
+    public function test_aggregate_by_task_family_groups_missing_family_as_unknown(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record('p1', $this->shapeFacts(), 'delivered');
+
+        $aggregate = $ledger->aggregateByTaskFamily();
+
+        $this->assertArrayHasKey('unknown', $aggregate);
+        $this->assertSame(1, $aggregate['unknown']['success_count']);
+    }
 }
