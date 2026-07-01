@@ -350,4 +350,73 @@ final class AtlasExternalBrainAmplifierFallbackRunbookTest extends TestCase
 
         $this->assertNull($result['escalation_trigger']);
     }
+
+    // ── AC2/AC3: failure-kind fallback paths ─────────────────────────────────
+
+    public function test_no_failure_signal_yields_null_fallback_path(): void
+    {
+        $result = $this->runbook->compile($this->baseInput());
+
+        $this->assertNull($result['fallback_path']);
+        $this->assertFalse($result['fallback_rejected']);
+        $this->assertNull($result['fallback_rejected_reason']);
+    }
+
+    public function test_each_failure_signal_maps_to_a_distinct_gated_fallback_path(): void
+    {
+        foreach ([
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_PROVIDER_OUTAGE,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_QUOTA_EXHAUSTION,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_WEAK_OUTPUT_REGRESSION,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_MISSING_CONTEXT,
+        ] as $failureSignal) {
+            $result = $this->runbook->compile($this->baseInput(['failure_signal' => $failureSignal]));
+
+            $this->assertNotNull($result['fallback_path'], "failure_signal={$failureSignal}");
+            $this->assertSame($failureSignal, $result['fallback_path']['failure_kind']);
+            $this->assertNotEmpty($result['fallback_path']['steps']);
+            $this->assertTrue($result['fallback_path']['preserves_runnable_gates']);
+            $this->assertTrue($result['fallback_path']['preserves_allowed_files_discipline']);
+            $this->assertTrue($result['fallback_path']['preserves_atlas_native_autonomy']);
+        }
+    }
+
+    public function test_distinct_failure_signals_produce_distinct_fallback_steps(): void
+    {
+        $outage = $this->runbook->compile($this->baseInput(['failure_signal' => AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_PROVIDER_OUTAGE]));
+        $quota = $this->runbook->compile($this->baseInput(['failure_signal' => AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_QUOTA_EXHAUSTION]));
+
+        $this->assertNotSame($outage['fallback_path']['steps'], $quota['fallback_path']['steps']);
+    }
+
+    public function test_unknown_failure_signal_yields_null_fallback_path(): void
+    {
+        $result = $this->runbook->compile($this->baseInput(['failure_signal' => 'not_a_real_failure_kind']));
+
+        $this->assertNull($result['fallback_path']);
+    }
+
+    public function test_fallback_intent_to_lower_proof_quality_for_throughput_is_rejected(): void
+    {
+        $result = $this->runbook->compile($this->baseInput([
+            'failure_signal' => AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_PROVIDER_OUTAGE,
+            'fallback_intent' => ['lower_proof_quality_for_throughput' => true],
+        ]));
+
+        $this->assertTrue($result['fallback_rejected']);
+        $this->assertSame('proof_quality_must_never_be_lowered_to_preserve_throughput', $result['fallback_rejected_reason']);
+        // Rejecting the throughput shortcut never removes the gated fallback path itself.
+        $this->assertNotNull($result['fallback_path']);
+        $this->assertTrue($result['fallback_path']['preserves_runnable_gates']);
+    }
+
+    public function test_fallback_intent_without_throughput_flag_is_not_rejected(): void
+    {
+        $result = $this->runbook->compile($this->baseInput([
+            'failure_signal' => AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_QUOTA_EXHAUSTION,
+        ]));
+
+        $this->assertFalse($result['fallback_rejected']);
+        $this->assertNull($result['fallback_rejected_reason']);
+    }
 }

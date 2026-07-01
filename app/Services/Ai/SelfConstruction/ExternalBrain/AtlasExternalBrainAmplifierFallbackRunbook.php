@@ -31,6 +31,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   proxy_leakage            — at least one proxy check has passed=false
  *   repeated_repair_failure  — ≥ REPAIR_EXHAUSTION_THRESHOLD attempts and last failed
  *
+ * FAILURE-KIND FALLBACK PATHS (new, opt-in via failure_signal):
+ *   failure_signal  string|null  — one of provider_outage | quota_exhaustion |
+ *                                  weak_output_regression | missing_context
+ *   fallback_intent {lower_proof_quality_for_throughput?: bool}
+ * Every named fallback path re-runs the same proxy/benchmark gates, stays within
+ * allowed_files discipline, and routes to an Atlas-native client — never a permanent
+ * human or external dependency — so steady-state autonomy is never lost. A caller that
+ * requests lowering proof quality merely to keep throughput high is refused
+ * (fallback_rejected=true); the gates are never relaxed to satisfy that request.
+ *
  * Pure: no I/O, no provider calls, deterministic.
  */
 final class AtlasExternalBrainAmplifierFallbackRunbook
@@ -55,6 +65,39 @@ final class AtlasExternalBrainAmplifierFallbackRunbook
 
     private const REPAIR_EXHAUSTION_THRESHOLD = 3;
 
+    public const FAILURE_PROVIDER_OUTAGE       = 'provider_outage';
+    public const FAILURE_QUOTA_EXHAUSTION      = 'quota_exhaustion';
+    public const FAILURE_WEAK_OUTPUT_REGRESSION = 'weak_output_regression';
+    public const FAILURE_MISSING_CONTEXT       = 'missing_context';
+
+    /** @var array<string,list<string>> */
+    private const FALLBACK_PATHS = [
+        self::FAILURE_PROVIDER_OUTAGE => [
+            'Detect provider_outage via health-check failure on the current provider',
+            'Route to the next Atlas-native provider in the topology (never a permanent human or external dependency)',
+            'Re-run proxy-detector and benchmark gates against the fallback provider output',
+            'Continue steady-state autonomy without pausing task origination',
+        ],
+        self::FAILURE_QUOTA_EXHAUSTION => [
+            'Detect quota_exhaustion via rate-limit or quota-exceeded signal',
+            'Rotate to the next Atlas-native provider with available quota, never lowering benchmark thresholds',
+            'Re-run proxy-detector and benchmark gates against the rotated provider output',
+            'Continue steady-state autonomy without pausing task origination',
+        ],
+        self::FAILURE_WEAK_OUTPUT_REGRESSION => [
+            'Detect weak_output_regression via benchmark_miss or proxy_leakage on the current output',
+            'Apply the repair loop and escalation triggers already defined, rather than accepting the regressed output',
+            'Re-run proxy-detector and benchmark gates before accepting any output',
+            'Continue steady-state autonomy without pausing task origination',
+        ],
+        self::FAILURE_MISSING_CONTEXT => [
+            'Detect missing_context via unresolved context_assembly items',
+            'Halt output acceptance until the required context is assembled — never guess or proceed without it',
+            'Re-run proxy-detector and benchmark gates once context assembly is complete',
+            'Continue steady-state autonomy without pausing task origination',
+        ],
+    ];
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -77,6 +120,23 @@ final class AtlasExternalBrainAmplifierFallbackRunbook
 
         $triggers = $this->collectTriggers($proxyLeakage, $benchmarkPassed, $repairExhausted, $hasBlockedHighImpact);
 
+        $failureSignal = $input['failure_signal'] ?? null;
+        $failureSignal = is_string($failureSignal) ? $failureSignal : null;
+
+        $fallbackIntent = (array) ($input['fallback_intent'] ?? []);
+        $fallbackRejected = (bool) ($fallbackIntent['lower_proof_quality_for_throughput'] ?? false);
+        $fallbackRejectedReason = $fallbackRejected
+            ? 'proof_quality_must_never_be_lowered_to_preserve_throughput'
+            : null;
+
+        $fallbackPath = $failureSignal !== null && isset(self::FALLBACK_PATHS[$failureSignal]) ? [
+            'failure_kind'                        => $failureSignal,
+            'steps'                                => self::FALLBACK_PATHS[$failureSignal],
+            'preserves_runnable_gates'             => true,
+            'preserves_allowed_files_discipline'   => true,
+            'preserves_atlas_native_autonomy'      => true,
+        ] : null;
+
         return [
             'schema'                 => self::SCHEMA,
             'mode'                   => $modelTier === 'frontier' ? self::MODE_FRONTIER_DIRECT : self::MODE_NON_FRONTIER_FALLBACK,
@@ -89,6 +149,9 @@ final class AtlasExternalBrainAmplifierFallbackRunbook
             'benchmark_passed'       => $benchmarkPassed,
             'repair_exhausted'       => $repairExhausted,
             'blocked_task_families'  => $blockedTaskFamilies,
+            'fallback_path'          => $fallbackPath,
+            'fallback_rejected'      => $fallbackRejected,
+            'fallback_rejected_reason' => $fallbackRejectedReason,
         ];
     }
 
