@@ -56,6 +56,83 @@ final class AtlasMaestroAllowedFilesIntentChecker
         ];
     }
 
+    /**
+     * Broader intent audit over the WHOLE packet: flags allowed_files that have no textual
+     * relation to the objective/acceptance intent (intent_mismatch), and acceptance criteria
+     * that name a runnable test path missing from allowed_files (missing_acceptance_test_files).
+     *
+     * @param  array<string,mixed>  $packet
+     * @return array{ok:bool, intent_mismatch:list<string>, missing_acceptance_test_files:list<string>}
+     */
+    public function checkIntent(array $packet): array
+    {
+        $allowedFiles = $this->allowedFiles($packet);
+        $objective = (string) ($packet['objective'] ?? '');
+        $acceptance = array_map('strval', (array) ($packet['acceptance_criteria'] ?? []));
+        $haystack = $objective.' '.implode(' ', $acceptance);
+
+        $mismatched = [];
+        foreach ($allowedFiles as $file) {
+            if (! $this->fileRelatesToIntent($file, $haystack)) {
+                $mismatched[] = $file;
+            }
+        }
+
+        $missingAcceptanceTests = $this->acceptanceTestsNotAllowed($acceptance, $allowedFiles);
+
+        return [
+            'ok' => $mismatched === [] && $missingAcceptanceTests === [],
+            'intent_mismatch' => $mismatched,
+            'missing_acceptance_test_files' => $missingAcceptanceTests,
+        ];
+    }
+
+    private function fileRelatesToIntent(string $file, string $haystack): bool
+    {
+        if (str_contains($haystack, $file)) {
+            return true;
+        }
+        $base = basename($file, '.php');
+        if ($base !== '' && str_contains($haystack, $base)) {
+            return true;
+        }
+        if (str_ends_with($base, 'Test')) {
+            $implBase = substr($base, 0, -4);
+            if ($implBase !== '' && str_contains($haystack, $implBase)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $acceptance
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function acceptanceTestsNotAllowed(array $acceptance, array $allowedFiles): array
+    {
+        $cited = [];
+        foreach ($acceptance as $criterion) {
+            if (preg_match_all('#\btests/[A-Za-z0-9_./-]+\.php\b#', $criterion, $matches) > 0) {
+                foreach ($matches[0] as $path) {
+                    $cited[$path] = true;
+                }
+            }
+        }
+
+        $missing = [];
+        foreach (array_keys($cited) as $path) {
+            if (! in_array($path, $allowedFiles, true)) {
+                $missing[] = $path;
+            }
+        }
+        sort($missing, SORT_STRING);
+
+        return $missing;
+    }
+
     /** @param list<string> $allowedFiles */
     private function companionWarnings(array $allowedFiles): array
     {

@@ -124,4 +124,59 @@ final class AtlasMaestroAllowedFilesIntentCheckerTest extends TestCase
         $this->assertTrue($result['ok']);
         $this->assertSame([], $result['matched_symbols']);
     }
+
+    // ── checkIntent(): whole-packet objective/acceptance vs allowed_files audit ─────
+
+    public function test_unrelated_allowed_file_is_flagged_as_intent_mismatch(): void
+    {
+        $result = $this->checker()->checkIntent([
+            'objective' => 'Improve AtlasFooService handling of retries.',
+            'allowed_files' => [
+                'app/Services/AtlasFooService.php',
+                'tests/Unit/Services/AtlasFooServiceTest.php',
+                'app/Services/UnrelatedBarService.php',
+            ],
+            'acceptance_criteria' => [
+                'Runnable proof: php artisan test tests/Unit/Services/AtlasFooServiceTest.php exits 0.',
+            ],
+        ]);
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame(['app/Services/UnrelatedBarService.php'], $result['intent_mismatch']);
+    }
+
+    public function test_missing_runnable_test_file_flagged_when_acceptance_names_a_test(): void
+    {
+        $result = $this->checker()->checkIntent([
+            'objective' => 'Improve AtlasFooService handling of retries.',
+            'allowed_files' => ['app/Services/AtlasFooService.php'],
+            'acceptance_criteria' => [
+                'Runnable proof: php artisan test tests/Unit/Services/AtlasFooServiceTest.php exits 0.',
+            ],
+        ]);
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame(
+            ['tests/Unit/Services/AtlasFooServiceTest.php'],
+            $result['missing_acceptance_test_files'],
+        );
+    }
+
+    public function test_minimal_implementation_plus_matching_test_passes_intent_check(): void
+    {
+        $result = $this->checker()->checkIntent([
+            'objective' => 'Improve AtlasFooService handling of retries.',
+            'allowed_files' => [
+                'app/Services/AtlasFooService.php',
+                'tests/Unit/Services/AtlasFooServiceTest.php',
+            ],
+            'acceptance_criteria' => [
+                'Runnable proof: php artisan test tests/Unit/Services/AtlasFooServiceTest.php exits 0.',
+            ],
+        ]);
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame([], $result['intent_mismatch']);
+        $this->assertSame([], $result['missing_acceptance_test_files']);
+    }
 }
