@@ -18,6 +18,23 @@ final class AtlasMaestroTaskPinningPolicy
     public const REASON_INVALID_WORKER = 'invalid_worker_id';
     public const REASON_PIN_EXPIRED = 'pin_expired';
 
+    public const REQUEST_ALLOW = 'allow';
+    public const REQUEST_REFUSE = 'refuse';
+
+    /** the ONLY legitimate pin-request reasons — task pinning is never a vague preference. */
+    public const ALLOWED_REASON_CATEGORIES = ['capability_fit', 'continuity', 'recovery'];
+
+    public const REQUEST_REASON_VAGUE_CATEGORY = 'vague_or_unlisted_reason_category';
+    public const REQUEST_REASON_INVALID_TTL = 'ttl_expired_or_non_positive';
+    public const REQUEST_REASON_STARVATION_RISK = 'starvation_risk_ttl_too_long';
+    public const REQUEST_REASON_APPROVED = 'capability_fit_or_continuity_or_recovery';
+
+    private const MIN_REQUEST_TTL_SECONDS = 1;
+
+    /** beyond this, a pin stops being a bounded capability-fit/continuity/recovery aid and
+     *  starts being permanent starvation of every other worker for this task. */
+    private const MAX_SAFE_TTL_SECONDS = 21_600; // 6 hours
+
     public function __construct(
         private readonly AtlasMaestroTaskPinningRegistry $registry,
         private readonly ?\Closure $now = null,
@@ -59,5 +76,36 @@ final class AtlasMaestroTaskPinningPolicy
 
         return ['pinned_worker_id' => $pinned, 'task_packet_id' => $taskPacketId, 'worker_id' => $workerId,
             'decision' => self::DECISION_REFUSE, 'reason' => self::REASON_PIN_CONFLICT];
+    }
+
+    /**
+     * Governs whether a NEW pin may be CREATED at all — distinct from decide(), which governs
+     * whether an EXISTING pin allows a claim. Pinning is allowed only for a named capability-fit,
+     * continuity or recovery reason with a bounded ttl; a vague preference or an unbounded/expired
+     * ttl is refused before it ever reaches the registry, so pinning can never become permanent
+     * starvation of every other worker for this task.
+     *
+     * @param  array{reason_category?:string, ttl_seconds?:int}  $request
+     * @return array{decision:string, reason:string, reason_category:string, ttl_seconds:int}
+     */
+    public function evaluatePinRequest(array $request): array
+    {
+        $category = (string) ($request['reason_category'] ?? '');
+        $ttlSeconds = (int) ($request['ttl_seconds'] ?? 0);
+        $base = ['reason_category' => $category, 'ttl_seconds' => $ttlSeconds];
+
+        if (! in_array($category, self::ALLOWED_REASON_CATEGORIES, true)) {
+            return $base + ['decision' => self::REQUEST_REFUSE, 'reason' => self::REQUEST_REASON_VAGUE_CATEGORY];
+        }
+
+        if ($ttlSeconds < self::MIN_REQUEST_TTL_SECONDS) {
+            return $base + ['decision' => self::REQUEST_REFUSE, 'reason' => self::REQUEST_REASON_INVALID_TTL];
+        }
+
+        if ($ttlSeconds > self::MAX_SAFE_TTL_SECONDS) {
+            return $base + ['decision' => self::REQUEST_REFUSE, 'reason' => self::REQUEST_REASON_STARVATION_RISK];
+        }
+
+        return $base + ['decision' => self::REQUEST_ALLOW, 'reason' => self::REQUEST_REASON_APPROVED];
     }
 }
