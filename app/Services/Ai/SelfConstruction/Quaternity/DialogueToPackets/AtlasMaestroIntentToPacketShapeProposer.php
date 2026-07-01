@@ -152,14 +152,25 @@ final class AtlasMaestroIntentToPacketShapeProposer
             $anchor['file'] !== '' ? $anchor['file'] : '(no file)',
         );
 
+        $testFile = $this->deriveTestFile($anchor['file']);
+
         $acceptance = [];
         foreach ($verbsList as $v) {
             $acceptance[] = 'verb:'.strtolower(trim($v));
         }
+        if ($testFile !== '') {
+            $acceptance[] = 'runnable: php artisan test '.$testFile;
+        }
         $acceptance = array_values(array_unique($acceptance));
         sort($acceptance, SORT_STRING);
 
-        $allowedFiles = $anchor['file'] !== '' ? [$anchor['file']] : [];
+        $allowedFiles = $anchor['file'] !== ''
+            ? array_values(array_unique($testFile !== '' ? [$anchor['file'], $testFile] : [$anchor['file']]))
+            : [];
+
+        $requiredEvidence = $anchor['file'] !== ''
+            ? 'cortex_id:'.$cortex->cortexId.';tests_or_gates_result;implementation_notes'
+            : 'cortex_id:'.$cortex->cortexId;
 
         return new ProposedPacketShape(
             taskPacketId: $taskPacketId,
@@ -167,12 +178,28 @@ final class AtlasMaestroIntentToPacketShapeProposer
             allowedFiles: $allowedFiles,
             scopeIn: $allowedFiles,
             acceptanceCriteria: $acceptance,
-            requiredEvidence: 'cortex_id:'.$cortex->cortexId,
+            requiredEvidence: $requiredEvidence,
             dependsOn: [],
             wave: $waveHint,
             anchorSymbol: $anchor['symbol'],
             anchorFile: $anchor['file'],
         );
+    }
+
+    /**
+     * Derives a conventional PHPUnit test path from an app/ implementation path, mirroring the
+     * atlas-server convention `app/X/Y.php` → `tests/Unit/X/YTest.php`. Returns '' when the file
+     * doesn't follow the convention (e.g. not under app/) — never guesses a wrong path.
+     */
+    private function deriveTestFile(string $appFile): string
+    {
+        if ($appFile === '' || ! str_starts_with($appFile, 'app/') || ! str_ends_with($appFile, '.php')) {
+            return '';
+        }
+        $rel = substr($appFile, strlen('app/'));
+        $rel = substr($rel, 0, -strlen('.php'));
+
+        return 'tests/Unit/'.$rel.'Test.php';
     }
 
     private function persist(ProposedPacketShape $shape): void
