@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAcceptanceR
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAdversarialCritiqueTournament;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierComplexityBudget;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierControlPlane;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierEndToEndTrial;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -53,6 +54,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainHighValueBatchComposer $batchComposer,
         AtlasExternalBrainAmplifierComplexityBudget $complexityBudget,
         AtlasExternalBrainAmplifierControlPlane $amplifierControlPlane,
+        AtlasExternalBrainAmplifierEndToEndTrial $endToEndTrial,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -147,6 +149,14 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // so it is only run when the caller explicitly supplies an amplifier_control_plane section.
         if (is_array($decoded['amplifier_control_plane'] ?? null)) {
             $payload['amplifier_control_plane'] = $amplifierControlPlane->decide($decoded['amplifier_control_plane']);
+        }
+
+        // Optional amplifier end-to-end trial: benchmarks small/scaffolded/frontier tiers
+        // against supplied facts and recommends a tier. Distinct from the mode decision
+        // above, so it only runs when the caller explicitly supplies an
+        // amplifier_end_to_end_trial section.
+        if (is_array($decoded['amplifier_end_to_end_trial'] ?? null)) {
+            $payload['amplifier_end_to_end_trial'] = $endToEndTrial->run($decoded['amplifier_end_to_end_trial']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
