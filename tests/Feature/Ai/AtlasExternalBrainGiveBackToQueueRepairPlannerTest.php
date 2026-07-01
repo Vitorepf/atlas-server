@@ -127,4 +127,71 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlannerTest extends TestCase
         $ranked = $result['ranked_repair_candidates'];
         $this->assertSame('high-unblock', $ranked[0]['task_id']);
     }
+
+    // ── AC3: repeated give_back + low worker floor + safe scope → respec_for_queue_feed ──
+
+    public function test_repeated_give_back_under_worker_floor_pressure_with_safe_scope_produces_respec_for_queue_feed(): void
+    {
+        $event = [
+            'task_id' => 'repeat-1',
+            'root_cause' => 'flaky_timing',
+            'allowed_files' => ['app/Services/Foo.php'],
+            'acceptance_criteria' => ['php artisan test tests/FooTest.php exits 0'],
+        ];
+
+        $result = (new AtlasExternalBrainGiveBackToQueueRepairPlanner)->plan([
+            'claimable_per_active_worker' => 1.0,
+            'give_backs' => [
+                $event,
+                array_merge($event, ['task_id' => 'repeat-2']),
+            ],
+        ]);
+
+        foreach ($result['repair_candidates'] as $candidate) {
+            $this->assertSame('respec_for_queue_feed', $candidate['repair_plan']);
+        }
+    }
+
+    public function test_repeated_give_back_under_pressure_without_safe_scope_stays_operator_only_fix(): void
+    {
+        $event = [
+            'task_id' => 'repeat-1',
+            'root_cause' => 'flaky_timing',
+        ];
+
+        $result = (new AtlasExternalBrainGiveBackToQueueRepairPlanner)->plan([
+            'claimable_per_active_worker' => 1.0,
+            'give_backs' => [
+                $event,
+                array_merge($event, ['task_id' => 'repeat-2']),
+            ],
+        ]);
+
+        foreach ($result['repair_candidates'] as $candidate) {
+            $this->assertSame('operator_only_fix', $candidate['repair_plan']);
+        }
+    }
+
+    public function test_forbidden_target_stays_operator_only_fix_even_under_worker_floor_pressure_and_repetition(): void
+    {
+        $event = [
+            'task_id' => 'forbidden-1',
+            'root_cause' => 'flaky_timing',
+            'forbidden_target' => true,
+            'allowed_files' => ['app/Services/Foo.php'],
+            'acceptance_criteria' => ['php artisan test tests/FooTest.php exits 0'],
+        ];
+
+        $result = (new AtlasExternalBrainGiveBackToQueueRepairPlanner)->plan([
+            'claimable_per_active_worker' => 1.0,
+            'give_backs' => [
+                $event,
+                array_merge($event, ['task_id' => 'forbidden-2']),
+            ],
+        ]);
+
+        foreach ($result['repair_candidates'] as $candidate) {
+            $this->assertSame('operator_only_fix', $candidate['repair_plan']);
+        }
+    }
 }
