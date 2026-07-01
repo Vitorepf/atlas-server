@@ -465,4 +465,124 @@ final class AtlasStrategyCouncilLeverageRankerTest extends TestCase
 
         $this->assertStringContainsString('evidence_refs_count', $verdict['ranked'][0]['dominance_trace']);
     }
+
+    // ── AC: compound_unlock, proof_cost, implementation_risk, simplification_gain, worker_fit, give_back_likelihood ──
+
+    public function test_factors_include_all_six_new_score_components(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'compound_unlock' => 3,
+                'proof_cost' => 2,
+                'implementation_risk' => 1,
+                'simplification_gain' => 4,
+                'worker_fit' => 5,
+                'give_back_likelihood' => 1,
+            ]),
+        ]);
+
+        $factors = $verdict['ranked'][0]['factors'];
+        $this->assertSame(3, $factors['compound_unlock']);
+        $this->assertSame(2, $factors['proof_cost']);
+        $this->assertSame(1, $factors['implementation_risk']);
+        $this->assertSame(4, $factors['simplification_gain']);
+        $this->assertSame(5, $factors['worker_fit']);
+        $this->assertSame(1, $factors['give_back_likelihood']);
+
+        $reasons = $verdict['ranked'][0]['reasons'];
+        $this->assertContains('compound_unlock=3', $reasons);
+        $this->assertContains('proof_cost=2', $reasons);
+        $this->assertContains('implementation_risk=1', $reasons);
+        $this->assertContains('simplification_gain=4', $reasons);
+        $this->assertContains('worker_fit=5', $reasons);
+        $this->assertContains('give_back_likelihood=1', $reasons);
+    }
+
+    public function test_high_unlock_winner_breaks_a_tie_on_every_original_factor(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'low-unlock', 'compound_unlock' => 1]),
+            $this->candidate(['candidate_id' => 'high-unlock', 'compound_unlock' => 9]),
+        ]);
+
+        $this->assertSame('high-unlock', $verdict['ranked'][0]['candidate_id']);
+        $this->assertSame('compound_unlock=9_beats_1', $verdict['ranked'][0]['dominance_trace']);
+    }
+
+    public function test_risky_candidate_is_demoted_below_a_lower_risk_tie(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'risky', 'implementation_risk' => 9]),
+            $this->candidate(['candidate_id' => 'safe', 'implementation_risk' => 1]),
+        ]);
+
+        $this->assertSame('safe', $verdict['ranked'][0]['candidate_id'], 'lower implementation_risk must win a tie');
+    }
+
+    public function test_simplification_winner_breaks_a_tie(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'low-gain', 'simplification_gain' => 1]),
+            $this->candidate(['candidate_id' => 'high-gain', 'simplification_gain' => 9]),
+        ]);
+
+        $this->assertSame('high-gain', $verdict['ranked'][0]['candidate_id']);
+    }
+
+    public function test_worker_mismatch_demotes_a_candidate_below_a_better_fit_tie(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'mismatch', 'worker_fit' => 0]),
+            $this->candidate(['candidate_id' => 'good-fit', 'worker_fit' => 5]),
+        ]);
+
+        $this->assertSame('good-fit', $verdict['ranked'][0]['candidate_id']);
+    }
+
+    public function test_give_back_likelihood_and_proof_cost_are_lowest_priority_tiebreaks(): void
+    {
+        // Proof of ordering: proof_cost only differentiates when give_back_likelihood already ties.
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'expensive-proof', 'proof_cost' => 9, 'give_back_likelihood' => 0]),
+            $this->candidate(['candidate_id' => 'cheap-proof', 'proof_cost' => 1, 'give_back_likelihood' => 0]),
+        ]);
+
+        $this->assertSame('cheap-proof', $verdict['ranked'][0]['candidate_id'], 'lower proof_cost wins when give_back_likelihood ties');
+    }
+
+    public function test_new_factors_never_override_a_pre_existing_higher_priority_factor(): void
+    {
+        // autonomy_unlock (a pre-existing, higher-priority factor) must still decide the winner even
+        // when the loser has every new factor maxed out — proves the new factors are strictly
+        // lowest-priority and cannot hijack the established ranking philosophy.
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id' => 'low-autonomy-max-new-factors',
+                'autonomy_unlock' => 1,
+                'compound_unlock' => 9,
+                'simplification_gain' => 9,
+                'worker_fit' => 9,
+                'proof_cost' => 0,
+                'implementation_risk' => 0,
+                'give_back_likelihood' => 0,
+            ]),
+            $this->candidate([
+                'candidate_id' => 'high-autonomy-zero-new-factors',
+                'autonomy_unlock' => 9,
+            ]),
+        ]);
+
+        $this->assertSame('high-autonomy-zero-new-factors', $verdict['ranked'][0]['candidate_id']);
+    }
+
+    public function test_deterministic_tie_break_still_holds_when_all_new_factors_are_default(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'charlie']),
+            $this->candidate(['candidate_id' => 'alpha']),
+            $this->candidate(['candidate_id' => 'bravo']),
+        ]);
+
+        $this->assertSame(['alpha', 'bravo', 'charlie'], array_column($verdict['ranked'], 'candidate_id'));
+    }
 }

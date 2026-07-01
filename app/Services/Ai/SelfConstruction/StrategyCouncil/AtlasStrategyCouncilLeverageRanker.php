@@ -25,6 +25,12 @@ namespace App\Services\Ai\SelfConstruction\StrategyCouncil;
  * waste_reduction DESC, dependency_count ASC, risk ASC, candidate_id ASC). Each factor appears as a
  * reason in the candidate's reasons list, so the operator can read why one beat another.
  *
+ * 6 additional optional factors (compound_unlock, proof_cost, implementation_risk,
+ * simplification_gain, worker_fit, give_back_likelihood) are appended as the LOWEST-priority
+ * tie-breakers, after every pre-existing factor and before the candidate_id ASC tiebreak — they
+ * only ever differentiate candidates that already tie on every original factor, so no pre-existing
+ * ranking outcome changes. Each candidate input field defaults to 0 (neutral) when omitted.
+ *
  * dominance_trace: set after sorting; names which real-leverage factor(s) caused this candidate to
  * outrank the next one. "last_in_ranking" for the final item. Never contains composite score fields.
  *
@@ -122,6 +128,12 @@ final class AtlasStrategyCouncilLeverageRanker
                     'risk' => (int) ($c['risk'] ?? 0),
                     'evidence_refs_count' => count($evidenceRefs),
                     'dependency_count' => (int) ($c['dependency_count'] ?? 0),
+                    'compound_unlock' => (int) ($c['compound_unlock'] ?? 0),
+                    'proof_cost' => (int) ($c['proof_cost'] ?? 0),
+                    'implementation_risk' => (int) ($c['implementation_risk'] ?? 0),
+                    'simplification_gain' => (int) ($c['simplification_gain'] ?? 0),
+                    'worker_fit' => (int) ($c['worker_fit'] ?? 0),
+                    'give_back_likelihood' => (int) ($c['give_back_likelihood'] ?? 0),
                 ],
                 'reasons' => [],
             ];
@@ -140,6 +152,12 @@ final class AtlasStrategyCouncilLeverageRanker
                 ?: $b['factors']['evidence_refs_count'] <=> $a['factors']['evidence_refs_count']
                 ?: $a['factors']['dependency_count'] <=> $b['factors']['dependency_count']
                 ?: $a['factors']['risk'] <=> $b['factors']['risk']
+                ?: $b['factors']['compound_unlock'] <=> $a['factors']['compound_unlock']
+                ?: $b['factors']['simplification_gain'] <=> $a['factors']['simplification_gain']
+                ?: $b['factors']['worker_fit'] <=> $a['factors']['worker_fit']
+                ?: $a['factors']['proof_cost'] <=> $b['factors']['proof_cost']
+                ?: $a['factors']['implementation_risk'] <=> $b['factors']['implementation_risk']
+                ?: $a['factors']['give_back_likelihood'] <=> $b['factors']['give_back_likelihood']
                 ?: strcmp($a['candidate_id'], $b['candidate_id']);
         });
 
@@ -159,6 +177,12 @@ final class AtlasStrategyCouncilLeverageRanker
                 'dependency_count='.$row['factors']['dependency_count'],
                 'risk='.$row['factors']['risk'],
                 'evidence_refs_count='.$row['factors']['evidence_refs_count'],
+                'compound_unlock='.$row['factors']['compound_unlock'],
+                'proof_cost='.$row['factors']['proof_cost'],
+                'implementation_risk='.$row['factors']['implementation_risk'],
+                'simplification_gain='.$row['factors']['simplification_gain'],
+                'worker_fit='.$row['factors']['worker_fit'],
+                'give_back_likelihood='.$row['factors']['give_back_likelihood'],
             ];
             $accepted[$i]['dominance_trace'] = isset($accepted[$i + 1])
                 ? $this->dominanceTrace($row['factors'], $accepted[$i + 1]['factors'])
@@ -195,6 +219,22 @@ final class AtlasStrategyCouncilLeverageRanker
 
         // ASC comparisons (lower is better)
         foreach (['dependency_count', 'risk'] as $f) {
+            $wv = (int) ($w[$f] ?? 0);
+            $nv = (int) ($n[$f] ?? 0);
+            if ($wv !== $nv) {
+                return $f.'='.$wv.'_beats_'.$nv;
+            }
+        }
+
+        // The 6 additional lowest-priority factors — same DESC/ASC ordering as the usort chain.
+        foreach (['compound_unlock', 'simplification_gain', 'worker_fit'] as $f) {
+            $wv = (int) ($w[$f] ?? 0);
+            $nv = (int) ($n[$f] ?? 0);
+            if ($wv !== $nv) {
+                return $f.'='.$wv.'_beats_'.$nv;
+            }
+        }
+        foreach (['proof_cost', 'implementation_risk', 'give_back_likelihood'] as $f) {
             $wv = (int) ($w[$f] ?? 0);
             $nv = (int) ($n[$f] ?? 0);
             if ($wv !== $nv) {
