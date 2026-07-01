@@ -75,6 +75,24 @@ final class AtlasExternalBrainCritiqueQuorumReducer
                 }
             }
 
+            // Low-confidence disagreement: all critics call it 'high' but their evidence_strength
+            // wildly disagrees — that is not consensus, it must not silently pass as a blocker.
+            if ($hasHigh && count($findings) >= self::STRONG_AGREEMENT_MIN) {
+                $strengths = array_map(
+                    static fn (array $f): float => min(1.0, max(0.0, (float) ($f['evidence_strength'] ?? 0.0))),
+                    $findings,
+                );
+                if ((max($strengths) - min($strengths)) >= 0.40) {
+                    $unresolvedConflicts[] = [
+                        'type' => $type,
+                        'conflict' => 'low_confidence_disagreement',
+                        'finding_count' => count($findings),
+                    ];
+
+                    continue;
+                }
+            }
+
             usort($findings, static fn (array $a, array $b): int => strlen((string) ($b['evidence'] ?? '')) <=> strlen((string) ($a['evidence'] ?? '')));
             $best = $findings[0];
             $severity = (string) ($best['severity'] ?? 'low');
@@ -115,6 +133,9 @@ final class AtlasExternalBrainCritiqueQuorumReducer
             'decision'            => $decision,
             'decision_reason'     => $decisionReason,
             'blocking_findings'   => $blockingFindings,
+            // preserved_blockers: same set as blocking_findings, named explicitly so a caller
+            // can assert that no high-confidence blocker was majority-voted away by reduction.
+            'preserved_blockers'  => $blockingFindings,
             'merged_duplicates'   => $mergedDuplicates,
             'unresolved_conflicts' => $unresolvedConflicts,
             'repair_actions'      => $repairActions,

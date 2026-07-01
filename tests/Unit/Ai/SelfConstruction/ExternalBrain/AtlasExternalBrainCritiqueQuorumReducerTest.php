@@ -224,6 +224,29 @@ final class AtlasExternalBrainCritiqueQuorumReducerTest extends TestCase
         $this->assertSame('approve', $r['decision']);
     }
 
+    public function test_low_confidence_disagreement_among_high_severity_critics_is_unresolved_conflict(): void
+    {
+        $r = $this->reduce(
+            [$this->finding('proxy_risk', 'high', 'strong signal', '', false, false, 0.90)],
+            [$this->finding('proxy_risk', 'high', 'weak signal', '', false, false, 0.20)],
+        );
+
+        $conflictTypes = array_column($r['unresolved_conflicts'], 'conflict');
+        $this->assertContains('low_confidence_disagreement', $conflictTypes);
+        $this->assertNotContains('proxy_risk', array_column($r['blocking_findings'], 'type'));
+        $this->assertSame('escalate', $r['decision']);
+    }
+
+    public function test_preserved_blockers_matches_blocking_findings(): void
+    {
+        $r = $this->reduce([
+            $this->finding('data_corruption', 'high', 'irreversible write detected', '', false, false, 0.85, 'safety'),
+        ]);
+
+        $this->assertSame($r['blocking_findings'], $r['preserved_blockers']);
+        $this->assertNotEmpty($r['preserved_blockers']);
+    }
+
     // ── schema + empty ────────────────────────────────────────────────────────
 
     public function test_empty_critiques_returns_empty_output(): void
