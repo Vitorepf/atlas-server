@@ -317,6 +317,75 @@ final class AtlasExternalBrainComprehensionDeepeningMapTest extends TestCase
         $this->assertSame('defer', $this->gapResultFor($r, 'g1')['decision']);
     }
 
+    // ── AC2/AC3: capability, uncertainty, stale context risk, leverage, probe/task shape ──
+
+    public function test_stale_context_risk_raises_priority_ranking_above_equal_impact_gap(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [
+            $this->gap('plain', ['impact_on_quality' => 0.5, 'impact_on_autonomy' => 0.5]),
+            $this->gap('stale', ['impact_on_quality' => 0.5, 'impact_on_autonomy' => 0.5, 'stale_context_risk' => true]),
+        ]]);
+
+        $this->assertSame('stale', $r['ranked_gaps'][0]['gap_id']);
+        $this->assertTrue($this->gapResultFor($r, 'stale')['stale_context_risk']);
+    }
+
+    public function test_missing_domain_map_gap_carries_affected_capability(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [
+            $this->gap('g1', ['affected_capability' => 'domain_map', 'missing_context' => 'domain_map_coverage']),
+        ]]);
+
+        $entry = $this->gapResultFor($r, 'g1');
+        $this->assertSame('domain_map', $entry['affected_capability']);
+        $this->assertSame('domain_map_coverage', $entry['required_context']);
+    }
+
+    public function test_low_value_gap_is_deprioritized_below_higher_leverage_gap(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [
+            $this->gap('low-value', ['impact_on_quality' => 0.1, 'impact_on_autonomy' => 0.1, 'expected_leverage' => 0.0]),
+            $this->gap('high-leverage', ['impact_on_quality' => 0.1, 'impact_on_autonomy' => 0.1, 'expected_leverage' => 0.9]),
+        ]]);
+
+        $this->assertSame('high-leverage', $r['ranked_gaps'][0]['gap_id']);
+        $this->assertSame('low-value', $r['ranked_gaps'][1]['gap_id']);
+    }
+
+    public function test_investigate_decision_yields_probe_shape_not_task_shape(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [
+            $this->gap('g1', ['impact_on_quality' => 0.9, 'impact_on_autonomy' => 0.9]),
+        ]]);
+
+        $entry = $this->gapResultFor($r, 'g1');
+        $this->assertSame('investigate', $entry['decision']);
+        $this->assertNotEmpty($entry['probe_shape']);
+        $this->assertNull($entry['task_shape']);
+        $this->assertNotEmpty($entry['future_origination_benefit']);
+    }
+
+    public function test_guardrail_decision_yields_task_shape_not_probe_shape(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [
+            $this->gap('g1', ['recurring_failure_signal' => true, 'impact_on_quality' => 0.9, 'impact_on_autonomy' => 0.9]),
+        ]]);
+
+        $entry = $this->gapResultFor($r, 'g1');
+        $this->assertSame('create_guardrail_task', $entry['decision']);
+        $this->assertNotEmpty($entry['task_shape']);
+        $this->assertNull($entry['probe_shape']);
+    }
+
+    public function test_required_context_defaults_to_missing_context_when_not_provided(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [
+            $this->gap('g1', ['missing_context' => 'lease_lifecycle_semantics']),
+        ]]);
+
+        $this->assertSame('lease_lifecycle_semantics', $this->gapResultFor($r, 'g1')['required_context']);
+    }
+
     public function test_shallow_context_domains_block_architecture_targets_and_produce_next_context_actions(): void
     {
         $r = $this->svc()->map([

@@ -154,7 +154,8 @@ final class AtlasExternalBrainComprehensionDeepeningMap
      *
      * @param  array<string,mixed>  $input  { gaps: list<{gap_id, missing_context,
      *   impact_on_quality?, impact_on_autonomy?, has_existing_evidence?,
-     *   recurring_failure_signal?, curiosity_only?}> }
+     *   recurring_failure_signal?, curiosity_only?, affected_capability?, uncertainty?,
+     *   stale_context_risk?, expected_leverage?, required_context?}> }
      * @return array<string,mixed>
      */
     public function rankGaps(array $input): array
@@ -174,6 +175,11 @@ final class AtlasExternalBrainComprehensionDeepeningMap
             $hasExistingEvidence = (bool) ($gap['has_existing_evidence'] ?? false);
             $recurringFailureSignal = (bool) ($gap['recurring_failure_signal'] ?? false);
             $curiosityOnly = (bool) ($gap['curiosity_only'] ?? false);
+            $affectedCapability = (string) ($gap['affected_capability'] ?? '');
+            $uncertainty = max(0.0, min(1.0, (float) ($gap['uncertainty'] ?? 0.0)));
+            $staleContextRisk = (bool) ($gap['stale_context_risk'] ?? false);
+            $expectedLeverage = max(0.0, min(1.0, (float) ($gap['expected_leverage'] ?? 0.0)));
+            $requiredContext = (string) ($gap['required_context'] ?? $missingContext);
 
             $impactScore = round(($impactOnQuality + $impactOnAutonomy) / 2, 4);
 
@@ -204,16 +210,48 @@ final class AtlasExternalBrainComprehensionDeepeningMap
                 ],
             };
 
+            // Ranking priority widens beyond raw impact_score to reflect uncertainty, stale
+            // context risk, and expected leverage — but the DECISION above is untouched, so
+            // every existing decision-threshold contract stays exact. With no new signals set
+            // (defaults 0/false), priority_score === impact_score, preserving prior ordering.
+            $priorityScore = round(
+                $impactScore + ($uncertainty * 0.2) + ($staleContextRisk ? 0.15 : 0.0) + ($expectedLeverage * 0.15),
+                4,
+            );
+
+            [$probeShape, $taskShape] = match ($decision) {
+                'investigate' => ["targeted_investigation_probe:{$missingContext}", null],
+                'read_evidence' => ["read_existing_evidence_probe:{$missingContext}", null],
+                'create_guardrail_task' => [null, "guardrail_task:{$missingContext}"],
+                default => [null, null],
+            };
+
+            $futureOriginationBenefit = match ($decision) {
+                'investigate' => "resolves {$missingContext} uncertainty so future origination relies on verified context instead of guessing",
+                'read_evidence' => "reuses existing evidence for {$missingContext} so future origination skips redundant investigation",
+                'create_guardrail_task' => "prevents recurrence of the {$missingContext} failure in future origination cycles",
+                default => 'no origination benefit yet — revisit once impact, uncertainty, or leverage increases',
+            };
+
             $rankedGaps[] = [
                 'gap_id' => $gapId,
                 'missing_context' => $missingContext,
                 'decision' => $decision,
                 'first_next_step' => $firstNextStep,
                 'impact_score' => $impactScore,
+                'affected_capability' => $affectedCapability,
+                'uncertainty' => $uncertainty,
+                'stale_context_risk' => $staleContextRisk,
+                'expected_leverage' => $expectedLeverage,
+                'priority_score' => $priorityScore,
+                'probe_shape' => $probeShape,
+                'task_shape' => $taskShape,
+                'required_context' => $requiredContext,
+                'future_origination_benefit' => $futureOriginationBenefit,
             ];
         }
 
-        usort($rankedGaps, static fn (array $a, array $b): int => $b['impact_score'] <=> $a['impact_score'] ?: strcmp($a['gap_id'], $b['gap_id']));
+        usort($rankedGaps, static fn (array $a, array $b): int => $b['priority_score'] <=> $a['priority_score'] ?: strcmp($a['gap_id'], $b['gap_id']));
 
         return [
             'schema_version' => self::SCHEMA,
