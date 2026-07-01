@@ -158,11 +158,25 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
             : [];
         $allowedNextActions = array_values(array_diff(self::ALL_ACTIONS, $blockedNextActions));
 
+        // stale_reasons/refresh_required: names WHY the evidence read as stale, so a decision other
+        // than create_more never looks like an unexplained refusal — queue depth alone never proves
+        // freshness.
+        $staleReasons = [];
+        if ($isStale) {
+            $staleReasons[] = sprintf('oldest_age_p95_seconds=%d>=stale_threshold_seconds=%d', $oldestAgeP95, $staleThreshold);
+        }
+        if ($waitRefusedByStaleness) {
+            $staleReasons[] = sprintf('blocked_or_quarantined_debt_stale:count=%d', $blockedCount + $quarantinedCount);
+        }
+        $refreshRequired = $decision !== self::DECISION_CREATE_MORE && $staleReasons !== [];
+
         return [
             'schema' => self::SCHEMA,
             'decision' => $decision,
             'confidence' => $confidence,
             'reasons' => $reasons,
+            'stale_reasons' => $staleReasons,
+            'refresh_required' => $refreshRequired,
             'allowed_next_actions' => $allowedNextActions,
             'blocked_next_actions' => $blockedNextActions,
             'required_evidence' => $requiredEvidence,

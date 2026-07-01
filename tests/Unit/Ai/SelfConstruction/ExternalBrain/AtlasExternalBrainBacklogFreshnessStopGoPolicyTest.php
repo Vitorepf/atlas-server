@@ -271,4 +271,64 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicyTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CONSOLIDATE, $r['decision']);
     }
+
+    // ── new AC: stale evidence with no downstream unlock never creates_more ──
+
+    public function test_stale_evidence_with_no_unlock_produces_non_create_decision_with_stale_reasons(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false],
+            'queue_age_histogram' => ['claimable_depth' => 5, 'oldest_age_p95_seconds' => 7200, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => ['observed_consumption_count' => 0],
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CREATE_MORE, $r['decision']);
+        $this->assertContains($r['decision'], [
+            AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_PAUSE_ORIGINATION,
+            AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_DRAIN_EXISTING,
+            AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_REPAIR_QUEUE,
+            AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CONSOLIDATE,
+        ]);
+        $this->assertNotEmpty($r['stale_reasons']);
+        $this->assertTrue($r['refresh_required']);
+    }
+
+    // ── new AC: fresh evidence with low claimable-per-worker + bottleneck-fixing batch goes create_more ──
+
+    public function test_fresh_evidence_low_claimable_per_worker_with_bottleneck_fixing_batch_creates_more(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false],
+            'queue_age_histogram' => ['claimable_depth' => 5, 'oldest_age_p95_seconds' => 7200, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => ['observed_consumption_count' => 0],
+            'proposed_batch_leverage' => ['fixes_bottleneck' => true],
+            'worker_feed' => ['active_worker_count' => 4, 'claimable_per_active_worker' => 1.0, 'floor' => 2.0],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CREATE_MORE, $r['decision']);
+        $this->assertNotEmpty($r['reasons']);
+        // refresh_required is false because the proposed batch already fixes the stale bottleneck —
+        // stale_reasons still names the underlying staleness for transparency.
+        $this->assertFalse($r['refresh_required']);
+    }
+
+    // ── new AC: blocked/quarantined debt is not usable supply; output has full field set ──
+
+    public function test_blocked_quarantined_debt_stale_output_includes_all_required_fields(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false],
+            'queue_age_histogram' => ['claimable_depth' => 0, 'oldest_age_p95_seconds' => 7200, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => ['observed_consumption_count' => 0],
+            'backlog_composition' => ['blocked_count' => 5, 'quarantined_count' => 1],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_REPAIR_QUEUE, $r['decision']);
+        $this->assertNotEmpty($r['stale_reasons']);
+        $this->assertTrue($r['refresh_required']);
+        $this->assertNotEmpty($r['required_evidence']);
+        $this->assertArrayHasKey('blocked_next_actions', $r);
+        $this->assertArrayHasKey('allowed_next_actions', $r);
+        $this->assertContains(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CREATE_MORE, $r['blocked_next_actions']);
+    }
 }
