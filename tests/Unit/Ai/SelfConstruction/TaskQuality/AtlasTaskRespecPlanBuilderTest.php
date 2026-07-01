@@ -113,4 +113,88 @@ final class AtlasTaskRespecPlanBuilderTest extends TestCase
                 "autonomy_regression rationale must not mention '{$word}'");
         }
     }
+
+    // ── AC1: blocked_reason_mapping, proof_requirements, rollback_plan, validation_gates ──
+
+    public function test_ready_plan_includes_all_new_ac_fields(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build([
+            'packet_id' => 'p-ready',
+            'contradictory_acceptance' => true,
+            'source_evidence' => ['doc:some-evidence'],
+            'implementation_target' => 'app/Services/Ai/AtlasFoo.php',
+        ]);
+
+        $this->assertArrayHasKey('blocked_reason_mapping', $r);
+        $this->assertArrayHasKey('proof_requirements', $r);
+        $this->assertArrayHasKey('rollback_plan', $r);
+        $this->assertArrayHasKey('validation_gates', $r);
+        $this->assertSame(
+            AtlasTaskRespecPlanBuilder::ACTION_REWRITE_OBJECTIVE,
+            $r['blocked_reason_mapping']['contradictory_acceptance'],
+        );
+        $this->assertNotEmpty($r['proof_requirements']);
+        $this->assertArrayHasKey('description', $r['rollback_plan']);
+        $this->assertArrayHasKey('requires_confirmation', $r['rollback_plan']);
+        $this->assertSame($r['revalidation_gates'], $r['validation_gates']);
+        $this->assertSame(AtlasTaskRespecPlanBuilder::STATUS_READY, $r['status']);
+    }
+
+    // ── AC2: not_ready when source evidence or implementation target is missing ──
+
+    public function test_missing_source_evidence_marks_plan_not_ready(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build([
+            'packet_id' => 'p-no-evidence',
+            'contradictory_acceptance' => true,
+            'source_evidence' => [],
+            'implementation_target' => 'app/Services/Ai/AtlasFoo.php',
+        ]);
+
+        $this->assertSame(AtlasTaskRespecPlanBuilder::STATUS_NOT_READY, $r['status']);
+    }
+
+    public function test_missing_implementation_target_marks_plan_not_ready(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build([
+            'packet_id' => 'p-no-target',
+            'contradictory_acceptance' => true,
+            'source_evidence' => ['doc:some-evidence'],
+            'implementation_target' => '',
+        ]);
+
+        $this->assertSame(AtlasTaskRespecPlanBuilder::STATUS_NOT_READY, $r['status']);
+    }
+
+    public function test_keep_action_is_always_ready_regardless_of_evidence(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build(['packet_id' => 'p-keep']);
+
+        $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_KEEP, $r['action']);
+        $this->assertSame(AtlasTaskRespecPlanBuilder::STATUS_READY, $r['status']);
+    }
+
+    // ── AC3: high-risk rollback requirements ──────────────────────────────────
+
+    public function test_quarantine_rollback_requires_confirmation(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build(['packet_id' => 'p-q', 'too_many_deficiencies' => true]);
+
+        $this->assertTrue($r['rollback_plan']['requires_confirmation']);
+        $this->assertNotEmpty($r['rollback_plan']['description']);
+    }
+
+    public function test_split_rollback_requires_confirmation(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build(['packet_id' => 'p-split', 'hidden_poison_facts' => ['too_broad_scope']]);
+
+        $this->assertTrue($r['rollback_plan']['requires_confirmation']);
+    }
+
+    public function test_add_file_rollback_does_not_require_confirmation(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build(['packet_id' => 'p-add', 'missing_files' => ['app/X.php']]);
+
+        $this->assertFalse($r['rollback_plan']['requires_confirmation']);
+    }
 }

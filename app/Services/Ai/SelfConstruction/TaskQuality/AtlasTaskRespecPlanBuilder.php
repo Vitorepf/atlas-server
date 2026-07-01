@@ -23,6 +23,18 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  *   give_back_hint                 — any other named hidden_poison_facts entry
  *   keep                           — no signal triggered
  *
+ * Every plan also carries:
+ *   - blocked_reason_mapping : the full static {blocked reason → action} table this builder
+ *     uses, so callers/auditors can introspect the decision surface without re-deriving it.
+ *   - proof_requirements     : concrete proof the respec author must supply before the action
+ *     is trusted (never a vague confirmation).
+ *   - rollback_plan          : {description, requires_confirmation} — how to undo the action if
+ *     it proves wrong; requires_confirmation=true for the higher-blast-radius actions
+ *     (quarantine_candidate, split_task_candidate).
+ *   - validation_gates       : alias of revalidation_gates under the AC-facing name.
+ *   - status                 : 'ready' unless the action proposes real respec work (anything but
+ *     'keep') AND source_evidence or implementation_target is missing, in which case 'not_ready'.
+ *
  * INVARIANTS:
  *   - DETERMINISTIC envelope.
  *   - PURE.
@@ -46,6 +58,46 @@ final class AtlasTaskRespecPlanBuilder
 
     public const ACTION_SPLIT = 'split_task_candidate';
 
+    public const STATUS_READY = 'ready';
+
+    public const STATUS_NOT_READY = 'not_ready';
+
+    /** Full static {blocked reason → action} table, surfaced verbatim on every plan. */
+    private const BLOCKED_REASON_TO_ACTION = [
+        'too_many_deficiencies' => self::ACTION_QUARANTINE,
+        'cli_clobber' => self::ACTION_QUARANTINE,
+        'forbidden_or_petreo_missing_file' => self::ACTION_QUARANTINE,
+        'contradictory_acceptance' => self::ACTION_REWRITE_OBJECTIVE,
+        'autonomy_regression' => self::ACTION_SPLIT,
+        'too_broad_scope' => self::ACTION_SPLIT,
+        'missing_files' => self::ACTION_ADD_FILE,
+        'named_hidden_poison' => self::ACTION_GIVE_BACK,
+        'no_signal' => self::ACTION_KEEP,
+    ];
+
+    /** action => concrete proof the respec author must supply — never a vague confirmation. */
+    private const ACTION_TO_PROOF_REQUIREMENTS = [
+        self::ACTION_QUARANTINE => ['operator_review_confirmation'],
+        self::ACTION_REWRITE_OBJECTIVE => ['acceptance_criteria_non_contradictory_proof', '/opt/homebrew/bin/php artisan test'],
+        self::ACTION_ADD_FILE => ['file_exists_proof', '/opt/homebrew/bin/php artisan test'],
+        self::ACTION_SPLIT => ['scope_boundary_proof', '/opt/homebrew/bin/php artisan test'],
+        self::ACTION_GIVE_BACK => ['poison_fact_resolution_proof'],
+        self::ACTION_KEEP => [],
+    ];
+
+    /** action => rollback description, if the action turns out wrong. */
+    private const ACTION_TO_ROLLBACK_DESCRIPTION = [
+        self::ACTION_QUARANTINE => 'revert the quarantine flag and restore the original packet status if the operator overturns it',
+        self::ACTION_REWRITE_OBJECTIVE => 'restore the original objective/acceptance_criteria from packet history if the rewrite proves wrong',
+        self::ACTION_ADD_FILE => 'remove the added allowed_files entries if the impl/test pair turns out unnecessary',
+        self::ACTION_SPLIT => 'discard the split slices and restore the original packet if the Atlas-native replacement fails validation',
+        self::ACTION_GIVE_BACK => 'no queue mutation is performed; give_back is itself reversible by re-claiming',
+        self::ACTION_KEEP => 'no action taken; nothing to roll back',
+    ];
+
+    /** Higher-blast-radius actions whose rollback requires explicit confirmation before applying. */
+    private const HIGH_RISK_ROLLBACK_ACTIONS = [self::ACTION_QUARANTINE, self::ACTION_SPLIT];
+
     /**
      * @param  array{
      *     packet_id?:string,
@@ -56,7 +108,7 @@ final class AtlasTaskRespecPlanBuilder
      *     cli_clobber?:bool,
      *     autonomy_regression?:bool
      * }  $facts
-     * @return array{schema:string, packet_id:string, action:string, rationale:string, affected_fields:list<string>, revalidation_gates:list<string>, replaces_authority?:string}
+     * @return array{schema:string, packet_id:string, action:string, rationale:string, affected_fields:list<string>, revalidation_gates:list<string>, validation_gates:list<string>, blocked_reason_mapping:array<string,string>, proof_requirements:list<string>, rollback_plan:array{description:string,requires_confirmation:bool}, status:string, replaces_authority?:string}
      */
     public function build(array $facts): array
     {
@@ -64,7 +116,14 @@ final class AtlasTaskRespecPlanBuilder
         $poison = is_array($facts['hidden_poison_facts'] ?? null) ? array_values(array_map('strval', $facts['hidden_poison_facts'])) : [];
         $missing = is_array($facts['missing_files'] ?? null) ? array_values(array_map('strval', $facts['missing_files'])) : [];
 
-        $envelope = function (string $action, string $rationale, array $affected = [], array $gates = [], ?string $replaces = null) use ($id): array {
+        $hasSourceEvidence = ! empty($facts['source_evidence'] ?? null);
+        $hasImplementationTarget = trim((string) ($facts['implementation_target'] ?? '')) !== '';
+
+        $envelope = function (string $action, string $rationale, array $affected = [], array $gates = [], ?string $replaces = null) use ($id, $hasSourceEvidence, $hasImplementationTarget): array {
+            $status = ($action === self::ACTION_KEEP || ($hasSourceEvidence && $hasImplementationTarget))
+                ? self::STATUS_READY
+                : self::STATUS_NOT_READY;
+
             $payload = [
                 'schema' => self::SCHEMA,
                 'packet_id' => $id,
@@ -72,6 +131,14 @@ final class AtlasTaskRespecPlanBuilder
                 'rationale' => $rationale,
                 'affected_fields' => $affected,
                 'revalidation_gates' => $gates,
+                'validation_gates' => $gates,
+                'blocked_reason_mapping' => self::BLOCKED_REASON_TO_ACTION,
+                'proof_requirements' => self::ACTION_TO_PROOF_REQUIREMENTS[$action] ?? [],
+                'rollback_plan' => [
+                    'description' => self::ACTION_TO_ROLLBACK_DESCRIPTION[$action] ?? 'no rollback plan defined',
+                    'requires_confirmation' => in_array($action, self::HIGH_RISK_ROLLBACK_ACTIONS, true),
+                ],
+                'status' => $status,
             ];
             if ($replaces !== null) {
                 $payload['replaces_authority'] = $replaces;
