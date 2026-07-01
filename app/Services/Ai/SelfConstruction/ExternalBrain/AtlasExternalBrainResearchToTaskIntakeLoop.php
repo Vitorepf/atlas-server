@@ -14,10 +14,20 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * Pure: no I/O, no side effects — delegates rejection judgment entirely to the
  * digestor so there is exactly one place that decides what is grounded.
+ *
+ * AC4 (additive): provider-sensitive or copy-paste external content must never reach a task
+ * intent verbatim. providerSafeText() redacts secret-like key/value pairs and, past a fixed
+ * length ceiling, condenses long copy-pasted text into a short provider-safe design-intent
+ * summary rather than emitting the raw blob. Applied to `objective` and `source_evidence` only —
+ * every other intent field is untouched.
  */
 final class AtlasExternalBrainResearchToTaskIntakeLoop
 {
     public const SCHEMA = 'atlas.external_brain.research_to_task_intake_loop.v1';
+
+    private const VERBATIM_MAX_CHARS = 220;
+
+    private const SUMMARY_KEEP_CHARS = 160;
 
     public function __construct(
         private readonly AtlasExternalBrainResearchToTaskDigestor $digestor = new AtlasExternalBrainResearchToTaskDigestor,
@@ -59,15 +69,38 @@ final class AtlasExternalBrainResearchToTaskIntakeLoop
 
         return [
             'task_packet_id' => 'research-intake-'.substr(hash('sha256', $targetPath.'|'.($candidate['source'] ?? '')), 0, 16),
-            'objective' => (string) ($candidate['leverage_claim'] ?? $candidate['pattern_summary'] ?? ''),
+            'objective' => $this->providerSafeText((string) ($candidate['leverage_claim'] ?? $candidate['pattern_summary'] ?? '')),
             'target_path' => $targetPath,
             'allowed_files' => $allowedFiles,
             'scope_in' => $allowedFiles,
             'acceptance_criteria' => array_values(array_filter([$runnableAcceptance])),
             'anti_goodhart_risks' => $antiGoodhartRisks,
             'source_type' => (string) ($candidate['source_type'] ?? ''),
-            'source_evidence' => (string) ($candidate['source_evidence'] ?? ''),
+            'source_evidence' => $this->providerSafeText((string) ($candidate['source_evidence'] ?? '')),
             'task_family' => (string) ($candidate['task_family'] ?? ''),
         ];
+    }
+
+    /**
+     * Redacts secret-like key/value pairs and condenses text past VERBATIM_MAX_CHARS into a
+     * short provider-safe design-intent summary, so raw copy-pasted external content or
+     * provider-sensitive strings never reach a task intent verbatim (AC4).
+     */
+    private function providerSafeText(string $text): string
+    {
+        $redacted = (string) preg_replace(
+            '/\b(SECRET|TOKEN|API_KEY|PASSWORD)([A-Z0-9_]*)\s*[:=]\s*\S+/i',
+            '$1$2=[REDACTED]',
+            $text,
+        );
+
+        if (mb_strlen($redacted) <= self::VERBATIM_MAX_CHARS) {
+            return $redacted;
+        }
+
+        $omitted = mb_strlen($redacted) - self::SUMMARY_KEEP_CHARS;
+
+        return mb_substr($redacted, 0, self::SUMMARY_KEEP_CHARS)
+            ." ... [summarized design intent: {$omitted} chars of external content condensed for provider-safe transfer]";
     }
 }
