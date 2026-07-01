@@ -186,6 +186,39 @@ final class AtlasExternalBrainResearchPatternPlan
             $penalties[] = 'stale_or_unverifiable_provenance:-0.20';
         }
 
+        // Local Atlas fit: opt-in via atlas_local_fit_score — a pattern with trusted provenance
+        // but weak fit to the actual local codebase (low fit score, no local symbols named, no
+        // concrete failure mode, no adaptation risk, no runnable evidence) must not be accepted
+        // just because the text reads well.
+        if (array_key_exists('atlas_local_fit_score', $entry)) {
+            $fitScore = max(0.0, min(1.0, (float) $entry['atlas_local_fit_score']));
+            if ($fitScore < 0.50) {
+                $score      -= 0.35;
+                $penalties[] = "weak_atlas_local_fit:-0.35(fit={$fitScore})";
+            }
+
+            $localSymbols = is_array($entry['local_symbols'] ?? null) ? array_filter($entry['local_symbols']) : [];
+            if (empty($localSymbols)) {
+                $score      -= 0.15;
+                $penalties[] = 'missing_local_symbols:-0.15';
+            }
+
+            if (trim((string) ($entry['atlas_failure_mode'] ?? '')) === '') {
+                $score      -= 0.15;
+                $penalties[] = 'missing_atlas_failure_mode:-0.15';
+            }
+
+            if (trim((string) ($entry['adaptation_risk'] ?? '')) === '') {
+                $score      -= 0.10;
+                $penalties[] = 'missing_adaptation_risk:-0.10';
+            }
+
+            if (trim((string) ($entry['runnable_evidence'] ?? '')) === '') {
+                $score      -= 0.15;
+                $penalties[] = 'missing_runnable_evidence:-0.15';
+            }
+        }
+
         return [round(max(0.0, min(1.0, $score)), 3), $penalties];
     }
 

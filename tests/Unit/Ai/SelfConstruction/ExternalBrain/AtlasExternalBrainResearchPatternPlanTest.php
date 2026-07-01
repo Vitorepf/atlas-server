@@ -388,4 +388,46 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
         $this->assertSame([], $r['draft']['score_explanation']);
         $this->assertSame(1.0, $r['draft']['adoption_score']);
     }
+
+    // ── AC: local Atlas fit / anti-hype floor ─────────────────────────────────
+
+    public function test_trusted_provenance_but_weak_local_fit_is_not_accepted(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'allowed_files_hint' => ['app/Services/Ai/AtlasWiringAdapter.php'],
+            'atlas_local_fit_score' => 0.10,
+        ]));
+
+        $this->assertFalse($r['accepted']);
+        $this->assertSame('below_minimum_adoption_score', $r['rejection_reason']);
+    }
+
+    public function test_concrete_failure_mode_local_symbols_fit_risk_and_evidence_is_accepted(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'allowed_files_hint' => ['app/Services/Ai/AtlasWiringAdapter.php'],
+            'atlas_local_fit_score' => 0.95,
+            'local_symbols' => ['AtlasTaskServingStack', 'AtlasWiringAdapter'],
+            'atlas_failure_mode' => 'AtlasTaskServingStack lease loss under concurrent claim retries',
+            'adaptation_risk' => 'may require an additional lease-fencing token',
+            'runnable_evidence' => 'php artisan test tests/Unit/AtlasWiringAdapterTest.php',
+        ]));
+
+        $this->assertTrue($r['accepted']);
+    }
+
+    public function test_accepted_opportunities_expose_anti_hype_risks_for_falsification(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'allowed_files_hint' => ['app/Services/Ai/AtlasWiringAdapter.php'],
+            'atlas_local_fit_score' => 0.95,
+            'local_symbols' => ['AtlasWiringAdapter'],
+            'atlas_failure_mode' => 'silent orphan wiring if adapter is never called by a real caller',
+            'adaptation_risk' => 'provider bleed risk if adapter calls out',
+            'runnable_evidence' => 'php artisan test tests/Unit/AtlasWiringAdapterTest.php',
+        ]));
+
+        $this->assertTrue($r['accepted']);
+        $this->assertNotEmpty($r['draft']['anti_hype_risks']);
+    }
 }
