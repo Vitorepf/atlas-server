@@ -23,6 +23,11 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
     private const DEFAULT_TARGET_COVERAGE = 3;
     private const HIGH_PRIORITY_FLOOR = 8.0;
 
+    /** claimable_per_active_worker at or below this ratio means workers are about to starve. */
+    private const WORKER_FLOOR_LOW_THRESHOLD = 2.0;
+
+    private const RUNNABLE_ACCEPTANCE_MARKERS = ['phpunit', 'artisan test', 'pytest', 'jest', 'rspec'];
+
     private const PRIORITY_NAME_VALUES = [
         'critical' => 10.0,
         'high' => 8.0,
@@ -59,11 +64,15 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
             $coverageCounts[$gapId] = ($coverageCounts[$gapId] ?? 0) + 1;
         }
 
+        $claimablePerActiveWorker = isset($facts['claimable_per_active_worker']) ? (float) $facts['claimable_per_active_worker'] : null;
+        $workerFloorLow = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= self::WORKER_FLOOR_LOW_THRESHOLD;
+
         $coverageByGap = [];
         $overcoveredGaps = [];
         $undercoveredHighPriorityGaps = [];
         $gapPriorities = [];
         $gapTargets = [];
+        $gapMaterial = [];
 
         foreach ($roadmapGaps as $gap) {
             $gap = (array) $gap;
@@ -76,6 +85,10 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
             $isHighPriority = $priorityValue >= self::HIGH_PRIORITY_FLOOR;
             $currentCoverage = $coverageCounts[$gapId] ?? 0;
             $isOvercovered = $currentCoverage >= $targetCoverage;
+            $gapMaterial[$gapId] = [
+                'allowed_files' => array_values(array_filter(array_map('strval', (array) ($gap['allowed_files'] ?? [])))),
+                'acceptance_criteria' => array_values(array_filter(array_map('strval', (array) ($gap['acceptance_criteria'] ?? [])))),
+            ];
 
             $gapPriorities[$gapId] = $priorityValue;
             $gapTargets[$gapId] = $targetCoverage;
@@ -101,6 +114,27 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
         }
 
         usort($undercoveredHighPriorityGaps, static fn (string $a, string $b): int => $coverageByGap[$b]['coverage_gap'] <=> $coverageByGap[$a]['coverage_gap']);
+
+        // Low worker floor: route high-confidence (undercovered + high priority) gaps into
+        // IMMEDIATE task-fabric replenishment instead of leaving them as abstract roadmap debt —
+        // but ONLY when the gap carries enough concrete material (allowed_files + a runnable
+        // acceptance criterion) to produce a real claimable task. A gap without that material
+        // stays roadmap debt rather than fabricating a claimable task with no real scope.
+        $taskFabricReplenishmentActions = [];
+        if ($workerFloorLow) {
+            foreach ($undercoveredHighPriorityGaps as $gapId) {
+                $material = $gapMaterial[$gapId] ?? ['allowed_files' => [], 'acceptance_criteria' => []];
+                if ($material['allowed_files'] !== [] && $this->hasRunnableAcceptance($material['acceptance_criteria'])) {
+                    $taskFabricReplenishmentActions[] = [
+                        'gap_id' => $gapId,
+                        'action' => 'task_fabric_replenishment',
+                        'allowed_files' => $material['allowed_files'],
+                        'acceptance_criteria' => $material['acceptance_criteria'],
+                        'reason' => 'low_worker_floor_routes_high_confidence_gap_to_immediate_replenishment',
+                    ];
+                }
+            }
+        }
 
         $candidateBatchDecisions = [];
         foreach ($candidateBatches as $candidate) {
@@ -129,8 +163,28 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
             'undercovered_high_priority_gaps' => array_values($undercoveredHighPriorityGaps),
             'next_batch_should_target' => array_values($undercoveredHighPriorityGaps),
             'candidate_batch_decisions' => $candidateBatchDecisions,
+            'worker_floor_low' => $workerFloorLow,
+            'claimable_per_active_worker' => $claimablePerActiveWorker,
+            'task_fabric_replenishment_actions' => $taskFabricReplenishmentActions,
             'mutates_queue' => false,
         ];
+    }
+
+    /**
+     * @param  list<string>  $acceptanceCriteria
+     */
+    private function hasRunnableAcceptance(array $acceptanceCriteria): bool
+    {
+        foreach ($acceptanceCriteria as $criterion) {
+            $lower = strtolower($criterion);
+            foreach (self::RUNNABLE_ACCEPTANCE_MARKERS as $marker) {
+                if (str_contains($lower, $marker)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function priorityValue(mixed $priority): float

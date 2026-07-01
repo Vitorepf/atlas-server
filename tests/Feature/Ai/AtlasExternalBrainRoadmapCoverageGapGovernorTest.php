@@ -108,4 +108,65 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernorTest extends TestCase
         $this->assertSame('allowed', $result['candidate_batch_decisions'][0]['decision']);
         $this->assertFalse($result['mutates_queue']);
     }
+
+    // ── worker-floor routing: low floor + concrete gap material → immediate replenishment ──
+
+    public function test_low_worker_floor_routes_high_confidence_gap_to_task_fabric_replenishment(): void
+    {
+        $result = $this->governor()->govern([
+            'roadmap_gaps' => [[
+                'gap_id' => 'gap-needs-work',
+                'priority' => 'high',
+                'target_coverage' => 3,
+                'allowed_files' => ['app/Services/Foo.php'],
+                'acceptance_criteria' => ['Runnable proof: ./vendor/bin/phpunit tests/Unit/FooTest.php'],
+            ]],
+            'queued_tasks' => [['gap_id' => 'gap-needs-work']],
+            'claimable_per_active_worker' => 1.0,
+        ]);
+
+        $this->assertTrue($result['worker_floor_low']);
+        $this->assertCount(1, $result['task_fabric_replenishment_actions']);
+        $action = $result['task_fabric_replenishment_actions'][0];
+        $this->assertSame('gap-needs-work', $action['gap_id']);
+        $this->assertSame('task_fabric_replenishment', $action['action']);
+        $this->assertSame(['app/Services/Foo.php'], $action['allowed_files']);
+        $this->assertSame(['Runnable proof: ./vendor/bin/phpunit tests/Unit/FooTest.php'], $action['acceptance_criteria']);
+    }
+
+    public function test_healthy_worker_floor_keeps_gap_as_roadmap_debt_without_fabricating_task(): void
+    {
+        $result = $this->governor()->govern([
+            'roadmap_gaps' => [[
+                'gap_id' => 'gap-needs-work',
+                'priority' => 'high',
+                'target_coverage' => 3,
+                'allowed_files' => ['app/Services/Foo.php'],
+                'acceptance_criteria' => ['Runnable proof: ./vendor/bin/phpunit tests/Unit/FooTest.php'],
+            ]],
+            'queued_tasks' => [['gap_id' => 'gap-needs-work']],
+            'claimable_per_active_worker' => 10.0,
+        ]);
+
+        $this->assertFalse($result['worker_floor_low']);
+        $this->assertSame([], $result['task_fabric_replenishment_actions']);
+        $this->assertContains('gap-needs-work', $result['undercovered_high_priority_gaps']);
+    }
+
+    public function test_low_worker_floor_without_concrete_material_refuses_replenishment(): void
+    {
+        $result = $this->governor()->govern([
+            'roadmap_gaps' => [[
+                'gap_id' => 'gap-vague',
+                'priority' => 'high',
+                'target_coverage' => 3,
+            ]],
+            'queued_tasks' => [],
+            'claimable_per_active_worker' => 1.0,
+        ]);
+
+        $this->assertTrue($result['worker_floor_low']);
+        $this->assertSame([], $result['task_fabric_replenishment_actions']);
+        $this->assertContains('gap-vague', $result['undercovered_high_priority_gaps']);
+    }
 }
