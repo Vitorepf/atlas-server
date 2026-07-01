@@ -140,6 +140,48 @@ final class AtlasAutonomousRuntimeHeartbeatLedger
     }
 
     /**
+     * Structured per-phase heartbeat health: last_seen_at, stale_seconds, and a concrete
+     * recovery_hint for stale phases — so a 24/7 loop that silently died surfaces WHICH phase
+     * stopped reporting and what to do about it, not just a flat stale/fresh label.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @return list<array{phase:string, last_seen_at:int, stale_seconds:int, is_stale:bool, recovery_hint:?string}>
+     */
+    public function stalePhaseDetails(array $records, int $nowUnix, int $staleThresholdSeconds = self::STALE_THRESHOLD_SECONDS): array
+    {
+        $latest = [];
+        foreach ($records as $record) {
+            $phase = (string) ($record['state'] ?? '');
+            $ts = (int) ($record['ts_unix'] ?? 0);
+            if ($phase !== '' && (! isset($latest[$phase]) || $ts > $latest[$phase])) {
+                $latest[$phase] = $ts;
+            }
+        }
+
+        $details = [];
+        foreach ($latest as $phase => $lastSeenAt) {
+            $staleSeconds = max(0, $nowUnix - $lastSeenAt);
+            $isStale = $staleSeconds > $staleThresholdSeconds;
+            $details[] = [
+                'phase' => $phase,
+                'last_seen_at' => $lastSeenAt,
+                'stale_seconds' => $staleSeconds,
+                'is_stale' => $isStale,
+                'recovery_hint' => $isStale
+                    ? sprintf(
+                        "phase '%s' has not reported in %ds (threshold %ds) — restart the autonomous runtime supervisor for this phase and verify the last cycle completed cleanly",
+                        $phase, $staleSeconds, $staleThresholdSeconds,
+                    )
+                    : null,
+            ];
+        }
+
+        usort($details, static fn (array $a, array $b): int => $a['phase'] <=> $b['phase']);
+
+        return $details;
+    }
+
+    /**
      * Return required phases that have no record in the supplied list.
      *
      * @param  list<array<string,mixed>>  $records

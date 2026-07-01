@@ -152,4 +152,83 @@ final class AtlasAutonomousRuntimeHeartbeatLedgerTest extends TestCase
         $this->assertCount(2, $a->readRecent());
         $this->assertCount(2, $b->readRecent());
     }
+
+    // ── AC1: stale phase details expose phase, last_seen_at, stale_seconds, recovery_hint ──
+
+    public function test_stale_phase_details_include_last_seen_at_stale_seconds_and_recovery_hint(): void
+    {
+        $ledger = new AtlasAutonomousRuntimeHeartbeatLedger($this->path);
+        $records = [
+            ['state' => 'observe', 'ts_unix' => 1700000000],
+            ['state' => 'plan', 'ts_unix' => 1700000100],
+        ];
+
+        $details = $ledger->stalePhaseDetails($records, nowUnix: 1700000400, staleThresholdSeconds: 300);
+        $byPhase = array_column($details, null, 'phase');
+
+        $this->assertTrue($byPhase['observe']['is_stale']);
+        $this->assertSame(1700000000, $byPhase['observe']['last_seen_at']);
+        $this->assertSame(400, $byPhase['observe']['stale_seconds']);
+        $this->assertNotEmpty($byPhase['observe']['recovery_hint']);
+        $this->assertStringContainsString('observe', $byPhase['observe']['recovery_hint']);
+
+        $this->assertFalse($byPhase['plan']['is_stale']);
+        $this->assertNull($byPhase['plan']['recovery_hint']);
+    }
+
+    // ── AC4: no-stale healthy ledger ────────────────────────────────────────────
+
+    public function test_healthy_ledger_has_no_stale_phases_and_no_recovery_hints(): void
+    {
+        $ledger = new AtlasAutonomousRuntimeHeartbeatLedger($this->path);
+        $records = [
+            ['state' => 'observe', 'ts_unix' => 1700000390],
+            ['state' => 'plan', 'ts_unix' => 1700000395],
+            ['state' => 'execute', 'ts_unix' => 1700000400],
+        ];
+
+        $result = $ledger->classifyStalePhases($records, nowUnix: 1700000400, staleThresholdSeconds: 300);
+        $this->assertSame([], $result['stale']);
+
+        $details = $ledger->stalePhaseDetails($records, nowUnix: 1700000400, staleThresholdSeconds: 300);
+        foreach ($details as $d) {
+            $this->assertFalse($d['is_stale']);
+            $this->assertNull($d['recovery_hint']);
+        }
+    }
+
+    // ── AC3: missing cycle_id/state/ts_unix/evidence_refs is a rejected heartbeat ──
+
+    public function test_missing_cycle_id_blocks_append(): void
+    {
+        $ledger = new AtlasAutonomousRuntimeHeartbeatLedger($this->path);
+        $bad = $this->record();
+        unset($bad['cycle_id']);
+
+        $verdict = $ledger->append($bad);
+        $this->assertFalse($verdict['appended']);
+        $this->assertContains('missing_field:cycle_id', $verdict['blockers']);
+    }
+
+    public function test_missing_state_blocks_append(): void
+    {
+        $ledger = new AtlasAutonomousRuntimeHeartbeatLedger($this->path);
+        $bad = $this->record();
+        unset($bad['state']);
+
+        $verdict = $ledger->append($bad);
+        $this->assertFalse($verdict['appended']);
+        $this->assertContains('missing_field:state', $verdict['blockers']);
+    }
+
+    public function test_missing_ts_unix_blocks_append(): void
+    {
+        $ledger = new AtlasAutonomousRuntimeHeartbeatLedger($this->path);
+        $bad = $this->record();
+        unset($bad['ts_unix']);
+
+        $verdict = $ledger->append($bad);
+        $this->assertFalse($verdict['appended']);
+        $this->assertContains('missing_field:ts_unix', $verdict['blockers']);
+    }
 }
