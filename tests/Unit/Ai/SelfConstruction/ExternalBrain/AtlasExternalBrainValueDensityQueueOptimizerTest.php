@@ -299,9 +299,11 @@ final class AtlasExternalBrainValueDensityQueueOptimizerTest extends TestCase
         $this->assertSame(AtlasExternalBrainValueDensityQueueOptimizer::ACTION_FEED_QUEUE, $result['action']);
     }
 
-    public function test_saturated_queue_returns_drain_first_even_with_high_risk(): void
+    public function test_saturated_but_low_density_high_risk_queue_does_not_drain(): void
     {
-        // oversaturation for 1 muscle = 5; 5 risky packets → drain_first takes priority
+        // oversaturation for 1 muscle = 5; 5 packets clears the depth/oversaturation count, but
+        // riskyPacket() uses density 0.01/100 = 0.0001 (far below floor) and high malformed_risk —
+        // depth alone must NEVER read as "enough", so this must NOT drain_first.
         $packets = array_map(
             fn (int $i) => $this->riskyPacket("p{$i}", 'malformed_risk', 0.90),
             range(0, 4),
@@ -311,7 +313,19 @@ final class AtlasExternalBrainValueDensityQueueOptimizerTest extends TestCase
             'muscle_count' => 1,
         ]);
 
-        $this->assertSame(AtlasExternalBrainValueDensityQueueOptimizer::ACTION_DRAIN_FIRST, $result['action']);
+        $this->assertSame(AtlasExternalBrainValueDensityQueueOptimizer::ACTION_SELF_HEAL_OR_RESPEC, $result['action']);
+    }
+
+    public function test_saturated_but_low_density_low_risk_queue_feeds_not_drains(): void
+    {
+        // Same deep-but-low-density queue, no risk this time → feed_queue, still never drain_first.
+        $packets = $this->makePackets(5, 0.01, 100.0);
+        $result = $this->optimizer()->optimize([
+            'packets'      => $packets,
+            'muscle_count' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainValueDensityQueueOptimizer::ACTION_FEED_QUEUE, $result['action']);
     }
 
     public function test_aggregate_risk_score_reflects_max_of_mean_signals(): void
@@ -441,5 +455,81 @@ final class AtlasExternalBrainValueDensityQueueOptimizerTest extends TestCase
 
         $this->assertSame(1, $result['enqueue_count']);
         $this->assertSame(1, $result['defer_count']);
+    }
+
+    // ── worker feed buffer under high queue pressure ───────────────────────────
+
+    public function test_rank_candidates_preserves_worker_feed_buffer_under_high_queue_pressure(): void
+    {
+        // All low-density candidates (well below any realistic cutoff), heavy queue pressure,
+        // 2 active workers → the buffer must still guarantee enqueue for the top 2, never all-defer.
+        $result = $this->optimizer()->rankCandidates([
+            'candidates' => [
+                $this->candidate('low-a', ['impact' => 0.02, 'implementation_size' => 180]),
+                $this->candidate('low-b', ['impact' => 0.01, 'implementation_size' => 180]),
+                $this->candidate('low-c', ['impact' => 0.01, 'implementation_size' => 180]),
+            ],
+            'claimable_count' => 50,
+            'capacity' => 10,
+            'active_worker_count' => 2,
+            'minimum_worker_feed_count' => 2,
+        ]);
+
+        $decisions = array_column($result['ranked_candidates'], 'decision');
+        $this->assertSame(2, count(array_filter($decisions, fn (string $d): bool => $d === 'enqueue')));
+    }
+
+    // ── stop_allowed + decision_explanation ────────────────────────────────────
+
+    public function test_stop_allowed_false_by_default(): void
+    {
+        $result = $this->optimizer()->optimize(['packets' => $this->makePackets(3, 1.0, 1.0), 'muscle_count' => 1]);
+
+        $this->assertFalse($result['stop_allowed']);
+    }
+
+    public function test_stop_allowed_false_when_exhaustion_verified_but_workers_still_active(): void
+    {
+        $result = $this->optimizer()->optimize([
+            'verified_target_exhaustion' => true,
+            'active_worker_count' => 1,
+        ]);
+
+        $this->assertFalse($result['stop_allowed']);
+    }
+
+    public function test_stop_allowed_false_when_workers_idle_but_exhaustion_unverified(): void
+    {
+        $result = $this->optimizer()->optimize([
+            'verified_target_exhaustion' => false,
+            'active_worker_count' => 0,
+        ]);
+
+        $this->assertFalse($result['stop_allowed']);
+    }
+
+    public function test_stop_allowed_true_only_when_both_conditions_hold(): void
+    {
+        $result = $this->optimizer()->optimize([
+            'verified_target_exhaustion' => true,
+            'active_worker_count' => 0,
+        ]);
+
+        $this->assertTrue($result['stop_allowed']);
+    }
+
+    public function test_decision_explanation_present_and_non_empty_for_every_action(): void
+    {
+        $drain = $this->optimizer()->optimize(['packets' => $this->makePackets(3, 1.0, 1.0), 'muscle_count' => 1, 'value_density_floor' => 0.5]);
+        $feed = $this->optimizer()->optimize(['packets' => [$this->packet('clean', 1.0, 1.0)], 'muscle_count' => 1]);
+        $heal = $this->optimizer()->optimize(['packets' => [$this->riskyPacket('p0', 'malformed_risk', 0.80)], 'muscle_count' => 1]);
+
+        foreach ([$drain, $feed, $heal] as $result) {
+            $this->assertIsString($result['decision_explanation']);
+            $this->assertNotEmpty($result['decision_explanation']);
+        }
+
+        // Never justifies drain_first by depth alone — density must always be cited too.
+        $this->assertStringContainsString('value_density', $drain['decision_explanation']);
     }
 }

@@ -9,9 +9,11 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * or self-heal / respec when shallow depth is caused by risky / malformed packets.
  *
  * DECISION PRIORITY (first match wins):
- *   drain_first         — queue already has enough high-value work
- *                         triggers: claimable_count >= oversaturation_limit
- *                                OR (claimable_count >= depth_floor AND value_density >= floor)
+ *   drain_first         — queue already has enough high-value work. Depth alone (however deep)
+ *                         is NEVER sufficient — value_density must also clear the floor, or a
+ *                         deep queue of low-value/high-risk packets would wrongly read as "stop".
+ *                         triggers: value_density >= floor
+ *                                   AND (claimable_count >= oversaturation_limit OR claimable_count >= depth_floor)
  *   self_heal_or_respec — queue is shallow/low-density AND aggregate risk is high
  *                         triggers: would otherwise be feed_queue
  *                                   AND max(mean_give_back_risk,
@@ -177,6 +179,8 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
         $depthMultiplier   = max(1, (int) ($input['depth_floor_multiplier']      ?? self::DEFAULT_DEPTH_FLOOR_MULTIPLIER));
         $oversatMultiplier = max(1, (int) ($input['oversaturation_multiplier']   ?? self::DEFAULT_OVERSAT_MULTIPLIER));
         $riskCeiling       = (float) ($input['risk_trigger_ceiling']             ?? self::DEFAULT_RISK_TRIGGER_CEILING);
+        $activeWorkerCount = max(0, (int) ($input['active_worker_count']         ?? 0));
+        $verifiedTargetExhaustion = (bool) ($input['verified_target_exhaustion'] ?? false);
 
         $depthFloor       = $muscleCount * $depthMultiplier;
         $oversatLimit     = $muscleCount * $oversatMultiplier;
@@ -237,18 +241,25 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
             'packet_id',
         ));
 
-        // Decision (priority order).
-        if ($claimableCount >= $oversatLimit
-            || ($claimableCount >= $depthFloor && $valueDensityScore >= $valueDensityFloor)
-        ) {
+        // Decision (priority order). Depth alone (count >= oversaturation_limit or depth_floor)
+        // is NEVER sufficient to drain — value_density must also clear the floor, otherwise a
+        // deep queue of low-value/high-risk packets would misread as "enough work, stop feeding".
+        $hasEnoughDepth = $claimableCount >= $oversatLimit || $claimableCount >= $depthFloor;
+        if ($hasEnoughDepth && $valueDensityScore >= $valueDensityFloor) {
             $action = self::ACTION_DRAIN_FIRST;
+            $decisionExplanation = "depth {$claimableCount} clears floor AND value_density {$valueDensityScore} clears floor {$valueDensityFloor} — real high-value work queued, safe to drain.";
         } elseif ($needsFeeding && $isHighRisk) {
             $action = self::ACTION_SELF_HEAL_OR_RESPEC;
+            $decisionExplanation = "queue needs feeding but aggregate_risk_score {$aggregateRisk} >= risk_trigger_ceiling {$riskCeiling} — self-heal/respec before feeding blind.";
         } elseif ($needsFeeding) {
             $action = self::ACTION_FEED_QUEUE;
+            $decisionExplanation = "depth {$claimableCount} below floor {$depthFloor} or value_density {$valueDensityScore} below floor {$valueDensityFloor}, and risk is acceptable — feed more high-value work.";
         } else {
             $action = self::ACTION_PRIORITIZE_TOP;
+            $decisionExplanation = 'depth and value_density both adequate — optimising selection within the existing queue rather than stopping on depth alone.';
         }
+
+        $stopAllowed = $verifiedTargetExhaustion && $activeWorkerCount === 0;
 
         return [
             'schema'                  => self::SCHEMA,
@@ -258,6 +269,8 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
             'top_packet_classes'      => $topPacketClasses,
             'low_value_tail'          => $lowValueTail,
             'muscle_minutes_capacity' => $muscleMinutesCap,
+            'stop_allowed'            => $stopAllowed,
+            'decision_explanation'    => $decisionExplanation,
         ];
     }
 }
