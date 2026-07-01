@@ -274,4 +274,44 @@ final class AtlasMaestroPriorityReshaperTest extends TestCase
         // pkt-A still rises despite give_back risk because it's explicitly dependency-critical.
         $this->assertSame(['pkt-A', 'pkt-B'], array_column($ordered, 'task_packet_id'));
     }
+
+    // ── AC: explainPriority() compound-impact scoring ─────────────────────────
+
+    public function test_boosts_tasks_that_unblock_downstream_reduce_poison_risk_or_repair_queue_health(): void
+    {
+        $r = $this->reshaper()->explainPriority([
+            'unblocks_downstream_count' => 3,
+            'reduces_poison_risk' => true,
+            'repairs_queue_health' => true,
+        ]);
+
+        $this->assertContains('unblocks_downstream_chain', $r['boost_reasons']);
+        $this->assertContains('reduces_poison_risk', $r['boost_reasons']);
+        $this->assertContains('repairs_queue_health', $r['boost_reasons']);
+        $this->assertGreaterThan(0, $r['priority_delta']);
+    }
+
+    public function test_downranks_stale_low_yield_families_and_repeated_weak_green_shapes(): void
+    {
+        $r = $this->reshaper()->explainPriority([
+            'stale_low_yield_family' => true,
+            'repeated_weak_green_shape' => true,
+        ]);
+
+        $this->assertContains('stale_low_yield_family', $r['downrank_reasons']);
+        $this->assertContains('repeated_weak_green_shape', $r['downrank_reasons']);
+        $this->assertLessThan(0, $r['priority_delta']);
+    }
+
+    public function test_explain_priority_output_includes_reshaped_priority_reasons_and_delta(): void
+    {
+        $r = $this->reshaper()->explainPriority([]);
+
+        foreach (['reshaped_priority', 'boost_reasons', 'downrank_reasons', 'priority_delta'] as $key) {
+            $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
+        }
+        $this->assertSame(0, $r['priority_delta']);
+        $this->assertSame([], $r['boost_reasons']);
+        $this->assertSame([], $r['downrank_reasons']);
+    }
 }

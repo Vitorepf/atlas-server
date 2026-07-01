@@ -123,6 +123,61 @@ final class AtlasMaestroPriorityReshaper
         return $ordered;
     }
 
+    /** Base priority score every packet starts from before boosts/downranks apply. */
+    private const BASE_PRIORITY = 5;
+
+    /**
+     * Explains a SINGLE packet's dynamic priority as compound impact facts, not a static label —
+     * boosts for unblocking downstream chains, reducing poison risk, or repairing queue health;
+     * downranks for stale low-yield families or repeated weak-green shapes.
+     *
+     * @param  array{
+     *   unblocks_downstream_count?:int, reduces_poison_risk?:bool, repairs_queue_health?:bool,
+     *   stale_low_yield_family?:bool, repeated_weak_green_shape?:bool,
+     * }  $facts
+     * @return array{reshaped_priority:int, boost_reasons:list<string>, downrank_reasons:list<string>, priority_delta:int}
+     */
+    public function explainPriority(array $facts): array
+    {
+        $unblocksDownstream = max(0, (int) ($facts['unblocks_downstream_count'] ?? 0));
+        $reducesPoisonRisk = (bool) ($facts['reduces_poison_risk'] ?? false);
+        $repairsQueueHealth = (bool) ($facts['repairs_queue_health'] ?? false);
+        $staleLowYieldFamily = (bool) ($facts['stale_low_yield_family'] ?? false);
+        $repeatedWeakGreenShape = (bool) ($facts['repeated_weak_green_shape'] ?? false);
+
+        $boostReasons = [];
+        $downrankReasons = [];
+        $delta = 0;
+
+        if ($unblocksDownstream > 0) {
+            $delta += 2;
+            $boostReasons[] = 'unblocks_downstream_chain';
+        }
+        if ($reducesPoisonRisk) {
+            $delta += 2;
+            $boostReasons[] = 'reduces_poison_risk';
+        }
+        if ($repairsQueueHealth) {
+            $delta += 1;
+            $boostReasons[] = 'repairs_queue_health';
+        }
+        if ($staleLowYieldFamily) {
+            $delta -= 2;
+            $downrankReasons[] = 'stale_low_yield_family';
+        }
+        if ($repeatedWeakGreenShape) {
+            $delta -= 1;
+            $downrankReasons[] = 'repeated_weak_green_shape';
+        }
+
+        return [
+            'reshaped_priority' => self::BASE_PRIORITY + $delta,
+            'boost_reasons' => $boostReasons,
+            'downrank_reasons' => $downrankReasons,
+            'priority_delta' => $delta,
+        ];
+    }
+
     /**
      * Idempotency surface: the digest of the canonical sequence row file. Identical calls write
      * identical bytes ⇒ identical digest.
