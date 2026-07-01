@@ -623,4 +623,46 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         $this->assertContains($candidate['trust_tier'], ['high', 'medium', 'low']);
         $this->assertSame('explicit adaptation note from operator', $candidate['adaptation_notes']);
     }
+
+    // ── AC4: deterministic ordering — never raw input-arrival order ────────────
+
+    public function test_promoted_candidates_are_ordered_by_trust_tier_regardless_of_input_order(): void
+    {
+        // Listed medium-trust idea FIRST, high-trust idea SECOND — output must still put the
+        // higher trust_tier first, proving order is computed, not inherited from input.
+        $result = $this->grounder->ground($this->input(
+            $this->good(['idea_id' => 'medium-trust', 'owner_files' => [], 'implementation_strategy' => '']),
+            $this->good(['idea_id' => 'high-trust']),
+        ));
+
+        $this->assertSame(2, $result['promoted_count']);
+        $this->assertSame('high-trust', $result['task_candidates'][0]['idea_id']);
+        $this->assertSame('high', $result['task_candidates'][0]['trust_tier']);
+        $this->assertSame('medium-trust', $result['task_candidates'][1]['idea_id']);
+        $this->assertSame('medium', $result['task_candidates'][1]['trust_tier']);
+    }
+
+    public function test_ordering_is_deterministic_across_repeated_calls(): void
+    {
+        $input = $this->input(
+            $this->good(['idea_id' => 'b-idea', 'owner_files' => [], 'implementation_strategy' => '']),
+            $this->good(['idea_id' => 'a-idea']),
+            $this->good(['idea_id' => 'c-idea', 'owner_files' => [], 'implementation_strategy' => '']),
+        );
+
+        $order1 = array_column($this->grounder->ground($input)['task_candidates'], 'idea_id');
+        $order2 = array_column($this->grounder->ground($input)['task_candidates'], 'idea_id');
+        $this->assertSame($order1, $order2, 'the same input must always produce the same candidate order');
+    }
+
+    public function test_equal_trust_tier_ties_break_by_idea_id_ascending(): void
+    {
+        $result = $this->grounder->ground($this->input(
+            $this->good(['idea_id' => 'zzz-idea']),
+            $this->good(['idea_id' => 'aaa-idea']),
+        ));
+
+        $ids = array_column($result['task_candidates'], 'idea_id');
+        $this->assertSame(['aaa-idea', 'zzz-idea'], $ids);
+    }
 }

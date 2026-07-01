@@ -98,6 +98,15 @@ final class AtlasExternalBrainResearchDigestGrounder
             $candidates[] = $this->buildCandidate($idea);
         }
 
+        // AC4: promoted candidates are exposed in a deterministic, meaningful order — highest
+        // trust_tier first, then highest compounding impact, then highest Atlas fit, with
+        // idea_id as the final stable tie-break — never raw input-arrival order.
+        usort($candidates, function (array $a, array $b): int {
+            return [self::trustTierRank($b['trust_tier']), $b['compounding_impact_score'], $b['atlas_fit_score']]
+                <=> [self::trustTierRank($a['trust_tier']), $a['compounding_impact_score'], $a['atlas_fit_score']]
+                ?: $a['idea_id'] <=> $b['idea_id'];
+        });
+
         return [
             'schema'            => self::SCHEMA,
             'task_candidates'   => $candidates,
@@ -237,6 +246,16 @@ final class AtlasExternalBrainResearchDigestGrounder
             $evidenceStrength >= 0.80 => 'high',
             $evidenceStrength >= 0.50 => 'medium',
             default                   => 'low',
+        };
+    }
+
+    /** Sort weight for trust_tier — higher is better. */
+    private static function trustTierRank(string $trustTier): int
+    {
+        return match ($trustTier) {
+            'high' => 2,
+            'medium' => 1,
+            default => 0,
         };
     }
 
