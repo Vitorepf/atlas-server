@@ -210,10 +210,189 @@ final class AtlasMaestroGiveBackPatternMinerTest extends TestCase
         $this->assertArrayNotHasKey('repair_confidence', $result['abstentions'][0]);
     }
 
+    // ── new root shapes: scope_gap, contradiction, missing_evidence, duplicate_capability, worker_mismatch ──
+
+    public function test_classify_give_back_reason_missing_evidence(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('missing_evidence', $miner->classifyGiveBackReason(['reason' => 'missing_evidence']));
+        $this->assertSame('missing_evidence', $miner->classifyGiveBackReason(['reason' => 'missing required evidence']));
+    }
+
+    public function test_classify_give_back_reason_worker_mismatch(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('worker_mismatch', $miner->classifyGiveBackReason(['reason' => 'worker_mismatch']));
+        $this->assertSame('worker_mismatch', $miner->classifyGiveBackReason(['reason' => 'wrong_worker for this task class']));
+    }
+
+    public function test_classify_give_back_reason_duplicate_capability(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('duplicate_capability', $miner->classifyGiveBackReason(['reason' => 'duplicate_capability']));
+        $this->assertSame('duplicate_capability', $miner->classifyGiveBackReason(['reason' => 'capability_already_exists']));
+        // generic "duplicate" with no capability mention must still fall to duplicate_or_noop.
+        $this->assertSame('duplicate_or_noop', $miner->classifyGiveBackReason(['reason' => 'duplicate task']));
+    }
+
+    public function test_classify_give_back_reason_scope_gap(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('scope_gap', $miner->classifyGiveBackReason(['reason' => 'scope_gap']));
+        $this->assertSame('scope_gap', $miner->classifyGiveBackReason(['reason' => 'acceptance requires a file outside scope, coverage gap']));
+    }
+
+    public function test_classify_give_back_reason_contradiction_distinct_from_contradictory_acceptance(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('contradiction', $miner->classifyGiveBackReason(['reason' => 'dependencies contradict each other']));
+        // the specific contradictory_acceptance phrasing still wins over the broader bucket.
+        $this->assertSame('contradictory_acceptance', $miner->classifyGiveBackReason(['reason' => 'contradictory_acceptance']));
+    }
+
+    public function test_mined_pattern_includes_sample_size_confidence_repair_action_and_admission_rule_hint(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 5; $i++) {
+            $rows[] = [
+                'task_class' => 'dup-cap-class',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => 'duplicate_capability',
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes(minSample: 5);
+
+        $row = $result['rows'][0];
+        $this->assertSame('duplicate_capability', $row['bucket']);
+        $this->assertSame(5, $row['sample_size']);
+        $this->assertSame('high', $row['confidence']);
+        $this->assertSame('reject_duplicate_capability', $row['repair_action']);
+        $this->assertStringStartsWith('admission_rule:', $row['admission_rule_hint']);
+    }
+
+    public function test_worker_mismatch_classification_end_to_end(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 5; $i++) {
+            $rows[] = [
+                'task_class' => 'worker-class',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => 'worker_mismatch',
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes(minSample: 5);
+
+        $row = $result['rows'][0];
+        $this->assertSame('worker_mismatch', $row['bucket']);
+        $this->assertSame('reroute_to_matching_worker', $row['repair_action']);
+    }
+
+    // ── mixed give_back rows within one shape ─────────────────────────────────
+
+    public function test_mixed_give_back_reasons_within_one_shape_split_supporting_bucket_counts(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 3; $i++) {
+            $rows[] = [
+                'task_class' => 'mixed-shape',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => 'missing_evidence',
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+        for ($i = 0; $i < 2; $i++) {
+            $rows[] = [
+                'task_class' => 'mixed-shape',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => 'worker_mismatch',
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes(minSample: 5);
+
+        $row = $result['rows'][0];
+        $this->assertSame(['missing_evidence' => 3, 'worker_mismatch' => 2], $row['supporting_bucket_counts']);
+        $this->assertSame('missing_evidence', $row['bucket']);
+        $this->assertSame(5, $row['sample_size']);
+    }
+
+    // ── low-sample confidence: too few give_backs to trust even a unanimous bucket ──
+
+    public function test_low_sample_confidence_when_give_back_count_below_confidence_floor(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 4; $i++) {
+            $rows[] = [
+                'task_class' => 'thin-evidence-class',
+                'served_delta' => 1,
+                'give_back_delta' => 0,
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+        // Exactly 1 give_back, unanimous on a single bucket — would be "100% dominant" but the
+        // sample is far too thin to trust.
+        $rows[] = [
+            'task_class' => 'thin-evidence-class',
+            'served_delta' => 1,
+            'give_back_delta' => 1,
+            'give_back_reason' => 'forbidden_self_target',
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'scope_in' => ['app/Services/Foo.php'],
+            'required_evidence' => ['tests_or_gates_result'],
+        ];
+
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes(minSample: 5);
+
+        $row = $result['rows'][0];
+        $this->assertSame(1, $row['sample_size']);
+        $this->assertSame('low', $row['confidence']);
+    }
+
+    public function test_zero_give_backs_in_a_served_shape_has_low_confidence_and_unknown_bucket(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 5; $i++) {
+            $rows[] = [
+                'task_class' => 'all-success-class',
+                'served_delta' => 1,
+                'give_back_delta' => 0,
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes(minSample: 5);
+
+        $row = $result['rows'][0];
+        $this->assertSame(0, $row['sample_size']);
+        $this->assertSame('low', $row['confidence']);
+        $this->assertSame('unknown', $row['bucket']);
+    }
+
     public function test_each_bucket_emits_a_respec_hint(): void
     {
         $miner = new AtlasMaestroGiveBackPatternMiner;
-        foreach (['missing_impl_file', 'forbidden_target', 'contradictory_acceptance', 'schema_mismatch', 'duplicate_or_noop', 'unknown'] as $bucket) {
+        foreach (['missing_impl_file', 'forbidden_target', 'missing_evidence', 'worker_mismatch', 'duplicate_capability', 'scope_gap', 'contradictory_acceptance', 'contradiction', 'schema_mismatch', 'duplicate_or_noop', 'unknown'] as $bucket) {
             // Build enough rows for each bucket to pass the sample floor.
             $rows = [];
             for ($i = 0; $i < 5; $i++) {
