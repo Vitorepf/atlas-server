@@ -16,7 +16,7 @@ use RuntimeException;
  *
  * INVARIANTS:
  *   - APPEND-ONLY: no public update() / delete() method — only {@see append()}, {@see get()},
- *     {@see verifyChain()}, {@see list()}.
+ *     {@see verifyChain()}, {@see list()}, {@see replayProof()}.
  *   - OPERATOR PRIMITIVE: any Approved or Rejected event with null operator_signature is rejected — this is
  *     the QUATERNITY invariant proving the operator was a real primitive, not optional.
  *   - CHAIN INTEGRITY: this_row_hash = sha256(canonical body including prev_row_hash); verifyChain() walks
@@ -28,6 +28,8 @@ use RuntimeException;
 final class AtlasMaestroDialogueDrivenPacketLedger
 {
     public const TABLE = 'dialogue_ledger_events';
+
+    public const REPLAY_PROOF_SCHEMA = 'atlas.quaternity.dialogue_ledger_replay_proof.v1';
 
     /** @var null|callable():int */
     private $clock;
@@ -169,6 +171,48 @@ final class AtlasMaestroDialogueDrivenPacketLedger
         }
 
         return ['ok' => true, 'total' => count($events), 'broken_ulid' => null, 'computed_hash' => null, 'stored_hash' => null];
+    }
+
+    /**
+     * Compact, READ-ONLY replay-proof summary of the whole dialogue-to-packet history — enough
+     * evidence for an operator to approve or reject a proposed packet without trusting raw chat
+     * state. Never appends a row or mutates the ledger; built entirely from {@see list()} and
+     * {@see verifyChain()}.
+     *
+     * @return array{schema_version:string, ok:bool, total_events:int, head_hash:string, tail_hash:string, shape_count:int, approved_count:int, rejected_count:int, broken_ulid:?string}
+     */
+    public function replayProof(): array
+    {
+        $events = $this->list();
+        $chain = $this->verifyChain();
+
+        $shapeHashes = [];
+        $approvedCount = 0;
+        $rejectedCount = 0;
+        foreach ($events as $event) {
+            $shapeHashes[$event->shapeHash] = true;
+            if ($event->eventType === DialogueLedgerEvent::TYPE_APPROVED) {
+                $approvedCount++;
+            }
+            if ($event->eventType === DialogueLedgerEvent::TYPE_REJECTED) {
+                $rejectedCount++;
+            }
+        }
+
+        $headHash = $events === [] ? DialogueLedgerChainHasher::GENESIS_PREV_HASH : $events[0]->prevRowHash;
+        $tailHash = $events === [] ? DialogueLedgerChainHasher::GENESIS_PREV_HASH : $events[count($events) - 1]->thisRowHash;
+
+        return [
+            'schema_version' => self::REPLAY_PROOF_SCHEMA,
+            'ok' => $chain['ok'],
+            'total_events' => $chain['total'],
+            'head_hash' => $headHash,
+            'tail_hash' => $tailHash,
+            'shape_count' => count($shapeHashes),
+            'approved_count' => $approvedCount,
+            'rejected_count' => $rejectedCount,
+            'broken_ulid' => $chain['broken_ulid'],
+        ];
     }
 
     private function stateForShape(string $shapeHash): string
