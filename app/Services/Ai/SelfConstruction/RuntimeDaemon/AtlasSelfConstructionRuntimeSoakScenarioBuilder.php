@@ -8,9 +8,11 @@ namespace App\Services\Ai\SelfConstruction\RuntimeDaemon;
  * Deterministic virtual 24/7 scenario builder for Self-Construction runtime daemon proof.
  *
  * Generates a bounded list of `virtual_ticks` covering green cycles, empty-queue replenish,
- * give_back repair, failed-gate hold, stale heartbeat recovery, pause/resume, safety stop and
- * scope expansion hold/admit. Pure — NO real time, NO file/provider/process/git/queue side
- * effects, NO scheduler interaction. Output is byte-stable for identical input.
+ * give_back repair, failed-gate hold, stale heartbeat recovery, pause/resume, safety stop,
+ * scope expansion hold/admit, learning feedback ingestion, knowledge sync refresh, task-fabric
+ * quality replenishment, and muscle outcome ingestion. Pure — NO real time, NO
+ * file/provider/process/git/queue side effects, NO scheduler interaction. Output is byte-stable
+ * for identical input.
  */
 final class AtlasSelfConstructionRuntimeSoakScenarioBuilder
 {
@@ -110,6 +112,30 @@ final class AtlasSelfConstructionRuntimeSoakScenarioBuilder
             'kind' => 'verification_pass',
             'expected_outcome' => 'verification_passed',
             'required_evidence' => ['verification_receipt'],
+            'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
+        ],
+        [
+            'kind' => 'learning_feedback_ingestion',
+            'expected_outcome' => 'learning_feedback_ingested',
+            'required_evidence' => ['learning_feedback_receipt'],
+            'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
+        ],
+        [
+            'kind' => 'knowledge_sync_refresh',
+            'expected_outcome' => 'knowledge_sync_refreshed',
+            'required_evidence' => ['knowledge_sync_receipt'],
+            'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
+        ],
+        [
+            'kind' => 'task_fabric_quality_replenish',
+            'expected_outcome' => 'task_fabric_quality_replenished',
+            'required_evidence' => ['task_fabric_quality_receipt'],
+            'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
+        ],
+        [
+            'kind' => 'muscle_outcome_learning',
+            'expected_outcome' => 'muscle_outcome_learned',
+            'required_evidence' => ['muscle_outcome_receipt'],
             'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
         ],
     ];

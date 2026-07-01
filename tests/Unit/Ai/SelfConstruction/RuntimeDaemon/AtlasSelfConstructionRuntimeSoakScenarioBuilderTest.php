@@ -157,4 +157,64 @@ class AtlasSelfConstructionRuntimeSoakScenarioBuilderTest extends TestCase
             self::assertStringNotContainsString($forbidden, $src, "builder must not contain {$forbidden}");
         }
     }
+
+    // ── AC: learning feedback, knowledge sync, task-fabric quality, muscle outcome ticks ──
+
+    public function test_default_scenario_includes_the_four_new_atlas_native_ticks(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeSoakScenarioBuilder)->build();
+        $kinds = array_unique(array_column($verdict['virtual_ticks'], 'kind'));
+
+        foreach ([
+            'learning_feedback_ingestion',
+            'knowledge_sync_refresh',
+            'task_fabric_quality_replenish',
+            'muscle_outcome_learning',
+        ] as $required) {
+            self::assertContains($required, $kinds, "scenario must include {$required}");
+        }
+    }
+
+    public function test_new_ticks_declare_required_evidence_and_forbidden_dependency_flags(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeSoakScenarioBuilder)->build();
+        $byKind = array_column($verdict['virtual_ticks'], null, 'kind');
+
+        $expected = [
+            'learning_feedback_ingestion' => ['expected_outcome' => 'learning_feedback_ingested', 'evidence' => 'learning_feedback_receipt'],
+            'knowledge_sync_refresh' => ['expected_outcome' => 'knowledge_sync_refreshed', 'evidence' => 'knowledge_sync_receipt'],
+            'task_fabric_quality_replenish' => ['expected_outcome' => 'task_fabric_quality_replenished', 'evidence' => 'task_fabric_quality_receipt'],
+            'muscle_outcome_learning' => ['expected_outcome' => 'muscle_outcome_learned', 'evidence' => 'muscle_outcome_receipt'],
+        ];
+
+        foreach ($expected as $kind => $spec) {
+            self::assertArrayHasKey($kind, $byKind, "{$kind} tick must be present");
+            $tick = $byKind[$kind];
+            self::assertSame($spec['expected_outcome'], $tick['expected_outcome']);
+            self::assertContains($spec['evidence'], $tick['required_evidence']);
+            self::assertContains('requires_operator', $tick['forbidden_dependency_flags']);
+            self::assertContains('requires_human', $tick['forbidden_dependency_flags']);
+            self::assertContains('requires_external_provider', $tick['forbidden_dependency_flags']);
+        }
+    }
+
+    public function test_scenario_hash_changes_when_new_tick_set_changes_the_cycle(): void
+    {
+        // Fewer ticks than the old 15-template cycle length: the new tick kinds now appear inside
+        // the window, changing the hash versus the pre-extension template set would have produced.
+        $builder = new AtlasSelfConstructionRuntimeSoakScenarioBuilder();
+        $verdict = $builder->build(['max_ticks' => 18, 'tick_step_seconds' => 60]);
+
+        $kinds = array_column($verdict['virtual_ticks'], 'kind');
+        self::assertContains('learning_feedback_ingestion', $kinds);
+        self::assertNotEmpty($verdict['scenario_hash']);
+    }
+
+    public function test_scenario_hash_remains_deterministic_for_identical_options_including_new_ticks(): void
+    {
+        $builder = new AtlasSelfConstructionRuntimeSoakScenarioBuilder();
+        $options = ['max_ticks' => 18, 'tick_step_seconds' => 60];
+
+        self::assertSame($builder->build($options)['scenario_hash'], $builder->build($options)['scenario_hash']);
+    }
 }
