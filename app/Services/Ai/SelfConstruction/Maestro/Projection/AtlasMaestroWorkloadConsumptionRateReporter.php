@@ -97,7 +97,17 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
      * in-flight work that hasn't actually finished.
      *
      * @param  array{transitions?: list<array{task_packet_id?:string, to?:string, at?:string}>, window_seconds?:int}  $input
-     * @return array{schema:string, consumption_rate_per_hour:float, transition_counts:array<string,int>, confidence:string, ignored_claim_only_count:int}
+     * @return array{
+     *   schema:string,
+     *   consumption_rate_per_hour:float,
+     *   raw_consumption_rate_per_hour:float,
+     *   green_delivery_rate_per_hour:float,
+     *   give_back_drag:float,
+     *   active_lease_pressure:float,
+     *   transition_counts:array<string,int>,
+     *   confidence:string,
+     *   ignored_claim_only_count:int
+     * }
      */
     public function reportFromVerifiedTransitions(array $input): array
     {
@@ -141,6 +151,8 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
 
         ksort($transitionCounts, SORT_STRING);
         $consumedCount = array_sum($transitionCounts);
+        $resolvedCount = (int) ($transitionCounts['resolved'] ?? 0);
+        $giveBackCount = (int) ($transitionCounts['give_back'] ?? 0);
 
         $windowSeconds = isset($input['window_seconds'])
             ? max(1, (int) $input['window_seconds'])
@@ -152,9 +164,16 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
             default => 'low',
         };
 
+        $observedTaskCount = count($byTask);
+        $rawRate = $this->tasksPerHour($consumedCount, $windowSeconds);
+
         return [
             'schema' => self::SCHEMA,
-            'consumption_rate_per_hour' => $this->tasksPerHour($consumedCount, $windowSeconds),
+            'consumption_rate_per_hour' => $rawRate,
+            'raw_consumption_rate_per_hour' => $rawRate,
+            'green_delivery_rate_per_hour' => $this->tasksPerHour($resolvedCount, $windowSeconds),
+            'give_back_drag' => $consumedCount > 0 ? round($giveBackCount / $consumedCount, 4) : 0.0,
+            'active_lease_pressure' => $observedTaskCount > 0 ? round($ignoredClaimOnlyCount / $observedTaskCount, 4) : 0.0,
             'transition_counts' => $transitionCounts,
             'confidence' => $confidence,
             'ignored_claim_only_count' => $ignoredClaimOnlyCount,
