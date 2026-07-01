@@ -87,6 +87,91 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
         ];
     }
 
+    private const TERMINAL_STATES = ['resolved', 'give_back'];
+
+    /**
+     * Measures consumption from VERIFIED state transitions only — a task must show a real
+     * claimable→claimed→(resolved|give_back) chain with timestamps to count. An active lease or
+     * a bare claim with no terminal transition is NEVER counted as completed throughput; it is
+     * tracked separately in ignored_claim_only_count so the rate can never be inflated by
+     * in-flight work that hasn't actually finished.
+     *
+     * @param  array{transitions?: list<array{task_packet_id?:string, to?:string, at?:string}>, window_seconds?:int}  $input
+     * @return array{schema:string, consumption_rate_per_hour:float, transition_counts:array<string,int>, confidence:string, ignored_claim_only_count:int}
+     */
+    public function reportFromVerifiedTransitions(array $input): array
+    {
+        $transitions = array_values(array_filter((array) ($input['transitions'] ?? []), 'is_array'));
+
+        $byTask = [];
+        foreach ($transitions as $t) {
+            $taskId = trim((string) ($t['task_packet_id'] ?? ''));
+            $to = (string) ($t['to'] ?? '');
+            $at = trim((string) ($t['at'] ?? ''));
+            if ($taskId === '' || $to === '' || $at === '') {
+                continue;
+            }
+            $byTask[$taskId][] = ['to' => $to, 'at' => $at];
+        }
+
+        $transitionCounts = [];
+        $ignoredClaimOnlyCount = 0;
+        $timestamps = [];
+
+        foreach ($byTask as $taskEvents) {
+            $hasClaimed = false;
+            $terminal = null;
+            foreach ($taskEvents as $event) {
+                if ($event['to'] === 'claimed') {
+                    $hasClaimed = true;
+                }
+                if (in_array($event['to'], self::TERMINAL_STATES, true)) {
+                    $terminal = $event;
+                }
+                $timestamps[] = $event['at'];
+            }
+
+            if ($terminal !== null && $hasClaimed) {
+                $transitionCounts[$terminal['to']] = ($transitionCounts[$terminal['to']] ?? 0) + 1;
+            } elseif ($hasClaimed) {
+                // Active lease / claim with no verified resolution — never counted as throughput.
+                $ignoredClaimOnlyCount++;
+            }
+        }
+
+        ksort($transitionCounts, SORT_STRING);
+        $consumedCount = array_sum($transitionCounts);
+
+        $windowSeconds = isset($input['window_seconds'])
+            ? max(1, (int) $input['window_seconds'])
+            : $this->windowSecondsFromTimestamps($timestamps);
+
+        $confidence = match (true) {
+            $consumedCount >= 5 => 'high',
+            $consumedCount >= 1 => 'medium',
+            default => 'low',
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'consumption_rate_per_hour' => $this->tasksPerHour($consumedCount, $windowSeconds),
+            'transition_counts' => $transitionCounts,
+            'confidence' => $confidence,
+            'ignored_claim_only_count' => $ignoredClaimOnlyCount,
+        ];
+    }
+
+    /** @param  list<string>  $timestamps */
+    private function windowSecondsFromTimestamps(array $timestamps): int
+    {
+        if ($timestamps === []) {
+            return 3600;
+        }
+        $parsed = array_map(static fn (string $ts): int => CarbonImmutable::parse($ts)->getTimestamp(), $timestamps);
+
+        return max(1, max($parsed) - min($parsed));
+    }
+
     /**
      * @param  array{events?:list<array<string,mixed>>}  $registrySnapshot
      * @return array{

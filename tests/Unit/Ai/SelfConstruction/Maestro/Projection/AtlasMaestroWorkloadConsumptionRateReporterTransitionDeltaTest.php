@@ -100,4 +100,57 @@ final class AtlasMaestroWorkloadConsumptionRateReporterTransitionDeltaTest exten
             $reporter->reportWithTransitionFallback($input),
         );
     }
+
+    // ── AC: reportFromVerifiedTransitions() consumes real transitions, never bare leases ──
+
+    public function test_counts_only_claimable_to_claimed_to_resolved_or_give_back_transitions_with_timestamps(): void
+    {
+        $r = (new AtlasMaestroWorkloadConsumptionRateReporter)->reportFromVerifiedTransitions([
+            'window_seconds' => 3600,
+            'transitions' => [
+                ['task_packet_id' => 'a', 'to' => 'claimable', 'at' => '2026-06-30T00:00:00Z'],
+                ['task_packet_id' => 'a', 'to' => 'claimed', 'at' => '2026-06-30T00:01:00Z'],
+                ['task_packet_id' => 'a', 'to' => 'resolved', 'at' => '2026-06-30T00:05:00Z'],
+                ['task_packet_id' => 'b', 'to' => 'claimable', 'at' => '2026-06-30T00:00:00Z'],
+                ['task_packet_id' => 'b', 'to' => 'claimed', 'at' => '2026-06-30T00:01:00Z'],
+                ['task_packet_id' => 'b', 'to' => 'give_back', 'at' => '2026-06-30T00:05:00Z'],
+            ],
+        ]);
+
+        $this->assertSame(1, $r['transition_counts']['resolved']);
+        $this->assertSame(1, $r['transition_counts']['give_back']);
+        $this->assertGreaterThan(0.0, $r['consumption_rate_per_hour']);
+    }
+
+    public function test_does_not_treat_active_leases_alone_as_completed_throughput(): void
+    {
+        $r = (new AtlasMaestroWorkloadConsumptionRateReporter)->reportFromVerifiedTransitions([
+            'window_seconds' => 3600,
+            'transitions' => [
+                ['task_packet_id' => 'a', 'to' => 'claimable', 'at' => '2026-06-30T00:00:00Z'],
+                ['task_packet_id' => 'a', 'to' => 'claimed', 'at' => '2026-06-30T00:01:00Z'],
+            ],
+        ]);
+
+        $this->assertSame([], $r['transition_counts']);
+        $this->assertSame(0.0, $r['consumption_rate_per_hour']);
+        $this->assertSame(1, $r['ignored_claim_only_count']);
+    }
+
+    public function test_output_includes_consumption_rate_transition_counts_confidence_and_ignored_claim_only_count(): void
+    {
+        $r = (new AtlasMaestroWorkloadConsumptionRateReporter)->reportFromVerifiedTransitions([
+            'window_seconds' => 3600,
+            'transitions' => [
+                ['task_packet_id' => 'a', 'to' => 'claimed', 'at' => '2026-06-30T00:01:00Z'],
+                ['task_packet_id' => 'a', 'to' => 'resolved', 'at' => '2026-06-30T00:05:00Z'],
+                ['task_packet_id' => 'b', 'to' => 'claimed', 'at' => '2026-06-30T00:01:00Z'],
+            ],
+        ]);
+
+        foreach (['consumption_rate_per_hour', 'transition_counts', 'confidence', 'ignored_claim_only_count'] as $key) {
+            $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
+        }
+        $this->assertSame(1, $r['ignored_claim_only_count']);
+    }
 }
