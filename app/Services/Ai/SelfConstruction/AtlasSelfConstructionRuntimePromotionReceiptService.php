@@ -30,6 +30,7 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
         string $expectedRuntimeGapMatrixHash = '',
         string $expectedRuntimePromotionClosureBasisHash = '',
         bool $loadLatestWhenEmpty = true,
+        bool $requireExtendedFields = false,
     ): array {
         if ($receipt === [] && $loadLatestWhenEmpty) {
             $receipt = $this->latestReceipt();
@@ -54,6 +55,20 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
         foreach (['receipt_id', 'signed_by', 'reason', 'runtime_gap_matrix_hash', 'runtime_promotion_basis_hash', 'runtime_promotion_closure_basis_hash', 'receipt_hash'] as $field) {
             if (trim((string) ($receipt[$field] ?? '')) === '') {
                 $violations[] = ['code' => 'required_runtime_promotion_receipt_field_missing', 'field' => $field];
+            }
+        }
+        // AC1: extended fields (evidence_refs, verdict, rollback_plan, runtime_target) are
+        // opt-in via require_extended_fields — existing callers that never set this option see
+        // no behavior change; new callers that pass true get the fuller verification surface.
+        if ($requireExtendedFields) {
+            foreach (['verdict', 'rollback_plan', 'runtime_target'] as $field) {
+                if (trim((string) ($receipt[$field] ?? '')) === '') {
+                    $violations[] = ['code' => 'required_runtime_promotion_receipt_field_missing', 'field' => $field];
+                }
+            }
+            $evidenceRefs = array_values(array_filter(array_map('strval', (array) ($receipt['evidence_refs'] ?? []))));
+            if ($evidenceRefs === []) {
+                $violations[] = ['code' => 'required_runtime_promotion_receipt_field_missing', 'field' => 'evidence_refs'];
             }
         }
         if ($this->isPlaceholderSigner((string) ($receipt['signed_by'] ?? ''))) {
@@ -183,8 +198,9 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
         string $expectedRuntimePromotionBasisHash = '',
         string $expectedRuntimeGapMatrixHash = '',
         string $expectedRuntimePromotionClosureBasisHash = '',
+        bool $requireExtendedFields = false,
     ): array {
-        $verification = $this->verify($receipt, $rows, $expectedRuntimePromotionBasisHash, $expectedRuntimeGapMatrixHash, $expectedRuntimePromotionClosureBasisHash);
+        $verification = $this->verify($receipt, $rows, $expectedRuntimePromotionBasisHash, $expectedRuntimeGapMatrixHash, $expectedRuntimePromotionClosureBasisHash, requireExtendedFields: $requireExtendedFields);
         if ((string) $verification['status'] !== 'passed') {
             return $verification + [
                 'persisted' => false,
@@ -194,6 +210,20 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
 
         $receiptHash = (string) $verification['receipt_hash'];
         $path = self::STORAGE_PREFIX.'/'.$receiptHash.'.json';
+
+        // AC2: persisting the same receipt hash twice never duplicates evidence — the second
+        // call returns the already-stored receipt untouched instead of re-writing it.
+        if (Storage::disk(self::STORAGE_DISK)->exists($path)) {
+            $existing = json_decode((string) Storage::disk(self::STORAGE_DISK)->get($path), true);
+
+            return $verification + [
+                'persisted' => true,
+                'already_persisted' => true,
+                'receipt_path' => $path,
+                'persisted_at' => is_array($existing) ? (string) ($existing['persisted_at'] ?? '') : '',
+            ];
+        }
+
         $stored = $receipt + [
             'schema_version' => self::SCHEMA_VERSION,
             'persisted_at' => CarbonImmutable::now()->toIso8601String(),
@@ -208,7 +238,70 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
 
         return $verification + [
             'persisted' => true,
+            'already_persisted' => false,
             'receipt_path' => $path,
+            'persisted_at' => (string) $stored['persisted_at'],
+        ];
+    }
+
+    /**
+     * AC3: replay lookup by stable receipt hash. Reports missing (not found) or tampered
+     * (stored payload's own hash no longer matches the requested lookup hash) rather than
+     * silently returning corrupted/mismatched evidence.
+     *
+     * @return array<string, mixed>
+     */
+    public function replayByHash(string $receiptHash): array
+    {
+        $normalizedHash = strtolower(trim($receiptHash));
+        if (preg_match('/^[a-f0-9]{64}$/', $normalizedHash) !== 1) {
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'mode' => self::MODE,
+                'status' => 'blocked',
+                'blocker' => 'receipt_hash_invalid',
+                'found' => false,
+                'tampered' => false,
+            ];
+        }
+
+        $path = self::STORAGE_PREFIX.'/'.$normalizedHash.'.json';
+        if (! Storage::disk(self::STORAGE_DISK)->exists($path)) {
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'mode' => self::MODE,
+                'status' => 'blocked',
+                'blocker' => 'receipt_not_found',
+                'found' => false,
+                'tampered' => false,
+            ];
+        }
+
+        $decoded = json_decode((string) Storage::disk(self::STORAGE_DISK)->get($path), true);
+        if (! is_array($decoded)) {
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'mode' => self::MODE,
+                'status' => 'blocked',
+                'blocker' => 'receipt_record_corrupt',
+                'found' => true,
+                'tampered' => true,
+            ];
+        }
+
+        $recomputedHash = $this->hashes()->runtimePromotionReceiptHash($decoded);
+        $tampered = $recomputedHash !== $normalizedHash;
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'status' => $tampered ? 'blocked' : 'passed',
+            'blocker' => $tampered ? 'receipt_hash_tamper_detected' : null,
+            'found' => true,
+            'tampered' => $tampered,
+            'receipt' => $decoded,
+            'receipt_hash' => $normalizedHash,
+            'recomputed_hash' => $recomputedHash,
         ];
     }
 
