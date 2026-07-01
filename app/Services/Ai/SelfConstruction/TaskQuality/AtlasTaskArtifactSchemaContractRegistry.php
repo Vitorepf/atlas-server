@@ -7,16 +7,25 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
 /**
  * Explicit schema contracts for Atlas Self-Construction artifacts, outside the pétreo Brain namespace.
  *
- * Covers four artifact kinds:
+ * Covers nine artifact kinds:
  *   - task_packet           : served task envelopes (authored by Brain, claimed by muscle)
  *   - frontier_candidate    : scope-expansion candidates (before enqueuing as a task)
  *   - blocked_respec_draft  : respec proposals for blocked/stuck packets
  *   - cortex_fact           : brain comprehension snapshots (mirrors AtlasCortexUniversalFactsSchema required fields)
+ *   - respec                : queue self-healing repair artifact — rescope a blocked packet
+ *   - replacement           : queue self-healing repair artifact — swap a packet for a proven-equivalent one
+ *   - cancellation           : queue self-healing repair artifact — retire a duplicate/obsolete packet
+ *   - operator_only          : queue self-healing repair artifact — hand a packet to the human gate
+ *   - evidence_repair        : queue self-healing repair artifact — supply the missing proof a packet needs
  *
  * Each contract exposes:
  *   - required_fields       : fields that MUST be present for the artifact to be valid
  *   - forbidden_proxy_fields: field names that signal proxy-only / scoring work (pétreo: never a score)
  *   - validation_hints      : actionable strings for authors and batch auditors
+ *
+ * The 5 queue self-healing repair kinds additionally forbid GENERIC_PROXY_FIELDS
+ * (vague_summary, looks_good, manual_review_only) — a repair artifact that guides autonomous
+ * queue self-healing must never let a vague verdict stand in for a concrete proof field.
  *
  * Pure: no I/O, no DB, no providers, no queue writes.
  */
@@ -28,9 +37,17 @@ final class AtlasTaskArtifactSchemaContractRegistry
     public const KIND_FRONTIER_CANDIDATE   = 'frontier_candidate';
     public const KIND_BLOCKED_RESPEC_DRAFT = 'blocked_respec_draft';
     public const KIND_CORTEX_FACT          = 'cortex_fact';
+    public const KIND_RESPEC               = 'respec';
+    public const KIND_REPLACEMENT          = 'replacement';
+    public const KIND_CANCELLATION         = 'cancellation';
+    public const KIND_OPERATOR_ONLY        = 'operator_only';
+    public const KIND_EVIDENCE_REPAIR      = 'evidence_repair';
 
     /** Pétreo universal: any artifact carrying these keys carries a hidden scoring rig. */
     private const SCORE_PROXY_FIELDS = ['score', 'rank', 'grade'];
+
+    /** Vague-verdict fields that replace concrete proof with an unverifiable claim. */
+    private const GENERIC_PROXY_FIELDS = ['vague_summary', 'looks_good', 'manual_review_only'];
 
     /**
      * Returns all registered artifact kinds.
@@ -44,6 +61,11 @@ final class AtlasTaskArtifactSchemaContractRegistry
             self::KIND_FRONTIER_CANDIDATE,
             self::KIND_BLOCKED_RESPEC_DRAFT,
             self::KIND_CORTEX_FACT,
+            self::KIND_RESPEC,
+            self::KIND_REPLACEMENT,
+            self::KIND_CANCELLATION,
+            self::KIND_OPERATOR_ONLY,
+            self::KIND_EVIDENCE_REPAIR,
         ];
     }
 
@@ -133,6 +155,91 @@ final class AtlasTaskArtifactSchemaContractRegistry
                     'facts only — no numeric verdicts; every unit key matching /^(score|rank|grade)$/i is rejected',
                     'evidence_refs must not contain provider keys, bearer tokens, or home paths',
                     'captured_at must be within the 48-hour freshness window',
+                ],
+            ],
+            self::KIND_RESPEC => [
+                'required_fields' => [
+                    'task_packet_id',
+                    'root_cause',
+                    'new_objective',
+                    'new_allowed_files',
+                    'new_acceptance_criteria',
+                ],
+                'forbidden_proxy_fields' => [
+                    ...self::SCORE_PROXY_FIELDS,
+                    ...self::GENERIC_PROXY_FIELDS,
+                    'confidence',
+                ],
+                'validation_hints' => [
+                    'root_cause must name the concrete blocker, not a vague_summary of the packet',
+                    'new_objective must resolve root_cause, not merely restate the original objective',
+                    'new_acceptance_criteria must include a runnable proof command',
+                ],
+            ],
+            self::KIND_REPLACEMENT => [
+                'required_fields' => [
+                    'original_task_packet_id',
+                    'replacement_task_packet_id',
+                    'replacement_reason',
+                    'behavior_equivalence_proof',
+                ],
+                'forbidden_proxy_fields' => [
+                    ...self::SCORE_PROXY_FIELDS,
+                    ...self::GENERIC_PROXY_FIELDS,
+                    'confidence',
+                ],
+                'validation_hints' => [
+                    'behavior_equivalence_proof must be a concrete before/after comparison, not looks_good',
+                    'replacement_reason must name why the original packet cannot proceed as-is',
+                ],
+            ],
+            self::KIND_CANCELLATION => [
+                'required_fields' => [
+                    'task_packet_id',
+                    'cancellation_reason',
+                    'evidence_of_duplicate_or_obsolete',
+                ],
+                'forbidden_proxy_fields' => [
+                    ...self::SCORE_PROXY_FIELDS,
+                    ...self::GENERIC_PROXY_FIELDS,
+                    'confidence',
+                ],
+                'validation_hints' => [
+                    'evidence_of_duplicate_or_obsolete must point to the specific packet/commit it duplicates',
+                    'cancellation_reason must not be a manual_review_only placeholder',
+                ],
+            ],
+            self::KIND_OPERATOR_ONLY => [
+                'required_fields' => [
+                    'task_packet_id',
+                    'operator_gate_reason',
+                    'required_operator_action',
+                ],
+                'forbidden_proxy_fields' => [
+                    ...self::SCORE_PROXY_FIELDS,
+                    ...self::GENERIC_PROXY_FIELDS,
+                    'confidence',
+                ],
+                'validation_hints' => [
+                    'operator_gate_reason must name the specific human-only gate (credentials, legal, irreversible action)',
+                    'required_operator_action must be a concrete, executable step — not manual_review_only',
+                ],
+            ],
+            self::KIND_EVIDENCE_REPAIR => [
+                'required_fields' => [
+                    'task_packet_id',
+                    'missing_evidence_type',
+                    'repair_command',
+                    'proof_of_repair',
+                ],
+                'forbidden_proxy_fields' => [
+                    ...self::SCORE_PROXY_FIELDS,
+                    ...self::GENERIC_PROXY_FIELDS,
+                    'confidence',
+                ],
+                'validation_hints' => [
+                    'repair_command must be runnable (artisan test/phpunit), not a vague_summary of intent',
+                    'proof_of_repair must show the gate now passes, not just that a command exists',
                 ],
             ],
             default => null,

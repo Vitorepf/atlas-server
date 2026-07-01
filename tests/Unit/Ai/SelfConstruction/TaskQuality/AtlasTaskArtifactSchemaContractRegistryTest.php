@@ -16,7 +16,7 @@ final class AtlasTaskArtifactSchemaContractRegistryTest extends TestCase
         $this->registry = new AtlasTaskArtifactSchemaContractRegistry();
     }
 
-    public function test_all_four_kinds_are_registered(): void
+    public function test_all_nine_kinds_are_registered(): void
     {
         $kinds = $this->registry->kinds();
 
@@ -24,7 +24,12 @@ final class AtlasTaskArtifactSchemaContractRegistryTest extends TestCase
         $this->assertContains(AtlasTaskArtifactSchemaContractRegistry::KIND_FRONTIER_CANDIDATE, $kinds);
         $this->assertContains(AtlasTaskArtifactSchemaContractRegistry::KIND_BLOCKED_RESPEC_DRAFT, $kinds);
         $this->assertContains(AtlasTaskArtifactSchemaContractRegistry::KIND_CORTEX_FACT, $kinds);
-        $this->assertCount(4, $kinds);
+        $this->assertContains(AtlasTaskArtifactSchemaContractRegistry::KIND_RESPEC, $kinds);
+        $this->assertContains(AtlasTaskArtifactSchemaContractRegistry::KIND_REPLACEMENT, $kinds);
+        $this->assertContains(AtlasTaskArtifactSchemaContractRegistry::KIND_CANCELLATION, $kinds);
+        $this->assertContains(AtlasTaskArtifactSchemaContractRegistry::KIND_OPERATOR_ONLY, $kinds);
+        $this->assertContains(AtlasTaskArtifactSchemaContractRegistry::KIND_EVIDENCE_REPAIR, $kinds);
+        $this->assertCount(9, $kinds);
     }
 
     public function test_unknown_kind_returns_null_contract(): void
@@ -239,6 +244,199 @@ final class AtlasTaskArtifactSchemaContractRegistryTest extends TestCase
 
         $this->assertFalse($result['valid']);
         $this->assertContains('rank', $result['found_proxy_fields']);
+    }
+
+    // --- respec ---
+
+    public function test_respec_contract_exposes_required_fields(): void
+    {
+        $contract = $this->registry->contract(AtlasTaskArtifactSchemaContractRegistry::KIND_RESPEC);
+
+        $this->assertNotNull($contract);
+        foreach (['task_packet_id', 'root_cause', 'new_objective', 'new_allowed_files', 'new_acceptance_criteria'] as $field) {
+            $this->assertContains($field, $contract['required_fields'], "respec must require '{$field}'");
+        }
+    }
+
+    public function test_respec_forbids_generic_proxy_fields(): void
+    {
+        $contract = $this->registry->contract(AtlasTaskArtifactSchemaContractRegistry::KIND_RESPEC);
+
+        foreach (['vague_summary', 'looks_good', 'manual_review_only'] as $field) {
+            $this->assertContains($field, $contract['forbidden_proxy_fields'], "respec must forbid '{$field}'");
+        }
+    }
+
+    public function test_valid_respec_artifact_passes_validation(): void
+    {
+        $result = $this->registry->validate(AtlasTaskArtifactSchemaContractRegistry::KIND_RESPEC, [
+            'task_packet_id' => 'pkt-blocked',
+            'root_cause' => 'contradictory_acceptance',
+            'new_objective' => 'Resolve the contradictory acceptance by splitting the AC.',
+            'new_allowed_files' => ['app/Foo.php'],
+            'new_acceptance_criteria' => ['/opt/homebrew/bin/php artisan test --filter=FooTest'],
+        ]);
+
+        $this->assertTrue($result['valid']);
+    }
+
+    public function test_respec_artifact_with_vague_summary_is_rejected(): void
+    {
+        $result = $this->registry->validate(AtlasTaskArtifactSchemaContractRegistry::KIND_RESPEC, [
+            'task_packet_id' => 'pkt-blocked',
+            'root_cause' => 'contradictory_acceptance',
+            'new_objective' => 'Fix it.',
+            'new_allowed_files' => ['app/Foo.php'],
+            'new_acceptance_criteria' => ['artisan test'],
+            'vague_summary' => 'looks fine now',
+        ]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('vague_summary', $result['found_proxy_fields']);
+    }
+
+    // --- replacement ---
+
+    public function test_replacement_contract_exposes_required_fields(): void
+    {
+        $contract = $this->registry->contract(AtlasTaskArtifactSchemaContractRegistry::KIND_REPLACEMENT);
+
+        $this->assertNotNull($contract);
+        foreach (['original_task_packet_id', 'replacement_task_packet_id', 'replacement_reason', 'behavior_equivalence_proof'] as $field) {
+            $this->assertContains($field, $contract['required_fields'], "replacement must require '{$field}'");
+        }
+    }
+
+    public function test_valid_replacement_artifact_passes_validation(): void
+    {
+        $result = $this->registry->validate(AtlasTaskArtifactSchemaContractRegistry::KIND_REPLACEMENT, [
+            'original_task_packet_id' => 'pkt-old',
+            'replacement_task_packet_id' => 'pkt-new',
+            'replacement_reason' => 'original packet targets a deleted file',
+            'behavior_equivalence_proof' => 'before/after diff shows identical output',
+        ]);
+
+        $this->assertTrue($result['valid']);
+    }
+
+    public function test_replacement_artifact_with_looks_good_is_rejected(): void
+    {
+        $result = $this->registry->validate(AtlasTaskArtifactSchemaContractRegistry::KIND_REPLACEMENT, [
+            'original_task_packet_id' => 'pkt-old',
+            'replacement_task_packet_id' => 'pkt-new',
+            'replacement_reason' => 'stale',
+            'behavior_equivalence_proof' => 'trust me',
+            'looks_good' => true,
+        ]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('looks_good', $result['found_proxy_fields']);
+    }
+
+    // --- cancellation ---
+
+    public function test_cancellation_contract_exposes_required_fields(): void
+    {
+        $contract = $this->registry->contract(AtlasTaskArtifactSchemaContractRegistry::KIND_CANCELLATION);
+
+        $this->assertNotNull($contract);
+        foreach (['task_packet_id', 'cancellation_reason', 'evidence_of_duplicate_or_obsolete'] as $field) {
+            $this->assertContains($field, $contract['required_fields'], "cancellation must require '{$field}'");
+        }
+    }
+
+    public function test_valid_cancellation_artifact_passes_validation(): void
+    {
+        $result = $this->registry->validate(AtlasTaskArtifactSchemaContractRegistry::KIND_CANCELLATION, [
+            'task_packet_id' => 'pkt-dup',
+            'cancellation_reason' => 'duplicate_of_completed_task',
+            'evidence_of_duplicate_or_obsolete' => 'commit abc123 already implements this',
+        ]);
+
+        $this->assertTrue($result['valid']);
+    }
+
+    public function test_cancellation_artifact_missing_evidence_is_reported(): void
+    {
+        $result = $this->registry->validate(AtlasTaskArtifactSchemaContractRegistry::KIND_CANCELLATION, [
+            'task_packet_id' => 'pkt-dup',
+            'cancellation_reason' => 'duplicate',
+        ]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('evidence_of_duplicate_or_obsolete', $result['missing_required']);
+    }
+
+    // --- operator_only ---
+
+    public function test_operator_only_kind_contract_exposes_required_fields(): void
+    {
+        $contract = $this->registry->contract(AtlasTaskArtifactSchemaContractRegistry::KIND_OPERATOR_ONLY);
+
+        $this->assertNotNull($contract);
+        foreach (['task_packet_id', 'operator_gate_reason', 'required_operator_action'] as $field) {
+            $this->assertContains($field, $contract['required_fields'], "operator_only must require '{$field}'");
+        }
+    }
+
+    public function test_valid_operator_only_artifact_passes_validation(): void
+    {
+        $result = $this->registry->validate(AtlasTaskArtifactSchemaContractRegistry::KIND_OPERATOR_ONLY, [
+            'task_packet_id' => 'pkt-human-gate',
+            'operator_gate_reason' => 'requires rotating a leaked credential',
+            'required_operator_action' => 'rotate the API key in the provider dashboard',
+        ]);
+
+        $this->assertTrue($result['valid']);
+    }
+
+    public function test_operator_only_artifact_with_manual_review_only_is_rejected(): void
+    {
+        $result = $this->registry->validate(AtlasTaskArtifactSchemaContractRegistry::KIND_OPERATOR_ONLY, [
+            'task_packet_id' => 'pkt-human-gate',
+            'operator_gate_reason' => 'unclear',
+            'required_operator_action' => 'manual_review_only',
+            'manual_review_only' => true,
+        ]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('manual_review_only', $result['found_proxy_fields']);
+    }
+
+    // --- evidence_repair ---
+
+    public function test_evidence_repair_contract_exposes_required_fields(): void
+    {
+        $contract = $this->registry->contract(AtlasTaskArtifactSchemaContractRegistry::KIND_EVIDENCE_REPAIR);
+
+        $this->assertNotNull($contract);
+        foreach (['task_packet_id', 'missing_evidence_type', 'repair_command', 'proof_of_repair'] as $field) {
+            $this->assertContains($field, $contract['required_fields'], "evidence_repair must require '{$field}'");
+        }
+    }
+
+    public function test_valid_evidence_repair_artifact_passes_validation(): void
+    {
+        $result = $this->registry->validate(AtlasTaskArtifactSchemaContractRegistry::KIND_EVIDENCE_REPAIR, [
+            'task_packet_id' => 'pkt-no-evidence',
+            'missing_evidence_type' => 'tests_or_gates_result',
+            'repair_command' => '/opt/homebrew/bin/php artisan test --filter=FooTest',
+            'proof_of_repair' => 'gate now exits 0',
+        ]);
+
+        $this->assertTrue($result['valid']);
+    }
+
+    public function test_evidence_repair_artifact_missing_proof_is_reported(): void
+    {
+        $result = $this->registry->validate(AtlasTaskArtifactSchemaContractRegistry::KIND_EVIDENCE_REPAIR, [
+            'task_packet_id' => 'pkt-no-evidence',
+            'missing_evidence_type' => 'tests_or_gates_result',
+            'repair_command' => 'artisan test',
+        ]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('proof_of_repair', $result['missing_required']);
     }
 
     // --- determinism ---
