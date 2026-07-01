@@ -85,6 +85,7 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
                 'produces_claimable_count' => max(0, (int) ($raw['produces_claimable_count'] ?? 0)),
                 'is_replenishment_node' => (bool) ($raw['is_replenishment_node'] ?? false),
                 'is_unblock_node' => (bool) ($raw['is_unblock_node'] ?? false),
+                'downstream_unblock_count' => max(0, (int) ($raw['downstream_unblock_count'] ?? 0)),
             ];
         }
 
@@ -279,9 +280,10 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
     private function effectiveScore(array $task): float
     {
         $riskPenalty = self::RISK_PENALTIES[$task['risk']] ?? 0.0;
+        $unblockBonus = min(2.0, 0.15 * $task['downstream_unblock_count']);
 
         return round(
-            $task['leverage_score'] - 0.10 * $task['effort'] + 0.20 * $task['maturity_gap_coverage'] - $riskPenalty,
+            $task['leverage_score'] - 0.10 * $task['effort'] + 0.20 * $task['maturity_gap_coverage'] - $riskPenalty + $unblockBonus,
             4,
         );
     }

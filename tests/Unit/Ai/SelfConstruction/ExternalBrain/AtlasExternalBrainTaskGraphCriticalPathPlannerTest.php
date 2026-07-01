@@ -175,4 +175,51 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlannerTest extends TestCase
 
         $this->assertSame([], $r['next_best_parallel_task_ids']);
     }
+
+    // ── new AC: downstream_unblock_count boosts critical path selection ──────
+
+    public function test_high_downstream_unblock_count_can_beat_standalone_high_leverage_task(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'unblock-node', 'leverage_score' => 0.3, 'status' => 'queued', 'downstream_unblock_count' => 10],
+                ['task_id' => 'standalone-high', 'leverage_score' => 0.9, 'status' => 'queued'],
+            ],
+        ]);
+
+        $this->assertSame(['unblock-node'], $r['critical_path_task_ids']);
+    }
+
+    public function test_blocked_stale_duplicate_and_low_evidence_tasks_excluded_despite_high_downstream_unblock_count(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'blocked-unblock', 'leverage_score' => 0.9, 'status' => 'blocked', 'downstream_unblock_count' => 10],
+                ['task_id' => 'stale-unblock', 'leverage_score' => 0.9, 'status' => 'stale', 'downstream_unblock_count' => 10],
+                ['task_id' => 'duplicate-unblock', 'leverage_score' => 0.9, 'status' => 'duplicate', 'downstream_unblock_count' => 10],
+                ['task_id' => 'low-evidence-unblock', 'leverage_score' => 0.9, 'status' => 'queued', 'evidence_strength' => 0.1, 'downstream_unblock_count' => 10],
+                ['task_id' => 'good-node', 'leverage_score' => 0.1, 'status' => 'queued'],
+            ],
+        ]);
+
+        $this->assertSame(['good-node'], $r['critical_path_task_ids']);
+    }
+
+    public function test_chain_unlock_count_remains_deterministic_for_parallel_branches(): void
+    {
+        $input = [
+            'tasks' => [
+                ['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued'],
+                ['task_id' => 'dep-a', 'leverage_score' => 0.1, 'effort' => 20, 'status' => 'queued', 'depends_on' => ['root']],
+                ['task_id' => 'dep-b', 'leverage_score' => 0.1, 'effort' => 20, 'status' => 'queued', 'depends_on' => ['root']],
+                ['task_id' => 'branch', 'leverage_score' => 0.2, 'status' => 'queued'],
+            ],
+        ];
+
+        $a = $this->planner()->plan($input);
+        $b = $this->planner()->plan($input);
+
+        $this->assertSame($a['chain_unlock_count'], $b['chain_unlock_count']);
+        $this->assertSame(2, $a['chain_unlock_count']);
+    }
 }
