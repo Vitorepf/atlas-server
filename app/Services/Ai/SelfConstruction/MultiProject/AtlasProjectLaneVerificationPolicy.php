@@ -49,6 +49,16 @@ final class AtlasProjectLaneVerificationPolicy
             if ($freshness === [] || ! isset($freshness['conformant'])) {
                 $blockers[] = 'freshness:envelope_missing';
             }
+        } else {
+            // conformant=true is a self-reported boolean, not proof — an autonomous 24/7
+            // promotion decision needs the underlying policy facts (WHEN it was checked, and
+            // WHAT ceiling made it pass) to be inspectable, or "conformant" is unverifiable.
+            if (! array_key_exists('checked_at', $freshness)) {
+                $blockers[] = 'freshness:missing_checked_at';
+            }
+            if (! array_key_exists('max_age_seconds', $freshness)) {
+                $blockers[] = 'freshness:missing_max_age_seconds_policy';
+            }
         }
 
         // Lane-local test command must be declared.
@@ -62,9 +72,44 @@ final class AtlasProjectLaneVerificationPolicy
             $blockers[] = 'evidence_ledger_not_isolated';
         }
 
-        // Rollback proof must be present in task evidence.
-        if (! (bool) ($taskEvidence['rollback_proof'] ?? false)) {
+        // Rollback proof must be present in task evidence, AND (when claimed) backed by a
+        // lane-local ref — a rollback claim pointing at another project's artifact is worthless.
+        $rollbackProofClaimed = (bool) ($taskEvidence['rollback_proof'] ?? false);
+        $rollbackProofRef = trim((string) ($taskEvidence['rollback_proof_ref'] ?? ''));
+        $projectIdForRef = (string) ($admission['project_id'] ?? '');
+        $projectRootForRef = (string) ($admission['project_root'] ?? '');
+        $rollbackProofRefStatus = 'not_required';
+        if (! $rollbackProofClaimed) {
             $blockers[] = 'rollback_proof_missing';
+        } else {
+            $refIsLaneLocal = $rollbackProofRef !== '' && (
+                ($projectRootForRef !== '' && str_starts_with($rollbackProofRef, $projectRootForRef))
+                || ($projectRootForRef === '' && $projectIdForRef !== '' && str_contains($rollbackProofRef, $projectIdForRef))
+            );
+            if ($rollbackProofRef === '') {
+                $blockers[] = 'rollback_proof_ref_missing';
+                $rollbackProofRefStatus = 'missing';
+            } elseif (! $refIsLaneLocal) {
+                $blockers[] = 'rollback_proof_ref_not_lane_local';
+                $rollbackProofRefStatus = 'not_lane_local';
+            } else {
+                $rollbackProofRefStatus = 'present_lane_local';
+            }
+        }
+
+        // Cross-project evidence: a candidate task's own evidence rows may declare which
+        // project produced them — an evidence row minted by a DIFFERENT project's lane must
+        // never silently satisfy this lane's verification.
+        $crossProjectEvidenceViolations = [];
+        foreach ((array) ($taskEvidence['evidence'] ?? []) as $gate => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $rowProjectId = (string) ($row['project_id'] ?? '');
+            if ($rowProjectId !== '' && $projectIdForRef !== '' && $rowProjectId !== $projectIdForRef) {
+                $crossProjectEvidenceViolations[] = (string) $gate;
+                $blockers[] = 'cross_project_evidence:'.$gate;
+            }
         }
 
         $verificationCmds = is_array($admission['verification_commands'] ?? null)
@@ -114,6 +159,7 @@ final class AtlasProjectLaneVerificationPolicy
         sort($missing, SORT_STRING);
         sort($failing, SORT_STRING);
         sort($boundaryViolations, SORT_STRING);
+        sort($crossProjectEvidenceViolations, SORT_STRING);
 
         $missingArtifacts = array_values(array_filter(
             $blockers,
@@ -137,6 +183,8 @@ final class AtlasProjectLaneVerificationPolicy
                 'missing_evidence_for' => $missing,
                 'failing_evidence_for' => $failing,
                 'boundary_violations' => $boundaryViolations,
+                'cross_project_evidence_violations' => $crossProjectEvidenceViolations,
+                'rollback_proof_ref_status' => $rollbackProofRefStatus,
             ],
             'lane_decision' => $blockers === [] ? 'admit' : 'block',
             'missing_artifacts' => $missingArtifacts,
@@ -171,10 +219,15 @@ final class AtlasProjectLaneVerificationPolicy
             $blocker === 'lane_local_test_command_missing' => 'declare a lane_local_test_command in the admission manifest',
             $blocker === 'evidence_ledger_not_isolated' => 'isolate the evidence ledger to this lane before activation',
             $blocker === 'rollback_proof_missing' => 'attach rollback_proof to the task evidence bundle',
+            $blocker === 'rollback_proof_ref_missing' => 'attach a rollback_proof_ref pointing at a lane-local artifact',
+            $blocker === 'rollback_proof_ref_not_lane_local' => 'replace rollback_proof_ref with a lane-local artifact path',
             $blocker === 'verification_commands_missing' => 'declare at least one verification_command for this lane',
+            $blocker === 'freshness:missing_checked_at' => 'attach a checked_at timestamp to the freshness verdict',
+            $blocker === 'freshness:missing_max_age_seconds_policy' => 'attach a max_age_seconds policy to the freshness verdict',
             str_starts_with($blocker, 'evidence_missing_for:') => 'attach evidence for '.substr($blocker, strlen('evidence_missing_for:')),
             str_starts_with($blocker, 'evidence_failing_for:') => 'fix the failing gate for '.substr($blocker, strlen('evidence_failing_for:')),
             str_starts_with($blocker, 'project_boundary_violation:') => 'restrict scope_paths to within project_root',
+            str_starts_with($blocker, 'cross_project_evidence:') => 'replace cross-project evidence with lane-local evidence for '.substr($blocker, strlen('cross_project_evidence:')),
             default => 'investigate blocker: '.$blocker,
         };
     }

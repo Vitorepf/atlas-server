@@ -29,13 +29,14 @@ final class AtlasProjectLaneVerificationPolicyTest extends TestCase
 
     private function conformantFreshness(): array
     {
-        return ['conformant' => true, 'blockers' => []];
+        return ['conformant' => true, 'blockers' => [], 'checked_at' => '2026-01-01T00:00:00Z', 'max_age_seconds' => 3600];
     }
 
     private function evidenceAllPassing(): array
     {
         return [
             'rollback_proof' => true,
+            'rollback_proof_ref' => 'projects/demo-lane/rollback/receipt.json',
             'evidence' => [
                 'phpunit' => ['passed' => true, 'gate' => 'phpunit'],
                 'pint' => ['passed' => true, 'gate' => 'pint'],
@@ -231,6 +232,127 @@ final class AtlasProjectLaneVerificationPolicyTest extends TestCase
         $this->assertFalse($v['allowed']);
         $this->assertContains('verification_commands_missing', $v['blockers']);
         $this->assertSame('medium', $v['risk_band']);
+    }
+
+    // ── cross-project evidence isolation ──────────────────────────────────────
+
+    public function test_evidence_row_from_a_different_project_id_blocks(): void
+    {
+        $evidence = $this->evidenceAllPassing();
+        $evidence['evidence']['pint']['project_id'] = 'other-lane';
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $this->conformantFreshness(), $evidence);
+
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('cross_project_evidence:pint', $v['blockers']);
+        $this->assertContains('pint', $v['sources']['cross_project_evidence_violations']);
+    }
+
+    public function test_evidence_row_matching_lane_project_id_is_not_flagged(): void
+    {
+        $evidence = $this->evidenceAllPassing();
+        $evidence['evidence']['pint']['project_id'] = 'demo-lane';
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $this->conformantFreshness(), $evidence);
+
+        $this->assertTrue($v['allowed']);
+        $this->assertSame([], $v['sources']['cross_project_evidence_violations']);
+    }
+
+    // ── rollback proof ref lane-locality ───────────────────────────────────────
+
+    public function test_rollback_proof_true_without_ref_blocks(): void
+    {
+        $evidence = $this->evidenceAllPassing();
+        unset($evidence['rollback_proof_ref']);
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $this->conformantFreshness(), $evidence);
+
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('rollback_proof_ref_missing', $v['blockers']);
+        $this->assertSame('missing', $v['sources']['rollback_proof_ref_status']);
+    }
+
+    public function test_rollback_proof_ref_pointing_at_another_project_blocks(): void
+    {
+        $evidence = $this->evidenceAllPassing();
+        $evidence['rollback_proof_ref'] = 'projects/other-lane/rollback/receipt.json';
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $this->conformantFreshness(), $evidence);
+
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('rollback_proof_ref_not_lane_local', $v['blockers']);
+        $this->assertSame('not_lane_local', $v['sources']['rollback_proof_ref_status']);
+    }
+
+    public function test_rollback_proof_ref_lane_local_via_project_root_passes(): void
+    {
+        $admission = $this->admittedManifest();
+        $admission['project_root'] = 'projects/demo-lane';
+        $evidence = $this->evidenceAllPassing();
+        $evidence['rollback_proof_ref'] = 'projects/demo-lane/rollback/receipt.json';
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($admission, $this->conformantFreshness(), $evidence);
+
+        $this->assertTrue($v['allowed']);
+        $this->assertSame('present_lane_local', $v['sources']['rollback_proof_ref_status']);
+    }
+
+    public function test_rollback_proof_ref_status_not_required_when_rollback_proof_not_claimed(): void
+    {
+        $evidence = $this->evidenceAllPassing();
+        $evidence['rollback_proof'] = false;
+        unset($evidence['rollback_proof_ref']);
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $this->conformantFreshness(), $evidence);
+
+        $this->assertContains('rollback_proof_missing', $v['blockers']);
+        $this->assertNotContains('rollback_proof_ref_missing', $v['blockers']);
+        $this->assertSame('not_required', $v['sources']['rollback_proof_ref_status']);
+    }
+
+    // ── freshness policy facts required alongside conformant=true ─────────────
+
+    public function test_conformant_freshness_missing_checked_at_blocks(): void
+    {
+        $freshness = ['conformant' => true, 'blockers' => [], 'max_age_seconds' => 3600];
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $freshness, $this->evidenceAllPassing());
+
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('freshness:missing_checked_at', $v['blockers']);
+    }
+
+    public function test_conformant_freshness_missing_max_age_seconds_blocks(): void
+    {
+        $freshness = ['conformant' => true, 'blockers' => [], 'checked_at' => '2026-01-01T00:00:00Z'];
+
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $freshness, $this->evidenceAllPassing());
+
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('freshness:missing_max_age_seconds_policy', $v['blockers']);
+    }
+
+    public function test_conformant_freshness_with_both_policy_facts_passes(): void
+    {
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $this->conformantFreshness(), $this->evidenceAllPassing());
+
+        $this->assertTrue($v['allowed']);
+        $this->assertSame([], $v['blockers']);
+    }
+
+    public function test_non_conformant_freshness_does_not_also_require_policy_facts(): void
+    {
+        // Already-blocked (non-conformant) freshness doesn't need the extra missing-facts
+        // blockers piled on — the conformant=false path already names its own blockers.
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide(
+            $this->admittedManifest(),
+            ['conformant' => false, 'blockers' => ['context_pack_stale']],
+            $this->evidenceAllPassing(),
+        );
+
+        $this->assertNotContains('freshness:missing_checked_at', $v['blockers']);
+        $this->assertNotContains('freshness:missing_max_age_seconds_policy', $v['blockers']);
     }
 
     public function test_two_decides_with_same_input_byte_identical_json(): void
