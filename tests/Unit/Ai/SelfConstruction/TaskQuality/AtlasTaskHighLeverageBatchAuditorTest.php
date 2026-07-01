@@ -69,6 +69,21 @@ final class AtlasTaskHighLeverageBatchAuditorTest extends TestCase
         $this->assertSame('micro-1', $fact['spec_id']);
     }
 
+    public function test_output_includes_frontier_floor_passed_and_batch_hints(): void
+    {
+        $specs = [
+            $this->spec('arm-1', 'Create CLI arm wrapper that delegates to dormant underlying command class', ['app/Console/Commands/ArmA.php'],
+                ['facts' => ['dormant_cli_arm_proxy' => true]]),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $this->assertArrayHasKey('frontier_floor_passed', $result);
+        $this->assertArrayHasKey('batch_hints', $result);
+        $this->assertFalse($result['frontier_floor_passed']);
+        $this->assertNotEmpty($result['batch_hints']);
+    }
+
     public function test_diverse_self_sufficient_batch_is_creditable(): void
     {
         $specs = [

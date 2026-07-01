@@ -46,6 +46,7 @@ final class AtlasTaskHighLeverageBatchAuditor
         'refactor'            => ['refactor', 'restructure', 'reorganiz'],
         'test_authoring'      => ['test', 'spec', 'contract', 'assert'],
         'feature'             => ['implement', 'creat', 'add', 'build', 'extend'],
+        'research'            => ['research', 'investigat', 'explor', 'discover', 'survey'],
     ];
 
     private const THIN_FARMING_PHRASES = [
@@ -298,6 +299,10 @@ final class AtlasTaskHighLeverageBatchAuditor
             'creditable' => $creditable,
             'anti_proxy_facts' => array_values($antiProxy),
             'remediation_hints' => array_values($hints),
+            // AC3: frontier_floor_passed/batch_hints alias the same signal under the
+            // acceptance-criteria vocabulary, additive alongside creditable/remediation_hints.
+            'frontier_floor_passed' => $creditable,
+            'batch_hints' => array_values($hints),
         ];
 
         if ($workerCoverage !== null) {
