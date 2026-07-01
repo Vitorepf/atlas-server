@@ -238,4 +238,150 @@ final class AtlasTaskHighLeverageBatchAuditorTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $src, "auditor must not perform {$forbidden}");
         }
     }
+
+    // ── AC2: single-family volume fires unconditionally, even without batchContext ──
+
+    public function test_single_family_volume_fires_without_batch_context_when_batch_is_large(): void
+    {
+        $specs = [
+            $this->spec('sf-1', 'Fix the first authentication bug causing null pointer exception', ['app/Services/Auth/A.php']),
+            $this->spec('sf-2', 'Harden the routing guard against invalid session tokens correctly', ['app/Services/Auth/B.php']),
+            $this->spec('sf-3', 'Wire the serialisation adapter into the registry to complete plumbing', ['app/Services/Auth/C.php']),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $patterns = array_column($result['anti_proxy_facts'], 'pattern');
+        $this->assertContains('single_family_volume', $patterns);
+    }
+
+    public function test_single_family_volume_does_not_fire_for_multi_family_batch(): void
+    {
+        $result = $this->svc()->audit([
+            $this->spec('d-1', 'Fix the null pointer bug in the user authentication flow service', ['app/Services/Auth/UserService.php', 'tests/Unit/Auth/UserServiceTest.php']),
+            $this->spec('d-2', 'Harden the certification gate against malformed edge case inputs to prevent bypass', ['app/Services/Gate/CertGate.php', 'tests/Unit/Gate/CertGateTest.php']),
+            $this->spec('d-3', 'Wire the runtime adapter into the provider registry to complete integration plumbing', ['app/Services/Runtime/RuntimeAdapter.php', 'tests/Unit/Runtime/RuntimeAdapterTest.php']),
+        ]);
+
+        $patterns = array_column($result['anti_proxy_facts'], 'pattern');
+        $this->assertNotContains('single_family_volume', $patterns);
+    }
+
+    // ── AC3: leverage_rewards score distinct capability, simplification, risk reduction, unlocks, proof ──
+
+    public function test_leverage_rewards_present_in_output(): void
+    {
+        $result = $this->svc()->audit([
+            $this->spec('d-1', 'Fix the null pointer bug in the user authentication flow service', ['app/Services/Auth/UserService.php', 'tests/Unit/Auth/UserServiceTest.php']),
+        ]);
+
+        foreach (['distinct_capability_classes', 'simplification_count', 'risk_reduction_count', 'downstream_unlocks_count', 'runnable_proof_count', 'reward_score'] as $key) {
+            $this->assertArrayHasKey($key, $result['leverage_rewards'], "missing key: {$key}");
+        }
+    }
+
+    public function test_simplification_and_risk_reduction_keywords_are_counted(): void
+    {
+        $result = $this->svc()->audit([
+            $this->spec('s-1', 'Simplify and dedupe the certification workbench quartet builders significantly', ['app/Services/Foo/A.php']),
+            $this->spec('s-2', 'Harden the gate against regression risk with a fail-closed safety check', ['app/Services/Bar/B.php']),
+        ]);
+
+        $this->assertSame(1, $result['leverage_rewards']['simplification_count']);
+        $this->assertSame(1, $result['leverage_rewards']['risk_reduction_count']);
+    }
+
+    public function test_downstream_unlocks_are_counted_when_declared(): void
+    {
+        $result = $this->svc()->audit([
+            $this->spec('u-1', 'Implement the billing reconciliation matcher build extend logic', ['app/Services/Billing/A.php'],
+                [], ['unlocks' => ['other-task-id']]),
+        ]);
+
+        $this->assertSame(1, $result['leverage_rewards']['downstream_unlocks_count']);
+    }
+
+    public function test_reward_score_is_higher_for_diverse_high_leverage_batch_than_narrow_batch(): void
+    {
+        $diverse = $this->svc()->audit([
+            $this->spec('d-1', 'Fix the null pointer bug in the user authentication flow service', ['app/Services/Auth/UserService.php', 'tests/Unit/Auth/UserServiceTest.php']),
+            $this->spec('d-2', 'Harden the certification gate against malformed edge case inputs to prevent bypass', ['app/Services/Gate/CertGate.php', 'tests/Unit/Gate/CertGateTest.php']),
+            $this->spec('d-3', 'Wire the runtime adapter into the provider registry to complete integration plumbing', ['app/Services/Runtime/RuntimeAdapter.php', 'tests/Unit/Runtime/RuntimeAdapterTest.php']),
+        ]);
+
+        $narrow = $this->svc()->audit([
+            $this->spec('n-1', 'Fix the first authentication bug causing null pointer exception', ['a.php']),
+            $this->spec('n-2', 'Fix the second routing bug causing incorrect redirect response', ['b.php']),
+            $this->spec('n-3', 'Fix the third serialisation bug causing malformed json output', ['c.php']),
+        ]);
+
+        $this->assertGreaterThan($narrow['leverage_rewards']['reward_score'], $diverse['leverage_rewards']['reward_score']);
+    }
+
+    // ── AC4: accept / trim / rewrite / reject decision + per-weak-task reasons ────
+
+    public function test_creditable_batch_decision_is_accept(): void
+    {
+        $result = $this->svc()->audit([
+            $this->spec('d-1', 'Fix the null pointer bug in the user authentication flow service', ['app/Services/Auth/UserService.php', 'tests/Unit/Auth/UserServiceTest.php']),
+            $this->spec('d-2', 'Harden the certification gate against malformed edge case inputs to prevent bypass', ['app/Services/Gate/CertGate.php', 'tests/Unit/Gate/CertGateTest.php']),
+            $this->spec('d-3', 'Wire the runtime adapter into the provider registry to complete integration plumbing', ['app/Services/Runtime/RuntimeAdapter.php', 'tests/Unit/Runtime/RuntimeAdapterTest.php']),
+            $this->spec('d-4', 'Synchronise the canonical documentation and wiki for the evolution loop subsystem', ['docs/evolution-loop.md']),
+        ]);
+
+        $this->assertSame('accept', $result['decision']);
+        $this->assertSame([], $result['weak_task_reasons']);
+    }
+
+    public function test_batch_wide_pattern_yields_rewrite_decision(): void
+    {
+        $specs = [
+            $this->spec('arm-1', 'Create CLI arm wrapper that delegates to dormant underlying command class', ['app/Console/Commands/ArmA.php'],
+                ['facts' => ['dormant_cli_arm_proxy' => true]]),
+            $this->spec('arm-2', 'Create CLI arm wrapper that delegates to dormant underlying command class', ['app/Console/Commands/ArmB.php'],
+                ['facts' => ['dormant_cli_arm_proxy' => true]]),
+            $this->spec('arm-3', 'Create CLI arm wrapper that delegates to dormant underlying command class', ['app/Console/Commands/ArmC.php'],
+                ['facts' => ['dormant_cli_arm_proxy' => true]]),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $this->assertSame('rewrite', $result['decision']);
+    }
+
+    public function test_one_weak_spec_among_healthy_batch_yields_trim_decision_with_reason(): void
+    {
+        $specs = [
+            $this->spec('d-1', 'Fix the null pointer bug in the user authentication flow service', ['app/Services/Auth/UserService.php', 'tests/Unit/Auth/UserServiceTest.php']),
+            $this->spec('d-2', 'Harden the certification gate against malformed edge case inputs to prevent bypass', ['app/Services/Gate/CertGate.php', 'tests/Unit/Gate/CertGateTest.php']),
+            $this->spec('d-3', 'Wire the runtime adapter into the provider registry to complete integration plumbing', ['app/Services/Runtime/RuntimeAdapter.php', 'tests/Unit/Runtime/RuntimeAdapterTest.php']),
+            $this->spec('weak-1', 'Implement a comprehensive validation service for incoming requests', ['app/Services/Validation/Service.php', 'tests/Unit/Validation/ServiceTest.php'],
+                [], ['acceptance_criteria' => ['/opt/homebrew/bin/php artisan test ServiceTest exits 0']]),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $this->assertSame('trim', $result['decision']);
+        $this->assertArrayHasKey('weak-1', $result['weak_task_reasons']);
+        $this->assertContains('weak_acceptance_criteria', $result['weak_task_reasons']['weak-1']);
+    }
+
+    public function test_all_specs_weak_yields_reject_decision(): void
+    {
+        $specs = [
+            $this->spec('weak-1', 'Implement a comprehensive validation service for incoming requests', ['app/Services/Validation/Service.php', 'tests/Unit/Validation/ServiceTest.php'],
+                [], ['acceptance_criteria' => ['/opt/homebrew/bin/php artisan test ServiceTest exits 0']]),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $this->assertSame('reject', $result['decision']);
+    }
+
+    public function test_empty_batch_decision_is_accept(): void
+    {
+        $result = $this->svc()->audit([]);
+
+        $this->assertSame('accept', $result['decision']);
+    }
 }

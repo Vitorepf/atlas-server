@@ -56,6 +56,22 @@ final class AtlasTaskHighLeverageBatchAuditor
 
     private const RUNNABLE_ACCEPTANCE_TOKENS = ['test', 'artisan', 'php ', 'runs ', 'executes '];
 
+    private const SIMPLIFICATION_KEYWORDS = ['simplif', 'dedupe', 'dedup', 'consolidat', 'reduce complexity', 'remove duplicate'];
+
+    private const RISK_REDUCTION_KEYWORDS = ['harden', 'guard', 'regression', 'safety', 'fail-closed', 'fail closed', 'prevent'];
+
+    /** AC4: patterns that indict the whole batch's composition, not one salvageable spec — need rewrite. */
+    private const BATCH_WIDE_PATTERNS = [
+        'homogeneous_dormant_cli_arm',
+        'singleton_microtest_batch',
+        'thin_quota_farming',
+        'low_diversity_leverage_class',
+        'duplicate_target_family',
+        'semantic_near_duplicate_template_farm',
+        'single_family_volume',
+        'worker_coverage_insufficient',
+    ];
+
     /**
      * @param  list<array<string,mixed>>  $specs  raw task packet arrays
      * @param  array<string,mixed>  $batchContext  optional batch-level facts:
@@ -159,6 +175,27 @@ final class AtlasTaskHighLeverageBatchAuditor
                     'total' => $total,
                 ];
                 $hints[] = "Batch is {$topCount}/{$total} '{$topClass}' specs; diversify across leverage classes for real compounding.";
+            }
+        }
+
+        // 5b. AC2: single-family volume — a batch of meaningful size that concentrates every spec's
+        // allowed_files in one top-level directory family. Unlike worker_coverage_insufficient
+        // (pattern 10), this fires unconditionally, even when the caller supplies no batchContext,
+        // so raw batch size alone can never disguise single-family volume as real diversity.
+        if ($total >= self::MIN_BATCH_FOR_DIVERSITY) {
+            $unconditionalFamilies = [];
+            foreach ($specs as $s) {
+                $files = is_array($s['allowed_files'] ?? null) ? array_map('strval', (array) $s['allowed_files']) : [];
+                $family = $files !== [] ? (dirname($files[0]) ?: 'unknown') : 'unknown';
+                $unconditionalFamilies[$family] = true;
+            }
+            if (count($unconditionalFamilies) <= 1) {
+                $antiProxy[] = [
+                    'pattern' => 'single_family_volume',
+                    'family' => (string) array_key_first($unconditionalFamilies),
+                    'total' => $total,
+                ];
+                $hints[] = "All {$total} specs concentrate allowed_files in a single family; volume alone is not diversity — spread across distinct capability areas.";
             }
         }
 
@@ -283,17 +320,141 @@ final class AtlasTaskHighLeverageBatchAuditor
             }
         }
 
-        return $this->result($antiProxy === [], $antiProxy, $hints, $workerCoverage);
+        // AC3: reward distinct capability lift, simplification, risk reduction, downstream
+        // unlocks and runnable proof — a batch is scored on what it ADVANCES, not just what it
+        // avoids being penalized for.
+        $leverageRewards = $this->leverageRewards($specs, $total);
+
+        // AC4: accept / trim / rewrite / reject, plus concrete reasons per weak task.
+        $decision = $this->decisionFor($antiProxy, $total);
+        $weakTaskReasons = $this->weakTaskReasons($antiProxy);
+
+        return $this->result($antiProxy === [], $antiProxy, $hints, $workerCoverage, $leverageRewards, $decision, $weakTaskReasons);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $specs
+     * @return array{distinct_capability_classes:int, simplification_count:int, risk_reduction_count:int, downstream_unlocks_count:int, runnable_proof_count:int, reward_score:float}
+     */
+    private function leverageRewards(array $specs, int $total): array
+    {
+        $classes = [];
+        $simplificationCount = 0;
+        $riskReductionCount = 0;
+        $downstreamUnlocksCount = 0;
+        $runnableProofCount = 0;
+
+        foreach ($specs as $s) {
+            $objective = strtolower((string) ($s['objective'] ?? ''));
+            $classes[$this->leverageClass($objective)] = true;
+
+            foreach (self::SIMPLIFICATION_KEYWORDS as $kw) {
+                if (str_contains($objective, $kw)) {
+                    $simplificationCount++;
+                    break;
+                }
+            }
+            foreach (self::RISK_REDUCTION_KEYWORDS as $kw) {
+                if (str_contains($objective, $kw)) {
+                    $riskReductionCount++;
+                    break;
+                }
+            }
+            $unlocks = is_array($s['unlocks'] ?? null) ? array_filter((array) $s['unlocks']) : [];
+            if ($unlocks !== []) {
+                $downstreamUnlocksCount++;
+            }
+            $criteria = is_array($s['acceptance_criteria'] ?? null) ? array_map('strval', (array) $s['acceptance_criteria']) : [];
+            if ($this->hasRunnableAcceptance($criteria)) {
+                $runnableProofCount++;
+            }
+        }
+
+        $distinctCapabilityClasses = count($classes);
+        $rewardScore = $total > 0 ? round((
+            ($distinctCapabilityClasses / count(self::LEVERAGE_CLASS_KEYWORDS)) * 0.30
+            + ($simplificationCount / $total) * 0.15
+            + ($riskReductionCount / $total) * 0.15
+            + ($downstreamUnlocksCount / $total) * 0.15
+            + ($runnableProofCount / $total) * 0.25
+        ), 4) : 0.0;
+
+        return [
+            'distinct_capability_classes' => $distinctCapabilityClasses,
+            'simplification_count' => $simplificationCount,
+            'risk_reduction_count' => $riskReductionCount,
+            'downstream_unlocks_count' => $downstreamUnlocksCount,
+            'runnable_proof_count' => $runnableProofCount,
+            'reward_score' => $rewardScore,
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $antiProxy
+     */
+    private function decisionFor(array $antiProxy, int $total): string
+    {
+        if ($antiProxy === []) {
+            return 'accept';
+        }
+
+        $hasBatchWidePattern = array_filter(
+            $antiProxy,
+            static fn (array $f): bool => in_array((string) ($f['pattern'] ?? ''), self::BATCH_WIDE_PATTERNS, true),
+        ) !== [];
+        if ($hasBatchWidePattern) {
+            return 'rewrite';
+        }
+
+        $weakSpecCount = count($this->weakTaskReasons($antiProxy));
+        if ($weakSpecCount > 0 && $weakSpecCount < $total) {
+            return 'trim';
+        }
+
+        return 'reject';
+    }
+
+    /**
+     * AC4: maps each weak task's spec_id to the concrete pattern(s) that flagged it.
+     *
+     * @param  list<array<string,mixed>>  $antiProxy
+     * @return array<string,list<string>>
+     */
+    private function weakTaskReasons(array $antiProxy): array
+    {
+        $reasons = [];
+        foreach ($antiProxy as $fact) {
+            $pattern = (string) ($fact['pattern'] ?? '');
+            if (isset($fact['spec_id']) && $fact['spec_id'] !== '') {
+                $reasons[(string) $fact['spec_id']][] = $pattern;
+            }
+            if (isset($fact['spec_ids']) && is_array($fact['spec_ids'])) {
+                foreach ($fact['spec_ids'] as $specId) {
+                    $reasons[(string) $specId][] = $pattern;
+                }
+            }
+        }
+
+        return $reasons;
     }
 
     /**
      * @param  list<array<string,mixed>>  $antiProxy
      * @param  list<string>  $hints
      * @param  array<string,mixed>|null  $workerCoverage
+     * @param  array<string,mixed>  $leverageRewards
+     * @param  array<string,list<string>>  $weakTaskReasons
      * @return array{schema:string, creditable:bool, anti_proxy_facts:list<array<string,mixed>>, remediation_hints:list<string>}
      */
-    private function result(bool $creditable, array $antiProxy, array $hints, ?array $workerCoverage = null): array
-    {
+    private function result(
+        bool $creditable,
+        array $antiProxy,
+        array $hints,
+        ?array $workerCoverage = null,
+        array $leverageRewards = [],
+        string $decision = 'accept',
+        array $weakTaskReasons = [],
+    ): array {
         $out = [
             'schema' => self::SCHEMA,
             'creditable' => $creditable,
@@ -303,6 +464,9 @@ final class AtlasTaskHighLeverageBatchAuditor
             // acceptance-criteria vocabulary, additive alongside creditable/remediation_hints.
             'frontier_floor_passed' => $creditable,
             'batch_hints' => array_values($hints),
+            'leverage_rewards' => $leverageRewards,
+            'decision' => $decision,
+            'weak_task_reasons' => $weakTaskReasons,
         ];
 
         if ($workerCoverage !== null) {
