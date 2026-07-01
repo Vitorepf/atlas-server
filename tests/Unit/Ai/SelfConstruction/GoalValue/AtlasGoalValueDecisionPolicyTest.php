@@ -226,4 +226,63 @@ final class AtlasGoalValueDecisionPolicyTest extends TestCase
         $json = (string) json_encode($verdict);
         $this->assertDoesNotMatchRegularExpression('/"(score|grade|percent|magnitude|value_score)"/i', $json);
     }
+
+    // ── AC: output shape — decision, blocking_reasons, required_evidence, next_action ──
+
+    public function test_output_has_blocking_reasons_required_evidence_and_next_action(): void
+    {
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide($this->leverageGood(), $this->gateOk(), $this->verificationGreen());
+
+        $this->assertArrayHasKey('decision', $verdict);
+        $this->assertArrayHasKey('blocking_reasons', $verdict);
+        $this->assertArrayHasKey('required_evidence', $verdict);
+        $this->assertArrayHasKey('next_action', $verdict);
+        $this->assertSame($verdict['reasons'], $verdict['blocking_reasons']);
+        $this->assertSame($verdict['next_required_evidence'], $verdict['required_evidence']);
+        $this->assertSame('proceed_with_execution', $verdict['next_action']);
+    }
+
+    public function test_reject_next_action_names_fix_and_resubmit(): void
+    {
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide($this->leverageGood(), $this->gateBlocked(), $this->verificationGreen());
+        $this->assertSame('fix_blockers_then_resubmit', $verdict['next_action']);
+    }
+
+    // ── AC: low-outcome-potential defer ────────────────────────────────────────
+
+    public function test_defers_when_real_outcome_potential_is_insufficient(): void
+    {
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide(
+            $this->leverageGood(),
+            $this->gateOk(),
+            $this->verificationGreen(),
+            [],
+            ['sufficient' => false, 'blockers' => ['trivial_scope']],
+        );
+
+        $this->assertSame(AtlasGoalValueDecisionPolicy::DECISION_DEFER, $verdict['decision']);
+        $this->assertContains('low_outcome_potential', $verdict['reasons']);
+        $this->assertContains('outcome_potential:trivial_scope', $verdict['reasons']);
+        $this->assertContains('demonstrate_real_outcome_potential_before_resubmission', $verdict['required_evidence']);
+        $this->assertSame('demonstrate_real_outcome_potential_then_resubmit', $verdict['next_action']);
+    }
+
+    public function test_promotes_when_outcome_potential_is_sufficient(): void
+    {
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide(
+            $this->leverageGood(),
+            $this->gateOk(),
+            $this->verificationGreen(),
+            [],
+            ['sufficient' => true],
+        );
+
+        $this->assertSame(AtlasGoalValueDecisionPolicy::DECISION_PROMOTE, $verdict['decision']);
+    }
+
+    public function test_no_outcome_potential_verdict_supplied_does_not_defer(): void
+    {
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide($this->leverageGood(), $this->gateOk(), $this->verificationGreen());
+        $this->assertNotSame(AtlasGoalValueDecisionPolicy::DECISION_DEFER, $verdict['decision']);
+    }
 }

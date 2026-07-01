@@ -33,15 +33,33 @@ final class AtlasGoalValueDecisionPolicy
 
     public const DECISION_LEARN = 'learn';
 
+    public const DECISION_DEFER = 'defer';
+
+    private const NEXT_ACTION_MAP = [
+        self::DECISION_PROMOTE => 'proceed_with_execution',
+        self::DECISION_REVISE => 'attach_missing_evidence_and_resubmit',
+        self::DECISION_REJECT => 'fix_blockers_then_resubmit',
+        self::DECISION_LEARN => 'record_learning_and_wait_for_corroboration',
+        self::DECISION_DEFER => 'demonstrate_real_outcome_potential_then_resubmit',
+    ];
+
     /**
      * @param  array<string,mixed>  $leverageVerdict
      * @param  array<string,mixed>  $antiProxyVerdict
      * @param  array<string,mixed>  $verification
      * @param  array<string,mixed>  $finality  optional; operator/human/provider approval keys are FORBIDDEN
+     * @param  array<string,mixed>  $outcomePotential  optional; {sufficient?:bool, blockers?:list<string>} —
+     *   empty array skips the check (backward compatible); sufficient=false defers regardless of
+     *   otherwise-clean leverage/gate/verification, since real outcome potential is a distinct gate.
      * @return array<string,mixed>
      */
-    public function decide(array $leverageVerdict, array $antiProxyVerdict, array $verification, array $finality = []): array
-    {
+    public function decide(
+        array $leverageVerdict,
+        array $antiProxyVerdict,
+        array $verification,
+        array $finality = [],
+        array $outcomePotential = [],
+    ): array {
         $reasons = [];
         $nextEvidence = [];
 
@@ -112,6 +130,19 @@ final class AtlasGoalValueDecisionPolicy
             return $this->envelope(self::DECISION_REVISE, $reasons, $nextEvidence);
         }
 
+        // DEFER — real leverage established but real outcome potential is insufficient. Distinct
+        // from reject/revise: nothing is wrong with the evidence, the decision just isn't worth
+        // admitting yet. Skipped entirely when the caller supplies no outcome-potential verdict.
+        if ($outcomePotential !== [] && (bool) ($outcomePotential['sufficient'] ?? false) === false) {
+            $reasons[] = 'low_outcome_potential';
+            foreach ((array) ($outcomePotential['blockers'] ?? []) as $b) {
+                $reasons[] = 'outcome_potential:'.(string) $b;
+            }
+            $nextEvidence[] = 'demonstrate_real_outcome_potential_before_resubmission';
+
+            return $this->envelope(self::DECISION_DEFER, $reasons, $nextEvidence);
+        }
+
         // PROMOTE — real_leverage true + gate clean + verification green/passed.
         if ($verificationPassed && $color === 'green') {
             // Require explicit implementation evidence refs.
@@ -150,11 +181,17 @@ final class AtlasGoalValueDecisionPolicy
      */
     private function envelope(string $decision, array $reasons, array $nextEvidence): array
     {
+        $reasons = array_values($reasons);
+        $nextEvidence = array_values(array_unique($nextEvidence));
+
         return [
             'schema_version' => self::SCHEMA,
             'decision' => $decision,
-            'reasons' => array_values($reasons),
-            'next_required_evidence' => array_values(array_unique($nextEvidence)),
+            'reasons' => $reasons,
+            'blocking_reasons' => $reasons,
+            'next_required_evidence' => $nextEvidence,
+            'required_evidence' => $nextEvidence,
+            'next_action' => self::NEXT_ACTION_MAP[$decision] ?? 'review_manually',
         ];
     }
 }
