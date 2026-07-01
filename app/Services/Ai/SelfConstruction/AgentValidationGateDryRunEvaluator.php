@@ -52,6 +52,7 @@ final class AgentValidationGateDryRunEvaluator
 
         $aborted = false;
         $abortGateId = null;
+        $skippedDownstreamGateIds = [];
 
         foreach ($orderedRuns as $run) {
             $gateId = (string) ($run['gate_id'] ?? '');
@@ -68,6 +69,7 @@ final class AgentValidationGateDryRunEvaluator
                     detail: ['skipped_due_to' => $abortGateId],
                 );
                 $counts['skip']++;
+                $skippedDownstreamGateIds[] = $gateId;
 
                 continue;
             }
@@ -155,6 +157,10 @@ final class AgentValidationGateDryRunEvaluator
             'overall_status' => $overall,
             'aborted' => $aborted,
             'aborted_at_gate' => $abortGateId,
+            'abort_trace' => $aborted ? [
+                'aborted_at_gate' => $abortGateId,
+                'skipped_gate_ids' => $skippedDownstreamGateIds,
+            ] : null,
             'counts' => $counts,
             'evaluations' => $results,
             'failed_gate_ids' => $this->idsByStatus($results, 'fail'),
