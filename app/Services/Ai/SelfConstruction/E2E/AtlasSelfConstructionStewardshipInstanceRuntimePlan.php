@@ -29,6 +29,14 @@ final class AtlasSelfConstructionStewardshipInstanceRuntimePlan
 
     public const ISOLATION = 'shared_local_main_with_scope_lock';
 
+    public const AUTONOMY_READONLY_PLANNING = 'readonly_planning';
+
+    public const AUTONOMY_SUPERVISED = 'supervised';
+
+    public const AUTONOMY_FULL_AUTONOMOUS = 'full_autonomous';
+
+    private const DEFAULT_EVIDENCE_CONTRACT = ['tests_or_gates_result', 'implementation_notes'];
+
     /**
      * @param  array<string,mixed>  $lane
      * @param  array<string,mixed>  $coverage
@@ -47,6 +55,17 @@ final class AtlasSelfConstructionStewardshipInstanceRuntimePlan
         $mergePolicy = is_array($lane['merge_policy'] ?? null) ? $lane['merge_policy'] : [];
         $verificationCmds = array_values((array) ($lane['verification_commands'] ?? []));
         $knowledgeSync = is_array($lane['knowledge_sync_policy'] ?? null) ? $lane['knowledge_sync_policy'] : [];
+
+        // AC: autonomy level, evidence contract, worker mix, knowledge-sync duties, stop/go
+        // criteria. An unsafe autonomy request (full_autonomous without an explicit safety
+        // contract) is downgraded to supervised rather than silently honored or hard-refused.
+        $requestedAutonomy = (string) ($lane['autonomy_level'] ?? self::AUTONOMY_SUPERVISED);
+        $safetyContractComplete = (bool) ($lane['safety_contract_complete'] ?? false);
+        $resolvedAutonomy = ($requestedAutonomy === self::AUTONOMY_FULL_AUTONOMOUS && ! $safetyContractComplete)
+            ? self::AUTONOMY_SUPERVISED
+            : $requestedAutonomy;
+        $evidenceContract = array_values(array_map('strval', (array) ($lane['required_evidence_fields'] ?? self::DEFAULT_EVIDENCE_CONTRACT)));
+        $workerMix = is_array($lane['worker_mix'] ?? null) ? $lane['worker_mix'] : ['atlas_native' => 1, 'external_provider_worker' => 0];
 
         if (! $admitted) {
             $blockers[] = 'lane_not_admitted';
@@ -113,6 +132,16 @@ final class AtlasSelfConstructionStewardshipInstanceRuntimePlan
                 'receipts_path' => 'storage/atlas/stewardship/'.$projectId.'/receipts.jsonl',
                 'knowledge_sync_targets' => array_values((array) ($knowledgeSync['targets'] ?? ['docs', 'code_index', 'context_pack'])),
                 'workspace_topology' => self::ISOLATION,
+                'autonomy_level' => $resolvedAutonomy,
+                'evidence_contract' => $evidenceContract,
+                'worker_mix' => $workerMix,
+                'knowledge_sync_duties' => array_values(array_unique(array_merge($syncTargets, ['docs', 'code_index']))),
+                'stop_go_criteria' => [
+                    'organ_coverage_fully_covered',
+                    'verification_commands_green',
+                    'no_cross_project_scope_escape',
+                    'knowledge_sync_targets_docs_and_code_index_present',
+                ],
             ],
         ];
     }

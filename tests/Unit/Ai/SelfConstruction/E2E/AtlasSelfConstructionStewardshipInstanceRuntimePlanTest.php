@@ -151,4 +151,79 @@ final class AtlasSelfConstructionStewardshipInstanceRuntimePlanTest extends Test
         $this->assertContains('docs', $plan['knowledge_sync_targets']);
         $this->assertContains('code_index', $plan['knowledge_sync_targets']);
     }
+
+    // ── AC: autonomy level, evidence contract, worker mix, knowledge-sync duties, stop/go criteria ──
+
+    public function test_plan_includes_autonomy_evidence_contract_worker_mix_sync_duties_and_stop_go_criteria(): void
+    {
+        $verdict = (new AtlasSelfConstructionStewardshipInstanceRuntimePlan)->compose($this->atlasLane(), $this->coverFull());
+        $plan = $verdict['runtime_plan'];
+
+        $this->assertArrayHasKey('autonomy_level', $plan);
+        $this->assertArrayHasKey('evidence_contract', $plan);
+        $this->assertArrayHasKey('worker_mix', $plan);
+        $this->assertArrayHasKey('knowledge_sync_duties', $plan);
+        $this->assertArrayHasKey('stop_go_criteria', $plan);
+        $this->assertNotEmpty($plan['evidence_contract']);
+        $this->assertNotEmpty($plan['stop_go_criteria']);
+        $this->assertContains('docs', $plan['knowledge_sync_duties']);
+        $this->assertContains('code_index', $plan['knowledge_sync_duties']);
+    }
+
+    public function test_default_autonomy_level_is_supervised_when_not_requested(): void
+    {
+        $verdict = (new AtlasSelfConstructionStewardshipInstanceRuntimePlan)->compose($this->atlasLane(), $this->coverFull());
+
+        $this->assertSame(
+            AtlasSelfConstructionStewardshipInstanceRuntimePlan::AUTONOMY_SUPERVISED,
+            $verdict['runtime_plan']['autonomy_level'],
+        );
+    }
+
+    public function test_unsafe_full_autonomous_request_without_safety_contract_is_downgraded_to_supervised(): void
+    {
+        $lane = $this->atlasLane();
+        $lane['autonomy_level'] = AtlasSelfConstructionStewardshipInstanceRuntimePlan::AUTONOMY_FULL_AUTONOMOUS;
+        // safety_contract_complete NOT set — unsafe request.
+
+        $verdict = (new AtlasSelfConstructionStewardshipInstanceRuntimePlan)->compose($lane, $this->coverFull());
+
+        $this->assertFalse($verdict['refused']);
+        $this->assertSame(
+            AtlasSelfConstructionStewardshipInstanceRuntimePlan::AUTONOMY_SUPERVISED,
+            $verdict['runtime_plan']['autonomy_level'],
+            'full_autonomous without an explicit safety contract must be downgraded, not silently honored',
+        );
+    }
+
+    public function test_full_autonomous_request_with_safety_contract_complete_is_honored(): void
+    {
+        $lane = $this->atlasLane();
+        $lane['autonomy_level'] = AtlasSelfConstructionStewardshipInstanceRuntimePlan::AUTONOMY_FULL_AUTONOMOUS;
+        $lane['safety_contract_complete'] = true;
+
+        $verdict = (new AtlasSelfConstructionStewardshipInstanceRuntimePlan)->compose($lane, $this->coverFull());
+
+        $this->assertSame(
+            AtlasSelfConstructionStewardshipInstanceRuntimePlan::AUTONOMY_FULL_AUTONOMOUS,
+            $verdict['runtime_plan']['autonomy_level'],
+        );
+    }
+
+    public function test_worker_mix_defaults_to_atlas_native_only(): void
+    {
+        $verdict = (new AtlasSelfConstructionStewardshipInstanceRuntimePlan)->compose($this->atlasLane(), $this->coverFull());
+
+        $this->assertSame(['atlas_native' => 1, 'external_provider_worker' => 0], $verdict['runtime_plan']['worker_mix']);
+    }
+
+    public function test_external_lane_e2e_scenario_composition_carries_new_plan_fields(): void
+    {
+        $verdict = (new AtlasSelfConstructionStewardshipInstanceRuntimePlan)->composeWithE2eScenario($this->externalLane(), $this->coverFull());
+
+        $this->assertFalse($verdict['refused']);
+        $this->assertArrayHasKey('e2e_cycle_scenario', $verdict);
+        $this->assertArrayHasKey('autonomy_level', $verdict['runtime_plan']);
+        $this->assertArrayHasKey('worker_mix', $verdict['runtime_plan']);
+    }
 }
