@@ -72,4 +72,48 @@ final class AgentRuntimeEvidenceContinuityIndexerTest extends TestCase
             $index['missing_required_evidence_types'],
         );
     }
+
+    // ── AC: next_evidence_repair_hint ──────────────────────────────────────────
+
+    public function test_incomplete_task_row_names_the_next_evidence_to_request_via_repair_hint(): void
+    {
+        $entries = [
+            ['evidence_type' => 'dispatch_plan', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1'],
+            ['evidence_type' => 'claim_lease', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1'],
+        ];
+
+        $index = (new AgentRuntimeEvidenceContinuityIndexer)->build($entries);
+        $row = $index['per_task_continuity'][0];
+
+        $this->assertFalse($row['complete']);
+        $this->assertSame('request_evidence_type:scope_lock', $row['next_evidence_repair_hint']);
+    }
+
+    public function test_complete_task_row_has_no_repair_hint(): void
+    {
+        $entries = array_map(
+            static fn (string $type): array => ['evidence_type' => $type, 'task_packet_id' => 'task-x', 'agent_id' => 'agent-1'],
+            AgentRuntimeEvidenceContinuityIndexer::REQUIRED_TYPES,
+        );
+
+        $index = (new AgentRuntimeEvidenceContinuityIndexer)->build($entries);
+        $row = $index['per_task_continuity'][0];
+
+        $this->assertTrue($row['complete']);
+        $this->assertNull($row['next_evidence_repair_hint']);
+    }
+
+    public function test_per_task_continuity_row_includes_all_ac_required_fields(): void
+    {
+        $entries = [
+            ['evidence_type' => 'dispatch_plan', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1'],
+        ];
+
+        $index = (new AgentRuntimeEvidenceContinuityIndexer)->build($entries);
+        $row = $index['per_task_continuity'][0];
+
+        foreach (['complete', 'present_required_types', 'missing_required_types', 'next_evidence_repair_hint'] as $key) {
+            $this->assertArrayHasKey($key, $row, "per_task_continuity row must include {$key}");
+        }
+    }
 }

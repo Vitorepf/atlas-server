@@ -67,6 +67,7 @@ final class AgentRuntimeEvidenceContinuityIndexer
                 'present_required_types' => $present,
                 'missing_required_types' => $missingForTask,
                 'complete' => $missingForTask === [],
+                'next_evidence_repair_hint' => $missingForTask === [] ? null : 'request_evidence_type:'.$missingForTask[0],
             ];
         }
         $anyTaskComplete = false;
