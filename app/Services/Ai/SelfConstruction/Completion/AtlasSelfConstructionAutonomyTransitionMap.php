@@ -95,6 +95,91 @@ final class AtlasSelfConstructionAutonomyTransitionMap
         ];
     }
 
+    public const ALL_LANES = [
+        self::CAPABILITY_REPLENISHER,
+        self::CAPABILITY_WORKER,
+        self::CAPABILITY_VERIFIER,
+        self::CAPABILITY_ROLLBACK,
+        self::CAPABILITY_LEARNING_TRANSFER,
+        self::CAPABILITY_CONTEXT_FRESHNESS,
+    ];
+
+    private const LANE_DEFAULT_NEXT_STEP = [
+        self::CAPABILITY_REPLENISHER => 'create_task_packets:prove_replenisher_capability_demonstration',
+        self::CAPABILITY_WORKER => 'create_task_packets:prove_native_worker_capability_demonstration',
+        self::CAPABILITY_VERIFIER => 'create_task_packets:prove_verifier_capability_demonstration',
+        self::CAPABILITY_ROLLBACK => 'create_task_packets:prove_rollback_capability_demonstration',
+        self::CAPABILITY_LEARNING_TRANSFER => 'create_task_packets:prove_learning_transfer_capability_demonstration',
+        self::CAPABILITY_CONTEXT_FRESHNESS => 'create_task_packets:prove_context_freshness_capability_demonstration',
+    ];
+
+    /**
+     * Maps every required Atlas-native capability lane (replenisher, native_worker, verifier,
+     * rollback, learning_transfer, context_freshness) to a status -- lanes are never omitted.
+     *
+     * A lane is:
+     *   - ready:    no steady-state dependency routes to it AND lane_evidence supplies a
+     *               non-empty evidence_ref -- carries evidence_ref, never replacement_needed.
+     *   - partial:  a steady-state dependency routes to it AND an evidence_ref is supplied
+     *               (evidence exists but the gap is not yet closed).
+     *   - missing:  a steady-state dependency routes to it with no evidence_ref, OR no
+     *               dependency routes to it and no evidence_ref is supplied either (untested
+     *               lane; still requires a concrete next step to prove readiness).
+     *
+     * @param  array<string,mixed>  $auditVerdict  output of AtlasSelfConstructionAutonomyDependencyAudit::audit(),
+     *                                              optionally carrying lane_evidence:array<string,string>
+     * @return array<string,array<string,mixed>>
+     */
+    public function laneReadinessMap(array $auditVerdict): array
+    {
+        $deps = (array) ($auditVerdict['steady_state_dependencies'] ?? []);
+        $laneEvidence = (array) ($auditVerdict['lane_evidence'] ?? []);
+
+        $depsByLane = [];
+        foreach ($deps as $dep) {
+            if (! is_array($dep)) {
+                continue;
+            }
+            $stepId = strtolower((string) ($dep['step_id'] ?? ''));
+            $route = $this->routeFor($stepId);
+            if ($route === null) {
+                continue;
+            }
+            [, $capability, $action] = $route;
+            $depsByLane[$capability][] = ['step_id' => $stepId, 'task_fabric_action' => $action];
+        }
+
+        $laneMap = [];
+        foreach (self::ALL_LANES as $lane) {
+            $evidenceRef = trim((string) ($laneEvidence[$lane] ?? ''));
+            $laneDeps = $depsByLane[$lane] ?? [];
+
+            if ($laneDeps === [] && $evidenceRef !== '') {
+                $laneMap[$lane] = [
+                    'status' => 'ready',
+                    'evidence_ref' => $evidenceRef,
+                ];
+
+                continue;
+            }
+
+            $nextStep = $laneDeps !== []
+                ? $laneDeps[0]['task_fabric_action']
+                : self::LANE_DEFAULT_NEXT_STEP[$lane];
+
+            $laneMap[$lane] = [
+                'status' => $laneDeps !== [] && $evidenceRef !== '' ? 'partial' : 'missing',
+                'next_step' => $nextStep,
+                'replacement_needed' => true,
+            ];
+            if ($evidenceRef !== '') {
+                $laneMap[$lane]['evidence_ref'] = $evidenceRef;
+            }
+        }
+
+        return $laneMap;
+    }
+
     /**
      * @return array{0:string, 1:string, 2:string}|null
      */

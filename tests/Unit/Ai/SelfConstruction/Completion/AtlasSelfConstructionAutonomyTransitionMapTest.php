@@ -128,6 +128,65 @@ final class AtlasSelfConstructionAutonomyTransitionMapTest extends TestCase
         $this->assertSame($a, $b);
     }
 
+    // ── laneReadinessMap: all 6 canonical lanes always represented ────────────
+
+    public function test_all_six_canonical_lanes_are_always_represented(): void
+    {
+        $map = (new AtlasSelfConstructionAutonomyTransitionMap)->laneReadinessMap([]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyTransitionMap::ALL_LANES, array_keys($map));
+    }
+
+    public function test_missing_lane_emits_next_step_instead_of_being_omitted(): void
+    {
+        $map = (new AtlasSelfConstructionAutonomyTransitionMap)->laneReadinessMap([
+            'steady_state_dependencies' => [
+                ['step_id' => 'verify_release', 'role' => 'human'],
+            ],
+        ]);
+
+        $verifierLane = $map[AtlasSelfConstructionAutonomyTransitionMap::CAPABILITY_VERIFIER];
+        $this->assertSame('missing', $verifierLane['status']);
+        $this->assertArrayHasKey('next_step', $verifierLane);
+        $this->assertStringStartsWith('create_task_packets:', $verifierLane['next_step']);
+
+        $untouchedLane = $map[AtlasSelfConstructionAutonomyTransitionMap::CAPABILITY_ROLLBACK];
+        $this->assertSame('missing', $untouchedLane['status']);
+        $this->assertArrayHasKey('next_step', $untouchedLane);
+    }
+
+    public function test_ready_lane_includes_evidence_ref_and_no_replacement_needed_flag(): void
+    {
+        $map = (new AtlasSelfConstructionAutonomyTransitionMap)->laneReadinessMap([
+            'steady_state_dependencies' => [],
+            'lane_evidence' => [
+                AtlasSelfConstructionAutonomyTransitionMap::CAPABILITY_ROLLBACK => 'ev-rollback-proof-1',
+            ],
+        ]);
+
+        $rollbackLane = $map[AtlasSelfConstructionAutonomyTransitionMap::CAPABILITY_ROLLBACK];
+        $this->assertSame('ready', $rollbackLane['status']);
+        $this->assertSame('ev-rollback-proof-1', $rollbackLane['evidence_ref']);
+        $this->assertArrayNotHasKey('replacement_needed', $rollbackLane);
+    }
+
+    public function test_lane_with_dependency_and_evidence_is_partial_not_ready(): void
+    {
+        $map = (new AtlasSelfConstructionAutonomyTransitionMap)->laneReadinessMap([
+            'steady_state_dependencies' => [
+                ['step_id' => 'verify_release', 'role' => 'human'],
+            ],
+            'lane_evidence' => [
+                AtlasSelfConstructionAutonomyTransitionMap::CAPABILITY_VERIFIER => 'ev-partial-verifier',
+            ],
+        ]);
+
+        $verifierLane = $map[AtlasSelfConstructionAutonomyTransitionMap::CAPABILITY_VERIFIER];
+        $this->assertSame('partial', $verifierLane['status']);
+        $this->assertTrue($verifierLane['replacement_needed']);
+        $this->assertSame('ev-partial-verifier', $verifierLane['evidence_ref']);
+    }
+
     public function test_replacements_are_sorted_by_step_id_asc(): void
     {
         $map = (new AtlasSelfConstructionAutonomyTransitionMap)->transition([
