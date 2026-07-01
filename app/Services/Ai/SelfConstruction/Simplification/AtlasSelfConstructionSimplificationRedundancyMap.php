@@ -57,6 +57,11 @@ final class AtlasSelfConstructionSimplificationRedundancyMap
                 'input_shape' => (string) ($raw['input_shape'] ?? ''),
                 'output_shape' => (string) ($raw['output_shape'] ?? ''),
                 'downstream_consumers' => array_values(array_unique(array_map('strval', (array) ($raw['downstream_consumers'] ?? [])))),
+                'symbols' => array_values(array_unique(array_map('strval', (array) ($raw['symbols'] ?? [])))),
+                'method_names' => array_values(array_unique(array_map('strval', (array) ($raw['method_names'] ?? [])))),
+                'responsibility_tags' => array_values(array_unique(array_map('strval', (array) ($raw['responsibility_tags'] ?? [])))),
+                'line_count' => max(0, (int) ($raw['line_count'] ?? 0)),
+                'has_tests' => (bool) ($raw['has_tests'] ?? false),
             ];
         }
 
@@ -78,6 +83,9 @@ final class AtlasSelfConstructionSimplificationRedundancyMap
         };
 
         $pairReasons = [];
+        $pairSharedSymbols = [];
+        $pairRepeatedMethodNames = [];
+        $pairOverlappingResponsibilityTags = [];
         for ($i = 0; $i < count($ids); $i++) {
             for ($j = $i + 1; $j < count($ids); $j++) {
                 $a = $organs[$ids[$i]];
@@ -103,6 +111,21 @@ final class AtlasSelfConstructionSimplificationRedundancyMap
                 if ($a['output_shape'] !== '' && $a['output_shape'] === $b['output_shape']) {
                     $pairReasons[$pairKey][] = 'same_output_shape:'.$a['output_shape'];
                 }
+
+                // Real duplicate-circuit signals: shared symbols, repeated method names, and
+                // overlapping responsibility tags — these beat cosmetic purpose-token similarity.
+                $pairSharedSymbols[$pairKey] = array_merge(
+                    $pairSharedSymbols[$pairKey] ?? [],
+                    array_values(array_intersect($a['symbols'], $b['symbols'])),
+                );
+                $pairRepeatedMethodNames[$pairKey] = array_merge(
+                    $pairRepeatedMethodNames[$pairKey] ?? [],
+                    array_values(array_intersect($a['method_names'], $b['method_names'])),
+                );
+                $pairOverlappingResponsibilityTags[$pairKey] = array_merge(
+                    $pairOverlappingResponsibilityTags[$pairKey] ?? [],
+                    array_values(array_intersect($a['responsibility_tags'], $b['responsibility_tags'])),
+                );
             }
         }
 
@@ -122,20 +145,53 @@ final class AtlasSelfConstructionSimplificationRedundancyMap
             sort($reasons, SORT_STRING);
             $sharedConsumerReason = count(array_filter($reasons, static fn (string $r): bool => str_starts_with($r, 'shared_consumers:'))) > 0;
 
+            $sharedSymbols = array_values(array_unique($pairSharedSymbols[$root] ?? []));
+            sort($sharedSymbols, SORT_STRING);
+            $repeatedMethodNames = array_values(array_unique($pairRepeatedMethodNames[$root] ?? []));
+            sort($repeatedMethodNames, SORT_STRING);
+            $overlappingResponsibilityTags = array_values(array_unique($pairOverlappingResponsibilityTags[$root] ?? []));
+            sort($overlappingResponsibilityTags, SORT_STRING);
+
+            // Removable lines: the total line cost across every member except the one that would
+            // remain as the canonical implementation (the largest, since it likely holds the
+            // superset of behavior).
+            $lineCounts = array_map(static fn (string $id): int => $organs[$id]['line_count'], $members);
+            $removableLines = array_sum($lineCounts) - max($lineCounts);
+
+            // proof_ready: at least one member already has test coverage — a real audit trail
+            // proving current behavior exists to compare consolidated behavior against.
+            $proofReady = count(array_filter($members, static fn (string $id): bool => $organs[$id]['has_tests'])) > 0;
+
+            // priority_score: real duplicate-circuit signals (shared symbols, repeated method
+            // names, overlapping responsibility) weigh far more than cosmetic purpose-token
+            // similarity, so a true duplicate circuit always outranks shallow name similarity.
+            $priorityScore = round(
+                (count($sharedSymbols) * 3.0)
+                + (count($repeatedMethodNames) * 3.0)
+                + (count($overlappingResponsibilityTags) * 2.0)
+                + (count($reasons) * 1.0)
+                + ($removableLines / 100.0)
+                + ($proofReady ? 1.0 : 0.0),
+                4,
+            );
+
             $clusters[] = [
                 'layer' => $organs[$members[0]]['layer'],
                 'members' => $members,
                 'overlap_reasons' => $reasons,
                 'consolidation_priority' => (count($members) >= 3 || $sharedConsumerReason) ? self::PRIORITY_HIGH : self::PRIORITY_MEDIUM,
+                'shared_symbols' => $sharedSymbols,
+                'repeated_method_names' => $repeatedMethodNames,
+                'overlapping_responsibility_tags' => $overlappingResponsibilityTags,
+                'removable_lines' => $removableLines,
+                'proof_ready' => $proofReady,
+                'priority_score' => $priorityScore,
             ];
         }
 
         usort($clusters, static function (array $a, array $b): int {
-            $cmp = $b['members'] <=> $a['members'];
-
-            return count($a['members']) === count($b['members'])
-                ? strcmp($a['members'][0], $b['members'][0])
-                : count($b['members']) <=> count($a['members']);
+            return $b['priority_score'] <=> $a['priority_score']
+                ?: strcmp($a['members'][0], $b['members'][0]);
         });
 
         return [

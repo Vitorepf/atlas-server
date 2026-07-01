@@ -99,4 +99,107 @@ final class AtlasSelfConstructionSimplificationRedundancyMapTest extends TestCas
             json_encode($this->mapper()->map($input)),
         );
     }
+
+    public function test_duplicated_service_circuit_reports_shared_symbols_methods_responsibility_lines_and_proof(): void
+    {
+        $result = $this->mapper()->map([
+            'organs' => [
+                [
+                    'organ_id' => 'organ-a',
+                    'layer' => 'gate',
+                    'purpose_tokens' => ['dedup'],
+                    'symbols' => ['DedupIndex', 'DedupPolicy'],
+                    'method_names' => ['dedupe', 'evaluate'],
+                    'responsibility_tags' => ['queue_admission', 'dedup'],
+                    'line_count' => 150,
+                    'has_tests' => true,
+                ],
+                [
+                    'organ_id' => 'organ-b',
+                    'layer' => 'gate',
+                    'purpose_tokens' => ['dedup'],
+                    'symbols' => ['DedupIndex', 'DedupCache'],
+                    'method_names' => ['dedupe', 'reset'],
+                    'responsibility_tags' => ['queue_admission', 'caching'],
+                    'line_count' => 90,
+                    'has_tests' => false,
+                ],
+            ],
+        ]);
+
+        $cluster = $result['clusters'][0];
+        $this->assertSame(['DedupIndex'], $cluster['shared_symbols']);
+        $this->assertSame(['dedupe'], $cluster['repeated_method_names']);
+        $this->assertSame(['queue_admission'], $cluster['overlapping_responsibility_tags']);
+        $this->assertSame(90, $cluster['removable_lines']);
+        $this->assertTrue($cluster['proof_ready']);
+        $this->assertArrayHasKey('priority_score', $cluster);
+    }
+
+    public function test_similar_names_without_shared_responsibility_ranks_lower_than_true_duplicate_circuit(): void
+    {
+        $trueDuplicate = $this->mapper()->map([
+            'organs' => [
+                [
+                    'organ_id' => 'dup-a',
+                    'layer' => 'gate',
+                    'purpose_tokens' => ['dedup'],
+                    'symbols' => ['DedupIndex'],
+                    'method_names' => ['dedupe'],
+                    'responsibility_tags' => ['queue_admission'],
+                    'line_count' => 150,
+                    'has_tests' => true,
+                ],
+                [
+                    'organ_id' => 'dup-b',
+                    'layer' => 'gate',
+                    'purpose_tokens' => ['dedup'],
+                    'symbols' => ['DedupIndex'],
+                    'method_names' => ['dedupe'],
+                    'responsibility_tags' => ['queue_admission'],
+                    'line_count' => 90,
+                    'has_tests' => true,
+                ],
+            ],
+        ])['clusters'][0];
+
+        $cosmeticOnly = $this->mapper()->map([
+            'organs' => [
+                ['organ_id' => 'similar-a', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
+                ['organ_id' => 'similar-b', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
+            ],
+        ])['clusters'][0];
+
+        $this->assertGreaterThan($cosmeticOnly['priority_score'], $trueDuplicate['priority_score']);
+    }
+
+    public function test_clusters_are_ordered_by_priority_score_then_canonical_circuit_id(): void
+    {
+        $result = $this->mapper()->map([
+            'organs' => [
+                ['organ_id' => 'low-a', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
+                ['organ_id' => 'low-b', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
+                [
+                    'organ_id' => 'high-a',
+                    'layer' => 'planner',
+                    'purpose_tokens' => ['route'],
+                    'symbols' => ['RouteIndex'],
+                    'method_names' => ['route'],
+                    'responsibility_tags' => ['routing'],
+                ],
+                [
+                    'organ_id' => 'high-b',
+                    'layer' => 'planner',
+                    'purpose_tokens' => ['route'],
+                    'symbols' => ['RouteIndex'],
+                    'method_names' => ['route'],
+                    'responsibility_tags' => ['routing'],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(['high-a', 'high-b'], $result['clusters'][0]['members']);
+        $this->assertSame(['low-a', 'low-b'], $result['clusters'][1]['members']);
+        $this->assertGreaterThanOrEqual($result['clusters'][1]['priority_score'], $result['clusters'][0]['priority_score']);
+    }
 }
