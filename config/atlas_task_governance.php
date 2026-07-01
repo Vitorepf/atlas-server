@@ -22,6 +22,12 @@ return [
     // in the serving report commit path. OFF by default — flipping to true is an operator decision.
     'canary_enabled' => false,
 
+    // Default for AtlasTaskGovernancePolicyPlane::evidenceContractMode(). off|observe|enforce.
+    // Gates AtlasVerificationCourtEvidenceContract on the serving report commit path. observe
+    // records the verdict without blocking (bootstrap-safe default); enforce refuses a commit
+    // whose evidence fails the receipt-chain contract, keeping the lease.
+    'evidence_contract_mode' => 'observe',
+
     // Per risk-level governance policy. required_checks is a subset of:
     //   syntax, boot, task_tests, required_test
     'risk_levels' => [

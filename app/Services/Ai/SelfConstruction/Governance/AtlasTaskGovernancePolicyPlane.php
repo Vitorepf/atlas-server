@@ -27,6 +27,8 @@ final class AtlasTaskGovernancePolicyPlane
 
     private const DEFAULT_MODE = 'observe';
 
+    private const DEFAULT_EVIDENCE_CONTRACT_MODE = 'observe';
+
     private const DEFAULT_RELEASE_WINDOW = ['low', 'medium'];
 
     private const DEFAULT_VERIFIER_ENABLED = true;
@@ -116,6 +118,20 @@ final class AtlasTaskGovernancePolicyPlane
     public function canaryEnabled(): bool
     {
         return (bool) ($this->config()['canary_enabled'] ?? false);
+    }
+
+    /**
+     * off|observe|enforce, default observe. Gates
+     * {@see \App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract}
+     * on the serving report commit path: off skips evaluation entirely (byte-identical legacy
+     * behavior), observe records the verdict without blocking, enforce refuses the commit on a
+     * failed verdict. An invalid/unknown config value safely falls back to observe.
+     */
+    public function evidenceContractMode(): string
+    {
+        $raw = strtolower(trim((string) ($this->config()['evidence_contract_mode'] ?? '')));
+
+        return in_array($raw, self::VALID_MODES, true) ? $raw : self::DEFAULT_EVIDENCE_CONTRACT_MODE;
     }
 
     public function isolationContract(): string

@@ -7,6 +7,8 @@ namespace App\Services\Ai\SelfConstruction;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
+use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract;
+use Closure;
 use Throwable;
 
 /**
@@ -53,6 +55,9 @@ final class AtlasTaskServingService
 
     private readonly AtlasTaskGovernancePolicyPlane $policyPlane;
 
+    /** @var Closure(array<string,mixed>,array<string,mixed>):array<string,mixed> */
+    private readonly Closure $evidenceContractEvaluator;
+
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly ?AtlasTaskServingSentinel $sentinel = null,
@@ -62,6 +67,7 @@ final class AtlasTaskServingService
         ?AtlasTaskCommitGovernanceChain $governance = null,
         ?AtlasTaskPostLandCanarySentinel $canarySentinel = null,
         ?AtlasTaskGovernancePolicyPlane $policyPlane = null,
+        ?Closure $evidenceContractEvaluator = null,
     ) {
         $this->inspector = $inspector ?? new AtlasTaskPacketQualityInspector;
         $this->committer = $committer ?? new AtlasTaskScopedCommitter;
@@ -69,6 +75,11 @@ final class AtlasTaskServingService
         $this->governance = $governance ?? new AtlasTaskCommitGovernanceChain;
         $this->canarySentinel = $canarySentinel ?? new AtlasTaskPostLandCanarySentinel;
         $this->policyPlane = $policyPlane ?? new AtlasTaskGovernancePolicyPlane;
+        // COMPOSED, never reimplemented: the default evaluator is a thin closure over the real
+        // AtlasVerificationCourtEvidenceContract::verify(). Swappable only for tests that need to
+        // prove the fail-open exception path (the real contract never throws).
+        $this->evidenceContractEvaluator = $evidenceContractEvaluator
+            ?? static fn (array $allegation, array $evidence): array => (new AtlasVerificationCourtEvidenceContract)->verify($allegation, $evidence);
     }
 
     /**
@@ -239,6 +250,38 @@ final class AtlasTaskServingService
                 }
             }
 
+            // EVIDENCE CONTRACT — binds the worker's evidence to the Verification Court's receipt-chain
+            // contract BEFORE governance runs. off skips evaluation entirely (byte-identical legacy
+            // behavior); observe (default) records the verdict and proceeds; enforce refuses the commit
+            // on a failed verdict, keeping the lease so the worker fixes evidence and re-reports. A
+            // contract-evaluation exception is recorded and the report proceeds — fail-open in every mode.
+            $evidenceContractMode = $this->policyPlane->evidenceContractMode();
+            $evidenceContractVerdict = null;
+            if ($evidenceContractMode !== 'off') {
+                try {
+                    $allegation = [
+                        'task_packet_id' => $taskPacketId,
+                        'lease_id' => $leaseId,
+                        'allowed_files_hash' => hash('sha256', implode(',', (array) $scope['allowed_files'])),
+                        'command_hash' => hash('sha256', implode(',', array_keys((array) ($verification['checks'] ?? [])))),
+                    ];
+                    $evidenceContractVerdict = ($this->evidenceContractEvaluator)($allegation, (array) ($payload['evidence'] ?? []));
+                } catch (Throwable $e) {
+                    $evidenceContractVerdict = ['schema' => AtlasVerificationCourtEvidenceContract::SCHEMA, 'accepted' => true, 'blockers' => [], 'error' => $e->getMessage()];
+                }
+
+                if ($evidenceContractMode === 'enforce' && ($evidenceContractVerdict['accepted'] ?? true) !== true) {
+                    return $this->reportEnvelope('commit_failed', $clientId, [
+                        'outcome' => 'success',
+                        'lease_closed' => false,
+                        'task_packet_id' => $taskPacketId,
+                        'lease_id' => $leaseId,
+                        'reason' => 'evidence_contract_failed',
+                        'evidence_contract' => $evidenceContractVerdict,
+                    ]);
+                }
+            }
+
             // SPINE — the Merge Governor + Verification Court finally run on a LIVE delivery. In observe mode
             // (default) it RECORDS the verdict and NEVER blocks (the bootstrap swarm builds these very organs,
             // which score HIGH risk — enforcing here would self-lock the build). In enforce mode a non-admitted
@@ -246,6 +289,9 @@ final class AtlasTaskServingService
             $verificationFacts = isset($verification) && is_array($verification)
                 ? ['passed' => ($verification['passed'] ?? false) === true, 'checks' => (array) ($verification['checks'] ?? [])]
                 : ['passed' => false, 'checks' => []];
+            if ($evidenceContractMode !== 'off') {
+                $verificationFacts['evidence_contract'] = $evidenceContractVerdict;
+            }
             $governance = $this->governance->govern([
                 'task_packet_id' => $taskPacketId,
                 'project_id' => 'atlas-self-construction',
@@ -289,7 +335,7 @@ final class AtlasTaskServingService
                 }
             }
 
-            return $this->reportEnvelope('resolved', $clientId, [
+            return $this->reportEnvelope('resolved', $clientId, array_merge([
                 'outcome' => 'success',
                 'lease_closed' => (string) ($resolved['event'] ?? '') === 'task_resolved',
                 'task_packet_id' => $taskPacketId,
@@ -298,7 +344,7 @@ final class AtlasTaskServingService
                 'files_committed' => array_values((array) ($commit['files_committed'] ?? [])),
                 'governance' => $governance,
                 'result' => $resolved,
-            ]);
+            ], $evidenceContractMode !== 'off' ? ['evidence_contract' => $evidenceContractVerdict] : []));
         }
 
         if ($outcome === 'success') {
