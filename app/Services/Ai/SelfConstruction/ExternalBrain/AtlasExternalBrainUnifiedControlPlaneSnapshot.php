@@ -78,6 +78,8 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         $evidenceAgeHours       = max(0.0, (float) ($input['evidence_age_hours']            ?? 0.0));
         $integrationCoverage    = max(0.0, min(100.0, (float) ($input['integration_coverage_percent'] ?? 100.0)));
         $finalReadinessPercent  = max(0.0, min(100.0, (float) ($input['final_readiness_percent']      ?? 100.0)));
+        $providerIndependenceStatus = (string) ($input['provider_independence_status'] ?? 'ready');
+        $taskFabricQualityStatus    = (string) ($input['task_fabric_quality_status']   ?? 'healthy');
 
         $evidenceFreshnessStatus = $evidenceAgeHours > self::STALE_EVIDENCE_HOURS_CEILING ? 'stale' : 'fresh';
         $integrationCoverageStatus = $integrationCoverage < self::WEAK_INTEGRATION_COVERAGE_FLOOR ? 'weak' : 'adequate';
@@ -88,11 +90,15 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
             $evidenceFreshnessStatus, $integrationCoverageStatus,
         );
 
-        $nextDecision = $this->resolveDecision($queuePressure, $simplPressure, $maturityGapCount);
+        $nextDecision = $this->resolveDecision(
+            $queuePressure, $simplPressure, $maturityGapCount,
+            $taskFabricQualityStatus, $providerIndependenceStatus, $evidenceFreshnessStatus,
+        );
         $batchTheme   = $this->resolveBatchTheme($status, $nextDecision, $topRisks);
         $rankedFocus  = $this->resolveRankedFocus(
             $giveBackRate, $malformedRate, $workerSuccessRate,
             $simplPressure, $amplifierStatus, $taskValueDegrading, $muscleOutcomeDegrading, $maturityGapCount,
+            $taskFabricQualityStatus,
         );
 
         return [
@@ -110,6 +116,12 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
             'evidence_freshness_status'  => $evidenceFreshnessStatus,
             'final_readiness_percent'    => $finalReadinessPercent,
             'integration_coverage_status' => $integrationCoverageStatus,
+            'readiness'                  => [
+                'provider_independence'    => $providerIndependenceStatus,
+                'model_amplifier'          => $amplifierStatus,
+                'task_fabric_quality'      => $taskFabricQualityStatus,
+                'knowledge_sync_freshness' => $evidenceFreshnessStatus,
+            ],
         ];
     }
 
@@ -183,14 +195,29 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         return [self::STATUS_GREEN, []];
     }
 
-    private function resolveDecision(string $queuePressure, string $simplPressure, int $maturityGapCount): string
-    {
+    private function resolveDecision(
+        string $queuePressure,
+        string $simplPressure,
+        int $maturityGapCount,
+        string $taskFabricQualityStatus,
+        string $providerIndependenceStatus,
+        string $evidenceFreshnessStatus,
+    ): string {
         if ($queuePressure === 'high' || $simplPressure === 'high') {
             return self::DECISION_CONSOLIDATE;
         }
-        if ($maturityGapCount > 0) {
+
+        // create_more_tasks is never recommended on top of a degraded task-fabric, a failing
+        // provider-independence posture, or stale knowledge evidence — origination on a weak
+        // foundation compounds the weakness instead of fixing it.
+        $unsafeToCreate = $taskFabricQualityStatus === 'degraded'
+            || $providerIndependenceStatus === 'failing'
+            || $evidenceFreshnessStatus === 'stale';
+
+        if ($maturityGapCount > 0 && ! $unsafeToCreate) {
             return self::DECISION_CREATE;
         }
+
         return self::DECISION_MONITOR;
     }
 
@@ -219,6 +246,7 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         bool   $taskValueDegrading,
         bool   $muscleOutcomeDegrading,
         int    $maturityGapCount,
+        string $taskFabricQualityStatus,
     ): string {
         return match (true) {
             $giveBackRate > self::GIVE_BACK_RED_FLOOR
@@ -227,6 +255,9 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
             $simplPressure === 'high'                              => self::FOCUS_SIMPLIFICATION,
             in_array($amplifierStatus, ['watch', 'rollback_candidate'], true) => self::FOCUS_MODEL_AMPLIFIER,
             $taskValueDegrading || $muscleOutcomeDegrading         => self::FOCUS_OUTCOME_LEARNING,
+            // A degraded task fabric outranks originating more capability-gap work — filling
+            // gaps on a quality-degraded fabric just produces more low-quality output.
+            $taskFabricQualityStatus === 'degraded'                => self::FOCUS_TASK_FABRIC,
             $maturityGapCount > 0                                  => self::FOCUS_CAPABILITY_GAP,
             default                                                => self::FOCUS_TASK_FABRIC,
         };

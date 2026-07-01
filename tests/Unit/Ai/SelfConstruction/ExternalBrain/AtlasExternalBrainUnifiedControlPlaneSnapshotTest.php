@@ -316,4 +316,98 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshotTest extends TestCase
             $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
         }
     }
+
+    // ── readiness fields ─────────────────────────────────────────────────────
+
+    public function test_snapshot_exposes_readiness_fields_for_all_four_dimensions(): void
+    {
+        $r = $this->snapshot->compose($this->healthy([
+            'provider_independence_status' => 'ready',
+            'task_fabric_quality_status' => 'healthy',
+        ]));
+
+        foreach (['provider_independence', 'model_amplifier', 'task_fabric_quality', 'knowledge_sync_freshness'] as $key) {
+            $this->assertArrayHasKey($key, $r['readiness'], "Missing readiness key: {$key}");
+        }
+        $this->assertSame('ready', $r['readiness']['provider_independence']);
+        $this->assertSame('healthy', $r['readiness']['task_fabric_quality']);
+    }
+
+    // ── next_decision gating ─────────────────────────────────────────────────
+
+    public function test_next_decision_is_not_create_when_task_fabric_quality_is_degraded(): void
+    {
+        $r = $this->snapshot->compose($this->healthy([
+            'maturity_gap_count' => 3,
+            'task_fabric_quality_status' => 'degraded',
+        ]));
+
+        $this->assertNotSame('create_more_tasks', $r['next_decision']);
+    }
+
+    public function test_next_decision_is_not_create_when_provider_independence_is_failing(): void
+    {
+        $r = $this->snapshot->compose($this->healthy([
+            'maturity_gap_count' => 3,
+            'provider_independence_status' => 'failing',
+        ]));
+
+        $this->assertNotSame('create_more_tasks', $r['next_decision']);
+    }
+
+    public function test_next_decision_is_not_create_when_knowledge_evidence_is_stale(): void
+    {
+        $r = $this->snapshot->compose($this->healthy([
+            'maturity_gap_count' => 3,
+            'evidence_age_hours' => 200.0,
+        ]));
+
+        $this->assertNotSame('create_more_tasks', $r['next_decision']);
+    }
+
+    public function test_next_decision_is_create_when_all_readiness_signals_healthy_and_gaps_present(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['maturity_gap_count' => 3]));
+
+        $this->assertSame('create_more_tasks', $r['next_decision']);
+    }
+
+    // ── ranked_focus priority over degraded readiness ─────────────────────────
+
+    public function test_ranked_focus_prioritizes_task_fabric_over_capability_gap_when_quality_degraded(): void
+    {
+        $r = $this->snapshot->compose($this->healthy([
+            'maturity_gap_count' => 5,
+            'task_fabric_quality_status' => 'degraded',
+        ]));
+
+        $this->assertSame('task_fabric', $r['ranked_focus']);
+        $this->assertNotSame('capability_gap', $r['ranked_focus']);
+    }
+
+    public function test_ranked_focus_prioritizes_self_heal_over_capability_gap_when_independence_signals_degraded(): void
+    {
+        $r = $this->snapshot->compose($this->healthy([
+            'maturity_gap_count' => 5,
+            'give_back_rate' => 0.5,
+        ]));
+
+        $this->assertSame('self_heal', $r['ranked_focus']);
+    }
+
+    // ── purity / determinism ───────────────────────────────────────────────────
+
+    public function test_compose_with_readiness_inputs_is_deterministic(): void
+    {
+        $input = $this->healthy([
+            'maturity_gap_count' => 2,
+            'task_fabric_quality_status' => 'degraded',
+            'provider_independence_status' => 'ready',
+        ]);
+
+        $a = $this->snapshot->compose($input);
+        $b = $this->snapshot->compose($input);
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }
