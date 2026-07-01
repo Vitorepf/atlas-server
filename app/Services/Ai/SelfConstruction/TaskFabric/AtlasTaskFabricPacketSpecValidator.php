@@ -73,6 +73,10 @@ final class AtlasTaskFabricPacketSpecValidator
             $blockers[] = 'missing_acceptance_criteria';
         } elseif (! $this->mentionsGate($acceptance)) {
             $blockers[] = 'missing_gates';
+        } elseif (! $this->hasAcceptanceStrengthFloor($acceptance)) {
+            // A gate keyword is present ("phpunit", "test"...) but every criterion is a bare, vague
+            // green-check phrase — that proves the pipeline ran, never what BEHAVIOR it proved.
+            $blockers[] = 'weak_acceptance_strength';
         }
 
         $evidence = is_array($spec['required_evidence'] ?? null) ? array_values($spec['required_evidence']) : null;
@@ -174,6 +178,7 @@ final class AtlasTaskFabricPacketSpecValidator
             $blocker === 'missing_scope_in' => 'add at least one concrete path to scope_in',
             $blocker === 'missing_acceptance_criteria' => 'add a runnable acceptance criterion (e.g. a phpunit/pint command)',
             $blocker === 'missing_gates' => 'add an acceptance criterion that references a runnable gate (test/phpunit/pint/verify)',
+            $blocker === 'weak_acceptance_strength' => 'name the specific behavior invariant being proven (e.g. which class/method and what it must do), not just "phpunit green" or "tests pass"',
             $blocker === 'missing_required_evidence' => 'add at least one required_evidence entry (e.g. test_run_id)',
             $blocker === 'missing_rollback_hint' => 'add a rollback_hint describing how to revert this change',
             $blocker === 'missing_workspace_policy' => 'add workspace_policy.execution_topology=shared_local_main_with_scope_lock',
@@ -204,6 +209,32 @@ final class AtlasTaskFabricPacketSpecValidator
     {
         foreach ($acceptance as $line) {
             if (preg_match('/phpunit|pint|pest|test|gate|verify|assert/i', $line)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Bare "it ran" phrases that prove NOTHING about behavior — vague-only when this is ALL a spec says. */
+    private const VAGUE_ACCEPTANCE_PHRASES = [
+        'phpunit green', 'phpunit passes', 'phpunit pass', 'test passes', 'tests pass', 'tests passes',
+        'all tests pass', 'test green', 'tests green', 'green', 'ci green', 'gate passes', 'gate green',
+    ];
+
+    /**
+     * True when at least one acceptance criterion carries a behavior-specific assertion signal:
+     * a concrete class/method/path reference, or a wording that names WHAT is being proven — never
+     * satisfied by a bare "it ran green" phrase alone.
+     *
+     * @param  list<string>  $acceptance
+     */
+    private function hasAcceptanceStrengthFloor(array $acceptance): bool
+    {
+        foreach ($acceptance as $line) {
+            $normalized = trim(preg_replace('/\s+/', ' ', strtolower($line)) ?? '');
+            $normalized = rtrim($normalized, '.!');
+            if (! in_array($normalized, self::VAGUE_ACCEPTANCE_PHRASES, true)) {
                 return true;
             }
         }

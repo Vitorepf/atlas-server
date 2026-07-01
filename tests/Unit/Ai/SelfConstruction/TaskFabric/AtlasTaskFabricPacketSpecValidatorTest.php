@@ -23,7 +23,7 @@ final class AtlasTaskFabricPacketSpecValidatorTest extends TestCase
             'objective' => 'Add a small helper.',
             'allowed_files' => ['app/Demo/Helper.php', 'tests/Unit/Demo/HelperTest.php'],
             'scope_in' => ['app/Demo/Helper.php'],
-            'acceptance_criteria' => ['phpunit green'],
+            'acceptance_criteria' => ['php artisan test --filter=HelperTest proves Helper::normalize() trims and lowercases input'],
             'required_evidence' => ['test_run_id'],
             'rollback_hint' => 'revert_commit:abc',
             'workspace_policy' => ['execution_topology' => 'shared_local_main_with_scope_lock'],
@@ -225,5 +225,71 @@ final class AtlasTaskFabricPacketSpecValidatorTest extends TestCase
         foreach ($r['repair_hints'] as $hint) {
             $this->assertNotEmpty($hint);
         }
+    }
+
+    // ── AC: acceptance-strength floor — vague "phpunit green"/"tests pass" is blocked ──
+
+    public function test_acceptance_that_only_says_phpunit_green_is_blocked(): void
+    {
+        $d = $this->validDraft();
+        $d['acceptance_criteria'] = ['phpunit green'];
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('weak_acceptance_strength', $r['blockers']);
+    }
+
+    public function test_acceptance_that_only_says_tests_pass_is_blocked(): void
+    {
+        $d = $this->validDraft();
+        $d['acceptance_criteria'] = ['tests pass'];
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertContains('weak_acceptance_strength', $r['blockers']);
+    }
+
+    public function test_weak_acceptance_repair_hint_asks_for_the_behavior_invariant(): void
+    {
+        $d = $this->validDraft();
+        $d['acceptance_criteria'] = ['phpunit green'];
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $index = array_search('weak_acceptance_strength', $r['blockers'], true);
+        $this->assertNotFalse($index);
+        $this->assertStringContainsString('behavior invariant', $r['repair_hints'][$index]);
+    }
+
+    public function test_multiple_vague_criteria_are_still_blocked(): void
+    {
+        $d = $this->validDraft();
+        $d['acceptance_criteria'] = ['phpunit green', 'tests pass', 'CI Green.'];
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertContains('weak_acceptance_strength', $r['blockers']);
+    }
+
+    public function test_one_concrete_criterion_among_vague_ones_clears_the_strength_floor(): void
+    {
+        $d = $this->validDraft();
+        $d['acceptance_criteria'] = ['phpunit green', 'HelperTest proves Helper::normalize() rejects empty input'];
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertNotContains('weak_acceptance_strength', $r['blockers']);
+    }
+
+    public function test_weak_acceptance_strength_is_distinct_from_missing_gates(): void
+    {
+        $d = $this->validDraft();
+        $d['acceptance_criteria'] = ['user is happy']; // no gate keyword at all
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertContains('missing_gates', $r['blockers']);
+        $this->assertNotContains('weak_acceptance_strength', $r['blockers'], 'missing_gates and weak_acceptance_strength are mutually exclusive');
     }
 }
