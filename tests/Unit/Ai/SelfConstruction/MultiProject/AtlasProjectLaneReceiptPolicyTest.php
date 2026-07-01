@@ -110,10 +110,12 @@ final class AtlasProjectLaneReceiptPolicyTest extends TestCase
 
         $different_prev = array_merge($base, ['previous_envelope_hash' => 'different-prev-hash']);
         $different_seq = array_merge($base, ['event_sequence' => 99]);
+        $different_epoch = array_merge($base, ['lane_epoch' => 99]);
 
         $hashBase = $p->build($base)['envelope_hash'];
         $this->assertNotSame($hashBase, $p->build($different_prev)['envelope_hash'], 'previous_envelope_hash must affect envelope_hash');
         $this->assertNotSame($hashBase, $p->build($different_seq)['envelope_hash'], 'event_sequence must affect envelope_hash');
+        $this->assertNotSame($hashBase, $p->build($different_epoch)['envelope_hash'], 'lane_epoch must affect envelope_hash');
     }
 
     public function test_empty_project_id_or_namespace_throws(): void
