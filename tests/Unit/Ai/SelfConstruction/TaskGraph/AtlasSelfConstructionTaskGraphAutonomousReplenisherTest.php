@@ -194,6 +194,34 @@ class AtlasSelfConstructionTaskGraphAutonomousReplenisherTest extends TestCase
         self::assertSame('quality_gate_blocked', $verdict['plan']['withheld'][0]['reason']);
     }
 
+    // ── AC2: callback exception is isolated, does not stop later eligible inputs ──
+
+    public function test_callback_exception_creates_unapplied_result_and_does_not_stop_later_inputs(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphAutonomousReplenisher)->run(
+            ['status' => 'incomplete'],
+            [$this->validDraft('a-1'), $this->validDraft('b-1')],
+            [],
+            [
+                'apply' => true,
+                'enqueue_callback' => static function (array $input): array {
+                    if ($input['task_packet']['task_packet_id'] === 'a-1') {
+                        throw new \RuntimeException('enqueue failed for a-1');
+                    }
+
+                    return ['enqueued' => true];
+                },
+            ],
+        );
+
+        $results = array_column($verdict['enqueue_results'], null, 'task_packet_id');
+        $this->assertFalse($results['a-1']['applied']);
+        $this->assertNotNull($results['a-1']['error']);
+        $this->assertTrue($results['b-1']['applied']);
+        $this->assertSame(1, $verdict['applied_count']);
+        $this->assertNotEmpty($verdict['replenisher_hash'], 'hash must still be emitted after a partial failure');
+    }
+
     public function test_apply_without_callback_stays_dry_run(): void
     {
         $verdict = (new AtlasSelfConstructionTaskGraphAutonomousReplenisher)->run(
