@@ -31,6 +31,17 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
     private const LOW_IMPACT_SCORE_THRESHOLD = 0.30;
     private const LOW_IMPACT_SHARE_THRESHOLD = 0.50;
     private const HIGH_COLLISION_RISK_THRESHOLD = 0.60;
+    private const PADDING_SHARE_THRESHOLD = 0.50;
+    private const WEAK_EVIDENCE_SCORE_THRESHOLD = 0.30;
+    private const WEAK_EVIDENCE_SHARE_THRESHOLD = 0.50;
+
+    /** recommendation => AC-facing decision vocabulary (keep/trim/reject/split). */
+    private const RECOMMENDATION_TO_DECISION = [
+        self::RECOMMENDATION_PROCEED => 'keep',
+        self::RECOMMENDATION_TRIM_BATCH => 'trim',
+        self::RECOMMENDATION_STOP_AND_RESEARCH => 'reject',
+        self::RECOMMENDATION_PIVOT_THEME => 'split',
+    ];
 
     /**
      * @param  array<string,mixed>  $facts
@@ -54,6 +65,9 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
         $wrapperOnlyCount = 0;
         $missingProofCount = 0;
         $lowImpactDespitePassingCount = 0;
+        $paddingCount = 0;
+        $duplicateCount = 0;
+        $weakEvidenceCount = 0;
 
         foreach ($tasks as $task) {
             $task = (array) $task;
@@ -61,14 +75,33 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
             if ($theme !== '') {
                 $themeCounts[$theme] = ($themeCounts[$theme] ?? 0) + 1;
             }
-            if ((bool) ($task['is_test_only'] ?? false)) {
+            $isTestOnly = (bool) ($task['is_test_only'] ?? false);
+            $isWrapperOnly = (bool) ($task['is_wrapper_only'] ?? false);
+            if ($isTestOnly) {
                 $testOnlyCount++;
             }
-            if ((bool) ($task['is_wrapper_only'] ?? false)) {
+            if ($isWrapperOnly) {
                 $wrapperOnlyCount++;
+            }
+            // AC1: padding — either explicitly flagged, or a task that is BOTH test-only and
+            // wrapper-only (produces no real capability on its own, just structural noise).
+            if ((bool) ($task['is_padding'] ?? false) || ($isTestOnly && $isWrapperOnly)) {
+                $paddingCount++;
             }
             if (! (bool) ($task['has_runnable_proof'] ?? false)) {
                 $missingProofCount++;
+            }
+            if (trim((string) ($task['duplicate_of'] ?? '')) !== '') {
+                $duplicateCount++;
+            }
+            // Evidence strength defaults to "strong" when a task already has runnable proof and
+            // simply never set the field — only an EXPLICIT low evidence_strength, or the
+            // combination of no proof and no evidence at all, counts as weak.
+            $hasRunnableProofForEvidence = (bool) ($task['has_runnable_proof'] ?? false);
+            $evidenceStrengthDefault = $hasRunnableProofForEvidence ? 1.0 : 0.0;
+            $evidenceStrength = max(0.0, min(1.0, (float) ($task['evidence_strength'] ?? $evidenceStrengthDefault)));
+            if ($evidenceStrength < self::WEAK_EVIDENCE_SCORE_THRESHOLD) {
+                $weakEvidenceCount++;
             }
             $structuralGatesPassed = (bool) ($task['structural_gates_passed'] ?? false);
             $impactScore = max(0.0, min(1.0, (float) ($task['impact_score'] ?? 0.0)));
@@ -82,17 +115,26 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
         $wrapperOnlyShare = $wrapperOnlyCount / $taskCount;
         $missingProofShare = $missingProofCount / $taskCount;
         $lowImpactDespitePassingShare = $lowImpactDespitePassingCount / $taskCount;
+        $paddingShare = $paddingCount / $taskCount;
+        $duplicateShare = $duplicateCount / $taskCount;
+        $weakEvidenceShare = $weakEvidenceCount / $taskCount;
 
         $sameThemeVariantFlag = $dominantThemeShare >= self::SAME_THEME_SHARE_THRESHOLD;
         $testOnlyDominant = $testOnlyShare >= self::TEST_ONLY_SHARE_THRESHOLD;
         $wrapperOnlyDominant = $wrapperOnlyShare >= self::WRAPPER_ONLY_SHARE_THRESHOLD;
         $lowImpactDominant = $lowImpactDespitePassingShare >= self::LOW_IMPACT_SHARE_THRESHOLD;
+        $paddingDominant = $paddingShare >= self::PADDING_SHARE_THRESHOLD;
+        $duplicatePresent = $duplicateCount > 0;
+        $weakEvidenceDominant = $weakEvidenceShare >= self::WEAK_EVIDENCE_SHARE_THRESHOLD;
 
         $lowValueReasons = array_values(array_filter([
             $sameThemeVariantFlag ? 'same_theme_variants_dominant' : null,
             $testOnlyDominant ? 'test_only_tasks_dominant' : null,
             $wrapperOnlyDominant ? 'wrapper_only_tasks_dominant' : null,
+            $paddingDominant ? 'padding_tasks_dominant' : null,
+            $duplicatePresent ? 'duplicate_value_present' : null,
             $missingProofShare > 0.0 ? 'tasks_missing_runnable_proof' : null,
+            $weakEvidenceDominant ? 'weak_evidence_dominant' : null,
             $lowImpactDominant ? 'low_impact_despite_passing_structural_gates' : null,
         ]));
         $isLowValue = $lowValueReasons !== [];
@@ -101,7 +143,9 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
             $missingProofShare >= 1.0 => [self::RECOMMENDATION_STOP_AND_RESEARCH, ['no_task_has_runnable_proof']],
             $missingProofShare > 0.0 => [self::RECOMMENDATION_TRIM_BATCH, ['missing_runnable_proof_tasks_present']],
             $sameThemeVariantFlag => [self::RECOMMENDATION_PIVOT_THEME, ['majority_same_theme_variants']],
-            $testOnlyDominant || $wrapperOnlyDominant => [self::RECOMMENDATION_TRIM_BATCH, ['test_only_or_wrapper_only_dominant']],
+            $weakEvidenceDominant => [self::RECOMMENDATION_STOP_AND_RESEARCH, ['weak_evidence_dominant']],
+            $testOnlyDominant || $wrapperOnlyDominant || $paddingDominant => [self::RECOMMENDATION_TRIM_BATCH, ['test_only_wrapper_only_or_padding_dominant']],
+            $duplicatePresent => [self::RECOMMENDATION_TRIM_BATCH, ['duplicate_value_present']],
             $lowImpactDominant => [self::RECOMMENDATION_STOP_AND_RESEARCH, ['low_impact_despite_passing_structural_gates']],
             default => [self::RECOMMENDATION_PROCEED, []],
         };
@@ -128,6 +172,9 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
             wrapperOnlyShare: $wrapperOnlyShare,
             missingProofShare: $missingProofShare,
             lowImpactDespitePassingShare: $lowImpactDespitePassingShare,
+            paddingShare: $paddingShare,
+            duplicateShare: $duplicateShare,
+            weakEvidenceShare: $weakEvidenceShare,
             trimmedTaskIds: $trimmedTaskIds,
             droppedTaskReasons: $droppedTaskReasons,
             dominantTheme: $dominantTheme,
@@ -157,10 +204,15 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
                 continue;
             }
 
+            $isTestOnly = (bool) ($task['is_test_only'] ?? false);
+            $isWrapperOnly = (bool) ($task['is_wrapper_only'] ?? false);
+            $isPadding = (bool) ($task['is_padding'] ?? false) || ($isTestOnly && $isWrapperOnly);
+
             $reason = match (true) {
                 ! (bool) ($task['has_runnable_proof'] ?? false) => 'missing_runnable_proof',
                 trim((string) ($task['duplicate_of'] ?? '')) !== '' => 'duplicate_of_set',
                 max(0.0, min(1.0, (float) ($task['collision_risk'] ?? 0.0))) > self::HIGH_COLLISION_RISK_THRESHOLD => 'high_collision_risk',
+                $isPadding => 'padding',
                 default => null,
             };
 
@@ -223,6 +275,9 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
         float $wrapperOnlyShare = 0.0,
         float $missingProofShare = 0.0,
         float $lowImpactDespitePassingShare = 0.0,
+        float $paddingShare = 0.0,
+        float $duplicateShare = 0.0,
+        float $weakEvidenceShare = 0.0,
         array $trimmedTaskIds = [],
         array $droppedTaskReasons = [],
         ?string $dominantTheme = null,
@@ -233,6 +288,10 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
             'task_scores' => $taskScores,
             'low_value' => $isLowValue,
             'low_value_reasons' => $lowValueReasons,
+            'padding_share' => round($paddingShare, 6),
+            'duplicate_share' => round($duplicateShare, 6),
+            'weak_evidence_share' => round($weakEvidenceShare, 6),
+            'decision' => self::RECOMMENDATION_TO_DECISION[$recommendation] ?? 'reject',
             'dominant_theme_share' => round($dominantThemeShare, 6),
             'dominant_theme' => $dominantTheme,
             'test_only_share' => round($testOnlyShare, 6),
