@@ -191,4 +191,92 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrixTest extend
         self::assertTrue($result['replacement_allowed']);
         self::assertSame(3, $result['simplification_gain']);
     }
+
+    // ── deletion_roi ────────────────────────────────────────────────────────────
+
+    public function test_deletion_roi_sums_helper_line_duplicate_and_dependency_reduction(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $this->fullOrgan(),
+            'old_helper_count' => 5,
+            'new_helper_count' => 2,
+            'line_reduction' => 40,
+            'duplicate_cluster_reduction' => 2,
+            'dependency_reduction' => 1,
+        ]);
+
+        // helper 3 + line 40 + duplicate 2 + dependency 1 = 46
+        self::assertSame(46, $result['deletion_roi']);
+    }
+
+    public function test_deletion_roi_is_zero_when_any_capability_dimension_missing(): void
+    {
+        $newOrgan = $this->fullOrgan();
+        $newOrgan['output_fields'] = [];
+
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $newOrgan,
+            'old_helper_count' => 5,
+            'new_helper_count' => 1,
+            'line_reduction' => 100,
+            'duplicate_cluster_reduction' => 5,
+            'dependency_reduction' => 5,
+        ]);
+
+        self::assertFalse($result['replacement_allowed']);
+        self::assertSame(0, $result['deletion_roi']);
+    }
+
+    // ── simplification_recommendation ────────────────────────────────────────
+
+    public function test_recommendation_is_hold_for_missing_parity_when_replacement_not_allowed(): void
+    {
+        $newOrgan = $this->fullOrgan();
+        $newOrgan['proof_refs'] = [];
+
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $newOrgan,
+        ]);
+
+        self::assertSame(AtlasSelfConstructionSimplificationCapabilityParityMatrix::RECOMMEND_HOLD_FOR_MISSING_PARITY, $result['simplification_recommendation']);
+    }
+
+    public function test_recommendation_is_low_roi_hold_when_parity_but_roi_below_floor(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $this->fullOrgan(),
+            'old_helper_count' => 1,
+            'new_helper_count' => 0,
+        ]);
+
+        self::assertSame(1, $result['deletion_roi']);
+        self::assertSame(AtlasSelfConstructionSimplificationCapabilityParityMatrix::RECOMMEND_LOW_ROI_HOLD, $result['simplification_recommendation']);
+    }
+
+    public function test_recommendation_is_replace_when_parity_and_roi_at_or_above_floor(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $this->fullOrgan(),
+            'line_reduction' => 50,
+        ]);
+
+        self::assertSame(50, $result['deletion_roi']);
+        self::assertSame(AtlasSelfConstructionSimplificationCapabilityParityMatrix::RECOMMEND_REPLACE, $result['simplification_recommendation']);
+    }
+
+    public function test_no_reduction_facts_at_all_yields_low_roi_hold_not_replace(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $this->fullOrgan(),
+        ]);
+
+        self::assertSame(0, $result['deletion_roi']);
+        self::assertSame(AtlasSelfConstructionSimplificationCapabilityParityMatrix::RECOMMEND_LOW_ROI_HOLD, $result['simplification_recommendation']);
+    }
 }

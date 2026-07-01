@@ -13,6 +13,16 @@ namespace App\Services\Ai\SelfConstruction\Simplification;
  * covered by the new organ. Any missing item on any dimension refuses the
  * replacement — a circuit collapse must never silently drop a capability.
  *
+ * deletion_roi ranks how much a FULL-PARITY replacement is actually worth: the sum of helper
+ * reduction, line reduction, duplicate-cluster reduction, and dependency reduction. It is ALWAYS
+ * zero when replacement_allowed is false — ROI is never computed for a replacement that drops a
+ * capability, since that replacement can never happen regardless of how much code it would save.
+ *
+ * simplification_recommendation is deterministic:
+ *   hold_for_missing_parity — replacement_allowed=false (a capability would be dropped).
+ *   low_roi_hold            — full parity, but deletion_roi is below the ROI floor: not worth it yet.
+ *   replace                 — full parity AND deletion_roi at or above the ROI floor.
+ *
  * Pure / deterministic. No I/O.
  */
 final class AtlasSelfConstructionSimplificationCapabilityParityMatrix
@@ -26,6 +36,15 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrix
     public const STATUS_MISSING = 'missing';
 
     public const STATUS_NO_REQUIREMENT = 'no_requirement';
+
+    public const RECOMMEND_REPLACE = 'replace';
+
+    public const RECOMMEND_HOLD_FOR_MISSING_PARITY = 'hold_for_missing_parity';
+
+    public const RECOMMEND_LOW_ROI_HOLD = 'low_roi_hold';
+
+    /** Minimum deletion_roi (helper+line+duplicate+dependency reduction) worth acting on now. */
+    private const ROI_FLOOR = 5;
 
     /** @var list<string> */
     private const DIMENSIONS = [
@@ -44,8 +63,11 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrix
      *   new_organ?: array<string, list<string>>,
      *   old_helper_count?: int,
      *   new_helper_count?: int,
+     *   line_reduction?: int,
+     *   duplicate_cluster_reduction?: int,
+     *   dependency_reduction?: int,
      * }  $organs
-     * @return array{schema:string, replacement_allowed:bool, parity:bool, rows:list<array<string,mixed>>, missing_capabilities:list<string>, simplification_gain:int}
+     * @return array{schema:string, replacement_allowed:bool, parity:bool, rows:list<array<string,mixed>>, missing_capabilities:list<string>, simplification_gain:int, deletion_roi:int, simplification_recommendation:string}
      */
     public function compare(array $organs): array
     {
@@ -94,7 +116,21 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrix
 
         $oldHelperCount = max(0, (int) ($organs['old_helper_count'] ?? 0));
         $newHelperCount = max(0, (int) ($organs['new_helper_count'] ?? 0));
-        $simplificationGain = $replacementAllowed ? max(0, $oldHelperCount - $newHelperCount) : 0;
+        $helperReduction = max(0, $oldHelperCount - $newHelperCount);
+        $simplificationGain = $replacementAllowed ? $helperReduction : 0;
+
+        $lineReduction = max(0, (int) ($organs['line_reduction'] ?? 0));
+        $duplicateClusterReduction = max(0, (int) ($organs['duplicate_cluster_reduction'] ?? 0));
+        $dependencyReduction = max(0, (int) ($organs['dependency_reduction'] ?? 0));
+        $deletionRoi = $replacementAllowed
+            ? $helperReduction + $lineReduction + $duplicateClusterReduction + $dependencyReduction
+            : 0;
+
+        $simplificationRecommendation = match (true) {
+            ! $replacementAllowed => self::RECOMMEND_HOLD_FOR_MISSING_PARITY,
+            $deletionRoi < self::ROI_FLOOR => self::RECOMMEND_LOW_ROI_HOLD,
+            default => self::RECOMMEND_REPLACE,
+        };
 
         return [
             'schema' => self::SCHEMA,
@@ -103,6 +139,8 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrix
             'rows' => $rows,
             'missing_capabilities' => $missingCapabilities,
             'simplification_gain' => $simplificationGain,
+            'deletion_roi' => $deletionRoi,
+            'simplification_recommendation' => $simplificationRecommendation,
         ];
     }
 }
