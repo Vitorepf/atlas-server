@@ -44,6 +44,7 @@ use Throwable;
  *   - task_contract.json
  *   - prompt_projection.json
  *   - routing_decision.json
+ *   - workcell_decomposition.json (additive; {@see DevWorkcellDecomposer})
  */
 class AtlasDevFastPathOrchestrator
 {
@@ -63,6 +64,7 @@ class AtlasDevFastPathOrchestrator
         private readonly ?DevFailureCapsulePromptInjector $failureCapsuleInjector = null,
         private readonly ?SymbolLookup $callerLookup = null,
         private readonly ?AtlasAemorRuntimeService $aemorRuntime = null,
+        private readonly ?DevWorkcellDecomposer $workcellDecomposer = null,
     ) {}
 
     /**
@@ -474,6 +476,16 @@ class AtlasDevFastPathOrchestrator
             $runId,
             ArtifactNames::ROUTING_DECISION,
             $routingPayload,
+        );
+
+        // ADDITIVE: workcell decomposition — never blocks, never replaces an existing artifact.
+        // Composed from the same mini spec + discovery manifest already persisted above.
+        $decomposer = $this->workcellDecomposer ?? new DevWorkcellDecomposer;
+        $decomposition = $decomposer->decompose($miniSpec->toCanonicalArray(), $discovery->toCanonicalArray());
+        $persisted['workcell_decomposition.json'] = $this->receiptStorage->writeAtomic(
+            $runId,
+            'workcell_decomposition.json',
+            $decomposition,
         );
 
         return $persisted;
