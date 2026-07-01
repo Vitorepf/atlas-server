@@ -123,6 +123,10 @@ final class AtlasProjectLaneRegistry
 
         $repoHash = substr(hash('sha256', $repoRoot), 0, 8);
         $evidenceNs = 'evidence.'.$projectId.'.'.$repoHash;
+        $isolationNs = 'isolation.'.$projectId.'.'.$repoHash;
+        $autonomyLevel = (string) ($record['autonomy_level'] ?? 'supervised');
+        $ownerEvidence = array_values(array_map('strval', (array) ($record['owner_evidence'] ?? [])));
+        $activeStatus = (string) ($record['status'] ?? 'active') === 'active';
 
         if (is_array($record['allowed_scope_roots'] ?? null)) {
             $scopeRoots = array_filter(
@@ -135,15 +139,24 @@ final class AtlasProjectLaneRegistry
             $scopeRoots = [$repoRoot];
         }
 
-        $record['queue_namespace_facts'] = $nsFacts;
-        $record['evidence_namespace']    = $evidenceNs;
-        $record['knowledge_sync_policy'] = [
+        $knowledgeSyncPolicy = [
             'schema'               => AtlasProjectLaneKnowledgeSyncPolicy::SCHEMA,
             'project_id'           => $projectId,
             'allowed_scope_roots'  => $scopeRoots,
             'docs_sync_required'   => true,
             'code_index_required'  => true,
         ];
+        $knowledgeSyncPolicyId = substr(hash('sha256', (string) json_encode($knowledgeSyncPolicy, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 16);
+        $knowledgeSyncPolicy['policy_id'] = $knowledgeSyncPolicyId;
+
+        $record['queue_namespace_facts'] = $nsFacts;
+        $record['evidence_namespace']    = $evidenceNs;
+        $record['isolation_namespace']   = $isolationNs;
+        $record['autonomy_level']        = $autonomyLevel;
+        $record['owner_evidence']        = $ownerEvidence;
+        $record['active_status']         = $activeStatus;
+        $record['knowledge_sync_policy'] = $knowledgeSyncPolicy;
+        $record['knowledge_sync_policy_id'] = $knowledgeSyncPolicyId;
 
         $hashable = [
             'allowed_scope_roots' => $scopeRoots,

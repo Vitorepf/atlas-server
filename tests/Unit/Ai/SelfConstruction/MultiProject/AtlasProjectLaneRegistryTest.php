@@ -198,4 +198,51 @@ final class AtlasProjectLaneRegistryTest extends TestCase
             $this->assertArrayNotHasKey($key, $stored, "registry must strip credential key: {$key}");
         }
     }
+
+    // ── AC: isolation namespace, autonomy level, owner evidence, queue namespace, sync policy id, active status ──
+
+    public function test_registered_lane_records_isolation_namespace_autonomy_level_owner_evidence_and_active_status(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $stored = $reg->register($this->lane('proj-a', '/repos/proj-a', [
+            'autonomy_level' => 'full_autonomous',
+            'owner_evidence' => ['docs/OWNERS.md', 'evidence_ref:receipt-1'],
+        ]));
+
+        $this->assertArrayHasKey('isolation_namespace', $stored);
+        $this->assertStringStartsWith('isolation.proj-a.', $stored['isolation_namespace']);
+        $this->assertSame('full_autonomous', $stored['autonomy_level']);
+        $this->assertSame(['docs/OWNERS.md', 'evidence_ref:receipt-1'], $stored['owner_evidence']);
+        $this->assertTrue($stored['active_status']);
+        $this->assertArrayHasKey('queue_namespace_facts', $stored);
+        $this->assertArrayHasKey('knowledge_sync_policy_id', $stored);
+        $this->assertSame(16, strlen($stored['knowledge_sync_policy_id']));
+        $this->assertSame($stored['knowledge_sync_policy_id'], $stored['knowledge_sync_policy']['policy_id']);
+    }
+
+    public function test_default_autonomy_level_is_supervised_and_owner_evidence_defaults_empty(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $stored = $reg->register($this->lane('proj-b', '/repos/proj-b'));
+
+        $this->assertSame('supervised', $stored['autonomy_level']);
+        $this->assertSame([], $stored['owner_evidence']);
+    }
+
+    public function test_paused_lane_has_active_status_false(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $stored = $reg->register($this->lane('proj-c', '/repos/proj-c', ['status' => 'paused']));
+
+        $this->assertFalse($stored['active_status']);
+    }
+
+    public function test_two_lanes_get_distinct_isolation_namespaces(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $a = $reg->register($this->lane('iso-a', '/repos/iso-a'));
+        $b = $reg->register($this->lane('iso-b', '/repos/iso-b'));
+
+        $this->assertNotSame($a['isolation_namespace'], $b['isolation_namespace']);
+    }
 }
