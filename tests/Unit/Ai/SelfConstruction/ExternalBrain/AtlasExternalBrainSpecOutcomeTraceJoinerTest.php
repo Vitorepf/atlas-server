@@ -255,6 +255,87 @@ final class AtlasExternalBrainSpecOutcomeTraceJoinerTest extends TestCase
         $this->assertTrue($r['success']);
     }
 
+    // ── AC: worker_model_reliability_delta ────────────────────────────────────
+
+    public function test_strong_success_with_concrete_evidence_emits_positive_reliability_delta(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'success',
+            'commit_sha' => 'abc123',
+            'evidence' => ['tests_or_gates_result' => 'pass', 'implementation_notes' => 'done', 'value_delta' => 'closed a real gap'],
+        ]);
+
+        $this->assertArrayHasKey('worker_model_reliability_delta', $r);
+        $this->assertGreaterThan(0.0, $r['worker_model_reliability_delta']['value']);
+    }
+
+    public function test_weak_green_poison_failed_gate_and_repair_candidate_give_back_emit_negative_deltas_with_distinct_reasons(): void
+    {
+        $weakGreen = $this->joiner()->join($this->spec(), ['status' => 'weak_green']);
+        $poison = $this->joiner()->join($this->spec(), ['status' => 'poison']);
+        $failedGate = $this->joiner()->join($this->spec(), ['status' => 'failed_gate']);
+        $repairGiveBack = $this->joiner()->join($this->spec(), ['status' => 'give_back', 'root_cause_hint' => 'scope_too_broad']);
+
+        $deltas = [$weakGreen, $poison, $failedGate, $repairGiveBack];
+        $reasons = [];
+        foreach ($deltas as $r) {
+            $this->assertArrayHasKey('worker_model_reliability_delta', $r);
+            $this->assertLessThan(0.0, $r['worker_model_reliability_delta']['value']);
+            $reasons[] = $r['worker_model_reliability_delta']['reason'];
+        }
+
+        $this->assertSame($reasons, array_unique($reasons));
+    }
+
+    public function test_worker_error_give_back_also_emits_negative_delta_distinct_from_repair_candidate(): void
+    {
+        $workerError = $this->joiner()->join($this->spec(), ['status' => 'give_back', 'root_cause_hint' => 'worker_timeout']);
+        $repairCandidate = $this->joiner()->join($this->spec(), ['status' => 'give_back', 'root_cause_hint' => 'scope_too_broad']);
+
+        $this->assertLessThan(0.0, $workerError['worker_model_reliability_delta']['value']);
+        $this->assertNotSame(
+            $workerError['worker_model_reliability_delta']['reason'],
+            $repairCandidate['worker_model_reliability_delta']['reason'],
+        );
+    }
+
+    // ── AC: spec_shape_risk ────────────────────────────────────────────────────
+
+    public function test_spec_shape_risk_marks_missing_test_file(): void
+    {
+        $r = $this->joiner()->join($this->spec(['allowed_files' => ['app/Services/Foo.php']]), ['status' => 'success']);
+        $this->assertContains('missing_test_file', $r['spec_shape_risk']);
+    }
+
+    public function test_spec_shape_risk_marks_too_few_acceptance_criteria(): void
+    {
+        $r = $this->joiner()->join($this->spec(['acceptance_criteria' => ['only one']]), ['status' => 'success']);
+        $this->assertContains('too_few_acceptance_criteria', $r['spec_shape_risk']);
+    }
+
+    public function test_spec_shape_risk_marks_oversized_allowed_files(): void
+    {
+        $r = $this->joiner()->join($this->spec([
+            'allowed_files' => ['a.php', 'b.php', 'c.php', 'd.php', 'e.php', 'f.php', 'tests/XTest.php'],
+        ]), ['status' => 'success']);
+        $this->assertContains('oversized_allowed_files', $r['spec_shape_risk']);
+    }
+
+    public function test_spec_shape_risk_is_empty_for_well_shaped_spec(): void
+    {
+        $r = $this->joiner()->join($this->spec([
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'acceptance_criteria' => ['first criterion', 'second criterion'],
+        ]), ['status' => 'success']);
+        $this->assertSame([], $r['spec_shape_risk']);
+    }
+
+    public function test_spec_shape_risk_present_even_when_outcome_pending(): void
+    {
+        $r = $this->joiner()->join($this->spec(['allowed_files' => ['app/Services/Foo.php']]), []);
+        $this->assertContains('missing_test_file', $r['spec_shape_risk']);
+    }
+
     public function test_give_back_repair_candidate_learning_signal_differs_from_worker_error(): void
     {
         $specDefect = $this->joiner()->join($this->spec(), ['status' => 'give_back', 'root_cause_hint' => 'scope_too_broad']);

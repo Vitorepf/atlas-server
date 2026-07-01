@@ -50,6 +50,29 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
     /** Evidence keys whose presence increases the strength of a success record. */
     private const EVIDENCE_KEYS = ['tests_or_gates_result', 'implementation_notes', 'commit_sha'];
 
+    /** Below this many acceptance criteria, the spec itself is under-specified. */
+    private const MIN_ACCEPTANCE_CRITERIA = 2;
+
+    /** Above this many allowed_files, the spec is at risk of scope sprawl. */
+    private const MAX_ALLOWED_FILES = 5;
+
+    private const RISK_MISSING_TEST_FILE = 'missing_test_file';
+
+    private const RISK_TOO_FEW_ACCEPTANCE_CRITERIA = 'too_few_acceptance_criteria';
+
+    private const RISK_OVERSIZED_ALLOWED_FILES = 'oversized_allowed_files';
+
+    /** Reliability-delta magnitudes per outcome class, applied to worker_model routing. */
+    private const RELIABILITY_DELTA_POISON = -1.0;
+
+    private const RELIABILITY_DELTA_FAILED_GATE = -0.5;
+
+    private const RELIABILITY_DELTA_WEAK_GREEN = -0.25;
+
+    private const RELIABILITY_DELTA_GIVE_BACK_WORKER_FAULT = -0.5;
+
+    private const RELIABILITY_DELTA_GIVE_BACK_REPAIR_CANDIDATE = -0.15;
+
     /**
      * @param  array<string,mixed>  $spec
      * @param  array<string,mixed>  $outcome
@@ -58,6 +81,7 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
     public function join(array $spec, array $outcome): array
     {
         $taskShape = $this->taskShape($spec);
+        $specShapeRisk = $this->specShapeRisk($taskShape);
         $worker = (string) ($outcome['worker'] ?? $spec['worker'] ?? '');
         $model = (string) ($outcome['model'] ?? $spec['model'] ?? '');
         $decisionChanged = (bool) ($outcome['decision_changed'] ?? false);
@@ -69,6 +93,7 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
                 'status' => self::STATUS_PENDING,
                 'task_family' => $taskShape['task_family'],
                 'task_shape' => $taskShape,
+                'spec_shape_risk' => $specShapeRisk,
             ];
         }
 
@@ -90,10 +115,12 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
                     'success' => false,
                     'evidence_strength' => $evidenceStrength,
                     'task_shape' => $taskShape,
+                    'spec_shape_risk' => $specShapeRisk,
                     'worker' => $worker,
                     'model' => $model,
                     'decision_changed' => $decisionChanged,
                     'learning_signal' => 'evidence_too_weak_trust_only_partially',
+                    'worker_model_reliability_delta' => $this->reliabilityDelta(self::RELIABILITY_DELTA_WEAK_GREEN, 'weak_green_reliability_penalty'),
                 ];
             }
 
@@ -104,10 +131,15 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
                 'evidence_strength' => $evidenceStrength,
                 'commit_evidence' => $commitSha,
                 'task_shape' => $taskShape,
+                'spec_shape_risk' => $specShapeRisk,
                 'worker' => $worker,
                 'model' => $model,
                 'decision_changed' => $decisionChanged,
                 'learning_signal' => 'reinforce_task_shape_and_worker_pairing',
+                'worker_model_reliability_delta' => $this->reliabilityDelta(
+                    round(0.5 + 0.5 * $evidenceStrength, 2),
+                    'strong_success_reliability_boost',
+                ),
             ];
         }
 
@@ -125,12 +157,16 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
                 'root_cause_hint' => $rootCauseHint,
                 'repair_candidate' => $repairCandidate,
                 'task_shape' => $taskShape,
+                'spec_shape_risk' => $specShapeRisk,
                 'worker' => $worker,
                 'model' => $model,
                 'decision_changed' => $decisionChanged,
                 'learning_signal' => $repairCandidate
                     ? 'repair_spec_shape_before_resubmitting'
                     : 'investigate_worker_or_environment_issue',
+                'worker_model_reliability_delta' => $repairCandidate
+                    ? $this->reliabilityDelta(self::RELIABILITY_DELTA_GIVE_BACK_REPAIR_CANDIDATE, 'give_back_repair_candidate_reliability_penalty')
+                    : $this->reliabilityDelta(self::RELIABILITY_DELTA_GIVE_BACK_WORKER_FAULT, 'give_back_worker_or_environment_reliability_penalty'),
             ];
         }
 
@@ -141,10 +177,12 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
                 'success' => false,
                 'evidence_strength' => $evidenceStrength,
                 'task_shape' => $taskShape,
+                'spec_shape_risk' => $specShapeRisk,
                 'worker' => $worker,
                 'model' => $model,
                 'decision_changed' => $decisionChanged,
                 'learning_signal' => 'evidence_too_weak_trust_only_partially',
+                'worker_model_reliability_delta' => $this->reliabilityDelta(self::RELIABILITY_DELTA_WEAK_GREEN, 'weak_green_reliability_penalty'),
             ];
         }
 
@@ -155,10 +193,12 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
                 'success' => false,
                 'evidence_strength' => $evidenceStrength,
                 'task_shape' => $taskShape,
+                'spec_shape_risk' => $specShapeRisk,
                 'worker' => $worker,
                 'model' => $model,
                 'decision_changed' => $decisionChanged,
                 'learning_signal' => 'quarantine_pattern_before_reuse',
+                'worker_model_reliability_delta' => $this->reliabilityDelta(self::RELIABILITY_DELTA_POISON, 'poison_reliability_penalty'),
             ];
         }
 
@@ -169,10 +209,12 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
                 'success' => false,
                 'evidence_strength' => $evidenceStrength,
                 'task_shape' => $taskShape,
+                'spec_shape_risk' => $specShapeRisk,
                 'worker' => $worker,
                 'model' => $model,
                 'decision_changed' => $decisionChanged,
                 'learning_signal' => 'strengthen_acceptance_or_gate_alignment',
+                'worker_model_reliability_delta' => $this->reliabilityDelta(self::RELIABILITY_DELTA_FAILED_GATE, 'failed_gate_reliability_penalty'),
             ];
         }
 
@@ -182,7 +224,36 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
             'status' => self::STATUS_PENDING,
             'task_family' => $taskShape['task_family'],
             'task_shape' => $taskShape,
+            'spec_shape_risk' => $specShapeRisk,
         ];
+    }
+
+    /**
+     * @return array{value:float, reason:string}
+     */
+    private function reliabilityDelta(float $value, string $reason): array
+    {
+        return ['value' => $value, 'reason' => $reason];
+    }
+
+    /**
+     * @param  array{task_family:string, allowed_files_count:int, has_test_file:bool, acceptance_criteria_count:int}  $taskShape
+     * @return list<string>
+     */
+    private function specShapeRisk(array $taskShape): array
+    {
+        $risks = [];
+        if (! $taskShape['has_test_file']) {
+            $risks[] = self::RISK_MISSING_TEST_FILE;
+        }
+        if ($taskShape['acceptance_criteria_count'] < self::MIN_ACCEPTANCE_CRITERIA) {
+            $risks[] = self::RISK_TOO_FEW_ACCEPTANCE_CRITERIA;
+        }
+        if ($taskShape['allowed_files_count'] > self::MAX_ALLOWED_FILES) {
+            $risks[] = self::RISK_OVERSIZED_ALLOWED_FILES;
+        }
+
+        return $risks;
     }
 
     /**
