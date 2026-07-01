@@ -26,6 +26,8 @@ final class AtlasSelfConstructionOriginatorCadencePolicy
     public const ACTION_PAUSE         = 'pause';
     public const ACTION_CONSOLIDATE   = 'consolidate';
     public const ACTION_UNBLOCK_FIRST = 'unblock_first';
+    public const ACTION_CONTINUE_ORIGINATING  = 'continue_originating';
+    public const ACTION_CONSOLIDATE_OR_REPAIR = 'consolidate_or_repair';
 
     // Thresholds.
     private const BLOCKED_PRESSURE_THRESHOLD     = 0.30; // blocked_count / (claimable+blocked) ratio
@@ -34,6 +36,9 @@ final class AtlasSelfConstructionOriginatorCadencePolicy
     private const LOW_THROUGHPUT_THRESHOLD       = 0.30; // worker_throughput_rate below this
     private const STARVE_CLAIMABLE_THRESHOLD     = 3;    // claimable_depth below this = starving
     private const DEFAULT_MAX_BATCH_SIZE         = 5;
+
+    /** Muscles expected to drain soon at/above this count threatens future supply even with a healthy queue. */
+    private const WORKER_DRAIN_THREAT_FLOOR = 2;
 
     /**
      * @param  array{
@@ -55,6 +60,10 @@ final class AtlasSelfConstructionOriginatorCadencePolicy
         $malformedRisk  = max(0.0, min(1.0, (float) ($snapshot['malformed_risk']          ?? 0.0)));
         $qualityScore   = max(0.0, min(10.0, (float) ($snapshot['recent_quality_score']   ?? 10.0)));
         $maxBatch       = max(1, (int) ($snapshot['max_batch_size'] ?? self::DEFAULT_MAX_BATCH_SIZE));
+        $workerDrainForecast = max(0, (int) ($snapshot['worker_drain_forecast'] ?? 0));
+        $highValueTargetsRemaining = max(0, (int) ($snapshot['high_value_targets_remaining'] ?? 0));
+        $learningFreshnessStale = (bool) ($snapshot['learning_freshness_stale'] ?? false);
+        $targetYieldExhausted = (bool) ($snapshot['target_yield_exhausted'] ?? false);
 
         $qualityRisk    = $qualityScore < self::QUALITY_RISK_THRESHOLD;
         $malformedHigh  = $malformedRisk > self::MALFORMED_RISK_THRESHOLD;
@@ -84,10 +93,36 @@ final class AtlasSelfConstructionOriginatorCadencePolicy
             return $this->result(self::ACTION_CONSOLIDATE, 0, $reasons);
         }
 
+        // Supply-quality signals a static-depth model never sees: stale learning or an
+        // exhausted target yield must trigger repair even when depth/throughput look fine.
+        if (! $isStarving && ($learningFreshnessStale || $targetYieldExhausted)) {
+            $reasons = [];
+            if ($learningFreshnessStale) {
+                $reasons[] = 'learning_freshness_stale';
+            }
+            if ($targetYieldExhausted) {
+                $reasons[] = 'target_yield_exhausted';
+            }
+            $reasons[] = 'claimable_depth_healthy:'.$claimable.'_prefer_consolidation';
+
+            return $this->result(self::ACTION_CONSOLIDATE_OR_REPAIR, 0, $reasons);
+        }
+
         if ($lowThroughput && ! $isStarving) {
             return $this->result(self::ACTION_PAUSE, 0, [
                 'low_worker_throughput:rate_'.(int) round($throughput * 100).'pct',
                 'claimable_not_starving:'.$claimable,
+            ]);
+        }
+
+        // Depth alone can lie: active muscles about to drain below the worker floor, with real
+        // high-value targets still unqueued, must keep originating even though claimable_depth
+        // currently looks sufficient.
+        if (! $isStarving && $workerDrainForecast >= self::WORKER_DRAIN_THREAT_FLOOR && $highValueTargetsRemaining > 0) {
+            return $this->result(self::ACTION_CONTINUE_ORIGINATING, $maxBatch, [
+                'worker_drain_forecast:'.$workerDrainForecast,
+                'high_value_targets_remaining:'.$highValueTargetsRemaining,
+                'claimable_depth_sufficient_but_drain_threatens_future_supply',
             ]);
         }
 

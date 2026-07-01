@@ -139,6 +139,63 @@ final class AtlasSelfConstructionOriginatorCadencePolicyTest extends TestCase
         $this->assertLessThan($full, $risky, 'Quality risk must reduce batch size');
     }
 
+    // ── AC2: continue_originating despite sufficient depth ──────────────────
+
+    public function test_continue_originating_when_healthy_depth_but_worker_drain_threatens_supply(): void
+    {
+        $result = $this->policy->decide($this->healthy([
+            'claimable_depth'              => 10,  // depth looks sufficient
+            'worker_drain_forecast'        => 3,
+            'high_value_targets_remaining' => 5,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionOriginatorCadencePolicy::ACTION_CONTINUE_ORIGINATING, $result['action']);
+        $this->assertGreaterThan(0, $result['recommended_batch_size']);
+    }
+
+    public function test_no_continue_originating_when_no_high_value_targets_remain(): void
+    {
+        $result = $this->policy->decide($this->healthy([
+            'claimable_depth'              => 10,
+            'worker_drain_forecast'        => 3,
+            'high_value_targets_remaining' => 0,
+        ]));
+
+        $this->assertNotSame(AtlasSelfConstructionOriginatorCadencePolicy::ACTION_CONTINUE_ORIGINATING, $result['action']);
+    }
+
+    // ── AC3: consolidate_or_repair on stale learning / exhausted target yield ─
+
+    public function test_consolidate_or_repair_when_learning_freshness_stale(): void
+    {
+        $result = $this->policy->decide($this->healthy([
+            'claimable_depth'          => 8,
+            'learning_freshness_stale' => true,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionOriginatorCadencePolicy::ACTION_CONSOLIDATE_OR_REPAIR, $result['action']);
+        $this->assertSame(0, $result['recommended_batch_size']);
+    }
+
+    public function test_consolidate_or_repair_when_target_yield_exhausted(): void
+    {
+        $result = $this->policy->decide($this->healthy([
+            'claimable_depth'       => 8,
+            'target_yield_exhausted' => true,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionOriginatorCadencePolicy::ACTION_CONSOLIDATE_OR_REPAIR, $result['action']);
+    }
+
+    // ── healthy cadence: none of the new signals present, default behavior unchanged ──
+
+    public function test_healthy_cadence_with_sufficient_depth_still_seeds_now(): void
+    {
+        $result = $this->policy->decide($this->healthy(['claimable_depth' => 10]));
+
+        $this->assertSame(AtlasSelfConstructionOriginatorCadencePolicy::ACTION_SEED_NOW, $result['action']);
+    }
+
     // ── edge cases ───────────────────────────────────────────────────────────
 
     public function test_empty_snapshot_returns_valid_result(): void
