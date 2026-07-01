@@ -584,4 +584,43 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         $this->assertSame(0, $result['promoted_count']);
         $this->assertSame(0, $result['rejected_count']);
     }
+
+    // ── AC: provider-safe evidence reference ──────────────────────────────────
+
+    public function test_idea_requiring_live_provider_fetch_evidence_is_held_not_promoted(): void
+    {
+        $result = $this->grounder->ground($this->input($this->good([
+            'evidence_requires_live_provider_fetch' => true,
+        ])));
+
+        $this->assertSame(0, $result['promoted_count']);
+        $this->assertSame(1, count($result['held_for_research']));
+        $this->assertSame(
+            AtlasExternalBrainResearchDigestGrounder::HOLD_EVIDENCE_NOT_PROVIDER_SAFE,
+            $result['held_for_research'][0]['hold_reason'],
+        );
+    }
+
+    public function test_idea_with_local_symbols_owner_gate_gap_and_impact_is_promoted(): void
+    {
+        $result = $this->grounder->ground($this->input($this->good()));
+
+        $this->assertSame(1, $result['promoted_count']);
+        $candidate = $result['task_candidates'][0];
+        $this->assertArrayHasKey('evidence_strength', $candidate);
+        $this->assertArrayHasKey('trust_tier', $candidate);
+        $this->assertArrayHasKey('adaptation_notes', $candidate);
+    }
+
+    public function test_promoted_candidates_preserve_evidence_strength_trust_tier_and_adaptation_notes(): void
+    {
+        $result = $this->grounder->ground($this->input($this->good([
+            'adaptation_notes' => 'explicit adaptation note from operator',
+        ])));
+
+        $candidate = $result['task_candidates'][0];
+        $this->assertGreaterThan(0.0, $candidate['evidence_strength']);
+        $this->assertContains($candidate['trust_tier'], ['high', 'medium', 'low']);
+        $this->assertSame('explicit adaptation note from operator', $candidate['adaptation_notes']);
+    }
 }

@@ -58,6 +58,7 @@ final class AtlasExternalBrainResearchDigestGrounder
     public const HOLD_MISSING_RUNNABLE_GATE  = 'hold:missing_runnable_gate';
     public const HOLD_MISSING_OWNER          = 'hold:missing_owner';
     public const HOLD_LOW_LEVERAGE           = 'hold:low_atlas_fit_or_no_compounding_impact';
+    public const HOLD_EVIDENCE_NOT_PROVIDER_SAFE = 'hold:evidence_requires_live_provider_fetch';
 
     /** atlas_fit_score below this reads as low fit. */
     private const MIN_ATLAS_FIT = 0.50;
@@ -136,6 +137,13 @@ final class AtlasExternalBrainResearchDigestGrounder
         if ($allowedFiles === [])                      return self::HOLD_MISSING_ALLOWED_FILES;
         if (! $this->hasRunnableCommand($evidencePath)) return self::HOLD_MISSING_RUNNABLE_GATE;
         if ($ownerFiles === [] && ! $hasLocalOwner)    return self::HOLD_MISSING_OWNER;
+
+        // A research idea's runnable_evidence_path may point at a local, replayable command
+        // even when the SOURCE it was harvested from requires a live provider call to verify —
+        // that live dependency must never leak into the promoted candidate.
+        if ((bool) ($idea['evidence_requires_live_provider_fetch'] ?? false)) {
+            return self::HOLD_EVIDENCE_NOT_PROVIDER_SAFE;
+        }
 
         // AC2: technically grounded but low Atlas-fit or no measurable compounding impact
         // must not be promoted — hold it for further research instead.
