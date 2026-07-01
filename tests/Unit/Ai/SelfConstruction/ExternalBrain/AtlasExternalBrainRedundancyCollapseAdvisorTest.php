@@ -286,4 +286,56 @@ final class AtlasExternalBrainRedundancyCollapseAdvisorTest extends TestCase
         $this->assertSame(0, $r['candidate_count']);
         $this->assertSame('no_behavior_preservation_tests', $r['refused_collapses'][0]['reason']);
     }
+
+    // ── multi-organ redundancy clusters ───────────────────────────────────────
+
+    public function test_three_organs_sharing_the_same_decision_surface_form_one_cluster(): void
+    {
+        $decisions = ['decide_routing', 'decide_dispatch'];
+        $r = $this->svc()->advise([
+            $this->organ('A', $decisions, 9.0, ['shared'], ['route_request']),
+            $this->organ('B', $decisions, 5.0, ['shared'], ['route_request', 'legacy_alias']),
+            $this->organ('C', $decisions, 2.0, ['shared'], ['route_request']),
+        ]);
+
+        $this->assertCount(1, $r['redundancy_clusters']);
+        $cluster = $r['redundancy_clusters'][0];
+        $this->assertSame('A', $cluster['canonical_owner']);
+        $this->assertSame(['B', 'C'], $cluster['absorbed_organs']);
+    }
+
+    public function test_cluster_migration_plan_includes_all_required_fields(): void
+    {
+        $decisions = ['decide_routing', 'decide_dispatch'];
+        $r = $this->svc()->advise([
+            $this->organ('A', $decisions, 9.0, ['shared'], ['route_request']),
+            $this->organ('B', $decisions, 5.0, ['shared', 'exclusive_b'], ['route_request', 'legacy_alias']),
+            $this->organ('C', $decisions, 2.0, ['shared'], ['route_request']),
+        ]);
+
+        $cluster = $r['redundancy_clusters'][0];
+        $this->assertArrayHasKey('preserved_behaviors', $cluster);
+        $this->assertArrayHasKey('required_behavior_tests', $cluster);
+        $this->assertArrayHasKey('deletion_blockers', $cluster);
+        $this->assertArrayHasKey('consumer_migration_notes', $cluster);
+
+        $this->assertContains('legacy_alias', $cluster['preserved_behaviors']);
+        $this->assertContains('route_request', $cluster['preserved_behaviors']);
+        $this->assertContains('exclusive_consumer_migration_required:B', $cluster['deletion_blockers']);
+        $this->assertContains('Route all B callers to A', $cluster['consumer_migration_notes']);
+        $this->assertContains('Route all C callers to A', $cluster['consumer_migration_notes']);
+        $this->assertCount(2, $cluster['consumer_migration_notes']);
+    }
+
+    public function test_weak_pairwise_lexical_overlap_refuses_collapse_and_does_not_create_a_cluster(): void
+    {
+        // A/B share the real decision surface; C only lexically overlaps with A on a short token.
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 5.0, [], ['route_request']),
+            $this->organ('C', ['x'], 2.0, [], ['other_behavior']),
+        ]);
+
+        $this->assertSame([], $r['redundancy_clusters']);
+    }
 }
