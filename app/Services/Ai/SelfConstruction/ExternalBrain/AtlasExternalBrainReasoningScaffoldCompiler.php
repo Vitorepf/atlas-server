@@ -20,6 +20,10 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * VALIDATION RULES:
  *   - evidence_intake may NOT be skipped (reject with "must_include_evidence_intake")
  *   - allow_direct_final_answer=true is forbidden (reject with "direct_final_answer_not_allowed")
+ *   - allow_stop_because_queue_comfortable=true is forbidden (reject with
+ *     "stop_because_queue_comfortable_not_allowed") — a healthy-looking queue depth is never a
+ *     valid reason to stop originating; only allow_stop_after_low_yield (with its evidence trail)
+ *     may justify a stop, and even then only for genuine low yield, not mere comfort.
  *
  * OUTPUT:
  *   { schema, is_valid, rejection_reason, scaffold_sections, required_artifacts,
@@ -142,6 +146,15 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
             'required_artifacts' => ['final_batch'],
             'stop_conditions'  => [],
         ],
+        // AC2 new: mandatory final self-audit — the last checkpoint before the batch ships.
+        [
+            'section_id'         => 'self_audit',
+            'order'              => 14,
+            'required'           => true,
+            'prompt_template'    => 'Audit the final batch against yourself: for each selected candidate, confirm it is genuine leverage (not a renamed/proxy variant of existing work), confirm you did not stop early because the queue merely LOOKED comfortable, and confirm every required artifact above was actually produced, not assumed. Record any self-audit failure explicitly.',
+            'required_artifacts' => ['self_audit_report'],
+            'stop_conditions'    => ['self_audit_failed'],
+        ],
     ];
 
     private const FRONTIER_DEEPENING_PROMPTS = [
@@ -161,6 +174,7 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
         $skipSections        = is_array($input['skip_sections'] ?? null) ? $input['skip_sections'] : [];
         $allowDirectFinal    = (bool) ($input['allow_direct_final_answer'] ?? false);
         $allowStopAfterLowYield = (bool) ($input['allow_stop_after_low_yield'] ?? false);
+        $allowStopBecauseComfortable = (bool) ($input['allow_stop_because_queue_comfortable'] ?? false);
 
         // Validate.
         if (in_array('evidence_intake', $skipSections, true)) {
@@ -169,6 +183,11 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
 
         if ($allowDirectFinal) {
             return $this->rejected('direct_final_answer_not_allowed');
+        }
+
+        // AC3: a merely-comfortable-looking queue is never a valid reason to stop originating.
+        if ($allowStopBecauseComfortable) {
+            return $this->rejected('stop_because_queue_comfortable_not_allowed');
         }
 
         // AC2: a configuration that allows stopping after low yield is only valid when the

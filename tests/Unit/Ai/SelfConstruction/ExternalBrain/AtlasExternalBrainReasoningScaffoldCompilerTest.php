@@ -54,7 +54,7 @@ final class AtlasExternalBrainReasoningScaffoldCompilerTest extends TestCase
             'adversarial_critique', 'implementability_check',
             'leverage_ranking', 'impact_ranking',
             'ambition_recovery', 'second_pass_surface_expansion',
-            'final_batch_selection',
+            'final_batch_selection', 'self_audit',
         ];
 
         $actualIds = array_column($result['scaffold_sections'], 'section_id');
@@ -348,5 +348,75 @@ final class AtlasExternalBrainReasoningScaffoldCompilerTest extends TestCase
         ]);
 
         $this->assertTrue($result['is_valid']);
+    }
+
+    // ── AC2: mandatory final self-audit section ───────────────────────────────
+
+    public function test_self_audit_is_the_final_section(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $ids = array_column($result['scaffold_sections'], 'section_id');
+
+        $this->assertSame('self_audit', end($ids));
+    }
+
+    public function test_self_audit_has_required_artifact_and_stop_condition(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $this->assertSame(['self_audit_report'], $result['required_artifacts']['self_audit']);
+        $this->assertContains('self_audit_failed', $result['stop_conditions']['self_audit']);
+    }
+
+    public function test_self_audit_cannot_be_skipped(): void
+    {
+        $result = $this->compiler()->compile(['skip_sections' => ['self_audit']]);
+
+        $this->assertFalse($result['is_valid']);
+        $this->assertSame('must_not_skip_required_section:self_audit', $result['rejection_reason']);
+    }
+
+    // ── AC3: stopping because the queue is merely comfortable is never allowed ──
+
+    public function test_reject_when_allow_stop_because_queue_comfortable_true(): void
+    {
+        $result = $this->compiler()->compile(['allow_stop_because_queue_comfortable' => true]);
+
+        $this->assertFalse($result['is_valid']);
+        $this->assertSame('stop_because_queue_comfortable_not_allowed', $result['rejection_reason']);
+        $this->assertSame([], $result['scaffold_sections']);
+    }
+
+    public function test_comfortable_queue_stop_rejected_even_with_full_low_yield_evidence(): void
+    {
+        // A comfortable-queue stop must never be smuggled through by also supplying the
+        // low-yield evidence trail — the two are independent rejections.
+        $result = $this->compiler()->compile([
+            'allow_stop_because_queue_comfortable' => true,
+            'allow_stop_after_low_yield' => true,
+            'explored_surfaces' => ['a'],
+            'blocked_surfaces' => ['b'],
+            'recovery_attempts' => 2,
+            'remaining_unexplored_surfaces' => ['c'],
+        ]);
+
+        $this->assertFalse($result['is_valid']);
+        $this->assertSame('stop_because_queue_comfortable_not_allowed', $result['rejection_reason']);
+    }
+
+    // ── AC4: provider-independence ─────────────────────────────────────────────
+
+    public function test_scaffold_never_mentions_a_paid_provider_as_required_dependency(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $haystack = strtolower(implode(' ', array_merge(
+            array_column($result['scaffold_sections'], 'prompt_template'),
+            $result['frontier_deepening_prompts'],
+        )));
+
+        foreach (['claude', 'codex', 'gpt', 'openai', 'anthropic', 'cursor', 'gemini'] as $providerName) {
+            $this->assertStringNotContainsString($providerName, $haystack, "scaffold must not mention '{$providerName}' as a required dependency");
+        }
     }
 }
