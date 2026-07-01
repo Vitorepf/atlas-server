@@ -5,111 +5,133 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Merges {@see AtlasExternalBrainMaturityGapIndex} and
- * {@see AtlasExternalBrainCapabilityMapDriftDetector} output into one ranked
- * batch plan with an explicit resolution_approach per item, instead of
- * leaving both reports as isolated observability packets.
+ * Pure planner that converts gap-index findings into coherent worker-ready task waves
+ * ordered by prerequisite, impact, and proof readiness.
  *
- * Priority order (lowest rank number wins ties within the same tier):
- *   0. proof_gap_closure           — maturity-gap dimensions needing proof
- *   1. contradictory_stale_repair  — drift findings of type contradictory/stale
- *   2. missing_next_leverage_recovery — drift findings of type missing_next_leverage
- *   3. other_drift_repair          — every other drift finding
+ * Low-impact gaps are held when they would crowd out higher-leverage work.
  *
- * Within a tier, items sort by leverage/impact descending, then id ascending
- * (deterministic tie-break).
- *
- * Pure / deterministic. No I/O.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasExternalBrainMaturityGapBatchPlanner
 {
     public const SCHEMA = 'atlas.external_brain.maturity_gap_batch_planner.v1';
 
-    private const CATEGORY_PROOF_GAP_CLOSURE = 'proof_gap_closure';
-
-    private const CATEGORY_CONTRADICTORY_STALE_REPAIR = 'contradictory_stale_repair';
-
-    private const CATEGORY_MISSING_NEXT_LEVERAGE_RECOVERY = 'missing_next_leverage_recovery';
-
-    private const CATEGORY_OTHER_DRIFT_REPAIR = 'other_drift_repair';
-
-    private const CATEGORY_RANK = [
-        self::CATEGORY_PROOF_GAP_CLOSURE => 0,
-        self::CATEGORY_CONTRADICTORY_STALE_REPAIR => 1,
-        self::CATEGORY_MISSING_NEXT_LEVERAGE_RECOVERY => 2,
-        self::CATEGORY_OTHER_DRIFT_REPAIR => 3,
-    ];
-
-    private const IMPACT_TO_SCORE = ['high' => 1.0, 'medium' => 0.6, 'low' => 0.3];
+    private const IMPACT_THRESHOLD = 0.3;
 
     /**
-     * @param  array{gaps?: list<array<string,mixed>>}  $gapIndexResult
-     * @param  array{findings?: list<array<string,mixed>>}  $driftResult
-     * @return array{schema:string, batch:list<array<string,mixed>>}
+     * @param  list<array{
+     *   gap_id?:string,
+     *   severity?:string,
+     *   impact_score?:float,
+     *   prerequisite_gap_ids?:list<string>,
+     *   proof_ready?:bool,
+     *   allowed_scope_hint?:string,
+     *   expected_maturity_delta?:string,
+     *   group?:string,
+     * }>  $gaps
+     * @return array{
+     *   schema:string,
+     *   waves:list<array{
+     *     wave:int,
+     *     tasks:list<array{
+     *       task_id:string,
+     *       prerequisite_notes:list<string>,
+     *       proof_target:string,
+     *       allowed_scope_hint:string,
+     *       expected_maturity_delta:string,
+     *     }>,
+     *   }>,
+     *   held:list<string>,
+     * }
      */
-    public function plan(array $gapIndexResult, array $driftResult): array
+    public function plan(array $gaps): array
     {
-        $batch = [];
+        // Filter: only high enough impact gets planned
+        $eligible = [];
+        $held = [];
 
-        foreach ((array) ($gapIndexResult['gaps'] ?? []) as $gap) {
-            $unlocks = array_values(array_map('strval', (array) ($gap['unlocks'] ?? [])));
-            $leverage = max(0.0, min(1.0, (float) ($gap['leverage'] ?? 0.0)));
-            $batch[] = [
-                'source' => 'maturity_gap',
-                'id' => (string) ($gap['dimension'] ?? ''),
-                'category' => self::CATEGORY_PROOF_GAP_CLOSURE,
-                'resolution_approach' => (string) ($gap['next_best_task_family'] ?? $gap['suggested_task_family'] ?? ''),
-                'leverage' => $leverage,
-                'unlock_count' => count($unlocks),
-                'dependency_blockers' => array_values(array_map('strval', (array) ($gap['blocked_by'] ?? []))),
-                'compound_leverage' => $this->compoundLeverage($leverage, count($unlocks)),
-                'finding' => $gap,
-            ];
-        }
+        foreach ($gaps as $gap) {
+            $impact = (float) ($gap['impact_score'] ?? 0.0);
+            $gapId = (string) ($gap['gap_id'] ?? 'unknown');
 
-        foreach ((array) ($driftResult['findings'] ?? []) as $finding) {
-            $driftType = (string) ($finding['drift_type'] ?? '');
-            $category = match ($driftType) {
-                AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_CONTRADICTORY,
-                AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_STALE => self::CATEGORY_CONTRADICTORY_STALE_REPAIR,
-                AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MISSING_NEXT_LEVERAGE => self::CATEGORY_MISSING_NEXT_LEVERAGE_RECOVERY,
-                default => self::CATEGORY_OTHER_DRIFT_REPAIR,
-            };
-
-            $unlocks = array_values(array_map('strval', (array) ($finding['unlocks'] ?? [])));
-            $leverage = self::IMPACT_TO_SCORE[(string) ($finding['impact'] ?? 'low')] ?? 0.0;
-            $batch[] = [
-                'source' => 'capability_drift',
-                'id' => (string) ($finding['area_id'] ?? ''),
-                'category' => $category,
-                'resolution_approach' => (string) ($finding['repair_action'] ?? ''),
-                'leverage' => $leverage,
-                'unlock_count' => count($unlocks),
-                'dependency_blockers' => array_values(array_map('strval', (array) ($finding['blocked_by'] ?? []))),
-                'compound_leverage' => $this->compoundLeverage($leverage, count($unlocks)),
-                'finding' => $finding,
-            ];
-        }
-
-        usort($batch, static function (array $a, array $b): int {
-            $rankDiff = self::CATEGORY_RANK[$a['category']] <=> self::CATEGORY_RANK[$b['category']];
-            if ($rankDiff !== 0) {
-                return $rankDiff;
+            if ($impact < self::IMPACT_THRESHOLD) {
+                $held[] = $gapId;
+            } else {
+                $eligible[] = $gap;
             }
-            $leverageDiff = $b['compound_leverage'] <=> $a['compound_leverage'];
+        }
 
-            return $leverageDiff !== 0 ? $leverageDiff : strcmp($a['id'], $b['id']);
+        // Order: proof_ready first, then by impact desc
+        usort($eligible, function (array $a, array $b): int {
+            $aReady = ($a['proof_ready'] ?? false) === true;
+            $bReady = ($b['proof_ready'] ?? false) === true;
+            if ($aReady !== $bReady) {
+                return $aReady ? -1 : 1; // ready first
+            }
+            return (float) ($b['impact_score'] ?? 0) <=> (float) ($a['impact_score'] ?? 0);
         });
+
+        // Build waves by prerequisites: gaps with no unmet prerequisites go in wave 1
+        $planned = [];
+        $remaining = $eligible;
+        $waveNum = 0;
+
+        while (count($remaining) > 0) {
+            $waveNum++;
+            $currentWave = [];
+            $nextRemaining = [];
+
+            foreach ($remaining as $gap) {
+                $prereqs = (array) ($gap['prerequisite_gap_ids'] ?? []);
+                // Check all prerequisites are already planned (within this or previous waves)
+                $unmetPrereqs = array_filter($prereqs, fn ($p) => ! in_array($p, $planned, true));
+
+                if (count($unmetPrereqs) === 0) {
+                    $gapId = (string) ($gap['gap_id'] ?? 'unknown');
+                    $prereqNotes = array_map(fn ($p) => "depends_on:{$p}", $prereqs);
+
+                    $currentWave[] = [
+                        'task_id' => $gapId,
+                        'prerequisite_notes' => $prereqNotes,
+                        'proof_target' => (string) ($gap['group'] ?? 'unknown') . '_test',
+                        'allowed_scope_hint' => (string) ($gap['allowed_scope_hint'] ?? ''),
+                        'expected_maturity_delta' => (string) ($gap['expected_maturity_delta'] ?? '+0.1'),
+                    ];
+                    // Don't add to $planned yet — prerequisites from the same wave
+                    // don't count; they must be in a PRIOR wave.
+                    $deferredPlanned[] = $gapId;
+                } else {
+                    $nextRemaining[] = $gap;
+                }
+            }
+
+            if (count($currentWave) === 0) {
+                // Circular dependency — put remaining into last wave
+                foreach ($nextRemaining as $gap) {
+                    $gapId = (string) ($gap['gap_id'] ?? 'unknown');
+                    $currentWave[] = [
+                        'task_id' => $gapId,
+                        'prerequisite_notes' => ['circular_dependency_break'],
+                        'proof_target' => (string) ($gap['group'] ?? 'unknown') . '_test',
+                        'allowed_scope_hint' => (string) ($gap['allowed_scope_hint'] ?? ''),
+                        'expected_maturity_delta' => (string) ($gap['expected_maturity_delta'] ?? '+0.1'),
+                    ];
+                }
+                $nextRemaining = [];
+            }
+
+            $waves[] = ['wave' => $waveNum, 'tasks' => $currentWave];
+            // Merge deferred planned into the main list for the next wave
+            foreach ($deferredPlanned ?? [] as $id) {
+                $planned[] = $id;
+            }
+            $remaining = $nextRemaining;
+        }
 
         return [
             'schema' => self::SCHEMA,
-            'batch' => $batch,
+            'waves' => $waves ?? [],
+            'held' => $held,
         ];
-    }
-
-    /** Amplifies raw leverage by how many other gaps/findings this item unblocks. */
-    private function compoundLeverage(float $leverage, int $unlockCount): float
-    {
-        return round(min(1.0, $leverage + (0.1 * $unlockCount)), 4);
     }
 }
