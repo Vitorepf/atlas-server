@@ -57,6 +57,10 @@ final class AtlasExternalBrainModelQualitySloLedger
         'value_proof_rate' => ['op' => '>=', 'value' => 0.70],
         'duplicate_rate' => ['op' => '<=', 'value' => 0.10],
         'evidence_strength' => ['op' => '>=', 'value' => 0.70],
+        // Absent latency/cost default to 0.0, which always passes — these dimensions only bind
+        // when a caller actually reports them, so pre-existing callers see no behavior change.
+        'latency' => ['op' => '<=', 'value' => 300.0],
+        'cost' => ['op' => '<=', 'value' => 1.00],
     ];
 
     public const ENFORCEMENT_BLOCK    = 'block';
@@ -141,6 +145,12 @@ final class AtlasExternalBrainModelQualitySloLedger
                 }
             }
 
+            // regression_budget only binds when explicitly reported — an exhausted budget always
+            // fails the segment regardless of how strong every other SLO looks.
+            if (array_key_exists('regression_budget_remaining', $row) && (float) $row['regression_budget_remaining'] <= 0.0) {
+                $failingSlos[] = 'regression_budget';
+            }
+
             $status = $failingSlos === [] ? 'green' : 'red';
             $observedQuality = $this->observedQuality($row);
 
@@ -173,10 +183,16 @@ final class AtlasExternalBrainModelQualitySloLedger
 
             if ($status === 'red') {
                 $failingSegments[] = $segmentKey;
+                $adjustment = count($failingSlos) >= 3 ? 'downgrade_tier' : 'add_extra_validation';
                 $routingAdjustments[] = [
                     'segment' => $segmentKey,
-                    'adjustment' => count($failingSlos) >= 3 ? 'downgrade_tier' : 'add_extra_validation',
+                    'adjustment' => $adjustment,
                     'failing_slos' => $failingSlos,
+                    'routing_hint' => $this->routingHint($adjustment, $tier, $taskFamily, $failingSlos),
+                    'evidence_refs' => array_values(array_unique(array_merge(
+                        ["slo_ledger_segment:{$segmentKey}"],
+                        array_map('strval', (array) ($row['evidence_refs'] ?? [])),
+                    ))),
                 ];
             }
         }
@@ -189,6 +205,17 @@ final class AtlasExternalBrainModelQualitySloLedger
             'recommended_routing_adjustments' => $routingAdjustments,
             'rejected_provider_name_only_claims' => $rejectedProviderNameOnlyClaims,
         ];
+    }
+
+    /** @param list<string> $failingSlos */
+    private function routingHint(string $adjustment, string $tier, string $taskFamily, array $failingSlos): string
+    {
+        $slos = implode(',', $failingSlos);
+        if ($adjustment === 'downgrade_tier') {
+            return "route {$taskFamily} tasks away from model_tier={$tier}; failing_slos=[{$slos}] exceed the escalation threshold";
+        }
+
+        return "keep model_tier={$tier} for {$taskFamily} but add extra validation for failing_slos=[{$slos}]";
     }
 
     private function observedQuality(array $row): float

@@ -267,4 +267,107 @@ final class AtlasExternalBrainModelQualitySloLedgerTest extends TestCase
 
         $this->assertSame([], $r['rejected_provider_name_only_claims']);
     }
+
+    // ── AC2/AC4: degraded cost ─────────────────────────────────────────────────
+
+    public function test_cost_above_ceiling_gives_red_with_routing_hint(): void
+    {
+        $row = array_merge($this->row('small', 'v1', 'refactor', 20), ['cost' => 5.0]);
+
+        $r = $this->compute([$row]);
+
+        $this->assertContains('cost', $r['slo_rows'][0]['failing_slos']);
+        $this->assertSame('red', $r['slo_rows'][0]['status']);
+        $this->assertArrayHasKey('routing_hint', $r['recommended_routing_adjustments'][0]);
+        $this->assertNotEmpty($r['recommended_routing_adjustments'][0]['routing_hint']);
+    }
+
+    public function test_latency_above_ceiling_gives_red(): void
+    {
+        $row = array_merge($this->row('small', 'v1', 'refactor', 20), ['latency' => 500.0]);
+
+        $r = $this->compute([$row]);
+
+        $this->assertContains('latency', $r['slo_rows'][0]['failing_slos']);
+    }
+
+    // ── AC2/AC4: exhausted regression budget ──────────────────────────────────
+
+    public function test_exhausted_regression_budget_gives_red(): void
+    {
+        $row = array_merge($this->row('small', 'v1', 'refactor', 20), ['regression_budget_remaining' => 0]);
+
+        $r = $this->compute([$row]);
+
+        $this->assertContains('regression_budget', $r['slo_rows'][0]['failing_slos']);
+        $this->assertSame('red', $r['slo_rows'][0]['status']);
+    }
+
+    public function test_positive_regression_budget_does_not_fail(): void
+    {
+        $row = array_merge($this->row('small', 'v1', 'refactor', 20), ['regression_budget_remaining' => 5]);
+
+        $r = $this->compute([$row]);
+
+        $this->assertNotContains('regression_budget', $r['slo_rows'][0]['failing_slos']);
+        $this->assertSame('green', $r['slo_rows'][0]['status']);
+    }
+
+    // ── AC3: routing_hint and evidence_refs on degraded segments ──────────────
+
+    public function test_degraded_segment_carries_routing_hint_and_evidence_refs(): void
+    {
+        $row = array_merge($this->row('small', 'v1', 'refactor', 15, commit: 0.60), [
+            'evidence_refs' => ['gate:phpunit_run_42'],
+        ]);
+
+        $r = $this->compute([$row]);
+        $adj = $r['recommended_routing_adjustments'][0];
+
+        $this->assertArrayHasKey('routing_hint', $adj);
+        $this->assertNotEmpty($adj['routing_hint']);
+        $this->assertArrayHasKey('evidence_refs', $adj);
+        $this->assertContains('gate:phpunit_run_42', $adj['evidence_refs']);
+        $this->assertContains('slo_ledger_segment:small:v1:refactor', $adj['evidence_refs']);
+    }
+
+    // ── AC4: task-family-specific SLO ─────────────────────────────────────────
+
+    public function test_task_family_specific_quality_floor_is_independent_per_family(): void
+    {
+        $strict = array_merge($this->row('small', 'v1', 'refactor', 20), [
+            'task_family' => 'security_sensitive',
+            'quality_floor' => 0.95,
+        ]);
+        $lenient = array_merge($this->row('small', 'v1', 'docs', 20), [
+            'task_family' => 'documentation',
+            'quality_floor' => 0.50,
+        ]);
+
+        $r = $this->compute([$strict, $lenient]);
+
+        $byFamily = [];
+        foreach ($r['slo_rows'] as $row) {
+            $byFamily[$row['task_family']] = $row;
+        }
+
+        $this->assertSame(0.95, $byFamily['security_sensitive']['quality_floor']);
+        $this->assertSame(0.50, $byFamily['documentation']['quality_floor']);
+    }
+
+    // ── healthy SLO (all new dimensions healthy) ──────────────────────────────
+
+    public function test_healthy_slo_with_cost_latency_and_regression_budget_reported(): void
+    {
+        $row = array_merge($this->row('small', 'v1', 'refactor', 20), [
+            'cost' => 0.20,
+            'latency' => 30.0,
+            'regression_budget_remaining' => 10,
+        ]);
+
+        $r = $this->compute([$row]);
+
+        $this->assertSame('green', $r['slo_rows'][0]['status']);
+        $this->assertNull($r['slo_rows'][0]['enforcement_action']);
+    }
 }
