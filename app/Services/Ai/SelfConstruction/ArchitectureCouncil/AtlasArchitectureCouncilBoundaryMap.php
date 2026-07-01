@@ -211,11 +211,39 @@ final class AtlasArchitectureCouncilBoundaryMap
                 continue;
             }
             sort($distinctOwners, SORT_STRING);
+            $canonicalOwner = $distinctOwners[0];
+            $collapseCandidates = array_slice($distinctOwners, 1);
+
+            // Merge/delete candidates: a redundant organ with no other organ consuming its
+            // outputs is safe to delete outright; one that other organs still depend on must be
+            // merged into the canonical owner instead (its consumers need to be repointed).
+            $mergeDeleteCandidates = [];
+            foreach ($collapseCandidates as $candidate) {
+                $consumers = array_values(array_unique(array_map(
+                    static fn (array $e): string => $e['from'],
+                    $organProfiles[$candidate]['inbound_edges'] ?? [],
+                )));
+                sort($consumers, SORT_STRING);
+
+                $action = $consumers === [] ? 'delete' : 'merge';
+                $riskNotes = $consumers === []
+                    ? ['no_known_consumers:safe_to_delete_after_confirming_no_hidden_callers']
+                    : ['has_consumers:repoint_to_'.$canonicalOwner.'_before_deleting', 'consumers:'.implode(',', $consumers)];
+
+                $mergeDeleteCandidates[] = [
+                    'organ' => $candidate,
+                    'consumers' => $consumers,
+                    'action' => $action,
+                    'risk_notes' => $riskNotes,
+                ];
+            }
+
             $responsibilityOverlaps[] = [
                 'responsibility' => $responsibility,
                 'organs' => $distinctOwners,
-                'canonical_owner' => $distinctOwners[0],
-                'collapse_candidate' => array_slice($distinctOwners, 1),
+                'canonical_owner' => $canonicalOwner,
+                'collapse_candidate' => $collapseCandidates,
+                'merge_delete_candidates' => $mergeDeleteCandidates,
             ];
         }
         usort($responsibilityOverlaps, static fn (array $a, array $b): int => strcmp($a['responsibility'], $b['responsibility']));

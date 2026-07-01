@@ -107,4 +107,42 @@ final class AtlasArchitectureCouncilBoundaryMapDuplicateOrganTest extends TestCa
         $map = new AtlasArchitectureCouncilBoundaryMap;
         $this->assertSame($map->map($contracts), $map->map($contracts));
     }
+
+    // ── merge/delete candidates + consumers (AC) ──────────────────────────────
+
+    public function test_collapse_candidate_with_no_consumers_gets_delete_action(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Task Fabric', 'non_authority' => ['x'], 'responsibilities' => ['origination'], 'integrations' => []],
+            ['organ' => 'Worker Swarm', 'non_authority' => ['y'], 'responsibilities' => ['origination'], 'integrations' => []],
+        ]);
+
+        $candidates = $r['responsibility_overlaps'][0]['merge_delete_candidates'];
+        $this->assertCount(1, $candidates);
+        $this->assertSame('Worker Swarm', $candidates[0]['organ']);
+        $this->assertSame([], $candidates[0]['consumers']);
+        $this->assertSame('delete', $candidates[0]['action']);
+    }
+
+    public function test_collapse_candidate_with_consumers_gets_merge_action_and_lists_consumers(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Task Fabric', 'non_authority' => ['x'], 'responsibilities' => ['origination'], 'integrations' => []],
+            ['organ' => 'Worker Swarm', 'non_authority' => ['y'], 'responsibilities' => ['origination'], 'integrations' => []],
+            [
+                'organ' => 'Maestro',
+                'non_authority' => ['z'],
+                'responsibilities' => [],
+                'integrations' => [
+                    ['from' => 'Maestro', 'to' => 'Worker Swarm', 'action' => 'route_task'],
+                ],
+            ],
+        ]);
+
+        $candidates = $r['responsibility_overlaps'][0]['merge_delete_candidates'];
+        $this->assertSame('Worker Swarm', $candidates[0]['organ']);
+        $this->assertSame(['Maestro'], $candidates[0]['consumers']);
+        $this->assertSame('merge', $candidates[0]['action']);
+        $this->assertNotEmpty($candidates[0]['risk_notes']);
+    }
 }
