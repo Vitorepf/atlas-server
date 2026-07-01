@@ -44,8 +44,10 @@ final class AgentControlPlaneEvidenceLedgerDryRun
         $packetId = (string) ($taskPacket['task_packet_id'] ?? 'task-packet-unknown');
         $packetStatus = (string) ($taskPacket['status'] ?? 'unknown');
         $additional = (array) ($options['additional_receipts'] ?? []);
+        $uniqueAdditional = array_values(array_unique($additional));
+        $duplicateReceiptCount = count($additional) - count($uniqueAdditional);
 
-        $receipts = array_values(array_unique(array_merge(self::REQUIRED_RECEIPTS, $additional)));
+        $receipts = array_values(array_unique(array_merge(self::REQUIRED_RECEIPTS, $uniqueAdditional)));
 
         $plannedReceipts = [];
         foreach ($receipts as $kind) {
@@ -108,6 +110,7 @@ final class AgentControlPlaneEvidenceLedgerDryRun
             'planned_receipts' => $plannedReceipts,
             'planned_evidence_events' => $evidenceEvents,
             'receipt_count' => count($plannedReceipts),
+            'duplicate_receipt_count' => $duplicateReceiptCount,
             'event_count' => count($evidenceEvents),
             'evidence_hash' => $evidenceHash,
             'blocking_reasons' => $blockingReasons,
