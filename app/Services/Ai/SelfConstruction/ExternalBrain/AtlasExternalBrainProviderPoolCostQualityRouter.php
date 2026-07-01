@@ -34,6 +34,17 @@ final class AtlasExternalBrainProviderPoolCostQualityRouter
 
     private const CRITICAL_RISK_CLASSES = ['high', 'critical'];
 
+    public const CLIENT_CLASS_LOCAL = 'local';
+    public const CLIENT_CLASS_SUBSCRIPTION = 'subscription';
+    public const CLIENT_CLASS_API = 'api';
+
+    private const LOCAL_OR_SUBSCRIPTION_CLASSES = [self::CLIENT_CLASS_LOCAL, self::CLIENT_CLASS_SUBSCRIPTION];
+
+    /** Local/subscription bonus applied only once a candidate meets the task's proof floor. */
+    private const LOCAL_SUBSCRIPTION_QUALIFIED_BONUS = 0.10;
+
+    private const PROOF_FLOOR_BY_CRITICALITY = ['low' => 0.30, 'medium' => 0.50, 'high' => 0.70, 'critical' => 0.90];
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -71,6 +82,7 @@ final class AtlasExternalBrainProviderPoolCostQualityRouter
             $accepted[] = [
                 'pool_id' => $poolId,
                 'cost_tier' => (string) ($candidate['cost_tier'] ?? ''),
+                'client_class' => strtolower((string) ($candidate['client_class'] ?? self::CLIENT_CLASS_API)),
                 'score' => $this->score($candidate, $taskCriticality),
             ];
         }
@@ -92,6 +104,28 @@ final class AtlasExternalBrainProviderPoolCostQualityRouter
 
         $routeDecision = $accepted[0] ?? null;
         $fallbackRoute = $this->fallbackRoute($accepted, $routeDecision, $humanIndependentAtlasNativeFallbackAvailable);
+        $requiredProofFloor = $this->requiredProofFloor($taskCriticality);
+
+        // AC: escalation is recommended only for high-risk tasks lacking sufficient local/
+        // subscription quality evidence — never for routine tasks, and never suppressed
+        // just because a local candidate exists without actually meeting the floor.
+        $hasQualifiedLocalOrSubscriptionEvidence = false;
+        foreach ($candidates as $candidate) {
+            $candidate = (array) $candidate;
+            $clientClass = strtolower((string) ($candidate['client_class'] ?? self::CLIENT_CLASS_API));
+            $modelStrength = max(0.0, min(1.0, (float) ($candidate['model_strength'] ?? 0.0)));
+            if (in_array($clientClass, self::LOCAL_OR_SUBSCRIPTION_CLASSES, true) && $modelStrength >= $requiredProofFloor) {
+                $hasQualifiedLocalOrSubscriptionEvidence = true;
+                break;
+            }
+        }
+        $escalationRecommended = $isCriticalOrIrreversible && ! $hasQualifiedLocalOrSubscriptionEvidence;
+
+        $reason = match (true) {
+            $routeDecision === null => 'no_candidate_passed_the_safety_floor',
+            $routeDecision['client_class'] !== self::CLIENT_CLASS_API => 'highest_scoring_safe_candidate:local_or_subscription_client_qualified_for_task_risk',
+            default => 'highest_scoring_safe_candidate',
+        };
 
         return [
             'schema_version' => self::SCHEMA,
@@ -99,6 +133,10 @@ final class AtlasExternalBrainProviderPoolCostQualityRouter
             'rejected_candidates' => $rejected,
             'fallback_route' => $fallbackRoute,
             'escalation_policy' => $this->escalationPolicy($taskCriticality, $isCriticalOrIrreversible),
+            'reason' => $reason,
+            'selected_client_class' => $routeDecision['client_class'] ?? null,
+            'required_proof_floor' => $requiredProofFloor,
+            'escalation_recommended' => $escalationRecommended,
         ];
     }
 
@@ -148,6 +186,7 @@ final class AtlasExternalBrainProviderPoolCostQualityRouter
         $giveBackRate = max(0.0, min(1.0, (float) ($candidate['give_back_rate'] ?? 0.0)));
         $modelStrength = max(0.0, min(1.0, (float) ($candidate['model_strength'] ?? 0.0)));
         $costTier = (string) ($candidate['cost_tier'] ?? '');
+        $clientClass = strtolower((string) ($candidate['client_class'] ?? self::CLIENT_CLASS_API));
 
         $costBonus = match (true) {
             $taskCriticality === self::COST_TIER_FRONTIER && $costTier === self::COST_TIER_FRONTIER => 1.0,
@@ -156,13 +195,27 @@ final class AtlasExternalBrainProviderPoolCostQualityRouter
             default => 0.0,
         };
 
+        // AC: a local/subscription client only wins the preference bonus once its own
+        // quality (model_strength) actually meets the task's required proof floor —
+        // never a blanket "prefer cheap client" bias regardless of risk.
+        $clientClassBonus = in_array($clientClass, self::LOCAL_OR_SUBSCRIPTION_CLASSES, true)
+            && $modelStrength >= $this->requiredProofFloor($taskCriticality)
+            ? self::LOCAL_SUBSCRIPTION_QUALIFIED_BONUS
+            : 0.0;
+
         return round(
             $successRate * 0.40
             + (1.0 - $giveBackRate) * 0.25
             + $modelStrength * 0.20
-            + $costBonus * 0.15,
+            + $costBonus * 0.15
+            + $clientClassBonus,
             6,
         );
+    }
+
+    private function requiredProofFloor(string $taskCriticality): float
+    {
+        return self::PROOF_FLOOR_BY_CRITICALITY[$taskCriticality] ?? self::PROOF_FLOOR_BY_CRITICALITY['low'];
     }
 
     /**
