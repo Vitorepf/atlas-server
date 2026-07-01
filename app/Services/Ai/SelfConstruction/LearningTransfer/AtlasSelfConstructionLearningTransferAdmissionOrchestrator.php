@@ -138,6 +138,68 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         );
     }
 
+    /**
+     * Admits a pattern learned inside Atlas for transfer into ANOTHER project. Distinct from
+     * admit() (intra-Atlas give_back lessons): this gates on cross-project cargo-cult risk —
+     * a pattern that worked here can still be blindly copy-pasted somewhere it does not fit.
+     *
+     * transfer_allowed=true only when ALL FOUR proofs are present AND the target project has
+     * real (non-contradicted) evidence — a pattern is never transferred on Atlas-side success
+     * alone.
+     *
+     * @param  array{
+     *   source_proof?:string, target_fit?:string, risk_analysis?:string, rollback_path?:string,
+     *   target_evidence?:list<mixed>, target_evidence_contradicted?:bool,
+     * }  $input
+     * @return array{schema_version:string, transfer_decision:string, transfer_allowed:bool, missing_evidence:list<string>, safe_first_task:?string, rollback_ref:?string}
+     */
+    public function admitCrossProjectTransfer(array $input): array
+    {
+        $sourceProof = trim((string) ($input['source_proof'] ?? ''));
+        $targetFit = trim((string) ($input['target_fit'] ?? ''));
+        $riskAnalysis = trim((string) ($input['risk_analysis'] ?? ''));
+        $rollbackPath = trim((string) ($input['rollback_path'] ?? ''));
+        $targetEvidence = is_array($input['target_evidence'] ?? null) ? array_filter($input['target_evidence']) : [];
+        $targetEvidenceContradicted = (bool) ($input['target_evidence_contradicted'] ?? false);
+
+        $missingEvidence = [];
+        if ($sourceProof === '') {
+            $missingEvidence[] = 'source_proof';
+        }
+        if ($targetFit === '') {
+            $missingEvidence[] = 'target_fit';
+        }
+        if ($riskAnalysis === '') {
+            $missingEvidence[] = 'risk_analysis';
+        }
+        if ($rollbackPath === '') {
+            $missingEvidence[] = 'rollback_path';
+        }
+
+        // Cargo-cult guard: even with all four proofs present, transfer is never allowed when the
+        // TARGET project's own evidence is missing or explicitly contradicted — proof that a
+        // pattern worked in Atlas is never proof it fits somewhere else.
+        if ($targetEvidence === []) {
+            $missingEvidence[] = 'target_evidence';
+        } elseif ($targetEvidenceContradicted) {
+            $missingEvidence[] = 'target_evidence_contradicted';
+        }
+
+        $missingEvidence = array_values(array_unique($missingEvidence));
+        $transferAllowed = $missingEvidence === [];
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'transfer_decision' => $transferAllowed ? 'allow' : 'block',
+            'transfer_allowed' => $transferAllowed,
+            'missing_evidence' => $missingEvidence,
+            'safe_first_task' => $transferAllowed
+                ? 'implement the smallest scoped adaptation named in target_fit, proven by the rollback_path before wider rollout'
+                : null,
+            'rollback_ref' => $transferAllowed ? $rollbackPath : null,
+        ];
+    }
+
     private function computeLessonKey(array $classification): string
     {
         $payload = [

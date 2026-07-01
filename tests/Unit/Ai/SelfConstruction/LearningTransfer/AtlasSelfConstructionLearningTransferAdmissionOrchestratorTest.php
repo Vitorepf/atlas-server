@@ -142,4 +142,57 @@ class AtlasSelfConstructionLearningTransferAdmissionOrchestratorTest extends Tes
         self::assertNull($second['plan']);
         self::assertNull($second['ledger']);
     }
+
+    // ── AC: cross-project transfer admission ──────────────────────────────────
+
+    private function fullTransferInput(array $overrides = []): array
+    {
+        return array_merge([
+            'source_proof' => 'AtlasBrainDepthScorer proved 5/5 wave replay green in Atlas',
+            'target_fit' => 'target project has an equivalent scoring layer at src/Scorer.py',
+            'risk_analysis' => 'low risk: pure function, no shared state with target runtime',
+            'rollback_path' => 'revert_commit:target-repo',
+            'target_evidence' => ['target repo test run: 5/5 green'],
+        ], $overrides);
+    }
+
+    public function test_transfer_requires_all_four_proofs_before_transfer_allowed(): void
+    {
+        $missingRollback = $this->orchestrator()->admitCrossProjectTransfer(
+            $this->fullTransferInput(['rollback_path' => ''])
+        );
+
+        self::assertFalse($missingRollback['transfer_allowed']);
+        self::assertContains('rollback_path', $missingRollback['missing_evidence']);
+
+        $complete = $this->orchestrator()->admitCrossProjectTransfer($this->fullTransferInput());
+        self::assertTrue($complete['transfer_allowed']);
+    }
+
+    public function test_blocks_cargo_cult_transfer_when_target_evidence_missing_or_contradicted(): void
+    {
+        $missingTargetEvidence = $this->orchestrator()->admitCrossProjectTransfer(
+            $this->fullTransferInput(['target_evidence' => []])
+        );
+        self::assertFalse($missingTargetEvidence['transfer_allowed']);
+        self::assertContains('target_evidence', $missingTargetEvidence['missing_evidence']);
+
+        $contradicted = $this->orchestrator()->admitCrossProjectTransfer(
+            $this->fullTransferInput(['target_evidence_contradicted' => true])
+        );
+        self::assertFalse($contradicted['transfer_allowed']);
+        self::assertContains('target_evidence_contradicted', $contradicted['missing_evidence']);
+    }
+
+    public function test_transfer_output_includes_decision_missing_evidence_safe_first_task_and_rollback_ref(): void
+    {
+        $result = $this->orchestrator()->admitCrossProjectTransfer($this->fullTransferInput());
+
+        foreach (['transfer_decision', 'missing_evidence', 'safe_first_task', 'rollback_ref'] as $key) {
+            self::assertArrayHasKey($key, $result, "Missing key: {$key}");
+        }
+        self::assertSame('allow', $result['transfer_decision']);
+        self::assertNotNull($result['safe_first_task']);
+        self::assertSame('revert_commit:target-repo', $result['rollback_ref']);
+    }
 }
