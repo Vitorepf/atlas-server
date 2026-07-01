@@ -331,4 +331,63 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicyTest extends TestCase
         $this->assertArrayHasKey('allowed_next_actions', $r);
         $this->assertContains(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CREATE_MORE, $r['blocked_next_actions']);
     }
+
+    // ── AC1: high-leverage batch overrides a stale/positive-depth wait ─────────
+
+    public function test_stale_positive_depth_with_high_leverage_batch_allows_create_more(): void
+    {
+        $r = $this->svc()->decide($this->bottleneckFacts([
+            'proposed_batch_leverage' => ['fixes_bottleneck' => false, 'improves' => ['queue_self_healing']],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CREATE_MORE, $r['decision']);
+    }
+
+    public function test_stale_positive_depth_without_high_leverage_improves_does_not_force_create_more(): void
+    {
+        $r = $this->svc()->decide($this->bottleneckFacts([
+            'proposed_batch_leverage' => ['fixes_bottleneck' => false, 'improves' => ['unrelated_category']],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_DRAIN_EXISTING, $r['decision']);
+    }
+
+    // ── AC2: wait_is_not_progress reason on pure-wait decisions ────────────────
+
+    public function test_pause_origination_includes_wait_is_not_progress_reason(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false],
+            'queue_age_histogram' => ['claimable_depth' => 10, 'oldest_age_p95_seconds' => 100, 'stale_threshold_seconds' => 3600],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_PAUSE_ORIGINATION, $r['decision']);
+        $reasonBlob = implode('|', $r['reasons']);
+        $this->assertStringContainsString('wait_is_not_progress', $reasonBlob);
+    }
+
+    public function test_consolidate_includes_wait_is_not_progress_reason(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false],
+            'queue_age_histogram' => ['claimable_depth' => 0, 'oldest_age_p95_seconds' => 100, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => ['observed_consumption_count' => 0],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CONSOLIDATE, $r['decision']);
+        $reasonBlob = implode('|', $r['reasons']);
+        $this->assertStringContainsString('wait_is_not_progress', $reasonBlob);
+    }
+
+    // ── AC3: sickness and blocked debt still block creation even with high-leverage batch ──
+
+    public function test_sickness_still_blocks_creation_despite_high_leverage_batch(): void
+    {
+        $r = $this->svc()->decide($this->bottleneckFacts([
+            'health_snapshot' => ['dry_queue' => false, 'malformed_rate' => 0.5, 'give_back_rate' => 0.0],
+            'proposed_batch_leverage' => ['fixes_bottleneck' => false, 'improves' => ['task_fabric']],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_REPAIR_QUEUE, $r['decision']);
+    }
 }

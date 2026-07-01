@@ -74,6 +74,13 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
         $urgencyScore = max(0.0, min(1.0, (float) ($urgency['urgency_score'] ?? 0.0)));
         $batchFixesBottleneck = (bool) ($batch['fixes_bottleneck'] ?? false);
 
+        // A batch that directly improves Task Fabric, Queue Self-Healing, Outcome Learning,
+        // Simplification, or autonomy continuity is high-leverage enough to override a stale-depth
+        // wait — raw sufficient_depth alone must never be the sole justification to stop.
+        $highLeverageCategories = ['task_fabric', 'queue_self_healing', 'outcome_learning', 'simplification', 'autonomy_continuity'];
+        $batchImproves = is_array($batch['improves'] ?? null) ? array_map('strval', $batch['improves']) : [];
+        $batchTargetsHighLeverage = array_intersect($batchImproves, $highLeverageCategories) !== [];
+
         $isStale = $oldestAgeP95 >= $staleThreshold;
         $hasDeepBacklog = $claimableDepth > 0;
         $bottleneckShape = ! $dryQueue && $hasDeepBacklog && $isStale && $observedConsumption === 0;
@@ -105,11 +112,19 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
             $reasons[] = sprintf('malformed_rate=%.2f give_back_rate=%.2f above the repair threshold', $malformedRate, $giveBackRate);
             $requiredEvidence[] = 'health_snapshot.malformed_rate';
             $requiredEvidence[] = 'health_snapshot.give_back_rate';
-        } elseif ($bottleneckShape && $batchFixesBottleneck) {
+        } elseif ($bottleneckShape && ($batchFixesBottleneck || $batchTargetsHighLeverage)) {
             $decision = self::DECISION_CREATE_MORE;
             $confidence = 0.7;
             $reasons[] = 'high claimable depth and stale p95 age, but the proposed batch directly fixes the bottleneck';
             $requiredEvidence[] = 'proposed_batch_leverage.fixes_bottleneck';
+        } elseif ($hasDeepBacklog && $isStale && $batchTargetsHighLeverage) {
+            $decision = self::DECISION_CREATE_MORE;
+            $confidence = 0.65;
+            $reasons[] = sprintf(
+                'stale/low-value backlog present, but proposed batch directly improves a high-leverage category (%s); raw sufficient_depth alone never justifies waiting',
+                implode(',', array_intersect($batchImproves, $highLeverageCategories)),
+            );
+            $requiredEvidence[] = 'proposed_batch_leverage.improves';
         } elseif ($bottleneckShape) {
             $decision = self::DECISION_DRAIN_EXISTING;
             $confidence = 0.85;
@@ -120,6 +135,7 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
             $decision = self::DECISION_PAUSE_ORIGINATION;
             $confidence = 0.5;
             $reasons[] = 'claimable backlog exists but worker consumption evidence is missing; pause origination rather than guess';
+            $reasons[] = 'wait_is_not_progress: pausing here is a missing-evidence hold, not a claim that sufficient_depth alone justifies stopping';
             $requiredEvidence[] = 'worker_idle_prediction.observed_consumption_count';
         } elseif ($dryQueue && $urgencyScore > self::HIGH_URGENCY_THRESHOLD) {
             $decision = self::DECISION_CREATE_MORE;
@@ -146,6 +162,7 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
             $decision = self::DECISION_CONSOLIDATE;
             $confidence = 0.5;
             $reasons[] = 'no claimable backlog and no consumption signal; consolidate before originating more';
+            $reasons[] = 'wait_is_not_progress: consolidating here is a lack-of-signal hold, not a claim that sufficient_depth alone justifies stopping';
             $requiredEvidence[] = 'worker_idle_prediction.observed_consumption_count';
         } else {
             $decision = self::DECISION_CREATE_MORE;
