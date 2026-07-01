@@ -95,4 +95,87 @@ final class AtlasSelfConstructionBrainAuditAutoPriorityPolicyTest extends TestCa
 
         $this->assertSame(AtlasSelfConstructionBrainAuditAutoPriorityPolicy::SCHEMA, $r['schema_version']);
     }
+
+    // ── blocked/quarantined debt overhang (AC) ────────────────────────────────
+
+    public function test_high_blocked_quarantined_debt_raises_queue_self_healing_despite_sufficient_claimable_depth(): void
+    {
+        $r = $this->svc()->apply([
+            'audit_snapshot' => [
+                'status' => 'healthy',
+                'blocked_count' => 8,
+                'quarantined_count' => 4,
+                'claimable_depth' => 5,
+            ],
+            'pending_actions' => ['generate_more_tasks'],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionBrainAuditAutoPriorityPolicy::ACTION_QUEUE_SELF_HEALING, $r['selected_action']);
+        $this->assertTrue($r['priority_override']);
+        $this->assertSame('blocked_quarantined_debt_exceeds_claimable_depth', $r['override_reason']);
+    }
+
+    public function test_blocked_quarantined_debt_below_material_ratio_does_not_override(): void
+    {
+        $r = $this->svc()->apply([
+            'audit_snapshot' => [
+                'status' => 'healthy',
+                'blocked_count' => 2,
+                'quarantined_count' => 1,
+                'claimable_depth' => 5,
+            ],
+            'pending_actions' => ['generate_more_tasks'],
+        ]);
+
+        $this->assertSame('generate_more_tasks', $r['selected_action']);
+        $this->assertFalse($r['priority_override']);
+    }
+
+    public function test_blocked_quarantined_debt_never_counted_as_claimable_supply(): void
+    {
+        // 10 blocked + 0 claimable_depth: debt overhang is infinite relative to zero supply.
+        $r = $this->svc()->apply([
+            'audit_snapshot' => [
+                'status' => 'healthy',
+                'blocked_count' => 10,
+                'quarantined_count' => 0,
+                'claimable_depth' => 0,
+            ],
+            'pending_actions' => [],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionBrainAuditAutoPriorityPolicy::ACTION_QUEUE_SELF_HEALING, $r['selected_action']);
+    }
+
+    public function test_critical_gate_regression_still_takes_precedence_over_debt_overhang(): void
+    {
+        $r = $this->svc()->apply([
+            'audit_snapshot' => [
+                'status' => 'gate_regression',
+                'regression_severity' => 'critical',
+                'blocked_count' => 100,
+                'quarantined_count' => 100,
+                'claimable_depth' => 1,
+            ],
+            'pending_actions' => [],
+        ]);
+
+        $this->assertSame('repair_gate', $r['selected_action']);
+    }
+
+    public function test_zero_debt_does_not_trigger_self_healing_override(): void
+    {
+        $r = $this->svc()->apply([
+            'audit_snapshot' => [
+                'status' => 'healthy',
+                'blocked_count' => 0,
+                'quarantined_count' => 0,
+                'claimable_depth' => 0,
+            ],
+            'pending_actions' => [],
+        ]);
+
+        $this->assertSame('hold_position', $r['selected_action']);
+        $this->assertFalse($r['priority_override']);
+    }
 }

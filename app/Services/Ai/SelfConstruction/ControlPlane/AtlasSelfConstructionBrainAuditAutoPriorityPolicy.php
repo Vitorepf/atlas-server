@@ -20,6 +20,11 @@ final class AtlasSelfConstructionBrainAuditAutoPriorityPolicy
 
     public const ACTION_REPAIR_GATE = 'repair_gate';
 
+    public const ACTION_QUEUE_SELF_HEALING = 'queue_self_healing';
+
+    /** blocked+quarantined count at/above claimable_depth × this ratio is a MATERIAL debt overhang. */
+    public const MATERIAL_DEBT_RATIO = 2.0;
+
     private const SUPPRESSED_WHEN_CRITICAL = ['generate_more_tasks', 'expand_frontier', 'cosmetic_consolidation'];
 
     /**
@@ -46,6 +51,30 @@ final class AtlasSelfConstructionBrainAuditAutoPriorityPolicy
                 'suppressed_actions' => $suppressed,
                 'audit_status' => $status,
                 'regression_severity' => $severity,
+            ];
+        }
+
+        // Blocked/quarantined debt is NEVER counted as useful claimable supply — it is compared
+        // against claimable_depth as an independent overhang, never added to it. When that debt
+        // materially exceeds claimable depth, queue self-healing must be prioritised even though
+        // claimable depth looks temporarily sufficient.
+        $blockedCount = max(0, (int) ($snapshot['blocked_count'] ?? 0));
+        $quarantinedCount = max(0, (int) ($snapshot['quarantined_count'] ?? 0));
+        $claimableDepth = max(0, (int) ($snapshot['claimable_depth'] ?? 0));
+        $debtCount = $blockedCount + $quarantinedCount;
+
+        if ($debtCount > 0 && $debtCount >= $claimableDepth * self::MATERIAL_DEBT_RATIO) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'selected_action' => self::ACTION_QUEUE_SELF_HEALING,
+                'priority_override' => true,
+                'override_reason' => 'blocked_quarantined_debt_exceeds_claimable_depth',
+                'suppressed_actions' => [],
+                'audit_status' => $status,
+                'regression_severity' => $severity,
+                'blocked_count' => $blockedCount,
+                'quarantined_count' => $quarantinedCount,
+                'claimable_depth' => $claimableDepth,
             ];
         }
 
