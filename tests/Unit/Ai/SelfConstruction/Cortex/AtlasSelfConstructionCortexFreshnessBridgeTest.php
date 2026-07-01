@@ -109,6 +109,54 @@ final class AtlasSelfConstructionCortexFreshnessBridgeTest extends TestCase
         $this->assertContains('project_lane', AtlasSelfConstructionCortexFreshnessBridge::REQUIRED_SOURCES);
     }
 
+    // ── AC: malformed_sweep and outcome_learning are mandatory fresh origination context ──
+
+    public function test_required_sources_includes_malformed_sweep_and_outcome_learning(): void
+    {
+        $this->assertContains('malformed_sweep', AtlasSelfConstructionCortexFreshnessBridge::REQUIRED_SOURCES);
+        $this->assertContains('outcome_learning', AtlasSelfConstructionCortexFreshnessBridge::REQUIRED_SOURCES);
+    }
+
+    public function test_missing_malformed_sweep_blocks_safe_to_origin_tasks(): void
+    {
+        $facts = $this->allFreshFacts();
+        unset($facts['sources']['malformed_sweep']);
+
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt($facts);
+
+        $this->assertFalse($r['safe_to_origin_tasks']);
+        $entry = array_values(array_filter($r['blocking_refresh_plan'], static fn (array $p): bool => $p['source_id'] === 'malformed_sweep'));
+        $this->assertNotEmpty($entry);
+        $this->assertSame('supply_source', $entry[0]['refresh_action']);
+        $this->assertStringStartsWith('receipt:malformed_sweep:', $entry[0]['required_receipt']);
+    }
+
+    public function test_stale_outcome_learning_blocks_and_names_refresh_action(): void
+    {
+        $facts = $this->allFreshFacts();
+        $facts['sources']['outcome_learning'] = ['last_unix' => $facts['now_unix'] - 999999, 'hash' => 'old_outcome_hash'];
+
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt($facts);
+
+        $this->assertFalse($r['all_fresh']);
+        $entry = array_values(array_filter($r['knowledge_dominance_refresh_plan'], static fn (array $p): bool => $p['source_id'] === 'outcome_learning'));
+        $this->assertNotEmpty($entry);
+        $this->assertSame('run_sync', $entry[0]['refresh_action']);
+        $this->assertStringStartsWith('receipt:outcome_learning:', $entry[0]['required_receipt']);
+    }
+
+    public function test_blocked_malformed_sweep_row_names_repair_action(): void
+    {
+        $facts = $this->allFreshFacts();
+        $facts['sources']['malformed_sweep'] = ['last_unix' => $facts['now_unix']]; // hash missing -> blocked
+
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt($facts);
+
+        $row = array_values(array_filter($r['rows'], static fn (array $row): bool => $row['source_id'] === 'malformed_sweep'))[0];
+        $this->assertSame('blocked', $row['readiness']);
+        $this->assertFalse($r['safe_to_origin_tasks']);
+    }
+
     // ── queue/queued_targets hard gate ────────────────────────────────────────
 
     public function test_stale_queue_sets_stale_queue_context_and_blocks_origination(): void

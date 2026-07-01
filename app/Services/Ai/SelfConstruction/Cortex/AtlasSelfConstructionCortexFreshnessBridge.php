@@ -13,7 +13,8 @@ namespace App\Services\Ai\SelfConstruction\Cortex;
  *     sources:array<source_id, {last_unix:int, hash:string}> }
  *
  * REQUIRED source_ids:
- *   docs, code_index, queue, receipts, runtime_evidence
+ *   docs, code_index, queue, receipts, runtime_evidence, worker_outcome, project_lane,
+ *   malformed_sweep, outcome_learning
  *
  * READINESS PER SOURCE:
  *   fresh    — last_unix present, hash non-empty, (now - last_unix) <= window
@@ -38,7 +39,7 @@ final class AtlasSelfConstructionCortexFreshnessBridge
 
     public const BLOCKED = 'blocked';
 
-    public const REQUIRED_SOURCES = ['docs', 'code_index', 'queue', 'receipts', 'runtime_evidence', 'worker_outcome', 'project_lane'];
+    public const REQUIRED_SOURCES = ['docs', 'code_index', 'queue', 'receipts', 'runtime_evidence', 'worker_outcome', 'project_lane', 'malformed_sweep', 'outcome_learning'];
 
     /**
      * OPTIONAL source that, when supplied, specifically downgrades ORIGINATION
