@@ -28,6 +28,13 @@ final class AtlasNativeWorkerOutcomeMapper
 
     public const OUTCOME_FAILED = 'failed';
 
+    /**
+     * A no_claimable_task incident is queue STARVATION, not a worker outcome at all — it must
+     * surface as a structured repair signal Learning/Task Fabric can act on, distinct from a
+     * neutral idle give_back and distinct from an intentional operator stop / disabled worker.
+     */
+    public const OUTCOME_QUEUE_REPAIR_SIGNAL = 'queue_repair_signal';
+
     /** @var list<string> */
     private const GIVE_BACK_FACTS = [
         'impossible_scope',
@@ -48,10 +55,17 @@ final class AtlasNativeWorkerOutcomeMapper
     {
         $giveBackReasons = $this->collectGiveBackReasons($envelope, $execution);
         if ($giveBackReasons !== []) {
-            $result = $this->emit(self::OUTCOME_GIVE_BACK, $giveBackReasons[0], $giveBackReasons, $envelope, $execution, $verification);
+            $isNoClaimableTaskIncident = in_array('queue_starvation:no_claimable_task', $giveBackReasons, true);
+            $outcome = $isNoClaimableTaskIncident ? self::OUTCOME_QUEUE_REPAIR_SIGNAL : self::OUTCOME_GIVE_BACK;
+            $result = $this->emit($outcome, $giveBackReasons[0], $giveBackReasons, $envelope, $execution, $verification);
 
-            if (in_array('queue_starvation:no_claimable_task', $giveBackReasons, true)) {
+            if ($isNoClaimableTaskIncident) {
                 $result['worker_feed_feedback'] = $this->workerFeedFeedback($execution);
+                $result['queue_repair_signal'] = [
+                    'claimable_depth' => isset($execution['claimable_depth']) ? (int) $execution['claimable_depth'] : null,
+                    'active_workers' => isset($execution['active_worker_count']) ? (int) $execution['active_worker_count'] : null,
+                    'claimable_per_active_worker' => $execution['claimable_per_active_worker'] ?? null,
+                ];
                 $result['outcome_hash'] = $this->outcomeHash($result);
             }
 
