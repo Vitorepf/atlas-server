@@ -43,6 +43,11 @@ final class AtlasExternalBrainAmplifierPromotionGate
     public const MIN_SAMPLE_COUNT       = 50;
     public const MIN_QUALITY_LIFT_DELTA = 0.05;
 
+    // Held-out evidence diversity — a variant that only ever proved itself on one task
+    // family, or has no recent muscle outcome window, looks like benchmark overfit dressed
+    // up as autonomy lift.
+    public const MIN_HELDOUT_TASK_FAMILIES = 3;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -65,6 +70,11 @@ final class AtlasExternalBrainAmplifierPromotionGate
         $proxyLeakRate    = max(0.0, min(1.0, (float) ($input['proxy_leak_rate']    ?? 0.0)));
         $sampleCount      = max(0, (int) ($input['sample_count']                    ?? 0));
         $qualityLiftDelta = (float) ($input['quality_lift_delta']                   ?? 0.0);
+        $heldoutTaskFamilies = array_values(array_unique(array_map(
+            'strval',
+            (array) ($input['heldout_task_families'] ?? [])
+        )));
+        $recentMuscleOutcomeWindows = array_values((array) ($input['recent_muscle_outcome_windows'] ?? []));
 
         $blockingReasons  = [];
         $missingEvidence  = [];
@@ -100,6 +110,14 @@ final class AtlasExternalBrainAmplifierPromotionGate
         if ($qualityLiftDelta < self::MIN_QUALITY_LIFT_DELTA && $qualityLiftDelta >= 0.0) {
             $blockingReasons[] = 'quality_lift_delta_below_floor';
             $missingEvidence[] = 'quality_lift_evidence_above_delta_floor';
+        }
+        if (count($heldoutTaskFamilies) < self::MIN_HELDOUT_TASK_FAMILIES) {
+            $blockingReasons[] = 'heldout_task_family_diversity_insufficient';
+            $missingEvidence[] = 'heldout_evidence_covering_at_least_'.self::MIN_HELDOUT_TASK_FAMILIES.'_task_families';
+        }
+        if ($recentMuscleOutcomeWindows === []) {
+            $blockingReasons[] = 'recent_muscle_outcome_window_missing';
+            $missingEvidence[] = 'at_least_one_recent_muscle_outcome_window';
         }
 
         // ── Legacy conditions ────────────────────────────────────────────────
@@ -137,7 +155,7 @@ final class AtlasExternalBrainAmplifierPromotionGate
         $requiredMoreShadowRuns = max(0, self::MIN_SHADOW_RUNS - $shadowRuns);
 
         $liveRolloutConstraints = $promote
-            ? ['canary_first', 'monitor_give_backs_daily', 'slo_recheck_after_100_runs']
+            ? ['canary_by_task_family', 'canary_first', 'monitor_give_backs_daily', 'slo_recheck_after_100_runs']
             : [];
 
         return [

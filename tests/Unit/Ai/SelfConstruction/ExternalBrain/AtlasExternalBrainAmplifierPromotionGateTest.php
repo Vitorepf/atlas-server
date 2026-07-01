@@ -33,6 +33,9 @@ final class AtlasExternalBrainAmplifierPromotionGateTest extends TestCase
             'proxy_leak_rate'      => 0.05,
             'sample_count'         => 60,
             'quality_lift_delta'   => 0.10,
+            // Held-out diversity gates
+            'heldout_task_families'         => ['bugfix', 'refactor', 'test_authoring'],
+            'recent_muscle_outcome_windows'  => ['2026-06-24..2026-06-30'],
         ];
     }
 
@@ -380,6 +383,71 @@ final class AtlasExternalBrainAmplifierPromotionGateTest extends TestCase
         $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
         $this->assertNotEmpty($r['rollback_triggers']);
         $this->assertNotEmpty($r['blocking_reasons']);
+    }
+
+    // ── AC: heldout task family diversity ─────────────────────────────────────
+
+    public function test_promotion_blocked_when_fewer_than_three_heldout_task_families(): void
+    {
+        $r = $this->evaluate(['heldout_task_families' => ['bugfix', 'refactor']]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('heldout_task_family_diversity_insufficient', $r['blocking_reasons']);
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+    }
+
+    public function test_promotion_blocked_when_heldout_task_families_missing(): void
+    {
+        $r = $this->evaluate(['heldout_task_families' => []]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('heldout_task_family_diversity_insufficient', $r['blocking_reasons']);
+    }
+
+    public function test_promotion_allowed_with_three_distinct_heldout_task_families(): void
+    {
+        $r = $this->evaluate(['heldout_task_families' => ['bugfix', 'refactor', 'test_authoring']]);
+
+        $this->assertNotContains('heldout_task_family_diversity_insufficient', $r['blocking_reasons']);
+    }
+
+    public function test_duplicate_heldout_task_families_do_not_count_toward_diversity(): void
+    {
+        $r = $this->evaluate(['heldout_task_families' => ['bugfix', 'bugfix', 'bugfix']]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('heldout_task_family_diversity_insufficient', $r['blocking_reasons']);
+    }
+
+    // ── AC: recent muscle outcome window ────────────────────────────────────────
+
+    public function test_promotion_blocked_when_recent_muscle_outcome_windows_missing(): void
+    {
+        $r = $this->evaluate(['recent_muscle_outcome_windows' => []]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('recent_muscle_outcome_window_missing', $r['blocking_reasons']);
+        $this->assertContains('at_least_one_recent_muscle_outcome_window', $r['missing_evidence']);
+    }
+
+    public function test_promotion_blocked_when_recent_muscle_outcome_windows_key_absent(): void
+    {
+        $input = $this->passing();
+        unset($input['recent_muscle_outcome_windows']);
+        $r = $this->svc()->evaluate($input);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('recent_muscle_outcome_window_missing', $r['blocking_reasons']);
+    }
+
+    // ── AC: passing diverse held-out sample emits canary_by_task_family ────────
+
+    public function test_passing_diverse_heldout_sample_emits_canary_by_task_family_constraint(): void
+    {
+        $r = $this->evaluate();
+
+        $this->assertTrue($r['promote']);
+        $this->assertContains('canary_by_task_family', $r['live_rollout_constraints']);
     }
 
     public function test_evaluate_is_deterministic(): void
