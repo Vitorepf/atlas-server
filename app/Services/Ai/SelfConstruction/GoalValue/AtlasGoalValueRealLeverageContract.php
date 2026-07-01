@@ -36,6 +36,15 @@ final class AtlasGoalValueRealLeverageContract
 
     public const DIM_STRUCTURAL_UNLOCK = 'structural_unlock';
 
+    /** AC-named dimensions: autonomy gain, risk reduction, worker throughput, future unlock. */
+    public const DIM_AUTONOMY_GAIN = 'autonomy_gain';
+
+    public const DIM_RISK_REDUCTION = 'risk_reduction';
+
+    public const DIM_WORKER_THROUGHPUT = 'worker_throughput';
+
+    public const DIM_FUTURE_UNLOCK = 'future_unlock';
+
     public const VALUE_DIMENSIONS = [
         self::DIM_CAPABILITY_LIFT,
         self::DIM_AUTONOMY_LIFT,
@@ -45,6 +54,10 @@ final class AtlasGoalValueRealLeverageContract
         self::DIM_SIMPLIFICATION,
         self::DIM_MULTI_PROJECT_REUSE,
         self::DIM_STRUCTURAL_UNLOCK,
+        self::DIM_AUTONOMY_GAIN,
+        self::DIM_RISK_REDUCTION,
+        self::DIM_WORKER_THROUGHPUT,
+        self::DIM_FUTURE_UNLOCK,
     ];
 
     public const REJECTED_EVIDENCE_KINDS = [
