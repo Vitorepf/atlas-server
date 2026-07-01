@@ -20,11 +20,25 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     novelty_score?:     float   (0..1, default 1.0)
  *     is_repair_blocker?: bool    (default false) — overrides every exclusion below
  *     unlocks?:           list<string>  — task_ids this task's completion unblocks
+ *     prerequisite_task_ids?: list<string>  (default [])  — AC2/AC3 new
+ *     prerequisites_proven?:  bool           (default false) — AC3 new; only checked when
+ *                                                               prerequisite_task_ids is non-empty
+ *     proof_gate?:             string        (default '')  — AC2 new; falls back to
+ *                                                              'tests_or_gates_result' when empty
+ *     expected_capability_delta?: string     (default '')  — AC2 new
+ *     touches_runtime_or_queue?:  bool       (default false) — AC4 new
+ *     rollback_notes?:            string     (default '')  — AC4 new; required when
+ *                                                              touches_runtime_or_queue=true
  *   }>
  *   muscle_routing_hints?: array<string, string>  — task_id => suggested muscle_id
  *   queue_depth?:           int
  *   max_wave_size?:         int  (default 5)
  *   low_novelty_threshold?: float (default 0.20)
+ *
+ * worker_ready (AC3/AC4 new): false whenever any wave task has an UNPROVEN prerequisite
+ * (prerequisite_task_ids non-empty AND prerequisites_proven=false) or touches runtime/queue
+ * behavior without rollback_notes — the specific per-task reasons are listed in
+ * not_worker_ready_reasons rather than silently degrading to worker_ready=true.
  *
  * EXCLUSION (AC3 — first match wins, never applies when is_repair_blocker=true):
  *   blocked              — blocked === true
@@ -81,6 +95,12 @@ final class AtlasExternalBrainExecutableWaveManifest
             $novelty        = max(0.0, min(1.0, (float) ($task['novelty_score'] ?? 1.0)));
             $isRepairBlocker = (bool) ($task['is_repair_blocker'] ?? false);
             $unlocks        = array_values(array_unique(array_map('strval', (array) ($task['unlocks'] ?? []))));
+            $prerequisiteTaskIds = array_values(array_unique(array_map('strval', (array) ($task['prerequisite_task_ids'] ?? []))));
+            $prerequisitesProven = (bool) ($task['prerequisites_proven'] ?? false);
+            $proofGate      = trim((string) ($task['proof_gate'] ?? ''));
+            $expectedCapabilityDelta = trim((string) ($task['expected_capability_delta'] ?? ''));
+            $touchesRuntimeOrQueue = (bool) ($task['touches_runtime_or_queue'] ?? false);
+            $rollbackNotes  = trim((string) ($task['rollback_notes'] ?? ''));
 
             $exclusionReason = $isRepairBlocker ? null : match (true) {
                 $blocked              => 'blocked',
@@ -102,6 +122,12 @@ final class AtlasExternalBrainExecutableWaveManifest
                 'on_critical_path' => $onCriticalPath,
                 'is_repair_blocker' => $isRepairBlocker,
                 'unlocks'         => $unlocks,
+                'prerequisite_task_ids' => $prerequisiteTaskIds,
+                'prerequisites_proven' => $prerequisitesProven,
+                'proof_gate' => $proofGate,
+                'expected_capability_delta' => $expectedCapabilityDelta,
+                'touches_runtime_or_queue' => $touchesRuntimeOrQueue,
+                'rollback_notes' => $rollbackNotes,
             ];
         }
 
@@ -116,6 +142,11 @@ final class AtlasExternalBrainExecutableWaveManifest
         $taskReasons     = [];
         $expectedUnlocks = [];
         $assignedMuscleHints = [];
+        $prerequisites = [];
+        $proofGates = [];
+        $expectedCapabilityDelta = [];
+        $rollbackNotes = [];
+        $notWorkerReadyReasons = [];
 
         foreach ($wave as $entry) {
             $id = $entry['task_id'];
@@ -125,6 +156,18 @@ final class AtlasExternalBrainExecutableWaveManifest
             $expectedUnlocks[$id] = $entry['unlocks'];
             if (isset($routingHints[$id])) {
                 $assignedMuscleHints[$id] = (string) $routingHints[$id];
+            }
+
+            $prerequisites[$id] = $entry['prerequisite_task_ids'];
+            $proofGates[$id] = [$entry['proof_gate'] !== '' ? $entry['proof_gate'] : 'tests_or_gates_result'];
+            $expectedCapabilityDelta[$id] = $entry['expected_capability_delta'];
+            $rollbackNotes[$id] = $entry['rollback_notes'];
+
+            if ($entry['prerequisite_task_ids'] !== [] && ! $entry['prerequisites_proven']) {
+                $notWorkerReadyReasons[] = "missing_prerequisite_proof:{$id}";
+            }
+            if ($entry['touches_runtime_or_queue'] && $entry['rollback_notes'] === '') {
+                $notWorkerReadyReasons[] = "missing_rollback_notes:{$id}";
             }
         }
 
@@ -138,6 +181,12 @@ final class AtlasExternalBrainExecutableWaveManifest
             'expected_unlocks'       => $expectedUnlocks,
             'assigned_muscle_hints'  => $assignedMuscleHints,
             'out_of_wave_reasons'    => $outOfWaveReasons,
+            'prerequisites'          => $prerequisites,
+            'proof_gates'            => $proofGates,
+            'expected_capability_delta' => $expectedCapabilityDelta,
+            'rollback_notes'         => $rollbackNotes,
+            'worker_ready'           => $notWorkerReadyReasons === [],
+            'not_worker_ready_reasons' => $notWorkerReadyReasons,
         ];
     }
 }
