@@ -70,9 +70,15 @@ final class AtlasSelfConstructionSimplificationImportRewritePlan
                 continue;
             }
             $alias = trim((string) ($consumer['alias'] ?? ''));
+            $isDynamicReference = (bool) ($consumer['dynamic_reference'] ?? false);
 
             if (! in_array($file, $allowedFiles, true)) {
                 $blockers[] = 'consumer_outside_allowed_files:'.$file;
+
+                continue;
+            }
+            if ($isDynamicReference) {
+                $blockers[] = 'dynamic_class_reference:'.$file;
 
                 continue;
             }
@@ -131,11 +137,33 @@ final class AtlasSelfConstructionSimplificationImportRewritePlan
         $blockers = array_values(array_unique($blockers));
         sort($blockers, SORT_STRING);
 
+        $touchedFiles = array_values(array_unique(array_column($steps, 'file')));
+        sort($touchedFiles, SORT_STRING);
+
+        $explicitTestTargets = array_values(array_unique(array_map('strval', (array) ($input['test_targets'] ?? []))));
+        $testTargets = $explicitTestTargets !== []
+            ? $explicitTestTargets
+            : array_values(array_filter($touchedFiles, static fn (string $f): bool => str_ends_with($f, 'Test.php')));
+        sort($testTargets, SORT_STRING);
+
+        $planHash = 'import_rewrite_'.substr(hash('sha256', (string) json_encode([
+            'old_fqcn' => $targetSymbol,
+            'new_fqcn' => $replacementSymbol,
+            'steps' => $steps,
+            'blockers' => $blockers,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 32);
+
         return [
             'schema' => self::SCHEMA,
+            'old_fqcn' => $targetSymbol,
+            'new_fqcn' => $replacementSymbol,
             'unsafe' => $blockers !== [],
             'blockers' => $blockers,
+            'unsafe_rewrite' => $blockers,
             'steps' => $steps,
+            'touched_files' => $touchedFiles,
+            'test_targets' => $testTargets,
+            'plan_hash' => $planHash,
         ];
     }
 
