@@ -229,4 +229,108 @@ class AtlasSelfConstructionRuntimeRegressionAuditorTest extends TestCase
 
         self::assertSame($a['regression_audit_hash'], $b['regression_audit_hash']);
     }
+
+    // ── AC1/AC2: structured regressions carry severity, evidence_ref, required_repair, promotion_blocked ──
+
+    public function test_clean_soak_has_no_regressions_and_promotion_not_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeRegressionAuditor)->audit(
+            $this->cleanSoakReport(),
+            ['evidence_refs' => ['tests_or_gates_result', 'replenisher_dry_run_receipt']],
+        );
+
+        self::assertSame([], $verdict['regressions']);
+        self::assertFalse($verdict['promotion_blocked']);
+    }
+
+    public function test_stale_proof_produces_proof_freshness_regression_with_full_fields(): void
+    {
+        $nowUnix = 1_700_100_000;
+        $verdict = (new AtlasSelfConstructionRuntimeRegressionAuditor)->audit(
+            $this->cleanSoakReport(),
+            [
+                'evidence_refs' => ['tests_or_gates_result', 'replenisher_dry_run_receipt'],
+                'evidence_timestamps' => [$nowUnix - 7_200],
+                'max_evidence_age_seconds' => 3_600,
+                'now_unix' => $nowUnix,
+            ],
+        );
+
+        $regression = array_values(array_filter(
+            $verdict['regressions'],
+            static fn (array $r): bool => $r['type'] === AtlasSelfConstructionRuntimeRegressionAuditor::REGRESSION_PROOF_FRESHNESS,
+        ))[0];
+
+        self::assertSame(AtlasSelfConstructionRuntimeRegressionAuditor::SEVERITY_HIGH, $regression['severity']);
+        self::assertArrayHasKey('evidence_ref', $regression);
+        self::assertNotEmpty($regression['required_repair']);
+        self::assertTrue($regression['promotion_blocked']);
+        self::assertTrue($verdict['promotion_blocked']);
+    }
+
+    public function test_worker_outcome_regression_when_failure_rate_exceeds_threshold(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeRegressionAuditor)->audit(
+            $this->cleanSoakReport(),
+            [
+                'evidence_refs' => ['tests_or_gates_result', 'replenisher_dry_run_receipt'],
+                'worker_outcomes' => ['failed_task_count' => 5, 'total_task_count' => 10],
+            ],
+        );
+
+        $types = array_column($verdict['regressions'], 'type');
+        self::assertContains(AtlasSelfConstructionRuntimeRegressionAuditor::REGRESSION_WORKER_OUTCOMES, $types);
+        self::assertTrue($verdict['promotion_blocked']);
+    }
+
+    public function test_safety_stop_regression_when_tick_did_not_stop_safely(): void
+    {
+        $soak = $this->cleanSoakReport();
+        $soak['tick_results'][] = ['kind' => 'safety_stop', 'classification' => 'did_not_stop'];
+
+        $verdict = (new AtlasSelfConstructionRuntimeRegressionAuditor)->audit(
+            $soak,
+            ['evidence_refs' => ['tests_or_gates_result', 'replenisher_dry_run_receipt']],
+        );
+
+        $types = array_column($verdict['regressions'], 'type');
+        self::assertContains(AtlasSelfConstructionRuntimeRegressionAuditor::REGRESSION_SAFETY_STOP, $types);
+        $safetyRegression = array_values(array_filter(
+            $verdict['regressions'],
+            static fn (array $r): bool => $r['type'] === AtlasSelfConstructionRuntimeRegressionAuditor::REGRESSION_SAFETY_STOP,
+        ))[0];
+        self::assertSame(AtlasSelfConstructionRuntimeRegressionAuditor::SEVERITY_CRITICAL, $safetyRegression['severity']);
+        self::assertTrue($safetyRegression['promotion_blocked']);
+    }
+
+    public function test_missing_evidence_produces_proof_freshness_regression(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeRegressionAuditor)->audit(
+            $this->cleanSoakReport(),
+            ['evidence_refs' => []],
+        );
+
+        $types = array_column($verdict['regressions'], 'type');
+        self::assertContains(AtlasSelfConstructionRuntimeRegressionAuditor::REGRESSION_PROOF_FRESHNESS, $types);
+        self::assertTrue($verdict['promotion_blocked']);
+    }
+
+    public function test_queue_health_and_learning_loop_continuity_regressions_are_hold_not_blocking(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeRegressionAuditor)->audit(
+            $this->cleanSoakReport(),
+            [
+                'evidence_refs' => ['tests_or_gates_result', 'replenisher_dry_run_receipt'],
+                'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 1, 'depth_floor' => 5],
+                'learning_loop_continuity_breaks' => 2,
+            ],
+        );
+
+        $types = array_column($verdict['regressions'], 'type');
+        self::assertContains(AtlasSelfConstructionRuntimeRegressionAuditor::REGRESSION_QUEUE_HEALTH, $types);
+        self::assertContains(AtlasSelfConstructionRuntimeRegressionAuditor::REGRESSION_LEARNING_LOOP_CONTINUITY, $types);
+        foreach ($verdict['regressions'] as $r) {
+            self::assertFalse($r['promotion_blocked'], "regression '{$r['type']}' should not block promotion on its own");
+        }
+    }
 }

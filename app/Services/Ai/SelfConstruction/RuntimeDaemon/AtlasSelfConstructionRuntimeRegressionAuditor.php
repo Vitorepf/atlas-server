@@ -41,6 +41,24 @@ final class AtlasSelfConstructionRuntimeRegressionAuditor
         'scope_expansion_admit',
     ];
 
+    public const REGRESSION_QUEUE_HEALTH = 'queue_health';
+
+    public const REGRESSION_PROOF_FRESHNESS = 'proof_freshness';
+
+    public const REGRESSION_WORKER_OUTCOMES = 'worker_outcomes';
+
+    public const REGRESSION_SAFETY_STOP = 'safety_stop';
+
+    public const REGRESSION_LEARNING_LOOP_CONTINUITY = 'learning_loop_continuity';
+
+    public const SEVERITY_CRITICAL = 'critical';
+
+    public const SEVERITY_HIGH = 'high';
+
+    public const SEVERITY_MEDIUM = 'medium';
+
+    private const DEFAULT_WORKER_FAILURE_RATE_THRESHOLD = 0.2;
+
     /**
      * @param  array<string,mixed>  $soakReport
      * @param  array<string,mixed>  $facts  {evidence_refs?:list<string>, scheduler_manifest_match?:bool, heartbeat_continuity_breaks?:int}
@@ -50,6 +68,7 @@ final class AtlasSelfConstructionRuntimeRegressionAuditor
     {
         $blockers = [];
         $warnings = [];
+        $regressions = [];
 
         $passed = (bool) ($soakReport['passed'] ?? false);
         $tickCount = (int) ($soakReport['tick_count'] ?? 0);
@@ -57,9 +76,49 @@ final class AtlasSelfConstructionRuntimeRegressionAuditor
         $dependencyViolations = array_values((array) ($soakReport['dependency_violations'] ?? []));
         $tickResults = array_values((array) ($soakReport['tick_results'] ?? []));
         $evidenceRefs = array_values((array) ($facts['evidence_refs'] ?? []));
+        $primaryEvidenceRef = $evidenceRefs[0] ?? null;
 
         $kinds = array_column($tickResults, 'kind');
         $exercisedCases = array_values(array_unique($kinds));
+
+        // AC1/AC2: queue health regression — malformed packets always blocks; a claimable
+        // depth below floor is a hold-level signal, not an outright block.
+        $queueHealth = is_array($facts['queue_health'] ?? null) ? $facts['queue_health'] : [];
+        if ($queueHealth !== []) {
+            $malformedInQueue = (int) ($queueHealth['malformed_count'] ?? 0);
+            $claimableDepth = (int) ($queueHealth['claimable_depth'] ?? 0);
+            $depthFloor = (int) ($queueHealth['depth_floor'] ?? 0);
+            if ($malformedInQueue > 0) {
+                $regressions[] = $this->regression(self::REGRESSION_QUEUE_HEALTH, self::SEVERITY_HIGH, $primaryEvidenceRef, 'repair malformed packets in the queue before promotion continues', true);
+            } elseif ($depthFloor > 0 && $claimableDepth < $depthFloor) {
+                $regressions[] = $this->regression(self::REGRESSION_QUEUE_HEALTH, self::SEVERITY_MEDIUM, $primaryEvidenceRef, 'replenish the claimable queue above its depth floor before promotion continues', false);
+            }
+        }
+
+        // AC1/AC2: worker outcome regression — failure rate above threshold blocks promotion.
+        $workerOutcomes = is_array($facts['worker_outcomes'] ?? null) ? $facts['worker_outcomes'] : [];
+        if ($workerOutcomes !== []) {
+            $failedTasks = max(0, (int) ($workerOutcomes['failed_task_count'] ?? 0));
+            $totalTasks = max(0, (int) ($workerOutcomes['total_task_count'] ?? 0));
+            $failureThreshold = (float) ($workerOutcomes['failure_rate_threshold'] ?? self::DEFAULT_WORKER_FAILURE_RATE_THRESHOLD);
+            if ($totalTasks > 0 && ($failedTasks / $totalTasks) > $failureThreshold) {
+                $regressions[] = $this->regression(self::REGRESSION_WORKER_OUTCOMES, self::SEVERITY_HIGH, $primaryEvidenceRef, 'investigate and repair failing worker task outcomes before promotion continues', true);
+            }
+        }
+
+        // AC1/AC2: safety-stop regression — a safety_stop tick that did NOT actually stop
+        // safely is a critical, always-blocking regression.
+        foreach ($tickResults as $row) {
+            if ((string) ($row['kind'] ?? '') === 'safety_stop' && (string) ($row['classification'] ?? '') !== 'stop') {
+                $regressions[] = $this->regression(self::REGRESSION_SAFETY_STOP, self::SEVERITY_CRITICAL, $primaryEvidenceRef, 'review the safety-stop trigger and confirm the stop cause is resolved before promotion continues', true);
+            }
+        }
+
+        // AC1/AC2: learning loop continuity regression — a hold-level signal, not an outright block.
+        $learningLoopBreaks = (int) ($facts['learning_loop_continuity_breaks'] ?? 0);
+        if ($learningLoopBreaks > 0) {
+            $regressions[] = $this->regression(self::REGRESSION_LEARNING_LOOP_CONTINUITY, self::SEVERITY_MEDIUM, $primaryEvidenceRef, 'restore learning loop continuity (missing outcome-learning evidence sync) before promotion continues', false);
+        }
 
         if ($tickCount === 0) {
             $blockers[] = 'fake_green:tick_count_zero';
@@ -97,6 +156,7 @@ final class AtlasSelfConstructionRuntimeRegressionAuditor
 
         if ($passed && $evidenceRefs === []) {
             $blockers[] = 'fake_green:success_without_evidence_refs';
+            $regressions[] = $this->regression(self::REGRESSION_PROOF_FRESHNESS, self::SEVERITY_HIGH, null, 'attach at least one evidence_ref before promotion continues', true);
         }
 
         // When recovery cases are exercised, at least 2 evidence refs are required (runtime + recovery proof).
@@ -112,6 +172,7 @@ final class AtlasSelfConstructionRuntimeRegressionAuditor
             foreach ($evidenceTimestamps as $ts) {
                 if (($nowUnix - (int) $ts) > $maxAgeSeconds) {
                     $blockers[] = 'stale_evidence:max_age='.$maxAgeSeconds.'s_exceeded';
+                    $regressions[] = $this->regression(self::REGRESSION_PROOF_FRESHNESS, self::SEVERITY_HIGH, $primaryEvidenceRef, 'refresh soak evidence within the max-age window before promotion continues', true);
                     break;
                 }
             }
@@ -145,12 +206,20 @@ final class AtlasSelfConstructionRuntimeRegressionAuditor
             $verdict = $hasContractBlocker ? self::VERDICT_BLOCKED : self::VERDICT_HOLD;
         }
 
+        $promotionBlocked = $hasContractBlocker || array_reduce(
+            $regressions,
+            static fn (bool $carry, array $r): bool => $carry || (bool) $r['promotion_blocked'],
+            false,
+        );
+
         $payload = [
             'schema' => self::SCHEMA,
             'schema_version' => self::SCHEMA,
             'verdict' => $verdict,
             'blockers' => $blockers,
             'warnings' => $warnings,
+            'regressions' => $regressions,
+            'promotion_blocked' => $promotionBlocked,
             'exercised_cases' => $exercisedCases,
             'evidence_refs' => $evidenceRefs,
             'soak_passed' => $passed,
@@ -158,6 +227,18 @@ final class AtlasSelfConstructionRuntimeRegressionAuditor
         $payload['regression_audit_hash'] = $this->auditHash($payload);
 
         return $payload;
+    }
+
+    /** @return array{type:string, severity:string, evidence_ref:?string, required_repair:string, promotion_blocked:bool} */
+    private function regression(string $type, string $severity, ?string $evidenceRef, string $requiredRepair, bool $promotionBlocked): array
+    {
+        return [
+            'type' => $type,
+            'severity' => $severity,
+            'evidence_ref' => $evidenceRef,
+            'required_repair' => $requiredRepair,
+            'promotion_blocked' => $promotionBlocked,
+        ];
     }
 
     /**
