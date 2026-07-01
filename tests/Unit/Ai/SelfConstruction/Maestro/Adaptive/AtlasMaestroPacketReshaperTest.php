@@ -95,6 +95,54 @@ final class AtlasMaestroPacketReshaperTest extends TestCase
         }
     }
 
+    public function test_low_confidence_missing_impl_file_holds_for_evidence_instead_of_repairing(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Foo.php'], 'repair_confidence' => 'low']];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $proposal = $result['proposals'][0];
+        $this->assertSame('hold_for_evidence', $proposal['action']);
+        $this->assertSame('missing_impl_file', $proposal['pattern']);
+    }
+
+    public function test_low_confidence_schema_mismatch_holds_for_evidence_instead_of_repairing(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [['type' => 'schema_mismatch', 'expected_schema' => 'v2', 'repair_confidence' => 'low']];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $proposal = $result['proposals'][0];
+        $this->assertSame('hold_for_evidence', $proposal['action']);
+        $this->assertSame('schema_mismatch', $proposal['pattern']);
+    }
+
+    public function test_high_confidence_missing_impl_file_still_repairs(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Foo.php'], 'repair_confidence' => 'high']];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $this->assertSame('repair', $result['proposals'][0]['action']);
+    }
+
+    public function test_contradictory_acceptance_and_forbidden_target_remain_retire_regardless_of_confidence(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [
+            ['type' => 'contradictory_acceptance', 'repair_confidence' => 'low'],
+            ['type' => 'forbidden_target', 'repair_confidence' => 'low'],
+        ];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $this->assertSame('retire', $result['proposals'][0]['action']);
+        $this->assertSame('retire', $result['proposals'][1]['action']);
+    }
+
     public function test_contradictory_acceptance_pattern_emits_retire_proposal(): void
     {
         $packet = $this->packetWithAcceptance();

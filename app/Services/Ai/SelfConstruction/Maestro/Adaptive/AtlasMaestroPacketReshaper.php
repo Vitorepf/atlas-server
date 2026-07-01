@@ -28,7 +28,19 @@ final class AtlasMaestroPacketReshaper
     {
         $proposals = [];
         foreach ($poisonPatterns as $pattern) {
-            $proposals[] = match ((string) ($pattern['type'] ?? '')) {
+            $type = (string) ($pattern['type'] ?? '');
+
+            // A repair proposal is only as trustworthy as the mined pattern behind it. When the
+            // repair_confidence for a repairable pattern is anything below 'high', hold for more
+            // evidence instead of auto-repairing on a weak/mixed signal.
+            if (in_array($type, ['missing_impl_file', 'schema_mismatch'], true)
+                && (string) ($pattern['repair_confidence'] ?? 'high') !== 'high') {
+                $proposals[] = $this->holdForEvidence($packet, $pattern, $type);
+
+                continue;
+            }
+
+            $proposals[] = match ($type) {
                 'missing_impl_file'        => $this->repairMissingImplFile($packet, $pattern),
                 'contradictory_acceptance' => $this->retireContradictory($packet, $pattern),
                 'forbidden_target'         => $this->retireForbiddenTarget($packet, $pattern),
@@ -74,6 +86,18 @@ final class AtlasMaestroPacketReshaper
             'original_packet_id' => $id,
             'added_files'        => $missingFiles,
             'respec'             => $repairedPacket,
+        ];
+    }
+
+    /** @param  array<string,mixed>  $packet  @param  array<string,mixed>  $pattern */
+    private function holdForEvidence(array $packet, array $pattern, string $type): array
+    {
+        return [
+            'action'             => 'hold_for_evidence',
+            'reason'             => 'repair_confidence_below_high',
+            'pattern'            => $type,
+            'original_packet_id' => (string) ($packet['task_packet_id'] ?? $packet['label'] ?? ''),
+            'repair_confidence'  => (string) ($pattern['repair_confidence'] ?? 'low'),
         ];
     }
 
