@@ -214,4 +214,134 @@ final class AgentRuntimeEvidenceJournalRepositoryTest extends TestCase
             $this->assertFalse($first[$flag]);
         }
     }
+
+    // ── AC2: filtering by outcome, proof_class and time window ─────────────────
+
+    public function test_list_filters_by_outcome(): void
+    {
+        $this->repo->append([
+            'task_packet_id' => 'task-outcome-1', 'agent_id' => 'agent-1', 'evidence_type' => 'operator_note',
+            'evidence_ref' => 'r1', 'outcome' => 'success', 'payload' => ['note' => 'a'],
+        ]);
+        $this->repo->append([
+            'task_packet_id' => 'task-outcome-2', 'agent_id' => 'agent-1', 'evidence_type' => 'operator_note',
+            'evidence_ref' => 'r2', 'outcome' => 'give_back', 'payload' => ['note' => 'b'],
+        ]);
+
+        $success = $this->repo->list(['outcome' => 'success']);
+        $this->assertCount(1, $success);
+        $this->assertSame('task-outcome-1', $success[0]['task_packet_id']);
+    }
+
+    public function test_list_filters_by_proof_class(): void
+    {
+        $this->repo->append([
+            'task_packet_id' => 'task-proof-1', 'agent_id' => 'agent-1', 'evidence_type' => 'operator_note',
+            'evidence_ref' => 'r1', 'proof_class' => 'tests_or_gates_result', 'payload' => ['note' => 'a'],
+        ]);
+        $this->repo->append([
+            'task_packet_id' => 'task-proof-2', 'agent_id' => 'agent-1', 'evidence_type' => 'operator_note',
+            'evidence_ref' => 'r2', 'proof_class' => 'implementation_notes', 'payload' => ['note' => 'b'],
+        ]);
+
+        $filtered = $this->repo->list(['proof_class' => 'tests_or_gates_result']);
+        $this->assertCount(1, $filtered);
+        $this->assertSame('task-proof-1', $filtered[0]['task_packet_id']);
+    }
+
+    public function test_list_filters_by_time_window(): void
+    {
+        $inWindow = $this->appendEntry('task-time-in');
+        $recordedAt = $inWindow['record']['recorded_at'];
+
+        $listed = $this->repo->list(['from' => $recordedAt, 'to' => $recordedAt]);
+        $this->assertNotEmpty($listed);
+        $this->assertContains('task-time-in', array_column($listed, 'task_packet_id'));
+
+        $future = $this->repo->list(['from' => '2999-01-01T00:00:00+00:00']);
+        $this->assertSame([], $future);
+    }
+
+    public function test_appended_record_defaults_outcome_and_proof_class_when_absent(): void
+    {
+        $appended = $this->appendEntry('task-default-outcome');
+
+        $this->assertSame('unspecified', $appended['record']['outcome']);
+        $this->assertSame('unspecified', $appended['record']['proof_class']);
+    }
+
+    // ── AC3: integrity audit — missing hashes, non-provider-safe payload, ordering ──
+
+    public function test_missing_evidence_hash_is_reported(): void
+    {
+        $appended = $this->appendEntry('task-missing-evidence-hash');
+        $path = $this->recordPath($appended['journal_entry_id']);
+        $record = json_decode((string) Storage::disk('local')->get($path), true);
+        $record['evidence_hash'] = '';
+        Storage::disk('local')->put($path, json_encode($record));
+
+        $report = $this->repo->integrityAudit();
+
+        $this->assertSame('drift_detected', $report['status']);
+        $this->assertContains('missing_evidence_hash', array_column($report['issues'], 'issue'));
+    }
+
+    public function test_missing_journal_entry_hash_is_reported(): void
+    {
+        $appended = $this->appendEntry('task-missing-journal-hash');
+        $path = $this->recordPath($appended['journal_entry_id']);
+        $record = json_decode((string) Storage::disk('local')->get($path), true);
+        $record['journal_entry_hash'] = '';
+        Storage::disk('local')->put($path, json_encode($record));
+
+        $report = $this->repo->integrityAudit();
+
+        $this->assertContains('missing_journal_entry_hash', array_column($report['issues'], 'issue'));
+    }
+
+    public function test_secret_looking_summary_is_reported_as_non_provider_safe(): void
+    {
+        $appended = $this->repo->append([
+            'task_packet_id' => 'task-secret-summary', 'agent_id' => 'agent-1', 'evidence_type' => 'operator_note',
+            'evidence_ref' => 'r1', 'summary' => 'used sk-abcdefghijklmnopqr to authenticate', 'payload' => ['note' => 'a'],
+        ]);
+
+        $report = $this->repo->integrityAudit();
+
+        $this->assertSame('drift_detected', $report['status']);
+        $this->assertContains('non_provider_safe_payload_detected', array_column($report['issues'], 'issue'));
+    }
+
+    public function test_clean_summary_is_not_reported_as_non_provider_safe(): void
+    {
+        $this->appendEntry('task-clean-summary');
+
+        $report = $this->repo->integrityAudit();
+
+        $this->assertNotContains('non_provider_safe_payload_detected', array_column($report['issues'], 'issue'));
+    }
+
+    public function test_broken_journal_ordering_is_reported_when_sequence_tampered(): void
+    {
+        $this->appendEntry('task-order-1');
+        $second = $this->appendEntry('task-order-2');
+        $path = $this->recordPath($second['journal_entry_id']);
+        $record = json_decode((string) Storage::disk('local')->get($path), true);
+        // Force the newer entry's sequence to be <= the older entry's, simulating tampering.
+        $record['sequence'] = 1;
+        $record['journal_entry_hash'] = $this->repoStableHashForTest($record);
+        Storage::disk('local')->put($path, json_encode($record));
+
+        $report = $this->repo->integrityAudit();
+
+        $this->assertContains('broken_journal_ordering', array_column($report['issues'], 'issue'));
+    }
+
+    private function repoStableHashForTest(array $record): string
+    {
+        unset($record['journal_entry_hash'], $record['recorded_at'], $record['sequence']);
+        ksort($record);
+
+        return hash('sha256', (string) json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
 }

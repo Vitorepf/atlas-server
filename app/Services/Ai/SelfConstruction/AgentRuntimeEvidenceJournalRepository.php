@@ -49,6 +49,16 @@ final class AgentRuntimeEvidenceJournalRepository
 
     public const FRESHNESS_STALE_AFTER_SECONDS = 86400;
 
+    private const SECRET_PATTERNS = [
+        '/sk-[A-Za-z0-9]{10,}/',
+        '/ghp_[A-Za-z0-9]{10,}/',
+        '/AKIA[A-Z0-9]{10,}/',
+        '/-----BEGIN [A-Z ]*PRIVATE KEY-----/',
+        '/[Bb]earer\s+[A-Za-z0-9._-]{10,}/',
+        '/password\s*=\s*\S+/i',
+        '/api_key\s*=\s*\S+/i',
+    ];
+
     public const ALLOWED_EVIDENCE_TYPES = [
         'dispatch_plan',
         'claim_lease',
@@ -124,6 +134,8 @@ final class AgentRuntimeEvidenceJournalRepository
                 'lease_id' => (string) ($entry['lease_id'] ?? ''),
                 'evidence_type' => $evidenceType,
                 'source_type' => $this->requiredString($entry, 'source_type') ?: 'unspecified',
+                'outcome' => $this->requiredString($entry, 'outcome') ?: 'unspecified',
+                'proof_class' => $this->requiredString($entry, 'proof_class') ?: 'unspecified',
                 'evidence_ref' => (string) ($entry['evidence_ref'] ?? ''),
                 'evidence_hash' => $evidenceHash,
                 'canonical_hash' => $evidenceHash,
@@ -187,6 +199,10 @@ final class AgentRuntimeEvidenceJournalRepository
         $taskFilter = (string) ($filters['task_packet_id'] ?? '');
         $agentFilter = (string) ($filters['agent_id'] ?? '');
         $typeFilter = (string) ($filters['evidence_type'] ?? '');
+        $outcomeFilter = (string) ($filters['outcome'] ?? '');
+        $proofClassFilter = (string) ($filters['proof_class'] ?? '');
+        $fromFilter = (string) ($filters['from'] ?? '');
+        $toFilter = (string) ($filters['to'] ?? '');
         $limit = max(0, (int) ($filters['limit'] ?? 0));
         $records = [];
 
@@ -198,6 +214,19 @@ final class AgentRuntimeEvidenceJournalRepository
                 continue;
             }
             if ($typeFilter !== '' && (string) ($entry['evidence_type'] ?? '') !== $typeFilter) {
+                continue;
+            }
+            if ($outcomeFilter !== '' && (string) ($entry['outcome'] ?? 'unspecified') !== $outcomeFilter) {
+                continue;
+            }
+            if ($proofClassFilter !== '' && (string) ($entry['proof_class'] ?? 'unspecified') !== $proofClassFilter) {
+                continue;
+            }
+            $recordedAt = (string) ($entry['recorded_at'] ?? '');
+            if ($fromFilter !== '' && $recordedAt < $fromFilter) {
+                continue;
+            }
+            if ($toFilter !== '' && $recordedAt > $toFilter) {
                 continue;
             }
             $record = $this->get((string) ($entry['journal_entry_id'] ?? ''));
@@ -285,6 +314,7 @@ final class AgentRuntimeEvidenceJournalRepository
             ];
         }
 
+        $previousSequence = null;
         foreach ($index as $entry) {
             $journalEntryId = (string) ($entry['journal_entry_id'] ?? '');
             $path = $this->recordPath($journalEntryId);
@@ -332,6 +362,44 @@ final class AgentRuntimeEvidenceJournalRepository
                     'journal_entry_id' => $journalEntryId,
                     'issue' => 'non_local_evidence_claims_canonical_ledger_entry',
                 ];
+            }
+
+            // AC3: a record without an evidence_hash or journal_entry_hash can never be
+            // deduplicated or verified — flag it rather than silently trusting it.
+            if ((string) ($record['evidence_hash'] ?? '') === '') {
+                $issues[] = [
+                    'journal_entry_id' => $journalEntryId,
+                    'issue' => 'missing_evidence_hash',
+                ];
+            }
+            if ($recordedHash === '') {
+                $issues[] = [
+                    'journal_entry_id' => $journalEntryId,
+                    'issue' => 'missing_journal_entry_hash',
+                ];
+            }
+
+            // AC3: this journal only ever persists a free-text summary (payload itself is
+            // stored only as a hash) — that summary is the one place a secret could leak in.
+            if ($this->containsSecret((string) ($record['summary'] ?? ''))) {
+                $issues[] = [
+                    'journal_entry_id' => $journalEntryId,
+                    'issue' => 'non_provider_safe_payload_detected',
+                ];
+            }
+
+            // AC3: the index is newest-first, and sequence is assigned monotonically at
+            // append time, so sequence must strictly decrease as we walk the index — any
+            // tie or increase means the journal ordering has been tampered with or corrupted.
+            $sequence = $record['sequence'] ?? null;
+            if (is_int($sequence) && $previousSequence !== null && $sequence >= $previousSequence) {
+                $issues[] = [
+                    'journal_entry_id' => $journalEntryId,
+                    'issue' => 'broken_journal_ordering',
+                ];
+            }
+            if (is_int($sequence)) {
+                $previousSequence = $sequence;
             }
         }
 
@@ -419,6 +487,8 @@ final class AgentRuntimeEvidenceJournalRepository
             'task_packet_id' => $record['task_packet_id'],
             'agent_id' => $record['agent_id'],
             'evidence_type' => $record['evidence_type'],
+            'outcome' => $record['outcome'] ?? 'unspecified',
+            'proof_class' => $record['proof_class'] ?? 'unspecified',
             'journal_entry_hash' => $record['journal_entry_hash'],
             'canonical_hash' => $record['canonical_hash'] ?? $record['evidence_hash'] ?? '',
             'recorded_at' => $record['recorded_at'],
@@ -462,6 +532,20 @@ final class AgentRuntimeEvidenceJournalRepository
     private function isSha256(string $value): bool
     {
         return preg_match('/^[a-f0-9]{64}$/', $value) === 1;
+    }
+
+    private function containsSecret(string $text): bool
+    {
+        if ($text === '') {
+            return false;
+        }
+        foreach (self::SECRET_PATTERNS as $pattern) {
+            if (preg_match($pattern, $text) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function hashableRecord(array $record): array
