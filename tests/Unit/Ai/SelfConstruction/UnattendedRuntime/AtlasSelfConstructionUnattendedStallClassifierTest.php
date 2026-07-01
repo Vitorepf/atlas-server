@@ -183,4 +183,126 @@ class AtlasSelfConstructionUnattendedStallClassifierTest extends TestCase
         self::assertIsString($verdict['severity']);
         self::assertArrayNotHasKey('score', $verdict);
     }
+
+    // ── classifyStallAction() — AC: distinguishes 7 repairable stall classes ─────
+
+    private function stallClassifier(): AtlasSelfConstructionUnattendedStallClassifier
+    {
+        return new AtlasSelfConstructionUnattendedStallClassifier;
+    }
+
+    private function stallFacts(array $overrides = []): array
+    {
+        return ['facts' => array_replace_recursive([
+            'queue' => ['depth' => 5, 'claimable_count' => 3, 'malformed_count' => 0, 'poison_loop_detected' => false, 'repeated_poison_count' => 0],
+            'heartbeat' => ['is_stale' => false],
+            'native_worker' => ['ready' => true],
+            'verification' => ['failed_run_count' => 0, 'proof_missing' => false],
+            'learning' => ['stale' => false],
+        ], $overrides)];
+    }
+
+    public function test_stall_action_healthy_no_stall(): void
+    {
+        $r = $this->stallClassifier()->classifyStallAction($this->stallFacts());
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALL_NONE, $r['stall_class']);
+        $this->assertTrue($r['safe_to_auto_recover']);
+        $this->assertNull($r['recovery_action']);
+    }
+
+    public function test_stall_action_no_claimable(): void
+    {
+        $r = $this->stallClassifier()->classifyStallAction($this->stallFacts([
+            'queue' => ['claimable_count' => 0],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALL_NO_CLAIMABLE, $r['stall_class']);
+        $this->assertNotEmpty($r['recovery_action']);
+        $this->assertTrue($r['safe_to_auto_recover']);
+        $this->assertContains('queue.claimable_count', $r['evidence_needed']);
+    }
+
+    public function test_stall_action_malformed_queue(): void
+    {
+        $r = $this->stallClassifier()->classifyStallAction($this->stallFacts([
+            'queue' => ['malformed_count' => 3],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALL_MALFORMED_QUEUE, $r['stall_class']);
+        $this->assertSame('atlas:task:sweep-malformed', $r['recovery_action']);
+        $this->assertTrue($r['safe_to_auto_recover']);
+    }
+
+    public function test_stall_action_poison_loop(): void
+    {
+        $r = $this->stallClassifier()->classifyStallAction($this->stallFacts([
+            'queue' => ['poison_loop_detected' => true, 'repeated_poison_count' => 5],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALL_POISON_LOOP, $r['stall_class']);
+        $this->assertFalse($r['safe_to_auto_recover'], 'repeated poison must not auto-recover blindly');
+        $this->assertNotEmpty($r['recovery_action']);
+    }
+
+    public function test_stall_action_stale_heartbeat(): void
+    {
+        $r = $this->stallClassifier()->classifyStallAction($this->stallFacts([
+            'heartbeat' => ['is_stale' => true],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALL_STALE_HEARTBEAT, $r['stall_class']);
+        $this->assertTrue($r['safe_to_auto_recover']);
+    }
+
+    public function test_stall_action_worker_starvation(): void
+    {
+        $r = $this->stallClassifier()->classifyStallAction($this->stallFacts([
+            'native_worker' => ['ready' => false],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALL_WORKER_STARVATION, $r['stall_class']);
+        $this->assertTrue($r['safe_to_auto_recover']);
+    }
+
+    public function test_stall_action_proof_blocked(): void
+    {
+        $r = $this->stallClassifier()->classifyStallAction($this->stallFacts([
+            'verification' => ['failed_run_count' => 2],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALL_PROOF_BLOCKED, $r['stall_class']);
+        $this->assertFalse($r['safe_to_auto_recover'], 'failing verification must not auto-recover blindly');
+    }
+
+    public function test_stall_action_learning_stale(): void
+    {
+        $r = $this->stallClassifier()->classifyStallAction($this->stallFacts([
+            'learning' => ['stale' => true],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALL_LEARNING_STALE, $r['stall_class']);
+        $this->assertTrue($r['safe_to_auto_recover']);
+        $this->assertNotEmpty($r['recovery_action']);
+    }
+
+    public function test_stall_action_output_has_required_keys(): void
+    {
+        $r = $this->stallClassifier()->classifyStallAction($this->stallFacts());
+
+        foreach (['schema_version', 'stall_class', 'reasons', 'recovery_action', 'safe_to_auto_recover', 'evidence_needed'] as $k) {
+            $this->assertArrayHasKey($k, $r);
+        }
+    }
+
+    public function test_stall_action_malformed_queue_outranks_other_signals(): void
+    {
+        $r = $this->stallClassifier()->classifyStallAction($this->stallFacts([
+            'queue' => ['malformed_count' => 1],
+            'heartbeat' => ['is_stale' => true],
+            'verification' => ['failed_run_count' => 5],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALL_MALFORMED_QUEUE, $r['stall_class']);
+    }
 }

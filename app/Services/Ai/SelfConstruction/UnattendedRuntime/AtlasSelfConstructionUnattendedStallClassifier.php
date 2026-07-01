@@ -75,6 +75,94 @@ final class AtlasSelfConstructionUnattendedStallClassifier
 
     public const SEVERITY_CRITICAL = 'critical';
 
+    public const STALL_NO_CLAIMABLE = 'no_claimable';
+
+    public const STALL_MALFORMED_QUEUE = 'malformed_queue';
+
+    public const STALL_POISON_LOOP = 'poison_loop';
+
+    public const STALL_STALE_HEARTBEAT = 'stale_heartbeat';
+
+    public const STALL_WORKER_STARVATION = 'worker_starvation';
+
+    public const STALL_PROOF_BLOCKED = 'proof_blocked';
+
+    public const STALL_LEARNING_STALE = 'learning_stale';
+
+    public const STALL_NONE = 'none';
+
+    /** repeated poison count at or above this is treated as a loop, not an isolated poison event. */
+    private const POISON_LOOP_REPEAT_CEILING = 3;
+
+    /** stall_class => [recovery_action, safe_to_auto_recover, evidence_needed] */
+    private const STALL_ACTION_CATALOG = [
+        self::STALL_MALFORMED_QUEUE => ['atlas:task:sweep-malformed', true, ['queue.malformed_count']],
+        self::STALL_POISON_LOOP => ['quarantine_repeated_poison_and_alert_for_review', false, ['queue.poison_loop_detected', 'queue.repeated_poison_count']],
+        self::STALL_STALE_HEARTBEAT => ['restart_heartbeat_emitter', true, ['heartbeat.last_seen_age_seconds', 'heartbeat.stale_threshold_seconds']],
+        self::STALL_WORKER_STARVATION => ['scale_up_native_workers_or_wait_for_capacity', true, ['native_worker.ready', 'queue.active_leases', 'queue.claimable_count']],
+        self::STALL_PROOF_BLOCKED => ['attach_missing_proof_or_fix_failing_verification', false, ['verification.failed_run_count', 'verification.proof_missing']],
+        self::STALL_LEARNING_STALE => ['run_learning_sync', true, ['learning.last_sync_age_seconds']],
+        self::STALL_NO_CLAIMABLE => ['wait_or_originate_more_claimable_work', true, ['queue.claimable_count', 'queue.depth']],
+        self::STALL_NONE => [null, true, []],
+    ];
+
+    /**
+     * Classifies unattended runtime stalls into a REPAIRABLE action — never a generic "stuck" state.
+     * Distinguishes: no_claimable, malformed_queue, poison_loop, stale_heartbeat, worker_starvation,
+     * proof_blocked, and learning_stale. Precedence (most structurally unsafe first): malformed_queue
+     * > poison_loop > stale_heartbeat > worker_starvation > proof_blocked > learning_stale >
+     * no_claimable > none.
+     *
+     * @param  array<string,mixed>  $snapshot
+     * @return array{schema_version:string, stall_class:string, reasons:list<string>, recovery_action:?string, safe_to_auto_recover:bool, evidence_needed:list<string>}
+     */
+    public function classifyStallAction(array $snapshot): array
+    {
+        $facts = is_array($snapshot['facts'] ?? null) ? $snapshot['facts'] : [];
+        $queue = is_array($facts['queue'] ?? null) ? $facts['queue'] : [];
+        $heartbeat = is_array($facts['heartbeat'] ?? null) ? $facts['heartbeat'] : [];
+        $worker = is_array($facts['native_worker'] ?? null) ? $facts['native_worker'] : [];
+        $verification = is_array($facts['verification'] ?? null) ? $facts['verification'] : [];
+        $learning = is_array($facts['learning'] ?? null) ? $facts['learning'] : [];
+
+        $stallClass = self::STALL_NONE;
+        $reasons = [];
+
+        if ((int) ($queue['malformed_count'] ?? 0) > 0) {
+            $stallClass = self::STALL_MALFORMED_QUEUE;
+            $reasons[] = 'queue_malformed_count_positive';
+        } elseif ((bool) ($queue['poison_loop_detected'] ?? false) || (int) ($queue['repeated_poison_count'] ?? 0) >= self::POISON_LOOP_REPEAT_CEILING) {
+            $stallClass = self::STALL_POISON_LOOP;
+            $reasons[] = 'repeated_poison_signal_at_or_above_ceiling';
+        } elseif ((bool) ($heartbeat['is_stale'] ?? false)) {
+            $stallClass = self::STALL_STALE_HEARTBEAT;
+            $reasons[] = 'heartbeat_stale';
+        } elseif (! (bool) ($worker['ready'] ?? true) || $this->feedStarvationRisk($queue)) {
+            $stallClass = self::STALL_WORKER_STARVATION;
+            $reasons[] = ! (bool) ($worker['ready'] ?? true) ? 'native_worker_not_ready' : 'claimable_per_active_worker_thin';
+        } elseif ((int) ($verification['failed_run_count'] ?? 0) > 0 || (bool) ($verification['proof_missing'] ?? false)) {
+            $stallClass = self::STALL_PROOF_BLOCKED;
+            $reasons[] = (int) ($verification['failed_run_count'] ?? 0) > 0 ? 'verification_failed_runs' : 'verification_proof_missing';
+        } elseif ((bool) ($learning['stale'] ?? false)) {
+            $stallClass = self::STALL_LEARNING_STALE;
+            $reasons[] = 'learning_sync_stale';
+        } elseif ((int) ($queue['claimable_count'] ?? 0) === 0) {
+            $stallClass = self::STALL_NO_CLAIMABLE;
+            $reasons[] = 'queue_claimable_count_zero';
+        }
+
+        [$recoveryAction, $safeToAutoRecover, $evidenceNeeded] = self::STALL_ACTION_CATALOG[$stallClass];
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'stall_class' => $stallClass,
+            'reasons' => $reasons,
+            'recovery_action' => $recoveryAction,
+            'safe_to_auto_recover' => $safeToAutoRecover,
+            'evidence_needed' => $evidenceNeeded,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $snapshot
      * @return array<string,mixed>
