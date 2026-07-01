@@ -5,296 +5,104 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Pure governance service. Validates scaffold registry entries and classifies
- * the registry's overall health.
+ * Pure governance that manages scaffold lifecycle: promote, hold, deprecate, or retire
+ * variants based on measured lift, overfit risk, and active compatibility version.
  *
- * Input facts:
- *   entries — list of {id, version, status, safety_checks, provider_safe_summary,
- *              rollback_plan, compatible_with?}.
- *     version             — SemVer string (x.y.z).
- *     status              — 'active'|'retired'|'experimental'|'deprecated'.
- *     safety_checks       — non-empty list of check names (AC3 required).
- *     provider_safe_summary — non-empty string (AC3 required).
- *     rollback_plan       — non-empty string or non-empty array (AC3 required).
- *     compatible_with     — optional list of version strings.
- *
- * AC2 — structural validation:
- *   - version must match x.y.z (SemVer).
- *   - status must be one of the four allowed values.
- *   - compatible_with, if present, must be an array.
- *
- * AC3 — required-field rejection:
- *   - safety_checks absent or empty               → missing_safety_checks.
- *   - provider_safe_summary absent or empty       → missing_provider_safe_summary.
- *   - rollback_plan absent or empty               → missing_rollback_plan.
- *
- * registry_health:
- *   'healthy'  — zero rejections AND at least one valid active entry.
- *   'degraded' — some rejections but at least one valid active entry.
- *   'critical' — no valid active entries.
- *
- * AC4 outputs: valid_entries, rejected_entries, active_variants, retired_variants,
- *   registry_health.
- *
- * Pure, deterministic, no providers, no I/O.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasExternalBrainScaffoldRegistryGovernance
 {
     public const SCHEMA = 'atlas.external_brain.scaffold_registry_governance.v1';
 
-    private const ALLOWED_STATUSES = ['active', 'retired', 'experimental', 'deprecated'];
-    private const SEMVER_PATTERN   = '/^\d+\.\d+\.\d+$/';
-
-    public const RECOMMEND_PROMOTE = 'promote';
-    public const RECOMMEND_KEEP_TESTING = 'keep_testing';
-    public const RECOMMEND_DOWNGRADE = 'downgrade';
-    public const RECOMMEND_RETIRE = 'retire';
-
-    private const MIN_SAMPLE_SIZE = 5;
-    private const PROMOTE_LIFT_THRESHOLD = 0.15;
-    private const DOWNGRADE_LIFT_THRESHOLD = 0.05;
-    private const HIGH_RISK_PROMOTE_LIFT_THRESHOLD = 0.25;
+    public const ACTION_PROMOTE = 'promote';
+    public const ACTION_HOLD = 'hold';
+    public const ACTION_DEPRECATE = 'deprecate';
+    public const ACTION_RETIRE = 'retire';
 
     /**
-     * @param  array<string,mixed>  $facts
-     * @return array<string,mixed>
+     * @param  array{
+     *   variant_id?:string,
+     *   measured_lift_verdict?:string,
+     *   overfit_risk?:float,
+     *   overfit_threshold?:float,
+     *   compatible_with_active_version?:bool,
+     *   replacement_candidate_id?:?string,
+     *   usage_count?:int,
+     * }  $variant
+     * @return array{
+     *   schema:string,
+     *   action:string,
+     *   reason:string,
+     *   next_review_trigger:string,
+     *   replacement_candidate:?string,
+     * }
      */
-    public function govern(array $facts): array
+    public function decide(array $variant): array
     {
-        $entries = is_array($facts['entries'] ?? null) ? $facts['entries'] : [];
+        $verdict = (string) ($variant['measured_lift_verdict'] ?? 'no_measured_lift');
+        $overfitRisk = (float) ($variant['overfit_risk'] ?? 1.0);
+        $overfitThreshold = (float) ($variant['overfit_threshold'] ?? 0.3);
+        $compatible = (bool) ($variant['compatible_with_active_version'] ?? false);
+        $replacementId = $variant['replacement_candidate_id'] ?? null;
+        $usageCount = (int) ($variant['usage_count'] ?? 0);
 
-        $validEntries    = [];
-        $rejectedEntries = [];
-        $activeVariants  = [];
-        $retiredVariants = [];
-
-        foreach ($entries as $entry) {
-            $id      = (string) ($entry['id'] ?? '');
-            $reasons = $this->validate($entry);
-
-            if (empty($reasons)) {
-                $validEntries[] = $id;
-                $status = strtolower(trim((string) ($entry['status'] ?? '')));
-                if ($status === 'active') {
-                    $activeVariants[] = $id;
-                } elseif ($status === 'retired') {
-                    $retiredVariants[] = $id;
-                }
-            } else {
-                $rejectedEntries[] = ['id' => $id, 'rejection_reasons' => $reasons];
-            }
+        // Incompatible + has replacement → retire
+        if (! $compatible && $replacementId !== null) {
+            return $this->envelope(
+                self::ACTION_RETIRE,
+                'incompatible with active version, replacement available',
+                'on_next_release_cycle',
+                (string) $replacementId
+            );
         }
 
-        $health = $this->health(count($entries), count($rejectedEntries), count($activeVariants));
+        // Incompatible without replacement → deprecate
+        if (! $compatible) {
+            return $this->envelope(
+                self::ACTION_DEPRECATE,
+                'incompatible with active version',
+                'on_replacement_available',
+                null
+            );
+        }
 
-        return [
-            'schema_version'   => self::SCHEMA,
-            'valid_entries'    => $validEntries,
-            'rejected_entries' => $rejectedEntries,
-            'active_variants'  => $activeVariants,
-            'retired_variants' => $retiredVariants,
-            'registry_health'  => $health,
-        ];
+        // High overfit risk → hold (even if lift detected)
+        if ($overfitRisk > $overfitThreshold) {
+            return $this->envelope(
+                self::ACTION_HOLD,
+                'overfit_risk ' . round($overfitRisk, 2) . ' > threshold ' . round($overfitThreshold, 2),
+                'after_10_more_usages',
+                null
+            );
+        }
+
+        // Measured lift + low overfit risk + compatible → promote
+        if ($verdict === 'measured_lift') {
+            return $this->envelope(
+                self::ACTION_PROMOTE,
+                'measured lift with low overfit risk (' . round($overfitRisk, 2) . ')',
+                'periodic_quality_recheck',
+                null
+            );
+        }
+
+        // No measured lift → hold
+        return $this->envelope(
+            self::ACTION_HOLD,
+            'no measured lift — awaiting more evidence',
+            'after_5_more_usages',
+            null
+        );
     }
 
-    private function validate(mixed $entry): array
-    {
-        if (! is_array($entry)) {
-            return ['invalid_entry_type'];
-        }
-
-        $reasons = [];
-
-        // AC2: version format.
-        $version = trim((string) ($entry['version'] ?? ''));
-        if (! preg_match(self::SEMVER_PATTERN, $version)) {
-            $reasons[] = 'invalid_version_format';
-        }
-
-        // AC2: status.
-        $status = strtolower(trim((string) ($entry['status'] ?? '')));
-        if (! in_array($status, self::ALLOWED_STATUSES, true)) {
-            $reasons[] = 'invalid_status';
-        }
-
-        // AC2: compatible_with if present must be array.
-        if (array_key_exists('compatible_with', $entry) && ! is_array($entry['compatible_with'])) {
-            $reasons[] = 'invalid_compatible_with';
-        }
-
-        // AC3: safety_checks required and non-empty.
-        $safetyChecks = is_array($entry['safety_checks'] ?? null) ? $entry['safety_checks'] : [];
-        if (empty($safetyChecks)) {
-            $reasons[] = 'missing_safety_checks';
-        }
-
-        // AC3: provider_safe_summary required and non-empty.
-        $summary = trim((string) ($entry['provider_safe_summary'] ?? ''));
-        if ($summary === '') {
-            $reasons[] = 'missing_provider_safe_summary';
-        }
-
-        // AC3: rollback_plan required and non-empty.
-        $rollback = $entry['rollback_plan'] ?? null;
-        $rollbackEmpty = is_array($rollback) ? empty($rollback) : (trim((string) $rollback) === '');
-        if ($rollback === null || $rollbackEmpty) {
-            $reasons[] = 'missing_rollback_plan';
-        }
-
-        return $reasons;
-    }
-
-    /**
-     * Recommends a lifecycle action (promote, keep_testing, downgrade,
-     * retire) for a single scaffold based on its outcome evidence. Tracks
-     * id, version, intended_failure_mode, observed_lift, risk and
-     * lifecycle_state.
-     *
-     * FAILS CLOSED: when observed_lift is absent/null OR sample_size is
-     * below MIN_SAMPLE_SIZE (5), the scaffold has no measurable lift
-     * evidence and the recommendation is keep_testing — never promote.
-     *
-     * Otherwise, in order:
-     *   observed_lift <= 0                                  -> retire (no_positive_lift)
-     *   risk=high AND observed_lift < HIGH_RISK_PROMOTE_LIFT_THRESHOLD (0.25) -> retire (high_risk_without_sufficient_lift)
-     *   observed_lift < DOWNGRADE_LIFT_THRESHOLD (0.05)     -> downgrade (lift_below_downgrade_threshold)
-     *   observed_lift >= PROMOTE_LIFT_THRESHOLD (0.15) (and risk != high, or it already cleared the high-risk bar) -> promote
-     *   otherwise                                            -> keep_testing
-     *
-     * @param  array<string,mixed>  $scaffold  { id, version?, intended_failure_mode?,
-     *   observed_lift?, sample_size?, risk?, lifecycle_state? }
-     * @return array<string,mixed>
-     */
-    public function recommendLifecycle(array $scaffold): array
-    {
-        $id = (string) ($scaffold['id'] ?? '');
-        $version = (string) ($scaffold['version'] ?? '');
-        $intendedFailureMode = (string) ($scaffold['intended_failure_mode'] ?? '');
-        $risk = strtolower(trim((string) ($scaffold['risk'] ?? 'low')));
-        $lifecycleState = (string) ($scaffold['lifecycle_state'] ?? 'experimental');
-        $sampleSize = max(0, (int) ($scaffold['sample_size'] ?? 0));
-        $observedLift = array_key_exists('observed_lift', $scaffold) && $scaffold['observed_lift'] !== null
-            ? (float) $scaffold['observed_lift']
-            : null;
-
-        if ($observedLift === null || $sampleSize < self::MIN_SAMPLE_SIZE) {
-            return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_KEEP_TESTING, 'insufficient_lift_evidence');
-        }
-
-        if ($observedLift <= 0.0) {
-            return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_RETIRE, 'no_positive_lift');
-        }
-
-        if ($risk === 'high' && $observedLift < self::HIGH_RISK_PROMOTE_LIFT_THRESHOLD) {
-            return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_RETIRE, 'high_risk_without_sufficient_lift');
-        }
-
-        if ($observedLift < self::DOWNGRADE_LIFT_THRESHOLD) {
-            return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_DOWNGRADE, 'lift_below_downgrade_threshold');
-        }
-
-        if ($observedLift >= self::PROMOTE_LIFT_THRESHOLD) {
-            return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_PROMOTE, 'lift_meets_promotion_bar');
-        }
-
-        return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_KEEP_TESTING, 'lift_positive_but_below_promotion_bar');
-    }
-
-    /** @return array<string,mixed> */
-    private function lifecycleResult(string $id, string $version, string $intendedFailureMode, ?float $observedLift, string $risk, string $lifecycleState, string $recommendation, string $reason): array
+    private function envelope(string $action, string $reason, string $nextReviewTrigger, ?string $replacementCandidate): array
     {
         return [
-            'schema_version' => self::SCHEMA,
-            'id' => $id,
-            'version' => $version,
-            'intended_failure_mode' => $intendedFailureMode,
-            'observed_lift' => $observedLift,
-            'risk' => $risk,
-            'lifecycle_state' => $lifecycleState,
-            'recommendation' => $recommendation,
+            'schema' => self::SCHEMA,
+            'action' => $action,
             'reason' => $reason,
+            'next_review_trigger' => $nextReviewTrigger,
+            'replacement_candidate' => $replacementCandidate,
         ];
-    }
-
-    /**
-     * Explicit lifecycle governance: every scaffold must carry a lifecycle_state,
-     * owner_capability, promotion_condition and retirement_condition, so nothing
-     * can sit in the registry forever as an unowned, condition-less zombie.
-     *
-     * @param  array<string,mixed>  $facts
-     * @return array<string,mixed>
-     */
-    public function governLifecycle(array $facts): array
-    {
-        $entries = is_array($facts['entries'] ?? null) ? $facts['entries'] : [];
-
-        $registryEntries = [];
-        $governanceViolations = [];
-        $promote = [];
-        $keep = [];
-        $retire = [];
-        $investigate = [];
-
-        foreach ($entries as $entry) {
-            $entry = (array) $entry;
-            $id = (string) ($entry['id'] ?? '');
-            $lifecycleState = trim((string) ($entry['lifecycle_state'] ?? ''));
-            $ownerCapability = trim((string) ($entry['owner_capability'] ?? ''));
-            $promotionCondition = trim((string) ($entry['promotion_condition'] ?? ''));
-            $retirementCondition = trim((string) ($entry['retirement_condition'] ?? ''));
-
-            $violations = [];
-            if ($ownerCapability === '') {
-                $violations[] = 'missing_owner_capability';
-            }
-            if ($promotionCondition === '' && $retirementCondition === '') {
-                $violations[] = 'missing_lifecycle_condition';
-            }
-
-            $registryEntries[] = [
-                'id' => $id,
-                'lifecycle_state' => $lifecycleState !== '' ? $lifecycleState : 'unknown',
-                'owner_capability' => $ownerCapability,
-                'promotion_condition' => $promotionCondition,
-                'retirement_condition' => $retirementCondition,
-            ];
-
-            if ($violations !== []) {
-                $governanceViolations[] = ['id' => $id, 'violations' => $violations];
-                $investigate[] = $id;
-
-                continue;
-            }
-
-            if ((bool) ($entry['retirement_condition_met'] ?? false)) {
-                $retire[] = $id;
-            } elseif ((bool) ($entry['promotion_condition_met'] ?? false)) {
-                $promote[] = $id;
-            } else {
-                $keep[] = $id;
-            }
-        }
-
-        return [
-            'schema_version' => self::SCHEMA,
-            'registry_entries' => $registryEntries,
-            'governance_violations' => $governanceViolations,
-            'promote' => $promote,
-            'keep' => $keep,
-            'retire' => $retire,
-            'investigate' => $investigate,
-        ];
-    }
-
-    private function health(int $total, int $rejected, int $activeValid): string
-    {
-        if ($activeValid === 0) {
-            return 'critical';
-        }
-        if ($rejected > 0) {
-            return 'degraded';
-        }
-
-        return 'healthy';
     }
 }
