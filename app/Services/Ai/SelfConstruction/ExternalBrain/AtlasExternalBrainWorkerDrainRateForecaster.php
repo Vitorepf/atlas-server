@@ -44,21 +44,21 @@ final class AtlasExternalBrainWorkerDrainRateForecaster
 
     private const DEFAULT_SUFFICIENT_DEPTH_FLOOR = 10;
 
-    public const PROJECTION_RECOMMENDATION_WAIT = 'wait';
+    public const PROJECTION_RECOMMENDATION_MONITOR_IDLE_SUPPLY = 'monitor_idle_supply';
     public const PROJECTION_RECOMMENDATION_REPLENISH = 'replenish';
     public const PROJECTION_RECOMMENDATION_FIX_PROJECTION_TELEMETRY = 'fix_projection_telemetry';
 
     /**
      * Consumes Maestro projection facts (queue depth + telemetry_confidence from
      * {@see \App\Services\Ai\SelfConstruction\Maestro\Projection\AtlasMaestroMuscleThroughputContinuityModel})
-     * to decide whether the external brain should wait, replenish, or fix its own telemetry first.
+     * to decide whether the external brain should monitor supply, replenish, or fix its own telemetry first.
      *
      * DECISION PRIORITY (first match wins):
      *   1. replenish                  — queue_depth below sufficient_depth_floor, REGARDLESS of
      *                                    telemetry mode (a thin queue is a thin queue either way).
      *   2. fix_projection_telemetry   — depth looks sufficient but telemetry_confidence='blind':
      *                                    a blind spot must never be silently read as "safe to wait".
-     *   3. wait                       — depth sufficient AND telemetry is not blind.
+     *   3. monitor_idle_supply        — depth sufficient AND telemetry is not blind.
      *
      * @param  array<string,mixed>  $projectionFacts
      *         queue_depth?:             int
@@ -77,7 +77,7 @@ final class AtlasExternalBrainWorkerDrainRateForecaster
         [$recommendation, $reason] = match (true) {
             ! $depthSufficient => [self::PROJECTION_RECOMMENDATION_REPLENISH, "queue_depth={$queueDepth}_below_floor={$sufficientDepthFloor}"],
             $telemetryConfidence === 'blind' => [self::PROJECTION_RECOMMENDATION_FIX_PROJECTION_TELEMETRY, 'telemetry_confidence_blind_cannot_trust_wait'],
-            default => [self::PROJECTION_RECOMMENDATION_WAIT, "queue_depth={$queueDepth}_sufficient_and_telemetry={$telemetryConfidence}"],
+            default => [self::PROJECTION_RECOMMENDATION_MONITOR_IDLE_SUPPLY, "queue_depth={$queueDepth}_sufficient_and_telemetry={$telemetryConfidence}"],
         };
 
         return [
@@ -102,6 +102,8 @@ final class AtlasExternalBrainWorkerDrainRateForecaster
         $medianTaskMinutes = (float) ($facts['median_task_minutes'] ?? 0.0);
         $queueDepth = max(0, (int) ($facts['queue_depth'] ?? 0));
         $claimedRecords = max(0, (int) ($facts['claimed_records'] ?? 0));
+        $claimableDepth = max(0, (int) ($facts['claimable_depth'] ?? $queueDepth));
+        $supplyWindowHours = isset($facts['supply_window_hours']) ? max(0.0, (float) $facts['supply_window_hours']) : null;
 
         $sampleSize = $recentSuccesses + $recentGiveBacks;
         $successRatio = $sampleSize > 0 ? $recentSuccesses / $sampleSize : 0.0;
@@ -120,14 +122,32 @@ final class AtlasExternalBrainWorkerDrainRateForecaster
             ? round($queueDepth / $estimatedDrainPerHour, 2)
             : null;
 
+        // Time-to-starvation: how long until the claimable window itself runs dry, distinct from
+        // clearing the whole visible queue depth — this is what governs whether replenishment is
+        // urgent, not the raw depth number.
+        $hoursToStarvation = $estimatedDrainPerHour > 0.0
+            ? round($claimableDepth / $estimatedDrainPerHour, 2)
+            : null;
+
         $confidence = $this->confidence($activeLeases, $recentSuccesses, $sampleSize, $giveBackRate);
         $bottleneckReason = $this->bottleneckReason($activeLeases, $recentSuccesses, $sampleSize, $giveBackRate);
         $recommendedPace = $this->recommendedPace($confidence, $giveBackRate, $hoursToClearClaimable);
+
+        // Replenish is only recommended when PROVEN throughput (estimatedDrainPerHour > 0, i.e.
+        // recent_successes > 0 per AC3) can actually drain the claimable window inside the
+        // configured supply window — never on unproven active-lease-only throughput.
+        $recommendReplenish = $supplyWindowHours !== null
+            && $estimatedDrainPerHour > 0.0
+            && $hoursToStarvation !== null
+            && $hoursToStarvation <= $supplyWindowHours;
 
         return [
             'schema' => self::SCHEMA,
             'estimated_drain_per_hour' => $estimatedDrainPerHour,
             'hours_to_clear_claimable' => $hoursToClearClaimable,
+            'hours_to_starvation' => $hoursToStarvation,
+            'supply_window_hours' => $supplyWindowHours,
+            'recommend_replenish' => $recommendReplenish,
             'confidence' => $confidence,
             'bottleneck_reason' => $bottleneckReason,
             'recommended_originator_pace' => $recommendedPace,
@@ -137,6 +157,7 @@ final class AtlasExternalBrainWorkerDrainRateForecaster
                 'recent_give_backs' => $recentGiveBacks,
                 'median_task_minutes' => $medianTaskMinutes,
                 'queue_depth' => $queueDepth,
+                'claimable_depth' => $claimableDepth,
                 'claimed_records' => $claimedRecords,
                 'give_back_rate' => $giveBackRate,
             ],
