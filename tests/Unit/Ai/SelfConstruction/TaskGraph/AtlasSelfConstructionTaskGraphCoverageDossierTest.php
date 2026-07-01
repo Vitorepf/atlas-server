@@ -289,4 +289,108 @@ class AtlasSelfConstructionTaskGraphCoverageDossierTest extends TestCase
         self::assertSame('coverage_test_authoring',  $byKind['missing_tests']['next_task_family']);
         self::assertSame('coverage_evidence_refresh', $byKind['stale_evidence']['next_task_family']);
     }
+
+    // ---------- AC2 + AC4: proxy-covered organs (opt-in via organ_evidence) ----------
+
+    public function test_covered_organ_without_evidence_is_demoted_to_proxy_covered_when_evidence_map_supplied(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['organ_evidence'] = [
+            'cortex' => ['has_task_evidence' => true],
+            // 'verification_court' deliberately has no evidence entry at all.
+        ];
+
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts);
+
+        self::assertContains('verification_court', $dossier['proxy_covered_organs']);
+        self::assertNotContains('cortex', $dossier['proxy_covered_organs']);
+        self::assertSame(1, $dossier['organ_summary']['covered_count']);
+        self::assertSame(1, $dossier['organ_summary']['proxy_covered_count']);
+        self::assertSame(AtlasSelfConstructionTaskGraphCoverageDossier::STATUS_BLOCKED, $dossier['status']);
+        self::assertContains('proxy_covered_organ:verification_court', $dossier['blockers']);
+    }
+
+    public function test_covered_organ_counts_normally_when_organ_evidence_is_not_supplied(): void
+    {
+        // Backward compatibility: omitting organ_evidence entirely must reproduce the pre-existing
+        // behavior exactly -- every 'covered' organ counts, nothing is demoted to proxy.
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($this->readyFacts());
+
+        self::assertSame([], $dossier['proxy_covered_organs']);
+        self::assertSame(2, $dossier['organ_summary']['covered_count']);
+        self::assertSame(0, $dossier['organ_summary']['proxy_covered_count']);
+        self::assertSame(AtlasSelfConstructionTaskGraphCoverageDossier::STATUS_READY, $dossier['status']);
+    }
+
+    public function test_covered_organ_with_test_or_runtime_evidence_alone_still_counts(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['organ_evidence'] = [
+            'cortex' => ['has_test_evidence' => true],
+            'verification_court' => ['has_runtime_evidence' => true],
+        ];
+
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts);
+
+        self::assertSame([], $dossier['proxy_covered_organs']);
+        self::assertSame(2, $dossier['organ_summary']['covered_count']);
+    }
+
+    // ---------- AC3: ranking by autonomy impact, downstream unlocks, proof weakness, implementation risk ----------
+
+    public function test_ranked_next_gaps_reorders_by_composite_impact_when_organ_impact_supplied(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['missing_organs'] = ['low-impact-organ'];
+        $facts['coverage']['stale_organs'] = ['high-impact-organ'];
+        $facts['organ_impact'] = [
+            'low-impact-organ' => ['autonomy_impact' => 5, 'downstream_unlocks' => 0, 'proof_weakness' => 0, 'implementation_risk' => 0],
+            'high-impact-organ' => ['autonomy_impact' => 90, 'downstream_unlocks' => 80, 'proof_weakness' => 70, 'implementation_risk' => 60],
+        ];
+
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts);
+        $gaps = (new AtlasSelfConstructionTaskGraphCoverageDossier)->rankedNextGaps($dossier);
+
+        // Despite stale_evidence normally ranking below missing_implementation, the
+        // overwhelmingly higher composite impact must promote high-impact-organ to rank 1.
+        self::assertSame('high-impact-organ', $gaps[0]['organ_id']);
+        self::assertSame(1, $gaps[0]['priority_rank']);
+        self::assertSame(300, $gaps[0]['composite_impact']);
+        self::assertSame('low-impact-organ', $gaps[1]['organ_id']);
+        self::assertSame(5, $gaps[1]['composite_impact']);
+    }
+
+    public function test_ranked_next_gaps_preserves_kind_priority_when_organ_impact_absent(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['blocked_organs'] = ['merge_governor'];
+        $facts['coverage']['missing_organs'] = ['worker_swarm'];
+
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts);
+        $gaps = (new AtlasSelfConstructionTaskGraphCoverageDossier)->rankedNextGaps($dossier);
+
+        self::assertSame('blocked', $gaps[0]['gap_kind']);
+        self::assertSame('missing_implementation', $gaps[1]['gap_kind']);
+        self::assertSame(0, $gaps[0]['composite_impact']);
+    }
+
+    public function test_ranked_next_gap_row_carries_all_four_impact_dimensions(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['missing_organs'] = ['x'];
+        $facts['organ_impact'] = ['x' => ['autonomy_impact' => 10, 'downstream_unlocks' => 20, 'proof_weakness' => 30, 'implementation_risk' => 40]];
+
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts);
+        $gap = (new AtlasSelfConstructionTaskGraphCoverageDossier)->rankedNextGaps($dossier)[0];
+
+        self::assertSame(10, $gap['autonomy_impact']);
+        self::assertSame(20, $gap['downstream_unlocks']);
+        self::assertSame(30, $gap['proof_weakness']);
+        self::assertSame(40, $gap['implementation_risk']);
+        self::assertSame(100, $gap['composite_impact']);
+        self::assertArrayNotHasKey('score', $gap);
+    }
 }

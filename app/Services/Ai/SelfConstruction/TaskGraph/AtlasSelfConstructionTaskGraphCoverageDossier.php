@@ -19,7 +19,14 @@ namespace App\Services\Ai\SelfConstruction\TaskGraph;
  *   - hold    : coverage auditor reports only refresh-style gaps (thin / stale / missing) AND
  *               planner emitted drafts to refresh them; no blocked or withheld_gap entries.
  *   - blocked : coverage auditor reports blocked organs OR planner withheld gaps that cannot be
- *               drafted safely.
+ *               drafted safely, OR a 'covered' organ has no task/test/runtime evidence (proxy-covered).
+ *
+ * Proxy-covered gating (opt-in, backward-compatible): when $facts['organ_evidence'] is supplied
+ * (map organ_id => {has_task_evidence, has_test_evidence, has_runtime_evidence}), any organ marked
+ * 'covered' by the auditor but backed by NONE of those three evidence flags is demoted out of
+ * covered_count into proxy_covered_organs and raises a blocker — the dossier refuses to trust a
+ * bare 'covered' label without real evidence. When organ_evidence is omitted entirely, every
+ * 'covered' organ counts exactly as before (zero behavior change for callers that never supply it).
  */
 final class AtlasSelfConstructionTaskGraphCoverageDossier
 {
@@ -47,17 +54,47 @@ final class AtlasSelfConstructionTaskGraphCoverageDossier
         $staleOrgans = array_values((array) ($coverage['stale_organs'] ?? []));
         $blockedOrgans = array_values((array) ($coverage['blocked_organs'] ?? []));
         $organCoverage = (array) ($coverage['organ_coverage'] ?? []);
+        $organImpact = (array) ($facts['organ_impact'] ?? []);
 
         $drafts = array_values((array) ($planner['drafts'] ?? []));
         $withheld = array_values((array) ($planner['withheld_gaps'] ?? []));
 
+        // Proxy-covered gating is opt-in: only reclassify 'covered' organs when the caller
+        // explicitly supplies organ_evidence. Without it, every 'covered' label counts as before.
+        $organEvidenceProvided = array_key_exists('organ_evidence', $facts) && is_array($facts['organ_evidence']);
+        $organEvidence = $organEvidenceProvided ? (array) $facts['organ_evidence'] : [];
+
+        $proxyCoveredOrgans = [];
+        $coveredCount = 0;
+        foreach ($organCoverage as $organId => $status) {
+            if ($status !== 'covered') {
+                continue;
+            }
+            if (! $organEvidenceProvided) {
+                $coveredCount++;
+
+                continue;
+            }
+            $evidence = (array) ($organEvidence[$organId] ?? []);
+            $hasEvidence = (bool) ($evidence['has_task_evidence'] ?? false)
+                || (bool) ($evidence['has_test_evidence'] ?? false)
+                || (bool) ($evidence['has_runtime_evidence'] ?? false);
+            if ($hasEvidence) {
+                $coveredCount++;
+            } else {
+                $proxyCoveredOrgans[] = (string) $organId;
+            }
+        }
+        sort($proxyCoveredOrgans, SORT_STRING);
+
         $organSummary = [
             'total' => count($organCoverage),
-            'covered_count' => count(array_filter($organCoverage, static fn (string $v): bool => $v === 'covered')),
+            'covered_count' => $coveredCount,
             'missing_count' => count($missingOrgans),
             'thin_count' => count($thinOrgans),
             'stale_count' => count($staleOrgans),
             'blocked_count' => count($blockedOrgans),
+            'proxy_covered_count' => count($proxyCoveredOrgans),
             'per_organ' => $organCoverage,
         ];
 
@@ -82,6 +119,9 @@ final class AtlasSelfConstructionTaskGraphCoverageDossier
         foreach ($withheld as $row) {
             $blockers[] = 'planner_withheld_gap:'.(string) ($row['organ_id'] ?? '');
         }
+        foreach ($proxyCoveredOrgans as $organId) {
+            $blockers[] = 'proxy_covered_organ:'.$organId;
+        }
 
         if ($coveragePassed && $blockers === []) {
             $status = self::STATUS_READY;
@@ -104,6 +144,8 @@ final class AtlasSelfConstructionTaskGraphCoverageDossier
             'thin_organs' => $thinOrgans,
             'stale_organs' => $staleOrgans,
             'blocked_organs' => $blockedOrgans,
+            'proxy_covered_organs' => $proxyCoveredOrgans,
+            'organ_impact' => $organImpact,
             'draft_summary' => $draftSummary,
             'blockers' => $blockers,
             'final_95_gap_report' => $this->buildFinal95GapReport($blockedOrgans, $missingOrgans, $thinOrgans, $staleOrgans),
@@ -125,21 +167,30 @@ final class AtlasSelfConstructionTaskGraphCoverageDossier
     /**
      * Rank the highest-leverage coverage gaps from a dossier envelope for autonomous task creation.
      *
-     * PRIORITY ORDER (highest first):
+     * BASE ORDER (kind priority, highest first):
      *   1. blocked_organs    — must unblock before work can flow
      *   2. missing_organs    — no implementation: biggest compounding deficit
      *   3. thin_organs       — implementation exists but test coverage is absent or thin
      *   4. stale_organs      — implementation + tests exist but evidence is outdated
      *
-     * Returns a facts-only list of ranked gap records; no scalar score.
+     * When $dossier['organ_impact'] carries a per-organ {autonomy_impact, downstream_unlocks,
+     * proof_weakness, implementation_risk} record (each 0-100), gaps are re-ranked by the sum of
+     * those four signals (higher first), falling back to the base kind-priority insertion order as
+     * a stable tie-break. Organs with no impact record (or when organ_impact is entirely absent,
+     * i.e. every caller that predates this field) all score 0 and therefore preserve the original
+     * kind-priority order exactly.
+     *
+     * Returns a facts-only list of ranked gap records; no scalar score field named score/rank/rating/quality.
      *
      * @param  array<string,mixed>  $dossier  Output of {@see self::export}
-     * @return list<array{organ_id:string, gap_kind:string, priority_rank:int}>
+     * @return list<array{organ_id:string, gap_kind:string, autonomy_impact:int, downstream_unlocks:int, proof_weakness:int, implementation_risk:int, composite_impact:int, priority_rank:int}>
      */
     public function rankedNextGaps(array $dossier): array
     {
+        $organImpact = (array) ($dossier['organ_impact'] ?? []);
+
         $gaps = [];
-        $rank = 1;
+        $insertionOrder = 0;
         foreach ([
             'blocked_organs' => 'blocked',
             'missing_organs' => 'missing_implementation',
@@ -147,8 +198,33 @@ final class AtlasSelfConstructionTaskGraphCoverageDossier
             'stale_organs'   => 'stale_evidence',
         ] as $field => $kind) {
             foreach (array_values((array) ($dossier[$field] ?? [])) as $organId) {
-                $gaps[] = ['organ_id' => (string) $organId, 'gap_kind' => $kind, 'priority_rank' => $rank++];
+                $organId = (string) $organId;
+                $impact = (array) ($organImpact[$organId] ?? []);
+                $autonomyImpact = max(0, min(100, (int) ($impact['autonomy_impact'] ?? 0)));
+                $downstreamUnlocks = max(0, min(100, (int) ($impact['downstream_unlocks'] ?? 0)));
+                $proofWeakness = max(0, min(100, (int) ($impact['proof_weakness'] ?? 0)));
+                $implementationRisk = max(0, min(100, (int) ($impact['implementation_risk'] ?? 0)));
+
+                $gaps[] = [
+                    'organ_id' => $organId,
+                    'gap_kind' => $kind,
+                    'autonomy_impact' => $autonomyImpact,
+                    'downstream_unlocks' => $downstreamUnlocks,
+                    'proof_weakness' => $proofWeakness,
+                    'implementation_risk' => $implementationRisk,
+                    'composite_impact' => $autonomyImpact + $downstreamUnlocks + $proofWeakness + $implementationRisk,
+                    '_insertion_order' => $insertionOrder++,
+                ];
             }
+        }
+
+        usort($gaps, static fn (array $a, array $b): int => $b['composite_impact'] <=> $a['composite_impact']
+            ?: $a['_insertion_order'] <=> $b['_insertion_order']);
+
+        $rank = 1;
+        foreach ($gaps as &$gap) {
+            unset($gap['_insertion_order']);
+            $gap['priority_rank'] = $rank++;
         }
 
         return $gaps;
