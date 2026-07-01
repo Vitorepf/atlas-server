@@ -133,6 +133,57 @@ final class AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer
         return self::recursivelyKsort($clone);
     }
 
+    /** Volatile top-level and nested keys that never affect certification safety semantics. */
+    private const VOLATILE_NOISE_KEYS = [
+        'timestamp', 'generated_at', 'certified_at', 'checked_at', 'recorded_at',
+        'pid', 'process_id',
+        'temp_path', 'tmp_path', 'temp_dir', 'tmp_dir',
+        'entry_count', 'total_count', 'display_count', 'progress_percent',
+    ];
+
+    /**
+     * Canonicalizes an annotated multi-agent certification payload (invariant rows, lane/task/lease
+     * context) for hashing: strips volatile runtime noise (timestamps, pid, temp paths, display-only
+     * counters) recursively, while leaving every safety-relevant field -- invariant ids, pass/fail
+     * values, lane ids, task ids, lease ids, proof refs, failure actions -- untouched.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public static function canonicalizeInvariantMatrixForHash(array $payload): array
+    {
+        return self::recursivelyKsort(self::stripVolatileNoise($payload));
+    }
+
+    /**
+     * @param  array<mixed, mixed>  $value
+     * @return array<mixed, mixed>
+     */
+    private static function stripVolatileNoise(array $value): array
+    {
+        foreach (self::VOLATILE_NOISE_KEYS as $key) {
+            unset($value[$key]);
+        }
+        foreach ($value as $k => $entry) {
+            if (is_array($entry)) {
+                $value[$k] = self::stripVolatileNoise($entry);
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public static function hashInvariantMatrix(array $payload): string
+    {
+        return hash('sha256', (string) json_encode(
+            self::canonicalizeInvariantMatrixForHash($payload),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        ));
+    }
+
     /**
      * @param  array<mixed, mixed>  $value
      * @return array<mixed, mixed>

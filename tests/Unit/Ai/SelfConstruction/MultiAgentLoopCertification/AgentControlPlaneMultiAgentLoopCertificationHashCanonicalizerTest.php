@@ -251,4 +251,85 @@ class AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizerTest extends 
         self::assertArrayNotHasKey('active_lease_count', $result['lease_summary']);
         self::assertSame(10, $result['lease_summary']['max_leases']);
     }
+
+    // ── AC: canonicalizeInvariantMatrixForHash() / hashInvariantMatrix() ─────────
+
+    private function invariantMatrixPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'generated_at' => '2026-06-26T00:00:00Z',
+            'pid' => 12345,
+            'temp_path' => '/tmp/atlas-run-abc123',
+            'entry_count' => 7,
+            'rows' => [
+                [
+                    'id' => 'allowed_files_isolation',
+                    'value' => true,
+                    'lane_id' => 'lane-1',
+                    'task_id' => 'task-1',
+                    'lease_id' => 'lease-1',
+                    'proof_source' => 'queue_claim_scope_lock',
+                    'failure_action' => 'reject_claim_and_requeue_overlapping_scope',
+                ],
+            ],
+        ], $overrides);
+    }
+
+    public function test_canonicalize_invariant_matrix_strips_timestamps_pid_temp_path_and_display_counters(): void
+    {
+        $result = AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::canonicalizeInvariantMatrixForHash($this->invariantMatrixPayload());
+
+        self::assertArrayNotHasKey('generated_at', $result);
+        self::assertArrayNotHasKey('pid', $result);
+        self::assertArrayNotHasKey('temp_path', $result);
+        self::assertArrayNotHasKey('entry_count', $result);
+    }
+
+    public function test_canonicalize_invariant_matrix_preserves_safety_relevant_fields(): void
+    {
+        $result = AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::canonicalizeInvariantMatrixForHash($this->invariantMatrixPayload());
+        $row = $result['rows'][0];
+
+        self::assertSame('allowed_files_isolation', $row['id']);
+        self::assertTrue($row['value']);
+        self::assertSame('lane-1', $row['lane_id']);
+        self::assertSame('task-1', $row['task_id']);
+        self::assertSame('lease-1', $row['lease_id']);
+        self::assertSame('queue_claim_scope_lock', $row['proof_source']);
+        self::assertSame('reject_claim_and_requeue_overlapping_scope', $row['failure_action']);
+    }
+
+    public function test_hash_invariant_matrix_changes_when_a_safety_relevant_field_changes(): void
+    {
+        $a = AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::hashInvariantMatrix($this->invariantMatrixPayload());
+        $changed = $this->invariantMatrixPayload();
+        $changed['rows'][0]['value'] = false;
+        $b = AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::hashInvariantMatrix($changed);
+
+        self::assertNotSame($a, $b);
+    }
+
+    public function test_hash_invariant_matrix_unchanged_when_only_volatile_noise_differs(): void
+    {
+        $a = AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::hashInvariantMatrix($this->invariantMatrixPayload());
+        $b = AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::hashInvariantMatrix($this->invariantMatrixPayload([
+            'generated_at' => '2099-01-01T00:00:00Z',
+            'pid' => 99999,
+            'temp_path' => '/tmp/atlas-run-different',
+            'entry_count' => 999,
+        ]));
+
+        self::assertSame($a, $b);
+    }
+
+    public function test_hash_invariant_matrix_is_order_independent(): void
+    {
+        $payload = $this->invariantMatrixPayload();
+        $reordered = array_reverse($payload, true);
+
+        $a = AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::hashInvariantMatrix($payload);
+        $b = AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::hashInvariantMatrix($reordered);
+
+        self::assertSame($a, $b);
+    }
 }
