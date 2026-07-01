@@ -193,6 +193,65 @@ final class AtlasTaskFabricBatchValueDiversityGateTest extends TestCase
         $this->assertArrayNotHasKey('template_farm_concentration', $r['diversity_facts']);
     }
 
+    // ── AC2: renamed-wrapper specs are rejected even without worker-floor language ──
+
+    public function test_renamed_wrapper_batch_is_rejected_as_template_width_not_value_diversity(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Harden AtlasFooWidgetService so it validates every input field', ['Passes validation'], ['app/Foo/A.php']),
+            $this->spec('Harden AtlasBarGadgetHandler so it validates every input field', ['Passes validation'], ['app/Foo/B.php']),
+            $this->spec('Harden AtlasBazModuleWorker so it validates every input field', ['Passes validation'], ['app/Foo/C.php']),
+        ]);
+
+        $this->assertFalse($r['passed']);
+        $this->assertContains('template_width_not_value_diversity', $r['blockers']);
+        $this->assertNotEmpty($r['repair_hints']);
+    }
+
+    // ── AC3: a genuinely diverse batch (repair, simplification, hardening, learning) passes ──
+
+    public function test_batch_of_bug_repair_simplification_gate_hardening_and_outcome_learning_passes(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Fix the bug causing packets to double-claim under contention', ['No double-claim reproduces'], ['app/Queue/Claim.php', 'tests/ClaimTest.php']),
+            $this->spec('Consolidate and deduplicate the redundant retry wrappers', ['Retry paths collapse to one'], ['app/Retry/Wrapper.php', 'app/Retry/Handler.php']),
+            $this->spec('Harden the release gate so it rejects unverified proof', ['Gate rejects unverified proof'], ['app/Gate/Release.php', 'tests/ReleaseGateTest.php']),
+            $this->spec('Capture the outcome learning signal from resolved tasks into memory', ['Insight retrievable after capture'], ['app/Learning/Capture.php', 'app/Learning/Store.php']),
+        ]);
+
+        $this->assertTrue($r['passed']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertGreaterThanOrEqual(2, $r['diversity_facts']['distinct_dimension_count']);
+    }
+
+    // ── AC4: duplicate mechanism clusters are reported for the originator ─────
+
+    public function test_duplicate_mechanism_clusters_names_the_duplicate_specs(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Harden AtlasFooWidgetService so it validates every input field'),
+            $this->spec('Harden AtlasBarGadgetHandler so it validates every input field'),
+            $this->spec('Verify gate proof chain end to end'),
+        ]);
+
+        $clusters = $r['diversity_facts']['duplicate_mechanism_clusters'];
+        $this->assertNotEmpty($clusters);
+        $this->assertSame(2, $clusters[0]['count']);
+        $this->assertSame([0, 1], $clusters[0]['spec_indices']);
+        $this->assertContains('Harden AtlasFooWidgetService so it validates every input field', $clusters[0]['objectives']);
+        $this->assertContains('Harden AtlasBarGadgetHandler so it validates every input field', $clusters[0]['objectives']);
+    }
+
+    public function test_duplicate_mechanism_clusters_is_empty_when_no_two_specs_share_a_mechanism(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Fix queue jam in replenisher', ['Queue drains without error'], ['app/Queue/Replenisher.php', 'tests/QueueTest.php']),
+            $this->spec('Verify gate proof chain end to end', ['Test passes green'], ['app/Gate/Chain.php', 'tests/GateChainTest.php']),
+        ]);
+
+        $this->assertSame([], $r['diversity_facts']['duplicate_mechanism_clusters']);
+    }
+
     public function test_gate_source_has_no_side_effects(): void
     {
         $src = (string) file_get_contents(__DIR__ . '/../../../../../app/Services/Ai/SelfConstruction/TaskFabric/AtlasTaskFabricBatchValueDiversityGate.php');

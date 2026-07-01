@@ -18,11 +18,21 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  *                                            with numeric ids/counters stripped) — catches a batch
  *                                            that looks superficially varied (different counters)
  *                                            but is actually homogeneous padding.
+ *   - template_width_not_value_diversity   : >50% specs share the same MECHANISM fingerprint
+ *                                            (objective with numeric ids AND class-name-like
+ *                                            identifiers stripped) — unlike template_farm_concentration
+ *                                            this is unconditional (no worker-floor language gate),
+ *                                            catching a batch of "renamed wrapper" specs whose only
+ *                                            difference is the target class/file name (AC2 new).
  *
  * options.batch_purpose (e.g. 'replenish_soon') is informational only: a smaller emergency
  * top-up batch is allowed through on the SAME rules as any other batch — the dimension-diversity
  * check (>=2 distinct value dimensions) is what decides whether it is real, varied work or
  * homogeneous padding; there is no separate minimum-size rule to relax.
+ *
+ * diversity_facts.duplicate_mechanism_clusters (AC4 new): every mechanism-fingerprint group with
+ * 2+ members, each naming its spec_indices and objectives, so the originator can see exactly which
+ * weak/duplicate specs to replace instead of only a pass/fail verdict.
  *
  * NO process execution, NO filesystem, NO providers.
  * Output is DETERMINISTIC given the same input.
@@ -140,6 +150,44 @@ final class AtlasTaskFabricBatchValueDiversityGate
             }
         }
 
+        // AC2: mechanism-fingerprint concentration — unconditional (no worker-floor language
+        // gate), so a batch of "renamed wrapper" specs (same shape, different target class/file)
+        // is caught even when it never mentions worker/claimable/top-up language.
+        $mechanismFingerprints = array_map(
+            fn (array $s): string => $this->mechanismFingerprint((string) ($s['objective'] ?? '')),
+            $specs,
+        );
+        $mfCounts = array_count_values($mechanismFingerprints);
+        arsort($mfCounts);
+        $topMf = (string) array_key_first($mfCounts);
+        $topMfCount = $mfCounts[$topMf] ?? 0;
+        $mechanismConcentration = $topMfCount / $total;
+        $diversityFacts['mechanism_fingerprint_concentration'] = round($mechanismConcentration, 3);
+        if ($mechanismConcentration > self::CONCENTRATION_THRESHOLD) {
+            $blockers[]    = 'template_width_not_value_diversity';
+            $repairHints[] = "Batch is a renamed-wrapper template: {$topMfCount}/{$total} specs share the same structural shape once class/file names and ids are stripped. Vary the underlying leverage mechanism, not just the target name.";
+        }
+
+        // AC4: duplicate mechanism clusters — every group with 2+ members, so the originator can
+        // see exactly which specs are duplicates and replace the weak ones.
+        $mechanismGroups = [];
+        foreach ($specs as $i => $s) {
+            $mechanismGroups[$mechanismFingerprints[$i]][] = ['index' => $i, 'objective' => (string) ($s['objective'] ?? '')];
+        }
+        $duplicateClusters = [];
+        foreach ($mechanismGroups as $fingerprint => $members) {
+            if (count($members) > 1) {
+                $duplicateClusters[] = [
+                    'mechanism_fingerprint' => $fingerprint,
+                    'count' => count($members),
+                    'spec_indices' => array_column($members, 'index'),
+                    'objectives' => array_column($members, 'objective'),
+                ];
+            }
+        }
+        usort($duplicateClusters, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
+        $diversityFacts['duplicate_mechanism_clusters'] = $duplicateClusters;
+
         return [
             'schema_version' => self::SCHEMA,
             'passed'         => $blockers === [],
@@ -195,6 +243,23 @@ final class AtlasTaskFabricBatchValueDiversityGate
     private function templateFingerprint(string $objective): string
     {
         $normalized = strtolower((string) preg_replace('/[^a-z0-9 ]/i', ' ', $objective));
+        $normalized = (string) preg_replace('/\b[0-9]+\b/', '', $normalized);
+        $words = array_values(array_filter(explode(' ', $normalized)));
+
+        return implode(' ', $words);
+    }
+
+    /**
+     * Structural mechanism shape of an objective with class/file-name-like identifiers (words
+     * containing a second capital letter, e.g. "AtlasFooWidget") AND numeric ids/counters both
+     * stripped — so "Harden AtlasFooWidget so it validates" and "Harden AtlasBarGadget so it
+     * validates" collapse to the same fingerprint even though every other fingerprint in this
+     * file (which only strips digits or matches raw words) would treat them as distinct.
+     */
+    private function mechanismFingerprint(string $objective): string
+    {
+        $withPlaceholders = (string) preg_replace('/\b[A-Za-z][a-z0-9]*[A-Z][a-zA-Z0-9]*\b/', 'IDENT', $objective);
+        $normalized = strtolower((string) preg_replace('/[^a-z0-9 ]/i', ' ', $withPlaceholders));
         $normalized = (string) preg_replace('/\b[0-9]+\b/', '', $normalized);
         $words = array_values(array_filter(explode(' ', $normalized)));
 
