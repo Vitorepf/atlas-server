@@ -128,4 +128,41 @@ final class AaeosBlockerSeverityGateTest extends TestCase
         self::assertSame(0, $result['high_count']);
         self::assertSame(0, $result['medium_count']);
     }
+
+    public function testCriticalSeverityBlocksAndCountsSeparatelyFromHigh(): void
+    {
+        $result = $this->gate->assess([
+            ['id' => 'b1', 'severity' => 'critical', 'owner' => 'aaeos'],
+            ['id' => 'b2', 'severity' => 'high', 'owner' => 'aaeos'],
+        ]);
+
+        self::assertSame('blocked', $result['signal']);
+        self::assertSame(1, $result['critical_count']);
+        self::assertSame(1, $result['high_count']);
+    }
+
+    public function testLowAndUnknownSeveritiesAreCountedButDoNotBlockOrWarn(): void
+    {
+        $result = $this->gate->assess([
+            ['id' => 'b1', 'severity' => 'low', 'owner' => 'aaeos'],
+            ['id' => 'b2', 'severity' => 'weird', 'owner' => 'aaeos'],
+        ]);
+
+        self::assertSame('clear', $result['signal']);
+        self::assertSame(1, $result['low_count']);
+        self::assertSame(1, $result['unknown_count']);
+    }
+
+    public function testHighOrCriticalBlockersWithoutOwnerAppearInOwnerlessBlockers(): void
+    {
+        $result = $this->gate->assess([
+            ['id' => 'b1', 'severity' => 'high', 'owner' => ''],
+            ['id' => 'b2', 'severity' => 'critical'],
+            ['id' => 'b3', 'severity' => 'high', 'owner' => 'aaeos'],
+            ['id' => 'b4', 'severity' => 'low', 'owner' => ''],
+        ]);
+
+        self::assertCount(2, $result['ownerless_blockers']);
+        self::assertSame(['b1', 'b2'], array_column($result['ownerless_blockers'], 'id'));
+    }
 }
