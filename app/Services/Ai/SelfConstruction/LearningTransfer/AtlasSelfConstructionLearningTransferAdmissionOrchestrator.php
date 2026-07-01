@@ -80,6 +80,10 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         $candidate = [
             'class' => (string) ($classification['class'] ?? ''),
             'observations' => $this->synthesizeObservations($classification, $giveBackFact),
+            // A give_back lesson's most direct future effect is changing whether a similar
+            // packet gets admitted next time; callers may override with a more specific
+            // decision_impact (blocked_repair, worker_feed_replenishment) via $giveBackFact.
+            'decision_impact' => array_values((array) ($giveBackFact['decision_impact'] ?? ['packet_admission'])),
         ];
         $gateDecision = $this->gate->admit($candidate, $thresholds);
         $decision = (string) ($gateDecision['decision'] ?? '');
