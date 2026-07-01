@@ -113,6 +113,43 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelopeTest extends TestC
         $this->assertContains('no_artisan_proof_in_gates_or_evidence', $env['blockers']);
     }
 
+    public function test_generic_artisan_test_gate_with_no_allowed_file_binding_is_invalid(): void
+    {
+        $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input([
+            'gates' => ['/opt/homebrew/bin/php artisan test', 'php-lint'],
+            'evidence_requirements' => ['phpunit_green'],
+        ]));
+
+        $this->assertFalse($env['valid']);
+        $this->assertContains('proof_not_bound_to_allowed_files', $env['blockers']);
+        $this->assertNotContains('no_artisan_proof_in_gates_or_evidence', $env['blockers']);
+    }
+
+    public function test_gate_naming_concrete_allowed_test_path_is_valid(): void
+    {
+        $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input([
+            'gates' => ['/opt/homebrew/bin/php artisan test tests/FooTest.php'],
+            'evidence_requirements' => [],
+        ]));
+
+        $this->assertTrue($env['valid']);
+        $this->assertNotContains('proof_not_bound_to_allowed_files', $env['blockers']);
+    }
+
+    public function test_proof_not_bound_blocker_does_not_weaken_other_blockers(): void
+    {
+        $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input([
+            'lease_id' => '',
+            'forbidden_files' => ['app/Foo.php'],
+            'gates' => ['/opt/homebrew/bin/php artisan test', 'php-lint'],
+        ]));
+
+        $this->assertFalse($env['valid']);
+        $this->assertContains('lease_id_missing', $env['blockers']);
+        $this->assertContains('proof_not_bound_to_allowed_files', $env['blockers']);
+        $this->assertContains('allowed_forbidden_overlap:app/Foo.php', $env['blockers']);
+    }
+
     public function test_duplicate_paths_are_deduplicated(): void
     {
         $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input([

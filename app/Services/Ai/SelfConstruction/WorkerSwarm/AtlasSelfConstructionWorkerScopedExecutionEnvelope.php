@@ -68,14 +68,24 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelope
             $blockers[] = 'gates_missing';
         }
         $hasArtisan = false;
+        $boundToAllowed = false;
         foreach (array_merge($gates, $evidence) as $item) {
-            if (str_contains((string) $item, 'php artisan')) {
-                $hasArtisan = true;
-                break;
+            $item = (string) $item;
+            if (! str_contains($item, 'php artisan')) {
+                continue;
+            }
+            $hasArtisan = true;
+            foreach ($allowed as $path) {
+                if ($path !== '' && (str_contains($item, $path) || str_contains($item, basename($path, '.php')))) {
+                    $boundToAllowed = true;
+                    break 2;
+                }
             }
         }
         if (! $hasArtisan) {
             $blockers[] = 'no_artisan_proof_in_gates_or_evidence';
+        } elseif (! $boundToAllowed) {
+            $blockers[] = 'proof_not_bound_to_allowed_files';
         }
 
         $envelope = [
