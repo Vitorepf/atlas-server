@@ -23,10 +23,16 @@ final class RetrievalFanoutGate
      * run set so the fanout never resolves to zero retrievers. The run set is
      * ordered by descending score.
      *
+     * An optional max_run budget caps how many above-threshold dimensions may
+     * actually run: only the highest-scoring ones up to the budget run, the
+     * rest are marked skipped_by_budget. The budget is clamped to at least 1
+     * so the fanout never resolves to zero retrievers; a budget at or above
+     * the run-set size has no effect.
+     *
      * @param  array<string,mixed>  $scores
      * @return array{run:array<int,string>, skipped:array<int,string>, reasons:array<string,string>}
      */
-    public function gate(array $scores, float $threshold = 0.5): array
+    public function gate(array $scores, float $threshold = 0.5, ?int $maxRun = null): array
     {
         $clampedThreshold = $this->clampUnit($threshold);
 
@@ -70,9 +76,28 @@ final class RetrievalFanoutGate
             fn (string $left, string $right): int => $this->compareByDescendingScore($resolvedScores, $left, $right),
         );
 
+        if ($maxRun !== null) {
+            $clampedMaxRun = max(1, $maxRun);
+
+            if ($clampedMaxRun < count($run)) {
+                $budgetedOut = array_slice($run, $clampedMaxRun);
+                $run = array_slice($run, 0, $clampedMaxRun);
+
+                foreach ($budgetedOut as $dimension) {
+                    $skipped[] = $dimension;
+                    $reasons[$dimension] = 'skipped_by_budget';
+                }
+
+                usort(
+                    $skipped,
+                    fn (string $left, string $right): int => $this->dimensionRank($left) <=> $this->dimensionRank($right),
+                );
+            }
+        }
+
         return [
             'run' => array_values($run),
-            'skipped' => $skipped,
+            'skipped' => array_values($skipped),
             'reasons' => $reasons,
         ];
     }
