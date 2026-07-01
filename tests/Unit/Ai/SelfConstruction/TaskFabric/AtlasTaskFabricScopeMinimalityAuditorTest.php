@@ -178,4 +178,43 @@ final class AtlasTaskFabricScopeMinimalityAuditorTest extends TestCase
 
         $this->assertSame([], $r['unrelated_files']);
     }
+
+    // ── AC: overbroad_allowed_files alias ───────────────────────────────────────
+
+    public function test_overbroad_allowed_files_mirrors_overbroad_files(): void
+    {
+        $r = $this->svc()->audit($this->cleanSpec([
+            'allowed_files' => ['app/Services/', 'tests/Unit/FooTest.php'],
+        ]));
+
+        $this->assertSame($r['overbroad_files'], $r['overbroad_allowed_files']);
+        $this->assertContains('app/Services/', $r['overbroad_allowed_files']);
+    }
+
+    // ── AC: unrelated sibling exempted when dependency_evidence is supplied ────
+
+    public function test_unrelated_file_exempted_when_dependency_evidence_supplied(): void
+    {
+        $r = $this->svc()->audit($this->cleanSpec([
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php', 'app/Services/Unrelated.php'],
+            'objective_symbols' => ['Foo'],
+            'dependency_evidence' => ['app/Services/Unrelated.php'],
+        ]));
+
+        $this->assertTrue($r['scope_ok']);
+        $this->assertNotContains('app/Services/Unrelated.php', $r['unrelated_files']);
+    }
+
+    public function test_dependency_evidence_does_not_exempt_files_not_listed(): void
+    {
+        $r = $this->svc()->audit($this->cleanSpec([
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php', 'app/Services/Unrelated.php', 'app/Services/AlsoUnrelated.php'],
+            'objective_symbols' => ['Foo'],
+            'dependency_evidence' => ['app/Services/Unrelated.php'],
+        ]));
+
+        $this->assertFalse($r['scope_ok']);
+        $this->assertNotContains('app/Services/Unrelated.php', $r['unrelated_files']);
+        $this->assertContains('app/Services/AlsoUnrelated.php', $r['unrelated_files']);
+    }
 }

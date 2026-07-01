@@ -10,8 +10,10 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  * Overbroad files: bare directories (trailing /), wildcards (*), extensionless paths.
  * Missing required files: no implementation file (non-test .php in app/) or no test file.
  * Hidden self-targets: files present in both allowed_files and forbidden_files.
+ * Unrelated sibling files an objective_symbols check would flag are exempted when the
+ * caller supplies dependency_evidence for that file — a proven dependency, not a guess.
  *
- * scope_ok=true only when all three lists are empty.
+ * scope_ok=true only when all four lists are empty.
  */
 final class AtlasTaskFabricScopeMinimalityAuditor
 {
@@ -63,13 +65,15 @@ final class AtlasTaskFabricScopeMinimalityAuditor
         // that never pass it keep prior behavior unchanged), an allowed file whose basename
         // matches none of the declared symbols is scope bloat a muscle would have to read
         // through for no reason, without ever removing the implementation/test pair itself.
+        $dependencyEvidence = array_values(array_map('strval', (array) ($spec['dependency_evidence'] ?? [])));
+
         $unrelatedFiles = [];
         $objectiveSymbols = array_key_exists('objective_symbols', $spec)
             ? array_values(array_map('strval', (array) $spec['objective_symbols']))
             : null;
         if ($objectiveSymbols !== null && $objectiveSymbols !== []) {
             foreach ($allowed as $file) {
-                if (in_array($file, $overbroadFiles, true)) {
+                if (in_array($file, $overbroadFiles, true) || in_array($file, $dependencyEvidence, true)) {
                     continue;
                 }
                 $base = basename($file, '.php');
@@ -93,6 +97,7 @@ final class AtlasTaskFabricScopeMinimalityAuditor
             'scope_ok' => $hiddenSelfTargets === [] && $overbroadFiles === [] && $missingRequired === [] && $unrelatedFiles === [],
             'missing_required_files' => $missingRequired,
             'overbroad_files' => $overbroadFiles,
+            'overbroad_allowed_files' => $overbroadFiles,
             'hidden_self_target_flags' => $hiddenSelfTargets,
             'unrelated_files' => $unrelatedFiles,
             'allowed_files_count' => count($allowed),
