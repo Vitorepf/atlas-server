@@ -129,12 +129,36 @@ final class AtlasExternalBrainDecisionLedgerCompactor
 
         usort($lessons, static fn (array $a, array $b): int => strcmp($a['lesson_id'], $b['lesson_id']));
 
+        $allInputEvidenceRefs = [];
+        foreach ($traces as $trace) {
+            foreach ($this->normalizeList($trace['evidence_refs'] ?? []) as $ref) {
+                $allInputEvidenceRefs[$ref] = true;
+            }
+        }
+        $retainedEvidenceRefs = [];
+        foreach ($lessons as $lesson) {
+            foreach ($lesson['retained_evidence'] as $ref) {
+                $retainedEvidenceRefs[$ref] = true;
+            }
+        }
+        $lostEvidenceRefCount = count(array_diff_key($allInputEvidenceRefs, $retainedEvidenceRefs));
+        $keptSeparateCount = count($standalone);
+        $outputLessonCount = count($lessons);
+
         return [
             'schema'             => self::SCHEMA,
             'lessons'            => $lessons,
-            'lesson_count'       => count($lessons),
+            'lesson_count'       => $outputLessonCount,
             'compacted_from'     => $total,
-            'compaction_savings' => max(0, $total - count($lessons)),
+            'compaction_savings' => max(0, $total - $outputLessonCount),
+            'compaction_metrics' => [
+                'input_trace_count'          => $total,
+                'output_lesson_count'        => $outputLessonCount,
+                'compaction_ratio'           => $total > 0 ? round($outputLessonCount / $total, 4) : 0.0,
+                'kept_separate_count'        => $keptSeparateCount,
+                'retained_evidence_ref_count' => count($retainedEvidenceRefs),
+                'lost_evidence_ref_count'     => $lostEvidenceRefCount,
+            ],
         ];
     }
 

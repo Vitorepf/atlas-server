@@ -491,4 +491,53 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
         $this->assertStringContainsString('preserved 1', $result['compact_summary']);
         $this->assertStringContainsString('dropped 1', $result['compact_summary']);
     }
+
+    // ── compaction_metrics ─────────────────────────────────────────────────────
+
+    public function test_compaction_metrics_has_required_fields(): void
+    {
+        $result = $this->compactor->compact(['traces' => [$this->trace(['trace_id' => 'T1'])]]);
+
+        $metrics = $result['compaction_metrics'];
+        foreach (['input_trace_count', 'output_lesson_count', 'compaction_ratio', 'kept_separate_count', 'retained_evidence_ref_count', 'lost_evidence_ref_count'] as $k) {
+            $this->assertArrayHasKey($k, $metrics);
+        }
+    }
+
+    public function test_lost_evidence_ref_count_is_zero_when_merging(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'evidence_refs' => ['ref-a']]),
+            $this->trace(['trace_id' => 'T2', 'evidence_refs' => ['ref-b']]),
+        ]]);
+
+        $this->assertSame(0, $result['compaction_metrics']['lost_evidence_ref_count']);
+        $this->assertSame(2, $result['compaction_metrics']['retained_evidence_ref_count']);
+    }
+
+    public function test_kept_separate_count_includes_all_five_isolation_reasons(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'is_contradictory' => true]),
+            $this->trace(['trace_id' => 'T2', 'uncertainty' => 'high']),
+            $this->trace(['trace_id' => 'T3', 'is_stale' => true]),
+            $this->trace(['trace_id' => 'T4', 'reversibility' => 'irreversible']),
+            $this->trace(['trace_id' => 'T5', 'is_expired' => true]),
+        ]]);
+
+        $this->assertSame(5, $result['compaction_metrics']['kept_separate_count']);
+    }
+
+    public function test_compaction_metrics_input_and_output_counts(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1']),
+            $this->trace(['trace_id' => 'T2']),
+            $this->trace(['trace_id' => 'T3']),
+        ]]);
+
+        $metrics = $result['compaction_metrics'];
+        $this->assertSame(3, $metrics['input_trace_count']);
+        $this->assertSame($result['lesson_count'], $metrics['output_lesson_count']);
+    }
 }
