@@ -463,4 +463,99 @@ final class AtlasExternalBrainScaffoldComplianceVerifierTest extends TestCase
 
         $this->assertSame(['replay', 'critique', 'anti_proxy', 'escalation', 'evidence_capture'], $result['required_sections']);
     }
+
+    // ── AC1: outputs without code or queue grounding fail with missing_grounding ──
+
+    public function test_task_without_code_or_queue_grounding_is_refused_with_missing_grounding(): void
+    {
+        $input = $this->compliantRun();
+        $input['run']['produced_tasks'] = [[
+            'task_id'            => 'task-1',
+            'acceptance_criteria' => ['phpunit must exit 0 and everything must be fine.'],
+        ]];
+
+        $result = $this->verifier()->verify($input);
+
+        $this->assertFalse($result['compliant']);
+        $this->assertContains('missing_grounding', $result['missing_steps']);
+        $refused = $result['refused_tasks'][0];
+        $this->assertSame('task-1', $refused['task_id']);
+        $this->assertStringContainsString('missing_grounding', $refused['reason']);
+    }
+
+    public function test_task_grounded_via_target_path_is_not_missing_grounding(): void
+    {
+        $input = $this->compliantRun();
+        $input['run']['produced_tasks'] = [[
+            'task_id'            => 'task-1',
+            'acceptance_criteria' => ['phpunit must exit 0.'],
+            'target_path'         => 'app/Services/Ai/Foo.php',
+        ]];
+
+        $result = $this->verifier()->verify($input);
+
+        $this->assertNotContains('missing_grounding', $result['missing_steps']);
+        $this->assertContains('task-1', $result['credited_tasks']);
+    }
+
+    public function test_task_grounded_via_grounding_refs_is_not_missing_grounding(): void
+    {
+        $input = $this->compliantRun();
+        $input['run']['produced_tasks'] = [[
+            'task_id'            => 'task-1',
+            'acceptance_criteria' => ['phpunit must exit 0.'],
+            'grounding_refs'      => ['app/Services/Ai/Foo.php:42'],
+        ]];
+
+        $result = $this->verifier()->verify($input);
+
+        $this->assertNotContains('missing_grounding', $result['missing_steps']);
+        $this->assertContains('task-1', $result['credited_tasks']);
+    }
+
+    // ── AC2: proxy-only observability outputs fail with proxy_work_detected ──
+
+    public function test_proxy_observability_task_is_refused_with_proxy_work_detected(): void
+    {
+        $input = $this->compliantRun();
+        $input['run']['produced_tasks'] = [[
+            'task_id'             => 'task-1',
+            'acceptance_criteria' => ['Running ./vendor/bin/phpunit tests/Unit/FooTest.php produces green output.'],
+            'work_classification' => 'proxy_observability',
+        ]];
+
+        $result = $this->verifier()->verify($input);
+
+        $this->assertFalse($result['compliant']);
+        $this->assertContains('proxy_work_detected', $result['missing_steps']);
+        $refused = $result['refused_tasks'][0];
+        $this->assertStringContainsString('proxy_work_detected', $refused['reason']);
+        $this->assertNotContains('task-1', $result['credited_tasks']);
+    }
+
+    public function test_real_capability_work_classification_is_not_flagged_proxy(): void
+    {
+        $result = $this->verifier()->verify($this->compliantRun());
+
+        $this->assertNotContains('proxy_work_detected', $result['missing_steps']);
+    }
+
+    // ── AC3: grounded task with runnable acceptance + impl/test scope passes compliance ──
+
+    public function test_grounded_task_with_runnable_acceptance_and_scope_passes_compliance(): void
+    {
+        $input = $this->compliantRun();
+        $input['run']['produced_tasks'] = [[
+            'task_id'            => 'task-1',
+            'acceptance_criteria' => ['Running ./vendor/bin/phpunit tests/Unit/Ai/FooTest.php produces green output.'],
+            'target_path'         => 'app/Services/Ai/Foo.php',
+            'work_classification' => 'real_capability',
+        ]];
+
+        $result = $this->verifier()->verify($input);
+
+        $this->assertTrue($result['compliant']);
+        $this->assertContains('task-1', $result['credited_tasks']);
+        $this->assertSame([], $result['refused_tasks']);
+    }
 }

@@ -20,11 +20,22 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * RUNNABLE CRITERION: acceptance criterion string must contain at least one of:
  *   phpunit, artisan, vendor/bin, ./vendor
  *
+ * GROUNDING: a task is grounded when it names concrete code/queue evidence — a `.php` path in
+ * one of its acceptance criteria, a non-empty `grounding_refs` list, or a non-empty
+ * `target_path`. A task with no such evidence is refused with missing_grounding: origination
+ * that never points at real code or a real queue target is not trustworthy.
+ *
+ * PROXY WORK: a task whose `work_classification` is explicitly `proxy_observability` is refused
+ * with proxy_work_detected — dashboards/metrics/logging-only busywork dressed as a real
+ * capability delta never gets credited.
+ *
  * WEAK ARTIFACT: artifact present but empty (empty list, empty string, empty array)
  *
  * TASK CREDIT LOGIC:
- *   credited  — task has ≥1 runnable acceptance criterion AND is present in final_batch
- *   refused   — task lacks runnable proof OR is absent from final_batch
+ *   credited  — task has ≥1 runnable acceptance criterion, is grounded, is not proxy
+ *               observability work, AND is present in final_batch
+ *   refused   — task lacks runnable proof, lacks grounding, is proxy observability work,
+ *               OR is absent from final_batch
  *
  * OUTPUT:
  *   { schema, compliant, missing_steps, weak_artifacts, credited_tasks, refused_tasks }
@@ -42,6 +53,8 @@ final class AtlasExternalBrainScaffoldComplianceVerifier
     private const STEP_IMPLEMENTABILITY_SIMULATION = 'implementability_simulation';
     private const STEP_RUNNABLE_ACCEPTANCE_PROOF   = 'runnable_acceptance_proof';
     private const STEP_FINAL_QUEUE_VALIDATION      = 'final_queue_validation';
+    private const STEP_MISSING_GROUNDING           = 'missing_grounding';
+    private const STEP_PROXY_WORK_DETECTED         = 'proxy_work_detected';
 
     private const RUNNABLE_INDICATORS = ['phpunit', 'artisan', 'vendor/bin', './vendor'];
 
@@ -150,14 +163,23 @@ final class AtlasExternalBrainScaffoldComplianceVerifier
                 }
             }
 
+            $isGrounded = $this->isGrounded($task, $criteria);
+            $isProxyWork = strtolower(trim((string) ($task['work_classification'] ?? ''))) === 'proxy_observability';
+
             $inFinalBatch = $finalBatch === null || isset($finalBatchIds[$taskId]);
 
-            if ($hasRunnable && $inFinalBatch) {
+            if ($hasRunnable && $isGrounded && ! $isProxyWork && $inFinalBatch) {
                 $creditedTasks[] = $taskId;
             } else {
                 $reasons = [];
                 if (! $hasRunnable) {
                     $reasons[] = 'no runnable acceptance criterion (must contain phpunit/artisan/vendor/bin)';
+                }
+                if (! $isGrounded) {
+                    $reasons[] = 'missing_grounding: no code/queue evidence (file path, grounding_refs, or target_path)';
+                }
+                if ($isProxyWork) {
+                    $reasons[] = 'proxy_work_detected: task is classified as proxy_observability';
                 }
                 if (! $inFinalBatch) {
                     $reasons[] = 'task not present in final_batch';
@@ -169,14 +191,27 @@ final class AtlasExternalBrainScaffoldComplianceVerifier
 
         // runnable_acceptance_proof step fails if any task was refused for lack of runnable proof.
         $hasRunnableStepFailure = false;
+        $hasGroundingStepFailure = false;
+        $hasProxyStepFailure = false;
         foreach ($refusedTasks as $rt) {
-            if (str_contains($rt['reason'], 'runnable')) {
+            if (str_contains($rt['reason'], 'no runnable acceptance criterion')) {
                 $hasRunnableStepFailure = true;
-                break;
+            }
+            if (str_contains($rt['reason'], 'missing_grounding')) {
+                $hasGroundingStepFailure = true;
+            }
+            if (str_contains($rt['reason'], 'proxy_work_detected')) {
+                $hasProxyStepFailure = true;
             }
         }
         if ($hasRunnableStepFailure) {
             $missingSteps[] = self::STEP_RUNNABLE_ACCEPTANCE_PROOF;
+        }
+        if ($hasGroundingStepFailure) {
+            $missingSteps[] = self::STEP_MISSING_GROUNDING;
+        }
+        if ($hasProxyStepFailure) {
+            $missingSteps[] = self::STEP_PROXY_WORK_DETECTED;
         }
 
         $compliant = $missingSteps === [] && $weakArtifacts === [] && ! $anyTaskRefused;
@@ -240,6 +275,35 @@ final class AtlasExternalBrainScaffoldComplianceVerifier
         $lower = strtolower($criterion);
         foreach (self::RUNNABLE_INDICATORS as $indicator) {
             if (str_contains($lower, $indicator)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * A task is grounded when it names concrete code/queue evidence: a non-empty
+     * grounding_refs list, a non-empty target_path, or a `.php` file path referenced
+     * in one of its acceptance criteria.
+     *
+     * @param  array<string,mixed>  $task
+     * @param  list<mixed>  $criteria
+     */
+    private function isGrounded(array $task, array $criteria): bool
+    {
+        $groundingRefs = array_values((array) ($task['grounding_refs'] ?? []));
+        if ($groundingRefs !== []) {
+            return true;
+        }
+
+        $targetPath = trim((string) ($task['target_path'] ?? ''));
+        if ($targetPath !== '') {
+            return true;
+        }
+
+        foreach ($criteria as $criterion) {
+            if (preg_match('#[A-Za-z0-9_/\-]+\.php#', (string) $criterion) === 1) {
                 return true;
             }
         }
