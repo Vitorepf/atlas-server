@@ -123,13 +123,25 @@ class AtlasMaestroBudgetGateTest extends TestCase
         $ledger = $this->ledgerWithFacts(5, 10); // sum = 50, exceeds 20
 
         $verdict = (new AtlasMaestroBudgetGate(new AtlasMaestroCostAggregator($ledger)))
-            ->decide('pk-native', 'atlas_native', 'coverage', null, ['cost_cents' => 0]);
+            ->decide('pk-native', 'atlas_native', 'coverage', null, ['cost_cents' => 0, 'atlas_native_capability_proof' => 'receipt:pk-native']);
 
         self::assertSame(AtlasMaestroBudgetGate::GATE_ALLOW, $verdict['gate']);
         self::assertSame('atlas_native_zero_cost', $verdict['reason']);
         self::assertSame('native_declared', $verdict['fact_source']);
         self::assertNull($verdict['window']);
         self::assertSame(0, $verdict['overage_cents']);
+    }
+
+    public function test_atlas_native_zero_cost_without_capability_proof_does_not_use_zero_cost_exemption(): void
+    {
+        Config::set('atlas.maestro.cost.budgets', ['per_provider_per_day_cents' => 20]);
+        Config::set('atlas.maestro.cost.budget_gate_enforce', true);
+        $ledger = $this->ledgerWithFacts(5, 10); // sum = 50, exceeds 20
+
+        $verdict = (new AtlasMaestroBudgetGate(new AtlasMaestroCostAggregator($ledger)))
+            ->decide('pk-native', 'atlas_native', 'coverage', null, ['cost_cents' => 0]);
+
+        self::assertNotSame('atlas_native_zero_cost', $verdict['reason']);
     }
 
     public function test_every_decision_envelope_includes_required_audit_fields(): void

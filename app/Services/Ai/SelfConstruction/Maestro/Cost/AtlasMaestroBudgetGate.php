@@ -40,8 +40,11 @@ final class AtlasMaestroBudgetGate
         $env = fn (string $gate, string $reason, ?string $window, int $overageCents, string $factSource = 'aggregator'): array =>
             $this->envelope($gate, $reason, $window, $overageCents, $taskPacketId, $provider, $taskClass, $factSource);
 
-        // Atlas-native zero-cost exemption: local execution has no provider spend.
-        if ($provider === 'atlas_native' && array_key_exists('cost_cents', $facts) && (int) $facts['cost_cents'] === 0) {
+        // Atlas-native zero-cost exemption: local execution has no provider spend. Requires an
+        // explicit atlas_native_capability_proof fact — a bare zero-cost claim alone is not proof
+        // and must not bypass budget windows (that would be a fake zero-cost claim).
+        if ($provider === 'atlas_native' && array_key_exists('cost_cents', $facts) && (int) $facts['cost_cents'] === 0
+            && ! empty($facts['atlas_native_capability_proof'])) {
             return $env(self::GATE_ALLOW, 'atlas_native_zero_cost', null, 0, 'native_declared');
         }
 
