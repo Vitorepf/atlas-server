@@ -9,6 +9,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStar
 {
     public function __construct(
         private readonly AgentCodexRealInvokerManualStartExecutorReceiptWriter $manualStartExecutorReceiptWriter,
+        private readonly AgentDispatchExecutorReleaseAuthorizationPersistenceWriter $releaseAuthorizationPersistenceWriter,
     ) {}
 
     /**
@@ -19,6 +20,16 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStar
     {
         $normalized = $this->normalize($input);
         $result = $this->manualStartExecutorReceiptWriter->writeManualStartExecutorReceipt($normalized);
+
+        // When the caller supplies a signed release_authorization payload alongside the receipt
+        // input, persist it through the same append-only path the release authorization writer
+        // already proves (idempotent by signed_receipt_hash). Absent it, this is a no-op — the
+        // manual start executor receipt path itself never required a release authorization.
+        $releaseAuthorizationResult = null;
+        if (is_array($input['release_authorization'] ?? null)) {
+            $releaseAuthorizationResult = $this->releaseAuthorizationPersistenceWriter
+                ->persistSignedReleaseAuthorization($input['release_authorization']);
+        }
 
         return [
             'status' => 'one_shot_scheduler_codex_real_invoker_manual_start_executor_receipt_written',
@@ -47,6 +58,8 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStar
             'ledger_event_id' => data_get($result, 'ledger_event_id'),
             'idempotent' => data_get($result, 'idempotent'),
             'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_contract',
+            'release_authorization_persisted' => $releaseAuthorizationResult !== null,
+            'release_authorization_result' => $releaseAuthorizationResult,
         ];
     }
 
