@@ -26,10 +26,11 @@ final class AtlasTaskBlockedRespecPlanRegressionHarnessTest extends TestCase
             AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_FORBIDDEN_TARGET_SUSPECT,
             AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_CONTRADICTORY_ACCEPTANCE_SUSPECT,
             AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_DUPLICATE_ALREADY_DONE_SUSPECT,
+            AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_TEST_ONLY_MISSING_IMPLEMENTATION_SUSPECT,
         ] as $name) {
             $this->assertArrayHasKey($name, $fixtures, "missing fixture: {$name}");
         }
-        $this->assertCount(5, $fixtures);
+        $this->assertCount(6, $fixtures);
     }
 
     public function test_fixture_lookup_by_name_matches_the_full_list(): void
@@ -136,5 +137,120 @@ final class AtlasTaskBlockedRespecPlanRegressionHarnessTest extends TestCase
         $b = $this->svc()->fixtures();
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
+    }
+
+    // ── AC2: test-only / missing-implementation fixture ───────────────────────
+
+    public function test_test_only_missing_implementation_suspect_fixture_can_never_submit(): void
+    {
+        $fixture = $this->svc()->fixture(AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_TEST_ONLY_MISSING_IMPLEMENTATION_SUSPECT);
+
+        $this->assertNotNull($fixture);
+        $this->assertSame('test_only_missing_implementation', $fixture['expected_likely_family']);
+        $this->assertFalse($fixture['expected_can_submit']);
+        $this->assertSame(AtlasTaskBlockedRespecPlanRegressionHarness::ACTION_GIVE_BACK_OR_RESPEC, $fixture['expected_safe_next_action']);
+    }
+
+    public function test_test_only_missing_implementation_source_packet_has_only_a_test_file(): void
+    {
+        $fixture = $this->svc()->fixture(AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_TEST_ONLY_MISSING_IMPLEMENTATION_SUSPECT);
+
+        $allowedFiles = $fixture['source_packet']['allowed_files'];
+        $this->assertCount(1, $allowedFiles);
+        $this->assertStringStartsWith('tests/', $allowedFiles[0]);
+    }
+
+    // ── AC3: every fixture carries an anti_regression_reason and a repair action ──
+
+    public function test_every_fixture_has_anti_regression_reason(): void
+    {
+        foreach ($this->svc()->fixtures() as $name => $fixture) {
+            $this->assertArrayHasKey('anti_regression_reason', $fixture, "fixture {$name} missing anti_regression_reason");
+            $this->assertNotEmpty($fixture['anti_regression_reason']);
+        }
+    }
+
+    public function test_evaluate_against_observed_results_reports_pass_for_matching_observation(): void
+    {
+        $result = $this->svc()->evaluateAgainstObservedResults([
+            AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_CONTRADICTORY_ACCEPTANCE_SUSPECT => [
+                'likely_family' => 'contradictory_acceptance',
+                'can_submit' => false,
+                'safe_next_action' => AtlasTaskBlockedRespecPlanRegressionHarness::ACTION_GIVE_BACK_OR_RESPEC,
+            ],
+        ]);
+
+        $entry = $result[AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_CONTRADICTORY_ACCEPTANCE_SUSPECT];
+        $this->assertTrue($entry['passed']);
+        $this->assertSame(AtlasTaskBlockedRespecPlanRegressionHarness::ACTION_GIVE_BACK_OR_RESPEC, $entry['repair_action']);
+        $this->assertNotEmpty($entry['anti_regression_reason']);
+    }
+
+    public function test_evaluate_against_observed_results_reports_fail_for_diverging_observation(): void
+    {
+        $result = $this->svc()->evaluateAgainstObservedResults([
+            AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_FORBIDDEN_TARGET_SUSPECT => [
+                'likely_family' => 'forbidden_target',
+                'can_submit' => true, // regression: forbidden target packets must never submit
+                'safe_next_action' => AtlasTaskBlockedRespecPlanRegressionHarness::ACTION_GIVE_BACK_OR_RESPEC,
+            ],
+        ]);
+
+        $entry = $result[AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_FORBIDDEN_TARGET_SUSPECT];
+        $this->assertFalse($entry['passed']);
+        $this->assertSame('observed_result_diverges_from_expected_fixture', $entry['reason']);
+    }
+
+    public function test_evaluate_against_observed_results_fails_missing_fixtures_by_default(): void
+    {
+        $result = $this->svc()->evaluateAgainstObservedResults([]);
+
+        foreach ($result as $entry) {
+            $this->assertFalse($entry['passed']);
+            $this->assertSame('no_observed_result_supplied', $entry['reason']);
+        }
+    }
+
+    // ── AC4: refuses to certify a respec plan safe when any known poison fixture regresses ──
+
+    private function matchingObservations(): array
+    {
+        $observations = [];
+        foreach ($this->svc()->fixtures() as $name => $fixture) {
+            $observations[$name] = [
+                'likely_family' => $fixture['expected_likely_family'],
+                'can_submit' => $fixture['expected_can_submit'],
+                'safe_next_action' => $fixture['expected_safe_next_action'],
+            ];
+        }
+
+        return $observations;
+    }
+
+    public function test_certify_respec_plan_safe_when_every_fixture_matches(): void
+    {
+        $result = $this->svc()->certifyRespecPlanSafe($this->matchingObservations());
+
+        $this->assertTrue($result['safe']);
+        $this->assertSame([], $result['regressed_fixtures']);
+    }
+
+    public function test_certify_respec_plan_refuses_when_one_fixture_regresses(): void
+    {
+        $observations = $this->matchingObservations();
+        $observations[AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_DUPLICATE_ALREADY_DONE_SUSPECT]['can_submit'] = true;
+
+        $result = $this->svc()->certifyRespecPlanSafe($observations);
+
+        $this->assertFalse($result['safe']);
+        $this->assertContains(AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_DUPLICATE_ALREADY_DONE_SUSPECT, $result['regressed_fixtures']);
+    }
+
+    public function test_certify_respec_plan_refuses_when_no_observations_supplied(): void
+    {
+        $result = $this->svc()->certifyRespecPlanSafe([]);
+
+        $this->assertFalse($result['safe']);
+        $this->assertCount(6, $result['regressed_fixtures']);
     }
 }

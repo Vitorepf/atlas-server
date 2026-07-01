@@ -31,6 +31,8 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
 
     public const FIXTURE_DUPLICATE_ALREADY_DONE_SUSPECT = 'duplicate_already_done_suspect';
 
+    public const FIXTURE_TEST_ONLY_MISSING_IMPLEMENTATION_SUSPECT = 'test_only_missing_implementation_suspect';
+
     public const ACTION_GIVE_BACK_OR_RESPEC = 'give_back_or_respec';
 
     public const ACTION_RESUBMIT_WITH_RECOVERED_FIELDS = 'resubmit_with_recovered_fields';
@@ -38,7 +40,7 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
     public const ACTION_RETIRE_AS_DUPLICATE = 'retire_as_duplicate';
 
     /**
-     * @return array<string, array{source_packet:array<string,mixed>, expected_likely_family:string, expected_recoverable_fields:list<string>, expected_can_submit:bool, expected_safe_next_action:string}>
+     * @return array<string, array{source_packet:array<string,mixed>, expected_likely_family:string, expected_recoverable_fields:list<string>, expected_can_submit:bool, expected_safe_next_action:string, anti_regression_reason:string}>
      */
     public function fixtures(): array
     {
@@ -56,6 +58,7 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
                 'expected_recoverable_fields' => [],
                 'expected_can_submit' => false,
                 'expected_safe_next_action' => self::ACTION_GIVE_BACK_OR_RESPEC,
+                'anti_regression_reason' => 'a totally empty packet must never be allowed to resubmit — a respec planner that fabricates fields for it is hallucinating, not recovering.',
             ],
             self::FIXTURE_OBJECTIVE_WITH_CLASS_AND_TEST_PATH => [
                 'source_packet' => [
@@ -68,6 +71,7 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
                 'expected_recoverable_fields' => ['allowed_files', 'acceptance_criteria', 'required_evidence'],
                 'expected_can_submit' => true,
                 'expected_safe_next_action' => self::ACTION_RESUBMIT_WITH_RECOVERED_FIELDS,
+                'anti_regression_reason' => 'a packet whose objective already names both the class and test path IS genuinely recoverable — a planner that stops recovering this case regresses real throughput, not just safety.',
             ],
             self::FIXTURE_FORBIDDEN_TARGET_SUSPECT => [
                 'source_packet' => [
@@ -81,6 +85,7 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
                 'expected_recoverable_fields' => [],
                 'expected_can_submit' => false,
                 'expected_safe_next_action' => self::ACTION_GIVE_BACK_OR_RESPEC,
+                'anti_regression_reason' => 'a packet targeting a forbidden/property-gated file must never resubmit as-is — a regression here means the planner would let a worker touch a file it is not allowed to touch.',
             ],
             self::FIXTURE_CONTRADICTORY_ACCEPTANCE_SUSPECT => [
                 'source_packet' => [
@@ -92,6 +97,7 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
                 'expected_recoverable_fields' => [],
                 'expected_can_submit' => false,
                 'expected_safe_next_action' => self::ACTION_GIVE_BACK_OR_RESPEC,
+                'anti_regression_reason' => 'mutually exclusive acceptance bullets can never both be satisfied — a regression here means the planner would resubmit a spec that is impossible to complete honestly.',
             ],
             self::FIXTURE_DUPLICATE_ALREADY_DONE_SUSPECT => [
                 'source_packet' => [
@@ -105,6 +111,19 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
                 'expected_recoverable_fields' => [],
                 'expected_can_submit' => false,
                 'expected_safe_next_action' => self::ACTION_RETIRE_AS_DUPLICATE,
+                'anti_regression_reason' => 'a packet already marked as a duplicate of completed work must never resubmit — a regression here means the planner would spend a worker re-doing finished work.',
+            ],
+            self::FIXTURE_TEST_ONLY_MISSING_IMPLEMENTATION_SUSPECT => [
+                'source_packet' => [
+                    'objective' => 'Add tested behavior to app/Services/Ai/Foo/AtlasFoo.php.',
+                    'allowed_files' => ['tests/Unit/Ai/Foo/AtlasFooTest.php'],
+                    'acceptance_criteria' => ['AtlasFooTest passes'],
+                ],
+                'expected_likely_family' => 'test_only_missing_implementation',
+                'expected_recoverable_fields' => [],
+                'expected_can_submit' => false,
+                'expected_safe_next_action' => self::ACTION_GIVE_BACK_OR_RESPEC,
+                'anti_regression_reason' => 'a packet whose allowed_files contains only a test file, with no implementation file to make it pass, can never be served as-is — a regression here means the planner would resubmit a scope no worker can actually complete.',
             ],
         ];
     }
@@ -207,6 +226,69 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
             'passes' => $submitReadyCount >= 1,
             'submit_ready_count' => $submitReadyCount,
             'recovered_field_count' => $recoveredFieldCount,
+        ];
+    }
+
+    /**
+     * AC3: reports pass/fail per known poison fixture — did the observed respec-planner output
+     * for that fixture's source_packet actually match what the fixture demands?
+     *
+     * @param  array<string, array{likely_family?:string, can_submit?:bool, safe_next_action?:string}>  $observedByFixtureName
+     * @return array<string, array{passed:bool, reason:string, repair_action:string, anti_regression_reason:string}>
+     */
+    public function evaluateAgainstObservedResults(array $observedByFixtureName): array
+    {
+        $results = [];
+        foreach ($this->fixtures() as $name => $fixture) {
+            $observed = is_array($observedByFixtureName[$name] ?? null) ? $observedByFixtureName[$name] : null;
+
+            if ($observed === null) {
+                $results[$name] = [
+                    'passed' => false,
+                    'reason' => 'no_observed_result_supplied',
+                    'repair_action' => $fixture['expected_safe_next_action'],
+                    'anti_regression_reason' => $fixture['anti_regression_reason'],
+                ];
+
+                continue;
+            }
+
+            $familyMatches = (string) ($observed['likely_family'] ?? '') === $fixture['expected_likely_family'];
+            $submitMatches = (bool) ($observed['can_submit'] ?? false) === $fixture['expected_can_submit'];
+            $actionMatches = (string) ($observed['safe_next_action'] ?? '') === $fixture['expected_safe_next_action'];
+            $passed = $familyMatches && $submitMatches && $actionMatches;
+
+            $results[$name] = [
+                'passed' => $passed,
+                'reason' => $passed ? 'matches_expected_fixture' : 'observed_result_diverges_from_expected_fixture',
+                'repair_action' => $fixture['expected_safe_next_action'],
+                'anti_regression_reason' => $fixture['anti_regression_reason'],
+            ];
+        }
+
+        return $results;
+    }
+
+    /**
+     * AC4: refuses to certify a respec plan as safe when ANY known poison fixture regresses —
+     * a respec planner is only trusted once every frozen poison case still behaves as expected.
+     *
+     * @param  array<string, array{likely_family?:string, can_submit?:bool, safe_next_action?:string}>  $observedByFixtureName
+     * @return array{schema:string, safe:bool, regressed_fixtures:list<string>, evaluation:array<string,array<string,mixed>>}
+     */
+    public function certifyRespecPlanSafe(array $observedByFixtureName): array
+    {
+        $evaluation = $this->evaluateAgainstObservedResults($observedByFixtureName);
+        $regressed = array_values(array_keys(array_filter(
+            $evaluation,
+            static fn (array $r): bool => ! $r['passed'],
+        )));
+
+        return [
+            'schema' => self::SCHEMA,
+            'safe' => $regressed === [],
+            'regressed_fixtures' => $regressed,
+            'evaluation' => $evaluation,
         ];
     }
 }
