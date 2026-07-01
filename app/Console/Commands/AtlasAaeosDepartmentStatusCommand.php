@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use Illuminate\Console\Command;
 
@@ -29,14 +30,17 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         AtlasAaeosDepartmentMaturityService $maturity,
         AtlasAaeosQualityBarService $qualityBar,
         AtlasAaeosDepartmentMaturityBandClassifier $bandClassifier,
+        AtlasAaeosDepartmentPromotionEligibilityEvaluator $promotionEligibility,
     ): int {
         $qualityBarResult = $qualityBar->qualityBar();
+        $maturityResult = $maturity->maturity();
 
         $payload = [
             'schema_version' => 'atlas.aaeos.department_status.v1',
-            'maturity' => $maturity->maturity(),
+            'maturity' => $maturityResult,
             'quality_bar' => $qualityBarResult,
             'maturity_band_classification' => $this->classifyQualityBarBands($bandClassifier, $qualityBarResult),
+            'promotion_eligibility' => $this->evaluatePromotionEligibility($promotionEligibility, $maturityResult, $qualityBarResult),
         ];
         if ((bool) $this->option('quality-bar')) {
             $payload['quality_bar_signal'] = $qualityBar->emitSignal();
@@ -100,5 +104,57 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         }
 
         return $bandClassifier->classifyDepartments($bandLadders, $snapshots);
+    }
+
+    /**
+     * Evaluates promotion eligibility per department from real maturity data
+     * (current tier, blockers_to_next, last_evaluation) and, when a matching
+     * quality-bar entry exists (case-insensitive department name), its real
+     * current_score/target_threshold. Departments without a quality-bar match
+     * fall back to the evaluator's own zero defaults rather than fabricated data.
+     *
+     * @param  array<string,mixed>  $maturityResult
+     * @param  array<string,mixed>  $qualityBarResult
+     * @return array<string,mixed>
+     */
+    private function evaluatePromotionEligibility(
+        AtlasAaeosDepartmentPromotionEligibilityEvaluator $promotionEligibility,
+        array $maturityResult,
+        array $qualityBarResult,
+    ): array {
+        $qualityByLowerName = [];
+        foreach ((array) ($qualityBarResult['departments'] ?? []) as $qb) {
+            $name = strtolower((string) ($qb['department'] ?? ''));
+            if ($name !== '') {
+                $qualityByLowerName[$name] = $qb;
+            }
+        }
+
+        $results = [];
+        foreach ((array) ($maturityResult['departments'] ?? []) as $department) {
+            $id = (string) ($department['department'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+
+            $matchedQualityBar = $qualityByLowerName[strtolower($id)] ?? [];
+
+            $results[$id] = $promotionEligibility->evaluate(
+                [
+                    'current_tier' => $department['maturity_tier'] ?? 0,
+                    'blockers_to_next' => $department['blockers_to_next'] ?? [],
+                    'last_evaluation' => $department['last_evaluation'] ?? '',
+                ],
+                [
+                    'current_score' => $matchedQualityBar['current'] ?? 0.0,
+                    'target_threshold' => $matchedQualityBar['threshold'] ?? 0.0,
+                ],
+            );
+        }
+
+        return [
+            'schema_version' => 'atlas.aaeos.department_promotion_eligibility_batch.v1',
+            'departments' => $results,
+        ];
     }
 }
