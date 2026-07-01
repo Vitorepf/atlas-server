@@ -222,4 +222,63 @@ final class AtlasSelfConstructionContinuousRuntimeReplenisherIntegrationTest ext
         $this->assertSame(3, $verdict['request']['outcome_signal_count']);
         $this->assertArrayNotHasKey('maturity_gap_count', $verdict['request']);
     }
+
+    // ── AC: high drain / low runway overrides a healthy-depth wait ────────────
+
+    public function test_low_projected_runway_overrides_wait_with_top_up(): void
+    {
+        // claimable=5 >= floor=3, but drain_rate_hint=10 means runway < 1 cycle.
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-drain', 'drain_rate_hint' => 10.0],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 5, 'depth_floor' => 3, 'target_depth' => 6],
+        ]);
+
+        $this->assertSame('top_up', $verdict['request']['action']);
+        $this->assertGreaterThan(0, $verdict['request']['target_new_packet_count']);
+        $this->assertStringContainsString('low_projected_runway_overrides_wait', $verdict['request']['reasons'][0]);
+        $this->assertArrayHasKey('depth_policy', $verdict['request']);
+    }
+
+    public function test_ambition_demand_overrides_wait_with_top_up(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-ambition', 'ambition_demand' => true],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 5, 'depth_floor' => 3, 'target_depth' => 6],
+        ]);
+
+        $this->assertSame('top_up', $verdict['request']['action']);
+        $this->assertStringContainsString('ambition_demand_overrides_wait', $verdict['request']['reasons'][0]);
+    }
+
+    public function test_healthy_depth_with_low_drain_and_no_ambition_still_waits(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-safe', 'drain_rate_hint' => 0.1],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 20, 'depth_floor' => 3],
+        ]);
+
+        $this->assertSame('wait', $verdict['request']['action']);
+    }
+
+    public function test_malformed_still_repairs_first_even_with_high_drain(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-malformed', 'drain_rate_hint' => 10.0],
+            'queue_health' => ['malformed_count' => 2, 'claimable_depth' => 5, 'depth_floor' => 3],
+        ]);
+
+        $this->assertSame('repair_first', $verdict['request']['action']);
+        $this->assertSame(0, $verdict['request']['target_new_packet_count']);
+    }
+
+    public function test_low_runway_top_up_bounded_by_max_cap(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-cap-drain', 'drain_rate_hint' => 100.0],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 5, 'depth_floor' => 3, 'target_depth' => 6],
+        ]);
+
+        $this->assertSame('top_up', $verdict['request']['action']);
+        $this->assertLessThanOrEqual(8, $verdict['request']['target_new_packet_count']);
+    }
 }

@@ -49,6 +49,10 @@ final class AtlasSelfConstructionContinuousRuntimeReplenisherIntegration
         $target    = max($floor, (int) ($queue['target_depth'] ?? self::DEFAULT_TARGET_DEPTH));
         $cycleId   = (string) ($cycle['cycle_id'] ?? '');
 
+        $muscleCount   = max(0, (int)    ($cycle['muscle_count']    ?? 0));
+        $drainRateHint = max(0.0, (float) ($cycle['drain_rate_hint'] ?? 0.0));
+        $ambitionDemand = (bool) ($cycle['ambition_demand'] ?? false);
+
         if ($malformed > 0) {
             $request = [
                 'action' => self::ACTION_REPAIR_FIRST,
@@ -61,7 +65,38 @@ final class AtlasSelfConstructionContinuousRuntimeReplenisherIntegration
             return $this->envelope($request);
         }
 
+        // Projected runway: cycles of claimable depth remaining at the current drain rate.
+        // Below one full cycle of runway is treated as imminent starvation, not a safe wait.
+        $projectedRunwayCycles = $drainRateHint > 0.0 ? $claimable / $drainRateHint : null;
+        $lowRunway = $projectedRunwayCycles !== null && $projectedRunwayCycles < 1.0;
+
         if ($claimable >= $floor) {
+            if ($lowRunway || $ambitionDemand) {
+                $reason = $lowRunway
+                    ? sprintf('low_projected_runway_overrides_wait:%.2f_cycles_remaining_at_drain_rate_%.2f', $projectedRunwayCycles, $drainRateHint)
+                    : 'ambition_demand_overrides_wait';
+
+                $deficit = max(0, $target - $claimable);
+                $bounded = min(self::MAX_TARGET_NEW_PACKETS, max(1, $deficit));
+
+                $request = [
+                    'action' => self::ACTION_TOP_UP,
+                    'cycle_id' => $cycleId,
+                    'reasons' => ['claimable_depth_at_or_above_floor_but_'.$reason],
+                    'claimable_depth' => $claimable,
+                    'target_new_packet_count' => $bounded,
+                    'depth_policy' => [
+                        'muscle_count' => $muscleCount,
+                        'drain_rate_hint' => $drainRateHint,
+                        'safe_target_depth' => $bounded,
+                        'deficit_reason' => $reason,
+                        'why_target_is_bounded' => 'lazy_wait_refused_despite_healthy_depth',
+                    ],
+                ];
+
+                return $this->envelope($request);
+            }
+
             $request = [
                 'action' => self::ACTION_WAIT,
                 'cycle_id' => $cycleId,
@@ -89,9 +124,6 @@ final class AtlasSelfConstructionContinuousRuntimeReplenisherIntegration
 
             return $this->envelope($request);
         }
-
-        $muscleCount   = max(0, (int)    ($cycle['muscle_count']    ?? 0));
-        $drainRateHint = max(0.0, (float) ($cycle['drain_rate_hint'] ?? 0.0));
 
         $request = [
             'action'                  => self::ACTION_TOP_UP,
