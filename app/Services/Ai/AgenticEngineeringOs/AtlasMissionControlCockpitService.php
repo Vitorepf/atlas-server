@@ -38,12 +38,19 @@ final class AtlasMissionControlCockpitService
      * @param  array<string,string>  $exceptionReceipts  gate_id => receipt_id for exceptions.
      * @return array<string,mixed>
      */
+    /**
+     * @param  array<string,mixed>  $queueSignals  Caller-supplied queue signals (servable_now,
+     *   active_leases, blocked, quarantined, recoverable, malformed). Any raw task ids or target
+     *   paths the caller includes are ignored — only the bounded numeric fields are read, keeping
+     *   the snapshot provider-safe.
+     */
     public function snapshot(
         string $intentId,
         array $phaseEnvelopes,
         array $gateSignals = [],
         array $exceptionReceipts = [],
         string $autonomyLevel = 'L1',
+        array $queueSignals = [],
     ): array {
         if ($intentId === '') {
             throw new InvalidArgumentException('intent_id required');
@@ -55,6 +62,7 @@ final class AtlasMissionControlCockpitService
         $currentPhase = $this->currentPhase($journey);
         $blockers = $this->collectBlockers($phaseEnvelopes);
         $signatureRequired = $this->signatureRequired($currentPhase, $autonomyLevel);
+        $queueHealth = $this->buildQueueHealth($queueSignals);
 
         $payload = [
             'schema' => self::SCHEMA_VERSION,
@@ -71,6 +79,9 @@ final class AtlasMissionControlCockpitService
             'provider_safe' => true,
             'generated_at' => gmdate('c'),
         ];
+        if ($queueHealth !== null) {
+            $payload['queue_health'] = $queueHealth;
+        }
         $payload['snapshot_hash'] = 'sha256:'.hash('sha256', json_encode([
             $intentId,
             array_column($journey, 'phase'),
@@ -79,6 +90,57 @@ final class AtlasMissionControlCockpitService
         ]) ?: '');
 
         return $payload;
+    }
+
+    /**
+     * Reads only the six bounded numeric queue signals a caller may supply — any raw task ids,
+     * target paths, or other identifying detail the caller includes elsewhere in $signals is
+     * never read, keeping the snapshot provider-safe. Returns null when the caller supplies no
+     * recognised numeric signal, so the key is omitted entirely rather than emitted empty.
+     *
+     * blocked/quarantined work is reported for visibility but NEVER folded into
+     * implementable_supply — only servable_now counts as work a worker can actually claim now.
+     *
+     * @param  array<string,mixed>  $signals
+     * @return array<string,mixed>|null
+     */
+    private function buildQueueHealth(array $signals): ?array
+    {
+        $numericKeys = ['servable_now', 'active_leases', 'blocked', 'quarantined', 'recoverable', 'malformed'];
+        $hasAnySignal = false;
+        foreach ($numericKeys as $key) {
+            if (isset($signals[$key]) && is_numeric($signals[$key])) {
+                $hasAnySignal = true;
+                break;
+            }
+        }
+        if (! $hasAnySignal) {
+            return null;
+        }
+
+        $servableNow = max(0, (int) ($signals['servable_now'] ?? 0));
+        $activeLeases = max(0, (int) ($signals['active_leases'] ?? 0));
+        $blocked = max(0, (int) ($signals['blocked'] ?? 0));
+        $quarantined = max(0, (int) ($signals['quarantined'] ?? 0));
+        $recoverable = max(0, (int) ($signals['recoverable'] ?? 0));
+        $malformed = max(0, (int) ($signals['malformed'] ?? 0));
+
+        $recommendedAction = match (true) {
+            $servableNow === 0 && $recoverable > 0 => 'recover_blocked_backlog',
+            $malformed > 0 => 'repair_malformed_packets',
+            $servableNow === 0 && $activeLeases > 0 => 'originate_more_work',
+            default => 'monitor',
+        };
+
+        return [
+            'servable_now' => $servableNow,
+            'active_leases' => $activeLeases,
+            'blocked_or_quarantined_count' => $blocked + $quarantined,
+            'recoverable_count' => $recoverable,
+            'malformed_count' => $malformed,
+            'implementable_supply' => $servableNow,
+            'recommended_operator_action' => $recommendedAction,
+        ];
     }
 
     /**

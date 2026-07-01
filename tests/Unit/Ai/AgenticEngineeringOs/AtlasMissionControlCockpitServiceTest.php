@@ -113,4 +113,66 @@ final class AtlasMissionControlCockpitServiceTest extends TestCase
         $topology = collect($r['phases'])->firstWhere('phase', 'topology');
         $this->assertSame('skipped', $topology['status']);
     }
+
+    // ── queue_health ────────────────────────────────────────────────────────
+
+    public function test_queue_health_omitted_when_no_queue_signals_supplied(): void
+    {
+        $r = $this->svc->snapshot('i-1', []);
+        $this->assertArrayNotHasKey('queue_health', $r);
+    }
+
+    public function test_queue_health_included_when_bounded_numeric_signals_supplied(): void
+    {
+        $r = $this->svc->snapshot('i-1', [], [], [], 'L1', [
+            'servable_now' => 4,
+            'active_leases' => 2,
+            'blocked' => 3,
+            'quarantined' => 1,
+            'recoverable' => 2,
+            'malformed' => 0,
+        ]);
+
+        $this->assertArrayHasKey('queue_health', $r);
+        $this->assertSame(4, $r['queue_health']['servable_now']);
+        $this->assertSame(2, $r['queue_health']['active_leases']);
+        $this->assertSame(4, $r['queue_health']['blocked_or_quarantined_count']);
+        $this->assertSame(2, $r['queue_health']['recoverable_count']);
+        $this->assertSame(0, $r['queue_health']['malformed_count']);
+    }
+
+    public function test_blocked_quarantined_never_counted_as_implementable_supply(): void
+    {
+        $r = $this->svc->snapshot('i-1', [], [], [], 'L1', [
+            'servable_now' => 2,
+            'blocked' => 50,
+            'quarantined' => 50,
+        ]);
+
+        $this->assertSame(2, $r['queue_health']['implementable_supply']);
+        $this->assertSame(100, $r['queue_health']['blocked_or_quarantined_count']);
+    }
+
+    public function test_queue_health_recommends_recovery_when_starved_but_recoverable_backlog_exists(): void
+    {
+        $r = $this->svc->snapshot('i-1', [], [], [], 'L1', [
+            'servable_now' => 0,
+            'recoverable' => 5,
+        ]);
+
+        $this->assertSame('recover_blocked_backlog', $r['queue_health']['recommended_operator_action']);
+    }
+
+    public function test_queue_health_omits_raw_task_ids_and_target_paths_from_signals(): void
+    {
+        $r = $this->svc->snapshot('i-1', [], [], [], 'L1', [
+            'servable_now' => 3,
+            'task_ids' => ['secret-task-1', 'secret-task-2'],
+            'target_paths' => ['app/Secret.php'],
+        ]);
+
+        $encoded = json_encode($r['queue_health']);
+        $this->assertStringNotContainsString('secret-task-1', (string) $encoded);
+        $this->assertStringNotContainsString('app/Secret.php', (string) $encoded);
+    }
 }
