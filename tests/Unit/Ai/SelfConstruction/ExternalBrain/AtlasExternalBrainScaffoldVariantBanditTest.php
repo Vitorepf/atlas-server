@@ -347,4 +347,71 @@ final class AtlasExternalBrainScaffoldVariantBanditTest extends TestCase
         $this->assertSame('well_tested', $r['selected_variant']);
         $this->assertContains('barely_tested', $r['exploration_variants']);
     }
+
+    // ── AC2: high-volume low-quality loses to lower-volume high-quality ───────
+
+    public function test_high_volume_low_quality_variant_loses_to_lower_volume_high_quality_variant(): void
+    {
+        // 'volume': many runs, but mediocre quality across the board.
+        $volume = $this->variant('high_volume_mediocre', 1000, 550, 200, 5.0, 0.55, 0.0, 5.0, 0.55);
+        // 'quality': far fewer runs, but strong quality signals across the board.
+        $quality = $this->variant('lower_volume_high_quality', 6, 6, 0, 9.0, 0.9, 0.0, 2.0, 0.9);
+
+        $r = $this->select([$volume, $quality]);
+
+        $this->assertSame('lower_volume_high_quality', $r['selected_variant']);
+    }
+
+    // ── AC3: overfit risk is penalized even with good short-term throughput ──
+
+    public function test_overfit_risk_variant_is_penalized_despite_good_throughput(): void
+    {
+        // 'overfit': great live success rate (throughput) but fails to generalize (low heldout).
+        $overfit = $this->variant('overfit', 20, 19, 1, 9.0, 0.2, 0.0, 3.0, 0.6);
+        // 'genuine': more modest live success, but generalizes well (heldout close to success).
+        $genuine = $this->variant('genuine', 20, 14, 1, 7.0, 0.65, 0.0, 3.0, 0.6);
+
+        $r = $this->select([$overfit, $genuine]);
+
+        $this->assertSame('genuine', $r['selected_variant']);
+    }
+
+    // ── AC4: selected output includes exploration_reason and expected_quality_lift ──
+
+    public function test_output_includes_exploration_reason_and_expected_quality_lift(): void
+    {
+        $r = $this->select([
+            $this->variant('v1', 10, 9, 0, 9.0),
+            $this->variant('v2', 10, 3, 5, 4.0),
+        ]);
+
+        $this->assertArrayHasKey('exploration_reason', $r);
+        $this->assertArrayHasKey('expected_quality_lift', $r);
+        $this->assertSame('proven_quality_leader', $r['exploration_reason']);
+        $this->assertGreaterThan(0.0, $r['expected_quality_lift']);
+    }
+
+    public function test_exploration_reason_is_unsampled_priority_for_zero_run_winner(): void
+    {
+        $r = $this->select([
+            $this->variant('tested', 10, 2, 6, 2.0),
+            $this->variant('fresh', 0, 0, 0, 0.0),
+        ]);
+
+        $this->assertSame('unsampled_exploration_priority', $r['exploration_reason']);
+    }
+
+    public function test_exploration_reason_is_low_evidence_for_under_min_evidence_winner(): void
+    {
+        $r = $this->select([$this->variant('only_one', 2, 2, 0, 9.0)]);
+
+        $this->assertSame('low_evidence_best_available', $r['exploration_reason']);
+    }
+
+    public function test_expected_quality_lift_equals_weighted_score_when_only_one_variant(): void
+    {
+        $r = $this->select([$this->variant('only_one', 10, 8, 0, 8.0)]);
+
+        $this->assertGreaterThan(0.0, $r['expected_quality_lift']);
+    }
 }

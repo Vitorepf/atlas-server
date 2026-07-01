@@ -25,6 +25,17 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Quarantine: variants with proxy_leak_rate > PROXY_LEAK_CEILING AND runs ≥ MIN_EVIDENCE
  *   are quarantined and excluded from selection entirely (AC2).
  *
+ * overfit_penalty (AC3 new) = OVERFIT_PENALTY_WEIGHT × max(0, success_rate − heldout_pass_rate),
+ *   subtracted from weighted_outcome. A variant that looks good live (success_rate) but fails to
+ *   generalize (low heldout_pass_rate) is penalized on the generalization GAP itself, not merely
+ *   via heldout's existing weight — so raw throughput never masks overfit risk.
+ *
+ * exploration_reason / expected_quality_lift (AC4 new, top-level output fields, present whenever
+ * a variant is selected): exploration_reason explains WHY the selected variant won
+ * (unsampled_exploration_priority | low_evidence_best_available | proven_quality_leader);
+ * expected_quality_lift = selected.weighted − average(weighted of every other scored variant),
+ * or selected.weighted itself when it is the only scored variant (lift over doing nothing).
+ *
  * selected_variant: highest UCB score among non-quarantined variants (variant_id tie-breaker).
  * exploration_variants: all non-quarantined variants with total_runs < MIN_EVIDENCE (except selected).
  * confidence: high≥MIN_EVIDENCE*2 runs, medium≥MIN_EVIDENCE, low otherwise.
@@ -46,6 +57,8 @@ final class AtlasExternalBrainScaffoldVariantBandit
     public const REJECTION_THRESHOLD = 0.30;
 
     public const PROXY_LEAK_CEILING = 0.25;
+
+    public const OVERFIT_PENALTY_WEIGHT = 0.15;
 
     private const MAX_AVG_COST = 10.0;
 
@@ -96,6 +109,8 @@ final class AtlasExternalBrainScaffoldVariantBandit
                 'rejected_variants'    => [],
                 'quarantined_variants' => [],
                 'selection_reasons'    => $selectionReasons,
+                'exploration_reason'   => null,
+                'expected_quality_lift' => 0.0,
             ];
         }
 
@@ -138,6 +153,8 @@ final class AtlasExternalBrainScaffoldVariantBandit
                 'rejected_variants'    => [],
                 'quarantined_variants' => $quarantinedVariants,
                 'selection_reasons'    => $selectionReasons,
+                'exploration_reason'   => null,
+                'expected_quality_lift' => 0.0,
             ];
         }
 
@@ -171,6 +188,22 @@ final class AtlasExternalBrainScaffoldVariantBandit
 
         $selectionReasons[] = "selected:{$selected} ucb={$scored[$selected]['ucb']} confidence={$confidence}";
 
+        // AC4: explain WHY the winner won, and how much better it is than the field.
+        $explorationReason = match (true) {
+            $selectedRuns === 0 => 'unsampled_exploration_priority',
+            $selectedRuns < self::MIN_EVIDENCE => 'low_evidence_best_available',
+            default => 'proven_quality_leader',
+        };
+
+        $otherWeighted = [];
+        foreach ($scored as $id => $s) {
+            if ($id !== $selected) {
+                $otherWeighted[] = $s['weighted'];
+            }
+        }
+        $baseline = $otherWeighted !== [] ? array_sum($otherWeighted) / count($otherWeighted) : 0.0;
+        $expectedQualityLift = round($scored[$selected]['weighted'] - $baseline, 4);
+
         return [
             'schema_version'       => self::SCHEMA,
             'model_tier'           => $modelTier,
@@ -183,6 +216,8 @@ final class AtlasExternalBrainScaffoldVariantBandit
             'rejected_variants'    => $rejectedVariants,
             'quarantined_variants' => $quarantinedVariants,
             'selection_reasons'    => $selectionReasons,
+            'exploration_reason'   => $explorationReason,
+            'expected_quality_lift' => $expectedQualityLift,
         ];
     }
 
@@ -205,13 +240,17 @@ final class AtlasExternalBrainScaffoldVariantBandit
         $avgCost         = max(0.0, (float) ($v['avg_cost'] ?? 5.0));
         $costScore       = 1.0 - min(1.0, $avgCost / self::MAX_AVG_COST);
 
+        $overfitGap = max(0.0, $successRate - $heldoutPassRate);
+        $overfitPenalty = self::OVERFIT_PENALTY_WEIGHT * $overfitGap;
+
         $weighted = round(
-            $successRate     * $weights['success']
+            max(0.0, $successRate     * $weights['success']
             + $heldoutPassRate * $weights['heldout']
             + $valueNorm       * $weights['value']
             + $greenCommitRate * $weights['green']
             + (1.0 - $giveBackRate) * $weights['give_back']
-            + $costScore       * $weights['cost'],
+            + $costScore       * $weights['cost']
+            - $overfitPenalty),
             4,
         );
 
