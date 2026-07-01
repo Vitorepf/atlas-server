@@ -44,22 +44,41 @@ final class AtlasSelfConstructionSimplificationRegressionReplayPlan
         $behaviorEquivalenceProven = (bool) ($input['behavior_equivalence_proven'] ?? false);
         $rollbackPlanPresent = (bool) ($input['rollback_plan_present'] ?? false);
         $queueHealthGate = (string) ($input['queue_health_gate'] ?? 'php artisan atlas:task:self-heal --json');
+        $action = strtolower(trim((string) ($input['action'] ?? '')));
+        $publicCommandConsumers = array_values(array_unique(array_map('strval', (array) ($input['public_command_consumers'] ?? []))));
+        // rollback_receipt_present defaults to rollback_plan_present so existing callers that only
+        // ever supplied the plan flag keep exact prior behavior.
+        $rollbackReceiptPresent = array_key_exists('rollback_receipt_present', $input)
+            ? (bool) $input['rollback_receipt_present']
+            : $rollbackPlanPresent;
+        $isDeletionOrMerge = in_array($action, ['delete', 'merge'], true);
 
         $testCommands = $testsCoveringTargets !== []
             ? ['php artisan test '.implode(' ', $testsCoveringTargets)]
             : [];
+        $commandReplayChecks = array_map(
+            static fn (string $command): string => "replay_public_command:{$command}",
+            $publicCommandConsumers,
+        );
 
-        $preChecks = array_values(array_filter(array_merge($testCommands, [$queueHealthGate])));
+        $preChecks = array_values(array_filter(array_merge($testCommands, $commandReplayChecks, [$queueHealthGate])));
         $postChecks = $testCommands;
-        $replayChecks = array_map(
-            static fn (string $organ): string => "replay_behavior_equivalence:{$organ}",
-            $targetOrgans,
+        $replayChecks = array_merge(
+            array_map(
+                static fn (string $organ): string => "replay_behavior_equivalence:{$organ}",
+                $targetOrgans,
+            ),
+            $commandReplayChecks,
         );
         $acceptanceGates = [
             'behavior_equivalence_proven',
             'rollback_plan_present',
             'tests_green',
         ];
+        if ($isDeletionOrMerge) {
+            $acceptanceGates[] = 'public_command_replay_covered';
+            $acceptanceGates[] = 'rollback_receipt_present';
+        }
 
         $notReadyReasons = [];
         if (! $behaviorEquivalenceProven) {
@@ -71,6 +90,24 @@ final class AtlasSelfConstructionSimplificationRegressionReplayPlan
         if ($testsCoveringTargets === []) {
             $notReadyReasons[] = 'no_tests_covering_targets';
         }
+
+        // Deletion/merge candidates carry the highest blast radius: touched tests, public command
+        // replay coverage, a proven behavior-parity check, and a rollback receipt (distinct from a
+        // mere "plan") are ALL required, or the candidate is blocked with missing_replay_gate rather
+        // than treated as safe.
+        if ($isDeletionOrMerge) {
+            if ($publicCommandConsumers === []) {
+                $notReadyReasons[] = 'no_public_command_replay_coverage';
+            }
+            if (! $rollbackReceiptPresent) {
+                $notReadyReasons[] = 'rollback_receipt_missing';
+            }
+            if ($notReadyReasons !== []) {
+                $notReadyReasons[] = 'missing_replay_gate';
+            }
+        }
+
+        $notReadyReasons = array_values(array_unique($notReadyReasons));
 
         return [
             'schema' => self::SCHEMA,

@@ -94,4 +94,57 @@ final class AtlasSelfConstructionSimplificationRegressionReplayPlanTest extends 
         $this->assertFalse($result['ready']);
         $this->assertContains('no_tests_covering_targets', $result['not_ready_reasons']);
     }
+
+    public function test_candidate_with_touched_tests_and_public_command_consumers_emits_exact_runnable_gates(): void
+    {
+        $result = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'tests_covering_targets' => ['tests/Unit/OrganATest.php'],
+            'public_command_consumers' => ['atlas:external-brain:originator-stop-pivot'],
+            'behavior_equivalence_proven' => true,
+            'rollback_plan_present' => true,
+            'action' => 'merge',
+            'rollback_receipt_present' => true,
+        ]);
+
+        $this->assertTrue($result['ready']);
+        $this->assertContains('php artisan test tests/Unit/OrganATest.php', $result['pre_checks']);
+        $this->assertContains('replay_public_command:atlas:external-brain:originator-stop-pivot', $result['pre_checks']);
+        $this->assertContains('replay_public_command:atlas:external-brain:originator-stop-pivot', $result['replay_checks']);
+        // No unrelated broad-suite fallback command is present.
+        foreach ($result['pre_checks'] as $check) {
+            $this->assertStringNotContainsString('--filter=', $check);
+            $this->assertNotSame('php artisan test', trim($check));
+        }
+    }
+
+    public function test_deletion_or_merge_candidate_without_proof_coverage_is_blocked_with_missing_replay_gate(): void
+    {
+        $result = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'action' => 'delete',
+        ]);
+
+        $this->assertFalse($result['ready']);
+        $this->assertContains('missing_replay_gate', $result['not_ready_reasons']);
+        $this->assertContains('no_public_command_replay_coverage', $result['not_ready_reasons']);
+        $this->assertContains('rollback_receipt_missing', $result['not_ready_reasons']);
+        $this->assertContains('no_tests_covering_targets', $result['not_ready_reasons']);
+    }
+
+    public function test_rollback_receipt_requirement_included_for_deletion_and_merge_actions(): void
+    {
+        $result = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'action' => 'delete',
+        ]);
+        $this->assertContains('rollback_receipt_present', $result['acceptance_gates']);
+
+        $notApplicable = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'action' => 'consolidate',
+        ]);
+        $this->assertNotContains('rollback_receipt_present', $notApplicable['acceptance_gates']);
+        $this->assertNotContains('missing_replay_gate', $notApplicable['not_ready_reasons']);
+    }
 }
