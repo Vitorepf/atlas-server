@@ -159,6 +159,11 @@ final class AtlasSelfConstructionSimplificationReadinessGate
             'schema' => self::SCHEMA,
             'decision' => $decision,
             'blockers' => array_merge($rejectBlockers, $holdBlockers),
+            // blocker_ids are hard reject-tier evidence gaps; advisory_ids are hold-tier (weak-but-
+            // present) signals that only ask for more evidence — kept distinct so a caller can never
+            // confuse "must fix" with "gather more proof".
+            'blocker_ids' => $rejectBlockers,
+            'advisory_ids' => $holdBlockers,
             'required_evidence' => self::REQUIRED_EVIDENCE,
             'safe_allowed_files' => $decision === self::DECISION_ALLOW
                 ? array_values((array) ($facts['safe_allowed_files'] ?? []))

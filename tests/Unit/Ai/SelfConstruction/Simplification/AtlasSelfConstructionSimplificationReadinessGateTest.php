@@ -128,4 +128,52 @@ final class AtlasSelfConstructionSimplificationReadinessGateTest extends TestCas
         self::assertSame(AtlasSelfConstructionSimplificationReadinessGate::DECISION_HOLD, $result['decision']);
         self::assertNotContains('regression_replay_plan_missing', $result['blockers']);
     }
+
+    public function test_docs_sync_blocked_rejects(): void
+    {
+        $facts = $this->completeFacts();
+        $facts['docs_sync'] = ['status' => 'blocked'];
+
+        $result = (new AtlasSelfConstructionSimplificationReadinessGate)->evaluate($facts);
+
+        self::assertSame(AtlasSelfConstructionSimplificationReadinessGate::DECISION_REJECT, $result['decision']);
+        self::assertContains('docs_sync_blocked', $result['blockers']);
+    }
+
+    public function test_shadow_plan_promotion_not_allowed_rejects(): void
+    {
+        $facts = $this->completeFacts();
+        $facts['shadow_plan'] = ['promotion_allowed' => false];
+
+        $result = (new AtlasSelfConstructionSimplificationReadinessGate)->evaluate($facts);
+
+        self::assertSame(AtlasSelfConstructionSimplificationReadinessGate::DECISION_REJECT, $result['decision']);
+        self::assertContains('shadow_plan_promotion_not_allowed', $result['blockers']);
+    }
+
+    // ── AC3: blocker ids (reject-tier) separated from advisory ids (hold-tier) ──
+
+    public function test_reject_tier_ids_land_in_blocker_ids_not_advisory_ids(): void
+    {
+        $facts = $this->completeFacts();
+        $facts['rollback'] = ['reversible' => false];
+
+        $result = (new AtlasSelfConstructionSimplificationReadinessGate)->evaluate($facts);
+
+        self::assertContains('rollback_not_reversible', $result['blocker_ids']);
+        self::assertSame([], $result['advisory_ids']);
+    }
+
+    public function test_hold_tier_ids_land_in_advisory_ids_not_blocker_ids(): void
+    {
+        $facts = $this->completeFacts();
+        $facts['boundary_confidence'] = 0.1;
+        $facts['proof_coverage'] = 0.1;
+
+        $result = (new AtlasSelfConstructionSimplificationReadinessGate)->evaluate($facts);
+
+        self::assertSame([], $result['blocker_ids']);
+        self::assertNotEmpty($result['advisory_ids']);
+        self::assertSame($result['advisory_ids'], $result['blockers']);
+    }
 }
