@@ -160,6 +160,33 @@ final class AtlasExternalBrainOriginatorThemeSaturationMeterTest extends TestCas
         $this->assertSame(0.5, $result['novelty_scores']['local_clients']);
     }
 
+    public function test_distinct_leverage_classes_and_real_unlocks_keep_saturation_low(): void
+    {
+        $result = $this->meter->measure([
+            $this->task('local_clients', ['distinct_impact_class' => 'class_a', 'new_prerequisite_unlock' => true]),
+            $this->task('local_clients', ['distinct_impact_class' => 'class_b']),
+            $this->task('local_clients', ['distinct_impact_class' => 'class_c']),
+        ], ['saturation_threshold' => 0.6]);
+
+        $this->assertFalse($result['saturation_high']);
+        $this->assertSame([], $result['saturation_reasons']);
+    }
+
+    public function test_repeated_impact_class_without_unlocks_stays_saturated_with_reason_list(): void
+    {
+        $result = $this->meter->measure([
+            $this->task('local_clients'),
+            $this->task('local_clients'),
+            $this->task('local_clients'),
+        ], ['saturation_threshold' => 0.6]);
+
+        $this->assertTrue($result['saturation_high']);
+        $this->assertNotEmpty($result['saturation_reasons']);
+        $this->assertContains('repeated_theme:local_clients', $result['saturation_reasons']);
+        $this->assertContains('repeated_leverage_class:same_class', $result['saturation_reasons']);
+        $this->assertContains('no_new_prerequisite_unlock', $result['saturation_reasons']);
+    }
+
     public function test_empty_input_is_safe_and_not_saturated(): void
     {
         $result = $this->meter->measure([]);
