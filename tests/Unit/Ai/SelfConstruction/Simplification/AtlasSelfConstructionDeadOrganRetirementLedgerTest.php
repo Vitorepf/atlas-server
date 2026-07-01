@@ -89,4 +89,62 @@ final class AtlasSelfConstructionDeadOrganRetirementLedgerTest extends TestCase
         $this->assertSame(0, $result['retain_count']);
         $this->assertSame([], $result['organs']);
     }
+
+    // ── recordRetirement(): durable proof ledger for a completed retirement ──
+
+    private function completeRetirementRecord(array $overrides = []): array
+    {
+        return array_merge([
+            'organ_id' => 'proxy-organ',
+            'evidence_refs' => ['docs/engineering-knowledge-base/proxy-organ.md'],
+            'consumer_scan_result' => ['unsafe_consumers' => []],
+            'parity_decision' => ['equivalence_proven' => true],
+            'deletion_plan_hash' => 'abc123',
+            'replay_gate_result' => ['ready' => true],
+            'rollback_receipt' => ['present' => true],
+            'knowledge_sync_status' => 'synced',
+        ], $overrides);
+    }
+
+    public function test_complete_retirement_record_is_recorded_with_receipt_hash(): void
+    {
+        $result = $this->ledger()->recordRetirement($this->completeRetirementRecord());
+
+        $this->assertSame(AtlasSelfConstructionDeadOrganRetirementLedger::STATUS_RECORDED, $result['status']);
+        $this->assertSame([], $result['missing_proof_fields']);
+        $this->assertNotNull($result['receipt_hash']);
+    }
+
+    public function test_incomplete_retirement_record_is_rejected_with_missing_proof_fields(): void
+    {
+        $record = $this->completeRetirementRecord();
+        unset($record['rollback_receipt'], $record['replay_gate_result']);
+
+        $result = $this->ledger()->recordRetirement($record);
+
+        $this->assertSame(AtlasSelfConstructionDeadOrganRetirementLedger::STATUS_REJECTED, $result['status']);
+        $this->assertContains('rollback_receipt', $result['missing_proof_fields']);
+        $this->assertContains('replay_gate_result', $result['missing_proof_fields']);
+        $this->assertNull($result['receipt_hash']);
+    }
+
+    public function test_receipt_hash_is_deterministic_for_identical_proof(): void
+    {
+        $record = $this->completeRetirementRecord();
+
+        $first = $this->ledger()->recordRetirement($record);
+        $second = $this->ledger()->recordRetirement($record);
+
+        $this->assertSame($first['receipt_hash'], $second['receipt_hash']);
+    }
+
+    public function test_receipt_hash_changes_when_proof_changes(): void
+    {
+        $first = $this->ledger()->recordRetirement($this->completeRetirementRecord());
+        $second = $this->ledger()->recordRetirement($this->completeRetirementRecord([
+            'deletion_plan_hash' => 'different-hash',
+        ]));
+
+        $this->assertNotSame($first['receipt_hash'], $second['receipt_hash']);
+    }
 }
