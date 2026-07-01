@@ -313,9 +313,103 @@ final class AtlasMaestroPacketReshaperTest extends TestCase
         ]);
 
         $this->assertSame('repair', $r['proposals'][0]['action']);
+        $this->assertSame('strengthen_acceptance', $r['proposals'][0]['reshape_action']);
         $respec = $r['proposals'][0]['respec'];
         $this->assertStringContainsString('measurable behavior change', $respec['objective']);
         $this->assertStringContainsString('artisan test', $respec['acceptance_criteria'][0]);
         $this->assertContains('tests_or_gates_result', $respec['required_evidence']);
+    }
+
+    // ── AC2/AC4: fix_scope, strengthen_acceptance, split_packet, cancel_duplicate, operator_only ──
+
+    public function test_scope_gap_pattern_emits_fix_scope_proposal(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [['type' => 'scope_gap', 'missing_scope_roots' => ['app/Services/Ai/SelfConstruction/Maestro/Adaptive']]];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $proposal = $result['proposals'][0];
+        $this->assertSame('repair', $proposal['action']);
+        $this->assertSame('fix_scope', $proposal['reshape_action']);
+        $this->assertContains('app/Services/Ai/SelfConstruction/Maestro/Adaptive', $proposal['respec']['scope_in']);
+    }
+
+    public function test_duplicate_capability_pattern_cancels_instead_of_repairing(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [['type' => 'duplicate_capability', 'existing_capability_ref' => 'AtlasFooService already covers this']];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $proposal = $result['proposals'][0];
+        $this->assertSame('retire', $proposal['action']);
+        $this->assertSame('cancel_duplicate', $proposal['reshape_action']);
+        $this->assertStringContainsString('AtlasFooService', $proposal['detail']);
+        $this->assertArrayNotHasKey('respec', $proposal);
+    }
+
+    public function test_over_broad_scope_pattern_splits_into_narrower_packets(): void
+    {
+        $packet = array_merge($this->packetWithAcceptance(), [
+            'allowed_files' => ['app/A.php', 'app/B.php', 'app/C.php', 'app/D.php'],
+        ]);
+        $patterns = [['type' => 'over_broad_scope']];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $proposal = $result['proposals'][0];
+        $this->assertSame('split', $proposal['action']);
+        $this->assertSame('split_packet', $proposal['reshape_action']);
+        $this->assertCount(2, $proposal['split_proposals']);
+        $allSplitFiles = array_merge(...array_column($proposal['split_proposals'], 'allowed_files'));
+        $this->assertSame($packet['allowed_files'], $allSplitFiles);
+    }
+
+    public function test_forbidden_target_reshape_action_is_operator_only(): void
+    {
+        $r = (new AtlasMaestroPacketReshaper($this->miner()))->propose($this->packet(), [
+            ['type' => 'forbidden_target', 'detail' => 'file is pétreo'],
+        ]);
+
+        $this->assertSame('operator_only', $r['proposals'][0]['reshape_action']);
+    }
+
+    public function test_contradictory_acceptance_reshape_action_is_operator_only(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [['type' => 'contradictory_acceptance', 'reason' => 'criterion A requires X; criterion B forbids X']];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $this->assertSame('operator_only', $result['proposals'][0]['reshape_action']);
+    }
+
+    public function test_unchanged_since_last_attempt_refuses_blind_retry_regardless_of_type(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [[
+            'type' => 'missing_impl_file',
+            'missing_files' => ['app/Services/Foo.php'],
+            'unchanged_since_last_attempt' => true,
+        ]];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $proposal = $result['proposals'][0];
+        $this->assertSame('operator_only', $proposal['action']);
+        $this->assertSame('operator_only', $proposal['reshape_action']);
+        $this->assertStringContainsString('blind_retry', $proposal['reason']);
+        $this->assertArrayNotHasKey('respec', $proposal);
+    }
+
+    public function test_unchanged_packet_without_flag_repairs_normally(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Foo.php']]];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $this->assertSame('repair', $result['proposals'][0]['action']);
     }
 }
