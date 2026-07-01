@@ -60,6 +60,9 @@ final class AtlasExternalBrainCostQualityParetoFront
 {
     public const SCHEMA = 'atlas.external_brain.cost_quality_pareto_front.v1';
 
+    /** An option's expected_lift or risk_reduction must clear this to permit escalation. */
+    private const ESCALATION_QUALITY_DELTA_THRESHOLD = 0.10;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -209,13 +212,25 @@ final class AtlasExternalBrainCostQualityParetoFront
             }
         }
 
-        // Escalation triggers: AC3 — benchmark/proxy/repair-loop failure for the small-model
-        // path always escalates, regardless of frontier lift, so an unsafe cheap option is
-        // never silently recommended.
+        // Escalation triggers: AC3 — a benchmark/proxy/repair-loop failure only escalates when
+        // at least one option carries a measurable expected_lift or risk_reduction clearing the
+        // threshold; otherwise the frontier spend isn't justified enough to escalate over.
+        $escalationPermitted = false;
+        foreach ($options as $o) {
+            if ($o['expected_lift'] >= self::ESCALATION_QUALITY_DELTA_THRESHOLD
+                || $o['risk_reduction'] >= self::ESCALATION_QUALITY_DELTA_THRESHOLD
+            ) {
+                $escalationPermitted = true;
+                break;
+            }
+        }
+
         $escalationTriggers = [];
-        if ($benchmarkFailed)  $escalationTriggers[] = 'benchmark_miss';
-        if ($proxyFailed)      $escalationTriggers[] = 'proxy_leakage';
-        if ($repairLoopFailed) $escalationTriggers[] = 'repair_loop_failure';
+        if ($escalationPermitted) {
+            if ($benchmarkFailed)  $escalationTriggers[] = 'benchmark_miss';
+            if ($proxyFailed)      $escalationTriggers[] = 'proxy_leakage';
+            if ($repairLoopFailed) $escalationTriggers[] = 'repair_loop_failure';
+        }
 
         // Risk notes.
         $riskNotes = [];

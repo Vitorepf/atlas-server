@@ -54,7 +54,7 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
                     $this->option('scaffolded-cheap', 0.80, 1.0),
                     ['is_scaffolded_small_model' => true],
                 ),
-                $this->option('non-small-frontier', 0.90, 5.0),
+                array_merge($this->option('non-small-frontier', 0.90, 5.0), ['expected_lift' => 0.15]),
             ],
         ]);
 
@@ -245,7 +245,7 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
     {
         $result = $this->front()->compute([
             'benchmark_failed' => true,
-            'options' => [$this->option('opt', 0.80, 1.0)],
+            'options' => [array_merge($this->option('opt', 0.80, 1.0), ['expected_lift' => 0.15])],
         ]);
 
         $this->assertContains('benchmark_miss', $result['escalation_triggers']);
@@ -255,7 +255,7 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
     {
         $result = $this->front()->compute([
             'proxy_failed' => true,
-            'options' => [$this->option('opt', 0.80, 1.0)],
+            'options' => [array_merge($this->option('opt', 0.80, 1.0), ['expected_lift' => 0.15])],
         ]);
 
         $this->assertContains('proxy_leakage', $result['escalation_triggers']);
@@ -265,7 +265,7 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
     {
         $result = $this->front()->compute([
             'repair_loop_failed' => true,
-            'options' => [$this->option('opt', 0.80, 1.0)],
+            'options' => [array_merge($this->option('opt', 0.80, 1.0), ['expected_lift' => 0.15])],
         ]);
 
         $this->assertContains('repair_loop_failure', $result['escalation_triggers']);
@@ -277,10 +277,21 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
             'benchmark_failed'   => true,
             'proxy_failed'       => true,
             'repair_loop_failed' => true,
-            'options'            => [$this->option('opt', 0.80, 1.0)],
+            'options'            => [array_merge($this->option('opt', 0.80, 1.0), ['expected_lift' => 0.15])],
         ]);
 
         $this->assertCount(3, $result['escalation_triggers']);
+    }
+
+    public function test_no_escalation_when_no_option_clears_lift_or_risk_threshold(): void
+    {
+        $result = $this->front()->compute([
+            'benchmark_failed' => true,
+            'options' => [$this->option('opt', 0.80, 1.0)],
+        ]);
+
+        $this->assertSame([], $result['escalation_triggers'],
+            'escalation must not fire when no option carries a measurable expected_lift or risk_reduction clearing the threshold');
     }
 
     // ── floor-based recommendation (model-amplifier policy) ───────────────────
