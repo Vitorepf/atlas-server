@@ -116,4 +116,68 @@ final class AtlasSelfConstructionNativeReplenisherPreflightTest extends TestCase
         $this->assertContains('isolation_violation', $r['rejected'][0]['rejection_reasons']);
         $this->assertContains('simplicity_contract_violation', $r['rejected'][1]['rejection_reasons']);
     }
+
+    // ── AC: preflightWaitDecision — wait_override / queue_depth / worker_drain / quality_gate / duplicate_pressure / evidence_ready ──
+
+    public function test_normal_wait_with_no_drain_risk_and_clean_quality_does_not_override(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight)->preflightWaitDecision([]);
+
+        $this->assertFalse($r['wait_override']);
+        $this->assertTrue($r['quality_gate']);
+        $this->assertSame(0, $r['queue_depth']);
+        $this->assertFalse($r['worker_drain']);
+    }
+
+    public function test_worker_starvation_with_clean_quality_safely_overrides(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight)->preflightWaitDecision([
+            'worker_floor_breach' => true,
+            'claimable_depth' => 1,
+            'duplicate_pressure' => 0.1,
+            'evidence_ready' => true,
+        ]);
+
+        $this->assertTrue($r['wait_override']);
+        $this->assertTrue($r['worker_drain']);
+        $this->assertTrue($r['quality_gate']);
+        $this->assertSame(1, $r['queue_depth']);
+    }
+
+    public function test_duplicate_heavy_pressure_rejects_override_even_with_worker_drain(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight)->preflightWaitDecision([
+            'worker_floor_breach' => true,
+            'duplicate_pressure' => 0.9,
+        ]);
+
+        $this->assertFalse($r['wait_override']);
+        $this->assertFalse($r['quality_gate']);
+        $this->assertContains(AtlasSelfConstructionNativeReplenisherPreflight::REASON_DUPLICATE_PRESSURE_TOO_HIGH, $r['reasons']);
+    }
+
+    public function test_missing_evidence_rejects_override_even_with_worker_drain(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight)->preflightWaitDecision([
+            'replenish_soon' => true,
+            'evidence_ready' => false,
+        ]);
+
+        $this->assertFalse($r['wait_override']);
+        $this->assertFalse($r['quality_gate']);
+        $this->assertContains(AtlasSelfConstructionNativeReplenisherPreflight::REASON_EVIDENCE_NOT_READY, $r['reasons']);
+    }
+
+    public function test_worker_starvation_override_reports_queue_and_drain_facts(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight)->preflightWaitDecision([
+            'replenish_soon' => true,
+            'claimable_depth' => 2,
+        ]);
+
+        $this->assertTrue($r['wait_override']);
+        $this->assertTrue($r['worker_drain']);
+        $this->assertSame(2, $r['queue_depth']);
+        $this->assertTrue($r['evidence_ready']);
+    }
 }

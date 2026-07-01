@@ -119,6 +119,13 @@ final class AtlasSelfConstructionNativeReplenisherPreflight
 
     public const REASON_BUFFER_BELOW_TARGET = 'buffer_below_target';
 
+    public const REASON_DUPLICATE_PRESSURE_TOO_HIGH = 'duplicate_pressure_too_high';
+
+    public const REASON_EVIDENCE_NOT_READY = 'evidence_not_ready';
+
+    /** duplicate_pressure at/above this fraction blocks an override regardless of drain risk. */
+    private const DUPLICATE_PRESSURE_THRESHOLD = 0.7;
+
     /**
      * Maestro's "wait" advice must never silently suppress replenishment when the
      * claimable buffer is thin enough that active workers risk draining to
@@ -155,6 +162,61 @@ final class AtlasSelfConstructionNativeReplenisherPreflight
         }
 
         return ['schema' => self::SCHEMA, 'allowed' => false, 'reason' => self::REASON_WAIT_OK];
+    }
+
+    /**
+     * Richer preflight for a wait-override decision — same drain-risk signal as
+     * {@see evaluateWaitOverride()}, but gated by packet-quality facts (duplicate pressure,
+     * evidence readiness) so a real need is never inferred from an unproven or duplicate-heavy
+     * queue. Quality gates take precedence: a genuine drain risk still gets vetoed when the
+     * replenishment work behind it is duplicate-heavy or unproven.
+     *
+     * @param  array{maestro_urgency?: string, worker_floor_breach?: bool, replenish_soon?: bool,
+     *                claimable_per_active_worker?: float, worker_buffer_target_per_worker?: float,
+     *                claimable_depth?: int, duplicate_pressure?: float, evidence_ready?: bool}  $input
+     * @return array{schema:string, wait_override:bool, queue_depth:int, worker_drain:bool, quality_gate:bool, duplicate_pressure:float, evidence_ready:bool, reasons:list<string>}
+     */
+    public function preflightWaitDecision(array $input): array
+    {
+        $queueDepth = (int) ($input['claimable_depth'] ?? 0);
+        $workerDrain = (bool) ($input['worker_floor_breach'] ?? false) || (bool) ($input['replenish_soon'] ?? false);
+        $duplicatePressure = max(0.0, min(1.0, (float) ($input['duplicate_pressure'] ?? 0.0)));
+        $evidenceReady = (bool) ($input['evidence_ready'] ?? true);
+
+        $reasons = [];
+        if ($duplicatePressure >= self::DUPLICATE_PRESSURE_THRESHOLD) {
+            $reasons[] = self::REASON_DUPLICATE_PRESSURE_TOO_HIGH;
+        }
+        if (! $evidenceReady) {
+            $reasons[] = self::REASON_EVIDENCE_NOT_READY;
+        }
+        $qualityGate = $reasons === [];
+
+        if (! $qualityGate) {
+            return [
+                'schema' => self::SCHEMA,
+                'wait_override' => false,
+                'queue_depth' => $queueDepth,
+                'worker_drain' => $workerDrain,
+                'quality_gate' => false,
+                'duplicate_pressure' => $duplicatePressure,
+                'evidence_ready' => $evidenceReady,
+                'reasons' => $reasons,
+            ];
+        }
+
+        $base = $this->evaluateWaitOverride($input);
+
+        return [
+            'schema' => self::SCHEMA,
+            'wait_override' => $base['allowed'],
+            'queue_depth' => $queueDepth,
+            'worker_drain' => $workerDrain,
+            'quality_gate' => true,
+            'duplicate_pressure' => $duplicatePressure,
+            'evidence_ready' => $evidenceReady,
+            'reasons' => [$base['reason']],
+        ];
     }
 
     private function makeInspector(): ?AtlasTaskPacketQualityInspector
