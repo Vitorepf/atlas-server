@@ -14,6 +14,19 @@ final class AtlasTaskFabricAcceptanceStrengthBacktesterTest extends TestCase
         return new AtlasTaskFabricAcceptanceStrengthBacktester;
     }
 
+    public function test_backtest_does_not_mutate_its_input_arrays(): void
+    {
+        $criteria = ['/opt/homebrew/bin/php artisan test --filter=FooTest exits 0'];
+        $packetFacts = ['implementation_file' => 'app/Foo.php', 'test_file' => 'tests/Unit/FooTest.php'];
+        $criteriaBefore = $criteria;
+        $packetFactsBefore = $packetFacts;
+
+        $this->backtester()->backtest($criteria, 'high', $packetFacts);
+
+        $this->assertSame($criteriaBefore, $criteria);
+        $this->assertSame($packetFactsBefore, $packetFacts);
+    }
+
     public function test_exit_code_only_criterion_scores_weak_with_required_improvements(): void
     {
         $result = $this->backtester()->backtest(['/opt/homebrew/bin/php artisan test --filter=FooTest exits 0']);
