@@ -109,4 +109,101 @@ final class AtlasExternalBrainBacklogAgingValueMonitorTest extends TestCase
         $this->assertTrue($row['is_high_priority']);
         $this->assertTrue($row['is_stale']);
     }
+
+    // ── new AC: old proven task ranked ahead of younger low-value task ──────
+
+    public function test_old_task_with_downstream_unlocks_and_fresh_proof_ranks_above_younger_low_value_task(): void
+    {
+        $result = $this->monitor()->evaluate(['now' => self::NOW, 'tasks' => [
+            $this->task([
+                'task_id' => 'old-proven',
+                'enqueued_at' => '2026-05-01T00:00:00Z',
+                'theme' => 'proven-theme',
+                'target' => 'app/Proven.php',
+                'downstream_unlock_count' => 2,
+                'value_proof_fresh' => true,
+            ]),
+            $this->task([
+                'task_id' => 'young-low-value',
+                'enqueued_at' => '2026-06-28T00:00:00Z',
+                'theme' => 'lowvalue-theme',
+                'target' => 'app/LowValue.php',
+            ]),
+        ]]);
+
+        $rankPositions = array_flip($result['ranked_tasks']);
+        $this->assertLessThan($rankPositions['young-low-value'], $rankPositions['old-proven']);
+
+        $provenRow = $this->rowFor($result, 'old-proven');
+        $this->assertSame('keep', $provenRow['aging_action']);
+        $this->assertSame('downstream_unlock_with_fresh_value_proof', $provenRow['reason']);
+    }
+
+    // ── new AC: stale acceptance evidence + no value proof routes to refresh/retire ──
+
+    public function test_stale_acceptance_evidence_with_no_value_proof_routes_to_refresh(): void
+    {
+        $result = $this->monitor()->evaluate(['now' => self::NOW, 'tasks' => [
+            $this->task([
+                'task_id' => 'stale-unproven',
+                'enqueued_at' => '2026-06-01T00:00:00Z',
+                'theme' => 'unique-stale',
+                'target' => 'app/StaleUnproven.php',
+                'acceptance_evidence_stale' => true,
+            ]),
+        ]]);
+
+        $row = $this->rowFor($result, 'stale-unproven');
+        $this->assertContains($row['aging_action'], ['refresh', 'retire']);
+        $this->assertNotSame('keep', $row['aging_action']);
+        $this->assertNotEmpty($row['evidence_needed']);
+    }
+
+    public function test_very_stale_acceptance_evidence_with_no_value_proof_routes_to_retire(): void
+    {
+        $result = $this->monitor()->evaluate(['now' => self::NOW, 'tasks' => [
+            $this->task([
+                'task_id' => 'ancient-unproven',
+                'enqueued_at' => '2026-04-01T00:00:00Z',
+                'theme' => 'unique-ancient',
+                'target' => 'app/Ancient.php',
+                'acceptance_evidence_stale' => true,
+            ]),
+        ]]);
+
+        $row = $this->rowFor($result, 'ancient-unproven');
+        $this->assertSame('retire', $row['aging_action']);
+    }
+
+    // ── new AC: result includes aging_action, evidence_needed, reason per task ──
+
+    public function test_every_task_row_includes_aging_action_evidence_needed_and_reason(): void
+    {
+        $result = $this->monitor()->evaluate(['now' => self::NOW, 'tasks' => [$this->task()]]);
+
+        $row = $result['task_rows'][0];
+        foreach (['aging_action', 'evidence_needed', 'reason'] as $field) {
+            $this->assertArrayHasKey($field, $row, "missing field: {$field}");
+        }
+    }
+
+    // ── new AC: no queue mutation ─────────────────────────────────────────────
+
+    public function test_no_queue_mutation_flag_remains_false(): void
+    {
+        $result = $this->monitor()->evaluate(['now' => self::NOW, 'tasks' => [$this->task()]]);
+
+        $this->assertFalse($result['mutates_queue']);
+    }
+
+    private function rowFor(array $result, string $taskId): array
+    {
+        foreach ($result['task_rows'] as $row) {
+            if ($row['task_id'] === $taskId) {
+                return $row;
+            }
+        }
+
+        $this->fail("Row not found for task_id: {$taskId}");
+    }
 }

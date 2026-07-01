@@ -31,6 +31,14 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
     private const DECAY_HORIZON_DAYS = 60.0;
     private const HIGH_PRIORITY_FLOOR = 8.0;
 
+    public const ACTION_KEEP = 'keep';
+    public const ACTION_REFRESH = 'refresh';
+    public const ACTION_CONSOLIDATE = 'consolidate';
+    public const ACTION_RETIRE = 'retire';
+
+    /** Beyond this age, stale-and-unproven backlog is retired rather than merely refreshed. */
+    private const VERY_STALE_THRESHOLD_DAYS = 45.0;
+
     private const PRIORITY_NAME_VALUES = [
         'critical' => 10.0,
         'high' => 8.0,
@@ -97,6 +105,13 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
             ? 0.0
             : round(array_sum(array_column($rows, 'value_decay_risk')) / $taskCount, 6);
 
+        // ranked_tasks: value_score DESC (proven old work outranks unproven younger work),
+        // tie-broken by age ASC so equally-valued tasks keep a stable, deterministic order.
+        $rankedRows = $rows;
+        usort($rankedRows, static fn (array $a, array $b): int =>
+            $b['value_score'] <=> $a['value_score'] ?: $a['age_days'] <=> $b['age_days']);
+        $rankedTasks = array_column($rankedRows, 'task_id');
+
         return [
             'schema_version' => self::SCHEMA,
             'task_count' => $taskCount,
@@ -109,9 +124,14 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
                     'value_decay_risk' => $row['value_decay_risk'],
                     'is_high_priority' => $row['is_high_priority'],
                     'is_stale' => $row['is_stale'],
+                    'aging_action' => $row['aging_action'],
+                    'evidence_needed' => $row['evidence_needed'],
+                    'reason' => $row['aging_reason'],
+                    'value_score' => $row['value_score'],
                 ],
                 $rows,
             ),
+            'ranked_tasks' => $rankedTasks,
             'revalidate_candidates' => $revalidateCandidates,
             'consolidate_candidates' => $consolidateCandidates,
             'retire_candidates' => $retireCandidates,
@@ -134,15 +154,45 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
         $enqueuedAt = $this->parseDate((string) ($task['enqueued_at'] ?? ''));
         $ageDays = $enqueuedAt === null ? 0.0 : max(0.0, $enqueuedAt->diffInHours($now) / 24.0);
         $isStale = $ageDays >= self::STALE_THRESHOLD_DAYS;
+        $isVeryStale = $ageDays >= self::VERY_STALE_THRESHOLD_DAYS;
 
         $decaySlowdown = $isHighPriority ? 0.5 : 1.0;
         $valueDecayRisk = round(min(1.0, ($ageDays / self::DECAY_HORIZON_DAYS) * $decaySlowdown), 6);
+
+        $downstreamUnlockCount = max(0, (int) ($task['downstream_unlock_count'] ?? 0));
+        $valueProofFresh = (bool) ($task['value_proof_fresh'] ?? false);
+        $acceptanceEvidenceStale = (bool) ($task['acceptance_evidence_stale'] ?? false);
+        $hasValueProof = $downstreamUnlockCount > 0 && $valueProofFresh;
 
         $retireReason = match (true) {
             $supersededBy !== '' => 'superseded_by_newer_task',
             $implementationStatus === 'done' => 'already_implemented',
             default => null,
         };
+
+        // aging_action/evidence_needed/reason: never silently keep a stale, unproven task —
+        // downstream-unlock-with-fresh-proof always wins, stale-acceptance-with-no-proof is
+        // routed to refresh (or retire once very old), otherwise stale defers to the existing
+        // duplicate/revalidate routing below.
+        [$agingAction, $evidenceNeeded, $agingReason] = match (true) {
+            $retireReason !== null => [self::ACTION_RETIRE, [], $retireReason],
+            ! $isStale => [self::ACTION_KEEP, [], 'fresh_or_not_yet_stale'],
+            $hasValueProof => [self::ACTION_KEEP, [], 'downstream_unlock_with_fresh_value_proof'],
+            $acceptanceEvidenceStale && ! $hasValueProof && $isVeryStale => [
+                self::ACTION_RETIRE, ['fresh_value_proof', 'downstream_unlock_evidence'], 'stale_acceptance_evidence_no_value_proof_very_old',
+            ],
+            $acceptanceEvidenceStale && ! $hasValueProof => [
+                self::ACTION_REFRESH, ['fresh_acceptance_evidence', 'value_proof'], 'stale_acceptance_evidence_no_value_proof',
+            ],
+            default => [self::ACTION_REFRESH, ['revalidation'], 'stale_needs_revalidation'],
+        };
+
+        // value_score: ranks proven, unlock-carrying old tasks ahead of younger tasks with no
+        // proven downstream value — age alone must never determine ranking.
+        $valueScore = round(
+            $downstreamUnlockCount * 10.0 + ($valueProofFresh ? 5.0 : 0.0) - $valueDecayRisk * 10.0,
+            4,
+        );
 
         return [
             'task_id' => $taskId,
@@ -155,6 +205,12 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
             'is_stale' => $isStale,
             'value_decay_risk' => $valueDecayRisk,
             'retire_reason' => $retireReason,
+            'downstream_unlock_count' => $downstreamUnlockCount,
+            'value_proof_fresh' => $valueProofFresh,
+            'aging_action' => $agingAction,
+            'evidence_needed' => $evidenceNeeded,
+            'aging_reason' => $agingReason,
+            'value_score' => $valueScore,
         ];
     }
 
