@@ -30,13 +30,21 @@ namespace App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap;
  */
 class AgentControlPlaneTerminalWorkerCommandFormatter
 {
+    /** Deterministic PHP invocation prefix — injectable so the CLI contract can be pinned in tests. */
+    private readonly string $phpBinary;
+
+    public function __construct(string $phpBinary = 'php')
+    {
+        $this->phpBinary = $phpBinary;
+    }
+
     /**
      * @param  list<string>  $queueTags
      */
     public function bootstrapCommand(string $actor, int $targetMin, int $maxNew, array $queueTags): string
     {
         $parts = [
-            'php artisan atlas:ai:self-construction',
+            $this->phpBinary.' artisan atlas:ai:self-construction',
             '--agent-control-plane-terminal-worker-bootstrap-status',
             '--actor='.$this->commandValue($actor),
             '--target-min-claimable-tasks='.$targetMin,
@@ -54,8 +62,19 @@ class AgentControlPlaneTerminalWorkerCommandFormatter
 
     private const SAFE_VALUE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.:@/-';
 
+    /**
+     * Reject the most dangerous shell-control characters outright — the null byte and other C0
+     * controls plus DEL — since escapeshellarg cannot make a null-byte-bearing argument safe on
+     * every platform. Newline/CR stay in the escape path (single-quoted by escapeshellarg), since
+     * that quoting is sufficient and existing callers rely on the escaped-not-rejected contract.
+     * Safe values are returned verbatim; everything else is quoted.
+     */
     public function commandValue(string $value): string
     {
+        if (preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/', $value) === 1) {
+            throw new \InvalidArgumentException('shell_control_character_rejected');
+        }
+
         if ($value !== '' && strspn($value, self::SAFE_VALUE_CHARS) === strlen($value)) {
             return $value;
         }
