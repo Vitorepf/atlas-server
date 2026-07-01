@@ -63,6 +63,23 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompilerTest extends TestCas
         $sharedTaskId = $result['chain'][0]['task_id'];
         $this->assertSame([$sharedTaskId], $result['gap_chains']['gap-a']);
         $this->assertSame([$sharedTaskId], $result['gap_chains']['gap-b']);
+        $this->assertSame(['gap-a', 'gap-b'], $result['chain'][0]['gap_ids']);
+    }
+
+    public function test_non_shared_node_gap_ids_contains_only_its_own_gap(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                [
+                    'gap_id' => 'gap-a',
+                    'blockers' => [
+                        ['type' => 'weak_gate'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(['gap-a'], $result['chain'][0]['gap_ids']);
     }
 
     public function test_every_node_carries_required_fields(): void

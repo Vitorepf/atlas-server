@@ -54,6 +54,7 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompiler
         $chain = [];
         $gapChains = [];
         $taskIdByUnblockerKey = [];
+        $chainIndexByUnblockerKey = [];
 
         foreach ((array) ($facts['gaps'] ?? []) as $gap) {
             if (! is_array($gap)) {
@@ -81,16 +82,24 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompiler
                 if (! array_key_exists($unblockerKey, $taskIdByUnblockerKey)) {
                     $taskId = $unblockerKey;
                     $taskIdByUnblockerKey[$unblockerKey] = $taskId;
+                    $chainIndexByUnblockerKey[$unblockerKey] = count($chain);
 
                     $chain[] = [
                         'task_id' => $taskId,
                         'gap_id' => $gapId,
+                        'gap_ids' => [$gapId],
                         'blocker_type' => $type,
                         'dependency_ids' => $previousTaskId !== null ? [$previousTaskId] : [],
                         'allowed_files_hint' => array_values((array) ($blocker['allowed_files_hint'] ?? [])),
                         'acceptance_strength' => (string) ($blocker['acceptance_strength'] ?? self::BLOCKER_DEFAULT_ACCEPTANCE[$type]),
                         'expected_delta' => (string) ($blocker['expected_delta'] ?? self::BLOCKER_DEFAULT_EXPECTED_DELTA[$type]),
                     ];
+                } else {
+                    // Shared unblocker: another gap references the same node — record it without duplicating the node.
+                    $idx = $chainIndexByUnblockerKey[$unblockerKey];
+                    if (! in_array($gapId, $chain[$idx]['gap_ids'], true)) {
+                        $chain[$idx]['gap_ids'][] = $gapId;
+                    }
                 }
 
                 $taskId = $taskIdByUnblockerKey[$unblockerKey];
