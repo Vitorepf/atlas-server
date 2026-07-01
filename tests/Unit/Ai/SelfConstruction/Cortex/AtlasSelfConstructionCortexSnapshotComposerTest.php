@@ -218,6 +218,30 @@ final class AtlasSelfConstructionCortexSnapshotComposerTest extends TestCase
         $this->assertSame('add_rollback_path', $organ['next_leverage_gap']);
     }
 
+    public function test_domain_map_summary_reports_area_count_risky_count_and_leverage_ids(): void
+    {
+        $sections = $this->completeSections();
+        $sections['domain_map'] = [
+            'organs' => [
+                ['name' => 'cortex', 'maturity' => 'alpha', 'risk_gaps' => ['stale_context'], 'owner_lane' => 'cognition', 'next_leverage_gap' => 'expand_risk_lens'],
+                ['name' => 'clean_organ', 'maturity' => 'stable', 'risk_gaps' => [], 'owner_lane' => 'governance', 'next_leverage_gap' => ''],
+            ],
+        ];
+
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($sections);
+
+        $this->assertSame(2, $r['domain_map_summary']['area_count']);
+        $this->assertSame(1, $r['domain_map_summary']['risky_area_count']);
+        $this->assertSame(['cortex'], $r['domain_map_summary']['next_leverage_area_ids']);
+    }
+
+    public function test_domain_map_summary_is_null_when_domain_map_absent(): void
+    {
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($this->completeSections());
+
+        $this->assertNull($r['domain_map_summary']);
+    }
+
     // ── worker_outcomes / project_lanes (optional sections) ────────────────────
 
     public function test_worker_outcomes_included_in_snapshot_when_provided(): void

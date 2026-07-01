@@ -94,6 +94,30 @@ final class AtlasSelfConstructionCortexSnapshotComposer
             }
         }
 
+        // Compact domain_map_summary: originators should not need to drill into the full organ list.
+        $domainMapSummary = null;
+        if (is_array($snapshot['domain_map'] ?? null)) {
+            $organs = is_array($snapshot['domain_map']['organs'] ?? null) ? $snapshot['domain_map']['organs'] : [];
+            $riskyCount = 0;
+            $leverageAreaIds = [];
+            foreach ($organs as $organ) {
+                if (! is_array($organ)) {
+                    continue;
+                }
+                if ((array) ($organ['risk_gaps'] ?? []) !== []) {
+                    $riskyCount++;
+                }
+                if (trim((string) ($organ['next_leverage_gap'] ?? '')) !== '') {
+                    $leverageAreaIds[] = (string) ($organ['name'] ?? '');
+                }
+            }
+            $domainMapSummary = [
+                'area_count'             => count($organs),
+                'risky_area_count'       => $riskyCount,
+                'next_leverage_area_ids' => array_values(array_unique(array_filter($leverageAreaIds))),
+            ];
+        }
+
         $canonical = $snapshot;
         ksort($canonical);
         $hash = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -108,6 +132,8 @@ final class AtlasSelfConstructionCortexSnapshotComposer
             'stale_sources'   => $staleSources,
             'missing_sources' => $missingSources,
             'queue_summary'   => $queueSummary,
+            'domain_map_summary' => $domainMapSummary,
+            'missing_optional_context' => $warnings,
         ];
     }
 }
