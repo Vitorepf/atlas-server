@@ -11,6 +11,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierCo
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierEndToEndTrial;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierFallbackRunbook;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyDependencyInverter;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyRegressionOracle;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -59,6 +60,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainAmplifierEndToEndTrial $endToEndTrial,
         AtlasExternalBrainAmplifierFallbackRunbook $fallbackRunbook,
         AtlasExternalBrainAutonomyDependencyInverter $dependencyInverter,
+        AtlasExternalBrainAutonomyRegressionOracle $regressionOracle,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -176,6 +178,14 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // autonomy_dependency_inversion section.
         if (is_array($decoded['autonomy_dependency_inversion'] ?? null)) {
             $payload['autonomy_dependency_inversion'] = $dependencyInverter->invert($decoded['autonomy_dependency_inversion']);
+        }
+
+        // Optional autonomy regression assessment: compares before/after capability
+        // snapshots for a proposed change. Distinct from the dependency inversion above
+        // (regression detection vs. replacement proposal), so it only runs when the caller
+        // explicitly supplies an autonomy_regression_assessment section.
+        if (is_array($decoded['autonomy_regression_assessment'] ?? null)) {
+            $payload['autonomy_regression_assessment'] = $regressionOracle->assess($decoded['autonomy_regression_assessment']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
