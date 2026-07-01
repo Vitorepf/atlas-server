@@ -104,6 +104,7 @@ final class AtlasContextQualityCertificationService
             ],
             'components' => $components,
             'real_measurement' => $realMeasurement,
+            'real_measurement_proof' => $this->realMeasurementProof($realMeasurement, $score),
             'synthetic_long_horizon_corpus' => $corpus,
             'context_stress_lab' => $stressLab,
             'replay_harness' => $replay,
@@ -208,6 +209,31 @@ final class AtlasContextQualityCertificationService
             'context_contamination_count' => $contamination,
             'provider_safe_violation_count' => $providerSafeViolations,
             'stale_context_use_count' => $staleUse,
+        ];
+    }
+
+    /**
+     * Compact, provider-safe proof of why quality_score is numeric or null —
+     * so a downstream reader can never mistake synthetic readiness scaffolding
+     * for a measured quality signal. status is derived from the SAME
+     * availability flag that gates quality_score itself, so the two can never
+     * disagree.
+     *
+     * @param  array<string,mixed>  $realMeasurement
+     * @return array<string,mixed>
+     */
+    private function realMeasurementProof(array $realMeasurement, ?float $score): array
+    {
+        $available = (bool) ($realMeasurement['available'] ?? false);
+
+        return [
+            'schema_version' => 'atlas.context.real_measurement_proof.v1',
+            'status' => $available ? 'measured' : 'unmeasured',
+            'quality_score' => $score,
+            'source' => (string) ($realMeasurement['source'] ?? LocalRagBenchmarkService::SCHEMA_VERSION),
+            'reason' => $available
+                ? 'measured_via_local_rag_benchmark_pgvector_memory_recall'
+                : (string) ($realMeasurement['unavailable_reason'] ?? 'no_provider_safe_memory_recall_corpus_measured'),
         ];
     }
 
