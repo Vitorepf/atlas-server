@@ -11,7 +11,11 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdaterTest exten
 {
     private function admittedPlan(string $class, array $extra = []): array
     {
-        return array_merge(['rollout_class' => 'bounded_proposed', 'lesson_class' => $class], $extra);
+        return array_merge([
+            'rollout_class' => 'bounded_proposed',
+            'lesson_class' => $class,
+            'evidence_refs' => ['ev-default'],
+        ], $extra);
     }
 
     private function validTemplate(array $extra = []): array
@@ -69,6 +73,15 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdaterTest exten
 
         $this->assertFalse($result['applied']);
         $this->assertContains('plan_lesson_class_missing', $result['blockers']);
+    }
+
+    public function test_plan_without_evidence_refs_is_refused(): void
+    {
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply(['rollout_class' => 'bounded_proposed', 'lesson_class' => 'scope_gap'], []);
+
+        $this->assertFalse($result['applied']);
+        $this->assertContains('plan_evidence_refs_missing', $result['blockers']);
     }
 
     public function test_repeated_application_is_idempotent(): void

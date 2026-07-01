@@ -73,6 +73,10 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdater
         if ($lessonClass === '') {
             $blockers[] = 'plan_lesson_class_missing';
         }
+        $evidenceRefs = array_values(array_filter(array_map('strval', (array) ($plan['evidence_refs'] ?? []))));
+        if ($evidenceRefs === []) {
+            $blockers[] = 'plan_evidence_refs_missing';
+        }
         if ($blockers !== []) {
             return $fail($blockers);
         }
