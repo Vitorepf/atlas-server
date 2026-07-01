@@ -81,11 +81,39 @@ final class AtlasSelfConstructionNativeReplenisherPreflightTest extends TestCase
         $this->assertCount(1, $r['rejected']);
     }
 
-    public function test_no_known_repair_hint_yields_unknown_deficiency(): void
+    public function test_no_known_repair_hint_hard_rejects_as_unknown_deficiency(): void
     {
         $packets = [['frontier_id' => 'f-mystery']];
         $inspector = $this->stubInspector(['f-mystery' => ['self_sufficient' => false, 'blocking_deficiencies' => ['some_brand_new_one']]]);
         $r = (new AtlasSelfConstructionNativeReplenisherPreflight($inspector))->preflight($packets);
-        $this->assertContains('unknown_deficiency:see_blocking_deficiencies', $r['repairable'][0]['repair_hints']);
+        $this->assertSame([], $r['repairable']);
+        $this->assertCount(1, $r['rejected']);
+        $this->assertContains('unknown_deficiency:some_brand_new_one', $r['rejected'][0]['rejection_reasons']);
+    }
+
+    public function test_bare_directory_and_scope_incoherent_repair_hints(): void
+    {
+        $packets = [['frontier_id' => 'f-dir'], ['frontier_id' => 'f-scope']];
+        $inspector = $this->stubInspector([
+            'f-dir' => ['self_sufficient' => false, 'blocking_deficiencies' => ['bare_directory_in_allowed_files']],
+            'f-scope' => ['self_sufficient' => false, 'blocking_deficiencies' => ['scope_incoherent']],
+        ]);
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight($inspector))->preflight($packets);
+        $this->assertCount(2, $r['repairable']);
+        $this->assertContains('replace_bare_directory_with_concrete_file_paths', $r['repairable'][0]['repair_hints']);
+        $this->assertContains('narrow_scope_in_to_match_allowed_files', $r['repairable'][1]['repair_hints']);
+    }
+
+    public function test_simplicity_contract_violation_and_isolation_violation_hard_reject(): void
+    {
+        $packets = [['frontier_id' => 'f-simplicity'], ['frontier_id' => 'f-isolation']];
+        $inspector = $this->stubInspector([
+            'f-simplicity' => ['self_sufficient' => false, 'blocking_deficiencies' => ['simplicity_contract_violation']],
+            'f-isolation' => ['self_sufficient' => false, 'blocking_deficiencies' => ['isolation_violation']],
+        ]);
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight($inspector))->preflight($packets);
+        $this->assertCount(2, $r['rejected']);
+        $this->assertContains('isolation_violation', $r['rejected'][0]['rejection_reasons']);
+        $this->assertContains('simplicity_contract_violation', $r['rejected'][1]['rejection_reasons']);
     }
 }

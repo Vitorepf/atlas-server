@@ -82,7 +82,15 @@ final class AtlasSelfConstructionNativeReplenisherPreflight
                 $hints[] = 'narrow_scope_in_to_match_allowed_files';
             }
             if ($hints === []) {
-                $hints[] = 'unknown_deficiency:see_blocking_deficiencies';
+                // Unrecognized deficiencies have no known repair template — fail closed
+                // (reject) rather than pretend a repair hint exists.
+                $rejected[] = [
+                    'packet' => $packet,
+                    'blocking_deficiencies' => $deficiencies,
+                    'rejection_reasons' => ['unknown_deficiency:'.implode(',', $deficiencies)],
+                ];
+
+                continue;
             }
             $repairable[] = [
                 'packet' => $packet,
