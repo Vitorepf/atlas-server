@@ -313,4 +313,72 @@ final class AtlasTaskFabricAcceptanceConflictDetectorTest extends TestCase
             $this->detector()->detect($spec),
         );
     }
+
+    // ── contradictory_acceptance: blocks X + allows X on the same fixture condition ──
+
+    public function test_blocking_and_allowing_same_condition_yields_contradictory_acceptance(): void
+    {
+        $spec = $this->cleanSpec([
+            'acceptance_criteria' => [
+                'the gate blocks retries when quota is exceeded',
+                'the gate allows retries when quota is exceeded',
+            ],
+        ]);
+
+        $result = $this->detector()->detect($spec);
+
+        $this->assertSame(AtlasTaskFabricAcceptanceConflictDetector::LEVEL_BLOCKING, $result['conflict_level']);
+        $kinds = array_column($result['conflicts'], 'kind');
+        $this->assertContains(AtlasTaskFabricAcceptanceConflictDetector::KIND_CONTRADICTORY_ACCEPTANCE, $kinds);
+    }
+
+    public function test_blocking_and_allowing_different_conditions_are_admissible(): void
+    {
+        $spec = $this->cleanSpec([
+            'acceptance_criteria' => [
+                'the gate blocks retries when quota is exceeded',
+                'the gate allows commits when review is approved',
+            ],
+        ]);
+
+        $result = $this->detector()->detect($spec);
+
+        $kinds = array_column($result['conflicts'], 'kind');
+        $this->assertNotContains(AtlasTaskFabricAcceptanceConflictDetector::KIND_CONTRADICTORY_ACCEPTANCE, $kinds);
+    }
+
+    // ── AC: conflicting criteria indexes + a short repair hint ─────────────────
+
+    public function test_contradictory_acceptance_conflict_has_criteria_indexes_and_repair_hint(): void
+    {
+        $spec = $this->cleanSpec([
+            'acceptance_criteria' => [
+                'the gate blocks retries when quota is exceeded',
+                'the gate allows retries when quota is exceeded',
+            ],
+        ]);
+
+        $result = $this->detector()->detect($spec);
+
+        $conflict = null;
+        foreach ($result['conflicts'] as $c) {
+            if ($c['kind'] === AtlasTaskFabricAcceptanceConflictDetector::KIND_CONTRADICTORY_ACCEPTANCE) {
+                $conflict = $c;
+            }
+        }
+        $this->assertNotNull($conflict);
+        $this->assertSame([0, 1], $conflict['criteria_indexes']);
+        $this->assertNotEmpty($conflict['repair_hint']);
+    }
+
+    public function test_every_conflict_has_criteria_indexes_and_repair_hint_keys(): void
+    {
+        $result = $this->detector()->detect($this->cleanSpec(['test_commands' => []]));
+
+        $this->assertNotEmpty($result['conflicts']);
+        foreach ($result['conflicts'] as $c) {
+            $this->assertArrayHasKey('criteria_indexes', $c);
+            $this->assertArrayHasKey('repair_hint', $c);
+        }
+    }
 }

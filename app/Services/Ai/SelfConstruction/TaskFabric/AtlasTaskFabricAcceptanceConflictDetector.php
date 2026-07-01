@@ -8,10 +8,14 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  * Detects contradictory acceptance criteria before a task spec is enqueued.
  *
  * CONFLICT KINDS (in order of severity):
+ *   contradictory_acceptance    — one criterion blocks and another allows the same condition
  *   mutually_exclusive_behavior — two criteria directly contradict each other for the same condition
  *   out_of_scope_file           — a criterion references a .php file outside allowed_files
  *   schema_missing              — a criterion references a class/schema not present in scope_in files
  *   weak_runnable_proof         — no test command, or command cannot prove the stated behaviour
+ *
+ * Every conflict entry also carries criteria_indexes (positions in the original
+ * acceptance_criteria list) and a short repair_hint.
  *
  * CONFLICT LEVELS:
  *   blocking — spec is unsatisfiable; enqueue must be refused
@@ -40,6 +44,7 @@ final class AtlasTaskFabricAcceptanceConflictDetector
     public const LEVEL_WARNING  = 'warning';
     public const LEVEL_BLOCKING = 'blocking';
 
+    public const KIND_CONTRADICTORY_ACCEPTANCE = 'contradictory_acceptance';
     public const KIND_MUTUALLY_EXCLUSIVE  = 'mutually_exclusive_behavior';
     public const KIND_OUT_OF_SCOPE_FILE   = 'out_of_scope_file';
     public const KIND_SCHEMA_MISSING      = 'schema_missing';
@@ -47,6 +52,10 @@ final class AtlasTaskFabricAcceptanceConflictDetector
 
     /** Negation prefixes that flip the meaning of a behaviour statement. */
     private const NEGATION_PREFIXES = ['does not', 'cannot', 'never', 'must not', 'should not', 'rejects', 'refuses', 'fails', 'must never'];
+
+    /** Verb pairs that are semantically opposite for the same fixture condition. */
+    private const BLOCKING_VERBS = ['block', 'blocks', 'blocking', 'deny', 'denies', 'disallow', 'disallows', 'prevent', 'prevents'];
+    private const ALLOWING_VERBS = ['allow', 'allows', 'allowing', 'permit', 'permits', 'grant', 'grants', 'admit', 'admits'];
 
     /** Test-runner keywords that indicate a meaningful runnable proof. */
     private const TEST_RUNNER_KEYWORDS = ['phpunit', 'artisan test', 'artisan:test', 'pest', 'php artisan test'];
@@ -64,10 +73,18 @@ final class AtlasTaskFabricAcceptanceConflictDetector
 
         $conflicts = [];
 
+        $this->detectContradictoryAcceptance($criteria, $conflicts);
         $this->detectMutuallyExclusiveBehavior($criteria, $conflicts);
         $this->detectOutOfScopeFiles($criteria, $allowedFiles, $conflicts);
         $this->detectSchemaMissing($criteria, $scopeIn, $conflicts);
         $this->detectWeakRunnableProof($testCommands, $conflicts);
+
+        foreach ($conflicts as &$conflict) {
+            $conflict['criteria_indexes'] = $this->indexesFor((array) ($conflict['_criteria_texts'] ?? []), $criteria);
+            $conflict['repair_hint'] = $this->repairHint($conflict['kind']);
+            unset($conflict['_criteria_texts']);
+        }
+        unset($conflict);
 
         $level   = $this->resolveLevel($conflicts);
         $reasons = array_map(static fn (array $c): string => $c['kind'].': '.$c['detail'], $conflicts);
@@ -78,6 +95,67 @@ final class AtlasTaskFabricAcceptanceConflictDetector
             'conflicts'      => $conflicts,
             'reasons'        => array_values($reasons),
         ];
+    }
+
+    // ── contradictory acceptance (blocks X + allows X) ───────────────────────
+
+    /**
+     * @param  list<string>          $criteria
+     * @param  list<array<string,mixed>>  $conflicts  (out)
+     */
+    private function detectContradictoryAcceptance(array $criteria, array &$conflicts): void
+    {
+        $blockingSide = []; // fingerprint => [criterion]
+        $allowingSide = []; // fingerprint => [criterion]
+
+        foreach ($criteria as $criterion) {
+            $lower = strtolower($criterion);
+
+            $verb = $this->firstMatchingVerb($lower, self::BLOCKING_VERBS);
+            if ($verb !== null) {
+                $fingerprint = $this->extractFingerprint(str_replace($verb, '', $lower));
+                if ($fingerprint !== '') {
+                    $blockingSide[$fingerprint][] = $criterion;
+                }
+
+                continue;
+            }
+
+            $verb = $this->firstMatchingVerb($lower, self::ALLOWING_VERBS);
+            if ($verb !== null) {
+                $fingerprint = $this->extractFingerprint(str_replace($verb, '', $lower));
+                if ($fingerprint !== '') {
+                    $allowingSide[$fingerprint][] = $criterion;
+                }
+            }
+        }
+
+        foreach ($blockingSide as $fp => $blockCriteria) {
+            if (! isset($allowingSide[$fp])) {
+                continue;
+            }
+            foreach ($blockCriteria as $block) {
+                foreach ($allowingSide[$fp] as $allow) {
+                    $conflicts[] = [
+                        'kind'   => self::KIND_CONTRADICTORY_ACCEPTANCE,
+                        'detail' => sprintf('"%s" blocks the same fixture condition that "%s" allows', $block, $allow),
+                        '_criteria_texts' => [$block, $allow],
+                    ];
+                }
+            }
+        }
+    }
+
+    /** @param  list<string>  $verbs */
+    private function firstMatchingVerb(string $lower, array $verbs): ?string
+    {
+        foreach ($verbs as $verb) {
+            if (str_contains($lower, $verb)) {
+                return $verb;
+            }
+        }
+
+        return null;
     }
 
     // ── mutually exclusive behaviour ─────────────────────────────────────────
@@ -129,6 +207,7 @@ final class AtlasTaskFabricAcceptanceConflictDetector
                     $conflicts[] = [
                         'kind'   => self::KIND_MUTUALLY_EXCLUSIVE,
                         'detail' => sprintf('"%s" contradicts "%s"', $pos, $neg),
+                        '_criteria_texts' => [$pos, $neg],
                     ];
                 }
             }
@@ -256,6 +335,38 @@ final class AtlasTaskFabricAcceptanceConflictDetector
         }
     }
 
+    // ── criteria indexes + repair hints ──────────────────────────────────────
+
+    /**
+     * @param  list<string>  $criteriaTexts
+     * @param  list<string>  $criteria
+     * @return list<int>
+     */
+    private function indexesFor(array $criteriaTexts, array $criteria): array
+    {
+        $indexes = [];
+        foreach ($criteriaTexts as $text) {
+            $idx = array_search($text, $criteria, true);
+            if ($idx !== false) {
+                $indexes[] = $idx;
+            }
+        }
+
+        return array_values(array_unique($indexes));
+    }
+
+    private function repairHint(string $kind): string
+    {
+        return match ($kind) {
+            self::KIND_CONTRADICTORY_ACCEPTANCE => 'split into two conditions or remove the criterion that blocks the same case another criterion allows',
+            self::KIND_MUTUALLY_EXCLUSIVE => 'remove or rescope one of the contradicting criteria so they no longer target the same condition',
+            self::KIND_OUT_OF_SCOPE_FILE => 'add the referenced file to allowed_files or drop the reference',
+            self::KIND_SCHEMA_MISSING => 'add the referenced class to scope_in or correct the class name',
+            self::KIND_WEAK_RUNNABLE_PROOF => 'add a runnable phpunit/artisan test command that proves the criterion',
+            default => 'review and resolve the conflicting criteria',
+        };
+    }
+
     // ── level resolution ─────────────────────────────────────────────────────
 
     /** @param  list<array<string,string>>  $conflicts */
@@ -265,7 +376,7 @@ final class AtlasTaskFabricAcceptanceConflictDetector
             return self::LEVEL_NONE;
         }
 
-        $blockingKinds = [self::KIND_MUTUALLY_EXCLUSIVE, self::KIND_OUT_OF_SCOPE_FILE];
+        $blockingKinds = [self::KIND_CONTRADICTORY_ACCEPTANCE, self::KIND_MUTUALLY_EXCLUSIVE, self::KIND_OUT_OF_SCOPE_FILE];
         foreach ($conflicts as $c) {
             if (in_array($c['kind'], $blockingKinds, true)) {
                 return self::LEVEL_BLOCKING;
