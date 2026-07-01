@@ -35,6 +35,10 @@ final class AtlasTaskGovernancePolicyPlane
 
     private const KNOWN_CHECKS = ['syntax', 'boot', 'task_tests', 'required_test'];
 
+    private const DEFAULT_MODEL_TIER = 'frontier';
+
+    private const VALID_MODEL_TIERS = ['small', 'medium', 'frontier', 'split'];
+
     /**
      * @param  array<string,mixed>|null  $configOverride  injectable for pure unit tests; null reads
      *                                                     config('atlas_task_governance') at call time
@@ -109,6 +113,21 @@ final class AtlasTaskGovernancePolicyPlane
         $val = trim((string) ($this->config()['isolation_contract'] ?? ''));
 
         return $val !== '' ? $val : self::DEFAULT_ISOLATION_CONTRACT;
+    }
+
+    /**
+     * Dev model-tier policy: (task_kind, risk_level, workcell_size_class) -> small|medium|frontier|split.
+     * Safe fallback to 'frontier' (today's behavior) when the config is absent or the combination is
+     * undeclared — a missing policy entry is never silently interpreted as "use a cheaper model".
+     */
+    public function modelTierFor(string $taskKind, string $riskLevel, string $sizeClass): string
+    {
+        $policy = (array) ($this->config()['dev_model_tier_policy'] ?? []);
+        $byTaskKind = (array) ($policy[$taskKind] ?? []);
+        $byRiskLevel = (array) ($byTaskKind[$riskLevel] ?? []);
+        $tier = strtolower(trim((string) ($byRiskLevel[$sizeClass] ?? '')));
+
+        return in_array($tier, self::VALID_MODEL_TIERS, true) ? $tier : self::DEFAULT_MODEL_TIER;
     }
 
     /** @return array<string,mixed> */

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 use Illuminate\Support\Str;
 
 class AiProviderModelResolver
@@ -9,6 +10,7 @@ class AiProviderModelResolver
     public function __construct(
         private readonly AtlasAiRuntimeSettings $settings,
         private readonly GeminiModelCatalog $gemini,
+        private readonly ?AtlasTaskGovernancePolicyPlane $devModelTierPolicy = null,
     ) {}
 
     /**
@@ -23,6 +25,27 @@ class AiProviderModelResolver
 
         if ($provider === 'gemini_cli') {
             return $this->gemini->resolve($explicit, $context);
+        }
+
+        // Dev model-tier policy: an ADDITIONAL resolution source that only activates when the caller
+        // explicitly passes a dev task shape in context — every other caller/resolution path is
+        // byte-identical to before this was added. A 'small' tier redirects to the provider's existing
+        // fallback (cheap/fast) model via the normal alias-resolution path; 'frontier' (the safe default
+        // when policy is absent or the combination is undeclared) changes nothing.
+        $devTask = $context['dev_task'] ?? null;
+        if (is_array($devTask)) {
+            $tierPolicy = ($this->devModelTierPolicy ?? new AtlasTaskGovernancePolicyPlane)->modelTierFor(
+                (string) ($devTask['task_kind'] ?? ''),
+                (string) ($devTask['risk_level'] ?? ''),
+                (string) ($devTask['workcell_size_class'] ?? ''),
+            );
+
+            if ($tierPolicy === 'small') {
+                $result = $this->resolveGenericAlias($providerConfig, ['requested_model_alias' => 'fallback'], $tier, $allowAuto, $allowManual, 'dev_model_tier_policy');
+                $result['model_tier'] = 'small';
+
+                return $result;
+            }
         }
 
         $explicitModel = $this->clean($explicit);

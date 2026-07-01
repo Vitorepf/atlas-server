@@ -42,4 +42,21 @@ return [
             'in_release_window' => false,
         ],
     ],
+
+    // Dev model-tier policy: (task_kind, risk_level, workcell_size_class) -> small|medium|frontier|split.
+    // Read by AtlasTaskGovernancePolicyPlane::modelTierFor(); an undeclared combination safely falls back
+    // to 'frontier' (today's behavior), never silently downgrading to a cheaper model.
+    'dev_model_tier_policy' => [
+        'read_only' => [
+            'low' => [
+                'small' => 'small',
+                'medium' => 'medium',
+            ],
+        ],
+        'write' => [
+            'low' => [
+                'small' => 'medium',
+            ],
+        ],
+    ],
 ];
