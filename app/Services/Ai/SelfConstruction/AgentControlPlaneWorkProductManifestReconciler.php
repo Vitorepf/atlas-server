@@ -69,9 +69,26 @@ final class AgentControlPlaneWorkProductManifestReconciler
         }
 
         $hasGaps = $missing !== [] || $unexpected !== [];
+        $hasProofGaps = $hasGaps || $invalidPathCount > 0 || $duplicateObservedPaths !== [];
+
+        $repairHints = [];
+        foreach ($missing as $row) {
+            $repairHints[] = ['path' => $row['path'], 'reason' => $row['reason'], 'hint' => 'produce_missing_expected_output:'.$row['path']];
+        }
+        foreach ($unexpected as $row) {
+            $repairHints[] = ['path' => $row['path'], 'reason' => $row['reason'], 'hint' => 'remove_or_declare_expected_output:'.$row['path']];
+        }
+        foreach (array_keys($duplicateObservedPaths) as $path) {
+            $repairHints[] = ['path' => $path, 'reason' => 'duplicate_work_product_path', 'hint' => 'deduplicate_work_product:'.$path];
+        }
+        if ($invalidPathCount > 0) {
+            $repairHints[] = ['path' => '', 'reason' => 'invalid_path_present', 'hint' => 'repair_blank_or_malformed_paths:'.$invalidPathCount];
+        }
 
         $payload = [
             'status' => $hasGaps ? 'manifest_reconciliation_has_gaps' : 'manifest_reconciliation_clear',
+            'proof_status' => $hasProofGaps ? 'blocked' : 'complete',
+            'repair_hints' => $repairHints,
             'next_action' => $hasGaps ? 'repair_manifest_before_collection' : 'collection_may_proceed',
             'expected_output_count' => count($expectedPaths),
             'observed_output_count' => count($observedPaths),

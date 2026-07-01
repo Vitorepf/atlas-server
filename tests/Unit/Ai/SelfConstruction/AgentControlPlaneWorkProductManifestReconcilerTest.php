@@ -67,5 +67,68 @@ final class AgentControlPlaneWorkProductManifestReconcilerTest extends TestCase
 
         $this->assertSame('manifest_reconciliation_clear', $result['status']);
         $this->assertSame('collection_may_proceed', $result['next_action']);
+        $this->assertSame('complete', $result['proof_status']);
+        $this->assertSame([], $result['repair_hints']);
+    }
+
+    public function test_missing_output_emits_blocked_proof_status_and_repair_hint(): void
+    {
+        $result = (new AgentControlPlaneWorkProductManifestReconciler)->reconcile(
+            [],
+            [['path' => 'app/Foo.php']],
+        );
+
+        $this->assertSame('blocked', $result['proof_status']);
+        $this->assertNotEmpty($result['repair_hints']);
+        $this->assertSame('app/Foo.php', $result['repair_hints'][0]['path']);
+    }
+
+    public function test_unexpected_output_emits_blocked_proof_status_and_repair_hint(): void
+    {
+        $result = (new AgentControlPlaneWorkProductManifestReconciler)->reconcile(
+            [['path' => 'app/Unexpected.php']],
+            [['path' => 'app/Foo.php']],
+        );
+
+        $this->assertSame('blocked', $result['proof_status']);
+        $this->assertNotEmpty($result['repair_hints']);
+    }
+
+    public function test_duplicate_paths_emit_blocked_proof_status_and_repair_hint(): void
+    {
+        $result = (new AgentControlPlaneWorkProductManifestReconciler)->reconcile(
+            [['path' => 'app/Foo.php'], ['path' => 'app/Foo.php']],
+            [['path' => 'app/Foo.php']],
+        );
+
+        $this->assertSame('blocked', $result['proof_status']);
+        $hints = array_column($result['repair_hints'], 'reason');
+        $this->assertContains('duplicate_work_product_path', $hints);
+    }
+
+    public function test_invalid_paths_emit_blocked_proof_status_and_repair_hint(): void
+    {
+        $result = (new AgentControlPlaneWorkProductManifestReconciler)->reconcile(
+            [['path' => ''], ['path' => 'app/Foo.php']],
+            [['path' => 'app/Foo.php']],
+        );
+
+        $this->assertSame('blocked', $result['proof_status']);
+        $hints = array_column($result['repair_hints'], 'reason');
+        $this->assertContains('invalid_path_present', $hints);
+    }
+
+    public function test_manifest_reconciliation_hash_changes_when_repair_hints_change(): void
+    {
+        $withGaps = (new AgentControlPlaneWorkProductManifestReconciler)->reconcile(
+            [],
+            [['path' => 'app/Foo.php']],
+        );
+        $clean = (new AgentControlPlaneWorkProductManifestReconciler)->reconcile(
+            [['path' => 'app/Foo.php']],
+            [['path' => 'app/Foo.php']],
+        );
+
+        $this->assertNotSame($withGaps['manifest_reconciliation_hash'], $clean['manifest_reconciliation_hash']);
     }
 }
