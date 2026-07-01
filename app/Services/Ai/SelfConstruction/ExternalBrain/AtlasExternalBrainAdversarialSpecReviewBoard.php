@@ -75,6 +75,20 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
 
     private const STOPWORDS = ['a', 'an', 'the', 'to', 'of', 'for', 'so', 'that', 'and', 'with', 'from', 'into', 'is', 'on', 'in'];
 
+    /** More allowed_files than this is overbroad scope, not a tightly scoped task. */
+    private const OVERBROAD_ALLOWED_FILES_THRESHOLD = 6;
+
+    /** Maps each lens to the finding category it produces when it fails. */
+    private const LENS_FINDING_CATEGORIES = [
+        self::LENS_ANTI_PROXY => 'proxy_value',
+        self::LENS_COLLISION_SAFETY => 'overbroad_scope',
+        self::LENS_EVIDENCE_STRENGTH => 'weak_proof',
+        self::LENS_IMPLEMENTABILITY => 'implementability_gap',
+        self::LENS_LEVERAGE => 'low_leverage',
+        self::LENS_STEADY_STATE_AUTONOMY => 'autonomy_gap',
+        self::LENS_DUPLICATE_OBJECTIVE_SHAPE => 'duplicate_shape',
+    ];
+
     /**
      * @param  array{
      *   task_packet_id?:string,
@@ -117,7 +131,36 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
             'repair_hints' => $aggregate['repair_hints'],
             'hard_blockers' => $aggregate['hard_blockers'],
             'enqueue_recommendation' => $aggregate['enqueue_recommendation'],
+            'findings' => $aggregate['findings'],
+            'residual_risk_notes' => $this->residualRiskNotes($aggregate['approved'], $liveQueuedTargets, $knownSpecObjectives),
         ];
+    }
+
+    /**
+     * AC4: even a spec that clears every lens carries residual risk — this review is a static
+     * heuristic pass, not a guarantee, and named gaps (missing live-queue/known-objective context)
+     * should stay visible instead of implying a passing spec is risk-free.
+     *
+     * @param  list<string>  $liveQueuedTargets
+     * @param  list<string>  $knownSpecObjectives
+     * @return list<string>
+     */
+    private function residualRiskNotes(bool $approved, array $liveQueuedTargets, array $knownSpecObjectives): array
+    {
+        if (! $approved) {
+            return [];
+        }
+
+        $notes = [];
+        if ($liveQueuedTargets === []) {
+            $notes[] = 'collision_safety_evaluated_without_live_queue_context_verify_against_live_queue_at_enqueue_time';
+        }
+        if ($knownSpecObjectives === []) {
+            $notes[] = 'duplicate_objective_shape_evaluated_without_known_spec_objectives_context';
+        }
+        $notes[] = 'this_review_is_a_static_heuristic_pass_not_a_guarantee_monitor_execution_for_emergent_risk';
+
+        return $notes;
     }
 
     /**
@@ -127,7 +170,7 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
      * hard_blockers/repair_hints (or vice versa) for a malformed spec.
      *
      * @param  list<array<string,mixed>>  $lenses
-     * @return array{approved:bool, risk_score:int, hard_blockers:list<string>, repair_hints:list<string>, enqueue_recommendation:string}
+     * @return array{approved:bool, risk_score:int, hard_blockers:list<string>, repair_hints:list<string>, enqueue_recommendation:string, findings:list<array<string,mixed>>}
      */
     private function aggregateLensResults(array $lenses): array
     {
@@ -135,6 +178,7 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
         $riskScore = 0;
         $hardBlockers = [];
         $hints = [];
+        $findings = [];
 
         foreach ($lenses as $lens) {
             $hints = array_merge($hints, (array) ($lens['repair_hints'] ?? []));
@@ -145,9 +189,17 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
 
             $allPassed = false;
             $riskScore += self::LENS_WEIGHTS[$lens['lens']] ?? 10;
-            if (in_array($lens['lens'], self::HARD_LENSES, true)) {
+            $isHard = in_array($lens['lens'], self::HARD_LENSES, true);
+            if ($isHard) {
                 $hardBlockers[] = $lens['lens'];
             }
+
+            $findings[] = [
+                'category' => self::LENS_FINDING_CATEGORIES[$lens['lens']] ?? 'general',
+                'lens' => $lens['lens'],
+                'severity' => $isHard ? 'blocking' : 'advisory',
+                'reasons' => $lens['reasons'],
+            ];
         }
 
         $riskScore = min(100, $riskScore);
@@ -165,6 +217,7 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
             'hard_blockers' => $hardBlockers,
             'repair_hints' => array_values(array_unique($hints)),
             'enqueue_recommendation' => $enqueueRecommendation,
+            'findings' => $findings,
         ];
     }
 
@@ -487,6 +540,13 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
                 $reasons[] = 'file_already_live_in_queue:'.(string) $f;
                 $hints[] = 'wait_for_active_task_claiming_this_file_to_complete_before_queuing';
             }
+        }
+
+        // Overbroad scope: a spec touching too many files at once is unsafe for parallel workers
+        // and hard to reason about, regardless of whether any individual file is wildcarded.
+        if (count($allowedFiles) > self::OVERBROAD_ALLOWED_FILES_THRESHOLD) {
+            $reasons[] = 'allowed_files_overbroad_scope:'.count($allowedFiles).'_files';
+            $hints[] = 'narrow_allowed_files_to_only_the_files_this_task_must_touch';
         }
 
         return $this->lens(self::LENS_COLLISION_SAFETY, $reasons, $hints);

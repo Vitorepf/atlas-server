@@ -494,6 +494,66 @@ final class AtlasExternalBrainAdversarialSpecReviewBoardTest extends TestCase
         $this->assertTrue($lens['passed']);
     }
 
+    // ── AC: proxy-value specs are rejected with a proxy_value finding ─────────
+
+    public function test_proxy_value_spec_is_rejected_with_proxy_value_finding(): void
+    {
+        $r = $this->board->review($this->strongSpec([
+            'objective' => 'Count how many drift events exist in the codebase',
+        ]));
+
+        $this->assertFalse($r['approved']);
+        $proxyFindings = array_filter($r['findings'], fn ($f) => $f['category'] === 'proxy_value');
+        $this->assertNotEmpty($proxyFindings, 'a proxy-value objective must produce a proxy_value finding');
+        foreach ($proxyFindings as $finding) {
+            $this->assertSame('blocking', $finding['severity']);
+        }
+    }
+
+    // ── AC: overbroad allowed_files and weak proof produce blocking findings ──
+
+    public function test_overbroad_allowed_files_and_weak_proof_produce_blocking_findings(): void
+    {
+        $r = $this->board->review($this->strongSpec([
+            'allowed_files' => [
+                'app/A.php', 'app/B.php', 'app/C.php', 'app/D.php',
+                'app/E.php', 'app/F.php', 'app/G.php',
+            ],
+            'required_evidence' => ['tests pass'],
+        ]));
+
+        $this->assertFalse($r['approved']);
+        $overbroad = array_filter($r['findings'], fn ($f) => $f['category'] === 'overbroad_scope');
+        $weakProof = array_filter($r['findings'], fn ($f) => $f['category'] === 'weak_proof');
+        $this->assertNotEmpty($overbroad, 'overbroad allowed_files must produce an overbroad_scope finding');
+        $this->assertNotEmpty($weakProof, 'weak proof must produce a weak_proof finding');
+        $blocking = array_filter($r['findings'], fn ($f) => $f['severity'] === 'blocking');
+        $this->assertNotEmpty($blocking, 'overbroad scope is a hard-lens finding and must be blocking');
+    }
+
+    // ── AC: grounded, minimal, high-leverage spec passes with residual risk notes ──
+
+    public function test_grounded_minimal_spec_passes_with_residual_risk_notes(): void
+    {
+        $r = $this->board->review($this->strongSpec());
+
+        $this->assertTrue($r['approved']);
+        $this->assertArrayHasKey('residual_risk_notes', $r);
+        $this->assertNotEmpty($r['residual_risk_notes'], 'an approved spec must still carry residual risk notes, not a false zero-risk guarantee');
+        foreach ($r['residual_risk_notes'] as $note) {
+            $this->assertIsString($note);
+            $this->assertNotEmpty($note);
+        }
+    }
+
+    public function test_rejected_spec_has_no_residual_risk_notes(): void
+    {
+        $r = $this->board->review($this->strongSpec(['allowed_files' => []]));
+
+        $this->assertFalse($r['approved']);
+        $this->assertSame([], $r['residual_risk_notes']);
+    }
+
     // ── helper ────────────────────────────────────────────────────────────────
 
     private function findLens(array $result, string $lensName): array
