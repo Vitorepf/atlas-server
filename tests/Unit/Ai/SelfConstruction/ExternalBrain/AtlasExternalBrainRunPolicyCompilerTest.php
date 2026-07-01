@@ -348,4 +348,109 @@ final class AtlasExternalBrainRunPolicyCompilerTest extends TestCase
         $this->assertFalse($verdict['can_stop']);
         $this->assertSame('self_heal', $verdict['next_autonomy_action']);
     }
+
+    // ── AC2: coarse 5-value decision vocabulary ────────────────────────────────
+
+    public function test_decision_is_create_more_when_no_blockers_and_capacity_available(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count' => 10,
+            'available_worker_capacity' => 3,
+        ]);
+
+        $this->assertSame('create_more', $verdict['decision']);
+    }
+
+    public function test_decision_is_consolidate_when_queue_pressure_exceeds_floor(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count' => 10,
+            'queue_pressure' => 0.90,
+        ]);
+
+        $this->assertSame('consolidate', $verdict['decision']);
+    }
+
+    public function test_decision_is_repair_queue_when_drain_required(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count' => 10,
+            'claimable_depth' => 75,
+        ]);
+
+        $this->assertSame('repair_queue', $verdict['decision']);
+    }
+
+    public function test_decision_is_safety_stop_when_quota_reached(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+
+        $verdict = $this->compiler->evaluate($policy, ['verified_count' => 100]);
+
+        $this->assertSame('safety_stop', $verdict['decision']);
+    }
+
+    public function test_decision_is_safety_stop_when_forbidden_behaviour_detected(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count' => 10,
+            'padding_detected' => true,
+        ]);
+
+        $this->assertSame('safety_stop', $verdict['decision']);
+    }
+
+    public function test_decision_is_wait_for_muscles_when_no_capacity_and_no_leverage_surfaces(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count' => 10,
+            'available_worker_capacity' => 0,
+            'unexplored_high_leverage_surfaces_available' => false,
+        ]);
+
+        $this->assertSame('wait_for_muscles', $verdict['decision']);
+    }
+
+    // ── AC3: refuses a wait recommendation when unexplored high-leverage surfaces remain ──
+
+    public function test_refuses_wait_when_queue_clean_and_unexplored_high_leverage_surfaces_remain(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count' => 10,
+            'available_worker_capacity' => 0, // muscles are all busy
+            'unexplored_high_leverage_surfaces_available' => true, // but real leverage remains
+        ]);
+
+        $this->assertNotSame('wait_for_muscles', $verdict['decision']);
+        $this->assertSame('create_more', $verdict['decision']);
+    }
+
+    // ── AC4: decision explanation + proof requirements, not a bare boolean ────
+
+    public function test_verdict_includes_decision_explanation_and_proof_requirements(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+
+        $verdict = $this->compiler->evaluate($policy, ['verified_count' => 10]);
+
+        $this->assertArrayHasKey('decision', $verdict);
+        $this->assertArrayHasKey('decision_explanation', $verdict);
+        $this->assertArrayHasKey('proof_requirements', $verdict);
+        $this->assertIsString($verdict['decision_explanation']);
+        $this->assertNotEmpty($verdict['decision_explanation']);
+        $this->assertIsArray($verdict['proof_requirements']);
+        $this->assertNotEmpty($verdict['proof_requirements']);
+    }
 }

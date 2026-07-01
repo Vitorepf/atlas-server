@@ -306,6 +306,40 @@ final class AtlasExternalBrainRunPolicyCompiler
             default => 'create',
         };
 
+        // AC2/AC3: coarse 5-value decision vocabulary (create_more, consolidate, repair_queue,
+        // wait_for_muscles, safety_stop) collapsing the 7 fine-grained autonomy axes above.
+        // Muscle capacity never triggers a bare wait when unexplored high-leverage surfaces
+        // remain — origination (brain work) never needs muscle capacity to keep moving.
+        $hasForbiddenViolation = $paddingDetected || $sameTemplateFill || $humanDependent;
+        $availableWorkerCapacity = (int) ($runState['available_worker_capacity'] ?? 1);
+        $unexploredHighLeverageSurfacesAvailable = (bool) ($runState['unexplored_high_leverage_surfaces_available'] ?? false);
+
+        $decision = match (true) {
+            $canStop || $hasForbiddenViolation => 'safety_stop',
+            $nextAutonomyAction === 'consolidate' => 'consolidate',
+            in_array($nextAutonomyAction, ['drain', 'self_heal', 'research', 'ambition_escalation'], true) => 'repair_queue',
+            $availableWorkerCapacity <= 0 && ! $unexploredHighLeverageSurfacesAvailable => 'wait_for_muscles',
+            default => 'create_more',
+        };
+
+        $decisionExplanation = match ($decision) {
+            'safety_stop' => $hasForbiddenViolation
+                ? 'stopping now: a forbidden behaviour was detected ('.implode(', ', array_values(array_filter([
+                    $paddingDetected ? 'padding' : null,
+                    $sameTemplateFill ? 'same_template_quota_fill' : null,
+                    $humanDependent ? 'human_dependent_steady_state' : null,
+                ]))).')'
+                : 'stopping now: '.($stopReason ?? 'no further evidence-backed reason to continue'),
+            'consolidate' => 'consolidating before creating new work: queue_pressure or simplification_debt exceeds its threshold',
+            'repair_queue' => 'repairing the pipeline before creating new work: '.$nextAutonomyAction.' condition triggered',
+            'wait_for_muscles' => 'queue is healthy with no unexplored high-leverage surface; waiting for muscle capacity to free up before dispatching more',
+            default => 'no blocking condition found and either muscle capacity or an unexplored high-leverage surface is available: continue creating new work',
+        };
+
+        $proofRequirements = $violations !== []
+            ? $violations
+            : ['decision='.$decision.' requires: '.($requiredActions !== [] ? implode(', ', $requiredActions) : 'no further action, conditions already satisfied')];
+
         return [
             'schema' => self::SCHEMA_VERDICT,
             'can_stop' => $canStop,
@@ -313,6 +347,9 @@ final class AtlasExternalBrainRunPolicyCompiler
             'required_actions' => $requiredActions,
             'stop_reason' => $stopReason,
             'next_autonomy_action' => $nextAutonomyAction,
+            'decision' => $decision,
+            'decision_explanation' => $decisionExplanation,
+            'proof_requirements' => $proofRequirements,
         ];
     }
 }
