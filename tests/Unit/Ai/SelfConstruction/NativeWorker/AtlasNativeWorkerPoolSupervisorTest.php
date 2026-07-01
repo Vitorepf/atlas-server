@@ -345,4 +345,95 @@ final class AtlasNativeWorkerPoolSupervisorTest extends TestCase
         $this->assertFalse($out['dry_run']);
         $this->assertSame(1, $out['cycle_count']);
     }
+
+    // ── AC: quality-adjusted throughput, no-claimable pressure, evidence health, scale rec + reason ──
+
+    public function test_scale_up_reports_reason_and_quality_adjusted_throughput(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 10,
+            'active_leases' => 2,
+            'max_pool_size' => 5,
+        ]);
+
+        $this->assertSame('scale_up', $plan['recommendation']);
+        $this->assertSame('claimable_exceeds_active_with_room', $plan['reason']);
+        $this->assertSame(2.0, $plan['quality_adjusted_throughput'], 'no failure rate declared => full throughput credit');
+    }
+
+    public function test_scale_down_recommended_when_recent_failure_rate_exceeds_floor(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 10,
+            'active_leases' => 4,
+            'max_pool_size' => 5,
+            'recent_native_worker_failure_rate' => 0.75,
+        ]);
+
+        $this->assertSame('scale_down', $plan['recommendation']);
+        $this->assertSame('quality_adjusted_throughput_below_floor', $plan['reason']);
+        $this->assertSame(3, $plan['desired_pool_size']);
+        $this->assertSame(1.0, $plan['quality_adjusted_throughput'], '4 active * (1 - 0.75) = 1.0');
+    }
+
+    public function test_hold_reports_reason(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 1,
+            'active_leases' => 1,
+            'max_pool_size' => 5,
+        ]);
+
+        $this->assertSame('hold', $plan['recommendation']);
+        $this->assertSame('capacity_sufficient', $plan['reason']);
+    }
+
+    public function test_no_claimable_pressure_flag_and_hold_when_no_claimable_task_with_zero_load(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 0,
+            'active_leases' => 0,
+            'no_claimable_task' => true,
+        ]);
+
+        $this->assertSame('hold', $plan['recommendation']);
+        $this->assertSame('no_claimable_task_pressure', $plan['reason']);
+        $this->assertTrue($plan['no_claimable_pressure']);
+    }
+
+    public function test_no_claimable_pressure_flag_is_false_when_claimable_depth_present(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 5,
+            'active_leases' => 0,
+            'no_claimable_task' => true,
+        ]);
+
+        $this->assertFalse($plan['no_claimable_pressure']);
+    }
+
+    public function test_bad_evidence_writer_health_forces_repair_first(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 10,
+            'active_leases' => 1,
+            'evidence_writer_ok' => false,
+        ]);
+
+        $this->assertSame('repair_first', $plan['recommendation']);
+        $this->assertContains('evidence_writer_unsafe', $plan['safety_reasons']);
+    }
+
+    public function test_run_refuses_to_start_when_evidence_writer_unsafe(): void
+    {
+        $out = (new AtlasNativeWorkerPoolSupervisor)->run([
+            'apply' => true,
+            'max_cycles' => 1,
+            'evidence_writer_ok' => false,
+            'cycle_callback' => static fn (int $i): array => ['outcome' => 'success'],
+        ]);
+
+        $this->assertContains('evidence_writer_unsafe', $out['safety_reasons']);
+        $this->assertSame(0, $out['cycle_count']);
+    }
 }

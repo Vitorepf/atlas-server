@@ -96,9 +96,10 @@ final class AtlasNativeWorkerPoolSupervisor
      *   claimable_depth?:int, active_leases?:int, max_pool_size?:int,
      *   recoverable_backlog_count?:int, malformed_count?:int,
      *   recent_native_worker_failure_rate?:float, queue_health?:float,
-     *   proof_ledger_ok?:bool, worker_readiness_ok?:bool,
+     *   proof_ledger_ok?:bool, worker_readiness_ok?:bool, evidence_writer_ok?:bool,
+     *   no_claimable_task?:bool,
      * }  $facts
-     * @return array{recommendation:string, desired_pool_size:int, blockers:list<string>, safety_reasons:list<string>, next_recheck_interval:int}
+     * @return array{recommendation:string, reason:string, desired_pool_size:int, blockers:list<string>, safety_reasons:list<string>, next_recheck_interval:int, quality_adjusted_throughput:float, no_claimable_pressure:bool}
      */
     public function capacityPlanFromNativeSignals(array $facts): array
     {
@@ -108,6 +109,8 @@ final class AtlasNativeWorkerPoolSupervisor
         $recoverableBacklog = max(0, (int) ($facts['recoverable_backlog_count'] ?? 0));
         $malformedCount = max(0, (int) ($facts['malformed_count'] ?? 0));
         $failureRate = max(0.0, min(1.0, (float) ($facts['recent_native_worker_failure_rate'] ?? 0.0)));
+        $noClaimableTask = (bool) ($facts['no_claimable_task'] ?? false);
+        $noClaimablePressure = $claimableDepth === 0 && $activeLeases === 0 && $noClaimableTask;
 
         $safetyReasons = $this->safetyReasons($facts);
         $blockers = [];
@@ -116,18 +119,20 @@ final class AtlasNativeWorkerPoolSupervisor
             $blockers[] = 'malformed_packets_present';
         }
 
-        $recommendation = match (true) {
-            $safetyReasons !== [] => 'repair_first',
-            $malformedCount > 0 => 'repair_first',
-            $recoverableBacklog > 0 && $claimableDepth === 0 => 'hold',
-            $activeLeases > $maxPoolSize => 'drain',
-            $failureRate > 0.5 => 'hold',
-            $claimableDepth > $activeLeases && $activeLeases < $maxPoolSize => 'scale_up',
-            default => 'hold',
+        [$recommendation, $reason] = match (true) {
+            $safetyReasons !== [] => ['repair_first', 'unsafe_to_scale'],
+            $malformedCount > 0 => ['repair_first', 'malformed_packets_present'],
+            $recoverableBacklog > 0 && $claimableDepth === 0 => ['hold', 'recoverable_backlog_no_new_claimable'],
+            $noClaimablePressure => ['hold', 'no_claimable_task_pressure'],
+            $activeLeases > $maxPoolSize => ['drain', 'active_exceeds_pool_size'],
+            $failureRate > 0.5 => ['scale_down', 'quality_adjusted_throughput_below_floor'],
+            $claimableDepth > $activeLeases && $activeLeases < $maxPoolSize => ['scale_up', 'claimable_exceeds_active_with_room'],
+            default => ['hold', 'capacity_sufficient'],
         };
 
         $desiredPoolSize = match ($recommendation) {
             'scale_up' => min($maxPoolSize, $activeLeases + 1),
+            'scale_down' => max(0, $activeLeases - 1),
             'drain' => $maxPoolSize,
             default => $activeLeases,
         };
@@ -139,10 +144,13 @@ final class AtlasNativeWorkerPoolSupervisor
 
         return [
             'recommendation' => $recommendation,
+            'reason' => $reason,
             'desired_pool_size' => $desiredPoolSize,
             'blockers' => $blockers,
             'safety_reasons' => $safetyReasons,
             'next_recheck_interval' => $recheckInterval,
+            'quality_adjusted_throughput' => round($activeLeases * (1.0 - $failureRate), 2),
+            'no_claimable_pressure' => $noClaimablePressure,
         ];
     }
 
@@ -156,6 +164,7 @@ final class AtlasNativeWorkerPoolSupervisor
         $queueHealth = (float) ($facts['queue_health'] ?? 1.0);
         $proofLedgerOk = (bool) ($facts['proof_ledger_ok'] ?? true);
         $workerReadinessOk = (bool) ($facts['worker_readiness_ok'] ?? true);
+        $evidenceWriterOk = (bool) ($facts['evidence_writer_ok'] ?? true);
 
         if ($queueHealth < self::QUEUE_HEALTH_SAFE_FLOOR) {
             $reasons[] = 'queue_health_unsafe';
@@ -165,6 +174,9 @@ final class AtlasNativeWorkerPoolSupervisor
         }
         if (! $workerReadinessOk) {
             $reasons[] = 'worker_readiness_unsafe';
+        }
+        if (! $evidenceWriterOk) {
+            $reasons[] = 'evidence_writer_unsafe';
         }
         sort($reasons, SORT_STRING);
 
