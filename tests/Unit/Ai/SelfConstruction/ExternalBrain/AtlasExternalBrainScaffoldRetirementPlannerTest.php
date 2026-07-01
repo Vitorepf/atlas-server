@@ -248,6 +248,61 @@ final class AtlasExternalBrainScaffoldRetirementPlannerTest extends TestCase
         $this->assertArrayHasKey('capability_risk', $entry);
     }
 
+    // ── quality_floor_preserved + rollback_condition ──────────────────────────
+
+    public function test_keep_action_always_preserves_quality_floor(): void
+    {
+        $result = $this->plan($this->scaffold('safe'));
+
+        $entry = $this->findEntry($result, 'safe');
+        $this->assertTrue($entry['quality_floor_preserved']);
+    }
+
+    public function test_retire_includes_rollback_condition_when_replacement_present(): void
+    {
+        $result = $this->plan($this->scaffold('old-v1', [
+            'overlap_score'         => 0.80,
+            'replacement_candidate' => 'scaffold-v2',
+        ]));
+
+        $entry = $this->findEntry($result, 'old-v1');
+        $this->assertNotNull($entry['rollback_condition']);
+        $this->assertStringContainsString('scaffold-v2', $entry['rollback_condition']);
+    }
+
+    public function test_retire_uses_explicit_rollback_condition_when_supplied(): void
+    {
+        $result = $this->plan($this->scaffold('old-v2', [
+            'overlap_score'         => 0.80,
+            'replacement_candidate' => 'scaffold-v3',
+            'rollback_condition'    => 'revert within 7 days if lift drops below 0.5',
+        ]));
+
+        $entry = $this->findEntry($result, 'old-v2');
+        $this->assertSame('revert within 7 days if lift drops below 0.5', $entry['rollback_condition']);
+    }
+
+    public function test_high_overlap_without_replacement_does_not_retire(): void
+    {
+        $result = $this->plan($this->scaffold('no-replacement', [
+            'overlap_score'         => 0.90,
+            'replacement_candidate' => null,
+        ]));
+
+        $entry = $this->findEntry($result, 'no-replacement');
+        $this->assertNotSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_RETIRE, $entry['action']);
+        $this->assertNull($entry['rollback_condition']);
+    }
+
+    public function test_low_lift_retire_reports_quality_floor_preserved_based_on_capability_risk(): void
+    {
+        $result = $this->plan($this->scaffold('r1', ['lift_score' => 0.05, 'failure_recurrence_rate' => 0.10]));
+
+        $entry = $this->findEntry($result, 'r1');
+        $this->assertArrayHasKey('quality_floor_preserved', $entry);
+        $this->assertIsBool($entry['quality_floor_preserved']);
+    }
+
     public function test_retire_action_reports_higher_complexity_reduction_than_keep(): void
     {
         $retired = $this->plan($this->scaffold('r1', ['lift_score' => 0.05, 'maintenance_cost' => 0.50]));

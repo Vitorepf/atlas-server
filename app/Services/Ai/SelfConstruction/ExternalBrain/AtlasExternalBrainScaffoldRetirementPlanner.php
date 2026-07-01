@@ -34,6 +34,9 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
     private const DOWNGRADE_MAINTENANCE_FLOOR  = 0.60;
     private const DOWNGRADE_STALE_DAYS_FLOOR   = 30;
 
+    /** capability_risk above this ceiling means the action is NOT quality-floor-preserving. */
+    private const CAPABILITY_RISK_CEILING = 0.30;
+
     /**
      * @param  array{scaffolds?: list<array<string,mixed>>}  $input
      * @return array{schema:string, plan:list<array<string,mixed>>, retire_count:int, merge_count:int, keep_count:int}
@@ -83,6 +86,9 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
         $replacement  = isset($scaffold['replacement_candidate'])
             ? (string) $scaffold['replacement_candidate']
             : null;
+        $rollbackCondition = isset($scaffold['rollback_condition']) && $scaffold['rollback_condition'] !== ''
+            ? (string) $scaffold['rollback_condition']
+            : null;
 
         // RETIRE — quality failure. A retire decision driven by low lift requires
         // lift evidence; without it we never assume deletion is safe.
@@ -97,21 +103,21 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
                 $reasons[] = sprintf('failure_recurrence_rate:%.4f>%.2f', $failureRate, self::RETIRE_FAILURE_CEILING);
             }
 
-            return $this->entry($id, self::ACTION_RETIRE, $reasons, $replacement, null, $maintenanceCost, $lift, $failureRate);
+            return $this->entry($id, self::ACTION_RETIRE, $reasons, $replacement, null, $maintenanceCost, $lift, $failureRate, $rollbackCondition);
         }
 
         // RETIRE — high overlap with a replacement ready
         if ($overlap > self::OVERLAP_RETIRE_CEILING && $replacement !== null) {
             return $this->entry($id, self::ACTION_RETIRE, [
                 sprintf('overlap_score:%.4f>%.2f:superseded', $overlap, self::OVERLAP_RETIRE_CEILING),
-            ], $replacement, null, $maintenanceCost, $lift, $failureRate);
+            ], $replacement, null, $maintenanceCost, $lift, $failureRate, $rollbackCondition);
         }
 
         // MERGE — moderate overlap with a replacement
         if ($overlap > self::OVERLAP_MERGE_THRESHOLD && $replacement !== null) {
             return $this->entry($id, self::ACTION_MERGE, [
                 sprintf('overlap_score:%.4f>%.2f:merge_into_replacement', $overlap, self::OVERLAP_MERGE_THRESHOLD),
-            ], $replacement, null, $maintenanceCost, $lift, $failureRate);
+            ], $replacement, null, $maintenanceCost, $lift, $failureRate, $rollbackCondition);
         }
 
         // DOWNGRADE — not bad enough to retire, but costly to maintain and stale.
@@ -131,7 +137,7 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
                     $staleUsageDays,
                     self::DOWNGRADE_STALE_DAYS_FLOOR,
                 ),
-            ], $replacement, null, $maintenanceCost, $lift, $failureRate);
+            ], $replacement, null, $maintenanceCost, $lift, $failureRate, $rollbackCondition);
         }
 
         // KEEP — explain why removal would reduce quality
@@ -162,6 +168,7 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
         float $maintenanceCost,
         float $lift,
         float $failureRate,
+        ?string $rollbackCondition = null,
     ): array {
         $complexityReductionWeight = match ($action) {
             self::ACTION_RETIRE => 1.0,
@@ -177,14 +184,29 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
             ? round($lift * (1.0 - $failureRate), 4)
             : 0.0;
 
+        // quality_floor_preserved: keep is always floor-preserving by definition; a
+        // destructive action only preserves the floor when the capability it could lose
+        // is below the risk ceiling.
+        $qualityFloorPreserved = $action === self::ACTION_KEEP || $capabilityRisk <= self::CAPABILITY_RISK_CEILING;
+
+        // rollback_condition: only meaningful for destructive actions, and only when the
+        // caller supplied one or a replacement exists to roll back to.
+        $resolvedRollbackCondition = in_array($action, [self::ACTION_RETIRE, self::ACTION_MERGE], true)
+            ? ($rollbackCondition ?? ($replacement !== null
+                ? sprintf('restore %s if %s regresses lift or raises failure_recurrence_rate', $id, $replacement)
+                : null))
+            : null;
+
         return [
             'scaffold_id'                   => $id,
             'action'                        => $action,
             'reasons'                       => $reasons,
             'replacement_candidate'         => $replacement,
+            'rollback_condition'            => $resolvedRollbackCondition,
             'keep_rationale'                => $keepRationale,
             'expected_complexity_reduction' => $expectedComplexityReduction,
             'capability_risk'               => $capabilityRisk,
+            'quality_floor_preserved'       => $qualityFloorPreserved,
         ];
     }
 }
