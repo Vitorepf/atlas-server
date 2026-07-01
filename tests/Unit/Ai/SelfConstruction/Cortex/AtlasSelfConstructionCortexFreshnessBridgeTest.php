@@ -108,4 +108,46 @@ final class AtlasSelfConstructionCortexFreshnessBridgeTest extends TestCase
         $this->assertContains('worker_outcome', AtlasSelfConstructionCortexFreshnessBridge::REQUIRED_SOURCES);
         $this->assertContains('project_lane', AtlasSelfConstructionCortexFreshnessBridge::REQUIRED_SOURCES);
     }
+
+    // ── queue/queued_targets hard gate ────────────────────────────────────────
+
+    public function test_stale_queue_sets_stale_queue_context_and_blocks_origination(): void
+    {
+        $facts = $this->allFreshFacts();
+        $facts['sources']['queue'] = ['last_unix' => $facts['now_unix'] - 999999, 'hash' => 'old_queue_hash'];
+
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt($facts);
+
+        $this->assertTrue($r['stale_queue_context']);
+        $this->assertFalse($r['safe_to_origin_tasks']);
+    }
+
+    public function test_stale_queued_targets_sets_stale_queue_context_and_blocks_origination(): void
+    {
+        $facts = $this->allFreshFacts();
+        $facts['sources']['queued_targets'] = ['last_unix' => $facts['now_unix'] - 999999, 'hash' => 'old_qt_hash'];
+
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt($facts);
+
+        $this->assertTrue($r['stale_queue_context']);
+        $this->assertFalse($r['safe_to_origin_tasks']);
+    }
+
+    public function test_stale_docs_within_bound_stays_advisory_when_queue_context_fresh(): void
+    {
+        $now = 1700000000;
+        $facts = $this->allFreshFacts();
+        $facts['now_unix'] = $now;
+        $facts['freshness_window_seconds'] = 200;
+        $facts['max_stale_origin_seconds'] = 5000;
+        $facts['sources']['docs'] = ['last_unix' => $now - 1000, 'hash' => 'old_docs_hash']; // stale (age>window) but within max_stale bound
+
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt($facts);
+
+        $this->assertFalse($r['stale_queue_context']);
+        $docsPlanEntries = array_filter($r['advisory_refresh_plan'], static fn (array $p): bool => $p['source_id'] === 'docs');
+        $this->assertNotEmpty($docsPlanEntries);
+        $blockingDocsEntries = array_filter($r['blocking_refresh_plan'], static fn (array $p): bool => $p['source_id'] === 'docs');
+        $this->assertEmpty($blockingDocsEntries);
+    }
 }
