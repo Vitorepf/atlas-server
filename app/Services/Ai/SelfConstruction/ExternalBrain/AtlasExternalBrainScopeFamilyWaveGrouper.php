@@ -14,19 +14,24 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   allowed_files:           list<string>
  *   fragile_test_fixtures?:  list<string>  — shared test fixture paths this task touches
  *   recent_contention?:      bool          — this task recently caused git/index lock contention
+ *   depends_on?:             list<string>  — task_ids that must complete in an EARLIER wave
  *
  * CONFLICT (unsafe_for_same_wave) between two tasks, first match wins per pair:
  *   allowed_files_overlap         — any allowed_files entry is identical between the two tasks
  *   fragile_test_fixture_overlap  — they share a fragile_test_fixtures entry
  *   recent_contention             — both tasks are flagged recent_contention=true
  *
- * GROUPING: greedy graph-coloring over the conflict graph — a task joins the first existing
- * compatible_group whose members it conflicts with none of; otherwise it starts a new group.
- * Tasks within the same group never conflict and can run in the same wave concurrently.
+ * GROUPING: greedy graph-coloring over the conflict graph, processed in dependency-topological
+ * order — a task joins the earliest compatible_group whose members it conflicts with none of AND
+ * whose wave index is strictly after every wave index its depends_on targets landed in;
+ * otherwise it starts a new group. Tasks within the same group never conflict and can run in the
+ * same wave concurrently. A dependency cycle or a depends_on target absent from this batch never
+ * blocks placement — the constraint is simply skipped for that edge.
  *
  * OUTPUT:
  *   { schema, compatible_groups:list<list<string>>, conflict_groups:list<{task_a,task_b,reason}>,
- *     recommended_parallelism:int, tasks_that_should_run_serially:list<string> }
+ *     recommended_parallelism:int, tasks_that_should_run_serially:list<string>,
+ *     task_placements:list<{task_id,wave_id,parallel_safe,collision_reason}> }
  *
  * Pure / deterministic. No I/O, no provider calls.
  */
@@ -56,11 +61,43 @@ final class AtlasExternalBrainScopeFamilyWaveGrouper
                 'allowed_files'          => array_values(array_unique(array_map('strval', (array) ($task['allowed_files'] ?? [])))),
                 'fragile_test_fixtures'  => array_values(array_unique(array_map('strval', (array) ($task['fragile_test_fixtures'] ?? [])))),
                 'recent_contention'      => (bool) ($task['recent_contention'] ?? false),
+                'depends_on'             => array_values(array_unique(array_map('strval', (array) ($task['depends_on'] ?? [])))),
             ];
         }
 
         $taskIds = array_keys($tasks);
         sort($taskIds, SORT_STRING);
+
+        // Dependency-topological order: a task is only eligible once every depends_on target
+        // present in this batch has already been ordered. Cycles/missing targets never stall —
+        // whatever remains after no progress is made is appended as-is.
+        $orderedTaskIds = [];
+        $remaining = $taskIds;
+        while ($remaining !== []) {
+            $progressed = false;
+            $stillRemaining = [];
+            foreach ($remaining as $id) {
+                $deps = array_intersect($tasks[$id]['depends_on'], $taskIds);
+                $ready = true;
+                foreach ($deps as $dep) {
+                    if (! in_array($dep, $orderedTaskIds, true)) {
+                        $ready = false;
+                        break;
+                    }
+                }
+                if ($ready) {
+                    $orderedTaskIds[] = $id;
+                    $progressed = true;
+                } else {
+                    $stillRemaining[] = $id;
+                }
+            }
+            if (! $progressed) {
+                $orderedTaskIds = array_merge($orderedTaskIds, $stillRemaining);
+                break;
+            }
+            $remaining = $stillRemaining;
+        }
 
         $conflictGroups = [];
         $conflictsWith  = array_fill_keys($taskIds, []);
@@ -79,21 +116,33 @@ final class AtlasExternalBrainScopeFamilyWaveGrouper
             }
         }
 
-        // Greedy graph coloring: each task joins the first group with no conflicting member.
+        // Greedy graph coloring in dependency-topological order: each task joins the earliest
+        // group with no conflicting member AND an index strictly after every depends_on target's
+        // wave index.
         $compatibleGroups = [];
-        foreach ($taskIds as $id) {
+        $waveIndexOf = [];
+        foreach ($orderedTaskIds as $id) {
+            $deps = array_intersect($tasks[$id]['depends_on'], $taskIds);
+            $minGroupIndex = 0;
+            foreach ($deps as $dep) {
+                if (isset($waveIndexOf[$dep])) {
+                    $minGroupIndex = max($minGroupIndex, $waveIndexOf[$dep] + 1);
+                }
+            }
+
             $placed = false;
-            foreach ($compatibleGroups as &$group) {
-                $conflictsInGroup = array_intersect($group, $conflictsWith[$id]);
+            for ($gi = $minGroupIndex; $gi < count($compatibleGroups); $gi++) {
+                $conflictsInGroup = array_intersect($compatibleGroups[$gi], $conflictsWith[$id]);
                 if ($conflictsInGroup === []) {
-                    $group[] = $id;
-                    $placed  = true;
+                    $compatibleGroups[$gi][] = $id;
+                    $waveIndexOf[$id] = $gi;
+                    $placed = true;
                     break;
                 }
             }
-            unset($group);
             if (! $placed) {
                 $compatibleGroups[] = [$id];
+                $waveIndexOf[$id] = count($compatibleGroups) - 1;
             }
         }
 
@@ -110,12 +159,30 @@ final class AtlasExternalBrainScopeFamilyWaveGrouper
         $tasksThatShouldRunSerially = array_values(array_keys($serial));
         sort($tasksThatShouldRunSerially, SORT_STRING);
 
+        // First conflict reason recorded for each task, for the per-task collision_reason.
+        $firstConflictReasonFor = [];
+        foreach ($conflictGroups as $pair) {
+            $firstConflictReasonFor[$pair['task_a']] ??= $pair['reason'];
+            $firstConflictReasonFor[$pair['task_b']] ??= $pair['reason'];
+        }
+
+        $taskPlacements = [];
+        foreach ($taskIds as $id) {
+            $taskPlacements[] = [
+                'task_id'          => $id,
+                'wave_id'          => 'wave_' . ($waveIndexOf[$id] ?? 0),
+                'parallel_safe'    => ! isset($serial[$id]),
+                'collision_reason' => $firstConflictReasonFor[$id] ?? null,
+            ];
+        }
+
         return [
             'schema'                          => self::SCHEMA,
             'compatible_groups'               => array_values($compatibleGroups),
             'conflict_groups'                 => $conflictGroups,
             'recommended_parallelism'         => max(1, $largestGroupSize),
             'tasks_that_should_run_serially'  => $tasksThatShouldRunSerially,
+            'task_placements'                 => $taskPlacements,
         ];
     }
 
