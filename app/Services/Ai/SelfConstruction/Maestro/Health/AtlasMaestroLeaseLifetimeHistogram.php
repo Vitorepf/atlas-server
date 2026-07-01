@@ -30,6 +30,12 @@ final class AtlasMaestroLeaseLifetimeHistogram
     /** Workers holding at least this many leases appear in worker_hotspots. */
     public const HOTSPOT_MIN_LEASES = 2;
 
+    /** Leases held at least this long are reported in the long-tail list. */
+    public const LONG_TAIL_THRESHOLD_SECONDS = 3600;
+
+    /** Fraction of active leases showing a claim-mismatch signal above which ghost_lease_risk is 'high'. */
+    private const GHOST_RISK_HIGH_RATIO = 0.2;
+
     private Closure $clock;
 
     /**
@@ -63,18 +69,25 @@ final class AtlasMaestroLeaseLifetimeHistogram
         $nearExpiry = 0;
         $expired = 0;
         $workerCounts = [];
+        $longTailLeases = [];
+        $ghostSignalCount = 0;
+        $safeReapRecommendation = [];
 
         foreach ($this->leaseRepo()->activeLeases() as $lease) {
             if (! is_array($lease)) {
                 continue;
             }
 
-            $lifetimes[] = max(0, $now - $this->leasedAtUnix($lease));
+            $leaseId = (string) ($lease['lease_id'] ?? '');
+            $lifetimeSeconds = max(0, $now - $this->leasedAtUnix($lease));
+            $lifetimes[] = $lifetimeSeconds;
 
             $exp = $this->expiresAtUnix($lease, $now);
+            $isExpired = false;
             if ($exp !== null) {
                 if ($exp <= $now) {
                     $expired++;
+                    $isExpired = true;
                 } elseif ($exp <= $now + self::NEAR_EXPIRY_THRESHOLD_SECONDS) {
                     $nearExpiry++;
                 }
@@ -84,9 +97,32 @@ final class AtlasMaestroLeaseLifetimeHistogram
             if ($wid !== null) {
                 $workerCounts[$wid] = ($workerCounts[$wid] ?? 0) + 1;
             }
+
+            if ($lifetimeSeconds >= self::LONG_TAIL_THRESHOLD_SECONDS) {
+                $longTailLeases[] = ['lease_id' => $leaseId, 'lifetime_seconds' => $lifetimeSeconds];
+            }
+
+            $isGhostSignal = $this->hasClaimMismatchSignal($lease);
+            if ($isGhostSignal) {
+                $ghostSignalCount++;
+            }
+
+            if ($isExpired) {
+                $safeReapRecommendation[] = ['lease_id' => $leaseId, 'reason' => 'expired'];
+            } elseif ($isGhostSignal) {
+                $safeReapRecommendation[] = ['lease_id' => $leaseId, 'reason' => 'claim_mismatch_ghost_signal'];
+            }
         }
 
         sort($lifetimes, SORT_NUMERIC);
+
+        $totalActive = count($lifetimes);
+        $ghostRatio = $totalActive > 0 ? $ghostSignalCount / $totalActive : 0.0;
+        $ghostLeaseRisk = match (true) {
+            $ghostSignalCount === 0 => 'none',
+            $ghostRatio >= self::GHOST_RISK_HIGH_RATIO => 'high',
+            default => 'low',
+        };
 
         $hotspots = [];
         foreach ($workerCounts as $wid => $cnt) {
@@ -111,7 +147,32 @@ final class AtlasMaestroLeaseLifetimeHistogram
             'near_expiry_count' => $nearExpiry,
             'expired_count' => $expired,
             'worker_hotspots' => $hotspots,
+            'long_tail_leases' => $longTailLeases,
+            'long_tail_count' => count($longTailLeases),
+            'ghost_lease_risk' => $ghostLeaseRisk,
+            'ghost_signal_count' => $ghostSignalCount,
+            'safe_reap_recommendation' => $safeReapRecommendation,
         ];
+    }
+
+    /**
+     * A claim-mismatch signal: the lease explicitly flags a mismatch, or it declares both a
+     * claimed owner and an expected owner that disagree — either way the lease may be a ghost
+     * (held by a worker that no longer matches who actually claimed it).
+     *
+     * @param  array<string,mixed>  $lease
+     */
+    private function hasClaimMismatchSignal(array $lease): bool
+    {
+        if ((bool) ($lease['claim_mismatch'] ?? false)) {
+            return true;
+        }
+
+        $claimedBy = $lease['claimed_by'] ?? null;
+        $expectedOwner = $lease['expected_owner'] ?? null;
+
+        return is_string($claimedBy) && is_string($expectedOwner)
+            && $claimedBy !== '' && $expectedOwner !== '' && $claimedBy !== $expectedOwner;
     }
 
     private function leaseRepo(): object

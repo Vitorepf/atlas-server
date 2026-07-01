@@ -236,6 +236,125 @@ final class AtlasMaestroLeaseLifetimeHistogramTest extends TestCase
         $this->assertSame($h1['worker_hotspots'], $h2['worker_hotspots']);
     }
 
+    // ── AC: long lease lifetimes appear in long_tail buckets ──────────────────
+
+    public function test_long_lease_lifetimes_appear_in_long_tail_leases(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $leases = [
+            $this->leaseHeldFor($now, 10),
+            $this->leaseHeldFor($now, 3700),
+            $this->leaseHeldFor($now, 20000),
+        ];
+        $repo = new class($leases)
+        {
+            public function __construct(private readonly array $leases) {}
+
+            /** @return list<array<string,mixed>> */
+            public function activeLeases(): array
+            {
+                return $this->leases;
+            }
+        };
+
+        $histogram = (new AtlasMaestroLeaseLifetimeHistogram(
+            $repo,
+            static fn (): DateTimeImmutable => $now,
+        ))->histogram();
+
+        $this->assertSame(2, $histogram['long_tail_count']);
+        $leaseIds = array_column($histogram['long_tail_leases'], 'lease_id');
+        $this->assertContains('lease_3700', $leaseIds);
+        $this->assertContains('lease_20000', $leaseIds);
+        $this->assertNotContains('lease_10', $leaseIds);
+    }
+
+    // ── AC: claimed mismatch signals contribute to ghost_lease_risk ────────────
+
+    public function test_claim_mismatch_signal_contributes_to_ghost_lease_risk(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $ts = $now->getTimestamp();
+        $repo = new class([
+            ['lease_id' => 'l-1', 'acquired_at_unix' => $ts - 10, 'claimed_by' => 'worker-a', 'expected_owner' => 'worker-b'],
+            ['lease_id' => 'l-2', 'acquired_at_unix' => $ts - 10, 'claim_mismatch' => true],
+            ['lease_id' => 'l-3', 'acquired_at_unix' => $ts - 10, 'claimed_by' => 'worker-a', 'expected_owner' => 'worker-a'],
+        ]) {
+            public function __construct(private readonly array $leases) {}
+
+            /** @return list<array<string,mixed>> */
+            public function activeLeases(): array
+            {
+                return $this->leases;
+            }
+        };
+
+        $histogram = (new AtlasMaestroLeaseLifetimeHistogram(
+            $repo,
+            static fn (): DateTimeImmutable => $now,
+        ))->histogram();
+
+        $this->assertSame(2, $histogram['ghost_signal_count']);
+        $this->assertNotSame('none', $histogram['ghost_lease_risk']);
+    }
+
+    public function test_no_claim_mismatch_signals_yields_none_ghost_lease_risk(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $ts = $now->getTimestamp();
+        $repo = new class([
+            ['lease_id' => 'l-1', 'acquired_at_unix' => $ts - 10, 'claimed_by' => 'worker-a', 'expected_owner' => 'worker-a'],
+        ]) {
+            public function __construct(private readonly array $leases) {}
+
+            /** @return list<array<string,mixed>> */
+            public function activeLeases(): array
+            {
+                return $this->leases;
+            }
+        };
+
+        $histogram = (new AtlasMaestroLeaseLifetimeHistogram(
+            $repo,
+            static fn (): DateTimeImmutable => $now,
+        ))->histogram();
+
+        $this->assertSame(0, $histogram['ghost_signal_count']);
+        $this->assertSame('none', $histogram['ghost_lease_risk']);
+    }
+
+    // ── AC: histogram output includes safe_reap_recommendation ────────────────
+
+    public function test_safe_reap_recommendation_includes_expired_and_ghost_leases(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $ts = $now->getTimestamp();
+        $repo = new class([
+            ['lease_id' => 'l-expired', 'acquired_at_unix' => $ts - 3660, 'expires_at_unix' => $ts - 60],
+            ['lease_id' => 'l-ghost', 'acquired_at_unix' => $ts - 10, 'claim_mismatch' => true],
+            ['lease_id' => 'l-healthy', 'acquired_at_unix' => $ts - 10],
+        ]) {
+            public function __construct(private readonly array $leases) {}
+
+            /** @return list<array<string,mixed>> */
+            public function activeLeases(): array
+            {
+                return $this->leases;
+            }
+        };
+
+        $histogram = (new AtlasMaestroLeaseLifetimeHistogram(
+            $repo,
+            static fn (): DateTimeImmutable => $now,
+        ))->histogram();
+
+        $this->assertArrayHasKey('safe_reap_recommendation', $histogram);
+        $reapIds = array_column($histogram['safe_reap_recommendation'], 'lease_id');
+        $this->assertContains('l-expired', $reapIds);
+        $this->assertContains('l-ghost', $reapIds);
+        $this->assertNotContains('l-healthy', $reapIds);
+    }
+
     /**
      * @return array<string,mixed>
      */
