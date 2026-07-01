@@ -7,23 +7,46 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Cost;
 /**
  * Pure, deterministic, FACTS-only aggregator over {@see AtlasMaestroCostLedger} rows.
  *
- * Four frozen-schema views:
+ * Seven frozen-schema views:
  *   - aggregateByTaskClass(?cycleId)
  *   - aggregateByProvider(?cycleId)   — grouped by `provider:model`; atlas_native flagged as zero-cost
  *   - aggregateByCycle(?cycleId)
  *   - aggregateByWindow($windowSize, ?cycleId) — 'day' or 'hour'; prevents cross-window cost mixing
+ *   - aggregateByQualityOutcome($qualityOutcomeByTaskPacketId, ?cycleId) (new) — cost rows joined,
+ *     by the already-stored `task_packet_id`, against a caller-supplied
+ *     task_packet_id => quality_outcome map (e.g. success, weak_green, give_back). The ledger's
+ *     REQUIRED_FIELDS never stores quality_outcome, so this is a join-at-read-time, not a stored
+ *     column — a caller-supplied categorical FACT, not a computed scalar score.
+ *   - aggregateByProviderClass(?cycleId) (new) — provider-NEUTRAL bucket (zero_cost / paid_provider)
+ *     derived purely from the already-stored `provider` field — NEVER the raw provider/model name.
+ *   - costQualityHotspots($qualityOutcomeByTaskPacketId, ?cycleId) (new) — task classes whose
+ *     low_quality_outcome_rate (give_back + weak_green share of records, joined the same way as
+ *     aggregateByQualityOutcome) meets LOW_QUALITY_RATE_FLOOR AND carry positive cost.
  *
  * Each group row carries:
  *   { sum_cost_cents, sum_tokens_in, sum_tokens_out, count_records, rejected_count,
  *     first_recorded_at, last_recorded_at }.
  *
- * NEVER emits a single scalar quality / score / rating. Fail-OPEN: empty ledger ⇒ [].
+ * NEVER emits a single scalar quality / score / rating computed BY this aggregator — a
+ * quality_outcome bucket key is a caller-supplied categorical fact (identical in kind to
+ * task_class or cycle_id), and low_quality_outcome_rate is a falsifiable ratio of raw counts, not
+ * an opaque quality judgment. Fail-OPEN: empty ledger ⇒ [].
  *
  * Malformed rows (non-numeric cost/token fields) are counted in `rejected_count`, never summed.
  */
 final class AtlasMaestroCostAggregator
 {
     public const ZERO_COST_PROVIDER = 'atlas_native';
+
+    // Matches AtlasMaestroBudgetGate::providerClass()'s vocabulary for consistency.
+    public const PROVIDER_CLASS_ZERO_COST = 'zero_cost';
+
+    public const PROVIDER_CLASS_PAID = 'paid_provider';
+
+    /** cost_quality_hotspots: minimum share of give_back/weak_green records to qualify. */
+    public const LOW_QUALITY_RATE_FLOOR = 0.5;
+
+    private const LOW_QUALITY_OUTCOMES = ['give_back', 'weak_green'];
 
     public function __construct(private readonly ?AtlasMaestroCostLedger $ledger = null) {}
 
@@ -90,6 +113,92 @@ final class AtlasMaestroCostAggregator
         }
 
         return self::fromRowsByGroup($tagged, '__window__');
+    }
+
+    /**
+     * Cost rows joined by `task_packet_id` against a caller-supplied quality-outcome map. Rows
+     * whose task_packet_id has no entry in the map are grouped under '' (unknown outcome).
+     *
+     * @param  array<string,string>  $qualityOutcomeByTaskPacketId
+     * @return array<string, array<string,mixed>>
+     */
+    public function aggregateByQualityOutcome(array $qualityOutcomeByTaskPacketId, ?string $cycleId = null): array
+    {
+        return self::fromRowsByGroup(
+            self::joinQualityOutcome($this->loadRows($cycleId), $qualityOutcomeByTaskPacketId),
+            'quality_outcome'
+        );
+    }
+
+    /**
+     * Provider-NEUTRAL bucket: zero_cost or paid_provider, derived purely from the already-stored
+     * `provider` field — the raw provider/model name is never used as a group key (matches
+     * AtlasMaestroBudgetGate::providerClass()'s vocabulary).
+     *
+     * @return array<string, array<string,mixed>>
+     */
+    public function aggregateByProviderClass(?string $cycleId = null): array
+    {
+        $rows = $this->loadRows($cycleId);
+        $tagged = [];
+        foreach ($rows as $r) {
+            if (! is_array($r)) {
+                continue;
+            }
+            $r['__provider_class__'] = ((string) ($r['provider'] ?? '')) === self::ZERO_COST_PROVIDER
+                ? self::PROVIDER_CLASS_ZERO_COST
+                : self::PROVIDER_CLASS_PAID;
+            $tagged[] = $r;
+        }
+
+        return self::fromRowsByGroup($tagged, '__provider_class__');
+    }
+
+    /**
+     * Task classes that are BOTH expensive (positive sum_cost_cents) AND low-quality
+     * (give_back + weak_green share of records >= LOW_QUALITY_RATE_FLOOR) — a cost/quality
+     * cross-reference the plain per-dimension aggregations above cannot surface on their own.
+     * Quality outcome is joined by `task_packet_id`, same as aggregateByQualityOutcome().
+     *
+     * @param  array<string,string>  $qualityOutcomeByTaskPacketId
+     * @return array<string, array{sum_cost_cents:int, total_records:int, low_quality_outcome_count:int, low_quality_outcome_rate:float}>
+     */
+    public function costQualityHotspots(array $qualityOutcomeByTaskPacketId, ?string $cycleId = null): array
+    {
+        $rows = self::joinQualityOutcome($this->loadRows($cycleId), $qualityOutcomeByTaskPacketId);
+
+        $byClass = [];
+        foreach ($rows as $r) {
+            if (! is_array($r)) {
+                continue;
+            }
+            $class = (string) ($r['task_class'] ?? '');
+            if (! isset($byClass[$class])) {
+                $byClass[$class] = ['sum_cost_cents' => 0, 'total' => 0, 'low_quality' => 0];
+            }
+            $byClass[$class]['sum_cost_cents'] += is_numeric($r['cost_cents'] ?? null) ? (int) $r['cost_cents'] : 0;
+            $byClass[$class]['total']++;
+            if (in_array((string) ($r['quality_outcome'] ?? ''), self::LOW_QUALITY_OUTCOMES, true)) {
+                $byClass[$class]['low_quality']++;
+            }
+        }
+
+        $hotspots = [];
+        foreach ($byClass as $class => $data) {
+            $rate = $data['total'] > 0 ? $data['low_quality'] / $data['total'] : 0.0;
+            if ($data['sum_cost_cents'] > 0 && $rate >= self::LOW_QUALITY_RATE_FLOOR) {
+                $hotspots[$class] = [
+                    'sum_cost_cents' => $data['sum_cost_cents'],
+                    'total_records' => $data['total'],
+                    'low_quality_outcome_count' => $data['low_quality'],
+                    'low_quality_outcome_rate' => round($rate, 4),
+                ];
+            }
+        }
+
+        ksort($hotspots, SORT_STRING);
+
+        return $hotspots;
     }
 
     /**
@@ -167,5 +276,28 @@ final class AtlasMaestroCostAggregator
         }
 
         return $cycleId === null ? $this->ledger->all() : $this->ledger->queryForCycle($cycleId);
+    }
+
+    /**
+     * Tags each row with `quality_outcome` from a caller-supplied task_packet_id map — the
+     * ledger's REQUIRED_FIELDS schema never stores this, so it is joined at read time.
+     *
+     * @param  list<array<string,mixed>>  $rows
+     * @param  array<string,string>  $qualityOutcomeByTaskPacketId
+     * @return list<array<string,mixed>>
+     */
+    private static function joinQualityOutcome(array $rows, array $qualityOutcomeByTaskPacketId): array
+    {
+        $tagged = [];
+        foreach ($rows as $r) {
+            if (! is_array($r)) {
+                continue;
+            }
+            $taskPacketId = (string) ($r['task_packet_id'] ?? '');
+            $r['quality_outcome'] = $qualityOutcomeByTaskPacketId[$taskPacketId] ?? '';
+            $tagged[] = $r;
+        }
+
+        return $tagged;
     }
 }
