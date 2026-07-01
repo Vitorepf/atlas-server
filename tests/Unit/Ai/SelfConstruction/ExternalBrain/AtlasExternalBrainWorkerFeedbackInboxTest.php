@@ -400,6 +400,42 @@ final class AtlasExternalBrainWorkerFeedbackInboxTest extends TestCase
         $this->assertSame('flaky_or_partial_coverage', $fact['root_cause_hint']);
     }
 
+    // ── weak_green auto-detection from a success claim ───────────────────────
+
+    public function test_success_with_passing_looking_but_non_specific_evidence_becomes_weak_green(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success', [
+            'note' => 'Ran the checks and everything looks great here.',
+            'evidence' => 'tests passed',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::OUTCOME_WEAK_GREEN, $result['outcome_type']);
+    }
+
+    public function test_weak_green_from_success_routes_to_weak_green_review(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success', [
+            'note' => 'Ran the checks and everything looks great here.',
+            'evidence' => 'all green',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::ROUTING_WEAK_GREEN_REVIEW, $result['routing_signal']);
+        $this->assertTrue($result['needs_review']);
+    }
+
+    public function test_success_with_concrete_runnable_evidence_stays_verified_high_confidence(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success', [
+            'note' => 'Ran the focused test target and it went green.',
+            'evidence' => 'vendor/bin/phpunit --filter=test_foo tests/Unit/FooTest.php',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::OUTCOME_SUCCESS, $result['outcome_type']);
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::EVIDENCE_VERIFIED, $result['evidence_status']);
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::CONFIDENCE_HIGH, $result['confidence']);
+        $this->assertFalse($result['needs_review']);
+    }
+
     // ── ingest: counts by outcome_type and routing_signal ────────────────────
 
     public function test_ingest_includes_counts_by_outcome_type_and_routing_signal(): void

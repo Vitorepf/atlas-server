@@ -84,6 +84,13 @@ final class AtlasExternalBrainWorkerFeedbackInbox
         $tooTerse    = strlen($noteText) < self::MIN_NOTE_LENGTH;
         $runnable    = $this->isRunnableEvidence($evidence);
 
+        // A success claim whose evidence text sounds passing ("tests passed", "all green")
+        // but names no concrete command/path/filter is a weak_green, not a verified success —
+        // it must never compound as learning without human review.
+        if ($outcomeType === self::OUTCOME_SUCCESS && $evidence !== '' && ! $runnable && $this->looksPassingButNonSpecific($evidence)) {
+            $outcomeType = self::OUTCOME_WEAK_GREEN;
+        }
+
         [$evidenceStatus, $confidence, $needsReview, $requiresAction, $normalizedReason]
             = $this->classify($outcomeType, $evidence, $noteText, $tooTerse, $runnable);
 
@@ -252,6 +259,19 @@ final class AtlasExternalBrainWorkerFeedbackInbox
             || str_contains($evidence, '/opt/homebrew/bin/php')
             || str_ends_with($evidence, '.php')
         );
+    }
+
+    /** Evidence that sounds passing but names no concrete command/path/filter. */
+    private function looksPassingButNonSpecific(string $evidence): bool
+    {
+        $lc = strtolower($evidence);
+        $passingKeyword = str_contains($lc, 'pass')
+            || str_contains($lc, 'green')
+            || str_contains($lc, 'success')
+            || str_contains($lc, 'ok')
+            || str_contains($lc, 'works');
+
+        return $passingKeyword;
     }
 
     private function evidenceStrength(string $evidence, bool $runnable, bool $tooTerse): string
