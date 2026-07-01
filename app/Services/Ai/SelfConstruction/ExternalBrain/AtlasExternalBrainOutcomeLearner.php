@@ -200,7 +200,7 @@ final class AtlasExternalBrainOutcomeLearner
             }
         }
 
-        // ── Build new task_family output ──
+        // ── Build new task_family output from one shared family index ──
         $familyPerformance   = [];
         $giveBackRisk        = [];
         $poisonFamilyHints   = [];
@@ -210,83 +210,19 @@ final class AtlasExternalBrainOutcomeLearner
         $focusFamilies       = [];
 
         foreach ($familyStats as $tf => $stats) {
-            $successRate  = $stats['total'] > 0 ? round($stats['delivered'] / $stats['total'], 3) : 0.0;
-            $giveBackRate = $stats['total'] > 0 ? round($stats['give_back'] / $stats['total'], 3) : 0.0;
+            $entry = $this->buildFamilyIndexEntry($tf, $stats);
 
-            $familyPerformance[] = [
-                'task_family'  => $tf,
-                'total'        => $stats['total'],
-                'delivered'    => $stats['delivered'],
-                'give_back'    => $stats['give_back'],
-                'proxy'        => $stats['proxy'],
-                'poison'       => $stats['poison'],
-                'quarantine'   => $stats['quarantine'],
-                'success_rate' => $successRate,
-            ];
+            $familyPerformance[]   = $entry['family_performance'];
+            $giveBackRisk[]        = $entry['give_back_risk'];
+            $nextWaveAdjustments[] = $entry['next_wave_adjustment'];
+            $nextBatchBudget[]     = $entry['next_batch_budget'];
+            $recommendations[]     = $entry['recommendation'];
 
-            $riskLevel = match (true) {
-                $giveBackRate >= 0.60 => 'high',
-                $giveBackRate >= 0.30 => 'medium',
-                default               => 'low',
-            };
-
-            $giveBackRisk[] = [
-                'task_family'    => $tf,
-                'risk_level'     => $riskLevel,
-                'give_back_rate' => $giveBackRate,
-            ];
-
-            if ($giveBackRate >= self::POISON_RATE_THRESHOLD || $stats['give_back'] >= self::POISON_COUNT_THRESHOLD) {
-                $poisonFamilyHints[] = [
-                    'task_family'      => $tf,
-                    'reason'           => "give_back_rate={$giveBackRate}, give_back_count={$stats['give_back']}",
-                    'suggested_action' => "Reduce origination for '{$tf}' until root cause is identified; unrelated families are unaffected",
-                ];
+            if ($entry['poison_hint'] !== null) {
+                $poisonFamilyHints[] = $entry['poison_hint'];
             }
 
-            $priorityDelta = round(($successRate - 0.5) * 0.4, 4);
-            $priorityDelta = max(-1.0, min(1.0, $priorityDelta));
-            $nextWaveAdjustments[] = [
-                'task_family'    => $tf,
-                'priority_delta' => $priorityDelta,
-                'reason'         => $successRate >= 0.5
-                    ? "family_success_rate={$successRate}: increase next-wave allocation"
-                    : "family_success_rate={$successRate}: reduce next-wave allocation",
-            ];
-
-            // AC1: next_batch_budget per family.
-            // AC2: any proxy task in the family → proxy-heavy → max_count capped at 1.
-            $isProxyHeavy = $stats['proxy'] > 0;
-            $maxCount     = $isProxyHeavy ? 1 : max(1, min(5, (int) round($successRate * 5)));
-            $minEvidenceFloor = match ($riskLevel) {
-                'high'  => 0.80,
-                'medium' => 0.60,
-                default  => 0.40,
-            };
-            $riskCap = match ($riskLevel) {
-                'high'  => 0.30,
-                'medium' => 0.50,
-                default  => 0.70,
-            };
-            $nextBatchBudget[] = [
-                'task_family'        => $tf,
-                'max_count'          => $maxCount,
-                'min_evidence_floor' => $minEvidenceFloor,
-                'risk_cap'           => $riskCap,
-            ];
-
-            // Recommendations: concrete policy action derived from the family's outcome mix.
-            $action     = $this->deriveRecommendationAction($stats, $successRate, $giveBackRate);
-            $confidence = $this->deriveRecommendationConfidence($stats, $successRate);
-            $recommendations[] = [
-                'task_family' => $tf,
-                'action'      => $action,
-                'confidence'  => $confidence,
-                'reason'      => $this->deriveRecommendationReason($action, $stats, $successRate, $giveBackRate),
-            ];
-
-            // Track families eligible for focus (high-confidence green).
-            if ($action === 'promote' && $confidence >= 0.70) {
+            if ($entry['is_focus_family']) {
                 $focusFamilies[] = $tf;
             }
         }
@@ -325,6 +261,103 @@ final class AtlasExternalBrainOutcomeLearner
             'next_wave_adjustments' => $nextWaveAdjustments,
             'next_batch_budget'     => $nextBatchBudget,
             'recommendations'       => $recommendations,
+        ];
+    }
+
+    /**
+     * Single family outcome index: builds family_performance, give_back_risk,
+     * poison hint, next_wave_adjustment, next_batch_budget, and recommendation
+     * from ONE pass over a family's raw stats — so these outputs can never
+     * disagree about the same family's success_rate/give_back_rate/action.
+     *
+     * @param  array{delivered:int,give_back:int,proxy:int,poison:int,quarantine:int,total:int}  $stats
+     * @return array{family_performance:array<string,mixed>, give_back_risk:array<string,mixed>, poison_hint:?array<string,string>, next_wave_adjustment:array<string,mixed>, next_batch_budget:array<string,mixed>, recommendation:array<string,mixed>, is_focus_family:bool}
+     */
+    private function buildFamilyIndexEntry(string $taskFamily, array $stats): array
+    {
+        $successRate  = $stats['total'] > 0 ? round($stats['delivered'] / $stats['total'], 3) : 0.0;
+        $giveBackRate = $stats['total'] > 0 ? round($stats['give_back'] / $stats['total'], 3) : 0.0;
+
+        $familyPerformance = [
+            'task_family'  => $taskFamily,
+            'total'        => $stats['total'],
+            'delivered'    => $stats['delivered'],
+            'give_back'    => $stats['give_back'],
+            'proxy'        => $stats['proxy'],
+            'poison'       => $stats['poison'],
+            'quarantine'   => $stats['quarantine'],
+            'success_rate' => $successRate,
+        ];
+
+        $riskLevel = match (true) {
+            $giveBackRate >= 0.60 => 'high',
+            $giveBackRate >= 0.30 => 'medium',
+            default               => 'low',
+        };
+
+        $giveBackRisk = [
+            'task_family'    => $taskFamily,
+            'risk_level'     => $riskLevel,
+            'give_back_rate' => $giveBackRate,
+        ];
+
+        $poisonHint = null;
+        if ($giveBackRate >= self::POISON_RATE_THRESHOLD || $stats['give_back'] >= self::POISON_COUNT_THRESHOLD) {
+            $poisonHint = [
+                'task_family'      => $taskFamily,
+                'reason'           => "give_back_rate={$giveBackRate}, give_back_count={$stats['give_back']}",
+                'suggested_action' => "Reduce origination for '{$taskFamily}' until root cause is identified; unrelated families are unaffected",
+            ];
+        }
+
+        $priorityDelta = max(-1.0, min(1.0, round(($successRate - 0.5) * 0.4, 4)));
+        $nextWaveAdjustment = [
+            'task_family'    => $taskFamily,
+            'priority_delta' => $priorityDelta,
+            'reason'         => $successRate >= 0.5
+                ? "family_success_rate={$successRate}: increase next-wave allocation"
+                : "family_success_rate={$successRate}: reduce next-wave allocation",
+        ];
+
+        // AC1: next_batch_budget per family.
+        // AC2: any proxy task in the family → proxy-heavy → max_count capped at 1.
+        $isProxyHeavy = $stats['proxy'] > 0;
+        $maxCount     = $isProxyHeavy ? 1 : max(1, min(5, (int) round($successRate * 5)));
+        $minEvidenceFloor = match ($riskLevel) {
+            'high'  => 0.80,
+            'medium' => 0.60,
+            default  => 0.40,
+        };
+        $riskCap = match ($riskLevel) {
+            'high'  => 0.30,
+            'medium' => 0.50,
+            default  => 0.70,
+        };
+        $nextBatchBudget = [
+            'task_family'        => $taskFamily,
+            'max_count'          => $maxCount,
+            'min_evidence_floor' => $minEvidenceFloor,
+            'risk_cap'           => $riskCap,
+        ];
+
+        // Recommendations: concrete policy action derived from the family's outcome mix.
+        $action     = $this->deriveRecommendationAction($stats, $successRate, $giveBackRate);
+        $confidence = $this->deriveRecommendationConfidence($stats, $successRate);
+        $recommendation = [
+            'task_family' => $taskFamily,
+            'action'      => $action,
+            'confidence'  => $confidence,
+            'reason'      => $this->deriveRecommendationReason($action, $stats, $successRate, $giveBackRate),
+        ];
+
+        return [
+            'family_performance'   => $familyPerformance,
+            'give_back_risk'       => $giveBackRisk,
+            'poison_hint'          => $poisonHint,
+            'next_wave_adjustment' => $nextWaveAdjustment,
+            'next_batch_budget'    => $nextBatchBudget,
+            'recommendation'       => $recommendation,
+            'is_focus_family'      => $action === 'promote' && $confidence >= 0.70,
         ];
     }
 
