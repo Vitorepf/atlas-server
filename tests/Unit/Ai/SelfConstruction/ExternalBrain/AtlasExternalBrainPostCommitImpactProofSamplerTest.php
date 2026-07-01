@@ -289,6 +289,28 @@ final class AtlasExternalBrainPostCommitImpactProofSamplerTest extends TestCase
         $this->assertNotSame(AtlasExternalBrainPostCommitImpactProofSampler::LABEL_HIGH, $result['impact_label']);
     }
 
+    // ── AC2: file-presence-only causal evidence never earns medium/high ───────
+
+    public function test_impl_tests_and_delta_without_any_causal_signal_is_downgraded_to_low(): void
+    {
+        $result = $this->sampler->sample([
+            'promised_capability_delta' => 'adds X',
+            'observed_impl_files' => ['app/X.php'],
+            'observed_test_files' => ['tests/XTest.php'],
+        ]);
+
+        $this->assertSame('low', $result['impact_label']);
+        $this->assertSame('impl_tests_and_delta_present_but_no_causal_evidence_beyond_file_presence', $result['label_reason']);
+    }
+
+    public function test_output_includes_new_causal_proof_fields(): void
+    {
+        $result = $this->sampler->sample($this->base());
+        $this->assertArrayHasKey('causal_proof_status', $result);
+        $this->assertArrayHasKey('missing_causal_evidence', $result);
+        $this->assertArrayHasKey('ranking_signal_capped', $result);
+    }
+
     // ── label_reason is always a non-empty string ─────────────────────────────
 
     public function test_label_reason_non_empty_for_all_labels(): void

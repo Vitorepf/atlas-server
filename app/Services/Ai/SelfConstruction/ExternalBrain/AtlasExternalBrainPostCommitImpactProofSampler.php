@@ -81,7 +81,12 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
         $hasDelta   = $promisedDelta !== '';
         $queueUp    = $queueEffect === 'improved';
 
-        [$label, $reason] = $this->classify($cosmeticOnly, $testOnly, $hasImpl, $hasTests, $hasDelta, $queueUp, $promisedDelta);
+        // Beyond mere file presence: at least one real causal signal (behavior/learning/
+        // acceptance delta or improved queue health) must be observed before impl+tests+delta
+        // can earn medium/high — otherwise "files exist" is being mistaken for "it worked".
+        $hasBeyondFilePresence = $behaviorDelta !== '' || $learningDelta !== '' || $acceptanceDelta !== '' || $queueUp;
+
+        [$label, $reason] = $this->classify($cosmeticOnly, $testOnly, $hasImpl, $hasTests, $hasDelta, $queueUp, $promisedDelta, $hasBeyondFilePresence);
 
         // AC1: promised delta is observed only when impl+tests exist AND a concrete
         // behavior delta was recorded — green tests alone do not prove structural impact.
@@ -102,6 +107,15 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
 
         $missingProofSignals = array_keys(array_filter($proofSignals, static fn (bool $present): bool => ! $present));
 
+        $causalProofStatus = match (true) {
+            $causalProofStrength >= 0.70 => 'strong',
+            $causalProofStrength >= 0.40 => 'partial',
+            default => 'weak',
+        };
+
+        $rankingSignal = self::RANKING_SIGNALS[$label];
+        $rankingSignalCapped = round(max(-0.20, min(0.30, $rankingSignal)), 4);
+
         return [
             'schema'                  => self::SCHEMA,
             'commit_sha'              => $commitSha,
@@ -109,9 +123,12 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
             'impact_label'            => $label,
             'label_reason'            => $reason,
             'promised_delta_observed' => $promisedDeltaObserved,
-            'ranking_signal'          => self::RANKING_SIGNALS[$label],
+            'ranking_signal'          => $rankingSignal,
+            'ranking_signal_capped'   => $rankingSignalCapped,
             'causal_proof_strength'   => $causalProofStrength,
+            'causal_proof_status'     => $causalProofStatus,
             'missing_proof_signals'   => array_values($missingProofSignals),
+            'missing_causal_evidence' => array_values($missingProofSignals),
             'next_learning_action'    => $this->nextLearningAction($label),
         ];
     }
@@ -138,6 +155,7 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
         bool $hasDelta,
         bool $queueUp,
         string $promisedDelta,
+        bool $hasBeyondFilePresence,
     ): array {
         if ($cosmeticOnly) {
             return [self::LABEL_NEGATIVE, 'cosmetic_only_commit_no_capability_gain'];
@@ -145,6 +163,13 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
 
         if ($hasDelta && ! $hasImpl && ! $hasTests) {
             return [self::LABEL_NEGATIVE, 'promised_capability_delta_not_observable_in_evidence'];
+        }
+
+        // File presence alone (impl + tests + a promised delta string) never earns medium/high —
+        // a real causal signal (behavior/learning/acceptance delta or improved queue health) must
+        // also be observed, or the label is downgraded to low with the reason named.
+        if ($hasImpl && $hasTests && $hasDelta && ! $hasBeyondFilePresence) {
+            return [self::LABEL_LOW, 'impl_tests_and_delta_present_but_no_causal_evidence_beyond_file_presence'];
         }
 
         if ($hasImpl && $hasTests && $hasDelta && $queueUp) {
