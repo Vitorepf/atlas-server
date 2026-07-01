@@ -29,6 +29,12 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycle
 {
     public const SCHEMA = 'atlas.self_construction.scope_expansion_governor_cycle.v1';
 
+    /** Per-candidate decision vocabulary the operator/native governor consume directly. */
+    public const DECISION_ADMIT = 'admit';
+    public const DECISION_PREPARE = 'prepare';
+    public const DECISION_HOLD = 'hold';
+    public const DECISION_REJECT = 'reject';
+
     /** Action kinds that may NEVER fire in apply mode, even with an injected callback. */
     public const FORBIDDEN_ACTION_KINDS = [
         'operator_action',
@@ -82,6 +88,7 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycle
 
         $readinessByCandidate = [];
         $admissionPlans = [];
+        $candidateDecisions = [];
         $admittedCount = 0;
 
         foreach ($accepted as $candidate) {
@@ -96,6 +103,13 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycle
             if ((string) ($plan['status'] ?? '') === AtlasSelfConstructionScopeExpansionLaneAdmissionPlan::STATUS_READY) {
                 $admittedCount++;
             }
+
+            $decision = $this->classifyCandidateDecision($rVerdict, $plan);
+            $candidateDecisions[] = [
+                'candidate_id' => $cid,
+                'decision' => $decision['decision'],
+                'blocking_reasons' => $decision['blocking_reasons'],
+            ];
         }
 
         $appliedActions = [];
@@ -211,6 +225,7 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycle
             'ranked_candidates' => $ranked,
             'readiness' => $readinessByCandidate,
             'admission_plans' => $admissionPlans,
+            'candidate_decisions' => $candidateDecisions,
             'admitted_count' => $admittedCount,
             'withheld_count' => count($withheldActions),
             'applied_actions' => $appliedActions,
@@ -228,6 +243,39 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycle
         $payload['governor_cycle_hash'] = $this->hash($payload);
 
         return $payload;
+    }
+
+    /**
+     * Turns a candidate's readiness verdict + admission plan into the operator/native-governor
+     * decision vocabulary: admit, prepare, hold, or reject, with the concrete blocking_reasons.
+     *
+     * Priority: readiness blocked > readiness hold > admission plan not ready ("prepare" — lane
+     * setup incomplete, not a hard rejection of the candidate itself) > admit.
+     *
+     * @param  array<string,mixed>  $readiness
+     * @param  array<string,mixed>  $plan
+     * @return array{decision:string, blocking_reasons:list<string>}
+     */
+    private function classifyCandidateDecision(array $readiness, array $plan): array
+    {
+        $readinessStatus = (string) ($readiness['status'] ?? '');
+        if ($readinessStatus === AtlasSelfConstructionScopeExpansionReadinessGate::STATUS_BLOCKED) {
+            return ['decision' => self::DECISION_REJECT, 'blocking_reasons' => array_values((array) ($readiness['blockers'] ?? []))];
+        }
+        if ($readinessStatus === AtlasSelfConstructionScopeExpansionReadinessGate::STATUS_HOLD) {
+            return ['decision' => self::DECISION_HOLD, 'blocking_reasons' => array_values((array) ($readiness['hold_reasons'] ?? []))];
+        }
+
+        if ((string) ($plan['status'] ?? '') === AtlasSelfConstructionScopeExpansionLaneAdmissionPlan::STATUS_READY) {
+            return ['decision' => self::DECISION_ADMIT, 'blocking_reasons' => []];
+        }
+
+        $blockingReasons = array_values((array) ($plan['blockers'] ?? []));
+        if ($blockingReasons === [] && isset($plan['reason'])) {
+            $blockingReasons = [(string) $plan['reason']];
+        }
+
+        return ['decision' => self::DECISION_PREPARE, 'blocking_reasons' => $blockingReasons];
     }
 
     /**

@@ -42,6 +42,10 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycleTest extends TestCas
                 'knowledge_sync_current' => true,
                 'test_suite_green' => true,
                 'worker_capacity_available' => true,
+                'context_pack_fresh' => true,
+                'queue_health_evidence' => true,
+                'rollback_evidence' => true,
+                'proof_plan_bounded' => true,
             ],
         ];
     }
@@ -303,6 +307,135 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycleTest extends TestCas
 
         $this->assertNotSame($withCandidate['governor_cycle_hash'], $withoutCandidate['governor_cycle_hash']);
         $this->assertTrue($withCandidate['dry_run']);
+    }
+
+    // ── AC2/AC3/AC4: candidate_decisions vocabulary (admit/prepare/hold/reject) ──
+
+    public function test_admitted_expansion_yields_admit_decision(): void
+    {
+        $id = 'scope-a';
+        $admissionPlan = ['status' => 'ready', 'candidate_id' => $id, 'actions' => []];
+        $cycle = new AtlasSelfConstructionScopeExpansionGovernorCycle(
+            null, null, null,
+            static fn (array $c, array $r, array $l): array => $admissionPlan,
+        );
+
+        $out = $cycle->run([
+            'candidates' => [$this->readyCandidate($id)],
+            'risk_budget' => ['max_risk' => 10],
+            'readiness_facts' => $this->readyFactsFor($id),
+            'lane_facts' => $this->laneFactsFor($id),
+        ]);
+
+        $decision = $out['candidate_decisions'][0];
+        $this->assertSame($id, $decision['candidate_id']);
+        $this->assertSame(AtlasSelfConstructionScopeExpansionGovernorCycle::DECISION_ADMIT, $decision['decision']);
+        $this->assertSame([], $decision['blocking_reasons']);
+    }
+
+    public function test_missing_proof_yields_reject_with_blocking_reason(): void
+    {
+        $id = 'scope-a';
+        $facts = $this->readyFactsFor($id);
+        $facts[$id]['rollback_evidence'] = false; // explicit false proof artifact => BLOCK
+
+        $out = (new AtlasSelfConstructionScopeExpansionGovernorCycle)->run([
+            'candidates' => [$this->readyCandidate($id)],
+            'risk_budget' => ['max_risk' => 10],
+            'readiness_facts' => $facts,
+            'lane_facts' => $this->laneFactsFor($id),
+        ]);
+
+        $decision = $out['candidate_decisions'][0];
+        $this->assertSame(AtlasSelfConstructionScopeExpansionGovernorCycle::DECISION_REJECT, $decision['decision']);
+        $this->assertContains('rollback_evidence_not_ready', $decision['blocking_reasons']);
+    }
+
+    public function test_missing_rollback_yields_reject_with_blocking_reason(): void
+    {
+        $id = 'scope-a';
+        $facts = $this->readyFactsFor($id);
+        $facts[$id]['rollback_gate_ready'] = false;
+
+        $out = (new AtlasSelfConstructionScopeExpansionGovernorCycle)->run([
+            'candidates' => [$this->readyCandidate($id)],
+            'risk_budget' => ['max_risk' => 10],
+            'readiness_facts' => $facts,
+            'lane_facts' => $this->laneFactsFor($id),
+        ]);
+
+        $decision = $out['candidate_decisions'][0];
+        $this->assertSame(AtlasSelfConstructionScopeExpansionGovernorCycle::DECISION_REJECT, $decision['decision']);
+        $this->assertContains('rollback_gate_not_ready', $decision['blocking_reasons']);
+    }
+
+    public function test_insufficient_worker_capacity_yields_reject_with_blocking_reason(): void
+    {
+        $id = 'scope-a';
+        $facts = $this->readyFactsFor($id);
+        $facts[$id]['worker_capacity_available'] = false;
+
+        $out = (new AtlasSelfConstructionScopeExpansionGovernorCycle)->run([
+            'candidates' => [$this->readyCandidate($id)],
+            'risk_budget' => ['max_risk' => 10],
+            'readiness_facts' => $facts,
+            'lane_facts' => $this->laneFactsFor($id),
+        ]);
+
+        $decision = $out['candidate_decisions'][0];
+        $this->assertSame(AtlasSelfConstructionScopeExpansionGovernorCycle::DECISION_REJECT, $decision['decision']);
+        $this->assertContains('worker_capacity_available_not_ready', $decision['blocking_reasons']);
+    }
+
+    public function test_hold_for_preparation_when_optional_freshness_facts_are_absent(): void
+    {
+        // readiness_facts intentionally omitted entirely -> all mandatory facts missing -> BLOCKED,
+        // not HOLD. Simulate the true "hold" path: mandatory contract satisfied, optional freshness
+        // signals simply absent from the facts map.
+        $id = 'scope-a';
+        $mandatoryOnly = [
+            'current_scope_green' => true,
+            'autonomy_allows_expansion' => true,
+            'rollback_gate_ready' => true,
+            'release_governor_ready' => true,
+            'queue_health' => ['acceptable' => true],
+            'requires_operator' => false,
+            'requires_human' => false,
+            'requires_external_provider' => false,
+            'final_runtime_owner' => 'atlas_native',
+        ];
+
+        $out = (new AtlasSelfConstructionScopeExpansionGovernorCycle)->run([
+            'candidates' => [$this->readyCandidate($id)],
+            'risk_budget' => ['max_risk' => 10],
+            'readiness_facts' => [$id => $mandatoryOnly],
+            'lane_facts' => $this->laneFactsFor($id),
+        ]);
+
+        $decision = $out['candidate_decisions'][0];
+        $this->assertSame(AtlasSelfConstructionScopeExpansionGovernorCycle::DECISION_HOLD, $decision['decision']);
+        $this->assertNotEmpty($decision['blocking_reasons']);
+        $this->assertStringContainsString('optional_freshness_missing:', $decision['blocking_reasons'][0]);
+    }
+
+    public function test_candidate_decisions_is_deterministic(): void
+    {
+        $id = 'scope-a';
+        $admissionPlan = ['status' => 'ready', 'candidate_id' => $id, 'actions' => []];
+        $cycle = new AtlasSelfConstructionScopeExpansionGovernorCycle(
+            null, null, null,
+            static fn (array $c, array $r, array $l): array => $admissionPlan,
+        );
+        $input = [
+            'candidates' => [$this->readyCandidate($id)],
+            'risk_budget' => ['max_risk' => 10],
+            'readiness_facts' => $this->readyFactsFor($id),
+            'lane_facts' => $this->laneFactsFor($id),
+        ];
+
+        $a = $cycle->run($input);
+        $b = $cycle->run($input);
+        $this->assertSame($a['candidate_decisions'], $b['candidate_decisions']);
     }
 
     public function test_rejected_candidate_does_not_become_admission_plan_action(): void
