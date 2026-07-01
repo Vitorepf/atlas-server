@@ -113,6 +113,36 @@ final class AtlasMaestroWorkloadConsumptionRateReporterTest extends TestCase
         $this->assertSame(1, $fleet['failed_count']);
     }
 
+    public function test_raw_and_quality_adjusted_tasks_per_hour_present_and_discounted(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-30T08:00:00Z');
+        $events = [
+            ['client_id' => 'worker-a', 'event' => 'completed_dry_run', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'worker-a', 'event' => 'completed_dry_run', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'worker-a', 'event' => 'completed_dry_run', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'worker-a', 'event' => 'give_back', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'worker-a', 'event' => 'failed', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+        ];
+
+        $report = (new AtlasMaestroWorkloadConsumptionRateReporter())->report(['events' => $events], $now, 3600);
+
+        $row = $report['rows'][0];
+        $this->assertArrayHasKey('raw_tasks_per_hour', $row);
+        $this->assertArrayHasKey('quality_adjusted_tasks_per_hour', $row);
+        $this->assertSame(3, $row['completed_count'], 'raw completed_count must never be altered by give_back/failed');
+        $this->assertSame(3.0, $row['raw_tasks_per_hour']);
+        $this->assertLessThan($row['raw_tasks_per_hour'], $row['quality_adjusted_tasks_per_hour']);
+
+        $fleet = $report['rows'][1];
+        $this->assertArrayHasKey('raw_tasks_per_hour', $fleet);
+        $this->assertArrayHasKey('quality_adjusted_tasks_per_hour', $fleet);
+
+        foreach ($report['family_rows'] as $familyRow) {
+            $this->assertArrayHasKey('raw_tasks_per_hour', $familyRow);
+            $this->assertArrayHasKey('quality_adjusted_tasks_per_hour', $familyRow);
+        }
+    }
+
     public function test_tasks_per_hour_reported_by_task_family(): void
     {
         $now = CarbonImmutable::parse('2026-06-30T08:00:00Z');

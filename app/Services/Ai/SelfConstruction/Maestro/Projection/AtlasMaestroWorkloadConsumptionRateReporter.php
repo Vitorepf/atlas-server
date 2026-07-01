@@ -168,6 +168,10 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
         $fleetStarted = 0;
         foreach ($perClient as $row) {
             $row['tasks_per_hour'] = $this->tasksPerHour((int) $row['completed_count'], $windowSeconds);
+            $row['raw_tasks_per_hour'] = $row['tasks_per_hour'];
+            $row['quality_adjusted_tasks_per_hour'] = $this->qualityAdjustedTasksPerHour(
+                (int) $row['completed_count'], (int) $row['give_back_count'], (int) $row['failed_count'], $windowSeconds,
+            );
             ksort($row['completed_alias_counts'], SORT_STRING);
             $fleetCompleted += (int) $row['completed_count'];
             $fleetGiveBack += (int) $row['give_back_count'];
@@ -186,6 +190,8 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
             'failed_count' => $fleetFailed,
             'started_count' => $fleetStarted,
             'tasks_per_hour' => $this->tasksPerHour($fleetCompleted, $windowSeconds),
+            'raw_tasks_per_hour' => $this->tasksPerHour($fleetCompleted, $windowSeconds),
+            'quality_adjusted_tasks_per_hour' => $this->qualityAdjustedTasksPerHour($fleetCompleted, $fleetGiveBack, $fleetFailed, $windowSeconds),
             'completed_alias_counts' => $aliasEvidence,
             'observed_at_iso' => $now->toIso8601String(),
         ];
@@ -193,6 +199,10 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
         $familyRows = [];
         foreach ($perFamily as $row) {
             $row['tasks_per_hour'] = $this->tasksPerHour((int) $row['completed_count'], $windowSeconds);
+            $row['raw_tasks_per_hour'] = $row['tasks_per_hour'];
+            $row['quality_adjusted_tasks_per_hour'] = $this->qualityAdjustedTasksPerHour(
+                (int) $row['completed_count'], (int) $row['give_back_count'], (int) $row['failed_count'], $windowSeconds,
+            );
             $familyRows[] = $row;
         }
 
@@ -213,5 +223,17 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
     private function tasksPerHour(int $completedCount, int $windowSeconds): float
     {
         return round($completedCount / ($windowSeconds / 3600), 4);
+    }
+
+    /**
+     * Discounts raw completed throughput by give_back and failed terminal events without ever
+     * touching the raw completed_count itself — a give_back/failed task consumed cycle time but
+     * produced no durable value, so it must not count toward quality-adjusted throughput.
+     */
+    private function qualityAdjustedTasksPerHour(int $completedCount, int $giveBackCount, int $failedCount, int $windowSeconds): float
+    {
+        $qualityCount = max(0, $completedCount - $giveBackCount - $failedCount);
+
+        return $this->tasksPerHour($qualityCount, $windowSeconds);
     }
 }
