@@ -176,6 +176,8 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
     public const STALLED_GIVE_BACK_THRESHOLD = 2;
     public const STALLED_STALE_PROOF_DAYS    = 30;
     public const STALLED_NO_IMPACT_STREAK    = 3;
+    public const STALLED_LOW_YIELD_THRESHOLD = 0.2;
+    public const STALLED_LOW_YIELD_MIN_ATTEMPTS = 2;
 
     /**
      * Detects genuinely stalled capabilities (repeated give_back, stale proof, blocked
@@ -197,12 +199,19 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
             $lastProofAgeDays = max(0, (int) ($cap['last_proof_age_days'] ?? 0));
             $blockedDependencies = array_values(array_filter(array_map('strval', (array) ($cap['blocked_dependencies'] ?? []))));
             $noImpactStreak = max(0, (int) ($cap['no_impact_commit_streak'] ?? 0));
+            $yieldScore = max(0.0, min(1.0, (float) ($cap['yield_score'] ?? 1.0)));
+            $attemptCount = max(0, (int) ($cap['attempt_count'] ?? 0));
+            $hasScopeGap = (bool) ($cap['has_scope_gap'] ?? false);
+            $hasMissingPrerequisite = (bool) ($cap['has_missing_prerequisite'] ?? false);
+            $structurallyComplex = (bool) ($cap['structurally_complex'] ?? false);
+            $priorPacketIds = array_values(array_filter(array_map('strval', (array) ($cap['prior_packet_ids'] ?? []))));
 
             $rootCause = match (true) {
                 $blockedDependencies !== [] => 'blocked_dependency',
                 $giveBackCount >= self::STALLED_GIVE_BACK_THRESHOLD => 'repeated_give_back',
                 $lastProofAgeDays > self::STALLED_STALE_PROOF_DAYS => 'stale_proof',
                 $noImpactStreak >= self::STALLED_NO_IMPACT_STREAK => 'no_impact_commits',
+                $yieldScore < self::STALLED_LOW_YIELD_THRESHOLD && $attemptCount >= self::STALLED_LOW_YIELD_MIN_ATTEMPTS => 'low_yield',
                 default => null,
             };
 
@@ -210,21 +219,37 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
 
             $unblockPlan = null;
             if ($isStalled) {
+                $firstSafeTask = match ($rootCause) {
+                    'blocked_dependency' => 'resolve_blocked_dependency:'.implode(',', $blockedDependencies),
+                    // AC: repeated give_back names the concrete prerequisite/scope repair
+                    // needed instead of a vague "diagnose" instruction, when that evidence
+                    // is available; otherwise falls back to the generic diagnosis task.
+                    'repeated_give_back' => match (true) {
+                        $hasMissingPrerequisite => 'resolve_missing_prerequisite_before_retry',
+                        $hasScopeGap => 'repair_scope_gap_before_retry',
+                        default => 'diagnose_repeated_give_back_root_cause',
+                    },
+                    'stale_proof' => 'refresh_proof_with_current_runnable_evidence',
+                    'low_yield' => $structurallyComplex
+                        ? 'simplify_before_retry'
+                        : 'research_alternative_approach_before_retry',
+                    default => 'break_no_impact_streak_with_one_real_committed_change',
+                };
+
                 $unblockPlan = [
                     'root_cause' => $rootCause,
-                    'first_safe_task' => match ($rootCause) {
-                        'blocked_dependency' => 'resolve_blocked_dependency:'.implode(',', $blockedDependencies),
-                        'repeated_give_back' => 'diagnose_repeated_give_back_root_cause',
-                        'stale_proof' => 'refresh_proof_with_current_runnable_evidence',
-                        default => 'break_no_impact_streak_with_one_real_committed_change',
-                    },
+                    'first_safe_task' => $firstSafeTask,
                     'required_evidence' => match ($rootCause) {
                         'blocked_dependency' => ['dependency_resolution_proof'],
                         'repeated_give_back' => ['give_back_root_cause_analysis'],
                         'stale_proof' => ['fresh_runnable_evidence'],
+                        'low_yield' => ['simplification_or_research_plan'],
                         default => ['committed_change_with_measurable_delta'],
                     },
                     'stop_creating_adjacent_features' => true,
+                    // AC: names the next worker-ready action and the packets that must
+                    // never be reissued as-is, so the same failing task isn't repeated.
+                    'next_worker_ready_task_hint' => "{$firstSafeTask} for {$id}; do not reissue the same objective unchanged",
                 ];
             }
 
@@ -232,6 +257,7 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
                 'capability_id' => $id,
                 'is_stalled' => $isStalled,
                 'unblock_plan' => $unblockPlan,
+                'do_not_repeat_packet_ids' => $priorPacketIds,
             ];
         }
 

@@ -436,4 +436,107 @@ final class AtlasExternalBrainStalledCapabilityRescuePlannerTest extends TestCas
         $this->assertFalse($entry['is_stalled']);
         $this->assertNull($entry['unblock_plan']);
     }
+
+    // ── AC: repeated give_back produces a prerequisite or scope repair rescue ──
+
+    public function test_repeated_give_back_with_missing_prerequisite_names_prerequisite_task(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-prereq', 'give_back_count' => 3, 'has_missing_prerequisite' => true],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-prereq');
+        $this->assertSame('repeated_give_back', $entry['unblock_plan']['root_cause']);
+        $this->assertSame('resolve_missing_prerequisite_before_retry', $entry['unblock_plan']['first_safe_task']);
+    }
+
+    public function test_repeated_give_back_with_scope_gap_names_scope_repair_task(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-scope', 'give_back_count' => 3, 'has_scope_gap' => true],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-scope');
+        $this->assertSame('repeated_give_back', $entry['unblock_plan']['root_cause']);
+        $this->assertSame('repair_scope_gap_before_retry', $entry['unblock_plan']['first_safe_task']);
+    }
+
+    public function test_repeated_give_back_without_specific_signal_falls_back_to_generic_diagnosis(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-generic', 'give_back_count' => 3],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-generic');
+        $this->assertSame('diagnose_repeated_give_back_root_cause', $entry['unblock_plan']['first_safe_task']);
+    }
+
+    // ── AC: low-yield repeated attempts recommend simplification or research ──
+
+    public function test_low_yield_structurally_complex_recommends_simplification(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-complex', 'yield_score' => 0.1, 'attempt_count' => 3, 'structurally_complex' => true],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-complex');
+        $this->assertTrue($entry['is_stalled']);
+        $this->assertSame('low_yield', $entry['unblock_plan']['root_cause']);
+        $this->assertSame('simplify_before_retry', $entry['unblock_plan']['first_safe_task']);
+    }
+
+    public function test_low_yield_not_structurally_complex_recommends_research(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-unclear', 'yield_score' => 0.1, 'attempt_count' => 3],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-unclear');
+        $this->assertSame('low_yield', $entry['unblock_plan']['root_cause']);
+        $this->assertSame('research_alternative_approach_before_retry', $entry['unblock_plan']['first_safe_task']);
+    }
+
+    public function test_low_yield_requires_minimum_attempt_count(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-first-try', 'yield_score' => 0.1, 'attempt_count' => 1],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-first-try');
+        $this->assertFalse($entry['is_stalled']);
+    }
+
+    // ── AC: rescue output includes next_worker_ready_task_hint and do_not_repeat_packet ids ──
+
+    public function test_stalled_entry_includes_next_worker_ready_task_hint(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-x', 'give_back_count' => 3],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-x');
+        $this->assertArrayHasKey('next_worker_ready_task_hint', $entry['unblock_plan']);
+        $this->assertNotEmpty($entry['unblock_plan']['next_worker_ready_task_hint']);
+        $this->assertStringContainsString('cap-x', $entry['unblock_plan']['next_worker_ready_task_hint']);
+    }
+
+    public function test_entry_includes_do_not_repeat_packet_ids(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-y', 'give_back_count' => 3, 'prior_packet_ids' => ['op-1', 'op-2']],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-y');
+        $this->assertSame(['op-1', 'op-2'], $entry['do_not_repeat_packet_ids']);
+    }
+
+    public function test_do_not_repeat_packet_ids_defaults_to_empty(): void
+    {
+        $result = (new AtlasExternalBrainStalledCapabilityRescuePlanner)->planUnblock([
+            ['id' => 'cap-z'],
+        ]);
+
+        $entry = $this->unblockEntryFor($result, 'cap-z');
+        $this->assertSame([], $entry['do_not_repeat_packet_ids']);
+    }
 }
