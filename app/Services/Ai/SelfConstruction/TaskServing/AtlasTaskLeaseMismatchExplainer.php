@@ -28,6 +28,9 @@ final class AtlasTaskLeaseMismatchExplainer
 
     private const BLOCKING_FLAGS = ['dry_queue', 'serving_jammed'];
 
+    /** claimable_depth at or above this is considered high queue supply. */
+    private const HIGH_SUPPLY_CLAIMABLE_DEPTH = 5;
+
     /**
      * @param  array<string, mixed>  $snapshot  AtlasTaskCoordinationHealthService::snapshot() output (or
      *                                          any payload carrying the same field names).
@@ -41,32 +44,35 @@ final class AtlasTaskLeaseMismatchExplainer
         $claimedRecords = (int) ($snapshot['claimed_records'] ?? 0);
         $recoverableTotal = (int) data_get($snapshot, 'recoverable.total', 0);
         $servableNow = (int) ($snapshot['servable_now'] ?? 0);
+        $claimableDepth = (int) ($snapshot['claimable_depth'] ?? 0);
         $flags = (array) ($snapshot['health_flags'] ?? []);
+
+        $context = ['active_leases' => $activeLeases, 'claimed_records' => $claimedRecords, 'claimable_depth' => $claimableDepth];
 
         // Recoverable backlog always wins first: reaping resolves both the backlog AND any lease
         // accounting drift in one shot, so it must never be masked by a "looks healthy" shortcut.
         if ($recoverableTotal > 0) {
-            return $this->verdict(self::VERDICT_RECOVERABLE_BACKLOG, false, 'reap_leases', null);
+            return $this->verdict(self::VERDICT_RECOVERABLE_BACKLOG, false, 'reap_leases', null, $context, 'recoverable_backlog', 'expired_or_released_lease_not_yet_reaped', 'run atlas:task:reap-leases and re-check the snapshot');
         }
 
         if ($healthy && $leasesMatchClaimed) {
-            return $this->verdict(self::VERDICT_HEALTHY, false, 'no_action', null);
+            return $this->verdict(self::VERDICT_HEALTHY, false, 'no_action', null, $context, 'none', 'none', 'no diagnostic needed');
         }
 
         // active_leases > claimed_records with nothing recoverable and the queue still servable means
         // the mismatch is cosmetic accounting drift, not a serving failure — never quarantine for this.
         if ($activeLeases > $claimedRecords && $recoverableTotal === 0 && $servableNow > 0) {
-            return $this->verdict(self::VERDICT_LEASE_ACCOUNTING_MISMATCH, false, 'observe_or_reconcile_accounting', null);
+            return $this->verdict(self::VERDICT_LEASE_ACCOUNTING_MISMATCH, false, 'observe_or_reconcile_accounting', null, $context, 'accounting_drift', 'concurrent_worker_race_or_stale_registry_snapshot', 'diff active lease ids against claimed queue record ids to confirm drift');
         }
 
         if ($servableNow === 0) {
             $blockingFlag = $this->firstBlockingFlag($flags);
             if ($blockingFlag !== null) {
-                return $this->verdict(self::VERDICT_SERVING_BLOCKED, true, 'investigate_'.$blockingFlag, $blockingFlag);
+                return $this->verdict(self::VERDICT_SERVING_BLOCKED, true, 'investigate_'.$blockingFlag, $blockingFlag, $context, 'serving_blocked', $blockingFlag, 'run atlas:task:health --json and inspect health_flags.'.$blockingFlag);
             }
         }
 
-        return $this->verdict(self::VERDICT_DEGRADED, true, 'investigate_health_flags', null);
+        return $this->verdict(self::VERDICT_DEGRADED, true, 'investigate_health_flags', null, $context, 'unclassified_degradation', 'unknown', 'run atlas:task:health --json and review every health_flag');
     }
 
     /**
@@ -84,16 +90,33 @@ final class AtlasTaskLeaseMismatchExplainer
     }
 
     /**
+     * @param  array{active_leases:int, claimed_records:int, claimable_depth:int}  $context
      * @return array<string, mixed>
      */
-    private function verdict(string $verdict, bool $servingImpact, string $recommendation, ?string $blockingFlag): array
-    {
+    private function verdict(
+        string $verdict,
+        bool $servingImpact,
+        string $recommendation,
+        ?string $blockingFlag,
+        array $context,
+        string $mismatchClass,
+        string $likelySource,
+        string $nextDiagnosticStep,
+    ): array {
         return [
             'schema' => self::SCHEMA,
             'verdict' => $verdict,
             'serving_impact' => $servingImpact,
             'recommendation' => $recommendation,
             'blocking_flag' => $blockingFlag,
+            'active_leases' => $context['active_leases'],
+            'claimed_records' => $context['claimed_records'],
+            'mismatch_class' => $mismatchClass,
+            'likely_source' => $likelySource,
+            'next_diagnostic_step' => $nextDiagnosticStep,
+            // Worker-safe: never distinguish "high supply" via 0 vs positive, so a single claimable
+            // task doesn't misleadingly read as sufficient supply while the coordination layer is unhealthy.
+            'queue_supply_ok' => $context['claimable_depth'] >= self::HIGH_SUPPLY_CLAIMABLE_DEPTH,
         ];
     }
 }

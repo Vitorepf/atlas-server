@@ -129,4 +129,58 @@ final class AtlasTaskLeaseMismatchExplainerTest extends TestCase
 
         $this->assertSame($explainer->explain($snapshot), $explainer->explain($snapshot));
     }
+
+    // ── AC: worker-safe explanation fields ───────────────────────────────────────
+
+    public function test_result_reports_active_leases_claimed_records_mismatch_class_source_and_step(): void
+    {
+        $result = (new AtlasTaskLeaseMismatchExplainer)->explain($this->snapshot([
+            'healthy' => false,
+            'leases_match_claimed' => false,
+            'active_leases' => 3,
+            'claimed_records' => 1,
+        ]));
+
+        $this->assertSame(3, $result['active_leases']);
+        $this->assertSame(1, $result['claimed_records']);
+        $this->assertNotEmpty($result['mismatch_class']);
+        $this->assertNotEmpty($result['likely_source']);
+        $this->assertNotEmpty($result['next_diagnostic_step']);
+    }
+
+    public function test_queue_supply_ok_true_when_claimable_depth_high_despite_unhealthy(): void
+    {
+        $result = (new AtlasTaskLeaseMismatchExplainer)->explain($this->snapshot([
+            'healthy' => false,
+            'leases_match_claimed' => false,
+            'active_leases' => 3,
+            'claimed_records' => 1,
+            'claimable_depth' => 20,
+        ]));
+
+        $this->assertFalse($result['serving_impact'] === true && $result['queue_supply_ok'] === false);
+        $this->assertTrue($result['queue_supply_ok']);
+    }
+
+    public function test_queue_supply_not_ok_when_claimable_depth_low(): void
+    {
+        $result = (new AtlasTaskLeaseMismatchExplainer)->explain($this->snapshot([
+            'healthy' => false,
+            'leases_match_claimed' => false,
+            'active_leases' => 3,
+            'claimed_records' => 1,
+            'claimable_depth' => 1,
+        ]));
+
+        $this->assertFalse($result['queue_supply_ok']);
+    }
+
+    public function test_result_never_leaks_raw_worker_prompts_or_provider_traces(): void
+    {
+        $result = (new AtlasTaskLeaseMismatchExplainer)->explain($this->snapshot(['healthy' => false, 'recoverable' => ['total' => 2]]));
+
+        $serialized = json_encode($result);
+        $this->assertStringNotContainsString('prompt', strtolower((string) $serialized));
+        $this->assertStringNotContainsString('provider_trace', strtolower((string) $serialized));
+    }
 }
