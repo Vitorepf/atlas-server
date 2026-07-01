@@ -208,4 +208,77 @@ final class AtlasExternalBrainCognitiveWorkPartitioner
     {
         return $ambiguity >= self::AMBIGUITY_THRESHOLD || $conflicting;
     }
+
+    /** The six specialist lanes originator work is split across, feeding one final_decision lane. */
+    public const SPECIALIST_LANES = ['code_evidence', 'queue_health', 'architecture', 'proof', 'model_weakness', 'refactor_roi'];
+
+    public const FINAL_DECISION_LANE = 'final_decision';
+
+    /**
+     * Splits ORIGINATOR work (not the phase-plan above) across the specialist lanes: code_evidence,
+     * queue_health, architecture, proof, model_weakness, refactor_roi, and final_decision.
+     *
+     * Simple, low-risk/low-ambiguity origination may stay in a single requested lane. High-risk or
+     * high-ambiguity origination (mirrors missionHighRisk()) is NEVER allowed to collapse into a
+     * single lane — it is rejected outright, forcing the full specialist-lane spread instead.
+     *
+     * A lane missing its evidence is reported (missing_evidence_lanes) rather than silently treated
+     * as present, so a caller cannot claim full-lane coverage while quietly starving one lane.
+     *
+     * @param  array<string,mixed>  $facts  { ambiguity?, high_risk?, risk_level?,
+     *   requested_lanes?: list<string>, evidence_available?: array<string,bool> }
+     * @return array<string,mixed>
+     */
+    public function partitionSpecialistLanes(array $facts): array
+    {
+        $ambiguity = max(0.0, min(1.0, (float) ($facts['ambiguity'] ?? 0.0)));
+        $riskLevel = strtolower(trim((string) ($facts['risk_level'] ?? 'low')));
+        $highRisk = (bool) ($facts['high_risk'] ?? false)
+            || $ambiguity >= self::AMBIGUITY_THRESHOLD
+            || $riskLevel === 'high';
+
+        $requestedLanes = array_values(array_unique(array_map('strval', (array) ($facts['requested_lanes'] ?? []))));
+        if ($requestedLanes === []) {
+            $requestedLanes = $highRisk ? self::SPECIALIST_LANES : ['code_evidence'];
+        }
+
+        // AC3: a single specialist lane is never sufficient for high-risk/high-ambiguity origination.
+        $isSingleLane = count(array_diff($requestedLanes, [self::FINAL_DECISION_LANE])) <= 1;
+        if ($highRisk && $isSingleLane) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'decision' => 'rejected',
+                'rejected' => true,
+                'rejection_reason' => 'single_lane_insufficient_for_high_risk_origination',
+                'required_lanes' => array_merge(self::SPECIALIST_LANES, [self::FINAL_DECISION_LANE]),
+                'lanes' => [],
+                'missing_evidence_lanes' => [],
+                'final_decision_inputs' => [],
+            ];
+        }
+
+        $activeLanes = $highRisk ? self::SPECIALIST_LANES : array_values(array_diff($requestedLanes, [self::FINAL_DECISION_LANE]));
+        $evidenceAvailable = is_array($facts['evidence_available'] ?? null) ? $facts['evidence_available'] : [];
+
+        $lanes = [];
+        $missingEvidenceLanes = [];
+        foreach ($activeLanes as $lane) {
+            $hasEvidence = array_key_exists($lane, $evidenceAvailable) ? (bool) $evidenceAvailable[$lane] : true;
+            if (! $hasEvidence) {
+                $missingEvidenceLanes[] = $lane;
+            }
+            $lanes[] = ['lane' => $lane, 'has_evidence' => $hasEvidence];
+        }
+        $lanes[] = ['lane' => self::FINAL_DECISION_LANE, 'has_evidence' => true, 'depends_on' => $activeLanes];
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'decision' => $highRisk ? 'multi_lane' : 'single_lane',
+            'rejected' => false,
+            'rejection_reason' => null,
+            'lanes' => $lanes,
+            'missing_evidence_lanes' => $missingEvidenceLanes,
+            'final_decision_inputs' => $activeLanes,
+        ];
+    }
 }

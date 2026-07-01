@@ -290,4 +290,82 @@ final class AtlasExternalBrainCognitiveWorkPartitionerTest extends TestCase
         $b = $this->partitioner()->partition($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── partitionSpecialistLanes() — AC: simple single-lane work ──────────────
+
+    public function test_simple_low_risk_work_stays_in_a_single_requested_lane(): void
+    {
+        $r = $this->partitioner()->partitionSpecialistLanes(['ambiguity' => 0.1, 'requested_lanes' => ['code_evidence']]);
+
+        $this->assertSame('single_lane', $r['decision']);
+        $this->assertFalse($r['rejected']);
+        $laneNames = array_column($r['lanes'], 'lane');
+        $this->assertContains('code_evidence', $laneNames);
+        $this->assertContains('final_decision', $laneNames);
+    }
+
+    // ── AC: high-risk origination rejects a single-lane decision ──────────────
+
+    public function test_high_risk_single_lane_request_is_rejected(): void
+    {
+        $r = $this->partitioner()->partitionSpecialistLanes([
+            'high_risk' => true,
+            'requested_lanes' => ['code_evidence'],
+        ]);
+
+        $this->assertSame('rejected', $r['decision']);
+        $this->assertTrue($r['rejected']);
+        $this->assertSame('single_lane_insufficient_for_high_risk_origination', $r['rejection_reason']);
+        $this->assertContains('model_weakness', $r['required_lanes']);
+    }
+
+    public function test_high_ambiguity_without_explicit_lanes_partitions_all_specialist_lanes(): void
+    {
+        $r = $this->partitioner()->partitionSpecialistLanes(['ambiguity' => 0.9]);
+
+        $this->assertSame('multi_lane', $r['decision']);
+        $this->assertFalse($r['rejected']);
+        $laneNames = array_column($r['lanes'], 'lane');
+        foreach (AtlasExternalBrainCognitiveWorkPartitioner::SPECIALIST_LANES as $lane) {
+            $this->assertContains($lane, $laneNames);
+        }
+        $this->assertContains('final_decision', $laneNames);
+    }
+
+    // ── AC: missing evidence lane is surfaced, not silently assumed present ───
+
+    public function test_missing_evidence_lane_is_reported(): void
+    {
+        $r = $this->partitioner()->partitionSpecialistLanes([
+            'high_risk' => true,
+            'evidence_available' => ['model_weakness' => false],
+        ]);
+
+        $this->assertContains('model_weakness', $r['missing_evidence_lanes']);
+        $row = array_values(array_filter($r['lanes'], fn (array $l): bool => $l['lane'] === 'model_weakness'))[0];
+        $this->assertFalse($row['has_evidence']);
+    }
+
+    public function test_lane_with_evidence_present_is_not_flagged_missing(): void
+    {
+        $r = $this->partitioner()->partitionSpecialistLanes([
+            'high_risk' => true,
+            'evidence_available' => ['model_weakness' => true],
+        ]);
+
+        $this->assertNotContains('model_weakness', $r['missing_evidence_lanes']);
+    }
+
+    // ── AC: final synthesis inputs — final_decision depends on every active lane ──
+
+    public function test_final_decision_lane_depends_on_all_active_lanes(): void
+    {
+        $r = $this->partitioner()->partitionSpecialistLanes(['high_risk' => true]);
+
+        $finalRow = array_values(array_filter($r['lanes'], fn (array $l): bool => $l['lane'] === 'final_decision'))[0];
+        foreach (AtlasExternalBrainCognitiveWorkPartitioner::SPECIALIST_LANES as $lane) {
+            $this->assertContains($lane, $finalRow['depends_on']);
+        }
+        $this->assertSame(AtlasExternalBrainCognitiveWorkPartitioner::SPECIALIST_LANES, $r['final_decision_inputs']);
+    }
 }
