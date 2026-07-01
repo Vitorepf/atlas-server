@@ -42,6 +42,8 @@ final class AtlasSelfConstructionRunawayGrowthCircuitBreaker
 
     private const VALUE_PROOF_MIN        = 0.3;
 
+    private const TASK_DELTA_THRESHOLD   = 15;
+
     /**
      * @param  array<string,mixed>  $metrics
      * @return array<string,mixed>
@@ -63,11 +65,19 @@ final class AtlasSelfConstructionRunawayGrowthCircuitBreaker
             $orphanedOrgans, $integrationProofs, $valueDensity, $samplCoverage,
         );
 
+        $backpressureAction = $tripped ? $this->backpressureAction($tripReason) : null;
+        $selectiveHighValue = (bool) ($metrics['high_value_selective_origination'] ?? false);
+        $safeNextAction = $tripped
+            ? $backpressureAction
+            : ($selectiveHighValue ? 'allow_selective_high_value_origination' : 'continue_origination');
+
         return [
             'schema_version'      => self::SCHEMA,
             'tripped'             => $tripped,
             'trip_reason'         => $tripReason,
-            'backpressure_action' => $tripped ? $this->backpressureAction($tripReason) : null,
+            'blocked_reason'      => $tripReason,
+            'backpressure_action' => $backpressureAction,
+            'safe_next_action'    => $safeNextAction,
             'diagnostics' => [
                 'files_added_rolling'          => $filesAdded,
                 'task_count_delta'             => $taskDelta,
@@ -113,6 +123,12 @@ final class AtlasSelfConstructionRunawayGrowthCircuitBreaker
         // 5. Raw growth without value proof.
         if ($filesAdded > self::FILES_THRESHOLD && $valueDensity < self::VALUE_PROOF_MIN) {
             return [true, 'growth_without_value_proof'];
+        }
+
+        // 6. High task volume without value proof — distinct from file-count growth, since a
+        // burst of low-quality task creation can outrun proof even with modest file churn.
+        if ($taskDelta > self::TASK_DELTA_THRESHOLD && $valueDensity < self::VALUE_PROOF_MIN) {
+            return [true, 'high_task_volume_low_quality'];
         }
 
         return [false, null];

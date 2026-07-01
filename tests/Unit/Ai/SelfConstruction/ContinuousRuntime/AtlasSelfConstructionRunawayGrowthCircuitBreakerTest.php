@@ -157,4 +157,60 @@ final class AtlasSelfConstructionRunawayGrowthCircuitBreakerTest extends TestCas
         $b     = $this->breaker()->evaluate($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC: high task volume with low quality trips the circuit breaker ───────
+
+    public function test_high_task_volume_with_low_quality_trips_breaker(): void
+    {
+        $facts = array_merge($this->healthy(), [
+            'task_count_delta'    => 20,  // > TASK_DELTA_THRESHOLD (15)
+            'files_added_rolling' => 5,   // stays low so file-based conditions don't fire first
+            'value_proof_density' => 0.1, // < VALUE_PROOF_MIN
+        ]);
+        $r = $this->breaker()->evaluate($facts);
+
+        $this->assertTrue($r['tripped']);
+        $this->assertSame('high_task_volume_low_quality', $r['trip_reason']);
+        $this->assertSame($r['trip_reason'], $r['blocked_reason']);
+    }
+
+    // ── AC: high-value selective origination remains allowed even when queue is deep ──
+
+    public function test_high_value_selective_origination_remains_allowed_when_queue_deep(): void
+    {
+        $facts = array_merge($this->healthy(), [
+            'queue_depth'                       => 500, // deep queue
+            'high_value_selective_origination'  => true,
+        ]);
+        $r = $this->breaker()->evaluate($facts);
+
+        $this->assertFalse($r['tripped']);
+        $this->assertSame('allow_selective_high_value_origination', $r['safe_next_action']);
+    }
+
+    public function test_safe_next_action_is_generic_continue_without_selective_flag(): void
+    {
+        $r = $this->breaker()->evaluate($this->healthy());
+
+        $this->assertSame('continue_origination', $r['safe_next_action']);
+    }
+
+    // ── AC: breaker output includes blocked_reason and safe_next_action ───────
+
+    public function test_output_includes_blocked_reason_and_safe_next_action(): void
+    {
+        $tripped = $this->breaker()->evaluate(array_merge($this->healthy(), [
+            'files_added_rolling' => 30,
+            'value_proof_density' => 0.1,
+        ]));
+        $this->assertArrayHasKey('blocked_reason', $tripped);
+        $this->assertArrayHasKey('safe_next_action', $tripped);
+        $this->assertSame('growth_without_value_proof', $tripped['blocked_reason']);
+        $this->assertSame($tripped['backpressure_action'], $tripped['safe_next_action']);
+
+        $healthy = $this->breaker()->evaluate($this->healthy());
+        $this->assertArrayHasKey('blocked_reason', $healthy);
+        $this->assertArrayHasKey('safe_next_action', $healthy);
+        $this->assertNull($healthy['blocked_reason']);
+    }
 }
