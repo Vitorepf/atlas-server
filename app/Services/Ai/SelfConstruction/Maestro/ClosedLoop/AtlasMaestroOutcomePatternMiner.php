@@ -13,6 +13,18 @@ final class AtlasMaestroOutcomePatternMiner
 
     private const OUTCOMES = ['delivered', 'give_back', 'rejected', 'stale'];
 
+    /** Rows with occurred_at age at or below this are full-weight "recent" evidence. */
+    private const RECENT_WINDOW_SECONDS = 14 * 86400;
+
+    /** Rows older than this are heavily decayed "stale" evidence — obsolete patterns must not steer Maestro. */
+    private const STALE_WINDOW_SECONDS = 60 * 86400;
+
+    private const RECENT_WEIGHT = 1.0;
+
+    private const AGING_WEIGHT = 0.5;
+
+    private const STALE_WEIGHT = 0.15;
+
     /** Maps a mined dimension to the downstream policy a strategy signal should steer. */
     private const DIMENSION_POLICY = [
         'origin_kind' => 'routing_policy',
@@ -62,10 +74,24 @@ final class AtlasMaestroOutcomePatternMiner
                 'proof_command_class' => (string) ($row['proof_command_class'] ?? 'unknown'),
             ];
 
+            $weight = $this->recencyWeight($row);
+
             foreach ($buckets as $dimension => $bucket) {
                 $facts[$dimension][$bucket] ??= $this->emptyBucket($dimension, $bucket);
                 $facts[$dimension][$bucket][$outcome]++;
                 $facts[$dimension][$bucket]['total']++;
+                $facts[$dimension][$bucket]['weighted_total'] += $weight['weight'];
+                if ($outcome === 'delivered') {
+                    $facts[$dimension][$bucket]['weighted_delivered'] += $weight['weight'];
+                } else {
+                    $facts[$dimension][$bucket]['weighted_failure'] += $weight['weight'];
+                }
+                if ($weight['recent']) {
+                    $facts[$dimension][$bucket]['recent_count']++;
+                }
+                if ($weight['stale']) {
+                    $facts[$dimension][$bucket]['stale_count']++;
+                }
             }
         }
 
@@ -73,9 +99,20 @@ final class AtlasMaestroOutcomePatternMiner
             ksort($buckets);
             foreach ($buckets as $bucket => $entry) {
                 $total = (int) $entry['total'];
+                $weightedTotal = (float) $entry['weighted_total'];
                 $entry['insufficient_support'] = $total < self::MIN_SUPPORT;
                 $entry['delivery_rate'] = $total >= self::MIN_SUPPORT
                     ? (float) (((int) $entry['delivered']) / $total)
+                    : null;
+                $qualifies = $total >= self::MIN_SUPPORT && $weightedTotal > 0.0;
+                // Recency-weighted rates: recent evidence outweighs stale evidence, so a delivered
+                // burst that recently contradicts an old failure trend can flip the reading without
+                // waiting for the raw failure rows to age out of the dataset entirely.
+                $entry['recency_weighted_delivery_rate'] = $qualifies
+                    ? (float) ($entry['weighted_delivered'] / $weightedTotal)
+                    : null;
+                $entry['recency_weighted_failure_rate'] = $qualifies
+                    ? (float) ($entry['weighted_failure'] / $weightedTotal)
                     : null;
                 $buckets[$bucket] = $entry;
             }
@@ -83,6 +120,33 @@ final class AtlasMaestroOutcomePatternMiner
         }
 
         return $facts;
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     * @return array{weight:float, recent:bool, stale:bool}
+     */
+    private function recencyWeight(array $row): array
+    {
+        $occurredAt = $row['occurred_at'] ?? null;
+        if ($occurredAt === null) {
+            // No timestamp recorded ⇒ treat as current evidence (backward compatible with rows
+            // that predate recency tracking).
+            return ['weight' => self::RECENT_WEIGHT, 'recent' => true, 'stale' => false];
+        }
+
+        $timestamp = is_numeric($occurredAt) ? (int) $occurredAt : strtotime((string) $occurredAt);
+        if ($timestamp === false) {
+            return ['weight' => self::RECENT_WEIGHT, 'recent' => true, 'stale' => false];
+        }
+
+        $age = max(0, time() - $timestamp);
+
+        return match (true) {
+            $age <= self::RECENT_WINDOW_SECONDS => ['weight' => self::RECENT_WEIGHT, 'recent' => true, 'stale' => false],
+            $age <= self::STALE_WINDOW_SECONDS => ['weight' => self::AGING_WEIGHT, 'recent' => false, 'stale' => false],
+            default => ['weight' => self::STALE_WEIGHT, 'recent' => false, 'stale' => true],
+        };
     }
 
     /**
@@ -133,7 +197,8 @@ final class AtlasMaestroOutcomePatternMiner
 
         foreach ($this->mine() as $dimension => $buckets) {
             foreach ($buckets as $bucket => $entry) {
-                if ($entry['delivery_rate'] === null || $entry['delivery_rate'] < 0.5) {
+                $weightedRate = $entry['recency_weighted_delivery_rate'];
+                if ($weightedRate === null || $weightedRate < 0.5) {
                     continue;
                 }
                 if ((int) $entry['delivered'] < self::MIN_STRATEGY_OCCURRENCES) {
@@ -142,9 +207,11 @@ final class AtlasMaestroOutcomePatternMiner
                 $patterns[] = [
                     'dimension'     => $dimension,
                     'bucket'        => $bucket,
-                    'delivery_rate' => $entry['delivery_rate'],
+                    'delivery_rate' => $weightedRate,
                     'support'       => $entry['total'],
                     'delivered'     => (int) $entry['delivered'],
+                    'recent_count'  => (int) $entry['recent_count'],
+                    'stale_count'   => (int) $entry['stale_count'],
                 ];
             }
         }
@@ -174,19 +241,23 @@ final class AtlasMaestroOutcomePatternMiner
                 if ((bool) $entry['insufficient_support']) {
                     continue;
                 }
-                $failureCount = (int) $entry['give_back'] + (int) $entry['rejected'] + (int) $entry['stale'];
-                if ($failureCount <= (int) $entry['delivered']) {
+                // Recency-weighted comparison: an old failure trend does not dominate once
+                // recent delivered evidence outweighs it, even though the raw counts still show
+                // more failures than successes.
+                if ((float) $entry['weighted_failure'] <= (float) $entry['weighted_delivered']) {
                     continue;
                 }
                 $patterns[] = [
                     'dimension'     => $dimension,
                     'bucket'        => $bucket,
-                    'failure_rate'  => (float) ($failureCount / (int) $entry['total']),
+                    'failure_rate'  => (float) $entry['recency_weighted_failure_rate'],
                     'support'       => (int) $entry['total'],
                     'give_back'     => (int) $entry['give_back'],
                     'rejected'      => (int) $entry['rejected'],
                     'stale'         => (int) $entry['stale'],
                     'delivered'     => (int) $entry['delivered'],
+                    'recent_count'  => (int) $entry['recent_count'],
+                    'stale_count'   => (int) $entry['stale_count'],
                 ];
             }
         }
@@ -227,6 +298,11 @@ final class AtlasMaestroOutcomePatternMiner
                 'confidence' => $pattern['delivery_rate'],
                 'sample_size' => $pattern['support'],
                 'next_action' => sprintf('prefer_%s_for_%s_in_%s', $pattern['bucket'], $pattern['dimension'], $policy),
+                'evidence_window' => [
+                    'recent_count' => $pattern['recent_count'],
+                    'stale_count' => $pattern['stale_count'],
+                    'recency_weighted_confidence' => $pattern['delivery_rate'],
+                ],
             ];
         }
 
@@ -240,6 +316,11 @@ final class AtlasMaestroOutcomePatternMiner
                 'confidence' => $pattern['failure_rate'],
                 'sample_size' => $pattern['support'],
                 'next_action' => sprintf('avoid_%s_for_%s_in_%s', $pattern['bucket'], $pattern['dimension'], $policy),
+                'evidence_window' => [
+                    'recent_count' => $pattern['recent_count'],
+                    'stale_count' => $pattern['stale_count'],
+                    'recency_weighted_confidence' => $pattern['failure_rate'],
+                ],
             ];
         }
 
@@ -261,6 +342,13 @@ final class AtlasMaestroOutcomePatternMiner
             'total' => 0,
             'insufficient_support' => true,
             'delivery_rate' => null,
+            'weighted_delivered' => 0.0,
+            'weighted_failure' => 0.0,
+            'weighted_total' => 0.0,
+            'recent_count' => 0,
+            'stale_count' => 0,
+            'recency_weighted_delivery_rate' => null,
+            'recency_weighted_failure_rate' => null,
         ];
     }
 

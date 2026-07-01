@@ -177,4 +177,111 @@ final class AtlasMaestroOutcomePatternMinerTest extends TestCase
         $this->assertNotNull($negativeIndex);
         $this->assertLessThan($negativeIndex, $positiveIndex, 'positive signals must sort before negative signals');
     }
+
+    // ── recency-aware decay ───────────────────────────────────────────────────
+
+    private function daysAgoIso(int $days): string
+    {
+        return date('c', time() - ($days * 86400));
+    }
+
+    public function test_evidence_window_reports_recent_and_stale_counts(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 6; $i++) {
+            $rows[] = $this->row('delivered', ['worker_id' => 'workerA', 'occurred_at' => $this->daysAgoIso(1)]);
+        }
+        for ($i = 0; $i < 2; $i++) {
+            $rows[] = $this->row('give_back', ['worker_id' => 'workerA', 'occurred_at' => $this->daysAgoIso(90)]);
+        }
+        $this->writeRows($rows);
+
+        $signals = $this->miner()->strategyPolicySignals();
+        $match = array_values(array_filter($signals, static fn (array $s): bool =>
+            $s['polarity'] === 'positive' && $s['dimension'] === 'worker_id' && $s['bucket'] === 'workerA'));
+
+        $this->assertNotEmpty($match);
+        $signal = $match[0];
+        $this->assertArrayHasKey('evidence_window', $signal);
+        $this->assertSame(6, $signal['evidence_window']['recent_count']);
+        $this->assertSame(2, $signal['evidence_window']['stale_count']);
+        $this->assertArrayHasKey('recency_weighted_confidence', $signal['evidence_window']);
+    }
+
+    public function test_recent_rows_weigh_more_than_old_rows_in_confidence(): void
+    {
+        // All-recent bucket: 6 delivered / 8 total, all full weight → confidence 0.75.
+        $recentRows = [];
+        for ($i = 0; $i < 6; $i++) {
+            $recentRows[] = $this->row('delivered', ['worker_id' => 'workerRecent', 'occurred_at' => $this->daysAgoIso(1)]);
+        }
+        for ($i = 0; $i < 2; $i++) {
+            $recentRows[] = $this->row('give_back', ['worker_id' => 'workerRecent', 'occurred_at' => $this->daysAgoIso(1)]);
+        }
+
+        // Same raw shape, but the give_back rows are stale (decayed weight) → confidence rises above 0.75.
+        $mixedRows = [];
+        for ($i = 0; $i < 6; $i++) {
+            $mixedRows[] = $this->row('delivered', ['worker_id' => 'workerMixed', 'occurred_at' => $this->daysAgoIso(1)]);
+        }
+        for ($i = 0; $i < 2; $i++) {
+            $mixedRows[] = $this->row('give_back', ['worker_id' => 'workerMixed', 'occurred_at' => $this->daysAgoIso(90)]);
+        }
+
+        $this->writeRows(array_merge($recentRows, $mixedRows));
+
+        $signals = $this->miner()->strategyPolicySignals();
+        $recentSignal = array_values(array_filter($signals, static fn (array $s): bool =>
+            $s['dimension'] === 'worker_id' && $s['bucket'] === 'workerRecent'))[0];
+        $mixedSignal = array_values(array_filter($signals, static fn (array $s): bool =>
+            $s['dimension'] === 'worker_id' && $s['bucket'] === 'workerMixed'))[0];
+
+        $this->assertGreaterThan(
+            $recentSignal['confidence'],
+            $mixedSignal['confidence'],
+            'decayed old give_back rows must weigh less, raising confidence above the all-recent baseline',
+        );
+    }
+
+    public function test_recent_delivered_evidence_overturns_old_negative_pattern(): void
+    {
+        // Old, stale give_back trend that would dominate on raw counts alone.
+        $rows = [];
+        for ($i = 0; $i < 6; $i++) {
+            $rows[] = $this->row('give_back', ['file_family' => 'flaky_service', 'occurred_at' => $this->daysAgoIso(90)]);
+        }
+        // Recent delivered evidence with enough support to contradict it.
+        for ($i = 0; $i < 5; $i++) {
+            $rows[] = $this->row('delivered', ['file_family' => 'flaky_service', 'occurred_at' => $this->daysAgoIso(1)]);
+        }
+        $this->writeRows($rows);
+
+        $signals = $this->miner()->strategyPolicySignals();
+
+        $negativeMatch = array_filter($signals, static fn (array $s): bool =>
+            $s['polarity'] === 'negative' && $s['bucket'] === 'flaky_service');
+        $positiveMatch = array_filter($signals, static fn (array $s): bool =>
+            $s['polarity'] === 'positive' && $s['bucket'] === 'flaky_service');
+
+        $this->assertEmpty($negativeMatch, 'recent delivered evidence must overturn the stale negative pattern');
+        $this->assertNotEmpty($positiveMatch, 'recency-weighted evidence should now read as a positive pattern');
+    }
+
+    public function test_old_negative_pattern_still_holds_without_recent_contradicting_evidence(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 2; $i++) {
+            $rows[] = $this->row('delivered', ['file_family' => 'still_bad', 'occurred_at' => $this->daysAgoIso(90)]);
+        }
+        for ($i = 0; $i < 6; $i++) {
+            $rows[] = $this->row('give_back', ['file_family' => 'still_bad', 'occurred_at' => $this->daysAgoIso(90)]);
+        }
+        $this->writeRows($rows);
+
+        $signals = $this->miner()->strategyPolicySignals();
+        $negativeMatch = array_values(array_filter($signals, static fn (array $s): bool =>
+            $s['polarity'] === 'negative' && $s['bucket'] === 'still_bad'));
+
+        $this->assertNotEmpty($negativeMatch, 'a negative pattern with no recent contradiction must still hold');
+    }
 }
