@@ -329,4 +329,39 @@ final class AtlasExternalBrainAmbiguityResolutionPlannerTest extends TestCase
         $this->assertTrue($result['resolution_actions'][0]['enqueue_blocking']);
         $this->assertFalse($result['task_creation_allowed']);
     }
+
+    // ── AC2: required_clarification names the exact missing fact ─────────────
+
+    public function test_unresolved_item_has_required_clarification_naming_the_claim(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern' => null,
+            'ambiguity_score' => 0.9,
+            'claim' => 'AtlasFooService may already exist.',
+        ])));
+
+        $unresolved = $result['unresolved_items'][0];
+        $this->assertArrayHasKey('required_clarification', $unresolved);
+        $this->assertStringContainsString('AtlasFooService may already exist.', $unresolved['required_clarification']);
+    }
+
+    // ── AC3: nonblocking resolution carries explicit assumptions ─────────────
+
+    public function test_resolved_action_carries_explicit_assumptions_while_task_creation_stays_allowed(): void
+    {
+        $result = $this->planner->plan($this->input($this->item(['target_path' => 'app/Foo.php'])));
+
+        $action = $result['resolution_actions'][0];
+        $this->assertArrayHasKey('assumptions', $action);
+        $this->assertNotEmpty($action['assumptions']);
+        $this->assertTrue($result['task_creation_allowed']);
+        $this->assertNotEmpty($action['expected_evidence']);
+    }
+
+    public function test_blocked_action_has_empty_assumptions(): void
+    {
+        $result = $this->planner->plan($this->input($this->item(['grep_pattern' => null, 'ambiguity_score' => 0.9])));
+
+        $this->assertSame([], $result['resolution_actions'][0]['assumptions']);
+    }
 }

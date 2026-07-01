@@ -69,6 +69,11 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
                 'local_command_or_gate' => $detail['check_command'] ?? 'operator_or_frontier_review_gate',
                 'expected_evidence'     => $this->expectedEvidence($actionType),
                 'enqueue_blocking'      => $enqueueBlocking,
+                // Nonblocking ambiguity still carries an explicit assumption: the claim is
+                // treated as provisional until the local check's expected_evidence is produced.
+                'assumptions'           => $enqueueBlocking ? [] : [
+                    'claim treated as unverified until '.$this->expectedEvidence($actionType).' is produced',
+                ],
             ]);
             $resolutionActions[] = $action;
 
@@ -80,6 +85,11 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
                     'reason'          => $actionType === self::ACTION_EXPLICIT_ESCALATION
                         ? 'no_local_check_can_reduce_ambiguity'
                         : 'ambiguity_too_high_without_specific_check_fields',
+                    // Names the exact missing fact that would have made this resolvable locally.
+                    'required_clarification' => sprintf(
+                        'Provide grep_pattern, target_path, task_family, prior_evidence_id, or capability_claim to resolve claim: %s',
+                        $claim,
+                    ),
                 ];
             }
         }
