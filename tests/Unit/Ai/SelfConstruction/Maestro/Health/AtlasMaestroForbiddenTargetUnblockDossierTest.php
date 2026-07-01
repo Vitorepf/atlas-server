@@ -162,4 +162,131 @@ final class AtlasMaestroForbiddenTargetUnblockDossierTest extends TestCase
         $b = $this->dossier()->build($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC2/AC3: target_classification + workaround_policy on a single build() ──
+
+    public function test_operator_only_classification_for_core_system_target(): void
+    {
+        $r = $this->dossier()->build(['forbidden_paths' => ['app/Brain/Core.php']]);
+
+        $this->assertSame(AtlasMaestroForbiddenTargetUnblockDossier::TARGET_CLASS_OPERATOR_ONLY, $r['target_classification']);
+    }
+
+    public function test_safely_rescopable_classification_when_allowed_path_present(): void
+    {
+        $r = $this->dossier()->build([
+            'forbidden_paths' => ['app/Foo.php'],
+            'allowed_paths'   => ['app/Services/Proxy/FooProxy.php'],
+        ]);
+
+        $this->assertSame(AtlasMaestroForbiddenTargetUnblockDossier::TARGET_CLASS_SAFELY_RESCOPABLE, $r['target_classification']);
+    }
+
+    public function test_needs_further_scoping_classification_when_no_allowed_path_and_low_severity(): void
+    {
+        $r = $this->dossier()->build(['forbidden_paths' => ['app/Foo.php']]);
+
+        $this->assertSame(AtlasMaestroForbiddenTargetUnblockDossier::TARGET_CLASS_NEEDS_SCOPING, $r['target_classification']);
+    }
+
+    public function test_workaround_policy_always_refuses_bypass_and_test_only(): void
+    {
+        $r = $this->dossier()->build(['forbidden_paths' => ['app/Foo.php']]);
+
+        $this->assertSame('never_suggested', $r['workaround_policy']['bypass_forbidden_target_policy']);
+        $this->assertSame('never_suggested', $r['workaround_policy']['test_only_workaround']);
+    }
+
+    // ── AC1: file-line evidence ────────────────────────────────────────────────
+
+    public function test_evidence_carries_task_id_path_and_line(): void
+    {
+        $r = $this->dossier()->build([
+            'task_id'               => 'task-9',
+            'forbidden_paths'       => ['app/Brain/Core.php'],
+            'forbidden_path_lines'  => ['app/Brain/Core.php' => 42],
+        ]);
+
+        $this->assertSame([
+            ['task_id' => 'task-9', 'path' => 'app/Brain/Core.php', 'line' => 42],
+        ], $r['evidence']);
+    }
+
+    public function test_evidence_line_is_null_when_not_supplied(): void
+    {
+        $r = $this->dossier()->build(['task_id' => 'task-9', 'forbidden_paths' => ['app/Foo.php']]);
+
+        $this->assertNull($r['evidence'][0]['line']);
+    }
+
+    // ── AC1/AC2/AC4: buildGroup() groups blocked packets by forbidden target ──
+
+    public function test_build_group_groups_by_forbidden_target_with_task_ids_and_evidence(): void
+    {
+        $r = $this->dossier()->buildGroup([
+            [
+                'task_id' => 't1',
+                'forbidden_paths' => ['app/Brain/Core.php'],
+                'forbidden_path_lines' => ['app/Brain/Core.php' => 10],
+                'failure_reason' => 'forbidden_self_target',
+            ],
+            [
+                'task_id' => 't2',
+                'forbidden_paths' => ['app/Brain/Core.php'],
+                'forbidden_path_lines' => ['app/Brain/Core.php' => 25],
+            ],
+        ]);
+
+        $this->assertCount(1, $r['groups']);
+        $group = $r['groups'][0];
+        $this->assertSame('app/Brain/Core.php', $group['forbidden_target']);
+        $this->assertSame(['t1', 't2'], $group['task_ids']);
+        $this->assertCount(2, $group['evidence']);
+        $this->assertContains(10, array_column($group['evidence'], 'line'));
+        $this->assertContains(25, array_column($group['evidence'], 'line'));
+        $this->assertContains('forbidden_self_target', $group['reasons']);
+    }
+
+    public function test_build_group_classifies_operator_only_vs_safely_rescopable_targets(): void
+    {
+        $r = $this->dossier()->buildGroup([
+            ['task_id' => 't1', 'forbidden_paths' => ['app/Brain/Core.php']],
+            ['task_id' => 't2', 'forbidden_paths' => ['app/Foo.php'], 'allowed_paths' => ['app/Services/Proxy/FooProxy.php']],
+        ]);
+
+        $this->assertContains('app/Brain/Core.php', $r['operator_only_targets']);
+        $this->assertContains('app/Foo.php', $r['safely_rescopable_targets']);
+    }
+
+    public function test_build_group_never_omits_workaround_policy_per_group(): void
+    {
+        $r = $this->dossier()->buildGroup([
+            ['task_id' => 't1', 'forbidden_paths' => ['app/Foo.php']],
+        ]);
+
+        $this->assertSame('never_suggested', $r['groups'][0]['workaround_policy']['bypass_forbidden_target_policy']);
+        $this->assertSame('never_suggested', $r['groups'][0]['workaround_policy']['test_only_workaround']);
+    }
+
+    public function test_build_group_likely_safe_unblock_path_never_contains_the_forbidden_target(): void
+    {
+        $r = $this->dossier()->buildGroup([
+            ['task_id' => 't1', 'forbidden_paths' => ['app/Foo.php'], 'allowed_paths' => ['app/Foo.php', 'app/Services/Proxy/FooProxy.php']],
+        ]);
+
+        $suggested = $r['groups'][0]['likely_safe_unblock_path']['suggested_paths'];
+        $this->assertNotContains('app/Foo.php', $suggested);
+    }
+
+    public function test_build_group_is_deterministic(): void
+    {
+        $packets = [
+            ['task_id' => 't1', 'forbidden_paths' => ['app/Brain/Core.php']],
+            ['task_id' => 't2', 'forbidden_paths' => ['app/Foo.php'], 'allowed_paths' => ['app/Services/Proxy/FooProxy.php']],
+        ];
+
+        $a = $this->dossier()->buildGroup($packets);
+        $b = $this->dossier()->buildGroup($packets);
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }
