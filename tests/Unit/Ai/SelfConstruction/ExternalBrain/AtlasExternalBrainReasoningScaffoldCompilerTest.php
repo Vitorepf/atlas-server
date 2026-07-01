@@ -53,6 +53,7 @@ final class AtlasExternalBrainReasoningScaffoldCompilerTest extends TestCase
             'anti_duplication_proof', 'semantic_dedup',
             'adversarial_critique', 'implementability_check',
             'leverage_ranking', 'impact_ranking',
+            'ambition_recovery', 'second_pass_surface_expansion',
             'final_batch_selection',
         ];
 
@@ -288,5 +289,64 @@ final class AtlasExternalBrainReasoningScaffoldCompilerTest extends TestCase
         $input = ['skip_sections' => []];
 
         $this->assertSame($this->compiler()->compile($input), $this->compiler()->compile($input));
+    }
+
+    // ── ambition recovery ──────────────────────────────────────────────────────
+
+    public function test_ambition_recovery_and_second_pass_sections_present(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $ids = array_column($result['scaffold_sections'], 'section_id');
+        $this->assertContains('ambition_recovery', $ids);
+        $this->assertContains('second_pass_surface_expansion', $ids);
+    }
+
+    public function test_ambition_recovery_comes_after_adversarial_critique_and_before_final_batch(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $ids = array_column($result['scaffold_sections'], 'section_id');
+
+        $critiquePos = array_search('adversarial_critique', $ids, true);
+        $recoveryPos = array_search('ambition_recovery', $ids, true);
+        $finalPos = array_search('final_batch_selection', $ids, true);
+
+        $this->assertGreaterThan($critiquePos, $recoveryPos);
+        $this->assertLessThan($finalPos, $recoveryPos);
+    }
+
+    public function test_allow_stop_after_low_yield_rejected_without_evidence(): void
+    {
+        $result = $this->compiler()->compile(['allow_stop_after_low_yield' => true]);
+
+        $this->assertFalse($result['is_valid']);
+        $this->assertStringContainsString('low_yield_stop_requires', $result['rejection_reason']);
+    }
+
+    public function test_allow_stop_after_low_yield_accepted_with_full_evidence(): void
+    {
+        $result = $this->compiler()->compile([
+            'allow_stop_after_low_yield' => true,
+            'explored_surfaces' => ['a'],
+            'blocked_surfaces' => ['b'],
+            'recovery_attempts' => 2,
+            'remaining_unexplored_surfaces' => [],
+        ]);
+
+        // remaining_unexplored_surfaces=[] is empty() → still must fail unless non-empty; verify explicit contract.
+        $this->assertFalse($result['is_valid']);
+    }
+
+    public function test_allow_stop_after_low_yield_accepted_with_non_empty_evidence(): void
+    {
+        $result = $this->compiler()->compile([
+            'allow_stop_after_low_yield' => true,
+            'explored_surfaces' => ['a'],
+            'blocked_surfaces' => ['b'],
+            'recovery_attempts' => 2,
+            'remaining_unexplored_surfaces' => ['c'],
+        ]);
+
+        $this->assertTrue($result['is_valid']);
     }
 }

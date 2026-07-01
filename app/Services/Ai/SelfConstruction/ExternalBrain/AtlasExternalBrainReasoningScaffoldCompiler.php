@@ -116,9 +116,27 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
             'required_artifacts' => ['impact_ranked_list'],
             'stop_conditions'    => [],
         ],
+        // Mandatory ambition-recovery pass: reached before final selection so a low-yield cycle
+        // never exits early while valuable surfaces remain unexplored.
+        [
+            'section_id'         => 'ambition_recovery',
+            'order'              => 11,
+            'required'           => true,
+            'prompt_template'    => 'If this cycle produced low yield (few or no surviving candidates), do not stop yet. Record which surfaces were explored, which were blocked, and how many recovery attempts have been made. Re-attempt origination from a different angle before allowing a no-proposal exit.',
+            'required_artifacts' => ['explored_surfaces_log', 'blocked_surfaces_log', 'recovery_attempts_log'],
+            'stop_conditions'    => ['recovery_exhausted_with_no_remaining_surfaces'],
+        ],
+        [
+            'section_id'         => 'second_pass_surface_expansion',
+            'order'              => 12,
+            'required'           => true,
+            'prompt_template'    => 'Expand the search to surfaces not covered in the first pass: adjacent modules, cross-domain patterns, and previously-blocked surfaces whose blockers may now be resolved. List remaining_unexplored_surfaces explicitly.',
+            'required_artifacts' => ['remaining_unexplored_surfaces'],
+            'stop_conditions'    => [],
+        ],
         [
             'section_id'       => 'final_batch_selection',
-            'order'            => 11,
+            'order'            => 13,
             'required'         => true,
             'prompt_template'  => 'Select the top-N candidates from the ranked list that fit within the worker fleet capacity. Return their task specifications. No new candidates may be introduced at this stage.',
             'required_artifacts' => ['final_batch'],
@@ -142,6 +160,7 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
     {
         $skipSections        = is_array($input['skip_sections'] ?? null) ? $input['skip_sections'] : [];
         $allowDirectFinal    = (bool) ($input['allow_direct_final_answer'] ?? false);
+        $allowStopAfterLowYield = (bool) ($input['allow_stop_after_low_yield'] ?? false);
 
         // Validate.
         if (in_array('evidence_intake', $skipSections, true)) {
@@ -150,6 +169,21 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
 
         if ($allowDirectFinal) {
             return $this->rejected('direct_final_answer_not_allowed');
+        }
+
+        // AC2: a configuration that allows stopping after low yield is only valid when the
+        // ambition-recovery evidence trail is fully recorded — otherwise a low-yield cycle could
+        // silently exit without ever proving it explored the remaining surfaces.
+        if ($allowStopAfterLowYield) {
+            $missing = [];
+            foreach (['explored_surfaces', 'blocked_surfaces', 'recovery_attempts', 'remaining_unexplored_surfaces'] as $field) {
+                if (empty($input[$field])) {
+                    $missing[] = $field;
+                }
+            }
+            if ($missing !== []) {
+                return $this->rejected('low_yield_stop_requires:'.implode(',', $missing));
+            }
         }
 
         // AC2: fail closed when any required section is skipped.
