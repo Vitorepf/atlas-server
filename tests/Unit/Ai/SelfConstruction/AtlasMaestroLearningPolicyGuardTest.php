@@ -154,4 +154,66 @@ final class AtlasMaestroLearningPolicyGuardTest extends TestCase
         $this->expectException(AtlasMaestroLearningPolicyViolation::class);
         (new AtlasMaestroReplenisherFeedback($miner))->renderFactsBlock();
     }
+
+    // ── AC: evaluatePromotion() no self-reinforcing bad policy ─────────────────
+
+    public function test_blocks_promotion_when_give_back_poison_or_weak_green_rate_regresses(): void
+    {
+        $base = ['evidence_sample_size' => 10];
+
+        $giveBack = $this->guard()->evaluatePromotion($base + [
+            'pre_policy' => ['give_back_rate' => 0.10],
+            'post_policy' => ['give_back_rate' => 0.30],
+        ]);
+        $this->assertFalse($giveBack['promotion_allowed']);
+        $this->assertContains('give_back_rate_regressed', $giveBack['blocked_reasons']);
+
+        $poison = $this->guard()->evaluatePromotion($base + [
+            'pre_policy' => ['poison_rate' => 0.0],
+            'post_policy' => ['poison_rate' => 0.05],
+        ]);
+        $this->assertFalse($poison['promotion_allowed']);
+        $this->assertContains('poison_rate_regressed', $poison['blocked_reasons']);
+
+        $weakGreen = $this->guard()->evaluatePromotion($base + [
+            'pre_policy' => ['weak_green_rate' => 0.10],
+            'post_policy' => ['weak_green_rate' => 0.40],
+        ]);
+        $this->assertFalse($weakGreen['promotion_allowed']);
+        $this->assertContains('weak_green_rate_regressed', $weakGreen['blocked_reasons']);
+    }
+
+    public function test_requires_minimum_evidence_sample_before_promoting(): void
+    {
+        $result = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.20],
+            'post_policy' => ['give_back_rate' => 0.10],
+            'evidence_sample_size' => 1,
+        ]);
+
+        $this->assertFalse($result['promotion_allowed']);
+        $this->assertContains('insufficient_evidence_sample', $result['blocked_reasons']);
+    }
+
+    public function test_promotion_output_includes_allowed_blocked_reasons_sample_size_and_rollback_hint(): void
+    {
+        $blocked = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.10],
+            'post_policy' => ['give_back_rate' => 0.30],
+            'evidence_sample_size' => 10,
+        ]);
+        foreach (['promotion_allowed', 'blocked_reasons', 'evidence_sample_size', 'rollback_hint'] as $key) {
+            $this->assertArrayHasKey($key, $blocked, "Missing key: {$key}");
+        }
+        $this->assertNotNull($blocked['rollback_hint']);
+
+        $allowed = $this->guard()->evaluatePromotion([
+            'pre_policy' => ['give_back_rate' => 0.30, 'poison_rate' => 0.10, 'weak_green_rate' => 0.30],
+            'post_policy' => ['give_back_rate' => 0.10, 'poison_rate' => 0.02, 'weak_green_rate' => 0.10],
+            'evidence_sample_size' => 10,
+        ]);
+        $this->assertTrue($allowed['promotion_allowed']);
+        $this->assertSame([], $allowed['blocked_reasons']);
+        $this->assertNull($allowed['rollback_hint']);
+    }
 }

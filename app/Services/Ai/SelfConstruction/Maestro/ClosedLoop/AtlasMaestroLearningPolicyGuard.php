@@ -38,12 +38,57 @@ final class AtlasMaestroLearningPolicyGuard
     /** Quota-padding signals that inflate completion numbers without real delivery. */
     private const QUOTA_PADDING_PATTERNS = ['quota padding', 'pad count', 'filler task', 'quota pad', 'filler_task'];
 
+    /** Minimum evidence samples required before a learning policy can be promoted. */
+    public const MIN_EVIDENCE_SAMPLE = 5;
+
     /**
      * @param  array<mixed>  $artifact
      */
     public function assertSafe(array $artifact): void
     {
         $this->walk($artifact);
+    }
+
+    /**
+     * Decides whether a learning policy that governs the closed feedback loop may be PROMOTED
+     * (applied to future origination), never on evidence volume alone: a policy is blocked when
+     * it regressed give_back_rate, poison_rate, or weak_green_rate relative to the pre-policy
+     * baseline, or when the evidence sample is too thin to trust the comparison at all.
+     *
+     * @param  array{
+     *   pre_policy?: array{give_back_rate?:float, poison_rate?:float, weak_green_rate?:float},
+     *   post_policy?: array{give_back_rate?:float, poison_rate?:float, weak_green_rate?:float},
+     *   evidence_sample_size?: int,
+     * }  $input
+     * @return array{promotion_allowed:bool, blocked_reasons:list<string>, evidence_sample_size:int, rollback_hint:?string}
+     */
+    public function evaluatePromotion(array $input): array
+    {
+        $pre = is_array($input['pre_policy'] ?? null) ? $input['pre_policy'] : [];
+        $post = is_array($input['post_policy'] ?? null) ? $input['post_policy'] : [];
+        $evidenceSampleSize = max(0, (int) ($input['evidence_sample_size'] ?? 0));
+
+        $blockedReasons = [];
+        foreach (['give_back_rate', 'poison_rate', 'weak_green_rate'] as $metric) {
+            $preValue = (float) ($pre[$metric] ?? 0.0);
+            $postValue = (float) ($post[$metric] ?? 0.0);
+            if ($postValue > $preValue) {
+                $blockedReasons[] = "{$metric}_regressed";
+            }
+        }
+
+        if ($evidenceSampleSize < self::MIN_EVIDENCE_SAMPLE) {
+            $blockedReasons[] = 'insufficient_evidence_sample';
+        }
+
+        $promotionAllowed = $blockedReasons === [];
+
+        return [
+            'promotion_allowed' => $promotionAllowed,
+            'blocked_reasons' => $blockedReasons,
+            'evidence_sample_size' => $evidenceSampleSize,
+            'rollback_hint' => $promotionAllowed ? null : 'revert_to_pre_policy_baseline_until_regression_resolved_or_evidence_grows',
+        ];
     }
 
     private function walk(mixed $node): void
