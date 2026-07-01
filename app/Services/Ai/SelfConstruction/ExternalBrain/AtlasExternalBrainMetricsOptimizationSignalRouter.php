@@ -80,6 +80,15 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
     private const DEFAULT_GREEN_COMMIT_GIVE_BACK_THRESHOLD = 0.30;
     private const DEFAULT_QUEUE_DEPTH_SATURATION_THRESHOLD = 0.80;
 
+    // Classification vocabulary (AC2): every metric gets exactly one of these four labels.
+    public const CLASSIFICATION_OPTIMIZE = 'optimize';
+    public const CLASSIFICATION_GUARDRAIL = 'guardrail';
+    public const CLASSIFICATION_INVESTIGATE = 'investigate';
+    public const CLASSIFICATION_REJECT_PROXY_METRIC = 'reject_proxy_metric';
+
+    /** a metric older than this (seconds) is never trusted at face value — route to investigate. */
+    private const STALE_METRIC_AGE_CEILING_SECONDS = 3600;
+
     /**
      * Ordered rule definitions: [metric_key, default_threshold, direction, signal_id, rationale_template, batch_constraint]
      * direction: 'gte' means signal fires when metric >= threshold (bad when high)
@@ -165,14 +174,18 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
         $metrics    = is_array($input['metrics'] ?? null) ? $input['metrics'] : [];
         $thresholds = is_array($input['thresholds'] ?? null) ? $input['thresholds'] : [];
         $context    = is_array($input['context'] ?? null) ? $input['context'] : [];
+        $metricAges = is_array($input['metric_ages_seconds'] ?? null) ? $input['metric_ages_seconds'] : [];
 
         $actionableKeys   = self::actionableKeys();
         $signals          = [];
         $skippedVanity    = [];
+        $classifications  = [];
+        $staleMetrics     = [];
 
         foreach ($metrics as $key => $_) {
             if (! in_array($key, $actionableKeys, true)) {
                 $skippedVanity[] = (string) $key;
+                $classifications[(string) $key] = self::CLASSIFICATION_REJECT_PROXY_METRIC;
             }
         }
 
@@ -180,6 +193,15 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
             $key = $rule['key'];
 
             if (! array_key_exists($key, $metrics)) {
+                continue;
+            }
+
+            // A metric older than the staleness ceiling is never trusted at face value — it is
+            // routed to investigate and never fires an optimize/guardrail signal on its own.
+            if ($this->isMetricStale($key, $metricAges)) {
+                $staleMetrics[] = $key;
+                $classifications[$key] = self::CLASSIFICATION_INVESTIGATE;
+
                 continue;
             }
 
@@ -191,8 +213,14 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
                 : $value < $threshold;
 
             if (! $triggered) {
+                $classifications[$key] = self::CLASSIFICATION_OPTIMIZE;
+
                 continue;
             }
+
+            $classifications[$key] = $rule['signal_type'] === self::SIGNAL_TYPE_RISK
+                ? self::CLASSIFICATION_GUARDRAIL
+                : self::CLASSIFICATION_OPTIMIZE;
 
             $signals[] = [
                 'signal_id'            => $rule['signal_id'],
@@ -203,18 +231,20 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
                 'action'               => $rule['action'],
                 'confidence'           => $this->confidence($value, $threshold, $rule['direction']),
                 'anti_goodhart_reason' => $rule['anti_goodhart_reason'],
+                'classification'       => $classifications[$key],
             ];
         }
 
         // Contextual volume metrics: a raw count never triggers a signal on its own — it only
         // becomes actionable when its quality/outcome/risk companion context proves the movement
         // is real. Without that companion, the raw count is vanity, not an actionable signal.
-        $this->routeTaskCount($metrics, $context, $thresholds, $signals, $skippedVanity);
-        $this->routeGreenCommits($metrics, $thresholds, $signals, $skippedVanity);
-        $this->routeQueueDepth($metrics, $thresholds, $signals, $skippedVanity);
-        $this->routeModelLift($metrics, $context, $signals, $skippedVanity);
+        $this->routeTaskCount($metrics, $context, $thresholds, $signals, $skippedVanity, $classifications);
+        $this->routeGreenCommits($metrics, $thresholds, $signals, $skippedVanity, $classifications);
+        $this->routeQueueDepth($metrics, $thresholds, $signals, $skippedVanity, $classifications);
+        $this->routeModelLift($metrics, $context, $signals, $skippedVanity, $classifications);
 
         sort($skippedVanity);
+        sort($staleMetrics);
         usort($signals, static fn (array $a, array $b): int => $a['priority'] <=> $b['priority']);
 
         $constraints = array_values(array_unique(array_column($signals, 'batch_constraint')));
@@ -224,7 +254,19 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
             'ordered_signals'                     => $signals,
             'skipped_vanity_metrics'              => $skippedVanity,
             'recommended_next_batch_constraints'  => $constraints,
+            'metric_classifications'              => $classifications,
+            'stale_metrics'                        => $staleMetrics,
         ];
+    }
+
+    /** @param  array<string,mixed>  $metricAges */
+    private function isMetricStale(string $key, array $metricAges): bool
+    {
+        if (! array_key_exists($key, $metricAges)) {
+            return false;
+        }
+
+        return (int) $metricAges[$key] > self::STALE_METRIC_AGE_CEILING_SECONDS;
     }
 
     private function confidence(float $value, float $threshold, string $direction): string
@@ -234,7 +276,7 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
         return $distance >= 0.20 ? 'high' : 'medium';
     }
 
-    private function routeTaskCount(array $metrics, array $context, array $thresholds, array &$signals, array &$skippedVanity): void
+    private function routeTaskCount(array $metrics, array $context, array $thresholds, array &$signals, array &$skippedVanity, array &$classifications): void
     {
         if (! array_key_exists('task_count', $metrics)) {
             return;
@@ -242,6 +284,7 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
 
         if (! array_key_exists('task_quality_rate', $context)) {
             $skippedVanity[] = 'task_count';
+            $classifications['task_count'] = self::CLASSIFICATION_REJECT_PROXY_METRIC;
 
             return;
         }
@@ -251,10 +294,12 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
 
         if ($qualityRate >= $threshold) {
             $skippedVanity[] = 'task_count';
+            $classifications['task_count'] = self::CLASSIFICATION_REJECT_PROXY_METRIC;
 
             return;
         }
 
+        $classifications['task_count'] = self::CLASSIFICATION_OPTIMIZE;
         $signals[] = [
             'signal_id'            => self::SIGNAL_STOP_VOLUME_GROWTH,
             'priority'             => 6,
@@ -269,10 +314,11 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
             'action'               => self::ACTION_STOP_VOLUME_GROWTH,
             'confidence'           => $this->confidence($qualityRate, $threshold, 'lt'),
             'anti_goodhart_reason' => 'raw task_count is never actioned alone; it requires task_quality_rate context proving the throughput is real, not gamed',
+            'classification'       => self::CLASSIFICATION_OPTIMIZE,
         ];
     }
 
-    private function routeGreenCommits(array $metrics, array $thresholds, array &$signals, array &$skippedVanity): void
+    private function routeGreenCommits(array $metrics, array $thresholds, array &$signals, array &$skippedVanity, array &$classifications): void
     {
         if (! array_key_exists('green_commits', $metrics)) {
             return;
@@ -280,6 +326,7 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
 
         if (! array_key_exists('give_back_rate', $metrics)) {
             $skippedVanity[] = 'green_commits';
+            $classifications['green_commits'] = self::CLASSIFICATION_REJECT_PROXY_METRIC;
 
             return;
         }
@@ -289,10 +336,12 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
 
         if ($giveBackRate < $threshold) {
             $skippedVanity[] = 'green_commits';
+            $classifications['green_commits'] = self::CLASSIFICATION_REJECT_PROXY_METRIC;
 
             return;
         }
 
+        $classifications['green_commits'] = self::CLASSIFICATION_OPTIMIZE;
         $signals[] = [
             'signal_id'            => self::SIGNAL_REPAIR_QUEUE_DEPTH,
             'priority'             => 1,
@@ -307,10 +356,11 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
             'action'               => self::ACTION_REPAIR_QUEUE,
             'confidence'           => $this->confidence($giveBackRate, $threshold, 'gte'),
             'anti_goodhart_reason' => 'raw green_commits count is never actioned alone; it requires give_back_rate context proving commits are not masking rework',
+            'classification'       => self::CLASSIFICATION_OPTIMIZE,
         ];
     }
 
-    private function routeQueueDepth(array $metrics, array $thresholds, array &$signals, array &$skippedVanity): void
+    private function routeQueueDepth(array $metrics, array $thresholds, array &$signals, array &$skippedVanity, array &$classifications): void
     {
         if (! array_key_exists('queue_depth', $metrics)) {
             return;
@@ -318,6 +368,7 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
 
         if (! array_key_exists('queue_saturation', $metrics)) {
             $skippedVanity[] = 'queue_depth';
+            $classifications['queue_depth'] = self::CLASSIFICATION_REJECT_PROXY_METRIC;
 
             return;
         }
@@ -327,10 +378,12 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
 
         if ($saturation < $threshold) {
             $skippedVanity[] = 'queue_depth';
+            $classifications['queue_depth'] = self::CLASSIFICATION_REJECT_PROXY_METRIC;
 
             return;
         }
 
+        $classifications['queue_depth'] = self::CLASSIFICATION_GUARDRAIL;
         $signals[] = [
             'signal_id'            => self::SIGNAL_SIMPLIFY_QUEUE,
             'priority'             => 2,
@@ -345,23 +398,36 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
             'action'               => self::ACTION_SIMPLIFY,
             'confidence'           => $this->confidence($saturation, $threshold, 'gte'),
             'anti_goodhart_reason' => 'raw queue_depth is never actioned alone; it requires queue_saturation context proving the backlog is a real capacity risk',
+            'classification'       => self::CLASSIFICATION_GUARDRAIL,
         ];
     }
 
-    private function routeModelLift(array $metrics, array $context, array &$signals, array &$skippedVanity): void
+    private function routeModelLift(array $metrics, array $context, array &$signals, array &$skippedVanity, array &$classifications): void
     {
         if (! array_key_exists('model_lift', $metrics)) {
             return;
         }
 
         $evidenceType = isset($context['evidence_type']) ? (string) $context['evidence_type'] : null;
+        $accepted = $evidenceType !== null && in_array($evidenceType, self::ACCEPTED_LIFT_EVIDENCE_TYPES, true);
 
-        if ($evidenceType !== null && in_array($evidenceType, self::ACCEPTED_LIFT_EVIDENCE_TYPES, true)) {
-            $skippedVanity[] = 'model_lift';
+        // Conflicting metric: the evidence type is legitimate, but an independent prior result
+        // contradicts the claimed lift — never blindly trust it, and never blindly reject it either;
+        // it needs a human/deeper look before either optimizing or calibrating on it.
+        if ($accepted && (bool) ($context['contradicting_evidence'] ?? false)) {
+            $classifications['model_lift'] = self::CLASSIFICATION_INVESTIGATE;
 
             return;
         }
 
+        if ($accepted) {
+            $skippedVanity[] = 'model_lift';
+            $classifications['model_lift'] = self::CLASSIFICATION_OPTIMIZE;
+
+            return;
+        }
+
+        $classifications['model_lift'] = self::CLASSIFICATION_GUARDRAIL;
         $signals[] = [
             'signal_id'            => self::SIGNAL_CALIBRATE_MODEL,
             'priority'             => 3,
@@ -375,6 +441,7 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouter
             'action'               => self::ACTION_CALIBRATE_MODEL,
             'confidence'           => 'high',
             'anti_goodhart_reason' => 'raw model_lift is never trusted on a prompt-asserted claim; it requires accepted benchmark evidence_type before being actioned',
+            'classification'       => self::CLASSIFICATION_GUARDRAIL,
         ];
     }
 }

@@ -371,6 +371,115 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouterTest extends TestCa
         $this->assertContains('model_lift', $result['skipped_vanity_metrics']);
     }
 
+    // ── AC2: classification vocabulary — optimize / guardrail / investigate / reject_proxy_metric ──
+
+    public function test_valid_quality_metric_classified_as_optimize(): void
+    {
+        $result = $this->router()->route(['metrics' => ['evidence_freshness' => 0.90]]); // above threshold, healthy
+
+        $this->assertSame(
+            AtlasExternalBrainMetricsOptimizationSignalRouter::CLASSIFICATION_OPTIMIZE,
+            $result['metric_classifications']['evidence_freshness'],
+        );
+    }
+
+    public function test_proxy_count_metric_classified_as_reject_proxy_metric(): void
+    {
+        $result = $this->router()->route(['metrics' => ['task_count' => 50]]); // no companion context
+
+        $this->assertSame(
+            AtlasExternalBrainMetricsOptimizationSignalRouter::CLASSIFICATION_REJECT_PROXY_METRIC,
+            $result['metric_classifications']['task_count'],
+        );
+    }
+
+    public function test_unknown_metric_key_classified_as_reject_proxy_metric(): void
+    {
+        $result = $this->router()->route(['metrics' => ['fake_vanity_metric' => 42]]);
+
+        $this->assertSame(
+            AtlasExternalBrainMetricsOptimizationSignalRouter::CLASSIFICATION_REJECT_PROXY_METRIC,
+            $result['metric_classifications']['fake_vanity_metric'],
+        );
+    }
+
+    public function test_risk_signal_classified_as_guardrail(): void
+    {
+        $result = $this->router()->route(['metrics' => ['queue_saturation' => 0.90]]);
+
+        $this->assertSame(
+            AtlasExternalBrainMetricsOptimizationSignalRouter::CLASSIFICATION_GUARDRAIL,
+            $result['metric_classifications']['queue_saturation'],
+        );
+        $signal = $this->findSignal($result, AtlasExternalBrainMetricsOptimizationSignalRouter::SIGNAL_DRAIN_QUEUE);
+        $this->assertSame(AtlasExternalBrainMetricsOptimizationSignalRouter::CLASSIFICATION_GUARDRAIL, $signal['classification']);
+    }
+
+    // ── AC4: conflicting metric — accepted evidence type but contradicted by prior result ──
+
+    public function test_conflicting_metric_is_classified_as_investigate(): void
+    {
+        $result = $this->router()->route([
+            'metrics' => ['model_lift' => 0.30],
+            'context' => ['evidence_type' => 'before_after_benchmark', 'contradicting_evidence' => true],
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainMetricsOptimizationSignalRouter::CLASSIFICATION_INVESTIGATE,
+            $result['metric_classifications']['model_lift'],
+        );
+        $this->assertSame([], $result['ordered_signals'], 'a conflicting metric must not blindly fire a signal');
+    }
+
+    // ── AC4: stale metric — a metric older than the freshness ceiling is never trusted at face value ──
+
+    public function test_stale_metric_is_classified_as_investigate_and_does_not_fire(): void
+    {
+        $result = $this->router()->route([
+            'metrics' => ['give_back_rate' => 0.90], // would otherwise fire reduce_give_back
+            'metric_ages_seconds' => ['give_back_rate' => 7200], // 2h old, past the 1h ceiling
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainMetricsOptimizationSignalRouter::CLASSIFICATION_INVESTIGATE,
+            $result['metric_classifications']['give_back_rate'],
+        );
+        $this->assertContains('give_back_rate', $result['stale_metrics']);
+        $this->assertSame([], $result['ordered_signals']);
+    }
+
+    public function test_fresh_metric_is_not_flagged_stale(): void
+    {
+        $result = $this->router()->route([
+            'metrics' => ['give_back_rate' => 0.90],
+            'metric_ages_seconds' => ['give_back_rate' => 60],
+        ]);
+
+        $this->assertSame([], $result['stale_metrics']);
+        $signal = $this->findSignal($result, AtlasExternalBrainMetricsOptimizationSignalRouter::SIGNAL_REDUCE_GIVE_BACK);
+        $this->assertNotEmpty($signal);
+    }
+
+    // ── AC4: guardrail route ──────────────────────────────────────────────────
+
+    public function test_guardrail_route_for_calibrate_model_signal(): void
+    {
+        $result = $this->router()->route(['metrics' => ['model_lift' => 0.30]]);
+
+        $this->assertSame(
+            AtlasExternalBrainMetricsOptimizationSignalRouter::CLASSIFICATION_GUARDRAIL,
+            $result['metric_classifications']['model_lift'],
+        );
+    }
+
+    public function test_output_has_metric_classifications_and_stale_metrics_keys(): void
+    {
+        $result = $this->router()->route([]);
+
+        $this->assertArrayHasKey('metric_classifications', $result);
+        $this->assertArrayHasKey('stale_metrics', $result);
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private function findSignal(array $result, string $signalId): array
