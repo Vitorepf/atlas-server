@@ -40,6 +40,14 @@ final class AtlasSelfConstructionCortexFreshnessBridge
 
     public const REQUIRED_SOURCES = ['docs', 'code_index', 'queue', 'receipts', 'runtime_evidence', 'worker_outcome', 'project_lane'];
 
+    /**
+     * OPTIONAL source that, when supplied, specifically downgrades ORIGINATION
+     * readiness: queue health ('queue') plus queued-target snapshots
+     * ('queued_targets'). Optional (not in REQUIRED_SOURCES) so callers who
+     * never supply queued_targets keep their existing envelope unchanged.
+     */
+    private const QUEUE_CONTEXT_SOURCES = ['queue', 'queued_targets'];
+
     public const DEFAULT_WINDOW_SECONDS = 86400;
 
     /**
@@ -69,8 +77,13 @@ final class AtlasSelfConstructionCortexFreshnessBridge
             ];
         }
 
+        $sourceIdsToEvaluate = self::REQUIRED_SOURCES;
+        if (array_key_exists('queued_targets', $sources) && ! in_array('queued_targets', $sourceIdsToEvaluate, true)) {
+            $sourceIdsToEvaluate[] = 'queued_targets';
+        }
+
         $rows = [];
-        foreach (self::REQUIRED_SOURCES as $sourceId) {
+        foreach ($sourceIdsToEvaluate as $sourceId) {
             $row = is_array($sources[$sourceId] ?? null) ? $sources[$sourceId] : null;
             if ($row === null) {
                 $rows[] = ['source_id' => $sourceId, 'readiness' => self::UNKNOWN, 'reason' => 'source_not_supplied'];
@@ -101,6 +114,10 @@ final class AtlasSelfConstructionCortexFreshnessBridge
 
         usort($rows, static fn (array $a, array $b): int => strcmp($a['source_id'], $b['source_id']));
 
+        $queueContextRows = array_values(array_filter($rows, static fn (array $r): bool => in_array($r['source_id'], self::QUEUE_CONTEXT_SOURCES, true)));
+        $staleQueueContext = (bool) array_filter($queueContextRows, static fn (array $r): bool => $r['readiness'] !== self::FRESH);
+        $queueContextReady = $queueContextRows !== [] && ! $staleQueueContext;
+
         $allFresh = ! array_filter($rows, static fn (array $r): bool => $r['readiness'] !== self::FRESH);
         $maxStaleOriginSeconds = array_key_exists('max_stale_origin_seconds', $facts) ? (int) $facts['max_stale_origin_seconds'] : null;
         $fullPlan = $this->buildRefreshPlan($rows, $maxStaleOriginSeconds);
@@ -118,6 +135,11 @@ final class AtlasSelfConstructionCortexFreshnessBridge
             'all_fresh'                       => $allFresh,
             'safe_to_origin_tasks'            => $allFresh && ! $hasOverBoundStale,
             'stale_but_usable'                => $staleButUsable,
+            // Queue-specific origination gate: stale queue health or queued-target
+            // snapshots must force a fresh read before tasks are created, even if
+            // other unrelated sources (docs, code_index, ...) are perfectly fresh.
+            'stale_queue_context'             => $staleQueueContext,
+            'ready'                           => $queueContextReady,
             'rows'                            => $rows,
             'blocking_refresh_plan'           => $blockingPlan,
             'advisory_refresh_plan'           => $advisoryPlan,

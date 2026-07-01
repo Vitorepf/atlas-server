@@ -85,4 +85,57 @@ class AtlasSelfConstructionCortexFreshnessBridgeStaleBoundTest extends TestCase
         ));
         $this->assertEmpty($blockingForDocs);
     }
+
+    private function sourcesWithFreshQueueContext(): array
+    {
+        $now = 1_000_000;
+        $fresh = ['last_unix' => $now - 10, 'hash' => 'h'];
+
+        return [
+            'now_unix' => $now,
+            'freshness_window_seconds' => 3600,
+            'sources' => [
+                'docs' => $fresh,
+                'code_index' => $fresh,
+                'queue' => $fresh,
+                'queued_targets' => $fresh,
+                'receipts' => $fresh,
+                'runtime_evidence' => $fresh,
+                'worker_outcome' => $fresh,
+                'project_lane' => $fresh,
+            ],
+        ];
+    }
+
+    public function test_stale_queue_snapshot_reports_stale_queue_context_and_not_ready(): void
+    {
+        $facts = $this->sourcesWithFreshQueueContext();
+        $facts['sources']['queue'] = ['last_unix' => $facts['now_unix'] - 7200, 'hash' => 'h'];
+
+        $result = $this->bridge()->adapt($facts);
+
+        $this->assertTrue($result['stale_queue_context']);
+        $this->assertFalse($result['ready']);
+    }
+
+    public function test_stale_queued_targets_snapshot_reports_stale_queue_context_and_not_ready(): void
+    {
+        $facts = $this->sourcesWithFreshQueueContext();
+        $facts['sources']['queued_targets'] = ['last_unix' => $facts['now_unix'] - 7200, 'hash' => 'h'];
+
+        $result = $this->bridge()->adapt($facts);
+
+        $this->assertTrue($result['stale_queue_context']);
+        $this->assertFalse($result['ready']);
+    }
+
+    public function test_fresh_queue_and_queued_targets_report_ready_for_origination(): void
+    {
+        $facts = $this->sourcesWithFreshQueueContext();
+
+        $result = $this->bridge()->adapt($facts);
+
+        $this->assertFalse($result['stale_queue_context']);
+        $this->assertTrue($result['ready']);
+    }
 }
