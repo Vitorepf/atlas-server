@@ -46,6 +46,20 @@ final class AtlasArchitectureCouncilContractCritic
         '/(?<!do not |never )call\s+(an\s+)?external\s+provider/i' => 'hidden_side_effects:provider_call',
     ];
 
+    /** generic placeholder owner names that mean "nobody concretely owns this" */
+    private const VAGUE_OWNER_TERMS = ['organ', 'component', 'service', 'thing', 'module', 'system', 'unit'];
+
+    /** finding prefixes severe enough to reject outright rather than merely request a revision. */
+    private const HARD_BLOCKING_FINDING_PREFIXES = [
+        'broad_mutation', 'hidden_side_effects', 'mixed_powers', 'non_atlas_steady_state_runtime',
+    ];
+
+    public const VERDICT_ACCEPT = 'accept';
+
+    public const VERDICT_REVISE = 'revise';
+
+    public const VERDICT_REJECT = 'reject';
+
     public const OVERENGINEERING_PATTERNS = [
         '/\bsingleton[\s\-]interface\b|\binterface\b.+\bone\s+implementation\b|\bone\s+implementation\b/i' => 'overengineering:singleton_interface',
         '/\bfactory[\s\-]for[\s\-]one\b|\bfactory\b.+\bone\s+product\b/i' => 'overengineering:factory_for_one',
@@ -89,11 +103,32 @@ final class AtlasArchitectureCouncilContractCritic
             $findings[] = 'missing_non_authority';
         }
 
+        // vague_owner: no concrete organ name, or a generic placeholder that owns nothing specific.
+        if ($organ === '' || in_array(strtolower($organ), self::VAGUE_OWNER_TERMS, true)) {
+            $findings[] = 'vague_owner';
+        }
+
+        // weak_rollback: every contract must declare how it is undone if it turns out to be wrong.
+        if (trim((string) ($contract['rollback_plan'] ?? '')) === '') {
+            $findings[] = 'weak_rollback';
+        }
+
+        // duplicate_responsibility: the same responsibility repeated (case/whitespace-insensitive)
+        // inflates the contract's apparent scope without adding real distinct duties.
+        $normalizedResponsibilities = array_map(static fn (string $r): string => strtolower(trim($r)), $resp);
+        if (count($normalizedResponsibilities) !== count(array_unique($normalizedResponsibilities))) {
+            $findings[] = 'duplicate_responsibility';
+        }
+
         // A contract can look complete (non_authority, invariants, evidence_refs all present) while
         // never actually forcing runtime proof, outcome learning, or worker-feed effects — a proxy
         // that certifies nothing real. Any one of the three missing is enough to flag it.
         if ($runtimeProofHooks === [] || $outcomeLearningHooks === [] || $workerFeedEffects === []) {
             $findings[] = 'proxy_contract';
+        }
+        // missing_proof: narrower than proxy_contract — specifically no runtime_proof_hooks at all.
+        if ($runtimeProofHooks === []) {
+            $findings[] = 'missing_proof';
         }
 
         // Mixed-powers check: 'verifies' may be a single organ or a list of organs.
@@ -153,10 +188,26 @@ final class AtlasArchitectureCouncilContractCritic
         $findings = array_values(array_unique($findings));
         sort($findings, SORT_STRING);
 
+        $hasHardBlock = false;
+        foreach ($findings as $finding) {
+            foreach (self::HARD_BLOCKING_FINDING_PREFIXES as $prefix) {
+                if (str_starts_with($finding, $prefix)) {
+                    $hasHardBlock = true;
+                    break 2;
+                }
+            }
+        }
+        $verdict = match (true) {
+            $findings === [] => self::VERDICT_ACCEPT,
+            $hasHardBlock => self::VERDICT_REJECT,
+            default => self::VERDICT_REVISE,
+        };
+
         return [
             'schema' => self::SCHEMA,
             'accepted' => $findings === [],
             'findings' => $findings,
+            'verdict' => $verdict,
         ];
     }
 }

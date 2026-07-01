@@ -31,6 +31,7 @@ final class AtlasArchitectureCouncilContractCriticTest extends TestCase
             'outcome_learning_hooks' => ['feeds AtlasVerificationCourtVerdictLedger'],
             'worker_feed_effects' => ['emits packet_spec_drafts into task queue'],
             'verifies' => ['organ' => 'Verification Court'],
+            'rollback_plan' => 'revert the scoped patch commit and re-run verification from the prior green baseline',
         ];
     }
 
@@ -192,5 +193,126 @@ final class AtlasArchitectureCouncilContractCriticTest extends TestCase
             $this->assertStringNotContainsString('template_farm', $f);
             $this->assertStringNotContainsString('non_atlas_steady_state_runtime', $f);
         }
+    }
+
+    // ── AC: clean contract ────────────────────────────────────────────────────────
+
+    public function test_clean_contract_yields_accept_verdict(): void
+    {
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($this->goodContract());
+
+        $this->assertSame(AtlasArchitectureCouncilContractCritic::VERDICT_ACCEPT, $r['verdict']);
+    }
+
+    // ── AC: overbuilt contract ───────────────────────────────────────────────────
+
+    public function test_overbuilt_contract_yields_revise_verdict(): void
+    {
+        $c = $this->goodContract();
+        $c['responsibilities'] = ['expose singleton interface with one implementation for compiler'];
+
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+
+        $this->assertContains('overengineering:singleton_interface', $r['findings']);
+        $this->assertSame(AtlasArchitectureCouncilContractCritic::VERDICT_REVISE, $r['verdict']);
+    }
+
+    // ── AC: missing proof ─────────────────────────────────────────────────────────
+
+    public function test_missing_runtime_proof_hooks_is_flagged_missing_proof(): void
+    {
+        $c = $this->goodContract();
+        $c['runtime_proof_hooks'] = [];
+
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+
+        $this->assertContains('missing_proof', $r['findings']);
+        $this->assertSame(AtlasArchitectureCouncilContractCritic::VERDICT_REVISE, $r['verdict']);
+    }
+
+    // ── AC: forbidden mutation ────────────────────────────────────────────────────
+
+    public function test_forbidden_broad_mutation_yields_reject_verdict(): void
+    {
+        $c = $this->goodContract();
+        $c['responsibilities'] = ['compile contracts and edit master switch'];
+
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+
+        $this->assertContains('broad_mutation:edit_master_switch', $r['findings']);
+        $this->assertSame(AtlasArchitectureCouncilContractCritic::VERDICT_REJECT, $r['verdict']);
+    }
+
+    // ── AC: duplicate responsibility ─────────────────────────────────────────────
+
+    public function test_duplicate_responsibility_is_flagged(): void
+    {
+        $c = $this->goodContract();
+        $c['responsibilities'] = ['compile contracts into atomic packet specs', 'Compile contracts into atomic packet specs '];
+
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+
+        $this->assertContains('duplicate_responsibility', $r['findings']);
+    }
+
+    public function test_distinct_responsibilities_are_not_flagged_as_duplicate(): void
+    {
+        $c = $this->goodContract();
+        $c['responsibilities'] = ['compile contracts', 'validate packet specs'];
+
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+
+        $this->assertNotContains('duplicate_responsibility', $r['findings']);
+    }
+
+    // ── AC: weak rollback ─────────────────────────────────────────────────────────
+
+    public function test_missing_rollback_plan_is_flagged_weak_rollback(): void
+    {
+        $c = $this->goodContract();
+        unset($c['rollback_plan']);
+
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+
+        $this->assertContains('weak_rollback', $r['findings']);
+    }
+
+    public function test_blank_rollback_plan_is_flagged_weak_rollback(): void
+    {
+        $c = $this->goodContract();
+        $c['rollback_plan'] = '   ';
+
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+
+        $this->assertContains('weak_rollback', $r['findings']);
+    }
+
+    // ── vague_owner ───────────────────────────────────────────────────────────────
+
+    public function test_empty_organ_is_flagged_vague_owner(): void
+    {
+        $c = $this->goodContract();
+        $c['organ'] = '';
+
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+
+        $this->assertContains('vague_owner', $r['findings']);
+    }
+
+    public function test_generic_placeholder_organ_is_flagged_vague_owner(): void
+    {
+        $c = $this->goodContract();
+        $c['organ'] = 'Component';
+
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+
+        $this->assertContains('vague_owner', $r['findings']);
+    }
+
+    public function test_concrete_organ_name_is_not_flagged_vague_owner(): void
+    {
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($this->goodContract());
+
+        $this->assertNotContains('vague_owner', $r['findings']);
     }
 }
