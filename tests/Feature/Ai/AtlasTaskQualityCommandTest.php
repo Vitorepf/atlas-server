@@ -101,4 +101,58 @@ final class AtlasTaskQualityCommandTest extends TestCase
         $this->assertNotSame(0, $exit);
         $this->assertSame('unknown_action', $p['status']);
     }
+
+    // ── inspect + optional bounded quality summary ──
+
+    public function test_inspect_without_input_has_no_summary_and_keeps_prior_guarantees(): void
+    {
+        $exit = Artisan::call('atlas:task:quality', ['action' => 'inspect', '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+        $this->assertSame(0, $exit);
+        $this->assertArrayNotHasKey('summary', $p);
+        $this->assertFalse($p['non_execution_guarantees']['mutates_queue_records']);
+        $this->assertFalse($p['non_execution_guarantees']['calls_external_providers']);
+    }
+
+    public function test_inspect_with_input_separates_implementable_from_blocked(): void
+    {
+        $this->writeJson($this->inputPath, ['records' => [
+            ['packet_id' => 'p-1', 'allowed_files' => ['app/A.php'], 'acceptance_criteria' => ['./vendor/bin/phpunit'], 'required_evidence' => ['tests_or_gates_result']],
+            ['packet_id' => 'p-2', 'blocked' => true],
+            ['packet_id' => 'p-3', 'quarantined' => true],
+        ]]);
+        Artisan::call('atlas:task:quality', ['action' => 'inspect', '--input' => $this->inputPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame(3, $p['summary']['total_count']);
+        $this->assertSame(1, $p['summary']['implementable_count']);
+        $this->assertSame(2, $p['summary']['blocked_count']);
+    }
+
+    public function test_inspect_summary_counts_missing_required_fields_without_exposing_raw_text(): void
+    {
+        $this->writeJson($this->inputPath, ['records' => [
+            ['packet_id' => 'p-1', 'worker_instructions' => 'git push to main after the change'],
+            ['packet_id' => 'p-2', 'allowed_files' => ['app/B.php'], 'acceptance_criteria' => ['./vendor/bin/phpunit'], 'required_evidence' => ['tests_or_gates_result']],
+        ]]);
+        Artisan::call('atlas:task:quality', ['action' => 'inspect', '--input' => $this->inputPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame(1, $p['summary']['missing_field_counts']['allowed_files']);
+        $this->assertSame(1, $p['summary']['missing_field_counts']['acceptance_criteria']);
+        $this->assertSame(1, $p['summary']['missing_field_counts']['required_evidence']);
+        $this->assertStringNotContainsString('git push to main', json_encode($p));
+    }
+
+    public function test_inspect_summary_stays_read_only(): void
+    {
+        $this->writeJson($this->inputPath, ['records' => [['packet_id' => 'p-1']]]);
+        $exit = Artisan::call('atlas:task:quality', ['action' => 'inspect', '--input' => $this->inputPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertFalse($p['non_execution_guarantees']['mutates_queue_records']);
+        $this->assertFalse($p['non_execution_guarantees']['calls_external_providers']);
+        $this->assertFalse($p['non_execution_guarantees']['invokes_shell_or_git']);
+    }
 }

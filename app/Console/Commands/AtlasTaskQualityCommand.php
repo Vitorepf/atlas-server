@@ -24,6 +24,8 @@ final class AtlasTaskQualityCommand extends Command
     /** @var string */
     protected $signature = 'atlas:task:quality {action : inspect|respec-plan|bulk-draft|lint} {--packet=} {--input=} {--json}';
 
+    private const SUMMARY_FIELDS = ['allowed_files', 'acceptance_criteria', 'required_evidence'];
+
     /** @var string */
     protected $description = 'Read-only task quality audit: inspect / respec-plan / bulk-draft / lint.';
 
@@ -45,7 +47,7 @@ final class AtlasTaskQualityCommand extends Command
     /** @return array<string,mixed> */
     private function inspect(): array
     {
-        return [
+        $payload = [
             'status' => 'ok',
             'verbs' => ['inspect', 'respec-plan', 'bulk-draft', 'lint'],
             'services' => [
@@ -59,6 +61,54 @@ final class AtlasTaskQualityCommand extends Command
                 'invokes_shell_or_git' => false,
                 'calls_external_providers' => false,
             ],
+        ];
+
+        // Optional, bounded quality summary — only computed when --input is supplied, so a plain
+        // `inspect` with no options keeps its byte-identical prior payload.
+        $input = $this->readJson('input');
+        if (is_array($input) && isset($input['records'])) {
+            $payload['summary'] = $this->qualitySummary(is_array($input['records']) ? $input['records'] : []);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Bounded, provider-safe packet-quality summary: separates implementable supply from
+     * blocked/quarantined records and counts missing allowed_files, acceptance_criteria, and
+     * required_evidence — never echoes raw prompt/instruction text back into the payload.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @return array<string,mixed>
+     */
+    private function qualitySummary(array $records): array
+    {
+        $implementableCount = 0;
+        $blockedCount = 0;
+        $missingCounts = array_fill_keys(self::SUMMARY_FIELDS, 0);
+
+        foreach ($records as $record) {
+            if (! is_array($record)) {
+                continue;
+            }
+            $isBlocked = (bool) ($record['blocked'] ?? false) || (bool) ($record['quarantined'] ?? false);
+            if ($isBlocked) {
+                $blockedCount++;
+            } else {
+                $implementableCount++;
+            }
+            foreach (self::SUMMARY_FIELDS as $field) {
+                if (empty($record[$field])) {
+                    $missingCounts[$field]++;
+                }
+            }
+        }
+
+        return [
+            'total_count' => count($records),
+            'implementable_count' => $implementableCount,
+            'blocked_count' => $blockedCount,
+            'missing_field_counts' => $missingCounts,
         ];
     }
 
