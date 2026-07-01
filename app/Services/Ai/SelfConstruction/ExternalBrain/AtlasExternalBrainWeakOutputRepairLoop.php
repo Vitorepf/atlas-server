@@ -38,6 +38,8 @@ final class AtlasExternalBrainWeakOutputRepairLoop
     public const CLASS_VAGUE_OBJECTIVE           = 'vague_objective';
     public const CLASS_LOW_IMPACT                = 'low_impact';
     public const CLASS_PROXY_OR_FAKE_VALUE       = 'proxy_or_fake_value_output';
+    public const CLASS_STRONG_PASS_THROUGH       = 'strong_pass_through';
+    public const CLASS_ESCALATED                 = 'escalated_repeated_unrepaired';
 
     public const LOW_VALUE_WEAKNESSES = ['shallow_duplication', 'template_farming', 'fake_confidence'];
     public const PROXY_OR_FAKE_VALUE_WEAKNESSES = ['proxy_proof', 'fake_value'];
@@ -50,11 +52,27 @@ final class AtlasExternalBrainWeakOutputRepairLoop
     private const MAX_ALLOWED_FILES   = 5;
     private const NARROW_TO_FILES     = 2;
 
+    public function __construct(
+        private readonly AtlasExternalBrainMuscleFailureEscalationPolicy $escalationPolicy = new AtlasExternalBrainMuscleFailureEscalationPolicy,
+    ) {
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function repair(array $input): array
+    {
+        $result = $this->classify($input);
+
+        return $this->applyEscalation($result, (int) ($input['repeat_count'] ?? 1));
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private function classify(array $input): array
     {
         $proposal      = (array) ($input['proposal']        ?? []);
         $weaknesses    = (array) ($input['weakness_labels'] ?? []);
@@ -150,7 +168,7 @@ final class AtlasExternalBrainWeakOutputRepairLoop
             );
         }
 
-        // 8. Fixable: missing evidence
+        // 8. Fixable: missing evidence (always names a concrete repair action + replay requirement)
         if ($this->isMissingEvidence($proposal)) {
             $steps = $this->missingEvidenceSteps($proposal);
             return $this->fixable(
@@ -158,10 +176,11 @@ final class AtlasExternalBrainWeakOutputRepairLoop
                 $this->applyEvidenceRepairs($proposal, $steps),
                 $steps,
                 'add_runnable_acceptance_criterion_and_required_evidence_to_scaffold_template',
+                self::REPAIR_ACTION_EVIDENCE_REFRESH,
             );
         }
 
-        // 5. Fixable: missing implementation file
+        // 9. Fixable: missing implementation file
         if ($this->isMissingImplFile($proposal)) {
             $steps = $this->missingImplFileSteps($proposal);
             return $this->fixable(
@@ -172,14 +191,74 @@ final class AtlasExternalBrainWeakOutputRepairLoop
             );
         }
 
-        // 6. Fixable: scope shape
-        $scopeSteps = $this->scopeShapeSteps($proposal, $weaknesses);
-        return $this->fixable(
-            self::CLASS_FIXABLE_SCOPE_SHAPE,
-            $this->applyScopeRepairs($proposal, $weaknesses),
-            $scopeSteps,
-            'narrow_allowed_files_and_add_code_search_evidence_in_scaffold_prompt',
-        );
+        // 10. Scope shape only when a scope-shape weakness (or an over-broad file count) is actually present.
+        $scopeWeaknesses = ['over_broad_scope', 'missing_code_search', 'weak_acceptance'];
+        $allFiles        = (array) ($proposal['allowed_files'] ?? []);
+        $hasScopeSignal  = array_intersect($weaknesses, $scopeWeaknesses) !== []
+            || count($allFiles) > self::MAX_ALLOWED_FILES;
+
+        if ($hasScopeSignal) {
+            $scopeSteps = $this->scopeShapeSteps($proposal, $weaknesses);
+
+            return $this->fixable(
+                self::CLASS_FIXABLE_SCOPE_SHAPE,
+                $this->applyScopeRepairs($proposal, $weaknesses),
+                $scopeSteps,
+                'narrow_allowed_files_and_add_code_search_evidence_in_scaffold_prompt',
+            );
+        }
+
+        // 11. Nothing weak survived classification — strong output, pass through unchanged.
+        return [
+            'schema'                   => self::SCHEMA,
+            'failure_class'            => self::CLASS_STRONG_PASS_THROUGH,
+            'repaired_candidate'       => $proposal,
+            'repair_steps'             => [],
+            'repair_action'            => null,
+            'refusal_reason'           => null,
+            'next_scaffold_constraint' => 'none_required_output_is_strong',
+            'replay_required'          => false,
+            'replay_command'           => null,
+            'escalation'               => null,
+        ];
+    }
+
+    /**
+     * Applies the existing muscle-failure escalation ladder when the same weak
+     * output keeps coming back unrepaired instead of letting fixable results
+     * loop forever. Never overrides refused/unrecoverable results — those are
+     * already terminal.
+     *
+     * @param  array<string,mixed>  $result
+     * @return array<string,mixed>
+     */
+    private function applyEscalation(array $result, int $repeatCount): array
+    {
+        if ($result['repaired_candidate'] === null || $repeatCount <= 1) {
+            return $result;
+        }
+
+        $escalation = $this->escalationPolicy->escalate([
+            'root_cause'   => 'repeated_retry',
+            'repeat_count' => $repeatCount,
+        ]);
+
+        if (! $escalation['threshold_exceeded']) {
+            return $result;
+        }
+
+        return [
+            'schema'                   => self::SCHEMA,
+            'failure_class'            => self::CLASS_ESCALATED,
+            'repaired_candidate'       => null,
+            'repair_steps'             => [],
+            'repair_action'            => null,
+            'refusal_reason'           => "repeated_unrepaired_weak_output:{$result['failure_class']}",
+            'next_scaffold_constraint' => 'escalate_via_muscle_failure_escalation_policy_instead_of_retrying',
+            'replay_required'          => false,
+            'replay_command'           => null,
+            'escalation'               => $escalation,
+        ];
     }
 
     private function isMissingEvidence(array $proposal): bool
@@ -330,6 +409,9 @@ final class AtlasExternalBrainWeakOutputRepairLoop
             'repair_action'            => null,
             'refusal_reason'           => $reason,
             'next_scaffold_constraint' => $constraint,
+            'replay_required'          => false,
+            'replay_command'           => null,
+            'escalation'               => null,
         ];
     }
 
@@ -343,6 +425,9 @@ final class AtlasExternalBrainWeakOutputRepairLoop
             'repair_action'            => $repairAction,
             'refusal_reason'           => null,
             'next_scaffold_constraint' => $constraint,
+            'replay_required'          => true,
+            'replay_command'           => './vendor/bin/phpunit',
+            'escalation'               => null,
         ];
     }
 }

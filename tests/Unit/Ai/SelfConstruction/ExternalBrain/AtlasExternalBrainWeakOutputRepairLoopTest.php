@@ -389,4 +389,72 @@ final class AtlasExternalBrainWeakOutputRepairLoopTest extends TestCase
 
         $this->assertArrayHasKey('repair_action', $result);
     }
+
+    // ── AC2: proxy smell (weak/missing evidence shape) selects concrete repair + replay ──
+
+    public function test_missing_evidence_weak_output_selects_repair_action_and_replay_requirement(): void
+    {
+        $result = $this->loop->repair($this->input(['required_evidence' => []]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_MISSING_EVIDENCE, $result['failure_class']);
+        $this->assertNotNull($result['repair_action']);
+        $this->assertTrue($result['replay_required']);
+        $this->assertNotEmpty($result['replay_command']);
+        $this->assertNull($result['escalation']);
+    }
+
+    // ── AC3: repeatedly unrepaired weak output escalates instead of looping forever ──
+
+    public function test_repeat_count_within_threshold_still_returns_fixable(): void
+    {
+        $result = $this->loop->repair($this->input(['required_evidence' => []], ['repeat_count' => 3]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_MISSING_EVIDENCE, $result['failure_class']);
+        $this->assertNotNull($result['repaired_candidate']);
+    }
+
+    public function test_repeat_count_beyond_threshold_escalates_instead_of_looping(): void
+    {
+        $result = $this->loop->repair($this->input(['required_evidence' => []], ['repeat_count' => 4]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_ESCALATED, $result['failure_class']);
+        $this->assertNull($result['repaired_candidate']);
+        $this->assertSame([], $result['repair_steps']);
+        $this->assertNotEmpty($result['refusal_reason']);
+        $this->assertNotNull($result['escalation']);
+        $this->assertTrue($result['escalation']['threshold_exceeded']);
+        $this->assertSame(4, $result['escalation']['repeat_count']);
+    }
+
+    public function test_escalation_never_applies_to_refused_results(): void
+    {
+        $result = $this->loop->repair($this->input([], ['is_poison' => true, 'repeat_count' => 10]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_UNRECOVERABLE, $result['failure_class']);
+        $this->assertNull($result['escalation']);
+    }
+
+    // ── AC4: strong output remains pass-through with stable schema ──
+
+    public function test_strong_output_is_pass_through_with_stable_schema(): void
+    {
+        $result = $this->loop->repair($this->input());
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_STRONG_PASS_THROUGH, $result['failure_class']);
+        $this->assertNotNull($result['repaired_candidate']);
+        $this->assertSame([], $result['repair_steps']);
+        $this->assertNull($result['repair_action']);
+        $this->assertNull($result['refusal_reason']);
+        $this->assertFalse($result['replay_required']);
+        $this->assertNull($result['escalation']);
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::SCHEMA, $result['schema']);
+    }
+
+    public function test_strong_output_pass_through_does_not_mutate_proposal(): void
+    {
+        $proposal = $this->proposal();
+        $result   = $this->loop->repair($this->input());
+
+        $this->assertSame($proposal, $result['repaired_candidate']);
+    }
 }
