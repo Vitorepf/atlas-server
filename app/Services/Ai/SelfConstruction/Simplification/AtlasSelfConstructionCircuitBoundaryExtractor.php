@@ -39,15 +39,47 @@ final class AtlasSelfConstructionCircuitBoundaryExtractor
             }
         }
 
+        $consumers = array_values((array) ($graph['consumers'] ?? []));
+        $publicMethods = array_values((array) ($graph['public_methods'] ?? []));
+        $privateHelpers = array_values((array) ($graph['private_helpers'] ?? []));
+        $sideEffects = array_values((array) ($graph['side_effects'] ?? []));
+        $tests = array_values((array) ($graph['tests'] ?? []));
+
+        // A merge/delete candidate is only safe to collapse when its public contract,
+        // callers, side-effect footprint, and test coverage are all proven — silence
+        // on any one of these is a missing boundary proof, never an implied "safe".
+        $missingBoundaryProof = [];
+        if ($publicMethods === []) {
+            $missingBoundaryProof[] = 'missing_public_methods';
+        }
+        if ($consumers === []) {
+            $missingBoundaryProof[] = 'missing_consumers';
+        }
+        if ($sideEffects === []) {
+            $missingBoundaryProof[] = 'missing_side_effect_inventory';
+        }
+        if ($tests === []) {
+            $missingBoundaryProof[] = 'missing_test_anchors';
+        }
+
+        $safeToCollapse = $missingBoundaryProof === [];
+
         return [
             'entrypoints' => array_values((array) ($graph['entrypoints'] ?? [])),
             'outputs' => array_values((array) ($graph['outputs'] ?? [])),
             'ledgers' => array_values((array) ($graph['ledgers'] ?? [])),
-            'consumers' => array_values((array) ($graph['consumers'] ?? [])),
+            'consumers' => $consumers,
             'crossing_edges' => $crossingEdges,
             'consolidation_blockers' => $consolidationBlockers,
             'boundary_confident' => $unknownFacts === [],
             'unknown_facts' => $unknownFacts,
+            'public_methods' => $publicMethods,
+            'private_helpers' => $privateHelpers,
+            'side_effects' => $sideEffects,
+            'tests' => $tests,
+            'missing_boundary_proof' => $missingBoundaryProof,
+            'safe_to_collapse' => $safeToCollapse,
+            'unsafe_to_collapse' => ! $safeToCollapse,
         ];
     }
 }

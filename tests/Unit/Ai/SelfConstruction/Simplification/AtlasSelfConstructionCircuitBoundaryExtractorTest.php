@@ -93,4 +93,51 @@ final class AtlasSelfConstructionCircuitBoundaryExtractorTest extends TestCase
             $result['consolidation_blockers'],
         );
     }
+
+    private function fixtureWithFullBoundaryProof(): array
+    {
+        return array_merge($this->fullGraph(), [
+            'public_methods' => ['handle', 'invoke'],
+            'private_helpers' => ['normalize'],
+            'consumers' => ['AtlasBarCommand'],
+            'side_effects' => [
+                ['type' => 'db', 'description' => 'writes atlas_foo_ledger'],
+                ['type' => 'file', 'description' => 'writes storage/foo.json'],
+            ],
+            'tests' => ['FooServiceTest::test_handles'],
+        ]);
+    }
+
+    public function test_fixture_with_full_proof_returns_all_five_boundary_sections(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($this->fixtureWithFullBoundaryProof());
+
+        $this->assertSame(['handle', 'invoke'], $result['public_methods']);
+        $this->assertSame(['normalize'], $result['private_helpers']);
+        $this->assertSame(['AtlasBarCommand'], $result['consumers']);
+        $this->assertCount(2, $result['side_effects']);
+        $this->assertSame(['FooServiceTest::test_handles'], $result['tests']);
+        $this->assertTrue($result['safe_to_collapse']);
+        $this->assertFalse($result['unsafe_to_collapse']);
+        $this->assertSame([], $result['missing_boundary_proof']);
+    }
+
+    public function test_missing_public_methods_consumers_side_effects_or_tests_blocks_collapse(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitBoundaryExtractor)->extract($this->fullGraph());
+
+        $this->assertTrue($result['unsafe_to_collapse']);
+        $this->assertFalse($result['safe_to_collapse']);
+        $this->assertContains('missing_public_methods', $result['missing_boundary_proof']);
+        $this->assertContains('missing_side_effect_inventory', $result['missing_boundary_proof']);
+        $this->assertContains('missing_test_anchors', $result['missing_boundary_proof']);
+    }
+
+    public function test_output_is_deterministic_for_same_input(): void
+    {
+        $graph = $this->fixtureWithFullBoundaryProof();
+        $extractor = new AtlasSelfConstructionCircuitBoundaryExtractor;
+
+        $this->assertSame($extractor->extract($graph), $extractor->extract($graph));
+    }
 }
