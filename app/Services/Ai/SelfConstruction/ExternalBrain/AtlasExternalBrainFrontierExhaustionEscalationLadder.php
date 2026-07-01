@@ -46,6 +46,26 @@ final class AtlasExternalBrainFrontierExhaustionEscalationLadder
 
     private const HIGH_DUPLICATE_YIELD_THRESHOLD = 0.50;
 
+    /** Canonical named ladder rungs, in ascending escalation order. */
+    public const RUNG_DEEPER_LOCAL_PROBE = 'deeper_local_probe';
+
+    public const RUNG_RESEARCH_TRANSFER = 'research_transfer';
+
+    public const RUNG_SIMPLIFICATION_PATH = 'simplification_path';
+
+    public const RUNG_COUNTERFACTUAL_REVIEW = 'counterfactual_review';
+
+    public const RUNG_FRONTIER_RERUN = 'frontier_rerun';
+
+    /** @var list<string> */
+    private const CANONICAL_LADDER = [
+        self::RUNG_DEEPER_LOCAL_PROBE,
+        self::RUNG_RESEARCH_TRANSFER,
+        self::RUNG_SIMPLIFICATION_PATH,
+        self::RUNG_COUNTERFACTUAL_REVIEW,
+        self::RUNG_FRONTIER_RERUN,
+    ];
+
     /**
      * @param  array{
      *   local_findings_per_wave?: int,
@@ -125,6 +145,37 @@ final class AtlasExternalBrainFrontierExhaustionEscalationLadder
             'attempted_with_evidence' => $attemptedWithEvidence,
             'suppressed_fronts' => [],
             'reasons' => ['local_yield_healthy_continue_local_grep_bug_hunt'],
+        ];
+    }
+
+    /**
+     * Ordered escalation ladder from deeper local probes through research transfer,
+     * simplification, and counterfactual review — frontier rerun is the LAST resort,
+     * unless the task's own risk or novelty demands immediate frontier reasoning.
+     *
+     * @param  array{task_risk?:string, task_novelty?:string}  $facts
+     * @return array{schema:string, ordered_actions:list<string>, skipped_actions:list<string>, escalation_rationale:string}
+     */
+    public function escalationLadder(array $facts): array
+    {
+        $taskRisk = (string) ($facts['task_risk'] ?? 'low');
+        $taskNovelty = (string) ($facts['task_novelty'] ?? 'low');
+        $demandsImmediateFrontier = $taskRisk === 'high' || $taskNovelty === 'high';
+
+        if ($demandsImmediateFrontier) {
+            return [
+                'schema' => self::SCHEMA,
+                'ordered_actions' => [self::RUNG_FRONTIER_RERUN],
+                'skipped_actions' => array_values(array_diff(self::CANONICAL_LADDER, [self::RUNG_FRONTIER_RERUN])),
+                'escalation_rationale' => 'high_risk_or_novelty_demands_immediate_frontier_reasoning',
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'ordered_actions' => self::CANONICAL_LADDER,
+            'skipped_actions' => [],
+            'escalation_rationale' => 'standard_escalation_order_local_probes_and_transfer_before_frontier_rerun',
         ];
     }
 }

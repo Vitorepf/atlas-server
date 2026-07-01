@@ -112,4 +112,43 @@ final class AtlasExternalBrainFrontierExhaustionEscalationLadderTest extends Tes
         self::assertNull($result['next_front']);
         self::assertSame([], $result['suppressed_fronts']);
     }
+
+    // ── AC: named escalation ladder ────────────────────────────────────────────
+
+    public function test_ladder_orders_deeper_local_probe_through_frontier_rerun(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalationLadder([]);
+
+        self::assertSame([
+            'deeper_local_probe',
+            'research_transfer',
+            'simplification_path',
+            'counterfactual_review',
+            'frontier_rerun',
+        ], $result['ordered_actions']);
+    }
+
+    public function test_frontier_rerun_is_last_unless_risk_or_novelty_demands_immediate_frontier(): void
+    {
+        $normal = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalationLadder(['task_risk' => 'low', 'task_novelty' => 'low']);
+        self::assertSame('frontier_rerun', end($normal['ordered_actions']));
+
+        $highRisk = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalationLadder(['task_risk' => 'high']);
+        self::assertSame('frontier_rerun', $highRisk['ordered_actions'][0]);
+        self::assertCount(1, $highRisk['ordered_actions']);
+
+        $highNovelty = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalationLadder(['task_novelty' => 'high']);
+        self::assertSame('frontier_rerun', $highNovelty['ordered_actions'][0]);
+    }
+
+    public function test_escalation_ladder_output_includes_ordered_actions_skipped_actions_and_rationale(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalationLadder(['task_risk' => 'high']);
+
+        self::assertArrayHasKey('ordered_actions', $result);
+        self::assertArrayHasKey('skipped_actions', $result);
+        self::assertArrayHasKey('escalation_rationale', $result);
+        self::assertNotEmpty($result['skipped_actions']);
+        self::assertNotEmpty($result['escalation_rationale']);
+    }
 }
