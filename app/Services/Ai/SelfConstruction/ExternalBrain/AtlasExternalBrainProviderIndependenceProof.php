@@ -95,6 +95,7 @@ final class AtlasExternalBrainProviderIndependenceProof
             $scaffold            = (bool) ($claim['has_scaffold_fallback']             ?? false);
             $benchmark           = (bool) ($claim['has_benchmark_coverage']            ?? false);
             $rollback            = (bool) ($claim['has_rollback_path']                 ?? false);
+            $localJudgement      = (bool) ($claim['has_local_judgement_fallback']      ?? false);
             $requiresLive        = (bool) ($claim['requires_live_provider']            ?? false);
             $requiresManual      = (bool) ($claim['requires_manual_provider_selection'] ?? false);
             $hasTraces           = (bool) ($claim['has_provider_specific_traces']      ?? false);
@@ -109,6 +110,7 @@ final class AtlasExternalBrainProviderIndependenceProof
                 'scaffold'       => $scaffold,
                 'benchmark'      => $benchmark,
                 'rollback'       => $rollback,
+                'local_judgement' => $localJudgement,
             ];
 
             $optionalFrontierAccel[$phase] = $accelerators;
@@ -148,6 +150,9 @@ final class AtlasExternalBrainProviderIndependenceProof
             if (! $rollback) {
                 $missing[] = 'has_rollback_path';
             }
+            if (in_array($phase, self::MANDATORY_PHASES, true) && ! $localJudgement) {
+                $missing[] = 'has_local_judgement_fallback';
+            }
             if ($missing !== []) {
                 $missingProofs[] = ['phase' => $phase, 'missing_coverage' => $missing];
             }
@@ -167,7 +172,7 @@ final class AtlasExternalBrainProviderIndependenceProof
         }
 
         // AC3: any mandatory phase not present in claims → missing_proofs
-        $allMissing = ['has_local_evidence_path', 'has_scaffold_fallback', 'has_benchmark_coverage', 'has_rollback_path'];
+        $allMissing = ['has_local_evidence_path', 'has_scaffold_fallback', 'has_benchmark_coverage', 'has_rollback_path', 'has_local_judgement_fallback'];
         foreach (self::MANDATORY_PHASES as $mandatory) {
             if (! in_array($mandatory, $evaluatedPhases, true)) {
                 $missingProofs[] = ['phase' => $mandatory, 'missing_coverage' => $allMissing];
@@ -186,6 +191,7 @@ final class AtlasExternalBrainProviderIndependenceProof
                 'scaffold'           => (bool) ($claim['has_scaffold_fallback'] ?? false),
                 'benchmark'          => (bool) ($claim['has_benchmark_coverage'] ?? false),
                 'rollback'           => (bool) ($claim['has_rollback_path'] ?? false),
+                'local_judgement'    => (bool) ($claim['has_local_judgement_fallback'] ?? false),
                 'atlas_native_owner' => trim((string) ($claim['atlas_native_owner'] ?? '')),
             ];
         }

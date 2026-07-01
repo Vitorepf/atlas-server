@@ -24,6 +24,7 @@ final class AtlasExternalBrainProviderIndependenceProofTest extends TestCase
             'has_scaffold_fallback'   => true,
             'has_benchmark_coverage'  => true,
             'has_rollback_path'       => true,
+            'has_local_judgement_fallback' => true,
         ], $overrides);
     }
 
@@ -405,5 +406,37 @@ final class AtlasExternalBrainProviderIndependenceProofTest extends TestCase
         ])]);
 
         $this->assertContains('task_origination', $result['steady_state_blockers']);
+    }
+
+    // ── AC: local judgement fallback required for mandatory phases ───────────
+
+    public function test_mandatory_phase_without_local_judgement_fallback_is_in_missing_proofs(): void
+    {
+        $claims = $this->allMandatory(['rollback' => ['has_local_judgement_fallback' => false]]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
+
+        $this->assertFalse($result['independent']);
+        $entry = $this->missingProofForPhase($result, 'rollback');
+        $this->assertContains('has_local_judgement_fallback', $entry['missing_coverage']);
+    }
+
+    public function test_optional_accelerator_phase_allowed_without_local_judgement_fallback_when_critical_phases_covered(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => array_merge(
+            $this->allMandatory(),
+            [$this->fullPhase('optional_boost', ['has_local_judgement_fallback' => false, 'optional_frontier_accelerators' => ['frontier_review']])],
+        )]);
+
+        $this->assertTrue($result['independent']);
+    }
+
+    public function test_requires_frontier_only_judgement_still_marks_phase_provider_dependent(): void
+    {
+        $claims = $this->allMandatory(['outcome_learning' => ['requires_frontier_only_judgement' => true]]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
+
+        $classification = $this->classificationForPhase($result, 'outcome_learning');
+        $this->assertSame(AtlasExternalBrainProviderIndependenceProof::CLASSIFICATION_PROVIDER_DEPENDENT, $classification['classification']);
+        $this->assertFalse($result['independent']);
     }
 }
