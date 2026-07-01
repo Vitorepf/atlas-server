@@ -419,4 +419,55 @@ final class AtlasExternalBrainValueDecayMonitorTest extends TestCase
 
         $this->assertSame('fresh_value_proof_for_load_bearing_task', $r['per_task'][0]['next_evidence_needed']);
     }
+
+    public function test_refresh_recommendation_is_not_safe_to_act_and_names_refresh_evidence(): void
+    {
+        $r = $this->monitor()->monitor([
+            'tasks' => [$this->task(['blocking_count' => 5])],
+            'min_blocking_keep' => 3,
+        ]);
+
+        $entry = $r['per_task'][0];
+        $this->assertSame('refresh', $entry['recommended_action']);
+        $this->assertFalse($entry['safe_to_act']);
+        $this->assertSame('refresh_evidence', $entry['value_recovery_path']);
+    }
+
+    public function test_retire_recommendation_is_safe_to_act_when_not_load_bearing_and_no_blockers(): void
+    {
+        $r = $this->monitor()->monitor([
+            'tasks' => [$this->task(['queued_at_days_ago' => 60, 'has_value_proof' => false])],
+            'max_age_days' => 30,
+        ]);
+
+        $entry = $r['per_task'][0];
+        $this->assertSame('retire', $entry['recommended_action']);
+        $this->assertTrue($entry['safe_to_act']);
+        $this->assertSame('retire_cleanly', $entry['value_recovery_path']);
+    }
+
+    public function test_retire_recommendation_is_not_safe_to_act_when_blocked_dependency_present(): void
+    {
+        $r = $this->monitor()->monitor([
+            'tasks' => [$this->task([
+                'queued_at_days_ago' => 60,
+                'has_value_proof' => false,
+                'blocked_dependency' => true,
+            ])],
+            'max_age_days' => 30,
+        ]);
+
+        $entry = $r['per_task'][0];
+        $this->assertSame('retire', $entry['recommended_action']);
+        $this->assertFalse($entry['safe_to_act']);
+    }
+
+    public function test_keep_recommendation_is_always_safe_to_act(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [$this->task()]]);
+
+        $entry = $r['per_task'][0];
+        $this->assertTrue($entry['safe_to_act']);
+        $this->assertNull($entry['value_recovery_path']);
+    }
 }

@@ -165,13 +165,35 @@ final class AtlasExternalBrainValueDecayMonitor
                 default                     => 'fresh',
             };
 
+            $nextEvidenceNeeded = $this->nextEvidenceNeeded($rec, $reason);
+
+            // AC1/AC2: refresh/consolidate/respec are never safe to act on until their evidence
+            // gap is closed. retire is safe only for a non-load-bearing task with no fresh proof
+            // and no blocking dependency — retiring a load-bearing or blocked task outright would
+            // silently strip capability instead of repairing it.
+            $safeToAct = match ($rec) {
+                'retire' => $blockingCount < $minBlockingKeep && ! $freshValueProof && ! $blockedDependency,
+                'keep' => true,
+                default => false,
+            };
+
+            $valueRecoveryPath = match ($rec) {
+                'refresh' => 'refresh_evidence',
+                'consolidate' => 'consolidate_family',
+                'respec' => 'respec_scope',
+                'retire' => 'retire_cleanly',
+                default => null,
+            };
+
             $perTask[] = [
-                'task_id'            => $id,
-                'value_status'       => $valueStatus,
-                'decay_score'        => round(min(1.0, count($decaySignals) * 0.15), 2),
-                'reasons'            => $decaySignals,
-                'recommended_action' => $recommendedAction,
-                'next_evidence_needed' => $this->nextEvidenceNeeded($rec, $reason),
+                'task_id'              => $id,
+                'value_status'         => $valueStatus,
+                'decay_score'          => round(min(1.0, count($decaySignals) * 0.15), 2),
+                'reasons'              => $decaySignals,
+                'recommended_action'   => $recommendedAction,
+                'next_evidence_needed' => $nextEvidenceNeeded,
+                'safe_to_act'          => $safeToAct,
+                'value_recovery_path'  => $valueRecoveryPath,
             ];
         }
 
