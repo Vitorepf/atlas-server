@@ -177,6 +177,45 @@ final class AgentRuntimeEvidenceReceiptBuilderTest extends TestCase
         $this->assertSame(6, $blocked['blocker_count']);
     }
 
+    public function test_test_result_evidence_type_without_command_ref_is_blocked(): void
+    {
+        $receipt = $this->builder()->build($this->validEntry(['evidence_type' => 'test_result']));
+
+        $this->assertSame('blocked', $receipt['status']);
+        $this->assertContains('missing_command_ref', $receipt['blocker_reasons']);
+    }
+
+    public function test_test_result_evidence_type_with_command_ref_is_not_blocked_for_that_reason(): void
+    {
+        $receipt = $this->builder()->build($this->validEntry(['evidence_type' => 'test_result', 'command_ref' => 'phpunit tests/Foo.php']));
+
+        $this->assertNotContains('missing_command_ref', $receipt['blocker_reasons']);
+    }
+
+    public function test_gate_result_evidence_type_without_target_path_is_blocked(): void
+    {
+        $receipt = $this->builder()->build($this->validEntry(['evidence_type' => 'gate_result']));
+
+        $this->assertSame('blocked', $receipt['status']);
+        $this->assertContains('missing_target_path', $receipt['blocker_reasons']);
+    }
+
+    public function test_gate_result_evidence_type_with_target_path_is_not_blocked_for_that_reason(): void
+    {
+        $receipt = $this->builder()->build($this->validEntry(['evidence_type' => 'gate_result', 'target_path' => 'app/Foo.php']));
+
+        $this->assertNotContains('missing_target_path', $receipt['blocker_reasons']);
+    }
+
+    public function test_trailing_newline_on_evidence_hash_and_journal_entry_hash_still_rejected(): void
+    {
+        $badEvidence = $this->builder()->build($this->validEntry(['evidence_hash' => str_repeat('b', 64)."\n"]));
+        $badEntry = $this->builder()->build($this->validEntry(['journal_entry_hash' => str_repeat('a', 64)."\n"]));
+
+        $this->assertContains('malformed_evidence_hash', $badEvidence['blocker_reasons']);
+        $this->assertContains('malformed_journal_entry_hash', $badEntry['blocker_reasons']);
+    }
+
     public function test_equivalent_valid_entries_produce_stable_hash_and_all_flags_false(): void
     {
         $entryA = $this->validEntry();

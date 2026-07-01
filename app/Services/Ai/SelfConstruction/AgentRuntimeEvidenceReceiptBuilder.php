@@ -23,6 +23,8 @@ final class AgentRuntimeEvidenceReceiptBuilder
         $evidenceType = (string) ($journalEntry['evidence_type'] ?? '');
         $evidenceHash = strtolower((string) ($journalEntry['evidence_hash'] ?? ''));
         $entryHash = strtolower((string) ($journalEntry['journal_entry_hash'] ?? ''));
+        $commandRef = (string) ($journalEntry['command_ref'] ?? '');
+        $targetPath = (string) ($journalEntry['target_path'] ?? '');
         // \A...\z (not ^...$) so a trailing newline on an otherwise-64-char hash cannot slip past
         // the check — ^/$ alone match immediately before a trailing "\n".
         $entryHashValid = preg_match('/\A[a-f0-9]{64}\z/', $entryHash) === 1;
@@ -50,6 +52,12 @@ final class AgentRuntimeEvidenceReceiptBuilder
             $blockerReasons[] = 'missing_journal_entry_hash';
         } elseif (! $entryHashValid) {
             $blockerReasons[] = 'malformed_journal_entry_hash';
+        }
+        if ($evidenceType === 'test_result' && $commandRef === '') {
+            $blockerReasons[] = 'missing_command_ref';
+        }
+        if ($evidenceType === 'gate_result' && $targetPath === '') {
+            $blockerReasons[] = 'missing_target_path';
         }
 
         $receipt = [
