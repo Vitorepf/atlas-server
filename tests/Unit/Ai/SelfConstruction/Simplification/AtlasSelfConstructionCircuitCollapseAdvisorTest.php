@@ -9,164 +9,112 @@ use PHPUnit\Framework\TestCase;
 
 final class AtlasSelfConstructionCircuitCollapseAdvisorTest extends TestCase
 {
-    public function test_high_overlap_and_ready_behavior_is_recommended(): void
+    private AtlasSelfConstructionCircuitCollapseAdvisor $advisor;
+
+    protected function setUp(): void
     {
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->advise([
-            [
-                'group_id' => 'g1',
-                'organs' => ['OrganA', 'OrganB'],
-                'overlap_score' => 0.85,
-                'behavior_equivalence_status' => AtlasSelfConstructionCircuitCollapseAdvisor::STATUS_READY,
+        parent::setUp();
+        $this->advisor = new AtlasSelfConstructionCircuitCollapseAdvisor();
+    }
+
+    // AC 2: deletion-first advice beats adapter-layer advice when both preserve behavior
+    public function test_deletion_beats_adapter_when_both_preserve_behavior(): void
+    {
+        $result = $this->advisor->advise([
+            'target' => 'OldService',
+            'equivalence_verdict' => 'safe_to_consolidate',
+            'candidates' => [
+                ['strategy' => 'adapter', 'diff_size' => 5, 'preserves_behavior' => true],
+                ['strategy' => 'delete', 'diff_size' => 10, 'preserves_behavior' => true],
             ],
         ]);
 
-        self::assertTrue($result['recommendations'][0]['recommended']);
-        self::assertSame([], $result['recommendations'][0]['blockers']);
+        $this->assertSame('delete', $result['strategy']);
     }
 
-    public function test_low_overlap_is_blocked_even_with_ready_behavior(): void
+    // AC 3: runtime dispatch collapses require rollback_gate and proof_command
+    public function test_runtime_dispatch_requires_rollback_gate_and_proof(): void
     {
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->advise([
-            [
-                'group_id' => 'g1',
-                'organs' => ['OrganA', 'OrganB'],
-                'overlap_score' => 0.20,
-                'behavior_equivalence_status' => AtlasSelfConstructionCircuitCollapseAdvisor::STATUS_READY,
+        $result = $this->advisor->advise([
+            'target' => 'DispatchRouter',
+            'touches_runtime_dispatch' => true,
+            'equivalence_verdict' => 'safe_to_consolidate',
+            'candidates' => [
+                ['strategy' => 'delete', 'diff_size' => 3, 'preserves_behavior' => true],
             ],
         ]);
 
-        self::assertFalse($result['recommendations'][0]['recommended']);
-        self::assertStringContainsString('overlap_below_threshold', $result['recommendations'][0]['blockers'][0]);
+        $this->assertNotNull($result['rollback_gate']);
+        $this->assertNotNull($result['proof_command']);
     }
 
-    public function test_missing_behavior_proof_is_blocked_even_with_high_overlap(): void
+    public function test_non_runtime_dispatch_does_not_require_gate(): void
     {
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->advise([
-            [
-                'group_id' => 'g1',
-                'organs' => ['OrganA', 'OrganB'],
-                'overlap_score' => 0.90,
-                'behavior_equivalence_status' => 'blocked',
+        $result = $this->advisor->advise([
+            'target' => 'SimpleClass',
+            'touches_runtime_dispatch' => false,
+            'equivalence_verdict' => 'safe_to_consolidate',
+            'candidates' => [
+                ['strategy' => 'delete', 'diff_size' => 3, 'preserves_behavior' => true],
             ],
         ]);
 
-        self::assertFalse($result['recommendations'][0]['recommended']);
-        self::assertContains('behavior_equivalence_not_ready', $result['recommendations'][0]['blockers']);
+        $this->assertNull($result['rollback_gate']);
+        $this->assertNull($result['proof_command']);
     }
 
-    public function test_fewer_than_two_organs_is_blocked(): void
+    // AC 4: collapse rejected when equivalence evidence is inconclusive
+    public function test_rejected_when_equivalence_inconclusive(): void
     {
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->advise([
-            [
-                'group_id' => 'g1',
-                'organs' => ['OrganA'],
-                'overlap_score' => 0.90,
-                'behavior_equivalence_status' => AtlasSelfConstructionCircuitCollapseAdvisor::STATUS_READY,
+        $result = $this->advisor->advise([
+            'target' => 'SomeService',
+            'equivalence_verdict' => 'inconclusive',
+            'candidates' => [
+                ['strategy' => 'delete', 'diff_size' => 3, 'preserves_behavior' => true],
             ],
         ]);
 
-        self::assertFalse($result['recommendations'][0]['recommended']);
-        self::assertContains('fewer_than_two_organs', $result['recommendations'][0]['blockers']);
+        $this->assertSame('reject', $result['strategy']);
     }
 
-    public function test_multiple_groups_are_evaluated_independently(): void
+    public function test_rejected_when_equivalence_unsafe(): void
     {
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->advise([
-            [
-                'group_id' => 'g1',
-                'organs' => ['A', 'B'],
-                'overlap_score' => 0.90,
-                'behavior_equivalence_status' => AtlasSelfConstructionCircuitCollapseAdvisor::STATUS_READY,
-            ],
-            [
-                'group_id' => 'g2',
-                'organs' => ['C', 'D'],
-                'overlap_score' => 0.10,
-                'behavior_equivalence_status' => 'blocked',
+        $result = $this->advisor->advise([
+            'target' => 'SomeService',
+            'equivalence_verdict' => 'unsafe',
+            'candidates' => [
+                ['strategy' => 'delete', 'diff_size' => 3, 'preserves_behavior' => true],
             ],
         ]);
 
-        self::assertTrue($result['recommendations'][0]['recommended']);
-        self::assertFalse($result['recommendations'][1]['recommended']);
+        $this->assertSame('reject', $result['strategy']);
     }
 
-    private function fullSafeEvidence(): array
+    public function test_rejected_when_no_safe_candidates(): void
     {
-        return [
-            'cluster' => ['merge_ready' => true, 'duplicate_confidence' => 'medium'],
-            'cohesion' => ['recommendation' => 'split_or_collapse'],
-            'consumer_impact' => ['risk_level' => 'low'],
-            'parity' => ['replacement_allowed' => true],
-            'replay' => ['promotion_allowed' => true],
-            'rollback' => ['reversible' => true],
-        ];
-    }
-
-    public function test_duplicate_cluster_with_full_proof_and_low_risk_recommends_merge(): void
-    {
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->decide($this->fullSafeEvidence());
-
-        self::assertSame(AtlasSelfConstructionCircuitCollapseAdvisor::ACTION_MERGE, $result['action']);
-        self::assertSame([], $result['blockers']);
-    }
-
-    public function test_duplicate_cluster_with_high_confidence_recommends_delete(): void
-    {
-        $evidence = $this->fullSafeEvidence();
-        $evidence['cluster']['duplicate_confidence'] = 'high';
-
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->decide($evidence);
-
-        self::assertSame(AtlasSelfConstructionCircuitCollapseAdvisor::ACTION_DELETE, $result['action']);
-    }
-
-    public function test_high_impact_candidate_without_parity_or_replay_is_blocked(): void
-    {
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->decide([
-            'cluster' => ['merge_ready' => false],
-            'consumer_impact' => ['risk_level' => 'high'],
-            'parity' => ['replacement_allowed' => false],
-            'replay' => ['promotion_allowed' => false],
-            'rollback' => ['reversible' => false],
+        $result = $this->advisor->advise([
+            'target' => 'SomeService',
+            'equivalence_verdict' => 'safe_to_consolidate',
+            'candidates' => [
+                ['strategy' => 'delete', 'diff_size' => 3, 'preserves_behavior' => false],
+            ],
         ]);
 
-        self::assertSame(AtlasSelfConstructionCircuitCollapseAdvisor::ACTION_BLOCK, $result['action']);
-        self::assertContains('capability_parity_not_proven', $result['blockers']);
-        self::assertContains('shadow_replay_not_promoted', $result['blockers']);
-        self::assertContains('consumer_risk_high', $result['blockers']);
+        $this->assertSame('reject', $result['strategy']);
     }
 
-    public function test_merge_ready_but_missing_proof_is_blocked_not_silently_merged(): void
+    public function test_smallest_diff_among_same_strategy(): void
     {
-        $evidence = $this->fullSafeEvidence();
-        $evidence['parity']['replacement_allowed'] = false;
-
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->decide($evidence);
-
-        self::assertSame(AtlasSelfConstructionCircuitCollapseAdvisor::ACTION_BLOCK, $result['action']);
-        self::assertContains('capability_parity_not_proven', $result['blockers']);
-    }
-
-    public function test_cohesive_non_duplicate_circuit_recommends_keep(): void
-    {
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->decide([
-            'cluster' => ['merge_ready' => false],
-            'cohesion' => ['recommendation' => 'keep'],
-            'consumer_impact' => ['risk_level' => 'low'],
+        $result = $this->advisor->advise([
+            'target' => 'SomeService',
+            'equivalence_verdict' => 'safe_to_consolidate',
+            'candidates' => [
+                ['strategy' => 'adapter', 'diff_size' => 20, 'preserves_behavior' => true],
+                ['strategy' => 'adapter', 'diff_size' => 5, 'preserves_behavior' => true],
+            ],
         ]);
 
-        self::assertSame(AtlasSelfConstructionCircuitCollapseAdvisor::ACTION_KEEP, $result['action']);
-        self::assertSame([], $result['blockers']);
-    }
-
-    public function test_non_duplicate_but_bloated_circuit_recommends_extract(): void
-    {
-        $result = (new AtlasSelfConstructionCircuitCollapseAdvisor)->decide([
-            'cluster' => ['merge_ready' => false],
-            'cohesion' => ['recommendation' => 'split_or_collapse'],
-            'consumer_impact' => ['risk_level' => 'low'],
-        ]);
-
-        self::assertSame(AtlasSelfConstructionCircuitCollapseAdvisor::ACTION_EXTRACT, $result['action']);
+        $this->assertSame('adapter', $result['strategy']);
+        $this->assertStringContainsString('diff_size=5', $result['recommended_diff']);
     }
 }
