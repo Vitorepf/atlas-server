@@ -22,6 +22,20 @@ final class AtlasMaestroProviderPerformanceLedger
     /** Atlas-native execution: zero provider cost, tracked as first-class provider. */
     public const ATLAS_NATIVE = 'atlas_native';
 
+    public const PROOF_PASSED = 'passed';
+    public const PROOF_FAILED = 'failed';
+
+    /** AC4: below this sample size, evidence is too sparse to drive hard routing. */
+    private const SPARSE_SAMPLE_THRESHOLD = 5;
+
+    /** AC4: at/above this sample size (and non-contradictory), evidence supports high confidence. */
+    private const HIGH_SAMPLE_THRESHOLD = 20;
+
+    /** AC4: a give_back rate in this band means the evidence itself disagrees with itself. */
+    private const CONTRADICTORY_RATE_LOW = 0.35;
+
+    private const CONTRADICTORY_RATE_HIGH = 0.65;
+
     private static ?string $rootOverride = null;
 
     public static function setRootForTesting(?string $root): void
@@ -39,8 +53,10 @@ final class AtlasMaestroProviderPerformanceLedger
         ?string $modelTier = null,
         ?int $tokenCostEstimate = null,
         ?bool $hasRequiredEvidence = null,
+        ?string $workerClass = null,
+        ?string $proofResult = null,
     ): void {
-        $this->withLockedFile(function (array $state) use ($provider, $taskClass, $outcome, $durationMs, $lastOutcomeAt, $taskFamily, $modelTier, $tokenCostEstimate, $hasRequiredEvidence): array {
+        $this->withLockedFile(function (array $state) use ($provider, $taskClass, $outcome, $durationMs, $lastOutcomeAt, $taskFamily, $modelTier, $tokenCostEstimate, $hasRequiredEvidence, $workerClass, $proofResult): array {
             $facts = $state['facts'] ?? [];
             $facts[$taskClass] ??= [];
             $row = $facts[$taskClass][$provider] ?? [
@@ -51,6 +67,8 @@ final class AtlasMaestroProviderPerformanceLedger
                 'last_outcome_at' => 0,
                 'token_cost_sum' => 0,
                 'has_required_evidence_count' => 0,
+                'proof_passed_count' => 0,
+                'proof_failed_count' => 0,
             ];
             $knownOutcome = false;
             if ($outcome === self::OUTCOME_SUCCESS) {
@@ -78,6 +96,14 @@ final class AtlasMaestroProviderPerformanceLedger
             }
             if ($hasRequiredEvidence === true) {
                 $row['has_required_evidence_count'] = (int) ($row['has_required_evidence_count'] ?? 0) + 1;
+            }
+            if ($workerClass !== null) {
+                $row['worker_class'] = $workerClass;
+            }
+            if ($proofResult === self::PROOF_PASSED) {
+                $row['proof_passed_count'] = (int) ($row['proof_passed_count'] ?? 0) + 1;
+            } elseif ($proofResult === self::PROOF_FAILED) {
+                $row['proof_failed_count'] = (int) ($row['proof_failed_count'] ?? 0) + 1;
             }
             ksort($row);
             $facts[$taskClass][$provider] = $row;
@@ -121,11 +147,7 @@ final class AtlasMaestroProviderPerformanceLedger
         $classFacts = (array) ($state['facts'][$taskClass] ?? []);
         $out = [];
         foreach ($classFacts as $provider => $row) {
-            $row = (array) $row;
-            $row['avg_duration_ms'] = ((int) $row['duration_ms_count']) > 0
-                ? (int) round(((int) $row['duration_ms_sum']) / ((int) $row['duration_ms_count']))
-                : 0;
-            $out[(string) $provider] = $row;
+            $out[(string) $provider] = $this->enrichRow((array) $row);
         }
         ksort($out);
 
@@ -143,11 +165,7 @@ final class AtlasMaestroProviderPerformanceLedger
             if (! is_array($byProvider) || ! isset($byProvider[$provider])) {
                 continue;
             }
-            $row = (array) $byProvider[$provider];
-            $row['avg_duration_ms'] = ((int) $row['duration_ms_count']) > 0
-                ? (int) round(((int) $row['duration_ms_sum']) / ((int) $row['duration_ms_count']))
-                : 0;
-            $out[(string) $taskClass] = $row;
+            $out[(string) $taskClass] = $this->enrichRow((array) $byProvider[$provider]);
         }
         ksort($out);
 
@@ -165,15 +183,46 @@ final class AtlasMaestroProviderPerformanceLedger
         $familyFacts = (array) ($state['family_facts'][$taskFamily] ?? []);
         $out = [];
         foreach ($familyFacts as $provider => $row) {
-            $row = (array) $row;
-            $row['avg_duration_ms'] = ((int) ($row['duration_ms_count'] ?? 0)) > 0
-                ? (int) round(((int) ($row['duration_ms_sum'] ?? 0)) / ((int) ($row['duration_ms_count'] ?? 0)))
-                : 0;
-            $out[(string) $provider] = $row;
+            $out[(string) $provider] = $this->enrichRow((array) $row);
         }
         ksort($out);
 
         return $out;
+    }
+
+    /**
+     * AC3/AC4: adds avg_duration_ms, sample_size and confidence to a raw aggregate row —
+     * confidence downgrades to 'low' for sparse OR internally contradictory evidence, so
+     * a caller never mistakes a thin or self-disagreeing sample for a routing-grade signal.
+     *
+     * @param  array<string,mixed>  $row
+     * @return array<string,mixed>
+     */
+    private function enrichRow(array $row): array
+    {
+        $row['avg_duration_ms'] = ((int) ($row['duration_ms_count'] ?? 0)) > 0
+            ? (int) round(((int) ($row['duration_ms_sum'] ?? 0)) / ((int) ($row['duration_ms_count'] ?? 0)))
+            : 0;
+
+        $successCount = (int) ($row['success_count'] ?? 0);
+        $giveBackCount = (int) ($row['give_back_count'] ?? 0);
+        $sampleSize = $successCount + $giveBackCount;
+        $row['sample_size'] = $sampleSize;
+
+        if ($sampleSize < self::SPARSE_SAMPLE_THRESHOLD) {
+            $confidence = 'low';
+        } else {
+            $giveBackRate = $giveBackCount / $sampleSize;
+            $contradictory = $giveBackRate >= self::CONTRADICTORY_RATE_LOW && $giveBackRate <= self::CONTRADICTORY_RATE_HIGH;
+            $confidence = match (true) {
+                $contradictory => 'low',
+                $sampleSize >= self::HIGH_SAMPLE_THRESHOLD => 'high',
+                default => 'medium',
+            };
+        }
+        $row['confidence'] = $confidence;
+
+        return $row;
     }
 
     /**

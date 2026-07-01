@@ -197,4 +197,110 @@ final class AtlasMaestroProviderPerformanceLedgerTest extends TestCase
 
         $this->assertSame($blob1, $blob2, 'new fields must not break deterministic ordering');
     }
+
+    // ── AC2: worker class + proof result ────────────────────────────────────
+
+    public function test_record_outcome_tracks_worker_class_and_proof_result_counts(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome(
+            'codex', 'refactor', 'success', 1000, 1700000000,
+            null, null, null, null,
+            'claude-muscle-1', AtlasMaestroProviderPerformanceLedger::PROOF_PASSED,
+        );
+        $ledger->recordOutcome(
+            'codex', 'refactor', 'give_back', 500, 1700000010,
+            null, null, null, null,
+            'claude-muscle-1', AtlasMaestroProviderPerformanceLedger::PROOF_FAILED,
+        );
+
+        $facts = $ledger->factsForClass('refactor');
+        $this->assertSame('claude-muscle-1', $facts['codex']['worker_class']);
+        $this->assertSame(1, $facts['codex']['proof_passed_count']);
+        $this->assertSame(1, $facts['codex']['proof_failed_count']);
+    }
+
+    public function test_worker_class_and_proof_result_default_absent_when_not_supplied(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000);
+
+        $facts = $ledger->factsForClass('refactor');
+        $this->assertArrayNotHasKey('worker_class', $facts['codex']);
+        $this->assertSame(0, $facts['codex']['proof_passed_count']);
+        $this->assertSame(0, $facts['codex']['proof_failed_count']);
+    }
+
+    // ── AC3/AC4: sample_size + confidence on every read surface ────────────────
+
+    public function test_facts_for_class_includes_sample_size_and_confidence(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        for ($i = 0; $i < 25; $i++) {
+            $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000 + $i);
+        }
+
+        $facts = $ledger->factsForClass('refactor');
+        $this->assertSame(25, $facts['codex']['sample_size']);
+        $this->assertSame('high', $facts['codex']['confidence']);
+    }
+
+    public function test_sparse_sample_is_low_confidence(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000);
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000010);
+
+        $facts = $ledger->factsForClass('refactor');
+        $this->assertSame(2, $facts['codex']['sample_size']);
+        $this->assertSame('low', $facts['codex']['confidence']);
+    }
+
+    public function test_contradictory_evidence_is_low_confidence_despite_decent_sample_size(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        for ($i = 0; $i < 5; $i++) {
+            $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000 + $i);
+        }
+        for ($i = 5; $i < 10; $i++) {
+            $ledger->recordOutcome('codex', 'refactor', 'give_back', 1000, 1700000000 + $i);
+        }
+
+        $facts = $ledger->factsForClass('refactor');
+        $this->assertSame(10, $facts['codex']['sample_size']);
+        $this->assertSame('low', $facts['codex']['confidence'], 'a 50/50 split must never drive hard routing');
+    }
+
+    public function test_non_sparse_non_contradictory_moderate_sample_is_medium_confidence(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        for ($i = 0; $i < 9; $i++) {
+            $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000 + $i);
+        }
+        $ledger->recordOutcome('codex', 'refactor', 'give_back', 1000, 1700000009);
+
+        $facts = $ledger->factsForClass('refactor');
+        $this->assertSame(10, $facts['codex']['sample_size']);
+        $this->assertSame('medium', $facts['codex']['confidence']);
+    }
+
+    public function test_facts_for_provider_includes_sample_size_and_confidence(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000);
+
+        $facts = $ledger->factsForProvider('codex');
+        $this->assertArrayHasKey('sample_size', $facts['refactor']);
+        $this->assertArrayHasKey('confidence', $facts['refactor']);
+    }
+
+    public function test_facts_for_family_includes_sample_size_and_confidence(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000, 'family-x');
+
+        $facts = $ledger->factsForFamily('family-x');
+        $this->assertArrayHasKey('sample_size', $facts['codex']);
+        $this->assertArrayHasKey('confidence', $facts['codex']);
+    }
 }
