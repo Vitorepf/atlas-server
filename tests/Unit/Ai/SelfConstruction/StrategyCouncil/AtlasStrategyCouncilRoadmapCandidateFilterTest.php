@@ -191,4 +191,75 @@ final class AtlasStrategyCouncilRoadmapCandidateFilterTest extends TestCase
             array_column($r['dropped'], 'candidate_id'),
         );
     }
+
+    // ── AC: admitted / rejected / review with owner_scope, autonomy_fit, evidence_path, worker_capacity, duplicate_reason ──
+
+    public function test_valid_candidate_lands_in_admitted_with_facts(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([$this->candidate('a')]);
+
+        $this->assertCount(1, $r['admitted']);
+        $entry = $r['admitted'][0];
+        foreach (['candidate_id', 'owner_scope', 'autonomy_fit', 'evidence_path', 'worker_capacity', 'duplicate_reason'] as $key) {
+            $this->assertArrayHasKey($key, $entry, "missing {$key}");
+        }
+        $this->assertSame('atlas-native', $entry['owner_scope']);
+        $this->assertSame([], $r['rejected']);
+        $this->assertSame([], $r['review']);
+    }
+
+    public function test_missing_owner_scope_lands_in_rejected(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter(
+            [$this->candidate('a', ['owner_scope' => 'external'])],
+            ['atlas-native']
+        );
+
+        $this->assertCount(1, $r['rejected']);
+        $this->assertSame('a', $r['rejected'][0]['candidate_id']);
+    }
+
+    public function test_weak_evidence_lands_in_rejected(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([$this->candidate('a', ['evidence_path' => ''])]);
+
+        $this->assertCount(1, $r['rejected']);
+        $this->assertSame('', $r['rejected'][0]['evidence_path']);
+    }
+
+    public function test_worker_floor_low_lands_in_review_with_insufficient_worker_capacity(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter(
+            [$this->candidate('a', ['implementation_scope' => false])],
+            [],
+            true
+        );
+
+        $this->assertCount(1, $r['review']);
+        $this->assertSame('insufficient', $r['review'][0]['worker_capacity']);
+    }
+
+    public function test_duplicate_candidate_lands_in_rejected_with_duplicate_reason(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('a', ['duplicate_key' => 'k1']),
+            $this->candidate('b', ['duplicate_key' => 'k1']),
+        ]);
+
+        $this->assertCount(1, $r['admitted']);
+        $this->assertCount(1, $r['rejected']);
+        $this->assertSame('b', $r['rejected'][0]['candidate_id']);
+        $this->assertNotNull($r['rejected'][0]['duplicate_reason']);
+    }
+
+    public function test_review_needed_candidate_lands_in_review_bucket(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('a', ['needs_review' => true]),
+        ]);
+
+        $this->assertCount(1, $r['review']);
+        $this->assertSame('needs_review', $r['review'][0]['autonomy_fit']);
+        $this->assertSame([], $r['admitted']);
+    }
 }

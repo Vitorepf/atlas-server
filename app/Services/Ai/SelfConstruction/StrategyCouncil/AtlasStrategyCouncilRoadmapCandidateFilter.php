@@ -145,10 +145,81 @@ final class AtlasStrategyCouncilRoadmapCandidateFilter
         usort($kept, static fn (array $a, array $b): int => strcmp((string) ($a['candidate_id'] ?? ''), (string) ($b['candidate_id'] ?? '')));
         usort($dropped, static fn (array $a, array $b): int => strcmp($a['candidate_id'], $b['candidate_id']));
 
+        [$admitted, $rejected, $review] = $this->classifyForCouncil($kept, $dropped);
+
         return [
             'schema' => self::SCHEMA,
             'kept' => $kept,
             'dropped' => $dropped,
+            'admitted' => $admitted,
+            'rejected' => $rejected,
+            'review' => $review,
+        ];
+    }
+
+    /**
+     * Additive council-facing overlay: same underlying decisions as kept/dropped, re-expressed as
+     * admitted / rejected / review with the explicit facts the Strategy Council reads — owner_scope,
+     * autonomy_fit, evidence_path, worker_capacity, duplicate_reason. A candidate is only pulled into
+     * 'review' when it explicitly signals ambiguity (needs_review=true) or was deferred by the
+     * worker-floor check — everything hard-dropped is 'rejected'; everything else kept is 'admitted'.
+     *
+     * @param  list<array<string,mixed>>  $kept
+     * @param  list<array{candidate_id:string, drop_reason:string}>  $dropped
+     * @return array{0:list<array<string,mixed>>, 1:list<array<string,mixed>>, 2:list<array<string,mixed>>}
+     */
+    private function classifyForCouncil(array $kept, array $dropped): array
+    {
+        $admitted = [];
+        $review = [];
+        foreach ($kept as $c) {
+            $facts = $this->councilFacts($c, null);
+            if ((bool) ($c['needs_review'] ?? false)) {
+                $review[] = $facts;
+
+                continue;
+            }
+            $admitted[] = $facts;
+        }
+
+        $rejected = [];
+        foreach ($dropped as $d) {
+            $facts = $this->councilFacts(['candidate_id' => $d['candidate_id']], $d['drop_reason']);
+            if (str_starts_with($d['drop_reason'], 'deferred:')) {
+                $review[] = $facts;
+
+                continue;
+            }
+            $rejected[] = $facts;
+        }
+
+        usort($admitted, static fn (array $a, array $b): int => strcmp((string) $a['candidate_id'], (string) $b['candidate_id']));
+        usort($rejected, static fn (array $a, array $b): int => strcmp((string) $a['candidate_id'], (string) $b['candidate_id']));
+        usort($review, static fn (array $a, array $b): int => strcmp((string) $a['candidate_id'], (string) $b['candidate_id']));
+
+        return [$admitted, $rejected, $review];
+    }
+
+    /**
+     * @param  array<string,mixed>  $c
+     * @return array{candidate_id:string, owner_scope:string, autonomy_fit:string, evidence_path:string, worker_capacity:string, duplicate_reason:?string, reason:?string}
+     */
+    private function councilFacts(array $c, ?string $dropReason): array
+    {
+        $hasAutonomyMetadata = array_key_exists('autonomy_impact', $c) || array_key_exists('implementability', $c);
+
+        return [
+            'candidate_id' => (string) ($c['candidate_id'] ?? ''),
+            'owner_scope' => (string) ($c['owner_scope'] ?? ''),
+            'autonomy_fit' => (bool) ($c['needs_review'] ?? false)
+                ? 'needs_review'
+                : ($hasAutonomyMetadata ? 'fit' : 'default'),
+            'evidence_path' => (string) ($c['evidence_path'] ?? ''),
+            'worker_capacity' => $dropReason !== null && str_starts_with($dropReason, 'deferred:worker_floor')
+                ? 'insufficient'
+                : 'sufficient',
+            'duplicate_reason' => $dropReason !== null && str_starts_with($dropReason, 'dropped:duplicate:') ? $dropReason : null,
+            'reason' => $dropReason,
         ];
     }
 }
