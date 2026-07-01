@@ -307,6 +307,92 @@ final class AgentControlPlaneLeaseEnvelopeFactoryTest extends TestCase
         $this->assertSame($forward['lease_integrity_hash'], $reversed['lease_integrity_hash']);
     }
 
+    // --- buildLeaseEventReceipt: canonical receipts for the 6 lease events ---
+
+    public function test_build_lease_event_receipt_includes_all_canonical_fields(): void
+    {
+        $r = $this->factory->buildLeaseEventReceipt(
+            AgentControlPlaneLeaseEnvelopeFactory::EVENT_ACQUIRED,
+            'TP1',
+            'A1',
+            'L1',
+            'lease_claimed_by_agent',
+        );
+
+        $this->assertSame('TP1', $r['task_packet_id']);
+        $this->assertSame('A1', $r['agent_id']);
+        $this->assertSame('L1', $r['lease_id']);
+        $this->assertSame('acquired', $r['event']);
+        $this->assertSame('lease_claimed_by_agent', $r['reason']);
+        $this->assertArrayHasKey('recorded_at', $r);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $r['receipt_hash']);
+    }
+
+    public function test_build_lease_event_receipt_hash_is_deterministic(): void
+    {
+        $a = $this->factory->buildLeaseEventReceipt(AgentControlPlaneLeaseEnvelopeFactory::EVENT_RENEWED, 'TP1', 'A1', 'L1', 'ttl_extended');
+        $b = $this->factory->buildLeaseEventReceipt(AgentControlPlaneLeaseEnvelopeFactory::EVENT_RENEWED, 'TP1', 'A1', 'L1', 'ttl_extended');
+
+        $this->assertSame($a['receipt_hash'], $b['receipt_hash']);
+    }
+
+    public function test_build_lease_event_receipt_contention_allows_empty_lease_id(): void
+    {
+        $r = $this->factory->buildLeaseEventReceipt(
+            AgentControlPlaneLeaseEnvelopeFactory::EVENT_CONTENTION,
+            'TP1',
+            'A1',
+            '',
+            'lock_timeout',
+        );
+
+        $this->assertSame('contention', $r['event']);
+        $this->assertSame('', $r['lease_id']);
+        $this->assertSame('lock_timeout', $r['reason']);
+    }
+
+    public function test_build_lease_event_receipt_error_allows_empty_lease_id(): void
+    {
+        $r = $this->factory->buildLeaseEventReceipt(
+            AgentControlPlaneLeaseEnvelopeFactory::EVENT_ERROR,
+            'TP1',
+            'A1',
+            '',
+            'unexpected_exception',
+        );
+
+        $this->assertSame('error', $r['event']);
+        $this->assertSame('', $r['lease_id']);
+    }
+
+    public function test_build_lease_event_receipt_rejects_missing_task_packet_id(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->factory->buildLeaseEventReceipt(AgentControlPlaneLeaseEnvelopeFactory::EVENT_ACQUIRED, '', 'A1', 'L1');
+    }
+
+    public function test_build_lease_event_receipt_rejects_missing_agent_id(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->factory->buildLeaseEventReceipt(AgentControlPlaneLeaseEnvelopeFactory::EVENT_ACQUIRED, 'TP1', '', 'L1');
+    }
+
+    public function test_build_lease_event_receipt_rejects_missing_lease_id_for_acquired(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->factory->buildLeaseEventReceipt(AgentControlPlaneLeaseEnvelopeFactory::EVENT_ACQUIRED, 'TP1', 'A1', '');
+    }
+
+    public function test_build_lease_event_receipt_rejects_unknown_event(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->factory->buildLeaseEventReceipt('bogus_event', 'TP1', 'A1', 'L1');
+    }
+
     // --- composition: SCHEMA_VERSION consistency between envelopes --------
 
     public function test_all_three_envelope_helpers_emit_same_schema_version(): void
