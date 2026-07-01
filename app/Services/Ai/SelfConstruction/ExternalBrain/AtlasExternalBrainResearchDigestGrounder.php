@@ -57,6 +57,13 @@ final class AtlasExternalBrainResearchDigestGrounder
     public const HOLD_MISSING_ALLOWED_FILES  = 'hold:missing_allowed_files';
     public const HOLD_MISSING_RUNNABLE_GATE  = 'hold:missing_runnable_gate';
     public const HOLD_MISSING_OWNER          = 'hold:missing_owner';
+    public const HOLD_LOW_LEVERAGE           = 'hold:low_atlas_fit_or_no_compounding_impact';
+
+    /** atlas_fit_score below this reads as low fit. */
+    private const MIN_ATLAS_FIT = 0.50;
+
+    /** compounding_impact_score below this reads as no measurable compounding impact. */
+    private const MIN_COMPOUNDING_IMPACT = 0.50;
 
     /**
      * @param  array{research_ideas?: list<array<string,mixed>>}  $input
@@ -130,7 +137,41 @@ final class AtlasExternalBrainResearchDigestGrounder
         if (! $this->hasRunnableCommand($evidencePath)) return self::HOLD_MISSING_RUNNABLE_GATE;
         if ($ownerFiles === [] && ! $hasLocalOwner)    return self::HOLD_MISSING_OWNER;
 
+        // AC2: technically grounded but low Atlas-fit or no measurable compounding impact
+        // must not be promoted — hold it for further research instead.
+        if ($this->computeAtlasFitScore($idea) < self::MIN_ATLAS_FIT
+            || $this->computeCompoundingImpactScore($idea) < self::MIN_COMPOUNDING_IMPACT
+        ) {
+            return self::HOLD_LOW_LEVERAGE;
+        }
+
         return null;
+    }
+
+    private function computeAtlasFitScore(array $idea): float
+    {
+        $localSymbols   = array_filter(array_map('trim', (array) ($idea['local_symbols']        ?? [])));
+        $capabilityGap  = trim((string) ($idea['atlas_capability_gap'] ?? ''));
+        $ownerFiles     = array_filter(array_map('trim', (array) ($idea['owner_files']          ?? [])));
+
+        $score = 0.0;
+        if ($localSymbols !== [])  $score += 0.40;
+        if ($capabilityGap !== '') $score += 0.30;
+        if ($ownerFiles !== [])    $score += 0.30;
+
+        return round(min(1.0, $score), 4);
+    }
+
+    private function computeCompoundingImpactScore(array $idea): float
+    {
+        $leverageHint = trim((string) ($idea['leverage_hint'] ?? ''));
+        $signals      = array_filter(array_map('trim', (array) ($idea['compounding_impact_signals'] ?? [])));
+
+        $score = 0.0;
+        if ($leverageHint !== '') $score += 0.60;
+        if ($signals !== [])      $score += 0.40;
+
+        return round(min(1.0, $score), 4);
     }
 
     private function reject(array $idea): ?string
@@ -169,6 +210,16 @@ final class AtlasExternalBrainResearchDigestGrounder
             'evidence_strength'       => $evidenceStrength = $this->computeEvidenceStrength($localSymbols, $evidencePath, $ownerFiles, $implStrategy),
             'trust_tier'              => $this->trustTier($evidenceStrength),
             'adaptation_notes'        => $this->adaptationNotes($idea),
+            // Atlas-fit + compounding-impact ranking (AC1).
+            'grounding_score'          => $evidenceStrength,
+            'atlas_fit_score'          => $atlasFitScore = $this->computeAtlasFitScore($idea),
+            'compounding_impact_score' => $compoundingImpactScore = $this->computeCompoundingImpactScore($idea),
+            'promotion_reason'         => sprintf(
+                'grounded (grounding_score=%.2f) with sufficient Atlas fit (atlas_fit_score=%.2f) and compounding impact (compounding_impact_score=%.2f)',
+                $evidenceStrength,
+                $atlasFitScore,
+                $compoundingImpactScore,
+            ),
         ];
     }
 

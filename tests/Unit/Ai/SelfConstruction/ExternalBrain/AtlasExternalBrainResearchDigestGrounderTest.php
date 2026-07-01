@@ -531,6 +531,50 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         $this->assertCount(1, $result['held_for_research']);
     }
 
+    // ── AC1: atlas_fit_score, compounding_impact_score, grounding_score, promotion_reason ──
+
+    public function test_promoted_candidate_has_atlas_fit_and_compounding_fields(): void
+    {
+        $result = $this->grounder->ground($this->input($this->good()));
+        $c = $result['task_candidates'][0];
+
+        foreach (['atlas_fit_score', 'compounding_impact_score', 'grounding_score', 'promotion_reason'] as $k) {
+            $this->assertArrayHasKey($k, $c, "Missing field: {$k}");
+        }
+        $this->assertIsFloat($c['atlas_fit_score']);
+        $this->assertIsFloat($c['compounding_impact_score']);
+        $this->assertIsFloat($c['grounding_score']);
+        $this->assertIsString($c['promotion_reason']);
+        $this->assertNotEmpty($c['promotion_reason']);
+    }
+
+    // ── AC2: no compounding impact -> held, not promoted ──────────────────────
+
+    public function test_no_compounding_impact_is_held_not_promoted(): void
+    {
+        $result = $this->grounder->ground($this->input($this->good([
+            'leverage_hint' => '',
+            'compounding_impact_signals' => [],
+        ])));
+
+        $this->assertSame(0, $result['promoted_count']);
+        $this->assertSame([], $result['rejected']);
+        $this->assertSame(
+            AtlasExternalBrainResearchDigestGrounder::HOLD_LOW_LEVERAGE,
+            $result['held_for_research'][0]['hold_reason'],
+        );
+    }
+
+    public function test_leverage_hint_alone_clears_compounding_impact_floor(): void
+    {
+        $result = $this->grounder->ground($this->input($this->good([
+            'leverage_hint' => 'unlocks reuse across the wiring lane',
+            'compounding_impact_signals' => [],
+        ])));
+
+        $this->assertSame(1, $result['promoted_count']);
+    }
+
     // ── Empty batch ───────────────────────────────────────────────────────────
 
     public function test_empty_batch_returns_zero_counts(): void
