@@ -51,6 +51,7 @@ final class AtlasExternalBrainEvolutionBenchmarkHarness
     public const SCENARIO_QUEUE_PRESSURE           = 'queue_pressure';
     public const SCENARIO_SECOND_PASS_BREAKTHROUGH = 'second_pass_breakthrough';
     public const SCENARIO_FINALITY_FLOOR           = 'finality_floor';
+    public const SCENARIO_PREMATURE_EXHAUSTION_CLAIM = 'premature_exhaustion_claim';
 
     private const TEMPLATE_FARM_RATIO  = 0.40;
     private const QUOTA_PADDING_RATIO  = 0.60;
@@ -162,6 +163,10 @@ final class AtlasExternalBrainEvolutionBenchmarkHarness
 
     /**
      * @param  list<array<string,mixed>>  $batch
+     * @param  array<string,bool>  $exhaustionProof  {research_exhausted?, simplification_exhausted?,
+     *   second_pass_exhausted?} — a key explicitly set to false means that path was NOT exhausted.
+     *   An omitted key is treated as satisfied (backward compatible: existing callers that never
+     *   pass this argument keep getting honest_exhausted accepted at face value).
      * @return array{
      *     schema: string,
      *     scenario: string,
@@ -169,7 +174,7 @@ final class AtlasExternalBrainEvolutionBenchmarkHarness
      *     dimension_failures: array<string,string>,
      * }
      */
-    public function evaluate(array $batch, bool $honestExhausted = false): array
+    public function evaluate(array $batch, bool $honestExhausted = false, array $exhaustionProof = []): array
     {
         $emptyDims = [
             'template_farm_free'       => true,
@@ -181,10 +186,27 @@ final class AtlasExternalBrainEvolutionBenchmarkHarness
             'queue_pressure_free'      => true,
             'second_pass_present'      => false,
             'finality_floor_met'       => true,
+            'honest_exhaustion_accepted' => true,
         ];
 
         if ($honestExhausted && $batch === []) {
-            return $this->buildResult(self::SCENARIO_HONEST_EXHAUSTED, $emptyDims, []);
+            $unexhaustedPaths = [];
+            foreach (['research_exhausted', 'simplification_exhausted', 'second_pass_exhausted'] as $path) {
+                if (array_key_exists($path, $exhaustionProof) && $exhaustionProof[$path] === false) {
+                    $unexhaustedPaths[] = $path;
+                }
+            }
+
+            if ($unexhaustedPaths === []) {
+                return $this->buildResult(self::SCENARIO_HONEST_EXHAUSTED, $emptyDims, []);
+            }
+
+            $rejectedDims = $emptyDims;
+            $rejectedDims['honest_exhaustion_accepted'] = false;
+
+            return $this->buildResult(self::SCENARIO_PREMATURE_EXHAUSTION_CLAIM, $rejectedDims, [
+                'honest_exhaustion_accepted' => 'exhaustion claimed but paths not exhausted: '.implode(',', $unexhaustedPaths),
+            ]);
         }
 
         $count = count($batch);
@@ -219,9 +241,18 @@ final class AtlasExternalBrainEvolutionBenchmarkHarness
         // Regression dimensions.
         $highLeverageTasks     = array_filter($batch, fn (array $t): bool => ($t['leverage'] ?? '') === 'high');
         $highLeverageWithProof = array_filter($highLeverageTasks, fn (array $t): bool => (bool) ($t['has_proof'] ?? true));
-        $queueDriven           = array_filter($batch, fn (array $t): bool => (bool) ($t['is_queue_driven'] ?? false));
-        $secondPassTasks       = array_filter($batch, fn (array $t): bool => (bool) ($t['is_second_pass'] ?? false));
-        $certifiedTasks        = array_filter($batch, fn (array $t): bool => (bool) ($t['has_certification'] ?? true));
+        // Queue-driven tasks that PROVABLY repaired a malformed queue input into a grounded,
+        // high-leverage, proven task are healing work, not filler pressure — they never count
+        // against queue_pressure_free.
+        $isQueueHealing = fn (array $t): bool =>
+            (bool) ($t['is_queue_driven'] ?? false)
+            && (bool) ($t['repairs_malformed_queue_input'] ?? false)
+            && ($t['is_grounded'] ?? true) === true
+            && ($t['leverage'] ?? 'low') === 'high'
+            && (bool) ($t['has_proof'] ?? true);
+        $queueDriven            = array_filter($batch, fn (array $t): bool => (bool) ($t['is_queue_driven'] ?? false) && ! $isQueueHealing($t));
+        $secondPassTasks        = array_filter($batch, fn (array $t): bool => (bool) ($t['is_second_pass'] ?? false));
+        $certifiedTasks         = array_filter($batch, fn (array $t): bool => (bool) ($t['has_certification'] ?? true));
 
         $queueDrivenRatio = count($queueDriven) / $count;
 

@@ -354,4 +354,125 @@ final class AtlasExternalBrainEvolutionBenchmarkHarnessTest extends TestCase
             $this->assertNotEmpty($msg);
         }
     }
+
+    // ── AC1: template-width tasks fail the benchmark ─────────────────────────
+
+    public function test_template_width_candidate_fails_the_benchmark(): void
+    {
+        $batch = array_fill(0, 4, [
+            'objective' => 'Add CRUD scaffold', 'type' => 'template', 'leverage' => 'low',
+            'is_template_copy' => true, 'projects' => ['atlas-server'], 'claims_evolution' => false,
+        ]);
+
+        $result = $this->harness()->evaluate($batch);
+
+        $this->assertSame(AtlasExternalBrainEvolutionBenchmarkHarness::SCENARIO_TEMPLATE_FARM, $result['scenario']);
+        $this->assertFalse($result['dimension_results']['template_farm_free']);
+        $this->assertNotEmpty($result['dimension_failures']);
+    }
+
+    // ── AC2: repairs malformed queue inputs into grounded high-value tasks passes ──
+
+    public function test_queue_healing_candidate_producing_grounded_high_value_tasks_passes(): void
+    {
+        $batch = [
+            [
+                'objective' => 'Repair malformed queue packet into concrete architecture task',
+                'type' => 'architecture', 'leverage' => 'high', 'is_template_copy' => false,
+                'projects' => ['atlas-server'], 'claims_evolution' => true,
+                'is_queue_driven' => true, 'repairs_malformed_queue_input' => true,
+                'is_grounded' => true, 'has_proof' => true, 'has_certification' => true,
+            ],
+            [
+                'objective' => 'Repair second malformed queue packet into evolution task',
+                'type' => 'evolution', 'leverage' => 'high', 'is_template_copy' => false,
+                'projects' => ['atlas-server'], 'claims_evolution' => true,
+                'is_queue_driven' => true, 'repairs_malformed_queue_input' => true,
+                'is_grounded' => true, 'has_proof' => true, 'has_certification' => true,
+            ],
+        ];
+
+        $result = $this->harness()->evaluate($batch);
+
+        $this->assertTrue($result['dimension_results']['queue_pressure_free']);
+        $this->assertTrue($result['dimension_results']['evolutionary_leap_present']);
+        $this->assertTrue($result['dimension_results']['proof_weighted_leverage']);
+        $this->assertTrue($result['dimension_results']['finality_floor_met']);
+        $this->assertArrayNotHasKey('queue_pressure_free', $result['dimension_failures']);
+        $this->assertSame(AtlasExternalBrainEvolutionBenchmarkHarness::SCENARIO_HIGH_LEVERAGE_ARCH, $result['scenario']);
+    }
+
+    public function test_queue_driven_task_without_repair_evidence_still_counts_as_pressure(): void
+    {
+        $batch = array_fill(0, 4, [
+            'objective' => 'Drain queue filler', 'type' => 'bug_fix', 'leverage' => 'low',
+            'is_template_copy' => false, 'projects' => ['atlas-server'], 'claims_evolution' => false,
+            'is_queue_driven' => true,
+        ]);
+
+        $result = $this->harness()->evaluate($batch);
+
+        $this->assertFalse($result['dimension_results']['queue_pressure_free']);
+        $this->assertSame(AtlasExternalBrainEvolutionBenchmarkHarness::SCENARIO_QUEUE_PRESSURE, $result['scenario']);
+    }
+
+    public function test_queue_driven_task_claiming_repair_but_not_grounded_still_counts_as_pressure(): void
+    {
+        $batch = array_fill(0, 4, [
+            'objective' => 'Repair claim without grounding', 'type' => 'bug_fix', 'leverage' => 'high',
+            'is_template_copy' => false, 'projects' => ['atlas-server'], 'claims_evolution' => false,
+            'is_queue_driven' => true, 'repairs_malformed_queue_input' => true, 'is_grounded' => false,
+        ]);
+
+        $result = $this->harness()->evaluate($batch);
+
+        $this->assertFalse($result['dimension_results']['queue_pressure_free']);
+    }
+
+    // ── AC3: honest exhaustion accepted only when all exhaustion paths are exhausted ──
+
+    public function test_honest_exhaustion_accepted_when_all_paths_explicitly_exhausted(): void
+    {
+        $result = $this->harness()->evaluate([], true, [
+            'research_exhausted' => true,
+            'simplification_exhausted' => true,
+            'second_pass_exhausted' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainEvolutionBenchmarkHarness::SCENARIO_HONEST_EXHAUSTED, $result['scenario']);
+        $this->assertTrue($result['dimension_results']['honest_exhaustion_accepted']);
+    }
+
+    public function test_honest_exhaustion_rejected_when_research_path_not_exhausted(): void
+    {
+        $result = $this->harness()->evaluate([], true, [
+            'research_exhausted' => false,
+            'simplification_exhausted' => true,
+            'second_pass_exhausted' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainEvolutionBenchmarkHarness::SCENARIO_PREMATURE_EXHAUSTION_CLAIM, $result['scenario']);
+        $this->assertFalse($result['dimension_results']['honest_exhaustion_accepted']);
+        $this->assertStringContainsString('research_exhausted', $result['dimension_failures']['honest_exhaustion_accepted']);
+    }
+
+    public function test_honest_exhaustion_rejected_when_second_pass_path_not_exhausted(): void
+    {
+        $result = $this->harness()->evaluate([], true, [
+            'research_exhausted' => true,
+            'simplification_exhausted' => true,
+            'second_pass_exhausted' => false,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainEvolutionBenchmarkHarness::SCENARIO_PREMATURE_EXHAUSTION_CLAIM, $result['scenario']);
+        $this->assertStringContainsString('second_pass_exhausted', $result['dimension_failures']['honest_exhaustion_accepted']);
+    }
+
+    public function test_honest_exhaustion_without_exhaustion_proof_argument_defaults_to_accepted(): void
+    {
+        // Backward-compatible default: omitting the argument entirely keeps prior behavior.
+        $result = $this->harness()->evaluate([], honestExhausted: true);
+
+        $this->assertSame(AtlasExternalBrainEvolutionBenchmarkHarness::SCENARIO_HONEST_EXHAUSTED, $result['scenario']);
+    }
 }
