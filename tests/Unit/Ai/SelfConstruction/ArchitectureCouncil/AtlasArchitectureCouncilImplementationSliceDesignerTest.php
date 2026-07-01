@@ -42,6 +42,23 @@ final class AtlasArchitectureCouncilImplementationSliceDesignerTest extends Test
         $this->assertSame('Compiler', $brief['target_class']);
         $this->assertSame('CompilerTest', $brief['test_class']);
         $this->assertSame(['app/Demo/Compiler.php', 'tests/Unit/Demo/CompilerTest.php'], $brief['allowed_files_hint']);
+        $this->assertTrue($brief['claimable']);
+        $this->assertSame([], $r['rejected_slices']);
+    }
+
+    public function test_analysis_only_acceptance_is_rejected_not_emitted_as_claimable(): void
+    {
+        $facts = $this->validFacts();
+        $facts['capability_gap']['acceptance_seed'] = ['architecture is sound and well documented'];
+
+        $r = (new AtlasArchitectureCouncilImplementationSliceDesigner)->design($facts);
+
+        $this->assertSame([], $r['slice_briefs']);
+        $this->assertNotEmpty($r['rejected_slices']);
+        $this->assertSame(
+            'analysis_only_no_runnable_acceptance',
+            $r['rejected_slices'][0]['rejection_reason'],
+        );
     }
 
     public function test_blocked_when_critique_not_accepted(): void

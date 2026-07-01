@@ -37,6 +37,10 @@ final class AtlasArchitectureCouncilImplementationSliceDesigner
 {
     public const SCHEMA = 'atlas.architecturecouncil.slice_designer.v1';
 
+    private const RUNNABLE_ACCEPTANCE_MARKERS = ['phpunit', 'artisan', 'vendor/bin', '--filter', 'exits 0', 'exit 0', 'exit code 0'];
+
+    private const REJECTION_ANALYSIS_ONLY = 'analysis_only_no_runnable_acceptance';
+
     /**
      * @param  array{
      *     critique?:array{accepted?:bool},
@@ -80,7 +84,10 @@ final class AtlasArchitectureCouncilImplementationSliceDesigner
         $acceptance = is_array($gap['acceptance_seed'] ?? null) ? array_values(array_map('strval', $gap['acceptance_seed'])) : [];
         $evidence = is_array($gap['evidence_seed'] ?? null) ? array_values(array_map('strval', $gap['evidence_seed'])) : [];
 
+        $hasRunnableAcceptance = $this->hasRunnableAcceptance($acceptance);
+
         $briefs = [];
+        $rejectedSlices = [];
         $missingTestPairs = [];
         foreach ($services as $svc) {
             $svcPath = (string) ($svc['path'] ?? '');
@@ -91,19 +98,54 @@ final class AtlasArchitectureCouncilImplementationSliceDesigner
 
                 continue;
             }
+
+            $sliceId = 'slice:'.$organ.':'.$capability.':'.$base;
+
+            if (! $hasRunnableAcceptance) {
+                $rejectedSlices[] = [
+                    'slice_id' => $sliceId,
+                    'rejection_reason' => self::REJECTION_ANALYSIS_ONLY,
+                    'acceptance_seed' => $acceptance,
+                ];
+
+                continue;
+            }
+
             $briefs[] = [
-                'slice_id' => 'slice:'.$organ.':'.$capability.':'.$base,
+                'slice_id' => $sliceId,
                 'target_class' => $base,
                 'test_class' => pathinfo($testPath, PATHINFO_FILENAME),
                 'allowed_files_hint' => [$svcPath, $testPath],
                 'acceptance_seed' => $acceptance,
                 'evidence_seed' => $evidence,
+                'claimable' => true,
             ];
         }
 
         usort($briefs, static fn (array $a, array $b): int => strcmp($a['slice_id'], $b['slice_id']));
+        usort($rejectedSlices, static fn (array $a, array $b): int => strcmp($a['slice_id'], $b['slice_id']));
 
-        return ['schema' => self::SCHEMA, 'slice_briefs' => $briefs, 'missing_test_pairs' => $missingTestPairs];
+        return [
+            'schema' => self::SCHEMA,
+            'slice_briefs' => $briefs,
+            'missing_test_pairs' => $missingTestPairs,
+            'rejected_slices' => $rejectedSlices,
+        ];
+    }
+
+    /** @param  list<string>  $acceptance */
+    private function hasRunnableAcceptance(array $acceptance): bool
+    {
+        foreach ($acceptance as $criterion) {
+            $lower = strtolower($criterion);
+            foreach (self::RUNNABLE_ACCEPTANCE_MARKERS as $marker) {
+                if (str_contains($lower, $marker)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
