@@ -412,7 +412,28 @@ final class AtlasTaskFabricTemplateFarmSimilarityGateTest extends TestCase
             ),
         ]);
 
-        $this->assertSame(1, $r['corroborating_signal_families']);
+        $this->assertSame(1, $r['corroborating_signal_families'], 'proof counts as environment family only');
+        $this->assertFalse($r['blocking']);
+        $this->assertNotSame([], $r['repeated_proof_paths'], 'proof phrase stays reported for observability');
+    }
+
+    public function test_pairwise_same_subsystem_siblings_sharing_shape_and_proof_not_blocked(): void
+    {
+        // Two legitimate sibling tasks in the same subsystem inevitably share the dir:ext
+        // shape AND the mandated proof phrase; that combination alone is not farming.
+        $r = $this->svc()->assess([
+            $this->packet(
+                'Extend AtlasThetaPlanner so multi-concern specs split along file-cluster boundaries.',
+                ['php artisan test --filter=AtlasThetaPlannerTest passes green', 'splitting a two-concern spec yields disjoint scopes per unit'],
+                ['app/Services/Ai/Programming/AtlasDev/Pipeline/AtlasThetaPlanner.php', 'tests/Unit/Ai/Programming/AtlasDev/AtlasThetaPlannerTest.php'],
+            ),
+            $this->packet(
+                'Give AtlasIotaComposer a fixed-order render of objective, scope and runnable acceptance.',
+                ['php artisan test --filter=AtlasIotaComposerTest passes green', 'rendering the same inputs twice yields identical instruction text'],
+                ['app/Services/Ai/Programming/AtlasDev/Pipeline/AtlasIotaComposer.php', 'tests/Unit/Ai/Programming/AtlasDev/AtlasIotaComposerTest.php'],
+            ),
+        ]);
+
         $this->assertFalse($r['blocking']);
     }
 

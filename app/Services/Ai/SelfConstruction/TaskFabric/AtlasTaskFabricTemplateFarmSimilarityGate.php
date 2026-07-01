@@ -156,16 +156,27 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
         // A proof-path fragment normalizes to the same string in BOTH the generic fragment
         // family and the proof-path family — that is one underlying signal, not two.
         $fragmentsBeyondProofPaths = array_values(array_diff($repeatedFragments, $repeatedProofPaths));
-        $repeatedSignalFamilies = count(array_filter([
+
+        // Signal families split into CONTENT (what the author wrote: stems, fragments beyond
+        // the proof phrase, modal verbs, noun-substitution templates, mechanism hashes) and
+        // ENVIRONMENT (where the work lives / what compliance mandates: dir:ext shape, the
+        // canonical runnable proof phrase the inspector REQUIRES). Two legitimate sibling tasks
+        // in one subsystem inevitably share the whole environment set, so environment families
+        // alone must never conote farm; a real farm always repeats authored content too.
+        $contentFamilies = count(array_filter([
             $repeatedStems !== [],
             $fragmentsBeyondProofPaths !== [],
-            $repeatedShapes !== [],
-            $repeatedProofPaths !== [],
             $repeatedVerbs !== [],
             $repeatedTemplates !== [],
             $repeatedMechanismHashes !== [],
         ]));
-        $blocking = $score >= self::BLOCKING_THRESHOLD && $repeatedSignalFamilies >= 2;
+        $repeatedSignalFamilies = $contentFamilies + count(array_filter([
+            $repeatedShapes !== [],
+            $repeatedProofPaths !== [],
+        ]));
+        $blocking = $score >= self::BLOCKING_THRESHOLD
+            && $repeatedSignalFamilies >= 2
+            && $contentFamilies >= 1;
 
         return [
             'schema_version' => self::SCHEMA,
