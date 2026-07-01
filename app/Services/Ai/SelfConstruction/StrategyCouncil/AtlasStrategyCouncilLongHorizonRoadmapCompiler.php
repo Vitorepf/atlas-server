@@ -51,6 +51,8 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompiler
 
         [$nearIds, $midIds, $longIds] = $this->assignPhases($ordered, $nearTermCap, $midTermBase);
 
+        [$taskableSlices, $notQueueReadyIds] = $this->compileTaskableSlices($gapIndex);
+
         return [
             'schema_version' => self::SCHEMA,
             'phases' => [
@@ -64,7 +66,50 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompiler
             'dependency_blockers'           => $unscheduledIds,
             'near_term_capacity_used'       => $nearTermCap,
             'queue_pressure_capped'         => $pressureCapped,
+            'taskable_slices'               => $taskableSlices,
+            'not_queue_ready_gap_ids'       => $notQueueReadyIds,
         ];
+    }
+
+    /**
+     * Compiles each roadmap gap into a taskable slice — allowed_files, acceptance and
+     * required_evidence — so a slice can be handed directly to the serving queue. A gap
+     * that lacks any of these (an abstract roadmap item) is reported as not_queue_ready
+     * instead of being silently scheduled with guessed/empty scope.
+     *
+     * @param  list<array<string,mixed>>  $gapIndex
+     * @return array{0: list<array<string,mixed>>, 1: list<string>}
+     */
+    private function compileTaskableSlices(array $gapIndex): array
+    {
+        $slices = [];
+        $notQueueReady = [];
+
+        foreach ($gapIndex as $gap) {
+            $id = (string) ($gap['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+
+            $allowedFiles = array_values(array_filter(array_map('strval', (array) ($gap['allowed_files'] ?? []))));
+            $acceptance = array_values(array_filter(array_map('strval', (array) ($gap['acceptance_criteria'] ?? []))));
+            $requiredEvidence = array_values(array_filter(array_map('strval', (array) ($gap['required_evidence'] ?? []))));
+
+            if ($allowedFiles === [] || $acceptance === [] || $requiredEvidence === []) {
+                $notQueueReady[] = $id;
+
+                continue;
+            }
+
+            $slices[] = [
+                'gap_id' => $id,
+                'allowed_files' => $allowedFiles,
+                'acceptance_criteria' => $acceptance,
+                'required_evidence' => $requiredEvidence,
+            ];
+        }
+
+        return [$slices, $notQueueReady];
     }
 
     /**

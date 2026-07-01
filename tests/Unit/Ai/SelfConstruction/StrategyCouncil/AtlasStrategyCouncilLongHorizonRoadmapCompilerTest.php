@@ -208,4 +208,58 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompilerTest extends TestCase
         $b = $this->compiler()->compile($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC3: taskable slices + not_queue_ready abstract items ─────────────────
+
+    public function test_admitted_roadmap_item_produces_taskable_slice(): void
+    {
+        $gap = $this->gap('gap-1');
+        $gap['allowed_files'] = ['app/Foo.php', 'tests/FooTest.php'];
+        $gap['acceptance_criteria'] = ['php artisan test tests/FooTest.php'];
+        $gap['required_evidence'] = ['tests_or_gates_result'];
+
+        $r = $this->compiler()->compile(['gap_index' => [$gap]]);
+
+        $this->assertCount(1, $r['taskable_slices']);
+        $slice = $r['taskable_slices'][0];
+        $this->assertSame('gap-1', $slice['gap_id']);
+        $this->assertSame(['app/Foo.php', 'tests/FooTest.php'], $slice['allowed_files']);
+        $this->assertSame(['php artisan test tests/FooTest.php'], $slice['acceptance_criteria']);
+        $this->assertSame(['tests_or_gates_result'], $slice['required_evidence']);
+        $this->assertSame([], $r['not_queue_ready_gap_ids']);
+    }
+
+    public function test_abstract_roadmap_item_without_scope_is_not_queue_ready(): void
+    {
+        $r = $this->compiler()->compile(['gap_index' => [$this->gap('abstract-gap')]]);
+
+        $this->assertSame([], $r['taskable_slices']);
+        $this->assertContains('abstract-gap', $r['not_queue_ready_gap_ids']);
+    }
+
+    public function test_partial_scope_without_acceptance_or_evidence_is_not_queue_ready(): void
+    {
+        $gap = $this->gap('half-done');
+        $gap['allowed_files'] = ['app/Foo.php'];
+        // no acceptance_criteria, no required_evidence
+
+        $r = $this->compiler()->compile(['gap_index' => [$gap]]);
+
+        $this->assertSame([], $r['taskable_slices']);
+        $this->assertContains('half-done', $r['not_queue_ready_gap_ids']);
+    }
+
+    public function test_mixed_admitted_and_abstract_items_are_partitioned_correctly(): void
+    {
+        $ready = $this->gap('ready-gap');
+        $ready['allowed_files'] = ['app/Bar.php'];
+        $ready['acceptance_criteria'] = ['php artisan test tests/BarTest.php'];
+        $ready['required_evidence'] = ['tests_or_gates_result'];
+
+        $r = $this->compiler()->compile(['gap_index' => [$ready, $this->gap('abstract-gap')]]);
+
+        $this->assertCount(1, $r['taskable_slices']);
+        $this->assertSame('ready-gap', $r['taskable_slices'][0]['gap_id']);
+        $this->assertSame(['abstract-gap'], $r['not_queue_ready_gap_ids']);
+    }
 }
