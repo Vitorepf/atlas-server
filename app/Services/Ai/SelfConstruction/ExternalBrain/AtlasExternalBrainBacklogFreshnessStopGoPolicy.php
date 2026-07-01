@@ -78,6 +78,24 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
         $hasDeepBacklog = $claimableDepth > 0;
         $bottleneckShape = ! $dryQueue && $hasDeepBacklog && $isStale && $observedConsumption === 0;
 
+        // Blocked/quarantined debt is NOT usable claimable depth — a large blocked backlog must
+        // never masquerade as healthy depth when deciding whether to wait (consolidate).
+        $backlogComposition = (array) ($facts['backlog_composition'] ?? []);
+        $blockedCount = max(0, (int) ($backlogComposition['blocked_count'] ?? 0));
+        $quarantinedCount = max(0, (int) ($backlogComposition['quarantined_count'] ?? 0));
+        $blockedDebtHigh = ($blockedCount + $quarantinedCount) > 0;
+
+        $workerFeed = (array) ($facts['worker_feed'] ?? []);
+        $activeWorkerCount = max(0, (int) ($workerFeed['active_worker_count'] ?? 0));
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $workerFeed)
+            ? (float) $workerFeed['claimable_per_active_worker']
+            : null;
+        $workerFloorThreshold = (float) ($workerFeed['floor'] ?? 2.0);
+        $belowWorkerFloor = $activeWorkerCount > 0 && $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= $workerFloorThreshold;
+
+        $waitRefusedByBlockedDebt = $blockedDebtHigh && $belowWorkerFloor;
+        $waitRefusedByStaleness = $blockedDebtHigh && $isStale;
+
         $reasons = [];
         $requiredEvidence = [];
 
@@ -108,6 +126,22 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
             $confidence = 0.8;
             $reasons[] = 'queue is dry and replenish urgency is high';
             $requiredEvidence[] = 'replenish_urgency.urgency_score';
+        } elseif (! $hasDeepBacklog && $observedConsumption === 0 && ! $dryQueue && $waitRefusedByBlockedDebt) {
+            $decision = self::DECISION_REPAIR_QUEUE;
+            $confidence = 0.8;
+            $reasons[] = sprintf(
+                'blocked/quarantined debt (%d) is not usable claimable depth and claimable_per_active_worker=%.2f is at/below the worker floor; wait would starve active workers',
+                $blockedCount + $quarantinedCount,
+                (float) $claimablePerActiveWorker,
+            );
+            $requiredEvidence[] = 'backlog_composition.blocked_count';
+            $requiredEvidence[] = 'worker_feed.claimable_per_active_worker';
+        } elseif (! $hasDeepBacklog && $observedConsumption === 0 && ! $dryQueue && $waitRefusedByStaleness) {
+            $decision = self::DECISION_REPAIR_QUEUE;
+            $confidence = 0.7;
+            $reasons[] = sprintf('blocked/quarantined debt (%d) is stale (p95=%ds >= threshold=%ds); wait is refused until the debt is repaired', $blockedCount + $quarantinedCount, $oldestAgeP95, $staleThreshold);
+            $requiredEvidence[] = 'backlog_composition.blocked_count';
+            $requiredEvidence[] = 'queue_age_histogram.oldest_age_p95_seconds';
         } elseif (! $hasDeepBacklog && $observedConsumption === 0 && ! $dryQueue) {
             $decision = self::DECISION_CONSOLIDATE;
             $confidence = 0.5;

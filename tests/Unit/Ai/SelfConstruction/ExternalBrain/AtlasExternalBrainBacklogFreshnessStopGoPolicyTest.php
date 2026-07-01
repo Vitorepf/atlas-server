@@ -238,4 +238,37 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicyTest extends TestCase
         $this->assertContains('queue_age_histogram.oldest_age_p95_seconds', $r['required_evidence']);
         $this->assertContains('worker_idle_prediction.observed_consumption_count', $r['required_evidence']);
     }
+
+    // ── blocked/quarantined debt is not usable claimable depth ─────────────────
+
+    public function test_high_blocked_debt_with_worker_floor_breach_refuses_wait(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false, 'malformed_rate' => 0.0, 'give_back_rate' => 0.0],
+            'queue_age_histogram' => ['claimable_depth' => 0, 'oldest_age_p95_seconds' => 60, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => ['observed_consumption_count' => 0],
+            'replenish_urgency' => ['urgency_score' => 0.1],
+            'proposed_batch_leverage' => ['fixes_bottleneck' => false],
+            'backlog_composition' => ['blocked_count' => 40, 'quarantined_count' => 10],
+            'worker_feed' => ['active_worker_count' => 6, 'claimable_per_active_worker' => 0.5, 'floor' => 2.0],
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CONSOLIDATE, $r['decision']);
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_REPAIR_QUEUE, $r['decision']);
+    }
+
+    public function test_sufficient_worker_feed_and_fresh_backlog_allows_wait(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false, 'malformed_rate' => 0.0, 'give_back_rate' => 0.0],
+            'queue_age_histogram' => ['claimable_depth' => 0, 'oldest_age_p95_seconds' => 60, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => ['observed_consumption_count' => 0],
+            'replenish_urgency' => ['urgency_score' => 0.1],
+            'proposed_batch_leverage' => ['fixes_bottleneck' => false],
+            'backlog_composition' => ['blocked_count' => 2, 'quarantined_count' => 0],
+            'worker_feed' => ['active_worker_count' => 6, 'claimable_per_active_worker' => 5.0, 'floor' => 2.0],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CONSOLIDATE, $r['decision']);
+    }
 }
