@@ -35,10 +35,10 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
     private function seedWorker(string $client, string $class, int $success, int $giveBack = 0): void
     {
         for ($i = 0; $i < $success; $i++) {
-            $this->ledger->record('success', $client, $class);
+            $this->ledger->record(['client_id' => $client, 'task_family' => $class, 'outcome' => 'success']);
         }
         for ($i = 0; $i < $giveBack; $i++) {
-            $this->ledger->record('give_back', $client, $class);
+            $this->ledger->record(['client_id' => $client, 'task_family' => $class, 'outcome' => 'give_back']);
         }
     }
 
@@ -101,10 +101,10 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
     {
         // claude-1 has lane:final-brain affinity; codex-1 has only task_class success.
         for ($i = 0; $i < 5; $i++) {
-            $this->ledger->record('success', 'claude-1', 'lane:final-brain');
+            $this->ledger->record(['client_id' => 'claude-1', 'task_family' => 'lane:final-brain', 'outcome' => 'success']);
         }
         for ($i = 0; $i < 10; $i++) {
-            $this->ledger->record('success', 'codex-1', 'wiring');
+            $this->ledger->record(['client_id' => 'codex-1', 'task_family' => 'wiring', 'outcome' => 'success']);
         }
 
         $out = $this->router()->routePacket(
@@ -121,7 +121,7 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
     {
         // No lane evidence; codex-1 has task_class success.
         for ($i = 0; $i < 4; $i++) {
-            $this->ledger->record('success', 'codex-1', 'wiring');
+            $this->ledger->record(['client_id' => 'codex-1', 'task_family' => 'wiring', 'outcome' => 'success']);
         }
 
         $out = $this->router()->routePacket(
@@ -139,7 +139,7 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
     public function test_route_packet_refuses_worker_with_conflicting_active_claim(): void
     {
         for ($i = 0; $i < 5; $i++) {
-            $this->ledger->record('success', 'claude-1', 'lane:final-brain');
+            $this->ledger->record(['client_id' => 'claude-1', 'task_family' => 'lane:final-brain', 'outcome' => 'success']);
         }
 
         $conflictFile = 'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php';
@@ -160,7 +160,7 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
 
         // claude-1 has a conflict; codex-1 does not.
         for ($i = 0; $i < 4; $i++) {
-            $this->ledger->record('success', 'codex-1', 'wiring');
+            $this->ledger->record(['client_id' => 'codex-1', 'task_family' => 'wiring', 'outcome' => 'success']);
         }
 
         $out = $this->router()->routePacket(
@@ -194,7 +194,7 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
     public function test_route_packet_no_conflict_when_claimed_files_do_not_overlap(): void
     {
         for ($i = 0; $i < 4; $i++) {
-            $this->ledger->record('success', 'claude-1', 'wiring');
+            $this->ledger->record(['client_id' => 'claude-1', 'task_family' => 'wiring', 'outcome' => 'success']);
         }
 
         $out = $this->router()->routePacket(
@@ -214,10 +214,10 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
     {
         // codex-1 has risk:high affinity; claude-1 only has task_class success.
         for ($i = 0; $i < 4; $i++) {
-            $this->ledger->record('success', 'codex-1', 'risk:high');
+            $this->ledger->record(['client_id' => 'codex-1', 'task_family' => 'risk:high', 'outcome' => 'success']);
         }
         for ($i = 0; $i < 10; $i++) {
-            $this->ledger->record('success', 'claude-1', 'wiring');
+            $this->ledger->record(['client_id' => 'claude-1', 'task_family' => 'wiring', 'outcome' => 'success']);
         }
 
         $out = $this->router()->routePacket(
@@ -236,10 +236,10 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
     {
         // claude-1 has family:native affinity; codex-1 only has task_class success.
         for ($i = 0; $i < 4; $i++) {
-            $this->ledger->record('success', 'claude-1', 'family:native');
+            $this->ledger->record(['client_id' => 'claude-1', 'task_family' => 'family:native', 'outcome' => 'success']);
         }
         for ($i = 0; $i < 10; $i++) {
-            $this->ledger->record('success', 'codex-1', 'wiring');
+            $this->ledger->record(['client_id' => 'codex-1', 'task_family' => 'wiring', 'outcome' => 'success']);
         }
 
         $out = $this->router()->routePacket(
@@ -282,7 +282,7 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
 
         // codex-1 has 4 task_class successes; claude-1 is overloaded.
         for ($i = 0; $i < 4; $i++) {
-            $this->ledger->record('success', 'codex-1', 'wiring');
+            $this->ledger->record(['client_id' => 'codex-1', 'task_family' => 'wiring', 'outcome' => 'success']);
         }
 
         $out = $this->router()->routePacket(
@@ -395,7 +395,7 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
     {
         $conflictFile = 'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php';
         for ($i = 0; $i < 4; $i++) {
-            $this->ledger->record('success', 'codex-1', 'wiring');
+            $this->ledger->record(['client_id' => 'codex-1', 'task_family' => 'wiring', 'outcome' => 'success']);
         }
 
         $out = $this->router()->routePacket(
@@ -413,7 +413,7 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
     {
         config(['atlas.maestro.adaptive.max_active_claims' => 2]);
         for ($i = 0; $i < 4; $i++) {
-            $this->ledger->record('success', 'codex-1', 'wiring');
+            $this->ledger->record(['client_id' => 'codex-1', 'task_family' => 'wiring', 'outcome' => 'success']);
         }
 
         $out = $this->router()->routePacket(

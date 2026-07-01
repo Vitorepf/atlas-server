@@ -65,8 +65,7 @@ final class AtlasMaestroWorkerAffinityRouter
                 continue;
             }
             $facts    = $ledger->recall($worker, $taskClass);
-            $success  = (int) ($facts['success']       ?? 0);
-            $giveBack = (int) ($facts['give_back']      ?? 0);
+            [$success, $giveBack] = $this->rawCounts($facts);
             $served   = (int) ($facts['served']         ?? 0);
             $gateRej  = (int) ($facts['gate_rejected']  ?? 0);
 
@@ -211,8 +210,7 @@ final class AtlasMaestroWorkerAffinityRouter
             $available = [];
             foreach ($nonConflict as $worker) {
                 $facts      = $ledger->recall($worker, 'family:'.$taskFamily);
-                $gb         = (int) ($facts['give_back']     ?? 0);
-                $succ       = (int) ($facts['success']       ?? 0);
+                [$succ, $gb] = $this->rawCounts($facts);
                 $gateRej    = (int) ($facts['gate_rejected'] ?? 0);
                 $srv        = (int) ($facts['served']        ?? 0);
                 $gbRate     = $gb     / max(1, $succ + $gb);
@@ -280,6 +278,28 @@ final class AtlasMaestroWorkerAffinityRouter
             'routing_explanation' => 'abstained_no_evidence_in_any_routing_key',
             'avoid_reasons'       => $this->buildAvoidReasons($conflictWorkers, $overloadedWorkers, $avoidedWorkers, []),
         ];
+    }
+
+    /**
+     * Recovers raw success/give_back counts from a ledger recall(). Prefers raw count keys when a
+     * caller's ledger (or test double) supplies them directly; otherwise derives them from the rate
+     * fields the real AtlasMaestroWorkerBehaviorLedger exposes (success_rate/give_back_rate ×
+     * total_events), so the router stays correct whether the ledger reports counts or rates.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array{0:int,1:int} [success, give_back]
+     */
+    private function rawCounts(array $facts): array
+    {
+        if (array_key_exists('success', $facts) || array_key_exists('give_back', $facts)) {
+            return [(int) ($facts['success'] ?? 0), (int) ($facts['give_back'] ?? 0)];
+        }
+
+        $totalEvents = (int) ($facts['total_events'] ?? 0);
+        $success = (int) round(((float) ($facts['success_rate'] ?? 0.0)) * $totalEvents);
+        $giveBack = (int) round(((float) ($facts['give_back_rate'] ?? 0.0)) * $totalEvents);
+
+        return [$success, $giveBack];
     }
 
     /**
