@@ -436,4 +436,51 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
         $this->assertSame(0, $result['areas']['maestro']['capability_gain']);
         $this->assertSame(1, $result['areas']['maestro']['scaffolding_risk']);
     }
+
+    // ── AC: domain_map_updates ────────────────────────────────────────────────
+
+    public function test_domain_map_updates_has_one_entry_per_area(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['area' => 'loop']),
+            $this->sample(['area' => 'maestro']),
+        ]]);
+
+        $this->assertCount(2, $result['domain_map_updates']);
+        $areas = array_column($result['domain_map_updates'], 'area');
+        $this->assertContains('loop', $areas);
+        $this->assertContains('maestro', $areas);
+    }
+
+    public function test_domain_map_update_entry_includes_required_fields(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [$this->sample()]]);
+
+        $entry = $result['domain_map_updates'][0];
+        foreach (['area', 'maturity_band', 'owner_signal', 'evidence_freshness', 'next_structural_lever'] as $key) {
+            $this->assertArrayHasKey($key, $entry, "Missing key: {$key}");
+        }
+    }
+
+    public function test_domain_map_updates_are_deterministic(): void
+    {
+        $samples = [$this->sample(['area' => 'loop']), $this->sample(['area' => 'maestro'])];
+
+        $a = $this->ledger->aggregate(['samples' => $samples]);
+        $b = $this->ledger->aggregate(['samples' => $samples]);
+
+        $this->assertSame($a['domain_map_updates'], $b['domain_map_updates']);
+    }
+
+    public function test_scaffolding_only_volume_still_cannot_inflate_capability_gain(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['area' => 'scaffold_heavy', 'value_class' => 'scaffolding', 'integration_evidence' => false, 'task_count' => 10]),
+        ]]);
+
+        $this->assertSame(0, $result['areas']['scaffold_heavy']['capability_gain']);
+        $entry = $result['domain_map_updates'][0];
+        $this->assertNotSame('mature', $entry['maturity_band']);
+        $this->assertNotSame('developing', $entry['maturity_band']);
+    }
 }

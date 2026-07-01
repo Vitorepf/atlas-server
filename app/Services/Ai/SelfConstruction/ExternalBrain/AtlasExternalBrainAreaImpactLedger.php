@@ -172,12 +172,26 @@ final class AtlasExternalBrainAreaImpactLedger
         }
         $nextLeverageCandidate ??= array_key_first($areas);
 
+        // One deterministic knowledge-sync entry per area, mirroring the per-area facts already
+        // computed above — a direct feed for domain-map maturity/ownership sync consumers.
+        $domainMapUpdates = [];
+        foreach ($areas as $areaEntry) {
+            $domainMapUpdates[] = [
+                'area'                  => $areaEntry['area'],
+                'maturity_band'         => $areaEntry['maturity_band'],
+                'owner_signal'          => $areaEntry['owner_signal'],
+                'evidence_freshness'    => $areaEntry['evidence_freshness'],
+                'next_structural_lever' => $areaEntry['next_structural_lever'],
+            ];
+        }
+
         return [
             'schema'                  => self::SCHEMA,
             'areas'                   => $areas,
             'area_count'              => count($areas),
             'sample_count'            => count($samples),
             'next_leverage_candidate' => $nextLeverageCandidate,
+            'domain_map_updates'      => $domainMapUpdates,
         ];
     }
 
