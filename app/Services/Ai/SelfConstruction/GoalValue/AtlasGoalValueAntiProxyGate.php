@@ -49,8 +49,11 @@ final class AtlasGoalValueAntiProxyGate
 
     /** Maps each lever family to its falsifiable evidence demand. */
     private const EVIDENCE_DEMANDS = [
-        'capability_lift' => 'capability_lift:prove_with_green_test_gate_and_behavior_observable',
-        'failure_removal' => 'failure_removal:prove_with_red_to_green_trace_and_receipt',
+        'capability_lift'         => 'capability_lift:prove_with_green_test_gate_and_behavior_observable',
+        'failure_removal'         => 'failure_removal:prove_with_red_to_green_trace_and_receipt',
+        'autonomy_increase'       => 'autonomy_increase:prove_with_before_after_human_or_provider_dependency_removed',
+        'simplification_deletion' => 'simplification_deletion:prove_with_behavior_equivalence_and_rollback_receipt',
+        'proof_strength_increase' => 'proof_strength_increase:prove_with_stronger_evidence_tier_receipt',
     ];
 
     /**
@@ -69,7 +72,11 @@ final class AtlasGoalValueAntiProxyGate
 
         $capabilityRefs = $this->normalizeRefs((array) ($realLevers['capability_lift_refs'] ?? []));
         $failureRefs = $this->normalizeRefs((array) ($realLevers['failure_removal_refs'] ?? []));
-        $hasRealLever = $capabilityRefs !== [] || $failureRefs !== [];
+        $autonomyRefs = $this->normalizeRefs((array) ($realLevers['autonomy_increase_refs'] ?? []));
+        $simplificationRefs = $this->normalizeRefs((array) ($realLevers['simplification_deletion_refs'] ?? []));
+        $proofStrengthRefs = $this->normalizeRefs((array) ($realLevers['proof_strength_increase_refs'] ?? []));
+        $hasRealLever = $capabilityRefs !== [] || $failureRefs !== []
+            || $autonomyRefs !== [] || $simplificationRefs !== [] || $proofStrengthRefs !== [];
 
         $families = [];
         if ($capabilityRefs !== []) {
@@ -77,6 +84,15 @@ final class AtlasGoalValueAntiProxyGate
         }
         if ($failureRefs !== []) {
             $families[] = 'failure_removal';
+        }
+        if ($autonomyRefs !== []) {
+            $families[] = 'autonomy_increase';
+        }
+        if ($simplificationRefs !== []) {
+            $families[] = 'simplification_deletion';
+        }
+        if ($proofStrengthRefs !== []) {
+            $families[] = 'proof_strength_increase';
         }
 
         $blocked = ! $hasRealLever && $present !== [];

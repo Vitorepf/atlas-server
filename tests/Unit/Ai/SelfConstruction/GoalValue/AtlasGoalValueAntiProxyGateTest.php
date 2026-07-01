@@ -45,6 +45,42 @@ final class AtlasGoalValueAntiProxyGateTest extends TestCase
         $this->assertTrue($verdict['has_real_lever']);
     }
 
+    public function test_real_autonomy_increase_unlocks_proxy(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(
+            ['task_count' => true],
+            ['autonomy_increase_refs' => ['receipt:human-dependency-removed-1']],
+        );
+
+        $this->assertFalse($verdict['blocked']);
+        $this->assertTrue($verdict['has_real_lever']);
+        $this->assertContains('autonomy_increase', $verdict['real_lever_families']);
+    }
+
+    public function test_real_simplification_deletion_unlocks_proxy(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(
+            ['line_churn' => true],
+            ['simplification_deletion_refs' => ['receipt:organ-deleted-1']],
+        );
+
+        $this->assertFalse($verdict['blocked']);
+        $this->assertTrue($verdict['has_real_lever']);
+        $this->assertContains('simplification_deletion', $verdict['real_lever_families']);
+    }
+
+    public function test_real_proof_strength_increase_unlocks_proxy(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(
+            ['self_reported_success' => true],
+            ['proof_strength_increase_refs' => ['receipt:evidence-tier-raised-1']],
+        );
+
+        $this->assertFalse($verdict['blocked']);
+        $this->assertTrue($verdict['has_real_lever']);
+        $this->assertContains('proof_strength_increase', $verdict['real_lever_families']);
+    }
+
     public function test_no_proxy_no_lever_yields_unblocked_quiet_envelope(): void
     {
         $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate([], []);
