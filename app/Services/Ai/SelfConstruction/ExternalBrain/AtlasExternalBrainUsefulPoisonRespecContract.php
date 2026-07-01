@@ -68,12 +68,22 @@ final class AtlasExternalBrainUsefulPoisonRespecContract
 
         $missingFiles = array_values(array_diff($requiredImplementationFiles, $allowedFiles));
         if ($missingFiles !== []) {
+            $correctedAllowedFiles = array_values(array_unique(array_merge($allowedFiles, $missingFiles)));
+
             return [
                 'schema' => self::SCHEMA,
                 'replacement_allowed' => true,
                 'operator_action_required' => false,
                 'added_required_files' => $missingFiles,
                 'reason' => self::REASON_SCOPE_CLOSURE_REPAIRED,
+                'refusal_reason' => null,
+                'corrected_allowed_files' => $correctedAllowedFiles,
+                'corrected_acceptance_summary' => 'scope closure repaired: added '.count($missingFiles).' missing implementation file(s) to allowed_files',
+                'replacement_plan' => [
+                    'action' => 'repair_scope_closure',
+                    'corrected_allowed_files' => $correctedAllowedFiles,
+                    'added_required_files' => $missingFiles,
+                ],
             ];
         }
 
@@ -83,6 +93,14 @@ final class AtlasExternalBrainUsefulPoisonRespecContract
             'operator_action_required' => false,
             'added_required_files' => [],
             'reason' => self::REASON_NO_REPAIR_NEEDED,
+            'refusal_reason' => null,
+            'corrected_allowed_files' => $allowedFiles,
+            'corrected_acceptance_summary' => 'packet already implementable as-is; no repair needed',
+            'replacement_plan' => [
+                'action' => 'respec_unchanged',
+                'corrected_allowed_files' => $allowedFiles,
+                'added_required_files' => [],
+            ],
         ];
     }
 
@@ -94,6 +112,10 @@ final class AtlasExternalBrainUsefulPoisonRespecContract
             'operator_action_required' => $operatorActionRequired,
             'added_required_files' => [],
             'reason' => $reason,
+            'refusal_reason' => $reason,
+            'corrected_allowed_files' => [],
+            'corrected_acceptance_summary' => null,
+            'replacement_plan' => null,
         ];
     }
 }
