@@ -52,6 +52,30 @@ final class AtlasExternalBrainAutonomyRegressionOracle
      */
     public function assess(array $input): array
     {
+        $missingEvidence = [];
+        if (! array_key_exists('before', $input) || ! is_array($input['before'])) {
+            $missingEvidence[] = 'missing_baseline_snapshot';
+        }
+        if (! array_key_exists('after', $input) || ! is_array($input['after'])) {
+            $missingEvidence[] = 'missing_current_snapshot';
+        }
+        if (! array_key_exists('evidence_fresh', $input) || $input['evidence_fresh'] !== true) {
+            $missingEvidence[] = 'missing_or_stale_evidence_freshness';
+        }
+        if ($missingEvidence !== []) {
+            return [
+                'schema'                      => self::SCHEMA,
+                'autonomy_delta'              => 0.0,
+                'regression_flags'            => $missingEvidence,
+                'improvement_flags'           => [],
+                'severity'                    => self::SEVERITY_CRITICAL,
+                'required_repair_task_family' => self::REPAIR_FAMILY[self::SEVERITY_CRITICAL],
+                'regression_status'           => 'fail_closed_missing_evidence',
+                'worsened_dimensions'         => [],
+                'blocking_reason'             => 'refusing to declare pass without complete before/after/evidence_fresh evidence: '.implode(', ', $missingEvidence),
+            ];
+        }
+
         $before = (array) ($input['before'] ?? []);
         $after  = (array) ($input['after']  ?? []);
         $seams  = (array) ($input['bootstrap_seams'] ?? []);

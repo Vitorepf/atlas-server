@@ -29,7 +29,58 @@ final class AtlasExternalBrainAutonomyRegressionOracleTest extends TestCase
 
         $after = array_merge($before, $afterOverrides);
 
-        return ['before' => $before, 'after' => $after, 'bootstrap_seams' => $seams];
+        return ['before' => $before, 'after' => $after, 'bootstrap_seams' => $seams, 'evidence_fresh' => true];
+    }
+
+    // ── AC1: fail closed on missing baseline/current/evidence-freshness ───────
+
+    public function test_missing_before_fails_closed(): void
+    {
+        $result = $this->oracle->assess(['after' => [], 'evidence_fresh' => true]);
+
+        $this->assertSame('fail_closed_missing_evidence', $result['regression_status']);
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_CRITICAL, $result['severity']);
+        $this->assertContains('missing_baseline_snapshot', $result['regression_flags']);
+        $this->assertNotNull($result['blocking_reason']);
+    }
+
+    public function test_missing_after_fails_closed(): void
+    {
+        $result = $this->oracle->assess(['before' => [], 'evidence_fresh' => true]);
+
+        $this->assertSame('fail_closed_missing_evidence', $result['regression_status']);
+        $this->assertContains('missing_current_snapshot', $result['regression_flags']);
+    }
+
+    public function test_missing_evidence_freshness_fails_closed(): void
+    {
+        $result = $this->oracle->assess(['before' => [], 'after' => []]);
+
+        $this->assertSame('fail_closed_missing_evidence', $result['regression_status']);
+        $this->assertContains('missing_or_stale_evidence_freshness', $result['regression_flags']);
+    }
+
+    public function test_stale_evidence_freshness_fails_closed(): void
+    {
+        $result = $this->oracle->assess(['before' => [], 'after' => [], 'evidence_fresh' => false]);
+
+        $this->assertSame('fail_closed_missing_evidence', $result['regression_status']);
+        $this->assertContains('missing_or_stale_evidence_freshness', $result['regression_flags']);
+    }
+
+    public function test_empty_input_fails_closed_with_all_three_reasons(): void
+    {
+        $result = $this->oracle->assess([]);
+
+        $this->assertSame('fail_closed_missing_evidence', $result['regression_status']);
+        $this->assertCount(3, $result['regression_flags']);
+    }
+
+    public function test_complete_evidence_does_not_fail_closed(): void
+    {
+        $result = $this->oracle->assess($this->base());
+
+        $this->assertNotSame('fail_closed_missing_evidence', $result['regression_status']);
     }
 
     // ── Schema / keys ─────────────────────────────────────────────────────────
