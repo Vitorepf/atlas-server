@@ -252,7 +252,9 @@ final class AgentControlPlaneChainIntegrityCorridorAnalyzer
     }
 
     /**
-     * Thin seam over {@see AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis}.
+     * Wraps {@see AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis} with
+     * the terminal-horizon vocabulary this corridor consumer needs: next_required_slice
+     * (what to resume at) and terminal_blockers (why it cannot, when the horizon fails).
      *
      * @param  list<array<string, string>>  $deepChain
      * @param  array<string, mixed>  $cycleIntegrity
@@ -260,7 +262,26 @@ final class AgentControlPlaneChainIntegrityCorridorAnalyzer
      */
     public function terminalHorizonAnalysis(array $deepChain, string $currentNextRequiredSlice, array $cycleIntegrity): array
     {
-        return AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis($deepChain, $currentNextRequiredSlice, $cycleIntegrity);
+        $analysis = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis($deepChain, $currentNextRequiredSlice, $cycleIntegrity);
+
+        $horizonOk = (bool) ($analysis['horizon_ok'] ?? false);
+        $nextSafeMacroBatch = $analysis['next_safe_macro_batch'] ?? null;
+
+        $analysis['next_required_slice'] = $horizonOk
+            ? ((string) ($nextSafeMacroBatch ?? $currentNextRequiredSlice))
+            : $currentNextRequiredSlice;
+
+        $analysis['terminal_blockers'] = $horizonOk
+            ? []
+            : [
+                [
+                    'blocker_type' => (string) ($analysis['horizon_type'] ?? 'blocked_unknown'),
+                    'reason' => (string) ($analysis['horizon_reason'] ?? ''),
+                    'pointer' => $currentNextRequiredSlice,
+                ],
+            ];
+
+        return $analysis;
     }
 
     /**
