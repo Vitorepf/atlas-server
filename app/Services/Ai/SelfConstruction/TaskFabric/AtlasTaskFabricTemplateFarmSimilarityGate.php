@@ -17,6 +17,16 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  *
  * A coherent macro-batch where each packet has a distinct proof path but shares a
  * common research thesis will produce low repeated-fragment coverage and pass.
+ *
+ * mechanism_hashes (new): a per-packet hash of (objective stem + sorted proof-path shapes) —
+ * the literal "mechanism and proof shape" hash. Two arm/wrapper/proxy packets with different
+ * class names but the same underlying stem and proof-gate boilerplate collapse to the SAME
+ * mechanism hash even though their raw text differs; it participates in similarity_score the
+ * same way every other repeated-signal ratio does.
+ *
+ * replacement_hint (new): non-null only when blocking=true. Names which repeated signal(s)
+ * triggered the block and asks explicitly for a different leverage MECHANISM — a renamed
+ * target or rewritten prose that keeps the same stem/proof shape does not satisfy it.
  */
 final class AtlasTaskFabricTemplateFarmSimilarityGate
 {
@@ -53,6 +63,8 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
                 'repeated_allowed_files_shapes' => [],
                 'repeated_proof_paths' => [],
                 'repeated_acceptance_verbs' => [],
+                'repeated_mechanism_hashes' => [],
+                'replacement_hint' => null,
                 'blocking' => false,
                 'packet_count' => $total,
             ];
@@ -113,6 +125,16 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
         $templateSignatures = array_map(fn (string $stem): array => $this->extractTemplateSignatures($stem), $stems);
         [$repeatedTemplates, $packetsWithRepeatedTemplate] = $this->repeatedMultiSignalRatio($templateSignatures);
 
+        // Mechanism hash: stem + sorted proof-path shapes, hashed. Two arm/wrapper/proxy packets
+        // that differ only by class name collapse to the same hash here even if none of the
+        // above signals individually crossed the repetition threshold.
+        $mechanismHashes = array_map(
+            fn (string $stem, array $proofPaths): string => $this->mechanismHash($stem, $proofPaths),
+            $stems,
+            $proofPaths,
+        );
+        [$repeatedMechanismHashes, $packetsWithRepeatedMechanismHash] = $this->repeatedSignalRatio($mechanismHashes);
+
         $score = round(max(
             $packetsWithRepeatedStem / $total,
             $packetsWithRepeatedFrag / $total,
@@ -120,7 +142,9 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
             $packetsWithRepeatedProofPath / $total,
             $packetsWithRepeatedVerb / $total,
             $packetsWithRepeatedTemplate / $total,
+            $packetsWithRepeatedMechanismHash / $total,
         ), 3);
+        $blocking = $score >= self::BLOCKING_THRESHOLD;
 
         return [
             'schema_version' => self::SCHEMA,
@@ -131,9 +155,31 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
             'repeated_proof_paths' => $repeatedProofPaths,
             'repeated_acceptance_verbs' => $repeatedVerbs,
             'repeated_noun_substitution_templates' => $repeatedTemplates,
-            'blocking' => $score >= self::BLOCKING_THRESHOLD,
+            'repeated_mechanism_hashes' => $repeatedMechanismHashes,
+            'replacement_hint' => $blocking ? $this->replacementHint($repeatedMechanismHashes) : null,
+            'blocking' => $blocking,
             'packet_count' => $total,
         ];
+    }
+
+    /**
+     * @param  list<string>  $repeatedMechanismHashes
+     */
+    private function replacementHint(array $repeatedMechanismHashes): string
+    {
+        return $repeatedMechanismHashes !== []
+            ? 'Multiple packets share a mechanism hash (same stem + proof shape). Renaming the target class or rewording the objective will not clear this — propose a genuinely different leverage mechanism (different failure mode, different proof path, different structural approach) for the duplicate packets.'
+            : 'This batch is a disguised template farm. Renaming the target class or rewording the objective will not clear this — propose a genuinely different leverage mechanism (different failure mode, different proof path, different structural approach) for the repeated packets.';
+    }
+
+    /**
+     * @param  list<string>  $proofPaths
+     */
+    private function mechanismHash(string $stem, array $proofPaths): string
+    {
+        sort($proofPaths);
+
+        return hash('sha256', $stem.'|'.implode(',', $proofPaths));
     }
 
     /**

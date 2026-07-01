@@ -292,6 +292,83 @@ final class AtlasTaskFabricTemplateFarmSimilarityGateTest extends TestCase
         $this->assertSame([], $r['repeated_acceptance_verbs']);
     }
 
+    // ── AC2: arm/wrapper/proxy specs with different names share a mechanism hash ──
+
+    public function test_arm_wrapper_proxy_specs_with_different_names_share_mechanism_hash_and_are_blocked(): void
+    {
+        $r = $this->svc()->assess([
+            $this->packet(
+                'Implement AtlasFooArm to proxy requests to the underlying handler',
+                ['/opt/homebrew/bin/php artisan test --filter=FooArmTest exits 0'],
+            ),
+            $this->packet(
+                'Implement AtlasBarArm to proxy requests to the underlying handler',
+                ['/opt/homebrew/bin/php artisan test --filter=BarArmTest exits 0'],
+            ),
+            $this->packet(
+                'Implement AtlasBazArm to proxy requests to the underlying handler',
+                ['/opt/homebrew/bin/php artisan test --filter=BazArmTest exits 0'],
+            ),
+        ]);
+
+        $this->assertNotEmpty($r['repeated_mechanism_hashes']);
+        $this->assertTrue($r['blocking']);
+    }
+
+    // ── AC3: genuinely different mechanisms with similar wording are allowed ──────
+
+    public function test_similar_wording_but_genuinely_different_mechanisms_is_not_blocked(): void
+    {
+        $r = $this->svc()->assess([
+            $this->packet(
+                'Implement AtlasFoo to proxy requests to the underlying handler with retry backoff',
+                ['/opt/homebrew/bin/php artisan test --filter=FooRetryTest exits 0'],
+            ),
+            $this->packet(
+                'Implement AtlasBar to proxy requests to a different downstream via circuit breaker',
+                ['vendor/bin/phpunit --filter=BarCircuitBreakerTest'],
+            ),
+            $this->packet(
+                'Implement AtlasBaz to proxy requests using content-based routing rules',
+                ['given a routing rule the proxy selects the matching downstream target'],
+            ),
+        ]);
+
+        $this->assertSame([], $r['repeated_mechanism_hashes']);
+        $this->assertFalse($r['blocking']);
+    }
+
+    // ── AC4: replacement hint asks for a different mechanism, not rewritten prose ──
+
+    public function test_replacement_hint_asks_for_a_different_mechanism_when_blocked(): void
+    {
+        $packets = [];
+        for ($i = 0; $i < 3; $i++) {
+            $packets[] = $this->packet(
+                "Implement AtlasVariant{$i} to evaluate the packet and return a score for the task",
+                ['the gate must reject packets that fail validation and return a reason'],
+            );
+        }
+
+        $r = $this->svc()->assess($packets);
+
+        $this->assertTrue($r['blocking']);
+        $this->assertNotNull($r['replacement_hint']);
+        $this->assertStringContainsString('leverage mechanism', $r['replacement_hint']);
+        $this->assertStringContainsString('Renaming', $r['replacement_hint']);
+    }
+
+    public function test_replacement_hint_is_null_when_not_blocked(): void
+    {
+        $r = $this->svc()->assess([
+            $this->packet('Implement AtlasFoo to detect gate holes in the certification pipeline'),
+            $this->packet('Implement AtlasBar to compress evidence records using adaptive sampling'),
+        ]);
+
+        $this->assertFalse($r['blocking']);
+        $this->assertNull($r['replacement_hint']);
+    }
+
     public function test_macro_batch_distinct_files_proof_paths_and_verbs_stays_unblocked(): void
     {
         $r = $this->svc()->assess([
