@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Simulation;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 // PSR-4 maps DryRunReceipt to the dry-runner file; force load it before typehinting.
 \class_exists(AtlasLoopSimulationDryRunner::class);
 
 /**
  * Append-only JSONL ledger of every DryRunReceipt produced by AtlasLoopSimulationDryRunner.
- * Exposes ONLY append/history — no update, delete, truncate. flock(LOCK_EX) on every append
- * so 8 concurrent writers produce 8 well-formed lines (no interleaving). Each line carries a
- * prev_line_sha256 so any post-hoc tampering is detected on read.
+ * Exposes ONLY append/history — no update, delete, truncate. Raw line IO (mkdir, exclusive-lock
+ * append, line read-back) is delegated to the kernel {@see JsonlReceiptStore}; this class owns
+ * only the domain payload: schema, receipt id, and the prev_line_sha256 chain so any post-hoc
+ * tampering is detected on read. The chain hash is derived from the current tail INSIDE the
+ * store's write lock, so 8 concurrent writers still produce 8 well-formed chained lines.
  */
 final class AtlasLoopSimulationReceiptLedger
 {
@@ -21,39 +25,21 @@ final class AtlasLoopSimulationReceiptLedger
 
     public function append(DryRunReceipt $receipt): string
     {
-        $path = $this->resolvePath();
-        $dir = \dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new \RuntimeException('atlas_simulation_ledger_mkdir_failed');
-        }
-        $fh = @fopen($path, 'ab+');
-        if ($fh === false) {
-            throw new \RuntimeException('atlas_simulation_ledger_open_failed');
-        }
-        try {
-            if (! @flock($fh, LOCK_EX)) {
-                throw new \RuntimeException('atlas_simulation_ledger_lock_failed');
-            }
-            $prev = $this->prevLineSha256($path);
-            $receiptId = $this->uuidv7();
+        $receiptId = $this->uuidv7();
+        $this->store()->appendWith(function (?string $lastLine) use ($receipt, $receiptId): array {
             $payload = [
                 'schema' => self::SCHEMA,
                 'receipt_id' => $receiptId,
                 'recorded_at' => gmdate('Y-m-d\TH:i:s\Z'),
-                'prev_line_sha256' => $prev,
+                'prev_line_sha256' => $lastLine === null ? str_repeat('0', 64) : hash('sha256', $lastLine),
                 'receipt' => $receipt->toArray(),
             ];
             ksort($payload, SORT_STRING);
-            $line = (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            fseek($fh, 0, SEEK_END);
-            fwrite($fh, $line."\n");
-            fflush($fh);
 
-            return $receiptId;
-        } finally {
-            @flock($fh, LOCK_UN);
-            fclose($fh);
-        }
+            return $payload;
+        });
+
+        return $receiptId;
     }
 
     /**
@@ -61,21 +47,16 @@ final class AtlasLoopSimulationReceiptLedger
      */
     public function history(int $limit = 50, ?string $sinceSha = null): array
     {
-        $path = $this->resolvePath();
-        if (! is_file($path)) {
-            return [];
-        }
         $rows = [];
         $expectedPrev = str_repeat('0', 64);
-        $prevForChainCheck = '';
-        foreach ((array) file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $decoded = json_decode((string) $line, true);
+        foreach ($this->store()->rawLines() as $line) {
+            $decoded = json_decode($line, true);
             if (! is_array($decoded)) {
                 continue;
             }
             $storedPrev = (string) ($decoded['prev_line_sha256'] ?? '');
             $decoded['chain_valid'] = ($storedPrev === $expectedPrev);
-            $expectedPrev = hash('sha256', (string) $line);
+            $expectedPrev = hash('sha256', $line);
             $rows[] = $decoded;
         }
         if ($sinceSha !== null && $sinceSha !== '') {
@@ -98,6 +79,11 @@ final class AtlasLoopSimulationReceiptLedger
         return $this->resolvePath();
     }
 
+    private function store(): JsonlReceiptStore
+    {
+        return new JsonlReceiptStore($this->resolvePath());
+    }
+
     private function resolvePath(): string
     {
         if ($this->path !== null && $this->path !== '') {
@@ -108,20 +94,6 @@ final class AtlasLoopSimulationReceiptLedger
         }
 
         return sys_get_temp_dir().'/atlas-loop-simulation-receipts.jsonl';
-    }
-
-    private function prevLineSha256(string $path): string
-    {
-        if (! is_file($path)) {
-            return str_repeat('0', 64);
-        }
-        $lines = (array) file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if ($lines === []) {
-            return str_repeat('0', 64);
-        }
-        $last = (string) end($lines);
-
-        return hash('sha256', $last);
     }
 
     private function uuidv7(): string

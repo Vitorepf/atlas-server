@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 
@@ -54,9 +55,6 @@ final class AtlasLoopModelFloorReceiptLedger
     {
         $this->assertIntact();
 
-        $lines = $this->readLines();
-        $prev = $lines === [] ? '' : (string) ($lines[count($lines) - 1]['sha256'] ?? '');
-
         $core = [];
         foreach (self::RECEIPT_FIELDS as $field) {
             $core[$field] = array_key_exists($field, $payload) ? $payload[$field] : null;
@@ -66,15 +64,20 @@ final class AtlasLoopModelFloorReceiptLedger
         }
         $core['schema'] = self::SCHEMA;
 
-        $own = $this->hashLine($prev, $core);
-        $line = $core + ['prev_sha256' => $prev, 'sha256' => $own];
+        $line = [];
+        $count = 0;
+        // Prev hash comes from the tail INSIDE the store's write lock — the read-then-append race
+        // the old inline file_put_contents left open under concurrent writers.
+        $this->store()->appendWith(function (?string $lastLine) use ($core, &$line, &$count): array {
+            $decodedLast = $lastLine === null ? null : json_decode($lastLine, true);
+            $prev = is_array($decodedLast) ? (string) ($decodedLast['sha256'] ?? '') : '';
+            $own = $this->hashLine($prev, $core);
+            $line = $core + ['prev_sha256' => $prev, 'sha256' => $own];
+            $count = count($this->readLines()) + 1;
 
-        $dir = dirname($this->ledgerPath);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o775, true) && ! is_dir($dir)) {
-            throw new RuntimeException("floor-receipt ledger dir not writable: {$dir}");
-        }
-        file_put_contents($this->ledgerPath, json_encode($line, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL, FILE_APPEND | LOCK_EX);
-        file_put_contents($this->headPath, json_encode(['count' => count($lines) + 1, 'head_sha256' => $own], JSON_UNESCAPED_SLASHES), LOCK_EX);
+            return $line;
+        });
+        file_put_contents($this->headPath, json_encode(['count' => $count, 'head_sha256' => (string) $line['sha256']], JSON_UNESCAPED_SLASHES), LOCK_EX);
 
         return $line;
     }
@@ -147,19 +150,17 @@ final class AtlasLoopModelFloorReceiptLedger
      */
     private function readLines(): array
     {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
         $out = [];
-        foreach (preg_split('/\R/', (string) @file_get_contents($this->ledgerPath)) ?: [] as $raw) {
-            $raw = trim($raw);
-            if ($raw === '') {
-                continue;
-            }
+        foreach ($this->store()->rawLines() as $raw) {
             $decoded = json_decode($raw, true);
             $out[] = is_array($decoded) ? $decoded : ['__corrupt__' => $raw];
         }
 
         return $out;
+    }
+
+    private function store(): JsonlReceiptStore
+    {
+        return new JsonlReceiptStore($this->ledgerPath);
     }
 }
