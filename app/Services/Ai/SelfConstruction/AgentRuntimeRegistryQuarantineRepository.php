@@ -20,6 +20,22 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  * never spends tokens, never writes the evidence ledger. Quarantine
  * blocks availability; release requires reviewer + reason. There is no
  * silent release.
+ *
+ * scope (AC2): an optional bounded list of capabilities/task_families/allowed_files this
+ * quarantine restricts. Defaults to [] (unrestricted — blocks everything), purely additive.
+ *
+ * Evidence-gated release (AC3, opt-in): when a quarantine is declared with
+ * require_evidence_for_release=true, release() also requires a non-empty evidence_refs list,
+ * blocking with release_evidence_refs_missing otherwise. Quarantines that never set this flag
+ * (every pre-existing caller) keep release()'s original reviewer+reason-only contract exactly.
+ * Either way, the release receipt and release_history entry are appended, never deleting or
+ * rewriting the original quarantine history.
+ *
+ * Dispatch block classification (AC4): dispatchBlock() reports quarantine_status distinguishing
+ * active (currently quarantined, retry window not yet passed), expired (quarantined but
+ * retry_after_at has passed — the time-based block has lapsed even though no explicit release()
+ * has happened), released (explicitly released) and unrelated (never quarantined at all).
+ * dispatch_block is true only for active.
  */
 final class AgentRuntimeRegistryQuarantineRepository
 {
@@ -89,6 +105,10 @@ final class AgentRuntimeRegistryQuarantineRepository
                 : array_values(array_filter([(string) ($reason['evidence'] ?? '')], static fn (string $e): bool => $e !== ''));
             $releaseCondition = (string) ($reason['release_condition'] ?? '');
             $retryAfterMinutes = max(0, (int) ($reason['retry_after_minutes'] ?? 0));
+            $scope = is_array($reason['scope'] ?? null)
+                ? array_values(array_map('strval', $reason['scope']))
+                : array_values(array_filter([(string) ($reason['scope'] ?? '')], static fn (string $s): bool => $s !== ''));
+            $requireEvidenceForRelease = (bool) ($reason['require_evidence_for_release'] ?? false);
 
             $now = CarbonImmutable::now();
             $nowIso = $now->toIso8601String();
@@ -107,6 +127,8 @@ final class AgentRuntimeRegistryQuarantineRepository
                 'release_condition' => $releaseCondition,
                 'retry_after_minutes' => $retryAfterMinutes,
                 'retry_after_at' => $retryAfterMinutes > 0 ? $now->addMinutes($retryAfterMinutes)->toIso8601String() : null,
+                'scope' => $scope,
+                'require_evidence_for_release' => $requireEvidenceForRelease,
                 'declared_by' => $declaredBy,
                 'declared_at' => $nowIso,
                 'released' => false,
@@ -173,16 +195,25 @@ final class AgentRuntimeRegistryQuarantineRepository
                 return $this->envelopeError('agent_not_currently_quarantined', $agentId);
             }
 
+            $evidenceRefs = is_array($payload['evidence_refs'] ?? null)
+                ? array_values(array_filter(array_map('strval', $payload['evidence_refs']), static fn (string $e): bool => $e !== ''))
+                : [];
+            if ((bool) ($record['require_evidence_for_release'] ?? false) && $evidenceRefs === []) {
+                return $this->envelopeError('release_evidence_refs_missing', $agentId);
+            }
+
             $now = CarbonImmutable::now()->toIso8601String();
             $record['is_quarantined'] = false;
             $record['released'] = true;
             $record['released_at'] = $now;
             $record['released_by'] = $reviewer;
             $record['release_reason'] = $reason;
+            $record['release_evidence_refs'] = $evidenceRefs;
             $record['release_history'][] = [
                 'at' => $now,
                 'reviewer' => $reviewer,
                 'reason' => $reason,
+                'evidence_refs' => $evidenceRefs,
                 'previous_reason_code' => (string) ($record['reason_code'] ?? ''),
             ];
             $record['history'][] = [
@@ -190,16 +221,19 @@ final class AgentRuntimeRegistryQuarantineRepository
                 'at' => $now,
                 'reviewer' => $reviewer,
                 'reason' => $reason,
+                'evidence_refs' => $evidenceRefs,
             ];
             $record['receipts'][] = [
                 'receipt_kind' => 'quarantine_released',
                 'recorded_at' => $now,
                 'reviewer' => $reviewer,
                 'reason' => $reason,
+                'evidence_refs' => $evidenceRefs,
                 'receipt_hash' => $this->stableHash([
                     'agent_id' => $agentId,
                     'reviewer' => $reviewer,
                     'reason' => $reason,
+                    'evidence_refs' => $evidenceRefs,
                     'at' => $now,
                 ]),
             ];
@@ -224,17 +258,38 @@ final class AgentRuntimeRegistryQuarantineRepository
      * Single read-only decision the dispatch matcher can consume directly:
      * is this target blocked right now, and if so what's the concrete release hint?
      *
-     * @return array{schema_version:string, target_id:string, dispatch_block:bool, target_type:?string, release_hint:?string, retry_after_at:?string}
+     * quarantine_status (AC4) distinguishes: active (currently blocking), expired (quarantined
+     * but retry_after_at has passed — no longer blocks dispatch on time grounds alone), released
+     * (explicitly released), and unrelated (this target id was never quarantined).
+     *
+     * @return array{schema_version:string, target_id:string, dispatch_block:bool, target_type:?string, release_hint:?string, retry_after_at:?string, quarantine_status:string}
      */
     public function dispatchBlock(string $targetId): array
     {
         $record = $this->readQuarantineFile($targetId);
         $isQuarantined = $record !== null && (bool) ($record['is_quarantined'] ?? false);
+        $retryAfterAt = $record['retry_after_at'] ?? null;
+
+        $isExpired = false;
+        if ($isQuarantined && $retryAfterAt !== null) {
+            try {
+                $isExpired = CarbonImmutable::now()->greaterThanOrEqualTo(CarbonImmutable::parse((string) $retryAfterAt));
+            } catch (Throwable) {
+                $isExpired = false;
+            }
+        }
+
+        $quarantineStatus = match (true) {
+            $record === null => 'unrelated',
+            ! $isQuarantined => 'released',
+            $isExpired => 'expired',
+            default => 'active',
+        };
+        $dispatchBlockFlag = $quarantineStatus === 'active';
 
         $releaseHint = null;
         if ($isQuarantined) {
             $releaseCondition = (string) ($record['release_condition'] ?? '');
-            $retryAfterAt = $record['retry_after_at'] ?? null;
             $releaseHint = $releaseCondition !== ''
                 ? $releaseCondition
                 : ($retryAfterAt !== null
@@ -243,12 +298,13 @@ final class AgentRuntimeRegistryQuarantineRepository
         }
 
         return [
-            'schema_version'  => self::SCHEMA_VERSION,
-            'target_id'       => $targetId,
-            'dispatch_block'  => $isQuarantined,
-            'target_type'     => $record['target_type'] ?? null,
-            'release_hint'    => $releaseHint,
-            'retry_after_at'  => $record['retry_after_at'] ?? null,
+            'schema_version'     => self::SCHEMA_VERSION,
+            'target_id'          => $targetId,
+            'dispatch_block'     => $dispatchBlockFlag,
+            'target_type'        => $record['target_type'] ?? null,
+            'release_hint'       => $releaseHint,
+            'retry_after_at'     => $retryAfterAt,
+            'quarantine_status'  => $quarantineStatus,
         ];
     }
 
