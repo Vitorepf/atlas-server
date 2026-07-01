@@ -34,6 +34,10 @@ final class AtlasMaestroFairnessAlertEmitter
     /** Multiplier above threshold that escalates severity to CRITICAL. */
     private const CRITICAL_RATIO = 1.5;
 
+    public const REASON_LANE_STARVATION = 'lane_starvation';
+
+    public const REASON_WORKER_OVERCONCENTRATION = 'worker_overconcentration';
+
     private const AXES = [
         ['axis' => 'workers',     'key' => 'gini_workers',      'reason_code' => 'hogging_onset',    'share_id_key' => 'max_worker_share_id'],
         ['axis' => 'task_classes', 'key' => 'gini_task_classes', 'reason_code' => 'imbalance_onset',  'share_id_key' => 'max_task_class_share_id'],
@@ -132,6 +136,76 @@ final class AtlasMaestroFairnessAlertEmitter
         }
 
         $this->saveWindow($window);
+
+        return $alerts;
+    }
+
+    /**
+     * Fine-grained fairness alerts by lane and worker (independent of the gini rolling
+     * window above). Safety-critical entries are never recommended for throttling —
+     * `throttle_recommended=false` — but a breach is still emitted for visibility.
+     *
+     * @param  array{lanes?:list<array{lane_id?:string, idle_ratio?:float, safety_critical?:bool}>, workers?:list<array{worker_id?:string, share?:float, safety_critical?:bool}>}  $facts
+     * @return list<array<string,mixed>>
+     */
+    public function emitFairnessAlerts(array $facts, ?string $observedAt = null): array
+    {
+        $observedAt = $observedAt ?? gmdate('Y-m-d\TH:i:s\Z');
+        $alerts = [];
+
+        foreach ((array) ($facts['lanes'] ?? []) as $lane) {
+            if (! is_array($lane)) {
+                continue;
+            }
+            $laneId = trim((string) ($lane['lane_id'] ?? ''));
+            $idleRatio = (float) ($lane['idle_ratio'] ?? 0.0);
+            if ($laneId === '' || $idleRatio <= $this->threshold) {
+                continue;
+            }
+            $safetyCritical = (bool) ($lane['safety_critical'] ?? false);
+            $alert = [
+                'schema' => self::SCHEMA,
+                'kind' => self::ALERT_KIND,
+                'axis' => 'lane',
+                'lane_id' => $laneId,
+                'reason_code' => self::REASON_LANE_STARVATION,
+                'severity' => $this->severity($idleRatio),
+                'idle_ratio' => $idleRatio,
+                'threshold' => $this->threshold,
+                'safety_exempt' => $safetyCritical,
+                'throttle_recommended' => ! $safetyCritical,
+                'observed_at' => $observedAt,
+            ];
+            $this->appendAlert($alert);
+            $alerts[] = $alert;
+        }
+
+        foreach ((array) ($facts['workers'] ?? []) as $worker) {
+            if (! is_array($worker)) {
+                continue;
+            }
+            $workerId = trim((string) ($worker['worker_id'] ?? ''));
+            $share = (float) ($worker['share'] ?? 0.0);
+            if ($workerId === '' || $share <= $this->threshold) {
+                continue;
+            }
+            $safetyCritical = (bool) ($worker['safety_critical'] ?? false);
+            $alert = [
+                'schema' => self::SCHEMA,
+                'kind' => self::ALERT_KIND,
+                'axis' => 'worker',
+                'worker_id' => $workerId,
+                'reason_code' => self::REASON_WORKER_OVERCONCENTRATION,
+                'severity' => $this->severity($share),
+                'share' => $share,
+                'threshold' => $this->threshold,
+                'safety_exempt' => $safetyCritical,
+                'throttle_recommended' => ! $safetyCritical,
+                'observed_at' => $observedAt,
+            ];
+            $this->appendAlert($alert);
+            $alerts[] = $alert;
+        }
 
         return $alerts;
     }
