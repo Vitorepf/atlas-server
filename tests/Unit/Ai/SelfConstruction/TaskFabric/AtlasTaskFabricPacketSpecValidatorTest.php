@@ -28,6 +28,8 @@ final class AtlasTaskFabricPacketSpecValidatorTest extends TestCase
             'rollback_hint' => 'revert_commit:abc',
             'workspace_policy' => ['execution_topology' => 'shared_local_main_with_scope_lock'],
             'simplicity_contract' => 'atlas_native',
+            'duplicate_target_check' => 'no_existing_capability_found',
+            'steady_state_constraint' => 'no_human_or_provider_dependency',
         ];
     }
 
@@ -175,5 +177,53 @@ final class AtlasTaskFabricPacketSpecValidatorTest extends TestCase
         $this->assertNotContains('template_farm_objective',   $r['blockers']);
         $this->assertNotContains('missing_implementation_spec', $r['blockers']);
         $this->assertNotContains('missing_test_spec',          $r['blockers']);
+    }
+
+    // ── AC: duplicate-target check, steady-state constraint, repair_hints ──────────
+
+    public function test_missing_duplicate_target_check_is_blocked_with_repair_hint(): void
+    {
+        $d = $this->validDraft();
+        unset($d['duplicate_target_check']);
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('missing_duplicate_target_check', $r['blocking_deficiencies']);
+        $index = array_search('missing_duplicate_target_check', $r['blockers'], true);
+        $this->assertNotEmpty($r['repair_hints'][$index]);
+    }
+
+    public function test_missing_steady_state_constraint_is_blocked_with_repair_hint(): void
+    {
+        $d = $this->validDraft();
+        unset($d['steady_state_constraint']);
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('missing_steady_state_constraint', $r['blocking_deficiencies']);
+    }
+
+    public function test_complete_worker_ready_spec_is_accepted(): void
+    {
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($this->validDraft());
+
+        $this->assertTrue($r['self_sufficient']);
+        $this->assertSame([], $r['blocking_deficiencies']);
+        $this->assertSame([], $r['repair_hints']);
+    }
+
+    public function test_repair_hints_align_with_blockers_by_index(): void
+    {
+        $d = $this->validDraft();
+        $d['acceptance_criteria'] = [];
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertCount(count($r['blockers']), $r['repair_hints']);
+        foreach ($r['repair_hints'] as $hint) {
+            $this->assertNotEmpty($hint);
+        }
     }
 }

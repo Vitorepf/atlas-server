@@ -127,6 +127,18 @@ final class AtlasTaskFabricPacketSpecValidator
             $blockers[] = 'cosmetic_only_objective';
         }
 
+        // Duplicate-target check: the spec must declare whether this objective already exists
+        // as a capability, else the originator can flood the queue with re-implementations.
+        if (! array_key_exists('duplicate_target_check', $spec) || trim((string) ($spec['duplicate_target_check'] ?? '')) === '') {
+            $blockers[] = 'missing_duplicate_target_check';
+        }
+
+        // Steady-state autonomy constraint: the spec must explicitly declare it needs no human
+        // or external provider dependency to complete, else it cannot run in 24/7 autonomy.
+        if (! array_key_exists('steady_state_constraint', $spec) || (string) ($spec['steady_state_constraint'] ?? '') !== 'no_human_or_provider_dependency') {
+            $blockers[] = 'missing_steady_state_constraint';
+        }
+
         $delegated = null;
         if ($this->inspector !== null && isset($spec['task_packet_id'])) {
             // Delegate to the existing inspector for the full quality check. Read-only.
@@ -146,9 +158,35 @@ final class AtlasTaskFabricPacketSpecValidator
             'schema' => self::SCHEMA,
             'self_sufficient' => $blockers === [],
             'blockers' => $blockers,
+            'blocking_deficiencies' => $blockers,
+            'repair_hints' => array_map($this->repairHint(...), $blockers),
             'delegated_inspector' => $delegated,
             'worker_instruction_lint' => $workerInstructionLint,
         ];
+    }
+
+    private function repairHint(string $blocker): string
+    {
+        return match (true) {
+            $blocker === 'missing_objective' => 'add a concrete objective describing the real change',
+            $blocker === 'missing_allowed_files' => 'add at least one concrete implementation file to allowed_files',
+            str_starts_with($blocker, 'allowed_files:broad_directory:') => 'replace the broad directory entry with concrete file paths',
+            $blocker === 'missing_scope_in' => 'add at least one concrete path to scope_in',
+            $blocker === 'missing_acceptance_criteria' => 'add a runnable acceptance criterion (e.g. a phpunit/pint command)',
+            $blocker === 'missing_gates' => 'add an acceptance criterion that references a runnable gate (test/phpunit/pint/verify)',
+            $blocker === 'missing_required_evidence' => 'add at least one required_evidence entry (e.g. test_run_id)',
+            $blocker === 'missing_rollback_hint' => 'add a rollback_hint describing how to revert this change',
+            $blocker === 'missing_workspace_policy' => 'add workspace_policy.execution_topology=shared_local_main_with_scope_lock',
+            $blocker === 'workspace_policy:non_shared_main' => 'set workspace_policy.execution_topology to shared_local_main_with_scope_lock',
+            $blocker === 'ownership:non_atlas_native' => 'set simplicity_contract to atlas_native',
+            $blocker === 'missing_implementation_spec' => 'add a concrete implementation file (not just a test file) to allowed_files',
+            $blocker === 'missing_test_spec' => 'add a concrete test file to allowed_files',
+            $blocker === 'template_farm_objective' => 'replace the curly-brace placeholder in objective with a concrete description',
+            $blocker === 'cosmetic_only_objective' => 'describe a real behavior change instead of a cosmetic-only edit',
+            $blocker === 'missing_duplicate_target_check' => 'set duplicate_target_check to a non-empty statement of whether this capability already exists',
+            $blocker === 'missing_steady_state_constraint' => 'set steady_state_constraint to no_human_or_provider_dependency',
+            default => 'resolve: '.$blocker,
+        };
     }
 
     private function isTestFile(string $path): bool
