@@ -522,4 +522,39 @@ final class AtlasExternalBrainHighValueBatchComposerTest extends TestCase
 
         $this->assertSame([], $result['learning_signals_by_rejection_reason']);
     }
+
+    // ── diversity floor ────────────────────────────────────────────────────────
+
+    public function test_diversity_floor_failed_when_batch_of_three_plus_has_one_category(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('t1', ['category' => 'bug_fix', 'allowed_files' => ['app/A.php', 'tests/ATest.php']]),
+            $this->valid('t2', ['category' => 'bug_fix', 'allowed_files' => ['app/B.php', 'tests/BTest.php']]),
+            $this->valid('t3', ['category' => 'bug_fix', 'allowed_files' => ['app/C.php', 'tests/CTest.php']]),
+        ]);
+
+        $this->assertTrue($result['strategic_diversity']['diversity_floor_failed']);
+    }
+
+    public function test_diversity_floor_not_failed_when_categories_diverse(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('a', ['category' => 'architecture_unlock']),
+            $this->valid('b', ['category' => 'bug_fix', 'allowed_files' => ['app/B.php', 'tests/BTest.php']]),
+        ]);
+
+        $this->assertFalse($result['strategic_diversity']['diversity_floor_failed']);
+    }
+
+    public function test_diversity_floor_exempt_when_max_batch_is_one(): void
+    {
+        $opps = array_map(
+            fn (int $i): array => $this->valid("solo-{$i}", ['category' => 'bug_fix', 'allowed_files' => ["app/Solo{$i}.php", "tests/Solo{$i}Test.php"]]),
+            range(1, 5),
+        );
+
+        $result = $this->composer()->compose($opps, ['max_batch' => 1]);
+
+        $this->assertFalse($result['strategic_diversity']['diversity_floor_failed']);
+    }
 }

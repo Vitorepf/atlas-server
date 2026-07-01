@@ -175,7 +175,7 @@ final class AtlasExternalBrainHighValueBatchComposer
                 'grouped_count'      => count($grouped),
                 'rejected_count'     => count($rejected),
             ],
-            'strategic_diversity'            => $this->computeStrategicDiversity($emitted),
+            'strategic_diversity'            => $this->computeStrategicDiversity($emitted, $maxBatch),
             'dependency_chain_summary'       => $this->computeDependencyChainSummary($emitted),
             'batch_thesis'                   => $this->computeBatchThesis($emitted),
             'rejected_template_farm_reasons' => $templateFarmRejected,
@@ -446,7 +446,7 @@ final class AtlasExternalBrainHighValueBatchComposer
      * @param  list<array<string,mixed>>  $emitted
      * @return array<string,mixed>
      */
-    private function computeStrategicDiversity(array $emitted): array
+    private function computeStrategicDiversity(array $emitted, int $maxBatch): array
     {
         $distribution = [];
         foreach ($emitted as $packet) {
@@ -455,11 +455,16 @@ final class AtlasExternalBrainHighValueBatchComposer
         }
 
         $distinctCategories = count($distribution);
+        $isDiverse = $distinctCategories >= 2 || count($emitted) < 3;
 
         return [
             'distinct_categories'  => $distinctCategories,
             'category_distribution' => $distribution,
-            'is_diverse'           => $distinctCategories >= 2 || count($emitted) < 3,
+            'is_diverse'           => $isDiverse,
+            // Anti-template-farm floor: a batch that fails the diversity check above is flagged
+            // rather than silently accepted as high value, EXCEPT when max_batch is one — a
+            // deliberately single-task batch never had a chance to be diverse in the first place.
+            'diversity_floor_failed' => ! $isDiverse && $maxBatch !== 1,
         ];
     }
 
