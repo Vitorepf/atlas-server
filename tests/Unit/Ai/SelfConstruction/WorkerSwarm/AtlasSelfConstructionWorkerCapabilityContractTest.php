@@ -115,7 +115,7 @@ final class AtlasSelfConstructionWorkerCapabilityContractTest extends TestCase
         $p['worker_tier'] = AtlasSelfConstructionWorkerCapabilityContract::TIER_HARD;
         $compact = (new AtlasSelfConstructionWorkerCapabilityContract)->toCompact($p);
 
-        $this->assertSame(['schema', 'worker_id', 'worker_tier', 'scope_roots', 'capabilities'], array_keys($compact));
+        $this->assertSame(['schema', 'worker_id', 'worker_tier', 'scope_roots', 'capabilities', 'risk_ceiling', 'proof_floor'], array_keys($compact));
         $this->assertSame('hard', $compact['worker_tier']);
         $this->assertSame($p['worker_id'], $compact['worker_id']);
         $this->assertIsArray($compact['capabilities']);
@@ -157,5 +157,70 @@ final class AtlasSelfConstructionWorkerCapabilityContractTest extends TestCase
         $tierP['required_tier'] = AtlasSelfConstructionWorkerCapabilityContract::TIER_HARDEST;
         $tierR = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($tierP);
         $this->assertContains('tier_mismatch:easy<hardest', $tierR['blockers']);
+    }
+
+    // ── AC: workers with weak proof discipline are not eligible for high-risk tasks ──
+
+    public function test_weak_proof_discipline_is_not_eligible_for_high_risk_task(): void
+    {
+        $p = $this->safeProfile();
+        unset($p['proof_strength']); // no proof backing at all ⇒ proof_floor=0 ⇒ risk_ceiling=easy
+        $p['required_tier'] = AtlasSelfConstructionWorkerCapabilityContract::TIER_HARDEST;
+
+        $r = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($p);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('proof_discipline_insufficient_for_required_tier:easy<hardest', $r['blockers']);
+        $this->assertSame(0, $r['profile']['proof_floor']);
+        $this->assertSame(AtlasSelfConstructionWorkerCapabilityContract::TIER_EASY, $r['profile']['risk_ceiling']);
+    }
+
+    public function test_full_proof_discipline_is_eligible_for_hardest_tier(): void
+    {
+        $p = $this->safeProfile();
+        $p['required_tier'] = AtlasSelfConstructionWorkerCapabilityContract::TIER_HARDEST;
+
+        $r = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($p);
+
+        $this->assertTrue($r['accepted']);
+        $this->assertSame(AtlasSelfConstructionWorkerCapabilityContract::TIER_HARDEST, $r['profile']['risk_ceiling']);
+    }
+
+    // ── AC: good give_back hygiene improves capability confidence ──────────────
+
+    public function test_good_give_back_hygiene_improves_capability_confidence(): void
+    {
+        $good = $this->safeProfile();
+        $good['give_back_count'] = 1;
+        $good['total_attempts_count'] = 100;
+
+        $bad = $this->safeProfile();
+        $bad['give_back_count'] = 40;
+        $bad['total_attempts_count'] = 100;
+
+        $goodR = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($good);
+        $badR = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($bad);
+
+        $this->assertGreaterThan($badR['profile']['capability_confidence'], $goodR['profile']['capability_confidence']);
+    }
+
+    public function test_no_attempt_history_yields_neutral_capability_confidence(): void
+    {
+        $r = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($this->safeProfile());
+
+        $this->assertSame(50, $r['profile']['capability_confidence']);
+    }
+
+    // ── AC: toCompact includes capability, risk ceiling and proof_floor ────────
+
+    public function test_to_compact_includes_capabilities_risk_ceiling_and_proof_floor(): void
+    {
+        $compact = (new AtlasSelfConstructionWorkerCapabilityContract)->toCompact($this->safeProfile());
+
+        $this->assertArrayHasKey('capabilities', $compact);
+        $this->assertArrayHasKey('risk_ceiling', $compact);
+        $this->assertArrayHasKey('proof_floor', $compact);
+        $this->assertSame(AtlasSelfConstructionWorkerCapabilityContract::TIER_HARDEST, $compact['risk_ceiling']);
+        $this->assertSame(3, $compact['proof_floor']);
     }
 }

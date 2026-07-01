@@ -143,6 +143,32 @@ final class AtlasSelfConstructionWorkerCapabilityContract
             }
         }
 
+        // proof_floor = how many of the REQUIRED_EVIDENCE fields this worker actually backs
+        // with real proof strength — its risk_ceiling is capped by that, independent of the
+        // worker_tier it merely declares, so weak proof discipline can never claim a high tier.
+        $proofFloor = 0;
+        foreach (self::REQUIRED_EVIDENCE as $req) {
+            if (! empty($proofStrength[$req])) {
+                $proofFloor++;
+            }
+        }
+        $riskCeiling = match (true) {
+            $proofFloor >= count(self::REQUIRED_EVIDENCE) => self::TIER_HARDEST,
+            $proofFloor > 0 => self::TIER_HARD,
+            default => self::TIER_EASY,
+        };
+        if ($requiredTier !== '' && (self::TIER_RANK[$requiredTier] ?? -1) > (self::TIER_RANK[$riskCeiling] ?? -1)) {
+            $blockers[] = 'proof_discipline_insufficient_for_required_tier:'.$riskCeiling.'<'.$requiredTier;
+        }
+
+        // capability_confidence: an INTEGER 0-100 fact from give-back hygiene, never a floating
+        // weight. No attempt history is a neutral unknown (50) — never assumed optimistically good.
+        $giveBackCount = max(0, (int) ($profile['give_back_count'] ?? 0));
+        $totalAttempts = max(0, (int) ($profile['total_attempts_count'] ?? 0));
+        $capabilityConfidence = $totalAttempts > 0
+            ? max(0, min(100, 100 - (int) round(($giveBackCount / $totalAttempts) * 100)))
+            : 50;
+
         sort($blockers, SORT_STRING);
 
         return [
@@ -158,6 +184,9 @@ final class AtlasSelfConstructionWorkerCapabilityContract
                 'evidence_emits' => $evidence,
                 'proof_strength' => $proofStrength,
                 'worker_tier' => $workerTier !== '' ? $workerTier : null,
+                'proof_floor' => $proofFloor,
+                'risk_ceiling' => $riskCeiling,
+                'capability_confidence' => $capabilityConfidence,
             ],
         ];
     }
@@ -166,7 +195,7 @@ final class AtlasSelfConstructionWorkerCapabilityContract
      * Compact read-only view of the contract — used for logging and routing decisions.
      *
      * @param  array<string,mixed>  $profile
-     * @return array{schema:string, worker_id:string, worker_tier:string|null, scope_roots:list<string>, capabilities:list<string>}
+     * @return array{schema:string, worker_id:string, worker_tier:string|null, scope_roots:list<string>, capabilities:list<string>, risk_ceiling:string, proof_floor:int}
      */
     public function toCompact(array $profile): array
     {
@@ -178,6 +207,8 @@ final class AtlasSelfConstructionWorkerCapabilityContract
             'worker_tier'  => ($profile['worker_tier'] ?? '') !== '' ? (string) $profile['worker_tier'] : null,
             'scope_roots'  => $r['profile']['scope_roots'],
             'capabilities' => $r['profile']['declared_capabilities'],
+            'risk_ceiling' => $r['profile']['risk_ceiling'],
+            'proof_floor'  => $r['profile']['proof_floor'],
         ];
     }
 }
