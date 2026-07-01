@@ -159,4 +159,79 @@ final class AtlasNativeWorkerCommandPlanRunnerTest extends TestCase
         $this->assertSame([], $out['rejections']);
         $this->assertCount(1, $out['accepted']);
     }
+
+    // ── AC: scope safety, timeout safety, dry-run behavior, command family, evidence capture ──
+
+    public function test_safe_plan_reports_command_family_and_evidence_capture_requirement(): void
+    {
+        $envelope = array_merge($this->validateEnvelope(), ['allowed_command_families' => ['test_runner']]);
+        $plan = [['name' => 'run_tests', 'argv' => ['/opt/homebrew/bin/php', 'artisan', 'test'], 'timeout_seconds' => 60, 'family' => 'test_runner']];
+
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($envelope, $plan);
+
+        $this->assertTrue($out['passed']);
+        $this->assertSame('test_runner', $out['accepted'][0]['command_family']);
+        $this->assertTrue($out['accepted'][0]['requires_evidence_capture'], 'run_tests is a declared acceptance command');
+    }
+
+    public function test_forbidden_path_outside_allowed_scope_roots_is_rejected(): void
+    {
+        $envelope = array_merge($this->validateEnvelope(), ['allowed_scope_roots' => ['/repo/atlas-server']]);
+        $plan = [['name' => 'run_tests', 'argv' => ['/opt/homebrew/bin/php', 'artisan', 'test'], 'timeout_seconds' => 60, 'cwd' => '/etc']];
+
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($envelope, $plan);
+
+        $this->assertFalse($out['passed']);
+        $this->assertSame('scope_outside_allowed_roots', $out['rejections'][0]['reason']);
+    }
+
+    public function test_cwd_within_allowed_scope_root_is_accepted(): void
+    {
+        $envelope = array_merge($this->validateEnvelope(), ['allowed_scope_roots' => ['/repo/atlas-server']]);
+        $plan = [['name' => 'run_tests', 'argv' => ['/opt/homebrew/bin/php', 'artisan', 'test'], 'timeout_seconds' => 60, 'cwd' => '/repo/atlas-server/app']];
+
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($envelope, $plan);
+
+        $this->assertTrue($out['passed']);
+    }
+
+    public function test_timeout_breach_exceeding_declared_ceiling_is_rejected(): void
+    {
+        $envelope = array_merge($this->validateEnvelope(), ['max_timeout_seconds' => 30]);
+        $plan = [['name' => 'run_tests', 'argv' => ['/opt/homebrew/bin/php', 'artisan', 'test'], 'timeout_seconds' => 300]];
+
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($envelope, $plan);
+
+        $this->assertFalse($out['passed']);
+        $this->assertSame('timeout_exceeds_ceiling', $out['rejections'][0]['reason']);
+    }
+
+    public function test_unsafe_command_family_outside_allowlist_is_rejected(): void
+    {
+        $envelope = array_merge($this->validateEnvelope(), ['allowed_command_families' => ['test_runner']]);
+        $plan = [['name' => 'run_tests', 'argv' => ['/opt/homebrew/bin/php', 'artisan', 'test'], 'timeout_seconds' => 60, 'family' => 'shell_admin']];
+
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($envelope, $plan);
+
+        $this->assertFalse($out['passed']);
+        $this->assertSame('command_family_not_allowed', $out['rejections'][0]['reason']);
+    }
+
+    public function test_validate_reports_dry_run_no_execution_result(): void
+    {
+        $plan = [['name' => 'run_tests', 'argv' => ['/opt/homebrew/bin/php', 'artisan', 'test'], 'timeout_seconds' => 60]];
+
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($this->validateEnvelope(), $plan);
+
+        $this->assertTrue($out['dry_run'], 'validate() never executes — always reports dry_run true');
+    }
+
+    public function test_opt_in_fields_absent_from_envelope_are_no_ops(): void
+    {
+        $plan = [['name' => 'run_tests', 'argv' => ['/opt/homebrew/bin/php', 'artisan', 'test'], 'timeout_seconds' => 300, 'cwd' => '/anywhere']];
+
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($this->validateEnvelope(), $plan);
+
+        $this->assertTrue($out['passed'], 'no allowed_scope_roots/max_timeout_seconds/allowed_command_families declared => new gates are no-ops');
+    }
 }

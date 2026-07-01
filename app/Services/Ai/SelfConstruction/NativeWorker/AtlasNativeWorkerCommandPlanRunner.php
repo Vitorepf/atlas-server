@@ -117,16 +117,29 @@ final class AtlasNativeWorkerCommandPlanRunner
     public const FORBIDDEN_PROVIDER_BINARIES = ['claude', 'codex', 'openai', 'anthropic-cli', 'gemini', 'cursor'];
 
     /**
-     * Facts-only plan validator. Does NOT execute. Returns {passed, rejections, accepted}.
-     * Rejects: missing_timeout, git_mutation_command, provider_command_detected, not_acceptance_command.
+     * Facts-only plan validator. Does NOT execute. Returns {passed, rejections, accepted, dry_run}.
+     * Rejects: missing_timeout, git_mutation_command, provider_command_detected, not_acceptance_command,
+     * and — when the envelope opts in — scope_outside_allowed_roots, timeout_exceeds_ceiling,
+     * command_family_not_allowed. The 3 opt-in checks are no-ops unless the envelope declares the
+     * matching key (allowed_scope_roots / max_timeout_seconds / allowed_command_families), so every
+     * envelope that never declared them validates byte-identically to before.
      *
      * @param  list<array<string,mixed>>  $commandPlan
-     * @return array{schema:string, passed:bool, rejections:list<array<string,mixed>>, accepted:list<array<string,mixed>>}
+     * @return array{schema:string, passed:bool, rejections:list<array<string,mixed>>, accepted:list<array<string,mixed>>, dry_run:bool}
      */
     public function validate(array $envelope, array $commandPlan): array
     {
         $acceptanceCommands = is_array($envelope['acceptance_commands'] ?? null)
             ? array_values(array_map('strval', $envelope['acceptance_commands']))
+            : null;
+        $allowedScopeRoots = is_array($envelope['allowed_scope_roots'] ?? null)
+            ? array_values(array_map('strval', $envelope['allowed_scope_roots']))
+            : null;
+        $maxTimeoutSeconds = array_key_exists('max_timeout_seconds', $envelope) && $envelope['max_timeout_seconds'] !== null
+            ? (int) $envelope['max_timeout_seconds']
+            : null;
+        $allowedFamilies = is_array($envelope['allowed_command_families'] ?? null)
+            ? array_values(array_map('strval', $envelope['allowed_command_families']))
             : null;
 
         $rejections = [];
@@ -151,11 +164,32 @@ final class AtlasNativeWorkerCommandPlanRunner
                 $rejections[] = ['name' => $name, 'reason' => 'provider_command_detected'];
                 continue;
             }
+            if ($allowedScopeRoots !== null) {
+                $cwd = trim((string) ($cmd['cwd'] ?? ''));
+                if ($cwd !== '' && ! $this->withinScopeRoots($cwd, $allowedScopeRoots)) {
+                    $rejections[] = ['name' => $name, 'reason' => 'scope_outside_allowed_roots'];
+                    continue;
+                }
+            }
+            if ($maxTimeoutSeconds !== null && (int) $cmd['timeout_seconds'] > $maxTimeoutSeconds) {
+                $rejections[] = ['name' => $name, 'reason' => 'timeout_exceeds_ceiling'];
+                continue;
+            }
+            $family = trim((string) ($cmd['family'] ?? ''));
+            if ($allowedFamilies !== null && $family !== '' && ! in_array($family, $allowedFamilies, true)) {
+                $rejections[] = ['name' => $name, 'reason' => 'command_family_not_allowed'];
+                continue;
+            }
             if ($acceptanceCommands !== null && ! in_array($name, $acceptanceCommands, true)) {
                 $rejections[] = ['name' => $name, 'reason' => 'not_acceptance_command'];
                 continue;
             }
-            $accepted[] = ['name' => $name, 'status' => 'accepted'];
+            $accepted[] = [
+                'name' => $name,
+                'status' => 'accepted',
+                'command_family' => $family,
+                'requires_evidence_capture' => $acceptanceCommands !== null && in_array($name, $acceptanceCommands, true),
+            ];
         }
 
         return [
@@ -163,7 +197,22 @@ final class AtlasNativeWorkerCommandPlanRunner
             'passed' => $rejections === [],
             'rejections' => $rejections,
             'accepted' => $accepted,
+            'dry_run' => true,
         ];
+    }
+
+    /** @param  list<string>  $roots */
+    private function withinScopeRoots(string $cwd, array $roots): bool
+    {
+        $normalizedCwd = rtrim(str_replace('\\', '/', $cwd), '/');
+        foreach ($roots as $root) {
+            $normalizedRoot = rtrim(str_replace('\\', '/', $root), '/');
+            if ($normalizedRoot !== '' && ($normalizedCwd === $normalizedRoot || str_starts_with($normalizedCwd.'/', $normalizedRoot.'/'))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isGitMutation(array $argv): bool
