@@ -62,6 +62,10 @@ final class AtlasExternalBrainCounterfactualBatchEvaluator
                 'comparison_count'            => 0,
                 'missed_learning_gain'        => 0.0,
                 'learned_from_alternative_id' => null,
+                // Additive aliases matching the caller-facing contract name exactly.
+                'delta_waste'                    => 0.0,
+                'regret_level'                   => self::REGRET_LOW,
+                'alternative_that_would_have_won' => null,
             ];
         }
 
@@ -110,6 +114,10 @@ final class AtlasExternalBrainCounterfactualBatchEvaluator
             'comparison_count'            => count($alternatives),
             'missed_learning_gain'        => $missedLearning,
             'learned_from_alternative_id' => $regret !== self::REGRET_LOW ? $learnedFromId : null,
+            // Additive aliases matching the caller-facing contract name exactly.
+            'delta_waste'                    => $deltaBacklog,
+            'regret_level'                   => $regret,
+            'alternative_that_would_have_won' => $regret !== self::REGRET_LOW ? $learnedFromId : null,
         ];
     }
 

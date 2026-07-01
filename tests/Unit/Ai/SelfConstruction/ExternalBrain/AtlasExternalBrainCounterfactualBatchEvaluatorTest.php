@@ -244,6 +244,28 @@ final class AtlasExternalBrainCounterfactualBatchEvaluatorTest extends TestCase
         $this->assertEqualsWithDelta(3.0, $r['missed_learning_gain'], 0.01);
     }
 
+    public function test_delta_waste_and_regret_level_and_alternative_that_would_have_won_aliases_mirror_originals(): void
+    {
+        $r = $this->svc()->evaluate([
+            'chosen_batch' => $this->batch(8.0, 3.0, 10.0, 5, 5.0, 8.0, 'chosen', 1.0),
+            'alternatives' => [$this->batch(6.0, 5.0, 15.0, 3, 8.0, 8.0, 'alt-learn', 4.0)],
+        ]);
+
+        $this->assertSame($r['delta_backlog_cost'], $r['delta_waste']);
+        $this->assertSame($r['decision_regret_level'], $r['regret_level']);
+        $this->assertSame($r['learned_from_alternative_id'], $r['alternative_that_would_have_won']);
+        $this->assertSame('alt-learn', $r['alternative_that_would_have_won']);
+    }
+
+    public function test_empty_alternatives_sets_aliases_deterministically(): void
+    {
+        $r = $this->svc()->evaluate(['chosen_batch' => $this->batch(8.0, 3.0, 10.0, 5), 'alternatives' => []]);
+
+        $this->assertSame(0.0, $r['delta_waste']);
+        $this->assertSame(AtlasExternalBrainCounterfactualBatchEvaluator::REGRET_LOW, $r['regret_level']);
+        $this->assertNull($r['alternative_that_would_have_won']);
+    }
+
     public function test_learned_from_alternative_id_returned_when_regret_not_low(): void
     {
         $r = $this->svc()->evaluate([
