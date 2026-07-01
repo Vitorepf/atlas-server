@@ -405,4 +405,40 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlannerTest extends TestC
         $this->assertContains(AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_REFRESH_CODE_INDEX, $blockingIds);
         $this->assertNotContains(AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_REFRESH_CODE_INDEX, $advisoryIds);
     }
+
+    public function test_stop_go_action_is_create_tasks_when_ready(): void
+    {
+        $result = $this->planner()->plan([]);
+        $this->assertSame('create_tasks', $result['stop_go_action']);
+    }
+
+    public function test_stop_go_action_is_sync_knowledge_first_for_docs_gap(): void
+    {
+        $result = $this->planner()->plan([
+            'docs_touched' => ['docs/foo.md'],
+            'memory_writes' => [],
+        ]);
+
+        $this->assertSame('sync_knowledge_first', $result['stop_go_action']);
+    }
+
+    public function test_stop_go_action_is_refresh_context_first_for_code_index_gap(): void
+    {
+        $result = $this->planner()->plan([
+            'changed_files'                => ['Foo.php'],
+            'code_index_freshness_seconds' => 999,
+        ]);
+
+        $this->assertSame('refresh_context_first', $result['stop_go_action']);
+    }
+
+    public function test_refresh_actions_include_evidence_needed(): void
+    {
+        $result = $this->planner()->plan([
+            'docs_touched' => ['docs/foo.md'],
+            'memory_writes' => [],
+        ]);
+
+        $this->assertNotEmpty($result['refresh_actions'][0]['evidence_needed']);
+    }
 }

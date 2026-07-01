@@ -61,6 +61,13 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
     /** Action ids that are advisory-only — they never block next_originator_context_ready. */
     private const ADVISORY_ACTIONS = [self::ACTION_REFRESH_CONTEXT_PACK];
 
+    /** Blocking actions that are "knowledge sync" gaps (docs/memory capture) rather than context staleness. */
+    private const SYNC_KNOWLEDGE_ACTIONS = [
+        self::ACTION_SYNC_DOCS,
+        self::ACTION_CAPTURE_GIVE_BACKS,
+        self::ACTION_CAPTURE_OUTCOME_LEARNING,
+    ];
+
     private const COMMANDS = [
         self::ACTION_REFRESH_CODE_INDEX      => 'atlas engineering knowledge index-code --prune',
         self::ACTION_SYNC_DOCS               => 'atlas engineering knowledge sync --prune',
@@ -104,6 +111,7 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
                     self::CODE_INDEX_STALE_THRESHOLD,
                 ),
                 'command'   => self::COMMANDS[self::ACTION_REFRESH_CODE_INDEX],
+                'evidence_needed' => self::COMMANDS[self::ACTION_REFRESH_CODE_INDEX],
             ];
             $notReadyReasons[] = 'code_changed_without_index_refresh';
         } elseif ($changedFiles === []) {
@@ -124,6 +132,7 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
                 'action_id' => self::ACTION_SYNC_DOCS,
                 'reason'    => sprintf('%d doc(s) touched but no memory_writes recorded as sync evidence', count($docsTouched)),
                 'command'   => self::COMMANDS[self::ACTION_SYNC_DOCS],
+                'evidence_needed' => self::COMMANDS[self::ACTION_SYNC_DOCS],
             ];
             $notReadyReasons[] = 'docs_changed_without_sync_evidence';
         } elseif ($docsTouched === []) {
@@ -147,6 +156,7 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
                     $giveBackCount,
                 ),
                 'command'   => self::COMMANDS[self::ACTION_CAPTURE_GIVE_BACKS],
+                'evidence_needed' => self::COMMANDS[self::ACTION_CAPTURE_GIVE_BACKS],
             ];
             $notReadyReasons[] = 'give_backs_not_captured_in_learning';
         } elseif ($giveBackCount < self::GIVE_BACK_THRESHOLD) {
@@ -170,6 +180,7 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
                     $uncapturedOutcomeCount,
                 ),
                 'command'   => self::COMMANDS[self::ACTION_CAPTURE_OUTCOME_LEARNING],
+                'evidence_needed' => self::COMMANDS[self::ACTION_CAPTURE_OUTCOME_LEARNING],
             ];
             $notReadyReasons[] = 'outcomes_not_captured_in_learning';
         } else {
@@ -189,6 +200,7 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
                     self::QUEUE_HEALTH_STALE_THRESHOLD,
                 ),
                 'command'   => self::COMMANDS[self::ACTION_REFRESH_QUEUE_HEALTH],
+                'evidence_needed' => self::COMMANDS[self::ACTION_REFRESH_QUEUE_HEALTH],
             ];
             $notReadyReasons[] = 'queue_health_stale';
             if ($claimableDepthChanged) {
@@ -211,6 +223,7 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
                 'action_id' => self::ACTION_REFRESH_QUEUED_TARGETS,
                 'reason'    => 'queued-target collision snapshot not refreshed after batch',
                 'command'   => self::COMMANDS[self::ACTION_REFRESH_QUEUED_TARGETS],
+                'evidence_needed' => self::COMMANDS[self::ACTION_REFRESH_QUEUED_TARGETS],
             ];
             $notReadyReasons[] = 'queued_targets_stale_after_batch';
         } else {
@@ -226,6 +239,7 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
                 'action_id' => self::ACTION_REFRESH_CONTEXT_PACK,
                 'reason'    => sprintf('context_pack_age=%ds > threshold=%ds (advisory)', $contextPackAge, self::CONTEXT_PACK_STALE_THRESHOLD),
                 'command'   => self::COMMANDS[self::ACTION_REFRESH_CONTEXT_PACK],
+                'evidence_needed' => self::COMMANDS[self::ACTION_REFRESH_CONTEXT_PACK],
             ];
         } else {
             $skippedActions[] = [
@@ -243,6 +257,20 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
             static fn (array $a): bool => in_array($a['action_id'], self::ADVISORY_ACTIONS, true),
         ));
 
+        // AC3: distinguish WHY the originator must wait — knowledge sync gaps (docs/give_backs/
+        // outcome capture) vs context staleness (code index/queue health/queued targets) —
+        // instead of a single flat stop signal.
+        $hasSyncKnowledgeGap = array_values(array_filter(
+            $blockingRefreshActions,
+            static fn (array $a): bool => in_array($a['action_id'], self::SYNC_KNOWLEDGE_ACTIONS, true),
+        )) !== [];
+
+        $stopGoAction = match (true) {
+            $notReadyReasons === [] => 'create_tasks',
+            $hasSyncKnowledgeGap => 'sync_knowledge_first',
+            default => 'refresh_context_first',
+        };
+
         return [
             'schema'                          => self::SCHEMA,
             'refresh_actions'                 => $refreshActions,
@@ -252,6 +280,7 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
             'next_originator_context_ready'   => $notReadyReasons === [],
             'not_ready_reasons'               => $notReadyReasons,
             'stop_go'                         => $notReadyReasons === [] ? 'go' : 'stop',
+            'stop_go_action'                  => $stopGoAction,
         ];
     }
 }
