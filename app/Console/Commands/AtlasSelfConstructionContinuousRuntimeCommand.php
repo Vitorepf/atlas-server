@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasSelfConstructionCont
 use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasSelfConstructionContinuousRuntimeReplenisherIntegration;
 use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration;
 use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasSelfConstructionContinuousRuntimeWorkerIntegration;
+use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasSelfConstructionOriginatorCadencePolicy;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -102,7 +103,18 @@ final class AtlasSelfConstructionContinuousRuntimeCommand extends Command
             return ['__usage_error__' => true];
         }
 
-        return $this->wrap($integration->integrate($facts));
+        $cadenceDecision = (new AtlasSelfConstructionOriginatorCadencePolicy)->decide($facts);
+        if ($cadenceDecision['action'] !== AtlasSelfConstructionOriginatorCadencePolicy::ACTION_SEED_NOW) {
+            return $this->wrap([
+                'cadence_decision' => $cadenceDecision,
+                'replenish_result' => null,
+            ]);
+        }
+
+        return $this->wrap([
+            'cadence_decision' => $cadenceDecision,
+            'replenish_result' => $integration->integrate($facts),
+        ]);
     }
 
     /**
