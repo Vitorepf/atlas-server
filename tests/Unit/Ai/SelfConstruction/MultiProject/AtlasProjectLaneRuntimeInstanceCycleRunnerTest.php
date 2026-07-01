@@ -33,6 +33,21 @@ final class AtlasProjectLaneRuntimeInstanceCycleRunnerTest extends TestCase
         ], $overrides);
     }
 
+    public function test_run_does_not_mutate_its_input_instance_or_facts(): void
+    {
+        $instance = $this->laneInstance();
+        $facts = $this->readyFacts();
+        $instanceBefore = $instance;
+        $factsBefore = $facts;
+
+        (new AtlasProjectLaneRuntimeInstanceCycleRunner)->run($instance, $facts, [
+            'action_callbacks' => ['native_lane_tick' => static fn () => ['ok' => true]],
+        ]);
+
+        $this->assertSame($instanceBefore, $instance);
+        $this->assertSame($factsBefore, $facts);
+    }
+
     public function test_dry_run_does_not_invoke_callback(): void
     {
         $called = 0;
