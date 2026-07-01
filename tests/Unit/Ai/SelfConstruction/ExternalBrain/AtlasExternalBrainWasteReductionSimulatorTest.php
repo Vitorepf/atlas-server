@@ -293,4 +293,48 @@ final class AtlasExternalBrainWasteReductionSimulatorTest extends TestCase
         // tokens_saved=0, poison_savings=4*100=400, false_neg_penalty=0
         $this->assertEqualsWithDelta(400.0, $result['net_policy_value'], 0.001);
     }
+
+    // ── AC5: waste simulated for duplicate specs, poison, false-wait, low-value backlog ──
+
+    public function test_high_waste_scenario_produces_actionable_prevention_rules(): void
+    {
+        $result = $this->simulator->simulate([
+            'baseline' => [
+                'served' => 100, 'give_back' => 0, 'quarantine' => 0, 'malformed' => 0,
+                'successful_high_impact' => 10,
+                'duplicate_spec' => 6, 'poison' => 8, 'false_wait' => 5, 'low_value_backlog' => 10,
+            ],
+            'proposed' => [
+                'served' => 100, 'give_back' => 0, 'quarantine' => 0, 'malformed' => 0,
+                'successful_high_impact' => 10,
+                'duplicate_spec' => 0, 'poison' => 0, 'false_wait' => 0, 'low_value_backlog' => 0,
+            ],
+            'tokens_per_task' => 100.0,
+        ]);
+
+        $this->assertSame(6, $result['avoided_duplicate_spec_count']);
+        $this->assertSame(5, $result['avoided_false_wait_count']);
+        $this->assertSame(10, $result['avoided_low_value_backlog_count']);
+        $this->assertCount(4, $result['prevention_rules']);
+        $this->assertStringContainsString('duplicate-spec', $result['prevention_rules'][0]);
+        $this->assertGreaterThan(0.0, $result['expected_savings']);
+    }
+
+    public function test_low_waste_high_leverage_batch_has_no_prevention_rules(): void
+    {
+        $result = $this->simulator->simulate($this->input());
+
+        $this->assertSame([], $result['prevention_rules']);
+        $this->assertGreaterThanOrEqual(0.0, $result['expected_savings']);
+        $this->assertFalse($result['penalty_applied']);
+    }
+
+    public function test_expected_savings_key_present_alongside_scalar_scores(): void
+    {
+        $result = $this->simulator->simulate($this->input());
+
+        $this->assertArrayHasKey('expected_savings', $result);
+        $this->assertArrayHasKey('prevention_rules', $result);
+        $this->assertIsArray($result['prevention_rules']);
+    }
 }
