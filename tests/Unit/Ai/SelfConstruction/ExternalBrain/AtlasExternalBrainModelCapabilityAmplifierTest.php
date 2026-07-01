@@ -548,6 +548,11 @@ final class AtlasExternalBrainModelCapabilityAmplifierTest extends TestCase
 
         $this->assertFalse($r['autonomous_execution_allowed']);
         $this->assertFalse($r['proof_floor_status']['task_family_lift_proof_ok']);
+        $this->assertContains(
+            'prove_task_family_specific_heldout_lift_before_autonomous_execution',
+            $r['repair_actions'],
+            'missing task_family_lift_proof must emit a repair_action naming the missing proof',
+        );
     }
 
     public function test_any_proxy_leak_delta_above_zero_blocks_small_model_autonomy(): void
@@ -565,6 +570,11 @@ final class AtlasExternalBrainModelCapabilityAmplifierTest extends TestCase
 
         $this->assertFalse($r['autonomous_execution_allowed']);
         $this->assertFalse($r['proof_floor_status']['proxy_leak_ok']);
+        $this->assertContains(
+            'reduce_proxy_leak_rate_below_ceiling_and_vs_baseline',
+            $r['repair_actions'],
+            'a proxy leak regression must emit a repair_action naming the leak',
+        );
     }
 
     public function test_small_model_with_task_family_proof_and_no_proxy_regression_can_proceed(): void
