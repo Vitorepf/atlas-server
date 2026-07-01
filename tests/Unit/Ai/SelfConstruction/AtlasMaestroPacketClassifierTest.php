@@ -132,6 +132,27 @@ final class AtlasMaestroPacketClassifierTest extends TestCase
         $this->assertSame(AtlasMaestroPacketClassifier::MODEL_AMPLIFIER, $this->classifier()->classify($packet));
     }
 
+    public function test_refactor_os_signal_in_objective_classifies_as_refactor_os(): void
+    {
+        $packet = $this->packet(['app/Services/Ai/Foo.php'], 'Refactor OS pass: deletion-first simplification of dead scaffold retirement');
+
+        $this->assertSame(AtlasMaestroPacketClassifier::REFACTOR_OS, $this->classifier()->classify($packet));
+    }
+
+    public function test_refactor_os_signal_in_allowed_files_classifies_as_refactor_os(): void
+    {
+        $packet = $this->packet(['app/Services/RefactorOs/Simplifier.php'], 'small implementation task');
+
+        $this->assertSame(AtlasMaestroPacketClassifier::REFACTOR_OS, $this->classifier()->classify($packet));
+    }
+
+    public function test_task_fabric_signal_still_takes_precedence_over_refactor_os(): void
+    {
+        $packet = $this->packet(['app/Services/Ai/Foo.php'], 'Refactor OS pass touching TaskFabric internals');
+
+        $this->assertSame(AtlasMaestroPacketClassifier::TASK_FABRIC, $this->classifier()->classify($packet));
+    }
+
     /**
      * @param  list<string>  $allowedFiles
      * @return array<string,mixed>

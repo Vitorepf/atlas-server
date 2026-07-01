@@ -16,6 +16,7 @@ final class AtlasMaestroPacketClassifier
     public const LEARNING_LOOP = 'learning-loop';
     public const TASK_FABRIC = 'task-fabric';
     public const MODEL_AMPLIFIER = 'model-amplifier';
+    public const REFACTOR_OS = 'refactor-os';
 
     public const REASON_DOC = 'doc-paths-only';
     public const REASON_MULTI_FILE = '3plus-paths-2plus-subtrees';
@@ -25,6 +26,7 @@ final class AtlasMaestroPacketClassifier
     public const REASON_LEARNING_LOOP = 'learning-loop-signal';
     public const REASON_TASK_FABRIC = 'task-fabric-signal';
     public const REASON_MODEL_AMPLIFIER = 'model-amplifier-signal';
+    public const REASON_REFACTOR_OS = 'refactor-os-signal';
 
     public function classify(array $packet): string
     {
@@ -35,6 +37,7 @@ final class AtlasMaestroPacketClassifier
             self::REASON_QUEUE_REPAIR => self::QUEUE_REPAIR,
             self::REASON_MODEL_AMPLIFIER => self::MODEL_AMPLIFIER,
             self::REASON_LEARNING_LOOP => self::LEARNING_LOOP,
+            self::REASON_REFACTOR_OS => self::REFACTOR_OS,
             self::REASON_ARCHITECTURE => self::ARCHITECTURE,
             default => self::GRIND,
         };
@@ -67,6 +70,10 @@ final class AtlasMaestroPacketClassifier
 
         if ($this->hasLearningLoopSignal($packet, $allowedFiles)) {
             return self::REASON_LEARNING_LOOP;
+        }
+
+        if ($this->hasRefactorOsSignal($packet, $allowedFiles)) {
+            return self::REASON_REFACTOR_OS;
         }
 
         if (count($codePaths) <= 2 && $this->containsArchitectureAnchor((string) ($packet['objective'] ?? ''))) {
@@ -180,6 +187,22 @@ final class AtlasMaestroPacketClassifier
         $haystack = (string) ($packet['objective'] ?? '').' '.implode(' ', $allowedFiles);
 
         return preg_match('/\b(ledger|outcome|give[_\-]?back|closed[_\-]?loop)\b/i', $haystack) === 1;
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function hasRefactorOsSignal(array $packet, array $allowedFiles): bool
+    {
+        $haystack = $this->squash((string) ($packet['objective'] ?? '').' '.implode(' ', $allowedFiles));
+
+        foreach (['refactoros', 'deletionfirst', 'simplification', 'scaffoldretirement'] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isMaestroDocPath(string $path): bool
