@@ -51,6 +51,9 @@ final class AtlasExternalBrainCapabilityEvidenceProvenanceLedger
 
     public const STALE_THRESHOLD_DAYS = 30;
 
+    /** Provider-safe metadata fields are bounded so no unbounded payload/raw prompt can be smuggled in. */
+    private const MAX_METADATA_FIELD_LENGTH = 200;
+
     /** evidence type → [tier constant, rank (lower = stronger)]. */
     private const TYPE_TIER_RANK = [
         'runnable_test_or_gate' => [self::TIER_RUNNABLE_PROOF, 0],
@@ -137,6 +140,11 @@ final class AtlasExternalBrainCapabilityEvidenceProvenanceLedger
         return [
             'schema' => self::SCHEMA,
             'capability_id' => $id,
+            // task_id/commit_ref/outcome_class make the claimed capability traceable to a concrete
+            // unit of work — sanitized/bounded so a raw prompt or secret can never ride along.
+            'task_id' => $this->sanitizeMetadataField($capability['task_id'] ?? ''),
+            'commit_ref' => $this->sanitizeMetadataField($capability['commit_ref'] ?? ''),
+            'outcome_class' => $this->sanitizeMetadataField($capability['outcome_class'] ?? ''),
             'evidence_tier' => $tier,
             'freshness_status' => $freshness,
             'confidence' => $confidence,
@@ -147,6 +155,27 @@ final class AtlasExternalBrainCapabilityEvidenceProvenanceLedger
             'source_surfaces' => $sourceSurfaces,
             'downstream_leverage_score' => $downstreamLeverageScore,
         ];
+    }
+
+    /**
+     * Bounds and redacts a provider-safe metadata field: never leaks a secret-shaped value and
+     * never lets an unbounded payload (a raw prompt dump) ride through as "task_id"/"commit_ref"/
+     * "outcome_class".
+     */
+    private function sanitizeMetadataField(mixed $raw): string
+    {
+        $value = trim((string) $raw);
+        if ($value === '') {
+            return '';
+        }
+        if (preg_match('/SECRET|TOKEN|API[_-]?KEY|PASSWORD/i', $value) === 1) {
+            return '[redacted]';
+        }
+        if (mb_strlen($value) > self::MAX_METADATA_FIELD_LENGTH) {
+            return mb_substr($value, 0, self::MAX_METADATA_FIELD_LENGTH).'…[truncated]';
+        }
+
+        return $value;
     }
 
     /** Refresh priority is highest for weak/stale evidence — refresh the cheapest-to-doubt claims first. */

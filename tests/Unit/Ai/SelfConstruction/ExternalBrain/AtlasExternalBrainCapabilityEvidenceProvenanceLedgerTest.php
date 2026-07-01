@@ -250,4 +250,75 @@ final class AtlasExternalBrainCapabilityEvidenceProvenanceLedgerTest extends Tes
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC: task id / commit-ref / outcome class are recorded ─────────────────
+
+    public function test_task_id_commit_ref_and_outcome_class_are_recorded(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'task_id' => 'codex-task-42',
+            'commit_ref' => 'abc123def',
+            'outcome_class' => 'success',
+        ]));
+
+        $this->assertSame('codex-task-42', $r['task_id']);
+        $this->assertSame('abc123def', $r['commit_ref']);
+        $this->assertSame('success', $r['outcome_class']);
+    }
+
+    public function test_missing_task_metadata_defaults_to_empty_strings(): void
+    {
+        $r = $this->ledger()->assess($this->capability());
+
+        $this->assertSame('', $r['task_id']);
+        $this->assertSame('', $r['commit_ref']);
+        $this->assertSame('', $r['outcome_class']);
+    }
+
+    // ── AC: no leaked secrets or unbounded payload in metadata fields ─────────
+
+    public function test_secret_shaped_metadata_field_is_redacted(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'task_id' => 'API_KEY=sk-live-abc123',
+        ]));
+
+        $this->assertSame('[redacted]', $r['task_id']);
+    }
+
+    public function test_unbounded_metadata_field_is_truncated(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'commit_ref' => str_repeat('x', 500),
+        ]));
+
+        $this->assertLessThanOrEqual(220, strlen($r['commit_ref']));
+        $this->assertStringEndsWith('[truncated]', $r['commit_ref']);
+    }
+
+    // ── AC: a raw downstream_use_count counter alone cannot inflate leverage ──
+
+    public function test_raw_downstream_use_count_without_concrete_uses_is_not_leverage_proven(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'evidence' => [['type' => 'runnable_test_or_gate', 'age_days' => 1]],
+            'downstream_uses' => [],
+            'downstream_use_count' => 500,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainCapabilityEvidenceProvenanceLedger::LEVERAGE_UNPROVEN, $r['leverage_proven']);
+        $this->assertSame(0.0, $r['downstream_leverage_score']);
+    }
+
+    public function test_authored_spec_only_evidence_with_downstream_use_count_does_not_yield_high_confidence(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'evidence' => [['type' => 'docs_only', 'age_days' => 1]],
+            'downstream_uses' => [],
+            'downstream_use_count' => 100,
+        ]));
+
+        $this->assertNotSame('high', $r['confidence']);
+        $this->assertSame(AtlasExternalBrainCapabilityEvidenceProvenanceLedger::LEVERAGE_UNPROVEN, $r['leverage_proven']);
+    }
 }
