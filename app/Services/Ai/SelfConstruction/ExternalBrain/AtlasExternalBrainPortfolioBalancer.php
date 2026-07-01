@@ -461,4 +461,153 @@ final class AtlasExternalBrainPortfolioBalancer
         }
         return $best;
     }
+
+    /** Originator work lanes: the whole originator batch splits across these. */
+    public const PORTFOLIO_LANES = [
+        'build', 'repair', 'simplify', 'research',
+        'verification', 'learning', 'model_amplifier', 'queue_self_healing',
+    ];
+
+    /** Repair/verification may never be squeezed below this share of the batch. */
+    private const PORTFOLIO_FLOOR_PCT = 10.0;
+
+    /** Repair pressure above this activates the repair/queue-self-healing shift. */
+    private const REPAIR_PRESSURE_ACTIVATION = 0.3;
+
+    /** Simplification debt above this activates the simplify shift. */
+    private const SIMPLIFICATION_DEBT_ACTIVATION = 0.5;
+
+    /**
+     * Balances one originator batch across the 8 portfolio lanes from live
+     * risk (give_back/poison/malformed/collision pressure), simplification
+     * debt, and queue health/leverage — instead of a static even split.
+     *
+     * INPUT:
+     *   give_back_rate, poison_rate, malformed_rate, collision_rate: float 0..1
+     *   simplification_debt: float 0..1
+     *   queue_shallow: bool — the queue is healthy/shallow, not backed up
+     *   high_leverage_candidates: bool — real high-leverage build/research candidates exist
+     *
+     * OUTPUT: { schema, percentages: array<lane,int> summing to 100, total_percent, reasons }
+     *
+     * @param  array<string,mixed>  $signals
+     * @return array{schema:string, percentages:array<string,int>, total_percent:int, reasons:list<string>}
+     */
+    public function balancePortfolio(array $signals): array
+    {
+        $clamp = static fn (float $v): float => max(0.0, min(1.0, $v));
+
+        $giveBackRate  = $clamp((float) ($signals['give_back_rate']  ?? 0.0));
+        $poisonRate    = $clamp((float) ($signals['poison_rate']     ?? 0.0));
+        $malformedRate = $clamp((float) ($signals['malformed_rate']  ?? 0.0));
+        $collisionRate = $clamp((float) ($signals['collision_rate']  ?? 0.0));
+        $simplificationDebt = $clamp((float) ($signals['simplification_debt'] ?? 0.0));
+        $queueShallow = (bool) ($signals['queue_shallow'] ?? false);
+        $highLeverageCandidates = (bool) ($signals['high_leverage_candidates'] ?? false);
+
+        $repairPressure = ($giveBackRate + $poisonRate + $malformedRate + $collisionRate) / 4.0;
+
+        $scores = array_fill_keys(self::PORTFOLIO_LANES, 1.0);
+        $reasons = [];
+
+        if ($repairPressure > self::REPAIR_PRESSURE_ACTIVATION) {
+            $scores['repair'] += $repairPressure * 3.0;
+            $scores['queue_self_healing'] += $repairPressure * 2.5;
+            $scores['build'] -= $repairPressure * 0.4;
+            $scores['simplify'] -= $repairPressure * 0.3;
+            $scores['research'] -= $repairPressure * 0.3;
+            $reasons[] = sprintf(
+                'repair_pressure=%.2f (give_back/poison/malformed/collision) shifts share toward repair and queue_self_healing',
+                $repairPressure,
+            );
+        }
+
+        if ($simplificationDebt > self::SIMPLIFICATION_DEBT_ACTIVATION) {
+            // Never taken from repair or verification — debt-driven simplification must not starve them.
+            $scores['simplify'] += $simplificationDebt * 2.0;
+            $scores['build'] -= $simplificationDebt * 0.3;
+            $scores['research'] -= $simplificationDebt * 0.2;
+            $scores['learning'] -= $simplificationDebt * 0.2;
+            $reasons[] = sprintf(
+                'simplification_debt=%.2f shifts share toward simplify without reducing repair or verification',
+                $simplificationDebt,
+            );
+        }
+
+        if ($queueShallow && $highLeverageCandidates) {
+            $scores['build'] += 0.5;
+            $scores['research'] += 0.5;
+            $reasons[] = 'healthy shallow queue with high-leverage candidates keeps build/research lanes active';
+        }
+
+        foreach ($scores as $lane => $score) {
+            $scores[$lane] = max(0.1, $score);
+        }
+
+        $sum = array_sum($scores);
+        $shares = [];
+        foreach ($scores as $lane => $score) {
+            $shares[$lane] = $sum > 0.0 ? ($score / $sum) * 100.0 : 0.0;
+        }
+
+        foreach (['repair', 'verification'] as $lane) {
+            if ($shares[$lane] >= self::PORTFOLIO_FLOOR_PCT) {
+                continue;
+            }
+            $deficit = self::PORTFOLIO_FLOOR_PCT - $shares[$lane];
+            $shares[$lane] = self::PORTFOLIO_FLOOR_PCT;
+            $donors = array_filter(
+                array_keys($shares),
+                static fn (string $l): bool => $l !== $lane && $shares[$l] > self::PORTFOLIO_FLOOR_PCT,
+            );
+            $donorSum = array_sum(array_intersect_key($shares, array_flip($donors)));
+            if ($donorSum > 0.0) {
+                foreach ($donors as $donor) {
+                    $shares[$donor] -= $deficit * ($shares[$donor] / $donorSum);
+                }
+            }
+        }
+
+        if ($reasons === []) {
+            $reasons[] = 'no pressure signals present; baseline allocation across lanes';
+        }
+
+        $percentages = $this->normalizeToIntegerPercentages($shares);
+
+        return [
+            'schema' => self::SCHEMA,
+            'percentages' => $percentages,
+            'total_percent' => array_sum($percentages),
+            'reasons' => $reasons,
+        ];
+    }
+
+    /**
+     * Largest-remainder rounding so integer percentages always sum to exactly 100.
+     *
+     * @param  array<string,float>  $shares
+     * @return array<string,int>
+     */
+    private function normalizeToIntegerPercentages(array $shares): array
+    {
+        $floored = array_map(static fn (float $v): int => (int) floor($v), $shares);
+        $remainder = 100 - array_sum($floored);
+
+        $remainders = [];
+        foreach ($shares as $lane => $v) {
+            $remainders[$lane] = $v - floor($v);
+        }
+        arsort($remainders);
+
+        $result = $floored;
+        foreach (array_keys($remainders) as $lane) {
+            if ($remainder <= 0) {
+                break;
+            }
+            $result[$lane]++;
+            $remainder--;
+        }
+
+        return $result;
+    }
 }
