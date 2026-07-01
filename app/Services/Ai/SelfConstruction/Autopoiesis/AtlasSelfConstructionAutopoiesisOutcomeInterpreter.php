@@ -9,20 +9,29 @@ namespace App\Services\Ai\SelfConstruction\Autopoiesis;
  *   promote_candidate | retry_with_changes | quarantine | reject
  *
  * INPUT FACTS:
- *   { verification_passed:bool, evidence_ref:string, real_leverage_proof?:bool,
- *     proxy_only_signal?:bool, regression_detected?:bool, retry_count?:int,
- *     residual_risk_count?:int }
+ *   { verification_passed:bool, evidence_ref:string, impact_receipt_ref?:string,
+ *     real_leverage_proof?:bool, proxy_only_signal?:bool, regression_detected?:bool,
+ *     retry_count?:int, residual_risk_count?:int, stale_evidence_detected?:bool }
  *
- * VERDICT RULES (evaluation order):
+ * VERDICT RULES (evaluation order — quarantine ALWAYS runs first, regardless of
+ * verification_passed, since a regression/repeated-retry/repeated-residual-risk signal is
+ * never safe to learn from even on a "green" run):
  *   quarantine          — regression_detected=true OR retry_count >= QUARANTINE_RETRY_THRESHOLD
+ *                         OR residual_risk_count >= QUARANTINE_RETRY_THRESHOLD (repeated residual
+ *                         risk at or above the retry threshold quarantines even when
+ *                         verification_passed=true). stale_evidence_detected=true is folded in
+ *                         as an additional quarantine reason when quarantine already triggered.
  *   reject              — verification_passed=false OR evidence_ref empty (no learning without evidence)
- *   retry_with_changes  — verification_passed=true AND (proxy_only_signal=true OR residual_risk_count > 0)
- *   promote_candidate   — verification_passed=true AND real_leverage_proof=true AND no proxy signal AND
- *                         no residual risk
+ *   retry_with_changes  — verification_passed=true AND (proxy_only_signal=true OR
+ *                         residual_risk_count > 0 OR stale_evidence_detected=true)
+ *   promote_candidate   — verification_passed=true AND evidence_ref present AND
+ *                         impact_receipt_ref present AND real_leverage_proof=true AND no
+ *                         proxy/stale/regression/residual-risk signal
  *
  * INVARIANTS:
  *   - DETERMINISTIC envelope (reasons sorted).
  *   - PROXY-only wins are NEVER promoted — they go to retry_with_changes.
+ *   - STALE evidence is NEVER promoted — retry_with_changes, or folded into quarantine.
  *   - No verdict other than promote_candidate is ever interpreted as 'promote'.
  *   - NO scalar score.
  */
@@ -48,7 +57,8 @@ final class AtlasSelfConstructionAutopoiesisOutcomeInterpreter
      *     proxy_only_signal?:bool,
      *     regression_detected?:bool,
      *     retry_count?:int,
-     *     residual_risk_count?:int
+     *     residual_risk_count?:int,
+     *     stale_evidence_detected?:bool
      * }  $facts
      * @return array{schema:string, verdict:string, reasons:list<string>}
      */
@@ -62,6 +72,7 @@ final class AtlasSelfConstructionAutopoiesisOutcomeInterpreter
         $regression = (bool) ($facts['regression_detected'] ?? false);
         $retry = (int) ($facts['retry_count'] ?? 0);
         $residualRisk = (int) ($facts['residual_risk_count'] ?? 0);
+        $staleEvidence = (bool) ($facts['stale_evidence_detected'] ?? false);
 
         $reasons = [];
 
@@ -71,7 +82,13 @@ final class AtlasSelfConstructionAutopoiesisOutcomeInterpreter
         if ($retry >= self::QUARANTINE_RETRY_THRESHOLD) {
             $reasons[] = 'quarantine:retry_threshold_exceeded:'.$retry;
         }
+        if ($residualRisk >= self::QUARANTINE_RETRY_THRESHOLD) {
+            $reasons[] = 'quarantine:residual_risk_threshold_exceeded:'.$residualRisk;
+        }
         if ($reasons !== []) {
+            if ($staleEvidence) {
+                $reasons[] = 'quarantine:stale_evidence_detected';
+            }
             sort($reasons, SORT_STRING);
 
             return $this->envelope(self::VERDICT_QUARANTINE, $reasons);
@@ -84,13 +101,16 @@ final class AtlasSelfConstructionAutopoiesisOutcomeInterpreter
             return $this->envelope(self::VERDICT_REJECT, ['reject:evidence_ref_missing']);
         }
 
-        if ($proxyOnly || $residualRisk > 0) {
+        if ($proxyOnly || $residualRisk > 0 || $staleEvidence) {
             $r = [];
             if ($proxyOnly) {
                 $r[] = 'retry:proxy_only_signal';
             }
             if ($residualRisk > 0) {
                 $r[] = 'retry:residual_risk:'.$residualRisk;
+            }
+            if ($staleEvidence) {
+                $r[] = 'retry:stale_evidence_detected';
             }
             sort($r, SORT_STRING);
 
