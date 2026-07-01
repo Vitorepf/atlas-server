@@ -35,6 +35,10 @@ final class AtlasMaestroGiveBackRetryPolicy
     public const REASON_RESPEC_NEEDED   = 'respec_needed';
     public const REASON_QUARANTINE      = 'quarantine';
     public const REASON_WORKER_MISMATCH_NO_ALTERNATE = 'worker_mismatch_no_alternate_worker';
+    public const REASON_QUARANTINE_OR_RETIRE = 'quarantine_or_retire';
+
+    /** @var list<string> reason classes that require a respec before any retry is allowed. */
+    private const RESPEC_GATED_REASON_CLASSES = ['packet_defect', 'scope_missing_impl'];
 
     public function __construct(
         private readonly int $maxRetries = self::DEFAULT_MAX_RETRIES,
@@ -63,9 +67,22 @@ final class AtlasMaestroGiveBackRetryPolicy
         $giveBackReasonClass = (string) ($facts['give_back_reason_class'] ?? '');
         $priorSuccessCount   = (int) ($facts['prior_success_count']    ?? 0);
 
-        // Rule 1: packet_defect — stop blind retries; packet structure must be fixed.
-        if ($giveBackReasonClass === 'packet_defect') {
-            return RetryDecision::deny(self::REASON_RESPEC_NEEDED, $nextAttempt);
+        // Rule 1a: contradictory_acceptance — the spec itself contradicts its own criteria;
+        // no respec can save it, so it must be quarantined or retired outright.
+        if ($giveBackReasonClass === 'contradictory_acceptance') {
+            return RetryDecision::deny(self::REASON_QUARANTINE_OR_RETIRE, $nextAttempt);
+        }
+
+        // Rule 1: packet_defect / scope_missing_impl — stop blind retries; packet structure must
+        // be fixed via respec first. Once the caller supplies proof a respec actually happened
+        // (respec_completed + non-empty respec_evidence), one bounded retry is allowed — it still
+        // falls through to the normal give-back-count/loop/budget/cooldown gates below.
+        if (in_array($giveBackReasonClass, self::RESPEC_GATED_REASON_CLASSES, true)) {
+            $respecCompleted = (bool) ($facts['respec_completed'] ?? false);
+            $respecEvidence  = trim((string) ($facts['respec_evidence'] ?? ''));
+            if (! $respecCompleted || $respecEvidence === '') {
+                return RetryDecision::deny(self::REASON_RESPEC_NEEDED, $nextAttempt);
+            }
         }
 
         // Rule 2: repeated give-backs at threshold → quarantine (never worked) or respec (regression).
@@ -128,6 +145,18 @@ final class AtlasMaestroGiveBackRetryPolicy
     public function respecFieldsFor(array $facts): array
     {
         $giveBackReasonClass = (string) ($facts['give_back_reason_class'] ?? '');
+
+        if ($giveBackReasonClass === 'scope_missing_impl') {
+            $defectFields = array_values(array_filter(
+                array_map('strval', (array) ($facts['packet_defect_fields'] ?? [])),
+                fn (string $f) => $f !== ''
+            ));
+
+            return [
+                'decision_class'  => self::DECISION_CLASS_RESPEC,
+                'required_fields' => $defectFields === [] ? ['allowed_files'] : $defectFields,
+            ];
+        }
 
         if ($giveBackReasonClass !== 'packet_defect') {
             return ['decision_class' => self::DECISION_CLASS_QUARANTINE, 'required_fields' => []];

@@ -231,4 +231,105 @@ final class AtlasMaestroGiveBackRetryPolicyTest extends TestCase
         $this->assertSame(AtlasMaestroGiveBackRetryPolicy::DECISION_CLASS_QUARANTINE, $fields['decision_class']);
         $this->assertSame([], $fields['required_fields']);
     }
+
+    // ── AC: scope_missing_impl give_back recommends respec_fields before retry ──
+
+    public function test_scope_missing_impl_denies_with_respec_needed_before_retry(): void
+    {
+        $policy  = new AtlasMaestroGiveBackRetryPolicy();
+        $verdict = $policy->evaluate([
+            'task_packet_id'         => 'pkt-scope',
+            'retries_used'           => 0,
+            'give_back_reason_class' => 'scope_missing_impl',
+            'new_fingerprint'        => 'fp-new',
+        ]);
+        $this->assertFalse($verdict->allow);
+        $this->assertSame(AtlasMaestroGiveBackRetryPolicy::REASON_RESPEC_NEEDED, $verdict->reason);
+    }
+
+    public function test_respec_fields_for_scope_missing_impl_defaults_to_allowed_files(): void
+    {
+        $policy = new AtlasMaestroGiveBackRetryPolicy();
+        $fields = $policy->respecFieldsFor(['give_back_reason_class' => 'scope_missing_impl']);
+        $this->assertSame(AtlasMaestroGiveBackRetryPolicy::DECISION_CLASS_RESPEC, $fields['decision_class']);
+        $this->assertSame(['allowed_files'], $fields['required_fields']);
+    }
+
+    // ── AC: contradictory_acceptance give_back recommends quarantine_or_retire ──
+
+    public function test_contradictory_acceptance_denies_with_quarantine_or_retire(): void
+    {
+        $policy  = new AtlasMaestroGiveBackRetryPolicy();
+        $verdict = $policy->evaluate([
+            'task_packet_id'         => 'pkt-contra',
+            'retries_used'           => 0,
+            'give_back_reason_class' => 'contradictory_acceptance',
+            'new_fingerprint'        => 'fp-new',
+        ]);
+        $this->assertFalse($verdict->allow);
+        $this->assertSame(AtlasMaestroGiveBackRetryPolicy::REASON_QUARANTINE_OR_RETIRE, $verdict->reason);
+    }
+
+    // ── AC: successful respec evidence allows one bounded retry ──────────────
+
+    public function test_successful_respec_evidence_allows_one_bounded_retry_for_packet_defect(): void
+    {
+        $policy  = new AtlasMaestroGiveBackRetryPolicy(maxRetries: 2);
+        $verdict = $policy->evaluate([
+            'task_packet_id'         => 'pkt-defect-respec',
+            'retries_used'           => 0,
+            'give_back_reason_class' => 'packet_defect',
+            'respec_completed'       => true,
+            'respec_evidence'        => 'respec:receipt-123',
+            'new_fingerprint'        => 'fp-new',
+            'previous_fingerprint'   => 'fp-old',
+        ]);
+        $this->assertTrue($verdict->allow);
+    }
+
+    public function test_successful_respec_evidence_allows_one_bounded_retry_for_scope_missing_impl(): void
+    {
+        $policy  = new AtlasMaestroGiveBackRetryPolicy(maxRetries: 2);
+        $verdict = $policy->evaluate([
+            'task_packet_id'         => 'pkt-scope-respec',
+            'retries_used'           => 0,
+            'give_back_reason_class' => 'scope_missing_impl',
+            'respec_completed'       => true,
+            'respec_evidence'        => 'respec:receipt-456',
+            'new_fingerprint'        => 'fp-new',
+            'previous_fingerprint'   => 'fp-old',
+        ]);
+        $this->assertTrue($verdict->allow);
+    }
+
+    public function test_respec_evidence_retry_still_bounded_by_max_retries(): void
+    {
+        $policy  = new AtlasMaestroGiveBackRetryPolicy(maxRetries: 1);
+        $verdict = $policy->evaluate([
+            'task_packet_id'         => 'pkt-defect-bounded',
+            'retries_used'           => 1,
+            'give_back_reason_class' => 'packet_defect',
+            'respec_completed'       => true,
+            'respec_evidence'        => 'respec:receipt-789',
+            'new_fingerprint'        => 'fp-new',
+            'previous_fingerprint'   => 'fp-old',
+        ]);
+        $this->assertFalse($verdict->allow);
+        $this->assertSame(RetryDecision::REASON_BUDGET_EXHAUSTED, $verdict->reason);
+    }
+
+    public function test_respec_completed_without_evidence_string_still_requires_respec(): void
+    {
+        $policy  = new AtlasMaestroGiveBackRetryPolicy();
+        $verdict = $policy->evaluate([
+            'task_packet_id'         => 'pkt-defect-noev',
+            'retries_used'           => 0,
+            'give_back_reason_class' => 'packet_defect',
+            'respec_completed'       => true,
+            'respec_evidence'        => '',
+            'new_fingerprint'        => 'fp-new',
+        ]);
+        $this->assertFalse($verdict->allow);
+        $this->assertSame(AtlasMaestroGiveBackRetryPolicy::REASON_RESPEC_NEEDED, $verdict->reason);
+    }
 }
