@@ -37,9 +37,10 @@ final class AtlasProjectLaneIsolationSentinel
      *     project_id:string,
      *     namespace_facts?:array<string,mixed>|null,
      *     receipt_facts?:array<string,mixed>|null,
-     *     leak_detector_verdict?:array<string,mixed>|null
+     *     leak_detector_verdict?:array<string,mixed>|null,
+     *     leak_facts?:array{file_leaks?:list<string>, queue_leaks?:list<string>, memory_leaks?:list<string>, receipt_leaks?:list<string>, docs_leaks?:list<string>}|null
      * }  $observations
-     * @return array{schema_version:string, status:string, passed:bool, project_id:string, blockers:list<string>, isolation_facts:array<string,mixed>, proof_summary:array<string,bool>}
+     * @return array{schema_version:string, status:string, isolation_status:string, passed:bool, project_id:string, blockers:list<string>, file_leaks:list<string>, queue_leaks:list<string>, memory_leaks:list<string>, receipt_leaks:list<string>, docs_leaks:list<string>, recommended_action:string, isolation_facts:array<string,mixed>, proof_summary:array<string,bool>}
      */
     public function evaluate(array $observations): array
     {
@@ -47,6 +48,16 @@ final class AtlasProjectLaneIsolationSentinel
         $namespaceFacts = is_array($observations['namespace_facts'] ?? null) ? $observations['namespace_facts'] : null;
         $receiptFacts = is_array($observations['receipt_facts'] ?? null) ? $observations['receipt_facts'] : null;
         $leakVerdict = is_array($observations['leak_detector_verdict'] ?? null) ? $observations['leak_detector_verdict'] : null;
+
+        // Typed leak reporting: a NEW, purely additive bundle layered on top of the existing
+        // pass/hold/blocked composition below. Absence is treated as "no leaks reported" (never a
+        // missing-observation HOLD reason) — only non-empty typed lists can push status to BLOCKED.
+        $leakFacts = is_array($observations['leak_facts'] ?? null) ? $observations['leak_facts'] : null;
+        $fileLeaks = array_values(array_map('strval', (array) ($leakFacts['file_leaks'] ?? [])));
+        $queueLeaks = array_values(array_map('strval', (array) ($leakFacts['queue_leaks'] ?? [])));
+        $memoryLeaks = array_values(array_map('strval', (array) ($leakFacts['memory_leaks'] ?? [])));
+        $receiptLeaks = array_values(array_map('strval', (array) ($leakFacts['receipt_leaks'] ?? [])));
+        $docsLeaks = array_values(array_map('strval', (array) ($leakFacts['docs_leaks'] ?? [])));
 
         $blockers = [];
         if ($projectId === '') {
@@ -90,6 +101,18 @@ final class AtlasProjectLaneIsolationSentinel
             }
         }
 
+        foreach ([
+            'file_leaks' => $fileLeaks,
+            'queue_leaks' => $queueLeaks,
+            'memory_leaks' => $memoryLeaks,
+            'receipt_leaks' => $receiptLeaks,
+            'docs_leaks' => $docsLeaks,
+        ] as $leakType => $items) {
+            foreach ($items as $item) {
+                $blockers[] = $leakType.':'.$item;
+            }
+        }
+
         sort($blockers, SORT_STRING);
 
         $status = self::STATUS_PASS;
@@ -105,9 +128,20 @@ final class AtlasProjectLaneIsolationSentinel
         return [
             'schema_version' => self::SCHEMA,
             'status' => $status,
+            'isolation_status' => $status,
             'passed' => $passed,
             'project_id' => $projectId,
             'blockers' => $blockers,
+            'file_leaks' => $fileLeaks,
+            'queue_leaks' => $queueLeaks,
+            'memory_leaks' => $memoryLeaks,
+            'receipt_leaks' => $receiptLeaks,
+            'docs_leaks' => $docsLeaks,
+            'recommended_action' => match ($status) {
+                self::STATUS_PASS => 'proceed',
+                self::STATUS_HOLD => 'wait_for_observations',
+                default => 'halt_and_isolate',
+            },
             'isolation_facts' => [
                 'missing_observations' => $missing,
                 'namespace_pass' => $namespacePass,

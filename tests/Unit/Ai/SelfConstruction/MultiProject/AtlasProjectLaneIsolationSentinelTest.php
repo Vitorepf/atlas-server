@@ -208,4 +208,114 @@ final class AtlasProjectLaneIsolationSentinelTest extends TestCase
         $json = (string) json_encode($v);
         $this->assertDoesNotMatchRegularExpression('/score|grade|percent/i', $json);
     }
+
+    // ── AC: file_leaks, queue_leaks, memory_leaks, receipt_leaks, docs_leaks, isolation_status, recommended_action ──
+
+    private function fullObservation(array $overrides = []): array
+    {
+        return array_merge([
+            'project_id' => 'demo-lane',
+            'namespace_facts' => $this->passingNamespace(),
+            'receipt_facts' => $this->passingReceipt(),
+            'leak_detector_verdict' => $this->passingLeak(),
+        ], $overrides);
+    }
+
+    public function test_clean_isolation_reports_empty_leak_lists_and_proceed_action(): void
+    {
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate($this->fullObservation());
+
+        $this->assertSame(AtlasProjectLaneIsolationSentinel::STATUS_PASS, $v['isolation_status']);
+        $this->assertSame($v['status'], $v['isolation_status']);
+        $this->assertSame([], $v['file_leaks']);
+        $this->assertSame([], $v['queue_leaks']);
+        $this->assertSame([], $v['memory_leaks']);
+        $this->assertSame([], $v['receipt_leaks']);
+        $this->assertSame([], $v['docs_leaks']);
+        $this->assertSame('proceed', $v['recommended_action']);
+    }
+
+    public function test_file_leak_blocks_isolation_and_is_reported(): void
+    {
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate($this->fullObservation([
+            'leak_facts' => ['file_leaks' => ['app/OtherProject/Secret.php']],
+        ]));
+
+        $this->assertSame(AtlasProjectLaneIsolationSentinel::STATUS_BLOCKED, $v['isolation_status']);
+        $this->assertSame(['app/OtherProject/Secret.php'], $v['file_leaks']);
+        $this->assertContains('file_leaks:app/OtherProject/Secret.php', $v['blockers']);
+        $this->assertSame('halt_and_isolate', $v['recommended_action']);
+    }
+
+    public function test_queue_namespace_leak_blocks_isolation_and_is_reported(): void
+    {
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate($this->fullObservation([
+            'leak_facts' => ['queue_leaks' => ['task claimed under wrong project namespace']],
+        ]));
+
+        $this->assertSame(AtlasProjectLaneIsolationSentinel::STATUS_BLOCKED, $v['isolation_status']);
+        $this->assertSame(['task claimed under wrong project namespace'], $v['queue_leaks']);
+        $this->assertContains('queue_leaks:task claimed under wrong project namespace', $v['blockers']);
+    }
+
+    public function test_memory_leak_blocks_isolation_and_is_reported(): void
+    {
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate($this->fullObservation([
+            'leak_facts' => ['memory_leaks' => ['memory record tagged with other-project scope']],
+        ]));
+
+        $this->assertSame(AtlasProjectLaneIsolationSentinel::STATUS_BLOCKED, $v['isolation_status']);
+        $this->assertSame(['memory record tagged with other-project scope'], $v['memory_leaks']);
+    }
+
+    public function test_receipt_leak_blocks_isolation_and_is_reported(): void
+    {
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate($this->fullObservation([
+            'leak_facts' => ['receipt_leaks' => ['receipt env-hash-9 references foreign project_id']],
+        ]));
+
+        $this->assertSame(AtlasProjectLaneIsolationSentinel::STATUS_BLOCKED, $v['isolation_status']);
+        $this->assertSame(['receipt env-hash-9 references foreign project_id'], $v['receipt_leaks']);
+    }
+
+    public function test_docs_leak_blocks_isolation_and_is_reported(): void
+    {
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate($this->fullObservation([
+            'leak_facts' => ['docs_leaks' => ['docs/OtherProject/internal.md']],
+        ]));
+
+        $this->assertSame(AtlasProjectLaneIsolationSentinel::STATUS_BLOCKED, $v['isolation_status']);
+        $this->assertSame(['docs/OtherProject/internal.md'], $v['docs_leaks']);
+    }
+
+    public function test_mixed_leak_severity_reports_all_leak_types_simultaneously(): void
+    {
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate($this->fullObservation([
+            'leak_facts' => [
+                'file_leaks' => ['app/Other/A.php'],
+                'queue_leaks' => ['wrong-namespace-task'],
+                'memory_leaks' => ['other-project-memory'],
+                'receipt_leaks' => ['foreign-receipt'],
+                'docs_leaks' => ['docs/leaked.md'],
+            ],
+        ]));
+
+        $this->assertSame(AtlasProjectLaneIsolationSentinel::STATUS_BLOCKED, $v['isolation_status']);
+        $this->assertSame(['app/Other/A.php'], $v['file_leaks']);
+        $this->assertSame(['wrong-namespace-task'], $v['queue_leaks']);
+        $this->assertSame(['other-project-memory'], $v['memory_leaks']);
+        $this->assertSame(['foreign-receipt'], $v['receipt_leaks']);
+        $this->assertSame(['docs/leaked.md'], $v['docs_leaks']);
+        $this->assertSame('halt_and_isolate', $v['recommended_action']);
+    }
+
+    public function test_absent_leak_facts_never_triggers_hold(): void
+    {
+        // Regression guard: leak_facts is purely additive — its absence must never be treated as a
+        // missing observation (unlike namespace_facts/receipt_facts/leak_detector_verdict).
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate($this->fullObservation());
+
+        $this->assertSame(AtlasProjectLaneIsolationSentinel::STATUS_PASS, $v['status']);
+        $this->assertNotContains('leak_facts', $v['isolation_facts']['missing_observations']);
+    }
 }
