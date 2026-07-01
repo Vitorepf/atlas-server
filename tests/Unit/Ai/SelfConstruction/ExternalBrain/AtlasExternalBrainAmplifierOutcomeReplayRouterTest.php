@@ -20,6 +20,9 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouterTest extends TestCase
         int $evidence = 5,
         string $scaffold = 'v1',
         string $tier = 'small',
+        float $capabilityDelta = 0.0,
+        bool $proxyDetected = false,
+        bool $heldoutPassed = false,
     ): array {
         return [
             'outcome_id' => $id,
@@ -27,6 +30,9 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouterTest extends TestCase
             'evidence_count' => $evidence,
             'scaffold_variant' => $scaffold,
             'model_tier' => $tier,
+            'capability_delta' => $capabilityDelta,
+            'proxy_detected' => $proxyDetected,
+            'heldout_passed' => $heldoutPassed,
         ];
     }
 
@@ -225,5 +231,78 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouterTest extends TestCase
         $r = $this->svc()->route([]);
 
         $this->assertSame(AtlasExternalBrainAmplifierOutcomeReplayRouter::SCHEMA, $r['schema_version']);
+    }
+
+    // ── AC: learning_promotion_candidates + promotion gates ──────────────────
+
+    public function test_positive_learning_requires_capability_delta_proxy_false_and_heldout_passed(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'commit_success', capabilityDelta: 0.4, proxyDetected: false, heldoutPassed: true)]);
+
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertTrue($candidate['eligible_for_promotion']);
+        $this->assertSame([], $candidate['promotion_blockers']);
+    }
+
+    public function test_proxy_success_never_eligible_for_scaffold_promotion(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'proxy_success', capabilityDelta: 0.4, proxyDetected: false, heldoutPassed: true)]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertNotContains('scaffold_selection', $sinks);
+        $this->assertContains('rollback_signal', $sinks);
+        $this->assertContains('heldout_benchmark_update', $sinks);
+
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertFalse($candidate['eligible_for_promotion']);
+        $this->assertContains('sink_excludes_scaffold_selection', $candidate['promotion_blockers']);
+    }
+
+    public function test_no_capability_delta_never_eligible_for_scaffold_promotion(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'no_capability_delta', heldoutPassed: true)]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertNotContains('scaffold_selection', $sinks);
+        $this->assertContains('rollback_signal', $sinks);
+        $this->assertContains('heldout_benchmark_update', $sinks);
+
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertFalse($candidate['eligible_for_promotion']);
+    }
+
+    public function test_single_high_value_outcome_below_evidence_threshold_is_ignored_with_low_evidence(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'high_value', evidence: 1, capabilityDelta: 0.9, heldoutPassed: true)]);
+
+        $this->assertSame([], $r['routed_updates']);
+        $this->assertSame([], $r['learning_promotion_candidates']);
+        $this->assertSame('low_evidence', $r['ignored_outcomes'][0]['reason']);
+    }
+
+    public function test_high_value_with_capability_delta_and_heldout_passed_is_eligible(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'high_value', capabilityDelta: 0.5, heldoutPassed: true)]);
+
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertTrue($candidate['eligible_for_promotion']);
+    }
+
+    public function test_high_value_without_heldout_pass_is_blocked_with_reason(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'high_value', capabilityDelta: 0.5, heldoutPassed: false)]);
+
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertFalse($candidate['eligible_for_promotion']);
+        $this->assertContains('heldout_not_passed', $candidate['promotion_blockers']);
+    }
+
+    public function test_proxy_detected_true_blocks_promotion_even_with_positive_delta(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'commit_success', capabilityDelta: 0.5, proxyDetected: true, heldoutPassed: true)]);
+
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertFalse($candidate['eligible_for_promotion']);
+        $this->assertContains('proxy_detected', $candidate['promotion_blockers']);
     }
 }

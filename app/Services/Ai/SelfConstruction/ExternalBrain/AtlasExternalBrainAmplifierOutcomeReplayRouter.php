@@ -58,6 +58,7 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
         $affectedScaffoldSet = [];
         $affectedTierSet = [];
         $regressionCaseCandidates = [];
+        $learningPromotionCandidates = [];
 
         foreach ($outcomes as $outcome) {
             $id = (string) ($outcome['outcome_id'] ?? 'unknown');
@@ -87,6 +88,36 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
                 'model_tier' => $tier,
             ];
 
+            // learning_promotion_candidates: positive amplifier learning (scaffold promotion) must
+            // clear ALL four gates — sink eligibility, real capability delta, no proxy, held-out pass.
+            $capabilityDelta = (float) ($outcome['capability_delta'] ?? 0.0);
+            $proxyDetected = (bool) ($outcome['proxy_detected'] ?? false);
+            $heldoutPassed = (bool) ($outcome['heldout_passed'] ?? false);
+
+            $promotionBlockers = [];
+            if (! in_array('scaffold_selection', $sinks, true)) {
+                $promotionBlockers[] = 'sink_excludes_scaffold_selection';
+            }
+            if ($capabilityDelta <= 0.0) {
+                $promotionBlockers[] = 'capability_delta_not_positive';
+            }
+            if ($proxyDetected) {
+                $promotionBlockers[] = 'proxy_detected';
+            }
+            if (! $heldoutPassed) {
+                $promotionBlockers[] = 'heldout_not_passed';
+            }
+
+            $learningPromotionCandidates[] = [
+                'outcome_id' => $id,
+                'outcome_type' => $type,
+                'capability_delta' => $capabilityDelta,
+                'proxy_detected' => $proxyDetected,
+                'heldout_passed' => $heldoutPassed,
+                'eligible_for_promotion' => $promotionBlockers === [],
+                'promotion_blockers' => $promotionBlockers,
+            ];
+
             if ($scaffold !== '') {
                 $affectedScaffoldSet[$scaffold] = true;
             }
@@ -110,6 +141,7 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
             'affected_scaffolds' => array_keys($affectedScaffoldSet),
             'affected_model_tiers' => array_keys($affectedTierSet),
             'regression_case_candidates' => $regressionCaseCandidates,
+            'learning_promotion_candidates' => $learningPromotionCandidates,
         ];
     }
 }
