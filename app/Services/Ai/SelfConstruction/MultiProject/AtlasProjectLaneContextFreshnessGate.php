@@ -30,6 +30,27 @@ final class AtlasProjectLaneContextFreshnessGate
 
     public const REQUIRED_EVIDENCE = ['docs_sync', 'code_index', 'context_pack', 'queue_namespace', 'receipt_ledger'];
 
+    public const FRESHNESS_FRESH = 'fresh';
+
+    public const FRESHNESS_STALE = 'stale';
+
+    public const FRESHNESS_MISSING = 'missing';
+
+    public const READINESS_READY = 'ready';
+
+    public const READINESS_DEGRADED = 'degraded';
+
+    public const READINESS_BLOCKED = 'blocked';
+
+    /** blocker prefixes that mean the lane is fundamentally misconfigured, not merely stale. */
+    private const STRUCTURAL_BLOCKER_PREFIXES = [
+        'project_id_missing',
+        'invalid_freshness_window',
+        'context_pack_project_mismatch',
+        'context_pack_missing_hash',
+        'receipt_ledger_hash_missing',
+    ];
+
     /**
      * @param  array<string,mixed>  $manifest
      * @param  array<string,mixed>  $observations
@@ -122,6 +143,90 @@ final class AtlasProjectLaneContextFreshnessGate
             'window_seconds' => $windows,
             'observed_at' => $now,
         ];
+    }
+
+    /**
+     * Adds a memory_snapshot freshness dimension (missing by default in evaluate(), never
+     * assumed fresh) and a per-dimension freshness breakdown plus one readiness_status —
+     * 'blocked' when the lane is structurally misconfigured (missing project id, invalid window,
+     * mismatched/missing context pack identity), 'degraded' when it is merely stale, 'ready'
+     * only when every dimension is confirmed fresh.
+     *
+     * @param  array<string,mixed>  $manifest       same shape as evaluate(), optionally with
+     *                                                freshness_window_seconds.memory_snapshot
+     * @param  array<string,mixed>  $observations   same shape as evaluate(), plus optional
+     *                                                memory_snapshot_last_unix?:int
+     * @return array{schema:string, project_id:string, freshness:array<string,string>, readiness_status:string, blockers:list<string>}
+     */
+    public function evaluateReadiness(array $manifest, array $observations): array
+    {
+        $base = $this->evaluate($manifest, $observations);
+        $now = (int) ($observations['now_unix'] ?? 0);
+
+        $rawWindows = $manifest['freshness_window_seconds'] ?? null;
+        $memoryWindow = is_array($rawWindows) && isset($rawWindows['memory_snapshot'])
+            && is_int($rawWindows['memory_snapshot']) && $rawWindows['memory_snapshot'] > 0
+            ? $rawWindows['memory_snapshot']
+            : 3600;
+
+        $memoryLast = $observations['memory_snapshot_last_unix'] ?? null;
+        $memoryFreshness = ! is_int($memoryLast)
+            ? self::FRESHNESS_MISSING
+            : (($now - $memoryLast > $memoryWindow) ? self::FRESHNESS_STALE : self::FRESHNESS_FRESH);
+
+        $blockers = $base['blockers'];
+        if ($memoryFreshness !== self::FRESHNESS_FRESH) {
+            $blockers[] = 'memory_snapshot_'.$memoryFreshness;
+        }
+
+        $freshness = [
+            'context_pack' => $this->dimensionFreshness($base['blockers'], 'context_pack'),
+            'code_index' => $this->dimensionFreshness($base['blockers'], 'code_index'),
+            'docs' => $this->dimensionFreshness($base['blockers'], 'docs_sync'),
+            'queue_state' => $this->dimensionFreshness($base['blockers'], 'queue_namespace'),
+            'memory_snapshot' => $memoryFreshness,
+        ];
+
+        $hasStructuralBlocker = false;
+        foreach ($blockers as $blocker) {
+            foreach (self::STRUCTURAL_BLOCKER_PREFIXES as $prefix) {
+                if (str_starts_with($blocker, $prefix)) {
+                    $hasStructuralBlocker = true;
+                    break 2;
+                }
+            }
+        }
+
+        $readinessStatus = match (true) {
+            $hasStructuralBlocker => self::READINESS_BLOCKED,
+            $blockers !== [] => self::READINESS_DEGRADED,
+            default => self::READINESS_READY,
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'project_id' => $base['project_id'],
+            'freshness' => $freshness,
+            'readiness_status' => $readinessStatus,
+            'blockers' => $blockers,
+        ];
+    }
+
+    /** @param  list<string>  $blockers */
+    private function dimensionFreshness(array $blockers, string $prefix): string
+    {
+        foreach ($blockers as $blocker) {
+            if (str_starts_with($blocker, $prefix.'_stale')) {
+                return self::FRESHNESS_STALE;
+            }
+        }
+        foreach ($blockers as $blocker) {
+            if (str_starts_with($blocker, $prefix.'_missing')) {
+                return self::FRESHNESS_MISSING;
+            }
+        }
+
+        return self::FRESHNESS_FRESH;
     }
 
     /**

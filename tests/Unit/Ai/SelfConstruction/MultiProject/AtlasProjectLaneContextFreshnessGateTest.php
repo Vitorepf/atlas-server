@@ -235,4 +235,124 @@ final class AtlasProjectLaneContextFreshnessGateTest extends TestCase
 
         $this->assertSame(json_encode($gate->evaluate($this->manifest(), $obs)), json_encode($gate->evaluate($this->manifest(), $obs)));
     }
+
+    // ── evaluateReadiness(): freshness breakdown + memory_snapshot + readiness_status ──
+
+    private function freshObservations(): array
+    {
+        return [
+            'now_unix' => self::NOW,
+            'docs_sync_last_unix' => self::NOW - 100,
+            'code_index_last_unix' => self::NOW - 100,
+            'context_pack_hash' => 'h',
+            'context_pack_last_unix' => self::NOW - 100,
+            'queue_namespace_last_unix' => self::NOW - 100,
+            'receipt_ledger_hash' => 'rh1',
+            'receipt_ledger_last_unix' => self::NOW - 100,
+            'memory_snapshot_last_unix' => self::NOW - 100,
+        ];
+    }
+
+    // ── AC: fresh lane ────────────────────────────────────────────────────────────
+
+    public function test_fresh_lane_reports_all_dimensions_fresh_and_ready(): void
+    {
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluateReadiness($this->manifest(), $this->freshObservations());
+
+        foreach (['context_pack', 'code_index', 'docs', 'queue_state', 'memory_snapshot'] as $dim) {
+            $this->assertSame(AtlasProjectLaneContextFreshnessGate::FRESHNESS_FRESH, $verdict['freshness'][$dim], "expected {$dim} fresh");
+        }
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::READINESS_READY, $verdict['readiness_status']);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    // ── AC: stale docs ────────────────────────────────────────────────────────────
+
+    public function test_stale_docs_reports_degraded_readiness(): void
+    {
+        $observations = $this->freshObservations();
+        $observations['docs_sync_last_unix'] = self::NOW - 10_000;
+
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluateReadiness($this->manifest(), $observations);
+
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::FRESHNESS_STALE, $verdict['freshness']['docs']);
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::READINESS_DEGRADED, $verdict['readiness_status']);
+    }
+
+    // ── AC: stale code index ──────────────────────────────────────────────────────
+
+    public function test_stale_code_index_reports_degraded_readiness(): void
+    {
+        $observations = $this->freshObservations();
+        $observations['code_index_last_unix'] = self::NOW - 10_000;
+
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluateReadiness($this->manifest(), $observations);
+
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::FRESHNESS_STALE, $verdict['freshness']['code_index']);
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::READINESS_DEGRADED, $verdict['readiness_status']);
+    }
+
+    // ── AC: stale memory ──────────────────────────────────────────────────────────
+
+    public function test_stale_memory_snapshot_reports_degraded_readiness(): void
+    {
+        $observations = $this->freshObservations();
+        $observations['memory_snapshot_last_unix'] = self::NOW - 10_000;
+
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluateReadiness($this->manifest(), $observations);
+
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::FRESHNESS_STALE, $verdict['freshness']['memory_snapshot']);
+        $this->assertContains('memory_snapshot_stale', $verdict['blockers']);
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::READINESS_DEGRADED, $verdict['readiness_status']);
+    }
+
+    public function test_missing_memory_snapshot_is_never_assumed_fresh(): void
+    {
+        $observations = $this->freshObservations();
+        unset($observations['memory_snapshot_last_unix']);
+
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluateReadiness($this->manifest(), $observations);
+
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::FRESHNESS_MISSING, $verdict['freshness']['memory_snapshot']);
+    }
+
+    // ── AC: missing queue state ───────────────────────────────────────────────────
+
+    public function test_missing_queue_state_reports_degraded_readiness(): void
+    {
+        $observations = $this->freshObservations();
+        unset($observations['queue_namespace_last_unix']);
+
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluateReadiness($this->manifest(), $observations);
+
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::FRESHNESS_MISSING, $verdict['freshness']['queue_state']);
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::READINESS_DEGRADED, $verdict['readiness_status']);
+    }
+
+    // ── AC: mixed degraded readiness ──────────────────────────────────────────────
+
+    public function test_mixed_stale_and_missing_dimensions_report_degraded_not_blocked(): void
+    {
+        $observations = $this->freshObservations();
+        $observations['docs_sync_last_unix'] = self::NOW - 10_000;
+        unset($observations['queue_namespace_last_unix']);
+        $observations['memory_snapshot_last_unix'] = self::NOW - 10_000;
+
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluateReadiness($this->manifest(), $observations);
+
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::FRESHNESS_STALE, $verdict['freshness']['docs']);
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::FRESHNESS_MISSING, $verdict['freshness']['queue_state']);
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::FRESHNESS_STALE, $verdict['freshness']['memory_snapshot']);
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::READINESS_DEGRADED, $verdict['readiness_status']);
+        $this->assertGreaterThanOrEqual(3, count($verdict['blockers']));
+    }
+
+    public function test_structural_misconfiguration_reports_blocked_not_degraded(): void
+    {
+        $manifest = ['freshness_window_seconds' => ['docs_sync' => 3600, 'code_index' => 3600, 'context_pack' => 600]];
+
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluateReadiness($manifest, $this->freshObservations());
+
+        $this->assertSame(AtlasProjectLaneContextFreshnessGate::READINESS_BLOCKED, $verdict['readiness_status']);
+    }
 }
