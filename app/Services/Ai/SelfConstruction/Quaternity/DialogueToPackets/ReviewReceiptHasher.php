@@ -13,6 +13,9 @@ namespace App\Services\Ai\SelfConstruction\Quaternity\DialogueToPackets;
  */
 final class ReviewReceiptHasher
 {
+    /** Key-name substrings (case-insensitive) that mark a field as a raw secret/credential — redacted before hashing. */
+    private const SENSITIVE_KEY_MARKERS = ['secret', 'token', 'api_key', 'apikey', 'credential', 'password', 'bearer', 'auth_key'];
+
     /**
      * @param  array<string,mixed>  $proposal  the parsed ProposedPacketShape array
      */
@@ -53,9 +56,24 @@ final class ReviewReceiptHasher
         ksort($value);
         $out = [];
         foreach ($value as $k => $v) {
+            if (self::isSensitiveKey((string) $k)) {
+                continue;
+            }
             $out[$k] = self::canonicalize($v);
         }
 
         return $out;
+    }
+
+    private static function isSensitiveKey(string $key): bool
+    {
+        $lower = strtolower($key);
+        foreach (self::SENSITIVE_KEY_MARKERS as $marker) {
+            if (str_contains($lower, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
