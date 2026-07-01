@@ -65,6 +65,7 @@ final class AtlasSelfConstructionRuntimeDaemonState
         $type = (string) ($event['type'] ?? '');
         $eventReason = (string) ($event['reason'] ?? '');
         $eventNow = $event['now_at'] ?? ($state['now_at'] ?? null);
+        $evidenceRefs = array_values(array_map('strval', (array) ($state['evidence_refs'] ?? [])));
 
         switch ($type) {
             case 'plan':
@@ -82,15 +83,26 @@ final class AtlasSelfConstructionRuntimeDaemonState
                 }
                 break;
             case 'tick_completed':
+            case 'cycle_success':
                 if (isset($event['receipt_hash'])) {
                     $lastReceipt = (string) $event['receipt_hash'];
+                    $evidenceRefs[] = $lastReceipt;
                 }
                 if ($eventNow !== null) {
                     $lastHeartbeatAt = (string) $eventNow;
                 }
                 if ($status === self::STATUS_RUNNING) {
                     $status = self::STATUS_RUNNING;
-                    $reason = 'tick_completed';
+                    $reason = $type === 'cycle_success' ? 'cycle_success' : 'tick_completed';
+                }
+                break;
+            case 'cycle_failure':
+                if (! $safetyStop) {
+                    $status = self::STATUS_DEGRADED;
+                }
+                $reason = $eventReason !== '' ? $eventReason : 'cycle_failure';
+                if ($eventNow !== null) {
+                    $lastHeartbeatAt = (string) $eventNow;
                 }
                 break;
             case 'pause_requested':
@@ -114,9 +126,28 @@ final class AtlasSelfConstructionRuntimeDaemonState
                 $reason = $eventReason !== '' ? $eventReason : 'safety_stop';
                 break;
             case 'safety_reset':
-                $safetyStop = false;
-                $status = self::STATUS_PLANNED;
-                $reason = $eventReason !== '' ? $eventReason : 'safety_reset';
+                // AC3: safety_stop is sticky — a bare safety_reset is NOT sufficient to clear it.
+                // Only an explicit recovery_completed event carrying a proof_ref may do that.
+                $reason = 'safety_reset_insufficient_use_recovery_completed_with_proof_ref';
+                break;
+            case 'recovery_started':
+                $reason = $eventReason !== '' ? $eventReason : 'recovery_started';
+                break;
+            case 'recovery_completed':
+                $proofRef = trim((string) ($event['proof_ref'] ?? ''));
+                if ($safetyStop && $proofRef !== '') {
+                    $safetyStop = false;
+                    $status = self::STATUS_PLANNED;
+                    $reason = 'recovery_completed';
+                    $evidenceRefs[] = $proofRef;
+                } elseif ($safetyStop) {
+                    $reason = 'recovery_completed_missing_proof_ref';
+                } else {
+                    $reason = $eventReason !== '' ? $eventReason : 'recovery_completed';
+                    if ($proofRef !== '') {
+                        $evidenceRefs[] = $proofRef;
+                    }
+                }
                 break;
             case 'degraded':
                 $status = self::STATUS_DEGRADED;
@@ -140,11 +171,19 @@ final class AtlasSelfConstructionRuntimeDaemonState
         }
 
         $nextTickAllowed = $this->nextTickAllowed($status, $safetyStop, $pauseRequested, $stopRequested, $heartbeatStatus);
+        $blockers = $this->blockers($safetyStop, $pauseRequested, $stopRequested, $heartbeatStatus);
+        $recoveryAction = $this->recoveryAction($safetyStop, $pauseRequested, $stopRequested, $heartbeatStatus);
+
+        $evidenceRefs = array_values(array_unique($evidenceRefs));
+        if (count($evidenceRefs) > 20) {
+            $evidenceRefs = array_slice($evidenceRefs, -20);
+        }
 
         $next = [
             'schema_version' => self::SCHEMA,
             'status' => $status,
             'status_reason' => $reason,
+            'last_event' => $type,
             'safety_stop' => $safetyStop,
             'pause_requested' => $pauseRequested,
             'stop_requested' => $stopRequested,
@@ -153,11 +192,52 @@ final class AtlasSelfConstructionRuntimeDaemonState
             'heartbeat_status' => $heartbeatStatus,
             'heartbeat_max_age_s' => $maxAge,
             'next_tick_allowed' => $nextTickAllowed,
+            'blockers' => $blockers,
+            'recovery_action' => $recoveryAction,
+            'evidence_refs' => $evidenceRefs,
             'now_at' => $eventNow !== null ? (string) $eventNow : ($state['now_at'] ?? null),
         ];
         $next['state_hash'] = $this->hash($next);
 
         return $next;
+    }
+
+    /**
+     * AC4: explicit blockers preventing the next tick, most specific first.
+     *
+     * @return list<string>
+     */
+    private function blockers(bool $safety, bool $pause, bool $stop, string $heartbeatStatus): array
+    {
+        $blockers = [];
+        if ($safety) {
+            $blockers[] = 'safety_stop_active';
+        }
+        if ($pause) {
+            $blockers[] = 'pause_requested';
+        }
+        if ($stop) {
+            $blockers[] = 'stop_requested';
+        }
+        if ($heartbeatStatus === self::HEARTBEAT_STALE) {
+            $blockers[] = 'heartbeat_stale';
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * AC4: the single most useful next recovery action, given current blockers.
+     */
+    private function recoveryAction(bool $safety, bool $pause, bool $stop, string $heartbeatStatus): string
+    {
+        return match (true) {
+            $safety => 'await_recovery_completed_with_proof_ref',
+            $pause => 'send_resume_event',
+            $stop => 'send_plan_event',
+            $heartbeatStatus === self::HEARTBEAT_STALE => 'restart_heartbeat_or_investigate_worker',
+            default => 'none',
+        };
     }
 
     /**

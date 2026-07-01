@@ -83,7 +83,7 @@ final class AtlasSelfConstructionRuntimeDaemonStateTest extends TestCase
         $this->assertFalse($next['next_tick_allowed']);
     }
 
-    public function test_safety_stop_is_sticky_until_safety_reset(): void
+    public function test_safety_stop_is_sticky_until_recovery_completed_with_proof(): void
     {
         $reducer = new AtlasSelfConstructionRuntimeDaemonState;
         $a = $reducer->reduce($this->initial(), ['type' => 'safety_stop', 'reason' => 'master_switch_off']);
@@ -97,9 +97,21 @@ final class AtlasSelfConstructionRuntimeDaemonStateTest extends TestCase
         $this->assertTrue($b['safety_stop']);
         $this->assertFalse($b['next_tick_allowed']);
 
+        // A bare safety_reset (no proof) is INSUFFICIENT — safety_stop remains sticky.
         $c = $reducer->reduce($a, ['type' => 'safety_reset']);
-        $this->assertFalse($c['safety_stop']);
-        $this->assertTrue($c['next_tick_allowed']);
+        $this->assertTrue($c['safety_stop']);
+        $this->assertFalse($c['next_tick_allowed']);
+
+        // recovery_completed WITHOUT a proof_ref is also insufficient.
+        $d = $reducer->reduce($a, ['type' => 'recovery_completed']);
+        $this->assertTrue($d['safety_stop']);
+        $this->assertSame('recovery_completed_missing_proof_ref', $d['status_reason']);
+
+        // Only recovery_completed WITH a proof_ref clears it.
+        $e = $reducer->reduce($a, ['type' => 'recovery_completed', 'proof_ref' => 'evidence:soak-run-42']);
+        $this->assertFalse($e['safety_stop']);
+        $this->assertTrue($e['next_tick_allowed']);
+        $this->assertContains('evidence:soak-run-42', $e['evidence_refs']);
     }
 
     public function test_heartbeat_stale_downgrades_running_to_degraded(): void
@@ -160,13 +172,108 @@ final class AtlasSelfConstructionRuntimeDaemonStateTest extends TestCase
         $state = $reducer->reduce($this->initial(), ['type' => 'plan']);
 
         $expected = [
-            'schema_version', 'status', 'status_reason', 'safety_stop', 'pause_requested',
+            'schema_version', 'status', 'status_reason', 'last_event', 'safety_stop', 'pause_requested',
             'stop_requested', 'last_heartbeat_at', 'last_cycle_receipt_hash', 'heartbeat_status',
-            'heartbeat_max_age_s', 'next_tick_allowed', 'now_at', 'state_hash',
+            'heartbeat_max_age_s', 'next_tick_allowed', 'blockers', 'recovery_action', 'evidence_refs',
+            'now_at', 'state_hash',
         ];
         $actual = array_keys($state);
         sort($expected);
         sort($actual);
-        $this->assertSame($expected, $actual, 'state shape must be bounded to the 13 canonical keys');
+        $this->assertSame($expected, $actual, 'state shape must be bounded to the 17 canonical keys');
+    }
+
+    // ── AC2: cycle_success / cycle_failure / recovery_started deterministic handling ──
+
+    public function test_cycle_success_records_receipt_and_evidence_ref(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $a = $reducer->reduce($this->initial(), ['type' => 'plan']);
+        $b = $reducer->reduce($a, ['type' => 'tick_started', 'now_at' => '2026-06-25T05:30:00+00:00']);
+        $c = $reducer->reduce($b, ['type' => 'cycle_success', 'now_at' => '2026-06-25T05:31:00+00:00', 'receipt_hash' => 'rcpt-success']);
+
+        $this->assertSame('rcpt-success', $c['last_cycle_receipt_hash']);
+        $this->assertContains('rcpt-success', $c['evidence_refs']);
+        $this->assertSame('cycle_success', $c['last_event']);
+    }
+
+    public function test_cycle_failure_downgrades_to_degraded(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $a = $reducer->reduce(['status' => 'running'], ['type' => 'cycle_failure', 'reason' => 'gate_failed']);
+
+        $this->assertSame('degraded', $a['status']);
+        $this->assertSame('gate_failed', $a['status_reason']);
+        $this->assertContains('cycle_failure', [$a['last_event']]);
+    }
+
+    public function test_cycle_failure_does_not_override_safety_stopped(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $a = $reducer->reduce($this->initial(), ['type' => 'safety_stop']);
+        $b = $reducer->reduce($a, ['type' => 'cycle_failure']);
+
+        $this->assertSame('safety_stopped', $b['status']);
+        $this->assertTrue($b['safety_stop']);
+    }
+
+    public function test_recovery_started_does_not_clear_safety_stop(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $a = $reducer->reduce($this->initial(), ['type' => 'safety_stop']);
+        $b = $reducer->reduce($a, ['type' => 'recovery_started', 'reason' => 'operator_investigating']);
+
+        $this->assertTrue($b['safety_stop']);
+        $this->assertSame('operator_investigating', $b['status_reason']);
+    }
+
+    // ── AC4: current mode, last event, blockers, recovery action, evidence refs ──
+
+    public function test_output_includes_last_event(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $state = $reducer->reduce($this->initial(), ['type' => 'plan']);
+
+        $this->assertSame('plan', $state['last_event']);
+    }
+
+    public function test_blockers_empty_when_running_cleanly(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $state = $reducer->reduce($this->initial(), ['type' => 'plan']);
+
+        $this->assertSame([], $state['blockers']);
+        $this->assertSame('none', $state['recovery_action']);
+    }
+
+    public function test_blockers_and_recovery_action_reflect_safety_stop(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $state = $reducer->reduce($this->initial(), ['type' => 'safety_stop']);
+
+        $this->assertContains('safety_stop_active', $state['blockers']);
+        $this->assertSame('await_recovery_completed_with_proof_ref', $state['recovery_action']);
+    }
+
+    public function test_blockers_and_recovery_action_reflect_pause(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $a = $reducer->reduce($this->initial(), ['type' => 'plan']);
+        $state = $reducer->reduce($a, ['type' => 'pause_requested']);
+
+        $this->assertContains('pause_requested', $state['blockers']);
+        $this->assertSame('send_resume_event', $state['recovery_action']);
+    }
+
+    public function test_evidence_refs_accumulate_and_are_deduplicated(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $a = $reducer->reduce($this->initial(), ['type' => 'plan']);
+        $b = $reducer->reduce($a, ['type' => 'tick_started', 'now_at' => '2026-06-25T05:30:00+00:00']);
+        $c = $reducer->reduce($b, ['type' => 'cycle_success', 'now_at' => '2026-06-25T05:31:00+00:00', 'receipt_hash' => 'rcpt-1']);
+        $d = $reducer->reduce($c, ['type' => 'tick_started', 'now_at' => '2026-06-25T05:32:00+00:00']);
+        $e = $reducer->reduce($d, ['type' => 'cycle_success', 'now_at' => '2026-06-25T05:33:00+00:00', 'receipt_hash' => 'rcpt-1']);
+
+        $this->assertSame(['rcpt-1'], $e['evidence_refs'], 'duplicate receipt refs must not be repeated');
     }
 }
