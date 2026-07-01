@@ -180,11 +180,18 @@ final class AtlasExternalBrainFinalCertificationGate
         $passedCount   = count(array_filter($results));
         $requiredCount = count($results);
 
-        // Passing dimensions with missing evidence_refs block final_95_candidate.
-        $hasMissingRefs = (bool) count(array_filter(
-            $dossier,
-            fn(array $e): bool => $e['passed'] && $e['missing_refs'] !== [],
-        ));
+        // Passing dimensions with missing evidence_refs block final_95_candidate — a queue count
+        // or authored spec is never a substitute for a directly-referenced evidence artifact.
+        $missingRefDimensions = array_filter($dossier, fn(array $e): bool => $e['passed'] && $e['missing_refs'] !== []);
+        $hasMissingRefs = $missingRefDimensions !== [];
+
+        foreach ($missingRefDimensions as $entry) {
+            $blockers[] = [
+                'dimension' => $entry['dimension'],
+                'reason'    => 'missing required evidence_refs: '.implode(', ', $entry['missing_refs']).' — queue counts and authored specs alone do not satisfy this dimension',
+                'action'    => 'Attach the missing evidence_refs ('.implode(', ', $entry['missing_refs']).') from a real, directly-referenced artifact',
+            ];
+        }
 
         // Stale evidence blocks final_95_candidate even when booleans pass.
         $staleDimensions = array_values(array_map(
@@ -262,6 +269,12 @@ final class AtlasExternalBrainFinalCertificationGate
         $ageHours = $evidenceAgeHours !== null ? (float) $evidenceAgeHours : null;
         $stale    = $ageHours !== null && $ageHours > self::MAX_EVIDENCE_AGE_HOURS;
 
+        $freshnessStatus = match (true) {
+            $stale => 'stale',
+            $ageHours === null => 'unknown',
+            default => 'fresh',
+        };
+
         return [
             'dimension'           => $dimension,
             'passed'              => $passed,
@@ -269,6 +282,7 @@ final class AtlasExternalBrainFinalCertificationGate
             'missing_refs'        => $missingRefs,
             'evidence_age_hours'  => $ageHours,
             'stale'               => $stale,
+            'freshness_status'    => $freshnessStatus,
         ];
     }
 }

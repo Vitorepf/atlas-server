@@ -405,4 +405,65 @@ final class AtlasExternalBrainFinalCertificationGateTest extends TestCase
 
         $this->assertGreaterThan($fewBlockers['finality_risk_score'], $manyBlockers['finality_risk_score']);
     }
+
+    // ── new AC: freshness_status per dimension in evidence_dossier ───────────
+
+    public function test_evidence_dossier_reports_fresh_status_for_fresh_evidence(): void
+    {
+        $evidence = $this->fullEvidence();
+        $evidence['live_cycle_evidence']['evidence_age_hours'] = 1.0;
+
+        $result = $this->gate()->certify($evidence);
+        $entry = $this->dossierFor($result, 'live_cycle_evidence');
+
+        $this->assertSame('fresh', $entry['freshness_status']);
+    }
+
+    public function test_evidence_dossier_reports_stale_status_for_stale_evidence(): void
+    {
+        $evidence = $this->fullEvidence();
+        $evidence['live_cycle_evidence']['evidence_age_hours'] = 200.0;
+
+        $result = $this->gate()->certify($evidence);
+        $entry = $this->dossierFor($result, 'live_cycle_evidence');
+
+        $this->assertSame('stale', $entry['freshness_status']);
+    }
+
+    public function test_evidence_dossier_reports_unknown_status_when_age_absent(): void
+    {
+        $result = $this->gate()->certify($this->fullEvidence());
+        $entry = $this->dossierFor($result, 'live_cycle_evidence');
+
+        $this->assertSame('unknown', $entry['freshness_status']);
+    }
+
+    // ── new AC: missing evidence_refs on a passing dimension emits its own blocker ──
+
+    public function test_missing_evidence_refs_on_passing_dimension_emits_actionable_blocker(): void
+    {
+        $evidence = $this->fullEvidence();
+        $evidence['muscle_learning']['evidence_refs'] = [];
+
+        $result = $this->gate()->certify($evidence);
+
+        $blockerDims = array_column($result['blockers'], 'dimension');
+        $this->assertContains('muscle_outcome_learning', $blockerDims);
+        foreach ($result['blockers'] as $blocker) {
+            $this->assertArrayHasKey('dimension', $blocker);
+            $this->assertArrayHasKey('reason', $blocker);
+            $this->assertArrayHasKey('action', $blocker);
+        }
+    }
+
+    private function dossierFor(array $result, string $dimension): array
+    {
+        foreach ($result['evidence_dossier'] as $entry) {
+            if ($entry['dimension'] === $dimension) {
+                return $entry;
+            }
+        }
+
+        $this->fail("Dossier entry not found for dimension: {$dimension}");
+    }
 }
