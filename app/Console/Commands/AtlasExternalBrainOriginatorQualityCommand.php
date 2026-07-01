@@ -20,6 +20,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCognitiveWo
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossModelConsensusNormalizer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainConsolidationFirstCircuitBreaker;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainContextBudgetDistiller;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCostQualityParetoFront;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCritiqueQuorumReducer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossProjectEvolutionProfile;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
@@ -80,6 +81,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainContextBudgetDistiller $contextBudgetDistiller,
         AtlasExternalBrainCrossModelConsensusNormalizer $consensusNormalizer,
         AtlasExternalBrainCritiqueQuorumReducer $critiqueQuorumReducer,
+        AtlasExternalBrainCostQualityParetoFront $costQualityParetoFront,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -319,6 +321,15 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // merge), so it only runs when the caller explicitly supplies a critique_quorum section.
         if (is_array($decoded['critique_quorum'] ?? null)) {
             $payload['critique_quorum'] = $critiqueQuorumReducer->reduce($decoded['critique_quorum']);
+        }
+
+        // Optional cost/quality Pareto front: selects model tier/scaffold/batch options on a
+        // cost-quality Pareto front instead of always paying for the most expensive model.
+        // Distinct from the critique quorum above (spend-vs-quality tradeoff selection vs.
+        // finding reduction), so it only runs when the caller explicitly supplies a
+        // cost_quality_pareto section.
+        if (is_array($decoded['cost_quality_pareto'] ?? null)) {
+            $payload['cost_quality_pareto'] = $costQualityParetoFront->compute($decoded['cost_quality_pareto']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
