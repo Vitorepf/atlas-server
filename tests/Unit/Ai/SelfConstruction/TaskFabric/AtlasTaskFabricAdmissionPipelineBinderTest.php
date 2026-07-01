@@ -210,4 +210,88 @@ final class AtlasTaskFabricAdmissionPipelineBinderTest extends TestCase
         $r = $this->svc()->filter([]);
         $this->assertSame(AtlasTaskFabricAdmissionPipelineBinder::SCHEMA, $r['schema_version']);
     }
+
+    // ── AC3: admitted candidates preserve target ────────────────────────────────
+
+    public function test_admitted_spec_preserves_target(): void
+    {
+        $r = $this->filter([$this->good('TaskA')]);
+
+        $this->assertSame('TaskA', $r['admitted'][0]['target']);
+    }
+
+    public function test_rejected_spec_also_preserves_target(): void
+    {
+        $r = $this->filter([$this->low('TaskB')]);
+
+        $this->assertSame('TaskB', $r['rejected'][0]['target']);
+    }
+
+    // ── AC2: respec_action_plan maps each gate_reason to a minimal repair ──────
+
+    public function test_rejected_spec_includes_respec_action_plan_for_low_impact(): void
+    {
+        $r = $this->filter([$this->low('TaskB')]);
+
+        $this->assertArrayHasKey('respec_action_plan', $r['rejected'][0]);
+        $this->assertArrayHasKey('compound_impact_low', $r['rejected'][0]['respec_action_plan']);
+        $this->assertSame(
+            'add_at_least_one_measurable_compound_impact_signal_before_resubmitting',
+            $r['rejected'][0]['respec_action_plan']['compound_impact_low'],
+        );
+    }
+
+    public function test_respec_action_plan_covers_every_gate_reason_when_multiple_fire_at_once(): void
+    {
+        // low impact AND template farm at once -> both reasons must appear in gate_reasons
+        // AND both must have their own respec_action_plan entry.
+        $c = array_merge($this->low('TaskMulti'), ['is_template_farm' => true]);
+        $r = $this->filter([$c]);
+
+        $this->assertContains('compound_impact_low', $r['rejected'][0]['gate_reasons']);
+        $this->assertContains('template_farm', $r['rejected'][0]['gate_reasons']);
+        $this->assertArrayHasKey('compound_impact_low', $r['rejected'][0]['respec_action_plan']);
+        $this->assertArrayHasKey('template_farm', $r['rejected'][0]['respec_action_plan']);
+    }
+
+    public function test_respec_action_plan_is_deterministic_per_reason(): void
+    {
+        $r1 = $this->filter([$this->low('TaskB')]);
+        $r2 = $this->filter([$this->low('TaskB')]);
+
+        $this->assertSame($r1['rejected'][0]['respec_action_plan'], $r2['rejected'][0]['respec_action_plan']);
+    }
+
+    // ── AC4: next_originator_actions — deduplicated, sorted union across the batch ──
+
+    public function test_next_originator_actions_deduplicates_repeated_repair_across_the_batch(): void
+    {
+        $r = $this->filter([$this->low('B1'), $this->low('B2')]);
+
+        $this->assertCount(1, $r['next_originator_actions'], 'both B1 and B2 fail the same reason -> one deduplicated action');
+        $this->assertContains(
+            'add_at_least_one_measurable_compound_impact_signal_before_resubmitting',
+            $r['next_originator_actions'],
+        );
+    }
+
+    public function test_next_originator_actions_is_sorted_deterministically(): void
+    {
+        $c = array_merge($this->low('TaskMulti'), ['is_template_farm' => true]);
+        $r1 = $this->filter([$c]);
+        $r2 = $this->filter([$c]);
+
+        $this->assertSame($r1['next_originator_actions'], $r2['next_originator_actions']);
+        $sorted = $r1['next_originator_actions'];
+        $expected = $sorted;
+        sort($expected, SORT_STRING);
+        $this->assertSame($expected, $sorted);
+    }
+
+    public function test_next_originator_actions_empty_when_all_admitted(): void
+    {
+        $r = $this->filter([$this->good('A1'), $this->good('A2')]);
+
+        $this->assertSame([], $r['next_originator_actions']);
+    }
 }
