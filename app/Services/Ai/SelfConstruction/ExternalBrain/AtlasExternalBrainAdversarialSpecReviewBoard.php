@@ -395,11 +395,21 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
         $hints = [];
         $lower = strtolower($objective);
 
-        $proxySignals = ['count how many', 'report on', 'measure the', 'log the number of', 'track metrics'];
+        $proxySignals = ['count how many', 'report on', 'measure the', 'log the number of', 'track metrics', 'count of', 'tally the'];
         foreach ($proxySignals as $signal) {
             if (str_contains($lower, $signal)) {
                 $reasons[] = 'objective_is_metric_proxy:'.$signal;
                 $hints[] = 'replace_metric_reporting_objective_with_capability_that_uses_the_metric';
+            }
+        }
+
+        // Wrapper-only proxy: a thin pass-through adds no new capability, no matter how
+        // runnable-looking its acceptance criteria are.
+        $wrapperSignals = ['thin wrapper', 'wraps the existing', 'delegates to', 'forwards all calls to', 'pass-through', 'passthrough'];
+        foreach ($wrapperSignals as $signal) {
+            if (str_contains($lower, $signal)) {
+                $reasons[] = 'objective_is_wrapper_only_proxy:'.$signal;
+                $hints[] = 'replace_wrapper_pass_through_with_objective_that_adds_new_capability';
             }
         }
 

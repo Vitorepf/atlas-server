@@ -470,6 +470,30 @@ final class AtlasExternalBrainAdversarialSpecReviewBoardTest extends TestCase
         $this->assertEmpty($capabilityReasons);
     }
 
+    // ── AC3: wrapper-only objective fails anti_proxy even with a runnable AC ────
+
+    public function test_anti_proxy_fails_when_objective_is_wrapper_only_even_with_runnable_artisan_test_line(): void
+    {
+        $r = $this->board->review($this->strongSpec([
+            'objective' => 'Implement AtlasFooWrapper, a thin wrapper that wraps the existing AtlasBarService and forwards all calls to it',
+            'acceptance_criteria' => [
+                'php artisan test --filter=AtlasFooWrapperTest exits 0',
+            ],
+        ]));
+
+        $lens = $this->findLens($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_ANTI_PROXY);
+        $this->assertFalse($lens['passed']);
+        $this->assertNotEmpty(array_filter($lens['reasons'], fn ($r) => str_contains($r, 'wrapper_only_proxy')));
+    }
+
+    public function test_anti_proxy_passes_for_capability_adding_objective_that_mentions_neither_wrapper_nor_metric(): void
+    {
+        $r = $this->board->review($this->strongSpec());
+
+        $lens = $this->findLens($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_ANTI_PROXY);
+        $this->assertTrue($lens['passed']);
+    }
+
     // ── helper ────────────────────────────────────────────────────────────────
 
     private function findLens(array $result, string $lensName): array
