@@ -213,4 +213,59 @@ final class AtlasMaestroDrainContinuitySloCompilerTest extends TestCase
 
         $this->assertSame(AtlasMaestroDrainContinuitySloCompiler::ORIGINATOR_ACTION_MONITOR, $r['originator_action']);
     }
+
+    public function test_high_depth_with_bad_quality_does_not_pass_continuity_slo(): void
+    {
+        $r = $this->compiler()->compile([
+            'queue_depth' => 100,
+            'servable_now' => 100,
+            'active_workers' => 4,
+            'throughput_samples' => [20.0],
+            'minimum_task_quality' => 0.4,
+        ]);
+
+        $this->assertSame(AtlasMaestroDrainContinuitySloCompiler::STATUS_AT_RISK, $r['status']);
+        $this->assertSame('below_floor', $r['verdicts']['minimum_task_quality']);
+        $this->assertContains('minimum_task_quality_below_floor', $r['blockers']);
+        $this->assertSame(0.4, $r['continuity']['minimum_task_quality']);
+    }
+
+    public function test_continuity_status_exports_provider_safe_pressure_and_recommendation_fields(): void
+    {
+        $r = $this->compiler()->compile([
+            'queue_depth' => 40,
+            'servable_now' => 40,
+            'active_workers' => 4,
+            'throughput_samples' => [20.0],
+            'minimum_task_quality' => 0.9,
+            'recoverable_leases' => 0,
+            'malformed_count' => 0,
+        ]);
+
+        $this->assertSame(AtlasMaestroDrainContinuitySloCompiler::STATUS_HEALTHY, $r['status']);
+        $this->assertSame('meets_floor', $r['verdicts']['minimum_task_quality']);
+        $this->assertSame('clear', $r['continuity']['recoverable_lease_pressure']);
+        $this->assertSame('clear', $r['continuity']['malformed_pressure']);
+        $this->assertSame(4, $r['continuity']['worker_count']);
+        $this->assertSame(2.0, $r['continuity']['drain_horizon_hours']);
+        $this->assertSame(AtlasMaestroDrainContinuitySloCompiler::ORIGINATOR_ACTION_MONITOR, $r['continuity']['recommended_action']);
+    }
+
+    public function test_recoverable_and_malformed_pressure_block_continuity(): void
+    {
+        $r = $this->compiler()->compile([
+            'queue_depth' => 40,
+            'servable_now' => 40,
+            'active_workers' => 4,
+            'throughput_samples' => [20.0],
+            'recoverable_leases' => 1,
+            'malformed_count' => 1,
+        ]);
+
+        $this->assertSame(AtlasMaestroDrainContinuitySloCompiler::STATUS_AT_RISK, $r['status']);
+        $this->assertContains('recoverable_lease_pressure', $r['blockers']);
+        $this->assertContains('malformed_pressure', $r['blockers']);
+        $this->assertSame('present', $r['continuity']['recoverable_lease_pressure']);
+        $this->assertSame('present', $r['continuity']['malformed_pressure']);
+    }
 }

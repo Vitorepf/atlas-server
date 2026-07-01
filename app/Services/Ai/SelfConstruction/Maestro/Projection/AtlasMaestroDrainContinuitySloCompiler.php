@@ -58,6 +58,12 @@ final class AtlasMaestroDrainContinuitySloCompiler
     public const ORIGINATOR_ACTION_REPAIR_GIVE_BACK_LOOP = 'repair_give_back_loop';
     public const ORIGINATOR_ACTION_MONITOR = 'monitor';
 
+    private const MINIMUM_TASK_QUALITY_FLOOR = 0.7;
+
+    private const RECOVERABLE_LEASE_PRESSURE_THRESHOLD = 1;
+
+    private const MALFORMED_PRESSURE_THRESHOLD = 1;
+
     /**
      * Consumes Maestro projection facts (claimable_per_active_worker, active_workers,
      * telemetry_confidence) and compiles a single, actionable SLO verdict — without adding
@@ -132,6 +138,9 @@ final class AtlasMaestroDrainContinuitySloCompiler
         $giveBackRate = max(0.0, min(1.0, (float) ($facts['give_back_rate'] ?? 0.0)));
         $claimLatencySeconds = max(0.0, (float) ($facts['claim_latency_seconds'] ?? 0.0));
         $telemetryConfidence = $facts['telemetry_confidence'] ?? null;
+        $minimumTaskQuality = max(0.0, min(1.0, (float) ($facts['minimum_task_quality'] ?? 1.0)));
+        $recoverableLeases = max(0, (int) ($facts['recoverable_leases'] ?? $facts['recoverable_lease_count'] ?? 0));
+        $malformedCount = max(0, (int) ($facts['malformed_count'] ?? $facts['malformed_tasks'] ?? 0));
         $isTelemetryBlind = $activeWorkers > 0 && (string) $telemetryConfidence === 'blind';
         $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $facts) && $facts['claimable_per_active_worker'] !== null
             ? (float) $facts['claimable_per_active_worker']
@@ -189,6 +198,25 @@ final class AtlasMaestroDrainContinuitySloCompiler
         }
         $verdicts['claim_latency'] = $claimVerdict;
 
+        $qualityVerdict = $minimumTaskQuality >= self::MINIMUM_TASK_QUALITY_FLOOR ? 'meets_floor' : 'below_floor';
+        if ($qualityVerdict === 'below_floor') {
+            $blockers[] = 'minimum_task_quality_below_floor';
+        }
+        $verdicts['minimum_task_quality'] = $qualityVerdict;
+        $verdicts['minimum_task_quality_floor'] = self::MINIMUM_TASK_QUALITY_FLOOR;
+
+        $recoverablePressure = $recoverableLeases >= self::RECOVERABLE_LEASE_PRESSURE_THRESHOLD ? 'present' : 'clear';
+        if ($recoverablePressure === 'present') {
+            $blockers[] = 'recoverable_lease_pressure';
+        }
+        $verdicts['recoverable_lease_pressure'] = $recoverablePressure;
+
+        $malformedPressure = $malformedCount >= self::MALFORMED_PRESSURE_THRESHOLD ? 'present' : 'clear';
+        if ($malformedPressure === 'present') {
+            $blockers[] = 'malformed_pressure';
+        }
+        $verdicts['malformed_pressure'] = $malformedPressure;
+
         if ($isWorkerFloorBreach) {
             $blockers[] = 'worker_floor_breach';
         }
@@ -215,6 +243,15 @@ final class AtlasMaestroDrainContinuitySloCompiler
             'verdicts' => $verdicts,
             'blockers' => $blockers,
             'originator_action' => $originatorAction,
+            'continuity' => [
+                'drain_horizon_hours' => $etaHours,
+                'minimum_task_quality' => $minimumTaskQuality,
+                'minimum_task_quality_floor' => self::MINIMUM_TASK_QUALITY_FLOOR,
+                'recoverable_lease_pressure' => $recoverablePressure,
+                'malformed_pressure' => $malformedPressure,
+                'worker_count' => $activeWorkers,
+                'recommended_action' => $originatorAction,
+            ],
         ];
     }
 }
