@@ -211,6 +211,48 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiSnapshotComparisonTest 
         }
     }
 
+    public function test_volatility_summary_insufficient_history_with_zero_or_one_snapshot(): void
+    {
+        $payload = $this->newService()->compare(['include_fresh_replay' => false]);
+        $this->assertSame('insufficient_history', $payload['volatility_summary']['history_status']);
+
+        $payload = $this->newService()->compare(['include_fresh_replay' => true]);
+        $this->assertSame('insufficient_history', $payload['volatility_summary']['history_status']);
+    }
+
+    public function test_volatility_summary_regressing_with_failing_window_on_runtime_safety_drop(): void
+    {
+        $store = $this->newStore();
+        $first = $this->freshReplay();
+        $first['runtime_safety']['runtime_safety_all_false'] = true;
+        $store->put($first);
+        $second = $this->freshReplay();
+        $second['runtime_safety']['runtime_safety_all_false'] = false;
+        $store->put($second);
+
+        $payload = $this->newService()->compare(['include_fresh_replay' => false]);
+        $this->assertSame('regressing', $payload['volatility_summary']['history_status']);
+        $this->assertNotNull($payload['volatility_summary']['failing_window']);
+        $this->assertSame('runtime_safety_dropped', $payload['volatility_summary']['failing_window']['kind']);
+    }
+
+    public function test_volatility_summary_improving_keeps_execution_and_write_flags_false(): void
+    {
+        $store = $this->newStore();
+        $first = $this->freshReplay();
+        $existingWarnings = (array) data_get($first, 'warnings', []);
+        $first['warnings'] = array_merge($existingWarnings, ['warn1', 'warn2', 'warn3']);
+        $store->put($first);
+        $second = $this->freshReplay();
+        $store->put($second);
+
+        $payload = $this->newService()->compare(['include_fresh_replay' => false]);
+        $this->assertSame('improving', $payload['volatility_summary']['history_status']);
+        $this->assertFalse($payload['volatility_summary']['execution_allowed']);
+        $this->assertFalse($payload['volatility_summary']['external_provider_call']);
+        $this->assertFalse($payload['volatility_summary']['runtime_write_allowed']);
+    }
+
     private function newService(): AgentControlPlaneMultiSnapshotComparisonService
     {
         $readiness = app(AtlasSelfConstructionReadinessService::class);

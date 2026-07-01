@@ -211,6 +211,23 @@ final class AgentControlPlaneMultiSnapshotComparisonService
             },
         ];
 
+        // volatility_summary: the same trend evidence, reframed as a compact stable/improving/
+        // regressing/insufficient-history verdict with the failing window named when regressing.
+        $historyStatus = match ($trendStatus) {
+            'no_snapshots', 'single_point' => 'insufficient_history',
+            'regression_detected' => 'regressing',
+            'improving' => 'improving',
+            default => 'stable',
+        };
+        $payload['volatility_summary'] = [
+            'history_status' => $historyStatus,
+            'failing_window' => $regressionWindows[0] ?? null,
+            'improvement_window' => $improvementWindows[0] ?? null,
+            'execution_allowed' => false,
+            'external_provider_call' => false,
+            'runtime_write_allowed' => false,
+        ];
+
         $payload['trend_hash'] = $this->stableHash($this->normalizeForTrendHash($payload));
 
         return $payload;
