@@ -167,9 +167,10 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
             }
 
             // ── Supply increase OR weak-green review ──────────────────────────
+            $isStale = $ageDays > self::STALE_LEARNING_DAYS;
             if ($successRate >= $successFloor) {
-                if ($hasValueProof) {
-                    // Proven real value: boost supply and confirm tier.
+                if ($hasValueProof && ! $isStale) {
+                    // Proven real value, recently observed: boost supply and confirm tier.
                     $magnitude = round(min(1.0, $successRate), 4);
                     $supplyAdjustments[] = [
                         'task_family' => $family,
@@ -184,6 +185,10 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
                         'recommended_tier' => $tier,
                         'reason'           => sprintf('success_rate_%.2f_with_value_proof_confirms_tier_%s', $successRate, $tier),
                     ];
+                } elseif ($hasValueProof && $isStale) {
+                    // Stale learning cannot boost supply, no matter how good the numbers
+                    // once looked — it must be refreshed before it can be trusted again.
+                    $supplySentinel = 'refresh_learning';
                 } else {
                     // Green metrics but no value proof: tighten gates, do not boost.
                     $weakGreenReviews[] = [
@@ -200,9 +205,10 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
                 'task_family' => $family,
                 'action'      => $supplySentinel,
                 'reason'      => match ($supplySentinel) {
-                    'boost_supply'   => 'boost_supply_based_on_outcome_rates',
-                    'reduce_supply'  => 'reduce_supply_based_on_outcome_rates',
-                    default          => 'no_dominant_supply_signal',
+                    'boost_supply'     => 'boost_supply_based_on_outcome_rates',
+                    'reduce_supply'    => 'reduce_supply_based_on_outcome_rates',
+                    'refresh_learning' => sprintf('learning_age_days_%d_exceeds_stale_threshold_%d_refresh_before_boost', $ageDays, self::STALE_LEARNING_DAYS),
+                    default            => 'no_dominant_supply_signal',
                 },
             ];
 

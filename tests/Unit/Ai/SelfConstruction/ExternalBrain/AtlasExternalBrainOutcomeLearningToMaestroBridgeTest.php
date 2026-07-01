@@ -348,4 +348,42 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridgeTest extends TestCas
 
         $this->assertCount(1, $r['dispatch_hints']);
     }
+
+    // ── stale learning cannot boost supply ────────────────────────────────────
+
+    public function test_stale_learning_suppresses_boost_supply_despite_high_success_and_value_proof(): void
+    {
+        $r = $this->bridge([$this->row([
+            'success_rate'      => 0.95,
+            'has_value_proof'   => true,
+            'learning_age_days' => 31,
+        ])]);
+
+        $types = array_column($r['task_family_supply_adjustments'], 'adjustment');
+        $this->assertNotContains('increase', $types);
+        $this->assertNotSame('boost_supply', $r['replenisher_feedback'][0]['action']);
+    }
+
+    public function test_stale_rows_emit_refresh_learning_replenisher_action(): void
+    {
+        $r = $this->bridge([$this->row([
+            'success_rate'      => 0.95,
+            'has_value_proof'   => true,
+            'learning_age_days' => 60,
+        ])]);
+
+        $this->assertSame('refresh_learning', $r['replenisher_feedback'][0]['action']);
+        $this->assertStringContainsString('stale', $r['replenisher_feedback'][0]['reason']);
+    }
+
+    public function test_fresh_poison_rows_still_produce_poison_blocks_and_reduce_supply(): void
+    {
+        $r = $this->bridge([$this->row([
+            'give_back_rate'    => 0.80,
+            'learning_age_days' => 5,
+        ])]);
+
+        $this->assertCount(1, $r['poison_family_blocks']);
+        $this->assertSame('reduce_supply', $r['replenisher_feedback'][0]['action']);
+    }
 }
