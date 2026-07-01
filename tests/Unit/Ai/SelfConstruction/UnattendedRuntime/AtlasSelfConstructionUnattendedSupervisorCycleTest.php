@@ -218,6 +218,74 @@ class AtlasSelfConstructionUnattendedSupervisorCycleTest extends TestCase
         self::assertSame(AtlasSelfConstructionUnattendedStallClassifier::UNSAFE_STOP, $verdict['classification']);
     }
 
+    // --- AC2/AC3: decision (self_heal/replenish/pause/escalate), evidence_refs, safety_blockers ---
+
+    public function test_malformed_queue_yields_self_heal_decision_with_evidence_refs(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['queue' => ['malformed_count' => 1]]),
+        );
+
+        self::assertSame(AtlasSelfConstructionUnattendedSupervisorCycle::DECISION_SELF_HEAL, $verdict['decision']);
+        self::assertContains('queue.malformed_count', $verdict['evidence_refs']);
+        self::assertSame([], $verdict['safety_blockers']);
+    }
+
+    public function test_no_claimable_yields_replenish_decision(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['queue' => ['claimable_count' => 0]]),
+        );
+
+        self::assertSame(AtlasSelfConstructionUnattendedSupervisorCycle::DECISION_REPLENISH, $verdict['decision']);
+        self::assertContains('queue.claimable_count', $verdict['evidence_refs']);
+        self::assertSame([], $verdict['safety_blockers']);
+    }
+
+    public function test_merge_blocked_with_no_stall_class_yields_pause_decision(): void
+    {
+        // classify() detects merge_blocked, but classifyStallAction() checks none of its own
+        // signals (malformed/poison/heartbeat/worker/verification/learning/claimable) — stall_class
+        // stays STALL_NONE, so the fallback must be pause, not healthy-continue.
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['merge' => ['blocked' => true]]),
+        );
+
+        self::assertNotSame(AtlasSelfConstructionUnattendedStallClassifier::HEALTHY, $verdict['classification']);
+        self::assertSame(AtlasSelfConstructionUnattendedSupervisorCycle::DECISION_PAUSE, $verdict['decision']);
+        self::assertSame([], $verdict['safety_blockers']);
+    }
+
+    public function test_poison_loop_yields_escalate_decision_and_refuses_auto_recovery(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['queue' => ['poison_loop_detected' => true]]),
+        );
+
+        self::assertSame(AtlasSelfConstructionUnattendedSupervisorCycle::DECISION_ESCALATE, $verdict['decision']);
+        self::assertNotEmpty($verdict['safety_blockers']);
+        self::assertStringContainsString('operator_only_repair_required', $verdict['safety_blockers'][0]);
+    }
+
+    public function test_unsafe_stop_yields_escalate_decision_with_unsafe_stop_safety_blocker(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['queue' => ['safety_stop' => true]]),
+        );
+
+        self::assertSame(AtlasSelfConstructionUnattendedSupervisorCycle::DECISION_ESCALATE, $verdict['decision']);
+        self::assertContains('unsafe_stop_requires_operator_review', $verdict['safety_blockers']);
+    }
+
+    public function test_healthy_state_yields_null_decision(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick($this->baseFacts());
+
+        self::assertSame(AtlasSelfConstructionUnattendedStallClassifier::HEALTHY, $verdict['classification']);
+        self::assertNull($verdict['decision']);
+        self::assertSame([], $verdict['safety_blockers']);
+    }
+
     public function test_brain_quota_with_callback_yields_applied_receipt_and_safe(): void
     {
         // brain_quota.must_run_now=true is the trigger; providing the callback → it runs → receipt recorded.

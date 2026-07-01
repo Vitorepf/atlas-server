@@ -15,11 +15,32 @@ namespace App\Services\Ai\SelfConstruction\UnattendedRuntime;
  * SAFETY: When classification is `unsafe_stop`, only the `safety_stop` callback (if provided) may
  * fire — every other planned action is blocked, regardless of apply.
  *
+ * `decision` distills stall_class (from the classifier's classifyStallAction()) plus the unsafe_stop
+ * gate into ONE of: self_heal, replenish, pause, escalate, or null when healthy. `escalate` is
+ * returned — and auto-recovery refused — whenever the stall is unsafe_stop OR the stall class is
+ * marked safe_to_auto_recover=false (poison_loop, proof_blocked: operator-only repair). `evidence_refs`
+ * carries the stall classifier's evidence_needed; `safety_blockers` names why auto-recovery was refused.
+ *
  * NO git, NO subprocess, NO external coding tool calls. Pure orchestration shell.
  */
 final class AtlasSelfConstructionUnattendedSupervisorCycle
 {
     public const SCHEMA = 'atlas.self_construction.unattended_supervisor_cycle.v1';
+
+    public const DECISION_SELF_HEAL = 'self_heal';
+
+    public const DECISION_REPLENISH = 'replenish';
+
+    public const DECISION_PAUSE = 'pause';
+
+    public const DECISION_ESCALATE = 'escalate';
+
+    private const SELF_HEAL_STALL_CLASSES = [
+        AtlasSelfConstructionUnattendedStallClassifier::STALL_MALFORMED_QUEUE,
+        AtlasSelfConstructionUnattendedStallClassifier::STALL_STALE_HEARTBEAT,
+        AtlasSelfConstructionUnattendedStallClassifier::STALL_WORKER_STARVATION,
+        AtlasSelfConstructionUnattendedStallClassifier::STALL_LEARNING_STALE,
+    ];
 
     public function __construct(
         private readonly ?AtlasSelfConstructionUnattendedLivenessSnapshot $snapshotComposer = null,
@@ -43,11 +64,18 @@ final class AtlasSelfConstructionUnattendedSupervisorCycle
 
         $snapshot = $snapshotSvc->compose($facts);
         $classification = $classifierSvc->classify($snapshot);
+        // classifyStallAction() reads the raw fact shape (queue.poison_loop_detected,
+        // queue.repeated_poison_count, verification.proof_missing, learning.stale) — fields the
+        // liveness snapshot's normalizeQueue()/normalizeVerification() do not carry through. The
+        // composed $snapshot must not be used here or those signals are silently lost.
+        $stallAction = $classifierSvc->classifyStallAction(['facts' => $facts]);
         $plan = $plannerSvc->plan($classification, $snapshot);
 
         $plannedActions = array_values((array) $plan['actions']);
         $blockedActions = array_values((array) $plan['blocked_actions']);
         $isUnsafeStop = (string) $classification['classification'] === AtlasSelfConstructionUnattendedStallClassifier::UNSAFE_STOP;
+
+        [$decision, $safetyBlockers] = $this->decideRecoveryDecision($classification, $stallAction, $isUnsafeStop);
 
         $appliedActions = [];
         $receipts = [];
@@ -129,7 +157,49 @@ final class AtlasSelfConstructionUnattendedSupervisorCycle
                 $receipts,
                 $isUnsafeStop,
             ),
+            'decision' => $decision,
+            'evidence_refs' => array_values((array) $stallAction['evidence_needed']),
+            'safety_blockers' => $safetyBlockers,
         ];
+    }
+
+    /**
+     * Distills stall_class + safe_to_auto_recover + the unsafe_stop gate into ONE decision:
+     * self_heal, replenish, pause, escalate, or null when healthy. escalate ALWAYS refuses
+     * auto-recovery — it is returned whenever the stall is unsafe_stop or the classifier marked
+     * this stall class operator-only (safe_to_auto_recover=false).
+     *
+     * @param  array<string,mixed>  $classification
+     * @param  array<string,mixed>  $stallAction
+     * @return array{0:?string, 1:list<string>}
+     */
+    private function decideRecoveryDecision(array $classification, array $stallAction, bool $isUnsafeStop): array
+    {
+        $stallClass = (string) ($stallAction['stall_class'] ?? '');
+        $safeToAutoRecover = (bool) ($stallAction['safe_to_auto_recover'] ?? true);
+
+        if ($isUnsafeStop) {
+            return [self::DECISION_ESCALATE, ['unsafe_stop_requires_operator_review']];
+        }
+
+        if (! $safeToAutoRecover) {
+            return [self::DECISION_ESCALATE, ["operator_only_repair_required:{$stallClass}"]];
+        }
+
+        if ($stallClass === AtlasSelfConstructionUnattendedStallClassifier::STALL_NO_CLAIMABLE) {
+            return [self::DECISION_REPLENISH, []];
+        }
+
+        if (in_array($stallClass, self::SELF_HEAL_STALL_CLASSES, true)) {
+            return [self::DECISION_SELF_HEAL, []];
+        }
+
+        if ($stallClass === AtlasSelfConstructionUnattendedStallClassifier::STALL_NONE
+            && (string) $classification['classification'] === AtlasSelfConstructionUnattendedStallClassifier::HEALTHY) {
+            return [null, []];
+        }
+
+        return [self::DECISION_PAUSE, []];
     }
 
     /**
