@@ -87,6 +87,13 @@ final class AtlasExternalBrainOutcomeLearner
 
     private const POISON_COUNT_THRESHOLD = 3;
 
+    /** Recency multiplier applied to a pattern_family delta — unspecified recency = full weight. */
+    private const RECENCY_WEIGHT = [
+        'fresh' => 1.0,
+        'recent' => 0.7,
+        'stale' => 0.3,
+    ];
+
     /**
      * @param  list<array{task_packet_id:string, pattern_family:string, outcome:string, impact?:string,
      *                    give_back_count?:int, task_family?:string, worker_id?:string, client_id?:string}>  $outcomes
@@ -140,6 +147,9 @@ final class AtlasExternalBrainOutcomeLearner
                     self::OUTCOME_QUARANTINE => self::DELTA_QUARANTINE,
                     default => 0.0,
                 };
+
+                $recency = strtolower((string) ($o['recency'] ?? 'fresh'));
+                $delta *= self::RECENCY_WEIGHT[$recency] ?? 1.0;
 
                 $accumulated[$family] = ($accumulated[$family] ?? 0.0) + $delta;
 

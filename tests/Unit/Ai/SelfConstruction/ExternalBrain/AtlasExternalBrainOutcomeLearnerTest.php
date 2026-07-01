@@ -774,4 +774,58 @@ final class AtlasExternalBrainOutcomeLearnerTest extends TestCase
         $this->assertNotNull($hint);
         $this->assertSame('family_systemic', $hint['attribution']);
     }
+
+    // ── AC: recency weighting ─────────────────────────────────────────────────
+
+    public function test_fresh_outcome_has_stronger_priority_adjustment_than_stale(): void
+    {
+        $freshDelta = $this->learner->learn([[
+            'pattern_family' => 'recency_fam',
+            'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_DELIVERED,
+            'impact' => AtlasExternalBrainOutcomeLearner::IMPACT_HIGH,
+            'recency' => 'fresh',
+        ]])['priority_adjustments'][0]['delta'];
+
+        $staleDelta = $this->learner->learn([[
+            'pattern_family' => 'recency_fam',
+            'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_DELIVERED,
+            'impact' => AtlasExternalBrainOutcomeLearner::IMPACT_HIGH,
+            'recency' => 'stale',
+        ]])['priority_adjustments'][0]['delta'];
+
+        $this->assertGreaterThan($staleDelta, $freshDelta);
+        $this->assertGreaterThan(0, $staleDelta, 'stale delivered must still be positive, just weaker');
+    }
+
+    public function test_stale_poison_demotes_but_does_not_suppress_unrelated_fresh_high_impact_family(): void
+    {
+        $r = $this->learner->learn([
+            [
+                'pattern_family' => 'stale_poison_fam',
+                'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_POISON,
+                'recency' => 'stale',
+            ],
+            [
+                'pattern_family' => 'fresh_delivered_fam',
+                'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_DELIVERED,
+                'impact' => AtlasExternalBrainOutcomeLearner::IMPACT_HIGH,
+                'value_proof' => true,
+                'recency' => 'fresh',
+            ],
+        ]);
+
+        $this->assertContains('stale_poison_fam', $r['demoted']);
+        $this->assertContains('fresh_delivered_fam', $r['promoted']);
+        $this->assertNotContains('fresh_delivered_fam', $r['demoted']);
+    }
+
+    public function test_promoted_and_demoted_remain_disjoint_with_recency_weighting(): void
+    {
+        $r = $this->learner->learn([
+            ['pattern_family' => 'a', 'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_DELIVERED, 'impact' => AtlasExternalBrainOutcomeLearner::IMPACT_HIGH, 'value_proof' => true, 'recency' => 'fresh'],
+            ['pattern_family' => 'b', 'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_POISON, 'recency' => 'stale'],
+        ]);
+
+        $this->assertEmpty(array_intersect($r['promoted'], $r['demoted']));
+    }
 }
