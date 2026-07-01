@@ -242,4 +242,156 @@ final class AtlasExternalBrainOrganIntegrationVerifierTest extends TestCase
 
         $this->assertNull($r['results'][0]['standalone_reason']);
     }
+
+    // ── AC3: proof path + knowledge sync required (opt-in, gated) ─────────────
+
+    public function test_full_circuit_without_proof_and_knowledge_sync_stays_integrated_when_not_required(): void
+    {
+        $r = $this->svc()->verify(array_merge(
+            ['organ_inventory' => [$this->organ('J')]],
+            $this->fullCircuitFacts('J'),
+        ));
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_INTEGRATED, $r['results'][0]['status']);
+    }
+
+    public function test_missing_proof_path_blocks_integration_when_required(): void
+    {
+        $facts = $this->fullCircuitFacts('K');
+        $facts['require_proof_and_knowledge_sync'] = true;
+        $facts['knowledge_sync'] = ['K' => true];
+
+        $r = $this->svc()->verify(array_merge(['organ_inventory' => [$this->organ('K')]], $facts));
+
+        $this->assertNotSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_INTEGRATED, $r['results'][0]['status']);
+        $this->assertContains('no_proof_path', $r['results'][0]['circuit_gaps']);
+        $this->assertFalse($r['results'][0]['has_proof_path']);
+    }
+
+    public function test_missing_knowledge_sync_blocks_integration_when_required(): void
+    {
+        $facts = $this->fullCircuitFacts('L');
+        $facts['require_proof_and_knowledge_sync'] = true;
+        $facts['proof_paths'] = ['L' => true];
+
+        $r = $this->svc()->verify(array_merge(['organ_inventory' => [$this->organ('L')]], $facts));
+
+        $this->assertNotSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_INTEGRATED, $r['results'][0]['status']);
+        $this->assertContains('no_knowledge_sync', $r['results'][0]['circuit_gaps']);
+        $this->assertFalse($r['results'][0]['has_knowledge_sync']);
+    }
+
+    public function test_proof_path_and_knowledge_sync_present_yields_integrated_when_required(): void
+    {
+        $facts = $this->fullCircuitFacts('M');
+        $facts['require_proof_and_knowledge_sync'] = true;
+        $facts['proof_paths'] = ['M' => true];
+        $facts['knowledge_sync'] = ['M' => true];
+
+        $r = $this->svc()->verify(array_merge(['organ_inventory' => [$this->organ('M')]], $facts));
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_INTEGRATED, $r['results'][0]['status']);
+        $this->assertSame([], $r['results'][0]['circuit_gaps']);
+    }
+
+    // ── AC2: partially_integrated / proxy_only / stale statuses ────────────────
+
+    public function test_organ_with_some_legs_wired_is_partially_integrated(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('N')],
+            'input_sources' => ['N' => ['real_source']],
+            'decision_roles' => ['N' => 'gates_something'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_PARTIALLY_INTEGRATED, $r['results'][0]['status']);
+        $this->assertContains('N', $r['partially_integrated_ids']);
+    }
+
+    public function test_organ_with_output_only_and_no_input_or_decision_is_proxy_only(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('O')],
+            'flow_usage' => ['O' => ['some_consumer']],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_PROXY_ONLY, $r['results'][0]['status']);
+        $this->assertContains('O', $r['proxy_only_ids']);
+    }
+
+    public function test_organ_with_zero_legs_is_orphaned_not_proxy_only(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('P')],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_ORPHANED, $r['results'][0]['status']);
+    }
+
+    public function test_stale_evidence_flag_yields_stale_status(): void
+    {
+        $facts = $this->fullCircuitFacts('Q');
+        $facts['stale_evidence'] = ['Q' => true];
+
+        $r = $this->svc()->verify(array_merge(['organ_inventory' => [$this->organ('Q')]], $facts));
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_STALE, $r['results'][0]['status']);
+        $this->assertContains('Q', $r['stale_ids']);
+    }
+
+    public function test_stale_flag_does_not_override_a_truly_integrated_organ_without_require_flag(): void
+    {
+        // stale_evidence is checked AFTER the fullyIntegrated short-circuit, so a genuinely
+        // complete circuit (with no proof/knowledge-sync requirement engaged) is unaffected
+        // unless the organ actually fails fullyIntegrated.
+        $facts = $this->fullCircuitFacts('R');
+
+        $r = $this->svc()->verify(array_merge(['organ_inventory' => [$this->organ('R')]], $facts));
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_INTEGRATED, $r['results'][0]['status']);
+    }
+
+    // ── AC4: retirement recommendation for orphan/proxy_only organs with nothing built ──
+
+    public function test_orphan_with_no_tests_and_no_impl_is_a_retirement_candidate(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('S', false, false)],
+        ]);
+
+        $this->assertTrue($r['results'][0]['retirement_candidate']);
+        $this->assertNotEmpty($r['results'][0]['retirement_reason']);
+        $this->assertStringContainsString('retire', strtolower($r['results'][0]['remediation'][0]));
+    }
+
+    public function test_orphan_with_tests_and_impl_is_not_a_retirement_candidate(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('T', true, true)],
+        ]);
+
+        $this->assertFalse($r['results'][0]['retirement_candidate']);
+        $this->assertNull($r['results'][0]['retirement_reason']);
+    }
+
+    public function test_proxy_only_with_no_tests_and_no_impl_is_a_retirement_candidate(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('U', false, false)],
+            'flow_usage' => ['U' => ['some_consumer']],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_PROXY_ONLY, $r['results'][0]['status']);
+        $this->assertTrue($r['results'][0]['retirement_candidate']);
+    }
+
+    public function test_integrated_organ_is_never_a_retirement_candidate(): void
+    {
+        $r = $this->svc()->verify(array_merge(
+            ['organ_inventory' => [$this->organ('V', false, false)]],
+            $this->fullCircuitFacts('V'),
+        ));
+
+        $this->assertFalse($r['results'][0]['retirement_candidate']);
+    }
 }
