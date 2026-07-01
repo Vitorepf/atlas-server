@@ -243,6 +243,20 @@ final class AtlasExternalBrainCausalAblationBatchStudyTest extends TestCase
         $this->assertSame(json_encode($this->study($facts)), json_encode($this->study($facts)));
     }
 
+    public function test_study_does_not_mutate_its_input_facts(): void
+    {
+        $batches = $this->linearBatches(12, static fn ($i) => [
+            'scope_size' => $i,
+            'file_count' => 13 - $i,
+        ]);
+        $facts = ['batches' => $batches, 'min_sample_size' => 10];
+        $before = $facts;
+
+        $this->study($facts);
+
+        $this->assertSame($before, $facts);
+    }
+
     // ── compare(): control vs treatment ──────────────────────────────────────
 
     private function makeSnapshot(float $greenRate, float $giveback = 0.15, float $proxy = 0.05, float $capDelta = 0.05, int $n = 20, float $cost = 100.0): array
