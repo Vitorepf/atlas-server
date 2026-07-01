@@ -18,6 +18,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityR
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCausalAblationBatchStudy;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainConsolidationFirstCircuitBreaker;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainContextBudgetDistiller;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossProjectEvolutionProfile;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -272,6 +273,21 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // caller explicitly supplies a context_budget_distiller section.
         if (is_array($decoded['context_budget_distiller'] ?? null)) {
             $payload['context_budget_distiller'] = $contextBudgetDistiller->distill($decoded['context_budget_distiller']);
+        }
+
+        // Optional cross-project evolution profile: builds the portable autonomy/evidence/lane
+        // profile for the target project (canonical Atlas or an external project). Distinct from
+        // the context distiller above (project transfer profile vs. context compaction), so it
+        // only runs when the caller explicitly supplies a cross_project_evolution_profile section.
+        if (is_array($decoded['cross_project_evolution_profile'] ?? null)) {
+            $profileInput = $decoded['cross_project_evolution_profile'];
+            $profile = (bool) ($profileInput['is_canonical_atlas'] ?? false)
+                ? AtlasExternalBrainCrossProjectEvolutionProfile::forAtlas()
+                : AtlasExternalBrainCrossProjectEvolutionProfile::forProject(
+                    (string) ($profileInput['project_id'] ?? ''),
+                    $profileInput,
+                );
+            $payload['cross_project_evolution_profile'] = $profile->toArray();
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
