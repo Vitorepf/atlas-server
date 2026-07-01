@@ -241,6 +241,39 @@ final class AtlasExternalBrainCognitiveWorkPartitionerTest extends TestCase
         $this->assertSame('frontier_model', $r['phase_plan'][0]['model_tier']);
     }
 
+    // ── escalation_reason / fallback_plan / advisory-not-steady-state ─────────
+
+    public function test_small_model_phase_has_no_escalation_reason(): void
+    {
+        $r = $this->partitioner()->partition(['phases' => [$this->phase(['type' => 'extraction'])]]);
+        $this->assertNull($r['phase_plan'][0]['escalation_reason']);
+        $this->assertNull($r['phase_plan'][0]['fallback_plan']);
+    }
+
+    public function test_frontier_phase_has_explicit_escalation_reason_and_fallback_plan(): void
+    {
+        $r = $this->partitioner()->partition(['phases' => [$this->phase(['id' => 'risky', 'type' => 'escalation', 'blast_radius' => 0.9])]]);
+
+        $this->assertNotNull($r['phase_plan'][0]['escalation_reason']);
+        $this->assertStringContainsString('blast_radius', $r['phase_plan'][0]['escalation_reason']);
+        $this->assertNotNull($r['phase_plan'][0]['fallback_plan']);
+        $this->assertStringContainsString('risky', $r['phase_plan'][0]['fallback_plan']);
+    }
+
+    public function test_scaffolded_critique_phase_has_escalation_reason(): void
+    {
+        $r = $this->partitioner()->partition(['phases' => [$this->phase(['type' => 'critique'])]]);
+        $this->assertNotNull($r['phase_plan'][0]['escalation_reason']);
+        $this->assertStringContainsString('critique', $r['phase_plan'][0]['escalation_reason']);
+    }
+
+    public function test_output_states_escalation_is_advisory_not_steady_state_dependency(): void
+    {
+        $r = $this->partitioner()->partition([]);
+        $this->assertTrue($r['escalation_is_advisory_not_steady_state_dependency']);
+        $this->assertNotEmpty($r['steady_state_note']);
+    }
+
     // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_output_is_deterministic(): void

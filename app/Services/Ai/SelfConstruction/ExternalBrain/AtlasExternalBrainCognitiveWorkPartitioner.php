@@ -94,12 +94,18 @@ final class AtlasExternalBrainCognitiveWorkPartitioner
                 $highestTierRank = $rank;
             }
 
+            $escalationReason = $this->escalationReason($tier, $type, $blastRadius, $ambiguity, $conflicting);
+
             $phasePlan[] = [
                 'phase_id'           => $id,
                 'phase_type'         => $type,
                 'description'        => $description,
                 'model_tier'         => $tier,
                 'required_artifacts' => $artifacts,
+                'escalation_reason'  => $escalationReason,
+                'fallback_plan'      => $escalationReason !== null
+                    ? "downgrade phase {$id} to a lower model tier if frontier/scaffolded advisory is unavailable; accept reduced quality on this phase, never block the mission"
+                    : null,
             ];
         }
 
@@ -119,7 +125,35 @@ final class AtlasExternalBrainCognitiveWorkPartitioner
             'required_artifacts' => array_values(array_keys($allArtifacts)),
             'escalation_points' => $escalationPoints,
             'fallback_plan'     => $fallbackPlan,
+            'escalation_is_advisory_not_steady_state_dependency' => true,
+            'steady_state_note' => 'Frontier/scaffolded escalation is advisory guidance for hard phases only; the mission never requires a provider as a permanent steady-state dependency and degrades to the fallback_plan when unavailable.',
         ];
+    }
+
+    private function escalationReason(string $tier, string $type, float $blastRadius, float $ambiguity, bool $conflicting): ?string
+    {
+        if ($tier === self::TIER_SMALL) {
+            return null;
+        }
+
+        $reasons = [];
+        if ($blastRadius >= self::ESCALATION_BLAST) {
+            $reasons[] = sprintf('blast_radius:%.2f>=%.2f', $blastRadius, self::ESCALATION_BLAST);
+        }
+        if ($ambiguity >= self::AMBIGUITY_THRESHOLD) {
+            $reasons[] = sprintf('ambiguity:%.2f>=%.2f', $ambiguity, self::AMBIGUITY_THRESHOLD);
+        }
+        if ($conflicting) {
+            $reasons[] = 'conflicting_evidence';
+        }
+        if ($type === 'synthesis') {
+            $reasons[] = 'architectural_synthesis_phase';
+        }
+        if ($type === 'critique') {
+            $reasons[] = 'adversarial_critique_phase';
+        }
+
+        return $reasons !== [] ? implode(',', $reasons) : 'requires_scaffolded_or_frontier_review';
     }
 
     private function classifyPhase(array $raw, string $description, float $blastRadius, float $ambiguity, bool $conflicting): string
