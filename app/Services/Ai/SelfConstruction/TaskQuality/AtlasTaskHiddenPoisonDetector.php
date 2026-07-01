@@ -44,6 +44,14 @@ final class AtlasTaskHiddenPoisonDetector
 
     public const PATTERN_SCHEMA_ONLY_ACCEPTANCE = 'acceptance_schema_only_no_behavior';
 
+    public const PATTERN_REPEATED_FAILED_RESPEC_FAMILY = 'repeated_failed_respec_family_retirement_recommended';
+
+    private const BLOCKED_FAMILY_STATUSES = ['blocked', 'quarantined'];
+
+    private const REPEATED_FAILURE_THRESHOLD = 3;
+
+    private const FIELD_RECOVERY_CONFIDENCE_THRESHOLD = 0.75;
+
     private const SCHEMA_ONLY_NEEDLES = ['exits 0', 'exit 0', 'exit code 0', 'schema_version', 'json schema', 'valid schema'];
 
     private const AUTONOMY_DEP_NEEDLES = [
@@ -220,6 +228,28 @@ final class AtlasTaskHiddenPoisonDetector
             $found[] = [
                 'pattern_id' => self::PATTERN_SCHEMA_ONLY_ACCEPTANCE,
                 'evidence' => ['acceptance_criteria' => $acceptance],
+            ];
+        }
+
+        $familyStatus = strtolower(trim((string) ($quality['family_status'] ?? '')));
+        $failedRespecCount = max(0, (int) ($quality['failed_respec_count'] ?? 0));
+        $giveBackCount = max(0, (int) ($quality['give_back_count'] ?? 0));
+        $fieldRecoveryConfidence = (float) ($quality['field_recovery_confidence'] ?? 0.0);
+        $hasRunnableAcceptance = (bool) ($quality['has_runnable_acceptance'] ?? false);
+
+        $isBlockedFamily = in_array($familyStatus, self::BLOCKED_FAMILY_STATUSES, true);
+        $repeatedFailures = $failedRespecCount >= self::REPEATED_FAILURE_THRESHOLD || $giveBackCount >= self::REPEATED_FAILURE_THRESHOLD;
+        $isRecoverable = $fieldRecoveryConfidence >= self::FIELD_RECOVERY_CONFIDENCE_THRESHOLD && $hasRunnableAcceptance;
+
+        if ($isBlockedFamily && $repeatedFailures && ! $isRecoverable) {
+            $found[] = [
+                'pattern_id' => self::PATTERN_REPEATED_FAILED_RESPEC_FAMILY,
+                'evidence' => [
+                    'family_status' => $familyStatus,
+                    'failed_respec_count' => $failedRespecCount,
+                    'give_back_count' => $giveBackCount,
+                    'retirement_recommended' => true,
+                ],
             ];
         }
 

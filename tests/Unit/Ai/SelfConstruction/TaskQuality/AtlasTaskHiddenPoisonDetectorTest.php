@@ -24,6 +24,46 @@ final class AtlasTaskHiddenPoisonDetectorTest extends TestCase
         $this->assertSame([], $verdict['found_patterns']);
     }
 
+    public function test_repeated_failed_respec_blocked_family_is_flagged_for_retirement(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service that does X with bounded evidence.',
+            'acceptance_criteria' => ['unit test passes'],
+            'allowed_files' => ['app/Foo.php'],
+            'quality_facts' => [
+                'family_status' => 'blocked',
+                'failed_respec_count' => 4,
+                'give_back_count' => 0,
+                'field_recovery_confidence' => 0.2,
+                'has_runnable_acceptance' => false,
+            ],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_REPEATED_FAILED_RESPEC_FAMILY, $found);
+        $entry = $verdict['found_patterns'][array_search(AtlasTaskHiddenPoisonDetector::PATTERN_REPEATED_FAILED_RESPEC_FAMILY, $found, true)];
+        $this->assertTrue($entry['evidence']['retirement_recommended']);
+    }
+
+    public function test_recoverable_family_with_field_recovery_confidence_and_runnable_acceptance_is_not_flagged(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service that does X with bounded evidence.',
+            'acceptance_criteria' => ['unit test passes'],
+            'allowed_files' => ['app/Foo.php'],
+            'quality_facts' => [
+                'family_status' => 'blocked',
+                'failed_respec_count' => 4,
+                'give_back_count' => 0,
+                'field_recovery_confidence' => 0.9,
+                'has_runnable_acceptance' => true,
+            ],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertNotContains(AtlasTaskHiddenPoisonDetector::PATTERN_REPEATED_FAILED_RESPEC_FAMILY, $found);
+    }
+
     public function test_scope_repair_leftover_target_in_objective_is_flagged(): void
     {
         $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
