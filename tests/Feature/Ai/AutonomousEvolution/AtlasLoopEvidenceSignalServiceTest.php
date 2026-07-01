@@ -88,4 +88,92 @@ final class AtlasLoopEvidenceSignalServiceTest extends TestCase
 
         $this->assertSame([], $w, 'short non-distinctive basenames must not produce false evidence');
     }
+
+    // ── evidenceSignals(): freshness/source_trust/runtime_proof/test_proof/receipt_proof/stale_veto_hint ──
+
+    // ── AC: fresh runtime evidence ────────────────────────────────────────────────
+
+    public function test_fresh_runtime_evidence_has_high_freshness_and_no_veto(): void
+    {
+        $signals = (new AtlasLoopEvidenceSignalService())->evidenceSignals([
+            'app/Foo.php' => [
+                'last_verified_days_ago' => 1,
+                'source_trust' => 0.9,
+                'has_runtime_proof' => true,
+                'has_test_proof' => true,
+            ],
+        ]);
+
+        $this->assertGreaterThan(0.9, $signals['app/Foo.php']['freshness']);
+        $this->assertTrue($signals['app/Foo.php']['runtime_proof']);
+        $this->assertFalse($signals['app/Foo.php']['stale_veto_hint']);
+    }
+
+    // ── AC: stale evidence ────────────────────────────────────────────────────────
+
+    public function test_stale_evidence_without_runtime_proof_raises_veto_hint(): void
+    {
+        $signals = (new AtlasLoopEvidenceSignalService())->evidenceSignals([
+            'app/Bar.php' => [
+                'last_verified_days_ago' => 90,
+                'has_runtime_proof' => false,
+            ],
+        ]);
+
+        $this->assertSame(0.0, $signals['app/Bar.php']['freshness']);
+        $this->assertTrue($signals['app/Bar.php']['stale_veto_hint']);
+    }
+
+    public function test_stale_evidence_with_runtime_proof_does_not_raise_veto(): void
+    {
+        $signals = (new AtlasLoopEvidenceSignalService())->evidenceSignals([
+            'app/Baz.php' => [
+                'last_verified_days_ago' => 90,
+                'has_runtime_proof' => true,
+            ],
+        ]);
+
+        $this->assertFalse($signals['app/Baz.php']['stale_veto_hint']);
+    }
+
+    // ── AC: receipt-only evidence ─────────────────────────────────────────────────
+
+    public function test_receipt_only_evidence_marks_receipt_proof_but_still_vetoes(): void
+    {
+        $signals = (new AtlasLoopEvidenceSignalService())->evidenceSignals([
+            'app/Qux.php' => ['has_receipt_proof' => true],
+        ]);
+
+        $this->assertTrue($signals['app/Qux.php']['receipt_proof']);
+        $this->assertFalse($signals['app/Qux.php']['runtime_proof']);
+        $this->assertFalse($signals['app/Qux.php']['test_proof']);
+        $this->assertTrue($signals['app/Qux.php']['stale_veto_hint'], 'receipt alone is not runtime proof — still needs reproof');
+    }
+
+    // ── AC: missing evidence ──────────────────────────────────────────────────────
+
+    public function test_missing_evidence_degrades_to_conservative_floor(): void
+    {
+        $signals = (new AtlasLoopEvidenceSignalService())->evidenceSignals(['app/Empty.php' => []]);
+
+        $this->assertSame(0.0, $signals['app/Empty.php']['freshness']);
+        $this->assertSame(0.0, $signals['app/Empty.php']['source_trust']);
+        $this->assertFalse($signals['app/Empty.php']['runtime_proof']);
+        $this->assertFalse($signals['app/Empty.php']['test_proof']);
+        $this->assertFalse($signals['app/Empty.php']['receipt_proof']);
+        $this->assertTrue($signals['app/Empty.php']['stale_veto_hint']);
+    }
+
+    // ── AC: deterministic path ordering ───────────────────────────────────────────
+
+    public function test_evidence_signals_are_sorted_deterministically_by_path(): void
+    {
+        $signals = (new AtlasLoopEvidenceSignalService())->evidenceSignals([
+            'zeta.php' => [],
+            'alpha.php' => [],
+            'mu.php' => [],
+        ]);
+
+        $this->assertSame(['alpha.php', 'mu.php', 'zeta.php'], array_keys($signals));
+    }
 }

@@ -25,6 +25,9 @@ final class AtlasLoopEvidenceSignalService
 
     private const MAX_ROWS = 2000;
 
+    /** a candidate's freshness signal decays to 0 once its proof is this many days old. */
+    private const FRESHNESS_WINDOW_DAYS = 14;
+
     /**
      * Build a map of repo-relative path => evidence weight in [0,1], normalized so the
      * most-failing file is 1.0 and the rest scale by recurrence. Matches a failure row to
@@ -86,5 +89,46 @@ final class AtlasLoopEvidenceSignalService
         }
 
         return $weights;
+    }
+
+    /**
+     * Per-candidate multi-dimensional evidence breakdown — richer than weights()' single
+     * failure-recurrence float. Never assumes fresh, trusted, or proven when a fact is absent:
+     * missing evidence degrades to the conservative floor and raises stale_veto_hint.
+     *
+     * @param  array<string,array{last_verified_days_ago?:int, source_trust?:float, has_runtime_proof?:bool, has_test_proof?:bool, has_receipt_proof?:bool}>  $candidates  path => evidence facts
+     * @return array<string,array{freshness:float, source_trust:float, runtime_proof:bool, test_proof:bool, receipt_proof:bool, stale_veto_hint:bool}>
+     */
+    public function evidenceSignals(array $candidates): array
+    {
+        $signals = [];
+        foreach ($candidates as $path => $facts) {
+            if (! is_array($facts)) {
+                continue;
+            }
+
+            $daysAgo = array_key_exists('last_verified_days_ago', $facts) ? max(0, (int) $facts['last_verified_days_ago']) : null;
+            $freshness = $daysAgo === null ? 0.0 : max(0.0, round(1.0 - min(1.0, $daysAgo / self::FRESHNESS_WINDOW_DAYS), 4));
+            $sourceTrust = max(0.0, min(1.0, (float) ($facts['source_trust'] ?? 0.0)));
+            $runtimeProof = (bool) ($facts['has_runtime_proof'] ?? false);
+            $testProof = (bool) ($facts['has_test_proof'] ?? false);
+            $receiptProof = (bool) ($facts['has_receipt_proof'] ?? false);
+
+            // stale_veto_hint: no runtime proof AND the evidence itself is stale or absent —
+            // recommend a fresh reproof before this candidate is trusted for origination.
+            $staleVetoHint = ! $runtimeProof && ($daysAgo === null || $daysAgo > self::FRESHNESS_WINDOW_DAYS);
+
+            $signals[(string) $path] = [
+                'freshness' => $freshness,
+                'source_trust' => $sourceTrust,
+                'runtime_proof' => $runtimeProof,
+                'test_proof' => $testProof,
+                'receipt_proof' => $receiptProof,
+                'stale_veto_hint' => $staleVetoHint,
+            ];
+        }
+        ksort($signals, SORT_STRING);
+
+        return $signals;
     }
 }
