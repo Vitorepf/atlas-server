@@ -39,6 +39,19 @@ final class AtlasExternalBrainHealthScoreDeltaExplainerTest extends TestCase
         $this->assertNotEmpty($rec['stop_condition']);
     }
 
+    public function test_explain_delta_does_not_mutate_its_input(): void
+    {
+        $before = ['autonomy_score' => 0.5, 'quality_score' => 0.5, 'risk_score' => 0.5, 'simplification_score' => 0.5, 'task_count' => 10, 'proven_task_count' => 10];
+        $after = ['autonomy_score' => 0.6, 'quality_score' => 0.5, 'risk_score' => 0.5, 'simplification_score' => 0.5, 'task_count' => 12, 'proven_task_count' => 10];
+        $beforeCopy = $before;
+        $afterCopy = $after;
+
+        $this->svc->explainDelta($before, $after);
+
+        $this->assertSame($beforeCopy, $before);
+        $this->assertSame($afterCopy, $after);
+    }
+
     // ── Gate holes ────────────────────────────────────────────────────────────
 
     public function test_gate_holes_produces_recommendation(): void
