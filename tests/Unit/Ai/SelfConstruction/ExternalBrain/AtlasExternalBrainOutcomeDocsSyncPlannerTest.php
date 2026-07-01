@@ -14,6 +14,24 @@ final class AtlasExternalBrainOutcomeDocsSyncPlannerTest extends TestCase
         return new AtlasExternalBrainOutcomeDocsSyncPlanner;
     }
 
+    public function test_plan_is_deterministic_for_identical_input_and_never_mutates_it(): void
+    {
+        $planner = $this->planner();
+        $facts = ['outcome' => [
+            'task_id' => 't1',
+            'is_architecture_decision' => true,
+            'memory_relevant' => true,
+            'operator_facing_significance' => 'high',
+        ]];
+        $before = $facts;
+
+        $a = $planner->plan($facts);
+        $b = $planner->plan($facts);
+
+        $this->assertSame($a, $b);
+        $this->assertSame($before, $facts, 'plan must not mutate its input');
+    }
+
     public function test_repeated_trivial_commits_exhaust_noise_budget_and_docs_sync_stays_false(): void
     {
         $result = $this->planner()->plan(['outcome' => [
