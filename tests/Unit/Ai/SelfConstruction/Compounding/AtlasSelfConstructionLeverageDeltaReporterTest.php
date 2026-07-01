@@ -123,4 +123,82 @@ final class AtlasSelfConstructionLeverageDeltaReporterTest extends TestCase
         // 2 raw seeds × weight 1 = 2
         $this->assertEqualsWithDelta(2.0, $components['raw_seed_volume']['contribution'], 0.0001);
     }
+
+    // ── reportProof(): autonomy/risk/simplification/throughput deltas + confidence + direction ──
+
+    // ── AC: positive delta ───────────────────────────────────────────────────────
+
+    public function test_positive_delta_across_all_dimensions_reports_improving(): void
+    {
+        $report = (new AtlasSelfConstructionLeverageDeltaReporter)->reportProof(
+            ['autonomous_ownership' => 2, 'task_waste' => 5, 'simplification_score' => 1, 'worker_throughput' => 3],
+            ['autonomous_ownership' => 5, 'task_waste' => 1, 'simplification_score' => 4, 'worker_throughput' => 6],
+        );
+
+        $this->assertSame(3, $report['autonomy_delta']);
+        $this->assertSame(-4, $report['risk_delta']);
+        $this->assertSame(3, $report['simplification_delta']);
+        $this->assertSame(3, $report['throughput_delta']);
+        $this->assertSame(AtlasSelfConstructionLeverageDeltaReporter::DIRECTION_IMPROVING, $report['overall_direction']);
+        $this->assertSame('high', $report['confidence']);
+    }
+
+    // ── AC: negative regression ──────────────────────────────────────────────────
+
+    public function test_negative_delta_across_all_dimensions_reports_regressing(): void
+    {
+        $report = (new AtlasSelfConstructionLeverageDeltaReporter)->reportProof(
+            ['autonomous_ownership' => 5, 'task_waste' => 1, 'simplification_score' => 4, 'worker_throughput' => 6],
+            ['autonomous_ownership' => 2, 'task_waste' => 5, 'simplification_score' => 1, 'worker_throughput' => 3],
+        );
+
+        $this->assertLessThan(0, $report['autonomy_delta']);
+        $this->assertGreaterThan(0, $report['risk_delta']);
+        $this->assertSame(AtlasSelfConstructionLeverageDeltaReporter::DIRECTION_REGRESSING, $report['overall_direction']);
+    }
+
+    // ── AC: mixed delta ───────────────────────────────────────────────────────────
+
+    public function test_mixed_delta_reports_mixed_direction(): void
+    {
+        // 2 good signals (autonomy up, throughput up) vs 2 bad (risk up, simplification down) → tied.
+        $report = (new AtlasSelfConstructionLeverageDeltaReporter)->reportProof(
+            ['autonomous_ownership' => 2, 'task_waste' => 1, 'simplification_score' => 4, 'worker_throughput' => 3],
+            ['autonomous_ownership' => 5, 'task_waste' => 5, 'simplification_score' => 1, 'worker_throughput' => 6],
+        );
+
+        $this->assertSame(AtlasSelfConstructionLeverageDeltaReporter::DIRECTION_MIXED, $report['overall_direction']);
+    }
+
+    // ── AC: missing baseline ─────────────────────────────────────────────────────
+
+    public function test_missing_baseline_yields_low_confidence_never_fabricated(): void
+    {
+        $report = (new AtlasSelfConstructionLeverageDeltaReporter)->reportProof([], []);
+
+        $this->assertSame('low', $report['confidence']);
+        $this->assertSame(AtlasSelfConstructionLeverageDeltaReporter::DIRECTION_NEUTRAL, $report['overall_direction']);
+        $this->assertSame(0, $report['autonomy_delta']);
+    }
+
+    public function test_partial_baseline_yields_medium_confidence(): void
+    {
+        $report = (new AtlasSelfConstructionLeverageDeltaReporter)->reportProof(
+            ['autonomous_ownership' => 1, 'task_waste' => 2],
+            ['autonomous_ownership' => 2, 'task_waste' => 1],
+        );
+
+        $this->assertSame('medium', $report['confidence']);
+    }
+
+    // ── AC: stable deterministic explanation ─────────────────────────────────────
+
+    public function test_report_proof_is_deterministic(): void
+    {
+        $reporter = new AtlasSelfConstructionLeverageDeltaReporter;
+        $before = ['autonomous_ownership' => 2, 'task_waste' => 5];
+        $after = ['autonomous_ownership' => 5, 'task_waste' => 1];
+
+        $this->assertSame($reporter->reportProof($before, $after), $reporter->reportProof($before, $after));
+    }
 }

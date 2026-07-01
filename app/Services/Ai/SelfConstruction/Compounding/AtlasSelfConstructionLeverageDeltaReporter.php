@@ -31,6 +31,17 @@ final class AtlasSelfConstructionLeverageDeltaReporter
         'verification_strength',
     ];
 
+    public const DIRECTION_IMPROVING = 'improving';
+
+    public const DIRECTION_REGRESSING = 'regressing';
+
+    public const DIRECTION_MIXED = 'mixed';
+
+    public const DIRECTION_NEUTRAL = 'neutral';
+
+    /** the optional facts reportProof() looks for when computing evidence confidence. */
+    private const PROOF_TRACKED_FIELDS = ['autonomous_ownership', 'task_waste', 'simplification_score', 'worker_throughput'];
+
     /** Scoring weights for final-brain leverage components. Real delivered outcomes outweigh raw seeds. */
     private const SCORE_WEIGHTS = [
         'implemented_outcomes' => 10,
@@ -82,6 +93,56 @@ final class AtlasSelfConstructionLeverageDeltaReporter
                 'total' => round(array_sum(array_column($scoreComponents, 'contribution')), 6),
                 'components' => $scoreComponents,
             ],
+        ];
+    }
+
+    /**
+     * Compact before/after proof: whether a wave mattered, in the vocabulary a wave-review needs —
+     * autonomy/risk/simplification/throughput deltas, evidence confidence, and one overall direction.
+     * A missing baseline (few tracked facts supplied) never yields a fabricated high-confidence
+     * verdict — confidence tracks how much of the fact set was actually present.
+     *
+     * @param  array<string,mixed>  $before
+     * @param  array<string,mixed>  $after
+     * @return array{schema:string, autonomy_delta:int, risk_delta:int, simplification_delta:int, throughput_delta:int, confidence:string, overall_direction:string}
+     */
+    public function reportProof(array $before, array $after): array
+    {
+        $autonomyDelta = (int) ($after['autonomous_ownership'] ?? 0) - (int) ($before['autonomous_ownership'] ?? 0);
+        // task_waste is documented as LOWER-is-better ⇒ risk_delta shares its sign directly.
+        $riskDelta = (int) ($after['task_waste'] ?? 0) - (int) ($before['task_waste'] ?? 0);
+        $simplificationDelta = (int) ($after['simplification_score'] ?? 0) - (int) ($before['simplification_score'] ?? 0);
+        $throughputDelta = (int) ($after['worker_throughput'] ?? 0) - (int) ($before['worker_throughput'] ?? 0);
+
+        $presentCount = 0;
+        foreach (self::PROOF_TRACKED_FIELDS as $field) {
+            if (array_key_exists($field, $before) || array_key_exists($field, $after)) {
+                $presentCount++;
+            }
+        }
+        $confidence = match (true) {
+            $presentCount >= 4 => 'high',
+            $presentCount >= 2 => 'medium',
+            default => 'low',
+        };
+
+        $goodCount = (int) ($autonomyDelta > 0) + (int) ($riskDelta < 0) + (int) ($simplificationDelta > 0) + (int) ($throughputDelta > 0);
+        $badCount = (int) ($autonomyDelta < 0) + (int) ($riskDelta > 0) + (int) ($simplificationDelta < 0) + (int) ($throughputDelta < 0);
+        $overallDirection = match (true) {
+            $goodCount === 0 && $badCount === 0 => self::DIRECTION_NEUTRAL,
+            $goodCount > $badCount => self::DIRECTION_IMPROVING,
+            $badCount > $goodCount => self::DIRECTION_REGRESSING,
+            default => self::DIRECTION_MIXED,
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'autonomy_delta' => $autonomyDelta,
+            'risk_delta' => $riskDelta,
+            'simplification_delta' => $simplificationDelta,
+            'throughput_delta' => $throughputDelta,
+            'confidence' => $confidence,
+            'overall_direction' => $overallDirection,
         ];
     }
 
