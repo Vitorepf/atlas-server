@@ -97,6 +97,33 @@ final class AtlasExternalBrainCrossProjectEvolutionProfileTest extends TestCase
         $this->assertFalse($p->isReadonlyPlanning());
     }
 
+    public function test_project_profile_requesting_full_autonomous_downgrades_to_supervised_without_full_safety_contract(): void
+    {
+        $p = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('my-service', [
+            'autonomy_level' => AtlasExternalBrainCrossProjectEvolutionProfile::AUTONOMY_FULL_AUTONOMOUS,
+            'source_of_truth_docs' => ['docs/canonical.md'],
+            'allowed_targets' => ['src/'],
+            // forbidden_targets and property_gated_targets NOT provided
+        ]);
+
+        $this->assertSame(AtlasExternalBrainCrossProjectEvolutionProfile::AUTONOMY_SUPERVISED, $p->autonomyLevel());
+    }
+
+    public function test_project_profile_reaches_full_autonomous_with_full_safety_contract(): void
+    {
+        $p = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('my-service', [
+            'autonomy_level' => AtlasExternalBrainCrossProjectEvolutionProfile::AUTONOMY_FULL_AUTONOMOUS,
+            'source_of_truth_docs' => ['docs/canonical.md'],
+            'allowed_targets' => ['src/'],
+            'forbidden_targets' => ['.env'],
+            'property_gated_targets' => ['config/app.php'],
+            'task_lanes' => ['feature', 'test'],
+            'required_evidence_fields' => ['tests_or_gates_result'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainCrossProjectEvolutionProfile::AUTONOMY_FULL_AUTONOMOUS, $p->autonomyLevel());
+    }
+
     // --- Atlas vs non-Atlas distinctions (same schema, distinct policies) -----
 
     public function test_atlas_and_project_profiles_share_schema_but_differ_on_autonomy(): void

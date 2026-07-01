@@ -83,13 +83,12 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
     {
         $sourceOfTruthDocs = array_values(array_filter((array) ($config['source_of_truth_docs'] ?? []), 'is_string'));
         $allowedTargets = array_values(array_filter((array) ($config['allowed_targets'] ?? []), 'is_string'));
-
-        // Autonomy gate: both source-of-truth docs AND an explicit allowed-target policy
-        // are required before elevating past readonly_planning.
-        $requestedLevel = (string) ($config['autonomy_level'] ?? self::AUTONOMY_READONLY_PLANNING);
-        $resolvedLevel = ($sourceOfTruthDocs !== [] && $allowedTargets !== [])
-            ? $requestedLevel
-            : self::AUTONOMY_READONLY_PLANNING;
+        $requiredEvidenceFields = array_values(array_filter(
+            (array) ($config['required_evidence_fields'] ?? ['tests_or_gates_result']),
+            'is_string',
+        ));
+        $forbiddenTargets = array_values(array_filter((array) ($config['forbidden_targets'] ?? []), 'is_string'));
+        $propertyGatedTargets = array_values(array_filter((array) ($config['property_gated_targets'] ?? []), 'is_string'));
 
         $defaultLedger = [
             'min_evidence_refs' => 1,
@@ -100,6 +99,26 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
             (array) ($config['task_lanes'] ?? ['feature']),
             'is_string',
         ));
+
+        // Autonomy gate: past readonly_planning requires source-of-truth docs AND allowed
+        // targets. Past supervised (i.e. full_autonomous) additionally requires every other
+        // safety-relevant field to be explicit — forbidden/property-gated targets, task lanes,
+        // and evidence fields — so a project can't reach full autonomy on partially-specified
+        // safety data.
+        $requestedLevel = (string) ($config['autonomy_level'] ?? self::AUTONOMY_READONLY_PLANNING);
+        $hasBaseline = $sourceOfTruthDocs !== [] && $allowedTargets !== [];
+        $hasFullSafetyContract = $hasBaseline
+            && $requiredEvidenceFields !== []
+            && $taskLanes !== []
+            && $forbiddenTargets !== []
+            && $propertyGatedTargets !== [];
+        if (! $hasBaseline) {
+            $resolvedLevel = self::AUTONOMY_READONLY_PLANNING;
+        } elseif ($requestedLevel === self::AUTONOMY_FULL_AUTONOMOUS && ! $hasFullSafetyContract) {
+            $resolvedLevel = self::AUTONOMY_SUPERVISED;
+        } else {
+            $resolvedLevel = $requestedLevel;
+        }
 
         $proofGates = array_values(array_filter((array) ($config['proof_gates'] ?? ['tests_green']), 'is_string'));
         $maturityRisk = is_array($config['maturity_risk'] ?? null)
@@ -140,15 +159,12 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
             'project_name' => (string) ($config['project_name'] ?? $projectId),
             'is_canonical_atlas' => false,
             'autonomy_level' => $resolvedLevel,
-            'required_evidence_fields' => array_values(array_filter(
-                (array) ($config['required_evidence_fields'] ?? ['tests_or_gates_result']),
-                'is_string',
-            )),
+            'required_evidence_fields' => $requiredEvidenceFields,
             'task_lanes' => $taskLanes,
             'source_of_truth_docs' => $sourceOfTruthDocs,
             'allowed_targets' => $allowedTargets,
-            'forbidden_targets' => array_values(array_filter((array) ($config['forbidden_targets'] ?? []), 'is_string')),
-            'property_gated_targets' => array_values(array_filter((array) ($config['property_gated_targets'] ?? []), 'is_string')),
+            'forbidden_targets' => $forbiddenTargets,
+            'property_gated_targets' => $propertyGatedTargets,
             'ledger_policy' => is_array($config['ledger_policy'] ?? null) ? $config['ledger_policy'] : $defaultLedger,
             'proof_gates' => $proofGates,
             'maturity_risk' => $maturityRisk,
