@@ -212,6 +212,94 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
         self::assertContains('human_dependency_regression_not_passed:missing', $verdict['blockers']);
     }
 
+    // --- AC: full native finalization / missing rollback / provider dependency / learning loop ---
+
+    public function test_full_native_finalization_passes_with_every_loop_proof_present(): void
+    {
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($this->readyFacts());
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_READY, $verdict['final_state']);
+        self::assertTrue($verdict['passed']);
+    }
+
+    public function test_missing_rollback_ledger_blocker_yields_blocked(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['ledger']['rollback_blocker'] = true;
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        self::assertContains('ledger_blocker:rollback_blocker', $verdict['blockers']);
+    }
+
+    public function test_provider_dependency_true_yields_blocked(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['evidence_facts']['autonomy_dependencies']['depends_on_external_provider_network'] = true;
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+    }
+
+    public function test_missing_learning_loop_proof_yields_hold(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['ledger']['learning_blocker'] = true;
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_HOLD, $verdict['final_state']);
+        self::assertContains('refresh_learning_blocker', $verdict['next_atlas_actions']);
+    }
+
+    // --- AC: execution / context / task origination / worker routing loop proofs ---
+
+    public function test_missing_execution_proof_yields_blocked(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['execution_proof']);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        self::assertContains('execution_loop_proof_not_passed:missing', $verdict['blockers']);
+    }
+
+    public function test_failing_context_proof_yields_blocked(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['context_proof'] = ['status' => 'fail'];
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        self::assertContains('context_loop_proof_not_passed:fail', $verdict['blockers']);
+    }
+
+    public function test_missing_task_origination_proof_yields_blocked(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['task_origination_proof']);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        self::assertContains('task_origination_loop_proof_not_passed:missing', $verdict['blockers']);
+    }
+
+    public function test_missing_worker_routing_proof_yields_blocked(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['worker_routing_proof']);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        self::assertContains('worker_routing_loop_proof_not_passed:missing', $verdict['blockers']);
+    }
+
     /**
      * @return array<string,mixed>
      */
@@ -262,6 +350,10 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
                 'queue_drain_cycles' => 5,
             ],
             'human_dependency_regression' => ['status' => 'pass'],
+            'execution_proof' => ['status' => 'pass'],
+            'context_proof' => ['status' => 'pass'],
+            'task_origination_proof' => ['status' => 'pass'],
+            'worker_routing_proof' => ['status' => 'pass'],
             'ledger' => [
                 'queue_blocker' => false,
                 'rollback_blocker' => false,

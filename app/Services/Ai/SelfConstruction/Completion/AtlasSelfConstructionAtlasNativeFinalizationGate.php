@@ -48,6 +48,23 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
     /** @var list<string> */
     private const REQUIRED_AUTONOMY_LEVELS = ['atlas_native_bounded', 'atlas_native_24_7'];
 
+    /**
+     * The 4 core loops with no existing dedicated proof signal in this gate (rollback,
+     * knowledge sync, and outcome learning are already covered by LEDGER_BLOCKING_KEYS /
+     * LEDGER_HOLD_KEYS). Each fact key must resolve to {status: 'pass'} or finalization blocks —
+     * a missing/failing loop proof is never treated as merely refreshable.
+     *
+     * @var array<string,string>
+     */
+    private const LOOP_PROOF_FACT_KEYS = [
+        'execution_proof' => 'execution',
+        'context_proof' => 'context',
+        'task_origination_proof' => 'task_origination',
+        'worker_routing_proof' => 'worker_routing',
+    ];
+
+    private const LOOP_PROOF_STATUS_PASS = 'pass';
+
     public const MIN_SOAK_HOURS = 24;
 
     public const MIN_UNATTENDED_RECOVERY_EVENTS = 1;
@@ -142,6 +159,18 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
             $blockers[] = 'human_dependency_regression_not_passed:'.($humanDepStatus === '' ? 'missing' : $humanDepStatus);
         }
 
+        // Execution/context/task-origination/worker-routing proof — any status other than
+        // 'pass' → blocked, same treatment as human_dependency_regression: never merely refreshable.
+        $loopProofFailed = false;
+        foreach (self::LOOP_PROOF_FACT_KEYS as $factKey => $label) {
+            $proof = is_array($facts[$factKey] ?? null) ? $facts[$factKey] : [];
+            $status = (string) ($proof['status'] ?? '');
+            if ($status !== self::LOOP_PROOF_STATUS_PASS) {
+                $loopProofFailed = true;
+                $blockers[] = $label.'_loop_proof_not_passed:'.($status === '' ? 'missing' : $status);
+            }
+        }
+
         $finalState = self::FINAL_READY;
         if ($blockers !== []) {
             // If only refreshable-style blockers (none from ledger blocking keys, none dependency contract),
@@ -150,6 +179,7 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
             $hasContractBlocker = $autonomyContractBlocked
                 || ! (bool) $dependency['passed']
                 || $humanDepRegressionFailed
+                || $loopProofFailed
                 || in_array('autonomy_level_below_floor:'.$level, $blockers, true)
                 || ((string) ($evidence['status'] ?? '') === AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED)
                 || $sourceCoverage['blocked_sources'] !== [];
