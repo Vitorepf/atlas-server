@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionOrchestrator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Throwable;
@@ -157,7 +158,14 @@ final class AgentControlPlaneTaskQueueOrchestrator
      */
     private function checkAntiFarmGates(array $packet, array $packetInput): ?array
     {
-        $existingEntries = $this->queue->list(['status' => 'claimable']);
+        $candidateId = (string) ($packet['task_packet_id'] ?? '');
+        // Exclude the candidate's own task_packet_id: a re-submission of the SAME packet_id
+        // (idempotent re-enqueue) is not a duplicate of anything — it is itself, and must reach
+        // the queue's own hash-based idempotency check untouched by the anti-farm gates.
+        $existingEntries = array_values(array_filter(
+            $this->queue->list(['status' => 'claimable']),
+            static fn (array $entry): bool => $candidateId === '' || (string) ($entry['task_packet_id'] ?? '') !== $candidateId,
+        ));
         if ($existingEntries === []) {
             return null;
         }
@@ -1153,7 +1161,57 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'give_back_count' => $count,
             'lease_released' => (string) ($release['status'] ?? '') === 'ok',
             'release' => $release,
+            'learning_bridge' => $this->bridgeOutcomeToLearning($taskPacketId, 'give_back', [
+                'agent_id' => $agentId,
+                'give_back_reason' => $reason,
+            ]),
         ]);
+    }
+
+    /**
+     * Hands a resolved/completed/give_back outcome to the learning-transfer admission
+     * orchestrator (composed here in its default OBSERVE mode — never modified, never armed
+     * for APPLY) as a lesson-candidate fact. Fail-open: a learning-side exception never breaks
+     * the caller's report; it only downgrades this bridge's own status to 'error'.
+     *
+     * @param  array<string,mixed>  $extra  agent_id, give_back_reason (when outcome=give_back)
+     * @return array{status:string, outcome?:string, lesson_key?:mixed, error?:string}
+     */
+    private function bridgeOutcomeToLearning(string $taskPacketId, string $outcome, array $extra = []): array
+    {
+        try {
+            $record = $this->queue->get($taskPacketId);
+            $packet = (array) data_get($record, 'task_packet', []);
+            $objective = (string) data_get($packet, 'objective', '');
+
+            $fact = [
+                'task_packet_id' => $taskPacketId,
+                'outcome' => $outcome,
+                'agent_id' => (string) ($extra['agent_id'] ?? ''),
+                'allowed_files' => array_values((array) data_get($packet, 'normalized_scope.allowed_files', [])),
+                'objective_digest' => hash('sha256', $objective),
+            ];
+            if (isset($extra['give_back_reason'])) {
+                // The classifier reads 'reason' to derive the lesson class.
+                $fact['reason'] = (string) $extra['give_back_reason'];
+                $fact['give_back_reason'] = (string) $extra['give_back_reason'];
+            }
+
+            $result = (new AtlasSelfConstructionLearningTransferAdmissionOrchestrator)->admit($fact);
+            $admissionOutcome = (string) ($result['outcome'] ?? '');
+
+            return [
+                'status' => $admissionOutcome === 'admitted_and_recorded' ? 'accepted' : 'rejected',
+                'outcome' => $admissionOutcome,
+                'lesson_key' => $result['lesson_key'] ?? null,
+                'fact' => $fact,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'status' => 'error',
+                'error' => $e->getMessage(),
+            ];
+        }
     }
 
     /**
@@ -1260,6 +1318,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'lease_id' => $leaseId,
             'commit_sha' => $commitSha,
             'queue_transition' => (string) ($transition['status'] ?? ''),
+            'learning_bridge' => $this->bridgeOutcomeToLearning($taskPacketId, 'resolved', ['agent_id' => $agentId]),
         ]);
     }
 
@@ -1383,6 +1442,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'queue_lease_id' => $queueLeaseId,
             'queue_agent_id' => $queueAgentId,
             'completion_real_allowed' => false,
+            'learning_bridge' => $this->bridgeOutcomeToLearning($taskPacketId, 'completed_dry_run', ['agent_id' => $agentId]),
         ]);
     }
 
