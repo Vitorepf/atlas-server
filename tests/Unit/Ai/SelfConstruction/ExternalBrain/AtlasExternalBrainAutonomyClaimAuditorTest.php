@@ -286,4 +286,91 @@ final class AtlasExternalBrainAutonomyClaimAuditorTest extends TestCase
             $this->assertSame('proxy', $result['status']);
         }
     }
+
+    // ── AC2/AC3/AC4: absolute autonomy claims require queue health + soak duration + fresh evidence ──
+
+    public function test_hundred_percent_autonomous_claim_with_only_generic_strong_evidence_is_overclaim(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => '100 percent autonomous',
+            'evidence_refs' => ['runnable_end_to_end_replay', 'fresh_outcome_learning'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_OVERCLAIM, $r['status']);
+        $this->assertNotSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PROVEN, $r['status']);
+        $this->assertSame(0.0, $r['confidence']);
+        $this->assertTrue($r['is_strong_claim']);
+        $this->assertNotEmpty($r['evidence_gaps']);
+        $this->assertNotNull($r['next_evidence_task']);
+        $this->assertNotEmpty($r['next_proof_chain']);
+    }
+
+    public function test_no_human_dependency_claim_requires_soak_and_queue_health(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => 'no human dependency',
+            'evidence_refs' => ['runnable_end_to_end_replay', 'fresh_outcome_learning'],
+            'queue_health_evidence' => true,
+            'evidence_age_seconds' => 60,
+            // soak_duration_seconds omitted → below minimum
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_OVERCLAIM, $r['status']);
+        $this->assertStringContainsString('soak_duration_seconds', implode(' ', $r['evidence_gaps']));
+    }
+
+    public function test_final_brain_readiness_claim_requires_queue_health_evidence(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => 'final brain readiness',
+            'evidence_refs' => ['runnable_end_to_end_replay', 'fresh_outcome_learning'],
+            'evidence_age_seconds' => 60,
+            'soak_duration_seconds' => 90000,
+            // queue_health_evidence omitted
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_OVERCLAIM, $r['status']);
+        $this->assertContains('queue_health_evidence_missing', $r['evidence_gaps']);
+    }
+
+    public function test_strong_claim_fully_backed_by_soak_and_queue_health_and_fresh_evidence_is_proven(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => '100 percent autonomous',
+            'evidence_refs' => ['runnable_end_to_end_replay', 'fresh_outcome_learning'],
+            'evidence_age_seconds' => 60,
+            'queue_health_evidence' => true,
+            'soak_duration_seconds' => 90000,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PROVEN, $r['status']);
+        $this->assertSame(1.0, $r['confidence']);
+        $this->assertTrue($r['is_strong_claim']);
+    }
+
+    public function test_ordinary_claim_mentioning_autonomous_is_not_treated_as_strong_claim(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => '24/7 autonomous operation',
+            'evidence_refs' => ['runnable_end_to_end_replay', 'fresh_outcome_learning'],
+        ]);
+
+        $this->assertFalse($r['is_strong_claim']);
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PROVEN, $r['status']);
+    }
+
+    public function test_overclaim_status_never_produced_for_unsupported_or_stale_strong_claims(): void
+    {
+        // No evidence at all — stays unsupported, not "upgraded" into overclaim.
+        $unsupported = $this->svc()->audit(['claim' => '100 percent autonomous']);
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_UNSUPPORTED, $unsupported['status']);
+
+        // Stale strong evidence — stays stale, not overclaim.
+        $stale = $this->svc()->audit([
+            'claim' => '100 percent autonomous',
+            'evidence_refs' => ['runnable_end_to_end_replay', 'fresh_outcome_learning'],
+            'evidence_age_seconds' => 999999999,
+        ]);
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_STALE, $stale['status']);
+    }
 }

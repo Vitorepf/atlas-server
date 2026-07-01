@@ -30,6 +30,8 @@ final class AtlasExternalBrainAutonomyClaimAuditor
 
     public const STATUS_UNSUPPORTED = 'unsupported';
 
+    public const STATUS_OVERCLAIM = 'overclaim';
+
     /** Signals that look like evidence but carry no real proof of behavior. @var list<string> */
     private const PROXY_ONLY_SIGNALS = ['queue_count', 'task_count', 'green_self_report', 'novelty'];
 
@@ -42,6 +44,22 @@ final class AtlasExternalBrainAutonomyClaimAuditor
     ];
 
     private const STALE_THRESHOLD_SECONDS = 604800; // 7 days
+
+    // AC2/AC3: absolute/total autonomy phrasing that demands more than the generic 2-strong-
+    // evidence bar — literal phrases only, to avoid catching ordinary claims that merely mention
+    // "autonomous" (e.g. "24/7 autonomous operation" is a normal claim, not an absolute one).
+    private const STRONG_CLAIM_PHRASES = [
+        '100 percent autonomous',
+        '100% autonomous',
+        'no human dependency',
+        'zero human dependency',
+        'final brain readiness',
+        'final readiness',
+        'fully autonomous',
+        'complete autonomy',
+    ];
+
+    private const MIN_SOAK_DURATION_SECONDS = 86400; // 24h soak, per the loop's own 24h-soak-proof standard
 
     /**
      * @param  array<string,mixed>  $claim
@@ -91,6 +109,32 @@ final class AtlasExternalBrainAutonomyClaimAuditor
             default                          => 'fresh',
         };
 
+        // AC2/AC3: an absolute autonomy claim ("100 percent autonomous", "no human dependency",
+        // "final brain readiness") is never accepted on the generic 2-strong-evidence bar alone —
+        // it additionally requires confirmed-fresh current runtime evidence, queue health
+        // evidence, and a soak duration proof. Failing any of those downgrades proven/partial to
+        // overclaim rather than silently accepting a weaker bar for stronger language (AC4).
+        $soakDurationSeconds = max(0, (int) ($claim['soak_duration_seconds'] ?? 0));
+        $queueHealthEvidence = (bool) ($claim['queue_health_evidence'] ?? false);
+        $isStrongClaim = $this->matchesStrongClaimPhrase($claimText);
+        $strongClaimGaps = [];
+
+        if ($isStrongClaim && in_array($status, [self::STATUS_PROVEN, self::STATUS_PARTIAL], true)) {
+            if ($evidenceFreshness !== 'fresh') {
+                $strongClaimGaps[] = 'current_runtime_evidence_not_confirmed_fresh';
+            }
+            if (! $queueHealthEvidence) {
+                $strongClaimGaps[] = 'queue_health_evidence_missing';
+            }
+            if ($soakDurationSeconds < self::MIN_SOAK_DURATION_SECONDS) {
+                $strongClaimGaps[] = sprintf('soak_duration_seconds=%d_below_minimum=%d', $soakDurationSeconds, self::MIN_SOAK_DURATION_SECONDS);
+            }
+            if ($strongClaimGaps !== []) {
+                $status = self::STATUS_OVERCLAIM;
+                $evidenceGaps = array_merge($evidenceGaps, $strongClaimGaps);
+            }
+        }
+
         $confidence = match ($status) {
             self::STATUS_PROVEN  => 1.0,
             self::STATUS_PARTIAL => 0.5,
@@ -104,6 +148,19 @@ final class AtlasExternalBrainAutonomyClaimAuditor
             $rejectedProxyKinds,
         );
 
+        if ($status === self::STATUS_OVERCLAIM) {
+            $nextEvidenceTask = sprintf('Produce %s to support claim: "%s".', $strongClaimGaps[0], $claimText);
+            $nextProofChain = array_map(
+                static fn (string $gap): string => sprintf('Produce %s to support claim: "%s".', $gap, $claimText),
+                $strongClaimGaps,
+            );
+            $proofPriority = $strongClaimGaps[0];
+        } else {
+            $nextEvidenceTask = $this->nextEvidenceTask($status, $strongEvidence, $claimText);
+            $nextProofChain = $this->nextProofChain($status, $missingStrongEvidenceKinds, $claimText);
+            $proofPriority = $status === self::STATUS_PROVEN ? null : ($missingStrongEvidenceKinds[0] ?? null);
+        }
+
         return [
             'schema' => self::SCHEMA,
             'claim' => $claimText,
@@ -114,12 +171,25 @@ final class AtlasExternalBrainAutonomyClaimAuditor
             'accepted_evidence_kinds' => $strongEvidence,
             'rejected_proxy_kinds' => $rejectedProxyKinds,
             'evidence_freshness' => $evidenceFreshness,
-            'next_evidence_task' => $this->nextEvidenceTask($status, $strongEvidence, $claimText),
-            'next_proof_chain' => $this->nextProofChain($status, $missingStrongEvidenceKinds, $claimText),
+            'next_evidence_task' => $nextEvidenceTask,
+            'next_proof_chain' => $nextProofChain,
             'missing_strong_evidence_kinds' => $missingStrongEvidenceKinds,
             'proxy_only_reasons' => $proxyOnlyReasons,
-            'proof_priority' => $status === self::STATUS_PROVEN ? null : ($missingStrongEvidenceKinds[0] ?? null),
+            'proof_priority' => $proofPriority,
+            'is_strong_claim' => $isStrongClaim,
         ];
+    }
+
+    private function matchesStrongClaimPhrase(string $claimText): bool
+    {
+        $haystack = strtolower($claimText);
+        foreach (self::STRONG_CLAIM_PHRASES as $phrase) {
+            if (str_contains($haystack, $phrase)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
