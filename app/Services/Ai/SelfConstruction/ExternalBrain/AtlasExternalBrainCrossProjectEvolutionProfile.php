@@ -213,7 +213,30 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
     /** @return array<string,mixed> */
     public function toArray(): array
     {
-        return array_merge(['schema' => self::SCHEMA], $this->profile);
+        return array_merge(['schema' => self::SCHEMA], $this->profile, [
+            'allowed_lanes' => $this->profile['task_lanes'],
+            'safety_constraints' => [
+                'forbidden_targets' => $this->profile['forbidden_targets'],
+                'property_gated_targets' => $this->profile['property_gated_targets'],
+                'autonomy_level' => $this->profile['autonomy_level'],
+            ],
+        ]);
+    }
+
+    /** @return list<string> */
+    public function allowedLanes(): array
+    {
+        return $this->profile['task_lanes'];
+    }
+
+    /** @return array{forbidden_targets:list<string>, property_gated_targets:list<string>, autonomy_level:string} */
+    public function safetyConstraints(): array
+    {
+        return [
+            'forbidden_targets' => $this->profile['forbidden_targets'],
+            'property_gated_targets' => $this->profile['property_gated_targets'],
+            'autonomy_level' => $this->profile['autonomy_level'],
+        ];
     }
 
     public function projectId(): string

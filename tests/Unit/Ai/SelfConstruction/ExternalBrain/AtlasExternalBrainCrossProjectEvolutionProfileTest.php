@@ -375,4 +375,45 @@ final class AtlasExternalBrainCrossProjectEvolutionProfileTest extends TestCase
             $this->assertArrayHasKey($field, $array);
         }
     }
+
+    // ── AC: canonical Atlas profile permits autonomous lanes with strict evidence floors ──
+
+    public function test_canonical_atlas_profile_permits_autonomous_lanes_with_strict_evidence_floors(): void
+    {
+        $p = AtlasExternalBrainCrossProjectEvolutionProfile::forAtlas();
+        $array = $p->toArray();
+
+        $this->assertSame(AtlasExternalBrainCrossProjectEvolutionProfile::AUTONOMY_FULL_AUTONOMOUS, $array['safety_constraints']['autonomy_level']);
+        $this->assertNotEmpty($array['allowed_lanes']);
+        $this->assertGreaterThanOrEqual(2, count($p->requiredEvidenceFields()), 'canonical Atlas must enforce a strict (multi-field) evidence floor');
+        $this->assertContains('tests_or_gates_result', $p->requiredEvidenceFields());
+    }
+
+    // ── AC: external project profiles default to readonly planning unless autonomy explicitly configured ──
+
+    public function test_external_project_defaults_to_readonly_planning_without_explicit_autonomy_config(): void
+    {
+        $p = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('bare-external-project');
+
+        $this->assertSame(AtlasExternalBrainCrossProjectEvolutionProfile::AUTONOMY_READONLY_PLANNING, $p->safetyConstraints()['autonomy_level']);
+        $this->assertTrue($p->isReadonlyPlanning());
+    }
+
+    // ── AC: profile output includes allowed_lanes, required_evidence_fields and safety_constraints ──
+
+    public function test_profile_output_includes_allowed_lanes_required_evidence_fields_and_safety_constraints(): void
+    {
+        foreach ([
+            AtlasExternalBrainCrossProjectEvolutionProfile::forAtlas(),
+            AtlasExternalBrainCrossProjectEvolutionProfile::forProject('some-project'),
+        ] as $profile) {
+            $array = $profile->toArray();
+            $this->assertArrayHasKey('allowed_lanes', $array);
+            $this->assertArrayHasKey('required_evidence_fields', $array);
+            $this->assertArrayHasKey('safety_constraints', $array);
+            $this->assertArrayHasKey('forbidden_targets', $array['safety_constraints']);
+            $this->assertArrayHasKey('property_gated_targets', $array['safety_constraints']);
+            $this->assertArrayHasKey('autonomy_level', $array['safety_constraints']);
+        }
+    }
 }
