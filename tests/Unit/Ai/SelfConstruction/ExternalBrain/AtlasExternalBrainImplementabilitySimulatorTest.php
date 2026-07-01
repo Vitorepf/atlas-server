@@ -392,4 +392,55 @@ final class AtlasExternalBrainImplementabilitySimulatorTest extends TestCase
         $hintsJoined = implode('|', $r['repair_hints']);
         $this->assertStringContainsString('t1', $hintsJoined);
     }
+
+    // ── AC3 new: unavailable target files (distinct from forbidden) → contradictory ──
+
+    public function test_unavailable_target_makes_simulation_contradictory(): void
+    {
+        $unavailableFile = 'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php';
+
+        $r = $this->sim->simulate(
+            $this->candidate(),
+            ['unavailable_files' => [$unavailableFile]],
+        );
+
+        $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_CONTRADICTORY, $r['verdict']);
+        $this->assertFalse($r['safe_to_enqueue']);
+        $this->assertContains('unavailable_target:'.$unavailableFile, $r['reasons']);
+    }
+
+    public function test_unavailable_target_reasons_are_distinct_from_forbidden_target_reasons(): void
+    {
+        $file = 'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php';
+
+        $r = $this->sim->simulate(
+            $this->candidate(),
+            ['unavailable_files' => [$file]],
+        );
+
+        $this->assertNotContains('forbidden_target:'.$file, $r['reasons']);
+        $this->assertContains('unavailable_target:'.$file, $r['reasons']);
+    }
+
+    public function test_forbidden_target_takes_priority_over_unavailable_target_check(): void
+    {
+        $file = 'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php';
+
+        $r = $this->sim->simulate(
+            $this->candidate(),
+            ['forbidden_files' => [$file], 'unavailable_files' => [$file]],
+        );
+
+        $this->assertContains('forbidden_target:'.$file, $r['reasons']);
+    }
+
+    public function test_no_unavailable_files_does_not_block(): void
+    {
+        $r = $this->sim->simulate(
+            $this->candidate(),
+            ['unavailable_files' => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasSomethingElse.php']],
+        );
+
+        $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_ENQUEUEABLE, $r['verdict']);
+    }
 }

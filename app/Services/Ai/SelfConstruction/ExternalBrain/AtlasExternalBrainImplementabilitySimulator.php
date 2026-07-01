@@ -13,8 +13,12 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *                missing_prod_files? }
  *
  * VERDICTS (checked in priority order):
- *   contradictory               — acceptance criteria negate each other, or allowed_files contains
- *                                 only test files while the impl files are known to be missing.
+ *   contradictory               — acceptance criteria negate each other, allowed_files contains
+ *                                 only test files while the impl files are known to be missing,
+ *                                 a target is on the forbidden list, OR a target is unavailable
+ *                                 (context.unavailable_files — distinct from forbidden: the path
+ *                                 simply cannot be acted on, e.g. outside repo scope or deleted,
+ *                                 rather than an explicit block-list entry).
  *   duplicate_existing_capability — all impl files in allowed_files already exist.
  *   property_gated_missing_evidence — task is blocked by an unmet property gate.
  *   collision                   — allowed_files overlap with another active lease.
@@ -64,6 +68,7 @@ final class AtlasExternalBrainImplementabilitySimulator
         $propertyGates      = is_array($context['property_gates']        ?? null) ? $context['property_gates']       : [];
         $missingProdFiles   = is_array($context['missing_prod_files']    ?? null) ? $context['missing_prod_files']   : [];
         $forbiddenFiles     = is_array($context['forbidden_files']       ?? null) ? $context['forbidden_files']      : [];
+        $unavailableFiles   = is_array($context['unavailable_files']     ?? null) ? $context['unavailable_files']    : [];
 
         // 1. Contradictory — criteria negate each other OR test-only with missing impl not in queue.
         // AC2: test-only contradiction only fires when the missing impl files are also absent from live_queued_targets.
@@ -79,6 +84,17 @@ final class AtlasExternalBrainImplementabilitySimulator
                 $id,
                 self::VERDICT_CONTRADICTORY,
                 array_map(fn (string $f): string => 'forbidden_target:'.$f, $forbiddenHits),
+            );
+        }
+
+        // Unavailable target — file cannot be acted on at all (e.g. outside repo scope or
+        // deleted), distinct from forbidden (an explicit block-list entry).
+        $unavailableHits = array_values(array_intersect($allowedFiles, $unavailableFiles));
+        if ($unavailableHits !== []) {
+            return $this->result(
+                $id,
+                self::VERDICT_CONTRADICTORY,
+                array_map(fn (string $f): string => 'unavailable_target:'.$f, $unavailableHits),
             );
         }
 
