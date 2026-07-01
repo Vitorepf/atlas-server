@@ -604,4 +604,87 @@ final class AtlasExternalBrainPatternTransferEvaluatorTest extends TestCase
         $this->assertStringContainsString('MATCH', $result['first_task_spec_hint']);
         $this->assertSame('inject into all target_task_classes runbooks', $result['injection_rule']);
     }
+
+    // ── AC: hype patterns without Atlas fit are rejected ────────────────────────
+
+    public function test_hype_only_pattern_without_atlas_fit_is_rejected(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [array_merge(
+            $this->transferablePattern(),
+            ['is_hype_only' => true, 'destination_fit_score' => 0.10],
+        )]]);
+
+        $this->assertCount(0, $r['accepted_transfers']);
+        $this->assertContains(
+            AtlasExternalBrainPatternTransferEvaluator::REJECTION_HYPE_ONLY,
+            $r['rejected_transfers'][0]['rejection_reasons'],
+        );
+    }
+
+    // ── AC: simple high-fit patterns become transfer_candidate with lane + proof floor ──
+
+    public function test_simple_high_fit_pattern_becomes_transfer_candidate_with_lane_and_proof_floor(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [$this->transferablePattern('SIMPLE')]]);
+
+        $accepted = $r['accepted_transfers'][0];
+        $this->assertTrue($accepted['transfer_candidate']);
+        $this->assertSame('direct_transfer_lane', $accepted['implementation_lane']);
+        $this->assertArrayHasKey('proof_floor', $accepted);
+        $this->assertArrayHasKey('min_evidence_count', $accepted['proof_floor']);
+        $this->assertArrayHasKey('positive_outcomes_threshold', $accepted['proof_floor']);
+    }
+
+    public function test_pattern_requiring_adaptation_gets_adapted_transfer_lane(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [array_merge(
+            $this->transferablePattern('ADAPT'),
+            ['required_adaptations' => ['rename_symbol']],
+        )]]);
+
+        $accepted = $r['accepted_transfers'][0];
+        $this->assertSame('adapted_transfer_lane', $accepted['implementation_lane']);
+    }
+
+    public function test_proof_floor_reflects_custom_thresholds(): void
+    {
+        $r = $this->evaluator()->evaluate([
+            'patterns' => [array_merge($this->transferablePattern('CUSTOM'), [
+                'cross_class_outcomes' => [
+                    ['task_class' => 'A', 'evidence_count' => 10, 'positive_ratio' => 0.90],
+                ],
+            ])],
+            'thresholds' => ['min_evidence_count' => 7, 'positive_outcomes_threshold' => 0.85],
+        ]);
+
+        $accepted = $r['accepted_transfers'][0];
+        $this->assertSame(7, $accepted['proof_floor']['min_evidence_count']);
+        $this->assertSame(0.85, $accepted['proof_floor']['positive_outcomes_threshold']);
+    }
+
+    // ── AC: over-engineered patterns are downgraded even when popular externally ──
+
+    public function test_over_engineered_pattern_is_rejected_even_when_popular_externally(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [array_merge(
+            $this->transferablePattern('OVERENG'),
+            ['is_over_engineered' => true, 'is_popular_externally' => true],
+        )]]);
+
+        $this->assertCount(0, $r['accepted_transfers']);
+        $this->assertContains(
+            AtlasExternalBrainPatternTransferEvaluator::REJECTION_OVER_ENGINEERED,
+            $r['rejected_transfers'][0]['rejection_reasons'],
+        );
+    }
+
+    public function test_non_over_engineered_pattern_still_transfers_despite_popularity_flag(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [array_merge(
+            $this->transferablePattern('SANE'),
+            ['is_over_engineered' => false, 'is_popular_externally' => true],
+        )]]);
+
+        $this->assertCount(1, $r['accepted_transfers']);
+    }
 }

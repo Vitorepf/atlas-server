@@ -69,6 +69,7 @@ final class AtlasExternalBrainPatternTransferEvaluator
     public const REJECTION_HYPE_ONLY                = 'hype_only';
     public const REJECTION_DEPENDENCY_HEAVY         = 'dependency_heavy';
     public const REJECTION_MISSING_ROLLBACK_OR_GUARDRAIL = 'missing_rollback_or_guardrail';
+    public const REJECTION_OVER_ENGINEERED          = 'over_engineered';
 
     private const DEFAULT_GIVE_BACK_THRESHOLD         = 0.30;
     private const DEFAULT_DUPLICATE_RATE_THRESHOLD    = 0.20;
@@ -220,6 +221,14 @@ final class AtlasExternalBrainPatternTransferEvaluator
                         'weak_acceptance_threshold' => $weakAcceptanceThreshold,
                     ],
                     'negative_outcome_summary' => $this->negativeOutcomeSummary($crossOutcomes),
+                    // AC: a simple, high-fit pattern becomes a transfer_candidate with a
+                    // named implementation lane and the proof floor it must keep clearing.
+                    'transfer_candidate' => true,
+                    'implementation_lane' => $requiredAdaptations !== [] ? 'adapted_transfer_lane' : 'direct_transfer_lane',
+                    'proof_floor' => [
+                        'min_evidence_count'          => $minEvidenceCount,
+                        'positive_outcomes_threshold' => $positiveThreshold,
+                    ],
                 ];
             } else {
                 $rejectedTransfer = [
@@ -359,6 +368,13 @@ final class AtlasExternalBrainPatternTransferEvaluator
 
         if (array_key_exists('is_dependency_heavy', $pattern) && (bool) $pattern['is_dependency_heavy']) {
             $reasons[] = self::REJECTION_DEPENDENCY_HEAVY;
+        }
+
+        // AC: an over-engineered pattern is downgraded regardless of external popularity —
+        // is_popular_externally (or any similar hype signal) is never read as a positive
+        // override here; only is_over_engineered itself decides.
+        if (array_key_exists('is_over_engineered', $pattern) && (bool) $pattern['is_over_engineered']) {
+            $reasons[] = self::REJECTION_OVER_ENGINEERED;
         }
 
         return $reasons;
