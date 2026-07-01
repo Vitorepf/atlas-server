@@ -49,6 +49,9 @@ final class AtlasExternalBrainOutcomeDocsSyncPlanner
 
     private const SIGNIFICANT_LEVELS = ['medium', 'high'];
 
+    /** How many recent trivial commits are tolerated before the noise budget is exhausted. */
+    private const TRIVIAL_NOISE_BUDGET = 3;
+
     public function plan(array $facts): array
     {
         $outcome = is_array($facts['outcome'] ?? null) ? $facts['outcome'] : [];
@@ -63,8 +66,20 @@ final class AtlasExternalBrainOutcomeDocsSyncPlanner
         $isNewOperatingPolicy = (bool) ($outcome['is_new_operating_policy'] ?? false);
         $isRepeatedFailureLearning = (bool) ($outcome['is_repeated_failure_learning'] ?? false);
         $isTrivialCommit = (bool) ($outcome['is_trivial_commit'] ?? false);
+        $recentTrivialCommitCount = max(0, (int) ($outcome['recent_trivial_commit_count'] ?? 0));
 
         $hardTrigger = $isArchitectureDecision || $isNewOperatingPolicy || $isRepeatedFailureLearning;
+
+        // Noise budget: repeated trivial commits must never churn docs, regardless of budget —
+        // this field only makes the "no matter how many" contract explicit and auditable.
+        $noiseBudgetExhausted = $recentTrivialCommitCount >= self::TRIVIAL_NOISE_BUDGET;
+        $noiseBudget = [
+            'budget' => self::TRIVIAL_NOISE_BUDGET,
+            'recent_trivial_commit_count' => $recentTrivialCommitCount,
+            'remaining' => max(0, self::TRIVIAL_NOISE_BUDGET - $recentTrivialCommitCount),
+            'exhausted' => $noiseBudgetExhausted,
+            'bypassed_by_hard_trigger' => $hardTrigger,
+        ];
 
         $syncReasons = [];
         if ($isArchitectureDecision) {
@@ -101,6 +116,9 @@ final class AtlasExternalBrainOutcomeDocsSyncPlanner
             if ($isTrivialCommit) {
                 $doNotSyncReason[] = 'trivial_commit_no_architecture_policy_or_repeated_failure_signal';
             }
+            if ($isTrivialCommit && $noiseBudgetExhausted) {
+                $doNotSyncReason[] = 'trivial_commit_noise_budget_exhausted';
+            }
             if (! in_array($operatorFacingSignificance, self::SIGNIFICANT_LEVELS, true)) {
                 $doNotSyncReason[] = 'operator_facing_significance_too_low';
             }
@@ -124,6 +142,7 @@ final class AtlasExternalBrainOutcomeDocsSyncPlanner
             'recommended_docs' => $recommendedDocs,
             'sync_reason' => $syncReasons,
             'do_not_sync_reason' => $doNotSyncReason,
+            'noise_budget' => $noiseBudget,
             'mutates_docs_or_memory' => false,
         ];
     }
