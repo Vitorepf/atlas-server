@@ -219,4 +219,127 @@ final class AtlasKnowledgeSyncRequiredArtifactMapTest extends TestCase
         sort($copy, SORT_STRING);
         $this->assertSame($copy, $ids);
     }
+
+    // ── AC1: capability_change_type, affected_docs, memory_need, code_index_need, project_lane ──
+
+    public function test_architecture_change_requires_docs_code_index_and_memory(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive([
+            'changed_files' => [],
+            'capability_change_type' => 'architecture',
+        ]);
+        $ids = array_column($r['required_artifacts'], 'artifact_id');
+
+        $this->assertContains('docs-health-check', $ids);
+        $this->assertContains('engineering-knowledge-sync', $ids);
+        $this->assertContains('code-intelligence-index', $ids);
+        $this->assertContains('memory-update', $ids);
+    }
+
+    public function test_prompt_contract_change_requires_docs_and_memory_but_not_code_index(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive([
+            'changed_files' => [],
+            'capability_change_type' => 'prompt_contract',
+        ]);
+        $ids = array_column($r['required_artifacts'], 'artifact_id');
+
+        $this->assertContains('docs-health-check', $ids);
+        $this->assertContains('memory-update', $ids);
+        $this->assertNotContains('code-intelligence-index', $ids);
+    }
+
+    public function test_refactor_change_requires_only_code_index(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive([
+            'changed_files' => [],
+            'capability_change_type' => 'refactor',
+        ]);
+        $ids = array_column($r['required_artifacts'], 'artifact_id');
+
+        $this->assertContains('code-intelligence-index', $ids);
+        $this->assertNotContains('docs-health-check', $ids);
+        $this->assertNotContains('memory-update', $ids);
+    }
+
+    public function test_noop_change_type_requires_nothing_extra(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive([
+            'changed_files' => [],
+            'capability_change_type' => 'noop',
+        ]);
+
+        $this->assertSame([], $r['required_artifacts']);
+    }
+
+    public function test_affected_docs_without_changed_files_still_requires_docs_artifacts(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive([
+            'changed_files' => [],
+            'affected_docs' => ['docs/engineering-knowledge-base/foo.md'],
+        ]);
+        $ids = array_column($r['required_artifacts'], 'artifact_id');
+
+        $this->assertContains('docs-health-check', $ids);
+        $this->assertContains('engineering-knowledge-sync', $ids);
+    }
+
+    public function test_memory_need_flag_adds_memory_update_artifact(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive([
+            'changed_files' => [],
+            'memory_need' => true,
+        ]);
+
+        $this->assertContains('memory-update', array_column($r['required_artifacts'], 'artifact_id'));
+    }
+
+    public function test_code_index_need_flag_adds_code_intelligence_index_artifact(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive([
+            'changed_files' => [],
+            'code_index_need' => true,
+        ]);
+
+        $this->assertContains('code-intelligence-index', array_column($r['required_artifacts'], 'artifact_id'));
+    }
+
+    // ── AC2: freshness checks report missing AND stale artifact ids with command hints ──
+
+    public function test_check_freshness_reports_stale_artifacts_distinct_from_missing(): void
+    {
+        $svc = new AtlasKnowledgeSyncRequiredArtifactMap;
+        $r = $svc->derive(['changed_files' => [], 'event_type' => 'completion']);
+        $allIds = array_column($r['required_artifacts'], 'artifact_id');
+
+        $check = $svc->checkFreshness($r['required_artifacts'], $allIds, ['memory']);
+
+        $this->assertTrue($check['blocked']);
+        $this->assertContains('memory', $check['stale_artifacts']);
+        $this->assertNotContains('memory', $check['missing_artifacts']);
+        $this->assertNotEmpty($check['command_hints']);
+    }
+
+    public function test_check_freshness_command_hints_cover_missing_and_stale(): void
+    {
+        $svc = new AtlasKnowledgeSyncRequiredArtifactMap;
+        $r = $svc->derive(['changed_files' => [], 'event_type' => 'completion']);
+
+        $check = $svc->checkFreshness($r['required_artifacts'], ['memory'], []);
+
+        $this->assertNotEmpty($check['command_hints']);
+        $this->assertContains('code_index', $check['missing_artifacts']);
+    }
+
+    public function test_no_stale_ids_yields_empty_stale_artifacts(): void
+    {
+        $svc = new AtlasKnowledgeSyncRequiredArtifactMap;
+        $r = $svc->derive(['changed_files' => [], 'event_type' => 'completion']);
+        $allIds = array_column($r['required_artifacts'], 'artifact_id');
+
+        $check = $svc->checkFreshness($r['required_artifacts'], $allIds);
+
+        $this->assertFalse($check['blocked']);
+        $this->assertSame([], $check['stale_artifacts']);
+    }
 }

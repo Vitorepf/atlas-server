@@ -38,6 +38,30 @@ final class AtlasKnowledgeSyncRequiredArtifactMap
     /** Baseline atlas_native artifact IDs required for completion and promotion events. */
     private const FINALITY_BASELINE = ['code_index', 'docs', 'memory', 'receipt_chain', 'tests_or_gates'];
 
+    public const CHANGE_TYPE_ARCHITECTURE = 'architecture';
+
+    public const CHANGE_TYPE_PROMPT_CONTRACT = 'prompt_contract';
+
+    public const CHANGE_TYPE_REFACTOR = 'refactor';
+
+    public const CHANGE_TYPE_NOOP = 'noop';
+
+    /** capability_change_type => required artifact_ids, on top of whatever changed_files already implies. */
+    private const CAPABILITY_CHANGE_ARTIFACTS = [
+        self::CHANGE_TYPE_ARCHITECTURE => ['docs-health-check', 'engineering-knowledge-sync', 'code-intelligence-index', 'memory-update'],
+        self::CHANGE_TYPE_PROMPT_CONTRACT => ['docs-health-check', 'engineering-knowledge-sync', 'memory-update'],
+        self::CHANGE_TYPE_REFACTOR => ['code-intelligence-index'],
+        self::CHANGE_TYPE_NOOP => [],
+    ];
+
+    /** artifact_id => {command_hint, reason} for the capability/memory/code-index-driven artifacts. */
+    private const CAPABILITY_ARTIFACT_META = [
+        'docs-health-check' => ['atlas engineering documentation health', 'capability change requires documentation health check'],
+        'engineering-knowledge-sync' => ['atlas engineering knowledge sync --prune', 'capability change requires Atlas KB re-sync'],
+        'code-intelligence-index' => ['atlas engineering knowledge index-code --prune', 'capability change requires code-intelligence index refresh'],
+        'memory-update' => ['atlas memory:record', 'capability change requires a recorded memory outcome'],
+    ];
+
     /**
      * @param  array{
      *     changed_files?:list<string>,
@@ -54,6 +78,10 @@ final class AtlasKnowledgeSyncRequiredArtifactMap
         $lane = is_array($facts['project_lane'] ?? null) ? $facts['project_lane'] : null;
         $candidate = is_array($facts['release_candidate'] ?? null) ? $facts['release_candidate'] : [];
         $eventType = (string) ($facts['event_type'] ?? '');
+        $capabilityChangeType = strtolower(trim((string) ($facts['capability_change_type'] ?? '')));
+        $affectedDocs = is_array($facts['affected_docs'] ?? null) ? array_values(array_map('strval', $facts['affected_docs'])) : [];
+        $memoryNeed = (bool) ($facts['memory_need'] ?? false);
+        $codeIndexNeed = (bool) ($facts['code_index_need'] ?? false);
 
         $artifacts = [];
 
@@ -74,15 +102,27 @@ final class AtlasKnowledgeSyncRequiredArtifactMap
             }
         }
 
-        $hasCanonicalDocs = $this->anyMatches($changed, static fn (string $p): bool => str_starts_with($p, 'docs/') || in_array(strtolower(pathinfo($p, PATHINFO_EXTENSION)), ['md', 'rst'], true));
+        $hasCanonicalDocs = $affectedDocs !== [] || $this->anyMatches($changed, static fn (string $p): bool => str_starts_with($p, 'docs/') || in_array(strtolower(pathinfo($p, PATHINFO_EXTENSION)), ['md', 'rst'], true));
         if ($hasCanonicalDocs) {
             $artifacts[] = $this->artifact('docs-health-check', 'atlas engineering documentation health', 'canonical docs changed — health check rerun required', self::CATEGORY_ATLAS_NATIVE);
             $artifacts[] = $this->artifact('engineering-knowledge-sync', 'atlas engineering knowledge sync --prune', 'docs changed — Atlas KB must re-sync', self::CATEGORY_ATLAS_NATIVE);
         }
 
-        $hasImpl = $this->anyMatches($changed, static fn (string $p): bool => str_starts_with($p, 'app/') && str_ends_with($p, '.php'));
+        $hasImpl = $codeIndexNeed || $this->anyMatches($changed, static fn (string $p): bool => str_starts_with($p, 'app/') && str_ends_with($p, '.php'));
         if ($hasImpl) {
             $artifacts[] = $this->artifact('code-intelligence-index', 'atlas engineering knowledge index-code --prune', 'impl code changed — code-intelligence index must rerun', self::CATEGORY_ATLAS_NATIVE);
+        }
+
+        if ($memoryNeed) {
+            [$hint, $reason] = self::CAPABILITY_ARTIFACT_META['memory-update'];
+            $artifacts[] = $this->artifact('memory-update', $hint, $reason, self::CATEGORY_ATLAS_NATIVE);
+        }
+
+        // AC1: capability_change_type derives its own artifact set on top of whatever
+        // changed_files/memory_need/code_index_need already implied — dedup below collapses overlaps.
+        foreach (self::CAPABILITY_CHANGE_ARTIFACTS[$capabilityChangeType] ?? [] as $artifactId) {
+            [$hint, $reason] = self::CAPABILITY_ARTIFACT_META[$artifactId];
+            $artifacts[] = $this->artifact($artifactId, $hint, $reason.' (capability_change_type='.$capabilityChangeType.')', self::CATEGORY_ATLAS_NATIVE);
         }
 
         if ($lane !== null && (string) ($lane['project_id'] ?? '') !== '') {
@@ -127,19 +167,43 @@ final class AtlasKnowledgeSyncRequiredArtifactMap
      * @param  list<string>  $knownFreshIds  artifact_ids confirmed fresh by the caller
      * @return array{blocked:bool, missing_artifacts:list<string>}
      */
-    public function checkFreshness(array $requiredArtifacts, array $knownFreshIds): array
+    public function checkFreshness(array $requiredArtifacts, array $knownFreshIds, array $staleIds = []): array
     {
         $missing = [];
+        $stale = [];
+        $hintById = [];
         foreach ($requiredArtifacts as $artifact) {
             $id = (string) ($artifact['artifact_id'] ?? '');
             $category = (string) ($artifact['category'] ?? self::CATEGORY_ATLAS_NATIVE);
             $required = (bool) ($artifact['required'] ?? true);
-            if ($required && $category === self::CATEGORY_ATLAS_NATIVE && ! in_array($id, $knownFreshIds, true)) {
+            $hintById[$id] = (string) ($artifact['command_hint'] ?? '');
+            if (! $required || $category !== self::CATEGORY_ATLAS_NATIVE) {
+                continue;
+            }
+            if (! in_array($id, $knownFreshIds, true)) {
                 $missing[] = $id;
+            } elseif (in_array($id, $staleIds, true)) {
+                // AC2: present but explicitly flagged stale by the caller — a distinct signal
+                // from never having been produced at all.
+                $stale[] = $id;
             }
         }
 
-        return ['blocked' => $missing !== [], 'missing_artifacts' => array_values($missing)];
+        $missing = array_values($missing);
+        $stale = array_values($stale);
+        $commandHints = [];
+        foreach (array_merge($missing, $stale) as $id) {
+            if (($hintById[$id] ?? '') !== '') {
+                $commandHints[] = $hintById[$id];
+            }
+        }
+
+        return [
+            'blocked' => $missing !== [] || $stale !== [],
+            'missing_artifacts' => $missing,
+            'stale_artifacts' => $stale,
+            'command_hints' => array_values(array_unique($commandHints)),
+        ];
     }
 
     /**
