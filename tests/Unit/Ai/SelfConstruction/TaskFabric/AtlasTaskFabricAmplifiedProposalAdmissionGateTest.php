@@ -16,13 +16,20 @@ final class AtlasTaskFabricAmplifiedProposalAdmissionGateTest extends TestCase
 
     private function good(array $overrides = []): array
     {
+        $id = (string) ($overrides['id'] ?? 'p1');
+
         return array_merge([
-            'id'                       => 'p1',
-            'is_compliance_compliant'  => true,
-            'is_normalized'            => true,
-            'replay_cleared'           => true,
-            'is_duplicate'             => false,
-            'task_fabric_ready'        => true,
+            'id'                        => $id,
+            'is_compliance_compliant'   => true,
+            'is_normalized'             => true,
+            'replay_cleared'            => true,
+            'is_duplicate'              => false,
+            'task_fabric_ready'         => true,
+            'structural_value_proof'    => "closes a real structural gap for {$id}",
+            'implementation_target'     => "App\\Services\\Foo\\{$id}.php",
+            'runnable_acceptance_proof' => "php artisan test --filter={$id}Test",
+            'template_signature'        => "sig-{$id}",
+            'impact_class'              => 'general',
         ], $overrides);
     }
 
@@ -36,7 +43,111 @@ final class AtlasTaskFabricAmplifiedProposalAdmissionGateTest extends TestCase
         $this->assertArrayHasKey('admitted_proposals', $r);
         $this->assertArrayHasKey('rejected_proposals', $r);
         $this->assertArrayHasKey('blocking_checks',    $r);
+        $this->assertArrayHasKey('value_blockers',     $r);
+        $this->assertArrayHasKey('diversity_blockers', $r);
         $this->assertArrayHasKey('batch_action',       $r);
+    }
+
+    // ── new AC: value-proof checks reject weak-model scaffolds ────────────────
+
+    public function test_missing_structural_value_proof_rejected_even_with_five_checks_passing(): void
+    {
+        $r = $this->gate()->evaluate(['proposals' => [
+            $this->good(['structural_value_proof' => '']),
+        ]]);
+
+        $this->assertFalse($r['admit']);
+        $this->assertContains('structural_value_check', $r['rejected_proposals'][0]['failed_checks']);
+        $this->assertContains('structural_value_check', $r['value_blockers']);
+    }
+
+    public function test_missing_implementation_target_rejected(): void
+    {
+        $r = $this->gate()->evaluate(['proposals' => [
+            $this->good(['implementation_target' => '']),
+        ]]);
+
+        $this->assertFalse($r['admit']);
+        $this->assertContains('implementability_check', $r['rejected_proposals'][0]['failed_checks']);
+        $this->assertContains('implementability_check', $r['value_blockers']);
+    }
+
+    public function test_missing_runnable_acceptance_proof_rejected(): void
+    {
+        $r = $this->gate()->evaluate(['proposals' => [
+            $this->good(['runnable_acceptance_proof' => '']),
+        ]]);
+
+        $this->assertFalse($r['admit']);
+        $this->assertContains('runnable_acceptance_check', $r['rejected_proposals'][0]['failed_checks']);
+        $this->assertContains('runnable_acceptance_check', $r['value_blockers']);
+    }
+
+    public function test_value_blockers_empty_when_all_value_facts_present(): void
+    {
+        $r = $this->gate()->evaluate(['proposals' => [$this->good()]]);
+
+        $this->assertTrue($r['admit']);
+        $this->assertSame([], $r['value_blockers']);
+    }
+
+    // ── new AC: anti-template-flood diversity checks ──────────────────────────
+
+    public function test_too_many_shared_template_signature_holds_overflow_for_repair(): void
+    {
+        // max_same_template_signature defaults to 2; a third proposal sharing the signature
+        // is diversity-demoted even though it individually passes every other check.
+        $r = $this->gate()->evaluate(['proposals' => [
+            $this->good(['id' => 'p1', 'template_signature' => 'shared-sig']),
+            $this->good(['id' => 'p2', 'template_signature' => 'shared-sig']),
+            $this->good(['id' => 'p3', 'template_signature' => 'shared-sig']),
+        ]]);
+
+        $this->assertContains('p1', $r['admitted_proposals']);
+        $this->assertContains('p2', $r['admitted_proposals']);
+        $this->assertNotContains('p3', $r['admitted_proposals']);
+        $rejectedIds = array_column($r['rejected_proposals'], 'id');
+        $this->assertContains('p3', $rejectedIds);
+        $this->assertContains('template_diversity_check', $r['diversity_blockers']);
+    }
+
+    public function test_too_many_shared_impact_class_holds_overflow_for_repair(): void
+    {
+        $r = $this->gate()->evaluate([
+            'proposals' => [
+                $this->good(['id' => 'p1', 'impact_class' => 'perf']),
+                $this->good(['id' => 'p2', 'impact_class' => 'perf']),
+            ],
+            'max_same_impact_class' => 1,
+        ]);
+
+        $this->assertContains('p1', $r['admitted_proposals']);
+        $this->assertNotContains('p2', $r['admitted_proposals']);
+        $this->assertContains('impact_class_diversity_check', $r['diversity_blockers']);
+    }
+
+    public function test_diverse_template_signatures_all_admitted(): void
+    {
+        $r = $this->gate()->evaluate(['proposals' => [
+            $this->good(['id' => 'p1', 'template_signature' => 'sig-a']),
+            $this->good(['id' => 'p2', 'template_signature' => 'sig-b']),
+            $this->good(['id' => 'p3', 'template_signature' => 'sig-c']),
+        ]]);
+
+        $this->assertTrue($r['admit']);
+        $this->assertCount(3, $r['admitted_proposals']);
+        $this->assertSame([], $r['diversity_blockers']);
+    }
+
+    // ── new AC: existing happy-path proposals still admit with new facts ─────
+
+    public function test_happy_path_proposal_with_new_value_and_diversity_facts_still_admitted(): void
+    {
+        $r = $this->gate()->evaluate(['proposals' => [$this->good()]]);
+
+        $this->assertTrue($r['admit']);
+        $this->assertContains('p1', $r['admitted_proposals']);
+        $this->assertSame('submit', $r['batch_action']);
     }
 
     // ── AC3: admit=true path ──────────────────────────────────────────────────

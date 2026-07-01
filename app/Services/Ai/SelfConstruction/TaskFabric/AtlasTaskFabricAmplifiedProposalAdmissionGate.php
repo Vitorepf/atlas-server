@@ -51,6 +51,19 @@ final class AtlasTaskFabricAmplifiedProposalAdmissionGate
         'task_fabric_check'   => ['field' => 'task_fabric_ready',       'expect' => true,  'invert' => false],
     ];
 
+    /** Value-proof checks: a model-amplified proposal must prove real value, not just pass the mechanical five. */
+    private const VALUE_CHECKS = [
+        'structural_value_check'    => 'structural_value_proof',
+        'implementability_check'    => 'implementation_target',
+        'runnable_acceptance_check' => 'runnable_acceptance_proof',
+    ];
+
+    /** Admitted proposals sharing the same template_signature beyond this count are diversity-rejected. */
+    private const DEFAULT_MAX_SAME_TEMPLATE_SIGNATURE = 2;
+
+    /** Admitted proposals sharing the same impact_class beyond this count are diversity-rejected. */
+    private const DEFAULT_MAX_SAME_IMPACT_CLASS = 10;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -68,6 +81,9 @@ final class AtlasTaskFabricAmplifiedProposalAdmissionGate
 
         // Hard-fail if batch submission itself exceeds maximum.
         $batchMaxExceeded = $totalSubmitted > $batchMax;
+
+        $valueBlockerSet     = [];
+        $admittedById        = [];
 
         foreach ($proposals as $proposal) {
             $id     = (string) ($proposal['id'] ?? '');
@@ -87,8 +103,20 @@ final class AtlasTaskFabricAmplifiedProposalAdmissionGate
                 }
             }
 
+            // Value-proof checks: a proposal that mechanically passes the five checks above but
+            // never proves structural value, an implementable target, or a runnable acceptance
+            // path is still a weak-model scaffold, not admissible work.
+            foreach (self::VALUE_CHECKS as $checkName => $field) {
+                if (trim((string) ($proposal[$field] ?? '')) === '') {
+                    $failed[] = $checkName;
+                    $blockingCheckSet[$checkName] = true;
+                    $valueBlockerSet[$checkName] = true;
+                }
+            }
+
             if (empty($failed) && ! $batchMaxExceeded) {
                 $admitted[] = $id;
+                $admittedById[$id] = $proposal;
             } else {
                 if ($batchMaxExceeded && empty($failed)) {
                     $failed[] = 'batch_max_exceeded';
@@ -96,6 +124,26 @@ final class AtlasTaskFabricAmplifiedProposalAdmissionGate
                 }
                 $rejected[] = ['id' => $id, 'failed_checks' => $failed];
             }
+        }
+
+        // Anti-template-flood diversity pass: too many admitted proposals sharing the same
+        // template_signature or impact_class is a low-value flood even when each one individually
+        // passed every other check — demote the overflow (first-admitted-kept) back to rejected.
+        $diversityBlockerSet = [];
+        $maxSameTemplateSignature = max(1, (int) ($facts['max_same_template_signature'] ?? self::DEFAULT_MAX_SAME_TEMPLATE_SIGNATURE));
+        $maxSameImpactClass       = max(1, (int) ($facts['max_same_impact_class'] ?? self::DEFAULT_MAX_SAME_IMPACT_CLASS));
+
+        $demoted = $this->diversityDemotions($admittedById, $admitted, 'template_signature', $maxSameTemplateSignature, 'template_diversity_check');
+        $demoted = array_merge($demoted, $this->diversityDemotions($admittedById, $admitted, 'impact_class', $maxSameImpactClass, 'impact_class_diversity_check'));
+
+        foreach ($demoted as $id => $reasons) {
+            foreach ($reasons as $reason) {
+                $blockingCheckSet[$reason] = true;
+                $diversityBlockerSet[$reason] = true;
+            }
+            $rejected[] = ['id' => $id, 'failed_checks' => array_values(array_unique($reasons))];
+            $admitted = array_values(array_diff($admitted, [$id]));
+            unset($admittedById[$id]);
         }
 
         $admittedCount = count($admitted);
@@ -110,8 +158,34 @@ final class AtlasTaskFabricAmplifiedProposalAdmissionGate
             'admitted_proposals' => $admitted,
             'rejected_proposals' => $rejected,
             'blocking_checks'    => array_values(array_keys($blockingCheckSet)),
+            'value_blockers'     => array_values(array_keys($valueBlockerSet)),
+            'diversity_blockers' => array_values(array_keys($diversityBlockerSet)),
             'batch_action'       => $batchAction,
         ];
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $admittedById
+     * @param  list<string>  $admittedOrder
+     * @return array<string,list<string>>  id => reasons to demote
+     */
+    private function diversityDemotions(array $admittedById, array $admittedOrder, string $field, int $maxSameValue, string $reason): array
+    {
+        $counts  = [];
+        $demoted = [];
+
+        foreach ($admittedOrder as $id) {
+            $value = trim((string) ($admittedById[$id][$field] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+            $counts[$value] = ($counts[$value] ?? 0) + 1;
+            if ($counts[$value] > $maxSameValue) {
+                $demoted[$id][] = $reason;
+            }
+        }
+
+        return $demoted;
     }
 
     private function batchAction(bool $admit, int $admittedCount, bool $batchMinMet, array $rejected): string
