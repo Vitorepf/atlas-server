@@ -149,6 +149,94 @@ final class AtlasProjectLaneTaskFabricRouter
         ];
     }
 
+    private const MAX_LANE_FIT_SCORE = 8;
+
+    /**
+     * Selects the best-fit project lane for a candidate from MULTIPLE admitted lanes, scored on
+     * workspace_id, domain_area, required_evidence support, and worker_capability support. Never
+     * defaults to an "Atlas main" lane when the fit is ambiguous — a tie or a zero-score match is
+     * refused with concrete ambiguity_reasons and a required_context_probe instead of guessing.
+     *
+     * @param  list<array{lane_id?:string, workspace_id?:string, domain_area?:string, supports_evidence_types?:list<string>, supports_worker_capabilities?:list<string>}>  $lanes
+     * @param  array{workspace_id?:string, domain_area?:string, required_evidence?:list<string>, worker_capability?:string}  $candidate
+     * @return array{selected_lane:?string, confidence:float, ambiguity_reasons:list<string>, required_context_probe:?string}
+     */
+    public function selectLane(array $lanes, array $candidate): array
+    {
+        $candidateWorkspace = trim((string) ($candidate['workspace_id'] ?? ''));
+        $candidateDomain = trim((string) ($candidate['domain_area'] ?? ''));
+        $candidateEvidence = array_values(array_map('strval', (array) ($candidate['required_evidence'] ?? [])));
+        $candidateCapability = trim((string) ($candidate['worker_capability'] ?? ''));
+
+        $scored = [];
+        foreach ($lanes as $lane) {
+            if (! is_array($lane)) {
+                continue;
+            }
+            $laneId = trim((string) ($lane['lane_id'] ?? ''));
+            if ($laneId === '') {
+                continue;
+            }
+
+            $score = 0;
+            if ($candidateWorkspace !== '' && (string) ($lane['workspace_id'] ?? '') === $candidateWorkspace) {
+                $score += 3;
+            }
+            if ($candidateDomain !== '' && (string) ($lane['domain_area'] ?? '') === $candidateDomain) {
+                $score += 2;
+            }
+            $laneEvidence = array_values(array_map('strval', (array) ($lane['supports_evidence_types'] ?? [])));
+            if ($candidateEvidence !== [] && array_diff($candidateEvidence, $laneEvidence) === []) {
+                $score += 2;
+            }
+            $laneCapabilities = array_values(array_map('strval', (array) ($lane['supports_worker_capabilities'] ?? [])));
+            if ($candidateCapability !== '' && in_array($candidateCapability, $laneCapabilities, true)) {
+                $score += 1;
+            }
+
+            $scored[$laneId] = $score;
+        }
+
+        if ($scored === []) {
+            return [
+                'selected_lane' => null,
+                'confidence' => 0.0,
+                'ambiguity_reasons' => ['no_lanes_provided'],
+                'required_context_probe' => 'provide_at_least_one_admitted_lane_manifest',
+            ];
+        }
+
+        $maxScore = max($scored);
+        $topLanes = array_keys(array_filter($scored, static fn (int $s): bool => $s === $maxScore));
+
+        if ($maxScore === 0) {
+            return [
+                'selected_lane' => null,
+                'confidence' => 0.0,
+                'ambiguity_reasons' => ['no_lane_matches_candidate_signals'],
+                'required_context_probe' => 'confirm_workspace_id_domain_area_and_worker_capability_for_candidate',
+            ];
+        }
+
+        if (count($topLanes) > 1) {
+            sort($topLanes, SORT_STRING);
+
+            return [
+                'selected_lane' => null,
+                'confidence' => 0.0,
+                'ambiguity_reasons' => ['multiple_lanes_tied_at_score_'.$maxScore.':'.implode(',', $topLanes)],
+                'required_context_probe' => 'disambiguate_via_more_specific_domain_area_or_worker_capability',
+            ];
+        }
+
+        return [
+            'selected_lane' => $topLanes[0],
+            'confidence' => round($maxScore / self::MAX_LANE_FIT_SCORE, 4),
+            'ambiguity_reasons' => [],
+            'required_context_probe' => null,
+        ];
+    }
+
     /** @param  list<mixed>  $acceptance */
     private function hasRunnableSignal(array $acceptance): bool
     {

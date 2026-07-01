@@ -374,4 +374,68 @@ final class AtlasProjectLaneTaskFabricRouterTest extends TestCase
         $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $candidate);
         $this->assertNotEmpty($out['task_packet_id']);
     }
+
+    // ── AC: selectLane() multi-lane fit routing ───────────────────────────────
+
+    private function lanes(): array
+    {
+        return [
+            [
+                'lane_id' => 'lane-a',
+                'workspace_id' => 'ws-a',
+                'domain_area' => 'evolution-loop',
+                'supports_evidence_types' => ['tests_or_gates_result', 'implementation_notes'],
+                'supports_worker_capabilities' => ['php', 'phpunit'],
+            ],
+            [
+                'lane_id' => 'lane-b',
+                'workspace_id' => 'ws-b',
+                'domain_area' => 'open-brain',
+                'supports_evidence_types' => ['tests_or_gates_result'],
+                'supports_worker_capabilities' => ['python'],
+            ],
+        ];
+    }
+
+    public function test_selects_lane_using_workspace_domain_evidence_and_worker_capability(): void
+    {
+        $r = (new AtlasProjectLaneTaskFabricRouter)->selectLane($this->lanes(), [
+            'workspace_id' => 'ws-a',
+            'domain_area' => 'evolution-loop',
+            'required_evidence' => ['tests_or_gates_result'],
+            'worker_capability' => 'phpunit',
+        ]);
+
+        $this->assertSame('lane-a', $r['selected_lane']);
+        $this->assertGreaterThan(0.0, $r['confidence']);
+        $this->assertSame([], $r['ambiguity_reasons']);
+    }
+
+    public function test_rejects_ambiguous_lane_routing_instead_of_defaulting_to_atlas_main(): void
+    {
+        $tiedLanes = [
+            ['lane_id' => 'lane-a', 'workspace_id' => 'ws-shared', 'domain_area' => 'shared-domain'],
+            ['lane_id' => 'lane-b', 'workspace_id' => 'ws-shared', 'domain_area' => 'shared-domain'],
+        ];
+
+        $r = (new AtlasProjectLaneTaskFabricRouter)->selectLane($tiedLanes, [
+            'workspace_id' => 'ws-shared',
+            'domain_area' => 'shared-domain',
+        ]);
+
+        $this->assertNull($r['selected_lane']);
+        $this->assertNotEmpty($r['ambiguity_reasons']);
+        $this->assertNotNull($r['required_context_probe']);
+    }
+
+    public function test_select_lane_output_includes_selected_lane_confidence_ambiguity_reasons_and_probe(): void
+    {
+        $r = (new AtlasProjectLaneTaskFabricRouter)->selectLane($this->lanes(), []);
+
+        foreach (['selected_lane', 'confidence', 'ambiguity_reasons', 'required_context_probe'] as $key) {
+            $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
+        }
+        $this->assertNull($r['selected_lane']);
+        $this->assertSame(0.0, $r['confidence']);
+    }
 }
