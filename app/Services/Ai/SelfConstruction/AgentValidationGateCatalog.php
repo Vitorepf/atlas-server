@@ -55,7 +55,52 @@ final class AgentValidationGateCatalog
             'command_required_ids' => $this->filterBy($ordered, 'requires_command', true),
             'internal_only_ids' => $this->filterBy($ordered, 'requires_command', false),
             'catalog_hash' => $this->hashOf($ordered),
+            'risk_summary' => $this->riskSummary($ordered),
             'runtime_safety' => $this->runtimeSafety(),
+        ];
+    }
+
+    /**
+     * Counts by severity, blocking status, command requirement and internal-only status, derived
+     * from the live catalog — never a hardcoded fixture total, so it stays correct as gates change.
+     *
+     * @param  array<int, array<string, mixed>>  $gates
+     * @return array<string, mixed>
+     */
+    public function riskSummary(?array $gates = null): array
+    {
+        $gates ??= array_values($this->gates());
+
+        $severityCounts = ['critical' => 0, 'high' => 0, 'medium' => 0, 'low' => 0];
+        $blockingCount = 0;
+        $commandRequiredCount = 0;
+        $internalOnlyCount = 0;
+
+        foreach ($gates as $g) {
+            $severity = (string) ($g['severity'] ?? '');
+            if (array_key_exists($severity, $severityCounts)) {
+                $severityCounts[$severity]++;
+            }
+            if ((bool) ($g['blocking'] ?? false)) {
+                $blockingCount++;
+            }
+            if ((bool) ($g['requires_command'] ?? false)) {
+                $commandRequiredCount++;
+            } else {
+                $internalOnlyCount++;
+            }
+        }
+
+        return [
+            'total_gates' => count($gates),
+            'critical_count' => $severityCounts['critical'],
+            'high_count' => $severityCounts['high'],
+            'medium_count' => $severityCounts['medium'],
+            'low_count' => $severityCounts['low'],
+            'blocking_count' => $blockingCount,
+            'non_blocking_count' => count($gates) - $blockingCount,
+            'command_required_count' => $commandRequiredCount,
+            'internal_only_count' => $internalOnlyCount,
         ];
     }
 
