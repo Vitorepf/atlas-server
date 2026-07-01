@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierRegressionCaseMiner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGateRegressionResponsePlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackRootCauseMiner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackToQueueRepairPlanner;
@@ -42,6 +43,7 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
         AtlasExternalBrainGiveBackRootCauseMiner $rootCauseMiner,
         AtlasExternalBrainGiveBackToQueueRepairPlanner $repairPlanner,
         AtlasExternalBrainRegressionRepairTaskSynthesizer $synthesizer,
+        AtlasExternalBrainAmplifierRegressionCaseMiner $amplifierRegressionCaseMiner,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -61,9 +63,11 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
         $giveBacks = is_array($decoded['give_backs'] ?? null) ? $decoded['give_backs'] : [];
         $claimablePerActiveWorker = $decoded['claimable_per_active_worker'] ?? null;
         $diagnostics = is_array($decoded['diagnostics'] ?? null) ? $decoded['diagnostics'] : [];
+        $amplifierFailures = is_array($decoded['amplifier_failures'] ?? null) ? $decoded['amplifier_failures'] : [];
 
         $regression = $regressionPlanner->plan(['audit' => $audit]);
         $rootCauses = $rootCauseMiner->mine($giveBacks);
+        $amplifierRegressionCases = $amplifierRegressionCaseMiner->mine(['failure_records' => $amplifierFailures]);
         $repairRanking = $repairPlanner->plan(array_filter([
             'give_backs' => $giveBacks,
             'claimable_per_active_worker' => $claimablePerActiveWorker,
@@ -78,6 +82,7 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
             'status' => 'ok',
             'gate_regression' => $regression,
             'give_back_root_causes' => $rootCauses,
+            'amplifier_regression_cases' => $amplifierRegressionCases,
             'queue_repair_ranking' => $repairRanking,
             'repair_synthesis' => $synthesis,
             'blocked_origination' => $blockedOrigination,
