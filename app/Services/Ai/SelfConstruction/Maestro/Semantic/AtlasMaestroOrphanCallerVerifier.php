@@ -13,6 +13,11 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Semantic;
  *
  * Anchors the orphan target with AtlasMaestroSemanticSymbolResolver (duck-typed so it's testable) and skips
  * cleanly for non-orphan-wiring packets, so it never over-reaches into pure new-file packets.
+ *
+ * Every non-skipped result additionally carries a `classification` + `safe_action` verdict, derived
+ * from `caller_evidence` (a validated caller list, or a role-matching sibling call at the site) and
+ * `target_resolved` (live symbol grounding): live caller evidence ⇒ not_orphan/serve; neither caller
+ * evidence nor symbol grounding ⇒ true_orphan/retire; grounded-but-uncalled ⇒ ambiguous/needs_review.
  */
 final class AtlasMaestroOrphanCallerVerifier
 {
@@ -38,16 +43,20 @@ final class AtlasMaestroOrphanCallerVerifier
         $short = $this->shortName($target);
         $orphanTokens = $this->roleTokens($short);
 
-        // Validate explicit caller list when provided — live callsite evidence is required.
-        if (array_key_exists('callers', $orphanPacket)) {
-            $callerCheck = $this->validateCallers(array_values((array) ($orphanPacket['callers'] ?? [])), $short);
-            if (! $callerCheck['ok']) {
-                return $callerCheck;
-            }
-        }
-
         // FACT-anchor the orphan target (best-effort; the role-token check stands on the name either way).
         $resolved = ($this->resolver ?? new AtlasMaestroSemanticSymbolResolver)->resolve($target);
+        $symbolGrounded = (bool) ($resolved['exists'] ?? false);
+        $hasValidatedCallers = array_key_exists('callers', $orphanPacket);
+
+        // Validate explicit caller list when provided — live callsite evidence is required.
+        if ($hasValidatedCallers) {
+            $callerCheck = $this->validateCallers(array_values((array) ($orphanPacket['callers'] ?? [])), $short);
+            if (! $callerCheck['ok']) {
+                return $callerCheck
+                    + ['target_resolved' => $symbolGrounded, 'caller_evidence' => false]
+                    + $this->classify(false, $symbolGrounded);
+            }
+        }
 
         if (trim($source) === '') {
             $source = $this->readEnclosing((string) ($site['file'] ?? ''), (int) ($site['line'] ?? 0));
@@ -55,13 +64,17 @@ final class AtlasMaestroOrphanCallerVerifier
 
         $siblings = $this->observedSiblings($source, $short);
         if ($siblings === []) {
-            return ['ok' => false, 'reason' => 'no_sibling_call_at_site', 'expected_role_tokens' => $orphanTokens, 'target_resolved' => (bool) ($resolved['exists'] ?? false)];
+            return ['ok' => false, 'reason' => 'no_sibling_call_at_site', 'expected_role_tokens' => $orphanTokens, 'target_resolved' => $symbolGrounded]
+                + ['caller_evidence' => $hasValidatedCallers]
+                + $this->classify($hasValidatedCallers, $symbolGrounded);
         }
 
         foreach ($siblings as $sibling) {
             $overlap = array_values(array_intersect($orphanTokens, $this->roleTokens($sibling)));
             if ($overlap !== []) {
-                return ['ok' => true, 'sibling_role_match' => true, 'sibling' => $sibling, 'overlap' => $overlap, 'target_resolved' => (bool) ($resolved['exists'] ?? false)];
+                return ['ok' => true, 'sibling_role_match' => true, 'sibling' => $sibling, 'overlap' => $overlap, 'target_resolved' => $symbolGrounded]
+                    + ['caller_evidence' => true]
+                    + $this->classify(true, $symbolGrounded);
             }
         }
 
@@ -70,8 +83,28 @@ final class AtlasMaestroOrphanCallerVerifier
             'reason' => 'sibling_role_mismatch',
             'expected_role_tokens' => $orphanTokens,
             'observed_sibling' => $siblings[0],
-            'target_resolved' => (bool) ($resolved['exists'] ?? false),
-        ];
+            'target_resolved' => $symbolGrounded,
+            'caller_evidence' => $hasValidatedCallers,
+        ] + $this->classify($hasValidatedCallers, $symbolGrounded);
+    }
+
+    /**
+     * Classifies orphan status from (caller_evidence, symbol_grounded): live caller evidence always
+     * wins ⇒ not_orphan/serve; no caller evidence AND no symbol grounding ⇒ true_orphan/retire;
+     * grounded-but-uncalled is ambiguous ⇒ needs_review (neither safe to serve nor to retire blind).
+     *
+     * @return array{classification:string, safe_action:string}
+     */
+    private function classify(bool $callerEvidence, bool $symbolGrounded): array
+    {
+        if ($callerEvidence) {
+            return ['classification' => 'not_orphan', 'safe_action' => 'serve'];
+        }
+        if (! $symbolGrounded) {
+            return ['classification' => 'true_orphan', 'safe_action' => 'retire'];
+        }
+
+        return ['classification' => 'ambiguous', 'safe_action' => 'needs_review'];
     }
 
     /**

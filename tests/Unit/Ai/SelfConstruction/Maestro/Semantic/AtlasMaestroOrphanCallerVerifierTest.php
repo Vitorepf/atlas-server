@@ -128,4 +128,102 @@ final class AtlasMaestroOrphanCallerVerifierTest extends TestCase
         $this->assertTrue($out['ok']);
         $this->assertTrue($out['skipped']);
     }
+
+    // ── AC: no live caller + no symbol grounding ⇒ true_orphan ────────────────
+
+    public function test_no_caller_and_no_symbol_grounding_is_classified_true_orphan(): void
+    {
+        $out = $this->verifier(false)->verify([
+            'orphan_target' => 'App\\Services\\Ai\\SelfConstruction\\Maestro\\Semantic\\AtlasMaestroSemanticAuditPanel',
+            'insertion_site' => [
+                'file' => 'app/Bar.php',
+                'line' => 20,
+                'enclosing_source' => 'public function commit(): void { (new AtlasTaskScopedCommitter())->commit(); }',
+            ],
+        ]);
+
+        $this->assertFalse($out['caller_evidence']);
+        $this->assertFalse($out['target_resolved']);
+        $this->assertSame('true_orphan', $out['classification']);
+        $this->assertSame('retire', $out['safe_action']);
+    }
+
+    public function test_empty_callers_and_no_symbol_grounding_is_classified_true_orphan(): void
+    {
+        $out = $this->verifier(false)->verify([
+            'orphan_target' => 'App\\Services\\AtlasTaskClaimInspector',
+            'callers' => [],
+            'insertion_site' => ['file' => 'app/Foo.php', 'line' => 10, 'enclosing_source' => 'some source'],
+        ]);
+
+        $this->assertFalse($out['caller_evidence']);
+        $this->assertSame('true_orphan', $out['classification']);
+        $this->assertSame('retire', $out['safe_action']);
+    }
+
+    // ── AC: live caller evidence ⇒ not_orphan ──────────────────────────────────
+
+    public function test_live_caller_evidence_via_sibling_role_match_is_classified_not_orphan(): void
+    {
+        $out = $this->verifier(true)->verify([
+            'orphan_target' => 'App\\Services\\Ai\\SelfConstruction\\AtlasTaskClaimInspector',
+            'insertion_site' => [
+                'file' => 'app/Foo.php',
+                'line' => 10,
+                'enclosing_source' => 'public function inspect(): void { $this->run(new AtlasTaskPacketQualityInspector()); }',
+            ],
+        ]);
+
+        $this->assertTrue($out['caller_evidence']);
+        $this->assertSame('not_orphan', $out['classification']);
+        $this->assertSame('serve', $out['safe_action']);
+    }
+
+    public function test_live_caller_evidence_via_validated_explicit_caller_is_classified_not_orphan(): void
+    {
+        $out = $this->verifier()->verify([
+            'orphan_target' => 'App\\Services\\AtlasTaskClaimInspector',
+            'callers' => ['app/Services/Ai/SelfConstruction/Orchestrator.php::handle'],
+            'insertion_site' => ['file' => 'app/Foo.php', 'line' => 10, 'enclosing_source' => 'no relevant sibling here'],
+        ]);
+
+        $this->assertTrue($out['caller_evidence']);
+        $this->assertSame('not_orphan', $out['classification']);
+        $this->assertSame('serve', $out['safe_action']);
+    }
+
+    // ── AC: output includes caller_evidence and safe_action ────────────────────
+
+    public function test_verifier_output_always_includes_caller_evidence_and_safe_action_when_not_skipped(): void
+    {
+        $out = $this->verifier()->verify([
+            'orphan_target' => 'App\\Services\\Ai\\SelfConstruction\\Maestro\\Semantic\\AtlasMaestroSemanticAuditPanel',
+            'insertion_site' => [
+                'file' => 'app/Bar.php',
+                'line' => 20,
+                'enclosing_source' => 'public function commit(): void { (new AtlasTaskScopedCommitter())->commit(); }',
+            ],
+        ]);
+
+        $this->assertArrayHasKey('caller_evidence', $out);
+        $this->assertArrayHasKey('safe_action', $out);
+        $this->assertArrayHasKey('classification', $out);
+    }
+
+    public function test_symbol_grounded_but_uncalled_is_ambiguous_not_true_orphan(): void
+    {
+        $out = $this->verifier(true)->verify([
+            'orphan_target' => 'App\\Services\\Ai\\SelfConstruction\\Maestro\\Semantic\\AtlasMaestroSemanticAuditPanel',
+            'insertion_site' => [
+                'file' => 'app/Bar.php',
+                'line' => 20,
+                'enclosing_source' => 'public function commit(): void { (new AtlasTaskScopedCommitter())->commit(); }',
+            ],
+        ]);
+
+        $this->assertFalse($out['caller_evidence']);
+        $this->assertTrue($out['target_resolved']);
+        $this->assertSame('ambiguous', $out['classification']);
+        $this->assertSame('needs_review', $out['safe_action']);
+    }
 }
