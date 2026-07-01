@@ -192,4 +192,115 @@ final class AtlasMaestroStaleClaimableRescueLensTest extends TestCase
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
     }
+
+    // ── classifyPacket(): per-packet rescue_now/reshape/retire_low_value/quarantine_poison ──
+
+    private function packet(array $overrides = []): array
+    {
+        return array_merge([
+            'age_seconds' => 100,
+            'value_score' => 0.8,
+            'worker_fit_score' => 0.8,
+            'skip_count' => 0,
+            'malformed' => false,
+            'poison_risk' => 'low',
+        ], $overrides);
+    }
+
+    public function test_classify_packet_has_required_keys(): void
+    {
+        $r = $this->svc()->classifyPacket($this->packet());
+
+        foreach (['action', 'severity', 'reason', 'action_plan', 'evidence'] as $key) {
+            $this->assertArrayHasKey($key, $r, "missing key: {$key}");
+        }
+        $this->assertSame(AtlasMaestroStaleClaimableRescueLens::SCHEMA, $r['schema']);
+    }
+
+    public function test_fresh_high_value_high_fit_packet_recommends_rescue_now(): void
+    {
+        $r = $this->svc()->classifyPacket($this->packet());
+
+        $this->assertSame(AtlasMaestroStaleClaimableRescueLens::ACTION_RESCUE_NOW, $r['action']);
+        $this->assertNotEmpty($r['action_plan']);
+    }
+
+    public function test_malformed_packet_is_quarantined_regardless_of_other_signals(): void
+    {
+        $r = $this->svc()->classifyPacket($this->packet(['malformed' => true, 'value_score' => 1.0, 'worker_fit_score' => 1.0]));
+
+        $this->assertSame(AtlasMaestroStaleClaimableRescueLens::ACTION_QUARANTINE_POISON, $r['action']);
+        $this->assertSame(AtlasMaestroStaleClaimableRescueLens::SEVERITY_HIGH, $r['severity']);
+    }
+
+    public function test_high_poison_risk_is_quarantined(): void
+    {
+        $r = $this->svc()->classifyPacket($this->packet(['poison_risk' => 'high']));
+
+        $this->assertSame(AtlasMaestroStaleClaimableRescueLens::ACTION_QUARANTINE_POISON, $r['action']);
+    }
+
+    public function test_stale_low_value_packet_is_retired_not_kept_alive_forever(): void
+    {
+        $r = $this->svc()->classifyPacket($this->packet([
+            'age_seconds' => 999999,
+            'stale_threshold_seconds' => 3600,
+            'value_score' => 0.05,
+        ]));
+
+        $this->assertSame(AtlasMaestroStaleClaimableRescueLens::ACTION_RETIRE_LOW_VALUE, $r['action']);
+    }
+
+    public function test_fresh_low_value_packet_is_not_retired_yet(): void
+    {
+        $r = $this->svc()->classifyPacket($this->packet([
+            'age_seconds' => 10,
+            'stale_threshold_seconds' => 3600,
+            'value_score' => 0.05,
+        ]));
+
+        $this->assertNotSame(AtlasMaestroStaleClaimableRescueLens::ACTION_RETIRE_LOW_VALUE, $r['action']);
+    }
+
+    public function test_stale_repeatedly_skipped_packet_is_reshaped(): void
+    {
+        $r = $this->svc()->classifyPacket($this->packet([
+            'age_seconds' => 999999,
+            'stale_threshold_seconds' => 3600,
+            'skip_count' => 5,
+        ]));
+
+        $this->assertSame(AtlasMaestroStaleClaimableRescueLens::ACTION_RESHAPE, $r['action']);
+    }
+
+    public function test_stale_poor_worker_fit_packet_is_reshaped(): void
+    {
+        $r = $this->svc()->classifyPacket($this->packet([
+            'age_seconds' => 999999,
+            'stale_threshold_seconds' => 3600,
+            'worker_fit_score' => 0.1,
+        ]));
+
+        $this->assertSame(AtlasMaestroStaleClaimableRescueLens::ACTION_RESHAPE, $r['action']);
+    }
+
+    public function test_classify_packet_evidence_includes_age_value_fit_skip_and_poison(): void
+    {
+        $r = $this->svc()->classifyPacket($this->packet());
+
+        $joined = implode(' ', $r['evidence']);
+        foreach (['age_seconds=', 'value_score=', 'worker_fit_score=', 'skip_count=', 'poison_risk='] as $prefix) {
+            $this->assertStringContainsString($prefix, $joined, "evidence missing: {$prefix}");
+        }
+    }
+
+    public function test_classify_packet_is_deterministic(): void
+    {
+        $packet = $this->packet(['age_seconds' => 999999, 'value_score' => 0.05]);
+
+        $a = $this->svc()->classifyPacket($packet);
+        $b = $this->svc()->classifyPacket($packet);
+
+        $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
+    }
 }

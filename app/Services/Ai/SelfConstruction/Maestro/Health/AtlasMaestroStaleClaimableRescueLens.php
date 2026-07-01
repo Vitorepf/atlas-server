@@ -43,7 +43,28 @@ final class AtlasMaestroStaleClaimableRescueLens
 
     public const SEVERITY_HIGH = 'high';
 
+    public const ACTION_RESCUE_NOW = 'rescue_now';
+
+    public const ACTION_RESHAPE = 'reshape';
+
+    public const ACTION_RETIRE_LOW_VALUE = 'retire_low_value';
+
+    public const ACTION_QUARANTINE_POISON = 'quarantine_poison';
+
     private const DEFAULT_STALE_THRESHOLD_SECONDS = 3600;
+
+    private const LOW_VALUE_FLOOR = 0.30;
+
+    private const LOW_WORKER_FIT_FLOOR = 0.30;
+
+    private const HIGH_SKIP_COUNT_THRESHOLD = 3;
+
+    private const ACTION_PLAN = [
+        self::ACTION_QUARANTINE_POISON => ['quarantine_packet_out_of_claimable_queue', 'audit_spec_origin_before_any_reuse'],
+        self::ACTION_RETIRE_LOW_VALUE => ['retire_packet', 'free_the_claimable_slot'],
+        self::ACTION_RESHAPE => ['respec_or_reroute_to_a_capable_worker', 'reset_skip_count_after_reshape'],
+        self::ACTION_RESCUE_NOW => ['promote_to_front_of_claimable_queue', 'notify_a_capable_worker'],
+    ];
 
     /**
      * @param  array<string,mixed>  $facts
@@ -127,6 +148,61 @@ final class AtlasMaestroStaleClaimableRescueLens
             'severity' => $severity,
             'likely_cause' => $likelyCause,
             'rescue_actions' => $rescueActions,
+            'evidence' => $evidence,
+        ];
+    }
+
+    /**
+     * Classifies a SINGLE stale claimable packet — value, freshness, worker-fit and poison risk —
+     * into a concrete action so an ancient low-value packet is never kept alive forever by default.
+     *
+     * @param  array<string,mixed>  $packet  age_seconds, stale_threshold_seconds, value_score,
+     *                                        worker_fit_score, skip_count, malformed, poison_risk
+     * @return array{schema:string, action:string, severity:string, reason:string, action_plan:list<string>, evidence:list<string>}
+     */
+    public function classifyPacket(array $packet): array
+    {
+        $ageSeconds = max(0, (int) ($packet['age_seconds'] ?? 0));
+        $staleThreshold = max(1, (int) ($packet['stale_threshold_seconds'] ?? self::DEFAULT_STALE_THRESHOLD_SECONDS));
+        $valueScore = max(0.0, min(1.0, (float) ($packet['value_score'] ?? 0.5)));
+        $workerFitScore = max(0.0, min(1.0, (float) ($packet['worker_fit_score'] ?? 0.5)));
+        $skipCount = max(0, (int) ($packet['skip_count'] ?? 0));
+        $malformed = (bool) ($packet['malformed'] ?? false);
+        $poisonRisk = trim((string) ($packet['poison_risk'] ?? 'low'));
+        $isStale = $ageSeconds >= $staleThreshold;
+
+        $evidence = [
+            'age_seconds='.$ageSeconds,
+            'value_score='.$valueScore,
+            'worker_fit_score='.$workerFitScore,
+            'skip_count='.$skipCount,
+            'poison_risk='.$poisonRisk,
+        ];
+
+        if ($malformed || $poisonRisk === 'high') {
+            $action = self::ACTION_QUARANTINE_POISON;
+            $severity = self::SEVERITY_HIGH;
+            $reason = $malformed ? 'packet_is_malformed' : 'poison_risk=high';
+        } elseif ($isStale && $valueScore < self::LOW_VALUE_FLOOR) {
+            $action = self::ACTION_RETIRE_LOW_VALUE;
+            $severity = self::SEVERITY_MEDIUM;
+            $reason = sprintf('ancient (age_seconds=%d) and low value (value_score=%s) — not worth keeping alive', $ageSeconds, $valueScore);
+        } elseif ($isStale && ($skipCount >= self::HIGH_SKIP_COUNT_THRESHOLD || $workerFitScore < self::LOW_WORKER_FIT_FLOOR)) {
+            $action = self::ACTION_RESHAPE;
+            $severity = self::SEVERITY_MEDIUM;
+            $reason = sprintf('repeatedly skipped (skip_count=%d) or a poor worker fit (worker_fit_score=%s)', $skipCount, $workerFitScore);
+        } else {
+            $action = self::ACTION_RESCUE_NOW;
+            $severity = $isStale ? self::SEVERITY_LOW : self::SEVERITY_NONE;
+            $reason = 'still valuable and claimable by a fit worker — worth rescuing rather than discarding';
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'action' => $action,
+            'severity' => $severity,
+            'reason' => $reason,
+            'action_plan' => self::ACTION_PLAN[$action],
             'evidence' => $evidence,
         ];
     }
