@@ -478,4 +478,64 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
         $impact = $result['task_feed_impact'];
         $this->assertSame($impact['handoff_count_before'], $impact['handoff_count_after']);
     }
+
+    // ── AC: handoff_reduction_score + first_safe_handoff_batch ───────────────
+
+    public function test_handoff_reduction_score_and_first_safe_handoff_batch_present(): void
+    {
+        $result = $this->plan($this->organ('o1'));
+
+        $this->assertArrayHasKey('handoff_reduction_score', $result);
+        $this->assertArrayHasKey('first_safe_handoff_batch', $result);
+    }
+
+    public function test_safe_merge_appears_in_first_safe_handoff_batch(): void
+    {
+        $result = $this->plan($this->organ('safe-m3', [
+            'overlap_organs'        => ['organ-v9'],
+            'has_replacement_owner' => true,
+            'has_test_coverage'     => true,
+        ]));
+
+        $this->assertContains('safe-m3', $result['first_safe_handoff_batch']);
+        $this->assertGreaterThan(0.0, $result['handoff_reduction_score']);
+    }
+
+    public function test_blocked_entries_never_enter_first_safe_handoff_batch(): void
+    {
+        $result = $this->plan(
+            $this->organ('blocked-retire2', ['evidence_strength' => 0.10, 'has_replacement_owner' => false, 'has_test_coverage' => true]),
+            $this->organ('blocked-merge2', ['overlap_organs' => ['x'], 'has_replacement_owner' => false, 'has_test_coverage' => true]),
+        );
+
+        $this->assertNotContains('blocked-retire2', $result['first_safe_handoff_batch']);
+        $this->assertNotContains('blocked-merge2', $result['first_safe_handoff_batch']);
+    }
+
+    // ── AC: prerequisite_task_hint on blocked entries ─────────────────────────
+
+    public function test_retire_blocked_has_prerequisite_task_hint(): void
+    {
+        $result = $this->plan($this->organ('rb2', ['evidence_strength' => 0.05, 'has_replacement_owner' => false]));
+        $entry  = $this->findEntry($result, 'rb2');
+
+        $this->assertNotEmpty($entry['prerequisite_task_hint']);
+        $this->assertStringContainsString('replacement_owner', $entry['prerequisite_task_hint']);
+    }
+
+    public function test_merge_blocked_has_prerequisite_task_hint(): void
+    {
+        $result = $this->plan($this->organ('mb2', ['overlap_organs' => ['x'], 'has_replacement_owner' => false, 'has_test_coverage' => true]));
+        $entry  = $this->findEntry($result, 'mb2');
+
+        $this->assertNotEmpty($entry['prerequisite_task_hint']);
+    }
+
+    public function test_safe_actions_have_null_prerequisite_task_hint(): void
+    {
+        $result = $this->plan($this->organ('keep3'));
+        $entry  = $this->findEntry($result, 'keep3');
+
+        $this->assertNull($entry['prerequisite_task_hint']);
+    }
 }

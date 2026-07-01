@@ -59,6 +59,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
         $totalLineDelta      = 0;
         $capabilityPreserved = 0;
         $safeBatchEntries    = [];
+        $safeHandoffEntries  = [];
         $allRequiredTests    = [];
         $handoffCountBefore  = 0;
         $yieldBefore         = 0;
@@ -101,6 +102,15 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
                     'capability_count' => count((array) ($organ['capability_labels'] ?? [])),
                 ];
             }
+
+            if (in_array($entry['action'], [self::ACTION_RETIRE, self::ACTION_MERGE, self::ACTION_SIMPLIFY], true)) {
+                $safeHandoffEntries[] = [
+                    'organ_id'          => $entry['organ_id'],
+                    'handoff_reduction' => $entry['action'] === self::ACTION_MERGE ? count((array) ($organ['overlap_organs'] ?? [])) : 0,
+                    'line_delta'        => $entry['line_delta'],
+                    'capability_count'  => count((array) ($organ['capability_labels'] ?? [])),
+                ];
+            }
         }
 
         // Sort by action rank
@@ -115,7 +125,21 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
                 : $a['capability_count'] <=> $b['capability_count']
         );
 
+        // first_safe_handoff_batch: highest handoff_reduction first, then highest |line_delta|,
+        // then fewest capabilities — prefers retire/merge/simplify actions that cut handoffs, not
+        // just line count, so consolidation reduces cognitive load without losing capability.
+        usort($safeHandoffEntries, static fn ($a, $b) =>
+            $b['handoff_reduction'] !== $a['handoff_reduction']
+                ? $b['handoff_reduction'] <=> $a['handoff_reduction']
+                : ($b['line_delta'] !== $a['line_delta']
+                    ? abs($b['line_delta']) <=> abs($a['line_delta'])
+                    : $a['capability_count'] <=> $b['capability_count'])
+        );
+
         $handoffCountAfter = max(0, $handoffCountBefore - $mergedHandoffReduction);
+        $handoffReductionScore = $handoffCountBefore > 0
+            ? round($mergedHandoffReduction / $handoffCountBefore, 4)
+            : 0.0;
 
         return [
             'schema'                     => self::SCHEMA,
@@ -123,6 +147,8 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
             'expected_line_delta'        => $totalLineDelta,
             'capability_preserved_count' => $capabilityPreserved,
             'first_safe_batch'           => array_column($safeBatchEntries, 'organ_id'),
+            'first_safe_handoff_batch'   => array_column($safeHandoffEntries, 'organ_id'),
+            'handoff_reduction_score'    => $handoffReductionScore,
             'required_tests'             => array_values($allRequiredTests),
             'capability_groups'          => $this->buildCapabilityGroups($organs),
             'task_feed_impact'           => [
@@ -163,7 +189,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
                 'missing:' . implode(',', $missing),
             ], 0, $this->requiredTests($id, $labels),
             'Cannot safely retire without replacement owner and test coverage.',
-            'high');
+            'high', "{$id}:provide ".implode(' and ', $missing).' before retirement');
         }
 
         // RETIRE
@@ -191,7 +217,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
                 'missing:' . implode(',', $missing),
             ], 0, $this->requiredTests($id, $labels),
             'Overlap detected but cannot safely merge without replacement owner and test coverage.',
-            'medium');
+            'medium', "{$id}:provide ".implode(' and ', $missing).' before merge, or prove consumer migration');
         }
 
         // MERGE — only when the resulting circuit keeps at least the same claimable-task yield.
@@ -256,7 +282,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
         );
     }
 
-    private function entry(string $id, string $action, array $reasons, int $lineDelta, array $tests, string $rationale = '', string $riskLevel = 'low'): array
+    private function entry(string $id, string $action, array $reasons, int $lineDelta, array $tests, string $rationale = '', string $riskLevel = 'low', ?string $prerequisiteTaskHint = null): array
     {
         return [
             'organ_id'       => $id,
@@ -266,6 +292,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
             'required_tests' => $tests,
             'rationale'      => $rationale,
             'risk_level'     => $riskLevel,
+            'prerequisite_task_hint' => $prerequisiteTaskHint,
         ];
     }
 
