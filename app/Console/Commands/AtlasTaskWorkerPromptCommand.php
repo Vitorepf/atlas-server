@@ -35,8 +35,8 @@ class AtlasTaskWorkerPromptCommand extends Command
         $php = (string) $this->option('php');
 
         $onEmpty = (bool) $this->option('stop-on-empty')
-            ? 'the queue has truly drained. Print one final line "queue drained — resolved N this session" and stop. Do NOT invent work.'
-            : 'wait 60s and go back to step 1. Do NOT stop — tasks replenish; you keep polling overnight until the operator stops you.';
+            ? 'queue truly drained: print "queue drained — resolved N this session" and stop. Do NOT invent work.'
+            : 'wait 60s, retry step 1 — tasks replenish; never stop until the operator does.';
 
         $prompt = $this->prompt($client, $php, $onEmpty);
         $this->line($prompt);
@@ -70,10 +70,11 @@ THE LOOP:
    `{$php} artisan atlas:task report --client="{$client}" --task="<task_packet_id>" --lease="<lease_id>" --outcome=give_back --json`
 
 QUALITY BOOST:
-- Before editing, grep the named class/symbol (`rg ... || true` — no-match is non-fatal discovery, not failure; a missing test/class is the starting point to build). If it already exists, give_back as duplicate/no-op.
+- Before editing, grep the named class/symbol (no-match = build it, not failure). If it already exists, give_back as duplicate/no-op.
 - Skill triggers: `diagnosing-bugs` broken/slow/flaky; `tdd` behavior/regression; `code-review` before resolve; `codebase-design`/`improve-codebase-architecture` seams/refactor; `domain-modeling` fuzzy terms. Atlas allowed_files/acceptance wins.
 - Read allowed_files plus direct callers before patching. Fix the shared root cause once with the smallest diff. No new deps, broad refactors, formatting churn, or architecture for later.
 - Preserve other workers' WIP. If acceptance needs a file outside allowed_files, give_back naming that exact file instead of hacking around scope.
+- No-gap task: confirm downstream_consumer/proof_gate name a REAL consumer; give_back as detached if it's a lone detector/report or unprovable in allowed_files.
 
 NEVER STOP:
 - A hard or failing task is NOT a reason to stop. Fix it, or give_back with a reason, and move to the next.
