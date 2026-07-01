@@ -193,7 +193,9 @@ final class AtlasExternalBrainDecisionTraceExplainer
     }
 
     /**
-     * Strip any key whose name contains a private-key pattern (case-insensitive).
+     * Strip any key whose name contains a private-key pattern (case-insensitive),
+     * recursively — a private key nested inside a per-task scoring_facts array
+     * must never survive into the trace just because it isn't top-level.
      *
      * @param  array<string,mixed>  $data
      * @return array<string,mixed>
@@ -210,9 +212,11 @@ final class AtlasExternalBrainDecisionTraceExplainer
                     break;
                 }
             }
-            if (! $isPrivate) {
-                $out[$key] = $value;
+            if ($isPrivate) {
+                continue;
             }
+
+            $out[$key] = is_array($value) ? $this->stripPrivate($value) : $value;
         }
 
         return $out;
