@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityTransferMapper;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCommitGreenLiftEvaluator;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCommitToRoadmapDeltaMapper;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCounterfactualBatchEvaluator;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPostCommitLearningFeedbackRouter;
 use Illuminate\Console\Command;
 
@@ -14,16 +15,18 @@ use Illuminate\Console\Command;
  * Read-only post-commit learning loop. Composes
  * {@see AtlasExternalBrainPostCommitLearningFeedbackRouter} (lessons/warnings/constraints per
  * commit), {@see AtlasExternalBrainCommitGreenLiftEvaluator} (per-commit real-value lift + before/after
- * batch lift), {@see AtlasExternalBrainCommitToRoadmapDeltaMapper} (proven roadmap maturity delta) and
+ * batch lift), {@see AtlasExternalBrainCommitToRoadmapDeltaMapper} (proven roadmap maturity delta),
  * {@see AtlasExternalBrainCapabilityTransferMapper} (what proven capability can transfer to which
- * destination gap) into one next-batch learning report, so delivered commits and weak outcomes change
- * future origination policy instead of dying as passive receipts.
+ * destination gap) and {@see AtlasExternalBrainCounterfactualBatchEvaluator} (decision regret vs the
+ * batch alternatives that were NOT chosen) into one next-batch learning report, so delivered commits
+ * and weak outcomes change future origination policy instead of dying as passive receipts.
  *
  * Never enqueues, mutates evidence, calls providers, or runs git — read-only reporting only.
  *
  * Input: a single JSON file (--input=PATH) with keys:
  *   { commits:list, green_lift:{before:list, after:list},
- *     source_capabilities:list, destination_gaps:list, evidence_strength:object, adaptation_risks:list }
+ *     source_capabilities:list, destination_gaps:list, evidence_strength:object, adaptation_risks:list,
+ *     counterfactual_batch:{chosen_batch:object, alternatives:list} }
  * Missing/absent sections default to empty and simply produce no findings for that side.
  */
 final class AtlasExternalBrainPostCommitLearningCommand extends Command
@@ -42,6 +45,7 @@ final class AtlasExternalBrainPostCommitLearningCommand extends Command
         AtlasExternalBrainCommitGreenLiftEvaluator $greenLiftEvaluator,
         AtlasExternalBrainCommitToRoadmapDeltaMapper $roadmapDeltaMapper,
         AtlasExternalBrainCapabilityTransferMapper $transferMapper,
+        AtlasExternalBrainCounterfactualBatchEvaluator $counterfactualEvaluator,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -63,6 +67,7 @@ final class AtlasExternalBrainPostCommitLearningCommand extends Command
         $destinationGaps = is_array($decoded['destination_gaps'] ?? null) ? $decoded['destination_gaps'] : [];
         $evidenceStrength = is_array($decoded['evidence_strength'] ?? null) ? $decoded['evidence_strength'] : [];
         $adaptationRisks = is_array($decoded['adaptation_risks'] ?? null) ? $decoded['adaptation_risks'] : [];
+        $counterfactualBatch = is_array($decoded['counterfactual_batch'] ?? null) ? $decoded['counterfactual_batch'] : [];
 
         $feedback = $feedbackRouter->route(['commits' => $commits]);
 
@@ -87,6 +92,8 @@ final class AtlasExternalBrainPostCommitLearningCommand extends Command
             'adaptation_risks' => $adaptationRisks,
         ]);
 
+        $counterfactualEvaluation = $counterfactualEvaluator->evaluate($counterfactualBatch);
+
         $payload = [
             'schema' => self::SCHEMA,
             'feedback' => $feedback,
@@ -94,6 +101,7 @@ final class AtlasExternalBrainPostCommitLearningCommand extends Command
             'batch_lift' => $batchLift,
             'roadmap_delta' => $roadmapDelta,
             'capability_transfer' => $transfer,
+            'counterfactual_evaluation' => $counterfactualEvaluation,
             'next_batch_constraints' => $feedback['next_batch_constraints'],
             'next_roadmap_gap_candidates' => $roadmapDelta['next_roadmap_gap_candidates'],
             'transfer_recommendations' => $transfer['transfer_recommendations'],
