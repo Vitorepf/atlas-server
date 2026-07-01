@@ -416,13 +416,101 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreakerTest extends TestC
 
     // ── evaluateOrganProposal — exemption still applies to new signals ────────
 
-    public function test_exempt_proposal_kind_is_not_blocked_despite_low_cohesion(): void
+    public function test_exempt_proposal_kind_with_parity_proof_is_not_blocked_despite_low_cohesion(): void
     {
         $r = $this->cb->evaluateOrganProposal([
             'cohesion_score' => 0.1,
             'proposed_task' => ['kind' => 'consolidation'],
+            'parity_proof_present' => true,
         ]);
 
         $this->assertFalse($r['blocked']);
+        $this->assertTrue($r['proposal_kind_exemption_proven']);
+    }
+
+    public function test_exempt_proposal_kind_with_removes_blocker_is_not_blocked_despite_low_cohesion(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'cohesion_score' => 0.1,
+            'proposed_task' => ['kind' => 'consolidation', 'removes_blocker' => true],
+        ]);
+
+        $this->assertFalse($r['blocked']);
+        $this->assertTrue($r['proposal_kind_exemption_proven']);
+    }
+
+    // ── AC1: high organ_sprawl_score blocks normal proposals with blocked_reason ──
+
+    public function test_high_organ_sprawl_score_blocks_normal_proposal_with_blocked_reason(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'organ_sprawl_score' => 0.9,
+        ]);
+
+        $this->assertTrue($r['blocked']);
+        $this->assertSame(
+            AtlasExternalBrainConsolidationFirstCircuitBreaker::BLOCKED_REASON_CONSOLIDATION_FIRST_SPRAWL,
+            $r['blocked_reason'],
+        );
+        $this->assertSame($r['blocked_reason'], $r['reason']);
+    }
+
+    // ── AC2: consolidation/deletion/integration kind alone is NOT sufficient proof ──
+
+    public function test_consolidation_kind_alone_without_proof_is_still_blocked_during_sprawl(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'organ_sprawl_score' => 0.9,
+            'proposed_task' => ['kind' => 'consolidation'],
+        ]);
+
+        $this->assertTrue($r['blocked']);
+        $this->assertFalse($r['proposal_kind_exemption_proven']);
+    }
+
+    public function test_deletion_kind_with_parity_proof_is_permitted_during_sprawl(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'organ_sprawl_score' => 0.9,
+            'proposed_task' => ['kind' => 'deletion'],
+            'parity_proof_present' => true,
+        ]);
+
+        $this->assertFalse($r['blocked']);
+    }
+
+    public function test_integration_kind_with_removes_blocker_is_permitted_during_sprawl(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'organ_sprawl_score' => 0.9,
+            'proposed_task' => ['kind' => 'integration', 'removes_blocker' => true],
+        ]);
+
+        $this->assertFalse($r['blocked']);
+    }
+
+    // ── AC3: recommended_actions carry concrete proof requirements ────────────
+
+    public function test_recommended_actions_include_concrete_proof_for_each_action_type(): void
+    {
+        $duplicate = $this->cb->evaluateOrganProposal(['duplicate_responsibility_score' => 0.9]);
+        $mergeAction = array_values(array_filter($duplicate['recommended_actions'], fn (array $a) => $a['action'] === 'merge'))[0] ?? null;
+        $this->assertNotNull($mergeAction);
+        $this->assertNotEmpty($mergeAction['required_proof']);
+
+        $scaffold = $this->cb->evaluateOrganProposal(['redundant_scaffold_count' => 10]);
+        $deleteAction = array_values(array_filter($scaffold['recommended_actions'], fn (array $a) => $a['action'] === 'delete'))[0] ?? null;
+        $this->assertNotNull($deleteAction);
+        $this->assertNotEmpty($deleteAction['required_proof']);
+
+        $lowValue = $this->cb->evaluateOrganProposal(['marginal_new_task_value' => 0.05]);
+        $simplifyAction = array_values(array_filter($lowValue['recommended_actions'], fn (array $a) => $a['action'] === 'simplify'))[0] ?? null;
+        $this->assertNotNull($simplifyAction);
+        $this->assertNotEmpty($simplifyAction['required_proof']);
+
+        $parity = $this->cb->evaluateOrganProposal(['parity_proof_required' => true, 'parity_proof_present' => false]);
+        $parityAction = array_values(array_filter($parity['recommended_actions'], fn (array $a) => $a['action'] === 'require_parity_proof'))[0] ?? null;
+        $this->assertNotNull($parityAction);
+        $this->assertNotEmpty($parityAction['required_proof']);
     }
 }

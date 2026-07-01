@@ -211,8 +211,10 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreaker
     /**
      * Blocks new organ/task proposals when sprawl, duplicate-responsibility, low-cohesion,
      * or missing-parity-proof signals are present — UNLESS the proposal is explicitly
-     * consolidation, deletion or integration (those proposals ARE the remedy, never the
-     * problem). Keeps the same safety-metadata contract as evaluateEnqueueGate() so callers
+     * consolidation, deletion or integration AND carries parity_proof_present or
+     * removes_blocker (the kind alone is a claim, not proof — a proposal that only SAYS
+     * "consolidation" without proving it is exactly the sprawl this breaker exists to
+     * catch). Keeps the same safety-metadata contract as evaluateEnqueueGate() so callers
      * never lose fields, and adds concrete recommended_actions (delete/merge/simplify/
      * require_parity_proof) with the proof each action needs — never only block=true.
      *
@@ -241,7 +243,12 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreaker
         $isExemptKind = in_array($proposalKind, self::EXEMPT_PROPOSAL_KINDS, true);
         $unlocksConsolidation = (bool) ($proposedTask['unlocks_consolidation'] ?? false);
         $removesBlocker = (bool) ($proposedTask['removes_blocker'] ?? false);
-        $isExempt = $isExemptKind || $unlocksConsolidation || $removesBlocker;
+        // An exempt-kind proposal (consolidation/deletion/integration) is NOT automatically
+        // trusted -- the kind alone claims to be the remedy, but only parity_proof_present or
+        // removes_blocker PROVES it. unlocks_consolidation is a separate, pre-existing exemption
+        // path kept for evaluateEnqueueGate() parity and does not require a kind at all.
+        $isExemptKindProven = $isExemptKind && ($parityProofPresent || $removesBlocker);
+        $isExempt = $isExemptKindProven || $unlocksConsolidation || $removesBlocker;
 
         $sprawlSignalPresent = $gate['circuit_open'] || $duplicateResponsibilityHigh || $lowCohesion || $missingParityProof;
         $blocked = $sprawlSignalPresent && ! $isExempt;
@@ -249,6 +256,8 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreaker
         $recommendedActions = $sprawlSignalPresent
             ? $this->buildOrganProposalActions($duplicateResponsibilityHigh, $gate['recommendation'], $lowCohesion, $missingParityProof)
             : [];
+
+        $reason = $blocked ? self::BLOCKED_REASON_CONSOLIDATION_FIRST_SPRAWL : null;
 
         return array_merge($gate, [
             'duplicate_responsibility_score' => $duplicateResponsibilityScore,
@@ -258,8 +267,10 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreaker
             'missing_parity_proof' => $missingParityProof,
             'proposal_kind' => $proposalKind !== '' ? $proposalKind : null,
             'proposal_kind_exempt' => $isExemptKind,
+            'proposal_kind_exemption_proven' => $isExemptKindProven,
             'blocked' => $blocked,
-            'reason' => $blocked ? self::BLOCKED_REASON_CONSOLIDATION_FIRST_SPRAWL : null,
+            'reason' => $reason,
+            'blocked_reason' => $reason,
             'recommended_actions' => $recommendedActions,
         ]);
     }
