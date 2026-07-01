@@ -19,6 +19,8 @@ final class AtlasMaestroReplenishUrgencyClassifier
         private readonly int $thresholdMinActiveWorkers = 2,
         private readonly int $thresholdHighStuckLeases = 3,
         private readonly float $thresholdWorkerRatioHigh = 2.0,
+        private readonly int $thresholdGiveBackPressure = 3,
+        private readonly int $thresholdPrepareBlockedPressure = 3,
     ) {}
 
     /**
@@ -45,6 +47,8 @@ final class AtlasMaestroReplenishUrgencyClassifier
             ? $this->intFact($idle, 'active_claimed_workers')
             : $this->intFact($idle, 'active_workers');
         $poisonPressure = $this->intFact($idle, 'poison_pressure');
+        $giveBackPressure = $this->intFact($idle, 'give_back_pressure');
+        $prepareBlockedPressure = $this->intFact($idle, 'prepare_blocked_pressure');
 
         $inputs = [
             'claimable_depth' => $claimableDepth,
@@ -56,6 +60,8 @@ final class AtlasMaestroReplenishUrgencyClassifier
             'suspected_stuck_leases' => $suspectedStuckLeases,
             'active_claimed_workers' => $activeClaimedWorkers,
             'poison_pressure' => $poisonPressure,
+            'give_back_pressure' => $giveBackPressure,
+            'prepare_blocked_pressure' => $prepareBlockedPressure,
             'threshold_high_seconds' => $this->thresholdHighSeconds,
             'threshold_mid_seconds' => $this->thresholdMidSeconds,
             'threshold_stale_claimable_age_seconds' => $this->thresholdStaleClaimableAgeSeconds,
@@ -81,6 +87,15 @@ final class AtlasMaestroReplenishUrgencyClassifier
         // out of claimable work before any seconds_until_dry/p95-age signal catches up.
         if ($activeClaimedWorkers > 0 && ($claimableDepth / $activeClaimedWorkers) <= $this->thresholdWorkerRatioHigh) {
             $reasons[] = 'claimable_depth_near_one_per_active_worker';
+        }
+        // Repeated give_back/prepare_blocked pressure means muscles are wasting pull cycles on
+        // packets they can't work — escalate to HIGH regardless of an otherwise-healthy claimable
+        // depth, since depth alone doesn't reflect that the queue is actionable.
+        if ($giveBackPressure >= $this->thresholdGiveBackPressure) {
+            $reasons[] = 'give_back_pressure_above_threshold';
+        }
+        if ($prepareBlockedPressure >= $this->thresholdPrepareBlockedPressure) {
+            $reasons[] = 'prepare_blocked_pressure_above_threshold';
         }
         if ($reasons !== []) {
             return $this->resultWithAction('HIGH', $this->nextAction($reasons, $suspectedStuckLeases, $poisonPressure, $claimableDepth, $secondsUntilDry), $reasons, $inputs);
@@ -120,7 +135,10 @@ final class AtlasMaestroReplenishUrgencyClassifier
         if ($poisonPressure > 0 && (in_array('poison_pressure_detected', $reasons, true) || $poisonPressure >= 3)) {
             return 'drain_poison';
         }
-        if ($stuckLeases > 0 || in_array('high_stuck_lease_threat', $reasons, true) || in_array('suspected_stuck_leases_threaten_throughput', $reasons, true)) {
+        if (in_array('prepare_blocked_pressure_above_threshold', $reasons, true)) {
+            return 'drain_poison';
+        }
+        if ($stuckLeases > 0 || in_array('high_stuck_lease_threat', $reasons, true) || in_array('suspected_stuck_leases_threaten_throughput', $reasons, true) || in_array('give_back_pressure_above_threshold', $reasons, true)) {
             return 'unblock';
         }
         if (in_array('queue_dry', $reasons, true)

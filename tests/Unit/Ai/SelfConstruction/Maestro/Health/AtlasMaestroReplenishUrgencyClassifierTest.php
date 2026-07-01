@@ -489,6 +489,36 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
         $this->assertSame(AtlasMaestroReplenishUrgencyClassifier::DECISION_SUFFICIENT, $result['decision']);
     }
 
+    // ── give_back / prepare_blocked pressure escalation ────────────────────────
+
+    public function test_give_back_pressure_above_threshold_is_high_with_unblock_even_with_healthy_depth(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 100, 'p95_seconds' => 100],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 50, 'seconds_until_dry' => 9000, 'serve_rate_per_minute' => 2.0, 'give_back_pressure' => 3],
+        )->classify();
+
+        $this->assertSame('HIGH', $result['urgency']);
+        $this->assertContains('give_back_pressure_above_threshold', $result['reasons']);
+        $this->assertSame('unblock', $result['next_action']);
+        $this->assertSame(3, $result['inputs']['give_back_pressure']);
+    }
+
+    public function test_prepare_blocked_pressure_above_threshold_is_high_with_drain_poison_even_with_healthy_depth(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 100, 'p95_seconds' => 100],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 50, 'seconds_until_dry' => 9000, 'serve_rate_per_minute' => 2.0, 'prepare_blocked_pressure' => 3],
+        )->classify();
+
+        $this->assertSame('HIGH', $result['urgency']);
+        $this->assertContains('prepare_blocked_pressure_above_threshold', $result['reasons']);
+        $this->assertSame('drain_poison', $result['next_action']);
+        $this->assertSame(3, $result['inputs']['prepare_blocked_pressure']);
+    }
+
     public function test_active_claimed_workers_key_takes_precedence_over_active_workers_when_both_present(): void
     {
         $result = $this->classifier(
