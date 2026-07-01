@@ -25,6 +25,14 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Traces that fail any pillar are marked unverifiable=true with the reasons
  * listed so the audit layer can reject or quarantine them before dispatch.
  *
+ * target_files / acceptance_gates (AC2) are optional pass-through lists naming the concrete
+ * files a spec touches and the concrete gates (test suites, verification commands) it must pass.
+ *
+ * broken_link (AC3): fires when the caller supplies commit_green=true (the commit landed green)
+ * but capability_delta or evidence_after_commit is still blank — a green commit with nothing to
+ * show for it is the exact failure mode this trace exists to catch. commit_green omitted or false
+ * never triggers broken_link.
+ *
  * Pure / deterministic. No I/O.
  */
 final class AtlasExternalBrainSpecImpactTrace
@@ -33,6 +41,19 @@ final class AtlasExternalBrainSpecImpactTrace
 
     /** Minimum character length for an acceptance_proof to be considered falsifiable. */
     private const MIN_ACCEPTANCE_LENGTH = 20;
+
+    /** @var array<string,string> */
+    private const REPAIR_HINTS = [
+        'no_evidence_origin' => 'attach at least one evidence_ref (scan/doc/receipt) proving the opportunity is real',
+        'no_capability_delta' => 'describe the concrete capability this task grants once shipped',
+        'no_downstream_unlocks' => 'name at least one downstream_unlocks consumer, or ground the claim via risk_reduction/simplification/autonomy_gain instead',
+        'no_risk_reduction' => 'state what risk this task reduces, or ground the claim via another impact path',
+        'no_evidence_after_commit' => 'attach evidence_after_commit describing what will prove the change worked post-merge',
+        'no_falsification_signal' => 'add a falsification_signal naming the observable that would prove this hypothesis wrong',
+        'no_falsifiable_acceptance' => 'write an acceptance_proof of at least 20 characters naming a runnable, falsifiable check',
+        'cosmetic_only_proxy' => 'supply both capability_delta and falsification_signal before marking a cosmetic-only spec as verifiable',
+        'metric_only_proxy' => 'supply both capability_delta and falsification_signal before marking a metric-only spec as verifiable',
+    ];
 
     /**
      * Build and validate a spec impact trace from raw input.
@@ -78,6 +99,15 @@ final class AtlasExternalBrainSpecImpactTrace
             array_map('trim', (array) ($input['evidence_refs'] ?? [])),
             static fn (string $r): bool => $r !== '',
         ));
+        $targetFiles = array_values(array_filter(
+            array_map('trim', (array) ($input['target_files'] ?? [])),
+            static fn (string $f): bool => $f !== '',
+        ));
+        $acceptanceGates = array_values(array_filter(
+            array_map('trim', (array) ($input['acceptance_gates'] ?? [])),
+            static fn (string $g): bool => $g !== '',
+        ));
+        $commitGreen = array_key_exists('commit_green', $input) ? (bool) $input['commit_green'] : null;
 
         $dimensions = $this->normalizeDimensions((array) ($input['leverage_dimensions'] ?? []));
         $leverageScore = isset($input['leverage_score'])
@@ -114,6 +144,11 @@ final class AtlasExternalBrainSpecImpactTrace
             ? 0.0
             : round((count($impactPath) / 4) * max(0.25, $leverageScore > 0 ? min(1.0, $leverageScore) : 1.0), 4);
 
+        // AC3: a green commit with no capability or impact evidence is a broken link, regardless
+        // of whether every other pillar happens to be filled in.
+        $brokenLink = $commitGreen === true && ($capDelta === '' || $evidenceAfterCommit === '');
+        $brokenLinkReason = $brokenLink ? 'commit_green_without_capability_or_impact_evidence' : '';
+
         return [
             'schema'                => self::SCHEMA,
             'task_id'               => $taskId,
@@ -135,6 +170,10 @@ final class AtlasExternalBrainSpecImpactTrace
             'confidence'            => $confidence,
             'missing_evidence'      => $unverifiableReasons,
             'insufficient_evidence' => $insufficientEvidence,
+            'target_files'          => $targetFiles,
+            'acceptance_gates'      => $acceptanceGates,
+            'broken_link'           => $brokenLink,
+            'broken_link_reason'    => $brokenLinkReason,
         ];
     }
 
@@ -170,15 +209,33 @@ final class AtlasExternalBrainSpecImpactTrace
             }
         }
 
+        $total = count($specs);
+
+        // AC4: recommend a concrete repair per untraceable spec, and report batch trace coverage.
+        $repairRecommendations = [];
+        foreach ($unverifiable as $t) {
+            $hints = array_values(array_filter(array_map(
+                static fn (string $r): string => self::REPAIR_HINTS[$r] ?? '',
+                $t['unverifiable_reasons'],
+            ), static fn (string $h): bool => $h !== ''));
+            $repairRecommendations[] = [
+                'task_id'            => $t['task_id'],
+                'unverifiable_reasons' => $t['unverifiable_reasons'],
+                'recommended_repair' => $hints,
+            ];
+        }
+
         return [
             'verifiable'   => $verifiable,
             'unverifiable' => $unverifiable,
             'stats'        => [
-                'total'               => count($specs),
+                'total'               => $total,
                 'verifiable_count'    => count($verifiable),
                 'unverifiable_count'  => count($unverifiable),
                 'reason_counts'       => $reasonCounts,
+                'coverage_rate'       => $total > 0 ? round(count($verifiable) / $total, 4) : 0.0,
             ],
+            'repair_recommendations' => $repairRecommendations,
         ];
     }
 

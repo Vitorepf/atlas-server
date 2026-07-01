@@ -363,4 +363,133 @@ final class AtlasExternalBrainSpecImpactTraceTest extends TestCase
         $this->assertArrayHasKey('reason_counts', $result['stats']);
         $this->assertSame(2, $result['stats']['reason_counts']['no_evidence_origin']);
     }
+
+    // ── AC2: target files + acceptance gates ────────────────────────────────────
+
+    public function test_target_files_and_acceptance_gates_passed_through(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput([
+            'target_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'acceptance_gates' => ['php artisan test tests/Unit/FooTest.php', 'php artisan test tests/Feature/FooTest.php'],
+        ]));
+
+        $this->assertSame(['app/Services/Foo.php', 'tests/Unit/FooTest.php'], $result['target_files']);
+        $this->assertSame(['php artisan test tests/Unit/FooTest.php', 'php artisan test tests/Feature/FooTest.php'], $result['acceptance_gates']);
+    }
+
+    public function test_target_files_and_acceptance_gates_default_to_empty(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput());
+
+        $this->assertSame([], $result['target_files']);
+        $this->assertSame([], $result['acceptance_gates']);
+    }
+
+    public function test_blank_target_files_and_gates_filtered_out(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput([
+            'target_files' => ['', '  ', 'app/Real.php'],
+            'acceptance_gates' => ['', 'php artisan test'],
+        ]));
+
+        $this->assertSame(['app/Real.php'], $result['target_files']);
+        $this->assertSame(['php artisan test'], $result['acceptance_gates']);
+    }
+
+    // ── AC3: broken link when commit is green but no capability/impact evidence ──
+
+    public function test_commit_green_without_capability_delta_marks_broken_link(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput([
+            'commit_green' => true,
+            'capability_delta' => '',
+        ]));
+
+        $this->assertTrue($result['broken_link']);
+        $this->assertSame('commit_green_without_capability_or_impact_evidence', $result['broken_link_reason']);
+    }
+
+    public function test_commit_green_without_evidence_after_commit_marks_broken_link(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput([
+            'commit_green' => true,
+            'evidence_after_commit' => '',
+        ]));
+
+        $this->assertTrue($result['broken_link']);
+    }
+
+    public function test_commit_green_with_full_evidence_is_not_broken_link(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput(['commit_green' => true]));
+
+        $this->assertFalse($result['broken_link']);
+        $this->assertSame('', $result['broken_link_reason']);
+    }
+
+    public function test_commit_not_green_never_marks_broken_link_even_without_evidence(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput([
+            'commit_green' => false,
+            'capability_delta' => '',
+            'evidence_after_commit' => '',
+        ]));
+
+        $this->assertFalse($result['broken_link']);
+    }
+
+    public function test_commit_green_absent_never_marks_broken_link(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput([
+            'capability_delta' => '',
+            'evidence_after_commit' => '',
+        ]));
+
+        $this->assertFalse($result['broken_link']);
+    }
+
+    // ── AC4: audit coverage rate + repair recommendations ───────────────────────
+
+    public function test_audit_reports_coverage_rate(): void
+    {
+        $specs = [
+            $this->fullInput(['task_id' => 'good-1']),
+            $this->fullInput(['task_id' => 'good-2']),
+            $this->fullInput(['task_id' => 'bad-1', 'evidence_refs' => []]),
+        ];
+
+        $result = $this->tracer()->audit($specs);
+
+        $this->assertEqualsWithDelta(0.6667, $result['stats']['coverage_rate'], 0.001);
+    }
+
+    public function test_audit_coverage_rate_zero_when_empty(): void
+    {
+        $result = $this->tracer()->audit([]);
+
+        $this->assertSame(0.0, $result['stats']['coverage_rate']);
+    }
+
+    public function test_audit_recommends_repair_for_untraceable_specs(): void
+    {
+        $specs = [
+            $this->fullInput(['task_id' => 'good-1']),
+            $this->fullInput(['task_id' => 'bad-1', 'evidence_refs' => [], 'capability_delta' => '']),
+        ];
+
+        $result = $this->tracer()->audit($specs);
+
+        $this->assertCount(1, $result['repair_recommendations']);
+        $rec = $result['repair_recommendations'][0];
+        $this->assertSame('bad-1', $rec['task_id']);
+        $this->assertNotEmpty($rec['recommended_repair']);
+        $this->assertStringContainsString('evidence_ref', $rec['recommended_repair'][0]);
+    }
+
+    public function test_audit_repair_recommendations_empty_when_all_verifiable(): void
+    {
+        $result = $this->tracer()->audit([$this->fullInput()]);
+
+        $this->assertSame([], $result['repair_recommendations']);
+    }
 }
