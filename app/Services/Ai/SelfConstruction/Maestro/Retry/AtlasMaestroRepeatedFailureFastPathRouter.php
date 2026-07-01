@@ -9,15 +9,24 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Retry;
  * before any muscle wastes further cycles on a known-broken spec.
  *
  * Priority order (first match wins):
- *   1. operator_only=true            → operator_only_lane
- *   2. give_back >= RETIRE threshold → retire_lane
- *   3. give_back >= REPEAT + dep stale|missing → unblock_lane
- *   4. give_back >= REPEAT + scope signal      → rescope_lane
- *   5. poison_risk=high                        → retire_lane
- *   6. gate_failure_count >= GATE threshold    → rescope_lane
- *   7. default                                 → normal_serve
+ *   1. operator_only=true                                  → operator_only_lane (retire_packet)
+ *   2. forbidden_self_target + give_back>0                 → rescope_lane (rescope_packet)
+ *   3. test_only_missing_implementation + give_back>0       → rescope_lane (rescope_packet)
+ *   4. contradictory_acceptance=true                        → rescope_lane (rescope_packet, acceptance repair hint)
+ *   5. give_back >= RETIRE threshold                        → retire_lane, UNLESS the failures are
+ *      attributable to a single worker (worker_give_back_counts), in which case → rescope_lane
+ *      (a bad worker history alone must not retire an otherwise-valid packet).
+ *   6. give_back >= REPEAT + dep stale|missing               → unblock_lane
+ *   7. give_back >= REPEAT + scope signal                    → rescope_lane
+ *   8. poison_risk=high                                      → retire_lane
+ *   9. gate_failure_count >= GATE threshold                  → rescope_lane
+ *  10. default                                                → normal_serve
  *
  * First-time or low-count failures are always normal_serve.
+ *
+ * `fast_path_action` exposes the same routing as one of the four downstream-facing verbs
+ * (rescope_packet, retire_packet, unblock_dependency, keep_serving); `lane` keeps the
+ * finer-grained internal lane name for diagnostics.
  */
 final class AtlasMaestroRepeatedFailureFastPathRouter
 {
@@ -33,17 +42,35 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
 
     public const LANE_OPERATOR_ONLY = 'operator_only_lane';
 
+    public const ACTION_RESCOPE = 'rescope_packet';
+
+    public const ACTION_RETIRE = 'retire_packet';
+
+    public const ACTION_UNBLOCK = 'unblock_dependency';
+
+    public const ACTION_KEEP_SERVING = 'keep_serving';
+
     public const GIVE_BACK_REPEAT_THRESHOLD = 3;
 
     public const GIVE_BACK_RETIRE_THRESHOLD = 8;
 
     public const GATE_REPEAT_THRESHOLD = 3;
 
+    private const LANE_TO_ACTION = [
+        self::LANE_NORMAL => self::ACTION_KEEP_SERVING,
+        self::LANE_RESCOPE => self::ACTION_RESCOPE,
+        self::LANE_UNBLOCK => self::ACTION_UNBLOCK,
+        self::LANE_RETIRE => self::ACTION_RETIRE,
+        self::LANE_OPERATOR_ONLY => self::ACTION_RETIRE,
+    ];
+
     /**
      * @param  array<string,mixed>  $packet  give_back_count, give_back_reasons, poison_risk,
      *                                        scope_repair_done, dependency_state,
-     *                                        gate_failure_count, operator_only
-     * @return array{schema_version:string, lane:string, confidence:float, reason:string}
+     *                                        gate_failure_count, operator_only,
+     *                                        forbidden_self_target, test_only_missing_implementation,
+     *                                        contradictory_acceptance, worker_give_back_counts
+     * @return array{schema_version:string, lane:string, fast_path_action:string, confidence:float, reason:string, repair_hint:?string}
      */
     public function route(array $packet): array
     {
@@ -57,12 +84,58 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
         $scopeRepairDone = (bool) ($packet['scope_repair_done'] ?? false);
         $dependencyState = trim((string) ($packet['dependency_state'] ?? 'ok'));
         $gateFailureCount = max(0, (int) ($packet['gate_failure_count'] ?? 0));
+        $forbiddenSelfTarget = (bool) ($packet['forbidden_self_target'] ?? false);
+        $testOnlyMissingImplementation = (bool) ($packet['test_only_missing_implementation'] ?? false);
+        $contradictoryAcceptance = (bool) ($packet['contradictory_acceptance'] ?? false);
+        $workerGiveBackCounts = array_filter(
+            array_map('intval', (array) ($packet['worker_give_back_counts'] ?? [])),
+            static fn (int $c): bool => $c > 0,
+        );
 
         if ($operatorOnly) {
             return $this->out(self::LANE_OPERATOR_ONLY, 0.98, 'operator_only=true');
         }
 
+        if ($forbiddenSelfTarget && $giveBackCount > 0) {
+            return $this->out(
+                self::LANE_RESCOPE,
+                0.92,
+                'forbidden_self_target_blocks_further_serving',
+                'Remove the forbidden self-target file from allowed_files before re-serving this packet.',
+            );
+        }
+
+        if ($testOnlyMissingImplementation && $giveBackCount > 0) {
+            return $this->out(
+                self::LANE_RESCOPE,
+                0.90,
+                'test_only_missing_implementation_blocks_further_serving',
+                'Add the missing implementation file to allowed_files; a test-only scope cannot be served as-is.',
+            );
+        }
+
+        if ($contradictoryAcceptance) {
+            return $this->out(
+                self::LANE_RESCOPE,
+                0.93,
+                'contradictory_acceptance',
+                'Correct the contradictory acceptance_criteria bullets before re-serving; this is a spec defect, not a retry candidate.',
+            );
+        }
+
         if ($giveBackCount >= self::GIVE_BACK_RETIRE_THRESHOLD) {
+            $singleWorkerResponsible = count($workerGiveBackCounts) === 1
+                && array_sum($workerGiveBackCounts) === $giveBackCount;
+
+            if ($singleWorkerResponsible) {
+                return $this->out(
+                    self::LANE_RESCOPE,
+                    0.75,
+                    'give_back_count_high_but_single_worker_responsible:'.$giveBackCount,
+                    'Reassign this packet to a different worker before retiring it; failures are concentrated in one worker history.',
+                );
+            }
+
             return $this->out(self::LANE_RETIRE, 0.95, 'give_back_count_high:'.$giveBackCount);
         }
 
@@ -92,15 +165,17 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
     }
 
     /**
-     * @return array{schema_version:string, lane:string, confidence:float, reason:string}
+     * @return array{schema_version:string, lane:string, fast_path_action:string, confidence:float, reason:string, repair_hint:?string}
      */
-    private function out(string $lane, float $confidence, string $reason): array
+    private function out(string $lane, float $confidence, string $reason, ?string $repairHint = null): array
     {
         return [
             'schema_version' => self::SCHEMA,
             'lane' => $lane,
+            'fast_path_action' => self::LANE_TO_ACTION[$lane],
             'confidence' => $confidence,
             'reason' => $reason,
+            'repair_hint' => $repairHint,
         ];
     }
 }

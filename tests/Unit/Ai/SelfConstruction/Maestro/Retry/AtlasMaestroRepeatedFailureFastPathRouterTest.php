@@ -136,6 +136,89 @@ final class AtlasMaestroRepeatedFailureFastPathRouterTest extends TestCase
         $this->assertEqualsWithDelta(0.80, $r['confidence'], 0.01);
     }
 
+    // ── fast_path_action mapping ─────────────────────────────────────────────
+
+    public function test_fast_path_action_mirrors_lane_for_each_scenario(): void
+    {
+        $normal = $this->route();
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_KEEP_SERVING, $normal['fast_path_action']);
+
+        $retire = $this->route(['give_back_count' => AtlasMaestroRepeatedFailureFastPathRouter::GIVE_BACK_RETIRE_THRESHOLD]);
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_RETIRE, $retire['fast_path_action']);
+
+        $rescope = $this->route(['gate_failure_count' => AtlasMaestroRepeatedFailureFastPathRouter::GATE_REPEAT_THRESHOLD]);
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_RESCOPE, $rescope['fast_path_action']);
+
+        $unblock = $this->route([
+            'give_back_count' => AtlasMaestroRepeatedFailureFastPathRouter::GIVE_BACK_REPEAT_THRESHOLD,
+            'dependency_state' => 'stale',
+        ]);
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_UNBLOCK, $unblock['fast_path_action']);
+
+        $operatorOnly = $this->route(['operator_only' => true]);
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_RETIRE, $operatorOnly['fast_path_action']);
+    }
+
+    // ── forbidden self-target / test-only missing implementation ────────────
+
+    public function test_forbidden_self_target_does_not_keep_serving_after_give_back(): void
+    {
+        $r = $this->route(['forbidden_self_target' => true, 'give_back_count' => 1]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_RESCOPE, $r['fast_path_action']);
+        $this->assertNotEmpty($r['repair_hint']);
+    }
+
+    public function test_test_only_missing_implementation_does_not_keep_serving_after_give_back(): void
+    {
+        $r = $this->route(['test_only_missing_implementation' => true, 'give_back_count' => 1]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_RESCOPE, $r['fast_path_action']);
+        $this->assertNotEmpty($r['repair_hint']);
+    }
+
+    public function test_forbidden_self_target_with_zero_give_backs_still_keeps_serving(): void
+    {
+        $r = $this->route(['forbidden_self_target' => true, 'give_back_count' => 0]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_KEEP_SERVING, $r['fast_path_action']);
+    }
+
+    // ── contradictory acceptance ─────────────────────────────────────────────
+
+    public function test_contradictory_acceptance_routes_to_rescope_with_acceptance_repair_hint(): void
+    {
+        $r = $this->route(['contradictory_acceptance' => true]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_RESCOPE, $r['fast_path_action']);
+        $this->assertSame('contradictory_acceptance', $r['reason']);
+        $this->assertStringContainsString('acceptance', $r['repair_hint']);
+        $this->assertStringNotContainsString('generic retry', $r['repair_hint']);
+    }
+
+    // ── worker-specific vs packet-global poison ──────────────────────────────
+
+    public function test_single_worker_responsible_for_all_give_backs_rescopes_instead_of_retires(): void
+    {
+        $r = $this->route([
+            'give_back_count' => AtlasMaestroRepeatedFailureFastPathRouter::GIVE_BACK_RETIRE_THRESHOLD,
+            'worker_give_back_counts' => ['worker-x' => AtlasMaestroRepeatedFailureFastPathRouter::GIVE_BACK_RETIRE_THRESHOLD],
+        ]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_RESCOPE, $r['fast_path_action']);
+        $this->assertStringContainsString('single_worker_responsible', $r['reason']);
+    }
+
+    public function test_multiple_workers_sharing_give_backs_still_retires(): void
+    {
+        $r = $this->route([
+            'give_back_count' => AtlasMaestroRepeatedFailureFastPathRouter::GIVE_BACK_RETIRE_THRESHOLD,
+            'worker_give_back_counts' => ['worker-x' => 4, 'worker-y' => 4],
+        ]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::ACTION_RETIRE, $r['fast_path_action']);
+    }
+
     // ── schema & structure ────────────────────────────────────────────────────
 
     public function test_schema_version_always_present(): void
