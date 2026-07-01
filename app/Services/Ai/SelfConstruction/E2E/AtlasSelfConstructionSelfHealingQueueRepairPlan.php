@@ -50,11 +50,18 @@ final class AtlasSelfConstructionSelfHealingQueueRepairPlan
 
     public const BUCKET_REFUSED = 'refused';
 
+    public const BUCKET_RETIRE = 'retire';
+
+    public const BUCKET_REQUEUE = 'requeue';
+
+    /** malformed packets that survived this many prior repair attempts are respec-or-retired, not re-templated forever. */
+    public const MALFORMED_RESPEC_OR_RETIRE_THRESHOLD = 2;
+
     /** claimable_per_active_worker at/below this is a worker-floor breach. */
     public const WORKER_FLOOR_THRESHOLD = 2.0;
 
     /**
-     * @param  list<array{packet_id?:string, malformed?:bool, repeated_returns?:int, missing_dependency?:string, stuck?:bool, scope_repaired?:bool, emergency_kind?:string, recoverable_blocked_family?:string, has_implementation_scope?:bool, has_runnable_acceptance?:bool, prefer_top_up?:bool}>  $packets
+     * @param  list<array{packet_id?:string, malformed?:bool, malformed_repair_attempts?:int, repeated_returns?:int, missing_dependency?:string, stuck?:bool, scope_repaired?:bool, emergency_kind?:string, recoverable_blocked_family?:string, has_implementation_scope?:bool, has_runnable_acceptance?:bool, prefer_top_up?:bool, duplicate_of?:string, is_stale?:bool, stale_reason?:string, released_recoverable?:bool}>  $packets
      * @param  array{claimable_per_active_worker?: float}  $context
      * @return array{schema:string, actions:list<array{bucket:string, packet_id:string, action:string, reason:string}>, summary:array<string,int>}
      */
@@ -82,6 +89,45 @@ final class AtlasSelfConstructionSelfHealingQueueRepairPlan
             if ($emergency !== '') {
                 $actions[] = ['bucket' => self::BUCKET_OPERATOR_VISIBLE, 'packet_id' => $id, 'action' => 'visibility_only', 'reason' => 'emergency:'.$emergency];
                 $summary[self::BUCKET_OPERATOR_VISIBLE] = ($summary[self::BUCKET_OPERATOR_VISIBLE] ?? 0) + 1;
+
+                continue;
+            }
+
+            // Duplicate or stale packets are dead weight — retire them with an explicit reason,
+            // never silently re-serve. Checked before recoverable/quarantine signals since a
+            // packet flagged duplicate/stale is terminal regardless of other symptoms.
+            $duplicateOf = trim((string) ($p['duplicate_of'] ?? ''));
+            if ($duplicateOf !== '') {
+                $actions[] = ['bucket' => self::BUCKET_RETIRE, 'packet_id' => $id, 'action' => 'retire_packet', 'reason' => 'duplicate_of:'.$duplicateOf];
+                $summary[self::BUCKET_RETIRE] = ($summary[self::BUCKET_RETIRE] ?? 0) + 1;
+
+                continue;
+            }
+            if ((bool) ($p['is_stale'] ?? false)) {
+                $staleReason = trim((string) ($p['stale_reason'] ?? ''));
+                $actions[] = ['bucket' => self::BUCKET_RETIRE, 'packet_id' => $id, 'action' => 'retire_packet', 'reason' => 'stale'.($staleReason !== '' ? ':'.$staleReason : '')];
+                $summary[self::BUCKET_RETIRE] = ($summary[self::BUCKET_RETIRE] ?? 0) + 1;
+
+                continue;
+            }
+
+            // A recoverable packet whose lease was released (worker gave it back cleanly, not
+            // poisoned) goes straight back into the claimable pool — Atlas-native, no respec needed.
+            if ((bool) ($p['released_recoverable'] ?? false)) {
+                $actions[] = ['bucket' => self::BUCKET_REQUEUE, 'packet_id' => $id, 'action' => 'requeue_packet', 'reason' => 'recoverable_lease_released'];
+                $summary[self::BUCKET_REQUEUE] = ($summary[self::BUCKET_REQUEUE] ?? 0) + 1;
+
+                continue;
+            }
+
+            // Malformed packets that have already exhausted repeated template-repair attempts
+            // are respec-or-retired instead of being re-templated forever (fail closed, never
+            // muscle-served): >= threshold prior attempts routes here; below threshold falls
+            // through unchanged to the existing template_repair path.
+            $malformedAttempts = (int) ($p['malformed_repair_attempts'] ?? 0);
+            if ((bool) ($p['malformed'] ?? false) && $malformedAttempts >= self::MALFORMED_RESPEC_OR_RETIRE_THRESHOLD) {
+                $actions[] = ['bucket' => self::BUCKET_RESPEC, 'packet_id' => $id, 'action' => 'enqueue_respec_packet', 'reason' => 'malformed_repair_exhausted_respec_or_retire:'.$malformedAttempts];
+                $summary[self::BUCKET_RESPEC] = ($summary[self::BUCKET_RESPEC] ?? 0) + 1;
 
                 continue;
             }

@@ -210,4 +210,64 @@ final class AtlasSelfConstructionSelfHealingQueueRepairPlanTest extends TestCase
 
         $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_TEMPLATE, $r['actions'][0]['bucket']);
     }
+
+    // ── distinguishing malformed / recoverable / duplicate / stale (AC) ─────────
+
+    public function test_malformed_packet_with_exhausted_repair_attempts_routes_to_respec_not_muscle_serve(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            [
+                'packet_id' => 'p-mal-exhausted',
+                'malformed' => true,
+                'malformed_repair_attempts' => AtlasSelfConstructionSelfHealingQueueRepairPlan::MALFORMED_RESPEC_OR_RETIRE_THRESHOLD,
+            ],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_RESPEC, $r['actions'][0]['bucket']);
+        $this->assertSame('enqueue_respec_packet', $r['actions'][0]['action']);
+        $this->assertNotSame('muscle_serve', $r['actions'][0]['action']);
+        $this->assertStringContainsString('malformed_repair_exhausted', $r['actions'][0]['reason']);
+    }
+
+    public function test_malformed_packet_below_repair_attempt_threshold_still_template_repairs(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            ['packet_id' => 'p-mal-fresh', 'malformed' => true, 'malformed_repair_attempts' => 1],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_TEMPLATE, $r['actions'][0]['bucket']);
+        $this->assertNotSame('muscle_serve', $r['actions'][0]['action']);
+    }
+
+    public function test_released_recoverable_packet_routes_to_requeue(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            ['packet_id' => 'p-recov', 'released_recoverable' => true],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_REQUEUE, $r['actions'][0]['bucket']);
+        $this->assertSame('requeue_packet', $r['actions'][0]['action']);
+    }
+
+    public function test_duplicate_packet_routes_to_retire_with_reason(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            ['packet_id' => 'p-dup', 'duplicate_of' => 'p-orig'],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_RETIRE, $r['actions'][0]['bucket']);
+        $this->assertSame('retire_packet', $r['actions'][0]['action']);
+        $this->assertStringContainsString('duplicate_of:p-orig', $r['actions'][0]['reason']);
+    }
+
+    public function test_stale_packet_routes_to_retire_with_reason(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            ['packet_id' => 'p-stale', 'is_stale' => true, 'stale_reason' => 'scope_no_longer_exists'],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_RETIRE, $r['actions'][0]['bucket']);
+        $this->assertSame('retire_packet', $r['actions'][0]['action']);
+        $this->assertStringContainsString('stale:scope_no_longer_exists', $r['actions'][0]['reason']);
+    }
 }
