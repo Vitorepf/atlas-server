@@ -66,4 +66,116 @@ final class AtlasBrainResearchSourceRegistryTest extends TestCase
         ]);
         self::assertSame('on_demand', $reg->sources()[0]['cadence']);
     }
+
+    // ── AC: sourcesEnriched() carries trust tier, freshness, domains, anti-hype note ──
+
+    public function test_enriched_sources_carry_trust_tier_freshness_domains_and_anti_hype_note(): void
+    {
+        $reg = new AtlasBrainResearchSourceRegistry;
+        $ground = $reg->enrichedForTier('ground')[0];
+
+        self::assertSame('grounded', $ground['trust_tier']);
+        self::assertArrayHasKey('freshness_bucket', $ground);
+        self::assertNotEmpty($ground['applicability_domains']);
+        self::assertNotEmpty($ground['anti_hype_note']);
+    }
+
+    public function test_trust_tier_ranks_grounded_above_verified_above_exploratory(): void
+    {
+        $reg = new AtlasBrainResearchSourceRegistry;
+        $byTier = [];
+        foreach ($reg->sourcesEnriched() as $s) {
+            $byTier[$s['tier']] = $s['trust_tier'];
+        }
+
+        self::assertSame('grounded', $byTier['ground']);
+        self::assertSame('verified', $byTier['read']);
+        self::assertSame('exploratory', $byTier['discover']);
+    }
+
+    // ── AC: tier filtering ───────────────────────────────────────────────────────
+
+    public function test_enriched_for_tier_returns_only_matching_tier(): void
+    {
+        $reg = new AtlasBrainResearchSourceRegistry;
+        $read = $reg->enrichedForTier('read');
+
+        self::assertNotEmpty($read);
+        foreach ($read as $s) {
+            self::assertSame('read', $s['tier']);
+        }
+    }
+
+    // ── AC: stale source demotion ────────────────────────────────────────────────
+
+    public function test_stale_source_is_demoted_below_fresh_source_of_same_trust_tier(): void
+    {
+        $reg = new AtlasBrainResearchSourceRegistry([
+            ['url_pattern' => 'https://fresh.example/a', 'tier' => 'read', 'cadence' => 'on_demand'],
+            ['url_pattern' => 'https://stale.example/b', 'tier' => 'read', 'cadence' => 'on_demand'],
+        ]);
+
+        $preferred = $reg->preferredSources([
+            'https://fresh.example/a' => 1,
+            'https://stale.example/b' => 999,
+        ]);
+
+        self::assertSame('https://fresh.example/a', $preferred[0]['url_pattern']);
+        self::assertSame('fresh', $preferred[0]['freshness_bucket']);
+        self::assertSame('stale', $preferred[1]['freshness_bucket']);
+    }
+
+    public function test_missing_freshness_evidence_is_unknown_not_assumed_fresh(): void
+    {
+        $reg = new AtlasBrainResearchSourceRegistry([
+            ['url_pattern' => 'https://x.example/', 'tier' => 'discover', 'cadence' => 'weekly'],
+        ]);
+
+        $enriched = $reg->sourcesEnriched();
+
+        self::assertSame('unknown', $enriched[0]['freshness_bucket']);
+    }
+
+    public function test_grounded_source_outranks_fresh_exploratory_source(): void
+    {
+        $reg = new AtlasBrainResearchSourceRegistry([
+            ['url_pattern' => 'https://trend.example/', 'tier' => 'discover', 'cadence' => 'weekly'],
+            ['url_pattern' => 'https://paper.example/', 'tier' => 'ground', 'cadence' => 'on_demand'],
+        ]);
+
+        $preferred = $reg->preferredSources(['https://trend.example/' => 1]);
+
+        self::assertSame('https://paper.example/', $preferred[0]['url_pattern'], 'grounded always outranks exploratory, fresh or not');
+    }
+
+    // ── AC: domain filtering ──────────────────────────────────────────────────────
+
+    public function test_for_domain_returns_only_sources_applicable_to_that_domain(): void
+    {
+        $reg = new AtlasBrainResearchSourceRegistry;
+        $researchGrounding = $reg->forDomain('research_grounding');
+
+        self::assertNotEmpty($researchGrounding);
+        foreach ($researchGrounding as $s) {
+            self::assertContains('research_grounding', $s['applicability_domains']);
+        }
+    }
+
+    public function test_for_unknown_domain_returns_empty(): void
+    {
+        $reg = new AtlasBrainResearchSourceRegistry;
+
+        self::assertSame([], $reg->forDomain('not_a_real_domain'));
+    }
+
+    // ── AC: deterministic ordering ────────────────────────────────────────────────
+
+    public function test_preferred_sources_ordering_is_deterministic(): void
+    {
+        $reg = new AtlasBrainResearchSourceRegistry;
+        $a = $reg->preferredSources(['https://github.com/*' => 1, 'https://arxiv.org/*' => 1]);
+        $b = $reg->preferredSources(['https://github.com/*' => 1, 'https://arxiv.org/*' => 1]);
+
+        self::assertSame($a, $b);
+    }
 }
