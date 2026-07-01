@@ -224,4 +224,71 @@ class AtlasAiSelfConstructionAgentCodexProcessSpawnEnablementGateTest extends Te
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── evaluateSpawnReadiness (AC) ───────────────────────────────────────────
+
+    private function readyFacts(array $overrides = []): array
+    {
+        return array_merge([
+            'queue_health' => 'healthy',
+            'active_lease' => ['present' => true, 'is_stale' => false],
+            'scope_lock' => ['status' => 'clean'],
+            'provider_readiness' => 'verified',
+        ], $overrides);
+    }
+
+    public function test_all_clean_facts_enable_spawn(): void
+    {
+        $result = app(AgentCodexProcessSpawnEnablementGate::class)->evaluateSpawnReadiness($this->readyFacts());
+
+        $this->assertTrue($result['enable_spawn']);
+        $this->assertNull($result['block_reason']);
+        $this->assertNull($result['recovery_hint']);
+    }
+
+    public function test_unhealthy_queue_blocks_spawn(): void
+    {
+        $result = app(AgentCodexProcessSpawnEnablementGate::class)
+            ->evaluateSpawnReadiness($this->readyFacts(['queue_health' => 'degraded']));
+
+        $this->assertFalse($result['enable_spawn']);
+        $this->assertStringContainsString('queue_unhealthy', $result['block_reason']);
+        $this->assertNotNull($result['recovery_hint']);
+    }
+
+    public function test_stale_lease_blocks_spawn(): void
+    {
+        $result = app(AgentCodexProcessSpawnEnablementGate::class)
+            ->evaluateSpawnReadiness($this->readyFacts(['active_lease' => ['present' => true, 'is_stale' => true]]));
+
+        $this->assertFalse($result['enable_spawn']);
+        $this->assertSame('active_lease_stale', $result['block_reason']);
+    }
+
+    public function test_missing_lease_blocks_spawn(): void
+    {
+        $result = app(AgentCodexProcessSpawnEnablementGate::class)
+            ->evaluateSpawnReadiness($this->readyFacts(['active_lease' => ['present' => false]]));
+
+        $this->assertFalse($result['enable_spawn']);
+        $this->assertSame('active_lease_missing', $result['block_reason']);
+    }
+
+    public function test_conflicting_scope_lock_blocks_spawn(): void
+    {
+        $result = app(AgentCodexProcessSpawnEnablementGate::class)
+            ->evaluateSpawnReadiness($this->readyFacts(['scope_lock' => ['status' => 'conflicting']]));
+
+        $this->assertFalse($result['enable_spawn']);
+        $this->assertStringContainsString('scope_lock_conflicting', $result['block_reason']);
+    }
+
+    public function test_unverified_provider_readiness_blocks_spawn(): void
+    {
+        $result = app(AgentCodexProcessSpawnEnablementGate::class)
+            ->evaluateSpawnReadiness($this->readyFacts(['provider_readiness' => 'unverified']));
+
+        $this->assertFalse($result['enable_spawn']);
+        $this->assertStringContainsString('provider_readiness_unverified', $result['block_reason']);
+    }
 }

@@ -19,6 +19,58 @@ class AgentCodexProcessSpawnEnablementGate
     ) {}
 
     /**
+     * Pure pre-flight readiness check — independent of enableCodexProcessSpawn()'s DB/ledger path.
+     * Spawn is enabled only when queue health, active lease freshness, scope lock cleanliness, and
+     * provider readiness are ALL clean; the first failing check wins as the reported block_reason.
+     *
+     * @param  array{queue_health?:string, active_lease?:array{present?:bool, is_stale?:bool},
+     *                scope_lock?:array{status?:string}, provider_readiness?:string}  $facts
+     * @return array{enable_spawn:bool, block_reason:?string, recovery_hint:?string}
+     */
+    public function evaluateSpawnReadiness(array $facts): array
+    {
+        $queueHealth = (string) ($facts['queue_health'] ?? 'unknown');
+        $activeLease = is_array($facts['active_lease'] ?? null) ? $facts['active_lease'] : [];
+        $leasePresent = (bool) ($activeLease['present'] ?? false);
+        $leaseStale = (bool) ($activeLease['is_stale'] ?? false);
+        $scopeLock = is_array($facts['scope_lock'] ?? null) ? $facts['scope_lock'] : [];
+        $scopeLockStatus = (string) ($scopeLock['status'] ?? 'unknown');
+        $providerReadiness = (string) ($facts['provider_readiness'] ?? 'unverified');
+
+        if ($queueHealth !== 'healthy') {
+            return $this->spawnVerdict(false, 'queue_unhealthy:'.$queueHealth, 'wait_for_queue_health_to_recover_before_enabling_spawn');
+        }
+
+        if (! $leasePresent) {
+            return $this->spawnVerdict(false, 'active_lease_missing', 'claim_a_lease_before_enabling_spawn');
+        }
+
+        if ($leaseStale) {
+            return $this->spawnVerdict(false, 'active_lease_stale', 'renew_or_reclaim_the_lease_before_enabling_spawn');
+        }
+
+        if ($scopeLockStatus !== 'clean') {
+            return $this->spawnVerdict(false, 'scope_lock_conflicting:'.$scopeLockStatus, 'resolve_scope_conflict_before_enabling_spawn');
+        }
+
+        if ($providerReadiness !== 'verified') {
+            return $this->spawnVerdict(false, 'provider_readiness_unverified:'.$providerReadiness, 'verify_provider_readiness_before_enabling_spawn');
+        }
+
+        return $this->spawnVerdict(true, null, null);
+    }
+
+    /** @return array{enable_spawn:bool, block_reason:?string, recovery_hint:?string} */
+    private function spawnVerdict(bool $enable, ?string $blockReason, ?string $recoveryHint): array
+    {
+        return [
+            'enable_spawn' => $enable,
+            'block_reason' => $blockReason,
+            'recovery_hint' => $recoveryHint,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
