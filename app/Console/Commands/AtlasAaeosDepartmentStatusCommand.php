@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
@@ -22,6 +23,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
 {
     protected $signature = 'atlas:aaeos:department-status
         {--quality-bar : Include the quality-bar breach signal emission}
+        {--claim-file= : Path to a JSON completion claim to validate against the Definition of Done}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Show AAEOS per-department maturity (L0..L7) and numeric quality bar.';
@@ -31,6 +33,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         AtlasAaeosQualityBarService $qualityBar,
         AtlasAaeosDepartmentMaturityBandClassifier $bandClassifier,
         AtlasAaeosDepartmentPromotionEligibilityEvaluator $promotionEligibility,
+        AtlasAaeosClaimDefinitionOfDoneValidator $claimValidator,
     ): int {
         $qualityBarResult = $qualityBar->qualityBar();
         $maturityResult = $maturity->maturity();
@@ -44,6 +47,16 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         ];
         if ((bool) $this->option('quality-bar')) {
             $payload['quality_bar_signal'] = $qualityBar->emitSignal();
+        }
+
+        // Optional: a department status report may attach evidence-vs-narrative validation for a
+        // completion claim, so promotion readouts stop resting on narrative-only self-reports.
+        $claimFile = trim((string) $this->option('claim-file'));
+        if ($claimFile !== '' && is_file($claimFile)) {
+            $claim = json_decode((string) file_get_contents($claimFile), true);
+            if (is_array($claim)) {
+                $payload['claim_validation'] = $claimValidator->validate($claim);
+            }
         }
 
         if ((bool) $this->option('json')) {
