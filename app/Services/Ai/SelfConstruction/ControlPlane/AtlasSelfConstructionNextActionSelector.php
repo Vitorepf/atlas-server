@@ -51,6 +51,10 @@ final class AtlasSelfConstructionNextActionSelector
 
     public const ACTION_HOLD_POSITION = 'hold_position';
 
+    public const ACTION_REPLENISH = 'replenish';
+
+    public const ACTION_STRUCTURAL_ORIGINATION = 'structural_origination';
+
     /**
      * @param  array<string,mixed>  $organReadiness
      * @param  array<string,mixed>  $scopeGate
@@ -137,6 +141,29 @@ final class AtlasSelfConstructionNextActionSelector
         if ((int) ($workQueue['tasks_pending_workers'] ?? 0) > 0) {
             return $this->envelope(self::ACTION_SCHEDULE_WORKERS, ['tasks_pending_workers'], $scopeGate);
         }
+
+        // 7.5. AUTONOMOUS OS SUPPLY POLICY — when active_leases is known, apply the
+        // servable_now/active_leases multiplier floor directly: a replenish_recommendation
+        // of sufficient_depth must never mean stop while supply is this thin relative to
+        // active workers. Opt-in (only engages when active_leases is explicitly supplied),
+        // so callers that never set it keep byte-identical behavior.
+        $servableNowForSupplyPolicy = (int) ($workQueue['servable_now'] ?? 0);
+        $activeLeases = isset($workQueue['active_leases']) ? (int) $workQueue['active_leases'] : null;
+        if ($activeLeases !== null && $activeLeases > 0) {
+            $replenishFloor = $activeLeases * 5;
+            $structuralFloor = $activeLeases * 10;
+            if ($servableNowForSupplyPolicy < $replenishFloor) {
+                return $this->envelope(self::ACTION_REPLENISH, [
+                    'supply_policy:servable_now_'.$servableNowForSupplyPolicy.'_below_replenish_floor_'.$replenishFloor,
+                ], $scopeGate);
+            }
+            if ($servableNowForSupplyPolicy < $structuralFloor) {
+                return $this->envelope(self::ACTION_STRUCTURAL_ORIGINATION, [
+                    'supply_policy:servable_now_'.$servableNowForSupplyPolicy.'_below_structural_floor_'.$structuralFloor,
+                ], $scopeGate);
+            }
+        }
+
         // 8.4. WORKER-SAFETY STARVATION FLOOR — when servable_now falls below the
         // floor, replenishing the backlog takes priority over scheduling the
         // few workers still claimable, since scheduling alone would starve the

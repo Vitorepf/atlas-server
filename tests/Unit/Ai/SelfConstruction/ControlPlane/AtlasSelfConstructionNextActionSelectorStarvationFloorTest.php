@@ -190,4 +190,92 @@ final class AtlasSelfConstructionNextActionSelectorStarvationFloorTest extends T
 
         $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_HOLD_POSITION, $verdict['action']);
     }
+
+    // ── Autonomous OS supply policy: active_leases multiplier floor ──
+
+    private function supplyPolicyQueue(array $overrides = []): array
+    {
+        return array_merge([
+            'open_verifications' => 0,
+            'ready_to_promote' => 0,
+            'tasks_pending_workers' => 0,
+            'backlog_acceptance_items' => 0,
+            'idle_workers' => 0,
+            'claimable_depth' => 0,
+            'malformed_count' => 0,
+            'poison_packets' => 0,
+            'stale_active_leases' => 0,
+            'servability_floor' => 0,
+        ], $overrides);
+    }
+
+    public function test_supply_policy_returns_replenish_when_servable_now_below_5x_active_leases(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select(
+            $this->readyOrgans(),
+            $this->scopeAllowed(),
+            $this->execMode(),
+            $this->supplyPolicyQueue(['active_leases' => 4, 'servable_now' => 19]),
+        );
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPLENISH, $verdict['action']);
+    }
+
+    public function test_supply_policy_returns_structural_origination_between_5x_and_10x_even_when_sufficient_depth_claimed(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select(
+            $this->readyOrgans(),
+            $this->scopeAllowed(),
+            $this->execMode(),
+            $this->supplyPolicyQueue([
+                'active_leases' => 4,
+                'servable_now' => 25,
+                'replenish_recommendation' => 'sufficient_depth',
+            ]),
+        );
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_STRUCTURAL_ORIGINATION, $verdict['action']);
+    }
+
+    public function test_supply_policy_allows_normal_flow_at_or_above_15x_active_leases(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select(
+            $this->readyOrgans(),
+            $this->scopeAllowed(),
+            $this->execMode(),
+            $this->supplyPolicyQueue([
+                'active_leases' => 4,
+                'servable_now' => 60,
+                'replenish_recommendation' => 'sufficient_depth',
+            ]),
+        );
+
+        $this->assertNotSame(AtlasSelfConstructionNextActionSelector::ACTION_REPLENISH, $verdict['action']);
+        $this->assertNotSame(AtlasSelfConstructionNextActionSelector::ACTION_STRUCTURAL_ORIGINATION, $verdict['action']);
+    }
+
+    public function test_supply_policy_does_not_engage_when_active_leases_absent(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select(
+            $this->readyOrgans(),
+            $this->scopeAllowed(),
+            $this->execMode(),
+            $this->supplyPolicyQueue(['servable_now' => 1]),
+        );
+
+        $this->assertNotSame(AtlasSelfConstructionNextActionSelector::ACTION_REPLENISH, $verdict['action']);
+        $this->assertNotSame(AtlasSelfConstructionNextActionSelector::ACTION_STRUCTURAL_ORIGINATION, $verdict['action']);
+    }
+
+    public function test_malformed_queue_still_takes_priority_over_supply_policy(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select(
+            $this->readyOrgans(),
+            $this->scopeAllowed(),
+            $this->execMode(),
+            $this->supplyPolicyQueue(['active_leases' => 4, 'servable_now' => 1, 'malformed_count' => 2]),
+        );
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_QUEUE, $verdict['action']);
+    }
 }
