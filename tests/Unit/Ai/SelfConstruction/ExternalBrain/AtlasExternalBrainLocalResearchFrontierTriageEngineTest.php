@@ -27,6 +27,8 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngineTest extends Test
             'implementation_risk'              => 0.0,
             'provider_steady_state_dependency' => false,
             'expected_compounding_impact'      => 0.5,
+            'implementation_target'            => 'App\\Services\\SomeService.php',
+            'test_target'                      => 'tests/Unit/SomeServiceTest.php',
         ], $overrides);
     }
 
@@ -486,6 +488,38 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngineTest extends Test
         ]);
         $this->assertSame(1, $r['promising_count']);
         $this->assertGreaterThan(0.80, $r['promising'][0]['evidence_quality_score']); // bonus from has_code
+    }
+
+    // ── AC2: missing implementation/test target holds for review ──────────────
+
+    public function test_high_evidence_row_missing_implementation_target_is_held_not_promoted(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['evidence_strength' => 0.95, 'implementation_target' => ''])],
+        ]);
+        $this->assertSame(0, $r['promising_count']);
+        $this->assertSame(1, $r['hold_for_review_count']);
+        $this->assertSame('held_for_review', $r['hold_for_review'][0]['task_readiness_status']);
+    }
+
+    public function test_high_evidence_row_missing_test_target_is_held_not_promoted(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['evidence_strength' => 0.95, 'test_target' => ''])],
+        ]);
+        $this->assertSame(0, $r['promising_count']);
+        $this->assertSame(1, $r['hold_for_review_count']);
+    }
+
+    public function test_promising_row_includes_task_readiness_fields(): void
+    {
+        $r = $this->engine()->triage(['frontier_rows' => [$this->row()]]);
+        $entry = $r['promising'][0];
+        $this->assertSame('task_ready', $entry['task_readiness_status']);
+        $this->assertNotEmpty($entry['implementation_target']);
+        $this->assertNotEmpty($entry['test_target']);
+        $this->assertArrayHasKey('expected_compounding_impact', $entry);
+        $this->assertNull($entry['rejection_or_hold_reason']);
     }
 
     // ── Determinism ───────────────────────────────────────────────────────────

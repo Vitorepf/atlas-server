@@ -141,11 +141,28 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
                 continue;
             }
 
-            // 6. Promising — AC2: include task_seed_hints.
+            // 6. Promising — AC2: include task_seed_hints. A row cannot become task-ready
+            // without a known implementation_target AND test_target, no matter how strong
+            // its evidence — it holds for review instead of promoting on evidence alone.
             if ($evidence >= self::PROMISING_MIN && ($hasCode || $hasBenchmark)) {
+                if ($implTarget === '' || $testTarget === '') {
+                    $holdForReview[] = array_merge($entry, [
+                        'reason'                    => 'missing_implementation_or_test_target',
+                        'task_readiness_status'     => 'held_for_review',
+                        'implementation_target'     => $implTarget,
+                        'test_target'               => $testTarget,
+                        'rejection_or_hold_reason'  => 'missing_implementation_or_test_target',
+                    ]);
+                    continue;
+                }
+
                 $promising[] = array_merge($entry, [
-                    'has_code'       => $hasCode,
-                    'has_benchmark'  => $hasBenchmark,
+                    'has_code'                 => $hasCode,
+                    'has_benchmark'            => $hasBenchmark,
+                    'task_readiness_status'    => 'task_ready',
+                    'implementation_target'    => $implTarget,
+                    'test_target'              => $testTarget,
+                    'rejection_or_hold_reason' => null,
                     'task_seed_hints' => [
                         'implementation_target' => $implTarget,
                         'test_target'           => $testTarget,
