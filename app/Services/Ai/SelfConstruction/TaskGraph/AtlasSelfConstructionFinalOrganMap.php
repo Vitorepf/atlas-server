@@ -49,6 +49,45 @@ final class AtlasSelfConstructionFinalOrganMap
 
     public const ORGAN_FINAL_COMPLETION = 'final_completion';
 
+    public const GROUP_EXTERNAL_BRAIN = 'External Brain';
+
+    public const GROUP_INTERNAL_BRAIN = 'Internal Brain';
+
+    public const GROUP_TASK_FABRIC = 'Task Fabric';
+
+    public const GROUP_MAESTRO = 'Maestro';
+
+    public const GROUP_PROOF_SYSTEM = 'Proof System';
+
+    public const GROUP_KNOWLEDGE_SYNC = 'Knowledge Sync';
+
+    public const GROUP_SIMPLIFICATION = 'Simplification';
+
+    /**
+     * Assigns every canonical organ to exactly one circuit group so the maturity gap index
+     * (AC3) can distinguish External Brain / Internal Brain / Task Fabric / Maestro /
+     * Proof System / Knowledge Sync / Simplification circuits.
+     */
+    private const CIRCUIT_GROUPS = [
+        self::ORGAN_CORTEX => self::GROUP_INTERNAL_BRAIN,
+        self::ORGAN_GOAL_AND_VALUE => self::GROUP_INTERNAL_BRAIN,
+        self::ORGAN_STRATEGY_COUNCIL => self::GROUP_INTERNAL_BRAIN,
+        self::ORGAN_ARCHITECTURE_COUNCIL => self::GROUP_INTERNAL_BRAIN,
+        self::ORGAN_TASK_FABRIC => self::GROUP_TASK_FABRIC,
+        self::ORGAN_MAESTRO => self::GROUP_MAESTRO,
+        self::ORGAN_WORKER_SWARM => self::GROUP_MAESTRO,
+        self::ORGAN_VERIFICATION_COURT => self::GROUP_PROOF_SYSTEM,
+        self::ORGAN_MERGE_GOVERNOR => self::GROUP_PROOF_SYSTEM,
+        self::ORGAN_RECEIPTS => self::GROUP_PROOF_SYSTEM,
+        self::ORGAN_FINAL_COMPLETION => self::GROUP_PROOF_SYSTEM,
+        self::ORGAN_LEARNING_TRANSFER => self::GROUP_EXTERNAL_BRAIN,
+        self::ORGAN_AUTOPOIESIS_LOOP => self::GROUP_EXTERNAL_BRAIN,
+        self::ORGAN_DOCS_KNOWLEDGE_SYNC => self::GROUP_KNOWLEDGE_SYNC,
+        self::ORGAN_CODE_INTELLIGENCE => self::GROUP_KNOWLEDGE_SYNC,
+        self::ORGAN_OPERATOR_VISIBILITY => self::GROUP_SIMPLIFICATION,
+        self::ORGAN_MULTI_PROJECT_STEWARDSHIP => self::GROUP_SIMPLIFICATION,
+    ];
+
     /**
      * @return array<string,mixed>
      */
@@ -325,6 +364,108 @@ final class AtlasSelfConstructionFinalOrganMap
             'circuit_gaps' => $circuitGaps,
             'consolidation_candidates' => $consolidationCandidates,
         ];
+    }
+
+    /**
+     * Maturity gap index: per-organ maturity, evidence level, missing circuits, duplicate
+     * risk and next task family, plus the single next highest-leverage task family across
+     * the whole map. Ranking prefers capability completion (missing organs), then closing
+     * circuits, then consolidating duplicate-risk organs, over generic hardening — so it
+     * never recommends additive sprawl beyond the canonical organ list.
+     *
+     * @param  array{
+     *   implemented?: list<string>, has_tests?: list<string>, wired?: list<string>,
+     *   duplicate_low_value_organs?: list<array{organ_id?: string, duplicate_of?: string, value_score?: float}>,
+     * }  $facts
+     * @return array{schema: string, entries: list<array<string,mixed>>, next_highest_leverage_task_family: ?string}
+     */
+    public function maturityGapIndex(array $facts): array
+    {
+        $view = $this->coverageView($facts);
+        $circuits = $this->circuitReport($facts);
+
+        $implemented = array_flip($view['implemented_organs']);
+        $hasTests    = array_flip((array) ($facts['has_tests'] ?? []));
+        $wired       = array_flip((array) ($facts['wired'] ?? []));
+
+        $duplicateOfCounts = [];
+        foreach ($circuits['consolidation_candidates'] as $candidate) {
+            $dup = (string) $candidate['duplicate_of'];
+            if ($dup !== '') {
+                $duplicateOfCounts[$dup] = ($duplicateOfCounts[$dup] ?? 0) + 1;
+            }
+        }
+
+        $entries = [];
+        foreach ($this->organs() as $organ) {
+            $id = $organ['organ_id'];
+            $isImplemented = isset($implemented[$id]);
+            $isTested      = isset($hasTests[$id]);
+            $isWired       = isset($wired[$id]);
+
+            $evidenceLevel = ! $isImplemented ? 'none' : (($isTested && $isWired) ? 'full' : 'partial');
+
+            $missingCircuits = [];
+            foreach ($circuits['circuit_gaps'] as $gap) {
+                if ($gap['from'] === $id || $gap['to'] === $id) {
+                    $missingCircuits[] = $gap['circuit'];
+                }
+            }
+
+            $duplicateRisk = ($duplicateOfCounts[$id] ?? 0) > 0;
+
+            $maturity = match (true) {
+                ! $isImplemented => 'not_started',
+                $evidenceLevel === 'full' && $missingCircuits === [] && ! $duplicateRisk => 'mature',
+                default => 'in_progress',
+            };
+
+            $nextTaskFamily = match (true) {
+                ! $isImplemented => 'implement_'.$id,
+                ! $isTested => 'add_test_coverage_'.$id,
+                ! $isWired => 'wire_'.$id,
+                $missingCircuits !== [] => 'close_circuit_'.$missingCircuits[0],
+                $duplicateRisk => 'consolidate_duplicate_of_'.$id,
+                default => 'harden_'.$id,
+            };
+
+            $entries[] = [
+                'organ_id'         => $id,
+                'circuit_group'    => self::CIRCUIT_GROUPS[$id] ?? 'unclassified',
+                'maturity'         => $maturity,
+                'evidence_level'   => $evidenceLevel,
+                'missing_circuits' => $missingCircuits,
+                'duplicate_risk'   => $duplicateRisk,
+                'next_task_family' => $nextTaskFamily,
+            ];
+        }
+
+        usort($entries, static function (array $a, array $b): int {
+            return self::gapRank($a) <=> self::gapRank($b);
+        });
+
+        return [
+            'schema'                             => self::SCHEMA,
+            'entries'                             => $entries,
+            'next_highest_leverage_task_family'   => $entries[0]['next_task_family'] ?? null,
+        ];
+    }
+
+    /**
+     * Priority band (lower = more urgent): missing capability (1) > broken circuit (2) >
+     * duplicate-risk consolidation (3) > other in-progress hardening (4) > mature (5).
+     *
+     * @param  array<string,mixed>  $entry
+     */
+    private static function gapRank(array $entry): int
+    {
+        return match (true) {
+            $entry['maturity'] === 'not_started' => 1,
+            $entry['missing_circuits'] !== [] => 2,
+            (bool) $entry['duplicate_risk'] => 3,
+            $entry['maturity'] === 'in_progress' => 4,
+            default => 5,
+        };
     }
 
     /**

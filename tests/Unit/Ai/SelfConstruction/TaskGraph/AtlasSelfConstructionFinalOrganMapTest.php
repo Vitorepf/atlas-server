@@ -183,4 +183,126 @@ class AtlasSelfConstructionFinalOrganMapTest extends TestCase
             self::assertGreaterThanOrEqual($ranks[$i - 1], $ranks[$i]);
         }
     }
+
+    // ---------- maturityGapIndex ----------
+
+    public function test_maturity_gap_index_has_one_entry_per_organ_with_required_fields(): void
+    {
+        $map = new AtlasSelfConstructionFinalOrganMap;
+        $index = $map->maturityGapIndex([]);
+
+        self::assertSame(AtlasSelfConstructionFinalOrganMap::SCHEMA, $index['schema']);
+        self::assertCount(count($map->organs()), $index['entries']);
+        foreach ($index['entries'] as $entry) {
+            foreach (['organ_id', 'circuit_group', 'maturity', 'evidence_level', 'missing_circuits', 'duplicate_risk', 'next_task_family'] as $key) {
+                self::assertArrayHasKey($key, $entry, "entry missing key: {$key}");
+            }
+        }
+        self::assertArrayHasKey('next_highest_leverage_task_family', $index);
+    }
+
+    public function test_maturity_gap_index_distinguishes_the_seven_canonical_circuit_groups(): void
+    {
+        $index = (new AtlasSelfConstructionFinalOrganMap)->maturityGapIndex([]);
+        $groups = array_unique(array_column($index['entries'], 'circuit_group'));
+
+        foreach ([
+            AtlasSelfConstructionFinalOrganMap::GROUP_EXTERNAL_BRAIN,
+            AtlasSelfConstructionFinalOrganMap::GROUP_INTERNAL_BRAIN,
+            AtlasSelfConstructionFinalOrganMap::GROUP_TASK_FABRIC,
+            AtlasSelfConstructionFinalOrganMap::GROUP_MAESTRO,
+            AtlasSelfConstructionFinalOrganMap::GROUP_PROOF_SYSTEM,
+            AtlasSelfConstructionFinalOrganMap::GROUP_KNOWLEDGE_SYNC,
+            AtlasSelfConstructionFinalOrganMap::GROUP_SIMPLIFICATION,
+        ] as $expectedGroup) {
+            self::assertContains($expectedGroup, $groups, "circuit group missing: {$expectedGroup}");
+        }
+    }
+
+    public function test_maturity_gap_index_not_implemented_organ_is_not_started_with_none_evidence(): void
+    {
+        $index = (new AtlasSelfConstructionFinalOrganMap)->maturityGapIndex([]);
+        $cortex = current(array_filter($index['entries'], fn ($e) => $e['organ_id'] === AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX));
+
+        self::assertSame('not_started', $cortex['maturity']);
+        self::assertSame('none', $cortex['evidence_level']);
+        self::assertSame('implement_'.AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX, $cortex['next_task_family']);
+    }
+
+    public function test_maturity_gap_index_fully_covered_organ_with_no_missing_circuits_or_duplicates_is_mature(): void
+    {
+        // code_intelligence does not participate in any canonical circuit, so full evidence
+        // alone is enough for it to be mature.
+        $index = (new AtlasSelfConstructionFinalOrganMap)->maturityGapIndex([
+            'implemented' => [AtlasSelfConstructionFinalOrganMap::ORGAN_CODE_INTELLIGENCE],
+            'has_tests'   => [AtlasSelfConstructionFinalOrganMap::ORGAN_CODE_INTELLIGENCE],
+            'wired'       => [AtlasSelfConstructionFinalOrganMap::ORGAN_CODE_INTELLIGENCE],
+        ]);
+        $entry = current(array_filter($index['entries'], fn ($e) => $e['organ_id'] === AtlasSelfConstructionFinalOrganMap::ORGAN_CODE_INTELLIGENCE));
+
+        self::assertSame('full', $entry['evidence_level']);
+        self::assertSame([], $entry['missing_circuits']);
+        self::assertFalse($entry['duplicate_risk']);
+        self::assertSame('mature', $entry['maturity']);
+    }
+
+    public function test_maturity_gap_index_reports_missing_circuits_for_participating_organ(): void
+    {
+        $index = (new AtlasSelfConstructionFinalOrganMap)->maturityGapIndex([
+            'implemented' => [AtlasSelfConstructionFinalOrganMap::ORGAN_TASK_FABRIC],
+            'has_tests'   => [AtlasSelfConstructionFinalOrganMap::ORGAN_TASK_FABRIC],
+            'wired'       => [AtlasSelfConstructionFinalOrganMap::ORGAN_TASK_FABRIC],
+        ]);
+        $taskFabric = current(array_filter($index['entries'], fn ($e) => $e['organ_id'] === AtlasSelfConstructionFinalOrganMap::ORGAN_TASK_FABRIC));
+
+        self::assertContains('brain_to_knowledge_sync', $taskFabric['missing_circuits']);
+        self::assertSame('in_progress', $taskFabric['maturity']);
+        self::assertSame('close_circuit_brain_to_knowledge_sync', $taskFabric['next_task_family']);
+    }
+
+    public function test_maturity_gap_index_flags_duplicate_risk_and_recommends_consolidation(): void
+    {
+        $index = (new AtlasSelfConstructionFinalOrganMap)->maturityGapIndex([
+            'implemented' => [AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+            'has_tests'   => [AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+            'wired'       => [AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+            'duplicate_low_value_organs' => [
+                ['organ_id' => 'maestro_legacy_router', 'duplicate_of' => AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+            ],
+        ]);
+        $maestro = current(array_filter($index['entries'], fn ($e) => $e['organ_id'] === AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO));
+
+        self::assertTrue($maestro['duplicate_risk']);
+        self::assertSame('in_progress', $maestro['maturity']);
+        self::assertSame('consolidate_duplicate_of_'.AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO, $maestro['next_task_family']);
+    }
+
+    public function test_maturity_gap_index_next_highest_leverage_prefers_missing_over_duplicate_and_hardening(): void
+    {
+        // maestro: implemented + tested + wired but duplicate-risk (band 3)
+        // everything else canonical and unimplemented (band 1) except maestro itself
+        $index = (new AtlasSelfConstructionFinalOrganMap)->maturityGapIndex([
+            'implemented' => [AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+            'has_tests'   => [AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+            'wired'       => [AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+            'duplicate_low_value_organs' => [
+                ['organ_id' => 'maestro_legacy_router', 'duplicate_of' => AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+            ],
+        ]);
+
+        self::assertStringStartsWith('implement_', $index['next_highest_leverage_task_family']);
+        self::assertSame('not_started', $index['entries'][0]['maturity']);
+    }
+
+    public function test_maturity_gap_index_is_deterministic(): void
+    {
+        $facts = [
+            'implemented' => [AtlasSelfConstructionFinalOrganMap::ORGAN_RECEIPTS],
+            'has_tests'   => [AtlasSelfConstructionFinalOrganMap::ORGAN_RECEIPTS],
+            'wired'       => [AtlasSelfConstructionFinalOrganMap::ORGAN_RECEIPTS],
+        ];
+        $map = new AtlasSelfConstructionFinalOrganMap;
+
+        self::assertSame($map->maturityGapIndex($facts), $map->maturityGapIndex($facts));
+    }
 }
