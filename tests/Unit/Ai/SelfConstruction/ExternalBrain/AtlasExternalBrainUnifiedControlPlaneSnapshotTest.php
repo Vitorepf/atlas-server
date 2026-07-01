@@ -410,4 +410,86 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshotTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC2: unified final-readiness vocabulary ───────────────────────────────
+
+    public function test_snapshot_includes_unified_final_readiness_fields(): void
+    {
+        $r = $this->snapshot->compose($this->healthy());
+
+        foreach (['maturity_band', 'final_readiness', 'queue_state', 'worker_state', 'proof_state', 'blockers', 'recommended_next_decision'] as $key) {
+            $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
+        }
+    }
+
+    // ── AC4: green final-ready snapshot ────────────────────────────────────────
+
+    public function test_green_final_ready_snapshot_has_no_blockers(): void
+    {
+        $r = $this->snapshot->compose($this->healthy());
+
+        $this->assertSame('final_ready', $r['maturity_band']);
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::STATUS_GREEN, $r['status']);
+        $this->assertSame('healthy', $r['queue_state']);
+        $this->assertSame('healthy', $r['worker_state']);
+        $this->assertSame('fresh', $r['proof_state']);
+        $this->assertSame([], $r['blockers']);
+    }
+
+    // ── AC4: stale proof yellow ─────────────────────────────────────────────────
+
+    public function test_stale_evidence_yields_yellow_and_stale_proof_state(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['evidence_age_hours' => 96.0]));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::STATUS_YELLOW, $r['status']);
+        $this->assertSame('stale', $r['proof_state']);
+        $this->assertSame('near_ready', $r['maturity_band']);
+        $this->assertContains('knowledge_sync_freshness', $r['blockers']);
+    }
+
+    // ── AC4: missing pillar red ────────────────────────────────────────────────
+
+    public function test_missing_final_certification_pillar_yields_red(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['task_fabric_quality_status' => 'degraded']));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::STATUS_RED, $r['status']);
+        $this->assertSame('not_ready', $r['maturity_band']);
+        $this->assertContains('task_fabric_quality', $r['blockers']);
+        $this->assertContains('task_fabric_quality_status:degraded', $r['top_risks']);
+    }
+
+    public function test_provider_independence_failing_yields_red(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['provider_independence_status' => 'failing']));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::STATUS_RED, $r['status']);
+        $this->assertContains('provider_independence', $r['blockers']);
+    }
+
+    // ── AC4: worker-feed risk red ──────────────────────────────────────────────
+
+    public function test_worker_feed_risk_yields_red_and_unsafe_worker_state(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['worker_success_rate' => 0.30]));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::STATUS_RED, $r['status']);
+        $this->assertSame('unsafe', $r['worker_state']);
+        $this->assertSame('not_ready', $r['maturity_band']);
+    }
+
+    public function test_moderate_worker_degradation_yields_degraded_worker_state(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['worker_success_rate' => 0.65]));
+
+        $this->assertSame('degraded', $r['worker_state']);
+    }
+
+    public function test_recommended_next_decision_matches_next_decision(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['maturity_gap_count' => 4]));
+
+        $this->assertSame($r['next_decision'], $r['recommended_next_decision']);
+    }
 }

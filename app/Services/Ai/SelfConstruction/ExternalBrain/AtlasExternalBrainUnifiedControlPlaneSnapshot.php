@@ -88,6 +88,7 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
             $queuePressure, $simplPressure, $amplifierStatus,
             $workerSuccessRate, $giveBackRate, $malformedRate, $taskValueDegrading, $muscleOutcomeDegrading,
             $evidenceFreshnessStatus, $integrationCoverageStatus,
+            $providerIndependenceStatus, $taskFabricQualityStatus,
         );
 
         $nextDecision = $this->resolveDecision(
@@ -100,6 +101,49 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
             $simplPressure, $amplifierStatus, $taskValueDegrading, $muscleOutcomeDegrading, $maturityGapCount,
             $taskFabricQualityStatus,
         );
+
+        $readiness = [
+            'provider_independence'    => $providerIndependenceStatus,
+            'model_amplifier'          => $amplifierStatus,
+            'task_fabric_quality'      => $taskFabricQualityStatus,
+            'knowledge_sync_freshness' => $evidenceFreshnessStatus,
+        ];
+        $readinessHealthyValues = [
+            'provider_independence' => 'ready',
+            'model_amplifier' => 'healthy',
+            'task_fabric_quality' => 'healthy',
+            'knowledge_sync_freshness' => 'fresh',
+        ];
+        $blockers = [];
+        foreach ($readinessHealthyValues as $pillar => $healthyValue) {
+            if ($readiness[$pillar] !== $healthyValue) {
+                $blockers[] = $pillar;
+            }
+        }
+        sort($blockers, SORT_STRING);
+
+        $workerState = match (true) {
+            $workerSuccessRate < self::SUCCESS_RATE_RED_CEILING
+                || $giveBackRate > self::GIVE_BACK_RED_FLOOR
+                || $malformedRate > self::MALFORMED_RED_FLOOR => 'unsafe',
+            $workerSuccessRate < self::SUCCESS_RATE_YELLOW_CEILING
+                || $giveBackRate > self::GIVE_BACK_YELLOW_FLOOR => 'degraded',
+            default => 'healthy',
+        };
+
+        $queueState = ($queuePressure === 'high' || $simplPressure === 'high') ? 'pressured' : 'healthy';
+
+        $proofState = match (true) {
+            $evidenceFreshnessStatus === 'stale' => 'stale',
+            $integrationCoverageStatus === 'weak' => 'weak',
+            default => 'fresh',
+        };
+
+        $maturityBand = match ($status) {
+            self::STATUS_RED    => 'not_ready',
+            self::STATUS_YELLOW => 'near_ready',
+            default             => 'final_ready',
+        };
 
         return [
             'schema'                     => self::SCHEMA,
@@ -116,12 +160,15 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
             'evidence_freshness_status'  => $evidenceFreshnessStatus,
             'final_readiness_percent'    => $finalReadinessPercent,
             'integration_coverage_status' => $integrationCoverageStatus,
-            'readiness'                  => [
-                'provider_independence'    => $providerIndependenceStatus,
-                'model_amplifier'          => $amplifierStatus,
-                'task_fabric_quality'      => $taskFabricQualityStatus,
-                'knowledge_sync_freshness' => $evidenceFreshnessStatus,
-            ],
+            'readiness'                  => $readiness,
+            // AC2: one honest final-readiness snapshot vocabulary for operator + native governor.
+            'maturity_band'              => $maturityBand,
+            'final_readiness'            => $finalReadinessPercent,
+            'queue_state'                => $queueState,
+            'worker_state'               => $workerState,
+            'proof_state'                => $proofState,
+            'blockers'                   => $blockers,
+            'recommended_next_decision'  => $nextDecision,
         ];
     }
 
@@ -137,6 +184,8 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         bool   $muscleOutcomeDegrading,
         string $evidenceFreshnessStatus,
         string $integrationCoverageStatus,
+        string $providerIndependenceStatus,
+        string $taskFabricQualityStatus,
     ): array {
         $risks = [];
 
@@ -152,6 +201,15 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         }
         if ($amplifierStatus === 'rollback_candidate') {
             $risks[] = 'model_amplifier_status:rollback_candidate';
+        }
+        // A missing final-certification pillar (provider independence failing, or the task
+        // fabric itself degraded) is as severe as any other red condition — never just a
+        // yellow/watch footnote.
+        if ($providerIndependenceStatus === 'failing') {
+            $risks[] = 'provider_independence_status:failing';
+        }
+        if ($taskFabricQualityStatus === 'degraded') {
+            $risks[] = 'task_fabric_quality_status:degraded';
         }
 
         if ($risks !== []) {
