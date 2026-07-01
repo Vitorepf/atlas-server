@@ -680,4 +680,70 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
 
         $this->assertFalse($candidate['claimable']);
     }
+
+    // ── deletion-first refactor ranking (AC) ──────────────────────────────────
+
+    public function test_high_roi_simplification_candidate_outranks_low_impact_feature_gap_when_evidence_fresh(): void
+    {
+        // Multi Project (organ_priority=4) with strong, fresh deletion/dedup/risk-reduction
+        // leverage must outrank Task Fabric (organ_priority=10) with no simplification signal
+        // at all — proving the new dimensions genuinely drive ranking, not just organ priority.
+        $rows = [
+            $this->row('Task Fabric', 'plain_feature', ['suggested_files' => []]),
+            $this->row('Multi Project', 'dedupe_isolation', [
+                'suggested_files' => [],
+                'removed_lines' => 400,
+                'duplicate_cluster_size' => 5,
+                'risk_reduction' => 3,
+                'evidence_age_days' => 1,
+            ]),
+        ];
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked($rows);
+
+        $this->assertSame('Multi Project', $out['candidates'][0]['organ']);
+        $this->assertGreaterThan($out['candidates'][1]['leverage_score'], $out['candidates'][0]['leverage_score']);
+    }
+
+    public function test_deletion_duplicate_and_risk_reduction_bonuses_are_capped_and_reported(): void
+    {
+        $row = $this->row('Maestro', 'big_cleanup', [
+            'removed_lines' => 1000,
+            'duplicate_cluster_size' => 10,
+            'risk_reduction' => 10,
+            'evidence_age_days' => 5,
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row]);
+        $candidate = $out['candidates'][0];
+
+        $this->assertContains('deletion_bonus:5', $candidate['leverage_reasons']);
+        $this->assertContains('duplicate_bonus:3', $candidate['leverage_reasons']);
+        $this->assertContains('risk_reduction_bonus:3', $candidate['leverage_reasons']);
+    }
+
+    public function test_stale_evidence_suppresses_simplification_bonuses(): void
+    {
+        $fresh = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Maestro', 'fresh_cleanup', [
+            'removed_lines' => 400,
+            'duplicate_cluster_size' => 3,
+            'evidence_age_days' => 1,
+        ])]);
+        $stale = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Maestro', 'stale_cleanup', [
+            'removed_lines' => 400,
+            'duplicate_cluster_size' => 3,
+            'evidence_age_days' => 200,
+        ])]);
+
+        $this->assertGreaterThan($stale['candidates'][0]['leverage_score'], $fresh['candidates'][0]['leverage_score']);
+        $this->assertNotContains('deletion_bonus:5', $stale['candidates'][0]['leverage_reasons']);
+    }
+
+    public function test_no_simplification_signal_yields_no_new_bonus_reasons(): void
+    {
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Task Fabric', 'plain_feature')]);
+        $reasons = $out['candidates'][0]['leverage_reasons'];
+
+        $this->assertFalse(array_any($reasons, static fn (string $r): bool => str_starts_with($r, 'deletion_bonus:')));
+        $this->assertFalse(array_any($reasons, static fn (string $r): bool => str_starts_with($r, 'duplicate_bonus:')));
+        $this->assertFalse(array_any($reasons, static fn (string $r): bool => str_starts_with($r, 'risk_reduction_bonus:')));
+    }
 }

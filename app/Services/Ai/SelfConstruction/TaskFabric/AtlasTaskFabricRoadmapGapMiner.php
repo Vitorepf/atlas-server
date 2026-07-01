@@ -413,7 +413,22 @@ final class AtlasTaskFabricRoadmapGapMiner
                 default => 0,
             };
 
-            $leverageScore = $organPriority + $fileBonus + $capabilityDelta + $unblockValue + $maturityRisk;
+            // Deletion-first refactor leverage: a row that declares real deletion/consolidation
+            // signal (removed_lines, duplicate_cluster_size, risk_reduction) only earns the bonus
+            // when its evidence is fresh — a stale simplification claim must not outrank a fresh,
+            // real feature gap on a leverage number nobody can still verify. Missing age ⇒ fresh
+            // (unknown age must not silently zero out every legacy caller's simplification signal).
+            $evidenceAgeDays = isset($row['evidence_age_days']) ? max(0, (int) $row['evidence_age_days']) : null;
+            $evidenceFresh = $evidenceAgeDays === null || $evidenceAgeDays <= 90;
+            $removedLines = max(0, (int) ($row['removed_lines'] ?? 0));
+            $duplicateClusterSize = max(0, (int) ($row['duplicate_cluster_size'] ?? 0));
+            $riskReduction = max(0, (int) ($row['risk_reduction'] ?? 0));
+            $deletionBonus = $evidenceFresh ? min(intdiv($removedLines, 50), 5) : 0;
+            $duplicateBonus = $evidenceFresh ? min($duplicateClusterSize, 3) : 0;
+            $riskReductionBonus = $evidenceFresh ? min($riskReduction, 3) : 0;
+
+            $leverageScore = $organPriority + $fileBonus + $capabilityDelta + $unblockValue + $maturityRisk
+                + $deletionBonus + $duplicateBonus + $riskReductionBonus;
 
             $reasonParts = ["organ_priority:{$organPriority}", "file_bonus:{$fileBonus}"];
             if ($capabilityDelta > 0) {
@@ -424,6 +439,15 @@ final class AtlasTaskFabricRoadmapGapMiner
             }
             if ($maturityRisk > 0) {
                 $reasonParts[] = "maturity_risk:{$maturityRisk}";
+            }
+            if ($deletionBonus > 0) {
+                $reasonParts[] = "deletion_bonus:{$deletionBonus}";
+            }
+            if ($duplicateBonus > 0) {
+                $reasonParts[] = "duplicate_bonus:{$duplicateBonus}";
+            }
+            if ($riskReductionBonus > 0) {
+                $reasonParts[] = "risk_reduction_bonus:{$riskReductionBonus}";
             }
 
             $lane = trim((string) ($row['lane'] ?? ''));
