@@ -35,10 +35,22 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   each inject a targeted guard clause into the critique/repair instructions, so
  *   the runbook compensates for the SPECIFIC failure mode this model is prone to.
  *
+ * ESCALATION TRIGGERS (AC3 — explicit, not left to the escalate step's judgment call):
+ *   ambiguous_architecture      — candidate requires a design decision this model cannot resolve
+ *                                 from evidence alone (multiple plausible implementation paths).
+ *   missing_evidence            — read_state or evidence_replay could not produce a file:line
+ *                                 reference to ground the candidate.
+ *   repeated_low_yield_outputs  — this model has produced N consecutive batches with near-zero
+ *                                 surviving candidates; escalate the origination strategy itself.
+ *
+ * PROVIDER-INDEPENDENCE (AC4): this runbook names no external paid provider anywhere in its
+ * instructions — every step is followable by a local/self-hosted model. provider_independent
+ * is always true; steady-state operation never requires an external paid provider call.
+ *
  * OUTPUT:
  *   { schema, mission, scope, risk_level, model_weaknesses, runbook_steps,
  *     mandatory_artifacts, stop_conditions, escalate_mandatory,
- *     frontier_optional_deepening_steps }
+ *     frontier_optional_deepening_steps, escalation_triggers, provider_independent }
  *
  * PURE / DETERMINISTIC / NO I/O.
  */
@@ -59,6 +71,21 @@ final class AtlasExternalBrainSmallModelRunbookCompiler
         'Are there wiring gaps where built organs are never called — higher value than new organ creation?',
         'Which evidence items point to a recurring failure that no existing task has addressed in the last N cycles?',
         'If this runbook found zero net-new candidates, what does that reveal about the origination frontier?',
+    ];
+
+    private const ESCALATION_TRIGGERS = [
+        [
+            'trigger_id' => 'ambiguous_architecture',
+            'description' => 'A candidate requires a design decision this model cannot resolve from evidence alone (multiple plausible implementation paths) — escalate to a stronger model or the operator instead of guessing.',
+        ],
+        [
+            'trigger_id' => 'missing_evidence',
+            'description' => 'read_state or evidence_replay could not produce a file:line reference to ground the candidate — escalate rather than proceed on an ungrounded claim.',
+        ],
+        [
+            'trigger_id' => 'repeated_low_yield_outputs',
+            'description' => 'This model has produced consecutive batches with near-zero surviving candidates — escalate the origination strategy itself, not just the current candidate.',
+        ],
     ];
 
     /**
@@ -189,6 +216,8 @@ final class AtlasExternalBrainSmallModelRunbookCompiler
             'stop_conditions' => $stopConditions,
             'escalate_mandatory' => $isElevatedRisk,
             'frontier_optional_deepening_steps' => self::FRONTIER_DEEPENING,
+            'escalation_triggers' => self::ESCALATION_TRIGGERS,
+            'provider_independent' => true,
         ];
     }
 }

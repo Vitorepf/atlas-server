@@ -291,4 +291,69 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
 
         $this->assertSame($this->compiler()->compile($input), $this->compiler()->compile($input));
     }
+
+    // ── AC3: explicit escalation triggers ──────────────────────────────────────
+
+    public function test_escalation_triggers_key_present(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $this->assertArrayHasKey('escalation_triggers', $result);
+        $this->assertNotEmpty($result['escalation_triggers']);
+    }
+
+    public function test_escalation_triggers_include_ambiguous_architecture(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $triggerIds = array_column($result['escalation_triggers'], 'trigger_id');
+
+        $this->assertContains('ambiguous_architecture', $triggerIds);
+    }
+
+    public function test_escalation_triggers_include_missing_evidence(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $triggerIds = array_column($result['escalation_triggers'], 'trigger_id');
+
+        $this->assertContains('missing_evidence', $triggerIds);
+    }
+
+    public function test_escalation_triggers_include_repeated_low_yield_outputs(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $triggerIds = array_column($result['escalation_triggers'], 'trigger_id');
+
+        $this->assertContains('repeated_low_yield_outputs', $triggerIds);
+    }
+
+    public function test_every_escalation_trigger_has_a_non_empty_description(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        foreach ($result['escalation_triggers'] as $trigger) {
+            $this->assertArrayHasKey('trigger_id', $trigger);
+            $this->assertArrayHasKey('description', $trigger);
+            $this->assertNotEmpty($trigger['description']);
+        }
+    }
+
+    // ── AC4: provider-independence ───────────────────────────────────────────
+
+    public function test_provider_independent_flag_is_true(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $this->assertTrue($result['provider_independent']);
+    }
+
+    public function test_no_step_instruction_names_a_specific_external_paid_provider(): void
+    {
+        $result = $this->compiler()->compile(['risk_level' => 'high', 'model_weaknesses' => ['template_farming']]);
+
+        foreach ($result['runbook_steps'] as $step) {
+            foreach (['gpt-4', 'gpt-5', 'claude', 'openai', 'anthropic'] as $bannedName) {
+                $this->assertStringNotContainsStringIgnoringCase($bannedName, $step['instruction']);
+            }
+        }
+    }
 }
