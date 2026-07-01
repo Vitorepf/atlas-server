@@ -256,6 +256,112 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         @unlink($ledger);
     }
 
+    // ── AC: cycle result distinguishes no_claimable/command_failed/verification_failed/success/give_back ──
+
+    public function test_no_claimable_outcome_class_is_no_claimable(): void
+    {
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => null,
+        ]);
+
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_NO_CLAIMABLE, $r['outcome_class']);
+    }
+
+    public function test_success_outcome_class_is_success_with_evidence_summary(): void
+    {
+        $ledger = sys_get_temp_dir().'/atlas-cycle-outcome-class-'.bin2hex(random_bytes(4)).'.jsonl';
+
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle(
+            evidenceWriter: new AtlasNativeWorkerEvidenceWriter($ledger),
+        ))->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $this->validClaim(),
+            'report_callback' => fn (array $p) => $p,
+            'verification' => ['passed' => true, 'evidence_refs' => ['tests_or_gates_result', 'implementation_notes']],
+        ]);
+
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_SUCCESS, $r['outcome_class']);
+        self::assertSame([], $r['evidence_summary']['missing']);
+
+        @unlink($ledger);
+    }
+
+    public function test_missing_verification_never_normalizes_into_success(): void
+    {
+        // The AC bug: verification omitted entirely must NEVER be silently treated as passed.
+        $ledger = sys_get_temp_dir().'/atlas-cycle-no-verify-'.bin2hex(random_bytes(4)).'.jsonl';
+
+        $reportPayload = null;
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle(
+            evidenceWriter: new AtlasNativeWorkerEvidenceWriter($ledger),
+        ))->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $this->validClaim(),
+            'report_callback' => function (array $payload) use (&$reportPayload): void {
+                $reportPayload = $payload;
+            },
+            // no 'verification' key supplied at all
+        ]);
+
+        self::assertNotSame('success', $reportPayload['outcome']);
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_VERIFICATION_FAILED, $r['outcome_class']);
+
+        @unlink($ledger);
+    }
+
+    public function test_verification_failed_outcome_class(): void
+    {
+        $ledger = sys_get_temp_dir().'/atlas-cycle-verify-failed-'.bin2hex(random_bytes(4)).'.jsonl';
+
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle(
+            evidenceWriter: new AtlasNativeWorkerEvidenceWriter($ledger),
+        ))->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $this->validClaim(),
+            'report_callback' => fn (array $p) => $p,
+            'verification' => ['passed' => false],
+        ]);
+
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_VERIFICATION_FAILED, $r['outcome_class']);
+        self::assertArrayHasKey('missing', $r['evidence_summary']);
+
+        @unlink($ledger);
+    }
+
+    public function test_command_failed_outcome_class(): void
+    {
+        // An allowlisted command that only ever dry-runs (never reaches 'green') is a genuine
+        // command_failed — distinct from a 'denied' (not-in-allowlist) command, which is give_back.
+        $ledger = sys_get_temp_dir().'/atlas-cycle-command-failed-'.bin2hex(random_bytes(4)).'.jsonl';
+        $claim = $this->validClaim();
+        $claim['task_packet']['gates'] = ['allowed_gate'];
+
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle(
+            evidenceWriter: new AtlasNativeWorkerEvidenceWriter($ledger),
+        ))->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $claim,
+            'report_callback' => fn (array $p) => $p,
+            'verification' => ['passed' => true],
+            'command_plan' => [
+                ['name' => 'allowed_gate', 'argv' => ['true']],
+            ],
+        ]);
+
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_COMMAND_FAILED, $r['outcome_class']);
+
+        @unlink($ledger);
+    }
+
+    public function test_evidence_summary_is_null_before_outcome_mapping(): void
+    {
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([]);
+
+        self::assertNull($r['evidence_summary']);
+        self::assertNull($r['outcome_class']);
+    }
+
     public function test_step_retry_contract_required_keys_present_for_every_status(): void
     {
         $keys = ['failed_or_pending_step', 'retryable', 'required_callback', 'evidence_needed', 'reportable_outcome_reason'];

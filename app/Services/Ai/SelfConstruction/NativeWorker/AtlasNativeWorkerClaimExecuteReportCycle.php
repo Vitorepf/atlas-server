@@ -38,6 +38,18 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
 
     public const STATUS_ERROR = 'error';
 
+    public const OUTCOME_CLASS_NO_CLAIMABLE = 'no_claimable';
+
+    public const OUTCOME_CLASS_COMMAND_FAILED = 'command_failed';
+
+    public const OUTCOME_CLASS_VERIFICATION_FAILED = 'verification_failed';
+
+    public const OUTCOME_CLASS_SUCCESS = 'success';
+
+    public const OUTCOME_CLASS_GIVE_BACK = 'give_back';
+
+    public const OUTCOME_CLASS_OTHER = 'other';
+
     /** @var list<string> */
     public const FORBIDDEN_ACTION_LABELS = [
         'external_provider',
@@ -98,13 +110,14 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         $claimCb = $options['claim_callback'] ?? null;
         $reportCb = $options['report_callback'] ?? null;
         $patchMaterializer = $options['patch_materializer'] ?? null;
-        $verification = is_array($options['verification'] ?? null) ? $options['verification'] : ['passed' => true];
+        // No verification supplied ⇒ NOT proven passed — never normalized into a silent success.
+        $verification = is_array($options['verification'] ?? null) ? $options['verification'] : ['passed' => false];
         $commandPlan = is_array($options['command_plan'] ?? null) ? $options['command_plan'] : [];
 
         if (! is_callable($claimCb)) {
             $blockedActions[] = ['action' => 'claim', 'reason' => 'claim_callback_missing'];
 
-            return $this->envelope(self::STATUS_NO_CLAIM, false, '', '', '', $plannedSteps, $appliedSteps, $blockedActions);
+            return $this->envelope(self::STATUS_NO_CLAIM, false, '', '', '', $plannedSteps, $appliedSteps, $blockedActions, '', [], self::OUTCOME_CLASS_NO_CLAIMABLE);
         }
 
         // 1. CLAIM
@@ -115,7 +128,7 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
             $blockedActions[] = ['action' => 'claim', 'reason' => 'claim_callback_error:'.$e->getMessage()];
         }
         if (! is_array($claim)) {
-            return $this->envelope(self::STATUS_NO_CLAIM, false, '', '', '', $plannedSteps, $appliedSteps, $blockedActions);
+            return $this->envelope(self::STATUS_NO_CLAIM, false, '', '', '', $plannedSteps, $appliedSteps, $blockedActions, '', [], self::OUTCOME_CLASS_NO_CLAIMABLE);
         }
         $appliedSteps[] = 'claim';
 
@@ -235,6 +248,21 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         $outcome = $outcomeMapper->map($normalized, $execution, $verification);
         $appliedSteps[] = 'map_outcome';
         $reportOutcome = (string) $outcome['report_outcome'];
+        $reportReason = (string) ($outcome['report_reason'] ?? '');
+        $outcomeClass = match (true) {
+            $reportOutcome === 'success' => self::OUTCOME_CLASS_SUCCESS,
+            $reportOutcome === 'give_back' || $reportOutcome === 'queue_repair_signal' => self::OUTCOME_CLASS_GIVE_BACK,
+            $reportOutcome === 'failed' && $reportReason === 'verification_failed' => self::OUTCOME_CLASS_VERIFICATION_FAILED,
+            $reportOutcome === 'failed' && $reportReason === 'execution_red_results' => self::OUTCOME_CLASS_COMMAND_FAILED,
+            default => self::OUTCOME_CLASS_OTHER,
+        };
+        $requiredEvidence = array_values((array) ($outcome['evidence_refs']['required'] ?? []));
+        $observedEvidence = array_values((array) ($outcome['evidence_refs']['observed'] ?? []));
+        $evidenceSummary = [
+            'required' => $requiredEvidence,
+            'observed' => $observedEvidence,
+            'missing' => array_values(array_diff($requiredEvidence, $observedEvidence)),
+        ];
 
         // 8. REPORT — only the mapper outcome, only after evidence write.
         if (is_callable($reportCb)) {
@@ -254,7 +282,7 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
             $blockedActions[] = ['action' => 'report', 'reason' => 'report_callback_missing'];
         }
 
-        return $this->envelope(self::STATUS_OK, false, $taskPacketId, $leaseId, $adapterHash, $plannedSteps, $appliedSteps, $blockedActions, $reportOutcome, array_values((array) ($normalized['required_evidence'] ?? [])));
+        return $this->envelope(self::STATUS_OK, false, $taskPacketId, $leaseId, $adapterHash, $plannedSteps, $appliedSteps, $blockedActions, $reportOutcome, array_values((array) ($normalized['required_evidence'] ?? [])), $outcomeClass, $evidenceSummary);
     }
 
     /**
@@ -275,6 +303,8 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         array $blockedActions,
         string $reportOutcome = '',
         array $evidenceNeeded = [],
+        ?string $outcomeClass = null,
+        ?array $evidenceSummary = null,
     ): array {
         $payload = [
             'schema' => self::SCHEMA,
@@ -288,6 +318,8 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
             'applied_steps' => $appliedSteps,
             'blocked_actions' => $blockedActions,
             'report_outcome' => $reportOutcome,
+            'outcome_class' => $outcomeClass,
+            'evidence_summary' => $evidenceSummary,
             'step_retry_contract' => $this->buildStepRetryContract(
                 $status, $dryRun, $plannedSteps, $appliedSteps, $blockedActions, $reportOutcome, $evidenceNeeded,
             ),
