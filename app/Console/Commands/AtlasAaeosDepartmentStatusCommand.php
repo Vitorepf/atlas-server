@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use Illuminate\Console\Command;
@@ -27,11 +28,15 @@ class AtlasAaeosDepartmentStatusCommand extends Command
     public function handle(
         AtlasAaeosDepartmentMaturityService $maturity,
         AtlasAaeosQualityBarService $qualityBar,
+        AtlasAaeosDepartmentMaturityBandClassifier $bandClassifier,
     ): int {
+        $qualityBarResult = $qualityBar->qualityBar();
+
         $payload = [
             'schema_version' => 'atlas.aaeos.department_status.v1',
             'maturity' => $maturity->maturity(),
-            'quality_bar' => $qualityBar->qualityBar(),
+            'quality_bar' => $qualityBarResult,
+            'maturity_band_classification' => $this->classifyQualityBarBands($bandClassifier, $qualityBarResult),
         ];
         if ((bool) $this->option('quality-bar')) {
             $payload['quality_bar_signal'] = $qualityBar->emitSignal();
@@ -60,5 +65,40 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Builds a single-band, single-metric ladder from the real quality-bar
+     * threshold/current per department and classifies each department against
+     * it, so the maturity band classifier runs on real data instead of a
+     * fabricated ladder.
+     *
+     * @param  array<string,mixed>  $qualityBarResult
+     * @return array<string,mixed>
+     */
+    private function classifyQualityBarBands(AtlasAaeosDepartmentMaturityBandClassifier $bandClassifier, array $qualityBarResult): array
+    {
+        $bandLadders = [];
+        $snapshots = [];
+
+        foreach ((array) ($qualityBarResult['departments'] ?? []) as $department) {
+            $id = (string) ($department['department'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+
+            $bandLadders[$id] = [
+                [
+                    'band' => 'meets_quality_bar',
+                    'rank' => 0,
+                    'thresholds' => [
+                        ['metric' => 'quality_score', 'comparator' => '>=', 'value' => (float) ($department['threshold'] ?? 0.0)],
+                    ],
+                ],
+            ];
+            $snapshots[$id] = ['quality_score' => (float) ($department['current'] ?? 0.0)];
+        }
+
+        return $bandClassifier->classifyDepartments($bandLadders, $snapshots);
     }
 }
