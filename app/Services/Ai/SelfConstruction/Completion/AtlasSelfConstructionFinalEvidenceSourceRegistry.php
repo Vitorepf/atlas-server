@@ -144,7 +144,17 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
 
         sort($blockers, SORT_STRING);
 
-        return ['schema_version' => self::SCHEMA, 'passed' => $blockers === [], 'blockers' => $blockers];
+        $blockerSummary = ['missing' => [], 'stale' => [], 'insufficient' => [], 'unexpected' => [], 'unknown' => []];
+        foreach ($blockers as $blocker) {
+            $blockerSummary[$this->categorizeBlocker($blocker)][] = $blocker;
+        }
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'passed' => $blockers === [],
+            'blockers' => $blockers,
+            'blocker_summary' => $blockerSummary,
+        ];
     }
 
     /**
@@ -521,5 +531,23 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
                 ],
             ],
         ];
+    }
+
+    /**
+     * AC3: categorizes a verifyObservedSources() blocker string into missing / stale /
+     * insufficient / unexpected, so callers can report evidence gaps by shape, not just
+     * as an opaque string list.
+     */
+    private function categorizeBlocker(string $blocker): string
+    {
+        return match (true) {
+            str_starts_with($blocker, 'source_missing:') => 'missing',
+            str_starts_with($blocker, 'source_missing_required_field:') => 'insufficient',
+            str_starts_with($blocker, 'evidence_kind_mismatch:') => 'insufficient',
+            str_starts_with($blocker, 'source_stale_refreshable:') => 'stale',
+            str_starts_with($blocker, 'source_stale_timestamp:') => 'stale',
+            str_starts_with($blocker, 'source_unknown:') => 'unexpected',
+            default => 'unknown',
+        };
     }
 }

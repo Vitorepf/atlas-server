@@ -318,6 +318,87 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
         $this->assertContains('source_missing:multi_project_runtime_instances', $verdict['blockers']);
     }
 
+    // ── AC2: required evidence classes cover queue, muscles, brain, proof system, autonomy runtime, docs sync ──
+
+    public function test_required_evidence_classes_cover_queue_muscles_brain_proof_autonomy_and_docs(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $groups = array_keys($verdict['source_groups']);
+
+        // queue
+        $this->assertContains(AtlasSelfConstructionFinalEvidenceSourceRegistry::GROUP_TASK_SERVING, $groups);
+        // muscles (native worker runtime)
+        $this->assertContains(AtlasSelfConstructionFinalEvidenceSourceRegistry::GROUP_NATIVE_RUNTIME, $groups);
+        // brain (knowledge / code intelligence)
+        $this->assertContains(AtlasSelfConstructionFinalEvidenceSourceRegistry::GROUP_KNOWLEDGE, $groups);
+        // proof system
+        $this->assertContains(AtlasSelfConstructionFinalEvidenceSourceRegistry::GROUP_VERIFICATION, $groups);
+        // autonomy runtime (unattended 24/7 runtime supervisor)
+        $this->assertContains(AtlasSelfConstructionFinalEvidenceSourceRegistry::GROUP_UNATTENDED_RUNTIME, $groups);
+        // docs sync
+        $this->assertContains(AtlasSelfConstructionFinalEvidenceSourceRegistry::GROUP_DOCS, $groups);
+    }
+
+    // ── AC3: blocker_summary reports stale, missing and insufficient sources by shape ──
+
+    public function test_blocker_summary_categorizes_missing_source(): void
+    {
+        $result = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->verifyObservedSources([]);
+
+        $this->assertNotEmpty($result['blocker_summary']['missing']);
+        $this->assertContains('source_missing:task_serving_contract_sentinel', $result['blocker_summary']['missing']);
+    }
+
+    public function test_blocker_summary_categorizes_stale_source(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $observed[$source['id']] = ['evidence_kind' => $source['evidence_kinds'][0], 'stale' => false];
+        }
+        $observed['docs_health']['stale'] = true;
+
+        $result = $registry->verifyObservedSources($observed);
+
+        $this->assertContains('source_stale_refreshable:docs_health', $result['blocker_summary']['stale']);
+    }
+
+    public function test_blocker_summary_categorizes_insufficient_source(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $observed[$source['id']] = ['evidence_kind' => $source['evidence_kinds'][0], 'stale' => false];
+        }
+        $observed['task_graph_autonomous_replenisher']['fields'] = ['plan_hash'];
+
+        $result = $registry->verifyObservedSources($observed);
+
+        $this->assertNotEmpty($result['blocker_summary']['insufficient']);
+        $this->assertNotEmpty(array_filter(
+            $result['blocker_summary']['insufficient'],
+            static fn (string $b): bool => str_starts_with($b, 'source_missing_required_field:task_graph_autonomous_replenisher:'),
+        ));
+    }
+
+    public function test_blocker_summary_is_empty_for_complete_facts(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $observed[$source['id']] = ['evidence_kind' => $source['evidence_kinds'][0], 'stale' => false];
+        }
+
+        $result = $registry->verifyObservedSources($observed);
+
+        foreach (['missing', 'stale', 'insufficient', 'unexpected', 'unknown'] as $category) {
+            $this->assertSame([], $result['blocker_summary'][$category], "expected empty {$category} category");
+        }
+    }
+
     public function test_runtime_daemon_source_present_with_schemas_and_runtime_proof(): void
     {
         $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
