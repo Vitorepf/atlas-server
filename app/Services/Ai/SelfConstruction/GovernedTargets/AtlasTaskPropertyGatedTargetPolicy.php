@@ -92,4 +92,104 @@ final class AtlasTaskPropertyGatedTargetPolicy
 
         return $result;
     }
+
+    public const PACKET_FORBIDDEN_SELF_TARGET = 'forbidden_self_target';
+
+    public const PACKET_OPERATOR_ONLY = 'operator_only';
+
+    public const PACKET_TEST_ONLY_SCOPE = 'test_only_scope';
+
+    public const PACKET_CROSS_SCOPE = 'cross_scope';
+
+    public const PACKET_SAFE_AUTONOMOUS = 'safe_autonomous';
+
+    /**
+     * Classifies an entire task packet (not a single path) into one of five states before it may
+     * enter autonomous serving. Checked in this priority order — each earlier check wins
+     * unconditionally over a later one, matching classify()'s forbidden-first invariant:
+     *   1. forbidden_self_target — any allowed_file is on the pétreo list (never a valid target)
+     *   2. operator_only         — any allowed_file needs a governing property/operator sign-off
+     *   3. test_only_scope       — allowed_files are ALL test paths, no implementation target
+     *   4. cross_scope           — an allowed_file falls outside every declared scope_in root
+     *   5. safe_autonomous       — none of the above; safe for unattended serving
+     *
+     * @param  array{allowed_files?: list<string>, scope_in?: list<string>}  $packet
+     * @return array{classification:string, blocking_reason:string|null, repair_hint:string|null}
+     */
+    public function classifyPacket(array $packet): array
+    {
+        $allowedFiles = array_values(array_filter(array_map('strval', (array) ($packet['allowed_files'] ?? []))));
+        $scopeIn = array_values(array_filter(array_map('strval', (array) ($packet['scope_in'] ?? []))));
+
+        $forbiddenMatches = array_values(array_filter(
+            $allowedFiles,
+            fn (string $f): bool => $this->classify($f) === self::CLASSIFICATION_FORBIDDEN,
+        ));
+        if ($forbiddenMatches !== []) {
+            return [
+                'classification' => self::PACKET_FORBIDDEN_SELF_TARGET,
+                'blocking_reason' => 'forbidden_petreo_target:'.implode(',', $forbiddenMatches),
+                'repair_hint' => 'remove the forbidden/pétreo file(s) from allowed_files; this target can never be edited by an autonomous task',
+            ];
+        }
+
+        $operatorOnlyMatches = array_values(array_filter(
+            $allowedFiles,
+            fn (string $f): bool => $this->classify($f) === self::CLASSIFICATION_PROPERTY_GATED,
+        ));
+        if ($operatorOnlyMatches !== []) {
+            return [
+                'classification' => self::PACKET_OPERATOR_ONLY,
+                'blocking_reason' => 'property_gated_target_requires_operator_enablement:'.implode(',', $operatorOnlyMatches),
+                'repair_hint' => 'obtain explicit operator sign-off / enable the governing property before this target can be autonomously served',
+            ];
+        }
+
+        if ($allowedFiles !== [] && array_values(array_filter($allowedFiles, fn (string $f): bool => ! $this->isTestPath($f))) === []) {
+            return [
+                'classification' => self::PACKET_TEST_ONLY_SCOPE,
+                'blocking_reason' => 'allowed_files_contains_only_test_paths_no_implementation_target',
+                'repair_hint' => 'add the implementation file(s) this test proves so the task produces real behavior, not just test scaffolding',
+            ];
+        }
+
+        if ($scopeIn !== []) {
+            $outOfScope = array_values(array_filter(
+                $allowedFiles,
+                fn (string $f): bool => ! $this->withinAnyScopeRoot($f, $scopeIn),
+            ));
+            if ($outOfScope !== []) {
+                return [
+                    'classification' => self::PACKET_CROSS_SCOPE,
+                    'blocking_reason' => 'allowed_files_outside_declared_scope_in:'.implode(',', $outOfScope),
+                    'repair_hint' => 'narrow allowed_files to paths under the declared scope_in root(s), or split into separate scoped tasks',
+                ];
+            }
+        }
+
+        return [
+            'classification' => self::PACKET_SAFE_AUTONOMOUS,
+            'blocking_reason' => null,
+            'repair_hint' => null,
+        ];
+    }
+
+    private function isTestPath(string $path): bool
+    {
+        return str_starts_with($path, 'tests/')
+            || str_ends_with($path, 'Test.php')
+            || str_ends_with($path, 'Spec.php');
+    }
+
+    /** @param list<string> $scopeRoots */
+    private function withinAnyScopeRoot(string $path, array $scopeRoots): bool
+    {
+        foreach ($scopeRoots as $root) {
+            if (str_starts_with($path, $root)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
