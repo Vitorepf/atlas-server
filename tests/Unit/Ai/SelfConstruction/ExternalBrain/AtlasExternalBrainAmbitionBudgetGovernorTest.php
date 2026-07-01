@@ -372,4 +372,41 @@ final class AtlasExternalBrainAmbitionBudgetGovernorTest extends TestCase
         $this->assertSame($withoutFrontier['selected_mode'], $withFrontier['selected_mode']);
         $this->assertSame(AtlasExternalBrainAmbitionBudgetGovernor::QUEUE_MODE_BREAKTHROUGH, $withoutFrontier['selected_mode']);
     }
+
+    // ── Ambition evidence circuit: all modes attempted without evidence never marks genuine
+    // exhaustion, and the first evidenceless mode is selected instead. ──
+
+    public function test_all_modes_attempted_without_evidence_does_not_mark_genuine_exhaustion(): void
+    {
+        $r = $this->gov->allocate([
+            'attempted_modes' => [
+                AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT,
+                AtlasExternalBrainAmbitionBudgetGovernor::MODE_DEEP_ARCHITECTURE,
+                AtlasExternalBrainAmbitionBudgetGovernor::MODE_RESEARCH_ADAPTATION,
+                AtlasExternalBrainAmbitionBudgetGovernor::MODE_CONSOLIDATION,
+            ],
+            'evidence_by_mode' => [],
+        ]);
+
+        $this->assertFalse($r['honest_exhausted']);
+        $this->assertSame([], $r['modes_with_evidence']);
+        $this->assertSame(AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT, $r['next_mode']);
+    }
+
+    public function test_high_yield_boost_applies_only_when_diverse_evidence_meets_floor(): void
+    {
+        $belowFloor = $this->gov->allocate([
+            'yield_by_mode' => [AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT => 0.90],
+            'evidence_by_mode' => [AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT => ['ref1']],
+        ]);
+        $this->assertSame([], $belowFloor['escalation_evidence']);
+        $this->assertEqualsWithDelta(0.40, $belowFloor['mode_weights'][AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT], 0.0001);
+
+        $atFloor = $this->gov->allocate([
+            'yield_by_mode' => [AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT => 0.90],
+            'evidence_by_mode' => [AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT => ['ref1', 'ref2']],
+        ]);
+        $this->assertArrayHasKey(AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT, $atFloor['escalation_evidence']);
+        $this->assertEqualsWithDelta(0.52, $atFloor['mode_weights'][AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT], 0.0001);
+    }
 }
