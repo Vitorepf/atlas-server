@@ -93,6 +93,26 @@ final class AtlasExternalBrainAutonomyClaimAuditorTest extends TestCase
         $this->assertNotSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PROVEN, $r['status']);
     }
 
+    public function test_green_self_report_only_is_classified_proxy(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => '95 percent complete',
+            'proxy_signals' => ['green_self_report'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PROXY, $r['status']);
+    }
+
+    public function test_novelty_only_is_classified_proxy(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => 'model amplifier works',
+            'proxy_signals' => ['novelty'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PROXY, $r['status']);
+    }
+
     public function test_proxy_signals_are_present_in_output(): void
     {
         $r = $this->svc()->audit([
@@ -115,6 +135,26 @@ final class AtlasExternalBrainAutonomyClaimAuditorTest extends TestCase
         $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PROVEN, $r['status']);
         $this->assertSame([], $r['evidence_gaps']);
         $this->assertNull($r['next_evidence_task']);
+    }
+
+    public function test_server_side_test_receipt_and_live_metric_snapshot_is_proven(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => 'queue healthy',
+            'evidence_refs' => ['server_side_test_receipt', 'live_metric_snapshot'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PROVEN, $r['status']);
+    }
+
+    public function test_single_server_side_test_receipt_is_only_partial(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => 'queue healthy',
+            'evidence_refs' => ['server_side_test_receipt'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PARTIAL, $r['status']);
     }
 
     public function test_single_strong_evidence_kind_is_only_partial(): void
