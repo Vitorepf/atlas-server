@@ -54,6 +54,14 @@ final class AtlasVerificationCourtVerdictLedger
         $reasons = is_array($payload['reasons'] ?? null) ? array_values(array_map('strval', $payload['reasons'])) : null;
         $outcomeHash = (string) ($payload['replay_outcome_hash'] ?? '');
         $decidedAt = (string) ($payload['decided_at'] ?? '');
+        $workerFeedReasonCodes = is_array($payload['worker_feed_reason_codes'] ?? null)
+            ? array_values(array_unique(array_map('strval', $payload['worker_feed_reason_codes'])))
+            : [];
+        sort($workerFeedReasonCodes, SORT_STRING);
+        $evidenceSnapshot = is_array($payload['evidence_snapshot'] ?? null) ? $payload['evidence_snapshot'] : null;
+        $evidenceSnapshotHash = $evidenceSnapshot !== null
+            ? hash('sha256', (string) json_encode($evidenceSnapshot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))
+            : null;
 
         if ($taskId === '') {
             throw new RuntimeException('verdict ledger: missing task_packet_id');
@@ -90,6 +98,8 @@ final class AtlasVerificationCourtVerdictLedger
             'reasons' => $reasons,
             'replay_outcome_hash' => $outcomeHash,
             'decided_at' => $decidedAt,
+            'worker_feed_reason_codes' => $workerFeedReasonCodes,
+            'evidence_snapshot_hash' => $evidenceSnapshotHash,
         ];
         ksort($canonical);
         $verdictHash = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

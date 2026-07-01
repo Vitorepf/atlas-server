@@ -56,6 +56,48 @@ final class AtlasVerificationCourtVerdictLedgerTest extends TestCase
         $this->assertCount(1, file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
     }
 
+    public function test_worker_feed_evidence_records_reason_codes_and_snapshot_hash(): void
+    {
+        $payload = $this->payload() + [
+            'worker_feed_reason_codes' => ['claimable_per_active_worker_low', 'no_claimable_task_recent'],
+            'evidence_snapshot' => ['claimable_depth' => 3, 'active_worker_count' => 6],
+        ];
+
+        $res = $this->ledger->append($payload);
+
+        $this->assertSame(AtlasVerificationCourtVerdictLedger::STATUS_OK, $res['status']);
+        $this->assertSame(
+            ['claimable_per_active_worker_low', 'no_claimable_task_recent'],
+            $res['row']['worker_feed_reason_codes'],
+        );
+        $this->assertSame(64, strlen($res['row']['evidence_snapshot_hash']));
+    }
+
+    public function test_verdict_without_worker_feed_evidence_has_empty_codes_and_null_snapshot_hash(): void
+    {
+        $res = $this->ledger->append($this->payload());
+
+        $this->assertSame([], $res['row']['worker_feed_reason_codes']);
+        $this->assertNull($res['row']['evidence_snapshot_hash']);
+    }
+
+    public function test_identical_verdict_inputs_produce_the_same_verdict_hash(): void
+    {
+        $payload = $this->payload() + [
+            'worker_feed_reason_codes' => ['no_claimable_task_recent'],
+            'evidence_snapshot' => ['claimable_depth' => 1],
+        ];
+
+        $res1 = $this->ledger->append($payload);
+        $ledgerPath2 = sys_get_temp_dir().'/atlas_court_verdicts_'.bin2hex(random_bytes(6)).'.jsonl';
+        $ledger2 = new AtlasVerificationCourtVerdictLedger($ledgerPath2);
+        $res2 = $ledger2->append($payload);
+
+        $this->assertSame($res1['row']['verdict_hash'], $res2['row']['verdict_hash']);
+
+        unlink($ledgerPath2);
+    }
+
     public function test_duplicate_verdict_hash_is_idempotent_no_second_row(): void
     {
         $this->ledger->append($this->payload());
