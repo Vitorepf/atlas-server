@@ -46,6 +46,7 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreaker
     private const REDUNDANT_SCAFFOLD_THRESHOLD = 3;
     private const LOW_MARGINAL_VALUE_THRESHOLD = 0.20;
     private const DUPLICATE_RESPONSIBILITY_THRESHOLD = 0.50;
+    private const LOW_COHESION_THRESHOLD = 0.50;
 
     public const BLOCKED_REASON_CONSOLIDATION_FIRST_SPRAWL = 'consolidation_first_sprawl';
 
@@ -208,13 +209,16 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreaker
     }
 
     /**
-     * Blocks new organ/task proposals when sprawl or duplicate-responsibility signals
-     * are present — UNLESS the proposal is explicitly consolidation, deletion or
-     * integration (those proposals ARE the remedy, never the problem). Keeps the same
-     * safety-metadata contract as evaluateEnqueueGate() so callers never lose fields.
+     * Blocks new organ/task proposals when sprawl, duplicate-responsibility, low-cohesion,
+     * or missing-parity-proof signals are present — UNLESS the proposal is explicitly
+     * consolidation, deletion or integration (those proposals ARE the remedy, never the
+     * problem). Keeps the same safety-metadata contract as evaluateEnqueueGate() so callers
+     * never lose fields, and adds concrete recommended_actions (delete/merge/simplify/
+     * require_parity_proof) with the proof each action needs — never only block=true.
      *
      * @param  array<string,mixed>  $input  { queue_saturation?, organ_sprawl_score?,
      *   redundant_scaffold_count?, marginal_new_task_value?, duplicate_responsibility_score?,
+     *   cohesion_score?, parity_proof_required?, parity_proof_present?,
      *   proposed_task?: {kind?: string, unlocks_consolidation?, removes_blocker?} }
      * @return array<string,mixed>
      */
@@ -225,6 +229,13 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreaker
         $duplicateResponsibilityScore = max(0.0, min(1.0, (float) ($input['duplicate_responsibility_score'] ?? 0.0)));
         $duplicateResponsibilityHigh = $duplicateResponsibilityScore >= self::DUPLICATE_RESPONSIBILITY_THRESHOLD;
 
+        $cohesionScore = max(0.0, min(1.0, (float) ($input['cohesion_score'] ?? 1.0)));
+        $lowCohesion = $cohesionScore < self::LOW_COHESION_THRESHOLD;
+
+        $parityProofRequired = (bool) ($input['parity_proof_required'] ?? false);
+        $parityProofPresent = (bool) ($input['parity_proof_present'] ?? false);
+        $missingParityProof = $parityProofRequired && ! $parityProofPresent;
+
         $proposedTask = is_array($input['proposed_task'] ?? null) ? $input['proposed_task'] : [];
         $proposalKind = strtolower(trim((string) ($proposedTask['kind'] ?? '')));
         $isExemptKind = in_array($proposalKind, self::EXEMPT_PROPOSAL_KINDS, true);
@@ -232,16 +243,94 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreaker
         $removesBlocker = (bool) ($proposedTask['removes_blocker'] ?? false);
         $isExempt = $isExemptKind || $unlocksConsolidation || $removesBlocker;
 
-        $sprawlSignalPresent = $gate['circuit_open'] || $duplicateResponsibilityHigh;
+        $sprawlSignalPresent = $gate['circuit_open'] || $duplicateResponsibilityHigh || $lowCohesion || $missingParityProof;
         $blocked = $sprawlSignalPresent && ! $isExempt;
+
+        $recommendedActions = $sprawlSignalPresent
+            ? $this->buildOrganProposalActions($duplicateResponsibilityHigh, $gate['recommendation'], $lowCohesion, $missingParityProof)
+            : [];
 
         return array_merge($gate, [
             'duplicate_responsibility_score' => $duplicateResponsibilityScore,
             'duplicate_responsibility_high' => $duplicateResponsibilityHigh,
+            'cohesion_score' => $cohesionScore,
+            'low_cohesion' => $lowCohesion,
+            'missing_parity_proof' => $missingParityProof,
             'proposal_kind' => $proposalKind !== '' ? $proposalKind : null,
             'proposal_kind_exempt' => $isExemptKind,
             'blocked' => $blocked,
             'reason' => $blocked ? self::BLOCKED_REASON_CONSOLIDATION_FIRST_SPRAWL : null,
+            'recommended_actions' => $recommendedActions,
         ]);
+    }
+
+    /** @return list<array{action:string,reason:string,required_proof:string}> */
+    private function buildOrganProposalActions(
+        bool $duplicateHigh,
+        string $gateRecommendation,
+        bool $lowCohesion,
+        bool $missingParityProof,
+    ): array {
+        $actions = [];
+
+        if ($duplicateHigh) {
+            $actions[] = [
+                'action' => 'merge',
+                'reason' => 'duplicate_responsibility_high',
+                'required_proof' => 'diff proving the duplicate capability is fully superseded with no regression',
+            ];
+        }
+        if ($gateRecommendation === 'retire') {
+            $actions[] = [
+                'action' => 'delete',
+                'reason' => 'redundant_scaffold_count_exceeded',
+                'required_proof' => 'evidence the scaffold has zero live callers',
+            ];
+        }
+        if ($gateRecommendation === 'consolidate') {
+            $actions[] = [
+                'action' => 'merge',
+                'reason' => 'organ_sprawl_exceeded',
+                'required_proof' => 'overlap diff showing the organs consolidate cleanly',
+            ];
+        }
+        if ($gateRecommendation === 'simplify') {
+            $actions[] = [
+                'action' => 'simplify',
+                'reason' => 'marginal_new_task_value_too_low',
+                'required_proof' => 'complexity/debt reduction diff',
+            ];
+        }
+        if ($gateRecommendation === 'learn_from_outcomes') {
+            $actions[] = [
+                'action' => 'simplify',
+                'reason' => 'queue_saturation_exceeded',
+                'required_proof' => 'processed backlog evidence',
+            ];
+        }
+        if ($lowCohesion) {
+            $actions[] = [
+                'action' => 'simplify',
+                'reason' => 'low_cohesion_score',
+                'required_proof' => 'cohesion re-measurement above threshold after the split/simplify',
+            ];
+        }
+        if ($missingParityProof) {
+            $actions[] = [
+                'action' => 'require_parity_proof',
+                'reason' => 'missing_parity_proof',
+                'required_proof' => 'behavior-parity test run comparing old vs new organ',
+            ];
+        }
+
+        if ($actions === []) {
+            $actions[] = [
+                'action' => 'simplify',
+                'reason' => 'general_sprawl',
+                'required_proof' => 'sprawl re-measurement below threshold',
+            ];
+        }
+
+        return $actions;
     }
 }

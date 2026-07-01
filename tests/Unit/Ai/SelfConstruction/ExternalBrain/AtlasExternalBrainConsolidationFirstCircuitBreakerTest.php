@@ -318,4 +318,111 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreakerTest extends TestC
 
         $this->assertSame('learn_from_outcomes', $r['recommendation']);
     }
+
+    // ── evaluateOrganProposal — AC: safe add ──────────────────────────────────
+
+    public function test_safe_add_organ_proposal_is_not_blocked_and_has_no_recommended_actions(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'queue_saturation' => 0.1,
+            'organ_sprawl_score' => 0.1,
+            'redundant_scaffold_count' => 0,
+            'marginal_new_task_value' => 0.8,
+            'duplicate_responsibility_score' => 0.1,
+            'cohesion_score' => 0.9,
+        ]);
+
+        $this->assertFalse($r['blocked']);
+        $this->assertNull($r['reason']);
+        $this->assertSame([], $r['recommended_actions']);
+    }
+
+    // ── evaluateOrganProposal — AC: duplicate-organ block ─────────────────────
+
+    public function test_duplicate_organ_proposal_is_blocked_with_merge_action_and_required_proof(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'duplicate_responsibility_score' => 0.8,
+        ]);
+
+        $this->assertTrue($r['blocked']);
+        $this->assertTrue($r['duplicate_responsibility_high']);
+        $this->assertSame(AtlasExternalBrainConsolidationFirstCircuitBreaker::BLOCKED_REASON_CONSOLIDATION_FIRST_SPRAWL, $r['reason']);
+
+        $mergeAction = array_values(array_filter($r['recommended_actions'], fn (array $a) => $a['action'] === 'merge'))[0] ?? null;
+        $this->assertNotNull($mergeAction);
+        $this->assertNotEmpty($mergeAction['required_proof']);
+    }
+
+    // ── evaluateOrganProposal — AC: stale-scaffold retirement ─────────────────
+
+    public function test_stale_scaffold_proposal_is_blocked_with_delete_action(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'redundant_scaffold_count' => 5,
+        ]);
+
+        $this->assertTrue($r['blocked']);
+        $this->assertSame('retire', $r['recommendation']);
+
+        $deleteAction = array_values(array_filter($r['recommended_actions'], fn (array $a) => $a['action'] === 'delete'))[0] ?? null;
+        $this->assertNotNull($deleteAction);
+        $this->assertNotEmpty($deleteAction['required_proof']);
+    }
+
+    // ── evaluateOrganProposal — AC: low-cohesion consolidation ────────────────
+
+    public function test_low_cohesion_proposal_is_blocked_with_simplify_action(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'cohesion_score' => 0.2,
+        ]);
+
+        $this->assertTrue($r['blocked']);
+        $this->assertTrue($r['low_cohesion']);
+
+        $simplifyAction = array_values(array_filter($r['recommended_actions'], fn (array $a) => $a['action'] === 'simplify' && $a['reason'] === 'low_cohesion_score'))[0] ?? null;
+        $this->assertNotNull($simplifyAction);
+        $this->assertNotEmpty($simplifyAction['required_proof']);
+    }
+
+    // ── evaluateOrganProposal — AC: missing parity proof ──────────────────────
+
+    public function test_missing_parity_proof_proposal_is_blocked_with_require_parity_proof_action(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'parity_proof_required' => true,
+            'parity_proof_present' => false,
+        ]);
+
+        $this->assertTrue($r['blocked']);
+        $this->assertTrue($r['missing_parity_proof']);
+
+        $proofAction = array_values(array_filter($r['recommended_actions'], fn (array $a) => $a['action'] === 'require_parity_proof'))[0] ?? null;
+        $this->assertNotNull($proofAction);
+        $this->assertNotEmpty($proofAction['required_proof']);
+    }
+
+    public function test_present_parity_proof_does_not_block_on_that_signal(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'parity_proof_required' => true,
+            'parity_proof_present' => true,
+        ]);
+
+        $this->assertFalse($r['missing_parity_proof']);
+        $this->assertFalse($r['blocked']);
+    }
+
+    // ── evaluateOrganProposal — exemption still applies to new signals ────────
+
+    public function test_exempt_proposal_kind_is_not_blocked_despite_low_cohesion(): void
+    {
+        $r = $this->cb->evaluateOrganProposal([
+            'cohesion_score' => 0.1,
+            'proposed_task' => ['kind' => 'consolidation'],
+        ]);
+
+        $this->assertFalse($r['blocked']);
+    }
 }
