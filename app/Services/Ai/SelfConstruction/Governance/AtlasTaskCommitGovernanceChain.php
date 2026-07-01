@@ -183,6 +183,36 @@ final class AtlasTaskCommitGovernanceChain
 
             return $this->envelope($mode, $admitted, $enforcedBlock, $decision, (string) $risk['risk_level'], $blockers, $recorded, null, $replayVerdict);
         } catch (Throwable $e) {
+            // Failure posture depends on the resolved mode: observe/off can NEVER wedge a bootstrap
+            // worker over a governance-internal bug (fail-open, admit, record nothing but the error) —
+            // but enforce means the operator has armed the autonomous regime, and a crashing organ must
+            // NOT silently wave every commit through. Enforce fails CLOSED: enforced_block=true, a
+            // dedicated decision, and the exception class recorded in blockers so it's actionable.
+            if ($mode === self::MODE_ENFORCE) {
+                $exceptionClass = $e::class;
+                $recorded = ['verdict_ledger' => 'error', 'release_ledger' => 'error'];
+                try {
+                    $taskId = (string) ($context['task_packet_id'] ?? '');
+                    if ($taskId !== '') {
+                        $recorded = $this->record(
+                            $taskId,
+                            (string) ($context['project_id'] ?? 'atlas-self-construction'),
+                            'governance_error_fail_closed',
+                            [$exceptionClass],
+                            '',
+                            ['reasons' => []],
+                            [],
+                            (array) ($context['changed_files'] ?? []),
+                            [],
+                        );
+                    }
+                } catch (Throwable) {
+                    // Best-effort only: a broken ledger must never mask the fail-closed decision itself.
+                }
+
+                return $this->envelope($mode, false, true, 'governance_error_fail_closed', '', [$exceptionClass], $recorded, $e->getMessage(), null);
+            }
+
             // FAIL-OPEN: never wedge a worker because governance broke. Record nothing, admit, do not block.
             return $this->envelope($mode, true, false, 'fail_open_error', '', [], ['verdict_ledger' => 'error', 'release_ledger' => 'error'], $e->getMessage(), null);
         }
