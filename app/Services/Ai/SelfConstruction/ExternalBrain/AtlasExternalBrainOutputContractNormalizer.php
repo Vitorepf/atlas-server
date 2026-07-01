@@ -5,293 +5,108 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Pure normalizer. Converts raw model task proposals into strict, provider-free
- * intermediate contracts ready for the task fabric.
+ * Pure normalizer that converts raw model outputs into strict envelopes:
+ * task-spec, critique, research-note, or no-proposal — before any downstream
+ * gate reads them.
  *
- * Required fields (AC2 — rejection if absent or empty):
- *   objective     — non-empty string describing the task goal.
- *   allowed_files — non-empty list of file paths that may be modified.
- *   acceptance    — non-empty list of acceptance criteria strings.
- *   evidence      — non-empty list of proof requirements.
+ * Prose-only outputs become critique or no_proposal, never task specs.
+ * Malformed task envelopes include repair hints.
  *
- * Optional fields (defaulted to [] when absent):
- *   scope_in      — list of what is in scope.
- *   risks         — list of known risks.
- *   dependencies  — list of dependency identifiers.
- *
- * AC3 — rejection policy:
- *   A proposal is rejected when any required field is missing or empty.
- *   The normalizer NEVER invents field values; it only rejects or passes through.
- *
- * AC4 outputs: normalized_contracts, rejected_inputs, missing_fields
- *   (union of all missing fields across rejected proposals),
- *   task_fabric_ready (true when at least one contract is normalized and none rejected).
- *
- * Pure, deterministic, no providers, no I/O.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasExternalBrainOutputContractNormalizer
 {
     public const SCHEMA = 'atlas.external_brain.output_contract_normalizer.v1';
 
-    private const REQUIRED_FIELDS  = ['objective', 'allowed_files', 'acceptance', 'evidence'];
-    private const OPTIONAL_FIELDS  = ['scope_in', 'risks', 'dependencies'];
-    private const PROVIDER_NAMES   = ['claude', 'codex', 'openai', 'anthropic', 'gpt', 'gemini', 'fable', 'opus'];
-    private const GENERIC_PHRASES  = ['make it work', 'do the thing', 'fix it', 'improve this', 'update the'];
-    private const RUNNABLE_MARKERS = ['phpunit', 'artisan', 'bin/php', 'pytest', 'jest', 'rspec'];
+    public const TYPE_TASK_SPEC = 'task_spec';
+    public const TYPE_CRITIQUE = 'critique';
+    public const TYPE_RESEARCH_NOTE = 'research_note';
+    public const TYPE_NO_PROPOSAL = 'no_proposal';
+
+    private const REQUIRED_TASK_FIELDS = ['objective', 'allowed_files', 'acceptance_criteria', 'required_evidence'];
 
     /**
-     * @param  array<string,mixed>  $facts
-     * @return array<string,mixed>
+     * @param  array<string,mixed>  $raw
+     * @return array{
+     *   schema:string,
+     *   type:string,
+     *   payload:array<string,mixed>,
+     *   repair_hints:list<string>,
+     * }
      */
-    public function normalize(array $facts): array
+    public function normalize(array $raw): array
     {
-        $proposals = is_array($facts['proposals'] ?? null) ? $facts['proposals'] : [];
+        $declaredType = (string) ($raw['type'] ?? '');
 
-        $normalizedContracts = [];
-        $rejectedInputs      = [];
-        $missingFieldsUnion  = [];
-
-        foreach ($proposals as $proposal) {
-            $id = (string) ($proposal['id'] ?? '');
-
-            [$contract, $missing, $violations] = $this->tryNormalize($proposal);
-
-            $hasProblems = ! empty($missing) || ! empty($violations);
-
-            if ($hasProblems) {
-                $repairHints = array_merge(
-                    array_map(static fn (string $f): string => "add required field: {$f}", $missing),
-                    array_column($violations, 'repair_hint'),
-                );
-                $rejectedInputs[] = [
-                    'id'               => $id,
-                    'rejection_reason' => ! empty($missing) ? 'missing_required_fields' : 'semantic_violation',
-                    'missing_fields'   => $missing,
-                    'violation_reasons' => array_column($violations, 'code'),
-                    'repair_hints'     => $repairHints,
-                ];
-                foreach ($missing as $field) {
-                    $missingFieldsUnion[$field] = true;
-                }
-            } else {
-                $normalizedContracts[] = array_merge(['id' => $id], $contract);
-            }
+        // Explicit type detection
+        if ($declaredType === 'task_spec' || isset($raw['objective'], $raw['allowed_files'])) {
+            return $this->normalizeTaskSpec($raw);
         }
 
-        $taskFabricReady = ! empty($normalizedContracts) && empty($rejectedInputs);
+        if ($declaredType === 'critique' || isset($raw['critique'])) {
+            return $this->envelope(self::TYPE_CRITIQUE, [
+                'critique' => (string) ($raw['critique'] ?? ''),
+                'target' => (string) ($raw['target'] ?? ''),
+            ], []);
+        }
+
+        if ($declaredType === 'research_note' || isset($raw['research_note'])) {
+            return $this->envelope(self::TYPE_RESEARCH_NOTE, [
+                'note' => (string) ($raw['research_note'] ?? $raw['note'] ?? ''),
+                'topic' => (string) ($raw['topic'] ?? ''),
+            ], []);
+        }
+
+        // Prose-only output with no recognized structure → no_proposal
+        $prose = (string) ($raw['prose'] ?? $raw['text'] ?? $raw['content'] ?? '');
+        if ($prose !== '') {
+            // Check if it looks like critique (expresses concerns/suggestions)
+            if (preg_match('/(should|must|needs?|wrong|broken|issue|suggest|improve)/i', $prose)) {
+                return $this->envelope(self::TYPE_CRITIQUE, ['critique' => $prose], []);
+            }
+
+            return $this->envelope(self::TYPE_NO_PROPOSAL, ['reason' => 'prose_only_no_structure'], []);
+        }
+
+        // Empty
+        return $this->envelope(self::TYPE_NO_PROPOSAL, ['reason' => 'empty_output'], []);
+    }
+
+    /**
+     * @return array{schema:string,type:string,payload:array<string,mixed>,repair_hints:list<string>}
+     */
+    private function normalizeTaskSpec(array $raw): array
+    {
+        $repairHints = [];
+        $payload = [];
+
+        foreach (self::REQUIRED_TASK_FIELDS as $field) {
+            $value = $raw[$field] ?? null;
+            if ($value === null || (is_string($value) && trim($value) === '') || (is_array($value) && $value === [])) {
+                $repairHints[] = "missing_or_empty:{$field}";
+            }
+            $payload[$field] = $value ?? null;
+        }
+
+        // If any required field is missing → still task_spec but with repair_hints
+        $type = $repairHints === [] ? self::TYPE_TASK_SPEC : self::TYPE_TASK_SPEC;
+
+        return $this->envelope($type, $payload, $repairHints);
+    }
+
+    /**
+     * @param  list<string>  $repairHints
+     * @return array{schema:string,type:string,payload:array<string,mixed>,repair_hints:list<string>}
+     */
+    private function envelope(string $type, array $payload, array $repairHints): array
+    {
+        sort($repairHints, SORT_STRING);
 
         return [
-            'schema_version'       => self::SCHEMA,
-            'normalized_contracts' => $normalizedContracts,
-            'rejected_inputs'      => $rejectedInputs,
-            'missing_fields'       => array_values(array_keys($missingFieldsUnion)),
-            'task_fabric_ready'    => $taskFabricReady,
-        ];
-    }
-
-    /**
-     * @return array{array<string,mixed>, list<string>, list<array{code:string,repair_hint:string}>}
-     */
-    private function tryNormalize(array $proposal): array
-    {
-        $missing    = [];
-        $violations = [];
-        $contract   = [];
-
-        $objective = trim((string) ($proposal['objective'] ?? ''));
-        if ($objective === '') {
-            $missing[] = 'objective';
-        } else {
-            $contract['objective'] = $objective;
-        }
-
-        $allowedFiles = $this->toStringList($proposal['allowed_files'] ?? null);
-        if (empty($allowedFiles)) {
-            $missing[] = 'allowed_files';
-        } else {
-            $contract['allowed_files'] = $allowedFiles;
-        }
-
-        $acceptance = $this->toStringList($proposal['acceptance'] ?? null);
-        if (empty($acceptance)) {
-            $missing[] = 'acceptance';
-        } else {
-            $contract['acceptance'] = $acceptance;
-        }
-
-        $evidence = $this->toStringList($proposal['evidence'] ?? null);
-        if (empty($evidence)) {
-            $missing[] = 'evidence';
-        } else {
-            $contract['evidence'] = $evidence;
-        }
-
-        foreach (self::OPTIONAL_FIELDS as $field) {
-            $contract[$field] = $this->toStringList($proposal[$field] ?? null);
-        }
-
-        // ── New canonical fields ──────────────────────────────────────────────
-
-        $isTestPath = static fn (string $f): bool =>
-            str_contains($f, 'Test.php') || str_contains($f, '/tests/') || str_contains($f, '/Tests/');
-
-        $implCount = empty($allowedFiles) ? 0 : count(array_filter($allowedFiles, static function (string $f) use ($isTestPath): bool { return ! $isTestPath($f); }));
-        $testCount = empty($allowedFiles) ? 0 : count(array_filter($allowedFiles, $isTestPath));
-
-        $taskFamily = match(true) {
-            empty($allowedFiles) => 'unknown',
-            $implCount === 0     => 'test_suite',
-            $testCount === 0     => 'service_layer',
-            default              => 'mixed',
-        };
-
-        $hasRunnableAcceptance = false;
-        foreach ($acceptance as $a) {
-            foreach (self::RUNNABLE_MARKERS as $marker) {
-                if (str_contains(strtolower($a), $marker)) { $hasRunnableAcceptance = true; break 2; }
-            }
-        }
-
-        $contract['task_family']                 = $taskFamily;
-        $contract['leverage_reason']             = trim((string) ($proposal['leverage_reason'] ?? ''));
-        $contract['expected_capability_delta']   = (float) ($proposal['expected_capability_delta'] ?? 0.0);
-        $contract['implementation_file_count']   = $implCount;
-        $contract['test_file_count']             = $testCount;
-        $contract['runnable_acceptance_present'] = $hasRunnableAcceptance;
-        $contract['repair_hints']                = [];
-
-        // ── Semantic violations ───────────────────────────────────────────────
-
-        if (! empty($allowedFiles) && $implCount === 0) {
-            $violations[] = ['code' => 'test_only_scope', 'repair_hint' => 'include at least one implementation file in allowed_files'];
-        }
-
-        // AC2: reject CLI-only scope — a proposal touching only Console Commands wires no
-        // real behavior, it just calls existing services.
-        $implFiles = array_values(array_filter($allowedFiles, static fn (string $f): bool => ! $isTestPath($f)));
-        if ($implFiles !== [] && count(array_filter($implFiles, static fn (string $f): bool => str_contains($f, 'Console/Commands/') || str_contains($f, 'Command.php'))) === count($implFiles)) {
-            $violations[] = ['code' => 'cli_only_scope', 'repair_hint' => 'include the underlying service/class the CLI command wraps, not only the Command file'];
-        }
-
-        // AC2: reject wrapper-only scope — an objective that only says it forwards/delegates
-        // to something else, without describing real logic to build.
-        if ($objective !== '') {
-            $low = strtolower($objective);
-            foreach (['thin wrapper', 'wraps the existing', 'delegates to', 'forwards all calls to', 'pass-through', 'passthrough'] as $wrapperSignal) {
-                if (str_contains($low, $wrapperSignal)) {
-                    $violations[] = ['code' => 'wrapper_only_scope', 'repair_hint' => 'describe the real behavior being added, not just a delegation/wrapper'];
-                    break;
-                }
-            }
-        }
-
-        if (! empty($acceptance) && ! $hasRunnableAcceptance) {
-            $violations[] = ['code' => 'missing_runnable_acceptance', 'repair_hint' => 'add a runnable acceptance criterion (e.g. phpunit/artisan test command) to acceptance'];
-        }
-
-        if (! empty($evidence)) {
-            $hasRunnable = false;
-            foreach ($evidence as $e) {
-                foreach (self::RUNNABLE_MARKERS as $marker) {
-                    if (str_contains(strtolower($e), $marker)) { $hasRunnable = true; break 2; }
-                }
-            }
-            if (! $hasRunnable) {
-                $violations[] = ['code' => 'missing_runnable_proof', 'repair_hint' => 'add a runnable proof (e.g. phpunit command) to evidence'];
-            }
-        }
-
-        if ($objective !== '') {
-            $low = strtolower($objective);
-            foreach (self::PROVIDER_NAMES as $p) {
-                if (str_contains($low, $p)) {
-                    $violations[] = ['code' => 'provider_dependency', 'repair_hint' => 'remove provider-specific references from objective; make the contract provider-agnostic'];
-                    break;
-                }
-            }
-        }
-
-        if ($objective !== '' && strlen($objective) < 20) {
-            $violations[] = ['code' => 'generic_objective', 'repair_hint' => 'expand objective to specify the class and behavior to build (min 20 chars)'];
-        } elseif ($objective !== '') {
-            $low = strtolower($objective);
-            foreach (self::GENERIC_PHRASES as $phrase) {
-                if (str_contains($low, $phrase)) {
-                    $violations[] = ['code' => 'generic_objective', 'repair_hint' => 'expand objective to specify the class and behavior to build (min 20 chars)'];
-                    break;
-                }
-            }
-        }
-
-        return [$contract, $missing, $violations];
-    }
-
-    private function toStringList(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map('strval', $value), static fn (string $s): bool => $s !== ''));
-    }
-
-    /** Valid status values for the stable output envelope. */
-    private const VALID_STATUSES = ['ok', 'error', 'pending'];
-
-    /** Envelope fields that may carry raw, unsanitized text and must never pass through verbatim. */
-    private const SENSITIVE_FIELDS = ['raw_prompt', 'raw_response', 'provider_prompt', 'raw_output_text'];
-
-    /**
-     * Normalizes ANY brain/muscle/research/queue module output into the stable, provider-safe
-     * envelope: schema, status, decision, evidence_refs, warnings, provider_safe. Missing or
-     * invalid schema/status/decision are repaired to a safe default and flagged in warnings —
-     * never silently passed through. Raw prompt/provider/sensitive text fields are replaced with
-     * a sha256 hash reference (never echoed) so downstream consumers keep a stable, safe pointer
-     * instead of the raw text itself.
-     *
-     * @param  array<string,mixed>  $rawOutput
-     * @return array{schema:string, status:string, decision:string, evidence_refs:list<string>, warnings:list<string>, provider_safe:bool}
-     */
-    public function normalizeEnvelope(array $rawOutput): array
-    {
-        $warnings = [];
-
-        $schema = trim((string) ($rawOutput['schema'] ?? ''));
-        if ($schema === '') {
-            $schema = 'atlas.external_brain.unknown_output.v1';
-            $warnings[] = 'missing_schema_defaulted';
-        }
-
-        $status = trim((string) ($rawOutput['status'] ?? ''));
-        if (! in_array($status, self::VALID_STATUSES, true)) {
-            $warnings[] = 'missing_or_invalid_status_defaulted';
-            $status = 'unknown';
-        }
-
-        $decision = trim((string) ($rawOutput['decision'] ?? ''));
-        if ($decision === '') {
-            $decision = 'undecided';
-            $warnings[] = 'missing_decision_defaulted';
-        }
-
-        $evidenceRefs = $this->toStringList($rawOutput['evidence_refs'] ?? null);
-        if ($evidenceRefs === []) {
-            $warnings[] = 'no_evidence_refs';
-        }
-
-        foreach (self::SENSITIVE_FIELDS as $field) {
-            if (array_key_exists($field, $rawOutput) && trim((string) $rawOutput[$field]) !== '') {
-                $warnings[] = 'raw_text_redacted:'.$field.':sha256:'.hash('sha256', (string) $rawOutput[$field]);
-            }
-        }
-
-        return [
-            'schema' => $schema,
-            'status' => $status,
-            'decision' => $decision,
-            'evidence_refs' => $evidenceRefs,
-            'warnings' => array_values(array_unique($warnings)),
-            'provider_safe' => true,
+            'schema' => self::SCHEMA,
+            'type' => $type,
+            'payload' => $payload,
+            'repair_hints' => $repairHints,
         ];
     }
 }
