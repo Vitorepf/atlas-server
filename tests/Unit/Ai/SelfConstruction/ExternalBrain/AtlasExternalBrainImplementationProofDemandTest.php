@@ -325,4 +325,34 @@ final class AtlasExternalBrainImplementationProofDemandTest extends TestCase
         $this->assertArrayHasKey('proof_gap_reasons', $r);
         $this->assertNotEmpty($r['proof_gap_reasons']);
     }
+
+    // ── AC: value_mechanism-specific proof binding ────────────────────────────
+
+    public function test_autonomy_value_mechanism_adds_autonomy_or_runtime_decision_proof(): void
+    {
+        $r = $this->derive(valueMechanism: 'autonomy');
+
+        $hasAutonomyProof = in_array('autonomy_steady_state', $r['required_proofs'], true)
+            || in_array('runtime_decision_change', $r['required_proofs'], true);
+        $this->assertTrue($hasAutonomyProof, 'autonomy value_mechanism must demand autonomy_steady_state or runtime_decision_change');
+    }
+
+    public function test_queue_health_value_mechanism_adds_measurable_queue_quality_improvement(): void
+    {
+        $r = $this->derive(valueMechanism: 'queue_health');
+
+        $this->assertContains('measurable_queue_quality_improvement', $r['required_proofs']);
+    }
+
+    public function test_proxy_proof_types_still_never_satisfy_required_proofs(): void
+    {
+        $r = $this->derive(valueMechanism: 'autonomy');
+
+        foreach (AtlasExternalBrainImplementationProofDemand::REJECTED_PROXY_PROOF_TYPES as $proxyType) {
+            $this->assertNotContains($proxyType, $r['required_proofs']);
+            $verdict = $this->svc()->verifySubmittedProof($proxyType);
+            $this->assertFalse($verdict['accepted']);
+            $this->assertTrue($verdict['is_proxy']);
+        }
+    }
 }

@@ -43,6 +43,7 @@ final class AtlasExternalBrainImplementationProofDemand
     public const PROOF_MEASURABLE_QUEUE_QUALITY_IMPROVEMENT = 'measurable_queue_quality_improvement';
     public const PROOF_BEHAVIOR_DELTA = 'behavior_delta';
     public const PROOF_BEFORE_AFTER_EVIDENCE = 'before_after_evidence';
+    public const PROOF_AUTONOMY_STEADY_STATE = 'autonomy_steady_state';
 
     public const ACCEPTED_REAL_PROOF_TYPES = [
         self::PROOF_BEHAVIOR_PROOF,
@@ -51,6 +52,13 @@ final class AtlasExternalBrainImplementationProofDemand
         self::PROOF_MEASURABLE_QUEUE_QUALITY_IMPROVEMENT,
         self::PROOF_BEHAVIOR_DELTA,
         self::PROOF_BEFORE_AFTER_EVIDENCE,
+        self::PROOF_AUTONOMY_STEADY_STATE,
+    ];
+
+    /** value_mechanism => extra proof it must add on top of the base, regardless of risk. */
+    private const VALUE_MECHANISM_EXTRA_PROOF = [
+        'autonomy' => self::PROOF_AUTONOMY_STEADY_STATE,
+        'queue_health' => self::PROOF_MEASURABLE_QUEUE_QUALITY_IMPROVEMENT,
     ];
 
     // Proxy evidence types: prove something compiles/runs/exists, never that behavior changed.
@@ -124,6 +132,13 @@ final class AtlasExternalBrainImplementationProofDemand
         if ($isPropertyGated) {
             $proofs[] = self::PROOF_RUNTIME_RECEIPT;
             $proofs[] = self::PROOF_BEHAVIOR_DELTA;
+        }
+
+        // A generic unit_test/feature_test can never stand in for proof that the CLAIMED
+        // value mechanism (autonomy, queue health) actually moved — add the mechanism-specific
+        // real-evidence proof on top of whatever the base class already demands.
+        if (isset(self::VALUE_MECHANISM_EXTRA_PROOF[$valueMechanism])) {
+            $proofs[] = self::VALUE_MECHANISM_EXTRA_PROOF[$valueMechanism];
         }
 
         $isQueueOrContinuity = in_array($targetClass, self::QUEUE_OR_CONTINUITY_CLASSES, true)
