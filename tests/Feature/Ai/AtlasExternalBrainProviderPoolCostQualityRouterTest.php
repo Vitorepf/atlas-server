@@ -133,6 +133,29 @@ final class AtlasExternalBrainProviderPoolCostQualityRouterTest extends TestCase
         $this->assertSame('cheap-pool', $result['route_decision']['pool_id']);
     }
 
+    public function test_cheaper_pool_wins_tie_only_after_equal_score(): void
+    {
+        // cheap: 0.9*0.40 + 0.95*0.25 + 0.625*0.20 + 1.0*0.15 = 0.925
+        // strong: 0.9*0.40 + 0.95*0.25 + 1.0*0.20 + 0.5*0.15 = 0.925 (equal score, different tier)
+        $cheap = $this->cheapPool([
+            'model_strength' => 0.625,
+            'historical_success_rate' => 0.9,
+            'give_back_rate' => 0.05,
+        ]);
+        $strong = $this->strongPool([
+            'model_strength' => 1.0,
+            'historical_success_rate' => 0.9,
+            'give_back_rate' => 0.05,
+        ]);
+
+        $result = $this->router()->route([
+            'candidates' => [$strong, $cheap],
+            'task_criticality' => 'low',
+        ]);
+
+        $this->assertSame('cheap-pool', $result['route_decision']['pool_id']);
+    }
+
     public function test_no_safe_pool_falls_back_to_atlas_native_when_human_independent_available(): void
     {
         $result = $this->router()->route([
