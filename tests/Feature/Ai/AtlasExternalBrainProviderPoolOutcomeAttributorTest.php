@@ -136,7 +136,11 @@ final class AtlasExternalBrainProviderPoolOutcomeAttributorTest extends TestCase
         $result = (new AtlasExternalBrainProviderPoolOutcomeAttributor)->attribute(['outcomes' => $rows]);
 
         $this->assertNotEmpty($result['routing_lessons']);
-        $this->assertStringContainsString('prefer', $result['routing_lessons'][0]);
+        $lesson = $result['routing_lessons'][0];
+        $this->assertStringContainsString('prefer', $lesson);
+        foreach (['provider=codex', 'model=gpt-5.5', 'task_family=service_layer', 'complexity_tier=small', 'role=muscle', 'success_rate=', 'confidence=high', 'n=10'] as $fragment) {
+            $this->assertStringContainsString($fragment, $lesson, "routing lesson must include: {$fragment}");
+        }
     }
 
     public function test_distinct_dims_form_distinct_groups(): void
