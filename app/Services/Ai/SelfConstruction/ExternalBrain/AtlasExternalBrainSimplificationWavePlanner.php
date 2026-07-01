@@ -78,12 +78,28 @@ final class AtlasExternalBrainSimplificationWavePlanner
             $hasCoverage = (bool) ($c['has_behavior_coverage'] ?? false);
             $ownershipClear = (bool) ($c['ownership_clear'] ?? false);
 
+            // AC3: consumer impact, rollback proof, and knowledge-sync evidence default to
+            // satisfied when absent (backward compatible), and only defer when a candidate
+            // explicitly declares one of them unresolved.
+            $consumerImpactSafe = (bool) ($c['consumer_impact_safe'] ?? true);
+            $hasRollbackProof = (bool) ($c['has_rollback_proof'] ?? true);
+            $hasKnowledgeSyncEvidence = (bool) ($c['has_knowledge_sync_evidence'] ?? true);
+
             $missing = [];
             if (! $hasCoverage) {
                 $missing[] = 'add_test_coverage';
             }
             if (! $ownershipClear) {
                 $missing[] = 'clarify_ownership';
+            }
+            if (! $consumerImpactSafe) {
+                $missing[] = 'resolve_consumer_impact';
+            }
+            if (! $hasRollbackProof) {
+                $missing[] = 'provide_rollback_proof';
+            }
+            if (! $hasKnowledgeSyncEvidence) {
+                $missing[] = 'provide_knowledge_sync_evidence';
             }
 
             if ($missing !== []) {
@@ -97,14 +113,22 @@ final class AtlasExternalBrainSimplificationWavePlanner
                 'dependency_risk' => (string) ($c['dependency_risk'] ?? 'high'),
                 'line_reduction' => (int) ($c['line_reduction'] ?? 0),
                 'rollback_ease' => (string) ($c['rollback_ease'] ?? 'hard'),
+                'is_deletion_first' => (bool) ($c['is_deletion_first'] ?? false),
+                'consolidates_circuit' => (bool) ($c['consolidates_circuit'] ?? false),
             ];
         }
 
+        // AC1: deletion-first circuit consolidation ranks ahead of additive cleanup with similar
+        // line reduction — checked before dependency_risk so it dominates the ordering.
         usort($eligible, static function (array $a, array $b): int {
+            $ca = ($a['is_deletion_first'] || $a['consolidates_circuit']) ? 0 : 1;
+            $cb = ($b['is_deletion_first'] || $b['consolidates_circuit']) ? 0 : 1;
+
             $ra = self::RISK_RANK[$a['dependency_risk']] ?? 99;
             $rb = self::RISK_RANK[$b['dependency_risk']] ?? 99;
 
-            return $ra <=> $rb
+            return $ca <=> $cb
+                ?: $ra <=> $rb
                 ?: $b['line_reduction'] <=> $a['line_reduction']
                 ?: (self::ROLLBACK_RANK[$a['rollback_ease']] ?? 99) <=> (self::ROLLBACK_RANK[$b['rollback_ease']] ?? 99)
                 ?: strcmp($a['candidate_id'], $b['candidate_id']);
@@ -125,6 +149,10 @@ final class AtlasExternalBrainSimplificationWavePlanner
         }
 
         $expectedReductionScore = array_sum(array_column($eligible, 'line_reduction'));
+        $consolidationScore = count(array_filter(
+            $eligible,
+            static fn (array $c): bool => $c['is_deletion_first'] || $c['consolidates_circuit'],
+        ));
 
         $safetyNotes = [
             sprintf('eligibility requires has_behavior_coverage=true and ownership_clear=true; %d candidate(s) deferred for prework', count($deferred)),
@@ -149,6 +177,7 @@ final class AtlasExternalBrainSimplificationWavePlanner
             ],
             'worker_floor_guarded' => $workerFloorGuarded,
             'expected_reduction_score' => $expectedReductionScore,
+            'consolidation_score' => $consolidationScore,
             'safety_notes' => $safetyNotes,
             'autonomy_lane_policy' => $this->autonomyLanePolicy($baseCapacity, $effectiveCapacity, $urgent),
             'stop_go_decision' => $this->stopGoDecision($urgent, $complexityDebtHigh, $eligible, $expectedReductionScore),

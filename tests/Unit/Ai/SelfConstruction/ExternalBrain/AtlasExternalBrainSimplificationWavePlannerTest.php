@@ -298,4 +298,70 @@ final class AtlasExternalBrainSimplificationWavePlannerTest extends TestCase
 
         $this->assertFalse($r['worker_floor_guarded']);
     }
+
+    // ── AC1: deletion-first circuit consolidation ranks ahead of similar additive cleanup ──
+
+    public function test_deletion_first_circuit_consolidation_ranks_ahead_of_additive_cleanup_with_similar_reduction(): void
+    {
+        $r = $this->planner()->plan([
+            $this->candidate('additive-cleanup', ['line_reduction' => 55]),
+            $this->candidate('deletion-first', ['line_reduction' => 50, 'is_deletion_first' => true]),
+        ]);
+
+        $this->assertSame(['deletion-first', 'additive-cleanup'], $r['waves'][0]);
+    }
+
+    // ── AC2: missing consumer impact / rollback proof / knowledge sync defers with precise prework ──
+
+    public function test_missing_consumer_impact_defers_with_precise_prework(): void
+    {
+        $r = $this->planner()->plan([
+            $this->candidate('unsafe-consumer', ['consumer_impact_safe' => false]),
+        ]);
+
+        $this->assertSame([], $r['waves']);
+        $this->assertContains('resolve_consumer_impact', $r['deferred'][0]['required_prework']);
+    }
+
+    public function test_missing_rollback_proof_defers_with_precise_prework(): void
+    {
+        $r = $this->planner()->plan([
+            $this->candidate('no-rollback-proof', ['has_rollback_proof' => false]),
+        ]);
+
+        $this->assertSame([], $r['waves']);
+        $this->assertContains('provide_rollback_proof', $r['deferred'][0]['required_prework']);
+    }
+
+    public function test_missing_knowledge_sync_evidence_defers_with_precise_prework(): void
+    {
+        $r = $this->planner()->plan([
+            $this->candidate('no-knowledge-sync', ['has_knowledge_sync_evidence' => false]),
+        ]);
+
+        $this->assertSame([], $r['waves']);
+        $this->assertContains('provide_knowledge_sync_evidence', $r['deferred'][0]['required_prework']);
+    }
+
+    // ── AC4: consolidation_score exposed alongside expected_reduction_score ────
+
+    public function test_consolidation_score_counts_deletion_first_and_circuit_consolidating_candidates(): void
+    {
+        $r = $this->planner()->plan([
+            $this->candidate('a', ['is_deletion_first' => true]),
+            $this->candidate('b', ['consolidates_circuit' => true]),
+            $this->candidate('c'),
+        ]);
+
+        $this->assertSame(2, $r['consolidation_score']);
+        $this->assertArrayHasKey('expected_reduction_score', $r);
+        $this->assertArrayHasKey('safety_notes', $r);
+    }
+
+    public function test_consolidation_score_zero_when_no_deletion_or_consolidation_candidates(): void
+    {
+        $r = $this->planner()->plan([$this->candidate('a')]);
+
+        $this->assertSame(0, $r['consolidation_score']);
+    }
 }
