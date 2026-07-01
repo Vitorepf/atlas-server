@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAreaImpactL
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityDebtLedger;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityEvidenceProvenanceLedger;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityIntegrationMap;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainComprehensionDeepeningMap;
 use Illuminate\Console\Command;
 
 /**
@@ -52,6 +53,7 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
         AtlasExternalBrainCapabilityEvidenceProvenanceLedger $evidenceLedger,
         AtlasExternalBrainCapabilityDebtLedger $debtLedger,
         AtlasExternalBrainAreaImpactLedger $areaImpactLedger,
+        AtlasExternalBrainComprehensionDeepeningMap $comprehensionDeepeningMap,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -71,6 +73,9 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
         $capabilityEvidence = is_array($decoded['capability_evidence'] ?? null) ? $decoded['capability_evidence'] : [];
         $debtRecords = is_array($decoded['debt_records'] ?? null) ? $decoded['debt_records'] : [];
         $areaImpactSamples = is_array($decoded['area_impact_samples'] ?? null) ? $decoded['area_impact_samples'] : [];
+        $comprehensionDomains = is_array($decoded['comprehension_domains'] ?? null) ? $decoded['comprehension_domains'] : [];
+        $comprehensionArchitectureTargets = is_array($decoded['comprehension_architecture_targets'] ?? null) ? $decoded['comprehension_architecture_targets'] : [];
+        $comprehensionGaps = is_array($decoded['comprehension_gaps'] ?? null) ? $decoded['comprehension_gaps'] : [];
 
         $integrationReport = $integrationMap->map(['capabilities' => $capabilities]);
         $integrationByCapability = array_column($integrationReport['capability_map'], null, 'capability_id');
@@ -86,6 +91,11 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
 
         $debtReport = $debtLedger->assess(['debt_records' => $debtRecords]);
         $areaImpactReport = $areaImpactLedger->aggregate(['samples' => $areaImpactSamples]);
+        $comprehensionDeepeningReport = $comprehensionDeepeningMap->map([
+            'domains' => $comprehensionDomains,
+            'architecture_targets' => $comprehensionArchitectureTargets,
+        ]);
+        $comprehensionGapRankings = $comprehensionDeepeningMap->rankGaps(['gaps' => $comprehensionGaps]);
 
         $capabilityIds = array_values(array_unique(array_merge(
             array_keys($integrationByCapability),
@@ -125,6 +135,8 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
             'evidence_assessments' => $evidenceAssessments,
             'capability_debt_ledger' => $debtReport,
             'area_impact_ledger' => $areaImpactReport,
+            'comprehension_deepening_map' => $comprehensionDeepeningReport,
+            'comprehension_gap_rankings' => $comprehensionGapRankings,
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
