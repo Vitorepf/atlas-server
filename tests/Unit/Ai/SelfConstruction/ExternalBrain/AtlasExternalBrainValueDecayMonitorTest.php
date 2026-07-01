@@ -119,7 +119,22 @@ final class AtlasExternalBrainValueDecayMonitorTest extends TestCase
 
     // ── Priority 1: load-bearing forces keep ──────────────────────────────────
 
-    public function test_high_blocking_count_forces_keep_even_if_old(): void
+    public function test_high_blocking_count_with_fresh_value_proof_forces_keep_even_if_old(): void
+    {
+        $r = $this->monitor()->monitor([
+            'tasks'            => [$this->task([
+                'queued_at_days_ago'    => 60,
+                'has_value_proof'       => false,
+                'blocking_count'        => 5,
+                'fresh_value_proof'     => true,
+            ])],
+            'min_blocking_keep' => 3,
+        ]);
+        $this->assertContains('t1', $r['keep_tasks']);
+        $this->assertSame('high_blocking_count_load_bearing_fresh_proof', $r['recommendations'][0]['reason']);
+    }
+
+    public function test_high_blocking_count_without_fresh_value_proof_returns_refresh_not_keep(): void
     {
         $r = $this->monitor()->monitor([
             'tasks'            => [$this->task([
@@ -129,8 +144,22 @@ final class AtlasExternalBrainValueDecayMonitorTest extends TestCase
             ])],
             'min_blocking_keep' => 3,
         ]);
-        $this->assertContains('t1', $r['keep_tasks']);
-        $this->assertSame('high_blocking_count_load_bearing', $r['recommendations'][0]['reason']);
+        $this->assertNotContains('t1', $r['keep_tasks']);
+        $this->assertSame('refresh', $r['recommendations'][0]['recommendation']);
+        $this->assertSame('high_blocking_count_stale_or_missing_value_proof', $r['recommendations'][0]['reason']);
+    }
+
+    public function test_high_blocking_count_without_fresh_proof_and_low_muscle_success_returns_consolidate(): void
+    {
+        $r = $this->monitor()->monitor([
+            'tasks'            => [$this->task([
+                'blocking_count'      => 5,
+                'muscle_success_rate' => 0.1,
+            ])],
+            'min_blocking_keep' => 3,
+        ]);
+        $this->assertSame('consolidate', $r['recommendations'][0]['recommendation']);
+        $this->assertSame('high_blocking_count_stale_proof_low_muscle_success', $r['recommendations'][0]['reason']);
     }
 
     // ── Priority 2: age decay + no value proof → retire ──────────────────────
@@ -333,5 +362,61 @@ final class AtlasExternalBrainValueDecayMonitorTest extends TestCase
 
         $this->assertSame('respec', $r['recommendations'][0]['recommendation']);
         $this->assertSame('blocked_dependency_requires_rethink', $r['recommendations'][0]['reason']);
+    }
+
+    // ── superseded_target / duplicate_family_saturation outrank load-bearing keep ─
+
+    public function test_superseded_target_retires_even_with_high_blocking_count_and_fresh_proof(): void
+    {
+        $r = $this->monitor()->monitor([
+            'tasks' => [$this->task([
+                'blocking_count'     => 5,
+                'fresh_value_proof'  => true,
+                'superseded_target'  => true,
+            ])],
+            'min_blocking_keep' => 3,
+        ]);
+
+        $this->assertSame('retire', $r['recommendations'][0]['recommendation']);
+        $this->assertSame('superseded_target', $r['recommendations'][0]['reason']);
+    }
+
+    public function test_duplicate_family_saturation_retires_even_with_high_blocking_count(): void
+    {
+        $r = $this->monitor()->monitor([
+            'tasks' => [$this->task([
+                'blocking_count'          => 5,
+                'fresh_value_proof'       => true,
+                'duplicate_family_count'  => 10,
+            ])],
+            'min_blocking_keep' => 3,
+        ]);
+
+        $this->assertSame('retire', $r['recommendations'][0]['recommendation']);
+        $this->assertSame('duplicate_family_saturation', $r['recommendations'][0]['reason']);
+    }
+
+    // ── AC: next_evidence_needed present for uncertain buckets, null for certain ones ─
+
+    public function test_next_evidence_needed_is_null_for_keep_and_retire(): void
+    {
+        $keep = $this->monitor()->monitor(['tasks' => [$this->task()]]);
+        $retire = $this->monitor()->monitor([
+            'tasks' => [$this->task(['queued_at_days_ago' => 60, 'has_value_proof' => false])],
+            'max_age_days' => 30,
+        ]);
+
+        $this->assertNull($keep['per_task'][0]['next_evidence_needed']);
+        $this->assertNull($retire['per_task'][0]['next_evidence_needed']);
+    }
+
+    public function test_next_evidence_needed_names_concrete_evidence_for_refresh(): void
+    {
+        $r = $this->monitor()->monitor([
+            'tasks' => [$this->task(['blocking_count' => 5])],
+            'min_blocking_keep' => 3,
+        ]);
+
+        $this->assertSame('fresh_value_proof_for_load_bearing_task', $r['per_task'][0]['next_evidence_needed']);
     }
 }

@@ -85,6 +85,7 @@ final class AtlasExternalBrainValueDecayMonitor
             $duplicateFamilyCount = max(0,   (int)   ($raw['duplicate_family_count'] ?? 0));
             $giveBackCount        = max(0,   (int)   ($raw['give_back_count']       ?? 0));
             $muscleSuccessRate    = isset($raw['muscle_success_rate']) ? max(0.0, min(1.0, (float) $raw['muscle_success_rate'])) : null;
+            $freshValueProof      = (bool)   ($raw['fresh_value_proof']            ?? false);
 
             // Collect active decay signals.
             $decaySignals = [];
@@ -131,7 +132,7 @@ final class AtlasExternalBrainValueDecayMonitor
                 $hasValueProof, $blockingCount, $minBlockingKeep,
                 $currentValueScore, $changedAllowedFiles, $blockedDependency,
                 $supersededTarget, $duplicateFamilyCount, $staleEvidenceAge, $staleAge,
-                $giveBackCount, $muscleSuccessRate,
+                $giveBackCount, $muscleSuccessRate, $freshValueProof,
             );
 
             $recommendations[] = [
@@ -202,8 +203,12 @@ final class AtlasExternalBrainValueDecayMonitor
     {
         return match ($recommendation) {
             'retire', 'keep' => null,
-            'consolidate' => 'muscle_success_rate_after_family_consolidation',
-            'refresh' => 'refreshed_evidence_ref_after_stale_evidence_repair',
+            'consolidate' => $reason === 'high_blocking_count_stale_proof_low_muscle_success'
+                ? 'fresh_value_proof_for_load_bearing_task_after_family_consolidation'
+                : 'muscle_success_rate_after_family_consolidation',
+            'refresh' => $reason === 'high_blocking_count_stale_or_missing_value_proof'
+                ? 'fresh_value_proof_for_load_bearing_task'
+                : 'refreshed_evidence_ref_after_stale_evidence_repair',
             'respec' => match ($reason) {
                 'valuable_capability_scope_drifted_respec_preferred' => 'updated_current_value_score_and_scope_after_respec',
                 'scope_changed_capability_still_valuable' => 'confirmed_allowed_files_and_value_score_after_scope_change',
@@ -227,19 +232,30 @@ final class AtlasExternalBrainValueDecayMonitor
         int   $staleAge = self::DEFAULT_STALE_AGE,
         int   $giveBackCount = 0,
         ?float $muscleSuccessRate = null,
+        bool  $freshValueProof = false,
     ): array {
-        // Priority 1: load-bearing tasks always kept.
-        if ($blockingCount >= $minBlockingKeep) {
-            return ['keep', 'high_blocking_count_load_bearing'];
-        }
-
-        // Priority 1.5: superseded target or duplicate-family saturation — retire,
-        // isolated per task and never affects unrelated fresh/high-value tasks.
+        // Priority 1: superseded target or duplicate-family saturation — retire ahead of every
+        // other check, including load-bearing keep; isolated per task, never affects unrelated
+        // fresh/high-value tasks.
         if ($supersededTarget) {
             return ['retire', 'superseded_target'];
         }
         if ($duplicateFamilyCount >= self::DUPLICATE_FAMILY_THRESHOLD) {
             return ['retire', 'duplicate_family_saturation'];
+        }
+
+        // Priority 1.5: load-bearing tasks are kept ONLY with fresh value proof. High
+        // blocking_count on stale/missing proof is not a free pass — it must be refreshed
+        // (or consolidated when the underlying family is also underperforming).
+        if ($blockingCount >= $minBlockingKeep) {
+            if ($freshValueProof) {
+                return ['keep', 'high_blocking_count_load_bearing_fresh_proof'];
+            }
+            if ($muscleSuccessRate !== null && $muscleSuccessRate < self::LOW_SUCCESS_THRESHOLD) {
+                return ['consolidate', 'high_blocking_count_stale_proof_low_muscle_success'];
+            }
+
+            return ['refresh', 'high_blocking_count_stale_or_missing_value_proof'];
         }
 
         // Priority 2: age-decayed with no value proof.
