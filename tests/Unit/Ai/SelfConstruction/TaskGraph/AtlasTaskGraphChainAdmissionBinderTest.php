@@ -180,6 +180,20 @@ final class AtlasTaskGraphChainAdmissionBinderTest extends TestCase
         $this->assertSame('t2', $conflict['task_b']);
     }
 
+    public function test_parallel_steps_sharing_read_only_file_do_not_conflict(): void
+    {
+        $shared = 'app/Services/Ai/SharedContext.php';
+        $t1 = $this->step('t1', files: [$shared, 'tests/T1Test.php']);
+        $t1['read_only_files'] = [$shared];
+        $t2 = $this->step('t2', files: [$shared, 'tests/T2Test.php']);
+        $t2['read_only_files'] = [$shared];
+
+        $r = $this->bind([$this->chain('c1', [$t1, $t2])]);
+
+        $this->assertSame([], $r['write_set_conflicts']);
+        $this->assertCount(1, $r['accepted_chains']);
+    }
+
     // ── multiple chains ───────────────────────────────────────────────────────
 
     public function test_multiple_chains_processed_independently(): void

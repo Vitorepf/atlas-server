@@ -133,8 +133,11 @@ final class AtlasTaskGraphChainAdmissionBinder
                 $directDep = in_array($bId, $aDeps, true) || in_array($aId, $bDeps, true);
 
                 if (! $directDep) {
-                    $aFiles = is_array($a['allowed_files'] ?? null) ? $a['allowed_files'] : [];
-                    $bFiles = is_array($b['allowed_files'] ?? null) ? $b['allowed_files'] : [];
+                    $aReadOnly = is_array($a['read_only_files'] ?? null) ? $a['read_only_files'] : [];
+                    $bReadOnly = is_array($b['read_only_files'] ?? null) ? $b['read_only_files'] : [];
+
+                    $aFiles = is_array($a['allowed_files'] ?? null) ? array_values(array_diff($a['allowed_files'], $aReadOnly)) : [];
+                    $bFiles = is_array($b['allowed_files'] ?? null) ? array_values(array_diff($b['allowed_files'], $bReadOnly)) : [];
                     $overlap = array_values(array_intersect($aFiles, $bFiles));
 
                     if (count($overlap) > 0) {
