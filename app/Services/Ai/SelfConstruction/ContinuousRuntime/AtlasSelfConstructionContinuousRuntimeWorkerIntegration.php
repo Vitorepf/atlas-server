@@ -124,7 +124,8 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegration
      *     available_worker_count?:int,
      *     worker_ready?:bool,
      *     heartbeat_age_seconds?:int,
-     *     worker_readiness_safe?:bool
+     *     worker_readiness_safe?:bool,
+     *     native_pool_ready?:bool
      * }  $facts
      * @return array{schema:string, recommendations:list<string>, facts_observed:array<string,mixed>}
      */
@@ -135,13 +136,17 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegration
         $workerReady = (bool) ($facts['worker_ready'] ?? false);
         $heartbeatAge = (int) ($facts['heartbeat_age_seconds'] ?? 0);
         $workerReadinessSafe = (bool) ($facts['worker_readiness_safe'] ?? true);
+        // AC2/AC3: native pool proof gates spawn — defaults to true so callers that never
+        // wire native pool facts through keep today's behavior (compat), while callers who
+        // explicitly pass false are honestly held back from a false-autonomy spawn claim.
+        $nativePoolReady = (bool) ($facts['native_pool_ready'] ?? true);
 
         $recommendations = [];
 
         if ($queueDepth === 0) {
             $recommendations[] = 'hold';
         }
-        if ($queueDepth > 0 && $workerReady && $availableWorkers > 0) {
+        if ($queueDepth > 0 && $workerReady && $availableWorkers > 0 && $nativePoolReady) {
             $recommendations[] = 'spawn';
         }
         if (! $workerReadinessSafe) {
@@ -162,6 +167,7 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegration
                 'worker_ready' => $workerReady,
                 'heartbeat_age_seconds' => $heartbeatAge,
                 'worker_readiness_safe' => $workerReadinessSafe,
+                'native_pool_ready' => $nativePoolReady,
             ],
         ];
     }

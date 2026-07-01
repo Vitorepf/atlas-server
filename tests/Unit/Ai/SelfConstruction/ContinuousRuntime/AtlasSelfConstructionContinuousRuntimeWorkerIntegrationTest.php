@@ -139,6 +139,36 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegrationTest extends 
         $this->assertNotContains('hold', $result['recommendations']);
     }
 
+    public function test_ready_native_pool_with_spawn_worthy_facts_emits_spawn(): void
+    {
+        $result = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->recommend([
+            'servable_queue_depth' => 5,
+            'available_worker_count' => 2,
+            'worker_ready' => true,
+            'heartbeat_age_seconds' => 10,
+            'worker_readiness_safe' => true,
+            'native_pool_ready' => true,
+        ]);
+
+        $this->assertContains('spawn', $result['recommendations']);
+        $this->assertTrue($result['facts_observed']['native_pool_ready']);
+    }
+
+    public function test_missing_native_pool_proof_withholds_spawn(): void
+    {
+        $result = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->recommend([
+            'servable_queue_depth' => 5,
+            'available_worker_count' => 2,
+            'worker_ready' => true,
+            'heartbeat_age_seconds' => 10,
+            'worker_readiness_safe' => true,
+            'native_pool_ready' => false,
+        ]);
+
+        $this->assertNotContains('spawn', $result['recommendations']);
+        $this->assertFalse($result['facts_observed']['native_pool_ready']);
+    }
+
     public function test_stale_heartbeat_emits_repair_worker(): void
     {
         $result = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->recommend([
