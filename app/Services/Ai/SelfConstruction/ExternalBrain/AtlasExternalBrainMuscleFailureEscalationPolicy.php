@@ -34,6 +34,43 @@ final class AtlasExternalBrainMuscleFailureEscalationPolicy
 
     private const DEFAULT_THRESHOLD = 3;
 
+    // ── AC1: failure-class taxonomy (independent of the legacy root_cause ladder above) ──
+    public const CLASS_TASK_POISON = 'task_poison';
+    public const CLASS_WORKER_MISMATCH = 'worker_mismatch';
+    public const CLASS_FLAKY_TEST = 'flaky_test';
+    public const CLASS_SCOPE_GAP = 'scope_gap';
+    public const CLASS_PROOF_GAP = 'proof_gap';
+    public const CLASS_INFRASTRUCTURE_CONTENTION = 'infrastructure_contention';
+
+    private const FAILURE_CLASSES = [
+        self::CLASS_TASK_POISON,
+        self::CLASS_WORKER_MISMATCH,
+        self::CLASS_FLAKY_TEST,
+        self::CLASS_SCOPE_GAP,
+        self::CLASS_PROOF_GAP,
+        self::CLASS_INFRASTRUCTURE_CONTENTION,
+    ];
+
+    // ── AC2: recommended_action taxonomy ──
+    public const RECOMMEND_REPAIR = 'repair';
+    public const RECOMMEND_RESPEC = 'respec';
+    public const RECOMMEND_REROUTE = 'reroute';
+    public const RECOMMEND_PAUSE = 'pause';
+    public const RECOMMEND_ESCALATE = 'escalate';
+
+    /** failure_class => recommended_action. */
+    private const CLASS_TO_RECOMMENDED_ACTION = [
+        self::CLASS_TASK_POISON => self::RECOMMEND_RESPEC,
+        self::CLASS_SCOPE_GAP => self::RECOMMEND_RESPEC,
+        self::CLASS_WORKER_MISMATCH => self::RECOMMEND_REROUTE,
+        self::CLASS_FLAKY_TEST => self::RECOMMEND_REPAIR,
+        self::CLASS_PROOF_GAP => self::RECOMMEND_REPAIR,
+        self::CLASS_INFRASTRUCTURE_CONTENTION => self::RECOMMEND_PAUSE,
+    ];
+
+    /** Only infrastructure_contention is a legitimate reason to add more workers to a class. */
+    private const REQUESTED_ACTION_ADD_MORE_WORKERS = 'add_more_workers';
+
     /** Relative severity so "escalate to X or stronger" comparisons are well-defined. */
     private const ACTION_RANK = [
         self::ACTION_CONTINUE_RETRY => 0,
@@ -131,6 +168,25 @@ final class AtlasExternalBrainMuscleFailureEscalationPolicy
             $forcedByCooldown = true;
         }
 
+        $failureClass = $this->classifyFailure($facts, $rootCause, $repeatCount);
+        $recommendedAction = self::CLASS_TO_RECOMMENDED_ACTION[$failureClass] ?? self::RECOMMEND_ESCALATE;
+
+        // AC3: reject "add more workers" as a fix for anything that isn't a genuine
+        // infrastructure/capacity contention — more workers never fixes a poisoned task,
+        // a scope gap, a proof gap, or a worker/class mismatch.
+        $requestedAction = trim((string) ($facts['requested_action'] ?? ''));
+        $requestedActionRejected = false;
+        $requestedActionRejectionReason = null;
+        if ($requestedAction === self::REQUESTED_ACTION_ADD_MORE_WORKERS
+            && $failureClass !== self::CLASS_INFRASTRUCTURE_CONTENTION) {
+            $requestedActionRejected = true;
+            $requestedActionRejectionReason = sprintf(
+                'adding_more_workers_does_not_fix_%s;_recommended_action_is_%s',
+                $failureClass,
+                $recommendedAction,
+            );
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'root_cause' => $rootCause,
@@ -142,6 +198,51 @@ final class AtlasExternalBrainMuscleFailureEscalationPolicy
             'forced_off_continue_retry' => $forcedOffContinueRetry,
             'forced_by_last_action' => $forcedByLastAction,
             'forced_by_cooldown' => $forcedByCooldown,
+            'failure_class' => $failureClass,
+            'recommended_action' => $recommendedAction,
+            'requested_action_rejected' => $requestedActionRejected,
+            'requested_action_rejection_reason' => $requestedActionRejectionReason,
         ];
+    }
+
+    /**
+     * AC1: classifies the failure into one of the 6 canonical classes. An explicit
+     * `failure_class` fact always wins; otherwise derived from structured signals, falling
+     * back to the legacy root_cause, and finally to task_poison — never silently assumed to
+     * be a worker-capacity problem.
+     *
+     * @param  array<string,mixed>  $facts
+     */
+    private function classifyFailure(array $facts, string $rootCause, int $repeatCount): string
+    {
+        $explicit = strtolower(trim((string) ($facts['failure_class'] ?? '')));
+        if (in_array($explicit, self::FAILURE_CLASSES, true)) {
+            return $explicit;
+        }
+
+        if ((bool) ($facts['infrastructure_contention'] ?? false)) {
+            return self::CLASS_INFRASTRUCTURE_CONTENTION;
+        }
+        if ((bool) ($facts['is_flaky'] ?? false)) {
+            return self::CLASS_FLAKY_TEST;
+        }
+        if ((bool) ($facts['worker_mismatch'] ?? false) || $rootCause === 'local_client_stall') {
+            return self::CLASS_WORKER_MISMATCH;
+        }
+        if ((int) ($facts['scope_violation_count'] ?? 0) > 0 || $rootCause === 'scope_violation') {
+            return self::CLASS_SCOPE_GAP;
+        }
+        if ((int) ($facts['missing_evidence_count'] ?? 0) > 0) {
+            return self::CLASS_PROOF_GAP;
+        }
+        if (in_array($rootCause, ['malformed_acceptance', 'duplicate_capability'], true)) {
+            return self::CLASS_TASK_POISON;
+        }
+        if ($rootCause === 'give_back' && $repeatCount >= 2) {
+            // Repeated give_back on the same task is a spec problem, not a worker shortage.
+            return self::CLASS_TASK_POISON;
+        }
+
+        return self::CLASS_TASK_POISON;
     }
 }
