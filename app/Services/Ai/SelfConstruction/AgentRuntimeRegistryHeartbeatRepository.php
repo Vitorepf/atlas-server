@@ -50,7 +50,14 @@ final class AgentRuntimeRegistryHeartbeatRepository
         'degraded',
         'stale',
         'unknown',
+        'quarantined',
     ];
+
+    /** AC3: heartbeat status category — always exactly one of these four, deterministically. */
+    public const STATUS_CATEGORY_FRESH = 'fresh';
+    public const STATUS_CATEGORY_STALE = 'stale';
+    public const STATUS_CATEGORY_MISSING = 'missing';
+    public const STATUS_CATEGORY_QUARANTINED = 'quarantined';
 
     /**
      * Heartbeat productivity states (AC2/AC3) — distinguishes a worker actually doing work from
@@ -106,6 +113,7 @@ final class AgentRuntimeRegistryHeartbeatRepository
                 'max_parallel_tasks' => $maxParallel,
                 'active_lease_ids' => $this->normalizeStringList((array) ($heartbeat['active_lease_ids'] ?? [])),
                 'current_workspace_ids' => $this->normalizeStringList((array) ($heartbeat['current_workspace_ids'] ?? [])),
+                'capabilities' => $this->normalizeStringList((array) ($heartbeat['capabilities'] ?? [])),
                 'last_continuation_summary_hash' => (string) ($heartbeat['last_continuation_summary_hash'] ?? ''),
                 'progress_marker' => (string) ($heartbeat['progress_marker'] ?? ''),
                 'last_outcome_marker' => (string) ($heartbeat['last_outcome_marker'] ?? ''),
@@ -219,6 +227,7 @@ final class AgentRuntimeRegistryHeartbeatRepository
                         'observed_at' => $observed,
                         'age_seconds' => null,
                         'reason' => 'invalid_timestamp',
+                        'suggested_recovery_action' => 'investigate_clock_or_serialization_bug_then_restart_agent',
                     ];
                 }
 
@@ -233,6 +242,7 @@ final class AgentRuntimeRegistryHeartbeatRepository
             ];
             if ($age > $ttl) {
                 $payload['reason'] = 'older_than_ttl';
+                $payload['suggested_recovery_action'] = 'reap_and_reclaim_leases_then_restart_agent';
                 $staleCount++;
                 if ($detailLimit === 0 || count($stale) < $detailLimit) {
                     $stale[] = $payload;
@@ -290,6 +300,8 @@ final class AgentRuntimeRegistryHeartbeatRepository
                 'has_heartbeat' => false,
                 'is_stale' => true,
                 'is_fresh' => false,
+                'is_quarantined' => false,
+                'status_category' => self::STATUS_CATEGORY_MISSING,
                 'reason' => 'no_heartbeat',
                 'heartbeat_state' => self::HEARTBEAT_STATE_STALE,
                 'reference_time' => $referenceIso,
@@ -315,12 +327,26 @@ final class AgentRuntimeRegistryHeartbeatRepository
 
         $heartbeatState = $this->classifyHeartbeatState($stale, $latest, $previous);
 
+        // AC3: quarantine is a safety state that always wins over freshness — a quarantined
+        // agent must never be reported as routable just because its heartbeat is recent.
+        $isQuarantined = (string) ($latest['status'] ?? '') === 'quarantined';
+        $statusCategory = match (true) {
+            $isQuarantined => self::STATUS_CATEGORY_QUARANTINED,
+            $stale => self::STATUS_CATEGORY_STALE,
+            default => self::STATUS_CATEGORY_FRESH,
+        };
+        if ($isQuarantined) {
+            $reason = 'quarantined';
+        }
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'agent_id' => $agentId,
             'has_heartbeat' => true,
             'is_stale' => $stale,
             'is_fresh' => ! $stale,
+            'is_quarantined' => $isQuarantined,
+            'status_category' => $statusCategory,
             'reason' => $reason,
             'heartbeat_state' => $heartbeatState,
             'age_seconds' => $age,
@@ -332,6 +358,7 @@ final class AgentRuntimeRegistryHeartbeatRepository
             'max_parallel_tasks' => (int) ($latest['max_parallel_tasks'] ?? 0),
             'progress_marker' => (string) ($latest['progress_marker'] ?? ''),
             'last_outcome_marker' => (string) ($latest['last_outcome_marker'] ?? ''),
+            'capabilities' => (array) ($latest['capabilities'] ?? []),
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
