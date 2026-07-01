@@ -41,6 +41,27 @@ final class AtlasExternalBrainAmbitionEscalationPolicy
         self::MODE_CERTIFICATION_GAP,
     ];
 
+    public const ACTION_ESCALATE_STRATEGY = 'escalate_strategy';
+
+    public const CATEGORY_ARCHITECTURE           = 'architecture';
+    public const CATEGORY_SIMPLIFICATION         = 'simplification';
+    public const CATEGORY_RESEARCH               = 'research';
+    public const CATEGORY_TASK_FABRIC_HARDENING  = 'task_fabric_hardening';
+
+    /**
+     * Every ladder mode belongs to exactly one broad escalation category — the vocabulary the
+     * mission narrates in ("architecture, simplification, research or task-fabric upgrades")
+     * without renaming the ladder modes existing consumers already key on.
+     */
+    private const MODE_CATEGORY = [
+        self::MODE_CONTRACT_MISMATCH           => self::CATEGORY_TASK_FABRIC_HARDENING,
+        self::MODE_CROSS_DOMAIN_PATTERN        => self::CATEGORY_TASK_FABRIC_HARDENING,
+        self::MODE_RESEARCH_BACKED_DESIGN      => self::CATEGORY_RESEARCH,
+        self::MODE_ARCHITECTURE_SIMPLIFICATION => self::CATEGORY_ARCHITECTURE,
+        self::MODE_RUNTIME_HEALTH              => self::CATEGORY_TASK_FABRIC_HARDENING,
+        self::MODE_CERTIFICATION_GAP           => self::CATEGORY_SIMPLIFICATION,
+    ];
+
     /**
      * Decide the next action for a brain that detected a low-yield wave.
      *
@@ -127,6 +148,8 @@ final class AtlasExternalBrainAmbitionEscalationPolicy
             'modes_with_evidence' => $withEvidence,
             'honest_exhausted'    => $exhausted,
             'exhaustion_dossier'  => $dossier,
+            'action'              => $exhausted ? self::MODE_HONEST_EXHAUSTED : self::ACTION_ESCALATE_STRATEGY,
+            'escalation_category' => self::MODE_CATEGORY[$next] ?? null,
         ];
     }
 

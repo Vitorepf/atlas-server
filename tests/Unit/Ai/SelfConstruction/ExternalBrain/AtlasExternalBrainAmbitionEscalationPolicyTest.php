@@ -299,4 +299,87 @@ final class AtlasExternalBrainAmbitionEscalationPolicyTest extends TestCase
         $this->assertFalse($r['honest_exhausted']);
         $this->assertNotSame(AtlasExternalBrainAmbitionEscalationPolicy::MODE_HONEST_EXHAUSTED, $r['next_mode']);
     }
+
+    // ---------- AC: repeated low-yield local scans trigger escalate_strategy, not stop ----------
+
+    public function test_repeated_low_yield_scans_trigger_escalate_strategy_action(): void
+    {
+        $attempted = [];
+        foreach (range(1, 6) as $i) {
+            $r = $this->policy->decide(['attempted_modes' => $attempted, 'wave_yield' => 0.01]);
+            $this->assertSame(AtlasExternalBrainAmbitionEscalationPolicy::ACTION_ESCALATE_STRATEGY, $r['action']);
+            $this->assertNotSame('stop', $r['action']);
+            $attempted[] = $r['next_mode'];
+        }
+    }
+
+    public function test_honest_exhausted_action_is_not_stop(): void
+    {
+        $all = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $evidenceByMode = [];
+        foreach ($all as $m) {
+            $evidenceByMode[$m] = ['proof:'.$m];
+        }
+        $r = $this->policy->decide(['attempted_modes' => $all, 'evidence_by_mode' => $evidenceByMode]);
+        $this->assertSame(AtlasExternalBrainAmbitionEscalationPolicy::MODE_HONEST_EXHAUSTED, $r['action']);
+        $this->assertNotSame('stop', $r['action']);
+    }
+
+    // ---------- AC: escalation chooses architecture, simplification, research or task_fabric_hardening ----------
+
+    public function test_escalation_category_covers_all_four_named_buckets_across_the_ladder(): void
+    {
+        $attempted = [];
+        $seenCategories = [];
+        foreach (range(1, 6) as $i) {
+            $r = $this->policy->decide(['attempted_modes' => $attempted]);
+            $seenCategories[$r['escalation_category']] = true;
+            $attempted[] = $r['next_mode'];
+        }
+
+        $this->assertArrayHasKey('architecture', $seenCategories);
+        $this->assertArrayHasKey('simplification', $seenCategories);
+        $this->assertArrayHasKey('research', $seenCategories);
+        $this->assertArrayHasKey('task_fabric_hardening', $seenCategories);
+    }
+
+    public function test_escalation_category_null_when_honest_exhausted(): void
+    {
+        $all = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $evidenceByMode = [];
+        foreach ($all as $m) {
+            $evidenceByMode[$m] = ['proof:'.$m];
+        }
+        $r = $this->policy->decide(['attempted_modes' => $all, 'evidence_by_mode' => $evidenceByMode]);
+        $this->assertNull($r['escalation_category']);
+    }
+
+    // ---------- AC: escalation never recommends quota padding ----------
+
+    public function test_escalation_never_recommends_quota_padding(): void
+    {
+        $attempted = [];
+        foreach (range(1, 8) as $i) {
+            $r = $this->policy->decide(['attempted_modes' => $attempted, 'wave_number' => $i, 'wave_yield' => 0.01]);
+            $flat = strtolower((string) json_encode($r));
+            $this->assertStringNotContainsString('pad_quota', $flat);
+            $this->assertStringNotContainsString('quota_padding', $flat);
+            $this->assertStringNotContainsString('padding', $flat);
+            $attempted[] = $r['next_mode'];
+        }
+    }
 }
