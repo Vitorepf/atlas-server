@@ -247,4 +247,102 @@ final class AtlasMaestroBlockedQueueUnblockPlannerTest extends TestCase
         $this->assertContains('a', $repairIds);
         $this->assertArrayHasKey('passive_wait_blocked_reason', $r['entries'][0]);
     }
+
+    // ── AC1: classification into the 5 canonical unblock classes ─────────────
+
+    public function test_deficiencies_classify_as_unblock_class_respec(): void
+    {
+        $r = $this->svc()->plan([$this->pkt('p1', ['deficiencies' => ['bad spec']])]);
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::UNBLOCK_CLASS_RESPEC, $r['entries'][0]['unblock_class']);
+    }
+
+    public function test_schema_errors_classify_as_unblock_class_respec(): void
+    {
+        $r = $this->svc()->plan([$this->pkt('p1', ['schema_errors' => ['missing col']])]);
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::UNBLOCK_CLASS_RESPEC, $r['entries'][0]['unblock_class']);
+    }
+
+    public function test_retire_action_classifies_as_unblock_class_cancel_duplicate(): void
+    {
+        $r = $this->svc()->plan([$this->pkt('p1', ['already_done' => true])]);
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::UNBLOCK_CLASS_CANCEL_DUPLICATE, $r['entries'][0]['unblock_class']);
+    }
+
+    public function test_operator_only_classifies_as_unblock_class_operator_only(): void
+    {
+        $r = $this->svc()->plan([$this->pkt('p1', ['operator_only' => true])]);
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::UNBLOCK_CLASS_OPERATOR_ONLY, $r['entries'][0]['unblock_class']);
+    }
+
+    public function test_fix_dependency_classifies_as_unblock_class_dependency_unblock(): void
+    {
+        $r = $this->svc()->plan([$this->pkt('p1', ['dependency_status' => 'stale'])]);
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::UNBLOCK_CLASS_DEPENDENCY_UNBLOCK, $r['entries'][0]['unblock_class']);
+    }
+
+    public function test_leave_blocked_classifies_as_unblock_class_keep_quarantined(): void
+    {
+        $r = $this->svc()->plan([$this->pkt('p1')]);
+        $this->assertSame(AtlasMaestroBlockedQueueUnblockPlanner::UNBLOCK_CLASS_KEEP_QUARANTINED, $r['entries'][0]['unblock_class']);
+    }
+
+    // ── AC2: ordering by recovered claimable value net of risk, not raw fan-out ──
+
+    public function test_high_value_low_risk_packet_outranks_high_fanout_high_risk_packet(): void
+    {
+        $r = $this->svc()->plan([
+            $this->pkt('high-fanout-risky', [
+                'downstream_unlock_count' => 10,
+                'risk_level' => 'high',
+                'recovered_claimable_value' => 2,
+                'dependency_status' => 'stale',
+            ]),
+            $this->pkt('lower-fanout-high-value', [
+                'downstream_unlock_count' => 2,
+                'risk_level' => 'low',
+                'recovered_claimable_value' => 9,
+                'dependency_status' => 'stale',
+            ]),
+        ]);
+
+        $this->assertSame('lower-fanout-high-value', $r['entries'][0]['task_packet_id']);
+        $this->assertSame('high-fanout-risky', $r['entries'][1]['task_packet_id']);
+    }
+
+    public function test_priority_score_penalizes_risk_level(): void
+    {
+        $r = $this->svc()->plan([
+            $this->pkt('p1', ['recovered_claimable_value' => 5, 'risk_level' => 'high']),
+        ]);
+
+        $this->assertSame(3.0, $r['entries'][0]['priority_score']);
+    }
+
+    public function test_recovered_claimable_value_defaults_to_downstream_unlock_count(): void
+    {
+        $r = $this->svc()->plan([$this->pkt('p1', ['downstream_unlock_count' => 4])]);
+
+        $this->assertSame(4.0, $r['entries'][0]['recovered_claimable_value']);
+        $this->assertSame(4.0, $r['entries'][0]['priority_score']);
+    }
+
+    public function test_low_value_blocked_packet_not_prioritized_over_high_leverage_recoverable_work(): void
+    {
+        $r = $this->svc()->plan([
+            $this->pkt('low-value-but-many-siblings', [
+                'downstream_unlock_count' => 20,
+                'recovered_claimable_value' => 0,
+                'risk_level' => 'low',
+                'deficiencies' => ['low value duplicate cluster'],
+            ]),
+            $this->pkt('high-leverage-recoverable', [
+                'downstream_unlock_count' => 1,
+                'recovered_claimable_value' => 15,
+                'risk_level' => 'low',
+                'dependency_status' => 'missing',
+            ]),
+        ]);
+
+        $this->assertSame('high-leverage-recoverable', $r['entries'][0]['task_packet_id']);
+    }
 }
