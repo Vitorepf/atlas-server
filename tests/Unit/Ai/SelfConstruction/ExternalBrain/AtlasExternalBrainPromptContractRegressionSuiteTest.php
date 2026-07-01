@@ -297,4 +297,78 @@ final class AtlasExternalBrainPromptContractRegressionSuiteTest extends TestCase
 
         $this->assertNotContains('vague_evidence_risk', $r['failed_clauses']);
     }
+
+    // ── AC: defect_risk_summary grouped by quota_farm/stop_condition/proxy_task/vague_evidence ──
+
+    public function test_output_has_defect_risk_summary_with_all_four_keys(): void
+    {
+        $r = $this->suite()->validate($this->validPrompt());
+
+        $this->assertArrayHasKey('defect_risk_summary', $r);
+        foreach (['quota_farm', 'stop_condition', 'proxy_task', 'vague_evidence'] as $key) {
+            $this->assertArrayHasKey($key, $r['defect_risk_summary']);
+        }
+    }
+
+    public function test_defect_risk_summary_is_all_false_for_a_clean_prompt(): void
+    {
+        $r = $this->suite()->validate($this->validPrompt());
+
+        $this->assertFalse($r['defect_risk_summary']['quota_farm']);
+        $this->assertFalse($r['defect_risk_summary']['stop_condition']);
+        $this->assertFalse($r['defect_risk_summary']['proxy_task']);
+        $this->assertFalse($r['defect_risk_summary']['vague_evidence']);
+    }
+
+    public function test_defect_risk_summary_flags_quota_farm(): void
+    {
+        $prompt = 'Keep running until the target is reached; do not stop early. '
+            .'Maximize the task count as much as possible.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertTrue($r['defect_risk_summary']['quota_farm']);
+        $this->assertFalse($r['defect_risk_summary']['stop_condition']);
+        $this->assertFalse($r['defect_risk_summary']['proxy_task']);
+    }
+
+    public function test_defect_risk_summary_flags_stop_condition(): void
+    {
+        $prompt = $this->validPrompt().' Stop when the queue is comfortable.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertTrue($r['defect_risk_summary']['stop_condition']);
+        $this->assertFalse($r['defect_risk_summary']['quota_farm']);
+    }
+
+    public function test_defect_risk_summary_flags_proxy_task(): void
+    {
+        $prompt = $this->validPrompt().' Renaming-only changes count as progress.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertTrue($r['defect_risk_summary']['proxy_task']);
+    }
+
+    public function test_defect_risk_summary_flags_vague_evidence(): void
+    {
+        $prompt = $this->validPrompt().' Speculative candidates are fine — no evidence is required.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertTrue($r['defect_risk_summary']['vague_evidence']);
+    }
+
+    public function test_defect_risk_summary_can_flag_multiple_risks_simultaneously(): void
+    {
+        $prompt = 'Keep running until the target is reached; do not stop early. '
+            .'Maximize the task count as much as possible. '
+            .'Stop when the queue is comfortable.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertTrue($r['defect_risk_summary']['quota_farm']);
+        $this->assertTrue($r['defect_risk_summary']['stop_condition']);
+    }
 }

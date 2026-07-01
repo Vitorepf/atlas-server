@@ -26,7 +26,9 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   vague_evidence_risk       — permits vague, speculative, or low-evidence origination without
  *                                 requiring concrete/verified evidence.
  *
- * OUTPUT: { schema, pass:bool, score:float, failed_clauses:list<string>, required_patch_notes:list<string> }
+ * OUTPUT: { schema, pass:bool, score:float, failed_clauses:list<string>, required_patch_notes:list<string>,
+ *   detected_strengths:list<string>, quota_farm_risk:bool,
+ *   defect_risk_summary:{quota_farm:bool, stop_condition:bool, proxy_task:bool, vague_evidence:bool} }
  *
  * Pure: string-matching only — no provider calls, no I/O.
  */
@@ -159,6 +161,12 @@ final class AtlasExternalBrainPromptContractRegressionSuite
             'required_patch_notes' => $patchNotes,
             'detected_strengths' => $detectedStrengths,
             'quota_farm_risk' => $hasQuotaFarmRisk,
+            'defect_risk_summary' => [
+                'quota_farm' => $hasQuotaFarmRisk,
+                'stop_condition' => $hasComfortableQueueStopRisk,
+                'proxy_task' => $hasProxyTaskRisk,
+                'vague_evidence' => $hasVagueEvidenceRisk,
+            ],
         ];
     }
 }
