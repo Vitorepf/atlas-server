@@ -130,6 +130,13 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             }
         }
 
+        // Every violation gets a concrete suggested action — a failed invariant alone tells an
+        // operator WHAT broke, not what to DO about it.
+        $violations = array_map(
+            fn (array $violation): array => $violation + ['remediation' => $this->remediationFor((string) $violation['code'])],
+            $violations,
+        );
+
         $allTrue = array_values($invariants) === array_fill(0, count($invariants), true);
 
         $runtimeSafety = [
@@ -384,6 +391,32 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
                 'real_worker_lane_touched' => false,
             ],
         ];
+    }
+
+    /** Deterministic, computed-only suggested action per violation code — never a self-set grade. */
+    private function remediationFor(string $code): string
+    {
+        return match (true) {
+            $code === 'queue_repository_unavailable' || $code === 'lease_repository_unavailable'
+                => 'verify_storage_disk_local_is_writable_and_available',
+            $code === 'scope_lock_validator_unavailable'
+                => 'verify_scope_lock_validator_dependencies_are_registered',
+            str_ends_with($code, '_flipped')
+                => 'revert_runtime_flag_to_false_and_freeze_deploy_until_root_caused',
+            $code === 'allowed_statuses_drift'
+                => 'restore_canonical_status_set_in_task_packet_queue_repository',
+            $code === 'forbidden_axes_set_drift'
+                => 'restore_full_forbidden_axes_set_in_scope_lock_runtime_validator',
+            $code === 'active_lease_leak'
+                => 'reconcile_active_leases_against_claimed_queue_entries_and_release_orphaned_leases',
+            $code === 'registry_lease_mismatch'
+                => 'reconcile_claimed_queue_count_against_active_lease_count',
+            $code === 'feed_continuity_floor'
+                => 'trigger_worker_feed_risk_replenishment_before_claimable_drains_below_floor',
+            str_starts_with($code, 'probe_')
+                => 'investigate_probe_failure_before_trusting_this_certification',
+            default => 'investigate_and_root_cause_before_trusting_this_certification',
+        };
     }
 
     /**
