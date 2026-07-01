@@ -43,6 +43,13 @@ final class ReviewGateTamperException extends RuntimeException
 }
 
 /**
+ * Thrown by {@see AtlasMaestroPacketShapeOperatorReviewGate::approve()} when the decision receipt is
+ * missing/blank, or the presented shape has gone stale (STALE_AFTER_SECONDS) before the operator
+ * decided — a stale or empty receipt is never trusted as an implicit yes.
+ */
+final class InvalidDecisionReceiptException extends RuntimeException {}
+
+/**
  * QUATERNITY · OPERATOR REVIEW GATE — fail-closed chokepoint between {@see AtlasMaestroIntentToPacketShapeProposer}
  * output and the task queue. NO packet shape transits without explicit operator approval; a present() / approve()
  * cycle MUST happen, and the approve() call verifies the proposal_hash recorded at present() matches the current
@@ -101,11 +108,19 @@ final class AtlasMaestroPacketShapeOperatorReviewGate
 
     public function approve(string $shapeId, string $operatorSignature, string $decisionReceipt): ApprovedShape
     {
+        if (trim($decisionReceipt) === '') {
+            throw new InvalidDecisionReceiptException('missing_decision_receipt:'.$shapeId);
+        }
+
         $this->assertNotTampered($shapeId);
 
         $proposal = $this->loadShape($shapeId, self::PROPOSED_DIR);
         if ($proposal === null) {
             throw new RuntimeException('Proposed shape not found: '.$shapeId);
+        }
+
+        if ($this->isStale($proposal)) {
+            throw new InvalidDecisionReceiptException('stale_decision_receipt:'.$shapeId);
         }
 
         $proposalHash = ReviewReceiptHasher::proposalHash($proposal);
