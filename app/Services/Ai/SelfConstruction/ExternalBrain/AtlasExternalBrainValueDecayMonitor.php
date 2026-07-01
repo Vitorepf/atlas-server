@@ -170,6 +170,7 @@ final class AtlasExternalBrainValueDecayMonitor
                 'decay_score'        => round(min(1.0, count($decaySignals) * 0.15), 2),
                 'reasons'            => $decaySignals,
                 'recommended_action' => $recommendedAction,
+                'next_evidence_needed' => $this->nextEvidenceNeeded($rec, $reason),
             ];
         }
 
@@ -188,6 +189,29 @@ final class AtlasExternalBrainValueDecayMonitor
             'per_task'             => $perTask,
             'batch_decay_summary'  => array_merge(['total' => count($rawTasks)], $actionCounts),
         ];
+    }
+
+    /**
+     * Certain decisions (retire, keep) need no further evidence — the decay
+     * signals already justify them. Uncertain "needs rethink" decisions
+     * (respec/refresh/consolidate) name the exact evidence that would resolve
+     * the uncertainty, so the next task authored against this recommendation
+     * is targeted instead of another blind respec.
+     */
+    private function nextEvidenceNeeded(string $recommendation, string $reason): ?string
+    {
+        return match ($recommendation) {
+            'retire', 'keep' => null,
+            'consolidate' => 'muscle_success_rate_after_family_consolidation',
+            'refresh' => 'refreshed_evidence_ref_after_stale_evidence_repair',
+            'respec' => match ($reason) {
+                'valuable_capability_scope_drifted_respec_preferred' => 'updated_current_value_score_and_scope_after_respec',
+                'scope_changed_capability_still_valuable' => 'confirmed_allowed_files_and_value_score_after_scope_change',
+                'blocked_dependency_requires_rethink' => 'blocking_dependency_resolution_status',
+                default => 'updated_prerequisite_and_landscape_state',
+            },
+            default => null,
+        };
     }
 
     private function recommend(
