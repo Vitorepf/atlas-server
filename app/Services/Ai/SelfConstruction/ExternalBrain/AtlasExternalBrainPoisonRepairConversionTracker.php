@@ -170,6 +170,7 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
         }
 
         $recoveryLeverageRank = $this->recoveryLeverageRank($familyMetrics, $deadEndFamilies);
+        $actionableRepairTasks = $this->actionableRepairTasks($familyMetrics, $deadEndFamilies);
 
         return [
             'schema' => self::SCHEMA,
@@ -179,7 +180,47 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
             'learning_notes' => $learningNotes,
             'retry_stop_signals' => $retryStopSignals,
             'recovery_leverage_rank' => $recoveryLeverageRank,
+            'actionable_repair_tasks' => $actionableRepairTasks,
         ];
+    }
+
+    /**
+     * Converts each non-fully-converted family into a concrete next repair task: what to fix,
+     * what to do about it, roughly how many tokens are recovered by not re-serving dead packets,
+     * and what evidence is required before a "success" claim on this family will be trusted.
+     *
+     * @param  array<string,array<string,mixed>>  $familyMetrics
+     * @param  list<string>  $deadEndFamilies
+     * @return list<array{root_cause:string,recommended_repair:string,expected_token_savings:int,required_packet_evidence:list<string>}>
+     */
+    private function actionableRepairTasks(array $familyMetrics, array $deadEndFamilies): array
+    {
+        $tasks = [];
+        foreach ($familyMetrics as $family => $metrics) {
+            if ($metrics['repair_status'] === 'fully_converted') {
+                continue;
+            }
+
+            $isDeadEnd = in_array($family, $deadEndFamilies, true);
+            $recommendedRepair = match (true) {
+                $isDeadEnd => 'retire_family',
+                in_array('stop_retrying_unchanged', $metrics['signals'], true) => 'respec_root_cause_before_retry',
+                $metrics['rejected_success_claims'] > 0 => 'require_claimable_packet_evidence',
+                default => 'continue_repair_attempts',
+            };
+
+            $tasks[] = [
+                'root_cause' => $family,
+                'recommended_repair' => $recommendedRepair,
+                'expected_token_savings' => (int) $metrics['repair_attempts'] * 500,
+                'required_packet_evidence' => [
+                    'output_allowed_files_with_implementation_and_test_scope',
+                    'output_acceptance_criteria_with_runnable_command',
+                ],
+            ];
+        }
+
+        return $tasks;
     }
 
     /**

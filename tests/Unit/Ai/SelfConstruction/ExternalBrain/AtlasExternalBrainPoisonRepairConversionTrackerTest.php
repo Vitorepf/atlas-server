@@ -361,4 +361,50 @@ final class AtlasExternalBrainPoisonRepairConversionTrackerTest extends TestCase
         $this->assertSame(1, $metrics['success_count']);
         $this->assertSame(0, $metrics['rejected_success_claims']);
     }
+
+    // ── actionable_repair_tasks ────────────────────────────────────────────────
+
+    public function test_actionable_repair_tasks_has_required_fields(): void
+    {
+        $r = $this->svc()->track([
+            $this->event('fam-a', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_UNCHANGED),
+        ]);
+
+        $task = $r['actionable_repair_tasks'][0];
+        foreach (['root_cause', 'recommended_repair', 'expected_token_savings', 'required_packet_evidence'] as $k) {
+            $this->assertArrayHasKey($k, $task);
+        }
+        $this->assertSame('fam-a', $task['root_cause']);
+    }
+
+    public function test_fully_converted_family_excluded_from_actionable_repair_tasks(): void
+    {
+        $r = $this->svc()->track([
+            $this->event('fam-good', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS),
+        ]);
+
+        $causes = array_column($r['actionable_repair_tasks'], 'root_cause');
+        $this->assertNotContains('fam-good', $causes);
+    }
+
+    public function test_dead_end_family_recommends_retire(): void
+    {
+        $r = $this->svc()->track([
+            $this->event('fam-dead', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_RETIRED),
+        ]);
+
+        $task = $r['actionable_repair_tasks'][0];
+        $this->assertSame('retire_family', $task['recommended_repair']);
+    }
+
+    public function test_stuck_unchanged_family_recommends_respec(): void
+    {
+        $r = $this->svc()->track([
+            $this->event('fam-stuck', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_UNCHANGED),
+            $this->event('fam-stuck', 'pending'),
+        ]);
+
+        $task = $r['actionable_repair_tasks'][0];
+        $this->assertSame('respec_root_cause_before_retry', $task['recommended_repair']);
+    }
 }
