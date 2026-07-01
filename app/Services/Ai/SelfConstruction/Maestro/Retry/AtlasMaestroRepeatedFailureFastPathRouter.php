@@ -102,6 +102,7 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
                 0.92,
                 'forbidden_self_target_blocks_further_serving',
                 'Remove the forbidden self-target file from allowed_files before re-serving this packet.',
+                ['allowed_files'],
             );
         }
 
@@ -111,6 +112,7 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
                 0.90,
                 'test_only_missing_implementation_blocks_further_serving',
                 'Add the missing implementation file to allowed_files; a test-only scope cannot be served as-is.',
+                ['allowed_files'],
             );
         }
 
@@ -120,6 +122,7 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
                 0.93,
                 'contradictory_acceptance',
                 'Correct the contradictory acceptance_criteria bullets before re-serving; this is a spec defect, not a retry candidate.',
+                ['acceptance_criteria'],
             );
         }
 
@@ -133,6 +136,8 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
                     0.75,
                     'give_back_count_high_but_single_worker_responsible:'.$giveBackCount,
                     'Reassign this packet to a different worker before retiring it; failures are concentrated in one worker history.',
+                    [],
+                    stopServingUntilRespec: false,
                 );
             }
 
@@ -140,7 +145,7 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
         }
 
         if ($giveBackCount >= self::GIVE_BACK_REPEAT_THRESHOLD && in_array($dependencyState, ['stale', 'missing'], true)) {
-            return $this->out(self::LANE_UNBLOCK, 0.90, 'repeated_give_back+dependency_'.$dependencyState);
+            return $this->out(self::LANE_UNBLOCK, 0.90, 'repeated_give_back+dependency_'.$dependencyState, stopServingUntilRespec: false);
         }
 
         $hasScopeSignal = $scopeRepairDone || array_filter(
@@ -148,7 +153,7 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
             static fn (string $r): bool => str_contains($r, 'spec') || str_contains($r, 'scope') || str_contains($r, 'accept'),
         ) !== [];
         if ($giveBackCount >= self::GIVE_BACK_REPEAT_THRESHOLD && $hasScopeSignal) {
-            return $this->out(self::LANE_RESCOPE, 0.88, 'repeated_give_back+scope_signal');
+            return $this->out(self::LANE_RESCOPE, 0.88, 'repeated_give_back+scope_signal', respecFields: ['acceptance_criteria', 'allowed_files']);
         }
 
         if ($poisonRisk === 'high') {
@@ -156,19 +161,26 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
         }
 
         if ($gateFailureCount >= self::GATE_REPEAT_THRESHOLD) {
-            return $this->out(self::LANE_RESCOPE, 0.80, 'repeated_gate_failures:'.$gateFailureCount);
+            return $this->out(self::LANE_RESCOPE, 0.80, 'repeated_gate_failures:'.$gateFailureCount, respecFields: ['acceptance_criteria']);
         }
 
         $confidence = ($giveBackCount === 0 && $gateFailureCount === 0) ? 0.95 : 0.70;
 
-        return $this->out(self::LANE_NORMAL, $confidence, 'first_time_or_recoverable');
+        return $this->out(self::LANE_NORMAL, $confidence, 'first_time_or_recoverable', stopServingUntilRespec: false);
     }
 
     /**
-     * @return array{schema_version:string, lane:string, fast_path_action:string, confidence:float, reason:string, repair_hint:?string}
+     * @param  list<string>  $respecFields
+     * @return array{schema_version:string, lane:string, fast_path_action:string, confidence:float, reason:string, repair_hint:?string, respec_fields:list<string>, stop_serving_until_respec:bool}
      */
-    private function out(string $lane, float $confidence, string $reason, ?string $repairHint = null): array
-    {
+    private function out(
+        string $lane,
+        float $confidence,
+        string $reason,
+        ?string $repairHint = null,
+        array $respecFields = [],
+        ?bool $stopServingUntilRespec = null,
+    ): array {
         return [
             'schema_version' => self::SCHEMA,
             'lane' => $lane,
@@ -176,6 +188,8 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
             'confidence' => $confidence,
             'reason' => $reason,
             'repair_hint' => $repairHint,
+            'respec_fields' => $respecFields,
+            'stop_serving_until_respec' => $stopServingUntilRespec ?? in_array($lane, [self::LANE_RESCOPE, self::LANE_RETIRE, self::LANE_OPERATOR_ONLY], true),
         ];
     }
 }

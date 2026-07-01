@@ -221,6 +221,60 @@ final class AtlasMaestroRepeatedFailureFastPathRouterTest extends TestCase
 
     // ── schema & structure ────────────────────────────────────────────────────
 
+    public function test_forbidden_self_target_includes_respec_fields_and_stops_serving(): void
+    {
+        $result = $this->route(['forbidden_self_target' => true, 'give_back_count' => 1]);
+
+        $this->assertContains('allowed_files', $result['respec_fields']);
+        $this->assertTrue($result['stop_serving_until_respec']);
+    }
+
+    public function test_test_only_missing_implementation_includes_respec_fields_and_stops_serving(): void
+    {
+        $result = $this->route(['test_only_missing_implementation' => true, 'give_back_count' => 1]);
+
+        $this->assertContains('allowed_files', $result['respec_fields']);
+        $this->assertTrue($result['stop_serving_until_respec']);
+    }
+
+    public function test_contradictory_acceptance_includes_respec_fields_and_stops_serving(): void
+    {
+        $result = $this->route(['contradictory_acceptance' => true]);
+
+        $this->assertContains('acceptance_criteria', $result['respec_fields']);
+        $this->assertTrue($result['stop_serving_until_respec']);
+    }
+
+    public function test_normal_serve_keeps_serving(): void
+    {
+        $result = $this->route([]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::LANE_NORMAL, $result['lane']);
+        $this->assertFalse($result['stop_serving_until_respec']);
+    }
+
+    public function test_worker_mismatch_retry_keeps_serving(): void
+    {
+        $result = $this->route([
+            'give_back_count' => 8,
+            'worker_give_back_counts' => ['worker-a' => 8],
+        ]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::LANE_RESCOPE, $result['lane']);
+        $this->assertFalse($result['stop_serving_until_respec']);
+    }
+
+    public function test_retire_lane_stops_serving(): void
+    {
+        $result = $this->route([
+            'give_back_count' => 8,
+            'worker_give_back_counts' => ['worker-a' => 4, 'worker-b' => 4],
+        ]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::LANE_RETIRE, $result['lane']);
+        $this->assertTrue($result['stop_serving_until_respec']);
+    }
+
     public function test_schema_version_always_present(): void
     {
         $r = $this->route();
