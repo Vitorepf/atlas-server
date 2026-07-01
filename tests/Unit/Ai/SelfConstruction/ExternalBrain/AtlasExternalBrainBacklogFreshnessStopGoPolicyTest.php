@@ -390,4 +390,85 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicyTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_REPAIR_QUEUE, $r['decision']);
     }
+
+    // ── AC2/AC3: target_novelty — sufficient depth is a supply signal, not a hard stop ──
+
+    public function test_deep_backlog_missing_consumption_evidence_with_high_novelty_score_creates_more(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false, 'malformed_rate' => 0.0, 'give_back_rate' => 0.0],
+            'queue_age_histogram' => ['claimable_depth' => 20, 'oldest_age_p95_seconds' => 60, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => [],
+            'replenish_urgency' => ['urgency_score' => 0.2],
+            'proposed_batch_leverage' => ['fixes_bottleneck' => false],
+            'target_novelty' => ['novel_target_score' => 0.9],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CREATE_MORE, $r['decision']);
+        $this->assertContains('target_novelty.novel_target_score', $r['required_evidence']);
+    }
+
+    public function test_deep_backlog_missing_consumption_evidence_with_fresh_high_value_targets_flag_creates_more(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false, 'malformed_rate' => 0.0, 'give_back_rate' => 0.0],
+            'queue_age_histogram' => ['claimable_depth' => 20, 'oldest_age_p95_seconds' => 60, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => [],
+            'target_novelty' => ['fresh_high_value_targets_available' => true],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CREATE_MORE, $r['decision']);
+    }
+
+    public function test_empty_backlog_zero_consumption_with_high_novelty_score_creates_more_instead_of_consolidate(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false, 'malformed_rate' => 0.0, 'give_back_rate' => 0.0],
+            'queue_age_histogram' => ['claimable_depth' => 0, 'oldest_age_p95_seconds' => 0, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => ['observed_consumption_count' => 0],
+            'replenish_urgency' => ['urgency_score' => 0.1],
+            'proposed_batch_leverage' => ['fixes_bottleneck' => false],
+            'target_novelty' => ['novel_target_score' => 0.9],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CREATE_MORE, $r['decision']);
+    }
+
+    public function test_low_novelty_score_below_threshold_does_not_override_pause_origination(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false, 'malformed_rate' => 0.0, 'give_back_rate' => 0.0],
+            'queue_age_histogram' => ['claimable_depth' => 20, 'oldest_age_p95_seconds' => 60, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => [],
+            'target_novelty' => ['novel_target_score' => 0.3],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_PAUSE_ORIGINATION, $r['decision']);
+    }
+
+    public function test_high_novelty_score_never_overrides_sickness(): void
+    {
+        $r = $this->svc()->decide($this->bottleneckFacts([
+            'health_snapshot' => ['dry_queue' => false, 'malformed_rate' => 0.5, 'give_back_rate' => 0.0],
+            'target_novelty' => ['novel_target_score' => 0.9],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_REPAIR_QUEUE, $r['decision']);
+    }
+
+    public function test_high_novelty_score_never_overrides_blocked_debt_worker_floor_refusal(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false, 'malformed_rate' => 0.0, 'give_back_rate' => 0.0],
+            'queue_age_histogram' => ['claimable_depth' => 0, 'oldest_age_p95_seconds' => 60, 'stale_threshold_seconds' => 3600],
+            'worker_idle_prediction' => ['observed_consumption_count' => 0],
+            'replenish_urgency' => ['urgency_score' => 0.1],
+            'proposed_batch_leverage' => ['fixes_bottleneck' => false],
+            'backlog_composition' => ['blocked_count' => 40, 'quarantined_count' => 10],
+            'worker_feed' => ['active_worker_count' => 6, 'claimable_per_active_worker' => 0.5, 'floor' => 2.0],
+            'target_novelty' => ['novel_target_score' => 0.9],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_REPAIR_QUEUE, $r['decision']);
+    }
 }

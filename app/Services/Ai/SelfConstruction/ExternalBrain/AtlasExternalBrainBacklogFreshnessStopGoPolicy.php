@@ -48,6 +48,8 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
 
     private const HIGH_URGENCY_THRESHOLD = 0.5;
 
+    private const HIGH_NOVELTY_THRESHOLD = 0.6;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array{schema:string, decision:string, confidence:float, reasons:list<string>, allowed_next_actions:list<string>, blocked_next_actions:list<string>}
@@ -103,6 +105,15 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
         $waitRefusedByBlockedDebt = $blockedDebtHigh && $belowWorkerFloor;
         $waitRefusedByStaleness = $blockedDebtHigh && $isStale;
 
+        // target_novelty: sufficient queue depth is a supply signal, never a hard stop, when
+        // fresh high-value targets are actually available — a shallow "depth looks fine" read
+        // must not block origination that would otherwise be justified. Defaults to false so
+        // callers that never set this fact keep today's depth-based behavior unchanged.
+        $targetNovelty = (array) ($facts['target_novelty'] ?? []);
+        $novelTargetScore = max(0.0, min(1.0, (float) ($targetNovelty['novel_target_score'] ?? 0.0)));
+        $freshHighValueTargetsAvailable = (bool) ($targetNovelty['fresh_high_value_targets_available'] ?? false)
+            || $novelTargetScore >= self::HIGH_NOVELTY_THRESHOLD;
+
         $reasons = [];
         $requiredEvidence = [];
 
@@ -131,6 +142,11 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
             $reasons[] = 'high claimable depth, stale p95 age, queue not dry, and no observed consumption — bottleneck is drain, not creation';
             $requiredEvidence[] = 'queue_age_histogram.oldest_age_p95_seconds';
             $requiredEvidence[] = 'worker_idle_prediction.observed_consumption_count';
+        } elseif ($hasDeepBacklog && ! $consumptionProvided && $freshHighValueTargetsAvailable) {
+            $decision = self::DECISION_CREATE_MORE;
+            $confidence = 0.65;
+            $reasons[] = 'worker consumption evidence is missing, but fresh high-value targets are available; sufficient depth alone must never block origination behind a shallow threshold';
+            $requiredEvidence[] = 'target_novelty.novel_target_score';
         } elseif ($hasDeepBacklog && ! $consumptionProvided) {
             $decision = self::DECISION_PAUSE_ORIGINATION;
             $confidence = 0.5;
@@ -158,6 +174,11 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
             $reasons[] = sprintf('blocked/quarantined debt (%d) is stale (p95=%ds >= threshold=%ds); wait is refused until the debt is repaired', $blockedCount + $quarantinedCount, $oldestAgeP95, $staleThreshold);
             $requiredEvidence[] = 'backlog_composition.blocked_count';
             $requiredEvidence[] = 'queue_age_histogram.oldest_age_p95_seconds';
+        } elseif (! $hasDeepBacklog && $observedConsumption === 0 && ! $dryQueue && $freshHighValueTargetsAvailable) {
+            $decision = self::DECISION_CREATE_MORE;
+            $confidence = 0.6;
+            $reasons[] = 'no claimable backlog and no consumption signal, but fresh high-value targets are available; sufficient depth alone must never block origination behind a shallow threshold';
+            $requiredEvidence[] = 'target_novelty.novel_target_score';
         } elseif (! $hasDeepBacklog && $observedConsumption === 0 && ! $dryQueue) {
             $decision = self::DECISION_CONSOLIDATE;
             $confidence = 0.5;
