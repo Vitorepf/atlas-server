@@ -324,4 +324,81 @@ final class AtlasExternalBrainBlindSpotCurriculumTest extends TestCase
 
         $this->assertSame([], $r['ranked_learning_items']);
     }
+
+    // ── AC: each learning item includes the new outcome-grounded fields ──────
+
+    public function test_ranked_item_includes_target_capability_evidence_refs_practice_shape_and_expected_improvement(): void
+    {
+        $r = $this->svc()->rankLearningItems(['blind_spots' => [$this->blindSpot('bs1')]]);
+
+        $item = $r['ranked_learning_items'][0];
+        foreach (['target_capability', 'evidence_refs', 'practice_task_shape', 'expected_next_batch_improvement'] as $k) {
+            $this->assertArrayHasKey($k, $item);
+            $this->assertNotEmpty($item[$k]);
+        }
+        $this->assertSame('evidence_collection_discipline', $item['target_capability']);
+    }
+
+    // ── AC: outcome-grounded blind spot — real signals drive ranking, not generic topics ──
+
+    public function test_outcome_grounded_blind_spot_carries_derived_evidence_refs(): void
+    {
+        $r = $this->svc()->rankLearningItems(['blind_spots' => [
+            $this->blindSpot('bs1', [
+                'recurrence_count' => 0,
+                'future_quality_lift_estimate' => 0.0,
+                'give_back_cluster_size' => 4,
+                'rejected_spec_count' => 2,
+            ]),
+        ]]);
+
+        $this->assertCount(1, $r['ranked_learning_items']);
+        $refs = $r['ranked_learning_items'][0]['evidence_refs'];
+        $this->assertContains('give_back_cluster:4', $refs);
+        $this->assertContains('rejected_specs:2', $refs);
+    }
+
+    // ── AC: generic-topic rejection — zero real outcome evidence never gets ranked ──
+
+    public function test_generic_topic_with_no_real_outcome_evidence_is_rejected_not_ranked(): void
+    {
+        $r = $this->svc()->rankLearningItems(['blind_spots' => [
+            $this->blindSpot('generic1', [
+                'recurrence_count' => 0,
+                'future_quality_lift_estimate' => 0.0,
+            ]),
+        ]]);
+
+        $this->assertSame([], $r['ranked_learning_items']);
+        $this->assertCount(1, $r['rejected_generic_topics']);
+        $this->assertSame('generic1', $r['rejected_generic_topics'][0]['blind_spot_id']);
+        $this->assertSame('no_real_outcome_evidence', $r['rejected_generic_topics'][0]['reason']);
+    }
+
+    // ── AC: stale-lane prioritization — a stale lane outranks an equal-lift/recurrence peer ──
+
+    public function test_stale_lane_prioritized_over_equal_recurrence_and_lift_peer(): void
+    {
+        $r = $this->svc()->rankLearningItems(['blind_spots' => [
+            $this->blindSpot('fresh-lane', ['recurrence_count' => 1, 'future_quality_lift_estimate' => 0.3, 'stale_lane_days' => 0]),
+            $this->blindSpot('stale-lane', ['recurrence_count' => 1, 'future_quality_lift_estimate' => 0.3, 'stale_lane_days' => 45]),
+        ]]);
+
+        $this->assertSame('stale-lane', $r['ranked_learning_items'][0]['blind_spot_id']);
+    }
+
+    // ── AC: deterministic ranking ──────────────────────────────────────────────
+
+    public function test_ranking_is_deterministic_for_identical_input(): void
+    {
+        $input = ['blind_spots' => [
+            $this->blindSpot('bs1', ['give_back_cluster_size' => 3]),
+            $this->blindSpot('bs2', ['stale_lane_days' => 10]),
+        ]];
+
+        $a = $this->svc()->rankLearningItems($input);
+        $b = $this->svc()->rankLearningItems($input);
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }

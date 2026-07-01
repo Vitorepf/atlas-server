@@ -280,20 +280,51 @@ final class AtlasExternalBrainBlindSpotCurriculum
 
     private const RECURRENCE_NORMALIZATION_CAP = 5;
 
+    private const GIVE_BACK_CLUSTER_CAP = 5;
+
+    private const REJECTED_SPEC_CAP = 5;
+
+    private const STALE_LANE_DAYS_CAP = 30;
+
+    private const WEAK_MODEL_FAILURE_CAP = 5;
+
+    /** group => human-readable capability the originator must actually get better at. */
+    private const GROUP_TARGET_CAPABILITY = [
+        'missed_evidence' => 'evidence_collection_discipline',
+        'bad_scope' => 'scope_completeness_analysis',
+        'weak_acceptance' => 'acceptance_criteria_authoring',
+        'duplicate_target' => 'capability_dedup_search',
+        'low_impact_reasoning' => 'impact_prioritization_reasoning',
+    ];
+
     /**
      * Groups blind spots by missed_evidence, bad_scope, weak_acceptance,
      * duplicate_target, and low_impact_reasoning, then ranks each one by
-     * future task-quality lift and recurrence — not by ease of fixing.
+     * REAL outcome signals — not by ease of fixing and never from a generic
+     * topic list. A blind spot with zero real evidence behind it (no
+     * recurrence, no quality-lift estimate, no give_back cluster, no
+     * rejected specs, no stale lane, no weak-model failures, no evidence_refs)
+     * is rejected outright into rejected_generic_topics instead of ranked.
      *
      * score = future_quality_lift_estimate * 0.6
      *       + min(1, recurrence_count / 5) * 0.4
+     *       + min(1, give_back_cluster_size / 5) * 0.15
+     *       + min(1, rejected_spec_count / 5) * 0.15
+     *       + min(1, stale_lane_days / 30) * 0.20
+     *       + (1 - commit_yield_rate) * 0.10
+     *       + min(1, weak_model_failure_count / 5) * 0.15
      *
      * Each ranked item emits lesson, practice_case, required_evidence, and
-     * stop_repeating_rule from the canonical group catalog. Unrecognized
-     * groups fall back to a generic learning item rather than being dropped.
+     * stop_repeating_rule from the canonical group catalog, PLUS
+     * target_capability, evidence_refs, practice_task_shape, and
+     * expected_next_batch_improvement grounded in the real outcome signals.
+     * Unrecognized groups fall back to a generic learning item rather than
+     * being dropped — but only when they DO carry real outcome evidence.
      *
      * @param  array<string,mixed>  $input  { blind_spots: list<{blind_spot_id,
-     *   group, recurrence_count?, future_quality_lift_estimate?}> }
+     *   group, recurrence_count?, future_quality_lift_estimate?,
+     *   give_back_cluster_size?, rejected_spec_count?, stale_lane_days?,
+     *   commit_yield_rate?, weak_model_failure_count?, evidence_refs?}> }
      * @return array<string,mixed>
      */
     public function rankLearningItems(array $input): array
@@ -301,6 +332,7 @@ final class AtlasExternalBrainBlindSpotCurriculum
         $blindSpots = is_array($input['blind_spots'] ?? null) ? $input['blind_spots'] : [];
 
         $rankedItems = [];
+        $rejectedGenericTopics = [];
         foreach ($blindSpots as $spot) {
             if (! is_array($spot) || ! isset($spot['blind_spot_id'])) {
                 continue;
@@ -310,9 +342,48 @@ final class AtlasExternalBrainBlindSpotCurriculum
             $group = (string) ($spot['group'] ?? 'unknown');
             $recurrenceCount = max(0, (int) ($spot['recurrence_count'] ?? 0));
             $futureQualityLiftEstimate = max(0.0, min(1.0, (float) ($spot['future_quality_lift_estimate'] ?? 0.0)));
+            $giveBackClusterSize = max(0, (int) ($spot['give_back_cluster_size'] ?? 0));
+            $rejectedSpecCount = max(0, (int) ($spot['rejected_spec_count'] ?? 0));
+            $staleLaneDays = max(0, (int) ($spot['stale_lane_days'] ?? 0));
+            $commitYieldRate = max(0.0, min(1.0, (float) ($spot['commit_yield_rate'] ?? 1.0)));
+            $weakModelFailureCount = max(0, (int) ($spot['weak_model_failure_count'] ?? 0));
+            $evidenceRefs = array_values(array_map('strval', (array) ($spot['evidence_refs'] ?? [])));
+
+            // Generic-topic rejection: no real outcome evidence at all behind this "blind spot".
+            $hasRealEvidence = $recurrenceCount > 0
+                || $futureQualityLiftEstimate > 0.0
+                || $giveBackClusterSize > 0
+                || $rejectedSpecCount > 0
+                || $staleLaneDays > 0
+                || $weakModelFailureCount > 0
+                || $evidenceRefs !== [];
+            if (! $hasRealEvidence) {
+                $rejectedGenericTopics[] = [
+                    'blind_spot_id' => $blindSpotId,
+                    'group' => $group,
+                    'reason' => 'no_real_outcome_evidence',
+                ];
+
+                continue;
+            }
 
             $normalizedRecurrence = min(1.0, $recurrenceCount / self::RECURRENCE_NORMALIZATION_CAP);
-            $score = round($futureQualityLiftEstimate * 0.6 + $normalizedRecurrence * 0.4, 4);
+            $normalizedGiveBack = min(1.0, $giveBackClusterSize / self::GIVE_BACK_CLUSTER_CAP);
+            $normalizedRejectedSpecs = min(1.0, $rejectedSpecCount / self::REJECTED_SPEC_CAP);
+            $normalizedStaleLane = min(1.0, $staleLaneDays / self::STALE_LANE_DAYS_CAP);
+            $normalizedWeakModel = min(1.0, $weakModelFailureCount / self::WEAK_MODEL_FAILURE_CAP);
+            $lowYieldPressure = 1.0 - $commitYieldRate;
+
+            $score = round(
+                $futureQualityLiftEstimate * 0.6
+                + $normalizedRecurrence * 0.4
+                + $normalizedGiveBack * 0.15
+                + $normalizedRejectedSpecs * 0.15
+                + $normalizedStaleLane * 0.20
+                + $lowYieldPressure * 0.10
+                + $normalizedWeakModel * 0.15,
+                4,
+            );
 
             $catalogEntry = self::GROUP_CATALOG[$group] ?? [
                 'lesson' => self::GENERIC['challenge_cases'][0],
@@ -320,6 +391,26 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'required_evidence' => self::GENERIC['preflight_checks'][0],
                 'stop_repeating_rule' => 'investigate_root_cause_before_next_run',
             ];
+
+            $derivedEvidenceRefs = $evidenceRefs;
+            if ($giveBackClusterSize > 0) {
+                $derivedEvidenceRefs[] = 'give_back_cluster:'.$giveBackClusterSize;
+            }
+            if ($rejectedSpecCount > 0) {
+                $derivedEvidenceRefs[] = 'rejected_specs:'.$rejectedSpecCount;
+            }
+            if ($staleLaneDays > 0) {
+                $derivedEvidenceRefs[] = 'stale_lane_days:'.$staleLaneDays;
+            }
+            if ($weakModelFailureCount > 0) {
+                $derivedEvidenceRefs[] = 'weak_model_failures:'.$weakModelFailureCount;
+            }
+            if ($recurrenceCount > 0) {
+                $derivedEvidenceRefs[] = 'recurrence_count:'.$recurrenceCount;
+            }
+            if ($futureQualityLiftEstimate > 0.0) {
+                $derivedEvidenceRefs[] = 'future_quality_lift_estimate:'.$futureQualityLiftEstimate;
+            }
 
             $rankedItems[] = [
                 'blind_spot_id' => $blindSpotId,
@@ -331,14 +422,20 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'practice_case' => $catalogEntry['practice_case'],
                 'required_evidence' => $catalogEntry['required_evidence'],
                 'stop_repeating_rule' => $catalogEntry['stop_repeating_rule'],
+                'target_capability' => self::GROUP_TARGET_CAPABILITY[$group] ?? 'general_capability:'.$group,
+                'evidence_refs' => array_values(array_unique($derivedEvidenceRefs)),
+                'practice_task_shape' => $catalogEntry['practice_case'],
+                'expected_next_batch_improvement' => sprintf('%d%% fewer %s recurrences expected in next batch', (int) round($score * 100), $group),
             ];
         }
 
         usort($rankedItems, static fn (array $a, array $b): int => $b['score'] <=> $a['score'] ?: strcmp($a['blind_spot_id'], $b['blind_spot_id']));
+        usort($rejectedGenericTopics, static fn (array $a, array $b): int => strcmp($a['blind_spot_id'], $b['blind_spot_id']));
 
         return [
             'schema_version' => self::SCHEMA,
             'ranked_learning_items' => array_values($rankedItems),
+            'rejected_generic_topics' => array_values($rejectedGenericTopics),
         ];
     }
 }
