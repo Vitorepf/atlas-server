@@ -180,6 +180,57 @@ final class AtlasMaestroPacketSchemaVersioning
     }
 
     /**
+     * AC2: a distinct 5-state schema classification vocabulary — current, supported (active or
+     * preview but not current), deprecated, and unknown. "unknown" covers BOTH a versionId never
+     * registered AND one that is retired: from a validator's perspective neither is servable, and
+     * neither has a meaningful "supported" surface left. This is a NEW additive method, separate
+     * from {@see compatibilityStatus()} — that legacy method's 'unsupported' vocabulary for
+     * retired/unregistered ids is depended on by an existing test outside this class's scope, so
+     * it is left untouched rather than renamed.
+     */
+    public function schemaState(string $versionId): string
+    {
+        if (! $this->supports($versionId)) {
+            return 'unknown';
+        }
+        $status = (string) ($this->describe($versionId)['status'] ?? '');
+        if ($status === self::STATUS_RETIRED) {
+            return 'unknown';
+        }
+        if ($status === self::STATUS_DEPRECATED) {
+            return 'deprecated';
+        }
+        if ((string) ($this->current()['id'] ?? '') === $versionId) {
+            return 'current';
+        }
+
+        return 'supported';
+    }
+
+    /**
+     * AC4: names which required_fields declared for $versionId are absent or empty in $packet,
+     * so a validator can refuse to serve/consume a packet missing critical fields BEFORE acting
+     * on it. Returns [] for an unrecognized versionId — there is no declared required_fields set
+     * to check the packet against, so nothing can be named missing.
+     *
+     * @param  array<string,mixed>  $packet
+     * @return list<string>
+     */
+    public function missingRequiredFields(string $versionId, array $packet): array
+    {
+        $required = (array) ($this->describe($versionId)['required_fields'] ?? []);
+        $missing = [];
+        foreach ($required as $field) {
+            $field = (string) $field;
+            if (! array_key_exists($field, $packet) || $packet[$field] === null || $packet[$field] === '' || $packet[$field] === []) {
+                $missing[] = $field;
+            }
+        }
+
+        return $missing;
+    }
+
+    /**
      * Generates a draft for the next schema version based on the current active version.
      * Inherits all required_fields for lossless forward compatibility.
      * Returns human-readable reasons; never emits a numeric score as a proxy for decisions.
