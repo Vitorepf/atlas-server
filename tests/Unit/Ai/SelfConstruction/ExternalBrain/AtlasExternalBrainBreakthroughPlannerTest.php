@@ -346,4 +346,37 @@ final class AtlasExternalBrainBreakthroughPlannerTest extends TestCase
 
         $this->assertTrue($r['honest_exhausted'], 'denial_reason alone must satisfy the second-pass requirement');
     }
+
+    public function test_proxy_evidence_strings_never_satisfy_second_pass_requirement(): void
+    {
+        $allModes = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $evidenceMap = array_combine($allModes, array_map(fn ($m) => ["ref-{$m}"], $allModes));
+
+        // Evidence strings that only cite queue/test/quota counters must never satisfy the
+        // second-pass requirement — they are proxy signals, not real investigation evidence.
+        $secondPassResults = [
+            'cross_codebase_scan'    => ['evidence' => ['queue_task_count=42'], 'denial_reason' => null],
+            'capability_rubric_diff' => ['evidence' => ['test_count=1200'], 'denial_reason' => null],
+            'atlas_journal_harvest'  => ['evidence' => ['quota_pressure=high, template_volume=high'], 'denial_reason' => null],
+        ];
+
+        $r = $this->planner->plan([
+            'verified_count'   => 5,
+            'requested_target' => 100,
+            'escalation_state' => [
+                'attempted_modes'    => $allModes,
+                'evidence_by_mode'   => $evidenceMap,
+                'second_pass_results' => $secondPassResults,
+            ],
+        ]);
+
+        $this->assertFalse($r['honest_exhausted'], 'proxy evidence (queue/test/quota counters) must never count as real second-pass proof');
+    }
 }
