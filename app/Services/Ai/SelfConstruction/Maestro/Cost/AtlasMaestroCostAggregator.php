@@ -114,13 +114,27 @@ final class AtlasMaestroCostAggregator
                     'sum_tokens_out' => 0,
                     'count_records' => 0,
                     'rejected_count' => 0,
+                    'rejected_reason_counts' => [],
                     'first_recorded_at' => null,
                     'last_recorded_at' => null,
                 ];
             }
-            // Malformed row: count as rejected, do not sum.
-            if (! is_numeric($row['cost_cents'] ?? null) || ! is_numeric($row['tokens_in'] ?? null) || ! is_numeric($row['tokens_out'] ?? null)) {
+            // Malformed row: count as rejected (per-field reason too), do not sum.
+            $malformedReasons = [];
+            if (! is_numeric($row['cost_cents'] ?? null)) {
+                $malformedReasons[] = 'non_numeric_cost_cents';
+            }
+            if (! is_numeric($row['tokens_in'] ?? null)) {
+                $malformedReasons[] = 'non_numeric_tokens_in';
+            }
+            if (! is_numeric($row['tokens_out'] ?? null)) {
+                $malformedReasons[] = 'non_numeric_tokens_out';
+            }
+            if ($malformedReasons !== []) {
                 $groups[$key]['rejected_count']++;
+                foreach ($malformedReasons as $reason) {
+                    $groups[$key]['rejected_reason_counts'][$reason] = ($groups[$key]['rejected_reason_counts'][$reason] ?? 0) + 1;
+                }
                 continue;
             }
             $groups[$key]['sum_cost_cents'] += (int) $row['cost_cents'];

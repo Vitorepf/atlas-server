@@ -156,6 +156,24 @@ class AtlasMaestroCostAggregatorTest extends TestCase
         self::assertSame(2, $verdict['x']['rejected_count'], 'two malformed rows must be counted as rejected');
     }
 
+    public function test_malformed_row_increments_rejected_reason_counts_with_distinct_keys(): void
+    {
+        $rows = [
+            ['task_class' => 'x', 'tokens_in' => 10, 'tokens_out' => 5, 'cost_cents' => 3, 'recorded_at' => '2026-06-25T00:00:00Z'],
+            ['task_class' => 'x', 'tokens_in' => 'BAD', 'tokens_out' => 5, 'cost_cents' => 3, 'recorded_at' => '2026-06-25T00:00:01Z'],
+            ['task_class' => 'x', 'tokens_in' => 10, 'tokens_out' => 5, 'cost_cents' => null, 'recorded_at' => '2026-06-25T00:00:02Z'],
+            ['task_class' => 'x', 'tokens_in' => 10, 'tokens_out' => 'BAD', 'cost_cents' => 3, 'recorded_at' => '2026-06-25T00:00:03Z'],
+        ];
+        $verdict = AtlasMaestroCostAggregator::fromRowsByGroup($rows, 'task_class');
+
+        $this->assertSame(1, $verdict['x']['count_records'], 'only the fully-valid row counted');
+        $this->assertSame(3, $verdict['x']['rejected_count']);
+        $this->assertSame(1, $verdict['x']['rejected_reason_counts']['non_numeric_tokens_in']);
+        $this->assertSame(1, $verdict['x']['rejected_reason_counts']['non_numeric_cost_cents']);
+        $this->assertSame(1, $verdict['x']['rejected_reason_counts']['non_numeric_tokens_out']);
+        $this->assertSame(3, $verdict['x']['sum_cost_cents'], 'malformed rows must not be summed');
+    }
+
     public function test_atlas_native_bucket_is_flagged_as_zero_cost_provider(): void
     {
         $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
