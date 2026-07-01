@@ -10,6 +10,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierCo
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierControlPlane;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierEndToEndTrial;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierFallbackRunbook;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyDependencyInverter;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -57,6 +58,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainAmplifierControlPlane $amplifierControlPlane,
         AtlasExternalBrainAmplifierEndToEndTrial $endToEndTrial,
         AtlasExternalBrainAmplifierFallbackRunbook $fallbackRunbook,
+        AtlasExternalBrainAutonomyDependencyInverter $dependencyInverter,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -166,6 +168,14 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // it only runs when the caller explicitly supplies an amplifier_fallback_runbook section.
         if (is_array($decoded['amplifier_fallback_runbook'] ?? null)) {
             $payload['amplifier_fallback_runbook'] = $fallbackRunbook->compile($decoded['amplifier_fallback_runbook']);
+        }
+
+        // Optional autonomy dependency inversion: proposes Atlas-native replacements for
+        // human/operator/provider dependencies still active in steady state. Distinct from
+        // the fallback runbook above, so it only runs when the caller explicitly supplies an
+        // autonomy_dependency_inversion section.
+        if (is_array($decoded['autonomy_dependency_inversion'] ?? null)) {
+            $payload['autonomy_dependency_inversion'] = $dependencyInverter->invert($decoded['autonomy_dependency_inversion']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
