@@ -197,4 +197,115 @@ final class AtlasSelfConstructionNextFrontierSelectorTest extends TestCase
             }
         }
     }
+
+    // ── AC: recommended_frontier, compound_unlock_score, blocker_pressure, coverage_gap, simplification_opportunity, rationale ──
+
+    public function test_clear_frontier_winner_reports_recommended_frontier_and_rationale(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            ['deltas' => ['capability_coverage' => 2]],
+            [['organ' => 'verification_court', 'blocker_id' => 'flaky_test']],
+            [],
+            [],
+        );
+
+        $this->assertSame($verdict['frontier'][0], $verdict['recommended_frontier']);
+        $this->assertSame($verdict['frontier'][0]['rationale'], $verdict['rationale']);
+        $this->assertSame(1, $verdict['compound_unlock_score']);
+    }
+
+    public function test_blocker_dominated_case_reports_blocker_pressure(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            ['deltas' => ['capability_coverage' => 1]],
+            [
+                ['organ' => 'a', 'blocker_id' => 'b1'],
+                ['organ' => 'b', 'blocker_id' => 'b2'],
+                ['organ' => 'c', 'blocker_id' => 'b3'],
+            ],
+            ['some_organ'],
+            [],
+        );
+
+        $this->assertSame(3, $verdict['blocker_pressure']);
+        $this->assertSame(AtlasSelfConstructionNextFrontierSelector::KIND_BLOCKER_REMOVAL, $verdict['recommended_frontier']['kind']);
+    }
+
+    public function test_missing_coverage_case_reports_coverage_gap(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select([], [], ['organ_a', 'organ_b', 'organ_c'], []);
+
+        $this->assertSame(3, $verdict['coverage_gap']);
+        $this->assertSame(AtlasSelfConstructionNextFrontierSelector::KIND_COVERAGE_COMPLETION, $verdict['recommended_frontier']['kind']);
+    }
+
+    public function test_simplification_first_case_high_value_opportunity_outranks_blocker_removal(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            ['deltas' => ['capability_coverage' => 5]],
+            [['organ' => 'verification_court', 'blocker_id' => 'flaky_test']],
+            [],
+            [],
+            [['organ' => 'Maestro', 'opportunity_id' => 'S-1', 'high_value' => true]],
+        );
+
+        $this->assertSame(AtlasSelfConstructionNextFrontierSelector::KIND_SIMPLIFICATION, $verdict['frontier'][0]['kind']);
+        $this->assertSame(AtlasSelfConstructionNextFrontierSelector::KIND_BLOCKER_REMOVAL, $verdict['frontier'][1]['kind']);
+        $this->assertSame(1, $verdict['simplification_opportunity']);
+    }
+
+    public function test_low_value_simplification_ranks_after_lesson_consolidation(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            [],
+            [],
+            [],
+            [['class' => 'scope_gap', 'repeat_count' => 3]],
+            [['organ' => 'Maestro', 'opportunity_id' => 'S-2', 'high_value' => false]],
+        );
+
+        $this->assertSame(AtlasSelfConstructionNextFrontierSelector::KIND_LESSON_CONSOLIDATION, $verdict['frontier'][0]['kind']);
+        $this->assertSame(AtlasSelfConstructionNextFrontierSelector::KIND_SIMPLIFICATION, $verdict['frontier'][1]['kind']);
+    }
+
+    public function test_simplification_row_has_chain_frontier_proof(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            [], [], [], [],
+            [['organ' => 'Fabric', 'opportunity_id' => 'S-3', 'high_value' => true]],
+        );
+
+        $proof = $verdict['frontier'][0]['chain_frontier_proof'];
+        $this->assertStringContainsString('S-3', $proof['upstream_signal']);
+        $this->assertStringContainsString('Fabric', $proof['upstream_signal']);
+        $this->assertSame('self_construction_simplification', $proof['next_task_family']);
+    }
+
+    public function test_deterministic_ties_produce_identical_output_across_calls(): void
+    {
+        $selector = new AtlasSelfConstructionNextFrontierSelector;
+        $args = [
+            ['deltas' => ['capability_coverage' => 1]],
+            [['organ' => 'a', 'blocker_id' => 'b1'], ['organ' => 'b', 'blocker_id' => 'b2']],
+            ['z_organ', 'a_organ'],
+            [['class' => 'forbidden_target', 'repeat_count' => 5]],
+        ];
+
+        $a = $selector->select(...$args);
+        $b = $selector->select(...$args);
+
+        $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
+    }
+
+    public function test_no_signals_recommended_frontier_is_null_with_zero_counts(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select([], [], [], []);
+
+        $this->assertNull($verdict['recommended_frontier']);
+        $this->assertSame(0, $verdict['compound_unlock_score']);
+        $this->assertSame(0, $verdict['blocker_pressure']);
+        $this->assertSame(0, $verdict['coverage_gap']);
+        $this->assertSame(0, $verdict['simplification_opportunity']);
+        $this->assertSame('no_frontier_signals_present', $verdict['rationale']);
+    }
 }

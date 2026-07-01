@@ -15,12 +15,19 @@ namespace App\Services\Ai\SelfConstruction\Compounding;
  *           priority_class}>}
  *
  * Priority order (lex):
+ *   0. simplification_opportunity (high_value)  — cheap, low-risk simplification wins — simplification-first
  *   1. blocker_removal_high_leverage  — unresolved blockers paired with a high-capability-coverage delta
  *   2. coverage_completion             — missing organ coverage rows
  *   3. lesson_consolidation            — give_back classes with repeat_count >= 2
- *   4. cosmetic_expansion              — when nothing else, only if other signals exist
+ *   4. cosmetic_expansion / simplification_opportunity (low value) — when nothing else, only if other signals exist
  *
  * NEVER creates executable task packets — selector only emits proposed FACTS.
+ *
+ * The envelope additionally reports the top pick (recommended_frontier) plus transparent, falsifiable
+ * COUNTS (compound_unlock_score = total frontier rows, blocker_pressure, coverage_gap,
+ * simplification_opportunity) and rationale — descriptive/auditable fields, never the mechanism driving
+ * selection itself, which stays the existing lexicographic priority-tier ordering below, not a single
+ * opaque composite score.
  */
 final class AtlasSelfConstructionNextFrontierSelector
 {
@@ -34,14 +41,17 @@ final class AtlasSelfConstructionNextFrontierSelector
 
     public const KIND_COSMETIC_EXPANSION = 'cosmetic_expansion';
 
+    public const KIND_SIMPLIFICATION = 'simplification_opportunity';
+
     /**
      * @param  array<string,mixed>  $leverageDelta     output of LeverageDeltaReporter::report
      * @param  list<array<string,mixed>>  $unresolvedBlockers {organ, blocker_id}
      * @param  list<string>  $missingOrganCoverage
      * @param  list<array<string,mixed>>  $giveBackLessons {class, repeat_count}
+     * @param  list<array<string,mixed>>  $simplificationOpportunities {organ, opportunity_id, high_value?}
      * @return array<string,mixed>
      */
-    public function select(array $leverageDelta, array $unresolvedBlockers, array $missingOrganCoverage, array $giveBackLessons): array
+    public function select(array $leverageDelta, array $unresolvedBlockers, array $missingOrganCoverage, array $giveBackLessons, array $simplificationOpportunities = []): array
     {
         $frontier = [];
         $deltas = (array) ($leverageDelta['deltas'] ?? []);
@@ -102,27 +112,57 @@ final class AtlasSelfConstructionNextFrontierSelector
             $row['chain_frontier_proof'] = $this->chainFrontierProof($row, ['lesson_class' => $class, 'repeat_count' => (int) $g['repeat_count']]);
             $frontier[] = $row;
         }
+        foreach ($simplificationOpportunities as $s) {
+            if (! is_array($s)) {
+                continue;
+            }
+            $organ = (string) ($s['organ'] ?? 'unknown_organ');
+            $opportunityId = (string) ($s['opportunity_id'] ?? 'unknown_opportunity');
+            $highValue = (bool) ($s['high_value'] ?? false);
+            $row = [
+                'kind' => self::KIND_SIMPLIFICATION,
+                'rationale' => $highValue
+                    ? 'high-value simplification opportunity '.$opportunityId.' in '.$organ.' — cheap, low-risk win, prioritize first'
+                    : 'simplification opportunity '.$opportunityId.' in '.$organ,
+                'owner_organ' => $organ,
+                'required_gates' => ['simplification_debt_gate'],
+                'required_evidence' => ['simplification_applied_test_green', 'no_regression_test_green'],
+                'next_packet_lane' => 'self_construction_simplification',
+                'priority_class' => $highValue ? 0 : 4,
+            ];
+            $row['chain_frontier_proof'] = $this->chainFrontierProof($row, ['opportunity_id' => $opportunityId]);
+            $frontier[] = $row;
+        }
 
         if ($frontier === []) {
             // No supported facts ⇒ empty frontier (selector is silent, not noisy).
-            return $this->envelope([]);
+            return $this->envelope([], $unresolvedBlockers, $missingOrganCoverage, $simplificationOpportunities);
         }
 
         // Deterministic ordering: priority_class ASC then by (rationale ASC).
         usort($frontier, static fn (array $a, array $b): int => $a['priority_class'] <=> $b['priority_class'] ?: strcmp($a['rationale'], $b['rationale']));
 
-        return $this->envelope($frontier);
+        return $this->envelope($frontier, $unresolvedBlockers, $missingOrganCoverage, $simplificationOpportunities);
     }
 
     /**
      * @param  list<array<string,mixed>>  $frontier
+     * @param  list<array<string,mixed>>  $unresolvedBlockers
+     * @param  list<string>  $missingOrganCoverage
+     * @param  list<array<string,mixed>>  $simplificationOpportunities
      * @return array<string,mixed>
      */
-    private function envelope(array $frontier): array
+    private function envelope(array $frontier, array $unresolvedBlockers = [], array $missingOrganCoverage = [], array $simplificationOpportunities = []): array
     {
         return [
             'schema_version' => self::SCHEMA,
             'frontier' => $frontier,
+            'recommended_frontier' => $frontier[0] ?? null,
+            'compound_unlock_score' => count($frontier),
+            'blocker_pressure' => count($unresolvedBlockers),
+            'coverage_gap' => count($missingOrganCoverage),
+            'simplification_opportunity' => count($simplificationOpportunities),
+            'rationale' => $frontier !== [] ? (string) $frontier[0]['rationale'] : 'no_frontier_signals_present',
         ];
     }
 
@@ -161,6 +201,13 @@ final class AtlasSelfConstructionNextFrontierSelector
                 'why_not_cosmetic'          => 'repeated give_backs indicate a structural gap in packet authoring; consolidating the lesson closes the root cause',
                 'expected_compounding_effect' => 'each consolidated lesson multiplies across all future packets in its class, reducing wasted loop cycles',
                 'next_task_family'          => $lane !== '' ? $lane : 'self_construction_lesson_consolidation',
+            ],
+            self::KIND_SIMPLIFICATION => [
+                'upstream_signal'           => 'simplification_opportunity:'.(string) ($ctx['opportunity_id'] ?? 'unknown').' in organ:'.$organ,
+                'downstream_unlock'         => 'reduces surface area in '.$organ.', lowering future change cost and blast radius',
+                'why_not_cosmetic'          => 'a genuine simplification opportunity reduces real maintenance burden, distinct from cosmetic polish with no capability delta',
+                'expected_compounding_effect' => 'each simplification reduces the cost of every future change to '.$organ.', compounding across all subsequent packets',
+                'next_task_family'          => $lane !== '' ? $lane : 'self_construction_simplification',
             ],
             default => [
                 'upstream_signal'           => 'kind:'.$kind,
