@@ -254,4 +254,94 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewerTest extends TestCa
 
         $this->assertSame(AtlasExternalBrainTaskBatchCounterfactualReviewer::DECISION_KEEP, $r['decision']);
     }
+
+    // ── AC4: review output includes selected_batch and rejection_reasons ─────
+
+    public function test_output_has_selected_batch_and_rejection_reasons_keys(): void
+    {
+        $r = (new AtlasExternalBrainTaskBatchCounterfactualReviewer)->review([], []);
+
+        $this->assertArrayHasKey('selected_batch', $r);
+        $this->assertArrayHasKey('rejection_reasons', $r);
+    }
+
+    public function test_replace_decision_selects_counterfactual_and_names_proposed_rejection_reasons(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+
+        $proposed = [
+            ['objective' => 'Add CRUD A', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/A.php']],
+            ['objective' => 'Add CRUD B', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/B.php']],
+            ['objective' => 'Add CRUD C', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/C.php']],
+            ['objective' => 'Add CRUD D', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/D.php']],
+        ];
+        $counterfactual = [
+            ['objective' => 'Design compounding memory', 'type' => 'architecture', 'leverage' => 'high', 'allowed_files' => ['app/Mem.php']],
+            ['objective' => 'Implement evidence ledger', 'type' => 'evolution', 'leverage' => 'high', 'allowed_files' => ['app/Ledger.php']],
+        ];
+
+        $r = $reviewer->review($proposed, $counterfactual);
+
+        $this->assertSame(AtlasExternalBrainTaskBatchCounterfactualReviewer::DECISION_REPLACE, $r['decision']);
+        $this->assertSame('counterfactual', $r['selected_batch']);
+        $this->assertNotEmpty($r['rejection_reasons']);
+        foreach ($r['rejection_reasons'] as $reason) {
+            $this->assertStringStartsWith('proposed_rejected:', $reason);
+        }
+    }
+
+    public function test_keep_decision_selects_proposed_with_empty_rejection_reasons_when_no_counterfactual(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+
+        $batch = [
+            ['objective' => 'Design core arch', 'type' => 'architecture', 'leverage' => 'high', 'allowed_files' => ['app/Arch.php']],
+            ['objective' => 'Implement evidence', 'type' => 'evolution', 'leverage' => 'high', 'allowed_files' => ['app/Evid.php']],
+        ];
+
+        $r = $reviewer->review($batch, []);
+
+        $this->assertSame(AtlasExternalBrainTaskBatchCounterfactualReviewer::DECISION_KEEP, $r['decision']);
+        $this->assertSame('proposed', $r['selected_batch']);
+        $this->assertSame([], $r['rejection_reasons']);
+    }
+
+    public function test_keep_decision_with_weaker_counterfactual_names_counterfactual_rejection_reasons(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+
+        $proposed = [
+            ['objective' => 'Unblock context router contract', 'type' => 'architecture', 'leverage' => 'high', 'allowed_files' => ['app/Contract.php'], 'dependency_chain_unlock_value' => 2.5],
+            ['objective' => 'Wire downstream consumers', 'type' => 'evolution', 'leverage' => 'high', 'allowed_files' => ['app/Consumer.php'], 'dependency_chain_unlock_value' => 2.0],
+        ];
+        $counterfactual = [
+            ['objective' => 'Tweak A', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/A.php']],
+            ['objective' => 'Tweak B', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/B.php']],
+        ];
+
+        $r = $reviewer->review($proposed, $counterfactual);
+
+        $this->assertSame(AtlasExternalBrainTaskBatchCounterfactualReviewer::DECISION_KEEP, $r['decision']);
+        $this->assertSame('proposed', $r['selected_batch']);
+        $this->assertNotEmpty($r['rejection_reasons']);
+        foreach ($r['rejection_reasons'] as $reason) {
+            $this->assertStringStartsWith('counterfactual_rejected:', $reason);
+        }
+    }
+
+    public function test_shrink_decision_selects_proposed(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+
+        $batch = [
+            ['objective' => 'Task A', 'type' => 'bug_fix', 'leverage' => 'high', 'allowed_files' => ['app/X.php']],
+            ['objective' => 'Task A', 'type' => 'bug_fix', 'leverage' => 'high', 'allowed_files' => ['app/X.php']],
+            ['objective' => 'Task A', 'type' => 'bug_fix', 'leverage' => 'high', 'allowed_files' => ['app/X.php']],
+        ];
+
+        $r = $reviewer->review($batch, []);
+
+        $this->assertSame(AtlasExternalBrainTaskBatchCounterfactualReviewer::DECISION_SHRINK, $r['decision']);
+        $this->assertSame('proposed', $r['selected_batch']);
+    }
 }

@@ -94,6 +94,27 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
             }
         }
 
+        // AC4: which batch actually goes forward, and why the other one didn't — REPLACE is the
+        // only decision that swaps in the counterfactual wholesale; keep/shrink/split all mean
+        // the proposed batch (possibly trimmed) is what's enqueued.
+        $selectedBatch = $decision === self::DECISION_REPLACE ? 'counterfactual' : 'proposed';
+        $rejectionReasons = [];
+        if ($selectedBatch === 'counterfactual') {
+            foreach ($proposedEval['risks'] as $riskReason) {
+                $rejectionReasons[] = 'proposed_rejected:'.$riskReason;
+            }
+            if ($proposedEval['score'] < $counterEval['score']) {
+                $rejectionReasons[] = 'proposed_rejected:lower_score_than_counterfactual';
+            }
+        } elseif ($counterfactualBatch !== []) {
+            if ($counterEval['score'] <= $proposedEval['score']) {
+                $rejectionReasons[] = 'counterfactual_rejected:lower_or_equal_score_than_proposed';
+            }
+            if ($counterEval['high_leverage'] < $proposedEval['high_leverage']) {
+                $rejectionReasons[] = 'counterfactual_rejected:fewer_high_leverage_tasks_than_proposed';
+            }
+        }
+
         return [
             'schema'                     => self::SCHEMA,
             'proposed_score'             => $proposedEval['score'],
@@ -106,6 +127,8 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
             'chain_value_delta'          => $chainValueDelta,
             'discarded_high_value_risks' => $discardedHighValueRisks,
             'recommended_batch_delta'    => $this->recommendedBatchDelta($decision, $proposedEval),
+            'selected_batch'             => $selectedBatch,
+            'rejection_reasons'          => $rejectionReasons,
         ];
     }
 
