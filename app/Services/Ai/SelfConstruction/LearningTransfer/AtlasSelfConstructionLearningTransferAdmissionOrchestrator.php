@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\LearningTransfer;
 
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainMuscleOutcomeLearningMatrix;
+
 /**
  * Closed-loop lesson-admission orchestrator (OBSERVE-only by default).
  *
@@ -25,6 +27,12 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
     public const MODE_APPLY = 'apply';
 
     private const STALE_EVIDENCE_MAX_AGE_DAYS = 90;
+
+    /** give_back_rate at/above this (with enough rows) reads as poison-like recurrence, not noise. */
+    private const DEFAULT_FAMILY_GIVE_BACK_POISON_FLOOR = 0.50;
+
+    /** Minimum recent-outcome rows for a family before its give_back_rate is trusted. */
+    private const DEFAULT_FAMILY_MIN_ROWS_FOR_SUPPRESSION = 3;
 
     private AtlasSelfConstructionLearningTransferGiveBackClassifier $classifier;
 
@@ -63,6 +71,7 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         $mode = self::MODE_OBSERVE;
         $classification = $this->classifier->classify($giveBackFact);
         $lessonKey = $this->computeLessonKey($classification);
+        $familyOutcomeSignal = $this->computeFamilyOutcomeSignal((string) ($classification['class'] ?? ''), $template, $thresholds);
 
         // Deduplicate against a caller-supplied snapshot of already-known lesson keys.
         $knownKeys = array_values((array) ($template['known_lesson_keys'] ?? []));
@@ -76,6 +85,7 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
                 ledger: null,
                 outcome: 'duplicate_observed',
                 lessonKey: $lessonKey,
+                familyOutcomeSignal: $familyOutcomeSignal,
             );
         }
 
@@ -100,6 +110,25 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
                 ledger: null,
                 outcome: 'short_circuited_at_gate',
                 lessonKey: $lessonKey,
+                familyOutcomeSignal: $familyOutcomeSignal,
+            );
+        }
+
+        // Repeated give_back outcomes for this same family read as poison-like recurrence:
+        // admitting the gate's decision again would keep rewriting the packet template on a
+        // pattern that already failed to stick. Suppress the template-changing side effects
+        // (plan/template_after/ledger) while still surfacing the classification + signal.
+        if ($familyOutcomeSignal['suppress_template_update']) {
+            return $this->envelope(
+                mode: $mode,
+                classification: $classification,
+                gateDecision: $gateDecision,
+                plan: null,
+                templateAfter: null,
+                ledger: null,
+                outcome: 'suppressed_by_family_give_back_recurrence',
+                lessonKey: $lessonKey,
+                familyOutcomeSignal: $familyOutcomeSignal,
             );
         }
 
@@ -137,7 +166,52 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
             ledger: $ledgerResult,
             outcome: 'admitted_and_recorded',
             lessonKey: $lessonKey,
+            familyOutcomeSignal: $familyOutcomeSignal,
         );
+    }
+
+    /**
+     * Reduces recent muscle outcomes for this lesson's family (reusing the shared outcome
+     * matrix — no bespoke rate math here) into a deterministic per-family signal. Callers
+     * supply history via $template['family_outcome_rows'] (list of {outcome}); with no history
+     * the signal is neutral and never suppresses.
+     *
+     * @param  array<string,mixed>  $template
+     * @param  array<string,mixed>  $thresholds
+     * @return array{family:string, success_rate:float, give_back_rate:float, total:int, signal:string, suppress_template_update:bool}
+     */
+    private function computeFamilyOutcomeSignal(string $family, array $template, array $thresholds): array
+    {
+        $rawRows = array_values((array) ($template['family_outcome_rows'] ?? []));
+        $outcomeRows = [];
+        foreach ($rawRows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $outcomeRows[] = ['task_family' => $family, 'outcome' => (string) ($row['outcome'] ?? '')];
+        }
+
+        $analysis = (new AtlasExternalBrainMuscleOutcomeLearningMatrix())->analyze(['outcome_rows' => $outcomeRows]);
+        $familyRow = $analysis['family_matrix'][$family] ?? [
+            'success_rate' => 0.0,
+            'give_back_rate' => 0.0,
+            'total' => 0,
+            'signal' => 'normal',
+        ];
+
+        $giveBackFloor = (float) ($thresholds['family_give_back_poison_floor'] ?? self::DEFAULT_FAMILY_GIVE_BACK_POISON_FLOOR);
+        $minRows = (int) ($thresholds['family_min_rows_for_suppression'] ?? self::DEFAULT_FAMILY_MIN_ROWS_FOR_SUPPRESSION);
+
+        $poisonLikeRecurrence = $familyRow['total'] >= $minRows && $familyRow['give_back_rate'] >= $giveBackFloor;
+
+        return [
+            'family' => $family,
+            'success_rate' => $familyRow['success_rate'],
+            'give_back_rate' => $familyRow['give_back_rate'],
+            'total' => $familyRow['total'],
+            'signal' => $poisonLikeRecurrence ? 'poison_like_give_back_recurrence' : $familyRow['signal'],
+            'suppress_template_update' => $poisonLikeRecurrence,
+        ];
     }
 
     /**
@@ -269,6 +343,7 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
      * @param  array<string,mixed>|null  $plan
      * @param  array<string,mixed>|null  $templateAfter
      * @param  array<string,mixed>|null  $ledger
+     * @param  array<string,mixed>  $familyOutcomeSignal
      * @return array<string,mixed>
      */
     private function envelope(
@@ -280,6 +355,7 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         ?array $ledger,
         string $outcome,
         string $lessonKey = '',
+        array $familyOutcomeSignal = [],
     ): array {
         $envelope = [
             'schema_version' => self::SCHEMA,
@@ -291,6 +367,7 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
             'plan' => $plan,
             'template_after' => $templateAfter,
             'ledger' => $ledger,
+            'family_outcome_signal' => $familyOutcomeSignal,
         ];
         ksort($envelope, SORT_STRING);
 

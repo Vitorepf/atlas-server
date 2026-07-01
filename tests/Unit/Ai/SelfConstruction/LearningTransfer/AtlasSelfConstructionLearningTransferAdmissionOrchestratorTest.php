@@ -240,6 +240,73 @@ class AtlasSelfConstructionLearningTransferAdmissionOrchestratorTest extends Tes
         self::assertNotContains('target_scope_mismatch', $result['missing_evidence']);
     }
 
+    // ── AC: family-level success/give_back signal ──────────────────────────────
+
+    public function test_family_outcome_signal_present_and_neutral_with_no_history(): void
+    {
+        $r = $this->orchestrator()->admit($this->admittableFact());
+
+        self::assertArrayHasKey('family_outcome_signal', $r);
+        self::assertSame('duplicate_capability', $r['family_outcome_signal']['family']);
+        self::assertSame(0, $r['family_outcome_signal']['total']);
+        self::assertSame('normal', $r['family_outcome_signal']['signal']);
+        self::assertFalse($r['family_outcome_signal']['suppress_template_update']);
+        self::assertSame('admitted_and_recorded', $r['outcome']);
+    }
+
+    public function test_admit_suppressed_when_family_shows_poison_like_give_back_recurrence(): void
+    {
+        $history = [
+            'family_outcome_rows' => [
+                ['outcome' => 'give_back'],
+                ['outcome' => 'give_back'],
+                ['outcome' => 'success'],
+            ],
+        ];
+
+        $r = $this->orchestrator()->admit($this->admittableFact(), $history);
+
+        self::assertSame('suppressed_by_family_give_back_recurrence', $r['outcome']);
+        self::assertTrue($r['family_outcome_signal']['suppress_template_update']);
+        self::assertEqualsWithDelta(0.6667, $r['family_outcome_signal']['give_back_rate'], 0.001);
+        self::assertNull($r['plan']);
+        self::assertNull($r['template_after']);
+        self::assertNull($r['ledger']);
+    }
+
+    public function test_admit_proceeds_when_family_give_back_rate_below_poison_floor(): void
+    {
+        $history = [
+            'family_outcome_rows' => [
+                ['outcome' => 'give_back'],
+                ['outcome' => 'success'],
+                ['outcome' => 'success'],
+                ['outcome' => 'success'],
+            ],
+        ];
+
+        $r = $this->orchestrator()->admit($this->admittableFact(), $history);
+
+        self::assertSame('admitted_and_recorded', $r['outcome']);
+        self::assertFalse($r['family_outcome_signal']['suppress_template_update']);
+        self::assertNotNull($r['plan']);
+    }
+
+    public function test_admit_not_suppressed_when_recurrence_rows_below_min_rows_floor(): void
+    {
+        $history = [
+            'family_outcome_rows' => [
+                ['outcome' => 'give_back'],
+                ['outcome' => 'give_back'],
+            ],
+        ];
+
+        $r = $this->orchestrator()->admit($this->admittableFact(), $history);
+
+        self::assertSame('admitted_and_recorded', $r['outcome']);
+        self::assertFalse($r['family_outcome_signal']['suppress_template_update']);
+    }
+
     // ── AC: hidden project-specific assumptions rejection ─────────────────────
 
     public function test_rejects_transfer_when_hidden_assumptions_present(): void
