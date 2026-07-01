@@ -92,8 +92,16 @@ final class AtlasSelfConstructionQueueTopUpPolicy
             $topUpRequired = true;
         }
         $activeLeasesForHysteresis = (int) ($facts['active_leases'] ?? 0);
+        // A configurable minimum claimable-per-active-worker BUFFER (not just "one packet per
+        // worker"): active_leases - netClaimable is zero whenever the queue is above the worker
+        // count, even though it may still be thin relative to a healthy buffer target. When a
+        // target is supplied, the real gap is active_leases * target - netClaimable.
+        $workerBufferTargetPerWorker = (float) ($facts['worker_buffer_target_per_worker'] ?? 0.0);
+        $bufferTargetNeed = $workerBufferTargetPerWorker > 0.0
+            ? (int) ceil($activeLeasesForHysteresis * $workerBufferTargetPerWorker) - $netClaimable
+            : $activeLeasesForHysteresis - $netClaimable;
         $hysteresisNeed = $workerFloorHysteresisTrigger
-            ? max(0, $activeLeasesForHysteresis - $netClaimable, $workerNeed)
+            ? max(0, $bufferTargetNeed, $workerNeed)
             : 0;
 
         // Stale-claimable backlog signal: raw claimable_depth overstates real supply when a

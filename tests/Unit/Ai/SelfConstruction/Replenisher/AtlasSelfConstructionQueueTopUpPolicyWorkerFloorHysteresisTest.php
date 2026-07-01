@@ -77,4 +77,43 @@ final class AtlasSelfConstructionQueueTopUpPolicyWorkerFloorHysteresisTest exten
         $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, $result['outcome']);
         $this->assertGreaterThan(0, $result['new_packet_count']);
     }
+
+    // ── worker_buffer_target_per_worker ──────────────────────────────────────
+
+    public function test_replenish_soon_restores_configurable_worker_buffer_target(): void
+    {
+        $facts = array_merge($this->baseFacts(), [
+            'active_leases' => 7,
+            'claimable_depth' => 22,
+            'servable_depth' => 22,
+            'claimable_per_active_worker' => 3,
+            'replenish_recommendation' => 'replenish_soon',
+            'worker_buffer_target_per_worker' => 5,
+            'accepted_frontier_count' => 10,
+            'batch_cap' => 10,
+            'low_water_mark' => 0,
+        ]);
+
+        $result = (new AtlasSelfConstructionQueueTopUpPolicy)->decide($facts);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, $result['outcome']);
+        $this->assertGreaterThan(0, $result['new_packet_count']);
+    }
+
+    public function test_comfortable_buffer_without_replenish_soon_stays_wait(): void
+    {
+        $facts = array_merge($this->baseFacts(), [
+            'active_leases' => 7,
+            'claimable_depth' => 40,
+            'servable_depth' => 40,
+            'claimable_per_active_worker' => 6,
+            'worker_buffer_target_per_worker' => 5,
+            'low_water_mark' => 0,
+        ]);
+
+        $result = (new AtlasSelfConstructionQueueTopUpPolicy)->decide($facts);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_WAIT, $result['outcome']);
+        $this->assertSame(0, $result['new_packet_count']);
+    }
 }
