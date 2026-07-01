@@ -142,7 +142,53 @@ final class AtlasSelfConstructionCortexSourceInventoryTest extends TestCase
         $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $this->completeSources()]);
         $keys = array_keys($r);
         sort($keys);
-        $this->assertSame(['blockers', 'context_status', 'inventory', 'required_summary', 'schema'], $keys);
+        $this->assertSame(['authority_map', 'blockers', 'context_status', 'freshness_debt', 'inventory', 'required_summary', 'schema'], $keys);
+    }
+
+    public function test_authority_map_groups_source_ids_by_authority_and_kind(): void
+    {
+        $sources = $this->completeSources();
+        $sources[] = ['source_id' => 'ext-docs', 'kind' => 'docs', 'authority' => 'external_partner'];
+
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
+
+        $this->assertArrayHasKey('atlas_native', $r['authority_map']);
+        $this->assertArrayHasKey('external_partner', $r['authority_map']);
+        $this->assertSame(['ext-docs'], $r['authority_map']['external_partner']['docs']);
+        $this->assertArrayHasKey('docs', $r['authority_map']['atlas_native']);
+    }
+
+    public function test_missing_required_source_produces_freshness_debt_entry(): void
+    {
+        $sources = array_values(array_filter($this->completeSources(), static fn (array $s): bool => $s['kind'] !== 'memory'));
+
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
+
+        $memoryDebt = array_values(array_filter($r['freshness_debt'], static fn (array $d): bool => $d['kind'] === 'memory'));
+        $this->assertNotEmpty($memoryDebt);
+        $this->assertSame('unknown', $memoryDebt[0]['freshness_status']);
+        $this->assertNotEmpty($memoryDebt[0]['repair_hint']);
+    }
+
+    public function test_stale_required_source_produces_freshness_debt_entry_with_repair_hint(): void
+    {
+        $sources = $this->completeSources();
+        foreach ($sources as $i => $s) {
+            if ($s['kind'] === 'docs') {
+                $sources[$i]['last_updated_at'] = '2020-01-01T00:00:00Z';
+                $sources[$i]['max_age_s'] = 60;
+            }
+        }
+
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory([
+            'sources' => $sources,
+            'now_at' => '2020-01-02T00:00:00Z',
+        ]);
+
+        $docsDebt = array_values(array_filter($r['freshness_debt'], static fn (array $d): bool => $d['kind'] === 'docs'));
+        $this->assertNotEmpty($docsDebt);
+        $this->assertSame('stale', $docsDebt[0]['freshness_status']);
+        $this->assertNotEmpty($docsDebt[0]['repair_hint']);
     }
 
     public function test_optional_kinds_provider_projection_worker_outcome_project_lane_are_recognized(): void

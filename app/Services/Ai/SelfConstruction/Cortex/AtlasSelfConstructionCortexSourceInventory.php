@@ -135,12 +135,65 @@ final class AtlasSelfConstructionCortexSourceInventory
         usort($normalized, static fn (array $a, array $b): int => strcmp($a['kind'], $b['kind']) ?: strcmp($a['source_id'], $b['source_id']));
         sort($blockers, SORT_STRING);
 
+        $authorityMap = [];
+        foreach ($normalized as $row) {
+            $authorityMap[$row['authority']][$row['kind']][] = $row['source_id'];
+        }
+        foreach ($authorityMap as $authority => $kinds) {
+            foreach ($kinds as $kind => $ids) {
+                sort($ids, SORT_STRING);
+                $authorityMap[$authority][$kind] = $ids;
+            }
+            ksort($authorityMap[$authority], SORT_STRING);
+        }
+        ksort($authorityMap, SORT_STRING);
+
+        $requiredKindsPresent = array_fill_keys(self::REQUIRED_KINDS, false);
+        foreach ($normalized as $row) {
+            if (array_key_exists($row['kind'], $requiredKindsPresent)) {
+                $requiredKindsPresent[$row['kind']] = true;
+            }
+        }
+
+        $freshnessDebt = [];
+        foreach ($missingKinds as $kind) {
+            $freshnessDebt[] = [
+                'source_id' => '',
+                'kind' => $kind,
+                'freshness_status' => self::FRESHNESS_UNKNOWN,
+                'repair_hint' => 'supply_required_source:'.$kind,
+            ];
+        }
+        foreach ($normalized as $row) {
+            if (! in_array($row['kind'], self::REQUIRED_KINDS, true)) {
+                continue;
+            }
+            if ($row['freshness_status'] === self::FRESHNESS_STALE) {
+                $freshnessDebt[] = [
+                    'source_id' => $row['source_id'],
+                    'kind' => $row['kind'],
+                    'freshness_status' => self::FRESHNESS_STALE,
+                    'repair_hint' => 'refresh_stale_source:'.$row['source_id'],
+                ];
+            } elseif ($row['freshness_status'] === self::FRESHNESS_UNKNOWN) {
+                $freshnessDebt[] = [
+                    'source_id' => $row['source_id'],
+                    'kind' => $row['kind'],
+                    'freshness_status' => self::FRESHNESS_UNKNOWN,
+                    'repair_hint' => 'supply_freshness_evidence:'.$row['source_id'],
+                ];
+            }
+        }
+        usort($freshnessDebt, static fn (array $a, array $b): int => strcmp($a['kind'], $b['kind']) ?: strcmp($a['source_id'], $b['source_id']));
+
         return [
             'schema' => self::SCHEMA,
             'inventory' => $normalized,
             'blockers' => $blockers,
             'required_summary' => ['present' => $presentKinds, 'missing' => $missingKinds],
             'context_status' => $missingKinds === [] ? self::CONTEXT_READY : self::CONTEXT_NOT_READY,
+            'authority_map' => $authorityMap,
+            'freshness_debt' => $freshnessDebt,
         ];
     }
 }
