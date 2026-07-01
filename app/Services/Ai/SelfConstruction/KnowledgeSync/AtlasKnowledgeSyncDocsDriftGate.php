@@ -55,9 +55,17 @@ final class AtlasKnowledgeSyncDocsDriftGate
         $needsCodeIndex = in_array('code-intelligence-index', $artifactIds, true);
         $needsMemoryUpdate = in_array('memory-update', $artifactIds, true);
         $capabilityChanged = (bool) ($facts['capability_changed'] ?? false);
+        // Opt-in evidence-chain check: only activates when the caller explicitly supplies a top-level
+        // capability_change_hash — old callers that never set it keep exact prior behavior.
+        $requiresHashChain = $capabilityChanged && array_key_exists('capability_change_hash', $facts);
+        $expectedHash = $requiresHashChain ? trim((string) $facts['capability_change_hash']) : '';
 
         $blockers = [];
         $debt = [];
+
+        if ($requiresHashChain && $expectedHash === '') {
+            $blockers[] = 'capability_change_hash_missing';
+        }
 
         // Fail closed: a capability/prompt-contract/task-fabric/public-architecture change must
         // require ALL four sync artifacts, or the next batch reasons from stale context.
@@ -104,6 +112,9 @@ final class AtlasKnowledgeSyncDocsDriftGate
                 foreach ((array) ($dh['debt_facts'] ?? []) as $d) {
                     $debt[] = 'docs_health:'.(string) $d;
                 }
+                if ($requiresHashChain && $expectedHash !== '' && (string) ($dh['capability_change_hash'] ?? '') !== $expectedHash) {
+                    $blockers[] = 'docs_health_capability_hash_mismatch';
+                }
             }
         }
 
@@ -119,6 +130,9 @@ final class AtlasKnowledgeSyncDocsDriftGate
                     $blockers[] = 'sync_result_no_observed_at';
                 } elseif ($now > 0 && ($now - (int) $sr['observed_at_unix']) > $window) {
                     $blockers[] = 'sync_result_stale';
+                }
+                if ($requiresHashChain && $expectedHash !== '' && (string) ($sr['capability_change_hash'] ?? '') !== $expectedHash) {
+                    $blockers[] = 'sync_result_capability_hash_mismatch';
                 }
             }
         }
@@ -138,6 +152,9 @@ final class AtlasKnowledgeSyncDocsDriftGate
                 } elseif ($now > 0 && ($now - (int) $ci['observed_at_unix']) > $window) {
                     $blockers[] = 'code_index_stale';
                 }
+                if ($requiresHashChain && $expectedHash !== '' && (string) ($ci['capability_change_hash'] ?? '') !== $expectedHash) {
+                    $blockers[] = 'code_index_capability_hash_mismatch';
+                }
             }
         }
 
@@ -153,6 +170,9 @@ final class AtlasKnowledgeSyncDocsDriftGate
                     $blockers[] = 'memory_update_no_observed_at';
                 } elseif ($now > 0 && ($now - (int) $mu['observed_at_unix']) > $window) {
                     $blockers[] = 'memory_update_stale';
+                }
+                if ($requiresHashChain && $expectedHash !== '' && (string) ($mu['capability_change_hash'] ?? '') !== $expectedHash) {
+                    $blockers[] = 'memory_update_capability_hash_mismatch';
                 }
             }
         }

@@ -216,6 +216,70 @@ final class AtlasKnowledgeSyncDocsDriftGateTest extends TestCase
         $this->assertSame([], $r['next_sync_actions']);
     }
 
+    public function test_capability_change_hash_matching_across_all_evidence_is_conformant(): void
+    {
+        $now = time();
+        $hash = 'cap-hash-abc';
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check', 'engineering-knowledge-sync', 'code-intelligence-index', 'memory-update']),
+            'capability_changed' => true,
+            'capability_change_hash' => $hash,
+            'now_unix' => $now,
+            'docs_health' => ['ok' => true, 'observed_at_unix' => $now - 60, 'capability_change_hash' => $hash],
+            'sync_result' => ['ok' => true, 'observed_at_unix' => $now - 60, 'capability_change_hash' => $hash],
+            'code_index' => ['ok' => true, 'observed_at_unix' => $now - 60, 'capability_change_hash' => $hash],
+            'memory_update' => ['ok' => true, 'observed_at_unix' => $now - 60, 'capability_change_hash' => $hash],
+        ]);
+        $this->assertTrue($r['conformant']);
+        $this->assertSame([], $r['blockers']);
+    }
+
+    public function test_missing_capability_change_hash_fails_closed(): void
+    {
+        $now = time();
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate(array_merge($this->freshEvidence($now), [
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check', 'engineering-knowledge-sync', 'code-intelligence-index', 'memory-update']),
+            'capability_changed' => true,
+            'capability_change_hash' => '',
+            'code_index' => ['ok' => true, 'observed_at_unix' => $now - 60],
+            'memory_update' => ['ok' => true, 'observed_at_unix' => $now - 60],
+        ]));
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('capability_change_hash_missing', $r['blockers']);
+        $this->assertContains('investigate_drift_blocker', $r['next_sync_actions']);
+    }
+
+    public function test_mismatched_capability_change_hash_on_code_index_is_blocked(): void
+    {
+        $now = time();
+        $hash = 'cap-hash-abc';
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check', 'engineering-knowledge-sync', 'code-intelligence-index', 'memory-update']),
+            'capability_changed' => true,
+            'capability_change_hash' => $hash,
+            'now_unix' => $now,
+            'docs_health' => ['ok' => true, 'observed_at_unix' => $now - 60, 'capability_change_hash' => $hash],
+            'sync_result' => ['ok' => true, 'observed_at_unix' => $now - 60, 'capability_change_hash' => $hash],
+            'code_index' => ['ok' => true, 'observed_at_unix' => $now - 60, 'capability_change_hash' => 'stale-hash'],
+            'memory_update' => ['ok' => true, 'observed_at_unix' => $now - 60, 'capability_change_hash' => $hash],
+        ]);
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('code_index_capability_hash_mismatch', $r['blockers']);
+        $this->assertContains('run_index_code', $r['next_sync_actions']);
+    }
+
+    public function test_callers_that_never_supply_capability_change_hash_are_unaffected(): void
+    {
+        $now = time();
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate(array_merge($this->freshEvidence($now), [
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check', 'engineering-knowledge-sync', 'code-intelligence-index', 'memory-update']),
+            'capability_changed' => true,
+            'code_index' => ['ok' => true, 'observed_at_unix' => $now - 60],
+            'memory_update' => ['ok' => true, 'observed_at_unix' => $now - 60],
+        ]));
+        $this->assertTrue($r['conformant'], 'backward compatibility: no capability_change_hash key ⇒ chain check never activates');
+    }
+
     public function test_non_capability_changing_task_does_not_require_code_index_or_memory(): void
     {
         // code-intelligence-index required but no capability change and no evidence supplied:
