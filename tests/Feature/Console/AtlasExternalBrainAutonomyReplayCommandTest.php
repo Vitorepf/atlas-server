@@ -139,4 +139,74 @@ final class AtlasExternalBrainAutonomyReplayCommandTest extends TestCase
         $this->assertFalse($result['overall_ready']);
         $this->assertNotSame('none_required_cycle_ready', $result['next_atlas_native_repair_action']);
     }
+
+    // ── cycle-replay causality verifier ─────────────────────────────────────
+
+    private function completeCycleReplayFacts(): array
+    {
+        return [
+            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'create_more_tasks'],
+            ['stage' => 'packet_emitted', 'sequence' => 2, 'task_packet_id' => 'pkt-1'],
+            ['stage' => 'muscle_outcome', 'sequence' => 3, 'task_packet_id' => 'pkt-1'],
+            ['stage' => 'gates_judged', 'sequence' => 4, 'task_packet_id' => 'pkt-1', 'gate_verdict' => 'pass'],
+            ['stage' => 'outcome_learning', 'sequence' => 5, 'task_packet_id' => 'pkt-1', 'outcome_learning_ref' => 'ol-1'],
+            ['stage' => 'next_decision', 'sequence' => 6, 'lever' => 'consolidate_or_burn_debt'],
+        ];
+    }
+
+    public function test_complete_causal_cycle_replay_keeps_overall_ready(): void
+    {
+        $result = $this->callCommand([
+            'scenario' => $this->completeScenario(),
+            'control_plane_snapshot' => $this->healthySnapshotInput(),
+            'cycle_replay_facts' => $this->completeCycleReplayFacts(),
+        ]);
+
+        $this->assertTrue($result['overall_ready']);
+        $this->assertTrue($result['cycle_replay_verified']);
+        $this->assertSame('none_required_cycle_ready', $result['next_atlas_native_repair_action']);
+    }
+
+    public function test_incomplete_cycle_replay_facts_block_overall_readiness_even_with_healthy_control_plane(): void
+    {
+        $facts = $this->completeCycleReplayFacts();
+        array_pop($facts); // drop next_decision
+
+        $result = $this->callCommand([
+            'scenario' => $this->completeScenario(),
+            'control_plane_snapshot' => $this->healthySnapshotInput(),
+            'cycle_replay_facts' => $facts,
+        ]);
+
+        $this->assertFalse($result['overall_ready']);
+        $this->assertFalse($result['cycle_replay_verified']);
+        $this->assertSame('next_decision', $result['cycle_replay_missing_stage']);
+        $this->assertStringContainsString('cycle_replay_verification_incomplete', $result['next_atlas_native_repair_action']);
+    }
+
+    public function test_correlation_mismatch_in_cycle_replay_blocks_overall_readiness(): void
+    {
+        $facts = $this->completeCycleReplayFacts();
+        $facts[2]['task_packet_id'] = 'pkt-DIFFERENT'; // muscle_outcome disagrees with packet_emitted
+
+        $result = $this->callCommand([
+            'scenario' => $this->completeScenario(),
+            'control_plane_snapshot' => $this->healthySnapshotInput(),
+            'cycle_replay_facts' => $facts,
+        ]);
+
+        $this->assertFalse($result['overall_ready']);
+        $this->assertNotEmpty($result['cycle_replay_causality_violations']);
+    }
+
+    public function test_absent_cycle_replay_facts_does_not_regress_prior_ready_behavior(): void
+    {
+        $result = $this->callCommand([
+            'scenario' => $this->completeScenario(),
+            'control_plane_snapshot' => $this->healthySnapshotInput(),
+        ]);
+
+        $this->assertTrue($result['overall_ready']);
+        $this->assertTrue($result['cycle_replay_verified']);
+    }
 }
