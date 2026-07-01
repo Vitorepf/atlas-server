@@ -528,6 +528,64 @@ final class AtlasExternalBrainCognitionCascadeControllerTest extends TestCase
         $this->assertSame($this->controller()->cascadePlan($input), $this->controller()->cascadePlan($input));
     }
 
+    // ── AC3: explicit stop condition — sufficient_evidence_to_decide ─────────
+
+    public function test_sufficient_evidence_stops_escalation_despite_high_ambiguity_and_leverage(): void
+    {
+        $result = $this->controller()->control([
+            'evidence_quality' => 0.80,
+            'ambiguity_score'  => 0.80,
+            'risk_score'       => 0.20,
+            'leverage_score'   => 0.90,
+            'scaffold_confidence' => 0.50,
+            'sufficient_evidence_to_decide' => true,
+        ]);
+
+        $this->assertSame(
+            [AtlasExternalBrainCognitionCascadeController::STAGE_DETERMINISTIC_PREFLIGHT],
+            $result['selected_path'],
+        );
+        $this->assertTrue($result['stopped_early']);
+    }
+
+    public function test_sufficient_evidence_does_not_override_high_risk(): void
+    {
+        $result = $this->controller()->control([
+            'evidence_quality' => 0.80,
+            'ambiguity_score'  => 0.10,
+            'risk_score'       => 0.80,
+            'sufficient_evidence_to_decide' => true,
+        ]);
+
+        $this->assertContains(AtlasExternalBrainCognitionCascadeController::STAGE_CRITIQUE_QUORUM, $result['selected_path']);
+        $this->assertFalse($result['stopped_early']);
+    }
+
+    public function test_sufficient_evidence_does_not_override_conflicting_evidence(): void
+    {
+        $result = $this->controller()->control([
+            'evidence_quality' => 0.80,
+            'ambiguity_score'  => 0.80,
+            'risk_score'       => 0.20,
+            'has_conflicting_evidence' => true,
+            'sufficient_evidence_to_decide' => true,
+        ]);
+
+        $this->assertContains(AtlasExternalBrainCognitionCascadeController::STAGE_FRONTIER_REVIEW, $result['selected_path']);
+        $this->assertFalse($result['stopped_early']);
+    }
+
+    public function test_stopped_early_defaults_to_false(): void
+    {
+        $result = $this->controller()->control([
+            'evidence_quality' => 0.80,
+            'ambiguity_score'  => 0.30,
+            'risk_score'       => 0.20,
+        ]);
+
+        $this->assertFalse($result['stopped_early']);
+    }
+
     // ── AC3: selected_stages, minimum_cost_path, safety_invariants_satisfied ─
 
     public function test_control_output_includes_selected_stages_and_minimum_cost_path(): void

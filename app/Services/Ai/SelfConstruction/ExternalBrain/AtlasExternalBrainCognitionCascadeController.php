@@ -195,6 +195,7 @@ final class AtlasExternalBrainCognitionCascadeController
         $conflictingEvidence = (bool)  ($input['has_conflicting_evidence'] ?? false);
         $leverageScore       = (float) ($input['leverage_score']           ?? 0.0);
         $needsRepair         = (bool)  ($input['needs_repair']             ?? false);
+        $sufficientEvidenceToDecide = (bool) ($input['sufficient_evidence_to_decide'] ?? false);
 
         $thresholds        = is_array($input['thresholds'] ?? null) ? $input['thresholds'] : [];
         $evidenceFloor     = (float) ($thresholds['evidence_floor']      ?? self::DEFAULT_EVIDENCE_FLOOR);
@@ -213,6 +214,18 @@ final class AtlasExternalBrainCognitionCascadeController
         $needsCritique   = $riskHi || $conflictingEvidence || ($ambiguityHi && ! $qualityOk);
         $needsFrontier   = ($ambiguityHi && $conflictingEvidence) || ($highLeverage && $lowScaffoldConf);
         $needsRepairLoop = $needsRepair || ($riskHi && $conflictingEvidence);
+
+        // Explicit stop condition (AC3): when the caller declares enough evidence already
+        // exists to enqueue or reject, the cascade must not keep "thinking" past preflight
+        // merely because a soft signal (ambiguity/leverage) crossed a threshold. Hard safety
+        // signals — an actual risk ceiling breach or a real evidence conflict — are never
+        // overridden by a sufficiency claim.
+        $stoppedEarly = $sufficientEvidenceToDecide && ! $riskHi && ! $conflictingEvidence;
+        if ($stoppedEarly) {
+            $needsScaffolded = false;
+            $needsCritique   = false;
+            $needsFrontier   = false;
+        }
 
         $path              = [self::STAGE_DETERMINISTIC_PREFLIGHT];
         $escalationReasons = [];
@@ -276,6 +289,7 @@ final class AtlasExternalBrainCognitionCascadeController
             'rollback_conditions'         => $this->rollbackConditions($path),
             'fallback_plan'               => $this->fallbackPlan($path),    // backward-compat
             'required_local_gates'        => self::REQUIRED_LOCAL_GATES,
+            'stopped_early'               => $stoppedEarly,
         ];
     }
 
