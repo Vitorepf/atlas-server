@@ -181,4 +181,71 @@ final class AtlasTaskFabricEvidenceFloorSynthesizerTest extends TestCase
         $this->assertFalse($result['admitted']);
         $this->assertContains('runnable_command_does_not_cover_allowed_files', $result['blockers']);
     }
+
+    // ── AC: bug-fix tasks require reproduction evidence plus final passing gate ──
+
+    public function test_bug_fix_goal_requires_reproduction_evidence(): void
+    {
+        $r = $this->synth('Fix the bug where the drain forecaster double-counts leases');
+        $this->assertContains('reproduction_evidence', $r['required_evidence']);
+        $this->assertContains('tests_or_gates_result', $r['required_evidence']);
+    }
+
+    public function test_bug_fix_task_family_requires_reproduction_evidence(): void
+    {
+        $r = $this->synth('Add capability X', ['task_family' => 'bug_fix']);
+        $this->assertContains('reproduction_evidence', $r['required_evidence']);
+    }
+
+    public function test_non_bug_goal_does_not_require_reproduction_evidence(): void
+    {
+        $r = $this->synth('Add a new capability for the roadmap mapper');
+        $this->assertNotContains('reproduction_evidence', $r['required_evidence']);
+    }
+
+    // ── AC: simplification tasks require behavior-equivalence or deletion-safety evidence ──
+
+    public function test_simplification_goal_requires_behavior_equivalence_or_deletion_safety_evidence(): void
+    {
+        $r = $this->synth('Simplify AtlasFoo by deleting the redundant wrapper organ');
+        $this->assertContains('behavior_equivalence_or_deletion_safety_evidence', $r['required_evidence']);
+    }
+
+    public function test_simplification_task_family_requires_behavior_equivalence_or_deletion_safety_evidence(): void
+    {
+        $r = $this->synth('Add capability X', ['task_family' => 'simplification']);
+        $this->assertContains('behavior_equivalence_or_deletion_safety_evidence', $r['required_evidence']);
+    }
+
+    public function test_non_simplification_goal_does_not_require_behavior_equivalence_evidence(): void
+    {
+        $r = $this->synth('Add a new capability for the roadmap mapper');
+        $this->assertNotContains('behavior_equivalence_or_deletion_safety_evidence', $r['required_evidence']);
+    }
+
+    // ── AC: autonomy/runtime tasks require liveness or decision-impact evidence ──
+
+    public function test_autonomy_goal_requires_liveness_or_decision_impact_evidence(): void
+    {
+        $r = $this->synth('Strengthen the autonomous evolution loop originator');
+        $this->assertContains('liveness_or_decision_impact_evidence', $r['required_evidence']);
+    }
+
+    public function test_runtime_task_family_requires_liveness_or_decision_impact_evidence(): void
+    {
+        $r = $this->synth('Add capability X', ['task_family' => 'runtime']);
+        $this->assertContains('liveness_or_decision_impact_evidence', $r['required_evidence']);
+    }
+
+    public function test_non_autonomy_goal_does_not_require_liveness_evidence(): void
+    {
+        $r = $this->synth('Add a new capability for the roadmap mapper');
+        $this->assertNotContains('liveness_or_decision_impact_evidence', $r['required_evidence']);
+    }
+
+    public function test_risk_scaled_evidence_has_no_duplicates(): void
+    {
+        $r = $this->synth('Fix the bug in the simplification autonomy loop', ['risk_level' => 'high']);
+        $this->assertSame($r['required_evidence'], array_values(array_unique($r['required_evidence'])));
+    }
 }

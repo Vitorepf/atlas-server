@@ -20,6 +20,18 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  * High-risk tasks additionally:
  *   - anti_stale_timestamp_receipt added to required_evidence
  *
+ * RISK-SCALED EVIDENCE FLOOR (task_family or goal text, additive on top of the base floor):
+ *   bug fix         (family/goal mentions bug/fix/regression) → reproduction_evidence:
+ *                     a green unit test alone never proves a bug is fixed without first
+ *                     reproducing the failure.
+ *   simplification  (family/goal mentions simplif/refactor/delet/consolidat/merge_organ) →
+ *                     behavior_equivalence_or_deletion_safety_evidence: code removal/merge
+ *                     must prove the old and new paths behave the same, or that the deleted
+ *                     path was provably dead.
+ *   autonomy/runtime (family/goal mentions autonom/runtime/loop/self_construction) →
+ *                     liveness_or_decision_impact_evidence: a passing unit test does not
+ *                     prove the autonomous loop actually ran or that its decision changed.
+ *
  * NO process execution, NO filesystem, NO providers. DETERMINISTIC.
  */
 final class AtlasTaskFabricEvidenceFloorSynthesizer
@@ -29,6 +41,12 @@ final class AtlasTaskFabricEvidenceFloorSynthesizer
     private const BASE_EVIDENCE = ['tests_or_gates_result', 'implementation_notes'];
 
     private const HIGH_GUARD_KEYWORDS = ['queue', 'verification', 'merge', 'gate', 'certif'];
+
+    private const BUG_FIX_KEYWORDS = ['bug', 'fix', 'regression'];
+
+    private const SIMPLIFICATION_KEYWORDS = ['simplif', 'refactor', 'delet', 'consolidat', 'merge_organ'];
+
+    private const AUTONOMY_KEYWORDS = ['autonom', 'runtime', 'loop', 'self_construction'];
 
     /**
      * @param  array{risk_level?:string, task_family?:string}  $riskProfile
@@ -46,12 +64,23 @@ final class AtlasTaskFabricEvidenceFloorSynthesizer
             'Falsifiable gate: at least one test or gate result references a specific class/line demonstrating the behavior.',
         ];
 
+        $searchTarget = strtolower($capabilityGoal) . ' ' . $taskFamily;
+
         $evidence = self::BASE_EVIDENCE;
         if ($highGuard) {
             $evidence[] = 'anti_false_green_receipt';
         }
         if ($riskLevel === 'high') {
             $evidence[] = 'anti_stale_timestamp_receipt';
+        }
+        if ($this->matchesAny($searchTarget, self::BUG_FIX_KEYWORDS)) {
+            $evidence[] = 'reproduction_evidence';
+        }
+        if ($this->matchesAny($searchTarget, self::SIMPLIFICATION_KEYWORDS)) {
+            $evidence[] = 'behavior_equivalence_or_deletion_safety_evidence';
+        }
+        if ($this->matchesAny($searchTarget, self::AUTONOMY_KEYWORDS)) {
+            $evidence[] = 'liveness_or_decision_impact_evidence';
         }
 
         return [
@@ -124,7 +153,14 @@ final class AtlasTaskFabricEvidenceFloorSynthesizer
             return true;
         }
         $searchTarget = strtolower($goal) . ' ' . $taskFamily;
-        foreach (self::HIGH_GUARD_KEYWORDS as $keyword) {
+
+        return $this->matchesAny($searchTarget, self::HIGH_GUARD_KEYWORDS);
+    }
+
+    /** @param  list<string>  $keywords */
+    private function matchesAny(string $searchTarget, array $keywords): bool
+    {
+        foreach ($keywords as $keyword) {
             if (str_contains($searchTarget, $keyword)) {
                 return true;
             }
