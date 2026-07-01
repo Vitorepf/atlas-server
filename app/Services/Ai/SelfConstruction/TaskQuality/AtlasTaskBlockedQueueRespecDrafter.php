@@ -215,6 +215,24 @@ final class AtlasTaskBlockedQueueRespecDrafter
     ): array {
         sort($sourceIds, SORT_STRING);
         $sourceIds = array_values(array_unique($sourceIds));
+
+        if ($sourceBlockerFamily !== null) {
+            $preventedGiveBackReason = "corrected respec prevents future give_back recurrence from family={$sourceBlockerFamily}";
+            $replacementSpec = $this->buildReplacementSpec($sourceRecords, $sourceBlockerFamily, $preventedGiveBackReason);
+
+            // Not muscle-ready: no replacement spec could be built (missing impl/test file or
+            // runnable proof). A draft with no replacement spec must never masquerade as an
+            // implementation_or_contract_task — downgrade it to review_recommended (wave 3) so
+            // it never gets served as-is and produces another give_back.
+            if ($kind === 'implementation_or_contract_task' && $replacementSpec === null) {
+                $kind = 'review_recommended';
+                $wave = 3;
+                $rationale .= ' (downgraded: replacement_spec incomplete — missing impl/test file or runnable proof)';
+            }
+        } else {
+            $replacementSpec = null;
+        }
+
         $draftId = 'dr_'.substr(hash('sha256', $kind.'|'.$wave.'|'.implode(',', $sourceIds)), 0, 12);
 
         $draft = [
@@ -229,7 +247,7 @@ final class AtlasTaskBlockedQueueRespecDrafter
         if ($sourceBlockerFamily !== null) {
             $draft['source_blocker_family'] = $sourceBlockerFamily;
             $draft['prevented_give_back_reason'] = "corrected respec prevents future give_back recurrence from family={$sourceBlockerFamily}";
-            $draft['replacement_spec'] = $this->buildReplacementSpec($sourceRecords);
+            $draft['replacement_spec'] = $replacementSpec;
         }
 
         return $draft;
@@ -243,9 +261,9 @@ final class AtlasTaskBlockedQueueRespecDrafter
      * (rationale/family/reason), but is not claimable as-is.
      *
      * @param  list<array<string,mixed>>  $records
-     * @return array{allowed_files:list<string>, acceptance_criteria:list<string>}|null
+     * @return array{allowed_files:list<string>, acceptance_criteria:list<string>, source_blocker_family:string, prevented_give_back_reason:string}|null
      */
-    private function buildReplacementSpec(array $records): ?array
+    private function buildReplacementSpec(array $records, string $sourceBlockerFamily, string $preventedGiveBackReason): ?array
     {
         $allowedFiles = [];
         $acceptanceCriteria = [];
@@ -276,6 +294,8 @@ final class AtlasTaskBlockedQueueRespecDrafter
         return [
             'allowed_files' => $allowedFiles,
             'acceptance_criteria' => $acceptanceCriteria,
+            'source_blocker_family' => $sourceBlockerFamily,
+            'prevented_give_back_reason' => $preventedGiveBackReason,
         ];
     }
 }

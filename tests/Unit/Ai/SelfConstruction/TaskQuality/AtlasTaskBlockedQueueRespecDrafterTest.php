@@ -19,9 +19,11 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
     {
         $result = $this->drafter()->draft([
             ['task_packet_id' => 'p1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
-                'allowed_files' => ['app/Console/Commands/SomeCmd.php']],
+                'allowed_files' => ['app/Console/Commands/SomeCmd.php', 'tests/Unit/Console/SomeCmdTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Console/SomeCmdTest.php exits 0.']],
             ['task_packet_id' => 'p2', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
-                'allowed_files' => ['app/Console/Commands/SomeCmd.php']],
+                'allowed_files' => ['app/Console/Commands/SomeCmd.php', 'tests/Unit/Console/SomeCmdTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Console/SomeCmdTest.php exits 0.']],
         ]);
 
         $kinds = array_column($result['drafts'], 'kind');
@@ -64,7 +66,9 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
     {
         $result = $this->drafter()->draft([
             ['task_packet_id' => 'mt_strong', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_TEST_ONLY_MICROTASK,
-                'behavior_matrix_size' => 5],
+                'behavior_matrix_size' => 5,
+                'allowed_files' => ['app/Foo/Bar.php', 'tests/Unit/Foo/BarTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Foo/BarTest.php exits 0.']],
         ]);
 
         $kinds = array_column($result['drafts'], 'kind');
@@ -91,7 +95,9 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
     {
         $result = $this->drafter()->draft([
             ['task_packet_id' => 'done1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DUPLICATE_ALREADY_DONE],
-            ['task_packet_id' => 'arm1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY],
+            ['task_packet_id' => 'arm1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
+                'allowed_files' => ['app/Console/Commands/WaveCmd.php', 'tests/Unit/Console/WaveCmdTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Console/WaveCmdTest.php exits 0.']],
             ['task_packet_id' => 'respec1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_RESPEC_CANDIDATE],
         ]);
 
@@ -118,9 +124,11 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
     {
         $result = $this->drafter()->draft([
             ['task_packet_id' => 'p1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
-                'allowed_files' => ['app/Console/Commands/CmdA.php']],
+                'allowed_files' => ['app/Console/Commands/CmdA.php', 'tests/Unit/Console/CmdATest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Console/CmdATest.php exits 0.']],
             ['task_packet_id' => 'p2', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
-                'allowed_files' => ['app/Console/Commands/CmdB.php']],
+                'allowed_files' => ['app/Console/Commands/CmdB.php', 'tests/Unit/Console/CmdBTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Console/CmdBTest.php exits 0.']],
         ]);
 
         $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
@@ -133,11 +141,14 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
     {
         $result = $this->drafter()->draft([
             ['task_packet_id' => 'sm1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_SCHEMA_MIGRATION,
-                'recommended_action' => 'respec'],
+                'recommended_action' => 'respec', 'allowed_files' => ['app/Migrations/SchemaA.php', 'tests/Unit/Migrations/SchemaATest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Migrations/SchemaATest.php exits 0.']],
             ['task_packet_id' => 'sm2', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_SCHEMA_MIGRATION,
-                'recommended_action' => 'respec'],
+                'recommended_action' => 'respec', 'allowed_files' => ['app/Migrations/SchemaB.php', 'tests/Unit/Migrations/SchemaBTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Migrations/SchemaBTest.php exits 0.']],
             ['task_packet_id' => 'sm3', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_SCHEMA_MIGRATION,
-                'recommended_action' => 'respec'],
+                'recommended_action' => 'respec', 'allowed_files' => ['app/Migrations/SchemaC.php', 'tests/Unit/Migrations/SchemaCTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Migrations/SchemaCTest.php exits 0.']],
         ]);
 
         $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
@@ -149,9 +160,11 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
     {
         $result = $this->drafter()->draft([
             ['task_packet_id' => 'sm1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_SCHEMA_MIGRATION,
-                'recommended_action' => 'respec'],
+                'recommended_action' => 'respec', 'allowed_files' => ['app/Migrations/SchemaA.php', 'tests/Unit/Migrations/SchemaATest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Migrations/SchemaATest.php exits 0.']],
             ['task_packet_id' => 'rv1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_RECEIPT_VERIFIER,
-                'recommended_action' => 'respec'],
+                'recommended_action' => 'respec', 'allowed_files' => ['app/Verifier/Receipt.php', 'tests/Unit/Verifier/ReceiptTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Verifier/ReceiptTest.php exits 0.']],
         ]);
 
         $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
@@ -186,7 +199,8 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
     {
         $result = $this->drafter()->draft([
             ['task_packet_id' => 'sf1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_MISSING_SCOPE_FIELDS,
-                'recommended_action' => 'respec'],
+                'recommended_action' => 'respec', 'allowed_files' => ['app/Foo/Bar.php', 'tests/Unit/Foo/BarTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Foo/BarTest.php exits 0.']],
         ]);
 
         $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
@@ -227,11 +241,13 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
         $this->assertContains('app/Console/Commands/FooCmd.php', $draft['replacement_spec']['allowed_files']);
         $this->assertContains('tests/Unit/Console/FooCmdTest.php', $draft['replacement_spec']['allowed_files']);
         $this->assertNotEmpty($draft['replacement_spec']['acceptance_criteria']);
+        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY, $draft['replacement_spec']['source_blocker_family']);
+        $this->assertNotEmpty($draft['replacement_spec']['prevented_give_back_reason']);
     }
 
-    // ── AC: test-only allowed_files (no impl file) rejects the replacement_spec ───
+    // ── AC: test-only allowed_files (no impl file) downgrades to review_recommended ───
 
-    public function test_test_only_allowed_files_rejects_replacement_spec(): void
+    public function test_test_only_allowed_files_downgrades_to_review_recommended(): void
     {
         $result = $this->drafter()->draft([
             ['task_packet_id' => 'arm2', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
@@ -240,13 +256,17 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
         ]);
 
         $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
-        $this->assertCount(1, $impls);
-        $this->assertNull($impls[0]['replacement_spec']);
+        $this->assertCount(0, $impls, 'incomplete replacement_spec must never masquerade as implementation_or_contract_task');
+
+        $reviews = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'review_recommended'));
+        $this->assertCount(1, $reviews);
+        $this->assertSame(3, $reviews[0]['wave']);
+        $this->assertNull($reviews[0]['replacement_spec']);
     }
 
-    // ── AC: missing runnable proof command rejects the replacement_spec ───────
+    // ── AC: missing runnable proof command downgrades to review_recommended ───────
 
-    public function test_missing_runnable_proof_command_rejects_replacement_spec(): void
+    public function test_missing_runnable_proof_command_downgrades_to_review_recommended(): void
     {
         $result = $this->drafter()->draft([
             ['task_packet_id' => 'arm3', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
@@ -255,8 +275,27 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
         ]);
 
         $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
-        $this->assertCount(1, $impls);
-        $this->assertNull($impls[0]['replacement_spec']);
+        $this->assertCount(0, $impls, 'missing runnable proof must never masquerade as implementation_or_contract_task');
+
+        $reviews = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'review_recommended'));
+        $this->assertCount(1, $reviews);
+        $this->assertNull($reviews[0]['replacement_spec']);
+    }
+
+    // ── AC: downgrade never explodes a deduped family into singleton padding drafts ──
+
+    public function test_downgraded_family_group_stays_a_single_review_draft_not_singletons(): void
+    {
+        $result = $this->drafter()->draft([
+            ['task_packet_id' => 'arm4', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
+                'allowed_files' => ['tests/Unit/Console/BarCmdTest.php']],
+            ['task_packet_id' => 'arm5', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
+                'allowed_files' => ['tests/Unit/Console/BarCmdTest.php']],
+        ]);
+
+        $reviews = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'review_recommended'));
+        $this->assertCount(1, $reviews, 'deduped proxy target must stay one downgraded draft, never explode into singletons');
+        $this->assertSame(['arm4', 'arm5'], $reviews[0]['source_packet_ids']);
     }
 
     // ── AC: operator-only blocked record never gets replacement metadata ─────
