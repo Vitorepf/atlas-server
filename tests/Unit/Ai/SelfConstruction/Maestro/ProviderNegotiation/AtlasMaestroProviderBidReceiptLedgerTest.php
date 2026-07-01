@@ -128,6 +128,42 @@ final class AtlasMaestroProviderBidReceiptLedgerTest extends TestCase
         $this->assertSame(3, $agg['total_decisions']);
     }
 
+    public function test_aggregate_for_worker_reports_success_weak_green_and_give_back_counts(): void
+    {
+        $ledger = new AtlasMaestroProviderBidReceiptLedger();
+        $ledger->append('o1', str_repeat('a', 64), [], 'codex', 'capability', [], '2026-06-30T10:00:00Z');
+        $ledger->append('o2', str_repeat('a', 64), [], 'codex', 'capability', [], '2026-06-30T10:01:00Z');
+        $ledger->append('o3', str_repeat('a', 64), [], 'codex', 'capability', [], '2026-06-30T10:02:00Z');
+        $ledger->attachOutcome('o1', 'success', '2026-06-30T10:10:00Z');
+        $ledger->attachOutcome('o2', 'weak_green', '2026-06-30T10:11:00Z');
+        $ledger->attachOutcome('o3', 'give_back', '2026-06-30T10:12:00Z');
+
+        $agg = $ledger->aggregateForWorker('codex');
+
+        $this->assertSame(1, $agg['success_count']);
+        $this->assertSame(1, $agg['weak_green_count']);
+        $this->assertSame(1, $agg['give_back_count']);
+        $this->assertSame(3, $agg['win_count']); // existing key unchanged
+    }
+
+    public function test_exported_receipts_redact_provider_sensitive_raw_metadata(): void
+    {
+        $ledger = new AtlasMaestroProviderBidReceiptLedger();
+        $trace = [
+            ['provider_id' => 'worker-b', 'eliminated_by' => 'cost', 'cmp' => -1, 'raw_provider_secret' => 'sk-super-secret', 'internal_billing_id' => 'acct-9'],
+        ];
+        $ledger->append('t-redact', str_repeat('a', 64), [], 'worker-a', 'capability', $trace, '2026-06-30T10:00:00Z');
+
+        $raw = $ledger->export(10);
+        $this->assertSame('sk-super-secret', $raw[0]['criteria_trace'][0]['raw_provider_secret']);
+
+        $redacted = $ledger->exportRedacted(10);
+        $this->assertArrayNotHasKey('raw_provider_secret', $redacted[0]['criteria_trace'][0]);
+        $this->assertArrayNotHasKey('internal_billing_id', $redacted[0]['criteria_trace'][0]);
+        $this->assertSame('worker-b', $redacted[0]['criteria_trace'][0]['provider_id']);
+        $this->assertSame('cost', $redacted[0]['criteria_trace'][0]['eliminated_by']);
+    }
+
     public function test_bounded_export_returns_at_most_limit_entries_newest_last(): void
     {
         $ledger = new AtlasMaestroProviderBidReceiptLedger();

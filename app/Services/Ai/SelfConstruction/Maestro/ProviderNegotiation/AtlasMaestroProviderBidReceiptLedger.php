@@ -15,6 +15,9 @@ namespace App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation;
  */
 final class AtlasMaestroProviderBidReceiptLedger
 {
+    /** Only these keys survive in a redacted criteria_trace step — anything else is provider-sensitive raw metadata. */
+    private const ALLOWED_TRACE_KEYS = ['provider_id', 'eliminated_by', 'cmp'];
+
     private static ?string $rootOverride = null;
 
     public static function setRootForTesting(?string $root): void
@@ -136,15 +139,24 @@ final class AtlasMaestroProviderBidReceiptLedger
     }
 
     /**
-     * @return array{win_count:int, loss_count:int, total_decisions:int}
+     * @return array{win_count:int, loss_count:int, total_decisions:int, success_count:int, weak_green_count:int, give_back_count:int}
      */
     public function aggregateForWorker(string $providerId): array
     {
         $wins = 0;
         $losses = 0;
+        $successCount = 0;
+        $weakGreenCount = 0;
+        $giveBackCount = 0;
         foreach ($this->allEntries() as $entry) {
             if ($entry->winnerProviderId === $providerId) {
                 $wins++;
+                match ($this->recallOutcome($entry->taskId)) {
+                    'success' => $successCount++,
+                    'weak_green' => $weakGreenCount++,
+                    'give_back' => $giveBackCount++,
+                    default => null,
+                };
             }
             foreach ($entry->criteriaTrace as $step) {
                 if (($step['provider_id'] ?? '') === $providerId) {
@@ -153,7 +165,14 @@ final class AtlasMaestroProviderBidReceiptLedger
             }
         }
 
-        return ['win_count' => $wins, 'loss_count' => $losses, 'total_decisions' => $wins + $losses];
+        return [
+            'win_count' => $wins,
+            'loss_count' => $losses,
+            'total_decisions' => $wins + $losses,
+            'success_count' => $successCount,
+            'weak_green_count' => $weakGreenCount,
+            'give_back_count' => $giveBackCount,
+        ];
     }
 
     /**
@@ -166,6 +185,28 @@ final class AtlasMaestroProviderBidReceiptLedger
         return array_map(
             fn (BidReceiptEntry $e): array => $e->toArray(),
             array_values(array_slice($all, max(0, count($all) - $limit))),
+        );
+    }
+
+    /**
+     * Same as {@see export()} but strips any criteria_trace step keys outside the allowlist —
+     * provider-sensitive raw metadata a caller may have stuffed into criteriaTrace never leaves
+     * this method.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function exportRedacted(int $limit = 20): array
+    {
+        return array_map(
+            function (array $row): array {
+                $row['criteria_trace'] = array_map(
+                    fn (array $step): array => array_intersect_key($step, array_flip(self::ALLOWED_TRACE_KEYS)),
+                    (array) ($row['criteria_trace'] ?? []),
+                );
+
+                return $row;
+            },
+            $this->export($limit),
         );
     }
 
