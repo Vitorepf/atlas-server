@@ -142,6 +142,86 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompilerTest extends TestCas
         $this->assertArrayHasKey('dependency_ids', $node);
     }
 
+    // ── AC1: every node carries a muscle_ready_spec_contract ──────────────────
+
+    public function test_every_node_includes_muscle_ready_spec_contract(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                [
+                    'gap_id' => 'gap-a',
+                    'blockers' => [
+                        ['type' => 'weak_gate', 'allowed_files_hint' => ['app/Foo.php'], 'acceptance_strength' => 'strong', 'expected_delta' => 'hardened'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $contract = $result['chain'][0]['muscle_ready_spec_contract'];
+        foreach (['objective_seed', 'runnable_acceptance_seed', 'required_evidence', 'dependency_ids'] as $key) {
+            $this->assertArrayHasKey($key, $contract, "Missing key: {$key}");
+        }
+        $this->assertSame('hardened', $contract['objective_seed']);
+        $this->assertSame('strong', $contract['runnable_acceptance_seed']);
+        $this->assertNotEmpty($contract['required_evidence']);
+        $this->assertSame(['app/Foo.php'], $contract['allowed_files_hint']);
+    }
+
+    // ── AC2: shared unblocker merges dependent gap ids, preserves per-gap proof ─
+
+    public function test_shared_unblocker_spec_contract_preserves_per_gap_proof_contracts(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                [
+                    'gap_id' => 'gap-a',
+                    'blockers' => [
+                        ['type' => 'missing_context', 'unblocker_id' => 'shared-fix', 'acceptance_strength' => 'a-strength', 'allowed_files_hint' => ['app/A.php']],
+                    ],
+                ],
+                [
+                    'gap_id' => 'gap-b',
+                    'blockers' => [
+                        ['type' => 'missing_context', 'unblocker_id' => 'shared-fix', 'acceptance_strength' => 'b-strength', 'allowed_files_hint' => ['app/A.php']],
+                    ],
+                ],
+            ],
+        ]);
+
+        $node = $result['chain'][0];
+        $this->assertSame(['gap-a', 'gap-b'], $node['dependent_gap_ids']);
+
+        $contract = $node['muscle_ready_spec_contract'];
+        $this->assertArrayHasKey('gap-a', $contract['per_gap_proof_contracts']);
+        $this->assertArrayHasKey('gap-b', $contract['per_gap_proof_contracts']);
+        $this->assertSame('a-strength', $contract['per_gap_proof_contracts']['gap-a']['acceptance_strength']);
+        $this->assertSame('b-strength', $contract['per_gap_proof_contracts']['gap-b']['acceptance_strength']);
+    }
+
+    // ── AC3: nodes without allowed_files_hint are marked not_muscle_ready ──────
+
+    public function test_node_without_allowed_files_hint_is_marked_not_muscle_ready(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [['type' => 'missing_context']]],
+            ],
+        ]);
+
+        $this->assertTrue($result['chain'][0]['muscle_ready_spec_contract']['not_muscle_ready']);
+    }
+
+    public function test_node_with_allowed_files_hint_is_not_marked_not_muscle_ready(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [['type' => 'missing_context', 'allowed_files_hint' => ['app/Foo.php']]]],
+            ],
+        ]);
+
+        $this->assertFalse($result['chain'][0]['muscle_ready_spec_contract']['not_muscle_ready']);
+    }
+
     public function test_no_gaps_returns_empty_chain(): void
     {
         $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([]);

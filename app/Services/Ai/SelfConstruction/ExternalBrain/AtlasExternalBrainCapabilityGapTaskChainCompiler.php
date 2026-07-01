@@ -45,6 +45,9 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompiler
         'no_runtime_integration' => 'wires the capability into a real, invoked production call path',
     ];
 
+    /** Every muscle-ready spec contract demands the same baseline runnable proof. */
+    private const REQUIRED_EVIDENCE = ['tests_or_gates_result', 'implementation_notes'];
+
     /**
      * @param  array{gaps?: list<array{gap_id?: string, blockers?: list<array<string,mixed>>}>}  $facts
      * @return array{schema:string, chain:list<array<string,mixed>>, gap_chains:array<string,list<string>>}
@@ -122,10 +125,44 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompiler
             $gapChains[$gapId] = $gapTaskIds;
         }
 
+        // Computed last, over the FINAL node (gap_ids/proof_contracts_by_gap keep growing for a
+        // shared unblocker while later gaps are processed), so the contract always reflects every
+        // gap that ended up pointing at this node.
+        foreach ($chain as &$node) {
+            $node['muscle_ready_spec_contract'] = $this->buildMuscleReadySpecContract($node);
+        }
+        unset($node);
+
         return [
             'schema' => self::SCHEMA,
             'chain' => $chain,
             'gap_chains' => $gapChains,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $node
+     * @return array{objective_seed:string, allowed_files_hint:list<string>, runnable_acceptance_seed:string,
+     *     required_evidence:list<string>, dependency_ids:list<string>, per_gap_proof_contracts:array<string,array<string,mixed>>,
+     *     not_muscle_ready:bool}
+     */
+    private function buildMuscleReadySpecContract(array $node): array
+    {
+        $allowedFilesHint = array_values((array) ($node['allowed_files_hint'] ?? []));
+
+        return [
+            'objective_seed' => (string) ($node['expected_delta'] ?? ''),
+            'allowed_files_hint' => $allowedFilesHint,
+            'runnable_acceptance_seed' => (string) ($node['acceptance_strength'] ?? ''),
+            'required_evidence' => self::REQUIRED_EVIDENCE,
+            'dependency_ids' => array_values((array) ($node['dependency_ids'] ?? [])),
+            // Shared unblockers merge gap_ids/dependent_gap_ids at the node level, but each gap's
+            // own proof contract must stay distinguishable inside the spec contract too — a
+            // downstream muscle task consuming this contract must not lose which gap demanded what.
+            'per_gap_proof_contracts' => (array) ($node['proof_contracts_by_gap'] ?? []),
+            // A gap-chain node with no concrete file target is an abstract blocker, not an
+            // implementable task — never let a muscle treat it as ready-to-claim.
+            'not_muscle_ready' => $allowedFilesHint === [],
         ];
     }
 }
