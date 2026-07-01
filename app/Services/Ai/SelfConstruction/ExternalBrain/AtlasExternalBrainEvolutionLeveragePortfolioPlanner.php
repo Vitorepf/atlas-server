@@ -192,6 +192,8 @@ final class AtlasExternalBrainEvolutionLeveragePortfolioPlanner
             'layers_included' => $layersIncluded,
             'distinct_layer_count' => count($layersIncluded),
             'layer_coverage' => $layerCoverage,
+            // Additive alias matching the caller-facing contract name exactly.
+            'coverage_by_layer' => $layerCoverage,
             'tunnel_risk' => $tunnelRisk,
             'dominant_tunnel_key' => $dominantKey,
             'reasons' => $reasons,

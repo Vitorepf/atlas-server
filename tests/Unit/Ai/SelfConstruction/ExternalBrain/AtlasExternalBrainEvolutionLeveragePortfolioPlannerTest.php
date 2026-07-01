@@ -40,6 +40,31 @@ final class AtlasExternalBrainEvolutionLeveragePortfolioPlannerTest extends Test
         $this->assertFalse($result['tunnel_risk']);
     }
 
+    public function test_batch_never_exceeds_max_batch_cap(): void
+    {
+        $candidates = [];
+        $layers = ['bug_hunt', 'task_fabric', 'outcome_learning', 'simplification', 'model_amplifier', 'research_to_task', 'control_plane'];
+        foreach ($layers as $i => $layer) {
+            for ($j = 0; $j < 3; $j++) {
+                $candidates[] = $this->candidate("{$layer}-{$j}", $layer, 0.9 - $i * 0.05 - $j * 0.01, ['template_family' => "fam-{$layer}-{$j}"]);
+            }
+        }
+
+        $result = (new AtlasExternalBrainEvolutionLeveragePortfolioPlanner)->plan($candidates, ['max_batch' => 5]);
+
+        $this->assertLessThanOrEqual(5, count($result['batch']));
+    }
+
+    public function test_coverage_by_layer_alias_mirrors_layer_coverage(): void
+    {
+        $result = (new AtlasExternalBrainEvolutionLeveragePortfolioPlanner)->plan([
+            $this->candidate('a', 'bug_hunt', 0.9),
+        ]);
+
+        $this->assertSame($result['layer_coverage'], $result['coverage_by_layer']);
+        $this->assertTrue($result['coverage_by_layer']['bug_hunt']);
+    }
+
     public function test_dominant_layer_and_template_family_triggers_tunnel_risk_and_withholds_duplicates(): void
     {
         $candidates = [];
