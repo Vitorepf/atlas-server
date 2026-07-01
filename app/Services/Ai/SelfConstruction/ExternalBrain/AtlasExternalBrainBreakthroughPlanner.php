@@ -62,12 +62,16 @@ final class AtlasExternalBrainBreakthroughPlanner
 
     private AtlasExternalBrainResearchPatternPlan $researchPlan;
 
+    private AtlasExternalBrainBacklogFreshnessStopGoPolicy $backlogFreshnessPolicy;
+
     public function __construct(
         ?AtlasExternalBrainAmbitionEscalationPolicy $escalationPolicy = null,
         ?AtlasExternalBrainResearchPatternPlan $researchPlan = null,
+        ?AtlasExternalBrainBacklogFreshnessStopGoPolicy $backlogFreshnessPolicy = null,
     ) {
         $this->escalationPolicy = $escalationPolicy ?? new AtlasExternalBrainAmbitionEscalationPolicy;
         $this->researchPlan = $researchPlan ?? new AtlasExternalBrainResearchPatternPlan;
+        $this->backlogFreshnessPolicy = $backlogFreshnessPolicy ?? new AtlasExternalBrainBacklogFreshnessStopGoPolicy;
     }
 
     /**
@@ -127,6 +131,26 @@ final class AtlasExternalBrainBreakthroughPlanner
             ];
         }
 
+        // Consult the backlog freshness stop/go policy before investigating further: a stall on
+        // verified-candidate quota never justifies MORE origination investigation when the real
+        // bottleneck is stale claimable work sitting undrained or an unhealthy queue.
+        $backlogFreshnessFacts = is_array($stallState['backlog_freshness_facts'] ?? null) ? $stallState['backlog_freshness_facts'] : [];
+        $backlogFreshness = $this->backlogFreshnessPolicy->decide($backlogFreshnessFacts);
+
+        if ($backlogFreshness['decision'] !== AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_CREATE_MORE) {
+            return [
+                'schema'               => self::SCHEMA,
+                'honest_exhausted'     => false,
+                'investigations'       => [],
+                'next_mode'            => 'backlog_freshness_blocked:'.$backlogFreshness['decision'],
+                'stall_gap'            => $gap,
+                'modes_with_evidence'  => $escalation['modes_with_evidence'],
+                'modes_remaining'      => $escalation['modes_remaining'],
+                'second_pass_strategies' => self::SECOND_PASS_STRATEGIES,
+                'backlog_freshness_stop_go' => $backlogFreshness,
+            ];
+        }
+
         $nextMode = $escalation['next_mode'];
         $idea = $this->modeIdea($nextMode, $gap);
         $research = $this->researchPlan->plan($idea);
@@ -151,6 +175,7 @@ final class AtlasExternalBrainBreakthroughPlanner
             'modes_with_evidence'  => $escalation['modes_with_evidence'],
             'modes_remaining'      => $escalation['modes_remaining'],
             'second_pass_strategies' => self::SECOND_PASS_STRATEGIES,
+            'backlog_freshness_stop_go' => $backlogFreshness,
         ];
     }
 
