@@ -40,6 +40,39 @@ final class AtlasExternalBrainAutonomyDependencyInverterTest extends TestCase
         $this->assertSame(AtlasExternalBrainAutonomyDependencyInverter::SCHEMA, $result['schema']);
     }
 
+    // ── AC1: native_replacement_chain, removal_readiness, missing_evidence_floors, first_task ──
+
+    public function test_inversion_has_ac1_required_fields(): void
+    {
+        $result = $this->inverter->invert(['dependencies' => [$this->dep()]]);
+        $inv = $result['inversions'][0];
+
+        foreach (['native_replacement_chain', 'removal_readiness', 'missing_evidence_floors', 'first_task_to_remove_dependency'] as $k) {
+            $this->assertArrayHasKey($k, $inv, "Missing field: {$k}");
+        }
+        $this->assertIsArray($inv['native_replacement_chain']);
+        $this->assertNotEmpty($inv['native_replacement_chain']);
+        $this->assertIsArray($inv['missing_evidence_floors']);
+        $this->assertNotEmpty($inv['missing_evidence_floors']);
+        $this->assertSame($inv['proposed_task_family'], $inv['first_task_to_remove_dependency']);
+        $this->assertSame($inv['removability_classification'], $inv['removal_readiness']);
+    }
+
+    // ── AC2: superseded_accelerators reported separately from inversions ──────
+
+    public function test_bootstrap_superseded_dependency_reported_as_superseded_accelerator(): void
+    {
+        $result = $this->inverter->invert(['dependencies' => [$this->dep([
+            'is_bootstrap_only'        => true,
+            'atlas_native_path_proven' => true,
+        ])]]);
+
+        $this->assertSame([], $result['inversions']);
+        $this->assertSame(1, $result['skipped_bootstrap_only']);
+        $this->assertCount(1, $result['superseded_accelerators']);
+        $this->assertSame('originator', $result['superseded_accelerators'][0]['stage']);
+    }
+
     public function test_empty_dependencies_returns_zero_inversions(): void
     {
         $result = $this->inverter->invert(['dependencies' => []]);

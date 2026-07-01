@@ -112,6 +112,7 @@ final class AtlasExternalBrainAutonomyDependencyInverter
         $dependencies     = is_array($input['dependencies'] ?? null) ? $input['dependencies'] : [];
         $inversions       = [];
         $skippedBootstrap = 0;
+        $supersededAccelerators = [];
 
         foreach ($dependencies as $dep) {
             $stage        = (string) ($dep['stage']                    ?? 'unknown');
@@ -134,9 +135,16 @@ final class AtlasExternalBrainAutonomyDependencyInverter
                 continue;
             }
 
-            // bootstrap_only_superseded: seam already proven native → skip.
+            // bootstrap_only_superseded: seam already proven native → skip, but still report it.
             if ($isBootstrap && $nativeProven) {
                 $skippedBootstrap++;
+                $supersededAccelerators[] = [
+                    'stage'                    => $stage,
+                    'dependency_type'          => $depType,
+                    'owner'                    => $owner,
+                    'description'              => $description,
+                    'atlas_native_replacement' => str_replace('%stage%', $stage, self::REPLACEMENT_TEMPLATES[$depType] ?? 'atlas_native_%stage%_organ'),
+                ];
                 continue;
             }
 
@@ -175,6 +183,13 @@ final class AtlasExternalBrainAutonomyDependencyInverter
                 'removability_classification'  => $removabilityClassification,
                 'removal_order'                => $removalOrder,
                 'autonomy_gain_score'          => $gainScore,
+                // AC1 vocabulary: ordered replacement chain (single-stage today, ordered for
+                // future multi-stage templates), removal readiness, missing evidence floors,
+                // and the first concrete task that starts removing this dependency.
+                'native_replacement_chain'        => [$replacement],
+                'removal_readiness'               => $removabilityClassification,
+                'missing_evidence_floors'         => [$this->evidenceFloor($depType, $stage)],
+                'first_task_to_remove_dependency' => $taskFamily,
             ];
         }
 
@@ -187,10 +202,11 @@ final class AtlasExternalBrainAutonomyDependencyInverter
         });
 
         return [
-            'schema'                 => self::SCHEMA,
-            'inversions'             => $inversions,
-            'skipped_bootstrap_only' => $skippedBootstrap,
-            'inversion_count'        => count($inversions),
+            'schema'                  => self::SCHEMA,
+            'inversions'              => $inversions,
+            'skipped_bootstrap_only'  => $skippedBootstrap,
+            'inversion_count'         => count($inversions),
+            'superseded_accelerators' => $supersededAccelerators,
         ];
     }
 
