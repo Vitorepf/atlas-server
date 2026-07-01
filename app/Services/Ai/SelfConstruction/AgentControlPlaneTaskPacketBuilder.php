@@ -121,17 +121,38 @@ final class AgentControlPlaneTaskPacketBuilder
             $blockingReasons[] = 'forbidden_files_inside_allowed_files';
         }
 
+        // Reviewed-axis exception: a lead-reviewed spec entering through the autonomous-gov-
+        // bootstrap source (stamped ONLY by AtlasTaskSeedGovLanesCommand) may name exact
+        // FORBIDDEN_AXES prefixes to exempt. Any other source ignores this input entirely — the
+        // autonomous originator, replenisher and brain stay byte-identically fenced. An entry
+        // that is not an exact known axis prefix is silently ignored (fail-closed).
+        $reviewedAxisExceptions = $source === 'autonomous-gov-bootstrap'
+            ? array_values(array_intersect(
+                array_map('strval', (array) ($input['reviewed_axis_exceptions'] ?? [])),
+                self::FORBIDDEN_AXES,
+            ))
+            : [];
+
         $axisHits = [];
+        $axisExceptionsGrantedFor = [];
         foreach ($allowed as $path) {
             foreach (self::FORBIDDEN_AXES as $axis) {
-                if (str_starts_with($path, $axis)) {
-                    $axisHits[] = ['path' => $path, 'forbidden_axis' => $axis];
+                if (! str_starts_with($path, $axis)) {
+                    continue;
                 }
+                if (in_array($axis, $reviewedAxisExceptions, true)) {
+                    $axisExceptionsGrantedFor[] = $axis;
+
+                    continue;
+                }
+                $axisHits[] = ['path' => $path, 'forbidden_axis' => $axis];
             }
         }
         if ($axisHits !== []) {
             $blockingReasons[] = 'forbidden_axis_in_allowed_files';
         }
+        $axisExceptionsGrantedFor = array_values(array_unique($axisExceptionsGrantedFor));
+        sort($axisExceptionsGrantedFor);
 
         $requireHardValueContract = (bool) ($input[self::REQUIRE_HARD_VALUE_CONTRACT_KEY] ?? false);
         if ($requireHardValueContract) {
@@ -239,6 +260,10 @@ final class AgentControlPlaneTaskPacketBuilder
             'operator_id' => $operatorId,
             'parent_run_id' => $parentRunId,
             'normalized_scope' => $normalizedScope,
+            'axis_exception_granted' => $axisExceptionsGrantedFor !== [] ? [
+                'axes' => $axisExceptionsGrantedFor,
+                'source' => $source,
+            ] : null,
             'scope_hash' => $scopeHash,
             'acceptance_criteria' => $acceptance,
             'acceptance_hash' => $acceptanceHash,

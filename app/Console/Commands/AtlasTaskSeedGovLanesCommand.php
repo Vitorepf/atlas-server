@@ -51,6 +51,15 @@ final class AtlasTaskSeedGovLanesCommand extends Command
             return $this->emit(['status' => 'no_packets', 'reason' => 'specs file has no packets[]'], self::FAILURE);
         }
 
+        // Top-level (batch-wide) reviewed axis exceptions — forwarded verbatim into every
+        // packet's builder input. The builder itself only honors these for the
+        // autonomous-gov-bootstrap source this command stamps below, and silently ignores any
+        // entry that is not an exact known FORBIDDEN_AXES prefix.
+        $reviewedAxisExceptions = array_values(array_map(
+            'strval',
+            (array) ($decoded['reviewed_axis_exceptions'] ?? []),
+        ));
+
         $dryRun = (bool) $this->option('dry-run');
         // CRITICAL: seed onto the SERVING stack's DEDICATED disk (ATLAS_TASK_SERVING_QUEUE_DISK) — the exact disk
         // `atlas:task next` reads. Resolving the container default writes to the shared/legacy disk that workers
@@ -79,7 +88,7 @@ final class AtlasTaskSeedGovLanesCommand extends Command
                 continue;
             }
 
-            $packetInput = $this->toPacketInput($spec, $id);
+            $packetInput = $this->toPacketInput($spec, $id, $reviewedAxisExceptions);
 
             if ($dryRun) {
                 // Build + inspect ONLY (no enqueue) so the operator sees self-sufficiency + scope BEFORE anything
@@ -131,9 +140,11 @@ final class AtlasTaskSeedGovLanesCommand extends Command
      * (that is where prepareAndEnqueue reads them for the queue metadata).
      *
      * @param  array<string,mixed>  $spec
+     * @param  list<string>  $reviewedAxisExceptions  batch-wide, forwarded verbatim; the builder
+     *   decides whether to honor it (autonomous-gov-bootstrap source only, exact axis match only)
      * @return array<string,mixed>
      */
-    private function toPacketInput(array $spec, string $id): array
+    private function toPacketInput(array $spec, string $id, array $reviewedAxisExceptions = []): array
     {
         return [
             'task_packet_id' => $id,
@@ -148,6 +159,7 @@ final class AtlasTaskSeedGovLanesCommand extends Command
             'risk_level' => strtolower(trim((string) ($spec['risk_level'] ?? 'medium'))),
             'depends_on' => array_values(array_filter((array) ($spec['depends_on'] ?? []), 'is_string')),
             'wave' => (int) ($spec['wave'] ?? 1),
+            'reviewed_axis_exceptions' => $reviewedAxisExceptions,
         ];
     }
 
