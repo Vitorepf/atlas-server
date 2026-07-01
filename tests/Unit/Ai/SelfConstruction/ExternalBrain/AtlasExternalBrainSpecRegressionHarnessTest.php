@@ -327,4 +327,34 @@ final class AtlasExternalBrainSpecRegressionHarnessTest extends TestCase
         $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_PASS, $result['verdict']);
         $this->assertSame([], $result['matched_regressions']);
     }
+
+    public function test_candidate_combining_test_only_duplicate_target_and_contradictory_acceptance_reports_all_regressions(): void
+    {
+        $candidate = $this->spec([
+            'task_id'             => 'multi-regress-001',
+            'allowed_files'       => ['tests/Unit/FooTest.php'],
+            'acceptance_criteria' => ['the output must be valid json', 'the output must not be valid json'],
+        ]);
+        $sibling = $this->spec([
+            'task_id'       => 'sibling-001',
+            'objective'     => 'Implement a totally different independent capability elsewhere',
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+        ]);
+
+        $result = $this->harness->replay($this->input([$candidate, $sibling]));
+
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_FAIL, $result['verdict']);
+
+        $classes = array_column(
+            array_filter($result['matched_regressions'], static fn (array $m): bool => $m['spec_id'] === 'multi-regress-001'),
+            'class',
+        );
+        $this->assertContains(AtlasExternalBrainSpecRegressionHarness::CLASS_TEST_ONLY_PACKET, $classes);
+        $this->assertContains(AtlasExternalBrainSpecRegressionHarness::CLASS_DUPLICATE_TARGET, $classes);
+        $this->assertContains(AtlasExternalBrainSpecRegressionHarness::CLASS_CONTRADICTORY_ACCEPTANCE, $classes);
+
+        foreach ($result['matched_regressions'] as $match) {
+            $this->assertNotSame('', $match['evidence']);
+        }
+    }
 }

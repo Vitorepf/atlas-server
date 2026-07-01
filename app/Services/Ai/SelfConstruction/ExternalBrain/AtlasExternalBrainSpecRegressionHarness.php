@@ -77,6 +77,25 @@ final class AtlasExternalBrainSpecRegressionHarness
         $evidenceLines      = [];
         $overallVerdict     = self::VERDICT_PASS;
 
+        // Single detection-result circuit: every regression class is recorded through this
+        // closure so matched_regressions and verdict escalation can never diverge — a class
+        // marked FAIL always both appends the record AND escalates the verdict together.
+        $record = function (string $specId, string $class, string $evidence, string $matchedLabel, string $severity) use (&$matchedRegressions, &$overallVerdict): void {
+            $matchedRegressions[] = [
+                'spec_id'               => $specId,
+                'class'                 => $class,
+                'evidence'              => $evidence,
+                'matched_example_label' => $matchedLabel,
+                'gate'                  => self::GATE_BY_CLASS[$class],
+            ];
+
+            if ($severity === self::VERDICT_FAIL) {
+                $overallVerdict = self::VERDICT_FAIL;
+            } elseif ($severity === self::VERDICT_WARNING && $overallVerdict === self::VERDICT_PASS) {
+                $overallVerdict = self::VERDICT_WARNING;
+            }
+        };
+
         $candidateFingerprints = array_map(
             fn (array $c): array => $this->keywords((string) ($c['objective'] ?? '')),
             $candidates,
@@ -102,14 +121,7 @@ final class AtlasExternalBrainSpecRegressionHarness
                 }
                 $sim = $this->similarity($kw, $this->keywords((string) ($example['objective'] ?? '')));
                 if ($sim >= self::SIMILARITY_THRESHOLD) {
-                    $matchedRegressions[] = [
-                        'spec_id'               => $specId,
-                        'class'                 => self::CLASS_POISON,
-                        'evidence'              => "similarity {$sim} with {$label} example: \"{$example['objective']}\"",
-                        'matched_example_label' => $label,
-                        'gate'                  => self::GATE_BY_CLASS[self::CLASS_POISON],
-                    ];
-                    $overallVerdict = self::VERDICT_FAIL;
+                    $record($specId, self::CLASS_POISON, "similarity {$sim} with {$label} example: \"{$example['objective']}\"", $label, self::VERDICT_FAIL);
                     continue 2;
                 }
             }
@@ -122,16 +134,7 @@ final class AtlasExternalBrainSpecRegressionHarness
                 }
                 $sim = $this->similarity($kw, $this->keywords((string) ($example['objective'] ?? '')));
                 if ($sim >= self::SIMILARITY_THRESHOLD) {
-                    $matchedRegressions[] = [
-                        'spec_id'               => $specId,
-                        'class'                 => self::CLASS_WRAPPER_FARM,
-                        'evidence'              => "similarity {$sim} with shallow_wrapper example: \"{$example['objective']}\"",
-                        'matched_example_label' => 'shallow_wrapper',
-                        'gate'                  => self::GATE_BY_CLASS[self::CLASS_WRAPPER_FARM],
-                    ];
-                    if ($overallVerdict === self::VERDICT_PASS) {
-                        $overallVerdict = self::VERDICT_WARNING;
-                    }
+                    $record($specId, self::CLASS_WRAPPER_FARM, "similarity {$sim} with shallow_wrapper example: \"{$example['objective']}\"", 'shallow_wrapper', self::VERDICT_WARNING);
                     continue 2;
                 }
             }
@@ -144,16 +147,7 @@ final class AtlasExternalBrainSpecRegressionHarness
                 }
                 $sim = $this->similarity($kw, $this->keywords((string) ($example['objective'] ?? '')));
                 if ($sim >= self::SIMILARITY_THRESHOLD) {
-                    $matchedRegressions[] = [
-                        'spec_id'               => $specId,
-                        'class'                 => self::CLASS_DUPLICATE,
-                        'evidence'              => "similarity {$sim} with duplicate example: \"{$example['objective']}\"",
-                        'matched_example_label' => 'duplicate',
-                        'gate'                  => self::GATE_BY_CLASS[self::CLASS_DUPLICATE],
-                    ];
-                    if ($overallVerdict === self::VERDICT_PASS) {
-                        $overallVerdict = self::VERDICT_WARNING;
-                    }
+                    $record($specId, self::CLASS_DUPLICATE, "similarity {$sim} with duplicate example: \"{$example['objective']}\"", 'duplicate', self::VERDICT_WARNING);
                     continue 2;
                 }
             }
@@ -166,85 +160,37 @@ final class AtlasExternalBrainSpecRegressionHarness
                 $sim = $this->similarity($kw, $candidateFingerprints[$jdx]);
                 if ($sim >= self::CROSS_CANDIDATE_THRESHOLD) {
                     $otherId = (string) ($other['task_id'] ?? "spec_{$jdx}");
-                    $matchedRegressions[] = [
-                        'spec_id'               => $specId,
-                        'class'                 => self::CLASS_DUPLICATE,
-                        'evidence'              => "cross-candidate similarity {$sim} with {$otherId}",
-                        'matched_example_label' => 'cross_candidate_duplicate',
-                        'gate'                  => self::GATE_BY_CLASS[self::CLASS_DUPLICATE],
-                    ];
-                    if ($overallVerdict === self::VERDICT_PASS) {
-                        $overallVerdict = self::VERDICT_WARNING;
-                    }
+                    $record($specId, self::CLASS_DUPLICATE, "cross-candidate similarity {$sim} with {$otherId}", 'cross_candidate_duplicate', self::VERDICT_WARNING);
                     continue 2;
                 }
             }
 
             // 4. Underspecified scope (warning)
             if ($this->isUnderspecified($spec)) {
-                $matchedRegressions[] = [
-                    'spec_id'               => $specId,
-                    'class'                 => self::CLASS_UNDERSPECIFIED,
-                    'evidence'              => "no implementation_files, no test_files, and no acceptance_criteria",
-                    'matched_example_label' => 'none',
-                    'gate'                  => self::GATE_BY_CLASS[self::CLASS_UNDERSPECIFIED],
-                ];
-                if ($overallVerdict === self::VERDICT_PASS) {
-                    $overallVerdict = self::VERDICT_WARNING;
-                }
+                $record($specId, self::CLASS_UNDERSPECIFIED, 'no implementation_files, no test_files, and no acceptance_criteria', 'none', self::VERDICT_WARNING);
             }
 
             // 5. Test-only packet (fail) — allowed_files exist but every one is a test file.
             if ($this->isTestOnlyPacket($spec)) {
-                $matchedRegressions[] = [
-                    'spec_id'               => $specId,
-                    'class'                 => self::CLASS_TEST_ONLY_PACKET,
-                    'evidence'              => 'allowed_files are entirely test files with no implementation target',
-                    'matched_example_label' => 'none',
-                    'gate'                  => self::GATE_BY_CLASS[self::CLASS_TEST_ONLY_PACKET],
-                ];
-                $overallVerdict = self::VERDICT_FAIL;
+                $record($specId, self::CLASS_TEST_ONLY_PACKET, 'allowed_files are entirely test files with no implementation target', 'none', self::VERDICT_FAIL);
             }
 
             // 6. Forbidden implementation target (fail).
             $forbiddenHit = $this->forbiddenTargetHit($spec, (array) ($input['forbidden_targets'] ?? []));
             if ($forbiddenHit !== null) {
-                $matchedRegressions[] = [
-                    'spec_id'               => $specId,
-                    'class'                 => self::CLASS_FORBIDDEN_TARGET,
-                    'evidence'              => "allowed_files includes forbidden target: {$forbiddenHit}",
-                    'matched_example_label' => 'none',
-                    'gate'                  => self::GATE_BY_CLASS[self::CLASS_FORBIDDEN_TARGET],
-                ];
-                $overallVerdict = self::VERDICT_FAIL;
+                $record($specId, self::CLASS_FORBIDDEN_TARGET, "allowed_files includes forbidden target: {$forbiddenHit}", 'none', self::VERDICT_FAIL);
             }
 
             // 7. Contradictory acceptance (fail) — two criteria over the same subject that negate each other.
             $contradiction = $this->contradictoryAcceptancePair((array) ($spec['acceptance_criteria'] ?? []));
             if ($contradiction !== null) {
-                $matchedRegressions[] = [
-                    'spec_id'               => $specId,
-                    'class'                 => self::CLASS_CONTRADICTORY_ACCEPTANCE,
-                    'evidence'              => "contradictory acceptance criteria: \"{$contradiction[0]}\" vs \"{$contradiction[1]}\"",
-                    'matched_example_label' => 'none',
-                    'gate'                  => self::GATE_BY_CLASS[self::CLASS_CONTRADICTORY_ACCEPTANCE],
-                ];
-                $overallVerdict = self::VERDICT_FAIL;
+                $record($specId, self::CLASS_CONTRADICTORY_ACCEPTANCE, "contradictory acceptance criteria: \"{$contradiction[0]}\" vs \"{$contradiction[1]}\"", 'none', self::VERDICT_FAIL);
             }
 
             // 8. Duplicate target (warning) — same primary allowed_files target as a historical or sibling candidate.
             $duplicateTargetOf = $this->duplicateTargetMatch($spec, $candidates, $idx, $historical);
             if ($duplicateTargetOf !== null) {
-                $matchedRegressions[] = [
-                    'spec_id'               => $specId,
-                    'class'                 => self::CLASS_DUPLICATE_TARGET,
-                    'evidence'              => "same primary target as {$duplicateTargetOf}",
-                    'matched_example_label' => 'duplicate_target',
-                    'gate'                  => self::GATE_BY_CLASS[self::CLASS_DUPLICATE_TARGET],
-                ];
-                if ($overallVerdict === self::VERDICT_PASS) {
-                    $overallVerdict = self::VERDICT_WARNING;
-                }
+                $record($specId, self::CLASS_DUPLICATE_TARGET, "same primary target as {$duplicateTargetOf}", 'duplicate_target', self::VERDICT_WARNING);
             }
 
             // 9. Template-farm spec (warning) — matches a historical 'template_farm' labeled example.
@@ -255,16 +201,7 @@ final class AtlasExternalBrainSpecRegressionHarness
                 }
                 $sim = $this->similarity($kw, $this->keywords((string) ($example['objective'] ?? '')));
                 if ($sim >= self::SIMILARITY_THRESHOLD) {
-                    $matchedRegressions[] = [
-                        'spec_id'               => $specId,
-                        'class'                 => self::CLASS_TEMPLATE_FARM,
-                        'evidence'              => "similarity {$sim} with template_farm example: \"{$example['objective']}\"",
-                        'matched_example_label' => 'template_farm',
-                        'gate'                  => self::GATE_BY_CLASS[self::CLASS_TEMPLATE_FARM],
-                    ];
-                    if ($overallVerdict === self::VERDICT_PASS) {
-                        $overallVerdict = self::VERDICT_WARNING;
-                    }
+                    $record($specId, self::CLASS_TEMPLATE_FARM, "similarity {$sim} with template_farm example: \"{$example['objective']}\"", 'template_farm', self::VERDICT_WARNING);
                     break;
                 }
             }
