@@ -58,4 +58,46 @@ class ReadinessAgentControlPlaneOrchestratorFactoryTest extends TestCase
 
         self::assertNotSame($a, $b);
     }
+
+    // ── AC: lane-aware readiness config ─────────────────────────────────────────
+
+    public function test_full_lane_context_produces_valid_orchestrator_config(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildLaneAwareOrchestratorConfig([
+            'project_lane' => 'atlas-server',
+            'queue_namespace' => 'agent_control_plane',
+            'worker_class' => AgentControlPlaneTaskQueueOrchestrator::class,
+        ]);
+
+        self::assertTrue($result['lane_context_valid']);
+        self::assertNull($result['blocking_reason']);
+        self::assertSame('atlas-server', $result['orchestrator_config']['project_lane']);
+        self::assertSame('agent_control_plane', $result['orchestrator_config']['queue_namespace']);
+    }
+
+    public function test_missing_lane_context_is_rejected_instead_of_defaulting(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildLaneAwareOrchestratorConfig([
+            'project_lane' => 'atlas-server',
+        ]);
+
+        self::assertFalse($result['lane_context_valid']);
+        self::assertNull($result['orchestrator_config']);
+        self::assertStringContainsString('missing_lane_context', $result['blocking_reason']);
+        self::assertStringContainsString('queue_namespace', $result['blocking_reason']);
+        self::assertStringContainsString('worker_class', $result['blocking_reason']);
+    }
+
+    public function test_unresolvable_worker_class_is_rejected_as_ambiguous(): void
+    {
+        $result = ReadinessAgentControlPlaneOrchestratorFactory::buildLaneAwareOrchestratorConfig([
+            'project_lane' => 'atlas-server',
+            'queue_namespace' => 'agent_control_plane',
+            'worker_class' => 'App\\Not\\A\\Real\\Class',
+        ]);
+
+        self::assertFalse($result['lane_context_valid']);
+        self::assertNull($result['orchestrator_config']);
+        self::assertStringContainsString('ambiguous_worker_class', $result['blocking_reason']);
+    }
 }
