@@ -19,6 +19,12 @@ final class AtlasExternalBrainProposalSelectionLoop
 {
     public const SCHEMA = 'atlas.external_brain.proposal_selection_loop.v1';
 
+    public const ESCALATION_RESEARCH_TO_TASK = 'research_to_task';
+
+    public const ESCALATION_SIMPLIFICATION_FIRST = 'simplification_first';
+
+    public const ESCALATION_SECOND_PASS_CANDIDATE_SEARCH = 'second_pass_candidate_search';
+
     public function __construct(
         private readonly AtlasExternalBrainProposalArena $arena = new AtlasExternalBrainProposalArena(),
         private readonly AtlasExternalBrainHighValueBatchComposer $composer = new AtlasExternalBrainHighValueBatchComposer(),
@@ -54,12 +60,29 @@ final class AtlasExternalBrainProposalSelectionLoop
             ];
         }, $arenaResult['rejected']);
 
+        // A no-winner arena result must never read as "stop" — it must hand the originator concrete
+        // next moves: go research the gap, retry with a simpler/smaller candidate, or run a fresh
+        // candidate-search pass instead of reusing the same rejected batch.
+        $escalationDossier = null;
+        if ($arenaResult['verdict'] === AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED) {
+            $escalationDossier = [
+                'reason' => 'no_winner_all_candidates_rejected',
+                'actions' => [
+                    self::ESCALATION_RESEARCH_TO_TASK,
+                    self::ESCALATION_SIMPLIFICATION_FIRST,
+                    self::ESCALATION_SECOND_PASS_CANDIDATE_SEARCH,
+                ],
+                'rejected_dossier' => $rejectedDossier,
+            ];
+        }
+
         return [
             'schema' => self::SCHEMA,
             'verdict' => $arenaResult['verdict'],
             'winner' => $arenaResult['winner'],
             'rejected' => $arenaResult['rejected'],
             'rejected_dossier' => $rejectedDossier,
+            'escalation_dossier' => $escalationDossier,
             'arena_hash' => $arenaResult['arena_hash'],
             'batch' => $batch,
         ];
