@@ -350,6 +350,52 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
     }
 
     /**
+     * Filters candidate enqueue inputs against {@see AtlasExternalBrainTaskGraphRuntimeBridge}
+     * guidance: while unresolved critical-path leverage or stale dependencies still dominate
+     * (bridge_guidance.block_off_path_low_novelty=true), only inputs whose task_packet_id is on
+     * the bridge's prioritized list are allowed through; every off-path input is withheld with a
+     * named blocker instead of silently passing.
+     *
+     * @param  list<array<string,mixed>>  $enqueueInputs  each expected to carry a task_packet_id
+     *                                                      (top-level or nested under task_packet)
+     * @param  array<string,mixed>  $bridgeGuidance  output of AtlasExternalBrainTaskGraphRuntimeBridge::bridge()
+     * @return array{schema:string, allowed: list<array<string,mixed>>, withheld: list<array<string,mixed>>}
+     */
+    public function applyRuntimeBridgeGuidance(array $enqueueInputs, array $bridgeGuidance): array
+    {
+        $blockOffPath = (bool) ($bridgeGuidance['block_off_path_low_novelty'] ?? false);
+        $prioritizedIds = array_map('strval', (array) ($bridgeGuidance['prioritized_task_packet_ids'] ?? []));
+
+        $allowed = [];
+        $withheld = [];
+
+        foreach ($enqueueInputs as $input) {
+            if (! is_array($input)) {
+                continue;
+            }
+            $taskPacketId = (string) ($input['task_packet_id'] ?? ($input['task_packet']['task_packet_id'] ?? ''));
+
+            if (! $blockOffPath || in_array($taskPacketId, $prioritizedIds, true)) {
+                $allowed[] = $input;
+
+                continue;
+            }
+
+            $withheld[] = [
+                'task_packet_id' => $taskPacketId,
+                'reason' => 'blocked_by_unresolved_critical_path_leverage',
+                'blockers' => ['off_path_low_novelty_blocked_while_critical_path_unresolved'],
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'allowed' => $allowed,
+            'withheld' => $withheld,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $plan
      * @param  list<array<string,mixed>>  $enqueueResults
      */
