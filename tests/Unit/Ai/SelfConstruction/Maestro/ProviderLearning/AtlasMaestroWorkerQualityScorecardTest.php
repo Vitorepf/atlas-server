@@ -355,4 +355,70 @@ final class AtlasMaestroWorkerQualityScorecardTest extends TestCase
             $this->assertContains($flag, $worker['risk_flags']);
         }
     }
+
+    // ── AC1: commit_yield, give_back_rate, retry_cost, scope_discipline, evidence_quality ──
+
+    public function test_high_quality_worker_has_full_commit_yield_and_prefer_routing_hint(): void
+    {
+        $events = array_fill(0, 10, $this->event('clean', 'success'));
+
+        $worker = $this->scorecard->score(['events' => $events])['workers'][0];
+
+        $this->assertSame(1.0, $worker['commit_yield']);
+        $this->assertSame(0.0, $worker['give_back_rate']);
+        $this->assertSame(0, $worker['retry_cost']);
+        $this->assertSame(1.0, $worker['scope_discipline']);
+        $this->assertSame(1.0, $worker['evidence_quality']);
+        $this->assertSame('prefer', $worker['routing_hint']);
+        $this->assertNull($worker['avoid_reason']);
+    }
+
+    public function test_high_giveback_worker_has_avoid_routing_hint_and_reason(): void
+    {
+        $events = array_fill(0, 6, $this->event('flaky', 'success'));
+        $events = array_merge($events, array_fill(0, 4, $this->event('flaky', 'give_back')));
+
+        $worker = $this->scorecard->score(['events' => $events])['workers'][0];
+
+        $this->assertGreaterThan(0.0, $worker['give_back_rate']);
+        $this->assertSame('avoid', $worker['routing_hint']);
+        $this->assertSame('high_giveback_rate', $worker['avoid_reason']);
+    }
+
+    public function test_scope_violation_worker_penalized_and_flagged(): void
+    {
+        $events = array_fill(0, 8, $this->event('undisciplined', 'success'));
+        $events[] = $this->event('undisciplined', 'success', ['scope_violation' => true]);
+        $events[] = $this->event('undisciplined', 'success', ['scope_violation' => true]);
+
+        $worker = $this->scorecard->score(['events' => $events])['workers'][0];
+
+        $this->assertContains('scope_violations', $worker['risk_flags']);
+        $this->assertLessThan(1.0, $worker['scope_discipline']);
+        $this->assertSame('avoid', $worker['routing_hint']);
+        $this->assertSame('scope_violations', $worker['avoid_reason']);
+    }
+
+    public function test_insufficient_sample_worker_has_insufficient_sample_routing_hint(): void
+    {
+        $events = array_fill(0, 2, $this->event('new', 'success'));
+
+        $worker = $this->scorecard->score(['events' => $events])['workers'][0];
+
+        $this->assertSame('low', $worker['confidence']);
+        $this->assertSame('insufficient_sample', $worker['routing_hint']);
+    }
+
+    public function test_task_family_specific_fit_score_reflects_per_class_success_rate(): void
+    {
+        $events = array_fill(0, 4, $this->event('specialist', 'success', ['task_class' => 'backend']));
+        $events = array_merge($events, array_fill(0, 2, $this->event('specialist', 'give_back', ['task_class' => 'frontend'])));
+
+        $worker = $this->scorecard->score(['events' => $events])['workers'][0];
+
+        $this->assertArrayHasKey('backend', $worker['task_family_fit']);
+        $this->assertSame(1.0, $worker['task_family_fit']['backend']);
+        $this->assertArrayHasKey('frontend', $worker['task_family_fit']);
+        $this->assertSame(0.0, $worker['task_family_fit']['frontend']);
+    }
 }

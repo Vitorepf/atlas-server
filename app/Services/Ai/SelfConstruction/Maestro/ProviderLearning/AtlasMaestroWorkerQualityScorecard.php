@@ -39,6 +39,19 @@ final class AtlasMaestroWorkerQualityScorecard
     private const PENALTY_GIVE_BACK_MILD        = 0.2; // per give_back below threshold
     private const PENALTY_FAILED_GATE           = 0.5; // per gate failure
     private const PENALTY_RETRY                 = 0.2; // per retry
+    private const PENALTY_SCOPE_VIOLATION       = 1.0; // per out-of-scope edit — a discipline breach
+
+    // routing_hint thresholds.
+    private const PREFER_QUALITY_FLOOR = 8.0;
+    private const AVOID_QUALITY_CEILING = 5.0;
+
+    /** risk_flags in priority order — the first one present is the avoid_reason. */
+    private const AVOID_REASON_PRIORITY = [
+        'success_without_evidence',
+        'repeated_malformed',
+        'scope_violations',
+        'high_giveback_rate',
+    ];
 
     private const GIVE_BACK_HIGH_RATE_THRESHOLD = 0.25;
     private const BEST_CLASS_SUCCESS_RATE       = 0.75; // >= this → best
@@ -99,6 +112,8 @@ final class AtlasMaestroWorkerQualityScorecard
         $cycleTimes      = [];
         $scopeSizes      = [];
         $successNoEvid   = 0;
+        $successWithEvid = 0;
+        $scopeViolations = 0;
 
         // Per-task-class tracking.
         $classCounts = []; // ['class']['success'|'fail'] => int
@@ -114,6 +129,7 @@ final class AtlasMaestroWorkerQualityScorecard
                 $hasEvidence = (bool) ($row['has_required_evidence'] ?? true);
                 if ($hasEvidence) {
                     $classCounts[$cls]['success']++;
+                    $successWithEvid++;
                 } else {
                     // A "success" without required_evidence is fake productivity, not a real
                     // success — it must not inflate the class's best-class eligibility.
@@ -121,6 +137,10 @@ final class AtlasMaestroWorkerQualityScorecard
                     $successNoEvid++;
                 }
             } elseif (in_array($ev, [self::EV_GIVE_BACK, self::EV_FAILED_GATE, self::EV_MALFORMED], true)) {
+                $classCounts[$cls]['fail']++;
+            }
+            if ((bool) ($row['scope_violation'] ?? false)) {
+                $scopeViolations++;
                 $classCounts[$cls]['fail']++;
             }
             $ct = (int) ($row['cycle_time_seconds'] ?? 0);
@@ -171,11 +191,28 @@ final class AtlasMaestroWorkerQualityScorecard
             $score -= self::PENALTY_RETRY * $counts[self::EV_RETRY];
         }
 
+        // ── Penalty: scope violations (discipline breach — worked outside allowed_files) ──
+        if ($scopeViolations > 0) {
+            $score -= self::PENALTY_SCOPE_VIOLATION * $scopeViolations;
+            $riskFlags[] = 'scope_violations';
+        }
+
         $score = max(0.0, min(10.0, round($score, 2)));
 
-        // ── Task class routing ────────────────────────────────────────────────
+        // ── Explicit factor metrics: commit_yield, give_back_rate, retry_cost,
+        // scope_discipline, evidence_quality — surfaced individually so callers don't have to
+        // re-derive them from event_summary.
+        $commitYield = $total > 0 ? round($successWithEvid / $total, 4) : 0.0;
+        $giveBackRate = $total > 0 ? round($counts[self::EV_GIVE_BACK] / $total, 4) : 0.0;
+        $retryCost = $counts[self::EV_RETRY];
+        $scopeDiscipline = $total > 0 ? round(1.0 - ($scopeViolations / $total), 4) : 1.0;
+        $successAttempts = $successWithEvid + $successNoEvid;
+        $evidenceQuality = $successAttempts > 0 ? round($successWithEvid / $successAttempts, 4) : 1.0;
+
+        // ── Task class routing + task_family_fit (per-class success rate) ─────
         $bestClasses  = [];
         $avoidClasses = [];
+        $taskFamilyFit = [];
         foreach ($classCounts as $cls => $cc) {
             $clsTotal = $cc['success'] + $cc['fail'];
             if ($clsTotal < self::MIN_CLASS_EVENTS_FOR_ROUTING) {
@@ -183,6 +220,7 @@ final class AtlasMaestroWorkerQualityScorecard
             }
             $sr = $cc['success'] / $clsTotal;
             $fr = $cc['fail'] / $clsTotal;
+            $taskFamilyFit[$cls] = round($sr, 4);
             if ($sr >= self::BEST_CLASS_SUCCESS_RATE) {
                 $bestClasses[] = $cls;
             }
@@ -192,6 +230,7 @@ final class AtlasMaestroWorkerQualityScorecard
         }
         sort($bestClasses);
         sort($avoidClasses);
+        ksort($taskFamilyFit);
 
         // ── Confidence ───────────────────────────────────────────────────────
         $confidence = match (true) {
@@ -203,6 +242,24 @@ final class AtlasMaestroWorkerQualityScorecard
         $riskFlags = array_values(array_unique($riskFlags));
         $evidenceRiskFlags = array_values(array_intersect($riskFlags, self::EVIDENCE_RISK_FLAGS));
 
+        // ── routing_hint + avoid_reason ─────────────────────────────────────
+        $routingHint = match (true) {
+            $confidence === self::CONFIDENCE_LOW => 'insufficient_sample',
+            $riskFlags !== [] || $score < self::AVOID_QUALITY_CEILING => 'avoid',
+            $score >= self::PREFER_QUALITY_FLOOR => 'prefer',
+            default => 'neutral',
+        };
+        $avoidReason = null;
+        if ($routingHint === 'avoid') {
+            foreach (self::AVOID_REASON_PRIORITY as $reason) {
+                if (in_array($reason, $riskFlags, true)) {
+                    $avoidReason = $reason;
+                    break;
+                }
+            }
+            $avoidReason ??= 'quality_score_below_avoid_ceiling';
+        }
+
         return [
             'client_id'          => $clientId,
             'quality_score'      => $score,
@@ -210,6 +267,14 @@ final class AtlasMaestroWorkerQualityScorecard
             'evidence_risk_flags' => $evidenceRiskFlags,
             'best_task_classes'  => $bestClasses,
             'avoid_task_classes' => $avoidClasses,
+            'task_family_fit'    => $taskFamilyFit,
+            'commit_yield'       => $commitYield,
+            'give_back_rate'     => $giveBackRate,
+            'retry_cost'         => $retryCost,
+            'scope_discipline'   => $scopeDiscipline,
+            'evidence_quality'   => $evidenceQuality,
+            'routing_hint'       => $routingHint,
+            'avoid_reason'       => $avoidReason,
             'confidence'         => $confidence,
             'event_summary'      => array_merge(['total' => $total], $counts),
             'avg_cycle_time_s'   => $cycleTimes !== [] ? (int) round(array_sum($cycleTimes) / count($cycleTimes)) : null,
