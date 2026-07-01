@@ -101,8 +101,7 @@ final class AtlasVerificationCourtVerdictLedger
             'worker_feed_reason_codes' => $workerFeedReasonCodes,
             'evidence_snapshot_hash' => $evidenceSnapshotHash,
         ];
-        ksort($canonical);
-        $verdictHash = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $verdictHash = $this->hashCanonicalFields($canonical);
 
         if ($this->alreadyRecorded($verdictHash)) {
             return ['status' => self::STATUS_ALREADY];
@@ -139,6 +138,83 @@ final class AtlasVerificationCourtVerdictLedger
     public function byTaskPacketId(string $taskPacketId): array
     {
         return array_values(array_filter($this->all(), static fn (array $r): bool => (string) ($r['task_packet_id'] ?? '') === $taskPacketId));
+    }
+
+    /**
+     * Deterministic tamper scan over the append-only hash chain: recomputes each row's
+     * verdict_hash from its own canonical fields (catches content edits), then walks the
+     * chain verifying previous_verdict_hash points at the prior row's verdict_hash and
+     * ledger_chain_hash matches (catches reordering, deletion, or a missing/forged link).
+     *
+     * @return array{ok:bool, tamper_reason:?string, tampered_row_index:?int, checked_row_count:int}
+     */
+    public function integrityScan(): array
+    {
+        $rows = $this->all();
+        $previousExpectedHash = null;
+
+        foreach ($rows as $index => $row) {
+            $storedVerdictHash = (string) ($row['verdict_hash'] ?? '');
+            if ($storedVerdictHash === '' || $this->hashCanonicalFields($this->canonicalHashFields($row)) !== $storedVerdictHash) {
+                return $this->tamperResult($index, 'row_content_hash_mismatch', count($rows));
+            }
+
+            $storedPreviousHash = array_key_exists('previous_verdict_hash', $row) ? $row['previous_verdict_hash'] : null;
+            if ($storedPreviousHash !== $previousExpectedHash) {
+                return $this->tamperResult(
+                    $index,
+                    $index === 0 ? 'first_row_previous_verdict_hash_must_be_null' : 'previous_verdict_hash_missing_or_reordered',
+                    count($rows),
+                );
+            }
+
+            $expectedChainHash = hash('sha256', ($storedPreviousHash ?? '').$storedVerdictHash);
+            $storedChainHash = (string) ($row['ledger_chain_hash'] ?? '');
+            if ($storedChainHash === '' || $storedChainHash !== $expectedChainHash) {
+                return $this->tamperResult($index, 'ledger_chain_hash_mismatch', count($rows));
+            }
+
+            $previousExpectedHash = $storedVerdictHash;
+        }
+
+        return ['ok' => true, 'tamper_reason' => null, 'tampered_row_index' => null, 'checked_row_count' => count($rows)];
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     * @return array{task_packet_id:string, evidence_hash:string, replay_plan_hash:string, verdict:string, reasons:list<string>, replay_outcome_hash:string, decided_at:string, worker_feed_reason_codes:list<string>, evidence_snapshot_hash:?string}
+     */
+    private function canonicalHashFields(array $row): array
+    {
+        return [
+            'task_packet_id' => (string) ($row['task_packet_id'] ?? ''),
+            'evidence_hash' => (string) ($row['evidence_hash'] ?? ''),
+            'replay_plan_hash' => (string) ($row['replay_plan_hash'] ?? ''),
+            'verdict' => (string) ($row['verdict'] ?? ''),
+            'reasons' => is_array($row['reasons'] ?? null) ? array_values(array_map('strval', $row['reasons'])) : [],
+            'replay_outcome_hash' => (string) ($row['replay_outcome_hash'] ?? ''),
+            'decided_at' => (string) ($row['decided_at'] ?? ''),
+            'worker_feed_reason_codes' => is_array($row['worker_feed_reason_codes'] ?? null) ? array_values(array_map('strval', $row['worker_feed_reason_codes'])) : [],
+            'evidence_snapshot_hash' => isset($row['evidence_snapshot_hash']) ? (string) $row['evidence_snapshot_hash'] : null,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $canonical
+     */
+    private function hashCanonicalFields(array $canonical): string
+    {
+        ksort($canonical);
+
+        return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * @return array{ok:bool, tamper_reason:?string, tampered_row_index:?int, checked_row_count:int}
+     */
+    private function tamperResult(int $index, string $reason, int $checkedRowCount): array
+    {
+        return ['ok' => false, 'tamper_reason' => $reason, 'tampered_row_index' => $index, 'checked_row_count' => $checkedRowCount];
     }
 
     private function alreadyRecorded(string $verdictHash): bool

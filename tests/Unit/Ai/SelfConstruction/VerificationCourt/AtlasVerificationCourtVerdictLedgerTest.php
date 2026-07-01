@@ -257,4 +257,96 @@ final class AtlasVerificationCourtVerdictLedgerTest extends TestCase
         $r3 = $this->ledger->append(array_merge($this->payload(), ['replay_outcome_hash' => 'out-h-3']))['row'];
         $this->assertSame($r1['verdict_hash'], $r3['previous_verdict_hash']);
     }
+
+    // ── integrityScan ─────────────────────────────────────────────────────────
+
+    private function rewriteLedgerRows(array $rows): void
+    {
+        $lines = array_map(
+            static fn (array $row): string => (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            $rows,
+        );
+        file_put_contents($this->ledgerPath, implode("\n", $lines).($lines === [] ? '' : "\n"));
+    }
+
+    public function test_integrity_scan_ok_for_untampered_chain(): void
+    {
+        $this->ledger->append($this->payload());
+        $this->ledger->append(array_merge($this->payload(), ['replay_outcome_hash' => 'out-h-2']));
+        $this->ledger->append(array_merge($this->payload(), ['replay_outcome_hash' => 'out-h-3']));
+
+        $result = $this->ledger->integrityScan();
+
+        $this->assertTrue($result['ok']);
+        $this->assertNull($result['tamper_reason']);
+        $this->assertNull($result['tampered_row_index']);
+        $this->assertSame(3, $result['checked_row_count']);
+    }
+
+    public function test_integrity_scan_empty_ledger_is_ok(): void
+    {
+        $result = $this->ledger->integrityScan();
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame(0, $result['checked_row_count']);
+    }
+
+    public function test_integrity_scan_detects_row_content_tampering(): void
+    {
+        $this->ledger->append($this->payload());
+        $rows = $this->ledger->all();
+        $rows[0]['verdict'] = AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED;
+        $this->rewriteLedgerRows($rows);
+
+        $result = $this->ledger->integrityScan();
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('row_content_hash_mismatch', $result['tamper_reason']);
+        $this->assertSame(0, $result['tampered_row_index']);
+    }
+
+    public function test_integrity_scan_detects_reordered_rows(): void
+    {
+        $this->ledger->append($this->payload());
+        $this->ledger->append(array_merge($this->payload(), ['replay_outcome_hash' => 'out-h-2']));
+        $rows = $this->ledger->all();
+        $this->rewriteLedgerRows([$rows[1], $rows[0]]);
+
+        $result = $this->ledger->integrityScan();
+
+        $this->assertFalse($result['ok']);
+        $this->assertContains($result['tamper_reason'], [
+            'first_row_previous_verdict_hash_must_be_null',
+            'previous_verdict_hash_missing_or_reordered',
+        ]);
+        $this->assertSame(0, $result['tampered_row_index']);
+    }
+
+    public function test_integrity_scan_detects_missing_previous_hash(): void
+    {
+        $this->ledger->append($this->payload());
+        $this->ledger->append(array_merge($this->payload(), ['replay_outcome_hash' => 'out-h-2']));
+        $rows = $this->ledger->all();
+        unset($rows[1]['previous_verdict_hash']);
+        $this->rewriteLedgerRows($rows);
+
+        $result = $this->ledger->integrityScan();
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('previous_verdict_hash_missing_or_reordered', $result['tamper_reason']);
+        $this->assertSame(1, $result['tampered_row_index']);
+    }
+
+    public function test_integrity_scan_detects_forged_chain_hash(): void
+    {
+        $this->ledger->append($this->payload());
+        $rows = $this->ledger->all();
+        $rows[0]['ledger_chain_hash'] = str_repeat('a', 64);
+        $this->rewriteLedgerRows($rows);
+
+        $result = $this->ledger->integrityScan();
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame('ledger_chain_hash_mismatch', $result['tamper_reason']);
+    }
 }
