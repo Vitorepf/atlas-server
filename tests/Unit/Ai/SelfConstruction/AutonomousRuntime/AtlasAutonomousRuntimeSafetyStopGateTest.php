@@ -96,6 +96,44 @@ final class AtlasAutonomousRuntimeSafetyStopGateTest extends TestCase
         $this->assertContains('context_freshness_blocked', $r['reasons']);
     }
 
+    // ── AC2: poison risk, stale proof, runaway growth, lease mismatch ─────────
+
+    public function test_poison_risk_stops(): void
+    {
+        $f = $this->cleanFacts();
+        $f['poison_signal'] = ['detected' => true, 'class' => 'contradictory_acceptance'];
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->evaluate($f);
+        $this->assertSame(AtlasAutonomousRuntimeSafetyStopGate::ACTION_STOP, $r['action']);
+        $this->assertContains('poison_risk:contradictory_acceptance', $r['reasons']);
+    }
+
+    public function test_stale_proof_stops(): void
+    {
+        $f = $this->cleanFacts();
+        $f['proof_freshness'] = ['conformant' => false, 'age_hours' => 96.0];
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->evaluate($f);
+        $this->assertSame(AtlasAutonomousRuntimeSafetyStopGate::ACTION_STOP, $r['action']);
+        $this->assertContains('stale_proof:96', $r['reasons']);
+    }
+
+    public function test_runaway_growth_stops(): void
+    {
+        $f = $this->cleanFacts();
+        $f['growth_metrics'] = ['queue_growth_rate' => 5.0, 'ceiling' => 2.0];
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->evaluate($f);
+        $this->assertSame(AtlasAutonomousRuntimeSafetyStopGate::ACTION_STOP, $r['action']);
+        $this->assertContains('runaway_growth:5', $r['reasons']);
+    }
+
+    public function test_lease_mismatch_stops(): void
+    {
+        $f = $this->cleanFacts();
+        $f['lease_integrity'] = ['matches' => false];
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->evaluate($f);
+        $this->assertSame(AtlasAutonomousRuntimeSafetyStopGate::ACTION_STOP, $r['action']);
+        $this->assertContains('lease_mismatch', $r['reasons']);
+    }
+
     // ── resume() tests ──────────────────────────────────────────────────────
 
     private function goodResumeFacts(array $overrides = []): array
@@ -105,6 +143,7 @@ final class AtlasAutonomousRuntimeSafetyStopGateTest extends TestCase
             'queue_health' => true,
             'rollback_readiness' => true,
             'unsafe_release_active' => false,
+            'repair_evidence_refs' => ['tests_or_gates_result:phpunit_green'],
         ];
     }
 
@@ -140,6 +179,38 @@ final class AtlasAutonomousRuntimeSafetyStopGateTest extends TestCase
     public function test_complete_resume_proof_opens_to_observe_state(): void
     {
         $r = (new AtlasAutonomousRuntimeSafetyStopGate)->resume($this->goodResumeFacts());
+        $this->assertTrue($r['resume_allowed']);
+        $this->assertSame(AtlasAutonomousRuntimeSafetyStopGate::ACTION_OBSERVE, $r['action']);
+        $this->assertSame([], $r['blockers']);
+    }
+
+    // ── AC3: resume requires repair_evidence_refs and verifies stop reasons cleared ──
+
+    public function test_missing_repair_evidence_refs_keeps_stop_closed(): void
+    {
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->resume($this->goodResumeFacts(['repair_evidence_refs' => []]));
+        $this->assertFalse($r['resume_allowed']);
+        $this->assertContains('repair_evidence_refs_missing', $r['blockers']);
+    }
+
+    public function test_resume_blocked_when_original_stop_reason_still_present(): void
+    {
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->resume($this->goodResumeFacts([
+            'original_stop_reasons' => ['rollback_missing'],
+            'current_evaluate_facts' => array_merge($this->cleanFacts(), ['rollback_gate' => ['conformant' => false]]),
+        ]));
+
+        $this->assertFalse($r['resume_allowed']);
+        $this->assertContains('original_stop_reason_still_present:rollback_missing', $r['blockers']);
+    }
+
+    public function test_resume_succeeds_when_original_stop_reason_is_cleared(): void
+    {
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->resume($this->goodResumeFacts([
+            'original_stop_reasons' => ['rollback_missing'],
+            'current_evaluate_facts' => $this->cleanFacts(),
+        ]));
+
         $this->assertTrue($r['resume_allowed']);
         $this->assertSame(AtlasAutonomousRuntimeSafetyStopGate::ACTION_OBSERVE, $r['action']);
         $this->assertSame([], $r['blockers']);

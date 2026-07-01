@@ -26,9 +26,18 @@ namespace App\Services\Ai\SelfConstruction\AutonomousRuntime;
  *   - repeated_give_back_class:<class>:<count>
  *   - scope_drift:<count>
  *   - merge_governor_rejected
+ *   - poison_risk:<class>            (poison_signal.detected=true)
+ *   - stale_proof:<age_hours>        (proof_freshness.conformant=false — verification evidence itself is stale)
+ *   - runaway_growth:<rate>          (growth_metrics.queue_growth_rate > growth_metrics.ceiling)
+ *   - lease_mismatch                 (lease_integrity.matches=false)
  *
  * HOLD CLASSES (no STOPs but at least one ⇒ hold):
  *   - context_freshness_blocked
+ *
+ * RESUME (see {@see resume()}): requires non-empty repair_evidence_refs AND, when
+ * original_stop_reasons + current_evaluate_facts are supplied, re-runs evaluate() against the
+ * current facts to prove none of the original stop reasons are still present — a resume can never
+ * proceed on the claim that a stop cause was fixed without re-checking it.
  *
  * INVARIANTS:
  *   - NEVER treats worker self-report as final safety evidence.
@@ -53,7 +62,13 @@ final class AtlasAutonomousRuntimeSafetyStopGate
      * Resume gate — decides whether the autonomous runtime may EXIT a safety stop.
      *
      * Required to exit: atlas_native_resume_proof (non-empty array), queue_health (truthy),
-     * rollback_readiness (truthy), and unsafe_release_active must be false.
+     * rollback_readiness (truthy), unsafe_release_active must be false, AND
+     * repair_evidence_refs (non-empty list of evidence identifiers) — a resume is never allowed
+     * on a bare claim of repair without a runnable/traceable evidence reference.
+     *
+     * When original_stop_reasons + current_evaluate_facts are supplied, this re-runs evaluate()
+     * against the current facts and blocks resume if any original stop reason is still present —
+     * repair_evidence_refs alone is never trusted without re-checking the actual cause.
      *
      * If all conditions pass, action='observe' (cautious post-stop state). Otherwise action='stop'.
      *
@@ -79,6 +94,26 @@ final class AtlasAutonomousRuntimeSafetyStopGate
 
         if ((bool) ($facts['unsafe_release_active'] ?? false)) {
             $blockers[] = 'unsafe_release_active';
+        }
+
+        $repairEvidenceRefs = array_values(array_filter(
+            array_map('strval', (array) ($facts['repair_evidence_refs'] ?? [])),
+            static fn (string $ref): bool => $ref !== '',
+        ));
+        if ($repairEvidenceRefs === []) {
+            $blockers[] = 'repair_evidence_refs_missing';
+        }
+
+        $originalStopReasons = array_values(array_filter(
+            array_map('strval', (array) ($facts['original_stop_reasons'] ?? [])),
+            static fn (string $r): bool => $r !== '',
+        ));
+        if ($originalStopReasons !== []) {
+            $currentFacts = is_array($facts['current_evaluate_facts'] ?? null) ? $facts['current_evaluate_facts'] : [];
+            $freshReasons = $this->evaluate($currentFacts)['reasons'];
+            foreach (array_intersect($originalStopReasons, $freshReasons) as $stillPresent) {
+                $blockers[] = 'original_stop_reason_still_present:'.$stillPresent;
+            }
         }
 
         sort($blockers, SORT_STRING);
@@ -143,6 +178,38 @@ final class AtlasAutonomousRuntimeSafetyStopGate
             $stop[] = 'merge_governor_rejected';
         }
 
+        // STOP: poison risk detected.
+        $poison = is_array($facts['poison_signal'] ?? null) ? $facts['poison_signal'] : [];
+        $poisonDetected = (bool) ($poison['detected'] ?? false);
+        $poisonClass = (string) ($poison['class'] ?? 'unknown');
+        if ($poisonDetected) {
+            $stop[] = 'poison_risk:'.$poisonClass;
+        }
+
+        // STOP: stale proof — the verification evidence itself is too old to trust, distinct
+        // from context_freshness (docs/context pack), which is a HOLD, not a STOP.
+        $proofFreshness = is_array($facts['proof_freshness'] ?? null) ? $facts['proof_freshness'] : [];
+        $proofConformant = (bool) ($proofFreshness['conformant'] ?? true);
+        $proofAgeHours = (float) ($proofFreshness['age_hours'] ?? 0.0);
+        if (isset($proofFreshness['conformant']) && ! $proofConformant) {
+            $stop[] = 'stale_proof:'.$proofAgeHours;
+        }
+
+        // STOP: runaway growth — queue growth rate exceeds its safety ceiling.
+        $growth = is_array($facts['growth_metrics'] ?? null) ? $facts['growth_metrics'] : [];
+        $growthRate = (float) ($growth['queue_growth_rate'] ?? 0.0);
+        $growthCeiling = (float) ($growth['ceiling'] ?? INF);
+        if ($growthRate > $growthCeiling) {
+            $stop[] = 'runaway_growth:'.$growthRate;
+        }
+
+        // STOP: lease mismatch — the runtime's lease no longer matches the authoritative record.
+        $leaseIntegrity = is_array($facts['lease_integrity'] ?? null) ? $facts['lease_integrity'] : [];
+        $leaseMatches = (bool) ($leaseIntegrity['matches'] ?? true);
+        if (isset($leaseIntegrity['matches']) && ! $leaseMatches) {
+            $stop[] = 'lease_mismatch';
+        }
+
         // HOLD: context freshness blocked.
         $cf = is_array($facts['context_freshness'] ?? null) ? $facts['context_freshness'] : [];
         if (isset($cf['conformant']) && ! (bool) $cf['conformant']) {
@@ -177,6 +244,10 @@ final class AtlasAutonomousRuntimeSafetyStopGate
                 'scope_drift_count' => $driftCount,
                 'merge_governor_decision' => $mgDecision,
                 'context_freshness_conformant' => (bool) ($cf['conformant'] ?? false),
+                'poison_detected' => $poisonDetected,
+                'proof_freshness_conformant' => $proofConformant,
+                'growth_rate' => $growthRate,
+                'lease_matches' => $leaseMatches,
             ],
         ];
     }
