@@ -14,6 +14,20 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  * work, never spends tokens and never writes the evidence ledger.
  *
  * The planner is deterministic given (agents, heartbeats, options).
+ *
+ * Every agent (available or not) gets an availability_status in
+ * {available, stale, overloaded, quarantined, capability_mismatch, unavailable} — the first
+ * matching classification wins, in that priority order, so a quarantined-and-stale agent is
+ * always reported quarantined (the more severe/authoritative fact).
+ *
+ * Eligible (available) agents are ranked by: heartbeat freshness (fresher first), capability
+ * fit (tighter fit — fewer unrelated capabilities — first when required_capabilities is set,
+ * otherwise fewer total capabilities first), current load ratio (less loaded first), then
+ * recent_outcome_quality (higher first, from optional per-agent input fact, default 0.5).
+ *
+ * When no agent is eligible, the plan carries no_eligible_agent=true and repair_reasons — the
+ * distinct set of reasons blocking every candidate — instead of silently assigning work to an
+ * unsafe or absent runtime.
  */
 final class AgentRuntimeRegistryAvailabilityPlanner
 {
@@ -170,6 +184,14 @@ final class AgentRuntimeRegistryAvailabilityPlanner
             }
 
             $reasons = array_values(array_unique($reasons));
+            $loadRatio = $maxParallel > 0 ? $currentTasks / $maxParallel : ($currentTasks > 0 ? 1.0 : 0.0);
+            $capabilityFitCount = $requiredCapabilities !== []
+                ? count(array_intersect($capabilities, $requiredCapabilities))
+                : count($capabilities);
+            $outcomeQuality = is_numeric($agent['recent_outcome_quality'] ?? null)
+                ? max(0.0, min(1.0, (float) $agent['recent_outcome_quality']))
+                : 0.5;
+
             $payload = [
                 'agent_id' => $agentId,
                 'kind' => $kind,
@@ -181,6 +203,10 @@ final class AgentRuntimeRegistryAvailabilityPlanner
                 'heartbeat_status' => $heartbeatStatus,
                 'heartbeat_age_seconds' => $heartbeatAge,
                 'reasons' => $reasons,
+                'availability_status' => $this->availabilityStatus($reasons),
+                'load_ratio' => round($loadRatio, 4),
+                'capability_fit_count' => $capabilityFitCount,
+                'recent_outcome_quality' => $outcomeQuality,
             ];
 
             if ($reasons === []) {
@@ -190,7 +216,29 @@ final class AgentRuntimeRegistryAvailabilityPlanner
             }
         }
 
-        usort($available, static fn (array $a, array $b): int => strcmp((string) $a['agent_id'], (string) $b['agent_id']));
+        usort($available, function (array $a, array $b) use ($requiredCapabilities): int {
+            $ageA = $a['heartbeat_age_seconds'] ?? 0;
+            $ageB = $b['heartbeat_age_seconds'] ?? 0;
+            if ($ageA !== $ageB) {
+                return $ageA <=> $ageB;
+            }
+            // Tighter fit (higher intersection count when capabilities are required, else
+            // fewer total capabilities) ranks first — negate so higher "fit" sorts earlier.
+            $fitCmp = $requiredCapabilities !== []
+                ? $b['capability_fit_count'] <=> $a['capability_fit_count']
+                : $a['capability_fit_count'] <=> $b['capability_fit_count'];
+            if ($fitCmp !== 0) {
+                return $fitCmp;
+            }
+            if ($a['load_ratio'] !== $b['load_ratio']) {
+                return $a['load_ratio'] <=> $b['load_ratio'];
+            }
+            if ($a['recent_outcome_quality'] !== $b['recent_outcome_quality']) {
+                return $b['recent_outcome_quality'] <=> $a['recent_outcome_quality'];
+            }
+
+            return strcmp((string) $a['agent_id'], (string) $b['agent_id']);
+        });
         usort($unavailable, static fn (array $a, array $b): int => strcmp((string) $a['agent_id'], (string) $b['agent_id']));
         usort($stale, static fn (array $a, array $b): int => strcmp((string) $a['agent_id'], (string) $b['agent_id']));
 
@@ -226,6 +274,20 @@ final class AgentRuntimeRegistryAvailabilityPlanner
             ],
         ];
 
+        $noEligibleAgent = $available === [];
+        $repairReasons = [];
+        if ($noEligibleAgent) {
+            if ($unavailable === []) {
+                $repairReasons[] = 'no_agents_registered';
+            } else {
+                foreach ($unavailable as $agentPayload) {
+                    $repairReasons = array_merge($repairReasons, (array) $agentPayload['reasons']);
+                }
+                $repairReasons = array_values(array_unique($repairReasons));
+                sort($repairReasons);
+            }
+        }
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -238,6 +300,8 @@ final class AgentRuntimeRegistryAvailabilityPlanner
             'unavailable_agents' => $unavailable,
             'stale_agents' => $stale,
             'capacity_summary' => $capacitySummary,
+            'no_eligible_agent' => $noEligibleAgent,
+            'repair_reasons' => $repairReasons,
             'availability_hash' => $this->stableHash($hashPayload),
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
@@ -261,6 +325,35 @@ final class AgentRuntimeRegistryAvailabilityPlanner
             'self_programming_allowed' => false,
             'ledger_write_allowed' => false,
         ];
+    }
+
+    /**
+     * Classifies an agent into exactly one of: quarantined, capability_mismatch, overloaded,
+     * stale, available. First matching rule wins, in that priority order, so the most
+     * severe/authoritative fact is never masked by a lower-priority one.
+     *
+     * @param  list<string>  $reasons
+     */
+    private function availabilityStatus(array $reasons): string
+    {
+        if (in_array('quarantined', $reasons, true) || in_array('quarantined_status', $reasons, true)) {
+            return 'quarantined';
+        }
+        if (in_array('missing_capabilities', $reasons, true)) {
+            return 'capability_mismatch';
+        }
+        if (in_array('capacity_full', $reasons, true)) {
+            return 'overloaded';
+        }
+        $staleReasons = ['missing_heartbeat', 'invalid_heartbeat_timestamp', 'stale_heartbeat', 'stale_status'];
+        if (array_intersect($staleReasons, $reasons) !== []) {
+            return 'stale';
+        }
+        if ($reasons === []) {
+            return 'available';
+        }
+
+        return 'unavailable';
     }
 
     /**
