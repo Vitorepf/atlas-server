@@ -279,4 +279,69 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegrationTe
         $this->assertNotContains('runnable_proof_missing_in_worker_evidence', $merge['blockers']);
         $this->assertSame(AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration::DECISION_REQUEST_MERGE, $merge['decision']);
     }
+
+    // ── AC: scope drift blocks merge decision ─────────────────────────────────
+
+    public function test_merge_decision_blocks_on_scope_drift(): void
+    {
+        $merge = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildMergeDecision(
+                [
+                    'passed' => true,
+                    'evidence_refs' => ['r1'],
+                    'changed_files' => ['app/Foo.php', 'config/atlas.php'],
+                    'allowed_files' => ['app/Foo.php'],
+                ],
+                ['mode' => 'revert_commit'],
+            );
+
+        $this->assertSame(AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration::DECISION_BLOCK, $merge['decision']);
+        $this->assertContains('scope_drift_detected', $merge['blockers']);
+    }
+
+    public function test_merge_decision_no_scope_drift_when_changed_files_within_allowed(): void
+    {
+        $merge = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildMergeDecision(
+                [
+                    'passed' => true,
+                    'evidence_refs' => ['r1'],
+                    'changed_files' => ['app/Foo.php'],
+                    'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+                ],
+                ['mode' => 'revert_commit'],
+            );
+
+        $this->assertSame(AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration::DECISION_REQUEST_MERGE, $merge['decision']);
+        $this->assertNotContains('scope_drift_detected', $merge['blockers']);
+    }
+
+    // ── AC: hold_or_reject + blocking_reasons ─────────────────────────────────
+
+    public function test_hold_or_reject_is_null_on_successful_merge_request(): void
+    {
+        $merge = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildMergeDecision(['passed' => true, 'evidence_refs' => ['r1']], ['mode' => 'revert_commit']);
+
+        $this->assertNull($merge['hold_or_reject']);
+        $this->assertSame([], $merge['blocking_reasons']);
+    }
+
+    public function test_hold_or_reject_is_reject_for_failed_verification(): void
+    {
+        $merge = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildMergeDecision(['passed' => false], ['mode' => 'revert_commit']);
+
+        $this->assertSame('reject', $merge['hold_or_reject']);
+        $this->assertContains('verification_failed', $merge['blocking_reasons']);
+    }
+
+    public function test_hold_or_reject_is_hold_for_missing_rollback_plan(): void
+    {
+        $merge = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildMergeDecision(['passed' => true, 'evidence_refs' => ['r1']], []);
+
+        $this->assertSame('hold', $merge['hold_or_reject']);
+        $this->assertContains('rollback_plan_missing', $merge['blocking_reasons']);
+    }
 }

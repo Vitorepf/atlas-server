@@ -118,6 +118,15 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration
         } elseif (! in_array((string) $rollbackPlan['mode'], self::SAFE_ROLLBACK_MODES, true)) {
             $blockers[] = 'rollback_mode_not_safe';
         }
+
+        // Scope match: only checked when the verdict itself declares both sides (fail-closed on
+        // declared drift, never a false positive when the caller supplied no scope facts here).
+        $changedFiles = array_values(array_map('strval', (array) ($verificationVerdict['changed_files'] ?? [])));
+        $allowedFiles = array_values(array_map('strval', (array) ($verificationVerdict['allowed_files'] ?? [])));
+        if ($changedFiles !== [] && $allowedFiles !== [] && array_diff($changedFiles, $allowedFiles) !== []) {
+            $blockers[] = 'scope_drift_detected';
+        }
+
         if ($blockers !== []) {
             return $this->envelope(self::DECISION_BLOCK, $blockers);
         }
@@ -174,11 +183,19 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration
      */
     private function envelope(string $decision, array $blockers): array
     {
+        $blockers = array_values($blockers);
+
         return [
             'schema_version' => self::SCHEMA,
             'phase' => 'merge_decision',
             'decision' => $decision,
-            'blockers' => array_values($blockers),
+            'blockers' => $blockers,
+            'blocking_reasons' => $blockers,
+            'hold_or_reject' => match ($decision) {
+                self::DECISION_REJECT => 'reject',
+                self::DECISION_BLOCK => 'hold',
+                default => null,
+            },
         ];
     }
 }
