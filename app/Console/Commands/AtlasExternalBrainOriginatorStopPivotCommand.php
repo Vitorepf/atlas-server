@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyClaimAuditor;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorBatchValueAuditor;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorSpecNoveltyGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorStopOrPivotAdvisor;
@@ -52,6 +53,7 @@ final class AtlasExternalBrainOriginatorStopPivotCommand extends Command
         $themeSaturationMeter = new AtlasExternalBrainOriginatorThemeSaturationMeter;
         $batchValueAuditor = new AtlasExternalBrainOriginatorBatchValueAuditor;
         $specNoveltyGate = new AtlasExternalBrainOriginatorSpecNoveltyGate;
+        $autonomyClaimAuditor = new AtlasExternalBrainAutonomyClaimAuditor;
 
         $verdict = $advisor->advise($facts);
 
@@ -70,6 +72,15 @@ final class AtlasExternalBrainOriginatorStopPivotCommand extends Command
             'existing_class_names' => $facts['existing_class_names'] ?? [],
         ]);
 
+        // Audit any autonomy claims supplied alongside the origination facts (e.g. "queue healthy",
+        // "24/7 autonomous") against concrete evidence rather than accepting them at face value.
+        $autonomyClaimAudits = [];
+        foreach ((array) ($facts['autonomy_claims'] ?? []) as $claim) {
+            if (is_array($claim)) {
+                $autonomyClaimAudits[] = $autonomyClaimAuditor->audit($claim);
+            }
+        }
+
         $payload = [
             'schema' => self::SCHEMA,
             'next_action' => $verdict['next_action'],
@@ -78,6 +89,7 @@ final class AtlasExternalBrainOriginatorStopPivotCommand extends Command
             'theme_saturation' => $themeSaturation,
             'batch_value' => $batchValue,
             'candidate_novelty' => $candidateNovelty,
+            'autonomy_claim_audits' => $autonomyClaimAudits,
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
