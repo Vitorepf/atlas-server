@@ -106,23 +106,52 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
             $this->duplicateObjectiveShape($objective, $knownSpecObjectives),
         ];
 
-        $allLensesPassed = array_reduce($lenses, static fn (bool $carry, array $l): bool => $carry && $l['passed'], true);
-        $repairHints = array_values(array_unique(array_merge(...array_column($lenses, 'repair_hints'))));
+        $aggregate = $this->aggregateLensResults($lenses);
 
+        return [
+            'schema' => self::SCHEMA,
+            'task_packet_id' => $id,
+            'approved' => $aggregate['approved'],
+            'risk_score' => $aggregate['risk_score'],
+            'lens_results' => $lenses,
+            'repair_hints' => $aggregate['repair_hints'],
+            'hard_blockers' => $aggregate['hard_blockers'],
+            'enqueue_recommendation' => $aggregate['enqueue_recommendation'],
+        ];
+    }
+
+    /**
+     * Single review-aggregation circuit: derives approved, risk_score, hard_blockers,
+     * repair_hints, and enqueue_recommendation from ONE pass over the lens results —
+     * so a failed lens can never be reflected in risk_score without also appearing in
+     * hard_blockers/repair_hints (or vice versa) for a malformed spec.
+     *
+     * @param  list<array<string,mixed>>  $lenses
+     * @return array{approved:bool, risk_score:int, hard_blockers:list<string>, repair_hints:list<string>, enqueue_recommendation:string}
+     */
+    private function aggregateLensResults(array $lenses): array
+    {
+        $allPassed = true;
         $riskScore = 0;
         $hardBlockers = [];
-        foreach ($lenses as $l) {
-            if ($l['passed']) {
+        $hints = [];
+
+        foreach ($lenses as $lens) {
+            $hints = array_merge($hints, (array) ($lens['repair_hints'] ?? []));
+
+            if ($lens['passed']) {
                 continue;
             }
-            $riskScore += self::LENS_WEIGHTS[$l['lens']] ?? 10;
-            if (in_array($l['lens'], self::HARD_LENSES, true)) {
-                $hardBlockers[] = $l['lens'];
+
+            $allPassed = false;
+            $riskScore += self::LENS_WEIGHTS[$lens['lens']] ?? 10;
+            if (in_array($lens['lens'], self::HARD_LENSES, true)) {
+                $hardBlockers[] = $lens['lens'];
             }
         }
-        $riskScore = min(100, $riskScore);
 
-        $approved = $allLensesPassed && $riskScore < self::APPROVAL_RISK_CEILING;
+        $riskScore = min(100, $riskScore);
+        $approved = $allPassed && $riskScore < self::APPROVAL_RISK_CEILING;
 
         $enqueueRecommendation = match (true) {
             $approved => 'enqueue',
@@ -131,13 +160,10 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
         };
 
         return [
-            'schema' => self::SCHEMA,
-            'task_packet_id' => $id,
             'approved' => $approved,
             'risk_score' => $riskScore,
-            'lens_results' => $lenses,
-            'repair_hints' => $repairHints,
             'hard_blockers' => $hardBlockers,
+            'repair_hints' => array_values(array_unique($hints)),
             'enqueue_recommendation' => $enqueueRecommendation,
         ];
     }
