@@ -191,4 +191,147 @@ final class AtlasTaskSimplicityContractAuditorTest extends TestCase
         $warnings = array_filter($result['findings'], fn ($f) => $f['status'] === AtlasTaskSimplicityContractAuditor::STATUS_WARNING);
         $this->assertCount(0, $warnings);
     }
+
+    // --- AC2: unnecessary abstractions + speculative config ---
+
+    public function test_unnecessary_abstraction_wording_is_flagged(): void
+    {
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([[
+            'task_packet' => [
+                'task_packet_id' => 'pkt-abstraction',
+                'simplicity_contract' => AgentControlPlaneTaskPacketBuilder::defaultSimplicityContract(),
+                'allowed_files' => ['app/Services/Foo.php'],
+                'objective' => 'Introduce a factory to build Foo instances for future extensibility',
+            ],
+        ]]);
+
+        $warnings = array_values(array_filter($result['findings'], fn ($f) => $f['finding_type'] === 'unnecessary_abstraction_detected'));
+        $this->assertCount(1, $warnings);
+        $this->assertSame('remove_the_unrequested_abstraction_and_solve_directly', $warnings[0]['recommended_action']);
+    }
+
+    public function test_speculative_config_wording_is_flagged(): void
+    {
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([[
+            'task_packet' => [
+                'task_packet_id' => 'pkt-config',
+                'simplicity_contract' => AgentControlPlaneTaskPacketBuilder::defaultSimplicityContract(),
+                'allowed_files' => ['app/Services/Foo.php'],
+                'objective' => 'Add a config flag for the timeout in case we need it for future flexibility',
+            ],
+        ]]);
+
+        $warnings = array_values(array_filter($result['findings'], fn ($f) => $f['finding_type'] === 'speculative_config_detected'));
+        $this->assertCount(1, $warnings);
+        $this->assertSame('drop_the_speculative_config_and_hardcode_the_current_value', $warnings[0]['recommended_action']);
+    }
+
+    // --- AC3: value classification (simple_high_value vs under_specified_low_value) ---
+
+    public function test_clean_task_is_classified_simple_high_value(): void
+    {
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([$this->packetWithFiles('pkt-clean', ['app/Foo.php', 'tests/FooTest.php'], 'Implement Foo')]);
+
+        $decision = $result['decisions'][0];
+        $this->assertSame('pkt-clean', $decision['task_packet_id']);
+        $this->assertSame('simple_high_value', $decision['value_classification']);
+    }
+
+    public function test_task_with_any_spec_issue_is_classified_under_specified_low_value(): void
+    {
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([$this->packetWithFiles('pkt-issue', [])]);
+
+        $this->assertSame('under_specified_low_value', $result['decisions'][0]['value_classification']);
+    }
+
+    // --- AC4: simplify / split / reject / accept decisions with concrete advice ---
+
+    public function test_accept_decision_for_clean_task(): void
+    {
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([$this->packetWithFiles('pkt-accept', ['app/Foo.php', 'tests/FooTest.php'], 'Implement Foo')]);
+
+        $decision = $result['decisions'][0];
+        $this->assertSame(AtlasTaskSimplicityContractAuditor::DECISION_ACCEPT, $decision['decision']);
+        $this->assertNotEmpty($decision['scope_reduction_advice']);
+    }
+
+    public function test_split_decision_for_over_broad_allowed_files(): void
+    {
+        $files = array_map(fn ($i) => "app/Services/Foo{$i}.php", range(1, 16));
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([$this->packetWithFiles('pkt-split', $files)]);
+
+        $this->assertSame(AtlasTaskSimplicityContractAuditor::DECISION_SPLIT, $result['decisions'][0]['decision']);
+        $this->assertStringContainsString('split', strtolower($result['decisions'][0]['scope_reduction_advice']));
+    }
+
+    public function test_reject_decision_for_wrapper_wording(): void
+    {
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([[
+            'task_packet' => [
+                'task_packet_id' => 'pkt-reject',
+                'simplicity_contract' => AgentControlPlaneTaskPacketBuilder::defaultSimplicityContract(),
+                'allowed_files' => ['app/Services/Foo.php'],
+                'objective' => 'Build a template farm generator for boilerplate services',
+            ],
+        ]]);
+
+        $this->assertSame(AtlasTaskSimplicityContractAuditor::DECISION_REJECT, $result['decisions'][0]['decision']);
+    }
+
+    public function test_reject_decision_for_missing_implementation_target(): void
+    {
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([$this->packetWithFiles('pkt-no-target', [])]);
+
+        $this->assertSame(AtlasTaskSimplicityContractAuditor::DECISION_REJECT, $result['decisions'][0]['decision']);
+    }
+
+    public function test_simplify_decision_for_unnecessary_abstraction(): void
+    {
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([[
+            'task_packet' => [
+                'task_packet_id' => 'pkt-simplify',
+                'simplicity_contract' => AgentControlPlaneTaskPacketBuilder::defaultSimplicityContract(),
+                'allowed_files' => ['app/Services/Foo.php'],
+                'objective' => 'Introduce a factory to build Foo instances',
+            ],
+        ]]);
+
+        $this->assertSame(AtlasTaskSimplicityContractAuditor::DECISION_SIMPLIFY, $result['decisions'][0]['decision']);
+    }
+
+    public function test_simplify_decision_for_speculative_config(): void
+    {
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([[
+            'task_packet' => [
+                'task_packet_id' => 'pkt-simplify-config',
+                'simplicity_contract' => AgentControlPlaneTaskPacketBuilder::defaultSimplicityContract(),
+                'allowed_files' => ['app/Services/Foo.php'],
+                'objective' => 'Add a timeout setting configurable for later',
+            ],
+        ]]);
+
+        $this->assertSame(AtlasTaskSimplicityContractAuditor::DECISION_SIMPLIFY, $result['decisions'][0]['decision']);
+    }
+
+    public function test_decisions_count_matches_inspected_records(): void
+    {
+        $auditor = new AtlasTaskSimplicityContractAuditor;
+        $result = $auditor->audit([
+            $this->conformingRecord('a'),
+            $this->packetWithFiles('b', []),
+            'malformed',
+        ]);
+
+        $this->assertCount(2, $result['decisions']);
+    }
 }
