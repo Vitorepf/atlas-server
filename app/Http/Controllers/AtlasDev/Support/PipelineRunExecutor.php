@@ -813,6 +813,7 @@ final class PipelineRunExecutor implements RunExecutor
             $e6Verdict = $this->evaluateSpecConstitution(
                 runId: $runId,
                 scopeReceipt: $scopeReceipt,
+                satisfiedVerificationRefs: $this->satisfiedVerificationRefs($verificationResult),
             );
 
             if ($e6Verdict->isUnevaluable) {
@@ -3520,6 +3521,31 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
     }
 
     /**
+     * E6: distill the verification commands the run actually executed AND
+     * passed. Returns the list of TestRun.command strings where ok===true.
+     * This is the honest executed-evidence source for the E6 behavioral AC
+     * verification_ref satisfaction check (VAL-M2-021): a behavioral AC's
+     * declared verification_ref must be among these commands for the
+     * criterion's obligation to be considered satisfied.
+     *
+     * @param  VerificationGateResult  $result  the verification gate result
+     *                                          carrying the executed TestRun
+     *                                          list.
+     * @return list<string>
+     */
+    private function satisfiedVerificationRefs(VerificationGateResult $result): array
+    {
+        $refs = [];
+        foreach ($result->tests as $test) {
+            if ($test->ok) {
+                $refs[] = $test->command;
+            }
+        }
+
+        return array_values(array_unique($refs));
+    }
+
+    /**
      * E6: resolve the DifferentialTestingService the candidate-divergence
      * gate consumes.
      *
@@ -3840,10 +3866,23 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      *
      * @param  ScopeGuardReceipt  $scopeReceipt  the scope guard receipt
      *                                           carrying the observed file diffs (touched file paths).
+     * @param  list<string>  $satisfiedVerificationRefs  the verification
+     *                                                   commands the run
+     *                                                   actually executed
+     *                                                   AND passed
+     *                                                   (TestRun.command
+     *                                                   where ok===true).
+     *                                                   Threaded from the
+     *                                                   call site so E6 can
+     *                                                   check behavioral AC
+     *                                                   verification_ref
+     *                                                   satisfaction
+     *                                                   (VAL-M2-021).
      */
     private function evaluateSpecConstitution(
         string $runId,
         ScopeGuardReceipt $scopeReceipt,
+        array $satisfiedVerificationRefs = [],
     ): SpecConstitutionVerdict {
         // Load the persisted MiniProgrammingSpec. storage->read returns null
         // when the file does not exist (no spec declared => no-op, VAL-M2-
@@ -3882,7 +3921,11 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // Run the gate. If the gate itself throws (unexpected), the check is
         // unevaluable (VAL-M2-033 — never a crash, never a silent green).
         try {
-            return (new SpecDrivenConstitutionGate)->evaluate($miniSpec, $touchedFilePaths);
+            return (new SpecDrivenConstitutionGate)->evaluate(
+                $miniSpec,
+                $touchedFilePaths,
+                $satisfiedVerificationRefs,
+            );
         } catch (\Throwable $e) {
             return SpecConstitutionVerdict::unevaluable(
                 'e6: spec constitution evaluation errored: '.$e->getMessage(),

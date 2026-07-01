@@ -100,12 +100,25 @@ final class SpecDrivenConstitutionGate
      * @param  list<string>  $touchedFilePaths  the file paths the diff touched
      *                                          (from the scope receipt's
      *                                          fileDiffs).
+     * @param  list<string>  $satisfiedVerificationRefs  the verification
+     *                                                   commands the run
+     *                                                   actually executed
+     *                                                   AND passed
+     *                                                   (TestRun.command
+     *                                                   where ok===true).
+     *                                                   Defaults to [] so
+     *                                                   every existing
+     *                                                   evaluate($spec,$paths)
+     *                                                   call is byte-identical.
      * @return SpecConstitutionVerdict the verdict (no-op / pass / tripped).
      *                                 The executor routes tripped/unevaluable through the advisory
      *                                 or hard channel based on the e6.mode config.
      */
-    public function evaluate(MiniProgrammingSpec $spec, array $touchedFilePaths): SpecConstitutionVerdict
-    {
+    public function evaluate(
+        MiniProgrammingSpec $spec,
+        array $touchedFilePaths,
+        array $satisfiedVerificationRefs = [],
+    ): SpecConstitutionVerdict {
         // Check 1: NO-OP — no constitution to validate (VAL-M2-034).
         // A spec with zero acceptance criteria, non-goals, forbidden files,
         // and expected behavior has nothing to validate. E6 surfaces nothing.
@@ -134,15 +147,23 @@ final class SpecDrivenConstitutionGate
         }
 
         // Check 3: NON-GOALS (VAL-M2-024).
-        // For each non-goal string, extract file-path-like tokens and check
-        // if any touched file matches. A diff that implements a non-goal
-        // (touches a file referenced in a non-goal) trips the gate. Non-goals
-        // without extractable file paths are not matched — the gate catches
-        // the file-path-referencing subset deterministically.
+        // For each non-goal string, extract file-path-like tokens (including
+        // slash-containing directory-prefix tokens without an extension) AND
+        // Capitalized class/identifier symbols. A diff that implements a
+        // non-goal (touches a file referenced in a non-goal by path or by
+        // Capitalized symbol matching a touched-file basename) trips the
+        // gate. Non-goals without extractable paths or symbols whose
+        // Capitalized tokens match no touched-file basename are not matched
+        // — the gate catches the file-path/symbol-referencing subset
+        // deterministically, without attempting semantic analysis of
+        // free-text behavioral non-goals.
+        $touchedBasenames = $this->touchedFileBasenames($touchedFilePaths);
         foreach ($spec->nonGoals as $nonGoal) {
             if (! is_string($nonGoal) || $nonGoal === '') {
                 continue;
             }
+            // (a) Path tokens: dot-extension paths AND slash-containing
+            // directory-prefix tokens without an extension.
             $nonGoalPaths = $this->extractFilePaths($nonGoal);
             foreach ($nonGoalPaths as $ngPath) {
                 foreach ($touchedFilePaths as $touchedPath) {
@@ -150,6 +171,18 @@ final class SpecDrivenConstitutionGate
                         $flags[] = self::FLAG_SPEC_CONSTITUTION_VIOLATION;
                         $reasons[] = "non-goal implemented: {$nonGoal} (touched: {$touchedPath})";
                     }
+                }
+            }
+            // (b) Capitalized class/identifier symbols: matched against the
+            // touched files' basename-without-extension. Restricted to
+            // Capitalized tokens AND requiring a match against an ACTUAL
+            // touched-file basename, so prose words that reference no
+            // touched file never false-trip.
+            $nonGoalSymbols = $this->extractCapitalizedSymbols($nonGoal);
+            foreach ($nonGoalSymbols as $symbol) {
+                if (in_array($symbol, $touchedBasenames, true)) {
+                    $flags[] = self::FLAG_SPEC_CONSTITUTION_VIOLATION;
+                    $reasons[] = "non-goal implemented: {$nonGoal} (symbol: {$symbol})";
                 }
             }
         }
@@ -174,6 +207,45 @@ final class SpecDrivenConstitutionGate
                 if (! $this->isInScope($touchedPath, $specScopedFiles)) {
                     $flags[] = self::FLAG_SPEC_CONSTITUTION_VIOLATION;
                     $reasons[] = "out-of-spec file: {$touchedPath} not justified by any acceptance criterion";
+                }
+            }
+        }
+
+        // Check 5: VERIFICATION_REF SATISFACTION (VAL-M2-021).
+        // For each BEHAVIORAL acceptance criterion (id prefix 'ac_behavior_')
+        // that declares a non-empty verification_ref, trip E6 when that ref
+        // is NOT satisfied by the run's EXECUTED evidence — i.e. no
+        // satisfiedVerificationRefs entry matches the ref. This is the
+        // machine-checkable content check: a behavioral AC declares a
+        // concrete test command as its verification_ref; if the run did not
+        // execute and pass that command, the criterion's declared obligation
+        // is not honored.
+        //
+        // Honesty guard (anti-tautological): apply ONLY when the run
+        // actually executed verification commands (non-empty
+        // satisfiedVerificationRefs). When no evidence was executed, the
+        // check is skipped (no evidence to compare against — never
+        // false-fail). A criterion with NO verification_ref is NOT tripped
+        // and NOT claimed honored — it is outside deterministic reach and
+        // delegated to the M3 mandatory senior critic. This is DISTINCT
+        // from spec_unevaluable (VAL-M2-033), which is reserved for a
+        // corrupt/unreadable spec or an evaluator error.
+        if ($satisfiedVerificationRefs !== []) {
+            foreach ($spec->acceptanceCriteria as $ac) {
+                if (! is_array($ac)) {
+                    continue;
+                }
+                $id = (string) ($ac['id'] ?? '');
+                if (! str_starts_with($id, 'ac_behavior_')) {
+                    continue;
+                }
+                $ref = $ac['verification_ref'] ?? null;
+                if (! is_string($ref) || trim($ref) === '') {
+                    continue;
+                }
+                if (! in_array($ref, $satisfiedVerificationRefs, true)) {
+                    $flags[] = self::FLAG_SPEC_CONSTITUTION_VIOLATION;
+                    $reasons[] = "acceptance criterion not satisfied: {$id} (declared verification_ref: {$ref} not among executed passing commands)";
                 }
             }
         }
@@ -217,20 +289,95 @@ final class SpecDrivenConstitutionGate
 
     /**
      * Extract file-path-like tokens from a free-text string (e.g. a non-goal
-     * description). Matches substrings that look like file paths: contain a
-     * slash or a dot-extension pattern. This is a heuristic — it catches the
-     * file-path-referencing subset of non-goals deterministically, without
-     * attempting semantic analysis of free-text behavioral non-goals.
+     * description). Matches substrings that look like file paths:
+     *
+     *   1. Dot-extension tokens: `app/Config.php`, `config/app.php`.
+     *   2. Slash-containing / directory-prefix tokens WITHOUT an extension:
+     *      `config/`, `app/Services`, `app/Services/Config`. These catch
+     *      plain-language non-goals that name a directory or path without a
+     *      file extension (VAL-M2-024).
+     *
+     * This is a heuristic — it catches the file-path-referencing subset of
+     * non-goals deterministically, without attempting semantic analysis of
+     * free-text behavioral non-goals.
      *
      * @return list<string>
      */
     private function extractFilePaths(string $text): array
     {
-        // Match tokens that look like file paths: word chars, slashes, dots,
-        // hyphens, followed by a dot and a 1-10 char extension.
-        preg_match_all('/[a-zA-Z0-9_\/.-]+\.[a-zA-Z]{1,10}/', $text, $matches);
+        $paths = [];
 
-        return $matches[0];
+        // (1) Dot-extension tokens: word chars, slashes, dots, hyphens,
+        // followed by a dot and a 1-10 char extension.
+        preg_match_all('/[a-zA-Z0-9_\/.-]+\.[a-zA-Z]{1,10}/', $text, $extMatches);
+        $paths = $extMatches[0];
+
+        // (2) Slash-containing / directory-prefix tokens WITHOUT an
+        // extension: catch plain-language non-goals that name a directory
+        // or path prefix (e.g. "config/", "app/Services"). Requires at
+        // least one slash and NO dot-extension (to avoid duplicating
+        // matches from (1)).
+        preg_match_all('/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_\/.-]*/', $text, $slashMatches);
+        foreach ($slashMatches[0] as $candidate) {
+            // Skip tokens that already have a dot-extension (caught by (1)).
+            if (preg_match('/\.[a-zA-Z]{1,10}$/', $candidate)) {
+                continue;
+            }
+            $paths[] = $candidate;
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * Extract Capitalized class/identifier symbols from a free-text string.
+     * Matches tokens with a leading uppercase letter followed by
+     * alphanumerics (PascalCase-style), e.g. `ConfigManager`,
+     * `SpecDrivenConstitutionGate`. These are matched against the touched
+     * files' basename-without-extension by the caller.
+     *
+     * Restriction: only Capitalized tokens are extracted. Lowercase prose
+     * words are never extracted, so they can never false-trip. A Capitalized
+     * token that matches NO touched-file basename also trips nothing (the
+     * caller enforces the basename match requirement).
+     *
+     * @return list<string>
+     */
+    private function extractCapitalizedSymbols(string $text): array
+    {
+        // Match tokens starting with an uppercase letter followed by at
+        // least one alphanumeric/underscore (min 2 chars to avoid matching
+        // single uppercase letters like "I" or "A").
+        preg_match_all('/\b[A-Z][a-zA-Z0-9_]+\b/', $text, $matches);
+
+        return array_values(array_unique($matches[0]));
+    }
+
+    /**
+     * Compute the basename-without-extension for each touched file path.
+     * Used for Capitalized symbol matching in non-goals: a non-goal that
+     * names a Capitalized identifier matching a touched file's basename
+     * trips the gate.
+     *
+     * @param  list<string>  $touchedFilePaths
+     * @return list<string>
+     */
+    private function touchedFileBasenames(array $touchedFilePaths): array
+    {
+        $basenames = [];
+        foreach ($touchedFilePaths as $path) {
+            $basename = basename($path);
+            // Strip the extension (the part after the last dot, if any).
+            $dotPos = strrpos($basename, '.');
+            if ($dotPos !== false && $dotPos > 0) {
+                $basename = substr($basename, 0, $dotPos);
+            }
+            if ($basename !== '') {
+                $basenames[] = $basename;
+            }
+        }
+
+        return array_values(array_unique($basenames));
     }
 
     /**

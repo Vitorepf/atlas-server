@@ -141,7 +141,7 @@ final class E6ConstitutionGateTest extends TestCase
             'forbidden_files' => [],
             'non_goals' => [],
             'acceptance_criteria' => [
-                ['description' => 'behavioral AC', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'tests/Unit/InScopeTest.php'],
+                ['description' => 'behavioral AC', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'composer test'],
             ],
             'expected_behavior' => [
                 ['description' => 'in-scope behavior', 'observable_by' => 'test'],
@@ -224,7 +224,7 @@ final class E6ConstitutionGateTest extends TestCase
             'forbidden_files' => [],
             'non_goals' => [],
             'acceptance_criteria' => [
-                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'tests/Unit/InScopeTest.php'],
+                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'composer test'],
             ],
             'expected_behavior' => [
                 ['description' => 'in-scope behavior is correct', 'observable_by' => 'test'],
@@ -306,7 +306,7 @@ final class E6ConstitutionGateTest extends TestCase
             'forbidden_files' => [],
             'non_goals' => [],
             'acceptance_criteria' => [
-                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'tests/Unit/InScopeTest.php'],
+                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'composer test'],
             ],
             'expected_behavior' => [
                 ['description' => 'in-scope behavior is correct', 'observable_by' => 'test'],
@@ -396,7 +396,7 @@ final class E6ConstitutionGateTest extends TestCase
             'forbidden_files' => [],
             'non_goals' => [],
             'acceptance_criteria' => [
-                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'tests/Unit/InScopeTest.php'],
+                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'composer test'],
             ],
             'expected_behavior' => [
                 ['description' => 'in-scope behavior is correct', 'observable_by' => 'test'],
@@ -485,7 +485,7 @@ final class E6ConstitutionGateTest extends TestCase
             'forbidden_files' => ['app/Config.php'],
             'non_goals' => [],
             'acceptance_criteria' => [
-                ['description' => 'service behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'tests/Unit/ServiceTest.php'],
+                ['description' => 'service behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'composer test'],
             ],
             'expected_behavior' => [
                 ['description' => 'service works', 'observable_by' => 'test'],
@@ -563,7 +563,7 @@ final class E6ConstitutionGateTest extends TestCase
             'forbidden_files' => [],
             'non_goals' => ['do not modify app/Config.php'],
             'acceptance_criteria' => [
-                ['description' => 'service behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'tests/Unit/ServiceTest.php'],
+                ['description' => 'service behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'composer test'],
             ],
             'expected_behavior' => [
                 ['description' => 'service works', 'observable_by' => 'test'],
@@ -889,6 +889,572 @@ final class E6ConstitutionGateTest extends TestCase
             'failed',
             $result->completionState,
             'VAL-M2-034: a spec-less task must not be failed by E6. Got: '
+            .$result->completionState,
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // VAL-M2-021 (strengthened): verification_ref satisfaction check
+    // ------------------------------------------------------------------
+
+    /**
+     * VAL-M2-021 (strengthened): a behavioral acceptance criterion (id
+     * prefix ac_behavior_) declares a verification_ref that names a command
+     * the run did NOT execute (or executed but did not pass). E6 trips in
+     * advisory mode: needs_review + spec_constitution_violation flag.
+     *
+     * The diff touches an in-scope file (Check 4 does not trip), no
+     * forbidden files (Check 2 does not trip), no non-goals (Check 3 does
+     * not trip). Only Check 5 (verification_ref satisfaction) trips.
+     */
+    public function test_e6_advisory_trips_when_behavioral_ac_verification_ref_not_satisfied(): void
+    {
+        $runId = 'dev-e6-vref-trip-adv-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+
+        // Spec declares a behavioral AC whose verification_ref is a command
+        // the run does NOT execute. The FakeCommandRunner queues a passing
+        // 'composer test' — the ref 'php vendor/bin/phpunit --filter=Specific'
+        // is NOT among the executed passing commands.
+        $this->seedRun($storage, $runId, specOverrides: [
+            'allowed_files' => ['app/InScope.php'],
+            'expected_files' => ['app/InScope.php'],
+            'forbidden_files' => [],
+            'non_goals' => [],
+            'acceptance_criteria' => [
+                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'php vendor/bin/phpunit --filter=Specific'],
+            ],
+            'expected_behavior' => [
+                ['description' => 'in-scope behavior is correct', 'observable_by' => 'test'],
+            ],
+        ]);
+
+        $target = $this->tmpWorkspace.'/app/InScope.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nreturn true;\n");
+
+        $diff = $this->diffFor('app/InScope.php');
+
+        $executor = $this->makeExecutor($storage, $diff);
+        $envelope = $this->envelope('Fix the bug in app/InScope.php.');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/InScope.php'],
+            'forbidden_files' => [],
+            'validation_commands' => ['composer test'],
+            'max_files_changed' => 1,
+            'intent_text' => 'Fix the bug in app/InScope.php.',
+            'intent_verbs' => ['fix'],
+            'repair_policy' => [
+                'max_attempts' => 0,
+                'abort_on_same_signature_twice' => true,
+                'requires_failed_gate_output' => true,
+                'same_provider' => true,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        // VAL-M2-021: advisory => needs_review (NOT failed, NOT passed).
+        $this->assertSame(
+            'needs_review',
+            $result->completionState,
+            'VAL-M2-021: E6 advisory trip on unsatisfied verification_ref must produce needs_review. Got: '
+            .$result->completionState,
+        );
+
+        // VAL-M2-021: the spec_constitution_violation flag is present.
+        $receipt = $this->loadReceipt($storage, $runId);
+        $this->assertContains(
+            SpecDrivenConstitutionGate::FLAG_SPEC_CONSTITUTION_VIOLATION,
+            $receipt->completion->honestyFlags,
+            'VAL-M2-021: spec_constitution_violation flag must be present. Flags: '
+            .json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /**
+     * VAL-M2-021 (strengthened, hard): same as the advisory trip but with
+     * e6.mode=hard. The completion is `failed` (firm block, NOT
+     * needs_review). The verification gate is forced to STATUS_FAILED.
+     */
+    public function test_e6_hard_trips_when_behavioral_ac_verification_ref_not_satisfied(): void
+    {
+        config()->set('atlas_dev.elevations.e6.mode', 'hard');
+
+        $runId = 'dev-e6-vref-trip-hard-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+
+        $this->seedRun($storage, $runId, specOverrides: [
+            'allowed_files' => ['app/InScope.php'],
+            'expected_files' => ['app/InScope.php'],
+            'forbidden_files' => [],
+            'non_goals' => [],
+            'acceptance_criteria' => [
+                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'php vendor/bin/phpunit --filter=Specific'],
+            ],
+            'expected_behavior' => [
+                ['description' => 'in-scope behavior is correct', 'observable_by' => 'test'],
+            ],
+        ]);
+
+        $target = $this->tmpWorkspace.'/app/InScope.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nreturn true;\n");
+
+        $diff = $this->diffFor('app/InScope.php');
+
+        $executor = $this->makeExecutor($storage, $diff);
+        $envelope = $this->envelope('Fix the bug in app/InScope.php.');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/InScope.php'],
+            'forbidden_files' => [],
+            'validation_commands' => ['composer test'],
+            'max_files_changed' => 1,
+            'intent_text' => 'Fix the bug in app/InScope.php.',
+            'intent_verbs' => ['fix'],
+            'repair_policy' => [
+                'max_attempts' => 0,
+                'abort_on_same_signature_twice' => true,
+                'requires_failed_gate_output' => true,
+                'same_provider' => true,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        // VAL-M2-021: hard => failed.
+        $this->assertSame(
+            'failed',
+            $result->completionState,
+            'VAL-M2-021: E6 hard trip on unsatisfied verification_ref must produce failed. Got: '
+            .$result->completionState,
+        );
+
+        $this->assertSame(
+            VerificationGateResult::STATUS_FAILED,
+            $result->verificationStatus,
+            'VAL-M2-021: E6 hard must force STATUS_FAILED.',
+        );
+
+        $receipt = $this->loadReceipt($storage, $runId);
+        $this->assertContains(
+            SpecDrivenConstitutionGate::FLAG_SPEC_CONSTITUTION_VIOLATION,
+            $receipt->completion->honestyFlags,
+            'VAL-M2-021: spec_constitution_violation flag must be present in hard. Flags: '
+            .json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /**
+     * VAL-M2-021 (clear counterpart): a behavioral AC whose verification_ref
+     * IS among the run's executed passing commands (e.g. 'composer test')
+     * does NOT trip E6. Tested in HARD mode (strongest): if the satisfied
+     * ref does not trip in hard, it won't in advisory either.
+     */
+    public function test_e6_does_not_trip_when_behavioral_ac_verification_ref_is_satisfied(): void
+    {
+        config()->set('atlas_dev.elevations.e6.mode', 'hard');
+
+        $runId = 'dev-e6-vref-clear-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+
+        // The behavioral AC's verification_ref is 'composer test' — exactly
+        // the command the FakeCommandRunner queues as passing.
+        $this->seedRun($storage, $runId, specOverrides: [
+            'allowed_files' => ['app/InScope.php'],
+            'expected_files' => ['app/InScope.php'],
+            'forbidden_files' => [],
+            'non_goals' => [],
+            'acceptance_criteria' => [
+                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'composer test'],
+            ],
+            'expected_behavior' => [
+                ['description' => 'in-scope behavior is correct', 'observable_by' => 'test'],
+            ],
+        ]);
+
+        $target = $this->tmpWorkspace.'/app/InScope.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nreturn true;\n");
+
+        $diff = $this->diffFor('app/InScope.php');
+
+        $executor = $this->makeExecutor($storage, $diff);
+        $envelope = $this->envelope('Fix the bug in app/InScope.php.');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/InScope.php'],
+            'forbidden_files' => [],
+            'validation_commands' => ['composer test'],
+            'max_files_changed' => 1,
+            'intent_text' => 'Fix the bug in app/InScope.php.',
+            'intent_verbs' => ['fix'],
+            'repair_policy' => [
+                'max_attempts' => 0,
+                'abort_on_same_signature_twice' => true,
+                'requires_failed_gate_output' => true,
+                'same_provider' => true,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        // VAL-M2-021 clear: no spec_constitution_violation flag.
+        $receipt = $this->loadReceipt($storage, $runId);
+        $this->assertNotContains(
+            SpecDrivenConstitutionGate::FLAG_SPEC_CONSTITUTION_VIOLATION,
+            $receipt->completion->honestyFlags,
+            'VAL-M2-021 clear: no spec_constitution_violation flag when verification_ref is satisfied. Flags: '
+            .json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
+        );
+
+        // VAL-M2-021 clear: not failed due to E6.
+        $this->assertNotSame(
+            'failed',
+            $result->completionState,
+            'VAL-M2-021 clear: a satisfied verification_ref must not be failed by E6. Got: '
+            .$result->completionState,
+        );
+
+        $this->assertNotSame(
+            VerificationGateResult::STATUS_FAILED,
+            $result->verificationStatus,
+            'VAL-M2-021 clear: E6 hard must not force STATUS_FAILED when verification_ref is satisfied.',
+        );
+    }
+
+    /**
+     * VAL-M2-021 (no-ref delegation): a behavioral AC with NO verification_ref
+     * (empty/null) is NOT tripped by Check 5 and NOT claimed honored — it is
+     * outside deterministic reach and delegated to the M3 critic. The gate
+     * does NOT trip on such a criterion (and does NOT treat it as
+     * spec_unevaluable). Tested in hard mode.
+     */
+    public function test_e6_does_not_trip_on_behavioral_ac_with_no_verification_ref(): void
+    {
+        config()->set('atlas_dev.elevations.e6.mode', 'hard');
+
+        $runId = 'dev-e6-vref-none-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+
+        // Behavioral AC with NO verification_ref — delegated to the critic.
+        $this->seedRun($storage, $runId, specOverrides: [
+            'allowed_files' => ['app/InScope.php'],
+            'expected_files' => ['app/InScope.php'],
+            'forbidden_files' => [],
+            'non_goals' => [],
+            'acceptance_criteria' => [
+                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'manual', 'verification_ref' => null],
+            ],
+            'expected_behavior' => [
+                ['description' => 'in-scope behavior is correct', 'observable_by' => 'manual'],
+            ],
+        ]);
+
+        $target = $this->tmpWorkspace.'/app/InScope.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nreturn true;\n");
+
+        $diff = $this->diffFor('app/InScope.php');
+
+        $executor = $this->makeExecutor($storage, $diff);
+        $envelope = $this->envelope('Fix the bug in app/InScope.php.');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/InScope.php'],
+            'forbidden_files' => [],
+            'validation_commands' => ['composer test'],
+            'max_files_changed' => 1,
+            'intent_text' => 'Fix the bug in app/InScope.php.',
+            'intent_verbs' => ['fix'],
+            'repair_policy' => [
+                'max_attempts' => 0,
+                'abort_on_same_signature_twice' => true,
+                'requires_failed_gate_output' => true,
+                'same_provider' => true,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        // No spec_constitution_violation flag (criterion has no ref -> not
+        // tripped, not claimed honored, delegated to critic).
+        $receipt = $this->loadReceipt($storage, $runId);
+        $this->assertNotContains(
+            SpecDrivenConstitutionGate::FLAG_SPEC_CONSTITUTION_VIOLATION,
+            $receipt->completion->honestyFlags,
+            'VAL-M2-021 no-ref: no spec_constitution_violation flag when criterion has no verification_ref. Flags: '
+            .json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
+        );
+
+        // NOT spec_unevaluable (the spec IS readable; the criterion just has
+        // no machine-checkable obligation).
+        $this->assertNotContains(
+            SpecDrivenConstitutionGate::FLAG_SPEC_UNEVALUABLE,
+            $receipt->completion->honestyFlags,
+            'VAL-M2-021 no-ref: no spec_unevaluable flag (criterion is outside deterministic reach, not unevaluable). Flags: '
+            .json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
+        );
+
+        $this->assertNotSame(
+            'failed',
+            $result->completionState,
+            'VAL-M2-021 no-ref: a criterion with no verification_ref must not be failed by E6. Got: '
+            .$result->completionState,
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // VAL-M2-024 (strengthened): plain-language / symbol non-goals
+    // ------------------------------------------------------------------
+
+    /**
+     * VAL-M2-024 (directory-prefix non-goal): a non-goal that names a
+     * directory prefix (slash-containing token WITHOUT an extension, e.g.
+     * "config/") trips E6 when a touched file falls under that directory.
+     * The file is in the spec's allowed_files (Check 4 does not trip) and
+     * not forbidden (Check 2 does not trip). Only the broadened non-goal
+     * check (Check 3) catches it.
+     */
+    public function test_e6_detects_non_goal_directory_prefix(): void
+    {
+        $runId = 'dev-e6-nongoal-dir-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+
+        // Non-goal references the "config/" directory (slash-containing, no
+        // extension). The allowed_files include config/app.php so Check 4
+        // does not trip (isolate the non-goal check).
+        $this->seedRun($storage, $runId, specOverrides: [
+            'allowed_files' => ['config/app.php', 'app/Service.php'],
+            'expected_files' => ['app/Service.php'],
+            'forbidden_files' => [],
+            'non_goals' => ['do not modify anything under config/'],
+            'acceptance_criteria' => [
+                ['description' => 'service behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'composer test'],
+            ],
+            'expected_behavior' => [
+                ['description' => 'service works', 'observable_by' => 'test'],
+            ],
+        ]);
+
+        // Diff touches config/app.php — under the "config/" directory
+        // referenced in the non-goal.
+        $target = $this->tmpWorkspace.'/config/app.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nreturn true;\n");
+
+        $diff = $this->diffFor('config/app.php');
+
+        $executor = $this->makeExecutor($storage, $diff);
+        $envelope = $this->envelope('Modify config/app.php.');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['config/app.php'],
+            'forbidden_files' => [],
+            'validation_commands' => ['composer test'],
+            'max_files_changed' => 1,
+            'intent_text' => 'Modify config/app.php.',
+            'intent_verbs' => ['modify'],
+            'repair_policy' => [
+                'max_attempts' => 0,
+                'abort_on_same_signature_twice' => true,
+                'requires_failed_gate_output' => true,
+                'same_provider' => true,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        // VAL-M2-024: E6 trips on the directory-prefix non-goal.
+        $receipt = $this->loadReceipt($storage, $runId);
+        $this->assertContains(
+            SpecDrivenConstitutionGate::FLAG_SPEC_CONSTITUTION_VIOLATION,
+            $receipt->completion->honestyFlags,
+            'VAL-M2-024: E6 must trip on a directory-prefix non-goal. Flags: '
+            .json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
+        );
+
+        $this->assertSame(
+            'needs_review',
+            $result->completionState,
+            'VAL-M2-024: E6 advisory trip on directory non-goal must produce needs_review. Got: '
+            .$result->completionState,
+        );
+    }
+
+    /**
+     * VAL-M2-024 (Capitalized symbol non-goal): a non-goal that names a
+     * Capitalized class/identifier symbol (PascalCase) trips E6 when the
+     * symbol matches a touched file's basename-without-extension. The file
+     * is in the spec's allowed_files (Check 4 does not trip) and not
+     * forbidden (Check 2 does not trip). Only the broadened non-goal
+     * symbol check (Check 3) catches it.
+     */
+    public function test_e6_detects_non_goal_capitalized_symbol(): void
+    {
+        $runId = 'dev-e6-nongoal-sym-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+
+        // Non-goal references the ConfigManager class (Capitalized symbol).
+        // The allowed_files include app/Services/ConfigManager.php so Check
+        // 4 does not trip (isolate the non-goal check).
+        $this->seedRun($storage, $runId, specOverrides: [
+            'allowed_files' => ['app/Services/ConfigManager.php', 'app/Service.php'],
+            'expected_files' => ['app/Service.php'],
+            'forbidden_files' => [],
+            'non_goals' => ['do not refactor the ConfigManager class'],
+            'acceptance_criteria' => [
+                ['description' => 'service behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'composer test'],
+            ],
+            'expected_behavior' => [
+                ['description' => 'service works', 'observable_by' => 'test'],
+            ],
+        ]);
+
+        // Diff touches app/Services/ConfigManager.php — basename without
+        // extension is "ConfigManager", which matches the Capitalized symbol
+        // in the non-goal.
+        $target = $this->tmpWorkspace.'/app/Services/ConfigManager.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nreturn true;\n");
+
+        $diff = $this->diffFor('app/Services/ConfigManager.php');
+
+        $executor = $this->makeExecutor($storage, $diff);
+        $envelope = $this->envelope('Modify app/Services/ConfigManager.php.');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/Services/ConfigManager.php'],
+            'forbidden_files' => [],
+            'validation_commands' => ['composer test'],
+            'max_files_changed' => 1,
+            'intent_text' => 'Modify app/Services/ConfigManager.php.',
+            'intent_verbs' => ['modify'],
+            'repair_policy' => [
+                'max_attempts' => 0,
+                'abort_on_same_signature_twice' => true,
+                'requires_failed_gate_output' => true,
+                'same_provider' => true,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        // VAL-M2-024: E6 trips on the Capitalized symbol non-goal.
+        $receipt = $this->loadReceipt($storage, $runId);
+        $this->assertContains(
+            SpecDrivenConstitutionGate::FLAG_SPEC_CONSTITUTION_VIOLATION,
+            $receipt->completion->honestyFlags,
+            'VAL-M2-024: E6 must trip on a Capitalized symbol non-goal. Flags: '
+            .json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
+        );
+
+        $this->assertSame(
+            'needs_review',
+            $result->completionState,
+            'VAL-M2-024: E6 advisory trip on symbol non-goal must produce needs_review. Got: '
+            .$result->completionState,
+        );
+    }
+
+    /**
+     * VAL-M2-024 (prose-only non-goal, no false trip): a non-goal that
+     * references no touched file (no path tokens, no Capitalized symbols
+     * matching a touched basename) does NOT trip E6. Prose words that
+     * reference no touched file never false-trip. Tested in HARD mode
+     * (strongest).
+     */
+    public function test_e6_does_not_false_trip_on_prose_only_non_goal(): void
+    {
+        config()->set('atlas_dev.elevations.e6.mode', 'hard');
+
+        $runId = 'dev-e6-nongoal-prose-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+
+        // Non-goal is plain prose with Capitalized words, but none match
+        // the touched file's basename. No slash-containing path tokens.
+        $this->seedRun($storage, $runId, specOverrides: [
+            'allowed_files' => ['app/InScope.php'],
+            'expected_files' => ['app/InScope.php'],
+            'forbidden_files' => [],
+            'non_goals' => ['Do Not Add Any New Dependencies Here'],
+            'acceptance_criteria' => [
+                ['description' => 'in-scope behavior', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'composer test'],
+            ],
+            'expected_behavior' => [
+                ['description' => 'in-scope behavior is correct', 'observable_by' => 'test'],
+            ],
+        ]);
+
+        $target = $this->tmpWorkspace.'/app/InScope.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nreturn true;\n");
+
+        $diff = $this->diffFor('app/InScope.php');
+
+        $executor = $this->makeExecutor($storage, $diff);
+        $envelope = $this->envelope('Fix the bug in app/InScope.php.');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/InScope.php'],
+            'forbidden_files' => [],
+            'validation_commands' => ['composer test'],
+            'max_files_changed' => 1,
+            'intent_text' => 'Fix the bug in app/InScope.php.',
+            'intent_verbs' => ['fix'],
+            'repair_policy' => [
+                'max_attempts' => 0,
+                'abort_on_same_signature_twice' => true,
+                'requires_failed_gate_output' => true,
+                'same_provider' => true,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        // VAL-M2-024: no false trip on prose-only non-goal.
+        $receipt = $this->loadReceipt($storage, $runId);
+        $this->assertNotContains(
+            SpecDrivenConstitutionGate::FLAG_SPEC_CONSTITUTION_VIOLATION,
+            $receipt->completion->honestyFlags,
+            'VAL-M2-024: no spec_constitution_violation flag on a prose-only non-goal. Flags: '
+            .json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
+        );
+
+        $this->assertNotSame(
+            'failed',
+            $result->completionState,
+            'VAL-M2-024: a prose-only non-goal must not be failed by E6. Got: '
             .$result->completionState,
         );
     }

@@ -215,3 +215,9 @@ parameters:
 			identifier: notIdentical.alwaysTrue
 			count: 1
 			path: app/Services/Ai/Programming/AtlasDev/Surface/HttpResponseRedactor.php
+
+		-
+			message: '#^Call to function method_exists\(\) with ''App\\\\Http\\\\Controllers\\\\AtlasDev\\\\Support\\\\PipelineRunExecutor'' and ''resolveE6Config'' will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: tests/Unit/Ai/Programming/AtlasDev/Probe/E6ConstitutionGateTest.php
