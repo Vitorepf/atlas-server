@@ -72,6 +72,14 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
 
     private const RUNNABLE_ACCEPTANCE_MARKERS = ['phpunit', 'artisan test', 'pytest', 'jest', 'rspec'];
 
+    public const ACTION_REPAIR = 'repair';
+    public const ACTION_REFUSE = 'refuse';
+
+    private const SAFETY_SCORE_FORBIDDEN = 0.0;
+    private const SAFETY_SCORE_OPERATOR_UNCLASSIFIED = 0.2;
+    private const SAFETY_SCORE_OPERATOR_CLASSIFIED = 0.8;
+    private const SAFETY_SCORE_CLEAN = 1.0;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -213,5 +221,114 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
         }
 
         return false;
+    }
+
+    /**
+     * Collapses repeated give_backs against the same target_file into ONE prioritized repair
+     * batch instead of N duplicate diagnostics. Unlike {@see plan()} (per-event candidates for the
+     * legacy repair_plan taxonomy), this groups by target so the muscle acts on the target once.
+     *
+     * SAFETY (first match wins):
+     *   forbidden_target=true on ANY event in the group                       → refuse, safety_score=0.0
+     *   requires_operator_only_files=true AND no operator_only_classification_confirmed → refuse, safety_score=0.2
+     *   requires_operator_only_files=true AND confirmed                       → repair, safety_score=0.8
+     *   otherwise                                                             → repair, safety_score=1.0
+     *
+     * INPUT (per event, in addition to {@see plan()}'s shape):
+     *   target_file?:                            string (falls back to missing_files[0]/allowed_files[0]/task_id)
+     *   requires_operator_only_files?:           bool (default false)
+     *   operator_only_classification_confirmed?: bool (default false)
+     *
+     * @param  array<string,mixed>  $input
+     * @return array{schema:string, batches:list<array{target_file:string, action:string, safety_score:float, give_back_count:int, unblock_count:int, token_savings:float, required_scope_changes:list<string>, reason:string}>}
+     */
+    public function planBatches(array $input): array
+    {
+        $events = is_array($input['give_backs'] ?? null) ? $input['give_backs'] : [];
+
+        $byTarget = [];
+        foreach ($events as $event) {
+            if (! is_array($event) || ! isset($event['task_id'])) {
+                continue;
+            }
+            $missingFiles = is_array($event['missing_files'] ?? null) ? array_values(array_filter(array_map('strval', $event['missing_files']))) : [];
+            $allowedFiles = is_array($event['allowed_files'] ?? null) ? array_values(array_filter(array_map('strval', $event['allowed_files']))) : [];
+            $targetFile = (string) ($event['target_file'] ?? ($missingFiles[0] ?? ($allowedFiles[0] ?? (string) $event['task_id'])));
+            if ($targetFile === '') {
+                continue;
+            }
+
+            $byTarget[$targetFile][] = [
+                'unblock_count' => max(0, (int) ($event['unblock_count'] ?? 0)),
+                'token_savings' => (float) ($event['token_savings'] ?? 0.0),
+                'forbidden_target' => (bool) ($event['forbidden_target'] ?? false),
+                'requires_operator_only_files' => (bool) ($event['requires_operator_only_files'] ?? false),
+                'operator_only_classification_confirmed' => (bool) ($event['operator_only_classification_confirmed'] ?? false),
+                'scope_files' => array_merge($missingFiles, $allowedFiles),
+            ];
+        }
+
+        $batches = [];
+        foreach ($byTarget as $targetFile => $groupEvents) {
+            $unblockCount = 0;
+            $tokenSavings = 0.0;
+            $forbidden = false;
+            $operatorOnly = false;
+            $operatorClassified = false;
+            $scopeFiles = [];
+
+            foreach ($groupEvents as $e) {
+                $unblockCount += $e['unblock_count'];
+                $tokenSavings += $e['token_savings'];
+                $forbidden = $forbidden || $e['forbidden_target'];
+                $operatorOnly = $operatorOnly || $e['requires_operator_only_files'];
+                $operatorClassified = $operatorClassified || $e['operator_only_classification_confirmed'];
+                $scopeFiles = array_merge($scopeFiles, $e['scope_files']);
+            }
+
+            $requiredScopeChanges = array_values(array_unique(array_filter($scopeFiles, static fn (string $f): bool => $f !== '')));
+            sort($requiredScopeChanges, SORT_STRING);
+            if ($requiredScopeChanges === []) {
+                $requiredScopeChanges = [$targetFile];
+            }
+
+            if ($forbidden) {
+                $action = self::ACTION_REFUSE;
+                $safetyScore = self::SAFETY_SCORE_FORBIDDEN;
+                $reason = 'forbidden_target_requires_human_decision';
+            } elseif ($operatorOnly && ! $operatorClassified) {
+                $action = self::ACTION_REFUSE;
+                $safetyScore = self::SAFETY_SCORE_OPERATOR_UNCLASSIFIED;
+                $reason = 'operator_only_files_without_explicit_classification';
+            } elseif ($operatorOnly) {
+                $action = self::ACTION_REPAIR;
+                $safetyScore = self::SAFETY_SCORE_OPERATOR_CLASSIFIED;
+                $reason = 'operator_only_files_explicitly_classified';
+            } else {
+                $action = self::ACTION_REPAIR;
+                $safetyScore = self::SAFETY_SCORE_CLEAN;
+                $reason = 'safe_repeated_give_back_repair';
+            }
+
+            $batches[] = [
+                'target_file' => $targetFile,
+                'action' => $action,
+                'safety_score' => $safetyScore,
+                'give_back_count' => count($groupEvents),
+                'unblock_count' => $unblockCount,
+                'token_savings' => round($tokenSavings, 2),
+                'required_scope_changes' => $requiredScopeChanges,
+                'reason' => $reason,
+            ];
+        }
+
+        usort($batches, static fn (array $a, array $b): int =>
+            $b['token_savings'] <=> $a['token_savings']
+                ?: strcmp($a['target_file'], $b['target_file']));
+
+        return [
+            'schema' => self::SCHEMA,
+            'batches' => $batches,
+        ];
     }
 }
