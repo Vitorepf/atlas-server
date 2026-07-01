@@ -276,6 +276,10 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
             'refresh_actions'                 => $refreshActions,
             'blocking_refresh_actions'        => $blockingRefreshActions,
             'advisory_refresh_actions'        => $advisoryRefreshActions,
+            // Additive aliases matching the caller-facing contract name exactly — same data as
+            // blocking_refresh_actions/advisory_refresh_actions, kept for backward compatibility.
+            'blocking_actions'                => $blockingRefreshActions,
+            'advisory_actions'                => $advisoryRefreshActions,
             'skipped_actions'                 => $skippedActions,
             'next_originator_context_ready'   => $notReadyReasons === [],
             'not_ready_reasons'               => $notReadyReasons,

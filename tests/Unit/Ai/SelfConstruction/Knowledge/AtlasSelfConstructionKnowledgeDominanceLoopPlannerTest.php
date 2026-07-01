@@ -225,6 +225,22 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlannerTest extends TestC
         $this->assertCount(3, $result['not_ready_reasons']);
     }
 
+    // ── blocking_actions / advisory_actions caller-facing aliases ──────────────
+
+    public function test_blocking_and_advisory_actions_aliases_mirror_refresh_action_split(): void
+    {
+        $result = $this->planner()->plan([
+            'docs_touched' => ['docs/foo.md'],
+            'memory_writes' => [],
+            'context_pack_age_seconds' => 999999,
+        ]);
+
+        $this->assertSame($result['blocking_refresh_actions'], $result['blocking_actions']);
+        $this->assertSame($result['advisory_refresh_actions'], $result['advisory_actions']);
+        $this->assertNotEmpty($result['blocking_actions']);
+        $this->assertNotEmpty($result['advisory_actions']);
+    }
+
     // ── skipped_actions ───────────────────────────────────────────────────────
 
     public function test_skipped_actions_always_populated(): void
