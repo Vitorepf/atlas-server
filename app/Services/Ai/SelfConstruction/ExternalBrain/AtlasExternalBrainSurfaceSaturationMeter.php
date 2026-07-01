@@ -21,6 +21,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *                             Continue mining; there is still signal here.
  *   insufficient_data       — fewer than min_candidates_for_decision; no verdict yet.
  *
+ * MECHANISM SATURATION (opt-in via context.mechanism_saturation_enabled=true; measures LEVERAGE
+ * MECHANISM diversity, not raw candidate volume): when enabled, if the dominant value_mechanism
+ * accounts for ≥ saturation_threshold of all candidates, the surface is treated as
+ * mechanism-saturated even when duplicate_rate/low_yield_rate individually read healthy —
+ * repeatedly mining the same lever, however many distinct files/targets it touches, is still
+ * exhaustion. Conversely, few candidates spread across distinct high-leverage mechanisms never
+ * trigger mechanism saturation — diversity of mechanism, not candidate count, keeps the surface
+ * open. Opt-in (default false) so existing callers that reuse one value_mechanism label as a
+ * generic tag, not a genuine leverage signal, keep prior behavior.
+ *
  * INPUT recentCandidates:
  *   list<{ candidate_id?:string, subsystem?:string, target_path?:string,
  *          value_mechanism?:string, yield?:float, duplicate?:bool }>
@@ -82,15 +92,18 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         $minCandidates       = max(1, (int) ($context['min_candidates_for_decision']            ?? self::DEFAULT_MIN_CANDIDATES));
         $strictModeEvidence  = (bool) ($context['strict_mode_evidence'] ?? false);
         $requireValueProof   = (bool) ($context['require_value_proof_evidence'] ?? false);
+        $mechanismSaturationEnabled = (bool) ($context['mechanism_saturation_enabled'] ?? false);
         $minValueProofCount  = max(0, (int) ($context['min_value_proof_count'] ?? 1));
         $minValueProofRate   = max(0.0, min(1.0, (float) ($context['min_value_proof_rate'] ?? 0.0)));
 
         $total = count($recentCandidates);
 
         if ($total < $minCandidates) {
+            $knownMechanismsEarly = array_values(array_map('strval', (array) ($context['known_leverage_mechanisms'] ?? [])));
+
             return $this->result($surfaceId, self::VERDICT_INSUFFICIENT, 0.0,
                 "Only {$total} candidates — need at least {$minCandidates} before a verdict.",
-                null, 0.0, 0.0, [], null);
+                null, 0.0, 0.0, [], null, $knownMechanismsEarly, null);
         }
 
         // Compute rates.
@@ -98,6 +111,7 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         $lowYieldCount = 0;
         $valueProofCount = 0;
         $subsystemCounts = [];
+        $mechanismCounts = [];
 
         foreach ($recentCandidates as $c) {
             if ((bool) ($c['duplicate'] ?? false)) {
@@ -114,7 +128,25 @@ final class AtlasExternalBrainSurfaceSaturationMeter
             if ($sub !== '') {
                 $subsystemCounts[$sub] = ($subsystemCounts[$sub] ?? 0) + 1;
             }
+            $mechanism = (string) ($c['value_mechanism'] ?? '');
+            if ($mechanism !== '') {
+                $mechanismCounts[$mechanism] = ($mechanismCounts[$mechanism] ?? 0) + 1;
+            }
         }
+
+        // Mechanism concentration: the dominant mechanism's share of all candidates. High
+        // concentration means the surface keeps yielding the same lever regardless of how many
+        // distinct files/targets it touched.
+        $dominantMechanismCount = $mechanismCounts !== [] ? max($mechanismCounts) : 0;
+        $mechanismConcentration = $total > 0 ? $dominantMechanismCount / $total : 0.0;
+        $mechanismSaturated = $mechanismSaturationEnabled && $mechanismConcentration >= $threshold;
+
+        $knownMechanisms = array_values(array_map('strval', (array) ($context['known_leverage_mechanisms'] ?? [])));
+        $seenMechanisms = array_keys($mechanismCounts);
+        $remainingMechanisms = array_values(array_diff($knownMechanisms, $seenMechanisms));
+        $nextProbeHint = $remainingMechanisms !== []
+            ? "probe distinct leverage mechanism: {$remainingMechanisms[0]}"
+            : ($mechanismSaturated ? 'no untried leverage mechanism configured — widen known_leverage_mechanisms before continuing' : null);
 
         $duplicateRate = $duplicateCount / $total;
         $lowYieldRate = $lowYieldCount / $total;
@@ -141,41 +173,50 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         $nextRecommendedMode = $missingModes[0] ?? null;
 
         // Verdict decision tree.
-        if ($duplicateRate >= $threshold && $lowYieldRate >= $threshold) {
+        if (($duplicateRate >= $threshold && $lowYieldRate >= $threshold) || $mechanismSaturated) {
             // Block exhausted verdict until all five search modes have non-stale pass records,
             // AND (when required) enough value-proof evidence backs the duplicate/low-yield rates.
             if ($missingModes !== [] || $valueProofInsufficient) {
                 // AC2: strict_mode_evidence=true → under_evidenced; default keeps deepen for backward compat.
                 $blockedVerdict = ($strictModeEvidence || $valueProofInsufficient) ? self::VERDICT_UNDER_EVIDENCED : self::VERDICT_DEEPEN;
-                $reason = "Rates suggest exhaustion (duplicate_rate={$duplicateRate}, low_yield_rate={$lowYieldRate}) but ";
+                $reason = $mechanismSaturated
+                    ? "Dominant mechanism accounts for {$mechanismConcentration} of candidates (≥{$threshold}) but "
+                    : "Rates suggest exhaustion (duplicate_rate={$duplicateRate}, low_yield_rate={$lowYieldRate}) but ";
                 $reason .= $valueProofInsufficient
                     ? "value-proof evidence is thin (count={$valueProofCount} < {$minValueProofCount}, rate={$valueProofRate} < {$minValueProofRate})."
                     : "search modes not fully covered. Run {$nextRecommendedMode} next.";
 
                 return $this->result($surfaceId, $blockedVerdict, $saturationScore, $reason,
-                    $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode);
+                    $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode,
+                    $remainingMechanisms, $nextProbeHint);
             }
 
-            return $this->result($surfaceId, self::VERDICT_EXHAUSTED, $saturationScore,
-                "duplicate_rate={$duplicateRate} and low_yield_rate={$lowYieldRate} both exceed threshold={$threshold}. All search modes covered. Surface is spent.",
-                $dominantSubsystem, $duplicateRate, $lowYieldRate, [], null);
+            $reason = $mechanismSaturated
+                ? "dominant mechanism concentration={$mechanismConcentration} ≥ threshold={$threshold}. Same leverage mechanism keeps repeating. All search modes covered. Surface is spent."
+                : "duplicate_rate={$duplicateRate} and low_yield_rate={$lowYieldRate} both exceed threshold={$threshold}. All search modes covered. Surface is spent.";
+
+            return $this->result($surfaceId, self::VERDICT_EXHAUSTED, $saturationScore, $reason,
+                $dominantSubsystem, $duplicateRate, $lowYieldRate, [], null, $remainingMechanisms, $nextProbeHint);
         }
 
         if ($duplicateRate >= $threshold) {
             return $this->result($surfaceId, self::VERDICT_ROTATE, $saturationScore,
                 "duplicate_rate={$duplicateRate} ≥ {$threshold}: same targets keep reappearing. Rotate to a different surface.",
-                $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode);
+                $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode,
+                $remainingMechanisms, $nextProbeHint);
         }
 
         if ($lowYieldRate >= $threshold) {
             return $this->result($surfaceId, self::VERDICT_CONSOLIDATE, $saturationScore,
                 "low_yield_rate={$lowYieldRate} ≥ {$threshold} but duplicate_rate={$duplicateRate} is healthy. Many unique but low-value ideas — consolidate before expanding.",
-                $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode);
+                $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode,
+                $remainingMechanisms, $nextProbeHint);
         }
 
         return $this->result($surfaceId, self::VERDICT_DEEPEN, $saturationScore,
             "duplicate_rate={$duplicateRate} and low_yield_rate={$lowYieldRate} both below threshold={$threshold}. Surface still has signal — keep mining.",
-            $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode);
+            $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode,
+            $remainingMechanisms, $nextProbeHint);
     }
 
     /** @return list<string> */
@@ -192,7 +233,10 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         return $missing;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @param  list<string>  $remainingMechanisms
+     * @return array<string, mixed>
+     */
     private function result(
         string $surfaceId,
         string $verdict,
@@ -203,6 +247,8 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         float $lowYieldRate,
         array $missingModes,
         ?string $nextRecommendedMode,
+        array $remainingMechanisms = [],
+        ?string $nextProbeHint = null,
     ): array {
         $evidenceNeeded = $missingModes !== []
             ? 'non-stale pass records required for: ' . implode(', ', $missingModes)
@@ -220,6 +266,8 @@ final class AtlasExternalBrainSurfaceSaturationMeter
             'low_yield_rate'        => round($lowYieldRate, 4),
             'missing_modes'         => $missingModes,
             'next_recommended_mode' => $nextRecommendedMode,
+            'remaining_mechanisms'  => $remainingMechanisms,
+            'next_probe_hint'       => $nextProbeHint,
             'next_search_plan'      => [
                 'ranked_modes'    => $missingModes,
                 'evidence_needed' => $evidenceNeeded,

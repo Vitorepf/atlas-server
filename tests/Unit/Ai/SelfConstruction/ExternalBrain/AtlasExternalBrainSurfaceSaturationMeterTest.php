@@ -450,4 +450,80 @@ final class AtlasExternalBrainSurfaceSaturationMeterTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_EXHAUSTED, $r['verdict']);
     }
+
+    // ── AC1: many same-mechanism findings mark the surface as saturated ─────────
+
+    public function test_many_same_mechanism_findings_mark_surface_exhausted(): void
+    {
+        // High yield, no duplicates — rate-based signals read healthy — but every candidate
+        // reuses the same leverage mechanism, which mechanism-saturation must catch.
+        $candidates = array_fill(0, 6, $this->candidate(['value_mechanism' => 'wrapper_extraction', 'yield' => 0.9]));
+
+        $r = $this->meter->measure('surf', $candidates, [
+            'mode_passes' => $this->allModePasses(),
+            'mechanism_saturation_enabled' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_EXHAUSTED, $r['verdict']);
+        $this->assertStringContainsStringIgnoringCase('mechanism', $r['reasoning']);
+    }
+
+    public function test_mechanism_saturation_disabled_by_default_preserves_rate_based_verdict(): void
+    {
+        $candidates = array_fill(0, 6, $this->candidate(['value_mechanism' => 'wrapper_extraction', 'yield' => 0.9]));
+
+        $r = $this->meter->measure('surf', $candidates, [
+            'mode_passes' => $this->allModePasses(),
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_DEEPEN, $r['verdict']);
+    }
+
+    // ── AC2: fewer findings across distinct high-leverage mechanisms keep surface open ──
+
+    public function test_distinct_mechanisms_keep_surface_open_even_with_mechanism_saturation_enabled(): void
+    {
+        $candidates = [
+            $this->candidate(['value_mechanism' => 'wrapper_extraction', 'yield' => 0.9]),
+            $this->candidate(['value_mechanism' => 'dead_code_removal', 'yield' => 0.9]),
+            $this->candidate(['value_mechanism' => 'evidence_wiring', 'yield' => 0.9]),
+        ];
+
+        $r = $this->meter->measure('surf', $candidates, [
+            'mode_passes' => $this->allModePasses(),
+            'mechanism_saturation_enabled' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_DEEPEN, $r['verdict']);
+    }
+
+    // ── AC3: output includes remaining_mechanisms and next_probe_hint ───────────
+
+    public function test_output_includes_remaining_mechanisms_and_next_probe_hint_keys(): void
+    {
+        $r = $this->meter->measure('surf', [$this->candidate(), $this->candidate(), $this->candidate()]);
+
+        $this->assertArrayHasKey('remaining_mechanisms', $r);
+        $this->assertArrayHasKey('next_probe_hint', $r);
+    }
+
+    public function test_remaining_mechanisms_lists_untried_known_mechanisms(): void
+    {
+        $candidates = array_fill(0, 3, $this->candidate(['value_mechanism' => 'wrapper_extraction']));
+
+        $r = $this->meter->measure('surf', $candidates, [
+            'known_leverage_mechanisms' => ['wrapper_extraction', 'dead_code_removal', 'evidence_wiring'],
+        ]);
+
+        $this->assertSame(['dead_code_removal', 'evidence_wiring'], $r['remaining_mechanisms']);
+        $this->assertStringContainsString('dead_code_removal', $r['next_probe_hint']);
+    }
+
+    public function test_no_known_mechanisms_configured_yields_empty_remaining_and_null_hint_when_open(): void
+    {
+        $r = $this->meter->measure('surf', [$this->candidate(), $this->candidate(), $this->candidate()]);
+
+        $this->assertSame([], $r['remaining_mechanisms']);
+        $this->assertNull($r['next_probe_hint']);
+    }
 }
