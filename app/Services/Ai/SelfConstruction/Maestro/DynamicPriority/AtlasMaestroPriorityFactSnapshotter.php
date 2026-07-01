@@ -21,6 +21,30 @@ final class AtlasMaestroPriorityFactSnapshotter
 {
     public const SCHEMA = 'atlas.maestro.priority_fact_snapshot.v1';
 
+    public const AGE_BUCKET_NEW = 'new';
+
+    public const AGE_BUCKET_RECENT = 'recent';
+
+    public const AGE_BUCKET_AGING = 'aging';
+
+    public const AGE_BUCKET_UNKNOWN = 'unknown';
+
+    public const PROOF_FRESHNESS_FRESH = 'fresh';
+
+    public const PROOF_FRESHNESS_STALE = 'stale';
+
+    public const PROOF_FRESHNESS_UNKNOWN = 'unknown';
+
+    private const AGE_NEW_MAX_MS = 3_600_000; // 1 hour
+
+    private const AGE_RECENT_MAX_MS = 86_400_000; // 24 hours
+
+    private const PROOF_STALE_DAYS = 7;
+
+    private const HIGH_RISK_THRESHOLD = 50;
+
+    private const STALE_RISK_PENALTY = 20;
+
     /** @var callable(): list<array<string,mixed>> */
     private $pendingPacketsSource;
 
@@ -72,15 +96,18 @@ final class AtlasMaestroPriorityFactSnapshotter
         $idlePredictionMs = $this->predictIdleMs($leases, $inFlight);
         $criticality = $this->dependencyCriticality($packets);
         $familyBacklog = $this->taskFamilyBacklog($packets);
+        $nowNs = (int) ($this->clockNs)();
+        $priorityFacts = $this->priorityFactsByTaskId($packets, (int) ($nowNs / 1_000_000));
 
         $row = [
             'schema' => self::SCHEMA,
-            'taken_at_ns' => (int) ($this->clockNs)(),
+            'taken_at_ns' => $nowNs,
             'facts' => [
                 'queue_depth_by_tag' => $queueDepthByTag,
                 'task_family_backlog' => $familyBacklog,
                 'worker_idle_prediction_ms' => $idlePredictionMs,
                 'dependency_criticality_by_task_id' => $criticality,
+                'priority_facts_by_task_id' => $priorityFacts,
             ],
         ];
 
@@ -207,6 +234,70 @@ final class AtlasMaestroPriorityFactSnapshotter
         ksort($families, SORT_STRING);
 
         return $families;
+    }
+
+    /**
+     * Per-packet priority facts: value/risk are integer 0-100 hints (never floats-as-weights),
+     * age/proof-freshness are categorical buckets, give-back pressure is a raw count.
+     * Missing optional signals degrade to the CONSERVATIVE default (never assumed valuable,
+     * never assumed low-risk, never assumed fresh) so a starved fact never inflates priority.
+     *
+     * @param  list<array<string,mixed>>  $packets
+     * @return array<string,array<string,mixed>>  task_packet_id => facts
+     */
+    private function priorityFactsByTaskId(array $packets, int $nowMs): array
+    {
+        $out = [];
+        foreach ($packets as $p) {
+            $id = (string) ($p['task_packet_id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+
+            $valueScore = max(0, min(100, (int) ($p['value_hint'] ?? 0)));
+            $riskScore = array_key_exists('risk_hint', $p)
+                ? max(0, min(100, (int) $p['risk_hint']))
+                : 100;
+            $giveBackPressure = max(0, (int) ($p['give_back_count'] ?? 0));
+
+            $ageBucket = self::AGE_BUCKET_UNKNOWN;
+            if (array_key_exists('created_at_ms', $p)) {
+                $ageMs = max(0, $nowMs - (int) $p['created_at_ms']);
+                $ageBucket = match (true) {
+                    $ageMs <= self::AGE_NEW_MAX_MS => self::AGE_BUCKET_NEW,
+                    $ageMs <= self::AGE_RECENT_MAX_MS => self::AGE_BUCKET_RECENT,
+                    default => self::AGE_BUCKET_AGING,
+                };
+            }
+
+            $proofFreshness = self::PROOF_FRESHNESS_UNKNOWN;
+            if (array_key_exists('proof_age_days', $p)) {
+                $proofFreshness = (int) $p['proof_age_days'] <= self::PROOF_STALE_DAYS
+                    ? self::PROOF_FRESHNESS_FRESH
+                    : self::PROOF_FRESHNESS_STALE;
+            }
+
+            $effectivePriority = $valueScore - $giveBackPressure;
+            if ($riskScore >= self::HIGH_RISK_THRESHOLD) {
+                $effectivePriority -= intdiv($riskScore, 2);
+                if ($proofFreshness !== self::PROOF_FRESHNESS_FRESH) {
+                    $effectivePriority -= self::STALE_RISK_PENALTY;
+                }
+            }
+            $effectivePriority = max(0, $effectivePriority);
+
+            $out[$id] = [
+                'value_score' => $valueScore,
+                'risk_score' => $riskScore,
+                'age_bucket' => $ageBucket,
+                'give_back_pressure' => $giveBackPressure,
+                'proof_freshness' => $proofFreshness,
+                'effective_priority' => $effectivePriority,
+            ];
+        }
+        ksort($out, SORT_STRING);
+
+        return $out;
     }
 
     /**
