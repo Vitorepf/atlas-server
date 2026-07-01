@@ -20,6 +20,13 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Concurrency;
  *      This flag is the key AC2 signal: healthy ≠ risky even when worker count is high.
  *   6. most_contended_paths → top paths by overlap count (ties broken by failure count desc).
  *   7. mitigation_hints from risk tier + commit failure presence.
+ *   8. recommended_action (serve|stagger|backoff|split_queue) + reasons:
+ *        low    → serve        (no meaningful contention signal)
+ *        medium → stagger      (some path overlap, spread writes over time)
+ *        high, hot_path_count <= 1 → backoff  (one hot path — retry/backoff resolves it)
+ *        high, hot_path_count >= 2 → split_queue (structural: partition the queue by path)
+ *      recommended_action is driven ONLY by overlap/failure signals, never by worker_count
+ *      alone — many independent (non-overlapping) workers still recommend serve.
  *
  * NO process execution, NO filesystem, NO providers. DETERMINISTIC.
  */
@@ -70,6 +77,9 @@ final class AtlasMaestroLeaseContentionPredictor
         $isHealthy = $workerCount >= 2 && $maxOverlap <= 1;
 
         $mostContended = $this->topContentedPaths($pathWorkers, $pathFailures);
+        $hotPathCount  = count(array_filter($pathWorkers, static fn (array $ws): bool => count($ws) >= 2));
+
+        [$recommendedAction, $actionReasons] = $this->recommendation($risk, $hotPathCount, $maxOverlap, $failureRate, $totalFailures);
 
         return [
             'schema_version'        => self::SCHEMA,
@@ -77,13 +87,45 @@ final class AtlasMaestroLeaseContentionPredictor
             'is_healthy_parallelism' => $isHealthy,
             'most_contended_paths'  => $mostContended,
             'mitigation_hints'      => $this->mitigationHints($risk, $totalFailures),
+            'recommended_action'    => $recommendedAction,
+            'action_reasons'        => $actionReasons,
             'diagnostics' => [
                 'active_workers'       => $workerCount,
                 'max_path_overlap'     => $maxOverlap,
                 'commit_failure_rate'  => round($failureRate, 3),
-                'hot_path_count'       => count(array_filter($pathWorkers, static fn (array $ws): bool => count($ws) >= 2)),
+                'hot_path_count'       => $hotPathCount,
             ],
         ];
+    }
+
+    /**
+     * @return array{0:string,1:list<string>}
+     */
+    private function recommendation(string $risk, int $hotPathCount, int $maxOverlap, float $failureRate, int $totalFailures): array
+    {
+        if ($risk === 'low') {
+            return ['serve', ['no meaningful path overlap or commit-failure signal detected']];
+        }
+
+        if ($risk === 'medium') {
+            return ['stagger', [
+                sprintf('max_path_overlap=%d indicates some shared write paths', $maxOverlap),
+                sprintf('commit_failure_rate=%.3f is at/above the stagger threshold', $failureRate),
+            ]];
+        }
+
+        // risk === 'high'
+        if ($hotPathCount >= 2) {
+            return ['split_queue', [
+                sprintf('hot_path_count=%d distinct paths are each contended by >=2 workers', $hotPathCount),
+                'a single stagger/backoff will not resolve contention spread across multiple paths',
+            ]];
+        }
+
+        return ['backoff', array_values(array_filter([
+            sprintf('max_path_overlap=%d on a single hot path', $maxOverlap),
+            $totalFailures > 0 ? sprintf('%d recent commit-lock failure(s) observed', $totalFailures) : null,
+        ]))];
     }
 
     private function riskTier(int $maxOverlap, float $failureRate): string

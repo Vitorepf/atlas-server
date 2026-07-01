@@ -192,4 +192,80 @@ final class AtlasMaestroLeaseContentionPredictorTest extends TestCase
         $b = $this->predictor()->predict($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC2: recommended_action + action_reasons ───────────────────────────────
+
+    public function test_low_risk_recommends_serve(): void
+    {
+        $r = $this->predictor()->predict([
+            'worker_snapshot' => [
+                $this->worker('w1', ['app/A.php']),
+                $this->worker('w2', ['app/B.php']),
+            ],
+        ]);
+
+        $this->assertSame('serve', $r['recommended_action']);
+        $this->assertNotEmpty($r['action_reasons']);
+    }
+
+    public function test_medium_risk_recommends_stagger(): void
+    {
+        $r = $this->predictor()->predict([
+            'worker_snapshot' => [
+                $this->worker('w1', ['app/X.php']),
+                $this->worker('w2', ['app/X.php']),
+            ],
+        ]);
+
+        $this->assertSame('medium', $r['contention_risk']);
+        $this->assertSame('stagger', $r['recommended_action']);
+        $this->assertNotEmpty($r['action_reasons']);
+    }
+
+    public function test_high_risk_single_hot_path_recommends_backoff(): void
+    {
+        $r = $this->predictor()->predict([
+            'worker_snapshot' => [
+                $this->worker('w1', ['app/Hot.php']),
+                $this->worker('w2', ['app/Hot.php']),
+                $this->worker('w3', ['app/Hot.php']),
+            ],
+        ]);
+
+        $this->assertSame('high', $r['contention_risk']);
+        $this->assertSame(1, $r['diagnostics']['hot_path_count']);
+        $this->assertSame('backoff', $r['recommended_action']);
+    }
+
+    public function test_high_risk_multiple_hot_paths_recommends_split_queue(): void
+    {
+        $r = $this->predictor()->predict([
+            'worker_snapshot' => [
+                $this->worker('w1', ['app/Hot.php']),
+                $this->worker('w2', ['app/Hot.php']),
+                $this->worker('w3', ['app/Hot.php']),
+                $this->worker('w4', ['app/Warm.php']),
+                $this->worker('w5', ['app/Warm.php']),
+            ],
+        ]);
+
+        $this->assertSame('high', $r['contention_risk']);
+        $this->assertGreaterThanOrEqual(2, $r['diagnostics']['hot_path_count']);
+        $this->assertSame('split_queue', $r['recommended_action']);
+    }
+
+    // ── AC3: many independent workers never force a non-serve action ───────────
+
+    public function test_many_independent_workers_still_recommends_serve(): void
+    {
+        $workers = [];
+        for ($i = 0; $i < 12; $i++) {
+            $workers[] = $this->worker('w'.$i, ['app/Unique'.$i.'.php']);
+        }
+        $r = $this->predictor()->predict(['worker_snapshot' => $workers]);
+
+        $this->assertTrue($r['is_healthy_parallelism']);
+        $this->assertSame('low', $r['contention_risk']);
+        $this->assertSame('serve', $r['recommended_action']);
+    }
 }
