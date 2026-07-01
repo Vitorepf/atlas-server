@@ -13,6 +13,18 @@ final class AtlasMaestroOutcomePatternMiner
 
     private const OUTCOMES = ['delivered', 'give_back', 'rejected', 'stale'];
 
+    /** Maps a mined dimension to the downstream policy a strategy signal should steer. */
+    private const DIMENSION_POLICY = [
+        'origin_kind' => 'routing_policy',
+        'allowed_files_count_bucket' => 'respec_policy',
+        'acceptance_criteria_count_bucket' => 'respec_policy',
+        'has_tests_path' => 'respec_policy',
+        'file_family' => 'respec_policy',
+        'task_shape' => 'originator_prompt_policy',
+        'worker_id' => 'routing_policy',
+        'proof_command_class' => 'routing_policy',
+    ];
+
     public function __construct(private readonly AtlasMaestroOutcomeShapeLedger $ledger)
     {
     }
@@ -186,6 +198,52 @@ final class AtlasMaestroOutcomePatternMiner
         });
 
         return $patterns;
+    }
+
+    /**
+     * Turns strategyPatterns() (positive) and negativePatterns() (negative) into concrete strategy
+     * signals for routing, respec, and originator prompt policy — each carrying affected_policy,
+     * confidence, sample_size, and next_action so a downstream policy can act without re-deriving
+     * the mined statistics. Buckets below MIN_SUPPORT/MIN_STRATEGY_OCCURRENCES never appear here
+     * (inherited from strategyPatterns()/negativePatterns()'s own gating), and a bucket with mixed
+     * (neither decisively good nor bad) outcomes produces no signal at all.
+     *
+     * Ordered: all positive signals (by confidence DESC) before all negative signals (by
+     * confidence DESC) — deterministic given the underlying sorted sources.
+     *
+     * @return list<array{polarity:string, dimension:string, bucket:string, affected_policy:string, confidence:float, sample_size:int, next_action:string}>
+     */
+    public function strategyPolicySignals(): array
+    {
+        $signals = [];
+
+        foreach ($this->strategyPatterns() as $pattern) {
+            $policy = self::DIMENSION_POLICY[$pattern['dimension']] ?? 'routing_policy';
+            $signals[] = [
+                'polarity' => 'positive',
+                'dimension' => $pattern['dimension'],
+                'bucket' => $pattern['bucket'],
+                'affected_policy' => $policy,
+                'confidence' => $pattern['delivery_rate'],
+                'sample_size' => $pattern['support'],
+                'next_action' => sprintf('prefer_%s_for_%s_in_%s', $pattern['bucket'], $pattern['dimension'], $policy),
+            ];
+        }
+
+        foreach ($this->negativePatterns() as $pattern) {
+            $policy = self::DIMENSION_POLICY[$pattern['dimension']] ?? 'routing_policy';
+            $signals[] = [
+                'polarity' => 'negative',
+                'dimension' => $pattern['dimension'],
+                'bucket' => $pattern['bucket'],
+                'affected_policy' => $policy,
+                'confidence' => $pattern['failure_rate'],
+                'sample_size' => $pattern['support'],
+                'next_action' => sprintf('avoid_%s_for_%s_in_%s', $pattern['bucket'], $pattern['dimension'], $policy),
+            ];
+        }
+
+        return $signals;
     }
 
     /**
