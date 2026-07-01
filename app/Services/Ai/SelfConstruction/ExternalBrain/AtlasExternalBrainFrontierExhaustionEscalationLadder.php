@@ -69,32 +69,48 @@ final class AtlasExternalBrainFrontierExhaustionEscalationLadder
                 'schema' => self::SCHEMA,
                 'exhausted' => true,
                 'next_fronts' => [],
+                'next_front' => null,
                 'evidence_required_for_terminal_stop' => self::ALL_FRONTS,
+                'missing_evidence_fronts' => [],
+                'attempted_with_evidence' => $attemptedWithEvidence,
+                'suppressed_fronts' => [],
                 'reasons' => ['all_fronts_attempted_with_evidence_no_implementable_work_remains'],
             ];
         }
 
         if ($duplicateYieldRatio >= self::HIGH_DUPLICATE_YIELD_THRESHOLD) {
+            $suppressed = array_values(array_intersect($remainingFronts, [self::FRONT_LOCAL_GREP_BUG_HUNT]));
             $nextFronts = array_values(array_diff($remainingFronts, [self::FRONT_LOCAL_GREP_BUG_HUNT]));
             if ($nextFronts === []) {
                 $nextFronts = $remainingFronts;
+                $suppressed = [];
             }
 
             return [
                 'schema' => self::SCHEMA,
                 'exhausted' => false,
                 'next_fronts' => $nextFronts,
+                'next_front' => $nextFronts[0] ?? null,
                 'evidence_required_for_terminal_stop' => [],
+                'missing_evidence_fronts' => $remainingFronts,
+                'attempted_with_evidence' => $attemptedWithEvidence,
+                'suppressed_fronts' => $suppressed,
                 'reasons' => ['duplicate_yield_high:'.round($duplicateYieldRatio, 2).':suppressing_current_vein_escalating_to_new_front'],
             ];
         }
 
         if ($localFindings < self::LOCAL_FINDINGS_DECLINE_THRESHOLD && $quotaRemaining > 0) {
+            $nextFronts = array_values(array_intersect(self::ESCALATION_FRONTS, $remainingFronts));
+
             return [
                 'schema' => self::SCHEMA,
                 'exhausted' => false,
-                'next_fronts' => array_values(array_intersect(self::ESCALATION_FRONTS, $remainingFronts)),
+                'next_fronts' => $nextFronts,
+                'next_front' => $nextFronts[0] ?? null,
                 'evidence_required_for_terminal_stop' => [],
+                'missing_evidence_fronts' => $remainingFronts,
+                'attempted_with_evidence' => $attemptedWithEvidence,
+                'suppressed_fronts' => [],
                 'reasons' => ['local_findings_declining:'.$localFindings.'_below_threshold_escalating_beyond_local_grep'],
             ];
         }
@@ -103,7 +119,11 @@ final class AtlasExternalBrainFrontierExhaustionEscalationLadder
             'schema' => self::SCHEMA,
             'exhausted' => false,
             'next_fronts' => [self::FRONT_LOCAL_GREP_BUG_HUNT],
+            'next_front' => self::FRONT_LOCAL_GREP_BUG_HUNT,
             'evidence_required_for_terminal_stop' => [],
+            'missing_evidence_fronts' => $remainingFronts,
+            'attempted_with_evidence' => $attemptedWithEvidence,
+            'suppressed_fronts' => [],
             'reasons' => ['local_yield_healthy_continue_local_grep_bug_hunt'],
         ];
     }

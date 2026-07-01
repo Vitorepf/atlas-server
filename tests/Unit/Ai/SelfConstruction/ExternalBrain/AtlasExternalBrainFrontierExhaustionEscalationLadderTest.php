@@ -64,4 +64,52 @@ final class AtlasExternalBrainFrontierExhaustionEscalationLadderTest extends Tes
 
         self::assertFalse($result['exhausted']);
     }
+
+    // ── AC3: output includes next_front, suppressed_fronts, attempted_with_evidence, missing_evidence_fronts ──
+
+    public function test_output_includes_next_front_and_evidence_tracking_fields(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->evaluate([
+            'local_findings_per_wave' => 1,
+            'quota_remaining' => 20,
+            'attempted_fronts_with_evidence' => ['local_grep_bug_hunt'],
+        ]);
+
+        self::assertArrayHasKey('next_front', $result);
+        self::assertArrayHasKey('suppressed_fronts', $result);
+        self::assertArrayHasKey('attempted_with_evidence', $result);
+        self::assertArrayHasKey('missing_evidence_fronts', $result);
+        self::assertSame($result['next_fronts'][0] ?? null, $result['next_front']);
+        self::assertSame(['local_grep_bug_hunt'], $result['attempted_with_evidence']);
+    }
+
+    public function test_duplicate_yield_suppresses_local_front_in_suppressed_fronts(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->evaluate([
+            'local_findings_per_wave' => 10,
+            'quota_remaining' => 20,
+            'duplicate_yield_ratio' => 0.8,
+        ]);
+
+        self::assertContains('local_grep_bug_hunt', $result['suppressed_fronts']);
+        self::assertNotContains('local_grep_bug_hunt', $result['next_fronts']);
+    }
+
+    public function test_exhausted_returns_null_next_front(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->evaluate([
+            'local_findings_per_wave' => 0,
+            'quota_remaining' => 5,
+            'attempted_fronts_with_evidence' => [
+                'local_grep_bug_hunt',
+                'cross_file_invariant_scan',
+                'design_path_mining',
+                'simplification_candidate_search',
+                'research_to_task_digest',
+            ],
+        ]);
+
+        self::assertNull($result['next_front']);
+        self::assertSame([], $result['suppressed_fronts']);
+    }
 }
