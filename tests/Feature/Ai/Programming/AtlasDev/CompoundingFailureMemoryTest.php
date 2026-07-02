@@ -302,13 +302,22 @@ final class CompoundingFailureMemoryTest extends TestCase
         $emptyInjector = new DevFailureCapsulePromptInjector;
         $this->assertSame([], $emptyInjector->injectFor([$target]));
 
+        // A COMPLETE open-brain projection is used on both sides: the base
+        // fixture is degraded (missing_sources + truncated), which now emits
+        // a legitimate context-degradation review signal into the same
+        // section. This test pins capsule anti-fabrication only.
+        $completeProjection = [
+            'missing_sources' => [],
+            'truncation' => ['truncated' => false, 'reasons' => []],
+        ];
+
         $projectionWithEmpty = $this->makeBuilder()->build(
             envelope: $this->envelope(),
             compactSdd: $this->compactSdd(),
             miniSpec: $this->miniSpec(),
             taskContract: $this->taskContract(['allowed_files' => [$target]]),
             discovery: $this->codeDiscovery(),
-            projection: $this->openBrainProjection(),
+            projection: $this->openBrainProjection($completeProjection),
             knownFailureModes: [],
         );
 
@@ -320,7 +329,7 @@ final class CompoundingFailureMemoryTest extends TestCase
             miniSpec: $this->miniSpec(),
             taskContract: $this->taskContract(['allowed_files' => [$target]]),
             discovery: $this->codeDiscovery(),
-            projection: $this->openBrainProjection(),
+            projection: $this->openBrainProjection($completeProjection),
         );
 
         $this->assertStringNotContainsString(

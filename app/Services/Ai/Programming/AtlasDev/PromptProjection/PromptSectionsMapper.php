@@ -80,7 +80,10 @@ final class PromptSectionsMapper
             outputContract: self::OUTPUT_CONTRACT_CLAUSES,
             providerSafe: true,
             nonGoals: AtlasDevStringListNormalizer::uniqueTrimmedStrings($miniSpec->nonGoals),
-            knownFailureModes: AtlasDevStringListNormalizer::uniqueStrings($knownFailureModes),
+            knownFailureModes: AtlasDevStringListNormalizer::uniqueStrings(array_merge(
+                $knownFailureModes,
+                $this->buildContextDegradationSignals($projection),
+            )),
             definitionOfDone: $e2->isOff() ? [] : $this->buildDefinitionOfDone($miniSpec),
         );
     }
@@ -102,6 +105,44 @@ final class PromptSectionsMapper
         }
 
         return ElevationConfig::for('e2', null);
+    }
+
+    /**
+     * Context-degradation review signal (canonical retrieval policy is
+     * degrade_with_review_signal, never block). When the open-brain retrieval
+     * came back incomplete — required sources missing or the ref list
+     * truncated — the model must be TOLD it is operating with degraded
+     * context, so it compensates by reading workspace files directly instead
+     * of silently assuming absent memory/decisions exist. A complete
+     * projection returns [] and the prompt stays byte-identical.
+     *
+     * Lines are provider-safe by construction: missing sources are the fixed
+     * doc://... identifiers from DocContextTierSelector and truncation
+     * reasons are fixed adapter constants — never user or file content.
+     *
+     * @return list<string>
+     */
+    private function buildContextDegradationSignals(OpenBrainProgrammingProjection $projection): array
+    {
+        $signals = [];
+
+        $missing = AtlasDevStringListNormalizer::uniqueTrimmedStrings($projection->missingSources);
+        if ($missing !== []) {
+            $signals[] = 'contexto_degradado: fontes requeridas indisponiveis nesta corrida ('
+                .implode(', ', $missing)
+                .') — nao assuma o conteudo delas; confirme por leitura direta dos arquivos do workspace antes de editar.';
+        }
+
+        if ($projection->isTruncated()) {
+            $reasons = AtlasDevStringListNormalizer::uniqueTrimmedStrings(
+                array_values(array_filter((array) ($projection->truncation['reasons'] ?? []), 'is_string')),
+            );
+            $signals[] = 'contexto_truncado'
+                .($reasons !== [] ? ' ('.implode(', ', $reasons).')' : '')
+                .': a lista de context_refs esta incompleta; trate contexto ausente como desconhecido e verifique no codigo antes de depender dele.';
+        }
+
+        return $signals;
     }
 
     private function buildObjective(OperationEnvelope $envelope, MiniProgrammingSpec $miniSpec): string

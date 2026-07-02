@@ -270,4 +270,74 @@ final class PromptSectionsMapperTest extends TestCase
 
         $this->assertSame([], $sections->nonGoals);
     }
+
+    public function test_mapper_emits_degraded_context_review_signal_when_required_sources_are_missing(): void
+    {
+        $sections = $this->mapper()->map(
+            envelope: $this->envelope(),
+            miniSpec: $this->miniSpec(),
+            taskContract: $this->taskContract(),
+            discovery: $this->codeDiscovery(),
+            projection: $this->openBrainProjection([
+                'missing_sources' => ['doc://engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md'],
+            ]),
+        );
+
+        $joined = implode("\n", $sections->knownFailureModes);
+        $this->assertStringContainsString('contexto_degradado', $joined);
+        $this->assertStringContainsString('doc://engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md', $joined);
+        $this->assertStringContainsString('leitura direta', $joined);
+    }
+
+    public function test_mapper_emits_truncation_review_signal_with_reasons(): void
+    {
+        $sections = $this->mapper()->map(
+            envelope: $this->envelope(),
+            miniSpec: $this->miniSpec(),
+            taskContract: $this->taskContract(),
+            discovery: $this->codeDiscovery(),
+            projection: $this->openBrainProjection([
+                'truncation' => ['truncated' => true, 'reasons' => ['open_brain_unavailable']],
+            ]),
+        );
+
+        $joined = implode("\n", $sections->knownFailureModes);
+        $this->assertStringContainsString('contexto_truncado (open_brain_unavailable)', $joined);
+    }
+
+    public function test_mapper_emits_no_degradation_signal_when_projection_is_complete(): void
+    {
+        $sections = $this->mapper()->map(
+            envelope: $this->envelope(),
+            miniSpec: $this->miniSpec(),
+            taskContract: $this->taskContract(),
+            discovery: $this->codeDiscovery(),
+            projection: $this->openBrainProjection([
+                'missing_sources' => [],
+                'truncation' => ['truncated' => false, 'reasons' => []],
+            ]),
+        );
+
+        $joined = implode("\n", $sections->knownFailureModes);
+        $this->assertStringNotContainsString('contexto_degradado', $joined);
+        $this->assertStringNotContainsString('contexto_truncado', $joined);
+    }
+
+    public function test_degradation_signal_rides_with_existing_known_failure_modes(): void
+    {
+        $sections = $this->mapper()->map(
+            envelope: $this->envelope(),
+            miniSpec: $this->miniSpec(),
+            taskContract: $this->taskContract(),
+            discovery: $this->codeDiscovery(),
+            projection: $this->openBrainProjection([
+                'missing_sources' => ['doc://engineering-knowledge-base/atlas-forge-operating-system.md'],
+            ]),
+            knownFailureModes: ['falha conhecida: teste flakey em X'],
+        );
+
+        $joined = implode("\n", $sections->knownFailureModes);
+        $this->assertStringContainsString('falha conhecida: teste flakey em X', $joined);
+        $this->assertStringContainsString('contexto_degradado', $joined);
+    }
 }
