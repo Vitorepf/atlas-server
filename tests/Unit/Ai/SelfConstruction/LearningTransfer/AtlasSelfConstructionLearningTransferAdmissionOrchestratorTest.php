@@ -44,7 +44,24 @@ class AtlasSelfConstructionLearningTransferAdmissionOrchestratorTest extends Tes
                 ['outcome' => 'give_back', 'evidence_refs' => ['evidence://2']],
                 ['outcome' => 'give_back', 'evidence_refs' => ['evidence://3']],
             ],
+            // r125 outcome-proof floor: admission needs impact class, design path refs and a
+            // resolved muscle outcome carried by the caller.
+            'impact_class' => 'poison_lesson',
+            'design_path_refs' => ['docs/engineering-knowledge-base/loop-canonical-definition.md'],
+            'muscle_outcome' => ['status' => 'resolved'],
         ];
+    }
+
+    public function test_admit_without_outcome_proof_is_refused_by_admission_floor_not_crashed(): void
+    {
+        $fact = $this->admittableFact();
+        unset($fact['muscle_outcome']);
+
+        $r = $this->orchestrator()->admit($fact, ['acceptance_criteria' => []]);
+
+        self::assertSame('refused_by_admission_floor', $r['outcome']);
+        self::assertSame('refused', $r['ledger']['status']);
+        self::assertStringContainsString('muscle_outcome', $r['ledger']['reason']);
     }
 
     public function test_admit_chains_classifier_gate_planner_updater_and_records_to_ledger(): void

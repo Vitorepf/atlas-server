@@ -145,17 +145,42 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         if (! isset($plan['source_evidence_refs']) || $plan['source_evidence_refs'] === []) {
             $plan['source_evidence_refs'] = array_values(array_map('strval', (array) ($admittedLesson['evidence_refs'] ?? [])));
         }
+        // r125 outcome-proof floor passthroughs: the caller carries the proof (impact_class,
+        // design_path_refs, muscle_outcome) in the give-back fact; the orchestrator never invents it.
+        if (! isset($plan['impact_class']) || trim((string) $plan['impact_class']) === '') {
+            $plan['impact_class'] = (string) ($giveBackFact['impact_class'] ?? '');
+        }
+        if (! isset($plan['design_path_refs']) || $plan['design_path_refs'] === []) {
+            $plan['design_path_refs'] = array_values(array_map('strval', (array) ($giveBackFact['design_path_refs'] ?? [])));
+        }
 
         $intendedTemplateAfter = $template === []
             ? ['observe_mode_no_template_provided' => true]
             : $this->updater->apply($plan, $template);
 
-        $ledgerResult = $this->ledger->append($plan, [
-            'mode' => $mode,
-            'intended_action' => 'observe_apply_plan',
-            'classification' => $classification,
-            'gate_decision' => $gateDecision,
-        ]);
+        try {
+            $ledgerResult = $this->ledger->append($plan, [
+                'mode' => $mode,
+                'intended_action' => 'observe_apply_plan',
+                'classification' => $classification,
+                'gate_decision' => $gateDecision,
+                'muscle_outcome' => is_array($giveBackFact['muscle_outcome'] ?? null) ? $giveBackFact['muscle_outcome'] : [],
+            ]);
+        } catch (\InvalidArgumentException $refusal) {
+            // The admission floor refusing is a governed outcome, not a crash: surface it so the
+            // caller learns what proof is missing instead of the whole observe cycle dying.
+            return $this->envelope(
+                mode: $mode,
+                classification: $classification,
+                gateDecision: $gateDecision,
+                plan: $plan,
+                templateAfter: null,
+                ledger: ['schema_version' => AtlasSelfConstructionLearningTransferAdmissionLedger::SCHEMA, 'status' => 'refused', 'reason' => $refusal->getMessage()],
+                outcome: 'refused_by_admission_floor',
+                lessonKey: $lessonKey,
+                familyOutcomeSignal: $familyOutcomeSignal,
+            );
+        }
 
         return $this->envelope(
             mode: $mode,
