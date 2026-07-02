@@ -79,11 +79,15 @@ final class AppendOnlyJsonlStore
         }
 
         try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, $jsonFlags).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
+            // Throw, never skip: the strict variant already throws on open failure, and a
+            // silently dropped ledger line is evidence loss. Best-effort callers belong on
+            // appendSilently().
+            if (! flock($fp, LOCK_EX)) {
+                throw new RuntimeException("Could not lock {$path} for writing.");
             }
+            fwrite($fp, json_encode($payload, $jsonFlags).PHP_EOL);
+            fflush($fp);
+            flock($fp, LOCK_UN);
         } finally {
             fclose($fp);
         }
