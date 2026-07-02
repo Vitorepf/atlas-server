@@ -74,6 +74,7 @@
         <!-- Campaign flag armed in the live .env; suites assert the documented default
              (per-lane certification) and opt in per-test where universal cert is under test. -->
         <env name="ATLAS_LOOP_UNIVERSAL_CERTIFICATION" value="false"/>
+        <env name="ATLAS_LOOP_MULTI_FILE_REFACTOR_VIA_NORMAL_LANE" value="false"/>
         <!-- T1.2: capture quality gate is ENFORCE in dev/prod .env, but tests stay
              deterministic on the historical default (per-test config()->set turns
              enforce on where the gate itself is under test). -->

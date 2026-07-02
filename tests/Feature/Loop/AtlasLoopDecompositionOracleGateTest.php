@@ -46,7 +46,11 @@ final class AtlasLoopDecompositionOracleGateTest extends TestCase
         return [
             'id' => $id,
             'seq' => 0,
-            'request' => 'Reduce the worst-method cyclomatic complexity of '.$file.' preserving behaviour.',
+            // Each node states its own role: the X4 non-vacuity check collapses file
+            // tokens, so same-sentence-different-file requests normalize identical and
+            // the plan is (correctly) refused as vacuous — which is NOT what this
+            // suite pins. The oracle-gate fixtures must be non-vacuous by construction.
+            'request' => 'Node '.$id.': reduce the worst-method cyclomatic complexity of '.$file.' preserving behaviour.',
             'target_area' => $file,
             'complexity_proof' => true,
         ];
