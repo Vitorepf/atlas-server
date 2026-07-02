@@ -481,30 +481,9 @@ final class PipelineRunExecutor implements RunExecutor
         if (! $e2Config->isOff()) {
             $intentNotTested = $this->probeIntentCoverage($runId, $taskContract);
             if ($intentNotTested) {
-                if ($e2Config->isHard()) {
-                    // Hard mode => sanctioned hard gate channel (STATUS_FAILED).
-                    // The verification gate becomes red so completion resolves
-                    // to failed/blocked (never silently passed). Rebuild the
-                    // gate result preserving the gathered tests/gates while
-                    // forcing the aggregate to STATUS_FAILED and recording
-                    // the flag for auditability (mirrors E1's hard rebuild).
-                    $verificationResult = new VerificationGateResult(
-                        tests: $verificationResult->tests,
-                        gates: $verificationResult->gates,
-                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
-                        honestyFlags: $verificationResult->withHonestyFlags([
-                            IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
-                        ])->honestyFlags,
-                        evidenceRefs: $verificationResult->evidenceRefs,
-                        profile: $verificationResult->profile,
-                    );
-                } else {
-                    // Advisory => honesty flag only (drives the
-                    // CompletionStateGate PASSED -> needs_review downgrade).
-                    $verificationResult = $verificationResult->withHonestyFlags([
-                        IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
-                    ]);
-                }
+                $verificationResult = $this->routeElevationVerdict($verificationResult, $e2Config, [
+                    IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
+                ]);
             }
         }
 
@@ -544,30 +523,9 @@ final class PipelineRunExecutor implements RunExecutor
                 $diffResult,
             );
             if ($intentMissing) {
-                if ($e1Config->isHard()) {
-                    // Hard mode => sanctioned hard gate channel (STATUS_FAILED).
-                    // The verification gate becomes red so completion resolves
-                    // to failed/blocked (never silently passed). Rebuild the
-                    // gate result preserving the gathered tests/gates while
-                    // forcing the aggregate to STATUS_FAILED and recording
-                    // the flag for auditability.
-                    $verificationResult = new VerificationGateResult(
-                        tests: $verificationResult->tests,
-                        gates: $verificationResult->gates,
-                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
-                        honestyFlags: $verificationResult->withHonestyFlags([
-                            IntentFalsificationProbe::FLAG_INTENT_LIKELY_NOT_ADDRESSED,
-                        ])->honestyFlags,
-                        evidenceRefs: $verificationResult->evidenceRefs,
-                        profile: $verificationResult->profile,
-                    );
-                } else {
-                    // Advisory => honesty flag only (drives the
-                    // CompletionStateGate PASSED -> needs_review downgrade).
-                    $verificationResult = $verificationResult->withHonestyFlags([
-                        IntentFalsificationProbe::FLAG_INTENT_LIKELY_NOT_ADDRESSED,
-                    ]);
-                }
+                $verificationResult = $this->routeElevationVerdict($verificationResult, $e1Config, [
+                    IntentFalsificationProbe::FLAG_INTENT_LIKELY_NOT_ADDRESSED,
+                ]);
             }
         }
 
@@ -592,27 +550,9 @@ final class PipelineRunExecutor implements RunExecutor
         if (! $weakOutputConfig->isOff() && $diffResult->hasPatch()) {
             $appliedDiffInspection = (new DevWeakOutputDetector)->inspectAppliedDiff((string) $diffResult->diff);
             if ($appliedDiffInspection['weak']) {
-                if ($weakOutputConfig->isHard()) {
-                    // Hard => sanctioned hard gate channel (STATUS_FAILED),
-                    // preserving gathered tests/gates and recording the flag
-                    // for auditability (mirrors the E1/E2 hard rebuild).
-                    $verificationResult = new VerificationGateResult(
-                        tests: $verificationResult->tests,
-                        gates: $verificationResult->gates,
-                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
-                        honestyFlags: $verificationResult->withHonestyFlags([
-                            DevWeakOutputDetector::FLAG_WEAK_OUTPUT_DETECTED,
-                        ])->honestyFlags,
-                        evidenceRefs: $verificationResult->evidenceRefs,
-                        profile: $verificationResult->profile,
-                    );
-                } else {
-                    // Advisory => honesty flag only (drives the
-                    // CompletionStateGate PASSED -> needs_review downgrade).
-                    $verificationResult = $verificationResult->withHonestyFlags([
-                        DevWeakOutputDetector::FLAG_WEAK_OUTPUT_DETECTED,
-                    ]);
-                }
+                $verificationResult = $this->routeElevationVerdict($verificationResult, $weakOutputConfig, [
+                    DevWeakOutputDetector::FLAG_WEAK_OUTPUT_DETECTED,
+                ]);
             }
         }
 
@@ -655,28 +595,7 @@ final class PipelineRunExecutor implements RunExecutor
             $verdict = $gate->evaluate($mutationResult);
 
             if ($verdict->tripped) {
-                if ($e3Config->isHard()) {
-                    // Hard => sanctioned hard gate channel (STATUS_FAILED).
-                    // Rebuild the gate result preserving the gathered
-                    // tests/gates while forcing STATUS_FAILED so completion
-                    // resolves to failed/blocked (never silently passed).
-                    $verificationResult = new VerificationGateResult(
-                        tests: $verificationResult->tests,
-                        gates: $verificationResult->gates,
-                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
-                        honestyFlags: $verificationResult->withHonestyFlags(
-                            $verdict->honestyFlags,
-                        )->honestyFlags,
-                        evidenceRefs: $verificationResult->evidenceRefs,
-                        profile: $verificationResult->profile,
-                    );
-                } else {
-                    // Advisory => honesty flag only (drives the
-                    // CompletionStateGate PASSED -> needs_review downgrade).
-                    $verificationResult = $verificationResult->withHonestyFlags(
-                        $verdict->honestyFlags,
-                    );
-                }
+                $verificationResult = $this->routeElevationVerdict($verificationResult, $e3Config, $verdict->honestyFlags);
             }
         }
 
@@ -717,28 +636,7 @@ final class PipelineRunExecutor implements RunExecutor
                 $regressionVerdict = $regressionGate->evaluate($regressionResult);
 
                 if ($regressionVerdict->tripped) {
-                    if ($e5Config->isHard()) {
-                        // Hard => sanctioned hard gate channel (STATUS_FAILED).
-                        // Rebuild the gate result preserving the gathered
-                        // tests/gates while forcing STATUS_FAILED so completion
-                        // resolves to failed/blocked (never silently passed).
-                        $verificationResult = new VerificationGateResult(
-                            tests: $verificationResult->tests,
-                            gates: $verificationResult->gates,
-                            aggregateStatus: VerificationGateResult::STATUS_FAILED,
-                            honestyFlags: $verificationResult->withHonestyFlags(
-                                $regressionVerdict->honestyFlags,
-                            )->honestyFlags,
-                            evidenceRefs: $verificationResult->evidenceRefs,
-                            profile: $verificationResult->profile,
-                        );
-                    } else {
-                        // Advisory => honesty flag only (drives the
-                        // CompletionStateGate PASSED -> needs_review downgrade).
-                        $verificationResult = $verificationResult->withHonestyFlags(
-                            $regressionVerdict->honestyFlags,
-                        );
-                    }
+                    $verificationResult = $this->routeElevationVerdict($verificationResult, $e5Config, $regressionVerdict->honestyFlags);
                 }
             }
         }
@@ -813,28 +711,7 @@ final class PipelineRunExecutor implements RunExecutor
                 $shadowVerdict = $shadowGate->evaluate($shadowResult);
 
                 if ($shadowVerdict->tripped) {
-                    if ($e4Config->isHard()) {
-                        // Hard => sanctioned hard gate channel (STATUS_FAILED).
-                        // Rebuild the gate result preserving the gathered
-                        // tests/gates while forcing STATUS_FAILED so completion
-                        // resolves to failed/blocked (never silently passed).
-                        $verificationResult = new VerificationGateResult(
-                            tests: $verificationResult->tests,
-                            gates: $verificationResult->gates,
-                            aggregateStatus: VerificationGateResult::STATUS_FAILED,
-                            honestyFlags: $verificationResult->withHonestyFlags(
-                                $shadowVerdict->honestyFlags,
-                            )->honestyFlags,
-                            evidenceRefs: $verificationResult->evidenceRefs,
-                            profile: $verificationResult->profile,
-                        );
-                    } else {
-                        // Advisory => honesty flag only (drives the
-                        // CompletionStateGate PASSED -> needs_review downgrade).
-                        $verificationResult = $verificationResult->withHonestyFlags(
-                            $shadowVerdict->honestyFlags,
-                        );
-                    }
+                    $verificationResult = $this->routeElevationVerdict($verificationResult, $e4Config, $shadowVerdict->honestyFlags);
                 }
             }
         }
@@ -886,44 +763,10 @@ final class PipelineRunExecutor implements RunExecutor
                 // Honest ceiling (VAL-M2-033): an unevaluable spec-constitution
                 // check never silently greens. Advisory => honesty flag
                 // (-> needs_review); hard => STATUS_FAILED (-> failed).
-                if ($e6Config->isHard()) {
-                    $verificationResult = new VerificationGateResult(
-                        tests: $verificationResult->tests,
-                        gates: $verificationResult->gates,
-                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
-                        honestyFlags: $verificationResult->withHonestyFlags(
-                            $e6Verdict->honestyFlags,
-                        )->honestyFlags,
-                        evidenceRefs: $verificationResult->evidenceRefs,
-                        profile: $verificationResult->profile,
-                    );
-                } else {
-                    $verificationResult = $verificationResult->withHonestyFlags(
-                        $e6Verdict->honestyFlags,
-                    );
-                }
+                $verificationResult = $this->routeElevationVerdict($verificationResult, $e6Config, $e6Verdict->honestyFlags);
             } elseif ($e6Verdict->tripped) {
                 // Spec/constitution violation (VAL-M2-021/022/024).
-                //   - advisory => honesty flag only (drives the
-                //     CompletionStateGate PASSED -> needs_review downgrade).
-                //   - hard     => STATUS_FAILED gate channel (completion
-                //     `failed`, NOT the advisory `needs_review`).
-                if ($e6Config->isHard()) {
-                    $verificationResult = new VerificationGateResult(
-                        tests: $verificationResult->tests,
-                        gates: $verificationResult->gates,
-                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
-                        honestyFlags: $verificationResult->withHonestyFlags(
-                            $e6Verdict->honestyFlags,
-                        )->honestyFlags,
-                        evidenceRefs: $verificationResult->evidenceRefs,
-                        profile: $verificationResult->profile,
-                    );
-                } else {
-                    $verificationResult = $verificationResult->withHonestyFlags(
-                        $e6Verdict->honestyFlags,
-                    );
-                }
+                $verificationResult = $this->routeElevationVerdict($verificationResult, $e6Config, $e6Verdict->honestyFlags);
             }
             // else: no-op or pass — no flag, no STATUS_FAILED (byte-identical
             // to pre-E6 for this run on the E6 axis).
@@ -1998,28 +1841,11 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             $e4Verdict = $diffGate->evaluate($diffResult4);
 
             if ($e4Verdict->tripped) {
-                if ($e4Config->isHard()) {
-                    // Hard => sanctioned hard gate channel (STATUS_FAILED).
-                    // Rebuild the gate result preserving the gathered
-                    // tests/gates while forcing STATUS_FAILED so completion
-                    // resolves to failed/blocked (never silently passed).
-                    $winnerVerificationResult = new VerificationGateResult(
-                        tests: $winnerVerificationResult->tests,
-                        gates: $winnerVerificationResult->gates,
-                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
-                        honestyFlags: $winnerVerificationResult->withHonestyFlags(
-                            $e4Verdict->honestyFlags,
-                        )->honestyFlags,
-                        evidenceRefs: $winnerVerificationResult->evidenceRefs,
-                        profile: $winnerVerificationResult->profile,
-                    );
-                } else {
-                    // Advisory => honesty flag only (drives the
-                    // CompletionStateGate PASSED -> needs_review downgrade).
-                    $winnerVerificationResult = $winnerVerificationResult->withHonestyFlags(
-                        $e4Verdict->honestyFlags,
-                    );
-                }
+                $winnerVerificationResult = $this->routeElevationVerdict(
+                    $winnerVerificationResult,
+                    $e4Config,
+                    $e4Verdict->honestyFlags,
+                );
             }
 
             // Build the E4 summary fragment for the best-of-N summary. On
@@ -3526,6 +3352,38 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * default (advisory) so plain-PHPunit unit tests never crash. Mirrors
      * the resolution pattern used by SpecComposer and PromptSectionsMapper.
      */
+    /**
+     * Route a TRIPPED elevation verdict through the two sanctioned channels
+     * (no third way, no silent green): hard => rebuild the gate result at
+     * STATUS_FAILED preserving the gathered tests/gates with the flag(s)
+     * retained for auditability; advisory => append the honesty flag(s) only
+     * (the CompletionStateGate downgrades PASSED -> needs_review via the
+     * passed-forbids-flags invariant). Callers invoke this ONLY when the
+     * verdict actually tripped and the config is not off — off stays a
+     * byte-identical no-op upstream. This is the single implementation of
+     * the rebuild pattern E1-E6 + W1 previously each copied inline.
+     *
+     * @param  list<string>  $flags
+     */
+    private function routeElevationVerdict(
+        VerificationGateResult $verificationResult,
+        ElevationConfig $config,
+        array $flags,
+    ): VerificationGateResult {
+        if ($config->isHard()) {
+            return new VerificationGateResult(
+                tests: $verificationResult->tests,
+                gates: $verificationResult->gates,
+                aggregateStatus: VerificationGateResult::STATUS_FAILED,
+                honestyFlags: $verificationResult->withHonestyFlags($flags)->honestyFlags,
+                evidenceRefs: $verificationResult->evidenceRefs,
+                profile: $verificationResult->profile,
+            );
+        }
+
+        return $verificationResult->withHonestyFlags($flags);
+    }
+
     private function resolveE2Config(): ElevationConfig
     {
         try {
