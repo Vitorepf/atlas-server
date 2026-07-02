@@ -120,9 +120,9 @@ final class PipelineRunExecutorHttpSmokeTest extends AtlasDevHttpTestCase
 
         $response->assertStatus(200);
         // Completion is the load-bearing assertion: the executor must compose
-        // a receipt with status=passed for an executable run with no-patch +
-        // passing verification. Anything else means we silently completed
-        // unverified, which is the exact gap this smoke is supposed to close.
+        // a receipt with status=passed for an executable run with an applied
+        // patch + passing verification. Anything else means we silently
+        // completed unverified, which is the exact gap this smoke closes.
         $response->assertJsonPath('data.completion_state', CompletionSummary::STATUS_PASSED);
         $response->assertJsonPath('data.provider_call.provider', SonnetClaudeCliAdapter::PROVIDER);
         $response->assertJsonPath('data.provider_call.model_family', SonnetClaudeCliAdapter::MODEL_FAMILY);

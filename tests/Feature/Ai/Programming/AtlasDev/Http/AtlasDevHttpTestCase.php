@@ -24,6 +24,8 @@ use Tests\TestCase;
  */
 abstract class AtlasDevHttpTestCase extends TestCase
 {
+    use \Tests\Unit\Ai\Programming\AtlasDev\Provider\AtlasDevProviderFixtures;
+
     protected string $tmpStorage;
 
     protected string $tmpWorkspace;
@@ -72,6 +74,15 @@ abstract class AtlasDevHttpTestCase extends TestCase
         $this->bootstrapAwisWorkspaceRegistry();
 
         $this->app->instance(AtlasOpenBrainService::class, new FakeAtlasOpenBrainService);
+
+        // The M3 senior critic and the E1-E6 elevations landed after these HTTP
+        // contracts froze; their flags downgrade PASSED->needs_review (or fail
+        // hard) across the whole suite. Bind a no-concerns critic and pin the
+        // elevations off by default; gate-focused suites opt back in per-test.
+        $this->bindNoConcernsCritic($this->app);
+        foreach (['e1', 'e2', 'e3', 'e4', 'e5', 'e6'] as $elevation) {
+            config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
+        }
 
         $this->bootstrapAtlasDevSecurityTables();
     }

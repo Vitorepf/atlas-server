@@ -65,6 +65,12 @@
         <!-- V1 strict census is armed in the live .env; tests assert the documented
              default (named-based census) and opt in per-test for strict mode. -->
         <env name="ATLAS_LOOP_SYMBOL_BRANCH_CENSUS_ENABLED" value="false"/>
+        <!-- The live .env routes Atlas Dev to hermes (MiniMax-impl doctrine). The Dev
+             Feature suites were written against the documented claude_cli default and
+             stub that lane (FakeClaudeCliGateway); with hermes they silently make LIVE
+             ~50s provider calls per run. Tests pin the documented default; hermes-lane
+             tests opt in per-test. -->
+        <env name="ATLAS_DEV_DEFAULT_PROVIDER" value="claude_cli"/>
         <!-- T1.2: capture quality gate is ENFORCE in dev/prod .env, but tests stay
              deterministic on the historical default (per-test config()->set turns
              enforce on where the gate itself is under test). -->
