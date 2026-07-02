@@ -133,6 +133,29 @@ final class PromptSectionsMapperTest extends TestCase
         $this->assertSame('code://app/C0.php :: caller 0', $callerRefs[0], 'cap keeps manifest order (deterministic)');
     }
 
+    public function test_mapper_surfaces_proven_exemplars_with_readable_objective(): void
+    {
+        $sections = $this->mapper()->map(
+            envelope: $this->envelope(),
+            miniSpec: $this->miniSpec(),
+            taskContract: $this->taskContract(),
+            discovery: $this->codeDiscovery(),
+            projection: $this->openBrainProjection(),
+            provenExemplars: [
+                ['run_id' => 'run-good', 'objective_excerpt' => 'Adicionar cache ao FooService', 'verification_command' => 'php artisan test --filter=FooServiceTest'],
+                // No readable objective => teaches nothing => skipped.
+                ['run_id' => 'run-opaque', 'objective_excerpt' => '', 'verification_command' => 'x'],
+            ],
+        );
+
+        $this->assertContains(
+            'exemplar://run-good :: did "Adicionar cache ao FooService" — verified via php artisan test --filter=FooServiceTest',
+            $sections->contextRefs,
+        );
+        $joined = implode("\n", $sections->contextRefs);
+        $this->assertStringNotContainsString('run-opaque', $joined, 'exemplar without objective must be skipped');
+    }
+
     public function test_mapper_dedupes_context_refs(): void
     {
         $sections = $this->mapper()->map(

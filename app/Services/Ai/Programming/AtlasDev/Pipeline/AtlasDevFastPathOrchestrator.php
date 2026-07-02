@@ -181,6 +181,17 @@ class AtlasDevFastPathOrchestrator
         $knownFailureModes = ($this->failureCapsuleInjector ?? new DevFailureCapsulePromptInjector)
             ->injectFor($taskContract->allowedFiles, $workspaceSlug);
 
+        // Proven green-run exemplars for the LIVE prompt (not just the
+        // workcell_instructions.json receipt, which nothing consumes): real
+        // runs of the same task kind / design path / files that already
+        // passed verification here. retrieve() never throws (fail-open); an
+        // empty store keeps the prompt byte-identical.
+        $provenExemplars = ($this->exemplarRetriever ?? new DevGreenRunExemplarRetriever)->retrieve(
+            $classification->taskKind,
+            $this->designPathFromSpec($miniSpec->toCanonicalArray()),
+            $taskContract->allowedFiles,
+        );
+
         $promptProjection = $this->promptBuilder->build(
             envelope: $envelope,
             compactSdd: $compactSdd,
@@ -190,6 +201,7 @@ class AtlasDevFastPathOrchestrator
             projection: $projection,
             providerSafe: $promptIsSendable,
             knownFailureModes: $knownFailureModes,
+            provenExemplars: $provenExemplars,
         );
 
         $persisted = $this->persistArtifacts(

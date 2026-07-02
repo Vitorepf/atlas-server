@@ -44,6 +44,7 @@ final class ProviderPromptBuilder
         OpenBrainProgrammingProjection $projection,
         bool $providerSafe = true,
         array $knownFailureModes = [],
+        array $provenExemplars = [],
     ): ProviderPromptProjection {
         $sections = $this->sectionsMapper->map(
             envelope: $envelope,
@@ -52,6 +53,7 @@ final class ProviderPromptBuilder
             discovery: $discovery,
             projection: $projection,
             knownFailureModes: $knownFailureModes,
+            provenExemplars: $provenExemplars,
         );
 
         $provider = $taskContract->providerLock->provider !== ''

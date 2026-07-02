@@ -55,6 +55,7 @@ final class PromptSectionsMapper
         OpenBrainProgrammingProjection $projection,
         array $knownFailureModes = [],
         ?ElevationConfig $e2Config = null,
+        array $provenExemplars = [],
     ): PromptSections {
         $miniSpecHash = $miniSpec->miniSpecHash !== '' ? $miniSpec->miniSpecHash : $miniSpec->hash();
         $taskContractHash = $taskContract->taskContractHash !== '' ? $taskContract->taskContractHash : $taskContract->hash();
@@ -68,7 +69,7 @@ final class PromptSectionsMapper
             operatingRules: self::ATLAS_DEV_OPERATING_RULES,
             miniSpecRef: $this->buildRef('mini-spec', $miniSpecHash),
             taskContractRef: $this->buildRef('task-contract', $taskContractHash),
-            contextRefs: $this->buildContextRefs($projection, $discovery, $discoveryHash, $projectionHash),
+            contextRefs: $this->buildContextRefs($projection, $discovery, $discoveryHash, $projectionHash, $provenExemplars),
             codeDiscoveryRef: $this->buildRef('code-discovery', $discoveryHash),
             allowedFiles: AtlasDevStringListNormalizer::uniqueTrimmedStrings($taskContract->allowedFiles),
             forbiddenFiles: AtlasDevStringListNormalizer::uniqueTrimmedStrings($taskContract->forbiddenFiles),
@@ -133,11 +134,13 @@ final class PromptSectionsMapper
      */
     private const MAX_DISCOVERY_REFS_PER_GROUP = 8;
 
+    /** @param  list<array<string,mixed>>  $provenExemplars  DevGreenRunExemplarRetriever::retrieve() output */
     private function buildContextRefs(
         OpenBrainProgrammingProjection $projection,
         CodeDiscoveryManifest $discovery,
         string $discoveryHash,
         string $projectionHash,
+        array $provenExemplars = [],
     ): array {
         $refs = [];
 
@@ -175,6 +178,29 @@ final class PromptSectionsMapper
 
         foreach (array_slice($discovery->relatedTests, 0, self::MAX_DISCOVERY_REFS_PER_GROUP) as $ref) {
             $refs[] = $this->contextRefToString($ref).' :: '.$ref->reason;
+        }
+
+        // Proven green-run exemplars: real runs of the same task kind /
+        // design path / files that already PASSED verification here. These
+        // previously lived only in the workcell_instructions.json receipt,
+        // which nothing consumed — the live prompt never saw them. Only
+        // exemplars with a readable objective ride (an opaque run id teaches
+        // nothing); the retriever already caps the list.
+        foreach ($provenExemplars as $exemplar) {
+            if (! is_array($exemplar)) {
+                continue;
+            }
+            $runId = trim((string) ($exemplar['run_id'] ?? ''));
+            $objective = trim((string) ($exemplar['objective_excerpt'] ?? ''));
+            if ($runId === '' || $objective === '') {
+                continue;
+            }
+            $parts = ['exemplar://'.$runId.' :: did "'.$objective.'"'];
+            $command = trim((string) ($exemplar['verification_command'] ?? ''));
+            if ($command !== '') {
+                $parts[] = 'verified via '.$command;
+            }
+            $refs[] = implode(' — ', $parts);
         }
 
         return AtlasDevStringListNormalizer::uniqueStrings($refs);
