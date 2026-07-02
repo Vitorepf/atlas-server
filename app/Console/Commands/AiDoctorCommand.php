@@ -9,6 +9,7 @@ use App\Models\AiThread;
 use App\Models\AiTrace;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\SchemaDriftAuditor;
 
 class AiDoctorCommand extends Command
 {
@@ -39,12 +40,17 @@ class AiDoctorCommand extends Command
             ],
             'quality' => $this->quality($since),
             'actions' => $this->actions(),
+            'schema_drift' => $drift = app(SchemaDriftAuditor::class)->audit(),
         ];
+
+        // Stamped-but-missing tables mean learning writes are silently dropped
+        // behind fail-open table guards — that is a hard failure, not a note.
+        $exit = $drift['missing'] === [] ? self::SUCCESS : self::FAILURE;
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-            return self::SUCCESS;
+            return $exit;
         }
 
         $this->info("Atlas Doctor ({$hours}h)");
@@ -60,7 +66,13 @@ class AiDoctorCommand extends Command
             $this->line("actions open={$data['actions']['open']} queued={$data['actions']['queued']} blocked={$data['actions']['blocked']} failed={$data['actions']['failed']}");
         }
 
-        return self::SUCCESS;
+        if ($drift['missing'] === []) {
+            $this->line("schema drift: none ({$drift['expected']} declared tables present)");
+        } else {
+            $this->error('schema drift: '.count($drift['missing']).' stamped-but-missing tables: '.implode(', ', $drift['missing']));
+        }
+
+        return $exit;
     }
 
     private function quality($since): array

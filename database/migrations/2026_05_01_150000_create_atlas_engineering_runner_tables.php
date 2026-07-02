@@ -9,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('atlas_engineering_runs', function (Blueprint $table): void {
+        if (Schema::hasTable('atlas_engineering_runs')) { /* wiper-recovery guard 2026-07-02 */ } else Schema::create('atlas_engineering_runs', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('task_id')->index();
             $table->uuid('project_id')->nullable()->index();
@@ -37,7 +37,7 @@ return new class extends Migration
             $table->index(['status', 'decision', 'created_at'], 'idx_atlas_eng_runs_status_decision');
         });
 
-        Schema::create('atlas_engineering_run_attempts', function (Blueprint $table): void {
+        if (Schema::hasTable('atlas_engineering_run_attempts')) { /* wiper-recovery guard 2026-07-02 */ } else Schema::create('atlas_engineering_run_attempts', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('engineering_run_id')->index();
             $table->unsignedSmallInteger('attempt_number');
@@ -60,7 +60,7 @@ return new class extends Migration
             $table->unique(['engineering_run_id', 'attempt_number'], 'idx_atlas_eng_attempts_run_number');
         });
 
-        Schema::create('atlas_engineering_patch_artifacts', function (Blueprint $table): void {
+        if (Schema::hasTable('atlas_engineering_patch_artifacts')) { /* wiper-recovery guard 2026-07-02 */ } else Schema::create('atlas_engineering_patch_artifacts', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('engineering_run_id')->index();
             $table->uuid('attempt_id')->nullable()->index();
@@ -79,7 +79,7 @@ return new class extends Migration
             $table->index(['engineering_run_id', 'created_at'], 'idx_atlas_eng_patch_run_created');
         });
 
-        Schema::create('atlas_engineering_controls', function (Blueprint $table): void {
+        if (Schema::hasTable('atlas_engineering_controls')) { /* wiper-recovery guard 2026-07-02 */ } else Schema::create('atlas_engineering_controls', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('slug', 120)->unique();
             $table->string('name', 180);
@@ -100,7 +100,7 @@ return new class extends Migration
             $table->index(['regulation_category', 'required'], 'idx_atlas_eng_controls_category_required');
         });
 
-        Schema::create('atlas_engineering_control_results', function (Blueprint $table): void {
+        if (Schema::hasTable('atlas_engineering_control_results')) { /* wiper-recovery guard 2026-07-02 */ } else Schema::create('atlas_engineering_control_results', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('engineering_run_id')->index();
             $table->uuid('attempt_id')->nullable()->index();
@@ -117,7 +117,7 @@ return new class extends Migration
             $table->index(['engineering_run_id', 'status'], 'idx_atlas_eng_control_results_run_status');
         });
 
-        Schema::create('atlas_engineering_test_cases', function (Blueprint $table): void {
+        if (Schema::hasTable('atlas_engineering_test_cases')) { /* wiper-recovery guard 2026-07-02 */ } else Schema::create('atlas_engineering_test_cases', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('task_id')->index();
             $table->string('blueprint_id', 120)->nullable()->index();
@@ -136,7 +136,7 @@ return new class extends Migration
             $table->unique(['task_id', 'case_code'], 'idx_atlas_eng_test_cases_task_code');
         });
 
-        Schema::create('atlas_engineering_test_runs', function (Blueprint $table): void {
+        if (Schema::hasTable('atlas_engineering_test_runs')) { /* wiper-recovery guard 2026-07-02 */ } else Schema::create('atlas_engineering_test_runs', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('engineering_run_id')->index();
             $table->uuid('attempt_id')->nullable()->index();
@@ -154,7 +154,7 @@ return new class extends Migration
             $table->index(['engineering_run_id', 'status'], 'idx_atlas_eng_test_runs_run_status');
         });
 
-        Schema::create('atlas_engineering_context_packs', function (Blueprint $table): void {
+        if (Schema::hasTable('atlas_engineering_context_packs')) { /* wiper-recovery guard 2026-07-02 */ } else Schema::create('atlas_engineering_context_packs', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->uuid('engineering_run_id')->nullable()->index();
             $table->uuid('task_id')->index();
@@ -183,6 +183,7 @@ return new class extends Migration
             'atlas_engineering_test_runs',
             'atlas_engineering_context_packs',
         ] as $table) {
+            DB::statement("DROP TRIGGER IF EXISTS trg_{$table}_updated_at ON {$table}");
             DB::statement(<<<SQL
                 CREATE TRIGGER trg_{$table}_updated_at
                 BEFORE UPDATE ON {$table}

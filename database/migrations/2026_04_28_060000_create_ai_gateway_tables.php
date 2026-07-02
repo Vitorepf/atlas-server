@@ -9,7 +9,7 @@ return new class extends Migration
     {
         DB::transaction(function (): void {
             DB::statement(<<<'SQL'
-                CREATE TABLE ai_traces (
+                CREATE TABLE IF NOT EXISTS ai_traces (
                   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                   trace_key TEXT NOT NULL UNIQUE,
                   source_type TEXT NOT NULL DEFAULT 'manual' CHECK (source_type IN (
@@ -58,17 +58,17 @@ return new class extends Migration
                 );
             SQL);
 
-            DB::statement('CREATE INDEX idx_ai_traces_status ON ai_traces(status, created_at DESC);');
-            DB::statement('CREATE INDEX idx_ai_traces_agent ON ai_traces(agent_slug, created_at DESC);');
-            DB::statement('CREATE INDEX idx_ai_traces_context_refs ON ai_traces USING GIN(context_refs);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_traces_status ON ai_traces(status, created_at DESC);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_traces_agent ON ai_traces(agent_slug, created_at DESC);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_traces_context_refs ON ai_traces USING GIN(context_refs);');
             DB::statement(<<<'SQL'
-                CREATE TRIGGER trg_ai_traces_updated_at
+                CREATE OR REPLACE TRIGGER trg_ai_traces_updated_at
                 BEFORE UPDATE ON ai_traces
                 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
             SQL);
 
             DB::statement(<<<'SQL'
-                CREATE TABLE ai_jobs (
+                CREATE TABLE IF NOT EXISTS ai_jobs (
                   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                   trace_id UUID REFERENCES ai_traces(id) ON DELETE SET NULL,
                   client_id UUID UNIQUE,
@@ -113,17 +113,17 @@ return new class extends Migration
                 );
             SQL);
 
-            DB::statement('CREATE INDEX idx_ai_jobs_queue ON ai_jobs(status, priority, available_at, created_at);');
-            DB::statement('CREATE INDEX idx_ai_jobs_trace ON ai_jobs(trace_id);');
-            DB::statement('CREATE INDEX idx_ai_jobs_worker ON ai_jobs(worker_id, started_at DESC);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_jobs_queue ON ai_jobs(status, priority, available_at, created_at);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_jobs_trace ON ai_jobs(trace_id);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_jobs_worker ON ai_jobs(worker_id, started_at DESC);');
             DB::statement(<<<'SQL'
-                CREATE TRIGGER trg_ai_jobs_updated_at
+                CREATE OR REPLACE TRIGGER trg_ai_jobs_updated_at
                 BEFORE UPDATE ON ai_jobs
                 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
             SQL);
 
             DB::statement(<<<'SQL'
-                CREATE TABLE ai_job_attempts (
+                CREATE TABLE IF NOT EXISTS ai_job_attempts (
                   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                   ai_job_id UUID NOT NULL REFERENCES ai_jobs(id) ON DELETE CASCADE,
                   attempt_number INTEGER NOT NULL CHECK (attempt_number > 0),
@@ -157,16 +157,16 @@ return new class extends Migration
                 );
             SQL);
 
-            DB::statement('CREATE INDEX idx_ai_job_attempts_job ON ai_job_attempts(ai_job_id, attempt_number DESC);');
-            DB::statement('CREATE INDEX idx_ai_job_attempts_provider ON ai_job_attempts(provider, started_at DESC);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_job_attempts_job ON ai_job_attempts(ai_job_id, attempt_number DESC);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_job_attempts_provider ON ai_job_attempts(provider, started_at DESC);');
             DB::statement(<<<'SQL'
-                CREATE TRIGGER trg_ai_job_attempts_updated_at
+                CREATE OR REPLACE TRIGGER trg_ai_job_attempts_updated_at
                 BEFORE UPDATE ON ai_job_attempts
                 FOR EACH ROW EXECUTE FUNCTION set_updated_at();
             SQL);
 
             DB::statement(<<<'SQL'
-                CREATE TABLE ai_worker_events (
+                CREATE TABLE IF NOT EXISTS ai_worker_events (
                   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                   worker_id TEXT NOT NULL,
                   provider TEXT,
@@ -201,12 +201,12 @@ return new class extends Migration
                 );
             SQL);
 
-            DB::statement('CREATE INDEX idx_ai_worker_events_worker ON ai_worker_events(worker_id, occurred_at DESC);');
-            DB::statement('CREATE INDEX idx_ai_worker_events_type ON ai_worker_events(event_type, occurred_at DESC);');
-            DB::statement('CREATE INDEX idx_ai_worker_events_job ON ai_worker_events(ai_job_id);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_worker_events_worker ON ai_worker_events(worker_id, occurred_at DESC);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_worker_events_type ON ai_worker_events(event_type, occurred_at DESC);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_worker_events_job ON ai_worker_events(ai_job_id);');
 
             DB::statement(<<<'SQL'
-                CREATE TABLE ai_provider_health_snapshots (
+                CREATE TABLE IF NOT EXISTS ai_provider_health_snapshots (
                   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                   provider TEXT NOT NULL,
                   status TEXT NOT NULL CHECK (status IN (
@@ -228,7 +228,7 @@ return new class extends Migration
                 );
             SQL);
 
-            DB::statement('CREATE INDEX idx_ai_provider_health_provider ON ai_provider_health_snapshots(provider, checked_at DESC);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_provider_health_provider ON ai_provider_health_snapshots(provider, checked_at DESC);');
         });
     }
 

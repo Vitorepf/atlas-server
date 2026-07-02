@@ -9,7 +9,7 @@ return new class extends Migration
     {
         DB::transaction(function (): void {
             DB::statement(<<<'SQL'
-                CREATE TABLE ai_stream_events (
+                CREATE TABLE IF NOT EXISTS ai_stream_events (
                   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                   trace_id UUID REFERENCES ai_traces(id) ON DELETE CASCADE,
                   ai_job_id UUID REFERENCES ai_jobs(id) ON DELETE CASCADE,
@@ -34,9 +34,9 @@ return new class extends Migration
                 );
             SQL);
 
-            DB::statement('CREATE INDEX idx_ai_stream_events_trace_sequence ON ai_stream_events(trace_id, sequence);');
-            DB::statement('CREATE INDEX idx_ai_stream_events_job_sequence ON ai_stream_events(ai_job_id, sequence);');
-            DB::statement('CREATE INDEX idx_ai_stream_events_type ON ai_stream_events(event_type, occurred_at DESC);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_stream_events_trace_sequence ON ai_stream_events(trace_id, sequence);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_stream_events_job_sequence ON ai_stream_events(ai_job_id, sequence);');
+            DB::statement('CREATE INDEX IF NOT EXISTS idx_ai_stream_events_type ON ai_stream_events(event_type, occurred_at DESC);');
         });
     }
 
