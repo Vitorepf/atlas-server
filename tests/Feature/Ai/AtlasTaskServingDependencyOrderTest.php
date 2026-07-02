@@ -195,9 +195,16 @@ final class AtlasTaskServingDependencyOrderTest extends TestCase
         // Self-sufficient by construction: a packet that requires `tests_or_gates_result` MUST grant a test
         // path in allowed_files (else the quality inspector quarantines it as unprovable). These fixtures
         // exercise dependency ORDERING, so they must be well-formed packets, not malformed ones.
+        // Distinct objective STRUCTURE per id: twin "ordered task N" objectives are
+        // template-farm-blocked at admission since fable-v3-w1, and these fixtures
+        // need several packets claimable at once. Deterministic per id (never flaky).
+        $verbs = ['harden', 'paginate', 'instrument', 'migrate', 'cache', 'validate', 'deduplicate', 'refactor'];
+        $nouns = ['lease registry', 'packet listing', 'queue reaper', 'evidence ledger', 'scope guard', 'claim matcher', 'receipt store', 'continuation builder'];
+        $seed = crc32($id);
+
         return [
             'task_packet_id' => $id,
-            'objective' => 'ordered task '.$id,
+            'objective' => sprintf('%s the %s for %s', $verbs[$seed % 8], $nouns[($seed >> 3) % 8], $id),
             'operator_id' => 'tester',
             'allowed_files' => [
                 'app/Services/Ai/SelfConstruction/Generated/'.$id.'.php',

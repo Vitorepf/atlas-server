@@ -332,13 +332,21 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
     /** @return array<string, mixed> */
     private function input(string $id, ?array $acceptance = null, ?array $evidence = null): array
     {
+        $verbs = ['harden', 'paginate', 'instrument', 'migrate', 'cache', 'validate', 'deduplicate', 'refactor'];
+        $nouns = ['lease registry', 'packet listing', 'queue reaper', 'evidence ledger', 'scope guard', 'claim matcher', 'receipt store', 'continuation builder'];
+        $seed = crc32($id);
+        // Distinct objective STRUCTURE per id — twin templated objectives are
+        // farm-blocked at admission since fable-v3-w1; deterministic, never flaky.
+        $objective = sprintf('%s the %s for %s', $verbs[$seed % 8], $nouns[($seed >> 3) % 8], $id);
         return [
             'task_packet_id' => $id,
-            'objective' => 'Coordination-health fixture '.$id.': implement app/Services/Ai/SelfConstruction/'.$id.'.php deterministically and prove it.',
+            'objective' => $objective,
             'operator_id' => 'tester',
             'allowed_files' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
             'scope_in' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
-            'acceptance_criteria' => $acceptance ?? ['php artisan test asserts '.$id.' behaves correctly'],
+            // Acceptance varies with the objective too — near-identical acceptance
+            // trips the semantic_duplicate admission organ.
+            'acceptance_criteria' => $acceptance ?? [$objective.' proven by phpunit --filter='.$id],
             'required_evidence' => $evidence ?? ['task_packet_created'],
         ];
     }

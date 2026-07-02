@@ -51,8 +51,19 @@ final class AtlasTaskServingContractTest extends TestCase
     public function test_two_distinct_clients_receive_disjoint_packets(): void
     {
         $orch = $this->orchestrator();
-        $orch->prepareAndEnqueue(['task_packet' => $this->input('serve-1')]);
-        $orch->prepareAndEnqueue(['task_packet' => $this->input('serve-2')]);
+        // Two GENUINELY distinct packets (different objective structure + acceptance) —
+        // twin "serve test N" packets are now farm-blocked at admission by design
+        // (fable-v3-w1), so a disjoint-serving test must seed non-template work.
+        $orch->prepareAndEnqueue(['task_packet' => $this->input(
+            'serve-1',
+            'harden the lease registry against double release',
+            ['double release returns lease_not_active'],
+        )]);
+        $orch->prepareAndEnqueue(['task_packet' => $this->input(
+            'serve-2',
+            'add pagination to the packet listing endpoint',
+            ['listing accepts a cursor parameter'],
+        )]);
         $serving = new AtlasTaskServingService($orch);
 
         $a = $serving->next('client-alpha');
@@ -227,15 +238,15 @@ final class AtlasTaskServingContractTest extends TestCase
     }
 
     /** @return array<string, mixed> */
-    private function input(string $id): array
+    private function input(string $id, ?string $objective = null, ?array $acceptance = null): array
     {
         return [
             'task_packet_id' => $id,
-            'objective' => 'serve test '.$id,
+            'objective' => $objective ?? 'serve test '.$id,
             'operator_id' => 'tester',
             'allowed_files' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
             'scope_in' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
-            'acceptance_criteria' => ['ok'],
+            'acceptance_criteria' => $acceptance ?? ['ok'],
             'required_evidence' => ['task_packet_created'],
         ];
     }
@@ -248,7 +259,9 @@ final class AtlasTaskServingContractTest extends TestCase
             'lease_id' => $leaseId,
             'actor' => $actor,
             'files_changed' => ['app/Services/Ai/SelfConstruction/'.$packetId.'.php'],
-            'commands_run' => ['php artisan test --filter=ScopedSuite: passed'],
+            // The validator requires at least one command bound to the allowed
+            // scope (path or basename) — a generic proof command no longer counts.
+            'commands_run' => ['php artisan test --filter='.$packetId.': passed'],
             'tests_or_gates_result' => 'passed',
             'git_status_short' => ' M app/Services/Ai/SelfConstruction/'.$packetId.'.php',
             'git_diff_check_result' => 'clean',

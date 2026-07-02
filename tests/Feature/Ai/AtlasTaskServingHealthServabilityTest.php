@@ -129,9 +129,15 @@ final class AtlasTaskServingHealthServabilityTest extends TestCase
     /** @param list<string> $dependsOn @return array<string, mixed> */
     private function input(string $id, array $dependsOn = [], int $wave = 0): array
     {
+        $verbs = ['harden', 'paginate', 'instrument', 'migrate', 'cache', 'validate', 'deduplicate', 'refactor'];
+        $nouns = ['lease registry', 'packet listing', 'queue reaper', 'evidence ledger', 'scope guard', 'claim matcher', 'receipt store', 'continuation builder'];
+        $seed = crc32($id);
+        // Distinct objective STRUCTURE per id — twin templated objectives are
+        // farm-blocked at admission since fable-v3-w1; deterministic, never flaky.
+        $objective = sprintf('%s the %s for %s', $verbs[$seed % 8], $nouns[($seed >> 3) % 8], $id);
         return [
             'task_packet_id' => $id,
-            'objective' => 'health task '.$id,
+            'objective' => $objective,
             'operator_id' => 'tester',
             'allowed_files' => [
                 'app/Services/Ai/SelfConstruction/Generated/'.$id.'.php',
