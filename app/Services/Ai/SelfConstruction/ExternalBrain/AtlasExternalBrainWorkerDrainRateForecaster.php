@@ -17,6 +17,50 @@ final class AtlasExternalBrainWorkerDrainRateForecaster
 {
     public const SCHEMA = 'atlas.external_brain.worker_drain_rate_forecaster.v1';
 
+    private const DEFAULT_SUFFICIENT_DEPTH_FLOOR = 10;
+
+    public const PROJECTION_RECOMMENDATION_MONITOR_IDLE_SUPPLY = 'monitor_idle_supply';
+    public const PROJECTION_RECOMMENDATION_REPLENISH = 'replenish';
+    public const PROJECTION_RECOMMENDATION_FIX_PROJECTION_TELEMETRY = 'fix_projection_telemetry';
+
+    /**
+     * Restored from ebf02e48b (dropped by the 83528662a rewrite while callers still need it).
+     *
+     * Consumes Maestro projection facts (queue depth + telemetry_confidence) to decide whether the
+     * external brain should monitor supply, replenish, or fix its own telemetry first.
+     *
+     * DECISION PRIORITY (first match wins):
+     *   1. replenish                — queue_depth below sufficient_depth_floor, regardless of telemetry mode.
+     *   2. fix_projection_telemetry — depth sufficient but telemetry_confidence='blind'.
+     *   3. monitor_idle_supply      — depth sufficient AND telemetry not blind.
+     *
+     * @param  array<string,mixed>  $projectionFacts
+     * @return array<string,mixed>
+     */
+    public function recommendFromProjection(array $projectionFacts): array
+    {
+        $queueDepth = max(0, (int) ($projectionFacts['queue_depth'] ?? 0));
+        $sufficientDepthFloor = max(1, (int) ($projectionFacts['sufficient_depth_floor'] ?? self::DEFAULT_SUFFICIENT_DEPTH_FLOOR));
+        $telemetryConfidence = (string) ($projectionFacts['telemetry_confidence'] ?? 'blind');
+
+        $depthSufficient = $queueDepth >= $sufficientDepthFloor;
+
+        [$recommendation, $reason] = match (true) {
+            ! $depthSufficient => [self::PROJECTION_RECOMMENDATION_REPLENISH, "queue_depth={$queueDepth}_below_floor={$sufficientDepthFloor}"],
+            $telemetryConfidence === 'blind' => [self::PROJECTION_RECOMMENDATION_FIX_PROJECTION_TELEMETRY, 'telemetry_confidence_blind_cannot_trust_wait'],
+            default => [self::PROJECTION_RECOMMENDATION_MONITOR_IDLE_SUPPLY, "queue_depth={$queueDepth}_sufficient_and_telemetry={$telemetryConfidence}"],
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'recommendation' => $recommendation,
+            'reason' => $reason,
+            'queue_depth' => $queueDepth,
+            'sufficient_depth_floor' => $sufficientDepthFloor,
+            'telemetry_confidence' => $telemetryConfidence,
+        ];
+    }
+
     /**
      * @param  array{
      *   active_workers?:int,

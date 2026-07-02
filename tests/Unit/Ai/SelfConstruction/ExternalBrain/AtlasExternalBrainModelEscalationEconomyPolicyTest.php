@@ -47,7 +47,10 @@ final class AtlasExternalBrainModelEscalationEconomyPolicyTest extends TestCase
         $this->assertTrue($result['anti_over_escalation']);
     }
 
-    // ── scaffolded_small_model (rule 5 default) ───────────────────────────────
+    // ── small_model_with_scaffold (rule 6 default) ─────────────────────────────
+    // Since 0d7c967b0 the default decision is DECISION_SMALL_MODEL_WITH_SCAFFOLD
+    // (+ scaffold_contract); DECISION_SCAFFOLDED_SMALL_MODEL became the degraded
+    // fallback when frontier is unavailable.
 
     public function test_scaffolded_default_for_moderate_ambiguity(): void
     {
@@ -57,8 +60,9 @@ final class AtlasExternalBrainModelEscalationEconomyPolicyTest extends TestCase
             'scaffold_confidence' => 0.70,
         ]);
 
-        $this->assertSame(AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_SCAFFOLDED_SMALL_MODEL, $result['decision']);
+        $this->assertSame(AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_SMALL_MODEL_WITH_SCAFFOLD, $result['decision']);
         $this->assertTrue($result['anti_over_escalation']);
+        $this->assertArrayHasKey('scaffold_contract', $result);
     }
 
     public function test_scaffolded_when_ambiguity_low_but_evidence_insufficient(): void
@@ -68,6 +72,18 @@ final class AtlasExternalBrainModelEscalationEconomyPolicyTest extends TestCase
             'ambiguity_score'    => 0.20,
             'evidence_quality'   => 0.50,
             'scaffold_confidence' => 0.80,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_SMALL_MODEL_WITH_SCAFFOLD, $result['decision']);
+    }
+
+    public function test_scaffolded_small_model_is_degraded_fallback_when_frontier_unavailable(): void
+    {
+        $result = $this->policy()->decide([
+            'ambiguity_score'     => 0.50,
+            'evidence_quality'    => 0.75,
+            'scaffold_confidence' => 0.70,
+            'frontier_available'  => false,
         ]);
 
         $this->assertSame(AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_SCAFFOLDED_SMALL_MODEL, $result['decision']);

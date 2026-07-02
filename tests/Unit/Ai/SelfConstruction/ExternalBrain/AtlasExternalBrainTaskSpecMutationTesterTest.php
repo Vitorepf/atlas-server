@@ -39,7 +39,7 @@ final class AtlasExternalBrainTaskSpecMutationTesterTest extends TestCase
         $this->assertSame(AtlasExternalBrainTaskSpecMutationTester::SCHEMA, $result['schema']);
     }
 
-    public function test_mutation_results_contains_all_nine_mutations(): void
+    public function test_mutation_results_contains_all_eleven_mutations(): void
     {
         $result = $this->tester->test($this->fullSpec());
 
@@ -55,10 +55,13 @@ final class AtlasExternalBrainTaskSpecMutationTesterTest extends TestCase
             'duplicate_target',
             'weak_objective',
             'template_farm_objective',
+            // added by dd3789650 (anti-template-proof hardening)
+            'no_concrete_class_in_objective',
+            'no_unique_claim_in_acceptance',
         ] as $m) {
             $this->assertContains($m, $types, "Expected mutation type '{$m}' in results");
         }
-        $this->assertCount(9, $result['mutation_results']);
+        $this->assertCount(11, $result['mutation_results']);
     }
 
     // ── AC1: missing_implementation_file ──────────────────────────────────────

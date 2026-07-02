@@ -37,23 +37,29 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreakerSprawlTest extends
         $this->assertSame(AtlasExternalBrainConsolidationFirstCircuitBreaker::BLOCKED_REASON_CONSOLIDATION_FIRST_SPRAWL, $result['reason']);
     }
 
+    // Since c275231c6 an exempt kind alone is a claim, not proof: exemption also requires
+    // parity_proof_present or removes_blocker. These tests keep the original allowed-path
+    // coverage while carrying the proof the hardened floor demands.
     public function test_consolidation_proposal_in_same_sprawl_area_is_allowed(): void
     {
         $result = $this->breaker()->evaluateOrganProposal([
             'duplicate_responsibility_score' => 0.9,
             'organ_sprawl_score' => 0.9,
+            'parity_proof_present' => true,
             'proposed_task' => ['kind' => 'consolidation'],
         ]);
 
         $this->assertFalse($result['blocked']);
         $this->assertNull($result['reason']);
         $this->assertTrue($result['proposal_kind_exempt']);
+        $this->assertTrue($result['proposal_kind_exemption_proven']);
     }
 
     public function test_deletion_proposal_is_allowed(): void
     {
         $result = $this->breaker()->evaluateOrganProposal([
             'duplicate_responsibility_score' => 0.9,
+            'parity_proof_present' => true,
             'proposed_task' => ['kind' => 'deletion'],
         ]);
 
@@ -64,10 +70,22 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreakerSprawlTest extends
     {
         $result = $this->breaker()->evaluateOrganProposal([
             'duplicate_responsibility_score' => 0.9,
-            'proposed_task' => ['kind' => 'integration'],
+            'proposed_task' => ['kind' => 'integration', 'removes_blocker' => true],
         ]);
 
         $this->assertFalse($result['blocked']);
+    }
+
+    public function test_exempt_kind_without_proof_is_still_blocked(): void
+    {
+        $result = $this->breaker()->evaluateOrganProposal([
+            'duplicate_responsibility_score' => 0.9,
+            'proposed_task' => ['kind' => 'consolidation'],
+        ]);
+
+        $this->assertTrue($result['blocked']);
+        $this->assertTrue($result['proposal_kind_exempt']);
+        $this->assertFalse($result['proposal_kind_exemption_proven']);
     }
 
     public function test_keeps_existing_safety_metadata_when_allowed(): void

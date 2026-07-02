@@ -49,7 +49,10 @@ final class AtlasExternalBrainQueuePressureGovernorWorkerFloorTest extends TestC
         $this->assertSame(0, $result['max_tasks']);
     }
 
-    public function test_comfortable_buffer_holds_without_extra_generation(): void
+    // Since 1d22dc66f (no-comfortable-hold policy) a comfortable buffer is never a passive
+    // hold: the governor returns continue_search_for_high_leverage with a light positive
+    // batch ceiling. Only malformed_count>0 still holds (covered above).
+    public function test_comfortable_buffer_keeps_searching_at_light_batch_ceiling(): void
     {
         $result = $this->governor()->evaluateWorkerFloor([
             'malformed_count' => 0,
@@ -57,11 +60,11 @@ final class AtlasExternalBrainQueuePressureGovernorWorkerFloorTest extends TestC
             'active_leases' => 3,
         ]);
 
-        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::ACTION_HOLD, $result['action']);
-        $this->assertSame(0, $result['max_tasks']);
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::ACTION_CONTINUE_SEARCH_FOR_HIGH_LEVERAGE, $result['action']);
+        $this->assertGreaterThan(0, $result['max_tasks']);
     }
 
-    public function test_no_active_leases_holds_even_with_thin_buffer(): void
+    public function test_no_active_leases_with_thin_buffer_does_not_request_bounded_batch(): void
     {
         $result = $this->governor()->evaluateWorkerFloor([
             'malformed_count' => 0,
@@ -69,13 +72,13 @@ final class AtlasExternalBrainQueuePressureGovernorWorkerFloorTest extends TestC
             'active_leases' => 0,
         ]);
 
-        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::ACTION_HOLD, $result['action']);
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::ACTION_CONTINUE_SEARCH_FOR_HIGH_LEVERAGE, $result['action']);
     }
 
-    public function test_missing_facts_hold_by_default(): void
+    public function test_missing_facts_default_to_light_search_not_bounded_batch(): void
     {
         $result = $this->governor()->evaluateWorkerFloor([]);
 
-        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::ACTION_HOLD, $result['action']);
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::ACTION_CONTINUE_SEARCH_FOR_HIGH_LEVERAGE, $result['action']);
     }
 }
