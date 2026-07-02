@@ -214,6 +214,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
 
         try {
             $this->provisionVendor($repo, $worktree);
+            $this->provisionDatabaseFloor($worktree);
 
             // timeout do SOLVER é medição (receipt timeout), nunca morte da bateria
             $solverTimedOut = false;
@@ -328,6 +329,30 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         $clone = Process::run('cp -Rc '.escapeshellarg($repo.'/vendor').' '.escapeshellarg($worktree.'/vendor'));
         if (! $clone->successful()) {
             throw new RuntimeException('atlasbench_vendor_clone_failed: '.substr($clone->errorOutput(), 0, 300));
+        }
+    }
+
+    /**
+     * PISO PÉTREO — DB do repo VIVO fora do alcance do braço. O worktree não tem
+     * .env, e config/database.php defaulta para o pgsql VIVO (5433) quando o env
+     * está ausente; um braço em commit antigo (sem o kill-switch de live-DB nos
+     * tests) rodando `artisan test`/migration down() WIPOU as tabelas do DB vivo
+     * (incidentes 02/07 18:11, 20:51 e 23:10 UTC, provados no log DDL do
+     * Postgres). Pinar sqlite :memory: via .env escrito no provision cobre
+     * QUALQUER commit de base — solver e check nunca enxergam o DB vivo.
+     */
+    protected function provisionDatabaseFloor(string $worktree): void
+    {
+        $floor = "APP_ENV=testing\n"
+            ."APP_KEY=base64:".base64_encode(random_bytes(32))."\n"
+            ."DB_CONNECTION=sqlite\n"
+            ."DB_DATABASE=:memory:\n"
+            ."ATLAS_LOOP_MASTER_ENABLED=false\n"
+            ."ATLAS_ALLOW_LIVE_DB_TESTS=0\n";
+        foreach (['.env', '.env.testing'] as $file) {
+            if (! file_exists($worktree.'/'.$file)) {
+                file_put_contents($worktree.'/'.$file, $floor);
+            }
         }
     }
 

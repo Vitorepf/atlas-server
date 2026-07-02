@@ -193,6 +193,22 @@ de falha que ficou invisível por semanas agora bloqueia.
   raw quando a seção é uma linha única maior que o budget). Prova:
   `test_truncation_cuts_on_line_boundary_never_mid_entry` + suite 12 verdes.
 
+## Incidente #2 — wiper ATRIBUÍDO em flagrante + piso de provision (S11, 02/07 23:10 UTC)
+
+Quarta onda do wiper (23:10 UTC) flagrada COM atribuição definitiva: braço solver da
+bateria de medição (worktree `storage/atlas/rivals2/runs/.../worktrees/...` em commit
+ANTERIOR ao kill-switch de live-DB) rodando `php artisan test
+CompoundingFailureMemoryTest` — o worktree não tem `.env` e `config/database.php` defaulta
+para o pgsql VIVO (5433); o `migration->down()` do setUp dropou as 6 tabelas dev runtime
+intelligence de novo. Processo morto em flagrante (PID com o comando no ps).
+
+Fix pétreo: `provisionDatabaseFloor()` no adapter da suite — todo worktree provisionado
+recebe `.env`+`.env.testing` pinando `sqlite :memory:` + loop master off, ANTES do solver
+rodar. Cobre qualquer commit de base (o braço não precisa ter o kill-switch no código).
+
+Restauração: migração des-carimbada + `migrate` (drift 0/449 no doctor, exit 0) + 56
+failure capsules re-backfilled dos receipts reais (rows=56).
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
 **Re-rankear:** o tail do ranking original (#9 GC receipts) é menor que o teto novo exposto
