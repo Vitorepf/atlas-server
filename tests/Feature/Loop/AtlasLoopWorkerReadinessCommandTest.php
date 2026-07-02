@@ -58,6 +58,11 @@ final class AtlasLoopWorkerReadinessCommandTest extends TestCase
             'runtime_owner' => 'atlas_native',
             'server_side_verification_available' => true,
             'rollback_available' => true,
+            // queue_pressure + command_plan_runner_available became REQUIRED facts
+            // after this contract froze (the gate fail-closes without them).
+            'queue_pressure' => 0,
+            'available_worker_count' => 1,
+            'command_plan_runner_available' => true,
             'components' => $this->allComponents(true),
         ]);
 
