@@ -29,9 +29,14 @@ final class AtlasCodeRealityUsageIntelligenceService
      */
     private const SEARCH_ROOTS = ['app', 'routes', 'config', 'database', 'tests', 'docs/engineering-knowledge-base'];
 
-    private const MAX_SCAN_FILES = 10000;
+    // The repo outgrew the old 10k/2.5s budget (~14.5k scannable files), so the
+    // reference scan silently truncated and 'evidence.references' lied for any
+    // target reached late in iteration order (tests/, docs/). Keep the guard as
+    // a runaway brake, but size it above the real corpus: wrong evidence is
+    // worse than a slower diagnostic scan.
+    private const MAX_SCAN_FILES = 40000;
 
-    private const MAX_SCAN_SECONDS = 2.5;
+    private const MAX_SCAN_SECONDS = 15.0;
 
     private const MAX_FILE_SCAN_BYTES = 768_000;
 
