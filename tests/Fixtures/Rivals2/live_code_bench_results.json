@@ -1,0 +1,10 @@
+{
+    "release_version": "release_v6",
+    "scenario": "codegeneration",
+    "model": "glm-5.2",
+    "results": [
+        {"question_id": "lcb_3021", "graded_list": [true], "pass@1": 1.0},
+        {"question_id": "lcb_3044", "graded_list": [false], "pass@1": 0.0},
+        {"question_id": "lcb_3058", "graded_list": [true], "pass@1": 1.0}
+    ]
+}

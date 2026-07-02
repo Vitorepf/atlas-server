@@ -1,0 +1,33 @@
+{
+    "benchmark": "swe_bench_verified_mini",
+    "runs": [
+        {
+            "run_id": "hal_20260630_1",
+            "agent": "hal-generalist",
+            "model": "gpt-5.5",
+            "task_id": "hal_task_001",
+            "trial": 1,
+            "success": true,
+            "total_cost_usd": 2.31,
+            "latency_sec": 198.2,
+            "input_tokens": 210034,
+            "output_tokens": 15321,
+            "started_at": "2026-06-30T08:00:00Z",
+            "finished_at": "2026-06-30T08:03:18Z"
+        },
+        {
+            "run_id": "hal_20260630_2",
+            "agent": "hal-generalist",
+            "model": "gpt-5.5",
+            "task_id": "hal_task_002",
+            "trial": 1,
+            "success": false,
+            "total_cost_usd": 1.02,
+            "latency_sec": 341.7,
+            "input_tokens": 98110,
+            "output_tokens": 8240,
+            "started_at": "2026-06-30T08:04:00Z",
+            "finished_at": "2026-06-30T08:09:42Z"
+        }
+    ]
+}

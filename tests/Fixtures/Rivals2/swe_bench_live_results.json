@@ -1,0 +1,21 @@
+{
+    "dataset": "SWE-bench-Live/SWE-bench-Live",
+    "instances": [
+        {
+            "instance_id": "astropy__astropy-31337",
+            "resolved": true,
+            "model_name_or_path": "minimax-m3",
+            "duration_sec": 512.0,
+            "started_at": "2026-06-27T20:00:00Z",
+            "finished_at": "2026-06-27T20:08:32Z"
+        },
+        {
+            "instance_id": "django__django-90210",
+            "resolved": false,
+            "model_name_or_path": "minimax-m3",
+            "duration_sec": 733.4,
+            "started_at": "2026-06-27T20:09:00Z",
+            "finished_at": "2026-06-27T20:21:13Z"
+        }
+    ]
+}

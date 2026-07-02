@@ -1,0 +1,49 @@
+{
+    "benchmark": "snorkel-ai/senior-swe-bench-v2026.06",
+    "coverage": "public_50_only",
+    "judge_config": {
+        "va_model": "gpt-5.5",
+        "judge_model": "claude-opus-4-8",
+        "classifier": "senior-swe-verdict-classifier-v2"
+    },
+    "tasks": [
+        {
+            "task_id": "ssb_0007",
+            "task": "feature",
+            "agent": "claude-code",
+            "model": "claude-opus-4-8",
+            "attempt": 1,
+            "resolved": true,
+            "verdicts": {
+                "correctness": 0.92,
+                "validation": 0.81,
+                "rubric": 0.88,
+                "taste": 0.74,
+                "bloat_practice": 0.9
+            },
+            "duration_seconds": 412.5,
+            "usage": {"input_tokens": 183450, "output_tokens": 22110, "cost_usd": 4.41},
+            "started_at": "2026-06-30T14:02:11Z",
+            "finished_at": "2026-06-30T14:09:03Z"
+        },
+        {
+            "task_id": "ssb_0021",
+            "task": "bug",
+            "agent": "claude-code",
+            "model": "claude-opus-4-8",
+            "attempt": 1,
+            "resolved": false,
+            "verdicts": {
+                "correctness": 0.34,
+                "validation": 0.55,
+                "rubric": 0.41,
+                "taste": 0.62,
+                "bloat_practice": 0.7
+            },
+            "duration_seconds": 655.0,
+            "usage": {"input_tokens": 240900, "output_tokens": 31870, "cost_usd": 6.02},
+            "started_at": "2026-06-30T14:11:20Z",
+            "finished_at": "2026-06-30T14:22:15Z"
+        }
+    ]
+}

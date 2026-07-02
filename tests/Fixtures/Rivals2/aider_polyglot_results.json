@@ -1,0 +1,42 @@
+{
+    "model": "claude-sonnet-5",
+    "edit_format": "diff",
+    "results": [
+        {
+            "testcase": "exercism-python-anagram",
+            "language": "python",
+            "tries": 1,
+            "tests_outcomes": [true],
+            "duration": 41.2,
+            "cost": 0.0512,
+            "sent_tokens": 9120,
+            "received_tokens": 1810,
+            "start_time": "2026-06-28T09:00:00Z",
+            "end_time": "2026-06-28T09:00:41Z"
+        },
+        {
+            "testcase": "exercism-rust-luhn",
+            "language": "rust",
+            "tries": 2,
+            "tests_outcomes": [false, false],
+            "duration": 88.0,
+            "cost": 0.101,
+            "sent_tokens": 18800,
+            "received_tokens": 4200,
+            "start_time": "2026-06-28T09:01:00Z",
+            "end_time": "2026-06-28T09:02:28Z"
+        },
+        {
+            "testcase": "exercism-go-forth",
+            "language": "go",
+            "tries": 2,
+            "tests_outcomes": [false, true],
+            "duration": 120.5,
+            "cost": 0.144,
+            "sent_tokens": 24010,
+            "received_tokens": 6120,
+            "start_time": "2026-06-28T09:03:00Z",
+            "end_time": "2026-06-28T09:05:00Z"
+        }
+    ]
+}

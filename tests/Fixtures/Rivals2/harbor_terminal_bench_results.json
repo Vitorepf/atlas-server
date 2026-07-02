@@ -1,0 +1,44 @@
+{
+    "dataset": "terminal-bench-core",
+    "episodes": [
+        {
+            "episode_id": "tb_hello-world",
+            "agent": "terminus-2",
+            "model": "claude-sonnet-5",
+            "trial": 1,
+            "exit_status": "completed",
+            "duration_sec": 93.4,
+            "input_tokens": 48200,
+            "output_tokens": 6100,
+            "cost_usd": 0.31,
+            "started_at": "2026-06-29T10:00:00Z",
+            "ended_at": "2026-06-29T10:01:33Z"
+        },
+        {
+            "episode_id": "tb_git-bisect",
+            "agent": "terminus-2",
+            "model": "claude-sonnet-5",
+            "trial": 1,
+            "exit_status": "failed",
+            "duration_sec": 240.9,
+            "input_tokens": 112000,
+            "output_tokens": 14400,
+            "cost_usd": 0.77,
+            "started_at": "2026-06-29T10:02:00Z",
+            "ended_at": "2026-06-29T10:06:01Z"
+        },
+        {
+            "episode_id": "tb_kernel-config",
+            "agent": "terminus-2",
+            "model": "claude-sonnet-5",
+            "trial": 1,
+            "exit_status": "timeout",
+            "duration_sec": 900.0,
+            "input_tokens": 201300,
+            "output_tokens": 25010,
+            "cost_usd": 1.42,
+            "started_at": "2026-06-29T10:07:00Z",
+            "ended_at": "2026-06-29T10:22:00Z"
+        }
+    ]
+}
