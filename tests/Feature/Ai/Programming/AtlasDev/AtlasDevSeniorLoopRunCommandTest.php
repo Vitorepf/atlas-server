@@ -138,6 +138,40 @@ final class AtlasDevSeniorLoopRunCommandTest extends TestCase
         $this->assertFileExists($this->receiptsPath.'/'.$payload['run_id'].'/failure_capsule.0.json');
         $this->assertFileExists($this->receiptsPath.'/'.$payload['run_id'].'/error_ledger.v1.json');
         $this->assertFileExists($this->receiptsPath.'/'.$payload['run_id'].'/senior_engineer_loop_execution.json');
+
+        // A single-attempt low-signal failure must NOT spuriously escalate
+        // (score < 4): the decision surface is present but null.
+        $this->assertArrayHasKey('escalation', $payload['run_summary']);
+        $this->assertNull($payload['run_summary']['escalation']);
+        $this->assertFileDoesNotExist($this->receiptsPath.'/'.$payload['run_id'].'/escalation_decision.json');
+    }
+
+    public function test_senior_loop_run_repair_exhaustion_escalates_to_obra_candidate(): void
+    {
+        // The M2 repair loop burned its attempts and aborted on
+        // same_signature_twice across a 4-file blast radius: the
+        // EscalationDecisionEngine (score = same_signature +2,
+        // repair_attempts>=2 +1, file_count>3 +1 = 4) resolves the failed run
+        // to an obra_candidate escalation, persisted as
+        // escalation_decision.json and surfaced on run_summary.escalation.
+        $this->app->instance(RunExecutor::class, new RepairExhaustedSeniorLoopRunExecutor);
+
+        $exit = Artisan::call('atlas:dev:senior-loop:run', [
+            '--json' => true,
+            '--strict' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(1, $exit, Artisan::output());
+        $this->assertSame('failed', $payload['status']);
+
+        $escalation = $payload['run_summary']['escalation'];
+        $this->assertIsArray($escalation, 'repair-exhausted failure must produce an escalation decision');
+        $this->assertSame('obra_candidate', $escalation['target']);
+        $this->assertSame(4, $escalation['score']);
+        $this->assertFalse($escalation['human_action_required']);
+        $this->assertSame('receipts/'.$payload['run_id'].'/escalation_decision.json', $escalation['ref']);
+        $this->assertFileExists($this->receiptsPath.'/'.$payload['run_id'].'/escalation_decision.json');
     }
 
     public function test_senior_loop_run_accepts_real_workspace_constraints_instead_of_fixture_scope(): void
@@ -236,6 +270,47 @@ final class FailingSeniorLoopRunExecutor implements RunExecutor
             ],
             diffParseSummary: [
                 'changed_files' => ['src/SmokeSubject.php'],
+                'diff_hash' => 'sha256:failed-diff',
+            ],
+            verificationReceiptHash: 'sha256:verification-failed',
+            scopeGuardReceiptHash: 'sha256:scope-passed',
+            diffHash: 'sha256:failed-diff',
+        );
+    }
+}
+
+final class RepairExhaustedSeniorLoopRunExecutor implements RunExecutor
+{
+    public function execute(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+        string $runId,
+        ?string $expectedCompactSddHash = null,
+    ): RunExecutionResult {
+        return new RunExecutionResult(
+            completionState: 'failed',
+            scopeGuardStatus: 'passed',
+            verificationStatus: 'failed',
+            persistedReceiptPaths: [],
+            providerCallSummary: [
+                'provider' => 'atlas_test',
+                'model_family' => 'fake',
+                'provider_calls' => 3,
+                'repair_attempts' => 2,
+                'repair_abort_reason' => 'same_signature_twice',
+                'exit_code' => 1,
+                'duration_ms' => 21,
+                'tokens_in' => 0,
+                'tokens_out' => 0,
+                'estimated_cost_usd' => 0.0,
+                'error_codes' => ['verification_failed'],
+                'raw_response_hash' => 'sha256:test',
+                'stdout_bytes' => 0,
+                'stderr_bytes' => 32,
+            ],
+            diffParseSummary: [
+                'changed_files' => ['src/A.php', 'src/B.php', 'src/C.php', 'src/D.php'],
                 'diff_hash' => 'sha256:failed-diff',
             ],
             verificationReceiptHash: 'sha256:verification-failed',

@@ -9,6 +9,8 @@ use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\GenericArtifactPersister;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\Escalation\EscalationDecisionEngine;
+use App\Services\Ai\Programming\AtlasDev\Escalation\EscalationSignalsInput;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
 use App\Services\Ai\Programming\AtlasDev\Repair\RepairAttemptLimits;
@@ -30,6 +32,7 @@ final class SeniorEngineerLoopExecutor
         private readonly FailureCapsuleBuilder $capsuleBuilder,
         private readonly RepairAttemptLimits $repairLimits,
         private readonly GenericArtifactPersister $persister,
+        private readonly EscalationDecisionEngine $escalationEngine,
     ) {}
 
     /**
@@ -89,6 +92,8 @@ final class SeniorEngineerLoopExecutor
         $ledger = null;
         $failureCapsule = null;
         $failureCapsulePath = null;
+        $escalationDecision = null;
+        $escalationDecisionPath = null;
         if (! $passed) {
             $entry = $this->errorLedgerEntry($plan->envelope->runId, $run->completionState, count($plan->miniSpec->allowedFiles));
             $ledger = $this->ledgerWriter->append($entry);
@@ -101,6 +106,46 @@ final class SeniorEngineerLoopExecutor
                 $plan->taskContract->allowedFiles,
             );
             $failureCapsulePath = $this->persister->writeFailureCapsule($failureCapsule)['path'];
+
+            // Escalation small→strong: the scorer inputs were ALWAYS computed
+            // (capsule delta + the M2 repair loop's repair_attempts /
+            // repair_abort_reason on the provider-call summary) but nothing
+            // consumed them — the run exited failed and the decision was left
+            // to the operator. Feed them into the (previously orphaned)
+            // EscalationDecisionEngine so a failed run deterministically
+            // resolves to forge / obra_candidate / no escalation, persisted
+            // as escalation_decision.json. The live signals: an M2 repair
+            // loop that aborted on same_signature_twice, the number of repair
+            // attempts burned in this run, and the failure blast radius
+            // (changed-file count). R4/R5 never reaches execution (routing
+            // sends it to forge preview), so the risk term stays a no-op
+            // here by construction. `forge` always keeps
+            // human_action_required=true (Dev never auto-creates an Obra);
+            // this block only DECIDES and records, it never invokes a
+            // stronger provider by itself.
+            $escalationDecision = $this->escalationEngine->decide(
+                input: new EscalationSignalsInput(
+                    riskLevel: $plan->compactSdd->riskLevel,
+                    fileCount: count($failureCapsule->changedFiles),
+                    layersTouched: 1,
+                    riskKeywords: [],
+                    sameSignatureTwice: ($run->providerCallSummary['repair_abort_reason'] ?? null) === 'same_signature_twice'
+                        || in_array(FailureCapsuleBuilder::SIGNAL_SAME_SIGNATURE_TWICE, $failureCapsule->escalationSignalDelta, true),
+                    diffGrew: in_array(FailureCapsuleBuilder::SIGNAL_DIFF_GROWTH, $failureCapsule->escalationSignalDelta, true),
+                    testCoverageGap: false,
+                    priorFailureInArea: false,
+                    contextRequiredChars: null,
+                    threadMessages: null,
+                    priorFailureCount: max(0, (int) ($run->providerCallSummary['repair_attempts'] ?? 0)),
+                    loopEscalationSignalDelta: $failureCapsule->escalationSignalDelta,
+                ),
+                runId: $plan->envelope->runId,
+                taskContractHash: $plan->taskContract->taskContractHash,
+                triggeredAtIso: now()->toIso8601String(),
+            );
+            if ($escalationDecision !== null) {
+                $escalationDecisionPath = $this->persister->writeEscalationDecision($escalationDecision);
+            }
         }
 
         $execution = new SeniorEngineerLoopExecution(
@@ -118,6 +163,12 @@ final class SeniorEngineerLoopExecutor
                 'scope_guard_status' => $run->scopeGuardStatus,
                 'verification_receipt_hash' => $run->verificationReceiptHash,
                 'verification_status' => $run->verificationStatus,
+                'escalation' => $escalationDecision === null ? null : [
+                    'target' => $escalationDecision->target,
+                    'score' => $escalationDecision->score,
+                    'human_action_required' => $escalationDecision->humanActionRequired,
+                    'ref' => $this->receiptRef($plan->envelope->runId, $escalationDecisionPath),
+                ],
             ],
             debugLoop: [
                 'mode' => $passed ? 'single_attempt_verified_execution' : 'bounded_repair_triage',
