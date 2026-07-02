@@ -95,30 +95,29 @@ PHP;
         $this->assertNotContains('bar', $fromMethods, 'bar is bodyless — must not be attributed as caller');
     }
 
-    public function test_provider_binding_registers_lens_only_when_config_lists_callgraph(): void
+    public function test_council_registry_is_always_bound_and_prepopulated(): void
     {
-        // ON: config lists callgraph ⇒ the registry resolves with the lens registered.
-        config()->set('cortex.council.lenses', ['callgraph']);
-        $this->app->register(\App\Providers\AppServiceProvider::class, force: true);
+        // Contrato canônico do Cortex Council: registry singleton sempre-bound, pré-populado
+        // com as 5 lentes built-in; o gate fica upstream em config('atlas.cortex.council.enabled').
+        // (O wiring condicional legado via `cortex.council.lenses` foi removido — o re-singleton
+        // cru rebindava o registry VAZIO quando a chave listava uma lente.)
+        $this->assertTrue($this->app->bound(AtlasCortexLensRegistry::class));
 
         $registry = $this->app->make(AtlasCortexLensRegistry::class);
         $this->expectExceptionOnDoubleRegistration($registry);
     }
 
-    public function test_provider_binding_is_byte_identical_noop_when_config_absent(): void
+    public function test_legacy_lens_config_no_longer_changes_the_wiring(): void
     {
-        // OFF: empty list ⇒ no binding under registry/lens keys, no resolving callback fired.
-        $this->refreshApplication();
+        // A chave legada não muda nada: mesmo registry pré-populado, listada ou vazia.
         config()->set('cortex.council.lenses', []);
+        $a = $this->app->make(AtlasCortexLensRegistry::class);
 
-        $this->assertFalse(
-            $this->app->bound(AtlasCortexLensRegistry::class),
-            'OFF must NOT bind the registry as a singleton',
-        );
-        $this->assertFalse(
-            $this->app->bound(AtlasCortexCallGraphLens::class),
-            'OFF must NOT bind the lens as a singleton',
-        );
+        config()->set('cortex.council.lenses', ['callgraph']);
+        $b = $this->app->make(AtlasCortexLensRegistry::class);
+
+        $this->assertSame($a, $b, 'singleton único, indiferente à chave legada');
+        $this->expectExceptionOnDoubleRegistration($b);
     }
 
     /**

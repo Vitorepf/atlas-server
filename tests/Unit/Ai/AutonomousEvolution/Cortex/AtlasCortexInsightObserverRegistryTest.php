@@ -19,7 +19,7 @@ final class AtlasCortexInsightObserverRegistryTest extends TestCase
         $first = $registry->axes();
         $second = $registry->axes();
 
-        $this->assertSame(['api_surface', 'memory_pressure', 'similarity_clusters', 'temporal_drift'], array_keys($first));
+        $this->assertSame(['api_surface', 'memory_pressure', 'orphan_spike', 'similarity_clusters', 'temporal_drift'], array_keys($first));
         $this->assertSame(
             json_encode($first, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
             json_encode($second, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),

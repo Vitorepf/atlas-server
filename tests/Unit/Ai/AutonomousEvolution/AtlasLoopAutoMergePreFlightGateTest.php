@@ -71,6 +71,9 @@ final class AtlasLoopAutoMergePreFlightGateTest extends TestCase
     public function test_happy_path_invokes_the_merge_executor_when_base_matches(): void
     {
         $head = $this->commit('a.txt', 'one');
+        // O ConflictDetector (pós-freeze) proba a branch da proposta; sem ela existir no
+        // repo o probe sai 1 → fail-closed "conflict". O caminho feliz precisa do fato.
+        $this->git(['branch', 'atlas/loop/fresh']);
 
         $merged = false;
         $service = $this->app->make(AtlasLoopAutoMergeService::class);
