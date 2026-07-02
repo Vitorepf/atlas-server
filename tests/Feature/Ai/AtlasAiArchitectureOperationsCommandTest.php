@@ -18,7 +18,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame('atlas.architecture_operations.v1', data_get($payload, 'architecture_operations.schema_version'));
         $this->assertSame('arquitetura_mae', data_get($payload, 'architecture_operations.section'));
-        $this->assertSame(103, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(99, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $commands = array_column(data_get($payload, 'architecture_operations.commands'), 'command');
@@ -86,7 +86,6 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:voice worker-start-check --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice runtime-certify --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice readiness --hours=24 --json', $commands);
-        $this->assertContains('php artisan atlas:ai:voice rivals --hours=24 --json', $commands);
         $this->assertContains('PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests', $commands);
         $this->assertContains('php artisan atlas:ai:agent-behavior-report --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json', $commands);
@@ -192,7 +191,6 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertStringContainsString('php artisan atlas:ai:voice worker-start-check --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:voice runtime-certify --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:voice readiness --hours=24 --json', $output);
-        $this->assertStringContainsString('php artisan atlas:ai:voice rivals --hours=24 --json', $output);
         $this->assertStringContainsString('PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests', $output);
         $this->assertStringContainsString('php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json', $output);
         $this->assertStringContainsString('php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json', $output);
@@ -246,7 +244,7 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
 
         $this->assertSame(0, $exit);
         $this->assertSame(['section' => 'arquitetura_mae'], data_get($payload, 'architecture_operations.filters'));
-        $this->assertSame(103, data_get($payload, 'architecture_operations.command_count'));
+        $this->assertSame(99, data_get($payload, 'architecture_operations.command_count'));
         $this->assertContains('architecture_operations', data_get($payload, 'architecture_operations.operation_ids'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [
@@ -410,20 +408,6 @@ class AtlasAiArchitectureOperationsCommandTest extends TestCase
         $this->assertSame('php artisan atlas:ai:voice readiness --hours=24 --json', data_get($payload, 'architecture_operations.commands.0.command'));
         $this->assertSame('/ai/voice/readiness', data_get($payload, 'architecture_operations.commands.0.api_endpoint'));
         $this->assertSame('/v1/mobile/ai/voice/readiness', data_get($payload, 'architecture_operations.commands.0.mobile_endpoint'));
-
-        $exit = Artisan::call('atlas:ai:architecture-operations', [
-            '--id' => 'voice_realtime_rivals_report',
-            '--json' => true,
-        ]);
-        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
-
-        $this->assertSame(0, $exit);
-        $this->assertSame(['id' => 'voice_realtime_rivals_report'], data_get($payload, 'architecture_operations.filters'));
-        $this->assertSame(1, data_get($payload, 'architecture_operations.command_count'));
-        $this->assertSame('php artisan atlas:ai:voice rivals --hours=24 --json', data_get($payload, 'architecture_operations.commands.0.command'));
-        $this->assertSame('maturity_report', data_get($payload, 'architecture_operations.commands.0.kind'));
-        $this->assertSame('/ai/voice/rivals', data_get($payload, 'architecture_operations.commands.0.api_endpoint'));
-        $this->assertSame('/v1/mobile/ai/voice/rivals', data_get($payload, 'architecture_operations.commands.0.mobile_endpoint'));
 
         $exit = Artisan::call('atlas:ai:architecture-operations', [
             '--id' => 'voice_realtime_scripted_smoke',

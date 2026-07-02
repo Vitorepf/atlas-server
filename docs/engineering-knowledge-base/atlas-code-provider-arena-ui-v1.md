@@ -61,8 +61,6 @@ cartography_type: runbook
 canonical_source: docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
 owner: programming_rivals
 repo_paths:
-  - app/Http/Controllers/AtlasCodeProviderArenaController.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasCodeProviderArenaSnapshotService.php
   - docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
 allowed_changes:
   - Adicionar novos arms / modes / presets via registries existentes (UI consome dinâmico).

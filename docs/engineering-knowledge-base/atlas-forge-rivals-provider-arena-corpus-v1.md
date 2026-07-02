@@ -65,11 +65,6 @@ cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-corpus-v1.md
 owner: rivals
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsProviderArenaCorpusService.php
-  - app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsCorpusFixtureRunnerService.php
-  - app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsCorpusPlannerService.php
-  - app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsCorpusCasesActionService.php
-  - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsProviderArenaCorpusCertification.php
   - storage/forge-rivals-corpus
 allowed_changes:
   - Adicionar caso novo declarando os 22 campos canon e seed dir mínimo.
@@ -131,6 +126,9 @@ next_actions:
   - Implementar loop real multi-case em run-arena (atualmente honestly pending).
   - Adicionar deep_set (25+ casos) para slice futura.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Provider Arena Corpus Release v1
 > Strategy canon: `atlas-forge-rivals-benchmark-strategy-v1.md`
 > Schema canon: `atlas.forge.rivals.provider_arena_corpus.v1` (release_v1)

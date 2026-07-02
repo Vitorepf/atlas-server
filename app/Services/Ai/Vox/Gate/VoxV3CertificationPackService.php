@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\Vox\Gate;
 
 use App\Services\Ai\Vox\Metrics\VoxMetricsService;
-use App\Services\Ai\Vox\Rivals\VoxRivalsRunner;
 use Carbon\CarbonImmutable;
 
 /**
@@ -61,7 +60,6 @@ final class VoxV3CertificationPackService
     public function __construct(
         private readonly VoxMetricsService $metrics,
         private readonly VoxV3PromotionGateService $gate,
-        private readonly VoxRivalsRunner $rivals,
     ) {}
 
     /**
@@ -74,7 +72,6 @@ final class VoxV3CertificationPackService
     {
         $metricsSnapshot = $this->metrics->snapshot();
         $gateEval = $this->gate->evaluate();
-        $rivalsReport = $this->rivals->report();
 
         $safetyInvariants = $this->safetyInvariants($metricsSnapshot);
         $blockers = $this->blockers($gateEval, $safetyInvariants);
@@ -95,7 +92,6 @@ final class VoxV3CertificationPackService
             'blockers' => $blockers,
             'next_actions' => $nextActions,
             'metrics_snapshot' => $metricsSnapshot,
-            'rivals_report' => $rivalsReport,
             'promotion_constraints' => $promotionConstraints,
             'vitor_review_required' => true,
             'v4_unlock_allowed' => false,

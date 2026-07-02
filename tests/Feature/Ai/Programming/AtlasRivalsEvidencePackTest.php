@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming;
 
-use App\Console\Commands\AtlasProgrammingRivalsEvidencePackCommand;
 use App\Services\Ai\Programming\AtlasRivalsEvidencePackService;
 use App\Services\Ai\Programming\AtlasRivalsEvidencePackVerifierService;
 use App\Services\Ai\Programming\AtlasRivalsOneShotEnterpriseEvaluationService;
@@ -13,23 +12,6 @@ use Tests\TestCase;
 
 class AtlasRivalsEvidencePackTest extends TestCase
 {
-    public function test_evidence_pack_command_returns_json_and_no_provider_call(): void
-    {
-        $this->assertTrue(class_exists(AtlasProgrammingRivalsEvidencePackCommand::class));
-
-        $exitCode = $this->artisan('atlas:programming:rivals-evidence-pack', ['--json' => true])
-            ->run();
-
-        $this->assertSame(0, $exitCode);
-
-        $pack = app(AtlasRivalsEvidencePackService::class)->generate([]);
-        $this->assertFalse($pack['external_provider_call']);
-        $this->assertFalse($pack['provider_dispatched']);
-        $this->assertFalse($pack['provider_tokens_spent']);
-        $this->assertFalse($pack['claim_ready']);
-        $this->assertFalse($pack['promotes_external_rivals_claim']);
-        $this->assertFalse($pack['synthetic_scores_allowed']);
-    }
 
     public function test_evidence_pack_reports_missing_evidence_when_not_running_tests_or_quality(): void
     {
@@ -41,16 +23,6 @@ class AtlasRivalsEvidencePackTest extends TestCase
         $this->assertFalse((bool) data_get($pack, 'quality_scan.present'));
         $this->assertSame('not_run', data_get($pack, 'tests.source'));
         $this->assertSame('not_run', data_get($pack, 'quality_scan.source'));
-    }
-
-    public function test_strict_command_fails_when_required_evidence_missing(): void
-    {
-        $exitCode = $this->artisan('atlas:programming:rivals-evidence-pack', [
-            '--json' => true,
-            '--strict' => true,
-        ])->run();
-
-        $this->assertSame(1, $exitCode);
     }
 
     public function test_evidence_pack_includes_replay_manifest_hash(): void
@@ -181,10 +153,8 @@ class AtlasRivalsEvidencePackTest extends TestCase
         $this->assertSame('atlas.programming.rivals_evidence_pack_certification.v1', $cert['schema_version']);
         $this->assertTrue($cert['evidence_pack_service_available']);
         $this->assertTrue($cert['verifier_service_available']);
-        $this->assertTrue($cert['command_available']);
         $this->assertTrue($cert['schema_available']);
         $this->assertTrue($cert['doc_available']);
-        $this->assertTrue($cert['integrates_with_one_shot_evaluation']);
         $this->assertTrue($cert['replay_manifest_hash_available']);
         $this->assertTrue($cert['patch_diff_supported']);
         $this->assertTrue($cert['test_log_supported']);

@@ -82,7 +82,6 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('php artisan atlas:ai:voice worker-start-check --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice runtime-certify --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice readiness --hours=24 --json', $commands);
-        $this->assertContains('php artisan atlas:ai:voice rivals --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:agent-behavior-report --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:self-improve --flow=provider_performance_review --hours=168 --json', $commands);
         $this->assertContains('php artisan atlas:ai:self-improve --flow=provider_release_review --hours=168 --json', $commands);
@@ -152,7 +151,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->getJson('/ai/architecture/operations?section=arquitetura_mae', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 103)
+            ->assertJsonPath('architecture_operations.command_count', 99)
             ->assertJsonPath('architecture_operations.operation_ids.0', 'architecture_operations');
 
         $this->getJson('/ai/architecture/operations?surface=runtime', $this->headers)
@@ -306,15 +305,6 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('architecture_operations.commands.0.kind', 'evidence_report')
             ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/voice/readiness')
             ->assertJsonPath('architecture_operations.commands.0.mobile_endpoint', '/v1/mobile/ai/voice/readiness');
-
-        $this->getJson('/ai/architecture/operations?id=voice_realtime_rivals_report', $this->headers)
-            ->assertOk()
-            ->assertJsonPath('architecture_operations.filters.id', 'voice_realtime_rivals_report')
-            ->assertJsonPath('architecture_operations.command_count', 1)
-            ->assertJsonPath('architecture_operations.commands.0.command', 'php artisan atlas:ai:voice rivals --hours=24 --json')
-            ->assertJsonPath('architecture_operations.commands.0.kind', 'maturity_report')
-            ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/voice/rivals')
-            ->assertJsonPath('architecture_operations.commands.0.mobile_endpoint', '/v1/mobile/ai/voice/rivals');
 
         $this->getJson('/ai/architecture/operations?id=voice_realtime_scripted_smoke', $this->headers)
             ->assertOk()

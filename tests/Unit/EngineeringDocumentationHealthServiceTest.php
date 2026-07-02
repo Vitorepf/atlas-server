@@ -169,12 +169,12 @@ class EngineeringDocumentationHealthServiceTest extends TestCase
                 'status' => 'active',
                 'title' => 'Atlas Forge Runtime Notes',
                 'related_paths' => ['docs/engineering-knowledge-base/atlas-something-else.md'],
-            ], 'Discute ForgeRivals e Obra Command Center sem referencia ao glossario.'),
+            ], 'Discute Forge Continuum e Obra Command Center sem referencia ao glossario.'),
             $this->canonicalDoc('atlas-forge-with-glossary.md', [
                 'status' => 'active',
                 'title' => 'Atlas Forge Runtime Notes',
                 'related_paths' => ['docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md'],
-            ], 'Discute ForgeRivals e Obra.'),
+            ], 'Discute Forge Continuum e Obra.'),
             $this->canonicalDoc('atlas-neutro.md', [
                 'status' => 'active',
                 'title' => 'Atlas Neutral Topic',
@@ -199,7 +199,7 @@ class EngineeringDocumentationHealthServiceTest extends TestCase
             $this->canonicalDoc('atlas-canonical-glossary-and-naming.md', [
                 'status' => 'active',
                 'title' => 'Atlas Canonical Glossary and Naming',
-            ], 'Define termos como Atlas Forge, Atlas Code Forge, Obra Command Center, ForgeRivals.'),
+            ], 'Define termos como Atlas Forge, Atlas Code Forge, Obra Command Center, Forge Continuum.'),
         ];
 
         $report = $service->analyzeDocs($docs);

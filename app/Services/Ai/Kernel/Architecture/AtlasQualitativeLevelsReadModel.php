@@ -15,7 +15,6 @@ class AtlasQualitativeLevelsReadModel
     public function __construct(
         private readonly EngineeringDocumentationHealthService $documentation,
         private readonly AtlasAiDomainCatalogService $domains,
-        private readonly AtlasRivalsStrategyReadModel $rivalsStrategy,
     ) {}
 
     /**
@@ -29,9 +28,8 @@ class AtlasQualitativeLevelsReadModel
         $docs = $this->documentation->report();
         $domains = $this->domains->inspect();
         $ledger = $this->ledgerSignals($since, $until);
-        $rivals = $this->rivalsStrategy->report($since, $until);
-        $evidence = $this->evidence($docs, $domains, $ledger, $rivals);
-        $gates = $this->gates($docs, $domains, $ledger, $rivals);
+        $evidence = $this->evidence($docs, $domains, $ledger);
+        $gates = $this->gates($docs, $domains, $ledger);
         $level = $this->currentLevel($gates, $ledger);
 
         return [
@@ -46,7 +44,7 @@ class AtlasQualitativeLevelsReadModel
                 'until' => $until->toJSON(),
             ],
             'evidence' => $evidence,
-            'advanced_readiness' => $this->advancedReadiness($ledger, $rivals),
+            'advanced_readiness' => $this->advancedReadiness($ledger),
             'missing_gates' => array_values(array_filter(
                 $gates,
                 fn (array $gate): bool => $gate['status'] !== 'passed',
@@ -63,10 +61,9 @@ class AtlasQualitativeLevelsReadModel
 
     /**
      * @param  array<string,mixed>  $ledger
-     * @param  array<string,mixed>  $rivals
      * @return array<string,mixed>
      */
-    private function advancedReadiness(array $ledger, array $rivals): array
+    private function advancedReadiness(array $ledger): array
     {
         return [
             'p6_presence_eclipse' => [
@@ -105,7 +102,6 @@ class AtlasQualitativeLevelsReadModel
                 'available_evidence' => [
                     'ledger_available' => (bool) ($ledger['available'] ?? false),
                     'ledger_event_count' => (int) ($ledger['event_count'] ?? 0),
-                    'rivals_scored_review_count' => (int) ($rivals['scored_review_count'] ?? 0),
                     'roadmap' => 'docs/engineering-knowledge-base/evolution/personal-longitudinal-roadmap.md',
                 ],
                 'missing_evidence' => [
@@ -173,7 +169,7 @@ class AtlasQualitativeLevelsReadModel
      * @param  array<string,mixed>  $ledger
      * @return array<string,mixed>
      */
-    private function evidence(array $docs, array $domains, array $ledger, array $rivals): array
+    private function evidence(array $docs, array $domains, array $ledger): array
     {
         return [
             'documentation_governance' => [
@@ -191,16 +187,6 @@ class AtlasQualitativeLevelsReadModel
                     ->contains(fn (array $domain): bool => (string) ($domain['id'] ?? '') === 'strategic_decision'),
             ],
             'evidence_ledger' => $ledger,
-            'rivals_strategy' => [
-                'available' => (bool) ($rivals['available'] ?? false),
-                'case_count' => (int) ($rivals['case_count'] ?? 0),
-                'scheduled_review_count' => (int) ($rivals['scheduled_review_count'] ?? 0),
-                'scored_review_count' => (int) ($rivals['scored_review_count'] ?? 0),
-                'average_regret_score' => $rivals['average_regret_score'] ?? null,
-                'average_alignment_score' => $rivals['average_alignment_score'] ?? null,
-                'average_agency_score' => $rivals['average_agency_score'] ?? null,
-                'strategy_multiplier_score' => $rivals['strategy_multiplier_score'] ?? null,
-            ],
         ];
     }
 
@@ -210,7 +196,7 @@ class AtlasQualitativeLevelsReadModel
      * @param  array<string,mixed>  $ledger
      * @return array<int,array{id:string,status:string,reason:string}>
      */
-    private function gates(array $docs, array $domains, array $ledger, array $rivals): array
+    private function gates(array $docs, array $domains, array $ledger): array
     {
         $strategicDomain = collect((array) ($domains['domains'] ?? []))
             ->contains(fn (array $domain): bool => (string) ($domain['id'] ?? '') === 'strategic_decision');
@@ -223,7 +209,6 @@ class AtlasQualitativeLevelsReadModel
             $this->gate('repair_and_gate_evidence', (int) ($ledger['repair_event_count'] ?? 0) > 0 && (int) ($ledger['gate_event_count'] ?? 0) > 0, 'P3 needs repair and quality gate evidence.'),
             $this->gate('self_improvement_evidence', (int) ($ledger['self_improvement_event_count'] ?? 0) > 0, 'P5 needs Curator/Self-Improvement evidence.'),
             $this->gate('strategic_decision_scaffold', $strategicDomain, 'P4 needs strategic_decision domain scaffold before co-strategist work.'),
-            $this->gate('rivals_strategy_benchmark', (bool) ($rivals['available'] ?? false) && (int) ($rivals['scored_review_count'] ?? 0) > 0 && ((float) ($rivals['average_agency_score'] ?? 0)) >= 70, 'P4+ needs scored Rivals benchmark with healthy agency.'),
             $this->gate('presence_eclipse_governance', false, 'P6 needs explicit opt-in, no-surveillance and eclipse governance.'),
             $this->gate('longitudinal_memory_evidence', false, 'P7 needs years-scale longitudinal evidence and privacy review.'),
         ];
@@ -259,7 +244,7 @@ class AtlasQualitativeLevelsReadModel
         if (! $this->passed($gates, ['repair_and_gate_evidence'])) {
             return 'P2';
         }
-        if (! $this->passed($gates, ['strategic_decision_scaffold', 'rivals_strategy_benchmark'])) {
+        if (! $this->passed($gates, ['strategic_decision_scaffold'])) {
             return 'P3';
         }
         if (! $this->passed($gates, ['self_improvement_evidence'])) {
@@ -325,7 +310,7 @@ class AtlasQualitativeLevelsReadModel
             'P1' => ['documentation_governance', 'domain_catalog_ready'],
             'P2' => ['evidence_ledger_available', 'provider_performance_evidence'],
             'P3' => ['repair_and_gate_evidence'],
-            'P4' => ['strategic_decision_scaffold', 'rivals_strategy_benchmark'],
+            'P4' => ['strategic_decision_scaffold'],
             'P5' => ['self_improvement_evidence'],
             'P6' => ['presence_eclipse_governance'],
             'P7' => ['longitudinal_memory_evidence'],

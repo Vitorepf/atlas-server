@@ -56,7 +56,7 @@ graph_parent: atlas-forge-rivals-provider-performance-ledger-v1
 graph_status: active
 graph_source: repo
 repo_paths:
-  - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsExternalEvidenceLifecycleCertification.php
+  - app/Services/Ai/Rivals2/
 allowed_changes:
   - Evoluir invariantes quando novas etapas de evidence lifecycle forem adicionadas.
 forbidden_changes:
@@ -86,6 +86,9 @@ next_actions:
   - Manter o E2E restore-to-decide verde quando bundle, replay, ledger ou decide-signal mudarem.
   - Adicionar ingest externo real somente sem provider call e sem destravar external_rivals_certification.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · External Evidence Lifecycle v1
 
 ## Resumo

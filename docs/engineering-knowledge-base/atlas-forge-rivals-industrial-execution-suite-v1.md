@@ -52,9 +52,7 @@ technical_name: atlas-forge-rivals-industrial-execution-suite-v1
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-industrial-execution-suite-v1.md
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsIndustrialExecutionSuiteService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunBatteryService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunRealService.php
+  - app/Services/Ai/Rivals2/
 allowed_changes:
   - Adicionar fixtures executaveis locais por case industrial.
   - Expandir execution readiness para outros presets industriais sem provider call.
@@ -93,6 +91,9 @@ next_actions:
   - Rodar provider real somente com confirmacoes explicitas do operador e worktree disk gate verde.
   - Completar repeticoes reais antes de qualquer confidence estatistica.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals Industrial Execution Suite v1
 
 Status: canonical local execution readiness.

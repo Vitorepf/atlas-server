@@ -1,3 +1,118 @@
+---
+id: atlas-rivals2-rebuild-map-v1
+type: engineering_knowledge
+title: Atlas Rivals 2.0 — Rebuild Map v1 (kill-map do Rivals 1.0)
+status: active
+category: programming
+priority: 100
+summary: Mapa canonico do rebuild do Rivals. Classifica todo o Rivals 1.0 em A/B/C/D (manter padrao, adaptar conceito, aposentar, deletar) e governa o Slice 6 (remocao total do 1.0). Rivals 2.0 e o benchmark interno do Atlas — model-vs-model e Atlas-uplift, local, fail-closed, sem leaderboard.
+tags:
+  - atlas
+  - rivals2
+  - rebuild
+  - kill-map
+  - benchmark
+capabilities:
+  - rivals2_rebuild_map
+  - rivals1_kill_map
+decisions:
+  - Rivals 1.0 fracassou e nao sera salvo; Rivals 2.0 e o benchmark interno canonico.
+  - Nenhum import de ForgeRivals no namespace Rivals2.
+  - As 5 tabelas do 1.0 sao dropadas; o 2.0 usa JSONL append-only com hash chain.
+  - Avaliacao per-delivery segue oficial; Rivals 2.0 mede modelos e runtimes.
+maintenance:
+  - Atualizar este doc a cada slice do rebuild concluido.
+  - Este doc e a fonte de verdade da classificacao A/B/C/D do 1.0.
+related_paths:
+  - app/Services/Ai/Rivals2/
+  - app/Console/Commands/AtlasRivals2Command.php
+  - config/atlas_rivals2.php
+  - docs/acde-teto-closure.md
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-rivals2-rebuild-map-v1
+graph_title: Atlas Rivals 2.0 Rebuild Map v1
+graph_world: atlas
+graph_layer: system
+graph_kind: contract
+graph_parent: atlas-programming-forge-flow
+graph_status: active
+graph_source: repo
+owner: programming
+repo_paths:
+  - app/Services/Ai/Rivals2/
+  - config/atlas_rivals2.php
+allowed_changes:
+  - Registrar progresso dos slices e ajustes de classificacao com justificativa.
+forbidden_changes:
+  - Reintroduzir codigo do ForgeRivals 1.0 no runtime 2.0.
+  - Transformar o 2.0 em leaderboard/score unico colapsado.
+depends_on:
+  - atlas-forge-native-rivals-protocol-v1
+flows_to:
+  - programming-professional-completion-audit
+unlocks:
+  - rivals2_runtime
+governs:
+  - rivals2_rebuild
+evidence:
+  - tests/Unit/Ai/Rivals2
+  - tests/Feature/Ai/Rivals2
+required_tests:
+  - php artisan test --filter=Rivals2
+requires_evidence: true
+risk_level: medium
+next_actions:
+  - Concluir slices restantes do rebuild e registrar evidencia por slice.
+---
+
+## Resumo
+
+Kill-map canonico do Rivals 1.0 e mapa do rebuild 2.0. Ver secoes numeradas abaixo (fonte de verdade A/B/C/D).
+
+## Papel no Atlas
+
+Governa o que morre, o que vira conceito e o que e reimplementado no benchmark interno Rivals 2.0.
+
+## Onde Se Encaixa
+
+Camada de medicao (modelos x runtimes) do dominio Programming; separada da avaliacao per-delivery do Loop.
+
+## Contratos
+
+Invariantes fail-closed do 2.0 na secao 9; classificacao A/B/C/D nas secoes 1-7.
+
+## Fluxo
+
+Slices do rebuild: runtime 2.0 (Slices 1-5) -> remocao do 1.0 (Slice 6) conforme secoes 1-8.
+
+## Regras para IA
+
+Proibido importar ForgeRivals no Rivals2; proibido leaderboard/score unico; claims sempre escopados.
+
+## Escopo de Implementacao
+
+app/Services/Ai/Rivals2/, AtlasRivals2Command, config/atlas_rivals2.php, storage/atlas/rivals2/.
+
+## Dependencias
+
+Evidence Ledger proprio (JSONL + hash chain); suites externas apenas como adapters.
+
+## Evidencias
+
+Suite tests/{Unit,Feature}/Ai/Rivals2 verde; saldo do Slice 6 na secao 8.
+
+## Riscos
+
+Goodhart via corpus auto-autorado (mitigado: corpus fresh + juiz local); claim sem evidencia (mitigado: claim_allowed fail-closed).
+
+## Exemplos
+
+`php artisan atlas:rivals2 --json` (unico entrypoint CLI do 2.0).
+
+## Proximas Acoes
+
+Ver next_actions do frontmatter e a secao 8 (saldo projetado do Slice 6).
+
 # Atlas Rivals 2.0 — Rebuild Map v1 (kill-map do Rivals 1.0)
 
 Status: canonical para o rebuild. Autor: Fable 5. Data: 2026-07-02.

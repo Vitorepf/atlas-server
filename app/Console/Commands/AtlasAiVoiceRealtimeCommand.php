@@ -6,7 +6,6 @@ use App\Services\Ai\Voice\AtlasVoiceLiveKitTokenIssuer;
 use App\Services\Ai\Voice\AtlasVoiceLiveKitServerProbe;
 use App\Services\Ai\Voice\AtlasVoiceProductionPromotionReviewBundleService;
 use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
-use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeCertificationService;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeEventNormalizer;
 use App\Services\Ai\Support\JsonFileStore;
@@ -19,7 +18,7 @@ class AtlasAiVoiceRealtimeCommand extends Command
     private const PYTHON_COMMAND_TIMEOUT_SECONDS = 30;
 
     protected $signature = 'atlas:ai:voice
-        {action=contract : Action to inspect: contract, bootstrap, dependencies, dependency-install-plan, preflight, activation-contract, scripted-example, scripted-smoke, callback-smoke, callback-sequence-smoke, callback-loop-check, sdk-check, token-issuer-plan, token-issuer-smoke, livekit-server-probe, worker-plan, production-loop-plan, product-loop-check, daemon-supervisor-check, pre-start-health-checks-smoke, production-loop-smoke, worker-start-check, normalize-event, normalize-sequence, runtime-certify, promotion-review-packet, health, readiness or rivals}
+        {action=contract : Action to inspect: contract, bootstrap, dependencies, dependency-install-plan, preflight, activation-contract, scripted-example, scripted-smoke, callback-smoke, callback-sequence-smoke, callback-loop-check, sdk-check, token-issuer-plan, token-issuer-smoke, livekit-server-probe, worker-plan, production-loop-plan, product-loop-check, daemon-supervisor-check, pre-start-health-checks-smoke, production-loop-smoke, worker-start-check, normalize-event, normalize-sequence, runtime-certify, promotion-review-packet, health or readiness}
         {--runtime=livekit_agents_sdk : Runtime id for contract inspection}
         {--base-url= : Kernel base URL for bootstrap manifests}
         {--hours=24 : Readiness/evidence window in hours}
@@ -41,7 +40,6 @@ class AtlasAiVoiceRealtimeCommand extends Command
         AtlasVoiceRealtimeService $voice,
         AtlasVoiceLiveKitTokenIssuer $liveKitTokens,
         AtlasVoiceLiveKitServerProbe $liveKitServerProbe,
-        AtlasVoiceRivalsRunner $rivals,
         AtlasVoiceRuntimeCertificationService $certification,
         AtlasVoiceRuntimeEventNormalizer $runtimeEvents,
         AtlasVoiceProductionPromotionReviewBundleService $promotionReviews,
@@ -115,14 +113,6 @@ class AtlasAiVoiceRealtimeCommand extends Command
             ]),
             'health' => $voice->health(['runtime' => (string) $this->option('runtime')]),
             'readiness' => $voice->readiness(['hours' => (int) $this->option('hours')]),
-            'rivals' => $rivals->report([
-                'hours' => (int) $this->option('hours'),
-                'runtime' => $runtime,
-                'base_url' => (string) ($this->option('base-url') ?: 'http://atlas.test'),
-                'require_sdk' => (bool) $this->option('require-sdk'),
-                'callback_loop_wired' => (bool) $this->option('callback-loop-wired'),
-                'production_sdk_loop_wired' => (bool) $this->option('production-sdk-loop-wired'),
-            ]),
             default => [
                 'schema_version' => 'atlas.voice_realtime.command.v1',
                 'status' => 'invalid_action',
@@ -1218,6 +1208,6 @@ class AtlasAiVoiceRealtimeCommand extends Command
      */
     private function allowedActions(): array
     {
-        return ['contract', 'bootstrap', 'dependencies', 'dependency-install-plan', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'token-issuer-plan', 'token-issuer-smoke', 'livekit-server-probe', 'worker-plan', 'production-loop-plan', 'product-loop-check', 'daemon-supervisor-check', 'pre-start-health-checks-smoke', 'production-loop-smoke', 'worker-start-check', 'normalize-event', 'normalize-sequence', 'runtime-certify', 'promotion-review-packet', 'health', 'readiness', 'rivals'];
+        return ['contract', 'bootstrap', 'dependencies', 'dependency-install-plan', 'preflight', 'activation-contract', 'scripted-example', 'scripted-smoke', 'callback-smoke', 'callback-sequence-smoke', 'callback-loop-check', 'sdk-check', 'token-issuer-plan', 'token-issuer-smoke', 'livekit-server-probe', 'worker-plan', 'production-loop-plan', 'product-loop-check', 'daemon-supervisor-check', 'pre-start-health-checks-smoke', 'production-loop-smoke', 'worker-start-check', 'normalize-event', 'normalize-sequence', 'runtime-certify', 'promotion-review-packet', 'health', 'readiness'];
     }
 }

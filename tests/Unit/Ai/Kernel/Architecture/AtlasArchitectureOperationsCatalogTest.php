@@ -15,7 +15,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('arquitetura_mae', $catalog->sectionKey());
         $this->assertSame('atlas.architecture_operations.v1', $summary['schema_version']);
         $this->assertSame('arquitetura_mae', $summary['section']);
-        $this->assertSame(103, $summary['command_count']);
+        $this->assertSame(99, $summary['command_count']);
         $this->assertSame($catalog->commands(), $summary['commands']);
         $this->assertSame([
             'architecture_operations',
@@ -89,7 +89,6 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'voice_realtime_runtime_certification',
             'voice_realtime_promotion_review_packet',
             'voice_realtime_readiness',
-            'voice_realtime_rivals_report',
             'voice_python_runtime_contract_test',
             'kernel_pipeline_report',
             'repair_report',
@@ -103,9 +102,6 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'provider_cost_rates_missing',
             'provider_cost_rates_upsert',
             'qualitative_levels_report',
-            'rivals_strategy_report',
-            'rivals_strategy_due_reviews',
-            'rivals_strategy_record_review',
             'strategic_decision_review',
             'decision_receipt_report',
             'ledger_replay',
@@ -182,7 +178,6 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('php artisan atlas:ai:voice runtime-certify --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice promotion-review-packet --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:voice readiness --hours=24 --json', $commands);
-        $this->assertContains('php artisan atlas:ai:voice rivals --hours=24 --json', $commands);
         $this->assertContains('PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests', $commands);
         $this->assertContains('php artisan atlas:ai:kernel-pipeline-report --hours=24 --json', $commands);
         $this->assertContains('php artisan atlas:ai:repair-report --hours=24 --json', $commands);
@@ -196,9 +191,6 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json', $commands);
         $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', $commands);
         $this->assertContains('php artisan atlas:ai:qualitative-levels --hours=720 --json', $commands);
-        $this->assertContains('php artisan atlas:ai:rivals-strategy report --hours=8760 --json', $commands);
-        $this->assertContains('php artisan atlas:ai:rivals-strategy due-reviews --due-days=30 --json', $commands);
-        $this->assertContains('php artisan atlas:ai:rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json', $commands);
         $this->assertContains('php artisan atlas:ai:strategic-decision review --json', $commands);
         $this->assertContains('php artisan atlas:ai:decision-receipt-report --envelope=<id> --json', $commands);
         $this->assertContains('php artisan atlas:ai:ledger <id> --json', $commands);
@@ -326,7 +318,6 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_product_loop_check.kind'));
         $this->assertSame('validation', data_get($commandsById, 'voice_realtime_production_loop_smoke.kind'));
         $this->assertSame('runtime_contract', data_get($commandsById, 'voice_realtime_worker_start_check.kind'));
-        $this->assertSame('maturity_report', data_get($commandsById, 'voice_realtime_rivals_report.kind'));
         $this->assertSame('evidence_report', data_get($commandsById, 'capture_inbox_pipeline_report.kind'));
         $this->assertSame('maintenance', data_get($commandsById, 'capture_inbox_pipeline_backfill_contracts.kind'));
         $this->assertSame('php artisan atlas:ai:capture-inbox-pipeline-backfill-contracts --hours=720 --write --json', data_get($commandsById, 'capture_inbox_pipeline_backfill_contracts.write_command'));
@@ -376,7 +367,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:provider-performance --hours=24 --json', data_get($byId, 'commands.0.command'));
 
         $this->assertSame(['section' => 'arquitetura_mae'], $bySection['filters']);
-        $this->assertSame(103, $bySection['command_count']);
+        $this->assertSame(99, $bySection['command_count']);
         $this->assertContains('architecture_operations', $bySection['operation_ids']);
         $this->assertSame(['section' => 'legacy'], $byUnknownSection['filters']);
         $this->assertSame(0, $byUnknownSection['command_count']);
@@ -546,20 +537,18 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:strategic-decision review --json', data_get($byPlanning, 'commands.0.command'));
 
         $byMaturity = $catalog->summary(['kind' => 'maturity_report']);
-        $this->assertSame(4, $byMaturity['command_count']);
-        $this->assertSame(['local_rag_benchmark_rivals_report', 'voice_realtime_rivals_report', 'qualitative_levels_report', 'rivals_strategy_report'], $byMaturity['operation_ids']);
+        $this->assertSame(2, $byMaturity['command_count']);
+        $this->assertSame(['local_rag_benchmark_rivals_report', 'qualitative_levels_report'], $byMaturity['operation_ids']);
         $this->assertSame('php artisan atlas:ai:local-rag-benchmark --rivals-report --json', data_get($byMaturity, 'commands.0.command'));
-        $this->assertSame('php artisan atlas:ai:voice rivals --hours=24 --json', data_get($byMaturity, 'commands.1.command'));
-        $this->assertSame('php artisan atlas:ai:qualitative-levels --hours=720 --json', data_get($byMaturity, 'commands.2.command'));
-        $this->assertSame('php artisan atlas:ai:rivals-strategy report --hours=8760 --json', data_get($byMaturity, 'commands.3.command'));
+        $this->assertSame('php artisan atlas:ai:qualitative-levels --hours=720 --json', data_get($byMaturity, 'commands.1.command'));
 
         $byReviewQueue = $catalog->summary(['kind' => 'review_queue']);
-        $this->assertSame(5, $byReviewQueue['command_count']);
-        $this->assertSame(['local_rag_benchmark_rivals_shadow_inbox', 'local_rag_benchmark_rivals_inbox', 'external_vector_rag_preflight_inbox', 'voice_realtime_promotion_review_packet', 'rivals_strategy_due_reviews'], $byReviewQueue['operation_ids']);
+        $this->assertSame(4, $byReviewQueue['command_count']);
+        $this->assertSame(['local_rag_benchmark_rivals_shadow_inbox', 'local_rag_benchmark_rivals_inbox', 'external_vector_rag_preflight_inbox', 'voice_realtime_promotion_review_packet'], $byReviewQueue['operation_ids']);
 
         $byReviewAction = $catalog->summary(['kind' => 'review_action']);
-        $this->assertSame(2, $byReviewAction['command_count']);
-        $this->assertSame(['provider_cost_rates_upsert', 'rivals_strategy_record_review'], $byReviewAction['operation_ids']);
+        $this->assertSame(1, $byReviewAction['command_count']);
+        $this->assertSame(['provider_cost_rates_upsert'], $byReviewAction['operation_ids']);
 
         $byCuratorReview = $catalog->summary(['kind' => 'curator_review']);
         $this->assertSame(4, $byCuratorReview['command_count']);
@@ -583,13 +572,6 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('evidence_report', data_get($byVoiceReadiness, 'commands.0.kind'));
         $this->assertSame('/ai/voice/readiness', data_get($byVoiceReadiness, 'commands.0.api_endpoint'));
         $this->assertSame('/v1/mobile/ai/voice/readiness', data_get($byVoiceReadiness, 'commands.0.mobile_endpoint'));
-
-        $byVoiceRivals = $catalog->summary(['id' => 'voice_realtime_rivals_report']);
-        $this->assertSame(1, $byVoiceRivals['command_count']);
-        $this->assertSame('php artisan atlas:ai:voice rivals --hours=24 --json', data_get($byVoiceRivals, 'commands.0.command'));
-        $this->assertSame('maturity_report', data_get($byVoiceRivals, 'commands.0.kind'));
-        $this->assertSame('/ai/voice/rivals', data_get($byVoiceRivals, 'commands.0.api_endpoint'));
-        $this->assertSame('/v1/mobile/ai/voice/rivals', data_get($byVoiceRivals, 'commands.0.mobile_endpoint'));
 
         $byVoiceScriptedSmoke = $catalog->summary(['id' => 'voice_realtime_scripted_smoke']);
         $this->assertSame(1, $byVoiceScriptedSmoke['command_count']);

@@ -285,7 +285,6 @@ class EngineeringDocumentationHealthService
         'Atlas Code Forge',
         'Atlas Code Obra',
         'Forge Continuum',
-        'ForgeRivals',
         'Obra Command Center',
         'Dual Core',
         'Dev Forge',

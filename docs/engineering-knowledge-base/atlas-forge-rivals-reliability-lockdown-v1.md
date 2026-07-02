@@ -49,7 +49,6 @@ repo_paths:
   - app/Services/Ai/Programming/RivalsForgeRunLogStreamService.php
   - app/Services/Ai/Programming/AtlasRivalsRunOrchestrator.php
   - app/Services/Ai/Programming/AtlasRivalsInvalidBatteryTriageRegistry.php
-  - tests/Feature/Ai/Programming/AtlasForgeRivalsReliabilityLockdownIntegrationTest.php
 allowed_changes:
   - Ajustar preset quick/full, fingerprints, evidence fields e mensagens de blocker.
   - Adicionar novos eventos JSONL desde que mantenham replay e compatibilidade.
@@ -100,6 +99,9 @@ cartography_type: runbook
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-reliability-lockdown-v1.md
 owner: atlas-ai
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals Reliability Lockdown v1
 
 ## Resumo

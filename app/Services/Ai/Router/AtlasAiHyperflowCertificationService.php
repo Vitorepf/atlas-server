@@ -25,8 +25,6 @@ class AtlasAiHyperflowCertificationService
             $this->delegationContractCheck(),
             $this->auditTrailContractCheck(),
             $this->documentationCheck(),
-            $this->rivalsBatteryCheck(),
-            $this->externalRivalsExecutionCheck(),
         ];
 
         $failed = array_values(array_filter($checks, fn (array $check): bool => ($check['status'] ?? null) !== 'passed'));
@@ -48,24 +46,9 @@ class AtlasAiHyperflowCertificationService
             ),
             'surfaces' => [
                 'certification' => '/ai/hyperflow/certification',
-                'rivals_battery' => '/ai/hyperflow/rivals-battery',
-                'rivals_battery_run' => '/ai/hyperflow/rivals-battery/run',
-                'rivals_battery_external_evidence' => '/ai/hyperflow/rivals-battery/external-evidence',
-                'rivals_battery_external_evidence_template' => '/ai/hyperflow/rivals-battery/external-evidence/template',
-                'rivals_battery_external_evidence_candidates' => '/ai/hyperflow/rivals-battery/external-evidence/candidates',
-                'rivals_battery_external_evidence_runbook' => '/ai/hyperflow/rivals-battery/external-evidence/runbook',
-                'rivals_battery_external_evidence_preflight' => '/ai/hyperflow/rivals-battery/external-evidence/preflight',
-                'rivals_battery_external_evidence_export' => '/ai/hyperflow/rivals-battery/external-evidence/export',
-                'rivals_battery_external_evidence_import' => '/ai/hyperflow/rivals-battery/external-evidence/import',
                 'router_readiness' => '/ai/router-runtime/readiness',
                 'router_bootstrap' => '/ai/router-runtime/bootstrap',
                 'flow_status' => '/ai/interactions/{trace}/flow-status',
-            ],
-            'external_evidence_gate' => $this->externalEvidenceGate($checks),
-            'claim_policy' => [
-                'ready_to_replace_claude_code_codex' => $failed === [],
-                'declare_100x_allowed' => $failed === [],
-                'requires_verifiable_benchmark' => true,
             ],
             'writes' => false,
         ];
@@ -253,44 +236,6 @@ class AtlasAiHyperflowCertificationService
     }
 
     /**
-     * @return array<string,mixed>
-     */
-    private function rivalsBatteryCheck(): array
-    {
-        $battery = app(AtlasAiHyperflowRivalsBatteryService::class)->status();
-
-        return $this->check('rivals_battery.claude_code_codex', (bool) data_get($battery, 'ready', false), [
-            'battery_schema_version' => data_get($battery, 'schema_version'),
-            'battery_status' => data_get($battery, 'status'),
-            'suite_slug' => data_get($battery, 'suite_slug'),
-            'required_case_count' => data_get($battery, 'required_case_count'),
-            'active_canonical_case_count' => data_get($battery, 'active_canonical_case_count'),
-            'latest_run' => data_get($battery, 'latest_run'),
-            'next_action' => data_get($battery, 'next_action'),
-        ]);
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function externalRivalsExecutionCheck(): array
-    {
-        $battery = app(AtlasAiHyperflowRivalsBatteryService::class)->status();
-        $externalExecution = (array) data_get($battery, 'latest_run.external_provider_execution', []);
-
-        return $this->check('rivals_battery.external_provider_execution', (bool) data_get($battery, 'ready', false)
-            && data_get($externalExecution, 'status') === 'passed', [
-                'battery_status' => data_get($battery, 'status'),
-                'suite_slug' => data_get($battery, 'suite_slug'),
-                'latest_run' => data_get($battery, 'latest_run'),
-                'external_provider_execution' => $externalExecution,
-                'blocking_reason' => data_get($externalExecution, 'status') === 'passed'
-                    ? null
-                    : 'Backend contract battery exists, but replacement claim still requires an operator-approved external Claude Code/Codex run with evidence.',
-            ]);
-    }
-
-    /**
      * @param  array<string,mixed>  $evidence
      * @return array<string,mixed>
      */
@@ -325,23 +270,23 @@ class AtlasAiHyperflowCertificationService
             $this->auditRequirement(
                 'intent_kernel_ambiguous_prompts',
                 'Implementar Intent Kernel para prompts ambiguos.',
-                ['router_runtime_readiness', 'rivals_battery.claude_code_codex'],
+                ['router_runtime_readiness'],
                 $checksById,
-                ['contract:atlas.ai.intent_kernel.v1', 'battery_case:ambiguous_feature_plan'],
+                ['contract:atlas.ai.intent_kernel.v1'],
             ),
             $this->auditRequirement(
                 'specialist_flows_deep_contracts',
                 'Completar research, debug, review, explain, conversation e plan com contratos profundos.',
-                ['specialist_flows.deep_contracts', 'rivals_battery.claude_code_codex'],
+                ['specialist_flows.deep_contracts'],
                 $checksById,
                 ['contract:atlas.ai.specialist_flow_execution.v1'],
             ),
             $this->auditRequirement(
                 'dev_forge_delegation',
                 'Garantir delegation correta para Atlas Dev e promocao correta para Atlas Forge.',
-                ['delegation.dev_forge_boundaries', 'rivals_battery.claude_code_codex'],
+                ['delegation.dev_forge_boundaries'],
                 $checksById,
-                ['battery_case:workspace_debug_delegates_dev', 'battery_case:workspace_review_delegates_dev', 'battery_case:forge_heavy_obra_promotion'],
+                ['contract:atlas.ai.specialist_flow_execution.v1'],
             ),
             $this->auditRequirement(
                 'contracts_receipts_persistence_telemetry_audit',
@@ -360,16 +305,9 @@ class AtlasAiHyperflowCertificationService
             $this->auditRequirement(
                 'backend_readiness_certification_e2e',
                 'Criar backend readiness/certification end-to-end do Hyperflow.',
-                ['router_runtime_readiness', 'rivals_battery.claude_code_codex', 'rivals_battery.external_provider_execution'],
+                ['router_runtime_readiness'],
                 $checksById,
                 ['api:/ai/hyperflow/certification', 'cli:php artisan atlas:ai:hyperflow certify --json'],
-            ),
-            $this->auditRequirement(
-                'rivals_battery_claude_code_codex',
-                'Criar benchmark/rivals battery contra Claude Code/Codex com casos reais.',
-                ['rivals_battery.claude_code_codex', 'rivals_battery.external_provider_execution'],
-                $checksById,
-                ['api:/ai/hyperflow/rivals-battery/run', 'api:/ai/hyperflow/rivals-battery/external-evidence', 'api:/ai/hyperflow/rivals-battery/external-evidence/export', 'api:/ai/hyperflow/rivals-battery/external-evidence/import'],
             ),
             $this->auditRequirement(
                 'canonical_docs',
@@ -386,7 +324,7 @@ class AtlasAiHyperflowCertificationService
             $this->auditRequirement(
                 'tests_docs_health_pint_gates',
                 'Rodar testes, docs-health, Pint e gates necessarios.',
-                ['router_runtime_readiness', 'rivals_battery.claude_code_codex', 'docs.hyperflow_canonical_contracts'],
+                ['router_runtime_readiness', 'docs.hyperflow_canonical_contracts'],
                 $checksById,
                 ['command:php artisan test ...', 'command:vendor/bin/pint --test ...', 'command:php artisan atlas:engineering:knowledge docs-health --json', 'command:git diff --check'],
             ),
@@ -396,51 +334,44 @@ class AtlasAiHyperflowCertificationService
             $this->auditRequirement(
                 'ambiguous_prompt_routes_correctly',
                 'Atlas AI entende prompt ambiguo e escolhe o flow correto.',
-                ['router_runtime_readiness', 'rivals_battery.claude_code_codex'],
+                ['router_runtime_readiness'],
                 $checksById,
-                ['battery_case:ambiguous_feature_plan'],
+                ['contract:atlas.ai.intent_kernel.v1'],
             ),
             $this->auditRequirement(
                 'each_flow_has_own_tested_behavior',
                 'Cada flow tem comportamento proprio e testado.',
-                ['specialist_flows.deep_contracts', 'rivals_battery.claude_code_codex'],
+                ['specialist_flows.deep_contracts'],
                 $checksById,
                 ['flows:research,debug,review,explain,conversation,plan'],
             ),
             $this->auditRequirement(
                 'atlas_dev_light_medium_with_evidence',
                 'Atlas Dev resolve programacao leve/media com evidencia.',
-                ['delegation.dev_forge_boundaries', 'rivals_battery.claude_code_codex'],
+                ['delegation.dev_forge_boundaries'],
                 $checksById,
-                ['battery_case:workspace_dev_patch'],
+                ['contract:atlas.ai.specialist_flow_execution.v1'],
             ),
             $this->auditRequirement(
                 'atlas_forge_heavy_obra_handoff',
                 'Atlas Forge recebe Obras pesadas com handoff auditavel.',
-                ['delegation.dev_forge_boundaries', 'rivals_battery.claude_code_codex'],
+                ['delegation.dev_forge_boundaries'],
                 $checksById,
-                ['battery_case:forge_heavy_obra_promotion'],
+                ['contract:atlas.ai.specialist_flow_execution.v1'],
             ),
             $this->auditRequirement(
                 'receipts_hashes_telemetry',
                 'Toda decisao relevante deixa receipt/hash/telemetry.',
-                ['audit.receipts_persistence_telemetry', 'rivals_battery.claude_code_codex'],
+                ['audit.receipts_persistence_telemetry'],
                 $checksById,
-                ['receipt:atlas.ai.hyperflow_rivals_battery_receipt.v1'],
+                ['contract:atlas.ai.specialist_flow_receipt.v1'],
             ),
             $this->auditRequirement(
                 'final_certification_exists',
                 'Existe certificacao final mostrando se esta pronto.',
-                ['router_runtime_readiness', 'rivals_battery.claude_code_codex', 'rivals_battery.external_provider_execution'],
+                ['router_runtime_readiness'],
                 $checksById,
                 ['api:/ai/hyperflow/certification'],
-            ),
-            $this->auditRequirement(
-                'no_completion_without_verifiable_evidence',
-                'Nao declarar completo sem evidencia verificavel.',
-                ['rivals_battery.external_provider_execution'],
-                $checksById,
-                ['claim_policy:ready_to_replace_claude_code_codex', 'claim_policy:declare_100x_allowed'],
             ),
         ];
 
@@ -465,74 +396,6 @@ class AtlasAiHyperflowCertificationService
                 fn (array $item): string => (string) ($item['id'] ?? 'unknown_audit_item'),
                 $blocked,
             ),
-        ];
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $checks
-     * @return array<string,mixed>
-     */
-    private function externalEvidenceGate(array $checks): array
-    {
-        $externalCheck = null;
-        foreach ($checks as $check) {
-            if (($check['id'] ?? null) === 'rivals_battery.external_provider_execution') {
-                $externalCheck = $check;
-                break;
-            }
-        }
-
-        $status = ($externalCheck['status'] ?? null) === 'passed' ? 'passed' : 'blocked';
-
-        return [
-            'schema_version' => 'atlas.ai.hyperflow_external_evidence_gate.v1',
-            'status' => $status,
-            'check_id' => 'rivals_battery.external_provider_execution',
-            'blocking_reason' => $status === 'passed'
-                ? null
-                : 'external_claude_code_codex_evidence_required',
-            'accepted_surfaces' => [
-                'manual_record_api' => '/ai/hyperflow/rivals-battery/external-evidence',
-                'evidence_pack_template_api' => '/ai/hyperflow/rivals-battery/external-evidence/template',
-                'evidence_candidates_api' => '/ai/hyperflow/rivals-battery/external-evidence/candidates',
-                'evidence_runbook_api' => '/ai/hyperflow/rivals-battery/external-evidence/runbook',
-                'evidence_preflight_api' => '/ai/hyperflow/rivals-battery/external-evidence/preflight',
-                'evidence_pack_export_api' => '/ai/hyperflow/rivals-battery/external-evidence/export',
-                'evidence_pack_import_api' => '/ai/hyperflow/rivals-battery/external-evidence/import',
-                'cli_template' => 'php artisan atlas:ai:hyperflow evidence-template --json',
-                'cli_candidates' => 'php artisan atlas:ai:hyperflow evidence-candidates --provider=codex_cli --json',
-                'cli_runbook' => 'php artisan atlas:ai:hyperflow evidence-runbook --json',
-                'cli_preflight' => 'php artisan atlas:ai:hyperflow evidence-preflight --forge-run-ids=<claude_run>,<codex_run> --json',
-                'cli_export' => 'php artisan atlas:ai:hyperflow export-evidence --forge-run-ids=<claude_run>,<codex_run> --operator-approved --approved-by=<operator> --json',
-                'cli_import' => 'php artisan atlas:ai:hyperflow import-evidence --evidence-pack=<path> --operator-approved --approved-by=<operator> --json',
-                'cli_certify' => 'php artisan atlas:ai:hyperflow certify --json',
-            ],
-            'required_manual_payload' => [
-                'confirm_external_evidence' => true,
-                'external_provider_call' => true,
-                'approved_by' => 'operator',
-                'protocol_valid' => true,
-                'comparable' => true,
-                'operator_approved' => true,
-                'evidence_receipt_hash' => 'sha256:64_hex_chars',
-                'provider_results.claude_code.status' => 'passed',
-                'provider_results.claude_code.score' => 'integer_0_100',
-                'provider_results.claude_code.evidence_hash' => 'sha256:64_hex_chars',
-                'provider_results.codex_or_codex_cli.status' => 'passed',
-                'provider_results.codex_or_codex_cli.score' => 'integer_0_100',
-                'provider_results.codex_or_codex_cli.evidence_hash' => 'sha256:64_hex_chars',
-            ],
-            'required_evidence_pack_fields' => [
-                'hyperflow_external_rivals_certification_eligible' => true,
-                'external_provider_call' => true,
-                'provider_tokens_spent' => true,
-                'is_comparable_real_run' => true,
-                'protocol_valid' => true,
-                'claim_ready' => true,
-                'provider_results.claude_code.status' => 'passed',
-                'provider_results.codex_or_codex_cli.status' => 'passed',
-            ],
-            'latest_external_provider_execution' => data_get($externalCheck, 'evidence.external_provider_execution'),
         ];
     }
 

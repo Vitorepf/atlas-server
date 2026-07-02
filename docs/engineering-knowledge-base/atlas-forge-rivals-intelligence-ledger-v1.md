@@ -91,6 +91,8 @@ next_actions:
   - Adicionar variancia, intervalos de confianca e regressao por segmento quando houver repeticoes suficientes.
 ---
 
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Intelligence Ledger v1
 
 ## Resumo

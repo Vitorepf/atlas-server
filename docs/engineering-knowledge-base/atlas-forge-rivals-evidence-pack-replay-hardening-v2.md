@@ -54,10 +54,6 @@ technical_name: atlas-forge-rivals-evidence-pack-replay-hardening-v2
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-evidence-pack-replay-hardening-v2.md
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCollectEvidenceService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsEvidencePackVerifierService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReplayService.php
-  - app/Console/Commands/AtlasForgeRivalsCommand.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-evidence-pack-replay-hardening-v2.md
 allowed_changes:
   - Adicionar campos additive ao evidence pack v2 e ao artifact_index v1.
@@ -92,6 +88,9 @@ next_actions:
   - Monitorar pipeline `run-battery` em `fair`/`full_power` para regressões na coleta de provider_receipts.
   - Sincronizar este doc se novos artifact keys forem adicionados.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Evidence Pack + Replay Hardening v2
 
 **Status:** Delivered 2026-05-15 (Claude D · Evidence/Replay slice)

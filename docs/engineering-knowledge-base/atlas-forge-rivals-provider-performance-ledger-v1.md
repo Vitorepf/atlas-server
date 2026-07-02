@@ -57,9 +57,7 @@ canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-provider-pe
 owner: programming
 
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderPerformanceLedgerService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php
-  - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsProviderPerformanceLedgerCertification.php
+  - app/Services/Ai/Rivals2/
 
 allowed_changes:
   - Atualizar quando o adjudicator emitir novos campos no scorecard ou quando os thresholds de confidence/stale precisarem evoluir.
@@ -99,6 +97,9 @@ next_actions:
   - Adicionar retention/compaction ao entries.jsonl quando volume justificar.
   - Surface UI Atlas Code Premium (ranking, provider cards, cost/quality scatter).
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Provider Performance Ledger v1
 
 Strategy canon: `atlas-forge-rivals-benchmark-strategy-v1.md`.

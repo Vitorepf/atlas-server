@@ -523,41 +523,6 @@ PHP,
         $this->assertStringContainsString('Provider Cost Rate Inbox Replay Contract', $ap);
     }
 
-    public function test_rivals_review_inbox_action_stays_human_scored_and_ledger_backed(): void
-    {
-        $inboxActions = file_get_contents(app_path('Services/Ai/Mobile/InboxActionRegistry.php'));
-        $runtime = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
-        $replay = file_get_contents(app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php'));
-        $inboxActionTest = file_get_contents(base_path('tests/Feature/Ai/InboxLedgerProjectionActionTest.php'));
-        $replayTest = file_get_contents(base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php'));
-        $commandTest = file_get_contents(base_path('tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php'));
-        $apiTest = file_get_contents(base_path('tests/Feature/Ai/AtlasAiInboxActionReportApiTest.php'));
-        $observabilityTest = file_get_contents(base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php'));
-        $mcpTest = file_get_contents(base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php'));
-        $ap = file_get_contents(base_path('docs/ap/AP-144-rivals-review-inbox-action-contract.md'));
-
-        $this->assertSame([], $this->violationsFor('ap144_rivals_review_inbox_action_contract'));
-        $this->assertStringContainsString("'record_rivals_review' => \$this->recordRivalsReview(\$locked, \$input)", $inboxActions);
-        $this->assertStringContainsString('private function recordRivalsReview(AiInboxItem $item, array $input): array', $inboxActions);
-        $this->assertStringContainsString("'schema_version' => 'atlas.inbox_action.rivals_review.v1'", $inboxActions);
-        $this->assertStringContainsString("'operator_scored' => true", $inboxActions);
-        $this->assertStringContainsString("'no_external_action' => true", $inboxActions);
-        $this->assertStringContainsString('$this->rivalsStrategyReviewRecorder->record', $inboxActions);
-        $this->assertStringContainsString("'id' => 'record_rivals_review'", $runtime);
-        $this->assertStringContainsString("'due_reviews' =>", $runtime);
-        $this->assertStringContainsString("'rivals_strategy_due_review'", $runtime);
-        $this->assertStringContainsString("'rivals_review_schema_version' => data_get(\$result, 'rivals_review_action.schema_version')", $replay);
-        $this->assertStringContainsString("'rivals_review_recorded_count' => \$rivalsReviewRecordedCount", $replay);
-        $this->assertStringContainsString("'rivals_strategy_human_scores_recorded'", $replay);
-        $this->assertStringContainsString('test_inbox_action_records_rivals_review_with_human_scores_and_ledger_evidence', $inboxActionTest);
-        $this->assertStringContainsString('test_inbox_action_window_report_projects_rivals_review_scores', $replayTest);
-        $this->assertStringContainsString('test_command_exposes_rivals_review_scores_as_json', $commandTest);
-        $this->assertStringContainsString('test_inbox_action_report_api_exposes_rivals_review_scores', $apiTest);
-        $this->assertStringContainsString('test_observability_payload_exposes_rivals_review_inbox_action_scores', $observabilityTest);
-        $this->assertStringContainsString('test_inbox_action_report_tool_exposes_rivals_review_scores', $mcpTest);
-        $this->assertStringContainsString('Rivals Review Inbox Action Contract', $ap);
-    }
-
     public function test_ledger_projection_inbox_action_stays_reviewable_and_dry_run_safe(): void
     {
         $registry = file_get_contents(app_path('Services/Ai/Mobile/InboxActionRegistry.php'));

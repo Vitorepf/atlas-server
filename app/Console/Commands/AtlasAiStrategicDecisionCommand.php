@@ -17,7 +17,6 @@ class AtlasAiStrategicDecisionCommand extends Command
         {--impact=medium : low, medium, high, or critical}
         {--horizon=90 : Review horizon in days}
         {--audit : Emit dry-run DecisionReceipt and Evidence Ledger events}
-        {--register-rivals : Register an internal Rivals Strategy case for future review}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Generate a plan-only Strategic Decision review packet without executing the decision.';
@@ -46,9 +45,6 @@ class AtlasAiStrategicDecisionCommand extends Command
             ? $reviews->auditedPacket($input)
             : ['packet' => $reviews->packet($input)];
         $packet = $result['packet'];
-        $rivalsRegistration = (bool) $this->option('register-rivals')
-            ? $reviews->registerRivalsCase($packet, $result['receipt'] ?? null)
-            : null;
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode([
@@ -56,7 +52,6 @@ class AtlasAiStrategicDecisionCommand extends Command
                 'strategic_decision' => $packet,
                 'decision_receipt' => $result['receipt'] ?? null,
                 'ledger' => $result['ledger'] ?? null,
-                'rivals_registration' => $rivalsRegistration,
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             return self::SUCCESS;
@@ -66,10 +61,6 @@ class AtlasAiStrategicDecisionCommand extends Command
         $this->components->twoColumnDetail('Mode', (string) $packet['mode']);
         $this->components->twoColumnDetail('Impact', (string) data_get($packet, 'decision_frame.impact'));
         $this->components->twoColumnDetail('Cool-down required', (bool) data_get($packet, 'cooldown.required') ? 'yes' : 'no');
-        $this->components->twoColumnDetail('Rivals Strategy', (bool) data_get($packet, 'rivals_strategy.recommended') ? 'recommended' : 'optional');
-        if (is_array($rivalsRegistration)) {
-            $this->components->twoColumnDetail('Rivals case', (string) ($rivalsRegistration['case_id'] ?? 'registered'));
-        }
 
         $this->table(
             ['gate', 'status', 'reason'],

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AtlasDecide;
 
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderPerformanceLedgerService;
 use Closure;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -28,6 +27,14 @@ use DateTimeZone;
  */
 class AtlasDecideCostOutcomeRouter
 {
+    // Inlined from the retired Rivals 1.0 performance ledger (values preserved
+    // verbatim); the offline ledger feeds again only via the Rivals 2.0 ledger.
+    public const STALE_AGE_DAYS = 14;
+
+    private const CONFIDENCE_HIGH_THRESHOLD = 6;
+
+    private const CONFIDENCE_MEDIUM_THRESHOLD = 3;
+
     /**
      * @param  Closure(mixed): ?string  $canonicalProviderKey
      * @param  Closure(?string, mixed): ?string  $canonicalModelForProvider
@@ -35,7 +42,6 @@ class AtlasDecideCostOutcomeRouter
      * @param  Closure(mixed): ?float  $numericCost
      */
     public function __construct(
-        private readonly AtlasForgeRivalsProviderPerformanceLedgerService $ledger,
         private readonly ?AtlasDecideLiveOutcomeFeedbackService $liveFeedback,
         private readonly Closure $canonicalProviderKey,
         private readonly Closure $canonicalModelForProvider,
@@ -197,23 +203,9 @@ class AtlasDecideCostOutcomeRouter
      */
     public function relevantLedgerEntries(string $taskCategory, string $role, ?string $framework): array
     {
-        $task = strtolower(trim($taskCategory));
-        $r = strtolower(trim($role));
-        $fw = $framework === null ? null : strtolower(trim($framework));
-
-        return array_values(array_filter($this->ledger->loadEntries(), static function (array $entry) use ($task, $r, $fw): bool {
-            if (strtolower((string) ($entry['task_category'] ?? '')) !== $task) {
-                return false;
-            }
-            if (strtolower((string) ($entry['role'] ?? '')) !== $r) {
-                return false;
-            }
-            if ($fw !== null && strtolower((string) ($entry['framework'] ?? '')) !== $fw) {
-                return false;
-            }
-
-            return true;
-        }));
+        // Rivals 1.0 offline ledger retired: honest empty evidence until the
+        // Rivals 2.0 ledger feeds this router (fail-closed).
+        return [];
     }
 
     /**
@@ -340,7 +332,7 @@ class AtlasDecideCostOutcomeRouter
             $averageScore = $certifiedCount > 0 ? round((float) $group['score_sum'] / $certifiedCount, 4) : null;
             $averageCost = (int) $group['cost_count'] > 0 ? round((float) $group['cost_sum'] / (int) $group['cost_count'], 6) : null;
             $latestAgeDays = $group['latest_recorded_at'] !== null
-                ? $this->ledger->ageDays((string) $group['latest_recorded_at'])
+                ? $this->ageDays((string) $group['latest_recorded_at'])
                 : null;
 
             $blockers = [];
@@ -353,7 +345,7 @@ class AtlasDecideCostOutcomeRouter
             if ($certificationRate < (float) $cfg['min_certification_rate']) {
                 $blockers[] = 'certification_rate_below_floor';
             }
-            if ($latestAgeDays !== null && $latestAgeDays > AtlasForgeRivalsProviderPerformanceLedgerService::STALE_AGE_DAYS) {
+            if ($latestAgeDays !== null && $latestAgeDays > self::STALE_AGE_DAYS) {
                 $blockers[] = 'stale_evidence';
             }
             if ((bool) $cfg['require_measured_cost'] && (int) $group['cost_count'] < (int) $cfg['min_cost_samples']) {
@@ -373,7 +365,7 @@ class AtlasDecideCostOutcomeRouter
                 'average_cost_estimate' => $averageCost,
                 'cost_sample_count' => (int) $group['cost_count'],
                 'average_tokens_used' => (int) $group['token_count'] > 0 ? (int) round((int) $group['token_sum'] / (int) $group['token_count']) : null,
-                'confidence' => $this->ledger->confidenceFor($certifiedCount),
+                'confidence' => $this->confidenceFor($certifiedCount),
                 'latest_recorded_at' => $group['latest_recorded_at'],
                 'latest_age_days' => $latestAgeDays,
                 'latest_run_ids' => array_slice((array) $group['latest_run_ids'], 0, 5),
@@ -402,5 +394,38 @@ class AtlasDecideCostOutcomeRouter
             && (bool) ($entry['tests_passed'] ?? false)
             && (bool) ($entry['replay_passed'] ?? false)
             && (array) ($entry['hard_failures'] ?? []) === [];
+    }
+
+    /** Inlined verbatim from the retired Rivals 1.0 performance ledger. */
+    private function confidenceFor(int $evidenceCount): string
+    {
+        if ($evidenceCount <= 0) {
+            return AtlasDecideMetaLearningService::CONFIDENCE_INSUFFICIENT;
+        }
+        if ($evidenceCount >= self::CONFIDENCE_HIGH_THRESHOLD) {
+            return AtlasDecideMetaLearningService::CONFIDENCE_HIGH;
+        }
+        if ($evidenceCount >= self::CONFIDENCE_MEDIUM_THRESHOLD) {
+            return AtlasDecideMetaLearningService::CONFIDENCE_MEDIUM;
+        }
+
+        return 'low';
+    }
+
+    /** Inlined verbatim from the retired Rivals 1.0 performance ledger. */
+    private function ageDays(string $isoDate, ?DateTimeImmutable $now = null): int
+    {
+        if ($isoDate === '') {
+            return PHP_INT_MAX;
+        }
+        try {
+            $dt = new DateTimeImmutable($isoDate);
+        } catch (\Throwable) {
+            return PHP_INT_MAX;
+        }
+        $now = $now ?? new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $diff = $now->getTimestamp() - $dt->getTimestamp();
+
+        return (int) max(0, intdiv($diff, 86_400));
     }
 }

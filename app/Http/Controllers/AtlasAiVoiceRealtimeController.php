@@ -6,7 +6,6 @@ use App\Services\Ai\Voice\AtlasVoiceLiveKitServerProbe;
 use App\Services\Ai\Voice\AtlasVoiceLiveKitTokenIssuer;
 use App\Services\Ai\Voice\AtlasVoiceProductionPromotionReviewBundleService;
 use App\Services\Ai\Voice\AtlasVoiceRealtimeService;
-use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeCertificationService;
 use App\Services\Ai\Voice\AtlasVoiceRuntimeEventNormalizer;
 use App\Services\Ai\Voice\AtlasVoiceTtsService;
@@ -20,7 +19,6 @@ final class AtlasAiVoiceRealtimeController extends Controller
         private readonly AtlasVoiceRealtimeService $voice,
         private readonly AtlasVoiceLiveKitTokenIssuer $liveKitTokens,
         private readonly AtlasVoiceLiveKitServerProbe $liveKitServerProbe,
-        private readonly AtlasVoiceRivalsRunner $rivals,
         private readonly AtlasVoiceRuntimeCertificationService $certification,
         private readonly AtlasVoiceRuntimeEventNormalizer $runtimeEvents,
         private readonly AtlasVoiceProductionPromotionReviewBundleService $promotionReviews,
@@ -39,20 +37,6 @@ final class AtlasAiVoiceRealtimeController extends Controller
         ]);
 
         return response()->json($this->voice->readiness($data));
-    }
-
-    public function rivals(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'hours' => ['nullable', 'integer', 'between:1,8760'],
-            'runtime' => ['nullable', 'in:livekit_agents_sdk'],
-            'base_url' => ['nullable', 'string', 'max:240'],
-            'require_sdk' => ['nullable', 'boolean'],
-            'callback_loop_wired' => ['nullable', 'boolean'],
-            'production_sdk_loop_wired' => ['nullable', 'boolean'],
-        ]);
-
-        return response()->json($this->rivals->report($data));
     }
 
     public function eclipse(Request $request): JsonResponse

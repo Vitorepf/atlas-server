@@ -152,7 +152,6 @@ class AtlasAiArchitectureValidateApiTest extends TestCase
         $this->assertContains('ap141_ledger_projection_registry_contract', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap142_ledger_projection_inbox_action', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap143_ledger_projection_curator_action_emission', $response->json('kernel.static_scan.summary.valid_keys'));
-        $this->assertContains('ap144_rivals_review_inbox_action_contract', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap148_agent_behavior_identity_fragment', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap149_agent_behavior_execution_plan', $response->json('kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap150_agent_behavior_quality_gate', $response->json('kernel.static_scan.summary.valid_keys'));

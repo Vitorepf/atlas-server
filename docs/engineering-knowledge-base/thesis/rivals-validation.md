@@ -108,6 +108,9 @@ observability_signals:
 next_actions:
   - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Thesis - Rivals Validation
 
 ## Purpose

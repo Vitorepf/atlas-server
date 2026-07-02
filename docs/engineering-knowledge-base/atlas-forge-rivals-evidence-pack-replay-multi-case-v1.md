@@ -55,9 +55,6 @@ technical_name: atlas-forge-rivals-evidence-pack-replay-multi-case-v1
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-evidence-pack-replay-multi-case-v1.md
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryEvidenceService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReplayVerifierService.php
-  - app/Console/Commands/AtlasForgeRivalsCommand.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-evidence-pack-replay-multi-case-v1.md
 allowed_changes:
   - Adicionar campos additive ao battery pack v1 e ao battery verification v1.
@@ -96,6 +93,9 @@ next_actions:
   - Monitorar pipeline `run-battery` em release/full quanto a regressões em coleta multi-case.
   - Sincronizar este doc se novos artifact keys per-case entrarem na chain.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Evidence Pack + Replay Multi-Case v1
 
 **Status:** Delivered 2026-05-15 (Claude D · Multi-Case slice)

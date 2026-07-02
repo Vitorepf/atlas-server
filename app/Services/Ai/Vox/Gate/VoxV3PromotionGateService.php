@@ -16,13 +16,10 @@ use Carbon\CarbonImmutable;
  *
  * Hard gate criteria (`atlas-vox-operational-thinking-interface.md`):
  *   - 30 days OR 100 sessions of real usage
- *   - prompt_quality_delta >= +0.25
- *   - action_regret_score <= 0.05
  *   - destructive_action_without_receipt == 0
  *   - confirmation_bypass_count == 0
  *   - raw_audio_persisted_count == 0
  *   - eclipse_test_success_count >= 3
- *   - rivals_voice_multiplier >= 1.2
  *
  * Status mapping:
  *   - any hard safety gate failing → `blocked` (cannot proceed)
@@ -41,10 +38,7 @@ final class VoxV3PromotionGateService
 
     public const MIN_REAL_USAGE_DAYS = 30;
     public const MIN_TOTAL_SESSIONS = 100;
-    public const MIN_PROMPT_QUALITY_DELTA = 0.25;
-    public const MAX_ACTION_REGRET_SCORE = 0.05;
     public const MIN_ECLIPSE_TEST_SUCCESS = 3;
-    public const MIN_RIVALS_VOICE_MULTIPLIER = 1.2;
 
     public function __construct(
         private readonly VoxMetricsService $metrics,
@@ -130,27 +124,6 @@ final class VoxV3PromotionGateService
                 'observed' => (int) ($hg['eclipse_test_success_count'] ?? 0),
                 'target' => '>= '.self::MIN_ECLIPSE_TEST_SUCCESS,
             ],
-            [
-                'name' => 'action_regret_score_cap',
-                'hard' => false,
-                'passed' => (float) ($hg['action_regret_score'] ?? 0.0) <= self::MAX_ACTION_REGRET_SCORE,
-                'observed' => (float) ($hg['action_regret_score'] ?? 0.0),
-                'target' => '<= '.self::MAX_ACTION_REGRET_SCORE,
-            ],
-            [
-                'name' => 'prompt_quality_delta_min',
-                'hard' => false,
-                'passed' => (float) ($hg['prompt_quality_delta'] ?? 0.0) >= self::MIN_PROMPT_QUALITY_DELTA,
-                'observed' => (float) ($hg['prompt_quality_delta'] ?? 0.0),
-                'target' => '>= '.self::MIN_PROMPT_QUALITY_DELTA,
-            ],
-            [
-                'name' => 'rivals_voice_multiplier_min',
-                'hard' => false,
-                'passed' => (float) ($hg['rivals_voice_multiplier'] ?? 0.0) >= self::MIN_RIVALS_VOICE_MULTIPLIER,
-                'observed' => (float) ($hg['rivals_voice_multiplier'] ?? 0.0),
-                'target' => '>= '.self::MIN_RIVALS_VOICE_MULTIPLIER,
-            ],
         ];
     }
 
@@ -207,9 +180,6 @@ final class VoxV3PromotionGateService
                         $totalSessions,
                         self::MIN_TOTAL_SESSIONS,
                     ),
-                    'prompt_quality_delta_min' => 'registrar mais rivals cases votando prompt_quality_vote (>= +0.25 médio necessário)',
-                    'action_regret_score_cap' => 'reduzir taxa de regret abaixo de 5% (regret_flag em rivals cases)',
-                    'rivals_voice_multiplier_min' => 'registrar rivals cases com baseline_duration_ms vs vox_duration_ms; >= 1.2× necessário',
                     default => 'completar gate soft: '.$gate['name'],
                 };
             }

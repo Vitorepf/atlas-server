@@ -6,7 +6,6 @@ final class AtlasVoiceProductionPromotionReviewBundleService
 {
     public function __construct(
         private readonly AtlasVoiceRuntimeCertificationService $certification,
-        private readonly AtlasVoiceRivalsRunner $rivals,
     ) {}
 
     /**
@@ -17,7 +16,6 @@ final class AtlasVoiceProductionPromotionReviewBundleService
     {
         $runtime = (string) ($payload['runtime'] ?? 'livekit_agents_sdk');
         $baseUrl = (string) ($payload['base_url'] ?? 'http://atlas.test');
-        $hours = max(1, min(8760, (int) ($payload['hours'] ?? 24)));
         $callbackLoopWired = (bool) ($payload['callback_loop_wired'] ?? false);
         $productionSdkLoopWired = (bool) ($payload['production_sdk_loop_wired'] ?? false);
 
@@ -45,15 +43,6 @@ final class AtlasVoiceProductionPromotionReviewBundleService
             'callback_loop_wired' => $callbackLoopWired,
             'production_sdk_loop_wired' => $productionSdkLoopWired,
         ]);
-        $rivalsPayload = $this->rivals->report([
-            'hours' => $hours,
-            'runtime' => $runtime,
-            'base_url' => $baseUrl,
-            'require_sdk' => true,
-            'callback_loop_wired' => $callbackLoopWired,
-            'production_sdk_loop_wired' => $productionSdkLoopWired,
-        ]);
-
         $productionGate = (array) ($certificationPayload['production_promotion_gate'] ?? []);
         $reviewPacket = (array) ($productionGate['review_packet'] ?? []);
         $productLoopCheck = (array) data_get($certificationPayload, 'artifacts.product_loop_check', []);
@@ -62,7 +51,6 @@ final class AtlasVoiceProductionPromotionReviewBundleService
             'runtime_certification' => $this->evidenceSummary($certificationPayload, 'runtime_certification'),
             'product_loop_check' => $this->evidenceSummary($productLoopCheck, 'product_loop_check'),
             'pre_start_health_checks_smoke' => $this->evidenceSummary($preStartHealthChecksSmoke, 'pre_start_health_checks_smoke'),
-            'rivals_voice_comparison' => $this->evidenceSummary($rivalsPayload, 'rivals_voice_comparison'),
         ];
         $bundleSeed = [
             'schema_version' => 'atlas.voice_realtime.production_promotion_review_bundle.v1',

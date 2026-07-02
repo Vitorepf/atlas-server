@@ -102,6 +102,9 @@ next_actions:
   - Implementar `deep` com 25+ casos por dominio e confidence interval por categoria.
   - Evoluir Provider Performance Ledger para Intelligence Ledger historico e segmentado.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals Benchmark Strategy v1
 
 ## Resumo

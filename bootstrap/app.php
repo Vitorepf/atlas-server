@@ -40,7 +40,6 @@ use App\Console\Commands\AtlasAiProviderPerformanceCommand;
 use App\Console\Commands\AtlasAiProviderReleaseSourcesCommand;
 use App\Console\Commands\AtlasAiQualitativeLevelsCommand;
 use App\Console\Commands\AtlasAiResearchDomainCommand;
-use App\Console\Commands\AtlasAiRivalsStrategyCommand;
 use App\Console\Commands\AtlasAiRuntimeBoundaryCommand;
 use App\Console\Commands\AtlasAiSelfImproveCommand;
 use App\Console\Commands\AtlasAiStrategicDecisionCommand;
@@ -115,7 +114,6 @@ use App\Console\Commands\AtlasEngineeringVisualBaselineCommand;
 use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
 use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
 use App\Console\Commands\AtlasForgeMultiNodeL410ProofCommand;
-use App\Console\Commands\AtlasForgeRivalsCommand;
 use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
@@ -153,16 +151,9 @@ use App\Console\Commands\AtlasProgrammingPatchVerifierBenchmarkCommand;
 use App\Console\Commands\AtlasProgrammingRepairLoopBenchmarkCommand;
 use App\Console\Commands\AtlasProgrammingResumeCommand;
 use App\Console\Commands\AtlasProgrammingRetrievalBenchmarkCommand;
-use App\Console\Commands\AtlasProgrammingRivalsEvidencePackCommand;
-use App\Console\Commands\AtlasProgrammingRivalsForgeDryRunCommand;
-use App\Console\Commands\AtlasProgrammingRivalsForgePreflightCommand;
-use App\Console\Commands\AtlasProgrammingRivalsOneShotEvaluateCommand;
-use App\Console\Commands\AtlasProgrammingRivalsReadinessCommand;
 use App\Console\Commands\AtlasProgrammingTestImpactBenchmarkCommand;
 use App\Console\Commands\AtlasProposalCommand;
 use App\Console\Commands\AtlasProposalScanCommand;
-use App\Console\Commands\AtlasRivalsCommand;
-use App\Console\Commands\AtlasRivalsHarnessCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
 use App\Console\Commands\AtlasSchedulerEnsureLaunchdCommand;
 use App\Console\Commands\AtlasSchedulerHeartbeatCommand;
@@ -259,7 +250,6 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiProviderReleaseSourcesCommand::class,
         AtlasAiQualitativeLevelsCommand::class,
         AtlasAiResearchDomainCommand::class,
-        AtlasAiRivalsStrategyCommand::class,
         AtlasAiRuntimeBoundaryCommand::class,
         AtlasAiSelfImproveCommand::class,
         AtlasAiStrategicDecisionCommand::class,
@@ -308,11 +298,6 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProgrammingPatchVerifierBenchmarkCommand::class,
         AtlasProgrammingRepairLoopBenchmarkCommand::class,
         AtlasProgrammingRetrievalBenchmarkCommand::class,
-        AtlasProgrammingRivalsEvidencePackCommand::class,
-        AtlasProgrammingRivalsForgeDryRunCommand::class,
-        AtlasProgrammingRivalsForgePreflightCommand::class,
-        AtlasProgrammingRivalsOneShotEvaluateCommand::class,
-        AtlasProgrammingRivalsReadinessCommand::class,
         AtlasProgrammingResumeCommand::class,
         AtlasProgrammingTestImpactBenchmarkCommand::class,
         AtlasProductiveFailureCommand::class,
@@ -366,10 +351,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkReplayManifestCommand::class,
         AtlasEngineeringBenchmarkReportCommand::class,
         AtlasEngineeringBenchmarkSeedCommand::class,
-        AtlasForgeRivalsCommand::class,
         AtlasForgeRuntimeCertifyCommand::class,
-        AtlasRivalsCommand::class,
-        AtlasRivalsHarnessCommand::class,
         AtlasEngineeringApiContractCommand::class,
         AtlasEngineeringDockerCleanupCommand::class,
         AtlasEngineeringHarnessabilityCalibrateCommand::class,

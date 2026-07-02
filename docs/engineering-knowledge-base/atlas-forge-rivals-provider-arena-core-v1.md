@@ -49,11 +49,6 @@ technical_name: atlas-forge-rivals-provider-arena-core-v1
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsModeRegistry.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCasesRegistry.php
-  - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsProviderArenaCoreCertification.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-core-v1.md
 allowed_changes:
   - Adicionar arm novo ao registry com runner declarado e safety contract completo.
@@ -86,6 +81,9 @@ next_actions:
   - Liberar drivers scripted/manual/gemini conforme amadurecerem.
   - Manter doc sincronizado com novos arms/categorias.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Provider Arena Core v1
 
 **Strategy canon:** `atlas-forge-rivals-benchmark-strategy-v1.md`

@@ -91,11 +91,12 @@ class AtlasRealEngineeringExecutionKernelServiceTest extends TestCase
 
         $this->assertTrue(data_get($result, 'rivals_benchmark.false_claim_blocked'));
         $this->assertFalse(data_get($result, 'rivals_benchmark.comparison_protocol.claim_allowed'));
-        $this->assertSame('ok', data_get($result, 'rivals_benchmark.receipt.provider_arena_readiness.status'));
-        $this->assertContains(data_get($result, 'rivals_benchmark.receipt.provider_arena_readiness.claude_codex_pair_status'), [
-            'real_run_ready_after_confirmations',
-            'plan_ready_evidence_disk_blocked',
-        ]);
+        // Rivals 1.0 arena readiness service retired: honest permanent blocked shape.
+        $this->assertSame('blocked', data_get($result, 'rivals_benchmark.receipt.provider_arena_readiness.status'));
+        $this->assertContains(
+            'provider_arena_readiness_service_missing',
+            (array) data_get($result, 'rivals_benchmark.receipt.provider_arena_readiness.blockers')
+        );
         $this->assertSame('blocked_pending_operator_confirmations', data_get($result, 'rivals_benchmark.receipt.external_benchmark_gate.status'));
         $this->assertFalse(data_get($result, 'rivals_benchmark.receipt.external_benchmark_gate.external_provider_call'));
         $this->assertFalse(data_get($result, 'certification.claim_policy.ready_to_claim_100x_vs_claude_codex'));

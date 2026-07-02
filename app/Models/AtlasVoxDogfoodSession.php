@@ -9,9 +9,8 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Eloquent model for the `atlas_vox_dogfood_sessions` table.
  *
- * Each row is Vitor's diary entry for one REAL Atlas Vox session — not a
- * head-to-head comparison (that's `AtlasVoxRivalsCase`). The dogfood
- * surface answers: "did I actually use Vox today, and how did it go?"
+ * Each row is Vitor's diary entry for one REAL Atlas Vox session. The
+ * dogfood surface answers: "did I actually use Vox today, and how did it go?"
  *
  * No raw audio, no transcript text, no prompt body is persisted.
  * `metadata` is a free-form short JSON envelope for audit context only.

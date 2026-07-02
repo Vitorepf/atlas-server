@@ -153,27 +153,6 @@ class EngineeringBenchmarkController extends Controller
         return response()->json($benchmarks->fairClaudeReportPayload($this->resolveSuite($suite), $data));
     }
 
-    public function rivalsBatteryPlan(Request $request, string $suite, EngineeringBenchmarkService $benchmarks): JsonResponse
-    {
-        $data = $request->validate([
-            'mode' => ['required', Rule::in(['official_fair', 'same_model', 'max'])],
-            'workspace' => ['nullable', 'string', 'max:1000'],
-            'baseline_workspace' => ['nullable', 'string', 'max:1000'],
-            'provider' => ['nullable', 'string', 'max:80'],
-            'model' => ['nullable', 'string', 'max:120'],
-            'limit' => ['nullable', 'integer', 'min:1', 'max:30'],
-        ]);
-
-        $resolved = $this->resolveSuite($suite)->load('cases');
-        $plan = $this->rivalsBatteryPlanPayload(
-            $resolved,
-            $data,
-            $benchmarks->fairClaudeReportPayload($resolved, ['limit' => 20]),
-        );
-
-        return response()->json(['battery_plan' => $plan]);
-    }
-
     /**
      * @param  array<string,mixed>  $data
      * @return array<string,mixed>

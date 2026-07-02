@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Vox;
 
 use App\Models\AtlasLedgerEvent;
-use App\Models\AtlasVoxRivalsCase;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Vox\Metrics\VoxMetricsService;
-use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -20,12 +18,10 @@ final class VoxMetricsServiceTest extends TestCase
     {
         parent::setUp();
         Schema::dropIfExists('atlas_ledger_events');
-        Schema::dropIfExists('atlas_vox_rivals_cases');
     }
 
     protected function tearDown(): void
     {
-        Schema::dropIfExists('atlas_vox_rivals_cases');
         Schema::dropIfExists('atlas_ledger_events');
         parent::tearDown();
     }
@@ -33,7 +29,6 @@ final class VoxMetricsServiceTest extends TestCase
     private function bootTables(): void
     {
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_20_010000_create_atlas_vox_rivals_cases_table.php'))->up();
     }
 
     public function test_returns_zero_shape_when_tables_missing(): void
@@ -42,7 +37,6 @@ final class VoxMetricsServiceTest extends TestCase
         $this->assertSame(VoxMetricsService::SCHEMA, $snap['schema']);
         $this->assertSame(0, $snap['summary']['total_sessions']);
         $this->assertSame(0, $snap['safety']['raw_audio_persisted_count']);
-        $this->assertSame(0.0, $snap['rivals']['prompt_quality_delta']);
         $this->assertSame(0, $snap['summary']['real_usage_days']);
     }
 
@@ -99,40 +93,6 @@ final class VoxMetricsServiceTest extends TestCase
         $this->seedActionBlocked('eclipse_test_success');
         $snap = (new VoxMetricsService())->snapshot();
         $this->assertSame(3, $snap['safety']['eclipse_test_success_count']);
-    }
-
-    public function test_rivals_aggregates_quality_delta_and_multiplier_and_regret(): void
-    {
-        $this->bootTables();
-        AtlasVoxRivalsCase::create([
-            'case_id' => 'voxc_'.Str::uuid(),
-            'kind' => 'provider_direct',
-            'mode' => 'intent_compile',
-            'baseline_label' => 'a',
-            'preference' => 'vox',
-            'prompt_quality_vote' => 1,
-            'baseline_duration_ms' => 100,
-            'vox_duration_ms' => 50,
-            'regret_flag' => false,
-        ]);
-        AtlasVoxRivalsCase::create([
-            'case_id' => 'voxc_'.Str::uuid(),
-            'kind' => 'manual',
-            'mode' => 'governed_execute',
-            'baseline_label' => 'b',
-            'preference' => 'vox',
-            'prompt_quality_vote' => 1,
-            'baseline_duration_ms' => 200,
-            'vox_duration_ms' => 100,
-            'regret_flag' => true,
-        ]);
-
-        $snap = (new VoxMetricsService())->snapshot();
-        $this->assertSame(2, $snap['rivals']['cases_total']);
-        $this->assertSame(2, $snap['rivals']['vox_wins']);
-        $this->assertSame(1.0, $snap['rivals']['prompt_quality_delta']); // 2× +1
-        $this->assertSame(2.0, $snap['rivals']['rivals_voice_multiplier']);
-        $this->assertSame(0.5, $snap['rivals']['action_regret_score']);
     }
 
     public function test_usage_window_collapses_same_day_sessions_to_one_day(): void

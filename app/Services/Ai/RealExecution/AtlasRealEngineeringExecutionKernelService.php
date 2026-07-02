@@ -12,7 +12,6 @@ use App\Models\AiRealExecutionRivalsBenchmark;
 use App\Models\AiRealExecutionTestRun;
 use App\Models\AiRealExecutionWorktree;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderArenaReadinessService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\DB;
@@ -686,28 +685,11 @@ class AtlasRealEngineeringExecutionKernelService
      */
     private function providerArenaReadiness(): array
     {
-        if (! class_exists(AtlasForgeRivalsProviderArenaReadinessService::class)) {
-            return [
-                'status' => 'blocked',
-                'blockers' => ['provider_arena_readiness_service_missing'],
-                'external_provider_call' => false,
-                'provider_tokens_spent' => false,
-            ];
-        }
-
-        $snapshot = app(AtlasForgeRivalsProviderArenaReadinessService::class)->snapshot();
-        $claudeCodexPair = collect((array) ($snapshot['pairs'] ?? []))
-            ->first(fn (array $pair): bool => ($pair['pair_id'] ?? null) === 'claude_opus_vs_codex_gpt55');
-
+        // Rivals 1.0 arena readiness service retired (see
+        // atlas-rivals2-rebuild-map-v1.md): honest permanent unavailable shape.
         return [
-            'schema_version' => $snapshot['schema_version'] ?? null,
-            'status' => $snapshot['status'] ?? 'unknown',
-            'pair_count' => $snapshot['pair_count'] ?? 0,
-            'real_run_ready_count' => $snapshot['real_run_ready_count'] ?? 0,
-            'blocked_count' => $snapshot['blocked_count'] ?? 0,
-            'claude_codex_pair_status' => $claudeCodexPair['status'] ?? 'missing',
-            'claude_codex_next_command' => $claudeCodexPair['next_command'] ?? null,
-            'required_confirmations_for_real_run' => $snapshot['required_confirmations_for_real_run'] ?? [],
+            'status' => 'blocked',
+            'blockers' => ['provider_arena_readiness_service_missing'],
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
         ];

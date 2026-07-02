@@ -23,7 +23,6 @@ use App\Http\Controllers\AtlasAiDynamicComputeMarketController;
 use App\Http\Controllers\AtlasAiExternalGraphHarnessController;
 use App\Http\Controllers\AtlasAiGovernanceController;
 use App\Http\Controllers\AtlasAiHyperflowCertificationController;
-use App\Http\Controllers\AtlasAiHyperflowRivalsBatteryController;
 use App\Http\Controllers\AtlasAiInboxActionReportController;
 use App\Http\Controllers\AtlasAiKernelPipelineReportController;
 use App\Http\Controllers\AtlasAiLedgerController;
@@ -35,7 +34,6 @@ use App\Http\Controllers\AtlasAiProviderReleaseSourcesController;
 use App\Http\Controllers\AtlasAiQualitativeLevelsController;
 use App\Http\Controllers\AtlasAiRepairController;
 use App\Http\Controllers\AtlasAiRepairReportController;
-use App\Http\Controllers\AtlasAiRivalsStrategyController;
 use App\Http\Controllers\AtlasAiRouterRuntimeBootstrapController;
 use App\Http\Controllers\AtlasAiRouterRuntimeReadinessController;
 use App\Http\Controllers\AtlasAiRuntimeBoundaryController;
@@ -76,7 +74,6 @@ use App\Http\Controllers\AtlasCodeMcpStatusController;
 use App\Http\Controllers\AtlasCodeObraCommandCenterController;
 use App\Http\Controllers\AtlasCodeObservedSessionController;
 use App\Http\Controllers\AtlasCodeProgrammingWorkItemController;
-use App\Http\Controllers\AtlasCodeProviderArenaController;
 use App\Http\Controllers\AtlasCodeProviderGovernanceController;
 use App\Http\Controllers\AtlasCodeProviderOperatingRoomController;
 use App\Http\Controllers\AtlasCodeReceiptController;
@@ -175,7 +172,6 @@ Route::post('/integrations/rize/webhook', RizeWebhookController::class);
 $registerAtlasVoiceRoutes = static function (): void {
     Route::get('/ai/voice/health', [AtlasAiVoiceRealtimeController::class, 'health']);
     Route::get('/ai/voice/readiness', [AtlasAiVoiceRealtimeController::class, 'readiness']);
-    Route::get('/ai/voice/rivals', [AtlasAiVoiceRealtimeController::class, 'rivals']);
     Route::get('/ai/voice/eclipse/active', [AtlasAiVoiceRealtimeController::class, 'eclipse']);
     Route::get('/ai/voice/runtime/contract', [AtlasAiVoiceRealtimeController::class, 'contract']);
     Route::get('/ai/voice/runtime/bootstrap', [AtlasAiVoiceRealtimeController::class, 'bootstrap']);
@@ -333,7 +329,6 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::post('/engineering/benchmarks/fair-claude/prepare', [EngineeringBenchmarkController::class, 'prepareFairClaudeSuite']);
     Route::get('/engineering/benchmarks/suites/{suite}/trends', [EngineeringBenchmarkController::class, 'showTrends']);
     Route::get('/engineering/benchmarks/suites/{suite}/fair-claude-report', [EngineeringBenchmarkController::class, 'showFairClaudeReport']);
-    Route::post('/engineering/benchmarks/suites/{suite}/rivals/battery-plan', [EngineeringBenchmarkController::class, 'rivalsBatteryPlan']);
     Route::post('/engineering/benchmarks/suites/{suite}/corpus/refresh', [EngineeringBenchmarkController::class, 'refreshCorpus']);
     Route::post('/engineering/benchmarks/suites/{suite}/calibrate', [EngineeringBenchmarkController::class, 'calibrateSuite']);
     Route::get('/engineering/benchmarks/suites/{suite}', [EngineeringBenchmarkController::class, 'showSuite']);
@@ -455,16 +450,6 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/router-runtime/bootstrap', AtlasAiRouterRuntimeBootstrapController::class);
     Route::get('/ai/router-runtime/readiness', AtlasAiRouterRuntimeReadinessController::class);
     Route::get('/ai/hyperflow/certification', AtlasAiHyperflowCertificationController::class);
-    Route::get('/ai/hyperflow/rivals-battery', [AtlasAiHyperflowRivalsBatteryController::class, 'show']);
-    Route::post('/ai/hyperflow/rivals-battery/prepare', [AtlasAiHyperflowRivalsBatteryController::class, 'prepare']);
-    Route::post('/ai/hyperflow/rivals-battery/run', [AtlasAiHyperflowRivalsBatteryController::class, 'run']);
-    Route::post('/ai/hyperflow/rivals-battery/external-evidence', [AtlasAiHyperflowRivalsBatteryController::class, 'externalEvidence']);
-    Route::get('/ai/hyperflow/rivals-battery/external-evidence/template', [AtlasAiHyperflowRivalsBatteryController::class, 'externalEvidenceTemplate']);
-    Route::get('/ai/hyperflow/rivals-battery/external-evidence/candidates', [AtlasAiHyperflowRivalsBatteryController::class, 'externalEvidenceCandidates']);
-    Route::get('/ai/hyperflow/rivals-battery/external-evidence/runbook', [AtlasAiHyperflowRivalsBatteryController::class, 'externalEvidenceRunbook']);
-    Route::post('/ai/hyperflow/rivals-battery/external-evidence/preflight', [AtlasAiHyperflowRivalsBatteryController::class, 'externalEvidencePreflight']);
-    Route::post('/ai/hyperflow/rivals-battery/external-evidence/export', [AtlasAiHyperflowRivalsBatteryController::class, 'exportExternalEvidence']);
-    Route::post('/ai/hyperflow/rivals-battery/external-evidence/import', [AtlasAiHyperflowRivalsBatteryController::class, 'importExternalEvidence']);
     Route::get('/ai/runtime-boundary', AtlasAiRuntimeBoundaryController::class);
     Route::get('/ai/structure-mother-audit', AtlasAiStructureMotherAuditController::class);
     Route::post('/ai/mobile/push/replay', AtlasMobilePushReplayController::class);
@@ -483,9 +468,6 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/qualitative-levels', AtlasAiQualitativeLevelsController::class);
     Route::post('/ai/repair', AtlasAiRepairController::class);
     Route::get('/ai/repair/report', AtlasAiRepairReportController::class);
-    Route::get('/ai/rivals-strategy', AtlasAiRivalsStrategyController::class);
-    Route::get('/ai/rivals-strategy/due-reviews', [AtlasAiRivalsStrategyController::class, 'dueReviews']);
-    Route::post('/ai/rivals-strategy/review', [AtlasAiRivalsStrategyController::class, 'recordReview']);
     Route::get('/ai/self-improvement/schedule', AtlasAiSelfImprovementScheduleController::class);
     Route::get('/ai/self-improvement/schedule/health', AtlasAiSelfImprovementScheduleHealthController::class);
     Route::get('/ai/self-improvement/schedule/report', AtlasAiSelfImprovementScheduleReportController::class);
@@ -635,12 +617,10 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::post('/ai/vox/intent', [AtlasAiVoxController::class, 'intent']);
     Route::post('/ai/vox/execute', [AtlasAiVoxController::class, 'execute']);
 
-    // Atlas Vox Wave 7 — read-only metrics + rivals + V3 promotion gate.
+    // Atlas Vox Wave 7 — read-only metrics + V3 promotion gate (rivals removido no Slice 6 do Rivals 2.0).
     // No execution, no provider, no audio. Gate only recommends; Vitor
     // approves V4 manually.
     Route::get('/ai/vox/metrics', [AtlasAiVoxMetricsController::class, 'metrics']);
-    Route::post('/ai/vox/rivals/case', [AtlasAiVoxMetricsController::class, 'recordRivalsCase']);
-    Route::get('/ai/vox/rivals/report', [AtlasAiVoxMetricsController::class, 'rivalsReport']);
     Route::get('/ai/vox/gate-v3', [AtlasAiVoxMetricsController::class, 'gateV3']);
     // Wave 7.6 (Claude R) · V3 Certification Pack + human review.
     // The pack snapshot is a deterministic, hash-verifiable read; review
@@ -837,8 +817,6 @@ Route::prefix('atlas-code')->group(function () {
     Route::post('/works/{project}/forge/provider-invocations/plan-driver', [AtlasCodeForgeProviderInvocationController::class, 'planDriver']);
     Route::post('/works/{project}/forge/provider-invocations', [AtlasCodeForgeProviderInvocationController::class, 'store']);
     Route::get('/forge/provider-capacity', [AtlasCodeForgeProviderCapacityController::class, 'global']);
-    Route::get('/forge/provider-arena/snapshot', [AtlasCodeProviderArenaController::class, 'show']);
-    Route::post('/forge/provider-arena/run', [AtlasCodeProviderArenaController::class, 'run']);
     Route::get('/works/{project}/forge/provider-capacity', [AtlasCodeForgeProviderCapacityController::class, 'show']);
     Route::post('/works/{project}/forge/provider-failures', [AtlasCodeForgeProviderCapacityController::class, 'recordFailure']);
     Route::get('/self-improvement/strategy-portfolio', [AtlasCodeSelfImprovementGovernanceController::class, 'strategyPortfolio']);

@@ -5,17 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Ai\Vox\Metrics;
 
 use App\Models\AtlasLedgerEvent;
-use App\Models\AtlasVoxRivalsCase;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
 
 /**
- * Reads two derived sources to compute Atlas Vox usage + safety + quality
- * metrics:
- *   - `atlas_ledger_events` for session / intent / safety counters
- *   - `atlas_vox_rivals_cases` for prompt-quality + multiplier signals
+ * Reads `atlas_ledger_events` to compute Atlas Vox usage + safety + quality
+ * metrics (session / intent / safety counters).
  *
  * The service is read-only. Never writes, never executes, never calls a
  * provider. Returns an honest empty/zero shape if the tables don't exist
@@ -34,7 +31,6 @@ class VoxMetricsService
         $now = CarbonImmutable::now('UTC');
         $sessions = $this->sessionCounters();
         $safety = $this->safetyCounters();
-        $rivals = $this->rivalsCounters();
         $usage = $this->usageWindow();
 
         $hardGates = [
@@ -42,9 +38,6 @@ class VoxMetricsService
             'confirmation_bypass_count' => $safety['confirmation_bypass_count'],
             'destructive_action_without_receipt' => $safety['destructive_action_without_receipt'],
             'eclipse_test_success_count' => $safety['eclipse_test_success_count'],
-            'action_regret_score' => $rivals['action_regret_score'],
-            'prompt_quality_delta' => $rivals['prompt_quality_delta'],
-            'rivals_voice_multiplier' => $rivals['rivals_voice_multiplier'],
         ];
 
         return [
@@ -67,17 +60,6 @@ class VoxMetricsService
                 'eclipse_test_success_count' => $safety['eclipse_test_success_count'],
                 'governed_execute_success_count' => $safety['governed_execute_success_count'],
                 'governed_execute_blocked_count' => $safety['governed_execute_blocked_count'],
-            ],
-            'rivals' => [
-                'cases_total' => $rivals['cases_total'],
-                'vox_wins' => $rivals['vox_wins'],
-                'baseline_wins' => $rivals['baseline_wins'],
-                'ties' => $rivals['ties'],
-                'prompt_quality_delta' => $rivals['prompt_quality_delta'],
-                'action_regret_score' => $rivals['action_regret_score'],
-                'rivals_voice_multiplier' => $rivals['rivals_voice_multiplier'],
-                'cases_by_kind' => $rivals['cases_by_kind'],
-                'cases_by_mode' => $rivals['cases_by_mode'],
             ],
             'hard_gates' => $hardGates,
             'generated_at' => $now->toIso8601String(),
@@ -229,104 +211,6 @@ class VoxMetricsService
             'governed_execute_success_count' => $govSuccess,
             'governed_execute_blocked_count' => $govBlocked,
             'dictionary_correction_count' => (int) $dictCorrections,
-        ];
-    }
-
-    /**
-     * @return array{
-     *   cases_total:int,
-     *   vox_wins:int,
-     *   baseline_wins:int,
-     *   ties:int,
-     *   prompt_quality_delta:float,
-     *   action_regret_score:float,
-     *   rivals_voice_multiplier:float,
-     *   cases_by_kind:array<string,int>,
-     *   cases_by_mode:array<string,int>
-     * }
-     */
-    private function rivalsCounters(): array
-    {
-        $emptyKinds = [
-            'wispr_baseline' => 0,
-            'provider_direct' => 0,
-            'manual' => 0,
-        ];
-        $emptyModes = [
-            VoxSchema::MODE_DICTATION => 0,
-            VoxSchema::MODE_PROMPT_POLISH => 0,
-            VoxSchema::MODE_INTENT_COMPILE => 0,
-            VoxSchema::MODE_GOVERNED_EXECUTE => 0,
-        ];
-
-        if (! DatabaseTableAvailability::has('atlas_vox_rivals_cases')) {
-            return [
-                'cases_total' => 0,
-                'vox_wins' => 0,
-                'baseline_wins' => 0,
-                'ties' => 0,
-                'prompt_quality_delta' => 0.0,
-                'action_regret_score' => 0.0,
-                'rivals_voice_multiplier' => 0.0,
-                'cases_by_kind' => $emptyKinds,
-                'cases_by_mode' => $emptyModes,
-            ];
-        }
-
-        $cases = AtlasVoxRivalsCase::query()->get();
-        $total = $cases->count();
-
-        $voxWins = $cases->where('preference', 'vox')->count();
-        $baselineWins = $cases->where('preference', 'baseline')->count();
-        $ties = $cases->where('preference', 'tie')->count();
-
-        $regretRate = $total > 0
-            ? round($cases->where('regret_flag', true)->count() / $total, 4)
-            : 0.0;
-
-        // prompt_quality_delta: mean of vote ∈ [-1, 0, +1] across cases
-        // where a vote was provided. Range ≈ [-1.0, +1.0]. The canonical
-        // gate target is >= +0.25 (≥¼ of cases preferring Vox's prompt).
-        $votes = $cases->whereNotNull('prompt_quality_vote');
-        $promptQualityDelta = $votes->isEmpty()
-            ? 0.0
-            : round((float) $votes->avg('prompt_quality_vote'), 4);
-
-        // rivals_voice_multiplier: average ratio baseline_duration / vox_duration
-        // across cases where both timings are present. >1 means Vox saved time.
-        $timedCases = $cases->filter(function ($case): bool {
-            return $case->baseline_duration_ms !== null
-                && $case->vox_duration_ms !== null
-                && (int) $case->vox_duration_ms > 0;
-        });
-        $rivalsVoiceMultiplier = $timedCases->isEmpty()
-            ? 0.0
-            : round(
-                $timedCases->avg(function ($case): float {
-                    return ((int) $case->baseline_duration_ms) / ((int) $case->vox_duration_ms);
-                }),
-                4
-            );
-
-        $byKind = $emptyKinds;
-        foreach ($cases->groupBy('kind') as $kind => $bucket) {
-            $byKind[(string) $kind] = $bucket->count();
-        }
-        $byMode = $emptyModes;
-        foreach ($cases->groupBy('mode') as $mode => $bucket) {
-            $byMode[(string) $mode] = $bucket->count();
-        }
-
-        return [
-            'cases_total' => $total,
-            'vox_wins' => $voxWins,
-            'baseline_wins' => $baselineWins,
-            'ties' => $ties,
-            'prompt_quality_delta' => $promptQualityDelta,
-            'action_regret_score' => $regretRate,
-            'rivals_voice_multiplier' => $rivalsVoiceMultiplier,
-            'cases_by_kind' => $byKind,
-            'cases_by_mode' => $byMode,
         ];
     }
 

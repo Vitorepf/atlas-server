@@ -9,8 +9,6 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Vox\Gate\VoxV3CertificationPackService;
 use App\Services\Ai\Vox\Gate\VoxV3PromotionGateService;
 use App\Services\Ai\Vox\Metrics\VoxMetricsService;
-use App\Services\Ai\Vox\Rivals\VoxRivalsRunner;
-use App\Services\Ai\Vox\VoxEvidenceService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -29,27 +27,21 @@ final class VoxV3CertificationPackServiceTest extends TestCase
     {
         parent::setUp();
         Schema::dropIfExists('atlas_ledger_events');
-        Schema::dropIfExists('atlas_vox_rivals_cases');
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_20_010000_create_atlas_vox_rivals_cases_table.php'))->up();
     }
 
     protected function tearDown(): void
     {
-        Schema::dropIfExists('atlas_vox_rivals_cases');
         Schema::dropIfExists('atlas_ledger_events');
         parent::tearDown();
     }
 
     private function makeService(): VoxV3CertificationPackService
     {
-        /** @var VoxEvidenceService $evidence */
-        $evidence = $this->app->make(VoxEvidenceService::class);
         $metrics = new VoxMetricsService();
         $gate = new VoxV3PromotionGateService($metrics);
-        $rivals = new VoxRivalsRunner($evidence);
 
-        return new VoxV3CertificationPackService($metrics, $gate, $rivals);
+        return new VoxV3CertificationPackService($metrics, $gate);
     }
 
     public function test_pack_carries_schema_hash_and_review_required_flags(): void

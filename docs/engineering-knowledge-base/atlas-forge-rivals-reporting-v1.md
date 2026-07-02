@@ -49,9 +49,6 @@ technical_name: atlas-forge-rivals-reporting-v1
 cartography_type: runbook
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-reporting-v1.md
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsNextService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDoctorService.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-reporting-v1.md
 allowed_changes:
   - Adicionar novos campos não destrutivos ao schema v3.
@@ -90,6 +87,9 @@ next_actions:
   - Quando multi-case real chegar, agregar categorias com mais de uma run e ampliar confidence ladder.
   - Conectar provider_performance_signal ao Ledger como entrada advisory.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Reporting v1
 
 **Schema:** `atlas.forge.rivals.report.v3`

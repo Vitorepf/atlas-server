@@ -43,7 +43,6 @@ class AtlasCompoundingReadinessService
         $docPath = base_path('docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md');
         $routerSource = $this->source(app_path('Services/Ai/Router/AtlasAiRouterService.php'));
         $specialistFlowSource = $this->source(app_path('Services/Ai/Router/AtlasAiSpecialistFlowExecutionService.php'));
-        $hyperflowSource = $this->source(app_path('Services/Ai/Router/AtlasAiHyperflowRivalsBatteryService.php'));
         $gatewaySource = $this->source(app_path('Services/Ai/AiGatewayService.php'));
         $conductorSource = $this->source(app_path('Services/Ai/AtlasDecide/AtlasEngineeringRunConductorService.php'));
         $atlasDevRunSource = $this->source(app_path('Http/Controllers/AtlasDev/RunController.php'));
@@ -64,9 +63,6 @@ class AtlasCompoundingReadinessService
             ]),
             $this->check('specialist_flows_emit_learning_signal_contract', str_contains($specialistFlowSource, 'learning_signal_contract') && str_contains($specialistFlowSource, 'atlas.ai.compounding.flow_learning_signal_contract.v1'), [
                 'learning_signal_contract_present' => str_contains($specialistFlowSource, 'atlas.ai.compounding.flow_learning_signal_contract.v1'),
-            ]),
-            $this->check('hyperflow_records_compounding_outcome', str_contains($hyperflowSource, 'recordCompoundingOutcome') && str_contains($hyperflowSource, 'AtlasCompoundingRuntimeService'), [
-                'hyperflow_bridge_present' => str_contains($hyperflowSource, 'recordCompoundingOutcome'),
             ]),
             // T1.2 (2026-06-11): o hook recordCompoundingFlowSignal do gateway fabricava um
             // learning signal boilerplate por interação (a fonte do ~94% de noise medido).

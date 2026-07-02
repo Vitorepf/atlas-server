@@ -25,7 +25,6 @@ class KernelArchitectureStaticScanner
      *   ap141_ledger_projection_registry_contract:array{valid:bool,violations:array<int,string>},
      *   ap142_ledger_projection_inbox_action:array{valid:bool,violations:array<int,string>},
      *   ap143_ledger_projection_curator_action_emission:array{valid:bool,violations:array<int,string>},
-     *   ap144_rivals_review_inbox_action_contract:array{valid:bool,violations:array<int,string>},
      *   ap145_documentation_health_curator_review:array{valid:bool,violations:array<int,string>},
      *   ap146_provider_cost_rate_inbox_replay:array{valid:bool,violations:array<int,string>},
      *   ap148_agent_behavior_identity_fragment:array{valid:bool,violations:array<int,string>},
@@ -245,7 +244,6 @@ class KernelArchitectureStaticScanner
         $ledgerProjectionRegistryContract = $this->scanLedgerProjectionRegistryContract();
         $ledgerProjectionInboxAction = $this->scanLedgerProjectionInboxAction();
         $ledgerProjectionCuratorActionEmission = $this->scanLedgerProjectionCuratorActionEmission();
-        $rivalsReviewInboxActionContract = $this->scanRivalsReviewInboxActionContract();
         $documentationHealthCuratorReview = $this->scanDocumentationHealthCuratorReview();
         $providerCostRateInboxReplay = $this->scanProviderCostRateInboxReplay();
         $agentBehaviorIdentityFragment = $this->scanAgentBehaviorIdentityFragment();
@@ -413,7 +411,6 @@ class KernelArchitectureStaticScanner
                 && $ledgerProjectionRegistryContract === []
                 && $ledgerProjectionInboxAction === []
                 && $ledgerProjectionCuratorActionEmission === []
-                && $rivalsReviewInboxActionContract === []
                 && $documentationHealthCuratorReview === []
                 && $providerCostRateInboxReplay === []
                 && $agentBehaviorIdentityFragment === []
@@ -621,10 +618,6 @@ class KernelArchitectureStaticScanner
             'ap143_ledger_projection_curator_action_emission' => [
                 'valid' => $ledgerProjectionCuratorActionEmission === [],
                 'violations' => $ledgerProjectionCuratorActionEmission,
-            ],
-            'ap144_rivals_review_inbox_action_contract' => [
-                'valid' => $rivalsReviewInboxActionContract === [],
-                'violations' => $rivalsReviewInboxActionContract,
             ],
             'ap145_documentation_health_curator_review' => [
                 'valid' => $documentationHealthCuratorReview === [],
@@ -2527,7 +2520,6 @@ class KernelArchitectureStaticScanner
         $violations = [];
         $servicePath = app_path('Services/Ai/Voice/AtlasVoiceRealtimeService.php');
         $certificationPath = app_path('Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php');
-        $rivalsPath = app_path('Services/Ai/Voice/AtlasVoiceRivalsRunner.php');
         $commandTestPath = base_path('tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php');
         $apiTestPath = base_path('tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php');
         $unitTestPath = base_path('tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php');
@@ -2537,7 +2529,6 @@ class KernelArchitectureStaticScanner
 
         $service = File::exists($servicePath) ? File::get($servicePath) : '';
         $certification = File::exists($certificationPath) ? File::get($certificationPath) : '';
-        $rivals = File::exists($rivalsPath) ? File::get($rivalsPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
@@ -2588,16 +2579,6 @@ class KernelArchitectureStaticScanner
         ] as $token) {
             if (! str_contains($certification, $token)) {
                 $violations[] = "app/Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php: AP-185 certification gate must keep foundation, callback, production loop, worker-start and sanitization checks [{$token}]";
-            }
-        }
-
-        foreach ([
-            'artifact_sanitization',
-            'forbidden_key_count',
-            'fix_voice_runtime_certification_before_rivals_voice',
-        ] as $token) {
-            if (! str_contains($rivals, $token)) {
-                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRivalsRunner.php: AP-185 Rivals-Voice must consume sanitized runtime certification summary [{$token}]";
             }
         }
 
@@ -2890,7 +2871,6 @@ class KernelArchitectureStaticScanner
         $certificationPath = app_path('Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php');
         $voiceServicePath = app_path('Services/Ai/Voice/AtlasVoiceRealtimeService.php');
         $tokenIssuerPath = app_path('Services/Ai/Voice/AtlasVoiceLiveKitTokenIssuer.php');
-        $rivalsPath = app_path('Services/Ai/Voice/AtlasVoiceRivalsRunner.php');
         $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
         $commandPath = app_path('Console/Commands/AtlasAiVoiceRealtimeCommand.php');
         $unitTestPath = base_path('tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php');
@@ -2938,7 +2918,6 @@ class KernelArchitectureStaticScanner
         $certification = File::exists($certificationPath) ? File::get($certificationPath) : '';
         $voiceService = File::exists($voiceServicePath) ? File::get($voiceServicePath) : '';
         $tokenIssuer = File::exists($tokenIssuerPath) ? File::get($tokenIssuerPath) : '';
-        $rivals = File::exists($rivalsPath) ? File::get($rivalsPath) : '';
         $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
@@ -3590,40 +3569,6 @@ class KernelArchitectureStaticScanner
         ] as $token) {
             if (! str_contains($tokenIssuerTest, $token)) {
                 $violations[] = "tests/Unit/Ai/Voice/AtlasVoiceLiveKitTokenIssuerTest.php: AP-687 token issuer must reject arbitrary room and participant leases [{$token}]";
-            }
-        }
-
-        foreach ([
-            'production_promotion_gate',
-            'review_packet',
-            'voice_production_promotion_gate_blocked',
-            'submit_voice_production_promotion_for_human_review',
-            'promotion_allowed',
-            'auto_promotion_allowed',
-        ] as $token) {
-            if (! str_contains($rivals, $token)) {
-                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRivalsRunner.php: AP-687 Rivals-Voice must consume production promotion gate before maturity signals [{$token}]";
-            }
-        }
-
-        foreach ([
-            'production_promotion_gate',
-            'review_packet',
-            'failed_production_promotion_gates',
-        ] as $token) {
-            if (! str_contains($selfImprovement, $token)) {
-                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-687 Curator voice review must project production promotion gate into proposal metadata [{$token}]";
-            }
-        }
-
-        foreach ([
-            'product_loop_check',
-            'product_loop_gate',
-            'atlas.voice_realtime.product_loop_check.v1',
-            'run_voice_product_loop_check',
-        ] as $token) {
-            if (! str_contains($rivals, $token)) {
-                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRivalsRunner.php: AP-687 Rivals-Voice must expose product loop check state before maturity review [{$token}]";
             }
         }
 
@@ -14150,158 +14095,6 @@ class KernelArchitectureStaticScanner
             }
             if (! str_contains($apDoc, $token)) {
                 $violations[] = "docs/ap/AP-143-ledger-projection-curator-action-emission.md: AP-143 contract doc must exist [{$token}]";
-            }
-        }
-
-        return $violations;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function scanRivalsReviewInboxActionContract(): array
-    {
-        $actionsPath = app_path('Services/Ai/Mobile/InboxActionRegistry.php');
-        $runtimePath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
-        $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
-        $inboxActionTestPath = base_path('tests/Feature/Ai/InboxLedgerProjectionActionTest.php');
-        $replayTestPath = base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php');
-        $commandTestPath = base_path('tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php');
-        $apiTestPath = base_path('tests/Feature/Ai/AtlasAiInboxActionReportApiTest.php');
-        $observabilityTestPath = base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php');
-        $mcpTestPath = base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php');
-        $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
-        $apDocPath = base_path('docs/ap/AP-144-rivals-review-inbox-action-contract.md');
-
-        $actions = File::exists($actionsPath) ? File::get($actionsPath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $inboxActionTest = File::exists($inboxActionTestPath) ? File::get($inboxActionTestPath) : '';
-        $replayTest = File::exists($replayTestPath) ? File::get($replayTestPath) : '';
-        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
-        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $docs = $this->kernelDocumentationCorpus();
-        $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
-
-        $violations = [];
-
-        foreach ([
-            "'record_rivals_review' => \$this->recordRivalsReview(\$locked, \$input)",
-            'private readonly AtlasRivalsStrategyReviewRecorder $rivalsStrategyReviewRecorder',
-            'private readonly AtlasRivalsStrategyReadModel $rivalsStrategy',
-            'private function recordRivalsReview(AiInboxItem $item, array $input): array',
-            "'schema_version' => 'atlas.inbox_action.rivals_review.v1'",
-            "'operator_scored' => true",
-            "'no_external_action' => true",
-            '$this->rivalsStrategyReviewRecorder->record',
-        ] as $token) {
-            if (! str_contains($actions, $token)) {
-                $violations[] = "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-144 Rivals review Inbox action must record human scores safely [{$token}]";
-            }
-        }
-
-        foreach ([
-            "'id' => 'record_rivals_review'",
-            "'payload' => [",
-            "'due_reviews' =>",
-            "'record_command_template' => 'php artisan atlas:ai:rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json'",
-            "'rivals_strategy_due_review'",
-        ] as $token) {
-            if (! str_contains($runtime, $token)) {
-                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: AP-144 Curator must emit actionable Rivals review proposals [{$token}]";
-            }
-        }
-
-        foreach ([
-            "'rivals_review_schema_version' => data_get(\$result, 'rivals_review_action.schema_version')",
-            "'rivals_review_id' => data_get(\$result, 'rivals_review_action.recorded_review_id')",
-            "'rivals_regret_score' => data_get(\$result, 'rivals_review_action.scores.regret')",
-            "'rivals_alignment_score' => data_get(\$result, 'rivals_review_action.scores.alignment')",
-            "'rivals_agency_score' => data_get(\$result, 'rivals_review_action.scores.agency')",
-            "'rivals_review_recorded_count' => \$rivalsReviewRecordedCount",
-            "'rivals_strategy_human_scores_recorded'",
-        ] as $token) {
-            if (! str_contains($replay, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-144 Rivals review action must be projected from Evidence Ledger [{$token}]";
-            }
-        }
-
-        foreach ([
-            'test_inbox_action_records_rivals_review_with_human_scores_and_ledger_evidence',
-            'record_rivals_review',
-            'atlas.inbox_action.rivals_review.v1',
-            'LedgerEventType::InboxActionRecorded',
-        ] as $token) {
-            if (! str_contains($inboxActionTest, $token)) {
-                $violations[] = "tests/Feature/Ai/InboxLedgerProjectionActionTest.php: AP-144 Inbox action execution must be tested [{$token}]";
-            }
-        }
-
-        foreach ([
-            'test_inbox_action_window_report_projects_rivals_review_scores',
-            'rivals_review_recorded_count',
-            'rivals_review_with_scores_count',
-            'rivals_strategy_human_scores_recorded',
-        ] as $token) {
-            if (! str_contains($replayTest, $token)) {
-                $violations[] = "tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php: AP-144 Ledger replay projection must be tested [{$token}]";
-            }
-        }
-
-        foreach ([
-            'test_command_exposes_rivals_review_scores_as_json',
-            'record_rivals_review',
-            'rivals_review_with_scores_count',
-        ] as $token) {
-            if (! str_contains($commandTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php: AP-144 CLI report must expose Rivals review scores [{$token}]";
-            }
-        }
-
-        foreach ([
-            'test_inbox_action_report_api_exposes_rivals_review_scores',
-            'record_rivals_review',
-            'rivals_review_with_scores_count',
-        ] as $token) {
-            if (! str_contains($apiTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasAiInboxActionReportApiTest.php: AP-144 API report must expose Rivals review scores [{$token}]";
-            }
-        }
-
-        foreach ([
-            'test_observability_payload_exposes_rivals_review_inbox_action_scores',
-            'record_rivals_review',
-            'rivals_review_with_scores_count',
-        ] as $token) {
-            if (! str_contains($observabilityTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-144 Observability must expose Rivals review scores [{$token}]";
-            }
-        }
-
-        foreach ([
-            'test_inbox_action_report_tool_exposes_rivals_review_scores',
-            'record_rivals_review',
-            'rivals_review_with_scores_count',
-        ] as $token) {
-            if (! str_contains($mcpTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-144 MCP report must expose Rivals review scores [{$token}]";
-            }
-        }
-
-        foreach ([
-            'AP-144',
-            'Rivals Review Inbox Action Contract',
-            'record_rivals_review',
-            'atlas.inbox_action.rivals_review.v1',
-            'rivals_strategy_human_scores_recorded',
-        ] as $token) {
-            if (! str_contains($docs, $token)) {
-                $violations[] = "docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md: AP-144 Rivals review Inbox action must be documented [{$token}]";
-            }
-            if (! str_contains($apDoc, $token)) {
-                $violations[] = "docs/ap/AP-144-rivals-review-inbox-action-contract.md: AP-144 contract doc must exist [{$token}]";
             }
         }
 

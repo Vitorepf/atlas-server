@@ -60,6 +60,9 @@ line_limit: 520
 next_actions:
   - Manter este recorte alinhado ao índice canônico.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals Real Battery Operator Harness v1 · Parte 1
 
 ## Resumo

@@ -23,7 +23,6 @@ class AtlasStructureMotherAuditReadModel
         private readonly TaskOrchestrationReadModel $tasks,
         private readonly ToolActionRuntimeReadModel $tools,
         private readonly LongRunningWorkReadModel $longRunningWork,
-        private readonly AtlasRivalsStrategyReadModel $rivals,
         private readonly ProactiveLayerReadModel $proactive,
         private readonly AtlasQualitativeLevelsReadModel $qualitativeLevels,
         private readonly AiProviderCostRateService $costRates,
@@ -47,7 +46,6 @@ class AtlasStructureMotherAuditReadModel
         $tasks = $this->tasks->report($since, $until);
         $tools = $this->tools->report($since, $until, $workspace);
         $longRunning = $this->longRunningWork->report($since, $until);
-        $rivals = $this->rivals->report($since, $until->copy()->addYear());
         $proactive = $this->proactive->report($since, $until);
         $levels = $this->qualitativeLevels->report($since, $until);
         $missingCostRates = $this->costRates->missingRates($since, $until, 10);
@@ -135,21 +133,6 @@ class AtlasStructureMotherAuditReadModel
                 ]),
                 command: 'php artisan atlas:ai:long-running-work-report --hours='.$hours.' --json',
                 blockers: $this->reportReasons($longRunning),
-            ),
-            $this->module(
-                id: 'evaluation_rivals_framework',
-                label: 'Evaluation/Rivals Framework',
-                status: $this->rivalsImplementationStatus($rivals),
-                evidence: [
-                    'case_count' => $rivals['case_count'] ?? 0,
-                    'scheduled_review_count' => $rivals['scheduled_review_count'] ?? 0,
-                    'scored_review_count' => $rivals['scored_review_count'] ?? 0,
-                    'average_agency_score' => $rivals['average_agency_score'] ?? null,
-                    'p4_promotion_readiness' => $rivals['p4_promotion_readiness'] ?? null,
-                ],
-                command: 'php artisan atlas:ai:rivals-strategy report --hours='.$hours.' --json',
-                blockers: [],
-                operationalBlockers: $this->rivalsBlockers($rivals),
             ),
             $this->module(
                 id: 'notification_proactive_layer',
@@ -255,24 +238,6 @@ class AtlasStructureMotherAuditReadModel
             'status' => 'external_or_future_evidence_required',
             'completion_claim_allowed' => false,
             'items' => [
-                [
-                    'id' => 'rivals_p4_real_review',
-                    'status' => 'calendar_blocked',
-                    'operator_required' => true,
-                    'external_cost_possible' => false,
-                    'blocks_enterprise_completion_claim' => true,
-                    'required_evidence' => [
-                        'real_scored_rivals_review',
-                        'regret_alignment_agency_scores',
-                        'healthy_agency_gate',
-                        'structure_mother_audit_recheck',
-                    ],
-                    'prohibited_actions' => [
-                        'record_synthetic_scores',
-                        'declare_p4_or_higher',
-                        'mark_structure_mother_complete',
-                    ],
-                ],
                 [
                     'id' => 'rivals_programming_real_battery',
                     'status' => 'blocked_until_clean_worktrees_and_operator_cost_approval',
@@ -502,36 +467,6 @@ class AtlasStructureMotherAuditReadModel
     }
 
     /**
-     * @param  array<string,mixed>  $rivals
-     */
-    private function rivalsImplementationStatus(array $rivals): string
-    {
-        if (! (bool) ($rivals['available'] ?? false)) {
-            return 'blocked';
-        }
-        if ((int) ($rivals['case_count'] ?? 0) > 0
-            && (int) ($rivals['scheduled_review_count'] ?? 0) > 0
-            && is_array($rivals['p4_promotion_readiness'] ?? null)) {
-            return 'ready';
-        }
-
-        return 'attention';
-    }
-
-    /**
-     * @param  array<string,mixed>  $rivals
-     * @return array<int,string>
-     */
-    private function rivalsBlockers(array $rivals): array
-    {
-        if ((string) data_get($rivals, 'p4_promotion_readiness.status') === 'ready') {
-            return [];
-        }
-
-        return [(string) (data_get($rivals, 'p4_promotion_readiness.reason') ?: 'rivals_strategy_not_ready')];
-    }
-
-    /**
      * @param  array<string,mixed>  $proactive
      */
     private function proactiveImplementationStatus(array $proactive): string
@@ -578,47 +513,9 @@ class AtlasStructureMotherAuditReadModel
     private function operatorActionPlan(array $modules, bool $complete, array $missingCostRates): array
     {
         $byId = collect($modules)->keyBy('id');
-        $rivals = (array) data_get($byId->get('evaluation_rivals_framework'), 'evidence.p4_promotion_readiness', []);
         $proactiveEvidence = (array) data_get($byId->get('notification_proactive_layer'), 'evidence', []);
         $critical = (array) data_get($byId->get('notification_proactive_layer'), 'evidence.critical_review_contract', []);
         $actions = [];
-
-        if ((string) ($rivals['status'] ?? 'unknown') !== 'ready') {
-            $actions[] = [
-                'id' => 'record_real_rivals_review_when_due',
-                'module_id' => 'evaluation_rivals_framework',
-                'type' => 'calendar_human_review',
-                'status' => 'pending',
-                'due_at' => data_get($rivals, 'next_review.review_due_at'),
-                'command' => data_get($rivals, 'next_review.record_command'),
-                'operator_required' => true,
-                'actionable_now' => false,
-                'calendar_wait_required' => true,
-                'synthetic_completion_allowed' => false,
-                'api' => [
-                    'method' => 'POST',
-                    'endpoint' => '/ai/rivals-strategy/review',
-                    'body' => [
-                        'review_id' => data_get($rivals, 'next_review.id', '<review-id>'),
-                        'regret_score' => '<0-100>',
-                        'alignment_score' => '<0-100>',
-                        'agency_score' => '<0-100>',
-                        'outcome_summary' => '<operator evidence summary>',
-                    ],
-                    'score_fields' => ['regret_score', 'alignment_score', 'agency_score'],
-                    'score_range' => [0, 100],
-                    'operator_required' => true,
-                    'review_due_at_required' => true,
-                    'synthetic_scores_allowed' => false,
-                    'completion_gate_recheck_required' => true,
-                    'recording_schema_version' => 'atlas.rivals_strategy.review_recording.v1',
-                ],
-                'notes' => [
-                    'Wait until the review horizon is real.',
-                    'Record regret/alignment/agency only from operator review evidence.',
-                ],
-            ];
-        }
 
         if (! $complete) {
             $actions[] = [
@@ -937,13 +834,6 @@ class AtlasStructureMotherAuditReadModel
                 blockers: (array) data_get($byId->get('autonomy_long_running_work'), 'blockers', []),
             ),
             $this->checklistItem(
-                requirement: 'Evaluation/Rivals Framework proves P4 only with real scored review and healthy agency',
-                artifact: 'Rivals Strategy report with P4 promotion readiness contract',
-                evidenceCommand: (string) data_get($byId->get('evaluation_rivals_framework'), 'canonical_command'),
-                status: (string) data_get($byId->get('evaluation_rivals_framework'), 'status', 'unknown'),
-                blockers: (array) data_get($byId->get('evaluation_rivals_framework'), 'blockers', []),
-            ),
-            $this->checklistItem(
                 requirement: 'Notification/Proactive Layer surfaces critical insights without agent auto-resolution',
                 artifact: 'Proactive layer report with critical review contract',
                 evidenceCommand: (string) data_get($byId->get('notification_proactive_layer'), 'canonical_command'),
@@ -991,7 +881,6 @@ class AtlasStructureMotherAuditReadModel
             'task_agent_orchestration',
             'tool_action_runtime',
             'autonomy_long_running_work',
-            'evaluation_rivals_framework',
             'notification_proactive_layer',
         ])->map(function (string $moduleId) use ($byId): array {
             $module = (array) $byId->get($moduleId, []);

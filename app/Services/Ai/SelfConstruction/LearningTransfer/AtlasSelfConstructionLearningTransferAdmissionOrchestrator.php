@@ -44,12 +44,15 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
 
     private AtlasSelfConstructionLearningTransferAdmissionLedger $ledger;
 
+    private AtlasSelfConstructionLearningTransferObservationStore $observations;
+
     public function __construct(
         ?AtlasSelfConstructionLearningTransferGiveBackClassifier $classifier = null,
         ?AtlasSelfConstructionLearningTransferLessonCandidateGate $gate = null,
         ?AtlasSelfConstructionLearningTransferContextUpdatePlan $planner = null,
         ?AtlasSelfConstructionLearningTransferPacketTemplateUpdater $updater = null,
         ?AtlasSelfConstructionLearningTransferAdmissionLedger $ledger = null,
+        ?AtlasSelfConstructionLearningTransferObservationStore $observations = null,
     ) {
         $this->classifier = $classifier ?? new AtlasSelfConstructionLearningTransferGiveBackClassifier();
         $this->gate = $gate ?? new AtlasSelfConstructionLearningTransferLessonCandidateGate();
@@ -57,6 +60,9 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         $this->updater = $updater ?? new AtlasSelfConstructionLearningTransferPacketTemplateUpdater();
         $this->ledger = $ledger ?? new AtlasSelfConstructionLearningTransferAdmissionLedger(
             AtlasSelfConstructionLearningTransferAdmissionLedger::defaultPath()
+        );
+        $this->observations = $observations ?? new AtlasSelfConstructionLearningTransferObservationStore(
+            AtlasSelfConstructionLearningTransferObservationStore::defaultPath()
         );
     }
 
@@ -70,7 +76,46 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
     {
         $mode = self::MODE_OBSERVE;
         $classification = $this->classifier->classify($giveBackFact);
+
+        $factOutcome = trim((string) ($giveBackFact['outcome'] ?? ''));
+        if ($factOutcome === '') {
+            $factOutcome = trim((string) data_get($giveBackFact, 'muscle_outcome.status', '')) ?: 'give_back';
+        }
+        $scopeDirs = $this->scopeDirsOf($classification);
+
+        // Closure-by-resolution class adoption: a resolved/success fact is
+        // classless (the classifier derives classes from give_back reasons),
+        // so a real resolution in a scope with accumulated give_back history
+        // adopts the dominant observed class — the lesson becomes "class F in
+        // this scope, observed N times, CLOSED by a real resolution". The
+        // muscle_outcome handed to the pétreo success-only floor is always
+        // the trigger's real outcome, never forged.
+        try {
+            if (($classification['class'] ?? '') === AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_UNKNOWN
+                && in_array($factOutcome, ['success', 'resolved', 'green_commit'], true)
+            ) {
+                $dominantClass = array_key_first($this->observations->giveBackClassesForScope($scopeDirs));
+                if (is_string($dominantClass) && $dominantClass !== '') {
+                    $classification['class'] = $dominantClass;
+                    $classification['root_cause'] = $dominantClass;
+                }
+            }
+        } catch (\Throwable) {
+            // Observation store trouble must never break an admit (fail-open
+            // to the stateless pre-accumulator behavior).
+        }
+
         $lessonKey = $this->computeLessonKey($classification);
+
+        [$giveBackFact, $template] = $this->applyObservationAccumulator(
+            $giveBackFact,
+            $template,
+            $classification,
+            $lessonKey,
+            $factOutcome,
+            $scopeDirs,
+        );
+
         $familyOutcomeSignal = $this->computeFamilyOutcomeSignal((string) ($classification['class'] ?? ''), $template, $thresholds);
 
         // Deduplicate against a caller-supplied snapshot of already-known lesson keys.
@@ -180,6 +225,15 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
                 lessonKey: $lessonKey,
                 familyOutcomeSignal: $familyOutcomeSignal,
             );
+        }
+
+        // Retire the accumulated history: the same observations never
+        // re-admit or re-conflict (the ledger append is idempotent by
+        // plan_hash anyway — this keeps the accumulator honest too).
+        try {
+            $this->observations->retire($lessonKey);
+        } catch (\Throwable) {
+            // fail-open
         }
 
         return $this->envelope(
@@ -323,19 +377,136 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         ];
     }
 
+    /**
+     * Observation accumulator (the piece that makes the gate's independent-
+     * repetition threshold reachable): record the incoming observation, feed
+     * accumulated cross-packet history to the gate when the caller brought no
+     * observations of its own, and give family suppression live fuel on
+     * give_back triggers.
+     *
+     * O-1 no-noise guard: a classless ('unknown') fact has no lesson — it
+     * never records and never aggregates, otherwise every unclassified fact
+     * in a scope would share one lesson_key and could mint a meaningless
+     * lesson. Independence guard: >=2 distinct agents before aggregating — a
+     * single hijacked agent never mints a lesson alone. Fail-open: any store
+     * failure degrades to the stateless pre-accumulator behavior.
+     *
+     * @param  array<string,mixed>  $giveBackFact
+     * @param  array<string,mixed>  $template
+     * @param  array<string,mixed>  $classification
+     * @param  list<string>  $scopeDirs
+     * @return array{0: array<string,mixed>, 1: array<string,mixed>} [$giveBackFact, $template]
+     */
+    private function applyObservationAccumulator(
+        array $giveBackFact,
+        array $template,
+        array $classification,
+        string $lessonKey,
+        string $factOutcome,
+        array $scopeDirs,
+    ): array {
+        $class = trim((string) ($classification['class'] ?? ''));
+        if ($class === '' || $class === AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_UNKNOWN) {
+            return [$giveBackFact, $template];
+        }
+
+        try {
+            // Recording a fact that really happened is not fabricating a
+            // signal. Dedupe + retirement live in the store.
+            $this->observations->record([
+                'lesson_key' => $lessonKey,
+                'class' => $class,
+                'scope_dirs' => $scopeDirs,
+                'task_packet_id' => (string) ($classification['packet_id'] ?? ''),
+                'agent_id' => (string) ($giveBackFact['agent_id'] ?? ''),
+                'outcome' => $factOutcome,
+                'evidence_refs' => array_values(array_map('strval', (array) ($classification['evidence_refs'] ?? []))),
+                'blocking_facts' => array_values(array_map('strval', (array) ($classification['blocking_facts'] ?? []))),
+            ]);
+
+            if (array_values(array_filter((array) ($giveBackFact['observations'] ?? []), 'is_array')) === []) {
+                $accumulated = $this->observations->observationsFor($lessonKey, self::STALE_EVIDENCE_MAX_AGE_DAYS);
+                $distinctAgents = array_unique(array_filter(array_map(
+                    static fn (array $row): string => (string) ($row['agent_id'] ?? ''),
+                    $accumulated,
+                )));
+                if (count($accumulated) >= 2 && count($distinctAgents) >= 2) {
+                    $giveBackFact['observations'] = array_map(static fn (array $row): array => [
+                        'outcome' => (string) ($row['outcome'] ?? 'unknown'),
+                        'evidence_refs' => array_values(array_map('strval', (array) ($row['evidence_refs'] ?? []))),
+                        'source' => 'task_packet:'.((string) ($row['task_packet_id'] ?? '')),
+                    ], $accumulated);
+                }
+            }
+
+            // Suppression governs failure-driven template churn; a success
+            // closure is not recurrence — hence give_back triggers only.
+            if (! array_key_exists('family_outcome_rows', $template) && $factOutcome === 'give_back') {
+                $template['family_outcome_rows'] = $this->observations->outcomesForClass(
+                    $class,
+                    self::STALE_EVIDENCE_MAX_AGE_DAYS,
+                );
+            }
+        } catch (\Throwable) {
+            // fail-open
+        }
+
+        return [$giveBackFact, $template];
+    }
+
     private function computeLessonKey(array $classification): string
     {
+        // Lesson identity must AGGREGATE across packets to ever reach the
+        // gate's independent-repetition threshold: the previous payload
+        // included evidence_refs (which carry the per-run task_packet id) and
+        // the literal allowed_files, so every run minted a fresh key and the
+        // circuit could not accumulate by construction. Identity is now
+        // class + scope DIRECTORIES + volatile-stripped blocking kinds —
+        // stable across packets, still distinct across genuinely different
+        // lessons (same class, structurally different blocking facts or
+        // different area => different key).
+        $scopeDirs = $this->scopeDirsOf($classification);
+        $blockingKinds = array_values(array_unique(array_filter(array_map(
+            static function (string $fact): string {
+                // ponytail: regex strip of volatile tokens (hashes, packet
+                // ids, dates); sharpen if real collisions show up.
+                $kind = (string) preg_replace(
+                    '/\b[0-9a-f]{8,}\b|task_packet:[^\s"]+|\d{4}-\d{2}-\d{2}\S*/i',
+                    '',
+                    $fact,
+                );
+
+                return trim((string) preg_replace('/\s+/', ' ', $kind));
+            },
+            array_map('strval', (array) ($classification['blocking_facts'] ?? [])),
+        ))));
+        sort($blockingKinds);
+
         $payload = [
-            'allowed_files' => array_values(array_map('strval', (array) ($classification['allowed_files'] ?? []))),
-            'blocking_facts' => array_values(array_map('strval', (array) ($classification['blocking_facts'] ?? []))),
+            'blocking_kinds' => $blockingKinds,
             'class' => (string) ($classification['class'] ?? ''),
-            'evidence_refs' => array_values(array_map('strval', (array) ($classification['evidence_refs'] ?? []))),
+            'scope_dirs' => $scopeDirs,
         ];
-        sort($payload['allowed_files']);
-        sort($payload['blocking_facts']);
-        sort($payload['evidence_refs']);
 
         return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Normalized scope directories of a classification's allowed_files —
+     * the cross-packet half of the lesson identity.
+     *
+     * @param  array<string,mixed>  $classification
+     * @return list<string>
+     */
+    private function scopeDirsOf(array $classification): array
+    {
+        $dirs = array_values(array_unique(array_map(
+            static fn (string $file): string => dirname($file),
+            array_filter(array_map('strval', (array) ($classification['allowed_files'] ?? []))),
+        )));
+        sort($dirs, SORT_STRING);
+
+        return $dirs;
     }
 
     /**

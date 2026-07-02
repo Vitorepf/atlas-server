@@ -110,6 +110,9 @@ next_actions:
   - Rodar `php artisan atlas:programming:rivals-one-shot-evaluate --case=<id> --json --strict` para diagnosticar a entrega.
   - Atualizar evidence pack quando bateria real existir (fora do escopo desta camada).
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Rivals One-Shot Enterprise Evaluation v1
 
 ## Resumo

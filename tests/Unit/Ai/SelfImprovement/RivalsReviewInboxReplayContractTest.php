@@ -6,7 +6,6 @@ use App\Services\Ai\Cognitive\ProductiveFailure\ProductiveFailureSessionReposito
 use App\Services\Ai\Context\LocalRagBenchmarkService;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
-use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReadModel;
 use App\Services\Ai\Kernel\Decision\DynamicComputeMarketAdvisor;
 use App\Services\Ai\Kernel\Domain\AtlasAiDomainCatalogService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -16,7 +15,6 @@ use App\Services\Ai\Mobile\ProposalInboxEmitter;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementInput;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementRuntime;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
-use App\Services\Ai\Voice\AtlasVoiceRivalsRunner;
 use Mockery;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -194,8 +192,6 @@ class RivalsReviewInboxReplayContractTest extends TestCase
             new AtlasSelfImprovementInput,
             Mockery::mock(ProviderPerformanceProjection::class),
             Mockery::mock(DynamicComputeMarketAdvisor::class),
-            Mockery::mock(AtlasRivalsStrategyReadModel::class),
-            app(AtlasVoiceRivalsRunner::class),
             app(LocalRagBenchmarkService::class),
             Mockery::mock(ProductiveFailureSessionRepository::class),
         );

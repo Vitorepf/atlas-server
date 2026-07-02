@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\Domain;
 
-use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyCaseRegistrar;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -17,7 +16,6 @@ class StrategicDecisionReviewService
         private readonly OperationEnvelopeFactory $envelopes,
         private readonly DecisionReceiptIssuer $receipts,
         private readonly AtlasEvidenceLedger $ledger,
-        private readonly AtlasRivalsStrategyCaseRegistrar $rivalsRegistrar,
     ) {}
 
     /**
@@ -52,18 +50,6 @@ class StrategicDecisionReviewService
             'cooldown' => $this->cooldown($impact, $horizonDays),
             'counterargument' => $this->counterargument($decision, $options),
             'values_alignment' => $this->valuesAlignment($values),
-            'rivals_strategy' => [
-                'recommended' => true,
-                'required_for_high_impact' => in_array($impact, ['high', 'critical'], true),
-                'register_command' => sprintf(
-                    'atlas ai rivals-strategy register-case --title=%s --baseline=%s --atlas=%s --horizon=%d --json',
-                    escapeshellarg($title !== '' ? $title : 'strategic decision'),
-                    escapeshellarg($decision !== '' ? $decision : 'baseline choice pending'),
-                    escapeshellarg('Atlas-assisted review packet'),
-                    $horizonDays,
-                ),
-                'review_horizons_days' => [30, 90, 180, 365],
-            ],
             'gates' => $this->gates($title, $decision, $options, $values, $impact),
             'forbidden_actions' => [
                 'autonomous_commitment',
@@ -139,7 +125,7 @@ class StrategicDecisionReviewService
                 'max_cost_usd' => 0,
             ],
             'required_gates' => $requiredGates,
-            'required_evidence' => ['strategic_decision_review_packet', 'operator_agency_gate', 'rivals_strategy_hint'],
+            'required_evidence' => ['strategic_decision_review_packet', 'operator_agency_gate'],
             'repair_policy' => [
                 'enabled' => false,
                 'max_attempts' => 0,
@@ -214,74 +200,6 @@ class StrategicDecisionReviewService
                 ])),
             ],
         ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $packet
-     * @param  array<string,mixed>|null  $receipt
-     * @return array<string,mixed>
-     */
-    public function registerRivalsCase(array $packet, ?array $receipt = null): array
-    {
-        $title = $this->string($packet['title'] ?? 'strategic decision');
-        $decision = $this->string(data_get($packet, 'decision_frame.decision', ''));
-        $options = AiStringListNormalizer::uniqueTruthyTrimmedCastValues(data_get($packet, 'decision_frame.options', []));
-        $values = AiStringListNormalizer::uniqueTruthyTrimmedCastValues(data_get($packet, 'values_alignment.values', []));
-        $constraints = AiStringListNormalizer::uniqueTruthyTrimmedCastValues(data_get($packet, 'decision_frame.constraints', []));
-        $horizonDays = (int) data_get($packet, 'decision_frame.horizon_days', 90);
-
-        $registration = $this->rivalsRegistrar->register([
-            'title' => $title !== '' ? $title : 'strategic decision',
-            'baseline_choice' => $decision !== '' ? $decision : implode(' | ', $options),
-            'atlas_assisted_choice' => 'Atlas strategic_decision.review packet generated; see context_summary and gates.',
-            'context_summary' => json_encode([
-                'decision' => $decision,
-                'options' => $options,
-                'values' => $values,
-                'constraints' => $constraints,
-                'gates' => collect((array) ($packet['gates'] ?? []))->pluck('status', 'id')->all(),
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-            'horizon_days' => $horizonDays,
-            'decision_domain' => 'strategic_decision',
-            'source' => 'atlas.strategic_decision.review',
-            'mode' => 'explicit_operator_registration',
-            'source_hash' => hash('sha256', json_encode([
-                'packet_schema' => $packet['schema_version'] ?? self::SCHEMA_VERSION,
-                'title' => $title,
-                'decision' => $decision,
-                'options' => $options,
-                'values' => $values,
-                'horizon_days' => $horizonDays,
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
-            'source_envelope_id' => $receipt['envelope_id'] ?? null,
-            'source_receipt_id' => $receipt['receipt_id'] ?? null,
-            'tags' => ['strategic_decision', 'rivals_strategy', 'operator_approved'],
-        ]);
-
-        if ($receipt !== null) {
-            $this->ledger->record(LedgerEventType::LearningProposed, [
-                'envelope_id' => $receipt['envelope_id'] ?? null,
-                'receipt_id' => $receipt['receipt_id'] ?? null,
-                'domain' => 'strategic_decision',
-                'flow' => 'strategic_decision.review',
-                'proposal_type' => 'rivals_strategy_case_registered',
-                'case_id' => $registration['case_id'],
-                'source_hash' => $registration['source_hash'],
-                'no_external_side_effects' => true,
-                'operator_approved' => true,
-            ], [
-                'tenant_id' => data_get($receipt, 'metadata.tenant_id', 'default'),
-                'operator_id' => data_get($receipt, 'metadata.operator_id', 'system'),
-                'envelope_id' => $receipt['envelope_id'] ?? 'unknown',
-                'receipt_id' => $receipt['receipt_id'] ?? null,
-                'trace_id' => data_get($receipt, 'metadata.trace_id'),
-                'correlation_id' => $receipt['envelope_id'] ?? null,
-                'emitter_stage' => 'atlas.strategic_decision.rivals_registration',
-                'emitter_version' => AtlasRivalsStrategyCaseRegistrar::SCHEMA_VERSION,
-            ]);
-        }
-
-        return $registration;
     }
 
     private function string(mixed $value): string

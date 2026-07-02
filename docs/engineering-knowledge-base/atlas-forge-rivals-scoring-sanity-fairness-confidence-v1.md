@@ -86,9 +86,10 @@ cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-scoring-sanity-fairness-confidence-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-scoring-sanity-fairness-confidence-v1.md
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReportService.php
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Scoring Sanity, Fairness & Confidence v1
 
 **Status:** active · canon · 2026-05-16

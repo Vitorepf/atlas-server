@@ -66,12 +66,6 @@ graph_source: repo
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-deepswe-compatibility-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-deepswe-compatibility-v1.md
-  - app/Services/Ai/Programming/ForgeRivals/DeepSwe/AtlasForgeRivalsDeepSweTaskParserService.php
-  - app/Services/Ai/Programming/ForgeRivals/DeepSwe/AtlasForgeRivalsDeepSweCompatibilityService.php
-  - app/Services/Ai/Programming/ForgeRivals/DeepSwe/AtlasForgeRivalsDeepSweResultIngestService.php
-  - app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsCorpusPlannerService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
-  - tests/Feature/Ai/Programming/AtlasForgeRivalsDeepSweCompatibilityTest.php
 allowed_changes:
   - Expandir parser Harbor e ingestao Pier preservando data contamination guards.
   - Integrar results reais somente com evidence/replay/matrix completos.
@@ -121,6 +115,9 @@ next_actions:
   - Alimentar Provider Performance Ledger e Decide Signal a partir de baterias externas verificadas.
   - Criar adaptador Atlas Forge Pier-compatible antes de qualquer comparacao externa forte.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals DeepSWE Compatibility v1
 
 ## Resumo

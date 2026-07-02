@@ -51,8 +51,6 @@ technical_name: atlas-forge-rivals-matrix-report-v1
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-matrix-report-v1.md
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsMatrixReportService.php
-  - app/Console/Commands/AtlasForgeRivalsCommand.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-matrix-report-v1.md
 allowed_changes:
   - Adicionar seções additive ao Markdown/JSON do matrix report.
@@ -87,6 +85,9 @@ risk_level: medium
 next_actions:
   - Sincronizar este doc se novos eixos (cost vs quality, mode-aware tabelas) forem adicionados ao matrix.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Matrix Report v1
 **Status:** Delivered 2026-05-15 (Claude D · Matrix Report slice)
 **Schema:** `atlas.forge.rivals.matrix_report.v1`

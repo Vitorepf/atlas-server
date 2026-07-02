@@ -16,17 +16,12 @@ class AtlasAiStrategicDecisionApiTest extends TestCase
 
         config()->set('atlas.token', 'test-token-with-enough-length-123');
         Schema::dropIfExists('atlas_ledger_events');
-        Schema::dropIfExists('atlas_strategy_rivals_reviews');
-        Schema::dropIfExists('atlas_strategy_rivals_cases');
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_06_120000_create_atlas_strategy_rivals_tables.php'))->up();
     }
 
     protected function tearDown(): void
     {
         Schema::dropIfExists('atlas_ledger_events');
-        Schema::dropIfExists('atlas_strategy_rivals_reviews');
-        Schema::dropIfExists('atlas_strategy_rivals_cases');
 
         parent::tearDown();
     }
@@ -46,11 +41,9 @@ class AtlasAiStrategicDecisionApiTest extends TestCase
             ->assertJsonPath('strategic_decision.mode', 'plan_only')
             ->assertJsonPath('strategic_decision.rules.no_external_side_effects', true)
             ->assertJsonPath('decision_receipt', null)
-            ->assertJsonPath('ledger', null)
-            ->assertJsonPath('rivals_registration', null);
+            ->assertJsonPath('ledger', null);
 
         $this->assertDatabaseCount('atlas_ledger_events', 0);
-        $this->assertDatabaseCount('atlas_strategy_rivals_cases', 0);
     }
 
     public function test_api_can_emit_audited_review_packet_when_requested(): void
@@ -76,27 +69,6 @@ class AtlasAiStrategicDecisionApiTest extends TestCase
             'event_type' => LedgerEventType::OperationCompleted->value,
             'emitter_stage' => 'atlas.strategic_decision.review',
         ]);
-    }
-
-    public function test_api_can_register_rivals_case_when_explicit(): void
-    {
-        $this->postJson('/ai/strategic-decision/review', [
-            'title' => 'Escolher direcao do Atlas',
-            'decision' => 'Priorizar arquitetura-mae',
-            'options' => ['arquitetura-mae', 'features soltas'],
-            'values' => ['qualidade', 'governanca'],
-            'impact' => 'high',
-            'register_rivals' => true,
-        ], $this->headers)
-            ->assertOk()
-            ->assertJsonPath('status', 'ok')
-            ->assertJsonPath('rivals_registration.status', 'ok')
-            ->assertJsonPath('rivals_registration.created', true)
-            ->assertJsonPath('rivals_registration.scheduled_reviews', 4);
-
-        $this->assertDatabaseCount('atlas_strategy_rivals_cases', 1);
-        $this->assertDatabaseCount('atlas_strategy_rivals_reviews', 4);
-        $this->assertDatabaseCount('atlas_ledger_events', 0);
     }
 
     public function test_api_requires_atlas_token(): void

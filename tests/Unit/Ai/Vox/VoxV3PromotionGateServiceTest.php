@@ -52,15 +52,11 @@ final class VoxV3PromotionGateServiceTest extends TestCase
                 'governed_execute_success_count' => 0,
                 'governed_execute_blocked_count' => 0,
             ],
-            'rivals' => [],
             'hard_gates' => [
                 'raw_audio_persisted_count' => 0,
                 'confirmation_bypass_count' => 0,
                 'destructive_action_without_receipt' => 0,
                 'eclipse_test_success_count' => 3,
-                'action_regret_score' => 0.0,
-                'prompt_quality_delta' => 0.0,
-                'rivals_voice_multiplier' => 0.0,
             ],
             'generated_at' => '2026-05-20T00:00:00Z',
         ];
@@ -119,9 +115,6 @@ final class VoxV3PromotionGateServiceTest extends TestCase
     public function test_ready_for_vitor_review_when_all_hard_and_soft_gates_pass(): void
     {
         $snap = $this->snapshotWithSafetyOk(sessions: 120, days: 35);
-        $snap['hard_gates']['prompt_quality_delta'] = 0.4;
-        $snap['hard_gates']['rivals_voice_multiplier'] = 1.5;
-        $snap['hard_gates']['action_regret_score'] = 0.02;
 
         $eval = $this->gateWithSnapshot($snap)->evaluate();
         $this->assertSame(VoxV3PromotionGateService::STATUS_READY, $eval['status']);
@@ -132,8 +125,6 @@ final class VoxV3PromotionGateServiceTest extends TestCase
     public function test_usage_window_passes_via_session_count_alone(): void
     {
         $snap = $this->snapshotWithSafetyOk(sessions: 100, days: 0);
-        $snap['hard_gates']['prompt_quality_delta'] = 0.4;
-        $snap['hard_gates']['rivals_voice_multiplier'] = 1.5;
 
         $eval = $this->gateWithSnapshot($snap)->evaluate();
         $this->assertSame(VoxV3PromotionGateService::STATUS_READY, $eval['status']);

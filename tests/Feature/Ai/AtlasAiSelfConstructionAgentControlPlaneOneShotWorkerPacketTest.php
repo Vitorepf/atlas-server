@@ -451,7 +451,6 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
                 'app/Bar.php',
             ],
             'forbidden_files' => [
-                'app/Services/Ai/Programming/ForgeRivals/**',
             ],
             'required_docs' => [
                 'docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md',

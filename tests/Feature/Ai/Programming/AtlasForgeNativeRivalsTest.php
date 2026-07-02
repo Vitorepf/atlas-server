@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming;
 
-use App\Console\Commands\AtlasProgrammingRivalsForgeDryRunCommand;
-use App\Console\Commands\AtlasProgrammingRivalsForgePreflightCommand;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsCaseManifestService;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsDryRunService;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsPreflightService;
@@ -298,8 +296,6 @@ class AtlasForgeNativeRivalsTest extends TestCase
         $this->assertTrue($forge['atlas_side_must_use_forge']);
         $this->assertTrue($forge['protocol_available']);
         $this->assertTrue($forge['protocol_doc_available']);
-        $this->assertTrue($forge['preflight_command_available']);
-        $this->assertTrue($forge['dry_run_command_available']);
         $this->assertTrue($forge['case_manifest_available']);
         $this->assertTrue($forge['case_manifest_atlas_arm_is_forge']);
         $this->assertTrue($forge['provider_dispatch_blocked_without_approval']);
@@ -323,39 +319,6 @@ class AtlasForgeNativeRivalsTest extends TestCase
             'external_rivals_certification must remain blocked until a real comparable battery is approved.',
         );
         $this->assertFalse((bool) ($external['claim_ready'] ?? true));
-    }
-
-    public function test_preflight_command_registered_and_returns_json(): void
-    {
-        $this->assertTrue(class_exists(AtlasProgrammingRivalsForgePreflightCommand::class));
-
-        $exitCode = $this->artisan('atlas:programming:rivals-forge-preflight', ['--json' => true])
-            ->run();
-
-        $this->assertSame(0, $exitCode);
-    }
-
-    public function test_dry_run_command_registered_and_returns_json(): void
-    {
-        $this->assertTrue(class_exists(AtlasProgrammingRivalsForgeDryRunCommand::class));
-
-        $exitCode = $this->artisan('atlas:programming:rivals-forge-dry-run', ['--json' => true])
-            ->run();
-
-        $this->assertSame(0, $exitCode);
-    }
-
-    public function test_strict_preflight_fails_when_workspace_is_not_git(): void
-    {
-        $dirty = $this->makeDirtyNonGitWorkspace();
-
-        $exitCode = $this->artisan('atlas:programming:rivals-forge-preflight', [
-            '--workspace' => $dirty,
-            '--json' => true,
-            '--strict' => true,
-        ])->run();
-
-        $this->assertSame(1, $exitCode);
     }
 
     private function makeDirtyNonGitWorkspace(): string

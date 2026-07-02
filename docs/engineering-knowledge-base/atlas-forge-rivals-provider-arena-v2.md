@@ -58,10 +58,7 @@ technical_name: atlas-forge-rivals-provider-arena-v2
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderModelRegistryService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArmCommandBuilderService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsProviderArenaReadinessService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
+  - app/Services/Ai/Rivals2/
 allowed_changes:
   - Adicionar modelos, providers e arms por registry central e testes.
   - Evoluir executor real v2 somente preservando evidence/replay/report para qualquer par de arms.
@@ -109,6 +106,9 @@ next_actions:
   - Validar gemini_cli real em ambiente com driver configurado.
   - Registrar outcomes no Intelligence Ledger por arm/provider/model/mode.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Provider Arena v2
 
 ## Resumo

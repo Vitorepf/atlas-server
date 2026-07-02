@@ -8,8 +8,6 @@ use App\Models\AiPerformanceRecommendation;
 use App\Models\AiThread;
 use App\Models\AtlasMobileDevice;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopOperatorReviewQueueService;
-use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReadModel;
-use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReviewRecorder;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -42,8 +40,6 @@ class InboxActionRegistry
         private readonly AtlasLoopOperatorReviewQueueService $loopOperatorReview,
         private readonly AtlasEvidenceLedger $ledger,
         private readonly LedgerProjectionWorker $ledgerProjectionWorker,
-        private readonly AtlasRivalsStrategyReviewRecorder $rivalsStrategyReviewRecorder,
-        private readonly AtlasRivalsStrategyReadModel $rivalsStrategy,
         private readonly AiProviderCostRateService $providerCostRates,
     ) {}
 
@@ -110,7 +106,6 @@ class InboxActionRegistry
                 'review_retrieval_regression' => $this->reviewRetrievalRegression($locked, $input),
                 'review_retrieval_shadow_scope' => $this->reviewRetrievalShadowScope($locked, $input),
                 'review_external_vector_rag_preflight' => $this->reviewExternalVectorRagPreflight($locked, $input),
-                'record_rivals_review' => $this->recordRivalsReview($locked, $input),
                 'configure_provider_cost_rates' => $this->configureProviderCostRates($locked, $input),
                 'ignore_30d' => $this->ignoreThirtyDays($locked),
                 'acknowledge_recommendation', 'apply_recommendation', 'reject_recommendation' => $this->transitionRecommendation($locked, $actionId, $input),
@@ -1213,84 +1208,6 @@ class InboxActionRegistry
         ]);
 
         return $receipt;
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     * @return array{item:AiInboxItem,recorded_review:array<string,mixed>,rivals_strategy:array<string,mixed>,rivals_review_action:array<string,mixed>,command:string,remaining_due_review_count:int}
-     */
-    private function recordRivalsReview(AiInboxItem $item, array $input): array
-    {
-        $payload = $item->payload ?? [];
-        $dueReviews = collect($this->array(data_get($payload, 'due_reviews')))
-            ->filter(fn (mixed $review): bool => is_array($review))
-            ->values();
-
-        $reviewId = $this->string($input['review_id'] ?? null);
-        $caseId = $this->string($input['case_id'] ?? null);
-        $horizonDays = $this->positiveInt($input['horizon_days'] ?? $input['review_horizon'] ?? null);
-
-        if ($reviewId === null && $caseId === null) {
-            $selected = $dueReviews->first();
-            if (is_array($selected)) {
-                $reviewId = $this->string($selected['review_id'] ?? null);
-                $caseId = $this->string($selected['case_id'] ?? null);
-                $horizonDays = $horizonDays ?? $this->positiveInt($selected['horizon_days'] ?? null);
-            }
-        }
-
-        try {
-            $recorded = $this->rivalsStrategyReviewRecorder->record([
-                'review_id' => $reviewId,
-                'case_id' => $caseId,
-                'review_horizon' => $horizonDays,
-                'regret_score' => $input['regret_score'] ?? $input['regret'] ?? null,
-                'alignment_score' => $input['alignment_score'] ?? $input['alignment'] ?? null,
-                'agency_score' => $input['agency_score'] ?? $input['agency'] ?? null,
-                'outcome_summary' => $this->string($input['outcome_summary'] ?? $input['outcome'] ?? null),
-                'recorded_by' => 'atlas.inbox.record_rivals_review',
-            ]);
-        } catch (\InvalidArgumentException $exception) {
-            throw ValidationException::withMessages(['action' => $exception->getMessage()]);
-        }
-
-        $recordedReviewId = $this->string($recorded['review_id'] ?? null);
-        $remainingDueReviews = $dueReviews
-            ->reject(fn (array $review): bool => $recordedReviewId !== null && $this->string($review['review_id'] ?? null) === $recordedReviewId)
-            ->values()
-            ->all();
-
-        $payload['due_reviews'] = $remainingDueReviews;
-        $payload['rivals_review_action'] = [
-            'schema_version' => 'atlas.inbox_action.rivals_review.v1',
-            'recorded_review_id' => $recordedReviewId,
-            'case_id' => $recorded['case_id'] ?? null,
-            'horizon_days' => $recorded['horizon_days'] ?? null,
-            'scores' => $recorded['scores'] ?? [],
-            'remaining_due_review_count' => count($remainingDueReviews),
-            'operator_scored' => true,
-            'no_external_action' => true,
-            'completed_at' => now()->toJSON(),
-        ];
-
-        data_set($payload, 'rivals_strategy.due_review_count', count($remainingDueReviews));
-
-        $resolved = count($remainingDueReviews) === 0;
-        $item->update([
-            'payload' => $payload,
-            'status' => $resolved ? 'resolved' : ($item->status === 'unread' ? 'read' : $item->status),
-            'read_at' => $item->read_at ?? now(),
-            'resolved_at' => $resolved ? now() : $item->resolved_at,
-        ]);
-
-        return [
-            'item' => $item->refresh(),
-            'recorded_review' => $recorded,
-            'rivals_strategy' => $this->rivalsStrategy->report(now()->subDays(365), now()->addDays(365)),
-            'rivals_review_action' => $payload['rivals_review_action'],
-            'command' => 'atlas:ai:rivals-strategy record-review --review-id='.($recordedReviewId ?? '<review-id>').' --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json',
-            'remaining_due_review_count' => count($remainingDueReviews),
-        ];
     }
 
     /**

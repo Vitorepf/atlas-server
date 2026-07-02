@@ -552,7 +552,6 @@ class ProgrammingProfessionalCompletionAuditService
             'programming_cli_commands' => $this->programmingCliCommandsCovered($root),
             'structure_mother_safe_rivals_commands' => $this->structureMotherSafeRivalsCommandsCovered($root),
             'api_rivals_battery_guard' => $this->apiRivalsBatteryGuardCovered($root),
-            'rivals_operator_triage_command' => $this->rivalsOperatorTriageCommandCovered($root),
             'rivals_invalid_battery_quarantine' => $this->rivalsInvalidBatteryQuarantineCovered($root),
             'rivals_history_timeline' => $this->rivalsHistoryTimelineCovered($root),
             'rivals_experiment_validity_contract' => $this->rivalsExperimentValidityContractCovered($root),
@@ -717,13 +716,6 @@ class ProgrammingProfessionalCompletionAuditService
                 'EngineeringBenchmarkController battery-plan preflight',
                 $docStatus('api_rivals_battery_guard'),
                 $docStatus('api_rivals_battery_guard') === 'passed' ? null : 'api_rivals_battery_guard_missing_or_unsafe',
-            ),
-            $this->item(
-                'rivals_operator_triage_command',
-                'Operator triage command explains invalid Rivals battery without provider dispatch.',
-                'atlas:programming:rivals-readiness --triage',
-                $docStatus('rivals_operator_triage_command'),
-                $docStatus('rivals_operator_triage_command') === 'passed' ? null : 'rivals_operator_triage_command_missing_or_unsafe',
             ),
             $this->item(
                 'rivals_invalid_battery_quarantine',
@@ -982,36 +974,6 @@ class ProgrammingProfessionalCompletionAuditService
     /**
      * @return array<string,mixed>
      */
-    private function rivalsOperatorTriageCommandCovered(string $root): array
-    {
-        $path = 'app/Console/Commands/AtlasProgrammingRivalsReadinessCommand.php';
-        $absolutePath = $root.DIRECTORY_SEPARATOR.$path;
-        $source = file_exists($absolutePath) ? (string) file_get_contents($absolutePath) : '';
-
-        $checks = [
-            'command_class_exists' => class_exists('App\\Console\\Commands\\AtlasProgrammingRivalsReadinessCommand'),
-            'source_exists' => $source !== '',
-            'triage_option_registered' => str_contains($source, '{--triage'),
-            'triage_schema_declared' => str_contains($source, 'atlas.programming.rivals_invalid_battery_operator_triage.v1'),
-            'triage_blocks_provider_dispatch' => str_contains($source, "'provider_dispatches_now' => false"),
-            'triage_blocks_token_spend' => str_contains($source, "'spend_provider_tokens_now' => false"),
-            'triage_declares_no_benchmark_run_created' => str_contains($source, "'no_benchmark_run_created' => true"),
-            'triage_blocks_synthetic_scores' => str_contains($source, "'synthetic_scores_allowed' => false"),
-            'triage_exposes_diagnostic_commands' => str_contains($source, 'diagnostic_commands'),
-            'triage_exposes_blocked_run_template' => str_contains($source, 'blocked_run_template'),
-        ];
-
-        return [
-            'covered' => ! in_array(false, $checks, true),
-            'required_files' => [$path],
-            'missing_files' => file_exists($absolutePath) ? [] : [$path],
-            'checks' => $checks,
-        ];
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
     private function rivalsInvalidBatteryQuarantineCovered(string $root): array
     {
         $fairPath = 'app/Console/Commands/AtlasEngineeringBenchmarkFairCommand.php';
@@ -1209,7 +1171,6 @@ class ProgrammingProfessionalCompletionAuditService
             'App\\Console\\Commands\\AtlasProgrammingRepairLoopBenchmarkCommand' => 'AtlasProgrammingRepairLoopBenchmarkCommand::class',
             'App\\Console\\Commands\\AtlasProgrammingResumeCommand' => 'AtlasProgrammingResumeCommand::class',
             'App\\Console\\Commands\\AtlasProgrammingRetrievalBenchmarkCommand' => 'AtlasProgrammingRetrievalBenchmarkCommand::class',
-            'App\\Console\\Commands\\AtlasProgrammingRivalsReadinessCommand' => 'AtlasProgrammingRivalsReadinessCommand::class',
             'App\\Console\\Commands\\AtlasProgrammingTestImpactBenchmarkCommand' => 'AtlasProgrammingTestImpactBenchmarkCommand::class',
         ];
         $checks = [];
@@ -1863,8 +1824,6 @@ class ProgrammingProfessionalCompletionAuditService
         $caseManifestAtlasIsForge = data_get($manifestPacket, 'case.atlas_arm.runtime') === 'forge';
         $forgeRuntimeVerified = data_get($preflightPacket, 'checks.forge_runtime.status') === 'passed'
             && data_get($preflightPacket, 'checks.forge_commands.status') === 'passed';
-        $preflightCommandAvailable = class_exists(\App\Console\Commands\AtlasProgrammingRivalsForgePreflightCommand::class);
-        $dryRunCommandAvailable = class_exists(\App\Console\Commands\AtlasProgrammingRivalsForgeDryRunCommand::class);
         $dryRunPassed = ($dryRunPacket['status'] ?? null) === 'dry_run_passed';
         $providerCallDuringDryRun = (bool) data_get($dryRunPacket, 'external_provider_call', true);
         $syntheticAllowed = (bool) data_get($dryRunPacket, 'synthetic_scores_allowed', true);
@@ -1885,12 +1844,6 @@ class ProgrammingProfessionalCompletionAuditService
         if (! $forgeRuntimeVerified) {
             $missingArtifacts[] = 'forge_runtime_not_verified';
         }
-        if (! $preflightCommandAvailable) {
-            $missingArtifacts[] = 'preflight_command_missing';
-        }
-        if (! $dryRunCommandAvailable) {
-            $missingArtifacts[] = 'dry_run_command_missing';
-        }
 
         $workspaceStatus = (string) data_get($preflightPacket, 'checks.workspace.status', 'unknown');
 
@@ -1910,8 +1863,6 @@ class ProgrammingProfessionalCompletionAuditService
             'atlas_side_forge_runtime_verified' => $forgeRuntimeVerified,
             'protocol_available' => $protocolAvailable,
             'protocol_doc_available' => $protocolDocPresent,
-            'preflight_command_available' => $preflightCommandAvailable,
-            'dry_run_command_available' => $dryRunCommandAvailable,
             'case_manifest_available' => $caseManifestAvailable,
             'case_manifest_atlas_arm_is_forge' => $caseManifestAtlasIsForge,
             'dry_run_passed' => $dryRunPassed,
@@ -1921,9 +1872,7 @@ class ProgrammingProfessionalCompletionAuditService
             'separated_from_external_rivals_certification' => true,
             'promotes_completion_claim' => false,
             'evidence' => [
-                'protocol_command' => 'php artisan atlas:programming:rivals-forge-preflight --json',
-                'preflight_command' => 'php artisan atlas:programming:rivals-forge-preflight --json --strict',
-                'dry_run_command' => 'php artisan atlas:programming:rivals-forge-dry-run --case=<id> --json --strict',
+                // Rivals 1.0 CLI wrappers removidos (Slice 6); preflight/dry-run rodam in-process via services.
                 'protocol_doc' => 'docs/engineering-knowledge-base/atlas-forge-native-rivals-protocol-v1.md',
             ],
             'preflight_summary' => [
@@ -4452,7 +4401,6 @@ class ProgrammingProfessionalCompletionAuditService
             && (int) ($rubric['score_weights_total'] ?? 0) === 100;
         $evaluationServiceAvailable = class_exists(AtlasRivalsOneShotEnterpriseEvaluationService::class)
             && ($fixtureEvaluation['schema_version'] ?? null) === AtlasRivalsOneShotEnterpriseEvaluationService::SCHEMA_VERSION;
-        $commandAvailable = class_exists(\App\Console\Commands\AtlasProgrammingRivalsOneShotEvaluateCommand::class);
         $localFixturePassed = ! in_array(
             $fixtureEvaluation['grade'] ?? AtlasRivalsOneShotEnterpriseEvaluationService::GRADE_INVALID,
             [AtlasRivalsOneShotEnterpriseEvaluationService::GRADE_INVALID],
@@ -4468,9 +4416,6 @@ class ProgrammingProfessionalCompletionAuditService
         }
         if (! $evaluationServiceAvailable) {
             $missingArtifacts[] = 'evaluation_service_missing';
-        }
-        if (! $commandAvailable) {
-            $missingArtifacts[] = 'command_missing';
         }
         if (! $docAvailable) {
             $missingArtifacts[] = 'doc_missing';
@@ -4490,7 +4435,6 @@ class ProgrammingProfessionalCompletionAuditService
             'status' => $status,
             'rubric_available' => $rubricAvailable,
             'evaluation_service_available' => $evaluationServiceAvailable,
-            'command_available' => $commandAvailable,
             'doc_available' => $docAvailable,
             'score_dimensions_count' => (int) ($rubric['score_dimensions_count'] ?? 0),
             'score_weights_total' => (int) ($rubric['score_weights_total'] ?? 0),
@@ -4553,9 +4497,6 @@ class ProgrammingProfessionalCompletionAuditService
 
         $packServiceAvailable = class_exists(AtlasRivalsEvidencePackService::class);
         $verifierServiceAvailable = class_exists(AtlasRivalsEvidencePackVerifierService::class);
-        $commandAvailable = class_exists(\App\Console\Commands\AtlasProgrammingRivalsEvidencePackCommand::class);
-        $integrationAvailable = class_exists(\App\Console\Commands\AtlasProgrammingRivalsOneShotEvaluateCommand::class)
-            && str_contains((string) file_get_contents(base_path('app/Console/Commands/AtlasProgrammingRivalsOneShotEvaluateCommand.php')), 'with-evidence-pack');
 
         $fixturePack = null;
         $fixtureVerification = null;
@@ -4593,12 +4534,6 @@ class ProgrammingProfessionalCompletionAuditService
         if (! $verifierServiceAvailable) {
             $missingArtifacts[] = 'verifier_service_missing';
         }
-        if (! $commandAvailable) {
-            $missingArtifacts[] = 'command_missing';
-        }
-        if (! $integrationAvailable) {
-            $missingArtifacts[] = 'one_shot_integration_missing';
-        }
         if (! $packSchemaCorrect) {
             $missingArtifacts[] = 'pack_schema_invalid';
         }
@@ -4617,10 +4552,8 @@ class ProgrammingProfessionalCompletionAuditService
             'status' => $status,
             'evidence_pack_service_available' => $packServiceAvailable,
             'verifier_service_available' => $verifierServiceAvailable,
-            'command_available' => $commandAvailable,
             'schema_available' => $packSchemaCorrect,
             'doc_available' => $docAvailable,
-            'integrates_with_one_shot_evaluation' => $integrationAvailable,
             'replay_manifest_hash_available' => $replayManifestHashAvailable,
             'patch_diff_supported' => true,
             'test_log_supported' => true,

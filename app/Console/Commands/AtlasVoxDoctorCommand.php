@@ -10,7 +10,6 @@ use App\Services\Ai\Vox\Gate\VoxV3CertificationPackService;
 use App\Services\Ai\Vox\Gate\VoxV3PromotionGateService;
 use App\Services\Ai\Vox\Metrics\VoxMetricsService;
 use App\Services\Ai\Vox\Readiness\VoxReadinessService;
-use App\Services\Ai\Vox\Rivals\VoxRivalsRunner;
 use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
@@ -58,7 +57,7 @@ final class AtlasVoxDoctorCommand extends Command
         {--strict : Treat warn as non-zero exit (for CI gates)}
         {--include-certification-pack : Include the full V3 certification pack body (default: summary + hash only)}';
 
-    protected $description = 'Aggregate every Vox read-only health surface (readiness, hardening, metrics, rivals, dogfood, gate, certification) into a single backend snapshot. Read-only.';
+    protected $description = 'Aggregate every Vox read-only health surface (readiness, hardening, metrics, dogfood, gate, certification) into a single backend snapshot. Read-only.';
 
     public function handle(
         VoxReadinessService $readiness,
@@ -66,7 +65,6 @@ final class AtlasVoxDoctorCommand extends Command
         VoxV3PromotionGateService $gate,
         VoxV3CertificationPackService $certPack,
         VoxMetricsService $metrics,
-        VoxRivalsRunner $rivals,
         VoxDogfoodService $dogfood,
     ): int {
         try {
@@ -112,30 +110,6 @@ final class AtlasVoxDoctorCommand extends Command
                         'observed' => (string) ($m['status'] ?? 'unknown'),
                         'summary' => (array) ($m['summary'] ?? []),
                         'hard_gates' => $hg,
-                    ];
-                }),
-                'rivals' => $this->collect('rivals', fn () => $rivals->report(), function (array $r): array {
-                    $total = (int) ($r['cases_total'] ?? 0);
-                    $storage = (string) ($r['storage_status'] ?? 'unknown');
-                    $setupNext = $r['setup_next_action'] ?? null;
-                    // Rivals having ZERO recorded cases is honest "ainda não
-                    // calibrado" — we surface as warn so the doctor flags
-                    // it (V3 promotion gate needs at least 1.2× multiplier).
-                    // `storage_status='setup_pending'` is a SEPARATE warn:
-                    // the table itself is missing; operator needs to migrate.
-                    $status = $total > 0 ? self::STATUS_PASS : self::STATUS_WARN;
-
-                    return [
-                        'status' => $status,
-                        'cases_total' => $total,
-                        'storage_status' => $storage,
-                        'setup_next_action' => is_string($setupNext) ? $setupNext : null,
-                        'vox_wins' => (int) ($r['vox_wins'] ?? 0),
-                        'baseline_wins' => (int) ($r['baseline_wins'] ?? 0),
-                        'ties' => (int) ($r['ties'] ?? 0),
-                        'action_regret_score' => (float) ($r['action_regret_score'] ?? 0),
-                        'rivals_voice_multiplier' => (float) ($r['rivals_voice_multiplier'] ?? 0),
-                        'recommendation' => (string) ($r['recommendation'] ?? ''),
                     ];
                 }),
                 'dogfood' => $this->collect('dogfood', fn () => $dogfood->report(), function (array $d): array {
@@ -354,12 +328,6 @@ final class AtlasVoxDoctorCommand extends Command
                 $status = self::STATUS_WARN;
             }
 
-            // Surface a clear setup_pending marker when rivals storage is
-            // missing — the doctor's `next_actions` will pick this up and
-            // surface "rode `php artisan migrate`" to the operator.
-            $rivalsStorage = (string) data_get($pack, 'rivals_report.storage_status', 'unknown');
-            $rivalsSetupNext = data_get($pack, 'rivals_report.setup_next_action');
-
             $section = [
                 'status' => $status,
                 'observed_gate_status' => $gateStatus,
@@ -368,8 +336,6 @@ final class AtlasVoxDoctorCommand extends Command
                 'vitor_review_required' => (bool) ($pack['vitor_review_required'] ?? true),
                 'safety_blockers' => $safetyBlockers,
                 'setup_only_blockers' => array_values(array_diff($blockers, $safetyBlockers)),
-                'rivals_storage_status' => $rivalsStorage,
-                'rivals_setup_next_action' => is_string($rivalsSetupNext) ? $rivalsSetupNext : null,
                 // The pack ITSELF is the canonical source of v4_unlock_allowed
                 // and is hard-coded to false. The doctor surfaces it as-is.
                 'v4_unlock_allowed' => (bool) ($pack['v4_unlock_allowed'] ?? false),
@@ -460,16 +426,6 @@ final class AtlasVoxDoctorCommand extends Command
             if (is_string($action) && $action !== '') {
                 $actions[] = $action;
             }
-        }
-        // Storage setup pending? Surface the migrate hint front-and-center
-        // so operators don't have to read the section bodies to find it.
-        $rivalsSetup = (string) data_get($sections, 'rivals.setup_next_action', '');
-        if ($rivalsSetup !== '') {
-            $actions[] = $rivalsSetup;
-        }
-        $certSetup = (string) data_get($sections, 'certification.rivals_setup_next_action', '');
-        if ($certSetup !== '' && $certSetup !== $rivalsSetup) {
-            $actions[] = $certSetup;
         }
         foreach ($sections as $name => $section) {
             $s = (string) ($section['status'] ?? '');
@@ -582,7 +538,6 @@ final class AtlasVoxDoctorCommand extends Command
             'readiness' => 'Prontidão (modelo, microfone, atalho)',
             'hardening' => 'Auditoria de segurança',
             'metrics' => 'Sinais de uso',
-            'rivals' => 'Comparativos (Vox vs alternativas)',
             'dogfood' => 'Uso real coletado',
             'gate_v3' => 'Estado do uso real',
             'certification' => 'Certificação V3',

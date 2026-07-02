@@ -85,7 +85,6 @@ technical_name: atlas-forge-rivals-battery-report-v2
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-battery-report-v2.md
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsBatteryReportService.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-battery-report-v2.md
 allowed_changes:
   - Adicionar seções additive ao envelope JSON (mantendo todos campos v1+v2 listados em decisions).
@@ -105,6 +104,9 @@ breaks_when:
   - TASK_CATEGORIES é renomeado sem atualizar legacy alias.
   - DIFFICULTY_LEVELS deixa de ser L1-L5.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Battery Report v2
 
 ## Resumo

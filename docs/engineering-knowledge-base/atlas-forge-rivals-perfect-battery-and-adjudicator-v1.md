@@ -53,10 +53,6 @@ technical_name: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
 cartography_type: runbook
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
 repo_paths:
-  - app/Console/Commands/AtlasForgeRivalsCommand.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunBatteryService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportService.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-perfect-battery-and-adjudicator-v1.md
 allowed_changes:
   - Adicionar aliases novos ao command com aliasing list explícita.
@@ -120,6 +116,9 @@ it builds on top of `atlas-forge-rivals-operator-battery-v2.md` and
 > certification, this doc) restates the separation explicitly.
 
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 ## Resumo
 
 Slice 7 do Forge Rivals: bateria única `atlas:forge:rivals run-battery` que orquestra todo o pipeline de comparação Atlas vs rival com adjudicator determinístico local e cert v1. Aliases consolidados (`battery`, `run-battery-real`, `score`, `adjudicator`). `external_rivals_certification` continua BLOCKED.

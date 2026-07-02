@@ -15,10 +15,10 @@ use InvalidArgumentException;
  *
  * Records online outcome of every provider call made via the gateway so ADML
  * can detect degradation of an active learned route and auto-deactivate it
- * BEFORE a costly run completes. Distinct from
- * AtlasForgeRivalsProviderPerformanceLedgerService which holds offline
- * benchmark battery results — that ledger is the cold-start signal source;
- * this one is the warm runtime signal.
+ * BEFORE a costly run completes. Distinct from the offline rivals performance
+ * ledger, which was retired with Rivals 1.0 (see
+ * docs/engineering-knowledge-base/atlas-rivals2-rebuild-map-v1.md) — that
+ * ledger was the cold-start signal source; this one is the warm runtime signal.
  *
  * Authority doc: docs/engineering-knowledge-base/atlas-decide-live-outcome-feedback.md
  *

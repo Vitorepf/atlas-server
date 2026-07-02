@@ -69,9 +69,6 @@ cartography_type: runbook
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-operator-battery-v2.md
 owner: programming_rivals
 repo_paths:
-  - app/Console/Commands/AtlasForgeRivalsCommand.php
-  - app/Services/Ai/Programming/ForgeRivals/
-  - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsOperatorBatteryCertification.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-operator-battery-v2.md
 allowed_changes:
   - additive flags on `atlas:forge:rivals` signature (never rename)
@@ -117,6 +114,9 @@ next_actions:
   - php artisan atlas:forge:rivals audit --json
   - php artisan atlas:programming:completion-audit --json
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Operator Battery v2
 
 > Single canonical operator surface for Atlas vs. external rivals (Claude Sonnet, Claude Opus, Codex).

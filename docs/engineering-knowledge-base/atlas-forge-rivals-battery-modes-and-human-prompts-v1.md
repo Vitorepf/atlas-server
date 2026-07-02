@@ -92,6 +92,9 @@ next_actions:
   - Implementar messy-real com hidden oracle e triage de ambiguidade.
   - Registrar resultados validos no Provider Performance Ledger por modo, categoria e dificuldade.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Battery Modes and Human Prompts v1
 
 ## Resumo

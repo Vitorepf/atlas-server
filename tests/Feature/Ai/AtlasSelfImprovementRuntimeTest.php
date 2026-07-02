@@ -8,8 +8,6 @@ use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\Kernel\Architecture\AtlasAiArchitectureValidationService;
 use App\Services\Ai\Kernel\Architecture\AtlasArchitectureOperationsCatalog;
-use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyCaseRegistrar;
-use App\Services\Ai\Kernel\Architecture\AtlasRivalsStrategyReviewRecorder;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -40,8 +38,6 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         Schema::dropIfExists('atlas_open_brain_access_logs');
         Schema::dropIfExists('atlas_initiative_runs');
         Schema::dropIfExists('atlas_ledger_events');
-        Schema::dropIfExists('atlas_strategy_rivals_reviews');
-        Schema::dropIfExists('atlas_strategy_rivals_cases');
         Schema::dropIfExists('ai_attachment_index_entries');
         Schema::dropIfExists('semantic_notes');
         Schema::dropIfExists('productive_failure_sessions');
@@ -807,119 +803,6 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertSame(['codex_cli' => 1], data_get($finding, 'metadata.dimensions.provider'));
         $this->assertSame('env_slo_breach', data_get($finding, 'source_refs.0.envelope_id'));
         $this->assertSame('atlas_cli_dev', data_get($finding, 'source_refs.0.dimensions.surface_id'));
-    }
-
-    public function test_self_improvement_detects_rivals_strategy_cases_without_scores(): void
-    {
-        app(AtlasRivalsStrategyCaseRegistrar::class)->register([
-            'title' => 'Escolher direcao do Atlas',
-            'baseline_choice' => 'Decisao direta',
-            'atlas_assisted_choice' => 'Revisao estrategica plan-only',
-        ]);
-
-        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
-            flow: 'domain_learning_review',
-            emit: false,
-            hours: 24,
-            limit: 20,
-        );
-
-        $finding = collect($result['findings'])->firstWhere(
-            'dedupe_key',
-            'self-improvement:rivals-strategy:'.sha1('due-reviews:1'),
-        );
-
-        $this->assertIsArray($finding);
-        $this->assertSame('Registrar revisitas pendentes do Rivals Strategy', $finding['title']);
-        $this->assertSame('atlas.self_improvement.rivals_strategy.v1', data_get($finding, 'metadata.schema_version'));
-        $this->assertSame('record_due_rivals_strategy_reviews', data_get($finding, 'metadata.review_signal.recommended_action'));
-        $this->assertSame(1, data_get($finding, 'metadata.case_count'));
-        $this->assertSame(0, data_get($finding, 'metadata.scored_review_count'));
-        $this->assertSame(1, data_get($finding, 'metadata.due_review_count'));
-        $this->assertSame('rivals_strategy_due_review', data_get($finding, 'source_refs.0.type'));
-        $this->assertStringContainsString('record-review', data_get($finding, 'source_refs.0.record_command'));
-        $this->assertSame('record_rivals_review', data_get($finding, 'available_actions.0.id'));
-        $this->assertSame(1, data_get($finding, 'payload.rivals_strategy.due_review_count'));
-        $this->assertStringContainsString('record-review', data_get($finding, 'payload.due_reviews.0.record_command'));
-    }
-
-    public function test_self_improvement_emits_rivals_due_review_payload_to_inbox(): void
-    {
-        app(AtlasRivalsStrategyCaseRegistrar::class)->register([
-            'title' => 'Escolher direcao do Atlas',
-            'baseline_choice' => 'Decisao direta',
-            'atlas_assisted_choice' => 'Revisao estrategica plan-only',
-        ]);
-
-        $inboxItem = new AiInboxItem;
-        $inboxItem->id = '00000000-0000-0000-0000-000000000321';
-        $capturedPayload = null;
-
-        $this->mock(ProposalInboxEmitter::class, function ($mock) use ($inboxItem, &$capturedPayload): void {
-            $mock->shouldReceive('emit')
-                ->andReturnUsing(function (array $payload) use ($inboxItem, &$capturedPayload): AiInboxItem {
-                    if (($payload['dedupe_key'] ?? null) === 'self-improvement:rivals-strategy:'.sha1('due-reviews:1')) {
-                        $capturedPayload = $payload;
-                    }
-
-                    return $inboxItem;
-                });
-        });
-
-        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
-            flow: 'domain_learning_review',
-            emit: true,
-            hours: 24,
-            limit: 20,
-        );
-
-        $learningEvent = AtlasLedgerEvent::query()
-            ->where('envelope_id', 'self_improvement_run:'.$result['run_id'])
-            ->where('event_type', LedgerEventType::LearningProposed->value)
-            ->get()
-            ->first(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'finding.dedupe_key') === 'self-improvement:rivals-strategy:'.sha1('due-reviews:1'));
-
-        $this->assertIsArray($capturedPayload);
-        $this->assertSame('record_rivals_review', data_get($capturedPayload, 'available_actions.0.id'));
-        $this->assertSame(1, data_get($capturedPayload, 'payload.rivals_strategy.due_review_count'));
-        $this->assertStringContainsString('record-review', data_get($capturedPayload, 'payload.due_reviews.0.record_command'));
-        $this->assertTrue((bool) data_get($learningEvent?->payload, 'emitted_to_inbox'));
-        $this->assertSame($inboxItem->id, data_get($learningEvent?->payload, 'emitted_inbox_item_id'));
-    }
-
-    public function test_self_improvement_blocks_p4_when_rivals_agency_score_is_low(): void
-    {
-        $registration = app(AtlasRivalsStrategyCaseRegistrar::class)->register([
-            'title' => 'Escolher direcao do Atlas',
-            'baseline_choice' => 'Decisao direta',
-            'atlas_assisted_choice' => 'Revisao estrategica plan-only',
-        ]);
-        app(AtlasRivalsStrategyReviewRecorder::class)->record([
-            'case_id' => $registration['case_id'],
-            'horizon_days' => 30,
-            'regret_score' => 8,
-            'alignment_score' => 90,
-            'agency_score' => 55,
-            'outcome_summary' => 'Resultado bom, mas o operador sentiu baixa agencia.',
-        ]);
-
-        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
-            flow: 'domain_learning_review',
-            emit: false,
-            hours: 24,
-            limit: 20,
-        );
-
-        $finding = collect($result['findings'])->firstWhere(
-            'dedupe_key',
-            'self-improvement:rivals-strategy:'.sha1('agency-low:55'),
-        );
-
-        $this->assertIsArray($finding);
-        $this->assertSame('Bloquear claims P4 por agency score baixo', $finding['title']);
-        $this->assertSame(55.0, data_get($finding, 'metadata.average_agency_score'));
-        $this->assertSame('high', data_get($finding, 'metadata.review_signal.severity'));
-        $this->assertSame('pause_p4_claims_and_review_operator_agency', data_get($finding, 'metadata.review_signal.recommended_action'));
     }
 
     public function test_self_improvement_detects_repair_loop_patterns_from_replay_service(): void
@@ -1781,7 +1664,6 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertContains('php artisan atlas:ai:voice worker-start-check --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:voice runtime-certify --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:voice readiness --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('php artisan atlas:ai:voice rivals --hours=24 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('PYTHONPATH=runtimes/python/voice_realtime python3 -m unittest discover -s runtimes/python/voice_realtime/tests', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertSame('/ai/provider-release-review', data_get($finding, 'metadata.expected_api_endpoints.provider_release_review'));
@@ -1796,9 +1678,6 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --missing --hours=168 --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:telemetry:cost-rates --provider=<provider> --model=<model> --input-microusd=<input> --output-microusd=<output> --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:qualitative-levels --hours=720 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('php artisan atlas:ai:rivals-strategy report --hours=8760 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('php artisan atlas:ai:rivals-strategy due-reviews --due-days=30 --json', data_get($finding, 'metadata.missing_commands'));
-        $this->assertContains('php artisan atlas:ai:rivals-strategy record-review --review-id=<id> --regret=<0-100> --alignment=<0-100> --agency=<0-100> --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:strategic-decision review --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:ledger <id> --json', data_get($finding, 'metadata.missing_commands'));
         $this->assertContains('php artisan atlas:ai:ledger-project --limit=500 --json', data_get($finding, 'metadata.missing_commands'));
@@ -1847,92 +1726,6 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
         $this->assertNull(data_get($finding, 'metadata.missing_mobile_endpoints.voice_realtime_runtime_certification.actual'));
         $this->assertSame('high', data_get($finding, 'metadata.review_signal.severity'));
         $this->assertSame('missing_architecture_operation_endpoint', data_get($finding, 'source_refs.0.type'));
-    }
-
-    public function test_self_improvement_detects_voice_realtime_maturity_gate_gaps(): void
-    {
-        app(AtlasEvidenceLedger::class)->recordVoiceEvent(LedgerEventType::VoiceSessionStarted, [
-            'session_id' => 'voice_session_self_improvement_gap',
-            'envelope_id' => 'env_voice_self_improvement_gap',
-            'receipt_id' => 'receipt_voice_self_improvement_gap',
-            'runtime' => 'livekit_agents_sdk',
-            'rivals_arm' => 'atlas_voice',
-        ], [
-            'tenant_id' => 'default',
-            'operator_id' => 'voice_operator',
-            'envelope_id' => 'env_voice_self_improvement_gap',
-            'receipt_id' => 'receipt_voice_self_improvement_gap',
-            'correlation_id' => 'voice_session_self_improvement_gap',
-        ]);
-
-        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
-            flow: 'weekly_architecture_audit',
-            emit: false,
-            hours: 24,
-            limit: 10,
-            filters: ['surface_id' => 'voice_realtime'],
-        );
-
-        $finding = collect($result['findings'])->firstWhere(
-            'title',
-            'Fechar gates de maturidade do Atlas Voice'
-        );
-
-        $this->assertSame('self_improvement.weekly_architecture_audit', $result['flow']);
-        $this->assertIsArray($finding);
-        $this->assertSame('atlas.self_improvement.voice_realtime.v1', data_get($finding, 'metadata.schema_version'));
-        $this->assertSame('not_ready', data_get($finding, 'metadata.report_status'));
-        $this->assertSame('attention', data_get($finding, 'metadata.readiness.status'));
-        $this->assertSame('certified_scaffold', data_get($finding, 'metadata.runtime_certification.status'));
-        $this->assertSame('blocked', data_get($finding, 'metadata.production_promotion_gate.status'));
-        $this->assertTrue(data_get($finding, 'metadata.production_promotion_gate.human_review_required'));
-        $this->assertFalse(data_get($finding, 'metadata.production_promotion_gate.promotion_allowed'));
-        $this->assertFalse(data_get($finding, 'metadata.production_promotion_gate.auto_promotion_allowed'));
-        $this->assertTrue(data_get($finding, 'metadata.production_promotion_gate.decision_receipt_required'));
-        $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($finding, 'metadata.review_packet.schema_version'));
-        $this->assertSame('approve_or_reject_voice_production_promotion', data_get($finding, 'metadata.review_packet.required_human_decision'));
-        $this->assertTrue(data_get($finding, 'metadata.review_packet.required_decision_receipt'));
-        $this->assertContains('return_voice_runtime_to_scaffold_mode', data_get($finding, 'metadata.review_packet.required_rollback_plan'));
-        $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($finding, 'source_refs.0.review_packet_schema_version'));
-        $this->assertContains(LedgerEventType::VoiceTurnDecided->value, data_get($finding, 'metadata.missing_events'));
-        $this->assertSame('complete_voice_readiness_before_rivals_voice', data_get($finding, 'metadata.review_signal.recommended_action'));
-        $this->assertSame('voice_rivals_report', data_get($finding, 'source_refs.0.type'));
-    }
-
-    public function test_self_improvement_has_dedicated_voice_realtime_review_flow(): void
-    {
-        app(AtlasEvidenceLedger::class)->recordVoiceEvent(LedgerEventType::VoiceSessionStarted, [
-            'session_id' => 'voice_session_dedicated_review_gap',
-            'envelope_id' => 'env_voice_dedicated_review_gap',
-            'receipt_id' => 'receipt_voice_dedicated_review_gap',
-            'runtime' => 'livekit_agents_sdk',
-            'rivals_arm' => 'atlas_voice',
-        ], [
-            'tenant_id' => 'default',
-            'operator_id' => 'voice_operator',
-            'envelope_id' => 'env_voice_dedicated_review_gap',
-            'receipt_id' => 'receipt_voice_dedicated_review_gap',
-            'correlation_id' => 'voice_session_dedicated_review_gap',
-        ]);
-
-        $result = app(AtlasSelfImprovementRuntime::class)->nightlyReview(
-            flow: 'self_improvement.voice_realtime_review',
-            emit: false,
-            hours: 24,
-            limit: 10,
-        );
-
-        $finding = collect($result['findings'])->firstWhere(
-            'title',
-            'Fechar gates de maturidade do Atlas Voice'
-        );
-
-        $this->assertSame('self_improvement.voice_realtime_review', $result['flow']);
-        $this->assertIsArray($finding);
-        $this->assertSame('atlas.self_improvement.voice_realtime.v1', data_get($finding, 'metadata.schema_version'));
-        $this->assertSame('not_ready', data_get($finding, 'metadata.report_status'));
-        $this->assertSame('atlas.voice_realtime.production_promotion_review_packet.v1', data_get($finding, 'metadata.review_packet.schema_version'));
-        $this->assertSame('complete_voice_readiness_before_rivals_voice', data_get($finding, 'metadata.review_signal.recommended_action'));
     }
 
     public function test_self_improvement_detects_schedule_replay_drift(): void
@@ -2954,7 +2747,6 @@ class AtlasSelfImprovementRuntimeTest extends TestCase
             $table->timestamps();
         });
 
-        (require database_path('migrations/2026_05_06_120000_create_atlas_strategy_rivals_tables.php'))->up();
     }
 
     private function createLocalRagTables(): void

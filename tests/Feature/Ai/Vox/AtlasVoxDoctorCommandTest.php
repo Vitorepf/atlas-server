@@ -23,10 +23,8 @@ final class AtlasVoxDoctorCommandTest extends TestCase
     {
         parent::setUp();
         Schema::dropIfExists('atlas_ledger_events');
-        Schema::dropIfExists('atlas_vox_rivals_cases');
         Schema::dropIfExists('atlas_vox_dogfood_sessions');
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_20_010000_create_atlas_vox_rivals_cases_table.php'))->up();
         if (file_exists(database_path('migrations/2026_05_20_020000_create_atlas_vox_dogfood_sessions_table.php'))) {
             (require database_path('migrations/2026_05_20_020000_create_atlas_vox_dogfood_sessions_table.php'))->up();
         }
@@ -35,7 +33,6 @@ final class AtlasVoxDoctorCommandTest extends TestCase
     protected function tearDown(): void
     {
         Schema::dropIfExists('atlas_vox_dogfood_sessions');
-        Schema::dropIfExists('atlas_vox_rivals_cases');
         Schema::dropIfExists('atlas_ledger_events');
         parent::tearDown();
     }
@@ -63,7 +60,7 @@ final class AtlasVoxDoctorCommandTest extends TestCase
         $this->assertFalse($snapshot['v4_unlock_allowed']);
 
         foreach (
-            ['health', 'readiness', 'hardening', 'metrics', 'rivals', 'dogfood', 'gate_v3', 'certification']
+            ['health', 'readiness', 'hardening', 'metrics', 'dogfood', 'gate_v3', 'certification']
             as $section
         ) {
             $this->assertArrayHasKey($section, $snapshot['sections'], "missing section: {$section}");
@@ -166,41 +163,6 @@ final class AtlasVoxDoctorCommandTest extends TestCase
         $this->assertFalse($guarantees['destructive_auto_execute']);
         $this->assertFalse($guarantees['raw_audio_accepted']);
         $this->assertFalse($guarantees['voice_realtime_touched']);
-    }
-
-    public function test_doctor_tolerates_missing_rivals_table_with_setup_pending_warn(): void
-    {
-        // Drop the rivals table to simulate a freshly-cloned repo that has
-        // never run `php artisan migrate`. The doctor must NOT throw a
-        // QueryException — rivals/certification surface `setup_pending`
-        // with the migrate next-action, and the overall status stays warn
-        // (not fail) because the missing table is not a safety violation.
-        Schema::dropIfExists('atlas_vox_rivals_cases');
-
-        $snapshot = $this->runDoctorJson();
-
-        $this->assertNotSame('fail', $snapshot['status'], 'missing table must NOT escalate to overall fail');
-
-        $rivals = $snapshot['sections']['rivals'];
-        $this->assertSame('warn', $rivals['status']);
-        $this->assertSame('setup_pending', $rivals['storage_status']);
-        $this->assertIsString($rivals['setup_next_action']);
-        $this->assertStringContainsString('php artisan migrate', $rivals['setup_next_action']);
-
-        $cert = $snapshot['sections']['certification'];
-        $this->assertNotSame('fail', $cert['status'], 'cert without safety violations is warn, not fail');
-        $this->assertSame('setup_pending', $cert['rivals_storage_status']);
-        $this->assertIsString($cert['rivals_setup_next_action']);
-
-        // Top-level next_actions must surface the migrate hint front-and-center.
-        $found = false;
-        foreach ($snapshot['next_actions'] as $action) {
-            if (str_contains((string) $action, 'php artisan migrate')) {
-                $found = true;
-                break;
-            }
-        }
-        $this->assertTrue($found, 'next_actions must surface the migrate hint when rivals table is missing');
     }
 
     public function test_gate_v3_blocked_by_setup_only_blockers_is_warn_not_fail(): void

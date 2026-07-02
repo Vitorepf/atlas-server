@@ -217,7 +217,6 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertContains('ap141_ledger_projection_registry_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap142_ledger_projection_inbox_action', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap143_ledger_projection_curator_action_emission', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
-        $this->assertContains('ap144_rivals_review_inbox_action_contract', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap148_agent_behavior_identity_fragment', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap149_agent_behavior_execution_plan', data_get($payload, 'kernel.static_scan.summary.valid_keys'));
         $this->assertContains('ap150_agent_behavior_quality_gate', data_get($payload, 'kernel.static_scan.summary.valid_keys'));

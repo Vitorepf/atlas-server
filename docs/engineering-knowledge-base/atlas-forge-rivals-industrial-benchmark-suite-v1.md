@@ -55,9 +55,7 @@ technical_name: atlas-forge-rivals-industrial-benchmark-suite-v1
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-industrial-benchmark-suite-v1.md
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsIndustrialBenchmarkSuiteService.php
-  - app/Services/Ai/Programming/ForgeRivals/Corpus/AtlasForgeRivalsProviderArenaCorpusService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
+  - app/Services/Ai/Rivals2/
 allowed_changes:
   - Adicionar presets industriais com corpus validado, tests e claim gates fail-closed.
   - Evoluir executor industrial preservando evidence pack, replay, matrix lock e advisory-only.
@@ -93,6 +91,9 @@ next_actions:
   - Manter `run-arena --case-set=<preset industrial>` como caminho operacional principal ate a migracao total do preflight legado.
 updated_at: 2026-05-17
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals Industrial Benchmark Suite v1
 
 ## Resumo

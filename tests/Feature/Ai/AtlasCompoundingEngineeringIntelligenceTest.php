@@ -2,9 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Models\AiRunOutcome;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
-use App\Services\Ai\Router\AtlasAiHyperflowRivalsBatteryService;
 use App\Services\Ai\Router\AtlasAiRouterDecision;
 use App\Services\Ai\Router\AtlasAiRouterService;
 use App\Services\Ai\Router\AtlasAiSpecialistFlowExecutionService;
@@ -124,20 +122,6 @@ class AtlasCompoundingEngineeringIntelligenceTest extends TestCase
         $this->assertContains('evidence_refs', data_get($withExecution, 'payload.specialist_flow_execution.learning_signal_contract.required_fields'));
     }
 
-    public function test_hyperflow_run_persists_compounding_outcome_receipt_when_runtime_tables_exist(): void
-    {
-        $this->bootBenchmarkSchema();
-
-        $service = app(AtlasAiHyperflowRivalsBatteryService::class);
-        $prepare = $service->prepare();
-        $run = $service->runAndPersist(['triggered_by' => 'compounding_feature_test']);
-
-        $this->assertSame('prepared', $prepare['status']);
-        $this->assertSame('recorded', data_get($run, 'compounding_outcome.status'));
-        $this->assertTrue(data_get($run, 'compounding_outcome.writes'));
-        $this->assertTrue(AiRunOutcome::query()->where('run_id', 'like', 'hyperflow:%')->exists());
-    }
-
     /**
      * @return array<string,mixed>
      */
@@ -192,12 +176,6 @@ class AtlasCompoundingEngineeringIntelligenceTest extends TestCase
         ] as $table) {
             Schema::dropIfExists($table);
         }
-    }
-
-    private function bootBenchmarkSchema(): void
-    {
-        $this->dropBenchmarkSchema();
-        (require database_path('migrations/2026_05_17_154000_repair_missing_atlas_engineering_benchmark_tables.php'))->up();
     }
 
     private function dropBenchmarkSchema(): void

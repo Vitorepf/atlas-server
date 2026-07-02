@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AtlasDecide;
 
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsDecideSignalProjectionService;
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderPerformanceLedgerService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -15,9 +13,15 @@ use InvalidArgumentException;
 /**
  * Atlas Decide · Meta-Learning Loop Closure.
  *
- * Turns the advisory output of AtlasForgeRivalsDecideSignalProjectionService
- * into an authoritative (but operator-gated) routing recommendation that
- * Atlas Decide can consume per (task_category, role, framework) tuple.
+ * Turns the rivals-fed advisory signal into an authoritative (but
+ * operator-gated) routing recommendation that Atlas Decide can consume per
+ * (task_category, role, framework) tuple.
+ *
+ * Rivals 1.0 (ForgeRivals) was retired — see
+ * docs/engineering-knowledge-base/atlas-rivals2-rebuild-map-v1.md. Until the
+ * Rivals 2.0 ledger feeds this service again, the offline signal is honestly
+ * `insufficient_evidence` (fail-closed): no recommendation becomes actionable
+ * from the retired ledger.
  *
  * Authority doc:
  *   docs/engineering-knowledge-base/atlas-decide-meta-learning-loop-closure.md
@@ -65,6 +69,22 @@ class AtlasDecideMetaLearningService
 
     public const AUTO_DEACTIVATION_SCHEMA = 'atlas.atlas_decide.auto_deactivation_sweep.v1';
 
+    // Inlined from the retired Rivals 1.0 signal projection / performance ledger
+    // (values preserved verbatim). Religa quando o ledger 2.0 alimentar.
+    public const SIGNAL_INSUFFICIENT = 'insufficient_evidence';
+
+    public const SIGNAL_OK = 'ok';
+
+    public const SIGNAL_HUMAN_REVIEW = 'human_review_required';
+
+    public const CONFIDENCE_INSUFFICIENT = 'insufficient_evidence';
+
+    public const CONFIDENCE_MEDIUM = 'medium';
+
+    public const CONFIDENCE_HIGH = 'high';
+
+    public const STALE_AGE_DAYS = 14;
+
     private ?string $activationLogPathOverride = null;
 
     private ?AtlasDecideLiveOutcomeFeedbackService $liveFeedback = null;
@@ -73,10 +93,7 @@ class AtlasDecideMetaLearningService
 
     private ?AtlasDecideProviderKeyResolver $providerKeyResolverInstance = null;
 
-    public function __construct(
-        private readonly AtlasForgeRivalsDecideSignalProjectionService $signalProjection,
-        private readonly AtlasForgeRivalsProviderPerformanceLedgerService $ledger,
-    ) {}
+    public function __construct() {}
 
     /**
      * Opt-in seam wired by AppServiceProvider: when set, ADML can consult
@@ -121,11 +138,14 @@ class AtlasDecideMetaLearningService
             $framework = null;
         }
 
-        $signal = $this->signalProjection->project([
-            'task_category' => $taskCategory,
-            'role' => $role,
-            'framework' => $framework ?? '',
-        ]);
+        // Rivals 1.0 ledger retired: the offline signal is honestly insufficient
+        // until the Rivals 2.0 ledger feeds this service (fail-closed).
+        $signal = [
+            'signal' => self::SIGNAL_INSUFFICIENT,
+            'evidence_count' => 0,
+            'confidence' => self::CONFIDENCE_INSUFFICIENT,
+            'reason' => ['rivals_ledger_retired'],
+        ];
 
         return $this->recommendationFromSignal($signal, $taskCategory, $role, $framework);
     }
@@ -138,7 +158,8 @@ class AtlasDecideMetaLearningService
      */
     public function recommendAll(): array
     {
-        $entries = $this->ledger->loadEntries();
+        // Rivals 1.0 ledger retired: no offline entries until the 2.0 ledger feeds in.
+        $entries = [];
         $seen = [];
         $out = [];
         foreach ($entries as $e) {
@@ -177,7 +198,14 @@ class AtlasDecideMetaLearningService
      */
     public function rivalsAdvisoryMap(array $filters = []): array
     {
-        $map = $this->signalProjection->map($filters);
+        // Rivals 1.0 ledger retired: honest empty map (zero segments, insufficient signal).
+        $map = [
+            'schema_version' => null,
+            'signal' => self::SIGNAL_INSUFFICIENT,
+            'filters' => $filters,
+            'segments' => [],
+            'statistical_repeat_readiness' => null,
+        ];
         $segments = [];
 
         foreach ((array) ($map['segments'] ?? []) as $segment) {
@@ -196,7 +224,7 @@ class AtlasDecideMetaLearningService
                 'average_score' => $segment['top_average_score'] ?? null,
                 'median_score' => $segment['top_median_score'] ?? null,
                 'evidence_count' => (int) ($segment['top_valid_count'] ?? 0),
-                'confidence' => $segment['top_confidence'] ?? AtlasForgeRivalsProviderPerformanceLedgerService::CONFIDENCE_INSUFFICIENT,
+                'confidence' => $segment['top_confidence'] ?? self::CONFIDENCE_INSUFFICIENT,
                 'decision_readiness' => $segment['decision_readiness'] ?? 'insufficient_evidence',
                 'advantage_band' => $segment['advantage_band'] ?? 'unknown',
                 'score_stability' => $segment['top_score_stability'] ?? null,
@@ -222,7 +250,7 @@ class AtlasDecideMetaLearningService
             'schema_version' => self::ADVISORY_MAP_SCHEMA,
             'generated_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
             'source_schema_version' => $map['schema_version'] ?? null,
-            'source_signal' => $map['signal'] ?? AtlasForgeRivalsDecideSignalProjectionService::SIGNAL_INSUFFICIENT,
+            'source_signal' => $map['signal'] ?? self::SIGNAL_INSUFFICIENT,
             'filters' => $map['filters'] ?? [],
             'segment_count' => count($segments),
             'segments' => $segments,
@@ -620,27 +648,27 @@ class AtlasDecideMetaLearningService
      */
     private function recommendationFromSignal(array $signal, string $taskCategory, string $role, ?string $framework): array
     {
-        $sig = (string) ($signal['signal'] ?? AtlasForgeRivalsDecideSignalProjectionService::SIGNAL_INSUFFICIENT);
+        $sig = (string) ($signal['signal'] ?? self::SIGNAL_INSUFFICIENT);
         $evidenceCount = (int) ($signal['evidence_count'] ?? 0);
-        $confidence = (string) ($signal['confidence'] ?? AtlasForgeRivalsProviderPerformanceLedgerService::CONFIDENCE_INSUFFICIENT);
+        $confidence = (string) ($signal['confidence'] ?? self::CONFIDENCE_INSUFFICIENT);
         $delta = (float) ($signal['top_vs_runner_up_score_gap'] ?? $signal['top_gap_vs_runner_up'] ?? 0.0);
         $latestAgeDays = $this->extractLatestAgeDays($signal);
-        $stale = $latestAgeDays !== null && $latestAgeDays > AtlasForgeRivalsProviderPerformanceLedgerService::STALE_AGE_DAYS;
-        $requiresHumanReview = $sig === AtlasForgeRivalsDecideSignalProjectionService::SIGNAL_HUMAN_REVIEW
+        $stale = $latestAgeDays !== null && $latestAgeDays > self::STALE_AGE_DAYS;
+        $requiresHumanReview = $sig === self::SIGNAL_HUMAN_REVIEW
             || (bool) ($signal['should_require_human_review'] ?? false);
         $costOutcome = $this->costOutcomeRoute($taskCategory, $role, $framework);
 
         $actionableConfidence = in_array(
             $confidence,
             [
-                AtlasForgeRivalsProviderPerformanceLedgerService::CONFIDENCE_HIGH,
-                AtlasForgeRivalsProviderPerformanceLedgerService::CONFIDENCE_MEDIUM,
+                self::CONFIDENCE_HIGH,
+                self::CONFIDENCE_MEDIUM,
             ],
             true
         );
 
         $reason = [];
-        if ($sig === AtlasForgeRivalsDecideSignalProjectionService::SIGNAL_INSUFFICIENT) {
+        if ($sig === self::SIGNAL_INSUFFICIENT) {
             $reason[] = 'insufficient_evidence';
         }
         if ($requiresHumanReview) {
@@ -665,7 +693,7 @@ class AtlasDecideMetaLearningService
         $actionable = $actionableConfidence
             && ! $requiresHumanReview
             && ! $stale
-            && $sig === AtlasForgeRivalsDecideSignalProjectionService::SIGNAL_OK
+            && $sig === self::SIGNAL_OK
             && ($delta === 0.0 || $delta >= self::CLOSE_RACE_DELTA);
 
         $routingBasis = self::ROUTING_BASIS_SCORE;
@@ -917,7 +945,6 @@ class AtlasDecideMetaLearningService
     private function costOutcomeRouter(): AtlasDecideCostOutcomeRouter
     {
         return $this->costOutcomeRouterInstance ??= new AtlasDecideCostOutcomeRouter(
-            $this->ledger,
             $this->liveFeedback,
             fn (mixed $provider): ?string => $this->canonicalProviderKey($provider),
             fn (?string $provider, mixed $model): ?string => $this->canonicalModelForProvider($provider, $model),

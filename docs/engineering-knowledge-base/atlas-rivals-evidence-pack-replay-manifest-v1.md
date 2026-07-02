@@ -115,6 +115,9 @@ next_actions:
   - Rodar `atlas:programming:rivals-evidence-pack --run-tests --run-quality --json --strict` quando quiser evidencia executada.
   - Encadear `atlas:programming:rivals-one-shot-evaluate --with-evidence-pack` para alimentar a rubrica.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Rivals Evidence Pack & Replay Manifest v1
 
 ## Resumo

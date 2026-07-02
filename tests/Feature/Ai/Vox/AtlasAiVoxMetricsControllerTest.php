@@ -16,16 +16,14 @@ use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
- * Wave 7 feature tests — covers the 9 required scenarios in the prompt:
+ * Wave 7 feature tests:
  *   1. metrics endpoint returns schema + safety hard gates
- *   2. rivals case POST validates payload and registers
- *   3. rivals report calculates wins / prompt_quality_delta
- *   4. gate-v3 blocked when no sessions yet
- *   5. gate-v3 blocks if raw_audio_persisted_count > 0
- *   6. gate-v3 blocks if confirmation_bypass_count > 0
- *   7. gate-v3 blocks if destructive_action_without_receipt > 0
- *   8. gate-v3 always demands manual Vitor approval
- *   9. endpoints do not touch Services/Ai/Voice (smoke)
+ *   2. gate-v3 blocked when no sessions yet
+ *   3. gate-v3 blocks if raw_audio_persisted_count > 0
+ *   4. gate-v3 blocks if confirmation_bypass_count > 0
+ *   5. gate-v3 blocks if destructive_action_without_receipt > 0
+ *   6. gate-v3 always demands manual Vitor approval
+ *   7. endpoints do not touch Services/Ai/Voice (smoke)
  */
 final class AtlasAiVoxMetricsControllerTest extends TestCase
 {
@@ -39,14 +37,11 @@ final class AtlasAiVoxMetricsControllerTest extends TestCase
         // exists. We materialize it explicitly here for the tests that
         // rely on events; tests that need an empty world drop it again.
         Schema::dropIfExists('atlas_ledger_events');
-        Schema::dropIfExists('atlas_vox_rivals_cases');
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_20_010000_create_atlas_vox_rivals_cases_table.php'))->up();
     }
 
     protected function tearDown(): void
     {
-        Schema::dropIfExists('atlas_vox_rivals_cases');
         Schema::dropIfExists('atlas_ledger_events');
         parent::tearDown();
     }
@@ -86,84 +81,6 @@ final class AtlasAiVoxMetricsControllerTest extends TestCase
             ->assertJsonPath('modes.prompt_polish', 2)
             ->assertJsonPath('modes.intent_compile', 1)
             ->assertJsonPath('modes.governed_execute', 0);
-    }
-
-    public function test_rivals_case_post_validates_required_fields(): void
-    {
-        $this->postJson('/ai/vox/rivals/case', [
-            'kind' => 'invalid_kind',
-            'mode' => 'dictation',
-            'baseline_label' => 'wispr',
-            'preference' => 'vox',
-        ], $this->headers)
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['kind']);
-    }
-
-    public function test_rivals_case_post_rejects_raw_audio_fields(): void
-    {
-        $this->postJson('/ai/vox/rivals/case', [
-            'kind' => 'provider_direct',
-            'mode' => 'intent_compile',
-            'baseline_label' => 'manual',
-            'preference' => 'vox',
-            'audio_bytes' => 'AAAA',
-        ], $this->headers)
-            ->assertStatus(422)
-            ->assertJsonValidationErrors(['audio_bytes']);
-    }
-
-    public function test_rivals_case_post_registers_durably_and_emits_event(): void
-    {
-        $response = $this->postJson('/ai/vox/rivals/case', [
-            'kind' => 'provider_direct',
-            'mode' => 'intent_compile',
-            'vox_session_id' => 'sess-1',
-            'vox_intent_id' => 'int-1',
-            'baseline_label' => 'prompt manual codex',
-            'baseline_duration_ms' => 120000,
-            'vox_duration_ms' => 70000,
-            'baseline_score' => 3,
-            'vox_score' => 5,
-            'preference' => 'vox',
-            'prompt_quality_vote' => 1,
-            'regret_flag' => false,
-            'notes' => 'Vox cortou tempo pela metade',
-        ], $this->headers);
-
-        $response->assertStatus(201)
-            ->assertJsonPath('schema', 'atlas.vox.rivals_case_recorded.v1')
-            ->assertJsonPath('case.kind', 'provider_direct')
-            ->assertJsonPath('case.mode', 'intent_compile')
-            ->assertJsonPath('case.preference', 'vox')
-            ->assertJsonPath('case.prompt_quality_vote', 1)
-            ->assertJsonPath('case.regret_flag', false)
-            ->assertJsonPath('events.0.event_kind', 'VOX_RIVALS_CASE_RECORDED');
-
-        $this->assertDatabaseCount('atlas_vox_rivals_cases', 1);
-        $this->assertDatabaseHas('atlas_ledger_events', [
-            'event_type' => LedgerEventType::VoxRivalsCaseRecorded->value,
-        ]);
-    }
-
-    public function test_rivals_report_aggregates_wins_quality_delta_and_multiplier(): void
-    {
-        $this->seedRivalsCase(['preference' => 'vox', 'prompt_quality_vote' => 1, 'baseline_duration_ms' => 100, 'vox_duration_ms' => 50]);
-        $this->seedRivalsCase(['preference' => 'vox', 'prompt_quality_vote' => 1, 'baseline_duration_ms' => 200, 'vox_duration_ms' => 100]);
-        $this->seedRivalsCase(['preference' => 'baseline', 'prompt_quality_vote' => -1]);
-        $this->seedRivalsCase(['preference' => 'tie', 'prompt_quality_vote' => 0, 'regret_flag' => true]);
-
-        $this->getJson('/ai/vox/rivals/report', $this->headers)
-            ->assertOk()
-            ->assertJsonPath('report.cases_total', 4)
-            ->assertJsonPath('report.vox_wins', 2)
-            ->assertJsonPath('report.baseline_wins', 1)
-            ->assertJsonPath('report.ties', 1)
-            ->assertJsonPath('report.prompt_quality_delta', 0.25)
-            // Two timed cases, both 2x: average = 2. PHP json_encode
-            // collapses 2.0 to 2 — assert the JSON-faithful value.
-            ->assertJsonPath('report.rivals_voice_multiplier', 2)
-            ->assertJsonPath('report.action_regret_score', 0.25);
     }
 
     public function test_gate_v3_warming_up_when_no_sessions_and_no_safety_violations(): void
@@ -255,7 +172,6 @@ final class AtlasAiVoxMetricsControllerTest extends TestCase
         $before = $this->snapshotMtimes($voiceDir);
 
         $this->getJson('/ai/vox/metrics', $this->headers)->assertOk();
-        $this->getJson('/ai/vox/rivals/report', $this->headers)->assertOk();
         $this->getJson('/ai/vox/gate-v3', $this->headers)->assertOk();
 
         $after = $this->snapshotMtimes($voiceDir);
@@ -362,19 +278,6 @@ final class AtlasAiVoxMetricsControllerTest extends TestCase
         ]);
     }
 
-    /** @param  array<string,mixed>  $overrides */
-    private function seedRivalsCase(array $overrides): void
-    {
-        \App\Models\AtlasVoxRivalsCase::create(array_merge([
-            'case_id' => 'voxc_'.(string) Str::uuid(),
-            'kind' => 'provider_direct',
-            'mode' => 'intent_compile',
-            'baseline_label' => 'baseline',
-            'preference' => 'vox',
-            'regret_flag' => false,
-        ], $overrides));
-    }
-
     // ──────────────────────────────────────────────────────────────────
     // Wave 7.6 (Claude R) · V3 Certification Pack + Promotion Review
     // ──────────────────────────────────────────────────────────────────
@@ -399,7 +302,7 @@ final class AtlasAiVoxMetricsControllerTest extends TestCase
         }
     }
 
-    public function test_certification_pack_includes_metrics_rivals_gate_and_blockers_blocks(): void
+    public function test_certification_pack_includes_metrics_gate_and_blockers_blocks(): void
     {
         // Force a hard-safety violation by persisting a raw-pcm transcript.
         $sessionId = (string) Str::uuid();
@@ -426,7 +329,6 @@ final class AtlasAiVoxMetricsControllerTest extends TestCase
             ->assertJsonPath('v4_unlock_allowed', false);
 
         $this->assertNotEmpty($response->json('metrics_snapshot'));
-        $this->assertNotEmpty($response->json('rivals_report'));
         $this->assertStringContainsString('BLOQUEADO', (string) $response->json('readiness_summary'));
         $blockers = $response->json('blockers');
         $this->assertNotEmpty($blockers);

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming;
 
-use App\Console\Commands\AtlasProgrammingRivalsOneShotEvaluateCommand;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsCaseManifestService;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsDryRunService;
 use App\Services\Ai\Programming\AtlasRivalsOneShotEnterpriseEvaluationService;
@@ -195,35 +194,6 @@ class AtlasRivalsOneShotEnterpriseEvaluationTest extends TestCase
         $this->assertContains('no_real_provider_baseline', $report['limitations']);
     }
 
-    public function test_command_returns_json_and_does_not_call_provider(): void
-    {
-        $this->assertTrue(class_exists(AtlasProgrammingRivalsOneShotEvaluateCommand::class));
-
-        $exitCode = $this->artisan('atlas:programming:rivals-one-shot-evaluate', ['--json' => true])
-            ->run();
-        $this->assertSame(0, $exitCode);
-
-        $report = app(AtlasRivalsOneShotEnterpriseEvaluationService::class)->evaluate([
-            'replay_manifest' => $this->validForgeReplayManifest(),
-            'case_manifest' => $this->caseManifestPacket(),
-            'evidence_pack' => $this->richEvidencePack(),
-            'evaluation_mode' => 'local_manifest_evaluation',
-        ]);
-        $this->assertFalse($report['external_provider_call']);
-        $this->assertFalse($report['provider_tokens_spent']);
-    }
-
-    public function test_strict_command_fails_for_invalid_case(): void
-    {
-        $exitCode = $this->artisan('atlas:programming:rivals-one-shot-evaluate', [
-            '--case' => 'does-not-exist',
-            '--json' => true,
-            '--strict' => true,
-        ])->run();
-
-        $this->assertSame(1, $exitCode);
-    }
-
     public function test_completion_audit_exposes_one_shot_certification_separated_from_external_rivals(): void
     {
         $report = app(ProgrammingProfessionalCompletionAuditService::class)->report(base_path(), false);
@@ -235,7 +205,6 @@ class AtlasRivalsOneShotEnterpriseEvaluationTest extends TestCase
         $this->assertSame('atlas.programming.rivals_one_shot_enterprise_evaluation_certification.v1', $cert['schema_version']);
         $this->assertTrue($cert['rubric_available']);
         $this->assertTrue($cert['evaluation_service_available']);
-        $this->assertTrue($cert['command_available']);
         $this->assertTrue($cert['doc_available']);
         $this->assertSame(100, (int) $cert['score_weights_total']);
         $this->assertSame(13, (int) $cert['score_dimensions_count']);

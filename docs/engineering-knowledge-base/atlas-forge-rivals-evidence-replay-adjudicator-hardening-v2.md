@@ -48,11 +48,6 @@ technical_name: atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2.md
 repo_paths:
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsCollectEvidenceService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReplayService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsAdjudicatorService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsReportService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsRunBatteryService.php
   - docs/engineering-knowledge-base/atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2.md
 allowed_changes:
   - Adicionar campos additive ao evidence pack v2 sem renomes.
@@ -82,6 +77,9 @@ risk_level: high
 next_actions:
   - Monitorar pipeline `run-battery` em modos `fair`/`full_power` quanto a regressões circulares.
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 # Atlas Forge Rivals · Evidence / Replay / Adjudicator Hardening v2
 
 **Schema:** `atlas.forge.rivals.evidence_pack.v2`

@@ -55,7 +55,6 @@ repo_paths:
   - app/Services/Ai/Programming/AtlasRivalsOperatorRunbookGenerator.php
   - app/Services/Ai/Programming/AtlasRivalsInvalidBatteryTriageRegistry.php
   - app/Services/Ai/Programming/WorkspaceHygieneService.php
-  - app/Services/Ai/Kernel/Architecture/AtlasForgeRivalsRealBatteryOperatorHarnessCertification.php
   - scripts/rivals-harness-verify.sh
 allowed_changes:
   - Ajustar texto dos comandos copy-safe desde que continuem rodando sem ambiguidade.
@@ -120,6 +119,9 @@ cartography_type: runbook
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-real-battery-operator-harness-v1.md
 owner: atlas-ai
 ---
+
+> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+
 line_limit: 520
 
 # Atlas Forge Rivals Real Battery Operator Harness v1

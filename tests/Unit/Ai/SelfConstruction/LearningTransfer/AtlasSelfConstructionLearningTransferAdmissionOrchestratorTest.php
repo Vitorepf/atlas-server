@@ -6,21 +6,26 @@ namespace Tests\Unit\Ai\SelfConstruction\LearningTransfer;
 
 use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger;
 use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionOrchestrator;
+use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferObservationStore;
 use Tests\TestCase;
 
 class AtlasSelfConstructionLearningTransferAdmissionOrchestratorTest extends TestCase
 {
     private string $ledgerPath = '';
 
+    private string $observationsPath = '';
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->ledgerPath = sys_get_temp_dir().'/atlas-lt-orchestrator-'.bin2hex(random_bytes(6)).'.jsonl';
+        $this->observationsPath = $this->ledgerPath.'.observations.jsonl';
     }
 
     protected function tearDown(): void
     {
         @unlink($this->ledgerPath);
+        @unlink($this->observationsPath);
         parent::tearDown();
     }
 
@@ -28,6 +33,7 @@ class AtlasSelfConstructionLearningTransferAdmissionOrchestratorTest extends Tes
     {
         return new AtlasSelfConstructionLearningTransferAdmissionOrchestrator(
             ledger: new AtlasSelfConstructionLearningTransferAdmissionLedger($this->ledgerPath),
+            observations: new AtlasSelfConstructionLearningTransferObservationStore($this->observationsPath),
         );
     }
 
@@ -334,5 +340,90 @@ class AtlasSelfConstructionLearningTransferAdmissionOrchestratorTest extends Tes
 
         self::assertFalse($result['transfer_allowed']);
         self::assertContains('hidden_assumptions_present', $result['missing_evidence']);
+    }
+
+    // ── Observation accumulator: cross-packet aggregation + closure-by-resolution ──
+
+    /** @return array<string,mixed> single-observation live-bridge-shaped fact */
+    private function bridgeShapedFact(string $packetId, string $agentId, string $outcome, ?string $reason = null): array
+    {
+        $fact = [
+            'task_packet_id' => $packetId,
+            'outcome' => $outcome,
+            'agent_id' => $agentId,
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Area/'.$packetId.'.php'],
+            'evidence_refs' => ['task_packet:'.$packetId],
+            'impact_class' => 'packet_admission',
+            'design_path_refs' => ['task_packet:'.$packetId.'#objective:deadbeefdeadbeef'],
+            'muscle_outcome' => ['status' => $outcome, 'task_packet_id' => $packetId, 'agent_id' => $agentId],
+        ];
+        if ($reason !== null) {
+            $fact['reason'] = $reason;
+            $fact['give_back_reason'] = $reason;
+        }
+
+        return $fact;
+    }
+
+    public function test_accumulated_give_backs_are_closed_by_a_real_resolution_and_admitted(): void
+    {
+        $orchestrator = $this->orchestrator();
+        $reason = 'scope_gap: allowed_files_insufficient under app/Services/Ai/SelfConstruction/Area';
+
+        // Three real give_backs, three distinct packets, two distinct agents,
+        // same scope: each individually held by the gate (no fabrication).
+        foreach ([['pkt-1', 'agent-a'], ['pkt-2', 'agent-b'], ['pkt-3', 'agent-a']] as [$packet, $agent]) {
+            $held = $orchestrator->admit($this->bridgeShapedFact($packet, $agent, 'give_back', $reason));
+            self::assertNotSame('admitted_and_recorded', $held['outcome']);
+        }
+
+        // A REAL resolution in the same scope closes the lesson: the classless
+        // success fact adopts the dominant observed class, the accumulated
+        // give_backs satisfy the gate's independent-repetition threshold, and
+        // the muscle_outcome handed to the success-only floor is the trigger's
+        // real 'resolved'.
+        $closed = $orchestrator->admit($this->bridgeShapedFact('pkt-4', 'agent-c', 'resolved'));
+
+        self::assertSame('admitted_and_recorded', $closed['outcome'], json_encode($closed));
+        self::assertSame('recorded', $closed['ledger']['status']);
+
+        // Retirement: the same accumulated history never re-admits.
+        $again = $orchestrator->admit($this->bridgeShapedFact('pkt-5', 'agent-d', 'resolved'));
+        self::assertNotSame('admitted_and_recorded', $again['outcome']);
+    }
+
+    public function test_single_agent_history_never_mints_a_lesson_alone(): void
+    {
+        $orchestrator = $this->orchestrator();
+        $reason = 'scope_gap: allowed_files_insufficient under app/Services/Ai/SelfConstruction/Area';
+
+        foreach (['pkt-s1', 'pkt-s2', 'pkt-s3'] as $packet) {
+            $orchestrator->admit($this->bridgeShapedFact($packet, 'agent-solo', 'give_back', $reason));
+        }
+
+        $closed = $orchestrator->admit($this->bridgeShapedFact('pkt-s4', 'agent-solo', 'resolved'));
+
+        // All observations share one agent: the independence guard refuses to
+        // aggregate, so the closure stays a single-observation candidate and
+        // holds at the gate.
+        self::assertNotSame('admitted_and_recorded', $closed['outcome'], json_encode($closed));
+    }
+
+    public function test_family_recurrence_suppression_now_runs_on_live_accumulated_give_backs(): void
+    {
+        $orchestrator = $this->orchestrator();
+        $reason = 'scope_gap: allowed_files_insufficient under app/Services/Ai/SelfConstruction/Area';
+
+        $outcomes = [];
+        foreach ([['pkt-f1', 'agent-a'], ['pkt-f2', 'agent-b'], ['pkt-f3', 'agent-a'], ['pkt-f4', 'agent-b']] as [$packet, $agent]) {
+            $result = $orchestrator->admit($this->bridgeShapedFact($packet, $agent, 'give_back', $reason));
+            $outcomes[] = (string) $result['outcome'];
+        }
+
+        // Once >=3 give_back rows accumulate for the family, the recurrence
+        // signal must fire (poison-like) — suppression of template churn,
+        // never a silent template rewrite and never a ledger row.
+        self::assertContains('suppressed_by_family_give_back_recurrence', $outcomes, json_encode($outcomes));
+        self::assertNotContains('admitted_and_recorded', $outcomes);
     }
 }

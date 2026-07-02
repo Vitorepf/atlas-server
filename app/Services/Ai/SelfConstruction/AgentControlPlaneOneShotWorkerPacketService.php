@@ -320,7 +320,6 @@ final class AgentControlPlaneOneShotWorkerPacketService
         return [
             'runtimes/python/voice_realtime/**',
             'app/Services/Ai/Voice/**',
-            'app/Services/Ai/Programming/ForgeRivals/**',
             'app/Services/Ai/Kernel/Architecture/**',
             'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
             '.env',

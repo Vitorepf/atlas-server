@@ -22,23 +22,18 @@ class AtlasAiStrategicDecisionController extends Controller
             'impact' => ['nullable', 'string', 'in:low,medium,high,critical'],
             'horizon_days' => ['nullable', 'integer', 'between:1,3650'],
             'audit' => ['nullable', 'boolean'],
-            'register_rivals' => ['nullable', 'boolean'],
         ]);
         $data['surface_id'] = 'atlas_api_strategic_decision';
         $data['operator_id'] = (string) ($request->user()?->getAuthIdentifier() ?? 'api');
         $result = (bool) ($data['audit'] ?? false)
             ? $reviews->auditedPacket($data)
             : ['packet' => $reviews->packet($data)];
-        $rivalsRegistration = (bool) ($data['register_rivals'] ?? false)
-            ? $reviews->registerRivalsCase($result['packet'], $result['receipt'] ?? null)
-            : null;
 
         return response()->json([
             'status' => 'ok',
             'strategic_decision' => $result['packet'],
             'decision_receipt' => $result['receipt'] ?? null,
             'ledger' => $result['ledger'] ?? null,
-            'rivals_registration' => $rivalsRegistration,
         ]);
     }
 }

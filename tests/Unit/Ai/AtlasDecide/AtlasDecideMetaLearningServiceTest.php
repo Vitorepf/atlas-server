@@ -6,16 +6,16 @@ namespace Tests\Unit\Ai\AtlasDecide;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsDecideSignalProjectionService;
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderPerformanceLedgerService;
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
 use Tests\TestCase;
 
 /**
  * Unit tests for Atlas Decide · Meta-Learning Loop Closure.
  *
- * Uses the REAL projection + ledger services. The ledger is pointed at a
- * temporary directory so no real provider data is touched. No mocks.
+ * Rivals 1.0 (ForgeRivals) was retired — see
+ * docs/engineering-knowledge-base/atlas-rivals2-rebuild-map-v1.md. The offline
+ * rivals-fed signal is now permanently `insufficient_evidence` (fail-closed)
+ * until the Rivals 2.0 ledger feeds ADML again. Live outcome feedback remains
+ * the only evidence source that can make a route actionable.
  */
 class AtlasDecideMetaLearningServiceTest extends TestCase
 {
@@ -27,11 +27,7 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
     {
         parent::setUp();
         $this->tmpRoot = sys_get_temp_dir().'/atlas_meta_learning_'.uniqid('', true);
-        @mkdir($this->tmpRoot.'/runs', 0775, true);
-        @mkdir($this->tmpRoot.'/ledger', 0775, true);
-        // Point the rivals runs root at our temp dir so the ledger reads from there.
-        config(['atlas_rivals.runs_root' => $this->tmpRoot.'/runs']);
-        config(['atlas_rivals.ledger_root' => $this->tmpRoot.'/ledger']);
+        @mkdir($this->tmpRoot, 0775, true);
         $this->activationLog = $this->tmpRoot.'/routing_activations.jsonl';
     }
 
@@ -58,13 +54,60 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
 
     private function buildService(): AtlasDecideMetaLearningService
     {
-        $paths = new AtlasForgeRivalsRunPathResolver;
-        $ledger = new AtlasForgeRivalsProviderPerformanceLedgerService($paths);
-        $projection = new AtlasForgeRivalsDecideSignalProjectionService($ledger);
-        $svc = new AtlasDecideMetaLearningService($projection, $ledger);
+        $svc = new AtlasDecideMetaLearningService;
         $svc->setActivationLogPathForTesting($this->activationLog);
 
         return $svc;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function costOutcomeConfigEnabled(): array
+    {
+        return [
+            'enabled' => true,
+            'min_evidence' => 3,
+            'min_certification_rate' => 0.8,
+            'min_score' => 80.0,
+            'max_score_drop' => 3.0,
+            'require_measured_cost' => true,
+            'min_cost_samples' => 1,
+        ];
+    }
+
+    private function seededFeedback(string $file = 'live_outcomes.jsonl'): AtlasDecideLiveOutcomeFeedbackService
+    {
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting($this->tmpRoot.'/'.$file);
+        for ($i = 0; $i < 3; $i++) {
+            $feedback->record([
+                'task_category' => 'bugfix',
+                'role' => 'repair_agent',
+                'framework' => 'python',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'quality_score' => 0.91,
+                'cost_usd' => 0.04,
+                'tokens_used' => 800,
+                'actor' => 'ai_worker',
+            ]);
+            $feedback->record([
+                'task_category' => 'bugfix',
+                'role' => 'repair_agent',
+                'framework' => 'python',
+                'provider' => 'minimax_m27_cli',
+                'model' => 'MiniMax-M3',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'quality_score' => 0.892,
+                'cost_usd' => 0.004,
+                'tokens_used' => 300,
+                'actor' => 'ai_worker',
+            ]);
+        }
+
+        return $feedback;
     }
 
     public function test_recommend_with_no_ledger_returns_insufficient_evidence(): void
@@ -80,17 +123,10 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
         $this->assertStringStartsWith('sha256:', $rec['recommendation_hash']);
     }
 
-    public function test_recommend_all_returns_well_shaped_list(): void
+    public function test_recommend_all_is_empty_with_rivals_ledger_retired(): void
     {
-        $recs = $this->buildService()->recommendAll();
-        $this->assertIsArray($recs);
-        // Production ledger may have entries; we only validate shape, not count.
-        foreach ($recs as $r) {
-            $this->assertSame(AtlasDecideMetaLearningService::RECOMMENDATION_SCHEMA, $r['schema_version']);
-            $this->assertArrayHasKey('scope', $r);
-            $this->assertArrayHasKey('signal', $r);
-            $this->assertArrayHasKey('recommendation_hash', $r);
-        }
+        // Rivals 1.0 ledger retired: no offline entries → no scopes to recommend.
+        $this->assertSame([], $this->buildService()->recommendAll());
     }
 
     public function test_routing_table_with_no_receipts_is_empty(): void
@@ -198,18 +234,15 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
         $this->assertSame('react', $rec['scope']['framework']);
     }
 
-    public function test_rivals_advisory_map_exposes_category_difficulty_model_guidance_without_routing_effect(): void
+    public function test_rivals_advisory_map_is_honest_empty_with_ledger_retired(): void
     {
-        $this->appendLedgerEntry('backend', 'L5', 'builder', 'anthropic_claude', 'claude_opus', 92.0, 'rivals-map-backend-a');
-        $this->appendLedgerEntry('backend', 'L5', 'builder', 'openai_gpt', 'gpt-5.5', 78.0, 'rivals-map-backend-b');
-        $this->appendLedgerEntry('frontend', 'L2', 'builder', 'openai_codex', 'codex', 89.0, 'rivals-map-frontend-a');
-        $this->appendLedgerEntry('frontend', 'L2', 'builder', 'anthropic_claude', 'claude_sonnet', 70.0, 'rivals-map-frontend-b');
-
         $map = $this->buildService()->rivalsAdvisoryMap();
 
         $this->assertSame(AtlasDecideMetaLearningService::ADVISORY_MAP_SCHEMA, $map['schema_version']);
-        $this->assertSame('atlas.forge.rivals.decide_model_intelligence_map.v1', $map['source_schema_version']);
-        $this->assertSame(2, $map['segment_count']);
+        $this->assertNull($map['source_schema_version']);
+        $this->assertSame(AtlasDecideMetaLearningService::SIGNAL_INSUFFICIENT, $map['source_signal']);
+        $this->assertSame(0, $map['segment_count']);
+        $this->assertSame([], $map['segments']);
         $this->assertTrue($map['advisory_only']);
         $this->assertFalse($map['should_update_provider_topology']);
         $this->assertTrue($map['never_changes_atlas_decide_topology']);
@@ -219,65 +252,16 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
         $this->assertFalse($map['provider_tokens_spent']);
         $this->assertFalse($map['claim_ready']);
         $this->assertFalse($map['external_claim_allowed']);
-        $this->assertSame('Rivals emits measured evidence; Atlas Decide decides model routing.', $map['canonical_phrase']);
         $this->assertStringStartsWith('sha256:', $map['advisory_map_hash']);
-
-        $backend = $this->segmentFor($map['segments'], 'backend', 'L5', 'builder');
-        $this->assertSame('anthropic_claude', $backend['recommended_provider']);
-        $this->assertSame('claude_opus', $backend['recommended_model']);
-        $this->assertSame(92.0, $backend['average_score']);
-        $this->assertSame('material_advantage', $backend['advantage_band']);
-        $this->assertFalse($backend['actionable_for_auto_routing']);
-        $this->assertSame('shadow', $backend['activation_mode']);
-        $this->assertFalse($backend['should_update_provider_topology']);
-        $this->assertSame('none', $backend['routing_effect']);
-
-        $frontend = $this->segmentFor($map['segments'], 'frontend', 'L2', 'builder');
-        $this->assertSame('openai_codex', $frontend['recommended_provider']);
-        $this->assertSame('codex', $frontend['recommended_model']);
-        $this->assertSame(89.0, $frontend['average_score']);
     }
 
-    public function test_cost_outcome_routing_selects_cheaper_certified_m3_and_activates_existing_table(): void
+    public function test_cost_outcome_routing_selects_cheaper_certified_m3_and_activates_from_live_feedback(): void
     {
-        config(['atlas.patamar4.adml_cost_outcome' => [
-            'enabled' => true,
-            'min_evidence' => 3,
-            'min_certification_rate' => 0.8,
-            'min_score' => 80.0,
-            'max_score_drop' => 3.0,
-            'require_measured_cost' => true,
-            'min_cost_samples' => 1,
-        ]]);
-
-        for ($i = 0; $i < 3; $i++) {
-            $this->appendLedgerEntry(
-                'bugfix',
-                'L2',
-                'repair_agent',
-                'codex',
-                'gpt-5.5',
-                91.0,
-                'cost-outcome-codex-'.$i,
-                framework: 'python',
-                costEstimate: 0.04,
-                recordedAt: date(DATE_ATOM),
-            );
-            $this->appendLedgerEntry(
-                'bugfix',
-                'L2',
-                'repair_agent',
-                'minimax',
-                'MiniMax-M3',
-                89.2,
-                'cost-outcome-m3-'.$i,
-                framework: 'python',
-                costEstimate: 0.004,
-                recordedAt: date(DATE_ATOM),
-            );
-        }
+        config(['atlas.patamar4.adml_cost_outcome' => $this->costOutcomeConfigEnabled()]);
 
         $svc = $this->buildService();
+        $svc->setLiveOutcomeFeedback($this->seededFeedback());
+
         $rec = $svc->recommend([
             'task_category' => 'bugfix',
             'role' => 'repair_agent',
@@ -315,32 +299,27 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
 
     public function test_cost_outcome_routing_blocks_without_measured_cost(): void
     {
-        config(['atlas.patamar4.adml_cost_outcome' => [
-            'enabled' => true,
-            'min_evidence' => 3,
-            'min_certification_rate' => 0.8,
-            'min_score' => 80.0,
-            'max_score_drop' => 3.0,
-            'require_measured_cost' => true,
-            'min_cost_samples' => 1,
-        ]]);
+        config(['atlas.patamar4.adml_cost_outcome' => $this->costOutcomeConfigEnabled()]);
 
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting($this->tmpRoot.'/live_outcomes.jsonl');
         for ($i = 0; $i < 3; $i++) {
-            $this->appendLedgerEntry(
-                'bugfix',
-                'L2',
-                'repair_agent',
-                'minimax',
-                'MiniMax-M3',
-                90.0,
-                'cost-missing-m3-'.$i,
-                framework: 'python',
-                costEstimate: null,
-                recordedAt: date(DATE_ATOM),
-            );
+            $feedback->record([
+                'task_category' => 'bugfix',
+                'role' => 'repair_agent',
+                'framework' => 'python',
+                'provider' => 'minimax_m27_cli',
+                'model' => 'MiniMax-M3',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'quality_score' => 0.9,
+                'tokens_used' => 300,
+                'actor' => 'ai_worker',
+            ]);
         }
 
-        $rec = $this->buildService()->recommend([
+        $svc = $this->buildService();
+        $svc->setLiveOutcomeFeedback($feedback);
+        $rec = $svc->recommend([
             'task_category' => 'bugfix',
             'role' => 'repair_agent',
             'framework' => 'python',
@@ -353,47 +332,10 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
 
     public function test_cost_outcome_routing_can_use_live_feedback_with_measured_cost_and_quality(): void
     {
-        config(['atlas.patamar4.adml_cost_outcome' => [
-            'enabled' => true,
-            'min_evidence' => 3,
-            'min_certification_rate' => 0.8,
-            'min_score' => 80.0,
-            'max_score_drop' => 3.0,
-            'require_measured_cost' => true,
-            'min_cost_samples' => 1,
-        ]]);
-
-        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
-        $feedback->setLogPathForTesting($this->tmpRoot.'/live_outcomes.jsonl');
-        for ($i = 0; $i < 3; $i++) {
-            $feedback->record([
-                'task_category' => 'bugfix',
-                'role' => 'repair_agent',
-                'framework' => 'python',
-                'provider' => 'codex_cli',
-                'model' => 'gpt-5.5',
-                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
-                'quality_score' => 0.91,
-                'cost_usd' => 0.04,
-                'tokens_used' => 800,
-                'actor' => 'ai_worker',
-            ]);
-            $feedback->record([
-                'task_category' => 'bugfix',
-                'role' => 'repair_agent',
-                'framework' => 'python',
-                'provider' => 'minimax_m27_cli',
-                'model' => 'MiniMax-M3',
-                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
-                'quality_score' => 0.892,
-                'cost_usd' => 0.004,
-                'tokens_used' => 300,
-                'actor' => 'ai_worker',
-            ]);
-        }
+        config(['atlas.patamar4.adml_cost_outcome' => $this->costOutcomeConfigEnabled()]);
 
         $svc = $this->buildService();
-        $svc->setLiveOutcomeFeedback($feedback);
+        $svc->setLiveOutcomeFeedback($this->seededFeedback());
 
         $rec = $svc->recommend([
             'task_category' => 'bugfix',
@@ -415,30 +357,19 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
 
     // ── degradation_reasons (precise auditable map per active route) ─────────
 
+    /**
+     * Activate the bugfix/repair_agent route from live-feedback cost-outcome
+     * evidence (the rivals ledger is retired). The activation feedback file is
+     * separate from the degradation file the tests feed later: the memoized
+     * cost-outcome router keeps reading the activation evidence, while the
+     * sweep's degradationSignal reads the fresh degradation feed.
+     */
     private function activateBugfixRepairAgentRoute(): AtlasDecideMetaLearningService
     {
-        config(['atlas.patamar4.adml_cost_outcome' => [
-            'enabled' => true,
-            'min_evidence' => 3,
-            'min_certification_rate' => 0.8,
-            'min_score' => 80.0,
-            'max_score_drop' => 3.0,
-            'require_measured_cost' => true,
-            'min_cost_samples' => 1,
-        ]]);
-
-        for ($i = 0; $i < 3; $i++) {
-            $this->appendLedgerEntry(
-                'bugfix', 'L2', 'repair_agent', 'codex', 'gpt-5.5', 91.0,
-                'degrad-codex-'.$i, framework: 'python', costEstimate: 0.04, recordedAt: date(DATE_ATOM),
-            );
-            $this->appendLedgerEntry(
-                'bugfix', 'L2', 'repair_agent', 'minimax', 'MiniMax-M3', 89.2,
-                'degrad-m3-'.$i, framework: 'python', costEstimate: 0.004, recordedAt: date(DATE_ATOM),
-            );
-        }
+        config(['atlas.patamar4.adml_cost_outcome' => $this->costOutcomeConfigEnabled()]);
 
         $svc = $this->buildService();
+        $svc->setLiveOutcomeFeedback($this->seededFeedback('live_outcomes_activation.jsonl'));
         $svc->applyAction([
             'action' => AtlasDecideMetaLearningService::ACTION_ACTIVATE,
             'task_category' => 'bugfix',
@@ -498,74 +429,5 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
         // Route must still be active (unchanged) — not deactivated prematurely.
         $route = $svc->activeRouteFor('bugfix', 'repair_agent', 'python');
         $this->assertNotNull($route);
-    }
-
-    private function appendLedgerEntry(
-        string $taskCategory,
-        string $difficultyLevel,
-        string $role,
-        string $provider,
-        string $model,
-        float $score,
-        string $runId,
-        ?string $framework = null,
-        ?float $costEstimate = 0.02,
-        ?string $recordedAt = '2026-05-15T12:00:00+00:00',
-    ): void {
-        $path = $this->tmpRoot.'/ledger/entries.jsonl';
-        $entry = [
-            'schema_version' => 'atlas.forge.rivals.provider_performance_ledger_entry.v1',
-            'entry_id' => $runId.'-'.$provider.'-'.$model,
-            'recorded_at' => $recordedAt,
-            'run_id' => $runId,
-            'battery_id' => 'rivals-map-test',
-            'arena_run_id' => $runId,
-            'case_id' => $runId,
-            'task_id' => $runId,
-            'case_source' => 'test',
-            'arm' => str_contains($provider, 'anthropic') ? 'atlas' : 'rival',
-            'runner_type' => str_contains($provider, 'anthropic') ? 'atlas_forge' : 'raw_provider',
-            'provider' => $provider,
-            'model' => $model,
-            'task_category' => $taskCategory,
-            'difficulty_level' => $difficultyLevel,
-            'difficulty_weight' => 3.0,
-            'role' => $role,
-            'framework' => $framework,
-            'mode' => 'fair',
-            'preset' => 'test',
-            'score_total' => $score,
-            'winner' => null,
-            'outcome' => 'winner',
-            'hard_failures' => [],
-            'tests_passed' => true,
-            'replay_passed' => true,
-            'duration_ms' => 60_000,
-            'cost_estimate' => $costEstimate,
-            'tokens_used' => 2_000,
-            'valid_for_ranking' => true,
-            'claim_ready' => false,
-            'external_provider_call' => false,
-            'provider_tokens_spent' => false,
-        ];
-
-        file_put_contents($path, json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL, FILE_APPEND);
-    }
-
-    /**
-     * @param  list<array<string,mixed>>  $segments
-     * @return array<string,mixed>
-     */
-    private function segmentFor(array $segments, string $category, string $difficulty, string $role): array
-    {
-        foreach ($segments as $segment) {
-            if (($segment['scope']['task_category'] ?? null) === $category
-                && ($segment['scope']['difficulty_level'] ?? null) === $difficulty
-                && ($segment['scope']['role'] ?? null) === $role) {
-                return $segment;
-            }
-        }
-
-        $this->fail("Missing advisory map segment {$category}/{$difficulty}/{$role}.");
     }
 }

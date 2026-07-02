@@ -6,8 +6,6 @@ namespace Tests\Unit\Ai\AtlasDecide;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsProviderPerformanceLedgerService;
-use App\Services\Ai\Programming\ForgeRivals\AtlasForgeRivalsRunPathResolver;
 use Tests\TestCase;
 
 class AtlasDecideCostOutcomeRouterTest extends TestCase
@@ -46,11 +44,7 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
 
     private function buildRouter(): AtlasDecideCostOutcomeRouter
     {
-        $paths = new AtlasForgeRivalsRunPathResolver;
-        $ledger = new AtlasForgeRivalsProviderPerformanceLedgerService($paths);
-
         return new AtlasDecideCostOutcomeRouter(
-            $ledger,
             null,
             static fn ($p) => is_string($p) && $p !== '' ? $p : null,
             static fn ($provider, $model) => is_string($model) && $model !== '' ? $model : null,
