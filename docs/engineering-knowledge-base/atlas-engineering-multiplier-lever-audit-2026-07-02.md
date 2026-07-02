@@ -250,8 +250,21 @@ failure capsules re-backfilled dos receipts reais (rows=56).
   `test_structured_senior_loop_excerpt_classifies_by_gate_values_not_bag_of_words` + 50
   testes das suites de failure memory verdes.
 
+## Execução S15 (02/07/2026)
+
+- **S15 (entregue — ataca o modo dominante):** no-patch em task de ESCRITA agora dispara
+  reparo. Provider workspace-mutante que completa sem diff em task
+  patch/repair/frontend/risky saía do loop com ZERO tentativas (no_patch_needed não é gate
+  FAILED). O sinal `no_patch_on_write_task` agora entra no MESMO canal weak-green do M2
+  (hint dedicado "emit a concrete unified diff", anti-spin same-signature, cap, off-switch
+  do weak_output preserva o exit antigo byte-idêntico); kinds de leitura (question/review)
+  isentos; o hint de reparo weak-green generalizado para o sinal real (no-patch não recebe
+  mais conselho de placeholder). Prova:
+  `test_no_patch_on_write_task_triggers_repair_and_converges` (provider muda nada na 1ª,
+  repara na 2ª → passed) + 436 testes AtlasDev/executor verdes.
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Candidatos:** (a) atacar `no_patch_produced` (modo dominante real: 18/56 — por que o
-provider devolve zero diff? prompt/driver/refusal); (b) #9 índice do receipt store; (c)
-próximo gargalo da medição.
+**Candidatos:** (a) #9 índice do receipt store (exemplares além do cap 300); (b) re-medição
+do funil (pass_rate baseline 0.346) após os canais novos rodarem em runs reais; (c) próximo
+gargalo da medição.

@@ -1667,6 +1667,88 @@ final class RepairToGreenTest extends TestCase
      * defaults that are not under test here; weak_output stays at its
      * config default (advisory) unless the test overrides it.
      */
+    public function test_no_patch_on_write_task_triggers_repair_and_converges(): void
+    {
+        // no_patch_produced is the dominant real failure class (18/56 of the
+        // audited corpus): a workspace-mutating provider that completes WITHOUT
+        // a diff on a write task previously exited with zero repair attempts.
+        // The no-patch signal now rides the weak-green repair channel.
+        $this->pinElevationsOffExceptWeakOutput();
+        $runId = 'dev-nopatch-001-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $target = $this->tmpWorkspace.'/app/Foo.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $providerState = new \stdClass;
+        $providerState->callCount = 0;
+        $this->registerNoPatchThenCleanHermes($target, $providerState);
+
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php',
+            exitCode: 0, stdout: 'OK', stderr: '', durationMs: 90,
+        ));
+
+        $result = $this->executeWeakGreenRun($storage, $runId, $commandRunner);
+
+        $this->assertSame(2, $providerState->callCount, 'no-patch on a write task must trigger exactly one repair re-invocation');
+        $this->assertSame('passed', $result->completionState, 'the repaired attempt converges to green');
+    }
+
+    /**
+     * Fake hermes workspace-mutator: attempt 1 changes NOTHING (the no-patch
+     * failure mode); attempt 2 writes the real change.
+     */
+    private function registerNoPatchThenCleanHermes(string $target, object $state): void
+    {
+        $fakeHermes = new class($target, $state) implements AiProvider
+        {
+            public function __construct(
+                private readonly string $target,
+                private readonly object $state,
+            ) {}
+
+            public function key(): string
+            {
+                return 'hermes_cli';
+            }
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                return $this->runStreaming($job, $prompt);
+            }
+
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            {
+                $this->state->callCount++;
+                if ($this->state->callCount > 1) {
+                    file_put_contents($this->target, "<?php\nfinal class Foo { public function value(): string { return 'fixed'; } }\n");
+                }
+
+                return new AiProviderResult(
+                    ok: true, output: 'done', command: [], exitCode: 0,
+                    durationMs: 80, stdout: 'done', stderr: '',
+                    errorCode: null, errorMessage: null, metadata: [],
+                );
+            }
+
+            public function health(): AiProviderHealthCheck
+            {
+                return new AiProviderHealthCheck(provider: 'hermes_cli', status: 'online', message: 'fake');
+            }
+        };
+
+        $manager = app(AiProviderManager::class);
+        $manager->registerDriver('hermes_cli', $fakeHermes);
+        app()->instance(AiProviderManager::class, $manager);
+    }
+
     private function pinElevationsOffExceptWeakOutput(): void
     {
         foreach (['e1', 'e2', 'e3', 'e4', 'e5', 'e6'] as $elevation) {

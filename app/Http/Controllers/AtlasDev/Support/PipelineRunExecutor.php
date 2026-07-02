@@ -375,6 +375,27 @@ final class PipelineRunExecutor implements RunExecutor
                     }
                 }
 
+                // no_patch on a WRITE task is the dominant real failure class
+                // (18/56 of the audited capsule corpus): the provider completes
+                // without a diff and the run previously exited with ZERO repair
+                // attempts (no_patch_needed is not a FAILED gate). Route it
+                // through the SAME weak-green repair channel — one signal, the
+                // existing hint/anti-spin/cap machinery does the rest. Read
+                // kinds (question/review) legitimately produce no patch and are
+                // exempt; the weak_output elevation off-switch keeps the old
+                // exit byte-identical.
+                if ($weakGreenSignals === []
+                    && $repairCap > 0
+                    && $diffResult->isNoPatchNeeded()
+                    && in_array($taskKind, ['patch', 'repair', 'frontend', 'risky'], true)
+                    && ! $this->resolveWeakOutputConfig()->isOff()
+                ) {
+                    $weakGreenSignals = [[
+                        'id' => 'no_patch_on_write_task',
+                        'detail' => 'provider completed without a diff for a '.$taskKind.' task — emit a concrete unified diff for the allowed files',
+                    ]];
+                }
+
                 // Check if repair loop should continue
                 if (($verificationResult->aggregateStatus !== VerificationGateResult::STATUS_FAILED
                         && $weakGreenSignals === [])
@@ -457,11 +478,13 @@ final class PipelineRunExecutor implements RunExecutor
                 $weakOutputHint = (bool) $weakOutput['weak'] ? (string) $weakOutput['repair_hint'] : '';
                 if ($weakOutputHint === '' && $weakGreenSignals !== []) {
                     // Weak-green iteration on a workspace-mutating provider:
-                    // the placeholder lives in the applied diff, not in the
-                    // provider stdout, so the stdout inspection above misses
-                    // it. Feed the applied-diff signal as the repair hint.
-                    $weakOutputHint = 'signal='.DevWeakOutputDetector::SIGNAL_PLACEHOLDER_MARKER
-                        .': re-emphasize a concrete implementation instead of TODO/ellipsis/fake-assert placeholders';
+                    // the signal lives in the applied diff (or in the absence
+                    // of one), not in the provider stdout, so the stdout
+                    // inspection above misses it. Feed the actual signal as
+                    // the repair hint — a no-patch signal must not get
+                    // placeholder advice.
+                    $weakOutputHint = 'signal='.(string) $weakGreenSignals[0]['id']
+                        .': '.(string) $weakGreenSignals[0]['detail'];
                 }
                 $currentPromptProjection = $this->buildComposedRepairProjection(
                     promptProjection: $promptProjection,
