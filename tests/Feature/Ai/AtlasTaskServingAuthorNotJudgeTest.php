@@ -135,6 +135,36 @@ final class AtlasTaskServingAuthorNotJudgeTest extends TestCase
         @unlink($ledgerPath);
     }
 
+    public function test_known_lessons_match_by_directory_not_literal_file(): void
+    {
+        // w28: an admitted lesson carries the exact files of the packet that
+        // CLOSED it; a future task in the same AREA (different file) must
+        // still receive the lesson — the lesson identity is class+scope_dirs.
+        $ledgerPath = sys_get_temp_dir().'/atlas-anj-dirmatch-'.bin2hex(random_bytes(5)).'.jsonl';
+        config()->set('atlas.self_construction.learning_transfer_admission_ledger_path', $ledgerPath);
+        file_put_contents($ledgerPath, json_encode([
+            'schema_version' => 'atlas.learning_transfer.admission_ledger.v1',
+            'recorded_at' => '2026-07-01T00:00:00Z',
+            'classification' => [
+                'class' => 'scope_gap',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/some-other-packet-file.php'],
+                'blocking_facts' => ['allowed_files_insufficient'],
+                'evidence_refs' => ['task_packet:closer'],
+            ],
+        ])."\n");
+
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('dir-match')]);
+
+        $res = (new AtlasTaskServingService($orch))->next('client-cold');
+
+        self::assertSame('served', $res['status']);
+        self::assertCount(1, $res['task']['known_lessons']);
+        self::assertSame('scope_gap', $res['task']['known_lessons'][0]['class']);
+
+        @unlink($ledgerPath);
+    }
+
     public function test_served_packet_known_lessons_is_empty_when_ledger_absent(): void
     {
         config()->set('atlas.self_construction.learning_transfer_admission_ledger_path', sys_get_temp_dir().'/atlas-anj-missing-'.bin2hex(random_bytes(5)).'.jsonl');

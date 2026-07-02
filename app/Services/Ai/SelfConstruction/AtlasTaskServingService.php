@@ -489,9 +489,10 @@ final class AtlasTaskServingService
      * @return array<string, mixed>
      */
     /**
-     * Admitted give-back lessons relevant to this packet (file-overlap match),
-     * newest first, capped. Read-only over the admission ledger; any hiccup
-     * degrades to [] — learning advice must never block serving.
+     * Admitted lessons relevant to this packet (directory-overlap match —
+     * the w28 lesson identity is class + scope dirs), newest first, capped.
+     * Read-only over the admission ledger; any hiccup degrades to [] —
+     * learning advice must never block serving.
      *
      * @param  array<string,mixed>  $task
      * @return list<array<string,mixed>>
@@ -503,6 +504,16 @@ final class AtlasTaskServingService
             if ($taskFiles === []) {
                 return [];
             }
+            // Lesson identity aggregates at the DIRECTORY level (class +
+            // scope_dirs — the w28 accumulator contract): an admitted lesson
+            // carries the exact files of the packet that CLOSED it, which a
+            // future task in the same area never matches file-for-file. Match
+            // area overlap, not literal paths (same-file implies same-dir, so
+            // this is a strict superset of the old exact-file match).
+            $taskDirs = array_values(array_unique(array_map(
+                static fn (string $file): string => dirname($file),
+                $taskFiles,
+            )));
             $rows = (new LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger(
                 LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger::defaultPath()
             ))->all();
@@ -512,7 +523,11 @@ final class AtlasTaskServingService
             foreach (array_reverse($rows) as $row) {
                 $classification = (array) ($row['classification'] ?? []);
                 $lessonFiles = array_values(array_map('strval', (array) ($classification['allowed_files'] ?? [])));
-                if ($lessonFiles === [] || array_intersect($lessonFiles, $taskFiles) === []) {
+                $lessonDirs = array_values(array_unique(array_map(
+                    static fn (string $file): string => dirname($file),
+                    $lessonFiles,
+                )));
+                if ($lessonDirs === [] || array_intersect($lessonDirs, $taskDirs) === []) {
                     continue;
                 }
                 $lessons[] = [
