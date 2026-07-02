@@ -6,6 +6,7 @@ namespace App\Http\Controllers\AtlasDev\Support;
 
 use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
@@ -1024,6 +1025,34 @@ final class PipelineRunExecutor implements RunExecutor
         } catch (\Throwable) {
             // Patch/test intelligence is advisory. Swallow so it never
             // shadows the canonical receipts already persisted above.
+        }
+
+        // ADML live outcome feedback (write side): the SpecComposer consults the
+        // (programming, task_kind) route before choosing a provider, but nothing fed
+        // real Dev outcomes back — every route stayed insufficient_evidence /
+        // free_to_choose forever. Record the completed run's real result so route
+        // stats and degradation signals run on evidence. Skipped in unit tests
+        // unless a test binds an explicit instance (never pollute the live ledger
+        // with fixture runs). Fail-open: routing evidence must never break the run.
+        if (! app()->runningUnitTests() || app()->bound(AtlasDecideLiveOutcomeFeedbackService::class)) {
+            try {
+                app(AtlasDecideLiveOutcomeFeedbackService::class)->record([
+                    'task_category' => 'programming',
+                    'role' => $taskKind !== '' ? $taskKind : 'atlas_dev_fast_path',
+                    'provider' => $callResult->actualProvider,
+                    'model' => $callResult->actualModelFamily,
+                    'result' => $receipt->completion->status === CompletionSummary::STATUS_PASSED
+                        ? AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS
+                        : AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
+                    'latency_ms' => $callResultForGates->durationMs,
+                    'cost_usd' => $callResultForGates->costEstimateUsd,
+                    'input_tokens' => $callResultForGates->tokensIn,
+                    'output_tokens' => $callResultForGates->tokensOut,
+                    'actor' => 'atlas_dev_pipeline',
+                ]);
+            } catch (\Throwable) {
+                // fail-open
+            }
         }
 
         return new RunExecutionResult(

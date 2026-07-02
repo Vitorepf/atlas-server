@@ -162,8 +162,21 @@ de falha que ficou invisível por semanas agora bloqueia.
   fato que o retire trata). Prova: 174 testes `AtlasTaskServing*` verdes (2 novos: flag ON
   destrava graveyard; flag OFF byte-idêntico).
 
+## Execução S8 (02/07/2026)
+
+- **S8 (entregue — ranking #5):** ADML live outcome feedback, write side. Todo run
+  completado do `PipelineRunExecutor` grava outcome real
+  (`AtlasDecideLiveOutcomeFeedbackService::record`) no MESMO escopo que o SpecComposer
+  consulta — `(programming, <task_kind>)` — com provider/model/latência/custo/tokens reais e
+  result success (passed) / failure (resto). Route stats e degradation signal passam a rodar
+  sobre evidência Dev. Guard: unit tests só gravam se bindarem instância explícita (ledger
+  vivo nunca poluído por fixture). Prova:
+  `test_completed_run_records_adml_live_outcome_for_route_learning` + ledger real com mtime
+  intocado após a suite. Nota honesta: a ATIVAÇÃO de rota (free_to_choose → follow_learned)
+  continua sendo passo offline do ADML — o que fechou aqui é a evidência live que faltava.
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Ranking #5 — ADML live outcome feedback:** router w25 consulta ADML que sempre responde
-free_to_choose; alimentar outcome real do run Dev no canal live existente fecha roteamento
-por evidência. Depois: #6 Dev run → atlas_context_feedback.
+**Ranking #6 — Dev run → atlas_context_feedback:** AOBG pede feedback (used/noise/missed)
+e nenhum fluxo interno grava; gravar feedback pós-verification no senior loop ensina o
+context pack a cortar ruído. Depois: #7 distiller mid-entry truncation.

@@ -330,6 +330,63 @@ DIFF;
         $this->assertSame(hash('sha256', $log['combined_output']), $log['output_hash']);
     }
 
+    public function test_completed_run_records_adml_live_outcome_for_route_learning(): void
+    {
+        // ADML write side: a completed run must append a live outcome in the SAME
+        // scope the SpecComposer consults (programming, <task_kind>) — without this
+        // every route stays free_to_choose forever. Tests must bind an explicit
+        // instance (the executor skips recording in unit tests otherwise).
+        $feedback = new \App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting($this->tmpStorage.'/live_outcomes.jsonl');
+        app()->instance(\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::class, $feedback);
+
+        try {
+            $runId = 'dev-adml-'.bin2hex(random_bytes(3));
+            $storage = new ReceiptStorage($this->tmpStorage);
+            $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+
+            $target = $this->tmpWorkspace.'/tests/Unit/Services/Foo/FooServiceTest.php';
+            @mkdir(dirname($target), 0o755, true);
+            file_put_contents($target, "<?php\nassert(false);\n");
+
+            $diff = <<<'DIFF'
+--- a/tests/Unit/Services/Foo/FooServiceTest.php
++++ b/tests/Unit/Services/Foo/FooServiceTest.php
+@@ -1,2 +1,2 @@
+ <?php
+-assert(false);
++assert(true);
+DIFF;
+
+            $executor = $this->makeExecutor($storage, gatewayStdout: $diff);
+            $envelope = $this->envelope();
+            $taskContract = $this->taskContractFixture([
+                'allowed_files' => ['tests/Unit/Services/Foo/FooServiceTest.php'],
+                'expected_max_files' => 2,
+                'max_files_changed' => 2,
+            ]);
+
+            $result = $executor->execute(
+                envelope: $envelope,
+                taskContract: $taskContract,
+                promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+                runId: $runId,
+            );
+
+            $this->assertSame('passed', $result->completionState);
+
+            $outcomes = $feedback->listOutcomes();
+            $this->assertCount(1, $outcomes, 'a completed run appends exactly one live outcome');
+            $this->assertSame('programming', $outcomes[0]['task_category']);
+            $this->assertSame('repair', $outcomes[0]['role'], 'role must be the task_kind the SpecComposer consults');
+            $this->assertSame('success', $outcomes[0]['result']);
+            $this->assertSame('atlas_dev_pipeline', $outcomes[0]['actor']);
+            $this->assertNotSame('', (string) $outcomes[0]['provider']);
+        } finally {
+            app()->forgetInstance(\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::class);
+        }
+    }
+
     public function test_weak_output_persists_failure_capsule_for_next_run_in_same_area(): void
     {
         // weak_output -> memória: a weak-green diff (TODO placeholder in the
