@@ -21,13 +21,26 @@ final class AtlasBrainCoverageMatrixTest extends TestCase
 
     public function test_underbuilt_paths_returns_those_below_threshold(): void
     {
-        $under = (new AtlasBrainCoverageMatrix)->underbuiltPaths(3);
-        // compounding=2, metrics-optimization=2, pattern-design=2 should be flagged at threshold 3
-        self::assertContains('compounding', $under);
-        self::assertContains('metrics-optimization', $under);
-        self::assertContains('pattern-design', $under);
-        self::assertNotContains('frontier-harvest', $under);  // has 4
-        self::assertNotContains('comprehension-deepening', $under);  // has 4
+        // Prova o MECANISMO (count < threshold ⇒ flagged) derivando as expectativas do
+        // próprio matrix — contagens hardcoded apodrecem toda vez que um organ novo nasce
+        // (a versão anterior pinava compounding=2 de uma era em que todos os paths tinham 6+).
+        $matrix = new AtlasBrainCoverageMatrix;
+        $cov = $matrix->coverageByPath();
+
+        self::assertSame([], $matrix->underbuiltPaths(0), 'nada fica abaixo de zero');
+        self::assertSame(
+            array_keys($cov),
+            array_values($matrix->underbuiltPaths(max($cov) + 1)),
+            'threshold acima do máximo flagra todos os paths'
+        );
+
+        $threshold = max($cov); // paths estritamente abaixo do máximo são flagrados
+        $under = $matrix->underbuiltPaths($threshold);
+        foreach ($cov as $path => $count) {
+            $count < $threshold
+                ? self::assertContains($path, $under, "$path ($count) abaixo de $threshold")
+                : self::assertNotContains($path, $under, "$path ($count) não está abaixo de $threshold");
+        }
     }
 
     public function test_matrix_classes_all_exist(): void

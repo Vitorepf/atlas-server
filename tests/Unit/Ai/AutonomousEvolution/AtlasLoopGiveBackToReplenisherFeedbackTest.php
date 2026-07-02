@@ -71,7 +71,7 @@ final class AtlasLoopGiveBackToReplenisherFeedbackTest extends TestCase
         $this->assertArrayNotHasKey('give_back_facts', $context, 'flag OFF adds no key');
         // The HEAD key set — none of these is the feedback key.
         $this->assertSame(
-            ['schema', 'scope_root', 'status', 'claimable_before', 'claimable_after', 'enqueued', 'enqueued_count', 'skipped_existing', 'skipped_deficient', 'candidates_considered'],
+            ['schema', 'scope_root', 'status', 'claimable_before', 'claimable_after', 'enqueued', 'enqueued_count', 'skipped_existing', 'skipped_deficient', 'candidates_considered', 'skipped_template_family_count'],
             array_keys($context),
         );
     }

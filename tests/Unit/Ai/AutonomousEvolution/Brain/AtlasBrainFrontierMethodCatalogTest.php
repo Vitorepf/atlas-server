@@ -16,7 +16,9 @@ final class AtlasBrainFrontierMethodCatalogTest extends TestCase
         self::assertSame(AtlasBrainFrontierMethodCatalog::SCHEMA, $r['schema']);
         self::assertSame($r['total'], $r['implemented'] + $r['unharvested']);
         self::assertGreaterThan(0, $r['implemented']);
-        self::assertGreaterThan(0, $r['unharvested']);
+        // unharvested=0 é estado LEGÍTIMO (verificado: os 12 organs existem como classes
+        // reais) — o pin antigo `unharvested > 0` proibia o catálogo completar a colheita.
+        self::assertGreaterThanOrEqual(0, $r['unharvested']);
     }
 
     public function test_implemented_methods_resolve_to_existing_classes(): void
