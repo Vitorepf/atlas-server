@@ -186,8 +186,17 @@ de falha que ficou invisível por semanas agora bloqueia.
   guard de teste do S8. Prova: `test_completed_run_records_context_pack_roi_feedback`
   (used≥1, noise≥1 no evento persistido).
 
+## Execução S10 (02/07/2026)
+
+- **S10 (entregue — ranking #7):** distiller corta em fronteira de linha, nunca mid-entry
+  (`DevContextBudgetDistiller`): o corte recua para o último `\n` dentro do budget (fallback
+  raw quando a seção é uma linha única maior que o budget). Prova:
+  `test_truncation_cuts_on_line_boundary_never_mid_entry` + suite 12 verdes.
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Ranking #7 — distiller mid-entry truncation:** `DevContextBudgetDistiller:108` corta
-`substr` no meio de unidade lógica; cortar na fronteira de item preserva fato crítico na
-compaction. Depois: #9 GC/índice do receipt store.
+**Re-rankear:** o tail do ranking original (#9 GC receipts) é menor que o teto novo exposto
+pelos S8/S9 — ADML tem evidência live mas nada ATIVA rota (free_to_choose → follow_learned
+continua passo manual/offline). Candidato a próxima alavanca grande: ciclo de ativação de
+rota por evidência (respeitando admission/kernel), ou o próximo gargalo que a medição
+apontar.

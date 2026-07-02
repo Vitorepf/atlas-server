@@ -105,9 +105,17 @@ final class DevContextBudgetDistiller
                 continue;
             }
 
-            $sections[$label] = substr($content, 0, $remaining);
+            // Cut on a line boundary, never mid-entry: a half fact in the prompt is
+            // worse than one fact fewer. Falls back to the raw cut when the section
+            // is a single line longer than the whole remaining budget.
+            $cut = substr($content, 0, $remaining);
+            $lastNewline = strrpos($cut, "\n");
+            if ($lastNewline !== false && $lastNewline > 0) {
+                $cut = substr($cut, 0, $lastNewline);
+            }
+            $sections[$label] = $cut;
             $includedLabels[] = $label;
-            $droppedReport[] = ['label' => $label, 'reason' => self::REASON_TRUNCATED, 'chars' => $chars - $remaining];
+            $droppedReport[] = ['label' => $label, 'reason' => self::REASON_TRUNCATED, 'chars' => $chars - strlen($cut)];
             $remaining = 0;
         }
 

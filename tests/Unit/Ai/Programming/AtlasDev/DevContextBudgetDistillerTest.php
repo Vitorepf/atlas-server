@@ -133,6 +133,20 @@ final class DevContextBudgetDistillerTest extends TestCase
         $this->assertSame([['label' => 'callers', 'reason' => DevContextBudgetDistiller::REASON_TRUNCATED, 'chars' => 20]], $result['dropped_report']);
     }
 
+    public function test_truncation_cuts_on_line_boundary_never_mid_entry(): void
+    {
+        // Each line is one logical fact; the cut must land on a newline so the
+        // prompt never carries half a fact.
+        $sections = [
+            'callers' => "fact-one\nfact-two\nfact-three\n",
+        ];
+        // Budget lands mid "fact-two" (chars 0..12 = "fact-one\nfact").
+        $result = $this->distiller()->distill($sections, 13);
+
+        $this->assertSame('fact-one', $result['sections']['callers'], 'the cut backs off to the last full line');
+        $this->assertSame(DevContextBudgetDistiller::REASON_TRUNCATED, $result['dropped_report'][0]['reason']);
+    }
+
     public function test_zero_budget_drops_everything(): void
     {
         $sections = ['callers' => 'abc'];
