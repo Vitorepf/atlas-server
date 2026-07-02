@@ -16,10 +16,9 @@ runtimes/swift/**/.swiftpm/
 runtimes/swift/**/Package.resolved
 .DS_Store
 .env
-.env.backup
-.env.atlas-backup-*
-.env.atlas-dev-desktop-backup-*
-.env.production
+.env.*
+!.env.example
+!.env.testing
 .phpactor.json
 .phpunit.result.cache
 /.codex
