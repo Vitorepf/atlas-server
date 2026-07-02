@@ -226,9 +226,14 @@ final class AtlasLoopObraExecutionPlanningTest extends TestCase
     public function test_live_provider_seam_is_fail_open_and_falls_back(): void
     {
         config(['atlas.loop.planning_enabled' => true]);
+        // Pin the default provider to an UNREGISTERED key: on this machine the live default
+        // (hermes) resolves and answers, which would turn this into a slow, flaky, spending
+        // live call. An unknown key makes AiProviderManager::get() throw inside the seam —
+        // the exact production fail-open branch this test exists to prove.
+        config(['atlas.ai.default_provider' => 'unwired-test-provider']);
         $this->buildRepo();
 
-        // The real adapter: generateSpecViaProvider returns [] (no real seam wired) => buildPlan fallback.
+        // The real adapter: generateSpecViaProvider returns [] => buildPlan fallback.
         $result = (new AtlasLoopObraExecutionAdapter)->executeAndProve($this->planningPayload(true), $this->fixture());
 
         $this->assertFalse((bool) $result['ok']);

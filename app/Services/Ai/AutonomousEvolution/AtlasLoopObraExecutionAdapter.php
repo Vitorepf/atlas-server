@@ -638,12 +638,21 @@ class AtlasLoopObraExecutionAdapter
         $objective = trim((string) ($payload['objective'] ?? 'Reduce the cyclomatic complexity of the cluster, preserving behaviour.'));
         $clusterKey = (string) ($payload['cluster_hash'] ?? hash('sha256', implode('|', $allowed)));
         $nodes = [];
+        $total = count($allowed);
         foreach ($allowed as $i => $file) {
+            // Each node states its OWN role (hub anchor vs satellite, position in the walk) so the
+            // fallback plan is non-vacuous by construction: the X4 readiness check collapses file
+            // tokens, and without the role sentence every same-directory node normalized identically,
+            // which rejected the deterministic buildPlan lane the tests (and the loop) rely on.
+            $role = $file === $hub
+                ? 'This node is the HUB anchor of the cluster; its shape constrains every satellite.'
+                : 'This node is satellite '.$i.' of '.($total - 1).'; it follows the hub refactor at seq 0.';
             $nodes[] = [
                 'id' => 'node-'.substr(hash('sha256', $clusterKey.'|'.$file), 0, 16),
                 'seq' => $i,
                 'title' => 'refactor '.basename($file),
-                'request' => $objective."\n\nEdit ONLY ".$file.' as part of cluster '.$hub
+                'request' => $objective."\n\nNode ".($i + 1).'/'.$total.'. '.$role
+                    ."\nEdit ONLY ".$file.' as part of cluster '.$hub
                     .'; reduce its worst-method cyclomatic complexity; PRESERVE behaviour exactly (the frozen sibling tests must stay green).',
                 'target_area' => $file,
                 'depends_on' => [],

@@ -56,6 +56,12 @@
              so without this the AUCRI feature suite would spawn real Python.
              Per-test config()->set + a bound fake runtime turn it on where needed. -->
         <env name="ATLAS_AUCRI_LOCAL_SEMANTIC_SCORING" value="false"/>
+        <!-- Loop obra planning is armed in the dev/prod .env (live campaign), but with it
+             ON every Feature test that reaches executeAndProve() invokes the REAL default
+             provider (hermes) — 60-600s per call, flaky, and it spends. Tests stay on the
+             deterministic buildPlan lane; per-test config()->set turns planning on where
+             the planning machinery itself is under test (with the provider seam stubbed). -->
+        <env name="ATLAS_LOOP_PLANNING_ENABLED" value="false"/>
         <!-- T1.2: capture quality gate is ENFORCE in dev/prod .env, but tests stay
              deterministic on the historical default (per-test config()->set turns
              enforce on where the gate itself is under test). -->
