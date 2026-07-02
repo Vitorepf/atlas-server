@@ -53,6 +53,8 @@ use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineGate;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService;
 use App\Services\Ai\Programming\AtlasDev\Regression\VerificationRegressionBaselineRunner;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureSignatureHasher;
 use App\Services\Ai\Programming\AtlasDev\Repair\RepairPromptComposer;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
@@ -66,6 +68,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
 use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
+use App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity;
 use App\Services\Ai\Programming\AtlasDev\WorkspaceMutatingProviders;
 use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
@@ -604,6 +607,40 @@ final class PipelineRunExecutor implements RunExecutor
                 $verificationResult = $this->routeElevationVerdict($verificationResult, $weakOutputConfig, [
                     DevWeakOutputDetector::FLAG_WEAK_OUTPUT_DETECTED,
                 ]);
+
+                // weak_output -> memória: the signal previously died in the
+                // run_summary — the NEXT run touching the same area never saw
+                // it. Persist a failure capsule (failure_class=weak_output)
+                // anchored to a workspace-slug task packet so
+                // DevFailureCapsulePromptInjector surfaces it as a
+                // known_failure_mode in the next prompt for this area.
+                // Fail-open: learning must never break the run.
+                try {
+                    $packet = app(DevTaskPacketRuntimeService::class)->persist([
+                        'run_id' => $runId,
+                        'task_id' => 'pipeline-'.$runId,
+                        'objective' => $envelope->normalizedIntent,
+                        'workspace_slug' => WorkspaceOriginIdentity::slug($envelope->workspace),
+                        'allowed_files' => $taskContract->allowedFiles,
+                        'source' => 'pipeline_run_executor',
+                    ]);
+                    app(DevFailureCapsuleRuntimeService::class)->persist([
+                        'run_id' => $runId,
+                        'task_id' => 'pipeline-'.$runId,
+                        'failing_gate' => 'weak_output_probe',
+                        'failure_class' => 'weak_output',
+                        'error_excerpt' => implode('; ', array_map(
+                            static fn (array $s): string => $s['id'].' — '.$s['detail'],
+                            $appliedDiffInspection['signals'],
+                        )),
+                        'changed_files' => array_map(
+                            static fn (ScopeFileDiff $diff): string => $diff->path,
+                            $scopeReceipt->observed->fileDiffs,
+                        ),
+                    ], $packet);
+                } catch (\Throwable) {
+                    // fail-open
+                }
             }
         }
 

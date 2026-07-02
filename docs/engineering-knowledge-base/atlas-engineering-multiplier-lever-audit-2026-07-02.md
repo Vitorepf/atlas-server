@@ -1,3 +1,27 @@
+---
+id: atlas-engineering-multiplier-lever-audit-2026-07-02
+type: engineering_knowledge
+title: Atlas Engineering Multiplier — auditoria de alavancas (2026-07-02)
+# audit snapshot datado; archived isenta do schema de módulo canônico sem perder o registro
+status: archived
+category: audit
+priority: 80
+summary: Auditoria verificada (leitura direta + probes no DB vivo) das maiores alavancas para maximizar M = capacidade_do_modelo_com_Atlas / modelo_puro. Ranking top-10, refutados, incidente do wiper de DB, execução S1-S6 e métricas honestas antes/depois.
+tags: [atlas-dev, model-amplifier, learning-spine, failure-capsules, audit]
+capabilities:
+  - model_amplification_lever_ranking
+  - learning_spine_liveness_audit
+decisions:
+  - Alavanca só conta se o sinal chega no ponto de decisão do fluxo vivo (anti-teatro).
+  - Migrações idempotentes restauram schema; nunca carimbar migrations manualmente.
+maintenance:
+  - Atualizar a seção de execução a cada slice entregue; re-rodar atlas:engineering:m-scorecard para baseline.
+related_paths:
+  - app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php
+  - app/Services/Ai/Programming/AtlasDev/RuntimeIntelligence/DevFailureCapsuleRuntimeService.php
+  - app/Services/Ai/SelfConstruction/AtlasTaskServingService.php
+---
+
 # Atlas Engineering Multiplier — auditoria de alavancas (2026-07-02)
 
 Objetivo: maximizar M = capacidade_do_modelo_com_Atlas / capacidade_do_modelo_puro.
@@ -113,10 +137,21 @@ de falha que ficou invisível por semanas agora bloqueia.
   (`AiRivalsShadowRun`/`AiRealExecutionRivalsBenchmark`, aposentadoria é do dono do Rivals2) e
   `ForgeOutcomeMemoryService` learning_candidates (coberto pelo WIP O-1 em andamento).
 
+## Execução S6 (02/07/2026)
+
+- **S6 (entregue — ranking #3):** weak_output → memória. O bloco W1 do verdict
+  (`PipelineRunExecutor`) agora persiste failure capsule `failure_class=weak_output`
+  (gate `weak_output_probe`, excerpt = sinais do detector, changed_files do scope receipt)
+  anchorada a task packet workspace-slug — o mesmo canal que injeta known_failure_modes na
+  próxima run da área. `weak_output` virou failure_class de primeira classe no
+  `DevFailureCapsuleRuntimeService` (classify + suggested_repair). Fail-open. Prova:
+  `test_weak_output_persists_failure_capsule_for_next_run_in_same_area` (run completo com
+  diff TODO-placeholder verde-fraco → needs_review + capsule no DB + packet slug correto);
+  suites vizinhas (detector, flag W1, serving capsule, runtime intelligence, compounding,
+  forge prompt memory) verdes.
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Ranking #3 — weak_output → memória:** o sinal `weak_output_detected`
-(`PipelineRunExecutor:602-608`) morre no run_summary; persistir capsule com
-`failure_class=weak_output` no bloco do verdict fecharia verde-fraco → memória → prompt da
-próxima run na mesma área (leitor já existe e agora tem storage vivo). Depois: #4 give_back →
-classificação/respec automático.
+**Ranking #4 — give_back → classificação/respec:** give_back só libera lease + contador;
+classificar give_back e agendar respec para classes scope_gap fecharia fila auto-curativa
+sem gastar músculo. Depois: #5 ADML live outcome feedback.

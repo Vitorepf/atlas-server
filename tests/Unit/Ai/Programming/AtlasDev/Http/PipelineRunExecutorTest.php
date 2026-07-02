@@ -330,6 +330,82 @@ DIFF;
         $this->assertSame(hash('sha256', $log['combined_output']), $log['output_hash']);
     }
 
+    public function test_weak_output_persists_failure_capsule_for_next_run_in_same_area(): void
+    {
+        // weak_output -> memória: a weak-green diff (TODO placeholder in the
+        // added lines, verification vacuously green) must persist a failure
+        // capsule anchored to a workspace-slug packet, so the next run in the
+        // same area receives it via known_failure_modes. Previously the
+        // signal died in the run_summary.
+        $migration = require base_path('database/migrations/2026_05_22_160000_create_atlas_dev_runtime_intelligence_tables.php');
+        $migration->down();
+        $migration->up();
+
+        try {
+            $runId = 'dev-weak-capsule-'.bin2hex(random_bytes(3));
+            $storage = new ReceiptStorage($this->tmpStorage);
+            $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+
+            $target = $this->tmpWorkspace.'/tests/Unit/Services/Foo/FooServiceTest.php';
+            mkdir(dirname($target), 0o755, true);
+            file_put_contents($target, "<?php\nassert(false);\n");
+
+            $diff = <<<'DIFF'
+--- a/tests/Unit/Services/Foo/FooServiceTest.php
++++ b/tests/Unit/Services/Foo/FooServiceTest.php
+@@ -1,2 +1,3 @@
+ <?php
+-assert(false);
++// TODO: implement the real assertion
++assert(true);
+DIFF;
+
+            $executor = $this->makeExecutor($storage, gatewayStdout: $diff);
+            $envelope = $this->envelope();
+            $taskContract = $this->taskContractFixture([
+                'allowed_files' => ['tests/Unit/Services/Foo/FooServiceTest.php'],
+                'expected_max_files' => 2,
+                'max_files_changed' => 2,
+                // single pass: the W1 post-gate block is under test, not the
+                // weak-green repair loop.
+                'repair_policy' => [
+                    'max_attempts' => 0,
+                    'abort_on_same_signature_twice' => true,
+                    'requires_failed_gate_output' => true,
+                    'same_provider' => true,
+                ],
+            ]);
+
+            $result = $executor->execute(
+                envelope: $envelope,
+                taskContract: $taskContract,
+                promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+                runId: $runId,
+            );
+
+            // advisory weak_output downgrades green -> needs_review
+            $this->assertSame('needs_review', $result->completionState);
+
+            $capsule = \App\Models\AtlasDevFailureCapsule::query()
+                ->where('run_id', $runId)
+                ->where('failure_class', 'weak_output')
+                ->first();
+            $this->assertNotNull($capsule, 'weak_output must persist a failure capsule (learning write-side)');
+            $this->assertSame('weak_output_probe', $capsule->failing_gate);
+            $this->assertContains('tests/Unit/Services/Foo/FooServiceTest.php', $capsule->changed_files);
+
+            $packet = \App\Models\AtlasDevTaskPacket::query()->find($capsule->task_packet_id);
+            $this->assertNotNull($packet, 'capsule must be anchored to a task packet');
+            $this->assertSame(
+                \App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity::slug($this->tmpWorkspace),
+                $packet->workspace_slug,
+                'packet slug must be the workspace origin identity the injector matches on',
+            );
+        } finally {
+            $migration->down();
+        }
+    }
+
     public function test_simple_allowed_file_patch_can_run_without_provider_call(): void
     {
         $runId = 'dev-deterministic-'.bin2hex(random_bytes(3));
