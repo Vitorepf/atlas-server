@@ -484,6 +484,11 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         }
 
         try {
+            // PISO PÉTREO — mesmo floor do provision de execução: sem .env o
+            // check herdaria o pgsql VIVO via default de config/database.php
+            // (2º vetor do wiper, onda 23:46 UTC 02/07: o symptom check em
+            // worktree sem floor dropou as tabelas dev runtime intelligence).
+            $this->provisionDatabaseFloor($worktree);
             if (is_dir($repo.'/vendor') && ! is_dir($worktree.'/vendor')) {
                 symlink($repo.'/vendor', $worktree.'/vendor');
             }
