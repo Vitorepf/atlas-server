@@ -134,5 +134,8 @@ return [
         'min_code_files' => (int) env('ATLAS_RIVALS2_MIN_CODE_FILES', 2),
         'max_diff_lines' => 400,
         'check_timeout_seconds' => (int) env('ATLAS_RIVALS2_CHECK_TIMEOUT', 300),
+        // teto do SOLVER é separado e generoso (decisão do operador 02/07: benchmark
+        // honesto não mata engenheiro no relógio) — 1h default, só backstop anti-hang
+        'solver_timeout_seconds' => (int) env('ATLAS_RIVALS2_SOLVER_TIMEOUT', 3600),
     ],
 ];

@@ -259,11 +259,11 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 }
             }
 
-            $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);
+            $timeout = (int) $this->benchConfig('check_timeout_seconds', 300);
             $timedOut = $solverTimedOut;
             if ($solverTimedOut) {
                 $status = 'timeout';
-                $checkOutput = "solver timed out after {$timeout}s";
+                $checkOutput = 'solver timed out after '.$this->benchConfig('solver_timeout_seconds', 3600).'s (backstop anti-hang)';
             } elseif ($blockReason !== null) {
                 $status = 'error';
                 $checkOutput = $blockReason;
@@ -424,7 +424,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         $promptFile = $worktree.'/.rivals2_task.md';
         file_put_contents($promptFile, $this->ticketFor($case));
 
-        $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);
+        $timeout = (int) $this->benchConfig('solver_timeout_seconds', 3600);
         $resolved = str_replace(
             ['{workspace}', '{prompt_file}', '{cli_model}'],
             [escapeshellarg($worktree), escapeshellarg($promptFile), escapeshellarg($model['cli_model'] ?? $modelId)],
