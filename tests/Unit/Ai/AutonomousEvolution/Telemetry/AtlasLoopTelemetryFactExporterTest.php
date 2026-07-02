@@ -76,8 +76,15 @@ final class AtlasLoopTelemetryFactExporterTest extends TestCase
         $after = (string) file_get_contents($path);
         $this->assertStringStartsWith($before, $after);
 
+        // Append-binary open + locking are owned by the kernel JsonlReceiptStore; the exporter must
+        // delegate to it and never open the file itself.
         $source = (string) file_get_contents((new ReflectionClass(AtlasLoopTelemetryFactExporter::class))->getFileName());
-        $this->assertStringContainsString("fopen(\$path, 'ab')", $source);
+        $this->assertStringContainsString('JsonlReceiptStore', $source);
+        $this->assertStringNotContainsString('fopen(', $source);
+
+        $store = (string) file_get_contents(app_path('Services/Ai/EngineeringKernel/Adapters/JsonlReceiptStore.php'));
+        $this->assertStringContainsString("fopen(\$this->path, 'ab+')", $store);
+        $this->assertStringContainsString('flock($fh, LOCK_EX)', $store);
     }
 
     public function test_parallel_appends_produce_complete_jsonl_lines_without_byte_interleaving(): void
@@ -111,7 +118,11 @@ PHP;
             static fn (string $line): array => json_decode($line, true, flags: JSON_THROW_ON_ERROR),
             $lines
         );
-        $this->assertSame(['cycle-a', 'cycle-b'], array_values(array_map(static fn (array $row): string => $row['cycle_id'], $decoded)));
+        // Two concurrent processes have no guaranteed order — the invariant is two COMPLETE
+        // decodable lines with both facts present, never interleaved bytes.
+        $cycleIds = array_values(array_map(static fn (array $row): string => $row['cycle_id'], $decoded));
+        sort($cycleIds);
+        $this->assertSame(['cycle-a', 'cycle-b'], $cycleIds);
     }
 
     /**

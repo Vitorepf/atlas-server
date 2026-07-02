@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Telemetry;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use Throwable;
+
 final class AtlasLoopTelemetryFactExporter
 {
     /** @var list<string> */
@@ -18,30 +21,12 @@ final class AtlasLoopTelemetryFactExporter
             return false;
         }
 
-        $dir = dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0775, true) && ! is_dir($dir)) {
-            return false;
-        }
-
-        $encoded = json_encode($fact, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $handle = @fopen($path, 'ab');
-        if ($handle === false) {
-            return false;
-        }
-
         try {
-            if (! flock($handle, LOCK_EX)) {
-                return false;
-            }
+            (new JsonlReceiptStore($path))->append($fact);
 
-            $line = $encoded."\n";
-            $written = fwrite($handle, $line);
-            fflush($handle);
-
-            return $written === strlen($line);
-        } finally {
-            @flock($handle, LOCK_UN);
-            @fclose($handle);
+            return true;
+        } catch (Throwable) {
+            return false; // fail-open by contract: telemetry export never breaks the caller
         }
     }
 
