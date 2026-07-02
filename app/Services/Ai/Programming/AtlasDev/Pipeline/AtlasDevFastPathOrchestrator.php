@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DevContextBudgetDistiller;
+use App\Services\Ai\Programming\AtlasDev\Discovery\DevGreenRunExemplarRetriever;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
 use App\Services\Ai\Programming\AtlasDev\Discovery\OpenBrainProjectionAdapter;
 use App\Services\Ai\Programming\AtlasDev\Discovery\SymbolLookup;
@@ -65,6 +66,8 @@ class AtlasDevFastPathOrchestrator
         private readonly ?SymbolLookup $callerLookup = null,
         private readonly ?AtlasAemorRuntimeService $aemorRuntime = null,
         private readonly ?DevWorkcellDecomposer $workcellDecomposer = null,
+        private readonly ?DevGreenRunExemplarRetriever $exemplarRetriever = null,
+        private readonly ?DevWorkcellInstructionAssembler $instructionAssembler = null,
     ) {}
 
     /**
@@ -116,6 +119,7 @@ class AtlasDevFastPathOrchestrator
                 $distillation,
             );
         } catch (Throwable) {
+            $distillation = [];
             $persistedDistillation = null;
         }
 
@@ -199,6 +203,7 @@ class AtlasDevFastPathOrchestrator
             promptProjection: $promptProjection,
             classification: $classification,
             routing: $routing,
+            distillation: $distillation,
         );
 
         if ($persistedDistillation !== null) {
@@ -439,6 +444,7 @@ class AtlasDevFastPathOrchestrator
         AtlasDevSchemaContract $promptProjection,
         TaskClassification $classification,
         RoutingDecision $routing,
+        array $distillation = [],
     ): array {
         $runId = (string) $envelope->toCanonicalArray()['run_id'];
         $persisted = [];
@@ -488,6 +494,55 @@ class AtlasDevFastPathOrchestrator
             $decomposition,
         );
 
+        // ADDITIVE: one executable instruction per workcell, boosted with real green-run
+        // exemplars. Same fail-open contract as the distillation above — never blocks planOnly().
+        $persisted['workcell_instructions.json'] = $this->receiptStorage->writeAtomic(
+            $runId,
+            'workcell_instructions.json',
+            $this->assembleWorkcellInstructions($decomposition, $miniSpec->toCanonicalArray(), $classification->taskKind, $distillation),
+        );
+
         return $persisted;
+    }
+
+    /**
+     * @param  array<string,mixed>  $decomposition  DevWorkcellDecomposer::decompose() output
+     * @param  array<string,mixed>  $spec           MiniProgrammingSpec::toCanonicalArray()
+     * @param  array<string,mixed>  $distillation   DevContextBudgetDistiller::distill() output
+     * @return array{schema:string, instructions:list<array{workcell_id:string, instruction_text:string, sections:list<string>, char_count:int}>}
+     */
+    private function assembleWorkcellInstructions(array $decomposition, array $spec, string $taskKind, array $distillation): array
+    {
+        $assembler = $this->instructionAssembler ?? new DevWorkcellInstructionAssembler;
+        $retriever = $this->exemplarRetriever ?? new DevGreenRunExemplarRetriever;
+        $designPath = $this->designPathFromSpec($spec);
+
+        $instructions = [];
+        foreach ((array) ($decomposition['workcells'] ?? []) as $workcell) {
+            if (! is_array($workcell)) {
+                continue;
+            }
+            $allowedFiles = array_values(array_map('strval', (array) ($workcell['allowed_files'] ?? [])));
+            $exemplars = $retriever->retrieve($taskKind, $designPath, $allowedFiles);
+            $assembled = $assembler->assemble($workcell, $distillation, $spec, $exemplars);
+            $instructions[] = ['workcell_id' => (string) ($workcell['workcell_id'] ?? '')] + $assembled;
+        }
+
+        return [
+            'schema' => 'atlas.dev.workcell_instructions.v1',
+            'instructions' => $instructions,
+        ];
+    }
+
+    /** @param  array<string,mixed>  $spec */
+    private function designPathFromSpec(array $spec): string
+    {
+        foreach ((array) ($spec['canonical_context'] ?? []) as $entry) {
+            if (is_array($entry) && (string) ($entry['kind'] ?? '') === 'design_path') {
+                return (string) ($entry['ref'] ?? '');
+            }
+        }
+
+        return '';
     }
 }

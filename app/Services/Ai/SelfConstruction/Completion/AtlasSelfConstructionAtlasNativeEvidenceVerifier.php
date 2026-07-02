@@ -105,13 +105,14 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
                 // that carries no atlas-native corroboration is not Atlas-native ownership proof.
                 $origin = $sourceRow !== null ? strtolower(trim((string) ($sourceRow['origin'] ?? ''))) : '';
                 if ($origin !== '' && in_array($origin, self::PROVIDER_ONLY_ORIGINS, true)
-                    && (bool) ($sourceRow['atlas_native_corroborated'] ?? false) === false) {
+                    && ((bool) ($sourceRow['atlas_native_corroborated'] ?? false) === false
+                        || trim((string) ($sourceRow['corroboration_ref'] ?? '')) === '')) {
                     $sourceBlockers[] = [
                         'source_id' => $sourceId,
                         'kind' => 'provider_only_artifact',
                         'status' => $status,
                         'refreshable' => $refreshable,
-                        'note' => 'origin='.$origin.' lacks atlas-native corroboration',
+                        'note' => 'origin='.$origin.' lacks atlas-native corroboration or a corroboration_ref',
                     ];
                     $unsafeBlocker = true;
                 }
@@ -282,6 +283,21 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
             }
         }
 
+        // next_required_proof_by_source: EVERY blocker's actionable next step, keyed by source_id
+        // (a source with multiple blockers keeps the first-seen one — stable since $sourceBlockers
+        // is already sorted by source_id).
+        $nextRequiredProofBySource = [];
+        foreach ($sourceBlockers as $b) {
+            $sid = (string) $b['source_id'];
+            if (! isset($nextRequiredProofBySource[$sid])) {
+                $nextRequiredProofBySource[$sid] = $this->nextRequiredProofFor($b);
+            }
+        }
+        foreach ($contractBlockers as $cb) {
+            $nextRequiredProofBySource['autonomy_contract'] = $nextRequiredProofBySource['autonomy_contract'] ?? 'resolve_autonomy_contract:'.$cb;
+        }
+        ksort($nextRequiredProofBySource);
+
         return [
             'schema' => self::SCHEMA,
             'schema_version' => self::SCHEMA,
@@ -297,6 +313,7 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
             'stale_evidence' => $staleEvidence,
             'provider_dependency_flags' => $providerDependencyFlags,
             'next_required_proof' => $nextRequiredProof,
+            'next_required_proof_by_source' => $nextRequiredProofBySource,
         ];
     }
 
@@ -432,6 +449,14 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
         }
         if (trim((string) ($sourceRow['replay_command_hash'] ?? '')) === '') {
             $issues[] = 'source_binding_missing_replay_command_hash';
+        }
+
+        if (trim((string) ($sourceRow['evidence_hash'] ?? '')) === '') {
+            $issues[] = 'source_binding_missing_evidence_hash';
+        }
+
+        if (trim((string) ($sourceRow['verifier_ref'] ?? '')) === '') {
+            $issues[] = 'source_binding_missing_verifier_ref';
         }
 
         return $issues;

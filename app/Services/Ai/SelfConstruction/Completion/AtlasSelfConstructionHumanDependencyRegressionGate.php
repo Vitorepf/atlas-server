@@ -81,6 +81,33 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
         self::REGRESSION_UNDOCUMENTED_HANDOFF => 'name and document the actual handoff — an unnamed non-atlas actor in an ordinary path cannot be evaluated for native replacement',
     ];
 
+    /** regression kind => concrete next action to build the Atlas-native replacement. */
+    private const REGRESSION_NATIVE_REPLACEMENT_ACTION = [
+        self::REGRESSION_OPERATOR_PROMPT => 'build_atlas_native_autonomous_decision_gate',
+        self::REGRESSION_MANUAL_DECISION => 'codify_deterministic_atlas_native_policy_service',
+        self::REGRESSION_PROVIDER => 'route_execution_through_atlas_native_or_local_model',
+        self::REGRESSION_HUMAN_RECOVERY => 'implement_atlas_native_self_heal_recovery_routine',
+        self::REGRESSION_UNDOCUMENTED_HANDOFF => 'name_and_document_actor_before_replacement_can_be_planned',
+    ];
+
+    /** regression kind => Atlas subsystem accountable for delivering the replacement. */
+    private const REGRESSION_REPLACEMENT_OWNER = [
+        self::REGRESSION_OPERATOR_PROMPT => 'self_construction_gate_layer',
+        self::REGRESSION_MANUAL_DECISION => 'self_construction_policy_layer',
+        self::REGRESSION_PROVIDER => 'engineering_kernel_execution_layer',
+        self::REGRESSION_HUMAN_RECOVERY => 'autonomous_evolution_recovery_layer',
+        self::REGRESSION_UNDOCUMENTED_HANDOFF => 'unassigned_pending_actor_documentation',
+    ];
+
+    /** regression kind => evidence refs required to prove the replacement was actually delivered. */
+    private const REGRESSION_REQUIRED_PROOF_REFS = [
+        self::REGRESSION_OPERATOR_PROMPT => ['tests_or_gates_result', 'autonomous_decision_receipt'],
+        self::REGRESSION_MANUAL_DECISION => ['tests_or_gates_result', 'policy_decision_receipt'],
+        self::REGRESSION_PROVIDER => ['tests_or_gates_result', 'local_execution_receipt'],
+        self::REGRESSION_HUMAN_RECOVERY => ['tests_or_gates_result', 'self_heal_receipt'],
+        self::REGRESSION_UNDOCUMENTED_HANDOFF => ['actor_documentation_ref'],
+    ];
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -113,6 +140,15 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
             $isAdvisoryException = in_array($kind, self::ALLOWED_EXCEPTION_LABELS, true)
                 || in_array($label, self::ALLOWED_EXCEPTION_LABELS, true);
 
+            // A pasted-session/manual-recovery actor can never be waved through by a decorative
+            // `label` claiming bootstrap/visibility when the real `kind` is ordinary or recovery —
+            // otherwise any steady-state pasted-session dependency could hide behind a mislabeled
+            // advisory tag while the path itself is genuinely load-bearing.
+            $hasPastedSessionActor = (bool) array_intersect($nonAtlas, self::PASTED_SESSION_ANTIPATTERNS);
+            if ($hasPastedSessionActor && in_array($kind, ['ordinary', 'recovery'], true)) {
+                $isAdvisoryException = false;
+            }
+
             $inspectedPaths[] = [
                 'id' => $id,
                 'kind' => $kind,
@@ -144,6 +180,9 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
                     'severity' => self::REGRESSION_SEVERITY[$kindOfRegression],
                     'blocking_reason' => $blockingReason,
                     'native_replacement_hint' => self::REGRESSION_NATIVE_REPLACEMENT_HINT[$kindOfRegression],
+                    'native_replacement_action' => self::REGRESSION_NATIVE_REPLACEMENT_ACTION[$kindOfRegression],
+                    'replacement_owner' => self::REGRESSION_REPLACEMENT_OWNER[$kindOfRegression],
+                    'required_proof_refs' => self::REGRESSION_REQUIRED_PROOF_REFS[$kindOfRegression],
                 ];
             }
         }

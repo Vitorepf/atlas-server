@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopObraExecutionAdapter;
-use App\Services\Ai\AutonomousEvolution\FixtureRefactorObraNodeDelivery;
 use App\Services\Ai\Obra\AtlasObraExecutor;
+use App\Services\Ai\Obra\ObraNodeDelivery;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -74,9 +74,48 @@ final class AtlasLoopObraExecutionPlanningTest extends TestCase
         ];
     }
 
-    private function fixture(): FixtureRefactorObraNodeDelivery
+    /**
+     * Deterministic, zero-spend delivery: for each node, returns a PRE-BAKED simpler version of
+     * that node's target file (a genuine cyclomatic drop) so the executor really runs
+     * apply→gate→integrated→close. Local, zero-spend fixture (fixture machinery proof, not a
+     * real provider — never earns a parkable L4-10).
+     *
+     * @param  array<string,string>  $replacements  repo-relative path => pre-baked file content
+     */
+    private function localFixtureDelivery(array $replacements): ObraNodeDelivery
     {
-        return new FixtureRefactorObraNodeDelivery([
+        return new class($replacements) implements ObraNodeDelivery
+        {
+            public function __construct(private readonly array $replacements) {}
+
+            public function deliver(string $request, array $context = []): array
+            {
+                $target = ltrim((string) ($context['target_area'] ?? ''), '/');
+                if ($target === '' || ! array_key_exists($target, $this->replacements)) {
+                    return ['certified' => false, 'files' => [], 'reason' => 'fixture_no_replacement_for:'.($target !== '' ? $target : 'absent')];
+                }
+
+                $content = $this->replacements[$target];
+
+                return [
+                    'certified' => true,
+                    'files' => [['path' => $target, 'content' => $content]],
+                    'gate_receipt' => hash('sha256', $target.'|'.$content),
+                    'provider' => 'hermes_cli',
+                    'model' => 'gpt-5.5',
+                ];
+            }
+
+            public function label(): string
+            {
+                return 'fixture_refactor_obra';
+            }
+        };
+    }
+
+    private function fixture(): ObraNodeDelivery
+    {
+        return $this->localFixtureDelivery([
             'app/HubA.php' => $this->klass('HubA', 3),
             'app/HubB.php' => $this->klass('HubB', 2),
         ]);

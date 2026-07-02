@@ -113,13 +113,25 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifierTest extends TestCas
     public function test_provider_only_artifact_with_atlas_native_corroboration_is_accepted(): void
     {
         $facts = $this->readyFacts(['sources' => [
-            'merge_governor' => ['status' => 'pass', 'origin' => 'codex', 'atlas_native_corroborated' => true],
+            'merge_governor' => ['status' => 'pass', 'origin' => 'codex', 'atlas_native_corroborated' => true, 'corroboration_ref' => 'corr-ref-1'],
         ]]);
 
         $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
 
         $kinds = array_column($verdict['source_blockers'], 'kind');
         $this->assertNotContains('provider_only_artifact', $kinds);
+    }
+
+    public function test_provider_only_artifact_corroborated_but_missing_corroboration_ref_is_rejected(): void
+    {
+        $facts = $this->readyFacts(['sources' => [
+            'merge_governor' => ['status' => 'pass', 'origin' => 'codex', 'atlas_native_corroborated' => true, 'corroboration_ref' => ''],
+        ]]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertContains('provider_only_artifact', $kinds);
     }
 
     // ── AC: missing evidence surfaced directly ────────────────────────────────
@@ -242,6 +254,8 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifierTest extends TestCas
                 'source_hash' => 'sha256:aabbccdd',
                 'observed_at' => 1751284800,
                 'replay_command_hash' => 'sha256:replay001',
+                'evidence_hash' => 'sha256:evidence001',
+                'verifier_ref' => 'atlas://verifier/test-gate',
             ];
         }
 

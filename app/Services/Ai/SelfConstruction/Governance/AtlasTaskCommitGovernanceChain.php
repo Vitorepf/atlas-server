@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDeci
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorRiskClassifier;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorRollbackPlanGate;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtFalseGreenDetector;
+use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtGateReplayPlan;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtVerdictLedger;
 use Throwable;
 
@@ -59,6 +60,7 @@ final class AtlasTaskCommitGovernanceChain
         private readonly ?string $modeOverride = null,
         private readonly ?AtlasVerificationCourtFalseGreenDetector $falseGreenDetector = null,
         private readonly ?AtlasTaskGovernancePolicyPlane $policyPlane = null,
+        private readonly ?AtlasVerificationCourtGateReplayPlan $replayPlan = null,
     ) {
         $this->clock = $clock ?? static fn (): string => now()->toIso8601String();
     }
@@ -136,6 +138,39 @@ final class AtlasTaskCommitGovernanceChain
             // set is per-risk-level policy data. A required check that never ran, was skipped, or failed
             // lands in missing_rerun so the admission policy is no longer blind to a skipped re-run.
             $missingRerun = $this->missingRerun((string) $risk['risk_level'], $checks);
+            $planHash = null;
+
+            // High/critical replay-plan composition: the Verification Court's gate replay plan demands a
+            // richer, risk-and-file-derived set of replay obligations (false-green-guard, receipt-quorum,
+            // freshness-replay, worker-floor checks, ...) than the flat policy-declared required_checks
+            // set. Low/medium risk NEVER reach this branch — their missing_rerun derivation stays exactly
+            // the policy-only path above, byte-identical to before this change.
+            if (in_array((string) $risk['risk_level'], ['high', 'critical'], true)) {
+                $plan = ($this->replayPlan ?? new AtlasVerificationCourtGateReplayPlan)->derive([
+                    'packet_facts' => ['declared_gates' => $this->missingRerunPolicyDeclaredGates((string) $risk['risk_level'])],
+                    'evidence_contract_result' => ['accepted' => $serverGreen],
+                    'changed_files' => $changed,
+                    'risk_level' => (string) $risk['risk_level'],
+                    'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $this->scopeRoots($changed)],
+                ]);
+                $planHash = $this->deterministicHash($plan);
+
+                // Same leave-alone invariant as missingRerun(): a demanded gate that never appears in
+                // $checks at all was never observed to fail — flagging it would retroactively tighten
+                // every caller that predates a full checks map. Only a gate that DID run and reported
+                // anything other than 'pass' is a proven unmet obligation.
+                $unmetObligations = [];
+                foreach ((array) $plan['commands'] as $command) {
+                    $name = (string) ($command['name'] ?? '');
+                    if ($name === '' || ! array_key_exists($name, $checks)) {
+                        continue;
+                    }
+                    if (strtolower(trim((string) $checks[$name])) !== 'pass') {
+                        $unmetObligations[] = $name;
+                    }
+                }
+                $missingRerun = array_values(array_unique([...$missingRerun, ...$unmetObligations]));
+            }
 
             $admission = ($this->admissionPolicy ?? new AtlasMergeGovernorAdmissionPolicy)->decide([
                 'project_id' => $projectId,
@@ -177,11 +212,11 @@ final class AtlasTaskCommitGovernanceChain
                 $blockers = array_values(array_unique([...$blockers, 'false_green_replay_contradiction', ...$replayVerdict['reasons']]));
             }
 
-            $recorded = $this->record($taskId, $projectId, $decision, $blockers, $evidenceHash, $risk, $rollback, $changed, $checks);
+            $recorded = $this->record($taskId, $projectId, $decision, $blockers, $evidenceHash, $risk, $rollback, $changed, $checks, $planHash);
 
             $enforcedBlock = $mode === self::MODE_ENFORCE && ! $admitted;
 
-            return $this->envelope($mode, $admitted, $enforcedBlock, $decision, (string) $risk['risk_level'], $blockers, $recorded, null, $replayVerdict);
+            return $this->envelope($mode, $admitted, $enforcedBlock, $decision, (string) $risk['risk_level'], $blockers, $recorded, null, $replayVerdict, $planHash, $missingRerun);
         } catch (Throwable $e) {
             // Failure posture depends on the resolved mode: observe/off can NEVER wedge a bootstrap
             // worker over a governance-internal bug (fail-open, admit, record nothing but the error) —
@@ -229,7 +264,7 @@ final class AtlasTaskCommitGovernanceChain
      * @param  array<string,string>  $checks
      * @return array{verdict_ledger:string, release_ledger:string}
      */
-    private function record(string $taskId, string $projectId, string $decision, array $blockers, string $evidenceHash, array $risk, array $rollback, array $changed, array $checks): array
+    private function record(string $taskId, string $projectId, string $decision, array $blockers, string $evidenceHash, array $risk, array $rollback, array $changed, array $checks, ?string $gateReplayPlanHash = null): array
     {
         if ($taskId === '') {
             return ['verdict_ledger' => 'skipped_no_task_id', 'release_ledger' => 'skipped_no_task_id'];
@@ -238,7 +273,12 @@ final class AtlasTaskCommitGovernanceChain
         $decidedAt = ($this->clock)();
         $reasons = $blockers !== [] ? $blockers : (array) $risk['reasons'];
         $reasons = array_values(array_map('strval', $reasons));
-        $planHash = $this->deterministicHash(['risk' => $risk, 'rollback' => $rollback]);
+        // Low/medium risk (gateReplayPlanHash=null) keeps this hash byte-identical to before the
+        // replay-plan composition existed; high/critical folds the gate replay plan's hash in too,
+        // so the recorded receipt proves WHICH replay obligations were demanded for this decision.
+        $planHash = $gateReplayPlanHash !== null
+            ? $this->deterministicHash(['risk' => $risk, 'rollback' => $rollback, 'gate_replay_plan_hash' => $gateReplayPlanHash])
+            : $this->deterministicHash(['risk' => $risk, 'rollback' => $rollback]);
         $outcomeHash = $this->deterministicHash(['decision' => $decision, 'blockers' => $blockers, 'checks' => $checks]);
         $candidateHash = $this->deterministicHash(['changed' => $changed, 'evidence' => $evidenceHash]);
 
@@ -330,6 +370,18 @@ final class AtlasTaskCommitGovernanceChain
     }
 
     /**
+     * The policy-declared required_checks for this risk level, reused as the gate replay plan's
+     * `packet_facts.declared_gates` input — the same checks {@see missingRerun()} already treats
+     * as required for this risk level, now also fed into the richer file/risk-derived plan.
+     *
+     * @return list<string>
+     */
+    private function missingRerunPolicyDeclaredGates(string $riskLevel): array
+    {
+        return ($this->policyPlane ?? new AtlasTaskGovernancePolicyPlane)->requiredChecksFor($riskLevel);
+    }
+
+    /**
      * Map changed file paths to the human-readable organ labels the RiskClassifier scores. Deterministic, pure.
      *
      * @param  list<string>  $changed
@@ -416,7 +468,8 @@ final class AtlasTaskCommitGovernanceChain
      * @param  array{verdict_ledger:string, release_ledger:string}  $recorded
      * @return array<string,mixed>
      */
-    private function envelope(string $mode, bool $admitted, bool $enforcedBlock, string $decision, string $riskLevel, array $blockers, array $recorded, ?string $error = null, ?array $replayVerdict = null): array
+    /** @param  list<string>|null  $missingRerun */
+    private function envelope(string $mode, bool $admitted, bool $enforcedBlock, string $decision, string $riskLevel, array $blockers, array $recorded, ?string $error = null, ?array $replayVerdict = null, ?string $gateReplayPlanHash = null, ?array $missingRerun = null): array
     {
         return [
             'schema' => self::SCHEMA,
@@ -429,6 +482,8 @@ final class AtlasTaskCommitGovernanceChain
             'blockers' => $blockers,
             'recorded' => $recorded,
             'replay_verdict' => $replayVerdict,
+            'gate_replay_plan_hash' => $gateReplayPlanHash,
+            'missing_rerun' => $missingRerun ?? [],
             'error' => $error,
         ];
     }
