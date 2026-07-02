@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\AtlasCode;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use RuntimeException;
 use Throwable;
 
@@ -154,18 +155,10 @@ final class HumanDecisionReceiptSigner
     {
         $path = (string) config('atlas_code_signing.audit_log_path', storage_path('app/atlas-code/decision-receipts.jsonl'));
         try {
-            $dir = dirname($path);
-            if (! is_dir($dir)) {
-                @mkdir($dir, 0775, true);
-            }
-            $line = json_encode([
+            AppendOnlyJsonlStore::appendSilently($path, [
                 'receipt' => $receipt,
                 'canonical_payload' => $canonicalPayload,
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            if (! is_string($line)) {
-                return;
-            }
-            @file_put_contents($path, $line.PHP_EOL, FILE_APPEND | LOCK_EX);
         } catch (Throwable) {
             // Audit log is best-effort. Signing decision still proceeds.
         }
