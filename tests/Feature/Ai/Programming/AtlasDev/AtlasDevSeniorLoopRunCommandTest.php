@@ -25,6 +25,13 @@ final class AtlasDevSeniorLoopRunCommandTest extends TestCase
             config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
         }
 
+        // M5 write side (compounding failure memory): the failed-run path
+        // persists a task packet + failure capsule row. Same targeted
+        // migration bootstrap as CompoundingFailureMemoryTest.
+        $migration = require base_path('database/migrations/2026_05_22_160000_create_atlas_dev_runtime_intelligence_tables.php');
+        $migration->down();
+        $migration->up();
+
         $this->receiptsPath = sys_get_temp_dir().'/atlas-dev-senior-loop-run-receipts-'.bin2hex(random_bytes(4));
         File::ensureDirectoryExists($this->receiptsPath);
 
@@ -144,6 +151,19 @@ final class AtlasDevSeniorLoopRunCommandTest extends TestCase
         $this->assertArrayHasKey('escalation', $payload['run_summary']);
         $this->assertNull($payload['run_summary']['escalation']);
         $this->assertFileDoesNotExist($this->receiptsPath.'/'.$payload['run_id'].'/escalation_decision.json');
+
+        // M5 write side: the failure must land as a DB capsule row anchored
+        // to a task packet carrying the run's workspace slug — that row is
+        // what the DevFailureCapsulePromptInjector feeds into the NEXT run's
+        // prompt (before this, the table stayed empty on the delivery path
+        // and every known-failure-modes injection was []).
+        $capsule = \App\Models\AtlasDevFailureCapsule::query()
+            ->where('run_id', (string) $payload['run_id'])
+            ->first();
+        $this->assertNotNull($capsule, 'failed senior-loop run must persist a compounding failure capsule row');
+        $this->assertNotSame([], (array) $capsule->changed_files);
+        $this->assertNotNull($capsule->taskPacket, 'capsule must anchor to a task packet (workspace identity for M5 injection)');
+        $this->assertNotSame('', (string) $capsule->taskPacket->workspace_slug);
     }
 
     public function test_senior_loop_run_repair_exhaustion_escalates_to_obra_candidate(): void

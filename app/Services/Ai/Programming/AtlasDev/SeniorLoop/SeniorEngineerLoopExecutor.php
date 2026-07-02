@@ -14,6 +14,8 @@ use App\Services\Ai\Programming\AtlasDev\Escalation\EscalationSignalsInput;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
 use App\Services\Ai\Programming\AtlasDev\Repair\RepairAttemptLimits;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ObservedSignals;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\RepairPolicy;
@@ -155,6 +157,37 @@ final class SeniorEngineerLoopExecutor
             } catch (\Throwable) {
                 $escalationDecision = null;
                 $escalationDecisionPath = null;
+            }
+
+            // M5 write side — compounding failure memory. The
+            // DevFailureCapsulePromptInjector (read side) was armed in the
+            // planning path since M5, but NOTHING on the delivery path ever
+            // persisted a capsule row: the AtlasDevFailureCapsule table was
+            // empty and every run's known-failure-modes injection was [].
+            // Persist the JSON capsule as a DB row, anchored to a task
+            // packet whose workspace_slug matches what the orchestrator
+            // passes to injectFor() (the envelope workspace), so the NEXT
+            // run touching the same files in the same workspace sees this
+            // failure in its prompt. Fail-open: learning must never break
+            // the run (DB down => skip).
+            try {
+                $packet = app(DevTaskPacketRuntimeService::class)->persist([
+                    'run_id' => $plan->envelope->runId,
+                    'task_id' => 'senior-loop-'.$plan->envelope->runId,
+                    'objective' => $plan->envelope->normalizedIntent,
+                    'workspace_slug' => $plan->envelope->workspace,
+                    'allowed_files' => $plan->taskContract->allowedFiles,
+                    'source' => 'senior_engineer_loop',
+                ]);
+                app(DevFailureCapsuleRuntimeService::class)->persist([
+                    'run_id' => $plan->envelope->runId,
+                    'task_id' => 'senior-loop-'.$plan->envelope->runId,
+                    'failing_gate' => $failureCapsule->gate,
+                    'error_excerpt' => $failureCapsule->primaryErrorExcerpt,
+                    'changed_files' => $failureCapsule->changedFiles,
+                ], $packet);
+            } catch (\Throwable) {
+                // fail-open
             }
         }
 
