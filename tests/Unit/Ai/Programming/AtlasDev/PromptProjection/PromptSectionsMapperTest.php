@@ -156,6 +156,29 @@ final class PromptSectionsMapperTest extends TestCase
         $this->assertStringNotContainsString('run-opaque', $joined, 'exemplar without objective must be skipped');
     }
 
+    public function test_mapper_drops_exemplar_whose_goal_would_poison_prompt_sendability(): void
+    {
+        // The quality checker fail-closes the whole prompt on any
+        // provider-unsafe token; a persisted green run whose goal mentions
+        // '.env' must be dropped, never allowed to make every future prompt
+        // of this workspace non-sendable.
+        $sections = $this->mapper()->map(
+            envelope: $this->envelope(),
+            miniSpec: $this->miniSpec(),
+            taskContract: $this->taskContract(),
+            discovery: $this->codeDiscovery(),
+            projection: $this->openBrainProjection(),
+            provenExemplars: [
+                ['run_id' => 'run-toxic', 'objective_excerpt' => 'whitelist .env.testing no phpunit', 'verification_command' => 'x'],
+                ['run_id' => 'run-clean', 'objective_excerpt' => 'Adicionar cache ao FooService', 'verification_command' => 'y'],
+            ],
+        );
+
+        $joined = implode("\n", $sections->contextRefs);
+        $this->assertStringNotContainsString('run-toxic', $joined, 'toxic exemplar must be dropped (sendability DoS guard)');
+        $this->assertStringContainsString('run-clean', $joined);
+    }
+
     public function test_mapper_dedupes_context_refs(): void
     {
         $sections = $this->mapper()->map(

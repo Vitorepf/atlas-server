@@ -200,7 +200,20 @@ final class PromptSectionsMapper
             if ($command !== '') {
                 $parts[] = 'verified via '.$command;
             }
-            $refs[] = implode(' — ', $parts);
+            $line = implode(' — ', $parts);
+            // Sendability poisoning guard: the quality checker fail-closes
+            // the WHOLE prompt when any provider-unsafe token appears in the
+            // rendered text. A single persisted green run whose goal mentions
+            // e.g. '.env' would otherwise make every future prompt of this
+            // workspace non-sendable until its receipt dir is deleted. A
+            // toxic exemplar is dropped, never allowed to DoS the run.
+            $lineLower = strtolower($line);
+            foreach (PromptQualityChecker::PROVIDER_UNSAFE_TOKENS as $token) {
+                if (str_contains($lineLower, strtolower($token))) {
+                    continue 2;
+                }
+            }
+            $refs[] = $line;
         }
 
         return AtlasDevStringListNormalizer::uniqueStrings($refs);

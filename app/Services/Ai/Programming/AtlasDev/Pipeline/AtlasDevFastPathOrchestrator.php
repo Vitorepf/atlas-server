@@ -24,6 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\MissingRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopAuditor;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity;
 use Throwable;
 
 /**
@@ -177,7 +178,11 @@ class AtlasDevFastPathOrchestrator
         // where workspace_slug falls back to the workspace string when no
         // explicit slug is supplied. The envelope carries the resolved
         // workspace (path or slug) used by the current run.
-        $workspaceSlug = $envelope->workspace;
+        // Workspace identity for M5 = the stable REPO ORIGIN, not the
+        // checkout path: sandboxed flows run in per-run temp dirs, so the
+        // raw envelope workspace never matches a previously persisted
+        // capsule's slug (the write side uses the same identity).
+        $workspaceSlug = WorkspaceOriginIdentity::slug($envelope->workspace);
         $knownFailureModes = ($this->failureCapsuleInjector ?? new DevFailureCapsulePromptInjector)
             ->injectFor($taskContract->allowedFiles, $workspaceSlug);
 
@@ -191,6 +196,7 @@ class AtlasDevFastPathOrchestrator
             $this->designPathFromSpec($miniSpec->toCanonicalArray()),
             $taskContract->allowedFiles,
             workspaceHash: $envelope->workspaceHash,
+            originHash: WorkspaceOriginIdentity::hash($envelope->workspace),
         );
 
         $promptProjection = $this->promptBuilder->build(
@@ -512,7 +518,20 @@ class AtlasDevFastPathOrchestrator
         $persisted['workcell_instructions.json'] = $this->receiptStorage->writeAtomic(
             $runId,
             'workcell_instructions.json',
-            $this->assembleWorkcellInstructions($decomposition, $miniSpec->toCanonicalArray(), $classification->taskKind, $distillation, $envelope->workspaceHash),
+            $this->assembleWorkcellInstructions($decomposition, $miniSpec->toCanonicalArray(), $classification->taskKind, $distillation, $envelope->workspaceHash, WorkspaceOriginIdentity::hash($envelope->workspace)),
+        );
+
+        // Stable origin identity of this run's workspace, so future exemplar
+        // retrieval can match runs whose CHECKOUT PATH differs (per-run
+        // sandboxes) but whose REPO is the same. Only the hash is persisted
+        // (the slug may be a git remote URL). Additive artifact.
+        $persisted['workspace_origin.json'] = $this->receiptStorage->writeAtomic(
+            $runId,
+            'workspace_origin.json',
+            [
+                'schema' => 'atlas.dev.workspace_origin.v1',
+                'origin_hash' => WorkspaceOriginIdentity::hash($envelope->workspace),
+            ],
         );
 
         return $persisted;
@@ -524,7 +543,7 @@ class AtlasDevFastPathOrchestrator
      * @param  array<string,mixed>  $distillation   DevContextBudgetDistiller::distill() output
      * @return array{schema:string, instructions:list<array{workcell_id:string, instruction_text:string, sections:list<string>, char_count:int}>}
      */
-    private function assembleWorkcellInstructions(array $decomposition, array $spec, string $taskKind, array $distillation, ?string $workspaceHash = null): array
+    private function assembleWorkcellInstructions(array $decomposition, array $spec, string $taskKind, array $distillation, ?string $workspaceHash = null, ?string $originHash = null): array
     {
         $assembler = $this->instructionAssembler ?? new DevWorkcellInstructionAssembler;
         $retriever = $this->exemplarRetriever ?? new DevGreenRunExemplarRetriever;
@@ -536,7 +555,7 @@ class AtlasDevFastPathOrchestrator
                 continue;
             }
             $allowedFiles = array_values(array_map('strval', (array) ($workcell['allowed_files'] ?? [])));
-            $exemplars = $retriever->retrieve($taskKind, $designPath, $allowedFiles, workspaceHash: $workspaceHash);
+            $exemplars = $retriever->retrieve($taskKind, $designPath, $allowedFiles, workspaceHash: $workspaceHash, originHash: $originHash);
             $assembled = $assembler->assemble($workcell, $distillation, $spec, $exemplars);
             $instructions[] = ['workcell_id' => (string) ($workcell['workcell_id'] ?? '')] + $assembled;
         }

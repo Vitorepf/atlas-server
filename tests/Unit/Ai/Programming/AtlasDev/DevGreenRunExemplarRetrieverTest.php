@@ -183,6 +183,39 @@ final class DevGreenRunExemplarRetrieverTest extends TestCase
         $this->assertCount(3, $all);
     }
 
+    public function test_origin_hash_matches_receipts_from_other_checkouts_of_the_same_repo(): void
+    {
+        // Sandboxed flows run in per-run temp dirs: workspace_hash NEVER
+        // repeats (audited: 73 green receipts, 73 distinct hashes). The
+        // sibling workspace_origin.json carries the stable repo identity.
+        $store = $this->tempStore();
+        $originHash = hash('sha256', 'https://example.test/atlas-server.git');
+
+        $this->writeReceipt($store, 'run-same-repo', ['workspace_hash' => hash('sha256', '/tmp/sandbox-a')]);
+        file_put_contents(
+            $store.'/run-same-repo/workspace_origin.json',
+            json_encode(['schema' => 'atlas.dev.workspace_origin.v1', 'origin_hash' => $originHash]),
+        );
+        $this->writeReceipt($store, 'run-other-repo', ['workspace_hash' => hash('sha256', '/tmp/sandbox-b')]);
+        file_put_contents(
+            $store.'/run-other-repo/workspace_origin.json',
+            json_encode(['schema' => 'atlas.dev.workspace_origin.v1', 'origin_hash' => hash('sha256', 'other-repo')]),
+        );
+        $this->writeReceipt($store, 'run-legacy-no-origin', ['workspace_hash' => hash('sha256', '/tmp/sandbox-c')]);
+
+        $out = (new DevGreenRunExemplarRetriever($store))->retrieve(
+            'patch', 'safe_refactor', [], 5,
+            workspaceHash: hash('sha256', '/tmp/current-sandbox'),
+            originHash: $originHash,
+        );
+
+        $this->assertSame(
+            ['run-same-repo'],
+            array_column($out, 'run_id'),
+            'same-repo receipts must match via origin even when checkout paths differ; foreign/legacy excluded',
+        );
+    }
+
     public function test_empty_store_returns_empty_list(): void
     {
         $store = $this->tempStore();

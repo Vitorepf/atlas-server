@@ -35,10 +35,10 @@ final class DevGreenRunExemplarRetriever
      * @param  list<string>  $likelyFiles
      * @return list<array{run_id:string, objective_digest:string, design_path:string, files_touched:list<string>, verification_command:string, outcome:string}>
      */
-    public function retrieve(string $taskKind, string $designPath, array $likelyFiles, int $limit = 3, ?string $workspaceHash = null): array
+    public function retrieve(string $taskKind, string $designPath, array $likelyFiles, int $limit = 3, ?string $workspaceHash = null, ?string $originHash = null): array
     {
         try {
-            return $this->retrieveInternal($taskKind, $designPath, $likelyFiles, max(0, $limit), $workspaceHash);
+            return $this->retrieveInternal($taskKind, $designPath, $likelyFiles, max(0, $limit), $workspaceHash, $originHash);
         } catch (Throwable) {
             return [];
         }
@@ -48,7 +48,7 @@ final class DevGreenRunExemplarRetriever
      * @param  list<string>  $likelyFiles
      * @return list<array{run_id:string, objective_digest:string, design_path:string, files_touched:list<string>, verification_command:string, outcome:string}>
      */
-    private function retrieveInternal(string $taskKind, string $designPath, array $likelyFiles, int $limit, ?string $workspaceHash = null): array
+    private function retrieveInternal(string $taskKind, string $designPath, array $likelyFiles, int $limit, ?string $workspaceHash = null, ?string $originHash = null): array
     {
         $baseDir = $this->resolveBaseDir();
         if ($baseDir === '' || ! is_dir($baseDir)) {
@@ -67,7 +67,7 @@ final class DevGreenRunExemplarRetriever
                 continue;
             }
 
-            $exemplar = $this->readExemplar($runDir, $entry, $taskKind, $designPath, $likelyFiles, $workspaceHash);
+            $exemplar = $this->readExemplar($runDir, $entry, $taskKind, $designPath, $likelyFiles, $workspaceHash, $originHash);
             if ($exemplar !== null) {
                 $scored[] = $exemplar;
             }
@@ -87,7 +87,7 @@ final class DevGreenRunExemplarRetriever
      * @param  list<string>  $likelyFiles
      * @return array{_score:int, exemplar:array{run_id:string, objective_digest:string, design_path:string, files_touched:list<string>, verification_command:string, outcome:string}}|null
      */
-    private function readExemplar(string $runDir, string $fallbackRunId, string $taskKind, string $designPath, array $likelyFiles, ?string $workspaceHash = null): ?array
+    private function readExemplar(string $runDir, string $fallbackRunId, string $taskKind, string $designPath, array $likelyFiles, ?string $workspaceHash = null, ?string $originHash = null): ?array
     {
         $path = $runDir.DIRECTORY_SEPARATOR.self::RECEIPT_FILENAME;
         if (! is_file($path)) {
@@ -110,14 +110,30 @@ final class DevGreenRunExemplarRetriever
         }
 
         // Workspace anti-bleed (mirrors the M5 VAL-M5-007 strictness): when
-        // the caller identifies its workspace, only exemplars from the SAME
-        // workspace are eligible — a receipt without a workspace_hash is
-        // unattributable and excluded. Goals from a foreign repo must never
-        // ride into this repo's prompt. A null caller hash keeps the legacy
-        // unfiltered behavior (workcell receipts, ad-hoc probes).
-        if ($workspaceHash !== null && $workspaceHash !== '') {
-            $rowWorkspaceHash = (string) ($decoded['workspace_hash'] ?? '');
-            if ($rowWorkspaceHash !== $workspaceHash) {
+        // the caller identifies itself, only exemplars from the SAME
+        // workspace OR the same REPO ORIGIN are eligible. Two identities
+        // because the envelope workspace is the CHECKOUT PATH — a per-run
+        // temp dir in the sandboxed flows, so exact workspace_hash equality
+        // alone is mathematically empty there (audited: 73 green receipts,
+        // 73 distinct hashes). New runs persist a sibling
+        // workspace_origin.json carrying the stable origin hash
+        // ({@see \App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity});
+        // legacy receipts without it still match via exact workspace_hash
+        // (the stable-path operator flow). An unattributable receipt is
+        // excluded. Null caller identity keeps unfiltered behavior.
+        $callerHasIdentity = ($workspaceHash !== null && $workspaceHash !== '')
+            || ($originHash !== null && $originHash !== '');
+        if ($callerHasIdentity) {
+            $matchesWorkspace = $workspaceHash !== null && $workspaceHash !== ''
+                && (string) ($decoded['workspace_hash'] ?? '') === $workspaceHash;
+            $matchesOrigin = false;
+            if (! $matchesWorkspace && $originHash !== null && $originHash !== '') {
+                $originRaw = @file_get_contents($runDir.DIRECTORY_SEPARATOR.'workspace_origin.json');
+                $originDecoded = $originRaw === false ? null : json_decode($originRaw, true);
+                $matchesOrigin = is_array($originDecoded)
+                    && (string) ($originDecoded['origin_hash'] ?? '') === $originHash;
+            }
+            if (! $matchesWorkspace && ! $matchesOrigin) {
                 return null;
             }
         }
