@@ -3028,7 +3028,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             );
         }
 
-        return (new PatchApplier)->apply($diffResult, $workspace);
+        return (new PatchApplier)->apply($diffResult, $workspace, scope: ['run_id' => $callResult->runId]);
     }
 
     private function providerMutatedWorkspace(ProviderCallResult $callResult): bool

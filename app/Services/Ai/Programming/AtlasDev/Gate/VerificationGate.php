@@ -164,14 +164,41 @@ final class VerificationGate
 
         $honestyFlags = AtlasDevStringListNormalizer::uniqueTrimmedStrings($honestyFlags);
 
-        return new VerificationGateResult(
+        return $this->finalize($taskContract, new VerificationGateResult(
             tests: $tests,
             gates: $gates,
             aggregateStatus: $aggregate,
             honestyFlags: $honestyFlags,
             evidenceRefs: $evidenceRefs,
             profile: $profile,
+        ));
+    }
+
+    /**
+     * Single exit funnel: every VerificationGateResult leaves through here so
+     * the kernel evidence ledger sees the same outcome Dev acts on.
+     */
+    private function finalize(LightTaskContract $taskContract, VerificationGateResult $result): VerificationGateResult
+    {
+        DevGateLedgerEmitter::emit(
+            gate: 'verification_gate',
+            status: $result->aggregateStatus,
+            payload: [
+                'run_id' => $taskContract->runId,
+                'task_id' => $taskContract->taskId,
+                'profile' => $result->profile,
+                'test_count' => count($result->tests),
+                'honesty_flags' => $result->honestyFlags,
+                'evidence_refs' => $result->evidenceRefs,
+            ],
+            context: [
+                'scope_type' => 'atlas_dev_run',
+                'scope_id' => $taskContract->runId,
+                'correlation_id' => $taskContract->runId,
+            ],
         );
+
+        return $result;
     }
 
     /**
@@ -190,7 +217,7 @@ final class VerificationGate
                 waiverReason: null,
             );
 
-            return new VerificationGateResult(
+            return $this->finalize($taskContract, new VerificationGateResult(
                 tests: [],
                 gates: [$gate],
                 aggregateStatus: VerificationGateResult::STATUS_PASSED,
@@ -200,7 +227,7 @@ final class VerificationGate
                 ]),
                 evidenceRefs: [],
                 profile: self::PROFILE_GENERIC_NO_TEST,
-            );
+            ));
         }
 
         $gate = new GateOutcome(
@@ -212,7 +239,7 @@ final class VerificationGate
             waiverReason: null,
         );
 
-        return new VerificationGateResult(
+        return $this->finalize($taskContract, new VerificationGateResult(
             tests: [],
             gates: [$gate],
             aggregateStatus: VerificationGateResult::STATUS_NEEDS_REVIEW,
@@ -222,7 +249,7 @@ final class VerificationGate
             ]),
             evidenceRefs: [],
             profile: self::PROFILE_GENERIC_NO_TEST,
-        );
+        ));
     }
 
     private function aggregate(int $passed, int $failed, int $rejected): string

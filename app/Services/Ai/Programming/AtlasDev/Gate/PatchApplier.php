@@ -16,28 +16,31 @@ use Throwable;
  */
 final class PatchApplier
 {
-    public function apply(DiffParseResult $diffResult, string $workspace, int $timeoutSeconds = 30): PatchApplyResult
+    /**
+     * @param  array<string,mixed>  $scope  optional run correlation (run_id/task_id) for the kernel evidence ledger
+     */
+    public function apply(DiffParseResult $diffResult, string $workspace, int $timeoutSeconds = 30, array $scope = []): PatchApplyResult
     {
         if (! $diffResult->hasPatch()) {
-            return new PatchApplyResult(
+            return $this->finalized(new PatchApplyResult(
                 status: PatchApplyResult::STATUS_SKIPPED,
                 exitCode: 0,
                 durationMs: 0,
                 stdout: '',
                 stderr: '',
                 reason: 'no_patch',
-            );
+            ), $scope);
         }
 
         if (! is_dir($workspace)) {
-            return new PatchApplyResult(
+            return $this->finalized(new PatchApplyResult(
                 status: PatchApplyResult::STATUS_FAILED,
                 exitCode: 127,
                 durationMs: 0,
                 stdout: '',
                 stderr: "PatchApplier: workspace '{$workspace}' does not exist.",
                 reason: 'workspace_missing',
-            );
+            ), $scope);
         }
 
         $diff = (string) $diffResult->diff;
@@ -129,14 +132,44 @@ final class PatchApplier
 
         $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
 
-        return new PatchApplyResult(
+        return $this->finalized(new PatchApplyResult(
             status: $result['exit_code'] === 0 ? PatchApplyResult::STATUS_APPLIED : PatchApplyResult::STATUS_FAILED,
             exitCode: $result['exit_code'],
             durationMs: $durationMs,
             stdout: AtlasSecurity::redactString($result['stdout']),
             stderr: AtlasSecurity::redactString($result['stderr']),
             reason: $result['exit_code'] === 0 ? null : 'git_apply_failed',
+        ), $scope);
+    }
+
+    /**
+     * Single exit funnel: every PatchApplyResult leaves through here so the
+     * kernel evidence ledger sees the same outcome Dev acts on.
+     *
+     * @param  array<string,mixed>  $scope
+     */
+    private function finalized(PatchApplyResult $result, array $scope): PatchApplyResult
+    {
+        $runId = isset($scope['run_id']) ? (string) $scope['run_id'] : null;
+
+        DevGateLedgerEmitter::emit(
+            gate: 'patch_apply',
+            status: $result->status,
+            payload: array_filter([
+                'run_id' => $runId,
+                'task_id' => isset($scope['task_id']) ? (string) $scope['task_id'] : null,
+                'exit_code' => $result->exitCode,
+                'duration_ms' => $result->durationMs,
+                'reason' => $result->reason,
+            ], static fn ($v) => $v !== null),
+            context: array_filter([
+                'scope_type' => $runId !== null ? 'atlas_dev_run' : null,
+                'scope_id' => $runId,
+                'correlation_id' => $runId,
+            ], static fn ($v) => $v !== null),
         );
+
+        return $result;
     }
 
     /**
