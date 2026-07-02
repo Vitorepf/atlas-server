@@ -140,7 +140,6 @@ next_actions:
 | Ledger projections | AP-141 to AP-145 |
 | Provider performance | AP-146 to AP-147 and AP-99 family |
 | Documentation governance | AP-173 to AP-177 |
-| Agent workflow governance | AP-200 family |
 | External graph candidates | AP-684 Graphify External Graph Harness |
 | Voice runtime boundaries | AP-686 Python Runtime Boundary; AP-687 Production Promotion Gate |
 | Recurring agent behavior schedule | AP-161 keeps `agent_behavior_review` in the default recorrente set across 13 flow profiles |
