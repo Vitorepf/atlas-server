@@ -65,6 +65,11 @@ final class IntentFalsificationCriticIntegrationTest extends TestCase
         // the verbs are non-empty (independent of e1.mode), but enabling e1
         // keeps the post-gate probe + critic in lockstep.
         config()->set('atlas_dev.elevations.e1.mode', 'advisory');
+        // Axis isolation: E2/E4 hard (landed later) fail these green fixtures
+        // before the critic ever runs — pin every non-E1 elevation off.
+        foreach (['e2', 'e3', 'e4', 'e5', 'e6'] as $elevation) {
+            config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
+        }
 
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-e1-critic-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);

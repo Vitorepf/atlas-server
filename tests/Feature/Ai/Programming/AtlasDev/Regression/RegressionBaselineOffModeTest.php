@@ -70,6 +70,12 @@ final class RegressionBaselineOffModeTest extends TestCase
         parent::setUp();
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
         config()->set('atlas_dev.best_of_n.candidate_count', 1);
+        // Axis isolation: elevations that landed after this suite (E2/E4 hard,
+        // E6, M3 critic path flags) pollute completion/gate assertions on these
+        // minimal seeded runs — pin every non-E5 elevation off.
+        foreach (['e1', 'e2', 'e3', 'e4', 'e6'] as $elevation) {
+            config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
+        }
 
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-e5-off-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);

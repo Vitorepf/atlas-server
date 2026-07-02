@@ -47,6 +47,19 @@ final class RunCompactSddMissingTest extends TestCase
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-f03-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);
         config()->set('atlas_dev.efficient.run_enabled', true);
+        // The AWIS execution gate (landed after F-03 froze) runs BEFORE the
+        // compact-sdd attestation this test pins; allow it so the 422 typed
+        // code — not ATLAS_DEV_AWIS_EXECUTION_BLOCKED — is what surfaces.
+        app()->instance(
+            \App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService::class,
+            new class
+            {
+                public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+                {
+                    return ['allowed' => true, 'status' => 'ready', 'mode' => $mode];
+                }
+            },
+        );
     }
 
     protected function tearDown(): void

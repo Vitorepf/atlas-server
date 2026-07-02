@@ -20,6 +20,10 @@ final class AtlasDevSeniorLoopRunCommandTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Axis isolation: E1-E6 elevations landed after this suite froze — pin off.
+        foreach (['e1', 'e2', 'e3', 'e4', 'e5', 'e6'] as $elevation) {
+            config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
+        }
 
         $this->receiptsPath = sys_get_temp_dir().'/atlas-dev-senior-loop-run-receipts-'.bin2hex(random_bytes(4));
         File::ensureDirectoryExists($this->receiptsPath);
@@ -30,6 +34,32 @@ final class AtlasDevSeniorLoopRunCommandTest extends TestCase
         config()->set('atlas_dev.efficient.desktop_enabled', true);
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', true);
         config()->set('app.key', 'base64:'.base64_encode(str_repeat('L', 32)));
+
+        // The M3 senior critic (landed after this suite) reviews every green run
+        // and its 'critic_reviewed' flag downgrades passed->needs_review, which
+        // flips --strict to exit 1. Bind a no-concerns critic so the command's
+        // pass/fail contract — not the critic verdict — is what's under test.
+        app()->instance(
+            \App\Services\Ai\Programming\AtlasDev\Intelligence\ReviewIntelligenceService::class,
+            new class
+            {
+                public function analyse(array $input, array $options = []): \App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt
+                {
+                    return \App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt::issue(
+                        receiptId: 'rr-senior-loop-'.bin2hex(random_bytes(4)),
+                        runId: (string) ($input['run_id'] ?? 'run-senior-loop'),
+                        status: \App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt::STATUS_NO_CONCERNS,
+                        reviewedFiles: [],
+                        findings: [],
+                        missingTestsCount: 0,
+                        confidence: 1.0,
+                        evidenceRefs: [],
+                        blockerReasons: [],
+                        createdAt: '2026-01-01T00:00:00Z',
+                    );
+                }
+            },
+        );
     }
 
     protected function tearDown(): void
