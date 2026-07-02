@@ -160,6 +160,29 @@ final class DevGreenRunExemplarRetrieverTest extends TestCase
         $this->assertSame('', $byRun['run-nospec']['objective_excerpt'], 'missing spec fails open to empty excerpt');
     }
 
+    public function test_workspace_hash_filter_excludes_foreign_and_unattributable_receipts(): void
+    {
+        $store = $this->tempStore();
+        $this->writeReceipt($store, 'run-mine', ['workspace_hash' => hash('sha256', '/ws/mine')]);
+        $this->writeReceipt($store, 'run-foreign', ['workspace_hash' => hash('sha256', '/ws/other')]);
+        $this->writeReceipt($store, 'run-unattributed'); // no workspace_hash at all
+
+        $out = (new DevGreenRunExemplarRetriever($store))->retrieve(
+            'patch', 'safe_refactor', [], 5,
+            workspaceHash: hash('sha256', '/ws/mine'),
+        );
+
+        $this->assertSame(
+            ['run-mine'],
+            array_column($out, 'run_id'),
+            'a foreign or unattributable receipt must never ride into this workspace prompt (anti cross-repo bleed)',
+        );
+
+        // Null caller hash keeps legacy unfiltered behavior.
+        $all = (new DevGreenRunExemplarRetriever($store))->retrieve('patch', 'safe_refactor', [], 5);
+        $this->assertCount(3, $all);
+    }
+
     public function test_empty_store_returns_empty_list(): void
     {
         $store = $this->tempStore();

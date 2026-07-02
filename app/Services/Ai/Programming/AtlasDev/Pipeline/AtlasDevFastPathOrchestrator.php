@@ -190,6 +190,7 @@ class AtlasDevFastPathOrchestrator
             $classification->taskKind,
             $this->designPathFromSpec($miniSpec->toCanonicalArray()),
             $taskContract->allowedFiles,
+            workspaceHash: $envelope->workspaceHash,
         );
 
         $promptProjection = $this->promptBuilder->build(
@@ -511,7 +512,7 @@ class AtlasDevFastPathOrchestrator
         $persisted['workcell_instructions.json'] = $this->receiptStorage->writeAtomic(
             $runId,
             'workcell_instructions.json',
-            $this->assembleWorkcellInstructions($decomposition, $miniSpec->toCanonicalArray(), $classification->taskKind, $distillation),
+            $this->assembleWorkcellInstructions($decomposition, $miniSpec->toCanonicalArray(), $classification->taskKind, $distillation, $envelope->workspaceHash),
         );
 
         return $persisted;
@@ -523,7 +524,7 @@ class AtlasDevFastPathOrchestrator
      * @param  array<string,mixed>  $distillation   DevContextBudgetDistiller::distill() output
      * @return array{schema:string, instructions:list<array{workcell_id:string, instruction_text:string, sections:list<string>, char_count:int}>}
      */
-    private function assembleWorkcellInstructions(array $decomposition, array $spec, string $taskKind, array $distillation): array
+    private function assembleWorkcellInstructions(array $decomposition, array $spec, string $taskKind, array $distillation, ?string $workspaceHash = null): array
     {
         $assembler = $this->instructionAssembler ?? new DevWorkcellInstructionAssembler;
         $retriever = $this->exemplarRetriever ?? new DevGreenRunExemplarRetriever;
@@ -535,7 +536,7 @@ class AtlasDevFastPathOrchestrator
                 continue;
             }
             $allowedFiles = array_values(array_map('strval', (array) ($workcell['allowed_files'] ?? [])));
-            $exemplars = $retriever->retrieve($taskKind, $designPath, $allowedFiles);
+            $exemplars = $retriever->retrieve($taskKind, $designPath, $allowedFiles, workspaceHash: $workspaceHash);
             $assembled = $assembler->assemble($workcell, $distillation, $spec, $exemplars);
             $instructions[] = ['workcell_id' => (string) ($workcell['workcell_id'] ?? '')] + $assembled;
         }

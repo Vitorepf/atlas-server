@@ -35,10 +35,10 @@ final class DevGreenRunExemplarRetriever
      * @param  list<string>  $likelyFiles
      * @return list<array{run_id:string, objective_digest:string, design_path:string, files_touched:list<string>, verification_command:string, outcome:string}>
      */
-    public function retrieve(string $taskKind, string $designPath, array $likelyFiles, int $limit = 3): array
+    public function retrieve(string $taskKind, string $designPath, array $likelyFiles, int $limit = 3, ?string $workspaceHash = null): array
     {
         try {
-            return $this->retrieveInternal($taskKind, $designPath, $likelyFiles, max(0, $limit));
+            return $this->retrieveInternal($taskKind, $designPath, $likelyFiles, max(0, $limit), $workspaceHash);
         } catch (Throwable) {
             return [];
         }
@@ -48,7 +48,7 @@ final class DevGreenRunExemplarRetriever
      * @param  list<string>  $likelyFiles
      * @return list<array{run_id:string, objective_digest:string, design_path:string, files_touched:list<string>, verification_command:string, outcome:string}>
      */
-    private function retrieveInternal(string $taskKind, string $designPath, array $likelyFiles, int $limit): array
+    private function retrieveInternal(string $taskKind, string $designPath, array $likelyFiles, int $limit, ?string $workspaceHash = null): array
     {
         $baseDir = $this->resolveBaseDir();
         if ($baseDir === '' || ! is_dir($baseDir)) {
@@ -67,7 +67,7 @@ final class DevGreenRunExemplarRetriever
                 continue;
             }
 
-            $exemplar = $this->readExemplar($runDir, $entry, $taskKind, $designPath, $likelyFiles);
+            $exemplar = $this->readExemplar($runDir, $entry, $taskKind, $designPath, $likelyFiles, $workspaceHash);
             if ($exemplar !== null) {
                 $scored[] = $exemplar;
             }
@@ -87,7 +87,7 @@ final class DevGreenRunExemplarRetriever
      * @param  list<string>  $likelyFiles
      * @return array{_score:int, exemplar:array{run_id:string, objective_digest:string, design_path:string, files_touched:list<string>, verification_command:string, outcome:string}}|null
      */
-    private function readExemplar(string $runDir, string $fallbackRunId, string $taskKind, string $designPath, array $likelyFiles): ?array
+    private function readExemplar(string $runDir, string $fallbackRunId, string $taskKind, string $designPath, array $likelyFiles, ?string $workspaceHash = null): ?array
     {
         $path = $runDir.DIRECTORY_SEPARATOR.self::RECEIPT_FILENAME;
         if (! is_file($path)) {
@@ -107,6 +107,19 @@ final class DevGreenRunExemplarRetriever
         $status = (string) ($decoded['completion']['status'] ?? '');
         if ($status !== 'passed') {
             return null;
+        }
+
+        // Workspace anti-bleed (mirrors the M5 VAL-M5-007 strictness): when
+        // the caller identifies its workspace, only exemplars from the SAME
+        // workspace are eligible — a receipt without a workspace_hash is
+        // unattributable and excluded. Goals from a foreign repo must never
+        // ride into this repo's prompt. A null caller hash keeps the legacy
+        // unfiltered behavior (workcell receipts, ad-hoc probes).
+        if ($workspaceHash !== null && $workspaceHash !== '') {
+            $rowWorkspaceHash = (string) ($decoded['workspace_hash'] ?? '');
+            if ($rowWorkspaceHash !== $workspaceHash) {
+                return null;
+            }
         }
 
         $rowTaskKind = (string) ($decoded['task_kind'] ?? '');
