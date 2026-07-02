@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\NativeWorker;
 
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\UsesUtcClock;
 use RuntimeException;
 
@@ -16,7 +17,7 @@ use RuntimeException;
  * INVARIANTS:
  *   - REJECTS: missing task_packet_id, envelope_hash, files_changed, commands_run, missing
  *     tests_or_gates_result, unacknowledged scope_deviations, non Atlas-native runtime_owner.
- *   - APPEND-ONLY: fopen('a') + flock(LOCK_EX); existing rows are NEVER overwritten or edited.
+ *   - APPEND-ONLY: kernel JsonlReceiptStore (flock LOCK_EX); existing rows are NEVER overwritten or edited.
  *   - IDEMPOTENT: an attempt with a (task_packet_id, envelope_hash) tuple already present is NOT
  *     re-written; status=already_recorded is returned and the file stays byte-identical.
  *   - DETERMINISTIC: row content_hash = sha256 over canonical fields.
@@ -121,10 +122,6 @@ final class AtlasNativeWorkerEvidenceWriter
             }
         }
 
-        if ($this->alreadyRecorded($taskId, $envHash)) {
-            return ['status' => self::STATUS_ALREADY];
-        }
-
         // AC4: redact secret-shaped substrings out of every free-text field before persisting.
         $redactedCommandsRun = array_map(function (array $cmd): array {
             $cmd['command'] = $this->redactSecrets((string) $cmd['command']);
@@ -171,9 +168,17 @@ final class AtlasNativeWorkerEvidenceWriter
         ksort($canonical);
         $row['content_hash'] = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-        $this->appendOnly($row);
+        // Idempotency check on (task_packet_id, envelope_hash) runs INSIDE the store's write lock.
+        $written = $this->store()->appendWith(
+            fn (?string $lastLine): ?array => $this->alreadyRecorded($taskId, $envHash) ? null : $row,
+        );
 
-        return ['status' => self::STATUS_OK, 'row' => $row];
+        return $written === null ? ['status' => self::STATUS_ALREADY] : ['status' => self::STATUS_OK, 'row' => $row];
+    }
+
+    private function store(): JsonlReceiptStore
+    {
+        return new JsonlReceiptStore($this->ledgerPath);
     }
 
     /**
@@ -181,18 +186,7 @@ final class AtlasNativeWorkerEvidenceWriter
      */
     public function all(): array
     {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
+        return $this->store()->replay();
     }
 
     private function redactSecrets(string $value): string
@@ -210,32 +204,6 @@ final class AtlasNativeWorkerEvidenceWriter
         }
 
         return false;
-    }
-
-    /**
-     * @param  array<string,mixed>  $row
-     */
-    private function appendOnly(array $row): void
-    {
-        $dir = dirname($this->ledgerPath);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fh = @fopen($this->ledgerPath, 'a');
-        if ($fh === false) {
-            throw new RuntimeException('evidence writer cannot open '.$this->ledgerPath);
-        }
-        try {
-            if (! flock($fh, LOCK_EX)) {
-                throw new RuntimeException('evidence writer cannot acquire LOCK_EX');
-            }
-            fwrite($fh, (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-            fflush($fh);
-            @\fsync($fh);
-        } finally {
-            flock($fh, LOCK_UN);
-            fclose($fh);
-        }
     }
 
 }
