@@ -220,6 +220,11 @@ Fluxo alvo:
 prompt -> intent -> risk/evidence -> router -> flow -> contract -> execution/delegation -> receipt -> telemetry -> learning
 ```
 
+Integracao como orgao do Engineering OS (2026-07-02, fable-arch w23-w25):
+- `AtlasDevRuntimeService` honra o flow do `hyperflow_runtime` (atlas_dev/atlas_debug/atlas_review) sem modo manual, so com workspace presente; kill-switch `atlas_dev.hyperflow_engagement.enabled`.
+- `AtlasAiRouterService` consome a decisao RouterRuntime como fonte de auto-routing (superset de 14 flows; slash/surface/modo explicito vencem); kill-switch `atlas.ai.router.consume_hyperflow_runtime`.
+- `SpecComposer` consulta a rota aprendida do Atlas Decide (ADML) para provider lock sem escolha explicita do operador; kill-switch `atlas_dev.provider.consult_decide`.
+
 ## Tese
 
 Claude Code e Codex operam principalmente como agentes de programacao:
