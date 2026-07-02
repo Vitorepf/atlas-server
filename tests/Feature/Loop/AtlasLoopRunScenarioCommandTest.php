@@ -18,11 +18,17 @@ use Tests\TestCase;
  */
 final class AtlasLoopRunScenarioCommandTest extends TestCase
 {
+    use ArmsAtlasLoopMaster;
+
     private string $base;
 
     protected function setUp(): void
     {
         parent::setUp();
+        // §0 master switch gates the command at the very top (clean no-op exit 0
+        // when OFF) — arm it so the fail-closed spec contract is what's under test.
+        $this->armLoopMasterOn();
+        $this->beforeApplicationDestroyed(fn () => $this->disarmLoopMaster());
         $this->base = sys_get_temp_dir().'/atlas-loop-base-'.bin2hex(random_bytes(4));
         mkdir($this->base.'/src', 0o755, true);
         mkdir($this->base.'/tests', 0o755, true);

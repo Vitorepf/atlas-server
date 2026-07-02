@@ -41,7 +41,17 @@ final class AtlasLoopLearningTransferCommandTest extends TestCase
     public function test_relaxed_thresholds_admit_the_lesson(): void
     {
         $exit = Artisan::call('atlas:loop:learning-transfer', [
-            '--give-back' => json_encode(['reason' => 'forbidden_target', 'packet_id' => 'p1']),
+            '--give-back' => json_encode([
+                'reason' => 'forbidden_target',
+                'packet_id' => 'p1',
+                // The r125 admission floor requires PROOF on the recorded lesson —
+                // real evidence refs, a resolved muscle outcome, an impact class and
+                // design-path refs. A proofless give-back is refused by design.
+                'evidence_refs' => ['storage/atlas/give-back/p1/receipt.json'],
+                'muscle_outcome' => ['status' => 'resolved'],
+                'impact_class' => 'wiring',
+                'design_path_refs' => ['docs/loop-canonical-definition.md'],
+            ]),
             '--thresholds' => json_encode(['min_repetitions' => 1, 'min_proven' => 0, 'conflict_tolerance' => 99]),
             '--json' => true,
         ]);
