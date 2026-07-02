@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\UnifiedReceipts;
 
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\RecursivelyCanonicalizesArrays;
 use RuntimeException;
 
@@ -28,46 +29,21 @@ final class AtlasLoopUnifiedReceiptChain
      */
     public function append(array $receipt): AtlasLoopUnifiedReceiptChainNode
     {
-        $path = $this->path();
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! @mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException('Unable to create unified receipt chain directory.');
-        }
-
-        $handle = fopen($path, 'c+b');
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open unified receipt chain file.');
-        }
-
-        try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException('Unable to acquire unified receipt chain lock.');
-            }
-
-            $contents = stream_get_contents($handle);
-            if ($contents === false) {
-                throw new RuntimeException('Unable to read unified receipt chain.');
-            }
-
-            $nodes = $this->decodeLines($contents);
+        $node = null;
+        // Full-file decode (fail-closed on any malformed line) + prev/seq derivation run INSIDE
+        // the store's exclusive write lock.
+        (new JsonlReceiptStore($this->path()))->appendWith(function (?string $lastLine) use ($receipt, &$node): array {
+            $nodes = $this->nodes();
             $previous = $nodes === [] ? null : $nodes[array_key_last($nodes)];
             $prevHash = $previous?->node_hash ?? self::GENESIS_PREV_HASH;
             $seq = ($previous?->seq ?? 0) + 1;
 
             $node = $this->makeNode($receipt, $prevHash, $seq);
-            $line = $this->encodeNode($node)."\n";
 
-            fseek($handle, 0, SEEK_END);
-            if (fwrite($handle, $line) === false) {
-                throw new RuntimeException('Unable to append unified receipt chain node.');
-            }
-            fflush($handle);
+            return (array) json_decode($this->encodeNode($node), true, flags: JSON_THROW_ON_ERROR);
+        });
 
-            return $node;
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
+        return $node;
     }
 
     public function latest(): ?AtlasLoopUnifiedReceiptChainNode
@@ -118,10 +94,6 @@ final class AtlasLoopUnifiedReceiptChain
         $nodeHash = hash('sha256', $prevHash.$payloadHash);
         $recordedAt = $this->now();
         $nodeId = $this->deterministicNodeId($seq, $nodeHash);
-
-        if ($nodeHash !== hash('sha256', $prevHash.$payloadHash)) {
-            throw new RuntimeException('Unified receipt chain hash mismatch during append.');
-        }
 
         return new AtlasLoopUnifiedReceiptChainNode(
             node_id: $nodeId,
