@@ -82,3 +82,41 @@ de falha que ficou invisível por semanas agora bloqueia.
 - Contagem de linhas nas tabelas revividas (0 → N com runs reais) — prova de write vivo.
 - Task packet servido contém `known_failure_modes` quando existem capsules da área (teste funcional).
 - give_back rate por packet família (já contado no serving stack) — baseline hoje, comparar pós-#4.
+
+## Execução S2–S5 (02/07/2026)
+
+- **S2 (entregue):** `known_failure_modes` viaja com o packet servido
+  (`AtlasTaskServingService::knownFailureModesFor` → `DevFailureCapsulePromptInjector`,
+  workspace-scoped, fail-open). Teste funcional `AtlasTaskServingFailureCapsuleTest` (área
+  estrangeira não injeta; sem capsule = lista vazia honesta). Junto: **kill-switch de DB vivo**
+  em `Tests\TestCase` (RuntimeException se a suite apontar para fora do sqlite :memory:;
+  opt-in `ATLAS_ALLOW_LIVE_DB_TESTS=1`) + pins `force="true"` no phpunit.xml + guardião
+  `TestDatabaseIsolationGuardTest`. Provado sob env hostil (DB_CONNECTION=pgsql exportado):
+  recusa alto em vez de wipar produção.
+- **S3 (entregue):** `atlas:engineering:m-scorecard` — fatos reais apenas. Baseline 02/07:
+  127 runs do senior loop, pass_rate **0.346**, repair conversion **0.44**; esteira 159
+  completed / 9 cancelled / 32 claimable; learning liveness capturada antes (tudo 0) e depois
+  do backfill (capsules 56). Histórico em `storage/atlas/m_scorecard/history.jsonl`.
+- **S4 (fixture honesta + blocker):** 56 failure capsules REAIS (backfill dos receipts
+  `failure_capsule.*.json` de runs falhados reais) persistidas na tabela restaurada; injector
+  provado devolvendo a memória para a área exata do run que falhou; canal serve→worker provado
+  pelo teste de S2. **BLOCKER explícito: run real de modelo pequeno cru vs com-Atlas NÃO foi
+  executado (proibição de provider spend sem aprovação).** O uplift está provado no nível do
+  canal: o braço cru recebe spec seco; o braço Atlas recebe known_failure_modes +
+  known_lessons + sibling_tests + exemplares da mesma área.
+- **S5:** KB sync + index-code re-executados sobre as tabelas de code intelligence restauradas
+  (0 → 167.637 símbolos / 170.479 doc links / 927 knowledge items — os context packs do AOBG
+  voltaram a ter code graph). Falhas do `quality-scan --profile=fast` são PRÉ-EXISTENTES e não
+  desta campanha: composer.lock desatualizado (require-dev `composer-unused`/`scribe` sem lock,
+  commit ea2194b6cb), pint timeout 300s repo-wide, phpstan exit 255 repo-wide, shellcheck em
+  scripts bin/. Wiring morto deliberadamente NÃO tocado: models Rivals v1
+  (`AiRivalsShadowRun`/`AiRealExecutionRivalsBenchmark`, aposentadoria é do dono do Rivals2) e
+  `ForgeOutcomeMemoryService` learning_candidates (coberto pelo WIP O-1 em andamento).
+
+## Próxima maior alavanca (identificada, não iniciada)
+
+**Ranking #3 — weak_output → memória:** o sinal `weak_output_detected`
+(`PipelineRunExecutor:602-608`) morre no run_summary; persistir capsule com
+`failure_class=weak_output` no bloco do verdict fecharia verde-fraco → memória → prompt da
+próxima run na mesma área (leitor já existe e agora tem storage vivo). Depois: #4 give_back →
+classificação/respec automático.
