@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Brain;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * FRONTIER-HARVEST substrate — the SOURCE side of the brain's frontier path. The portfolio names
  * frontier-harvest as "mine the defined sites (trendshift/github/arxiv) for a frontier technique to
@@ -77,15 +79,11 @@ final class AtlasBrainFrontierSourceRegistry
             'captured_at' => trim((string) ($candidate['captured_at'] ?? '')),
         ];
 
-        $dir = $this->root;
-        if (! is_dir($dir) && ! @mkdir($dir, 0o775, true) && ! is_dir($dir)) {
-            return null;
+        try {
+            (new JsonlReceiptStore($this->pathFor($scopeSlug)))->append($row);
+        } catch (\Throwable) {
+            return null; // was: uncreatable root dir ⇒ null, never throw
         }
-        @file_put_contents(
-            $this->pathFor($scopeSlug),
-            json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL,
-            FILE_APPEND | LOCK_EX
-        );
 
         return $row;
     }
@@ -102,23 +100,7 @@ final class AtlasBrainFrontierSourceRegistry
      */
     public function count(string $scope): int
     {
-        $path = $this->pathFor($this->slugify($scope));
-        if (! is_file($path)) {
-            return 0;
-        }
-
-        $n = 0;
-        foreach (preg_split('/\R/', (string) @file_get_contents($path)) ?: [] as $line) {
-            if (trim($line) === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && trim((string) ($decoded['title'] ?? '')) !== '') {
-                $n++;
-            }
-        }
-
-        return $n;
+        return count($this->validRows($scope));
     }
 
     public function topK(string $scope, int $k = self::DEFAULT_K): array
@@ -126,26 +108,17 @@ final class AtlasBrainFrontierSourceRegistry
         if ($k <= 0) {
             return [];
         }
-        $path = $this->pathFor($this->slugify($scope));
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $rows = [];
-        foreach (preg_split('/\R/', (string) @file_get_contents($path)) ?: [] as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && trim((string) ($decoded['title'] ?? '')) !== '') {
-                $rows[] = $decoded;
-            }
-        }
         // Newest-first within K: the file order IS capture order; reverse + slice keeps it stable.
-        $rows = array_reverse($rows);
+        return array_slice(array_reverse($this->validRows($scope)), 0, $k);
+    }
 
-        return array_slice($rows, 0, $k);
+    /** @return list<array<string,mixed>> decoded rows with a non-empty title, oldest-first. */
+    private function validRows(string $scope): array
+    {
+        return array_values(array_filter(
+            (new JsonlReceiptStore($this->pathFor($this->slugify($scope))))->replay(),
+            static fn (array $row): bool => trim((string) ($row['title'] ?? '')) !== '',
+        ));
     }
 
     private function pathFor(string $scopeSlug): string

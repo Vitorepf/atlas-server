@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\MultiProvider;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use DomainException;
 use Throwable;
 
@@ -33,22 +34,28 @@ final class AtlasMaestroAssignmentReceiptLedger
         }
 
         $payload = $this->canonicalPayload($receipt, $outcome);
+
         $hash = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
-        // Idempotent: skip append if receipt_hash already present.
-        $existingRows = $this->rows();
-        foreach ($existingRows as $existing) {
-            if (($existing['receipt_hash'] ?? null) === $hash) {
-                return $hash;
-            }
+        try {
+            // Idempotency AND previous-hash chain derivation run INSIDE the store's exclusive
+            // write lock — concurrent record() calls can neither duplicate a receipt nor fork
+            // the chain (the dedup-before-lock TOCTOU is dead). Null return aborts the write.
+            (new JsonlReceiptStore($this->ledgerPath()))->appendWith(function (?string $lastLine) use ($payload, $hash): ?array {
+                foreach ($this->rows() as $existing) {
+                    if (($existing['receipt_hash'] ?? null) === $hash) {
+                        return null;
+                    }
+                }
+
+                $last = $lastLine !== null ? json_decode($lastLine, true) : null;
+                $previous = is_array($last) ? (string) ($last['receipt_hash'] ?? 'genesis') : 'genesis';
+
+                return $payload + ['receipt_hash' => $hash, 'previous_hash' => $previous];
+            });
+        } catch (Throwable $exception) {
+            throw new DomainException('atlas_maestro_assignment_receipt_append_failed', previous: $exception);
         }
-
-        $previous = empty($existingRows)
-            ? 'genesis'
-            : (string) ($existingRows[array_key_last($existingRows)]['receipt_hash'] ?? 'genesis');
-
-        $row = $payload + ['receipt_hash' => $hash, 'previous_hash' => $previous];
-        $this->append($row);
 
         return $hash;
     }
@@ -123,40 +130,11 @@ final class AtlasMaestroAssignmentReceiptLedger
     }
 
     /**
-     * @param  array<string,mixed>  $row
-     */
-    private function append(array $row): void
-    {
-        $path = $this->ledgerPath();
-        try {
-            if (! is_dir(dirname($path))) {
-                @mkdir(dirname($path), 0o775, true);
-            }
-            @file_put_contents($path, json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR).PHP_EOL, FILE_APPEND | LOCK_EX);
-        } catch (Throwable $exception) {
-            throw new DomainException('atlas_maestro_assignment_receipt_append_failed', previous: $exception);
-        }
-    }
-
-    /**
      * @return list<array<string,mixed>>
      */
     private function rows(): array
     {
-        $path = $this->ledgerPath();
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $row = json_decode($line, true);
-            if (is_array($row)) {
-                $rows[] = $row;
-            }
-        }
-
-        return $rows;
+        return (new JsonlReceiptStore($this->ledgerPath()))->replay();
     }
 
     private function ledgerPath(): string

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Illuminate\Support\Carbon;
 use Throwable;
 
@@ -53,17 +54,9 @@ final class AtlasLoopWiringIntentLedger
         ];
 
         try {
-            $dir = dirname($this->path);
-            if (! is_dir($dir) && ! @mkdir($dir, 0o775, true) && ! is_dir($dir)) {
-                return null; // fail-closed: cannot create the target directory
-            }
-            $written = @file_put_contents(
-                $this->path,
-                json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL,
-                FILE_APPEND | LOCK_EX,
-            );
+            (new JsonlReceiptStore($this->path))->append($row);
 
-            return $written === false ? null : $row;
+            return $row;
         } catch (Throwable) {
             return null; // fail-closed — a ledger write must never break the caller
         }
@@ -76,23 +69,11 @@ final class AtlasLoopWiringIntentLedger
      */
     public function read(): array
     {
-        if (! $this->enabled() || ! is_file($this->path)) {
+        if (! $this->enabled()) {
             return [];
         }
 
-        $out = [];
-        foreach (preg_split('/\R/', (string) @file_get_contents($this->path)) ?: [] as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
+        return (new JsonlReceiptStore($this->path))->replay();
     }
 
     private function enabled(): bool

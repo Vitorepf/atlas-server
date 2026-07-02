@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * Append-only persistence of every (TaskEnvelope, BidSet, BidArbitrationVerdict) triple.
  *
@@ -42,36 +44,48 @@ final class AtlasMaestroProviderBidReceiptLedger
         array $criteriaTrace,
         string $recordedAtIso,
     ): BidReceiptEntry {
-        $existing = $this->recall($taskId);
-        if ($existing !== null) {
-            throw new LedgerImmutableViolation('ledger_already_has_entry_for_task:'.$taskId);
-        }
-        $prev = $this->lastEntryHash();
-        $body = [
-            'bid_hashes' => array_values($bidHashes),
-            'criteria_trace' => array_values($criteriaTrace),
-            'decisive_criterion' => $decisiveCriterion,
-            'envelope_hash' => $envelopeHash,
-            'recorded_at_iso' => $recordedAtIso,
-            'task_id' => $taskId,
-            'winner_provider_id' => $winnerProviderId,
-        ];
-        $bodySha = $this->hashChain->bodyHash($body);
-        $entrySha = $this->hashChain->chainLink($prev, $bodySha);
+        $entry = null;
+        // Dedup + prev-hash chain derivation run INSIDE the day file's exclusive write lock:
+        // same-day concurrent appends can neither duplicate a task entry nor fork the chain.
+        // A day rollover (empty new file) still chains from the previous day via lastEntryHash().
+        (new JsonlReceiptStore($this->pathForDate($recordedAtIso)))->appendWith(function (?string $lastLine) use (
+            $taskId, $envelopeHash, $bidHashes, $winnerProviderId, $decisiveCriterion, $criteriaTrace, $recordedAtIso, &$entry,
+        ): array {
+            if ($this->recall($taskId) !== null) {
+                throw new LedgerImmutableViolation('ledger_already_has_entry_for_task:'.$taskId);
+            }
+            $lastDecoded = $lastLine !== null ? json_decode($lastLine, true) : null;
+            $prev = is_array($lastDecoded)
+                ? (string) ($lastDecoded['entry_sha256'] ?? str_repeat('0', 64))
+                : $this->lastEntryHash();
+            $body = [
+                'bid_hashes' => array_values($bidHashes),
+                'criteria_trace' => array_values($criteriaTrace),
+                'decisive_criterion' => $decisiveCriterion,
+                'envelope_hash' => $envelopeHash,
+                'recorded_at_iso' => $recordedAtIso,
+                'task_id' => $taskId,
+                'winner_provider_id' => $winnerProviderId,
+            ];
+            $bodySha = $this->hashChain->bodyHash($body);
+            $entrySha = $this->hashChain->chainLink($prev, $bodySha);
 
-        $entry = new BidReceiptEntry(
-            taskId: $taskId,
-            envelopeHash: $envelopeHash,
-            bidHashes: array_values($bidHashes),
-            winnerProviderId: $winnerProviderId,
-            decisiveCriterion: $decisiveCriterion,
-            criteriaTrace: array_values($criteriaTrace),
-            recordedAtIso: $recordedAtIso,
-            prevEntrySha256: $prev,
-            entrySha256: $entrySha,
-        );
-        $this->appendLine($recordedAtIso, $entry);
+            $entry = new BidReceiptEntry(
+                taskId: $taskId,
+                envelopeHash: $envelopeHash,
+                bidHashes: array_values($bidHashes),
+                winnerProviderId: $winnerProviderId,
+                decisiveCriterion: $decisiveCriterion,
+                criteriaTrace: array_values($criteriaTrace),
+                recordedAtIso: $recordedAtIso,
+                prevEntrySha256: $prev,
+                entrySha256: $entrySha,
+            );
 
+            return $entry->toArray();
+        });
+
+        /** @var BidReceiptEntry $entry */
         return $entry;
     }
 
@@ -110,16 +124,8 @@ final class AtlasMaestroProviderBidReceiptLedger
      */
     public function attachOutcome(string $taskId, string $outcome, string $recordedAtIso): void
     {
-        $path = $this->root().'/outcomes.jsonl';
-        $dir = \dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new \RuntimeException('bid_receipt_ledger_mkdir_failed:'.$dir);
-        }
-        @file_put_contents(
-            $path,
-            json_encode(['task_id' => $taskId, 'outcome' => $outcome, 'recorded_at_iso' => $recordedAtIso], JSON_UNESCAPED_SLASHES)."\n",
-            FILE_APPEND | LOCK_EX,
-        );
+        (new JsonlReceiptStore($this->root().'/outcomes.jsonl'))
+            ->append(['task_id' => $taskId, 'outcome' => $outcome, 'recorded_at_iso' => $recordedAtIso]);
     }
 
     public function recallOutcome(string $taskId): ?string
@@ -272,17 +278,6 @@ final class AtlasMaestroProviderBidReceiptLedger
         sort($out, SORT_STRING);
 
         return $out;
-    }
-
-    private function appendLine(string $recordedAtIso, BidReceiptEntry $entry): void
-    {
-        $path = $this->pathForDate($recordedAtIso);
-        $dir = \dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new \RuntimeException('bid_receipt_ledger_mkdir_failed:'.$dir);
-        }
-        $line = (string) json_encode($entry->toArray(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        @file_put_contents($path, $line."\n", FILE_APPEND | LOCK_EX);
     }
 
     private function lastEntryHash(): string

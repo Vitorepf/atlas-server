@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Cortex;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use InvalidArgumentException;
 
 /**
@@ -50,13 +51,8 @@ final class AtlasCortexAdoptionReceiptLedger
             'clones_count' => is_array($facts['clone_clusters'] ?? null) ? count($facts['clone_clusters']) : 0,
         ];
 
-        $path = $this->ledgerPath();
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        // APPEND-ONLY write — FILE_APPEND + LOCK_EX. No truncating write, no fopen('w').
-        file_put_contents($path, json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n", FILE_APPEND | LOCK_EX);
+        // APPEND-ONLY write — kernel JsonlReceiptStore (flock LOCK_EX append). No truncating write.
+        (new JsonlReceiptStore($this->ledgerPath()))->append($record);
 
         return $record;
     }
@@ -66,17 +62,7 @@ final class AtlasCortexAdoptionReceiptLedger
      */
     public function list(): array
     {
-        $path = $this->ledgerPath();
-        if (! is_file($path)) {
-            return [];
-        }
-        $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
+        $rows = (new JsonlReceiptStore($this->ledgerPath()))->replay();
         usort($rows, static fn (array $x, array $y): int => (int) ($x['recorded_at_unix'] ?? 0) <=> (int) ($y['recorded_at_unix'] ?? 0));
 
         return $rows;

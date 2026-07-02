@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Migration\Runner;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * Append-only ledger of migration execution receipts (apply/rollback/dryrun).
  *
@@ -34,13 +36,7 @@ final class AtlasLoopSchemaMigrationExecutionReceiptLedger
                 throw new \InvalidArgumentException('missing_required_receipt_field:'.$field);
             }
         }
-        $path = $this->ledgerPath();
-        $dir = \dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new \RuntimeException('migration_ledger_mkdir_failed:'.$dir);
-        }
-        $line = (string) json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        @file_put_contents($path, $line."\n", FILE_APPEND | LOCK_EX);
+        (new JsonlReceiptStore($this->ledgerPath()))->append($receipt);
     }
 
     /**
@@ -84,31 +80,7 @@ final class AtlasLoopSchemaMigrationExecutionReceiptLedger
      */
     public function all(): array
     {
-        $path = $this->ledgerPath();
-        if (! is_file($path)) {
-            return [];
-        }
-        $rows = [];
-        $fh = @fopen($path, 'rb');
-        if ($fh === false) {
-            return [];
-        }
-        try {
-            while (($line = fgets($fh)) !== false) {
-                $line = rtrim($line, "\n");
-                if ($line === '') {
-                    continue;
-                }
-                $decoded = json_decode($line, true);
-                if (is_array($decoded)) {
-                    $rows[] = $decoded;
-                }
-            }
-        } finally {
-            fclose($fh);
-        }
-
-        return $rows;
+        return (new JsonlReceiptStore($this->ledgerPath()))->replay();
     }
 
     public function ledgerPath(): string

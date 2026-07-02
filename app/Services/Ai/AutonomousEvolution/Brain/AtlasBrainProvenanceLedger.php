@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Brain;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * PROVENANCE LEDGER — append-only NDJSON recording, per seeded task, the lineage signals: which finding
  * code triggered it, which portfolio path was active, which action_hint cycle birthed the seed. Lets a
@@ -56,12 +58,7 @@ final class AtlasBrainProvenanceLedger
         ];
 
         try {
-            $path = $this->pathFor($scope);
-            $dir = dirname($path);
-            if (! is_dir($dir) && ! @mkdir($dir, 0o775, true) && ! is_dir($dir)) {
-                return null;
-            }
-            @file_put_contents($path, json_encode($persisted, JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND | LOCK_EX);
+            (new JsonlReceiptStore($this->pathFor($scope)))->append($persisted);
         } catch (\Throwable) {
             return null;
         }
@@ -72,21 +69,7 @@ final class AtlasBrainProvenanceLedger
     /** @return list<array<string,mixed>> */
     public function tail(string $scope, int $k = self::DEFAULT_TAIL): array
     {
-        $path = $this->pathFor($this->slugify(trim($scope)));
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (preg_split('/\R/', (string) @file_get_contents($path)) ?: [] as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $row = json_decode($line, true);
-            if (is_array($row)) {
-                $out[] = $row;
-            }
-        }
+        $out = (new JsonlReceiptStore($this->pathFor($this->slugify(trim($scope)))))->replay();
 
         return array_values(array_slice($out, -max(1, $k)));
     }

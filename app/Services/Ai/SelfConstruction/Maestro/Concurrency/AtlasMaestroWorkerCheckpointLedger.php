@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\Concurrency;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Closure;
 use Throwable;
 
@@ -67,17 +68,8 @@ final class AtlasMaestroWorkerCheckpointLedger
     /** @param array<string,mixed> $meta optional outcome facts; unknown keys are silently dropped */
     public function record(string $clientId, string $taskPacketId, string $payloadHash, array $meta = []): void
     {
-        $path = $this->path($clientId);
-        $dir = \dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0755, true);
-        }
-
-        $last = $this->latest($clientId);
-        $nextSeq = $last !== null ? ((int) $last['sequence']) + 1 : 1;
-
         $row = [
-            'sequence' => $nextSeq,
+            'sequence' => 1,
             'wall_clock' => $this->now(),
             'client_id' => trim($clientId),
             'task_packet_id' => trim($taskPacketId),
@@ -88,7 +80,21 @@ final class AtlasMaestroWorkerCheckpointLedger
             $row['meta'] = $this->normalizeMeta($meta);
         }
 
-        @file_put_contents($path, json_encode($row, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR).PHP_EOL, FILE_APPEND | LOCK_EX);
+        // Preserve the pre-migration JSON_THROW_ON_ERROR contract (the store casts silently).
+        json_encode($row, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+        try {
+            // Monotonic sequence is derived from the tail line INSIDE the store's exclusive
+            // lock — two concurrent record() calls can no longer both read the same latest().
+            (new JsonlReceiptStore($this->path($clientId)))->appendWith(static function (?string $lastLine) use ($row): array {
+                $last = $lastLine !== null ? json_decode($lastLine, true) : null;
+                $row['sequence'] = is_array($last) ? ((int) ($last['sequence'] ?? 0)) + 1 : 1;
+
+                return $row;
+            });
+        } catch (Throwable) {
+            // was: @mkdir + @file_put_contents ⇒ an unwritable target is a silent no-op
+        }
     }
 
     /** @param array<string,mixed> $meta @return array<string,string> */

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Throwable;
 
 /**
@@ -45,14 +46,7 @@ final class AtlasLoopEarnedAutonomyDecisionTrace
 
         try {
             $root = $this->storageRoot ?? (function_exists('storage_path') ? storage_path('atlas/loop') : sys_get_temp_dir());
-            if (! is_dir($root)) {
-                @mkdir($root, 0o755, true);
-            }
-            @file_put_contents(
-                rtrim($root, '/').'/earned_autonomy_trace.jsonl',
-                json_encode($safe, JSON_UNESCAPED_SLASHES).PHP_EOL,
-                FILE_APPEND | LOCK_EX,
-            );
+            (new JsonlReceiptStore(rtrim($root, '/').'/earned_autonomy_trace.jsonl'))->append($safe);
         } catch (Throwable) {
             // observe-only audit log is best-effort — it never affects any decision (it actuates nothing).
         }

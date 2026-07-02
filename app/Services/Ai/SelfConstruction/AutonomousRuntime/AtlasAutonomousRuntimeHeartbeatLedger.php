@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\AutonomousRuntime;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Closure;
 
 /**
@@ -71,10 +72,11 @@ final class AtlasAutonomousRuntimeHeartbeatLedger
             'ts_unix' => (int) $record['ts_unix'],
         ];
 
-        $this->ensureDirectory();
-        $line = (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-        $bytes = @file_put_contents($this->path, $line.PHP_EOL, FILE_APPEND | LOCK_EX);
-        if ($bytes === false) {
+        // Preserve the pre-migration JSON_THROW_ON_ERROR contract (the store casts silently).
+        json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        try {
+            (new JsonlReceiptStore($this->path))->append($payload);
+        } catch (\RuntimeException) {
             return ['appended' => false, 'blockers' => ['filesystem_write_failed']];
         }
 
@@ -86,10 +88,7 @@ final class AtlasAutonomousRuntimeHeartbeatLedger
      */
     public function readRecent(int $limit = 50): array
     {
-        if (! is_file($this->path)) {
-            return [];
-        }
-        $lines = file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $lines = (new JsonlReceiptStore($this->path))->rawLines();
         if ($limit > 0 && count($lines) > $limit) {
             $lines = array_slice($lines, -$limit);
         }
@@ -227,13 +226,5 @@ final class AtlasAutonomousRuntimeHeartbeatLedger
     public function path(): string
     {
         return $this->path;
-    }
-
-    private function ensureDirectory(): void
-    {
-        $dir = \dirname($this->path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0o755, true);
-        }
     }
 }

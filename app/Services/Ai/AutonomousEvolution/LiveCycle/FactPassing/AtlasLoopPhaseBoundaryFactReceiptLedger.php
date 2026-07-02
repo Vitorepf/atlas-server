@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\LiveCycle\FactPassing;
 
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
+
 /**
  * Append-only JSONL ledger of every phase-boundary fact passing event. Records validation outcome
  * and a deterministic fact_hash so two records of the same payload yield identical hashes.
@@ -49,31 +51,10 @@ final class AtlasLoopPhaseBoundaryFactReceiptLedger
      */
     public function readSince(string $cycleId): array
     {
-        $path = $this->ledgerPath();
-        if (! is_file($path)) {
-            return [];
-        }
-        $rows = [];
-        $fh = @fopen($path, 'rb');
-        if ($fh === false) {
-            return [];
-        }
-        try {
-            while (($line = fgets($fh)) !== false) {
-                $line = rtrim($line, "\n");
-                if ($line === '') {
-                    continue;
-                }
-                $decoded = json_decode($line, true);
-                if (is_array($decoded) && (string) ($decoded['cycle_id'] ?? '') === $cycleId) {
-                    $rows[] = $decoded;
-                }
-            }
-        } finally {
-            fclose($fh);
-        }
-
-        return $rows;
+        return array_values(array_filter(
+            (new JsonlReceiptStore($this->ledgerPath()))->replay(),
+            static fn (array $row): bool => (string) ($row['cycle_id'] ?? '') === $cycleId,
+        ));
     }
 
     public function ledgerPath(): string
@@ -96,13 +77,11 @@ final class AtlasLoopPhaseBoundaryFactReceiptLedger
      */
     private function append(array $row): void
     {
-        $path = $this->ledgerPath();
-        $dir = \dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            return;
+        try {
+            (new JsonlReceiptStore($this->ledgerPath()))->append($row);
+        } catch (\Throwable) {
+            // was: uncreatable dir / suppressed write ⇒ silent no-op, record() still returns the row
         }
-        $line = (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        @file_put_contents($path, $line."\n", FILE_APPEND | LOCK_EX);
     }
 
     /**

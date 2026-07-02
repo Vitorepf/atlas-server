@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Throwable;
 
 /**
@@ -83,14 +84,10 @@ final class AtlasSelfImprovementReceiptLog
         $path = $this->resolvePath();
 
         try {
-            if ($path === null || ! is_file($path)) {
+            if ($path === null) {
                 return [];
             }
-            $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if ($lines === false) {
-                return [];
-            }
-            $lines = array_slice($lines, -$limit);
+            $lines = array_slice((new JsonlReceiptStore($path))->rawLines(), -$limit);
             $out = [];
             foreach ($lines as $line) {
                 $decoded = json_decode($line, true);
@@ -203,16 +200,9 @@ final class AtlasSelfImprovementReceiptLog
         }
 
         try {
-            $dir = dirname($path);
-            if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-                return false;
-            }
-            $line = json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            if ($line === false) {
-                return false;
-            }
+            (new JsonlReceiptStore($path))->append($receipt);
 
-            return @file_put_contents($path, $line."\n", FILE_APPEND | LOCK_EX) !== false;
+            return true;
         } catch (Throwable) {
             return false;
         }

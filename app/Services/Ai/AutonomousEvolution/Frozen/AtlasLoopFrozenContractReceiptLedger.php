@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Frozen;
 
-use RuntimeException;
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 
 final class AtlasLoopFrozenContractReceiptLedger
 {
@@ -60,16 +60,9 @@ final class AtlasLoopFrozenContractReceiptLedger
      */
     private function append(array $receipt): void
     {
-        $path = $this->path();
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException('Unable to create frozen contract receipt ledger directory.');
-        }
-
-        $encoded = json_encode($receipt, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        if (file_put_contents($path, $encoded."\n", FILE_APPEND | LOCK_EX) === false) {
-            throw new RuntimeException('Unable to append frozen contract receipt ledger line.');
-        }
+        // Preserve the pre-migration JSON_THROW_ON_ERROR contract (the store casts silently).
+        json_encode($receipt, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        (new JsonlReceiptStore($this->path()))->append($receipt);
     }
 
     private function path(): string

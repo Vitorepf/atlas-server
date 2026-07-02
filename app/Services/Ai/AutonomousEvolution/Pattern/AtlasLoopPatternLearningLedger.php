@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Pattern;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use InvalidArgumentException;
 
 /**
@@ -98,8 +99,7 @@ final class AtlasLoopPatternLearningLedger
             'recorded_at' => $at ?? time(),
         ];
 
-        $this->ensureDir();
-        file_put_contents($this->path, json_encode($row, JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND | LOCK_EX);
+        (new JsonlReceiptStore($this->path))->append($row);
 
         return $row;
     }
@@ -107,23 +107,7 @@ final class AtlasLoopPatternLearningLedger
     /** @return list<array<string,mixed>> every recorded outcome, in write order. */
     public function all(): array
     {
-        if (! is_file($this->path)) {
-            return [];
-        }
-
-        $rows = [];
-        foreach (explode("\n", (string) file_get_contents($this->path)) as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return (new JsonlReceiptStore($this->path))->replay();
     }
 
     /** @return list<array<string,mixed>> outcomes for one pattern (optionally a specific version). */
@@ -174,13 +158,5 @@ final class AtlasLoopPatternLearningLedger
         }
 
         return null;
-    }
-
-    private function ensureDir(): void
-    {
-        $dir = dirname($this->path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0o775, true);
-        }
     }
 }

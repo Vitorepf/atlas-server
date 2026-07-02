@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Brain;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * HEALTH-SCORE LEDGER — append-only NDJSON time-series of the L90 composite score per scope. Writes
  * one row per snapshot tick. Lets the operator plot the score over days/weeks (drift, recovery,
@@ -42,12 +44,7 @@ final class AtlasBrainHealthScoreLedger
         ];
 
         try {
-            $path = $this->pathFor($scope);
-            $dir = dirname($path);
-            if (! is_dir($dir) && ! @mkdir($dir, 0o775, true) && ! is_dir($dir)) {
-                return null;
-            }
-            @file_put_contents($path, json_encode($row, JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND | LOCK_EX);
+            (new JsonlReceiptStore($this->pathFor($scope)))->append($row);
         } catch (\Throwable) {
             return null;
         }
@@ -58,21 +55,7 @@ final class AtlasBrainHealthScoreLedger
     /** @return list<array<string,mixed>> */
     public function tail(string $scope, int $k = self::DEFAULT_TAIL): array
     {
-        $path = $this->pathFor($this->slugify(trim($scope)));
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (preg_split('/\R/', (string) @file_get_contents($path)) ?: [] as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $row = json_decode($line, true);
-            if (is_array($row)) {
-                $out[] = $row;
-            }
-        }
+        $out = (new JsonlReceiptStore($this->pathFor($this->slugify(trim($scope)))))->replay();
 
         return array_values(array_slice($out, -max(1, $k)));
     }

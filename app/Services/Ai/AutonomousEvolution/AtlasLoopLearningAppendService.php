@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Illuminate\Support\Carbon;
 use Throwable;
 
@@ -62,21 +63,17 @@ final class AtlasLoopLearningAppendService
             'appended_at' => Carbon::now('UTC')->toIso8601String(),
         ];
 
-        if ($this->hasCycle($cycleId)) {
-            return $row; // idempotent — the cycle is already recorded; never duplicate
-        }
-
         try {
-            $dir = dirname($this->ledgerPath);
-            if (! is_dir($dir) && ! @mkdir($dir, 0o775, true) && ! is_dir($dir)) {
-                return null;
-            }
-            @file_put_contents($this->ledgerPath, json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL, FILE_APPEND | LOCK_EX);
+            // Idempotency check runs INSIDE the store's write lock: concurrent appends of the
+            // same cycle_id can no longer both pass a pre-lock hasCycle() and double-write.
+            (new JsonlReceiptStore($this->ledgerPath))->appendWith(
+                fn (?string $lastLine): ?array => $this->hasCycle($cycleId) ? null : $row,
+            );
         } catch (Throwable) {
             return null;
         }
 
-        return $row;
+        return $row; // written, or idempotent no-op — the cycle is recorded either way
     }
 
     /**
@@ -86,22 +83,7 @@ final class AtlasLoopLearningAppendService
      */
     public function entries(): array
     {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $out = [];
-        foreach (preg_split('/\R/', (string) @file_get_contents($this->ledgerPath)) ?: [] as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
+        return (new JsonlReceiptStore($this->ledgerPath))->replay();
     }
 
     private function hasCycle(string $cycleId): bool
