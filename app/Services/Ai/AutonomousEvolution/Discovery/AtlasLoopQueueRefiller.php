@@ -1232,6 +1232,12 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
                 if ($synth !== null) {
                     $dp = $this->decidedPriority($campaign, $target, $signals, $repoRoot, 'multi_file_refactor');
                     $mfPayload = $synth['payload'];
+                    // The enqueue-liveness predicate (taskIsLiveForTarget) requires the
+                    // payload to carry the target binding — the single-file lane stamps it,
+                    // this lane didn't, so every multi-file enqueue was immediately
+                    // re-classified duplicate_task_not_live_for_target and the target
+                    // released ('deferred') despite the task landing in the queue.
+                    $mfPayload['_target_id'] = (string) $target->id;
                     if ($dp['receipt'] !== []) {
                         $mfPayload['_decision'] = $dp['receipt'];
                     }

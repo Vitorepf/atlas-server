@@ -43,6 +43,18 @@ final class AtlasLoopRefillerTaskClassifier
             // value is duplication-removed, proven by the frozen judge's Guard 4d count-drop. The dedup_proof
             // pair (payload + frozen acceptance, which the provider cannot author) is the honest material mark.
             || ($isTrue($p['dedup_proof'] ?? null) && $isTrue(data_get($p, 'acceptance.dedup_proof')))
+            // MULTI-FILE GOVERNED REFACTOR — same shape as DEDUP: behaviour-preserving (revert_recheck would
+            // FALSE-fail it: green-when-reverted is the lane's definition) but MATERIAL, proven by the frozen
+            // judge's Guard 4b complexity-earned conjunction (frozen sibling tests stay green AND the judge's
+            // OWN AST cyclomatic measure drops — ungameable). Without this disjunct the refiller's own
+            // synthesized multi-file cluster tasks were dropped by its own D2 gate as "proxy" and the
+            // multi-file lane never fed the queue in production.
+            || (
+                $isTrue($p['multi_file'] ?? null)
+                && $isTrue(data_get($p, 'acceptance.complexity_proof'))
+                && mb_strtolower(trim((string) data_get($p, 'acceptance.metric_kind'))) === 'minimize'
+                && (array) data_get($p, 'acceptance.frozen_globs', []) !== []
+            )
             || (
                 $isTrue($p['is_self_improvement'] ?? null)
                 && ($isTrue($p['complexity_proof'] ?? null) || $isTrue(data_get($p, 'acceptance.complexity_proof')))
