@@ -22,6 +22,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\RepairPolicy;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FastPathErrorLedgerEntry;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
+use App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity;
 use App\Services\Ai\Programming\AtlasDev\Telemetry\ErrorLedgerWriter;
 
 final class SeniorEngineerLoopExecutor
@@ -152,7 +153,34 @@ final class SeniorEngineerLoopExecutor
                 triggeredAtIso: now()->toIso8601String(),
                 );
                 if ($escalationDecision !== null) {
-                    $escalationDecisionPath = $this->persister->writeEscalationDecision($escalationDecision);
+                    // Own fail-open: a persist failure must not throw the
+                    // successfully computed decision away — run_summary still
+                    // surfaces it (with a null ref).
+                    try {
+                        $escalationDecisionPath = $this->persister->writeEscalationDecision($escalationDecision);
+                    } catch (\Throwable) {
+                        $escalationDecisionPath = null;
+                    }
+
+                    // The decision's missing consumer: bridge it into the
+                    // promotion-candidate registry so the Attention control
+                    // plane surfaces it to the operator (readEscalationDecision
+                    // had ZERO callers — decide-and-record was a dead end).
+                    // Always obra_candidate + pending_decision: Dev never
+                    // auto-creates an Obra from a run. Own fail-open: a bridge
+                    // hiccup must not erase the already-persisted decision
+                    // from run_summary.
+                    try {
+                        app(\App\Services\AtlasCode\DevToForgePromotionService::class)->candidateFromRunEscalation(
+                            $escalationDecision,
+                            $plan->envelope->normalizedIntent,
+                            $plan->envelope->workspace,
+                            $failureCapsule->changedFiles,
+                            $failureCapsule->primaryErrorExcerpt,
+                        );
+                    } catch (\Throwable) {
+                        // fail-open: Attention bridge is best-effort
+                    }
                 }
             } catch (\Throwable) {
                 $escalationDecision = null;
@@ -166,16 +194,18 @@ final class SeniorEngineerLoopExecutor
             // empty and every run's known-failure-modes injection was [].
             // Persist the JSON capsule as a DB row, anchored to a task
             // packet whose workspace_slug matches what the orchestrator
-            // passes to injectFor() (the envelope workspace), so the NEXT
-            // run touching the same files in the same workspace sees this
-            // failure in its prompt. Fail-open: learning must never break
-            // the run (DB down => skip).
+            // passes to injectFor(), so the NEXT run touching the same files
+            // in the same REPO sees this failure in its prompt. The slug is
+            // the stable ORIGIN identity, not the checkout path: sandboxed
+            // flows run in per-run temp dirs, so raw envelope workspaces
+            // never repeat and exact-slug injection would be mathematically
+            // empty there. Fail-open: learning must never break the run.
             try {
                 $packet = app(DevTaskPacketRuntimeService::class)->persist([
                     'run_id' => $plan->envelope->runId,
                     'task_id' => 'senior-loop-'.$plan->envelope->runId,
                     'objective' => $plan->envelope->normalizedIntent,
-                    'workspace_slug' => $plan->envelope->workspace,
+                    'workspace_slug' => WorkspaceOriginIdentity::slug($plan->envelope->workspace),
                     'allowed_files' => $plan->taskContract->allowedFiles,
                     'source' => 'senior_engineer_loop',
                 ]);

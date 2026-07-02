@@ -10,6 +10,7 @@ use App\Models\AiTrace;
 use App\Models\AtlasProject;
 use App\Services\Ai\DualCore\DualCoreRouteDecisionCanon;
 use App\Services\Ai\DualCore\DualCoreRouteDecisionService;
+use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationDecision;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -390,6 +391,12 @@ final class DevToForgePromotionService
             // plan/senior_loop_audit artefact yet.
             $refs['plan'] = 'thread:'.$threadId;
         }
+        $runId = (string) ($candidate['source_run_id'] ?? '');
+        if ($threadId === '' && $runId !== '') {
+            // Run-escalation candidates anchor to the failed run's receipts
+            // dir (escalation_decision.json + failure capsule live there).
+            $refs['plan'] = 'run:'.$runId;
+        }
 
         return $refs;
     }
@@ -479,6 +486,121 @@ final class DevToForgePromotionService
         }
 
         return null;
+    }
+
+    /**
+     * Find the most recent non-dismissed candidate for a senior-loop task
+     * contract. Retries of the same failed task share a task_contract_hash,
+     * so this is the idempotency key for run-escalation candidates (one live
+     * Attention item per task, refreshed on each failed retry — never a pile).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findActiveCandidateForRunContract(string $taskContractHash): ?array
+    {
+        if ($taskContractHash === '') {
+            return null;
+        }
+        foreach ($this->listCandidates(null) as $entry) {
+            if ((string) ($entry['source_task_contract_hash'] ?? '') !== $taskContractHash) {
+                continue;
+            }
+            if ((string) ($entry['candidate_status'] ?? '') === 'dismissed') {
+                continue;
+            }
+
+            return $entry;
+        }
+
+        return null;
+    }
+
+    /**
+     * Bridge a senior-loop run escalation into the promotion-candidate
+     * registry — the consumer the EscalationDecisionEngine never had. A
+     * failed run whose decision targets forge/obra_candidate lands here as a
+     * `pending_decision` candidate, which the Attention control plane
+     * already surfaces. Dev NEVER auto-creates an Obra from a run: the
+     * promotion_target is always `obra_candidate`; the human decides.
+     *
+     * @param  array<int,string>  $knownFiles
+     * @return array<string,mixed>
+     */
+    public function candidateFromRunEscalation(
+        EscalationDecision $decision,
+        string $objective,
+        string $workspaceSlug,
+        array $knownFiles = [],
+        ?string $failureExcerpt = null,
+    ): array {
+        $target = PromotionSignalDetector::TARGET_OBRA_CANDIDATE;
+        $objective = trim($objective) !== '' ? trim($objective) : '(objetivo ausente no run escalado)';
+
+        $contextBits = [
+            sprintf(
+                'Run senior-loop `%s` falhou; EscalationDecisionEngine decidiu target=%s (score %d, risco %s).',
+                mb_substr($decision->runId, 0, 20),
+                $decision->target,
+                $decision->score,
+                $decision->riskLevel,
+            ),
+            'Motivos: '.implode('; ', $decision->reasons).'.',
+        ];
+        if ($failureExcerpt !== null && trim($failureExcerpt) !== '') {
+            $contextBits[] = 'Falha: '.mb_substr(trim($failureExcerpt), 0, 300);
+        }
+
+        $candidate = [
+            'schema_version' => self::SCHEMA_VERSION,
+            'id' => null,
+            'source_thread_id' => null,
+            'source_run_id' => $decision->runId,
+            'source_task_contract_hash' => $decision->taskContractHash,
+            'origin' => 'atlas-dev-run-escalation',
+            'workspace_slug' => $workspaceSlug !== '' ? $workspaceSlug : 'atlas',
+            'workspace_default_risk' => $decision->riskLevel,
+            'title' => $this->buildTitle($objective),
+            'objective' => $objective,
+            'context_summary' => implode(' ', $contextBits),
+            'known_files' => array_values(array_filter(array_map('strval', $knownFiles))),
+            'risks' => $decision->reasons,
+            'open_questions' => [],
+            'suggested_success_criteria' => [],
+            'suggested_next_step' => 'Revisar o run falho e decidir: promover para Obra governada ou descartar.',
+            'reasons' => $decision->reasons,
+            'promotion_target' => $target,
+            'candidate_status' => 'pending_decision',
+            'promoted_at' => now()->toJSON(),
+            'promoted_obra_id' => null,
+            'escalation_decision' => [
+                'schema_version' => $decision->schemaVersion(),
+                'run_id' => $decision->runId,
+                'target' => $decision->target,
+                'score' => $decision->score,
+                'risk_level' => $decision->riskLevel,
+                'decision_hash' => $decision->decisionHash,
+                'human_action_required' => $decision->humanActionRequired,
+            ],
+        ];
+
+        $existing = $this->findActiveCandidateForRunContract($decision->taskContractHash);
+        if ($existing !== null) {
+            $candidate['id'] = (string) ($existing['id'] ?? '');
+            if (! empty($existing['promoted_obra_id'])) {
+                $candidate['promoted_obra_id'] = (string) $existing['promoted_obra_id'];
+                $candidate['candidate_status'] = 'promoted';
+            }
+        }
+        if ($candidate['id'] === null || $candidate['id'] === '') {
+            $candidate['id'] = 'pc_'.Str::ulid()->toBase32();
+        }
+
+        $candidate = $this->attachCanonicalEscalationPacket($candidate, $target);
+        $candidate['route_decision_v1'] = $this->recordCanonicalRouteDecision($candidate, $target);
+
+        $this->persist($candidate);
+
+        return $candidate;
     }
 
     public function dismiss(string $candidateId, ?string $reason = null): array

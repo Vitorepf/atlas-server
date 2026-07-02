@@ -499,6 +499,90 @@ class AtlasCodeDevToForgePromotionTest extends TestCase
         $this->assertNotSame($firstId, $second->json('candidate.id'));
     }
 
+    private function runEscalationDecision(string $runId = 'run-esc-1', string $contractHash = 'tch-esc-1'): \App\Services\Ai\Programming\AtlasDev\Schemas\EscalationDecision
+    {
+        return \App\Services\Ai\Programming\AtlasDev\Schemas\EscalationDecision::issue(
+            runId: $runId,
+            taskContractHash: $contractHash,
+            triggeredAt: '2026-07-02T10:00:00Z',
+            target: \App\Services\Ai\Programming\AtlasDev\Schemas\EscalationDecision::TARGET_OBRA_CANDIDATE,
+            reasons: ['same_signature_twice(+2)', 'repair_attempts_gte_2(+1)', 'file_count_gt_3(+1)'],
+            signals: new \App\Services\Ai\Programming\AtlasDev\Schemas\Components\EscalationSignals(
+                fileCount: 4,
+                layersTouched: 1,
+                riskKeywords: [],
+                contextRequiredChars: null,
+                threadMessages: null,
+                priorFailureCount: 2,
+            ),
+            score: 4,
+            riskLevel: 'R2',
+            humanActionRequired: false,
+            previewArtifactPath: null,
+        );
+    }
+
+    public function test_run_escalation_bridges_into_pending_attention_candidate(): void
+    {
+        $service = app(DevToForgePromotionService::class);
+
+        $candidate = $service->candidateFromRunEscalation(
+            $this->runEscalationDecision(),
+            'Fechar o gap X no módulo Y',
+            'atlas',
+            ['app/Services/Foo.php', 'app/Services/Bar.php'],
+            'PHPUnit: 2 failed assertions in FooTest',
+        );
+
+        // Always obra_candidate + pending_decision — Dev never auto-creates
+        // an Obra from a run; the Attention control plane surfaces exactly
+        // this shape (pending_decision + non-quick_intervention target).
+        $this->assertSame('obra_candidate', $candidate['promotion_target']);
+        $this->assertSame('pending_decision', $candidate['candidate_status']);
+        $this->assertNull($candidate['promoted_obra_id']);
+        $this->assertSame('run-esc-1', $candidate['source_run_id']);
+        $this->assertSame('atlas-dev-run-escalation', $candidate['origin']);
+        $this->assertSame(4, $candidate['escalation_decision']['score']);
+        $this->assertArrayHasKey('escalation_packet_v1', $candidate);
+        $this->assertSame('run:run-esc-1', $candidate['escalation_packet_v1']['evidence_refs']['plan'] ?? null);
+
+        // Persisted where listCandidates/Attention read from.
+        $listed = $service->listCandidates('atlas');
+        $this->assertCount(1, $listed);
+        $this->assertSame($candidate['id'], $listed[0]['id']);
+    }
+
+    public function test_run_escalation_is_idempotent_per_task_contract(): void
+    {
+        $service = app(DevToForgePromotionService::class);
+
+        $first = $service->candidateFromRunEscalation(
+            $this->runEscalationDecision('run-a', 'tch-same'),
+            'Objetivo',
+            'atlas',
+        );
+        // A retry of the same task (same contract hash, new run) refreshes
+        // the live candidate instead of piling a second Attention item.
+        $second = $service->candidateFromRunEscalation(
+            $this->runEscalationDecision('run-b', 'tch-same'),
+            'Objetivo',
+            'atlas',
+        );
+
+        $this->assertSame($first['id'], $second['id']);
+        $this->assertSame('run-b', $second['source_run_id']);
+        $this->assertCount(1, $service->listCandidates('atlas'));
+
+        // A dismissed candidate does NOT block a fresh one.
+        $service->dismiss((string) $second['id'], 'not worth an obra');
+        $third = $service->candidateFromRunEscalation(
+            $this->runEscalationDecision('run-c', 'tch-same'),
+            'Objetivo',
+            'atlas',
+        );
+        $this->assertNotSame($first['id'], $third['id']);
+    }
+
     public function test_deprecated_promotion_route_was_removed(): void
     {
         $threadId = $this->seedThread('atlas', [
