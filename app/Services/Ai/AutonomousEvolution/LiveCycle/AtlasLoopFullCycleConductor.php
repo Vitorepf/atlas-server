@@ -4,13 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\LiveCycle;
 
-use RuntimeException;
 use Throwable;
-
-/** Raised by the certify-phase runner when a cycle fails certification — short-circuits the conductor. */
-class CertificationFailedException extends RuntimeException
-{
-}
 
 /** Minimal contract every phase runner implements: pure, deterministic, returns a receipt array. */
 interface AtlasLoopPhaseRunner

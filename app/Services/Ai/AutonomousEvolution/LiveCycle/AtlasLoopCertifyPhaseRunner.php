@@ -4,23 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\LiveCycle;
 
-use RuntimeException;
 use Throwable;
-
-/**
- * Thrown when {@see AtlasLoopCertifyPhaseRunner::run()} sees a regressed verdict from the certifier. The
- * exception ALWAYS surfaces — the live-cycle is short-circuited; a regressed candidate is never silently
- * swallowed (operator/orchestrator decides how to react). Co-located with the runner so a single allowed_file
- * owns the contract.
- */
-final class CertificationFailedException extends RuntimeException
-{
-    /** @param  array<string,mixed>  $receipt the structured receipt the runner was about to return */
-    public function __construct(public readonly array $receipt, ?string $message = null)
-    {
-        parent::__construct($message ?? 'Certification regressed: '.($receipt['reason'] ?? 'no_reason_recorded'));
-    }
-}
 
 /**
  * CERTIFY PHASE RUNNER — phase 6 of the canonical 8-phase live-cycle (orientar → compreender →
