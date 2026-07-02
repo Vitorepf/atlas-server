@@ -28,6 +28,7 @@ class AtlasRivals2Command extends Command
         {--atlas-runtime=atlas_dev}
         {--suite=local_fake}
         {--limit=5 : (mine) máximo de cases a minerar}
+        {--file= : (import-cases/import-results) arquivo ou diretório de origem}
         {--run= : run_id (default: run mais recente)}
         {--arms=local_fake_model@bare : lista model@runtime separada por vírgula}
         {--repetitions=3}
@@ -45,6 +46,8 @@ class AtlasRivals2Command extends Command
             'models' => ['schema_version' => 'atlas.rivals2.models.v1', 'models' => (new ModelRegistry)->all()],
             'arms' => $this->arms(),
             'mine' => $this->mine(),
+            'import-cases' => $this->importCases(),
+            'import-results' => $this->importResults(),
             'plan' => $this->plan(),
             'run-fake' => $this->runFake(),
             'run-bench' => $this->runBench(),
@@ -135,8 +138,86 @@ class AtlasRivals2Command extends Command
         return match ($suiteId) {
             LocalFakeSuiteAdapter::SUITE_ID => new LocalFakeSuiteAdapter,
             AtlasBenchSuiteAdapter::SUITE_ID => new AtlasBenchSuiteAdapter,
+            'senior_swe_bench' => new \App\Services\Ai\Rivals2\Adapters\External\SeniorSweBenchAdapter,
+            'harbor_terminal_bench' => new \App\Services\Ai\Rivals2\Adapters\External\HarborTerminalBenchAdapter,
+            'aider_polyglot' => new \App\Services\Ai\Rivals2\Adapters\External\AiderBenchAdapter,
+            'inspect_evals' => new \App\Services\Ai\Rivals2\Adapters\External\InspectEvalsAdapter,
+            'swe_bench_live' => new \App\Services\Ai\Rivals2\Adapters\External\SweBenchLiveAdapter,
+            'hal_harness' => new \App\Services\Ai\Rivals2\Adapters\External\HalHarnessAdapter,
+            'tau2_bfcl' => new \App\Services\Ai\Rivals2\Adapters\External\Tau2BfclAdapter,
+            'live_code_bench' => new \App\Services\Ai\Rivals2\Adapters\External\LiveCodeBenchAdapter,
             default => null,
         };
+    }
+
+    /** Importa cases de uma suite externa para external/<suite>/cases/. */
+    private function importCases(): array
+    {
+        $suiteId = (string) $this->option('suite');
+        if ($this->adapterFor($suiteId) === null) {
+            return ['status' => 'error', 'error' => "unknown_suite:{$suiteId}"];
+        }
+        $source = (string) $this->option('file');
+        $files = is_dir($source) ? glob($source.'/*.json') : (is_file($source) ? [$source] : []);
+        if ($files === []) {
+            return ['status' => 'error', 'error' => "no_case_files_at:{$source}"];
+        }
+
+        $dir = RunPaths::root()."/external/{$suiteId}/cases";
+        RunPaths::ensureDir($dir);
+        $imported = [];
+        $rejected = [];
+        foreach ($files as $file) {
+            $payload = json_decode(file_get_contents($file), true);
+            $cases = isset($payload['case_id']) ? [$payload] : (array) $payload;
+            foreach ($cases as $case) {
+                if (! isset($case['case_id'], $case['task_type'])) {
+                    $rejected[] = ['file' => basename($file), 'reason' => 'missing_case_id_or_task_type'];
+                    continue;
+                }
+                file_put_contents($dir.'/'.$case['case_id'].'.json', json_encode($case, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                $imported[] = $case['case_id'];
+            }
+        }
+
+        return ['schema_version' => 'atlas.rivals2.import_cases.v1', 'status' => 'ok', 'suite' => $suiteId, 'imported' => $imported, 'rejected' => $rejected];
+    }
+
+    /**
+     * Importa o resultado NATIVO de uma execução externa para o run e o
+     * transforma em receipts de primeira classe (→ verify/adjudicate/ledger).
+     */
+    private function importResults(): array
+    {
+        return $this->withRun(function (string $runId) {
+            $plan = RunPlan::load($runId);
+            $adapter = $this->adapterFor($plan->data['suite_id']);
+            if ($adapter === null) {
+                return ['status' => 'error', 'error' => 'unknown_suite:'.$plan->data['suite_id']];
+            }
+            $source = (string) $this->option('file');
+            if (! is_file($source)) {
+                return ['status' => 'error', 'error' => "results_file_not_found:{$source}"];
+            }
+            $destDir = RunPaths::runDir($runId).'/external_results';
+            RunPaths::ensureDir($destDir);
+            copy($source, $destDir.'/'.$adapter->suiteId().'.json');
+
+            $receipts = $adapter->ingestResults(RunPaths::runDir($runId));
+            foreach ($receipts as $receipt) {
+                $receipt->append();
+            }
+            $pack = (new \App\Services\Ai\Rivals2\Core\EvidencePackBuilder)->build($runId);
+
+            return [
+                'schema_version' => 'atlas.rivals2.import_results.v1',
+                'status' => 'ok',
+                'run_id' => $runId,
+                'suite' => $adapter->suiteId(),
+                'receipts_ingested' => count($receipts),
+                'evidence_pack_built' => ($pack['receipts_hash']['present'] ?? false) === true,
+            ];
+        });
     }
 
     private function mine(): array
