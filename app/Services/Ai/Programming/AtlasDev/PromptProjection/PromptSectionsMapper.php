@@ -68,7 +68,7 @@ final class PromptSectionsMapper
             operatingRules: self::ATLAS_DEV_OPERATING_RULES,
             miniSpecRef: $this->buildRef('mini-spec', $miniSpecHash),
             taskContractRef: $this->buildRef('task-contract', $taskContractHash),
-            contextRefs: $this->buildContextRefs($projection, $discoveryHash, $projectionHash),
+            contextRefs: $this->buildContextRefs($projection, $discovery, $discoveryHash, $projectionHash),
             codeDiscoveryRef: $this->buildRef('code-discovery', $discoveryHash),
             allowedFiles: AtlasDevStringListNormalizer::uniqueTrimmedStrings($taskContract->allowedFiles),
             forbiddenFiles: AtlasDevStringListNormalizer::uniqueTrimmedStrings($taskContract->forbiddenFiles),
@@ -126,8 +126,16 @@ final class PromptSectionsMapper
     /**
      * @return list<string>
      */
+    /**
+     * How many discovery callers/tests ride into the prompt. Bounded so the
+     * highest-signal local evidence never floods the ref list (mirrors the
+     * DevContextBudgetDistiller constitution: callers > tests > the rest).
+     */
+    private const MAX_DISCOVERY_REFS_PER_GROUP = 8;
+
     private function buildContextRefs(
         OpenBrainProgrammingProjection $projection,
+        CodeDiscoveryManifest $discovery,
         string $discoveryHash,
         string $projectionHash,
     ): array {
@@ -151,6 +159,22 @@ final class PromptSectionsMapper
 
         foreach ($projection->codeRefs as $ref) {
             $refs[] = $this->contextRefToString($ref);
+        }
+
+        // Discovery evidence: the likely CALLERS of the symbols this run will
+        // touch and the tests that pin them. This is the evidence the
+        // verification gate acts on later (E5 caller-test selection), so the
+        // model must see it BEFORE editing — previously it only rode as an
+        // unreadable atlas-dev://code-discovery/<hash> pointer while the
+        // full refs lived in receipts/workcell instructions. The reason is
+        // included ('path :: why it matters') because for callers the why IS
+        // the signal. Empty discovery lists keep the prompt byte-identical.
+        foreach (array_slice($discovery->likelyCallers, 0, self::MAX_DISCOVERY_REFS_PER_GROUP) as $ref) {
+            $refs[] = $this->contextRefToString($ref).' :: '.$ref->reason;
+        }
+
+        foreach (array_slice($discovery->relatedTests, 0, self::MAX_DISCOVERY_REFS_PER_GROUP) as $ref) {
+            $refs[] = $this->contextRefToString($ref).' :: '.$ref->reason;
         }
 
         return AtlasDevStringListNormalizer::uniqueStrings($refs);

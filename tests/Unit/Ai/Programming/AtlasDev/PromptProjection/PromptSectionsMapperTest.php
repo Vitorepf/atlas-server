@@ -80,6 +80,59 @@ final class PromptSectionsMapperTest extends TestCase
         $this->assertStringContainsString('acceptance_criteria', $joined);
     }
 
+    public function test_mapper_surfaces_discovery_callers_and_tests_as_readable_context_refs(): void
+    {
+        $sections = $this->mapper()->map(
+            envelope: $this->envelope(),
+            miniSpec: $this->miniSpec(),
+            taskContract: $this->taskContract(),
+            discovery: $this->codeDiscovery([
+                'likely_callers' => [
+                    ['kind' => 'code', 'ref' => 'app/Services/Bar/BarService.php:42', 'reason' => 'calls FooService::value()'],
+                ],
+                'related_tests' => [
+                    ['kind' => 'test', 'ref' => 'tests/Unit/Services/Bar/BarServiceTest.php', 'reason' => 'pins BarService behavior'],
+                ],
+            ]),
+            projection: $this->openBrainProjection(),
+        );
+
+        $this->assertContains(
+            'code://app/Services/Bar/BarService.php:42 :: calls FooService::value()',
+            $sections->contextRefs,
+            'discovery likely-callers must ride into the prompt as readable refs (the E5 gate acts on them later)',
+        );
+        $this->assertContains(
+            'test://tests/Unit/Services/Bar/BarServiceTest.php :: pins BarService behavior',
+            $sections->contextRefs,
+            'discovery related-tests must ride into the prompt as readable refs',
+        );
+    }
+
+    public function test_mapper_caps_discovery_refs_per_group(): void
+    {
+        $callers = [];
+        for ($i = 0; $i < 20; $i++) {
+            $callers[] = ['kind' => 'code', 'ref' => "app/C{$i}.php", 'reason' => "caller {$i}"];
+        }
+
+        $sections = $this->mapper()->map(
+            envelope: $this->envelope(),
+            miniSpec: $this->miniSpec(),
+            taskContract: $this->taskContract(),
+            discovery: $this->codeDiscovery(['likely_callers' => $callers]),
+            projection: $this->openBrainProjection(),
+        );
+
+        $callerRefs = array_values(array_filter(
+            $sections->contextRefs,
+            static fn (string $r): bool => str_starts_with($r, 'code://app/C'),
+        ));
+
+        $this->assertCount(8, $callerRefs, 'discovery refs are capped at 8 per group so evidence never floods the prompt');
+        $this->assertSame('code://app/C0.php :: caller 0', $callerRefs[0], 'cap keeps manifest order (deterministic)');
+    }
+
     public function test_mapper_dedupes_context_refs(): void
     {
         $sections = $this->mapper()->map(
