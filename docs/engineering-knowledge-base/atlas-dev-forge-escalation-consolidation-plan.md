@@ -194,12 +194,12 @@ Este NAO e um mecanismo paralelo: e o destino para onde os outros mecanismos con
 | **Schema emitido** | `atlas.dev.forge_promotion_preview.v1` |
 | **Campos produzidos** | `intent_summary`, `changed_files`, `context_refs`, `workspace_hash`, `thread_id`, `decision_hash`, `task_contract_hash`, `run_id`, `target` ∈ {`forge_obra`, `obra_candidate`}, `reasons`, `signals`, `score`, `risk_level`, `submission_state` |
 | **Trigger** | score >= 7 OR risk >= R4 (heuristica determinstica em `EscalationSignalScorer`) |
-| **Caller producao** | **nenhum** (verificado: `grep ForgePromotionPreviewBuilder app/` so encontra a propria classe + comentarios) |
-| **Caller teste** | `tests/Unit/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilderTest.php`, `EscalationDecisionEngineTest.php` |
-| **Evidence/receipt** | `decision_hash` + `task_contract_hash` no payload; nao persiste em DB; `preview_artifact_path` aponta para JSON local |
-| **Como chega ao Forge** | NAO chega — preview emitido para Attention queue, operador aprova manualmente |
-| **Status** | **orfao funcional** — preview gerado existe nos testes mas a Pipeline Atlas Dev efetivamente NAO o emite hoje (Pipeline atual nao chama Builder nem Engine) |
-| **Risco** | Logica de decisao moderna porem sem ponte ao path HTTP; pode divergir do schema canonico quando este nascer |
+| **Caller producao** | **`SeniorEngineerLoopExecutor`** (desde 2026-07-02, commit `aa61444736`): toda execucao FAILED do senior loop alimenta o Engine com sinais vivos do M2 repair loop (`repair_abort_reason=same_signature_twice`, `repair_attempts`) + blast radius da FailureCapsule, e persiste a decisao como `receipts/{run_id}/escalation_decision.json`, exposta em `run_summary.escalation`. `ForgePromotionPreviewBuilder` continua sem caller de producao. |
+| **Caller teste** | `tests/Unit/Ai/Programming/AtlasDev/Escalation/ForgePromotionPreviewBuilderTest.php`, `EscalationDecisionEngineTest.php`, `tests/Feature/Ai/Programming/AtlasDev/AtlasDevSeniorLoopRunCommandTest.php` (wiring vivo: repair-exhausted => obra_candidate; low-signal => null) |
+| **Evidence/receipt** | `decision_hash` + `task_contract_hash` no payload; `escalation_decision.json` por run via `GenericArtifactPersister`; nao persiste em DB; `preview_artifact_path` aponta para JSON local |
+| **Como chega ao Forge** | ainda NAO chega — a decisao e registrada e exposta no run summary; o handoff ao Attention/Forge segue manual. No caminho vivo o target `forge_obra` e inalcancavel por construcao (R4/R5 nunca chega a execucao — routing manda para forge preview; score maximo observavel = 5 < 7), entao toda decisao emitida hoje e `obra_candidate`. |
+| **Status** | **emissor vivo parcial** — Engine chamado em producao pelo senior loop (decide + registra, nunca auto-invoca provider mais forte); Builder segue orfao |
+| **Risco** | Decisoes `obra_candidate` persistidas ainda nao tem consumidor (Attention plane e obra/thread-centric; runs do senior loop nao tem obra) — ponte run_id->thread ausente segue sendo o gap do Mechanism 2 |
 
 ### Mechanism 2 — DevToForgePromotionService (AtlasCode HTTP)
 
