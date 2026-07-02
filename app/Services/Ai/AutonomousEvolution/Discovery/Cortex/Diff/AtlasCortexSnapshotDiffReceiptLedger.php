@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Diff;
 
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
+use Throwable;
+
 /**
  * Append-only auditable record of every diff computed by AtlasCortexSnapshotDiffEngine.
  *
@@ -45,11 +48,6 @@ final class AtlasCortexSnapshotDiffReceiptLedger
      */
     public function record(string $left, string $right, string $scopeRoot, array $structuralDiff, array $summary): array
     {
-        $existing = $this->seen($left, $right);
-        if ($existing !== null) {
-            return ['recorded' => true, 'cached' => true, 'receipt' => $existing, 'path' => $this->todayPath()];
-        }
-
         $receipt = [
             'schema' => self::SCHEMA,
             'computed_at_unix' => time(),
@@ -60,9 +58,20 @@ final class AtlasCortexSnapshotDiffReceiptLedger
             'structural_diff_hash' => $this->structuralHash($structuralDiff),
         ];
         $path = $this->todayPath();
-        $ok = $this->appendLine($path, $receipt);
-        if (! $ok) {
+        $cached = null;
+        try {
+            // Idempotency scan runs INSIDE the store's exclusive lock; null return skips the write.
+            (new JsonlReceiptStore($path))->appendWith(function (?string $lastLine) use ($left, $right, $receipt, &$cached): ?array {
+                $cached = $this->seen($left, $right);
+
+                return $cached === null ? $receipt : null;
+            });
+        } catch (Throwable) {
+            // FAIL-OPEN: observability cannot be allowed to break the loop.
             return ['recorded' => false, 'path' => $path, 'receipt' => $receipt];
+        }
+        if ($cached !== null) {
+            return ['recorded' => true, 'cached' => true, 'receipt' => $cached, 'path' => $path];
         }
 
         return ['recorded' => true, 'cached' => false, 'path' => $path, 'receipt' => $receipt];
@@ -123,61 +132,12 @@ final class AtlasCortexSnapshotDiffReceiptLedger
      */
     private function scanFile(string $path, string $left, string $right): ?array
     {
-        if (! is_file($path)) {
-            return null;
-        }
-        $fh = @fopen($path, 'rb');
-        if ($fh === false) {
-            return null;
-        }
-        try {
-            while (($line = fgets($fh)) !== false) {
-                $decoded = json_decode(rtrim($line, "\n"), true);
-                if (! is_array($decoded)) {
-                    continue;
-                }
-                if (($decoded['left_snapshot_id'] ?? null) === $left && ($decoded['right_snapshot_id'] ?? null) === $right) {
-                    return $decoded;
-                }
+        foreach ((new JsonlReceiptStore($path))->replay() as $decoded) {
+            if (($decoded['left_snapshot_id'] ?? null) === $left && ($decoded['right_snapshot_id'] ?? null) === $right) {
+                return $decoded;
             }
-        } finally {
-            fclose($fh);
         }
 
         return null;
     }
-
-    /**
-     * @param  array<string,mixed>  $receipt
-     */
-    private function appendLine(string $path, array $receipt): bool
-    {
-        $dir = \dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            return false;
-        }
-        $fh = @fopen($path, 'ab');
-        if ($fh === false) {
-            return false;
-        }
-        try {
-            if (! @flock($fh, LOCK_EX)) {
-                return false;
-            }
-            $line = json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n";
-            $bytes = fwrite($fh, $line);
-            if ($bytes === false || $bytes !== strlen($line)) {
-                return false;
-            }
-        } finally {
-            @flock($fh, LOCK_UN);
-            fclose($fh);
-        }
-
-        return true;
-    }
-
-    /**
-     * @param  array<string,mixed>  $arr
-     */
 }

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Insights;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;
+use Throwable;
 
 final class AtlasCortexInsightReceiptLedger
 {
@@ -31,46 +33,31 @@ final class AtlasCortexInsightReceiptLedger
 
         $row = $this->normalizeRow($snapshotId, $observation);
         $path = $this->pathForSnapshot($snapshotId);
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException('Unable to create ledger directory: '.$directory);
-        }
-
-        $handle = fopen($path, 'c+');
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open insight ledger path: '.$path);
-        }
+        $store = new JsonlReceiptStore($path);
 
         try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException('Unable to acquire exclusive insight ledger lock.');
-            }
-
-            if ($this->afterLockAcquired instanceof Closure) {
-                ($this->afterLockAcquired)($path, $row);
-            }
-
-            $existingRows = $this->readRowsFromHandle($handle);
-            foreach ($existingRows as $existingRow) {
-                if (
-                    ($existingRow['snapshot_id'] ?? null) === $row['snapshot_id']
-                    && ($existingRow['axis_id'] ?? null) === $row['axis_id']
-                    && ($existingRow['witness_hash'] ?? null) === $row['witness_hash']
-                ) {
-                    return;
+            // Dedup on (snapshot_id, axis_id, witness_hash) runs INSIDE the store's exclusive lock.
+            $store->appendWith(function (?string $lastLine) use ($store, $path, $row): ?array {
+                if ($this->afterLockAcquired instanceof Closure) {
+                    ($this->afterLockAcquired)($path, $row);
                 }
-            }
 
-            fseek($handle, 0, SEEK_END);
-            $encoded = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            if (! is_string($encoded) || fwrite($handle, $encoded.PHP_EOL) === false) {
-                throw new RuntimeException('Unable to append insight ledger row.');
-            }
+                foreach ($store->replay() as $existingRow) {
+                    if (
+                        ($existingRow['snapshot_id'] ?? null) === $row['snapshot_id']
+                        && ($existingRow['axis_id'] ?? null) === $row['axis_id']
+                        && ($existingRow['witness_hash'] ?? null) === $row['witness_hash']
+                    ) {
+                        return null;
+                    }
+                }
 
-            fflush($handle);
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
+                return $row;
+            });
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
     }
 
@@ -200,51 +187,7 @@ final class AtlasCortexInsightReceiptLedger
      */
     private function readRowsFromPath(string $path): array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $contents = file_get_contents($path);
-        if (! is_string($contents) || $contents === '') {
-            return [];
-        }
-
-        return $this->decodeJsonLines($contents);
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readRowsFromHandle(mixed $handle): array
-    {
-        rewind($handle);
-        $contents = stream_get_contents($handle);
-        if (! is_string($contents) || $contents === '') {
-            return [];
-        }
-
-        return $this->decodeJsonLines($contents);
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function decodeJsonLines(string $contents): array
-    {
-        $rows = [];
-        foreach (preg_split('/\R/', trim($contents)) ?: [] as $line) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return (new JsonlReceiptStore($path))->replay();
     }
 
     /**

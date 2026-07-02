@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Trinity\MaestroToLoop;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use InvalidArgumentException;
 
 /**
@@ -63,25 +64,17 @@ final class AtlasLoopMaestroFuelReceiptLedger
             throw new InvalidArgumentException('Fuel receipt packet_id must not be empty');
         }
 
-        if ($this->present($step, $packetId)) {
-            return false; // idempotent — already recorded
-        }
+        // Idempotency check on (step, packet_id) runs INSIDE the store's exclusive lock.
+        $written = (new JsonlReceiptStore($this->ledgerPath()))->appendWith(
+            fn (?string $lastLine): ?array => $this->present($step, $packetId) ? null : [
+                'recorded_at_unix' => time(),
+                'step' => $step,
+                'packet_id' => $packetId,
+                'payload' => $payload,
+            ],
+        );
 
-        $line = [
-            'recorded_at_unix' => time(),
-            'step' => $step,
-            'packet_id' => $packetId,
-            'payload' => $payload,
-        ];
-
-        $path = $this->ledgerPath();
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        file_put_contents($path, json_encode($line, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n", FILE_APPEND | LOCK_EX);
-
-        return true;
+        return $written !== null;
     }
 
     /**
@@ -89,19 +82,7 @@ final class AtlasLoopMaestroFuelReceiptLedger
      */
     public function all(): array
     {
-        $path = $this->ledgerPath();
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
+        return (new JsonlReceiptStore($this->ledgerPath()))->replay();
     }
 
     public function present(string $step, string $packetId): bool

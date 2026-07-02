@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Autopoiesis\Constitution;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use DomainException;
 use RuntimeException;
+use Throwable;
 
 final class AtlasLoopAutopoieticConstitutionAuditReceiptLedger
 {
@@ -16,28 +18,20 @@ final class AtlasLoopAutopoieticConstitutionAuditReceiptLedger
 
     public function append(AutopoieticConstitutionReceipt $receipt): void
     {
-        $this->assertAppendable($receipt);
-        $path = $this->path();
-        $dir = dirname($path);
-        if (! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
-            throw new RuntimeException('Unable to create constitution receipt ledger directory: '.$dir);
-        }
-
-        $handle = fopen($path, 'a');
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open constitution receipt ledger: '.$path);
-        }
-
         try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException('Unable to lock constitution receipt ledger: '.$path);
-            }
+            // Duplicate/ordering checks run INSIDE the store's exclusive lock.
+            (new JsonlReceiptStore($this->path()))->appendWith(function (?string $lastLine) use ($receipt): array {
+                $this->assertAppendable($receipt);
 
-            fwrite($handle, json_encode($receipt, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-            fflush($handle);
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
+                return (array) json_decode(
+                    (string) json_encode($receipt, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                    true,
+                );
+            });
+        } catch (DomainException|RuntimeException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
     }
 
@@ -93,19 +87,6 @@ final class AtlasLoopAutopoieticConstitutionAuditReceiptLedger
      */
     private function rows(): array
     {
-        $path = $this->path();
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return (new JsonlReceiptStore($this->path()))->replay();
     }
 }

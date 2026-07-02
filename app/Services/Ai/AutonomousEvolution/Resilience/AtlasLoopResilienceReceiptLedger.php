@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Resilience;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use Throwable;
+
 /**
  * RESILIENCE RECEIPT LEDGER — the FACT-BASED memory of Loop fault-recovery. Every detection + action taken by
  * the resilience family (topology probe anomalies, hung-grind verdicts, zombie reaps, respawn decisions, bash
@@ -50,35 +53,21 @@ final class AtlasLoopResilienceReceiptLedger
         ksort($body);
 
         $recordedAt = $this->now();
-        $dayPath = $this->dayPath($body['recorded_at'] ?? $recordedAt);
-
-        $dir = dirname($dayPath);
-        if (! is_dir($dir)) {
-            mkdir($dir, 0775, true);
-        }
-
-        $handle = fopen($dayPath, 'c+');
-        if ($handle === false) {
-            return $eventId; // best-effort fail-open: storage error must not crash the loop
-        }
+        $store = new JsonlReceiptStore($this->dayPath($body['recorded_at'] ?? $recordedAt));
 
         try {
-            if (! flock($handle, LOCK_EX)) {
-                return $eventId;
-            }
+            // Duplicate event_id check runs INSIDE the store's exclusive lock; null return no-ops.
+            $store->appendWith(function (?string $lastLine) use ($store, $eventId, $body): ?array {
+                foreach ($store->rawLines() as $raw) {
+                    if (str_contains($raw, '"event_id":"'.$eventId.'"')) {
+                        return null; // no-op: identical event already durable
+                    }
+                }
 
-            if ($this->dayContainsEventId($handle, $eventId)) {
-                return $eventId; // no-op: identical event already durable
-            }
-
-            fseek($handle, 0, SEEK_END);
-            fwrite($handle, (string) json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-            fflush($handle);
-            // Best-effort durable sync — some platforms reject fsync on text streams; ignore the boolean.
-            @\fsync($handle);
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
+                return $body;
+            });
+        } catch (Throwable) {
+            // best-effort fail-open: storage error must not crash the loop
         }
 
         return $eventId;
@@ -93,11 +82,7 @@ final class AtlasLoopResilienceReceiptLedger
     {
         $events = [];
         foreach ($this->dayFilesInWindow($since, $until) as $path) {
-            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $raw) {
-                $decoded = json_decode((string) $raw, true);
-                if (! is_array($decoded)) {
-                    continue;
-                }
+            foreach ((new JsonlReceiptStore($path))->replay() as $decoded) {
                 $ts = (int) ($decoded['recorded_at'] ?? 0);
                 if ($since !== null && $ts < $since) {
                     continue;
@@ -142,25 +127,6 @@ final class AtlasLoopResilienceReceiptLedger
     private function computeEventId(array $body): string
     {
         return hash('sha256', (string) json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
-
-    /**
-     * @param  resource  $handle
-     */
-    private function dayContainsEventId($handle, string $eventId): bool
-    {
-        rewind($handle);
-        while (($raw = fgets($handle)) !== false) {
-            $raw = trim($raw);
-            if ($raw === '') {
-                continue;
-            }
-            if (str_contains($raw, '"event_id":"'.$eventId.'"')) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function dayPath(int $ts): string

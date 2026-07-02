@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Autopoiesis\SelfExtension;
 
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -57,30 +58,41 @@ final class AtlasLoopAutopoieticBootstrapReceiptLedger
      */
     public function append(array $fields): array
     {
-        $atomicSeq = (int) ($fields['atomic_seq'] ?? 0);
-        $last = $this->lastReceipt();
-        $lastSeq = (int) ($last['atomic_seq'] ?? 0);
+        $store = new JsonlReceiptStore($this->path());
+        $receipt = null;
+        try {
+            // Seq validation + prev-hash derivation run INSIDE the store's exclusive lock, so a
+            // sequence violation leaves the file byte-unchanged and prev can never race a writer.
+            $store->appendWith(function (?string $lastLine) use ($store, $fields, &$receipt): array {
+                $rows = $store->replay();
+                $last = $rows === [] ? null : end($rows);
+                $atomicSeq = (int) ($fields['atomic_seq'] ?? 0);
+                $lastSeq = (int) ($last['atomic_seq'] ?? 0);
 
-        if ($atomicSeq !== $lastSeq + 1) {
-            // Validate BEFORE any write — a sequence violation must leave the file byte-unchanged.
-            throw new LedgerSequenceViolation("atomic_seq must be ".($lastSeq + 1).", got {$atomicSeq}");
+                if ($atomicSeq !== $lastSeq + 1) {
+                    throw new LedgerSequenceViolation('atomic_seq must be '.($lastSeq + 1).", got {$atomicSeq}");
+                }
+
+                $prev = (string) ($last['this_receipt_hash'] ?? self::GENESIS_HASH);
+                $payload = [
+                    'receipt_id' => (string) Str::ulid(),
+                    'atomic_seq' => $atomicSeq,
+                    'scope_id' => (string) ($fields['scope_id'] ?? ''),
+                    'manifest_sha256' => (string) ($fields['manifest_sha256'] ?? ''),
+                    'verifier_ok' => (bool) ($fields['verifier_ok'] ?? false),
+                    'verifier_violations' => array_values((array) ($fields['verifier_violations'] ?? [])),
+                    'operator_intent_digest' => (string) ($fields['operator_intent_digest'] ?? ''),
+                    'prev_receipt_hash' => $prev,
+                ];
+                $receipt = $this->canonicalize($payload + ['this_receipt_hash' => $this->chainHash($prev, $payload)]);
+
+                return $receipt;
+            });
+        } catch (LedgerSequenceViolation|LedgerImmutabilityViolation $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new LedgerImmutabilityViolation($e->getMessage(), 0, $e);
         }
-
-        $prev = (string) ($last['this_receipt_hash'] ?? self::GENESIS_HASH);
-        $payload = [
-            'receipt_id' => (string) Str::ulid(),
-            'atomic_seq' => $atomicSeq,
-            'scope_id' => (string) ($fields['scope_id'] ?? ''),
-            'manifest_sha256' => (string) ($fields['manifest_sha256'] ?? ''),
-            'verifier_ok' => (bool) ($fields['verifier_ok'] ?? false),
-            'verifier_violations' => array_values((array) ($fields['verifier_violations'] ?? [])),
-            'operator_intent_digest' => (string) ($fields['operator_intent_digest'] ?? ''),
-            'prev_receipt_hash' => $prev,
-        ];
-        $thisHash = $this->chainHash($prev, $payload);
-        $receipt = $this->canonicalize($payload + ['this_receipt_hash' => $thisHash]);
-
-        $this->appendLine((string) json_encode($receipt, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $receipt;
     }
@@ -138,67 +150,11 @@ final class AtlasLoopAutopoieticBootstrapReceiptLedger
     }
 
     /**
-     * @return array<string,mixed>|null
-     */
-    private function lastReceipt(): ?array
-    {
-        $lines = $this->readLines();
-        for ($i = count($lines) - 1; $i >= 0; $i--) {
-            try {
-                $decoded = json_decode($lines[$i], true, 512, JSON_THROW_ON_ERROR);
-            } catch (Throwable) {
-                continue;
-            }
-            if (is_array($decoded)) {
-                return $decoded;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * @return list<string>
      */
     private function readLines(): array
     {
-        $path = $this->path();
-        if (! is_file($path)) {
-            return [];
-        }
-
-        return array_values(file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []);
-    }
-
-    private function appendLine(string $line): void
-    {
-        $path = $this->path();
-        $dir = \dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0755, true);
-        }
-
-        $before = is_file($path) ? (int) filesize($path) : 0;
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new LedgerImmutabilityViolation('cannot open ledger for append: '.$path);
-        }
-        try {
-            if (! flock($fp, LOCK_EX)) {
-                throw new LedgerImmutabilityViolation('cannot lock ledger for append');
-            }
-            fwrite($fp, $line.PHP_EOL);
-            fflush($fp);
-            flock($fp, LOCK_UN);
-        } finally {
-            fclose($fp);
-        }
-
-        clearstatcache(true, $path);
-        if ((int) filesize($path) <= $before) {
-            throw new LedgerImmutabilityViolation('append did not grow the ledger — refusing silent truncation/overwrite');
-        }
+        return (new JsonlReceiptStore($this->path()))->rawLines();
     }
 
     private function canonicalJson(mixed $value): string

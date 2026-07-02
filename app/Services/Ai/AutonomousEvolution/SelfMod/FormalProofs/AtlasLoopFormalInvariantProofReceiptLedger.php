@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\SelfMod\FormalProofs;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
+use Throwable;
 
 final class AtlasLoopFormalInvariantProofReceiptLedger
 {
@@ -33,48 +35,32 @@ final class AtlasLoopFormalInvariantProofReceiptLedger
     public function record(array $proofResult, array $context): array
     {
         $receipt = $this->normalizeReceipt($proofResult, $context);
-        $existing = $this->lookup((string) $receipt['receipt_id']);
-        if ($existing !== null) {
-            if ($this->canonicalJson($existing) !== $this->canonicalJson($receipt)) {
-                throw new RuntimeException('append_only_violation_existing_receipt_differs');
-            }
-
-            $this->duplicateSeen++;
-
-            return $existing;
-        }
-
-        $path = $this->ledgerPath((string) $receipt['produced_at']);
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! @mkdir($directory, 0o755, true) && ! is_dir($directory)) {
-            throw new RuntimeException("Could not create directory [{$directory}].");
-        }
-
-        $handle = fopen($path, 'ab');
-        if ($handle === false) {
-            throw new RuntimeException("Could not open [{$path}] for append.");
-        }
-
+        $existing = null;
         try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException("Could not acquire append lock for [{$path}].");
-            }
+            // Duplicate receipt_id check runs INSIDE the store's exclusive lock; null return skips the write.
+            (new JsonlReceiptStore($this->ledgerPath((string) $receipt['produced_at'])))
+                ->appendWith(function (?string $lastLine) use ($receipt, &$existing): ?array {
+                    $existing = $this->lookup((string) $receipt['receipt_id']);
+                    if ($existing !== null) {
+                        if ($this->canonicalJson($existing) !== $this->canonicalJson($receipt)) {
+                            throw new RuntimeException('append_only_violation_existing_receipt_differs');
+                        }
 
-            $line = $this->canonicalJson($receipt).PHP_EOL;
-            $written = fwrite($handle, $line);
-            if ($written === false || $written !== strlen($line)) {
-                throw new RuntimeException("Failed to append receipt to [{$path}].");
-            }
-            fflush($handle);
-            if (function_exists('fsync')) {
-                @fsync($handle);
-            }
-            flock($handle, LOCK_UN);
-        } finally {
-            fclose($handle);
+                        $this->duplicateSeen++;
+
+                        return null;
+                    }
+
+                    // Round-trip so the stored line is byte-identical to canonicalJson($receipt).
+                    return (array) json_decode($this->canonicalJson($receipt), true);
+                });
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
 
-        return $receipt;
+        return $existing ?? $receipt;
     }
 
     /**
@@ -178,14 +164,7 @@ final class AtlasLoopFormalInvariantProofReceiptLedger
 
         $rows = [];
         foreach ($paths as $path) {
-            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-                $decoded = json_decode($line, true);
-                if (! is_array($decoded)) {
-                    continue;
-                }
-
-                $rows[] = $decoded;
-            }
+            array_push($rows, ...(new JsonlReceiptStore($path))->replay());
         }
 
         return $rows;

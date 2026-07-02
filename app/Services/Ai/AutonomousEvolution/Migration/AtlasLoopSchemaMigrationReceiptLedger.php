@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Migration;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalJson;
 use InvalidArgumentException;
 use RuntimeException;
+use Throwable;
 
 final class AtlasLoopSchemaMigrationReceiptLedger
 {
@@ -20,31 +22,25 @@ final class AtlasLoopSchemaMigrationReceiptLedger
 
     public function append(AtlasLoopSchemaMigrationReceipt $receipt): AtlasLoopSchemaMigrationReceipt
     {
-        $this->ensureDirectory(dirname($this->path));
-
-        $previousHash = null;
-        $existing = $this->list();
-        if ($existing !== []) {
-            $previousHash = $existing[array_key_last($existing)]->postHash;
-        }
-
-        $stored = $receipt->withPostHash($this->hashChainFor($receipt, $previousHash));
-        $line = CanonicalJson::encode($stored->toArray()).PHP_EOL;
-
-        $fp = fopen($this->path, 'ab');
-        if ($fp === false) {
-            throw new RuntimeException("Could not open {$this->path} for append.");
-        }
-
+        $stored = null;
         try {
-            if (! flock($fp, LOCK_EX)) {
-                throw new RuntimeException("Could not lock {$this->path} for append.");
-            }
-            fwrite($fp, $line);
-            fflush($fp);
-            flock($fp, LOCK_UN);
-        } finally {
-            fclose($fp);
+            // Prev-hash derivation runs INSIDE the store's exclusive lock (TOCTOU-safe).
+            (new JsonlReceiptStore($this->path))->appendWith(function (?string $lastLine) use ($receipt, &$stored): array {
+                $previousHash = null;
+                if ($lastLine !== null) {
+                    $decoded = json_decode($lastLine, true);
+                    if (is_array($decoded)) {
+                        $previousHash = AtlasLoopSchemaMigrationReceipt::fromArray($decoded)->postHash;
+                    }
+                }
+                $stored = $receipt->withPostHash($this->hashChainFor($receipt, $previousHash));
+
+                return $stored->toArray();
+            });
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
 
         return $stored;
@@ -55,22 +51,8 @@ final class AtlasLoopSchemaMigrationReceiptLedger
      */
     public function list(?string $artifactKind = null, ?string $fromTs = null, ?string $toTs = null): array
     {
-        if (! is_file($this->path)) {
-            return [];
-        }
-
-        $rows = file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if ($rows === false) {
-            throw new RuntimeException("Could not read {$this->path}.");
-        }
-
         $receipts = [];
-        foreach ($rows as $row) {
-            $decoded = json_decode($row, true);
-            if (! is_array($decoded)) {
-                continue;
-            }
-
+        foreach ((new JsonlReceiptStore($this->path))->replay() as $decoded) {
             $receipt = AtlasLoopSchemaMigrationReceipt::fromArray($decoded);
             if ($artifactKind !== null && $receipt->artifactKind !== $artifactKind) {
                 continue;
@@ -107,13 +89,6 @@ final class AtlasLoopSchemaMigrationReceiptLedger
             'sha256',
             ($previousHash ?? 'genesis').'|'.CanonicalJson::encode($receipt->toArrayWithoutPostHash()),
         );
-    }
-
-    private function ensureDirectory(string $dir): void
-    {
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new RuntimeException("Could not create directory {$dir}.");
-        }
     }
 }
 

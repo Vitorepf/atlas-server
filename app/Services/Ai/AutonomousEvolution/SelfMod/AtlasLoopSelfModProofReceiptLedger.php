@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\SelfMod;
 
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\UsesUtcClock;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -80,26 +81,12 @@ final class AtlasLoopSelfModProofReceiptLedger
             'commit_sha' => array_key_exists('commit_sha', $partial) ? (is_string($partial['commit_sha']) && $partial['commit_sha'] !== '' ? $partial['commit_sha'] : null) : null,
         ];
 
-        $path = $this->resolvedPath();
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-
-        $fh = @fopen($path, 'a');
-        if ($fh === false) {
-            throw new RuntimeException('SelfMod ledger cannot open '.$path.' for append');
-        }
         try {
-            if (! flock($fh, LOCK_EX)) {
-                throw new RuntimeException('SelfMod ledger cannot acquire LOCK_EX');
-            }
-            fwrite($fh, (string) json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-            fflush($fh);
-            @\fsync($fh);
-        } finally {
-            flock($fh, LOCK_UN);
-            fclose($fh);
+            (new JsonlReceiptStore($this->resolvedPath()))->append($receipt);
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
 
         return $receipt;
@@ -110,19 +97,7 @@ final class AtlasLoopSelfModProofReceiptLedger
      */
     public function all(): array
     {
-        $path = $this->resolvedPath();
-        if (! is_file($path)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
-
-        return $out;
+        return (new JsonlReceiptStore($this->resolvedPath()))->replay();
     }
 
     public function byReceiptId(string $receiptId): ?array

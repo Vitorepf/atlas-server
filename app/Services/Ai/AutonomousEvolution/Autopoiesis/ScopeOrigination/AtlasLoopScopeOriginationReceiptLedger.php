@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Autopoiesis\ScopeOrigination;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use JsonSerializable;
 use RuntimeException;
+use Throwable;
 
 final class AtlasLoopScopeOriginationReceiptLedger
 {
@@ -116,26 +118,12 @@ final class AtlasLoopScopeOriginationReceiptLedger
      */
     private function append(array $row): void
     {
-        $dir = dirname($this->path);
-        if (! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
-            throw new RuntimeException('Unable to create scope origination receipt ledger directory: '.$dir);
-        }
-
-        $handle = fopen($this->path, 'ab');
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open scope origination receipt ledger: '.$this->path);
-        }
-
         try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException('Unable to lock scope origination receipt ledger: '.$this->path);
-            }
-
-            fwrite($handle, json_encode($row, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
-            fflush($handle);
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
+            (new JsonlReceiptStore($this->path))->append($row);
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
     }
 
@@ -144,19 +132,7 @@ final class AtlasLoopScopeOriginationReceiptLedger
      */
     private function rows(): array
     {
-        if (! is_file($this->path)) {
-            return [];
-        }
-
-        $rows = [];
-        foreach (file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return (new JsonlReceiptStore($this->path))->replay();
     }
 
     private function receiptId(ScopeOriginationVerdict $v, ?string $resolvedTimestamp): string

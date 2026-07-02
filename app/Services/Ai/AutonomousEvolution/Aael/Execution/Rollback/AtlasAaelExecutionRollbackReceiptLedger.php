@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Aael\Execution\Rollback;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Generator;
 use RuntimeException;
 
@@ -22,22 +23,9 @@ final class AtlasAaelExecutionRollbackReceiptLedger
      */
     public function append(array $receipt): array
     {
-        $path = $this->path();
-        $directory = dirname($path);
-        if (! is_dir($directory) && ! mkdir($directory, 0777, true) && ! is_dir($directory)) {
-            throw new RuntimeException('aael_rollback_receipt_ledger_directory_create_failed');
-        }
-
-        $handle = fopen($path, 'ab+');
-        if ($handle === false) {
-            throw new RuntimeException('aael_rollback_receipt_ledger_open_failed');
-        }
-
-        try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException('aael_rollback_receipt_ledger_lock_failed');
-            }
-
+        $normalized = null;
+        // Chain verification + prev-hash derivation run INSIDE the store's exclusive lock.
+        (new JsonlReceiptStore($this->path()))->appendWith(function (?string $lastLine) use ($receipt, &$normalized): array {
             $verification = $this->verifyChain();
             if (($verification['ok'] ?? false) !== true) {
                 $this->quarantineCorruptLedger();
@@ -51,22 +39,11 @@ final class AtlasAaelExecutionRollbackReceiptLedger
             $normalized['prev_hash'] = $prevHash;
             $normalized['receipt_hash'] = hash('sha256', $this->encodeCanonical($canonicalPayload).$prevHash);
 
-            $line = $this->encodeCanonical($normalized)."\n";
-            $written = fwrite($handle, $line);
-            if ($written === false || $written !== strlen($line)) {
-                throw new RuntimeException('aael_rollback_receipt_ledger_append_failed');
-            }
+            // Round-trip so the stored line is byte-identical to encodeCanonical($normalized).
+            return (array) json_decode($this->encodeCanonical($normalized), true);
+        });
 
-            fflush($handle);
-            if (function_exists('fsync')) {
-                fsync($handle);
-            }
-
-            return $normalized;
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
+        return $normalized;
     }
 
     /**
@@ -74,42 +51,22 @@ final class AtlasAaelExecutionRollbackReceiptLedger
      */
     public function list(?string $executionId = null, int $limit = 100): Generator
     {
-        $path = $this->path();
-        if (! is_file($path) || $limit <= 0) {
+        if ($limit <= 0) {
             return;
         }
 
-        $handle = fopen($path, 'rb');
-        if ($handle === false) {
-            throw new RuntimeException('aael_rollback_receipt_ledger_read_open_failed');
-        }
-
-        try {
-            $yielded = 0;
-            while (($line = fgets($handle)) !== false) {
-                $trimmed = trim($line);
-                if ($trimmed === '') {
-                    continue;
-                }
-
-                $decoded = json_decode($trimmed, true);
-                if (! is_array($decoded)) {
-                    continue;
-                }
-
-                if ($executionId !== null && (string) ($decoded['execution_id'] ?? '') !== $executionId) {
-                    continue;
-                }
-
-                yield $decoded;
-                $yielded++;
-
-                if ($yielded >= $limit) {
-                    return;
-                }
+        $yielded = 0;
+        foreach ((new JsonlReceiptStore($this->path()))->replay() as $decoded) {
+            if ($executionId !== null && (string) ($decoded['execution_id'] ?? '') !== $executionId) {
+                continue;
             }
-        } finally {
-            fclose($handle);
+
+            yield $decoded;
+            $yielded++;
+
+            if ($yielded >= $limit) {
+                return;
+            }
         }
     }
 
@@ -123,84 +80,52 @@ final class AtlasAaelExecutionRollbackReceiptLedger
      */
     public function verifyChain(): array
     {
-        $path = $this->path();
-        if (! is_file($path)) {
-            return [
-                'ok' => true,
-                'bad_line' => null,
-                'reason' => null,
-                'head_hash' => self::GENESIS,
-            ];
-        }
+        $lineNumber = 0;
+        $previousHash = self::GENESIS;
 
-        $handle = fopen($path, 'rb');
-        if ($handle === false) {
-            throw new RuntimeException('aael_rollback_receipt_ledger_verify_open_failed');
-        }
+        foreach ((new JsonlReceiptStore($this->path()))->rawLines() as $trimmed) {
+            $lineNumber++;
 
-        try {
-            $lineNumber = 0;
-            $previousHash = self::GENESIS;
-
-            while (($line = fgets($handle)) !== false) {
-                $lineNumber++;
-                $trimmed = trim($line);
-                if ($trimmed === '') {
-                    continue;
-                }
-
-                $decoded = json_decode($trimmed, true);
-                if (! is_array($decoded)) {
-                    return [
-                        'ok' => false,
-                        'bad_line' => $lineNumber,
-                        'reason' => 'invalid_json_line',
-                        'head_hash' => $previousHash,
-                    ];
-                }
-
-                $prevHash = (string) ($decoded['prev_hash'] ?? '');
-                if ($prevHash !== $previousHash) {
-                    return [
-                        'ok' => false,
-                        'bad_line' => $lineNumber,
-                        'reason' => 'prev_hash_mismatch',
-                        'head_hash' => $previousHash,
-                    ];
-                }
-
-                $recordedHash = (string) ($decoded['receipt_hash'] ?? '');
-                $computedHash = hash('sha256', $this->encodeCanonical($this->canonicalPayload($decoded)).$prevHash);
-                if ($recordedHash === '' || $computedHash !== $recordedHash) {
-                    return [
-                        'ok' => false,
-                        'bad_line' => $lineNumber,
-                        'reason' => 'receipt_hash_mismatch',
-                        'head_hash' => $previousHash,
-                    ];
-                }
-
-                $previousHash = $recordedHash;
-            }
-
-            if (! feof($handle)) {
+            $decoded = json_decode($trimmed, true);
+            if (! is_array($decoded)) {
                 return [
                     'ok' => false,
-                    'bad_line' => $lineNumber + 1,
-                    'reason' => 'truncated_tail',
+                    'bad_line' => $lineNumber,
+                    'reason' => 'invalid_json_line',
                     'head_hash' => $previousHash,
                 ];
             }
 
-            return [
-                'ok' => true,
-                'bad_line' => null,
-                'reason' => null,
-                'head_hash' => $previousHash,
-            ];
-        } finally {
-            fclose($handle);
+            $prevHash = (string) ($decoded['prev_hash'] ?? '');
+            if ($prevHash !== $previousHash) {
+                return [
+                    'ok' => false,
+                    'bad_line' => $lineNumber,
+                    'reason' => 'prev_hash_mismatch',
+                    'head_hash' => $previousHash,
+                ];
+            }
+
+            $recordedHash = (string) ($decoded['receipt_hash'] ?? '');
+            $computedHash = hash('sha256', $this->encodeCanonical($this->canonicalPayload($decoded)).$prevHash);
+            if ($recordedHash === '' || $computedHash !== $recordedHash) {
+                return [
+                    'ok' => false,
+                    'bad_line' => $lineNumber,
+                    'reason' => 'receipt_hash_mismatch',
+                    'head_hash' => $previousHash,
+                ];
+            }
+
+            $previousHash = $recordedHash;
         }
+
+        return [
+            'ok' => true,
+            'bad_line' => null,
+            'reason' => null,
+            'head_hash' => $previousHash,
+        ];
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Aael\Parallel;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * Append-only receipt ledger for parallel sub-step executions. One JSON object per line under
  * storage/atlas/aael/parallel/receipts/<YYYY-MM-DD>.ndjson.
@@ -41,23 +43,7 @@ final class AtlasAaelParallelExecutionReceiptLedger
         ];
         $body['receipt_id'] = $this->receiptId($body);
 
-        $path = $this->pathForDay($day);
-        $dir = \dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new \RuntimeException('aael_receipt_mkdir_failed:'.$dir);
-        }
-        $line = (string) json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $fh = @fopen($path, 'ab');
-        if ($fh === false) {
-            throw new \RuntimeException('aael_receipt_open_failed:'.$path);
-        }
-        try {
-            @flock($fh, LOCK_EX);
-            fwrite($fh, $line."\n");
-        } finally {
-            @flock($fh, LOCK_UN);
-            fclose($fh);
-        }
+        (new JsonlReceiptStore($this->pathForDay($day)))->append($body);
 
         return $body['receipt_id'];
     }

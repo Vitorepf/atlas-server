@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Quaternity\Receipts;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
+use Throwable;
 
 /**
  * QUATERNITY CYCLE RECEIPT LEDGER — append-only on-disk JSONL ledger of envelopes produced by
@@ -41,37 +43,29 @@ final class AtlasLoopQuaternityCycleReceiptLedger
             throw new RuntimeException('Quaternity receipt ledger refuses an envelope with empty envelope_hash');
         }
 
-        $dir = dirname($this->ledgerFile);
-        if (! is_dir($dir)) {
-            mkdir($dir, 0775, true);
-        }
-
-        $handle = fopen($this->ledgerFile, 'c+');
-        if ($handle === false) {
-            throw new RuntimeException('Quaternity receipt ledger cannot open file: '.$this->ledgerFile);
-        }
-
+        $store = new JsonlReceiptStore($this->ledgerFile);
+        $seq = 0;
         try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException('Quaternity receipt ledger cannot acquire exclusive lock');
-            }
+            // Tail scan (seq + prev hash) runs INSIDE the store's exclusive lock.
+            $store->appendWith(function (?string $lastLine) use ($store, $envelope, &$seq): array {
+                $lastSeq = 0;
+                $lastEnvelopeHash = '';
+                foreach ($store->replay() as $line) {
+                    $lastSeq = (int) ($line['seq'] ?? $lastSeq);
+                    $lastEnvelopeHash = (string) ($line['envelope']['envelope_hash'] ?? $lastEnvelopeHash);
+                }
+                $seq = $lastSeq + 1;
 
-            [$lastSeq, $lastEnvelopeHash] = $this->readTail($handle);
-            $seq = $lastSeq + 1;
-            $prev = $lastSeq === 0 ? self::GENESIS_PREV_HASH : $lastEnvelopeHash;
-
-            $line = [
-                'seq' => $seq,
-                'prev_envelope_hash' => $prev,
-                'envelope' => $envelope,
-            ];
-
-            fseek($handle, 0, SEEK_END);
-            fwrite($handle, (string) json_encode($line, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-            fflush($handle);
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
+                return [
+                    'seq' => $seq,
+                    'prev_envelope_hash' => $lastSeq === 0 ? self::GENESIS_PREV_HASH : $lastEnvelopeHash,
+                    'envelope' => $envelope,
+                ];
+            });
+        } catch (RuntimeException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
 
         return $seq;
@@ -104,47 +98,11 @@ final class AtlasLoopQuaternityCycleReceiptLedger
     }
 
     /**
-     * @param  resource  $handle
-     * @return array{0:int,1:string}  [lastSeq, lastEnvelopeHash] — [0, ''] on empty file
-     */
-    private function readTail($handle): array
-    {
-        rewind($handle);
-        $lastSeq = 0;
-        $lastEnvelopeHash = '';
-        while (($raw = fgets($handle)) !== false) {
-            $raw = trim($raw);
-            if ($raw === '') {
-                continue;
-            }
-            $line = json_decode($raw, true);
-            if (! is_array($line)) {
-                continue;
-            }
-            $lastSeq = (int) ($line['seq'] ?? $lastSeq);
-            $lastEnvelopeHash = (string) ($line['envelope']['envelope_hash'] ?? $lastEnvelopeHash);
-        }
-
-        return [$lastSeq, $lastEnvelopeHash];
-    }
-
-    /**
      * @return list<array<string,mixed>>
      */
     private function readLines(): array
     {
-        if (! is_file($this->ledgerFile)) {
-            return [];
-        }
-        $lines = [];
-        foreach (file($this->ledgerFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $raw) {
-            $decoded = json_decode((string) $raw, true);
-            if (is_array($decoded)) {
-                $lines[] = $decoded;
-            }
-        }
-
-        return $lines;
+        return (new JsonlReceiptStore($this->ledgerFile))->replay();
     }
 
     private static function defaultLedgerFile(): string

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Aael\Execution\Debugger;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
+use Throwable;
 
 final class AtlasAaelExecutionDebuggerReceiptLedger
 {
@@ -24,23 +26,26 @@ final class AtlasAaelExecutionDebuggerReceiptLedger
      */
     public function append(string $runId, int $stepIndex, string $event, string $tsIso8601, array $extra = []): array
     {
-        $path = $this->ledgerPath($runId);
-        $handle = $this->openLocked($path);
+        $entry = null;
         try {
-            $prevHash = $this->tailHash($handle);
-            $entry = new DebuggerReceiptEntry($tsIso8601, $runId, $stepIndex, $event, $prevHash, $extra);
-            $bytes = $entry->canonicalBytes()."\n";
-            fseek($handle, 0, SEEK_END);
-            if (fwrite($handle, $bytes) !== strlen($bytes)) {
-                throw new RuntimeException('debugger_receipt_short_write');
-            }
-            fflush($handle);
+            // Prev-hash derivation from the current tail runs INSIDE the store's exclusive lock.
+            (new JsonlReceiptStore($this->ledgerPath($runId)))->appendWith(
+                function (?string $lastLine) use ($runId, $stepIndex, $event, $tsIso8601, $extra, &$entry): array {
+                    $prevHash = $lastLine === null ? self::GENESIS_PREV_HASH : hash('sha256', $lastLine);
+                    $entry = new DebuggerReceiptEntry($tsIso8601, $runId, $stepIndex, $event, $prevHash, $extra);
 
-            return $entry->toCanonicalArray();
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
+                    // Round-trip through the entry's own canonical bytes so the stored line stays
+                    // byte-identical to canonicalBytes() (replay() hash-chains over raw lines).
+                    return (array) json_decode($entry->canonicalBytes(), true);
+                },
+            );
+        } catch (RuntimeException|\InvalidArgumentException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
+
+        return $entry->toCanonicalArray();
     }
 
     /**
@@ -49,14 +54,10 @@ final class AtlasAaelExecutionDebuggerReceiptLedger
      */
     public function replay(string $runId): array
     {
-        $path = $this->ledgerPath($runId);
-        if (! is_file($path)) {
-            return [];
-        }
         $rows = [];
         $expected = self::GENESIS_PREV_HASH;
         $index = 0;
-        foreach ((array) file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        foreach ((new JsonlReceiptStore($this->ledgerPath($runId)))->rawLines() as $line) {
             $decoded = json_decode((string) $line, true);
             if (! is_array($decoded)) {
                 throw new HashChainBrokenException(sprintf('malformed_line run_id=%s index=%d', $runId, $index));
@@ -83,39 +84,6 @@ final class AtlasAaelExecutionDebuggerReceiptLedger
         ksort($decoded);
 
         return (string) json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    }
-
-    /** @param resource $handle */
-    private function tailHash($handle): string
-    {
-        rewind($handle);
-        $last = null;
-        while (($line = fgets($handle)) !== false) {
-            $trim = rtrim($line, "\n");
-            if ($trim !== '') {
-                $last = $trim;
-            }
-        }
-        if ($last === null) {
-            return self::GENESIS_PREV_HASH;
-        }
-
-        return hash('sha256', $last);
-    }
-
-    /** @return resource */
-    private function openLocked(string $path)
-    {
-        $handle = fopen($path, 'c+');
-        if ($handle === false) {
-            throw new RuntimeException('debugger_receipt_open_failed:'.$path);
-        }
-        if (! flock($handle, LOCK_EX)) {
-            fclose($handle);
-            throw new RuntimeException('debugger_receipt_lock_failed:'.$path);
-        }
-
-        return $handle;
     }
 
     private function ledgerPath(string $runId): string
