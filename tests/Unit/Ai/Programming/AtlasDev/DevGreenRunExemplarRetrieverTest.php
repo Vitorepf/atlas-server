@@ -233,6 +233,57 @@ final class DevGreenRunExemplarRetrieverTest extends TestCase
         $this->assertNotContains('dev-1000-old', $runIds, 'dirs beyond the newest-N cap must not be scanned');
     }
 
+    public function test_index_backfill_makes_runs_beyond_the_scan_cap_retrievable(): void
+    {
+        // Same store as the scan-cap test, but after indexAll() the OLD green
+        // run is served from the index without being re-scanned — history
+        // stays retrievable while per-call disk reads stay capped.
+        $store = $this->tempStore();
+        $this->writeReceipt($store, 'dev-1000-old');
+        $this->writeReceipt($store, 'dev-2000-mid');
+        $this->writeReceipt($store, 'dev-3000-new');
+
+        $summary = (new DevGreenRunExemplarRetriever($store))->indexAll();
+        $this->assertSame(3, $summary['indexed_green']);
+
+        $out = (new DevGreenRunExemplarRetriever($store, scanCap: 2))->retrieve('patch', 'safe_refactor', [], 5);
+        $this->assertContains('dev-1000-old', array_column($out, 'run_id'), 'indexed history is retrievable beyond the scan cap');
+    }
+
+    public function test_retrieval_lazily_indexes_scanned_runs_and_tombstones_failures(): void
+    {
+        $store = $this->tempStore();
+        $this->writeReceipt($store, 'dev-1000-green');
+        $this->writeReceipt($store, 'dev-2000-red', ['completion' => ['status' => 'failed']]);
+
+        (new DevGreenRunExemplarRetriever($store))->retrieve('patch', 'safe_refactor', [], 5);
+
+        $index = file_get_contents($store.'/exemplar_index.jsonl');
+        $this->assertStringContainsString('dev-1000-green', $index);
+        $this->assertStringContainsString('dev-2000-red', $index, 'a failed run is tombstoned so it is never re-read');
+
+        // A second retrieval must serve the green run from the index (still
+        // returned) and keep excluding the tombstoned failure.
+        $out = (new DevGreenRunExemplarRetriever($store))->retrieve('patch', 'safe_refactor', [], 5);
+        $runIds = array_column($out, 'run_id');
+        $this->assertContains('dev-1000-green', $runIds);
+        $this->assertNotContains('dev-2000-red', $runIds);
+    }
+
+    public function test_workspace_identity_filter_applies_to_indexed_rows(): void
+    {
+        $store = $this->tempStore();
+        $this->writeReceipt($store, 'dev-1000-foreign', ['workspace_hash' => hash('sha256', 'foreign-ws')]);
+        (new DevGreenRunExemplarRetriever($store))->indexAll();
+
+        $out = (new DevGreenRunExemplarRetriever($store))->retrieve(
+            'patch', 'safe_refactor', [], 5,
+            workspaceHash: hash('sha256', 'my-ws'),
+        );
+
+        $this->assertSame([], $out, 'anti-bleed must hold for index-served rows too');
+    }
+
     public function test_empty_store_returns_empty_list(): void
     {
         $store = $this->tempStore();

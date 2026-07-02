@@ -263,8 +263,20 @@ failure capsules re-backfilled dos receipts reais (rows=56).
   `test_no_patch_on_write_task_triggers_repair_and_converges` (provider muda nada na 1ª,
   repara na 2ª → passed) + 436 testes AtlasDev/executor verdes.
 
+## Execução S16 (02/07/2026)
+
+- **S16 (entregue — ranking #9):** índice de exemplares (`exemplar_index.jsonl` no root do
+  receipts store). O retriever mantém o índice lazy (todo dir escaneado vira row: projeção
+  completa para green, tombstone para o resto — falha nunca é relida) e serve candidatos =
+  índice ∪ scan capped de dirs não-indexados, com anti-bleed de workspace aplicado às rows
+  do índice. `atlas:dev:exemplar-index` backfilla o histórico (rodado no vivo: 73 green
+  indexados de TODO o histórico, 67 tombstones, 281 dirs sem receipt). Antes só a janela
+  dos 300 dirs mais novos era candidata; agora todo run proven vira replay permanente com
+  custo por chamada capped. Prova: 15 testes do retriever (3 novos: backfill além do cap,
+  lazy+tombstone, anti-bleed no índice) + 134 testes dos consumidores verdes.
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Candidatos:** (a) #9 índice do receipt store (exemplares além do cap 300); (b) re-medição
-do funil (pass_rate baseline 0.346) após os canais novos rodarem em runs reais; (c) próximo
-gargalo da medição.
+**Candidatos:** (a) re-medição do funil (pass_rate baseline 0.346) quando os canais novos
+rodarem em runs reais; (b) 18 capsules `unknown` (excerpts estruturados com
+completion=blocked etc. — classe própria?); (c) próximo gargalo da medição.
