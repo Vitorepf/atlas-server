@@ -23,6 +23,7 @@ use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtVer
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -40,6 +41,10 @@ final class AtlasTaskPostLandCanarySentinelTest extends TestCase
         file_put_contents($this->envFile, "ATLAS_LOOP_MASTER_ENABLED=true\n");
         AtlasLoopMasterSwitch::$envPathOverride = $this->envFile;
         AtlasTaskServingSwitch::on();
+        // Isolate the serving stack: without this, enqueue writes into the LIVE queue disk and the
+        // template-farm similarity guard trips on residue from prior test runs.
+        config()->set('atlas.task_serving.queue_disk', 'atlas_serving_canary_test');
+        Storage::fake('atlas_serving_canary_test');
     }
 
     protected function tearDown(): void
