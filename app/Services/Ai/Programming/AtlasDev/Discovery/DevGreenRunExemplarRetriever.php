@@ -141,12 +141,38 @@ final class DevGreenRunExemplarRetriever
             'exemplar' => [
                 'run_id' => (string) ($decoded['run_id'] ?? $fallbackRunId),
                 'objective_digest' => $objectiveDigest,
+                'objective_excerpt' => $this->objectiveExcerpt($runDir),
                 'design_path' => $rowDesignPath,
                 'files_touched' => $changedFiles,
                 'verification_command' => $verificationCommand,
                 'outcome' => $status,
             ],
         ];
+    }
+
+    /**
+     * The human-readable objective of the exemplar run, read from the
+     * sibling mini_programming_spec.json's `goal`. An exemplar whose only
+     * identity is an opaque task_contract_hash teaches a model nothing —
+     * "what this proven run DID" is the whole point of a replay library.
+     * Same provider-sensitivity class as the current run's goal (which
+     * already ships in the prompt's Objective section). Missing/corrupt
+     * spec => empty string (fail-open, exemplar still usable).
+     */
+    private function objectiveExcerpt(string $runDir): string
+    {
+        $raw = @file_get_contents($runDir.DIRECTORY_SEPARATOR.'mini_programming_spec.json');
+        if ($raw === false) {
+            return '';
+        }
+
+        $decoded = json_decode($raw, true);
+        $goal = is_array($decoded) ? trim((string) ($decoded['goal'] ?? '')) : '';
+        if ($goal === '') {
+            return '';
+        }
+
+        return mb_strlen($goal) > 160 ? mb_substr($goal, 0, 157).'...' : $goal;
     }
 
     private function resolveBaseDir(): string

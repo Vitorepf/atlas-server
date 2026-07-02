@@ -57,8 +57,31 @@ final class DevWorkcellInstructionAssemblerTest extends TestCase
     private function exemplars(): array
     {
         return [
-            ['run_id' => 'run-1', 'objective_digest' => 'abc123', 'design_path' => 'extend_existing_class', 'files_touched' => ['app/Services/Foo/FooService.php'], 'verification_command' => 'php artisan test --filter=FooServiceTest', 'outcome' => 'passed'],
+            ['run_id' => 'run-1', 'objective_digest' => 'abc123', 'objective_excerpt' => 'Adicionar cache ao FooService::get()', 'design_path' => 'extend_existing_class', 'files_touched' => ['app/Services/Foo/FooService.php'], 'verification_command' => 'php artisan test --filter=FooServiceTest', 'outcome' => 'passed'],
         ];
+    }
+
+    public function test_exemplar_renders_objective_excerpt_and_files_touched(): void
+    {
+        $r = $this->svc()->assemble($this->workcell(), $this->distilledContext(), $this->spec(), $this->exemplars());
+
+        $this->assertStringContainsString(
+            'did "Adicionar cache ao FooService::get()"',
+            $r['instruction_text'],
+            'an exemplar without its objective is an opaque run id — the goal is what a model can imitate',
+        );
+        $this->assertStringContainsString('files=app/Services/Foo/FooService.php', $r['instruction_text']);
+    }
+
+    public function test_exemplar_without_excerpt_renders_without_did_clause(): void
+    {
+        $exemplars = [
+            ['run_id' => 'run-2', 'objective_digest' => 'def456', 'design_path' => 'extend_existing_class', 'files_touched' => [], 'verification_command' => '', 'outcome' => 'passed'],
+        ];
+        $r = $this->svc()->assemble($this->workcell(), $this->distilledContext(), $this->spec(), $exemplars);
+
+        $this->assertStringContainsString('run run-2', $r['instruction_text']);
+        $this->assertStringNotContainsString('did ""', $r['instruction_text']);
     }
 
     // ── AC: rendering order ───────────────────────────────────────────────────

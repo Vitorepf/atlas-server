@@ -166,9 +166,23 @@ final class DevWorkcellInstructionAssembler
                 continue;
             }
             $parts = ["run {$runId}"];
+            // The objective is what makes an exemplar teach anything: a
+            // model can imitate "did X on files Y verified via Z", not an
+            // opaque run id.
+            $objective = trim((string) ($exemplar['objective_excerpt'] ?? ''));
+            if ($objective !== '') {
+                $parts[] = "did \"{$objective}\"";
+            }
             $designPath = trim((string) ($exemplar['design_path'] ?? ''));
             if ($designPath !== '') {
                 $parts[] = "path={$designPath}";
+            }
+            $files = array_values(array_filter(array_map(
+                static fn (mixed $f): string => trim((string) $f),
+                (array) ($exemplar['files_touched'] ?? []),
+            )));
+            if ($files !== []) {
+                $parts[] = 'files='.implode(' ', array_slice($files, 0, 5));
             }
             $command = trim((string) ($exemplar['verification_command'] ?? ''));
             if ($command !== '') {

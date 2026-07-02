@@ -113,12 +113,51 @@ final class DevGreenRunExemplarRetrieverTest extends TestCase
         $this->assertCount(1, $result);
         $exemplar = $result[0];
         $this->assertSame(
-            ['run_id', 'objective_digest', 'design_path', 'files_touched', 'verification_command', 'outcome'],
+            ['run_id', 'objective_digest', 'objective_excerpt', 'design_path', 'files_touched', 'verification_command', 'outcome'],
             array_keys($exemplar),
         );
         $serialized = json_encode($exemplar);
         $this->assertStringNotContainsString('raw prompt', (string) $serialized);
         $this->assertStringNotContainsString('secret', (string) $serialized);
+    }
+
+    public function test_objective_excerpt_is_read_from_sibling_mini_spec(): void
+    {
+        $store = $this->tempStore();
+        $this->writeReceipt($store, 'run-goal');
+        file_put_contents(
+            $store.'/run-goal/mini_programming_spec.json',
+            json_encode(['goal' => 'Corrigir o parser de diff para hunks multi-arquivo']),
+        );
+
+        $out = (new DevGreenRunExemplarRetriever($store))->retrieve('patch', 'safe_refactor', [], 1);
+
+        $this->assertSame(
+            'Corrigir o parser de diff para hunks multi-arquivo',
+            $out[0]['objective_excerpt'],
+            'exemplar must carry the human-readable goal — an opaque hash teaches a model nothing',
+        );
+    }
+
+    public function test_objective_excerpt_is_truncated_and_fails_open_when_spec_missing(): void
+    {
+        $store = $this->tempStore();
+        $this->writeReceipt($store, 'run-long');
+        file_put_contents(
+            $store.'/run-long/mini_programming_spec.json',
+            json_encode(['goal' => str_repeat('a', 400)]),
+        );
+        $this->writeReceipt($store, 'run-nospec');
+
+        $out = (new DevGreenRunExemplarRetriever($store))->retrieve('patch', 'safe_refactor', [], 5);
+        $byRun = [];
+        foreach ($out as $exemplar) {
+            $byRun[$exemplar['run_id']] = $exemplar;
+        }
+
+        $this->assertSame(160, mb_strlen($byRun['run-long']['objective_excerpt']));
+        $this->assertStringEndsWith('...', $byRun['run-long']['objective_excerpt']);
+        $this->assertSame('', $byRun['run-nospec']['objective_excerpt'], 'missing spec fails open to empty excerpt');
     }
 
     public function test_empty_store_returns_empty_list(): void
