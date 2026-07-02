@@ -102,6 +102,14 @@ fix, or rely on anything Rivals — that includes any repeated Arena / head-to-h
 ">=2x vs ultracode" statistical instrument (the N≥30 DQS A/B).** The governance default reflects this:
 `config/atlas_code_provider_governance.php` → `allow_rivals_programmatic` defaults `false`.
 
+> **Update 2026-07-02 (operator):** Rivals **2.0** was commissioned as the Atlas-internal benchmark, scoped
+> ONLY to (1) model-vs-model per task_type and (2) Atlas+model vs bare-model uplift. This does NOT revive
+> Rivals 1.0 (which stays dead, kill-map in
+> `docs/engineering-knowledge-base/atlas-rivals2-rebuild-map-v1.md`), and it does NOT replace per-delivery
+> evaluation below — per-delivery remains the ONLY way loop deliveries are judged. Rivals 2.0 measures
+> models and runtimes, never obras. Governance lives in `config/atlas_rivals2.php` (fail-closed,
+> `claim_allowed=false` default); `allow_rivals_programmatic` keeps governing the dead 1.0 surface only.
+
 **The ONLY way quality is evaluated now is PER DELIVERY.** For each obra the loop delivers, the operator
 evaluates THREE things and compares them to what an Opus-4.8-ultracode delivery would be:
 
