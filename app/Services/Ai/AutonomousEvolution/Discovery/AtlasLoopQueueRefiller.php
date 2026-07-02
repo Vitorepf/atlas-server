@@ -608,45 +608,7 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
             return 0;
         }
 
-        try {
-            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.cross_leverage_supply_max_per_refill', 2)));
-            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
-            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => []]);
-            $lane = new CrossLeverageSupplyLane;
-
-            $minted = 0;
-            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
-                if ($minted >= $cap) {
-                    break;
-                }
-                $root = trim(str_replace('\\', '/', (string) $root), '/');
-                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
-                    continue;
-                }
-                $model = $query->model($root);
-                $this->touchHeartbeat($campaign);
-                foreach ($lane->mint($model, $repoRoot) as $spec) {
-                    if ($minted >= $cap) {
-                        break;
-                    }
-                    $anchor = $this->supplySpecConflictPath($spec);
-                    if ($anchor === '' || $guard->isForbiddenSelfTarget($anchor)) {
-                        continue;
-                    }
-                    if ($this->fileHasInflightTask((string) $campaign->id, $anchor)) {
-                        continue;
-                    }
-                    if ($this->mintCrossLeverageTask($campaign, $spec, $repoRoot)) {
-                        $minted++;
-                    }
-                    $this->touchHeartbeat($campaign);
-                }
-            }
-
-            return $minted;
-        } catch (Throwable) {
-            return 0;
-        }
+        return $this->tryComprehensionSupplyLane($campaign, $repoRoot, $want, 'cross_leverage_supply', 2, new CrossLeverageSupplyLane, fn (array $spec): bool => $this->mintCrossLeverageTask($campaign, $spec, $repoRoot));
     }
 
     private function tryFeatureFrontierSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
@@ -655,45 +617,7 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
             return 0;
         }
 
-        try {
-            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.feature_frontier_supply_max_per_refill', 1)));
-            $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
-            $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => []]);
-            $lane = new FeatureFrontierSupplyLane;
-
-            $minted = 0;
-            foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
-                if ($minted >= $cap) {
-                    break;
-                }
-                $root = trim(str_replace('\\', '/', (string) $root), '/');
-                if ($root === '' || ! is_dir($repoRoot.'/'.$root)) {
-                    continue;
-                }
-                $model = $query->model($root);
-                $this->touchHeartbeat($campaign);
-                foreach ($lane->mint($model, $repoRoot) as $spec) {
-                    if ($minted >= $cap) {
-                        break;
-                    }
-                    $anchor = $this->supplySpecConflictPath($spec);
-                    if ($anchor === '' || $guard->isForbiddenSelfTarget($anchor)) {
-                        continue;
-                    }
-                    if ($this->fileHasInflightTask((string) $campaign->id, $anchor)) {
-                        continue;
-                    }
-                    if ($this->mintFeatureFrontierTask($campaign, $spec, $repoRoot)) {
-                        $minted++;
-                    }
-                    $this->touchHeartbeat($campaign);
-                }
-            }
-
-            return $minted;
-        } catch (Throwable) {
-            return 0;
-        }
+        return $this->tryComprehensionSupplyLane($campaign, $repoRoot, $want, 'feature_frontier_supply', 1, new FeatureFrontierSupplyLane, fn (array $spec): bool => $this->mintFeatureFrontierTask($campaign, $spec, $repoRoot));
     }
 
     private function tryPatternTransferSupply(AtlasLoopCampaign $campaign, string $provider, string $repoRoot, int $want): int
@@ -702,11 +626,24 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
             return 0;
         }
 
+        return $this->tryComprehensionSupplyLane($campaign, $repoRoot, $want, 'pattern_transfer_supply', 2, new PatternTransferSupplyLane, fn (array $spec): bool => $this->mintPatternTransferTask($campaign, $spec, $repoRoot));
+    }
+
+    /**
+     * The ONE comprehension-supply walk the three lanes above were 46-line clones of:
+     * cap, walk discovery roots (each thin delegate above owns its literal flag gate — the
+     * SupplyPlug source contract pins it), , mint via the lane, guard forbidden self-targets,
+     * skip in-flight anchors, heartbeat per step. Behaviour byte-identical per lane —
+     * only {flag prefix, per-refill cap default, lane, mint callback} vary.
+     *
+     * @param  callable(array<string,mixed>):bool  $mint
+     */
+    private function tryComprehensionSupplyLane(AtlasLoopCampaign $campaign, string $repoRoot, int $want, string $flagPrefix, int $capDefault, Supply\SupplyLaneContract $lane, callable $mint): int
+    {
         try {
-            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.pattern_transfer_supply_max_per_refill', 2)));
+            $cap = max(1, min(max(1, $want), (int) config('atlas.loop.'.$flagPrefix.'_max_per_refill', $capDefault)));
             $guard = $this->harnessGuard ?? new AtlasLoopHarnessGuard;
             $query = $this->comprehensionQuery($repoRoot, ['docs_roots' => []]);
-            $lane = new PatternTransferSupplyLane;
 
             $minted = 0;
             foreach ($this->effectiveDiscoveryRoots($campaign) as $root) {
@@ -730,7 +667,7 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
                     if ($this->fileHasInflightTask((string) $campaign->id, $anchor)) {
                         continue;
                     }
-                    if ($this->mintPatternTransferTask($campaign, $spec, $repoRoot)) {
+                    if ($mint($spec)) {
                         $minted++;
                     }
                     $this->touchHeartbeat($campaign);
@@ -742,6 +679,7 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
             return 0;
         }
     }
+
 
     private function mintCrossLeverageTask(AtlasLoopCampaign $campaign, array $spec, string $repoRoot): bool
     {
@@ -1558,56 +1496,16 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
     }
 
     /**
-     * Back off from two-file extract-class when the live campaign has already proven that shape is
-     * burning the time budget. The fallback still emits a governed refactor task for the same target,
-     * only smaller. Fail-open: any read issue leaves the lane available.
+     * Back off from two-file extract-class when that shape is burning the campaign's time budget.
+     * Read-model extracted to {@see Supply\AtlasLoopRefillerExtractClassBackoff} (supply-lane
+     * extraction contract); the refiller keeps only its per-refill memoization.
      *
      * @return array{active:bool, timeouts:int, successes:int, window_hours:int}
      */
     private function extractClassTimeoutBackoff(string $campaignId): array
     {
-        if (! (bool) config('atlas.loop.extract_class_timeout_backoff_enabled', true)) {
-            return ['active' => false, 'timeouts' => 0, 'successes' => 0, 'window_hours' => 0];
-        }
-        if (isset($this->extractClassBackoffCache[$campaignId])) {
-            return $this->extractClassBackoffCache[$campaignId];
-        }
-
-        $windowHours = max(1, (int) config('atlas.loop.extract_class_timeout_backoff_window_hours', 6));
-        $minTimeouts = max(1, (int) config('atlas.loop.extract_class_timeout_backoff_min_timeouts', 3));
-        $backoff = ['active' => false, 'timeouts' => 0, 'successes' => 0, 'window_hours' => $windowHours];
-
-        $since = now()->subHours($windowHours)->toDateTimeString();
-        try {
-            $rows = DB::table('atlas_loop_tasks')
-                ->where('campaign_id', $campaignId)
-                ->where('updated_at', '>=', $since)
-                ->get(['status', 'payload', 'result']);
-        } catch (Throwable) {
-            return $this->extractClassBackoffCache[$campaignId] = $backoff;
-        }
-
-        foreach ($rows as $row) {
-            $payload = $this->jsonObject($row->payload ?? null);
-            if (($payload['objective_kind'] ?? null) !== self::EXTRACT_CLASS_OBJECTIVE_KIND) {
-                continue;
-            }
-
-            if ((string) ($row->status ?? '') === 'done') {
-                $backoff['successes']++;
-                continue;
-            }
-
-            $result = $this->jsonObject($row->result ?? null);
-            if (($result['reason'] ?? null) === 'parallel_worker_timeout') {
-                $backoff['timeouts']++;
-            }
-        }
-
-        $backoff['active'] = $backoff['timeouts'] >= $minTimeouts
-            && $backoff['timeouts'] > $backoff['successes'];
-
-        return $this->extractClassBackoffCache[$campaignId] = $backoff;
+        return $this->extractClassBackoffCache[$campaignId]
+            ??= (new Supply\AtlasLoopRefillerExtractClassBackoff)->compute($campaignId, self::EXTRACT_CLASS_OBJECTIVE_KIND);
     }
 
     /** @return array<string,mixed> */
@@ -1639,67 +1537,21 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
             return null;
         }
 
-        // C/D2 — PORTFOLIO CAP (CAMPAIGN-cumulative + per-refill inner bound). Characterization is
-        // verification, not evolution, and must never dominate a campaign whose objective is loop evolution.
-        // A per-refill cap is not enough — coverage ACCUMULATES across refills while substantive may stay
-        // sparse. So the cap is measured over the WHOLE campaign: substantive == every non-coverage task
-        // (the material gate already dropped proxy refactors), and coverage is DEFERRED once it reaches
-        // floor(substantive/2) (floor 1 so a cold-start campaign still gets one verification). At
-        // substantive ≥ 2 this keeps coverage STRICTLY below substantive by construction. The per-refill
-        // counter is the cheap inner ceiling. Fail-open: portfolio gate OFF ⇒ no cap (byte-identical legacy).
-        if ((bool) config('atlas.loop.coverage_portfolio_gate_enabled', true)) {
-            $perRefillCap = (int) config('atlas.loop.coverage_characterization_max_per_refill', 2);
-            if ((bool) config('atlas.loop.coverage_relative_to_substantive', true)) {
-                // AVAILABILITY-based, not count-based. Coverage must never crowd out a refactor/bug/feature
-                // target — so DEFER coverage WHILE a genuine substantive (non-coverage-shaped) target is still
-                // open to do instead. But when substantive targets are EXHAUSTED, a characterization test is
-                // NOT padding: it PINS an untested file's behaviour, the mandatory test-then-refactor STEP 1
-                // (next cycle the now-tested file becomes a material refactor target). The old count-based cap
-                // blocked step 1 and STARVED the loop into idling on its own untested files — the loop must
-                // keep evolving (test → refactor across the whole codebase), never idle. Fail-OPEN (allow
-                // coverage) on any query hiccup: doing real verification work beats idling.
-                // Only a CONCRETELY-shaped substantive target blocks coverage — shape PRESENT and not the
-                // coverage shape. A null/unclassified shape must NOT count: those route through the rédea/driver
-                // which routinely DEFERS them (no leap / proxy), so they never mint — and if allowed to block
-                // coverage, an unmintable null-shape backlog would DEADLOCK every coverage target forever (the
-                // exact 26-coverage-starved-by-11-null-shape idle observed live). Excluding null means: when
-                // only coverage + unmintable-null targets remain, the loop DOES the coverage (test-then-refactor
-                // step 1) instead of idling on its own untested files.
-                try {
-                    $substantiveTargetAvailable = AtlasLoopTarget::query()
-                        ->where('campaign_id', $campaign->id)
-                        ->whereIn('status', [AtlasLoopTarget::STATUS_CANDIDATE, AtlasLoopTarget::STATUS_QUEUED])
-                        ->where('target_path', '!=', $target->target_path)
-                        ->whereNotNull('signals->shape')
-                        ->where('signals->shape', '!=', AtlasLoopCoverageDeficitSource::SHAPE)
-                        ->exists();
-                } catch (Throwable) {
-                    $substantiveTargetAvailable = false; // fail-open: allow coverage rather than idle
-                }
-                if ($substantiveTargetAvailable) {
-                    $this->loopBack->reflect($campaign->id, [
-                        'target_id' => $target->id,
-                        'status' => 'no_winner',
-                        'reason' => 'coverage_deferred_substantive_target_available',
-                    ]);
+        // C/D2 portfolio cap — policy extracted to the Supply gate; the refiller keeps the effects.
+        $portfolioVerdict = (new Supply\AtlasLoopRefillerCoveragePortfolioGate)->decide($campaign, $target, $this->coverageMintedThisRefill);
+        if ($portfolioVerdict !== Supply\AtlasLoopRefillerCoveragePortfolioGate::ALLOW) {
+            $this->loopBack->reflect($campaign->id, [
+                'target_id' => $target->id,
+                'status' => 'no_winner',
+                'reason' => $portfolioVerdict,
+            ]);
 
-                    return 'deferred';
-                }
-            }
-            if ($this->coverageMintedThisRefill >= $perRefillCap) {
-                $this->loopBack->reflect($campaign->id, [
-                    'target_id' => $target->id,
-                    'status' => 'no_winner',
-                    'reason' => 'coverage_portfolio_cap_reached',
-                ]);
-
-                return 'deferred';
-            }
+            return 'deferred';
         }
 
         $operator = trim((string) ($signals['coverage_operator'] ?? $signals['coverage_deficit_operator'] ?? ''));
         if ($operator === '' || AtlasLoopMutationOperators::isCosmetic($operator)) {
-            $operator = $this->firstNonCosmeticFrozenOperator($source);
+            $operator = (new Supply\AtlasLoopRefillerCoveragePortfolioGate)->firstNonCosmeticFrozenOperator($source);
         }
         if ($operator === '') {
             $this->repository->quarantine($target->id, 'coverage_deficit_no_non_cosmetic_operator');
@@ -1736,21 +1588,6 @@ final class AtlasLoopQueueRefiller implements \App\Services\Ai\AutonomousEvoluti
         }
 
         return $outcome;
-    }
-
-    private function firstNonCosmeticFrozenOperator(string $source): string
-    {
-        $body = @file_get_contents($source);
-        if (! is_string($body) || $body === '') {
-            return '';
-        }
-        foreach (array_keys(AtlasLoopFrozenMutationOperators::neighborhood($body)) as $operator) {
-            if (! AtlasLoopMutationOperators::isCosmetic($operator)) {
-                return (string) $operator;
-            }
-        }
-
-        return '';
     }
 
     /**
