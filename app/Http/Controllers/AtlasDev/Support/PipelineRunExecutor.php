@@ -149,6 +149,11 @@ final class PipelineRunExecutor implements RunExecutor
         $lastFailureSignature = null;
         $consecutiveSameSignature = 0;
         $abortReason = null;
+        // Whether any iteration saw a RED verification gate. Distinguishes a
+        // failure-repair chain (test-witnessed behavior change => E4
+        // repair-witness exemption applies) from a weak-green repair chain
+        // (gate never failed => E4 must still run in full).
+        $sawFailedGate = false;
         $hasher = new FailureSignatureHasher;
 
         // The current prompt projection for this iteration (starts as the
@@ -341,21 +346,58 @@ final class PipelineRunExecutor implements RunExecutor
                     )
                     : $this->verificationFailedDueToPatchApply($patchApplyResult);
 
+                // W1 repair-on-weak-green: a PASSED gate whose applied diff
+                // still carries placeholder markers (TODO/FIXME, ellipsis
+                // body, fake always-true assertion in the ADDED lines) gets a
+                // repair attempt BEFORE the post-gate W1 probe flags it for a
+                // human. Previously a weak-green run exited the loop
+                // immediately and went straight to needs_review (advisory) /
+                // failed (hard) with zero self-fix attempts — repair only
+                // fired on a red gate. Gated on the same weak_output
+                // elevation mode (off => byte-identical exit) and on the
+                // repair cap; the same-signature-twice anti-spin below covers
+                // the chain (a model that keeps returning the same
+                // placeholder aborts after 2).
+                $weakGreenSignals = [];
+                if ($repairCap > 0
+                    && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED
+                    && $diffResult->hasPatch()
+                    && ! $this->resolveWeakOutputConfig()->isOff()
+                ) {
+                    $weakGreenInspection = (new DevWeakOutputDetector)->inspectAppliedDiff((string) $diffResult->diff);
+                    if ($weakGreenInspection['weak']) {
+                        $weakGreenSignals = $weakGreenInspection['signals'];
+                    }
+                }
+
                 // Check if repair loop should continue
-                if ($verificationResult->aggregateStatus !== VerificationGateResult::STATUS_FAILED
+                if (($verificationResult->aggregateStatus !== VerificationGateResult::STATUS_FAILED
+                        && $weakGreenSignals === [])
                     || $repairCap <= 0
                 ) {
-                    // Either green or repair disabled — exit loop.
+                    // Either genuinely green or repair disabled — exit loop.
                     // (M1: the former `! $isHermesCli` clause is gone — repair
                     // fires for any locked provider whose policy allows it.)
                     break;
                 }
 
                 $repairAttempt++;
+                if ($verificationResult->aggregateStatus === VerificationGateResult::STATUS_FAILED) {
+                    $sawFailedGate = true;
+                }
 
                 // M2: Same-signature-twice abort (reuse FailureSignatureHasher).
                 // Compute the normalized signature from the gate failure output.
-                $failureExcerpt = $this->extractFailureExcerpt($verificationResult);
+                // On a weak-green iteration the gate has no failure output, so
+                // the signature basis is the weak-output signal set — a model
+                // that returns the same placeholder twice repeats the
+                // signature and trips the anti-spin abort.
+                $failureExcerpt = $weakGreenSignals !== []
+                    ? 'weak_output_on_green_gate: '.implode('; ', array_map(
+                        static fn (array $s): string => $s['id'].' — '.$s['detail'],
+                        $weakGreenSignals,
+                    ))
+                    : $this->extractFailureExcerpt($verificationResult);
                 $currentSignature = $hasher->signature('verification_gate', $failureExcerpt);
 
                 if ($taskContract->repairPolicy->abortOnSameSignatureTwice
@@ -407,6 +449,15 @@ final class PipelineRunExecutor implements RunExecutor
                 $weakOutput = (new DevWeakOutputDetector)->inspect((string) $callResult?->stdout, [
                     'allowed_files' => $taskContract->allowedFiles,
                 ]);
+                $weakOutputHint = (bool) $weakOutput['weak'] ? (string) $weakOutput['repair_hint'] : '';
+                if ($weakOutputHint === '' && $weakGreenSignals !== []) {
+                    // Weak-green iteration on a workspace-mutating provider:
+                    // the placeholder lives in the applied diff, not in the
+                    // provider stdout, so the stdout inspection above misses
+                    // it. Feed the applied-diff signal as the repair hint.
+                    $weakOutputHint = 'signal='.DevWeakOutputDetector::SIGNAL_PLACEHOLDER_MARKER
+                        .': re-emphasize a concrete implementation instead of TODO/ellipsis/fake-assert placeholders';
+                }
                 $currentPromptProjection = $this->buildComposedRepairProjection(
                     promptProjection: $promptProjection,
                     taskContract: $taskContract,
@@ -417,7 +468,7 @@ final class PipelineRunExecutor implements RunExecutor
                     repairAttempt: $repairAttempt,
                     repairCap: $repairCap,
                     intentProbeReason: $intentProbeReason,
-                    weakOutputHint: (bool) $weakOutput['weak'] ? (string) $weakOutput['repair_hint'] : '',
+                    weakOutputHint: $weakOutputHint,
                 );
 
                 // Revert workspace changes before re-invoking provider.
@@ -689,8 +740,13 @@ final class PipelineRunExecutor implements RunExecutor
         // VAL-M2-002/007 repair-to-green contract once e4's default went
         // hard). E4 still runs in full on first-attempt green runs — the
         // refactor/behavior-preservation lane it was designed for.
+        //
+        // The exemption requires the chain to have SEEN a red gate
+        // ($sawFailedGate): a weak-green repair chain (W1 placeholder on a
+        // gate that never failed) is NOT test-witnessed, so E4 still runs in
+        // full there.
         if (! $e4Config->isOff()
-            && ! ($repairAttempt > 0 && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED)) {
+            && ! ($repairAttempt > 0 && $sawFailedGate && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED)) {
             $shadowDiffService = $this->resolveShadowDiffService();
             if ($shadowDiffService !== null) {
                 // Gather the touched PHP files from the scope receipt. Only

@@ -1471,6 +1471,237 @@ final class RepairToGreenTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+    // W1 repair-on-weak-green: a PASSED gate with placeholder markers in
+    // the applied diff gets a repair attempt BEFORE the post-gate W1 probe
+    // flags it for a human.
+    // ------------------------------------------------------------------
+
+    /**
+     * Attempt 1 passes the gate but the applied diff carries a TODO
+     * placeholder; the loop re-invokes the provider and attempt 2 delivers
+     * the real implementation. Final: genuinely green, no weak flag.
+     */
+    public function test_weak_green_placeholder_triggers_repair_and_converges(): void
+    {
+        $this->pinElevationsOffExceptWeakOutput();
+        $runId = 'dev-weakgreen-001-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $target = $this->tmpWorkspace.'/app/Foo.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $providerState = new \stdClass;
+        $providerState->callCount = 0;
+        $this->registerWeakThenCleanHermes($target, $providerState, weakForever: false);
+
+        $commandRunner = new FakeCommandRunner;
+        // BOTH attempts pass the gate — the weakness is in the diff content,
+        // not the test outcome (that is the entire point of W1).
+        foreach ([100, 80] as $duration) {
+            $commandRunner->queue(new VerificationCommandResult(
+                command: '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php',
+                exitCode: 0, stdout: 'OK', stderr: '', durationMs: $duration,
+            ));
+        }
+
+        $result = $this->executeWeakGreenRun($storage, $runId, $commandRunner);
+
+        $this->assertSame(2, $providerState->callCount, 'weak-green attempt must trigger exactly one repair re-invocation');
+        $this->assertSame(VerificationGateResult::STATUS_PASSED, $result->verificationStatus);
+        $receipt = $storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT);
+        $this->assertNotContains(
+            'weak_output_detected',
+            (array) ($receipt['completion']['honesty_flags'] ?? []),
+            'converged repair must clear the weak-output flag entirely',
+        );
+    }
+
+    /**
+     * weak_output mode=off => byte-identical legacy exit: a passing gate
+     * exits the loop immediately even with a placeholder diff (the post-gate
+     * W1 probe is off too — no repair, no flag).
+     */
+    public function test_weak_green_off_mode_exits_green_without_repair(): void
+    {
+        $this->pinElevationsOffExceptWeakOutput();
+        config()->set('atlas_dev.elevations.weak_output.mode', 'off');
+        $runId = 'dev-weakgreen-002-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $target = $this->tmpWorkspace.'/app/Foo.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $providerState = new \stdClass;
+        $providerState->callCount = 0;
+        $this->registerWeakThenCleanHermes($target, $providerState, weakForever: true);
+
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php',
+            exitCode: 0, stdout: 'OK', stderr: '', durationMs: 100,
+        ));
+
+        $result = $this->executeWeakGreenRun($storage, $runId, $commandRunner);
+
+        $this->assertSame(1, $providerState->callCount, 'off mode must not spend repair invocations on a green gate');
+        $this->assertSame(VerificationGateResult::STATUS_PASSED, $result->verificationStatus);
+    }
+
+    /**
+     * A model that keeps returning the same placeholder trips the
+     * same-signature-twice anti-spin (bounded loop), and the surviving weak
+     * output is flagged by the post-gate W1 probe — never silently green.
+     */
+    public function test_weak_green_persistent_placeholder_aborts_and_flags(): void
+    {
+        $this->pinElevationsOffExceptWeakOutput();
+        $runId = 'dev-weakgreen-003-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $target = $this->tmpWorkspace.'/app/Foo.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        $this->git(['add', 'app/Foo.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $providerState = new \stdClass;
+        $providerState->callCount = 0;
+        $this->registerWeakThenCleanHermes($target, $providerState, weakForever: true);
+
+        $commandRunner = new FakeCommandRunner;
+        foreach ([100, 90, 80, 70] as $duration) {
+            $commandRunner->queue(new VerificationCommandResult(
+                command: '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php',
+                exitCode: 0, stdout: 'OK', stderr: '', durationMs: $duration,
+            ));
+        }
+
+        $result = $this->executeWeakGreenRun($storage, $runId, $commandRunner);
+
+        $this->assertSame(2, $providerState->callCount, 'same placeholder twice must abort the chain (anti-spin)');
+        $receipt = $storage->read($runId, ArtifactNames::VERIFICATION_RECEIPT);
+        $this->assertContains(
+            'weak_output_detected',
+            (array) ($receipt['completion']['honesty_flags'] ?? []),
+            'surviving weak output must carry the honesty flag — never silently green',
+        );
+        $this->assertNotSame('passed', $result->completionState, 'weak output must not complete as passed');
+    }
+
+    /**
+     * Axis isolation for the W1 weak-green tests: E1-E6 landed with hard
+     * defaults that are not under test here; weak_output stays at its
+     * config default (advisory) unless the test overrides it.
+     */
+    private function pinElevationsOffExceptWeakOutput(): void
+    {
+        foreach (['e1', 'e2', 'e3', 'e4', 'e5', 'e6'] as $elevation) {
+            config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
+        }
+    }
+
+    /**
+     * Fake hermes workspace-mutator: attempt 1 writes a green-but-placeholder
+     * implementation; later attempts write the real one (or keep the
+     * placeholder forever when $weakForever).
+     */
+    private function registerWeakThenCleanHermes(string $target, object $state, bool $weakForever): void
+    {
+        $fakeHermes = new class($target, $state, $weakForever) implements AiProvider
+        {
+            public function __construct(
+                private readonly string $target,
+                private readonly object $state,
+                private readonly bool $weakForever,
+            ) {}
+
+            public function key(): string
+            {
+                return 'hermes_cli';
+            }
+
+            public function run(AiJob $job, string $prompt): AiProviderResult
+            {
+                return $this->runStreaming($job, $prompt);
+            }
+
+            public function runStreaming(AiJob $job, string $prompt, ?callable $onEvent = null): AiProviderResult
+            {
+                $this->state->callCount++;
+                if ($this->weakForever || $this->state->callCount === 1) {
+                    file_put_contents($this->target, "<?php\n// TODO: implement the real value\nfinal class Foo { public function value(): string { return 'stub'; } }\n");
+                } else {
+                    file_put_contents($this->target, "<?php\nfinal class Foo { public function value(): string { return 'fixed'; } }\n");
+                }
+
+                return new AiProviderResult(
+                    ok: true, output: 'edited', command: [], exitCode: 0,
+                    durationMs: 100, stdout: 'edited', stderr: '',
+                    errorCode: null, errorMessage: null, metadata: [],
+                );
+            }
+
+            public function health(): AiProviderHealthCheck
+            {
+                return new AiProviderHealthCheck(provider: 'hermes_cli', status: 'online', message: 'fake');
+            }
+        };
+
+        $manager = app(AiProviderManager::class);
+        $manager->registerDriver('hermes_cli', $fakeHermes);
+        app()->instance(AiProviderManager::class, $manager);
+    }
+
+    private function executeWeakGreenRun(
+        ReceiptStorage $storage,
+        string $runId,
+        FakeCommandRunner $commandRunner,
+    ): \App\Http\Controllers\AtlasDev\Support\RunExecutionResult {
+        $gateway = new FakeClaudeCliGateway;
+        $container = new Container;
+        $container->instance(ClaudeCliGateway::class, $gateway);
+        $container->instance(VerificationCommandRunner::class, $commandRunner);
+        $executor = new PipelineRunExecutor($container, $storage);
+
+        $envelope = $this->envelope(intent: 'Fix app/Foo.php', providerChoice: 'hermes_cli');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['app/Foo.php'],
+            'max_files_changed' => 1,
+            'validation_commands' => ['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'],
+            'provider_lock' => [
+                'provider' => 'hermes_cli',
+                'model_family' => 'minimax-m3',
+                'fallback_allowed' => false,
+            ],
+            'repair_policy' => [
+                'max_attempts' => 3,
+                'same_provider' => true,
+                'requires_failed_gate_output' => true,
+                'abort_on_same_signature_twice' => true,
+            ],
+        ]);
+
+        return (new PipelineRunExecutor($container, $storage))->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+    }
+
+    // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
 
