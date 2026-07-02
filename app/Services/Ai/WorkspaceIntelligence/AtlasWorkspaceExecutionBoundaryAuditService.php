@@ -359,11 +359,14 @@ final class AtlasWorkspaceExecutionBoundaryAuditService
             ],
             [
                 'id' => 'atlas_runtime_ai_tool_runtime',
-                'path' => 'app/Services/Ai/Runtime/AiToolRuntime.php',
+                // Process/shell execution was extracted from AiToolRuntime into
+                // AiToolProcessRunner (cl2-split g1, 2026-06-26); the boundary
+                // fingerprint follows the real Process call-site.
+                'path' => 'app/Services/Ai/Runtime/AiToolProcessRunner.php',
                 'classification' => 'entrypoint_guarded_by_awis',
-                'reason' => 'Mutative runtime tool entrypoint is gated by AtlasRuntimeCommand before tool execution.',
+                'reason' => 'Process runner extracted from AiToolRuntime; tool execution stays gated by AtlasRuntimeCommand before dispatch.',
                 'required_markers' => [
-                    'AiToolRuntime',
+                    'AiToolProcessRunner',
                     'Process::fromShellCommandline',
                     'new Process',
                 ],
