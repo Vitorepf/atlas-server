@@ -55,6 +55,8 @@ return [
         'codex_gpt_5_5' => ['provider' => 'openai', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true, 'cli_model' => 'gpt-5.5-codex', 'command' => env('ATLAS_RIVALS2_CODEX_CMD', 'codex exec --full-auto "$(cat {prompt_file})"')],
         'gemini' => ['provider' => 'google', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true, 'cli_model' => 'gemini', 'command' => env('ATLAS_RIVALS2_GEMINI_CMD', 'gemini --yolo -p "$(cat {prompt_file})"')],
         'minimax_m3' => ['provider' => 'minimax', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true, 'cli_model' => 'minimax-m3', 'command' => env('ATLAS_RIVALS2_MINIMAX_CMD')],
+        // assinatura Verboo via Hermes (custo marginal ~0; aprovado pelo operador 02/07)
+        'verboo_qwen_3_6_35b' => ['provider' => 'hermes', 'access_type' => 'cli', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => false, 'enabled' => true, 'cli_model' => 'verboo/qwen3.6-35b', 'command' => env('ATLAS_RIVALS2_HERMES_QWEN_CMD', 'hermes -z "$(cat {prompt_file})" -m {cli_model} --yolo')],
         'kimi' => ['provider' => 'moonshot', 'access_type' => 'api', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => false],
         'composer_2_5' => ['provider' => 'cursor', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => false],
         'glm_5_2' => ['provider' => 'zai', 'access_type' => 'api', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true],
@@ -83,6 +85,6 @@ return [
         'repo_path' => env('ATLAS_RIVALS2_ATLASBENCH_REPO', base_path()),
         'mine_window_commits' => 300,
         'max_diff_lines' => 400,
-        'check_timeout_seconds' => 300,
+        'check_timeout_seconds' => (int) env('ATLAS_RIVALS2_CHECK_TIMEOUT', 300),
     ],
 ];
