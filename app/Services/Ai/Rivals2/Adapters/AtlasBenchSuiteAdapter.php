@@ -78,8 +78,10 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
 
             $case = [
                 'schema_version' => 'atlas.rivals2.atlasbench_case.v1',
-                'protocol' => 'atlasbench.v2_hidden_tests',
+                'protocol' => 'atlasbench.v3_real_ticket',
                 'commit_date' => trim(Process::path($repo)->run('git show -s --format=%cI '.escapeshellarg($sha))->output()),
+                // intenção REAL escrita pelo autor do commit (corpo da mensagem)
+                'ticket_body' => trim(Process::path($repo)->run('git show -s --format=%b '.escapeshellarg($sha))->output()),
                 'case_id' => 'ab_'.substr($sha, 0, 10),
                 'task_type' => $this->taskTypeFor($subject),
                 'title' => $subject,
@@ -90,6 +92,10 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 'diff_lines' => $diffLines,
                 'mined_at' => now()->toIso8601String(),
             ];
+            // sintoma REAL: roda a prova oculta no estado base e captura a falha —
+            // é o "bug report" que um sênior receberia, sem revelar o código do teste
+            $case['symptom_excerpt'] = $this->captureSymptom($repo, $case);
+
             file_put_contents(
                 $this->casesDir().'/'.$case['case_id'].'.json',
                 json_encode($case, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
@@ -247,6 +253,10 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 'cost_usd' => 0.0,
                 'artifacts' => $artifacts,
                 'judge_config' => $plan->data['judge_config'] ?? null,
+                // disciplina de escopo: inchaço do patch vs golden (mecânico, sem juiz)
+                'patch_lines' => $patchLines = count(preg_grep('/^[+-][^+-]/', explode("\n", $patchOutput))),
+                'golden_lines' => $case['diff_lines'] ?? null,
+                'patch_bloat_ratio' => ! empty($case['diff_lines']) ? round($patchLines / $case['diff_lines'], 3) : null,
                 'started_at' => $startedAt,
                 'finished_at' => now()->toIso8601String(),
             ])->append();
@@ -313,15 +323,27 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         // sem check command, sem paths de teste, sem lista de arquivos-alvo.
         // Os testes de aceitação são OCULTOS e injetados só na correção.
         $promptFile = $worktree.'/.rivals2_task.md';
-        file_put_contents($promptFile, implode("\n", [
+        $ticket = [
             "# Ticket: {$case['title']}",
             '',
-            'You are a senior engineer on this codebase. Implement what this ticket asks,',
-            'end to end, at production quality. The team will grade your change against',
-            'their own acceptance checks — they are NOT provided to you.',
-            'Explore the repository, find where the change belongs, implement it fully,',
-            'and follow the existing code style. Do not ask questions.',
-        ]));
+        ];
+        if (! empty($case['ticket_body'])) {
+            $ticket[] = $case['ticket_body'];
+            $ticket[] = '';
+        }
+        if (! empty($case['symptom_excerpt'])) {
+            $ticket[] = '## Observed behavior (report from the team)';
+            $ticket[] = '```';
+            $ticket[] = $case['symptom_excerpt'];
+            $ticket[] = '```';
+            $ticket[] = '';
+        }
+        $ticket[] = 'You are a senior engineer on this codebase. Implement what this ticket asks,';
+        $ticket[] = 'end to end, at production quality. The team will grade your change against';
+        $ticket[] = 'their own acceptance checks — they are NOT provided to you.';
+        $ticket[] = 'Explore the repository, find where the change belongs, implement it fully,';
+        $ticket[] = 'and follow the existing code style. Do not ask questions.';
+        file_put_contents($promptFile, implode("\n", $ticket));
 
         $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);
         $resolved = str_replace(
@@ -336,6 +358,52 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         unlink($promptFile);
 
         return Process::path($worktree)->run('git diff')->output();
+    }
+
+    /**
+     * Executa a prova oculta no BASE (com os testes do golden injetados) numa
+     * worktree efêmera e devolve o excerto da falha — linhas com paths de
+     * teste são removidas para não vazar a prova. null = sem sintoma (feature).
+     */
+    private function captureSymptom(string $repo, array $case): ?string
+    {
+        $worktree = sys_get_temp_dir().'/rivals2_symptom_'.$case['case_id'].'_'.substr(bin2hex(random_bytes(3)), 0, 6);
+        $provision = Process::path($repo)->run(
+            'git worktree add --detach '.escapeshellarg($worktree).' '.escapeshellarg($case['base_sha'])
+        );
+        if (! $provision->successful()) {
+            return null;
+        }
+
+        try {
+            if (is_dir($repo.'/vendor') && ! is_dir($worktree.'/vendor')) {
+                symlink($repo.'/vendor', $worktree.'/vendor');
+            }
+            $testDiff = Process::path($repo)->run(
+                'git diff '.escapeshellarg($case['base_sha']).' '.escapeshellarg($case['golden_sha']).' -- '
+                .implode(' ', array_map('escapeshellarg', $case['changed_files']['tests']))
+            );
+            if (trim($testDiff->output()) !== '') {
+                Process::path($worktree)->input($testDiff->output())->run('git apply -');
+            }
+            $check = Process::path($worktree)->timeout(180)->run($case['check_command']);
+            if ($check->successful()) {
+                return null; // prova já passa no base? case suspeito, sem sintoma
+            }
+            $lines = array_filter(
+                explode("\n", $check->output()."\n".$check->errorOutput()),
+                fn ($l) => ! str_contains($l, 'tests/') && trim($l) !== ''
+            );
+
+            return substr(implode("\n", array_slice($lines, -25)), -1800) ?: null;
+        } catch (\Throwable) {
+            return null;
+        } finally {
+            if (is_link($worktree.'/vendor')) {
+                unlink($worktree.'/vendor');
+            }
+            Process::path($repo)->run('git worktree remove --force '.escapeshellarg($worktree));
+        }
     }
 
     private function taskTypeFor(string $subject): string

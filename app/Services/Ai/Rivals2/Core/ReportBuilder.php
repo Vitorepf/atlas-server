@@ -41,6 +41,9 @@ class ReportBuilder
                 'avg_cost_usd' => round(array_sum(array_column($items, 'cost_usd')) / $n, 6),
                 'avg_wall_ms' => (int) round(array_sum(array_column($items, 'wall_ms')) / $n),
                 'stability' => round(1.0 - sqrt($variance), 4),
+                'avg_patch_bloat' => ($bloats = array_filter(array_column($items, 'patch_bloat_ratio'), 'is_numeric')) === []
+                    ? null
+                    : round(array_sum($bloats) / count($bloats), 3),
             ];
         }
 
