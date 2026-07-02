@@ -104,8 +104,18 @@ final class AtlasLoopOperatorReviewQueueTest extends TestCase
     public function test_approved_parked_proposal_merges_through_governed_path(): void
     {
         $target = 'app/Services/Ai/AutonomousEvolution/AtlasEvolutionFrozenJudge.php';
-        $original = "<?php\nfunction val(){ return 1; }\n";
-        $modified = "<?php\nfunction val(){ return 2; }\n";
+        // The anti-farm substance floor (post-freeze) refuses vanilla merges touching
+        // <30 lines — the reviewed diff must be real substance, not a 1-line flip.
+        $filler = static function (string $tag): string {
+            $out = '';
+            for ($line = 1; $line <= 32; $line++) {
+                $out .= "function helper{$line}_{$tag}(){ return {$line}; }\n";
+            }
+
+            return $out;
+        };
+        $original = "<?php\nfunction val(){ return 1; }\n".$filler('a');
+        $modified = "<?php\nfunction val(){ return 2; }\n".$filler('b');
         $repo = $this->repo($target, $original);
         $diff = $this->diffFor($repo, $target, $modified);
         $campaign = $this->campaign();

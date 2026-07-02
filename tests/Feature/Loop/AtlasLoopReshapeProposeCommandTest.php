@@ -26,8 +26,10 @@ final class AtlasLoopReshapeProposeCommandTest extends TestCase
     public function test_proposes_reshape_when_trace_anchors_in_envelope(): void
     {
         $decoded = $this->propose([
-            'allowed_files' => ['app/Foo.php', 'app/Bar.php'],
-            'scope_in' => ['app/Foo.php', 'app/Bar.php'],
+            // The reshaped scope must carry an impl+test PAIR (post-freeze
+            // safe-impl-test-pair hardening) — an impl-only envelope is refused.
+            'allowed_files' => ['app/Foo.php', 'app/Bar.php', 'tests/Unit/BarTest.php'],
+            'scope_in' => ['app/Foo.php', 'app/Bar.php', 'tests/Unit/BarTest.php'],
             'missing_symbol_traces' => [['anchor_file' => 'app/Bar.php']],
         ]);
 
