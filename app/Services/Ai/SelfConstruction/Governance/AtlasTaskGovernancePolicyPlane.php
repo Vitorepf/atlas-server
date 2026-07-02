@@ -121,6 +121,17 @@ final class AtlasTaskGovernancePolicyPlane
     }
 
     /**
+     * Default OFF. When a give_back report quarantines a packet (doomed after repeated
+     * give-backs), run the atlas:task:repair-blocked pass automatically instead of leaving
+     * the packet blocked until a human runs it — queue self-healing: a bad spec stops
+     * burning worker muscle. Absent config key reproduces today's behavior exactly.
+     */
+    public function autoRespecOnQuarantineEnabled(): bool
+    {
+        return (bool) ($this->config()['auto_respec_on_quarantine'] ?? false);
+    }
+
+    /**
      * off|observe|enforce, default observe. Gates
      * {@see \App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract}
      * on the serving report commit path: off skips evaluation entirely (byte-identical legacy

@@ -445,7 +445,25 @@ final class AtlasTaskServingService
             ]);
         }
 
-        return $this->reportEnvelope('reported', $clientId, [
+        // Queue self-healing (policy-plane gated, default OFF): a quarantined packet previously
+        // sat blocked until a human ran atlas:task:repair-blocked. Run the same living repair
+        // pass automatically so a doomed spec becomes respec/cancel-until-respec instead of
+        // burning more worker muscle. Fail-open: repair must never wedge a give_back report.
+        $autoRepair = null;
+        if ($event === 'give_back_quarantined' && $this->policyPlane->autoRespecOnQuarantineEnabled()) {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('atlas:task:repair-blocked', [
+                    '--limit' => 10,
+                    '--actor' => 'auto_respec_on_quarantine',
+                    '--json' => true,
+                ]);
+                $autoRepair = json_decode(\Illuminate\Support\Facades\Artisan::output(), true);
+            } catch (Throwable) {
+                // fail-open
+            }
+        }
+
+        return $this->reportEnvelope('reported', $clientId, array_merge([
             'outcome' => $outcome,
             'lease_released' => in_array($event, ['given_back', 'give_back_quarantined'], true),
             'quarantined' => $event === 'give_back_quarantined',
@@ -453,7 +471,7 @@ final class AtlasTaskServingService
             'task_packet_id' => $taskPacketId,
             'lease_id' => $leaseId,
             'result' => $result,
-        ]);
+        ], $autoRepair === null ? [] : ['auto_repair' => $autoRepair]));
     }
 
     /**

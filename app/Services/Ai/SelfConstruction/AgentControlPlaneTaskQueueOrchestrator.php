@@ -856,7 +856,14 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 continue;
             }
 
-            if (! $selfSufficient && (! $isScopeRepairDoomed || count($blocking) > 1)) {
+            // 'test_only_microtask_requires_contract' is the SAME fact the RETIRE branch below
+            // handles (only test paths buildable) — a scope-doomed test-only packet always carries
+            // both, so counting it as "another deficiency" made retirement unreachable.
+            $otherBlocking = array_values(array_diff($blocking, [
+                'scope_repair_removed_required_target_from_allowed_files',
+                'test_only_microtask_requires_contract',
+            ]));
+            if (! $selfSufficient && (! $isScopeRepairDoomed || $otherBlocking !== [])) {
                 // Not our class, or compounded with another deficiency we must not silently paper over.
                 $unrepairable[] = ['task_packet_id' => $taskPacketId, 'blocking_deficiencies' => $blocking];
 

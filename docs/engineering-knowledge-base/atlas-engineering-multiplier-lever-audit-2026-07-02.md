@@ -150,8 +150,20 @@ de falha que ficou invisível por semanas agora bloqueia.
   suites vizinhas (detector, flag W1, serving capsule, runtime intelligence, compounding,
   forge prompt memory) verdes.
 
+## Execução S7 (02/07/2026)
+
+- **S7 (entregue — ranking #4/#8):** quarentena → respec automático. Flag policy-plane
+  `auto_respec_on_quarantine` (default OFF): quando o report give_back quarentena o packet,
+  o serving roda `atlas:task:repair-blocked` inline (fail-open, --limit=10) — packet doomed
+  vira cancel_until_respec em vez de graveyard esperando humano. Junto: **bug de produção
+  pré-existente corrigido** — `repairScopeBlockedTasks` nunca aposentava packet test-only
+  doomed porque `test_only_microtask_requires_contract` (deficiência nova do inspector)
+  contava como "segunda deficiência" e mandava para unrepairable antes do RETIRE (é o mesmo
+  fato que o retire trata). Prova: 174 testes `AtlasTaskServing*` verdes (2 novos: flag ON
+  destrava graveyard; flag OFF byte-idêntico).
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Ranking #4 — give_back → classificação/respec:** give_back só libera lease + contador;
-classificar give_back e agendar respec para classes scope_gap fecharia fila auto-curativa
-sem gastar músculo. Depois: #5 ADML live outcome feedback.
+**Ranking #5 — ADML live outcome feedback:** router w25 consulta ADML que sempre responde
+free_to_choose; alimentar outcome real do run Dev no canal live existente fecha roteamento
+por evidência. Depois: #6 Dev run → atlas_context_feedback.

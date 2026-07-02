@@ -156,6 +156,59 @@ final class AtlasTaskServingGiveBackReclaimTest extends TestCase
         $this->assertSame('blocked', (string) ($blocked['status'] ?? ''), 'a perpetually-given-back task is quarantined, never cycles forever');
     }
 
+    public function test_quarantine_with_auto_respec_flag_runs_repair_and_unblocks_the_graveyard(): void
+    {
+        // Queue self-healing: with the policy-plane flag ON, the give_back report that
+        // quarantines the packet immediately runs the atlas:task:repair-blocked pass —
+        // the packet leaves 'blocked' (cancel_until_respec) instead of waiting for a human.
+        config(['atlas_task_governance.auto_respec_on_quarantine' => true]);
+
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('doomed-auto-1')]);
+        $serving = new AtlasTaskServingService($orch);
+
+        $lastReport = [];
+        for ($i = 0; $i < 12; $i++) {
+            $res = $serving->next('aw'.$i);
+            if ($res['status'] !== 'served') {
+                break;
+            }
+            $lastReport = $serving->report('aw'.$i, $res['task']['task_packet_id'], $res['task']['lease_id'], ['outcome' => 'give_back']);
+        }
+
+        $this->assertTrue((bool) ($lastReport['quarantined'] ?? false), 'fixture: the bounce loop must end in quarantine');
+        $this->assertArrayHasKey('auto_repair', $lastReport, 'the quarantining report runs the repair pass inline');
+
+        $record = (new AgentControlPlaneTaskPacketQueueRepository)->get('doomed-auto-1');
+        $this->assertNotSame(
+            'blocked',
+            (string) ($record['status'] ?? ''),
+            'auto-respec must move the quarantined packet out of the blocked graveyard',
+        );
+    }
+
+    public function test_quarantine_without_the_flag_keeps_todays_behavior(): void
+    {
+        // Flag OFF (default): byte-identical to before — packet stays blocked, no auto_repair key.
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('doomed-off-1')]);
+        $serving = new AtlasTaskServingService($orch);
+
+        $lastReport = [];
+        for ($i = 0; $i < 12; $i++) {
+            $res = $serving->next('ow'.$i);
+            if ($res['status'] !== 'served') {
+                break;
+            }
+            $lastReport = $serving->report('ow'.$i, $res['task']['task_packet_id'], $res['task']['lease_id'], ['outcome' => 'give_back']);
+        }
+
+        $this->assertTrue((bool) ($lastReport['quarantined'] ?? false));
+        $this->assertArrayNotHasKey('auto_repair', $lastReport);
+        $record = (new AgentControlPlaneTaskPacketQueueRepository)->get('doomed-off-1');
+        $this->assertSame('blocked', (string) ($record['status'] ?? ''));
+    }
+
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         return new AgentControlPlaneTaskQueueOrchestrator(

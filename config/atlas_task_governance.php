@@ -22,6 +22,12 @@ return [
     // in the serving report commit path. OFF by default — flipping to true is an operator decision.
     'canary_enabled' => false,
 
+    // Default for AtlasTaskGovernancePolicyPlane::autoRespecOnQuarantineEnabled(). When a give_back
+    // report quarantines a packet (repeated give-backs), run the atlas:task:repair-blocked pass
+    // automatically (fail-open, bounded) so a doomed spec becomes respec instead of burning muscle.
+    // OFF by default — flipping to true is an operator decision.
+    'auto_respec_on_quarantine' => false,
+
     // Default for AtlasTaskGovernancePolicyPlane::evidenceContractMode(). off|observe|enforce.
     // Gates AtlasVerificationCourtEvidenceContract on the serving report commit path. observe
     // records the verdict without blocking (bootstrap-safe default); enforce refuses a commit
