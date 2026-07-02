@@ -29,8 +29,9 @@ final class AtlasLoopLaneRouteCommandTest extends TestCase
     public function test_in_scope_candidate_routes_into_packet(): void
     {
         ['exit' => $exit, 'd' => $d] = $this->route(
-            ['project_id' => 'p1', 'allowed_scope_roots' => ['app/marketing']], // leaf 'marketing'
-            ['task_packet_id' => 't1', 'objective' => 'Build the marketing widget', 'allowed_files' => ['marketing/Foo.php']],
+            // 'admitted' became a REQUIRED lane fact after this contract froze (fail-closed hardening).
+            ['project_id' => 'p1', 'admitted' => true, 'allowed_scope_roots' => ['app/marketing']], // leaf 'marketing'
+            ['task_packet_id' => 't1', 'objective' => 'Build the marketing widget', 'acceptance_criteria' => ['php artisan test tests/Feature/MarketingWidgetTest.php'], 'required_evidence' => ['test_gate'], 'allowed_files' => ['marketing/Foo.php']],
         );
 
         $this->assertSame(0, $exit);
@@ -44,8 +45,8 @@ final class AtlasLoopLaneRouteCommandTest extends TestCase
     public function test_path_escaping_lane_scope_is_refused(): void
     {
         ['exit' => $exit, 'd' => $d] = $this->route(
-            ['project_id' => 'p1', 'allowed_scope_roots' => ['app/marketing']], // leaf 'marketing'
-            ['objective' => 'Escape the lane', 'allowed_files' => ['other/Bar.php']],
+            ['project_id' => 'p1', 'admitted' => true, 'allowed_scope_roots' => ['app/marketing']], // leaf 'marketing'
+            ['objective' => 'Escape the lane', 'acceptance_criteria' => ['php artisan test tests/Feature/MarketingWidgetTest.php'], 'required_evidence' => ['test_gate'], 'allowed_files' => ['other/Bar.php']],
         );
 
         $this->assertNotSame(0, $exit);
