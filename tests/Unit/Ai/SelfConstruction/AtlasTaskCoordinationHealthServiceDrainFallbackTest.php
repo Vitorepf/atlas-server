@@ -50,7 +50,12 @@ final class AtlasTaskCoordinationHealthServiceDrainFallbackTest extends TestCase
         $queue->updateStatus('a', 'claimed', ['lease_id' => 'lease-1', 'agent_id' => 'agent-1']);
         $queue->updateStatus('a', 'completed_dry_run');
 
-        $health = new AtlasTaskCoordinationHealthService($queue, new AgentControlPlaneClaimLeaseRepository);
+        // Isolated sentinel log — without it the health service reads the LIVE
+        // serving-sentinel.jsonl and serve_total reflects real production serves.
+        $sentinel = new AtlasTaskServingSentinel;
+        $sentinel->setLogPathForTesting(sys_get_temp_dir().'/atlas-drain-sentinel-'.bin2hex(random_bytes(5)).'.jsonl');
+
+        $health = new AtlasTaskCoordinationHealthService($queue, new AgentControlPlaneClaimLeaseRepository, null, $sentinel);
         $snap = $health->snapshot();
 
         $this->assertSame(0, $snap['serving']['serve_total']);
@@ -61,6 +66,7 @@ final class AtlasTaskCoordinationHealthServiceDrainFallbackTest extends TestCase
     public function test_normal_serve_total_reports_direct_confidence_and_preserves_health_flags(): void
     {
         $sentinel = new AtlasTaskServingSentinel;
+        $sentinel->setLogPathForTesting(sys_get_temp_dir().'/atlas-drain-sentinel-'.bin2hex(random_bytes(5)).'.jsonl');
         $orch = $this->orchestrator();
         $orch->prepareAndEnqueue(['task_packet' => $this->input('b')]);
         $serving = new AtlasTaskServingService($orch, $sentinel);
