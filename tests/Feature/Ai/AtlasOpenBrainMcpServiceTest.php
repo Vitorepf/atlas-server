@@ -622,7 +622,6 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('provider_release_review', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('provider_release_sources', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('external_graph_harness_report', data_get($structured, 'architecture_operations.operation_ids'));
-        $this->assertContains('ap_agent_workflow_registry', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_preflight', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_activation_contract', data_get($structured, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_production_loop_plan', data_get($structured, 'architecture_operations.operation_ids'));
@@ -1261,7 +1260,6 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('documentation_split_plan', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('architecture_validate', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('runtime_language_boundary', data_get($bootstrap, 'architecture_operations.operation_ids'));
-        $this->assertContains('ap_agent_workflow_registry', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertContains('voice_realtime_dependencies', data_get($bootstrap, 'architecture_operations.operation_ids'));
         $this->assertSame(
             'atlas.voice_realtime.python_runtime_plan.v1',

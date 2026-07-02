@@ -338,15 +338,6 @@ final class AtlasArchitectureOperationsCatalog
                 'pre_implementation_gate' => true,
             ],
             [
-                'id' => 'ap_agent_workflow_registry',
-                'command' => 'php artisan atlas:ai:ap-agent-workflow --json',
-                'description' => 'Exibe a sequencia canonica AP-200..AP-225 para sessoes de agentes, incluindo handoff, gates, revisao humana e dry-run sem efeitos colaterais.',
-                'surface' => 'cli',
-                'kind' => 'governance_gate',
-                'output' => 'json',
-                'doc' => 'docs/ap/AP-204-ap-agent-workflow-registry.md',
-            ],
-            [
                 'id' => 'provider_projection_status',
                 'command' => 'php artisan atlas:memory:projection status --target=all --workspace=<workspace> --json',
                 'description' => 'Verifica se AGENTS.md e CLAUDE.md estao sincronizados com a projection canonica e se o bloco manual permanece preservado.',

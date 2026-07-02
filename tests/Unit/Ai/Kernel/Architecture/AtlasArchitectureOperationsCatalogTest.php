@@ -15,7 +15,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('arquitetura_mae', $catalog->sectionKey());
         $this->assertSame('atlas.architecture_operations.v1', $summary['schema_version']);
         $this->assertSame('arquitetura_mae', $summary['section']);
-        $this->assertSame(104, $summary['command_count']);
+        $this->assertSame(103, $summary['command_count']);
         $this->assertSame($catalog->commands(), $summary['commands']);
         $this->assertSame([
             'architecture_operations',
@@ -47,7 +47,6 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'verified_evolution_patch_simulation',
             'verified_evolution_outcome_bridge',
             'software_twin_verified_evolution_certification',
-            'ap_agent_workflow_registry',
             'provider_projection_status',
             'provider_projection_write',
             'provider_release_review',
@@ -144,7 +143,6 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertContains('php artisan atlas:verified-evolution patch-simulation --objective="<objective>" --target="<target>" --changed-file="<path>" --json', $commands);
         $this->assertContains('php artisan atlas:verified-evolution outcome-bridge --objective="<objective>" --target="<target>" --evidence="<evidence>" --json', $commands);
         $this->assertContains('php artisan atlas:software-twin-verified-evolution:certify --json --strict', $commands);
-        $this->assertContains('php artisan atlas:ai:ap-agent-workflow --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection status --target=all --workspace=<workspace> --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection write --target=all --workspace=<workspace> --force --json', $commands);
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $commands);
@@ -261,8 +259,6 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('atlas_docs_split_plan', data_get($commandsById, 'documentation_split_plan.mcp_tool'));
         $this->assertSame(['owner', 'severity', 'status'], data_get($commandsById, 'documentation_split_plan.filter_options'));
         $this->assertSame('php artisan atlas:ai:docs-split-plan --owner=<owner_area> --json', data_get($commandsById, 'documentation_split_plan.focused_command'));
-        $this->assertSame('governance_gate', data_get($commandsById, 'ap_agent_workflow_registry.kind'));
-        $this->assertSame('docs/ap/AP-204-ap-agent-workflow-registry.md', data_get($commandsById, 'ap_agent_workflow_registry.doc'));
         $this->assertSame('provider_projection', data_get($commandsById, 'provider_projection_status.kind'));
         $this->assertSame('provider_projection', data_get($commandsById, 'provider_projection_write.kind'));
         $this->assertSame('provider_evolution', data_get($commandsById, 'provider_release_review.kind'));
@@ -380,7 +376,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame('php artisan atlas:ai:provider-performance --hours=24 --json', data_get($byId, 'commands.0.command'));
 
         $this->assertSame(['section' => 'arquitetura_mae'], $bySection['filters']);
-        $this->assertSame(104, $bySection['command_count']);
+        $this->assertSame(103, $bySection['command_count']);
         $this->assertContains('architecture_operations', $bySection['operation_ids']);
         $this->assertSame(['section' => 'legacy'], $byUnknownSection['filters']);
         $this->assertSame(0, $byUnknownSection['command_count']);
@@ -425,7 +421,7 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
         $this->assertSame(['session_bootstrap'], $byBootstrap['operation_ids']);
 
         $byGovernanceGate = $catalog->summary(['kind' => 'governance_gate']);
-        $this->assertSame(27, $byGovernanceGate['command_count']);
+        $this->assertSame(26, $byGovernanceGate['command_count']);
         $this->assertSame([
             'feature_placement',
             'documentation_split_plan',
@@ -450,7 +446,6 @@ class AtlasArchitectureOperationsCatalogTest extends TestCase
             'verified_evolution_scope_drift_watch',
             'verified_evolution_patch_simulation',
             'verified_evolution_outcome_bridge',
-            'ap_agent_workflow_registry',
             'local_rag_benchmark_rivals_shadow_plan',
             'local_rag_benchmark_rivals_shadow_case_contract',
             'local_rag_graph_promotion_review',

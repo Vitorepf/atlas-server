@@ -161,7 +161,6 @@ class AtlasSessionBootstrapService
                 'blocked_when' => $placement['blocked_when'] ?? [],
                 'required_before_code' => [
                     'read_read_first_docs',
-                    'review_ap_agent_workflow_registry_when_touching_ap_or_architecture_governance',
                     'review_owner_docs',
                     'confirm_placement_and_business_context',
                     'review_documentation_reality_gate',
@@ -269,7 +268,6 @@ class AtlasSessionBootstrapService
             'provider_projection_status',
             'knowledge_sync',
             'code_intelligence_index',
-            'ap_agent_workflow_registry',
         ];
         if (($placement['surface'] ?? null) === 'voice_realtime' || ($placement['flow'] ?? null) === 'voice_realtime.session') {
             $requiredIds[] = 'voice_realtime_dependencies';
@@ -306,9 +304,6 @@ class AtlasSessionBootstrapService
         ];
 
         $text = strtolower($task);
-        if (str_contains($text, 'ap') || str_contains($text, 'architecture') || str_contains($text, 'arquitetura') || str_contains($text, 'governanca') || str_contains($text, 'governança')) {
-            $docs[] = 'docs/ap/AP-204-ap-agent-workflow-registry.md';
-        }
         if ($this->mentionsRuntimeBoundary($text)) {
             $docs[] = 'docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md';
         }

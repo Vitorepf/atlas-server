@@ -48,7 +48,6 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->assertContains('php artisan atlas:code-reality deletion-preflight --target="<target>" --json', $commands);
         $this->assertContains('php artisan atlas:universal-reality-cartography navigation-slice --strict --json', $commands);
         $this->assertContains('php artisan atlas:universal-reality-cartography visual-scene --mode=implementation --strict --json', $commands);
-        $this->assertContains('php artisan atlas:ai:ap-agent-workflow --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection status --target=all --workspace=<workspace> --json', $commands);
         $this->assertContains('php artisan atlas:memory:projection write --target=all --workspace=<workspace> --force --json', $commands);
         $this->assertContains('php artisan atlas:ai:provider-release-review --provider=<provider> --title="<release>" --json', $commands);
@@ -153,7 +152,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->getJson('/ai/architecture/operations?section=arquitetura_mae', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.section', 'arquitetura_mae')
-            ->assertJsonPath('architecture_operations.command_count', 104)
+            ->assertJsonPath('architecture_operations.command_count', 103)
             ->assertJsonPath('architecture_operations.operation_ids.0', 'architecture_operations');
 
         $this->getJson('/ai/architecture/operations?surface=runtime', $this->headers)
@@ -231,7 +230,7 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
         $this->getJson('/ai/architecture/operations?kind=governance_gate', $this->headers)
             ->assertOk()
             ->assertJsonPath('architecture_operations.filters.kind', 'governance_gate')
-            ->assertJsonPath('architecture_operations.command_count', 27)
+            ->assertJsonPath('architecture_operations.command_count', 26)
             ->assertJsonPath('architecture_operations.operation_ids.0', 'feature_placement')
             ->assertJsonPath('architecture_operations.operation_ids.1', 'documentation_split_plan')
             ->assertJsonPath('architecture_operations.operation_ids.2', 'documentation_reality_score')
@@ -246,10 +245,9 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('architecture_operations.operation_ids.11', 'universal_reality_cartography_navigation_slice')
             ->assertJsonPath('architecture_operations.operation_ids.12', 'universal_reality_cartography_visual_scene')
             ->assertJsonPath('architecture_operations.operation_ids.13', 'universal_reality_cartography_human_clarity')
-            ->assertJsonPath('architecture_operations.operation_ids.23', 'ap_agent_workflow_registry')
-            ->assertJsonPath('architecture_operations.operation_ids.24', 'local_rag_benchmark_rivals_shadow_plan')
-            ->assertJsonPath('architecture_operations.operation_ids.25', 'local_rag_benchmark_rivals_shadow_case_contract')
-            ->assertJsonPath('architecture_operations.operation_ids.26', 'local_rag_graph_promotion_review')
+            ->assertJsonPath('architecture_operations.operation_ids.23', 'local_rag_benchmark_rivals_shadow_plan')
+            ->assertJsonPath('architecture_operations.operation_ids.24', 'local_rag_benchmark_rivals_shadow_case_contract')
+            ->assertJsonPath('architecture_operations.operation_ids.25', 'local_rag_graph_promotion_review')
             ->assertJsonPath('architecture_operations.commands.0.api_endpoint', '/ai/feature-placement')
             ->assertJsonPath('architecture_operations.commands.1.api_endpoint', '/ai/docs-split-plan')
             ->assertJsonPath('architecture_operations.commands.2.command', 'php artisan atlas:documentation-reality score --strict --json')
@@ -263,11 +261,10 @@ class AtlasAiArchitectureOperationsApiTest extends TestCase
             ->assertJsonPath('architecture_operations.commands.10.command', 'php artisan atlas:code-reality deletion-preflight --target="<target>" --json')
             ->assertJsonPath('architecture_operations.commands.11.command', 'php artisan atlas:universal-reality-cartography navigation-slice --strict --json')
             ->assertJsonPath('architecture_operations.commands.12.command', 'php artisan atlas:universal-reality-cartography visual-scene --mode=implementation --strict --json')
-            ->assertJsonPath('architecture_operations.commands.23.command', 'php artisan atlas:ai:ap-agent-workflow --json')
-            ->assertJsonPath('architecture_operations.commands.24.doc', 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md')
-            ->assertJsonPath('architecture_operations.commands.24.review_contract', 'atlas.memory_retrieval_rivals_shadow_plan_review_packet.v1')
-            ->assertJsonPath('architecture_operations.commands.25.review_contract', 'atlas.memory_retrieval_rivals_shadow_case_contract.v1')
-            ->assertJsonPath('architecture_operations.commands.26.review_contract', 'atlas.local_rag_graph_promotion_review.v1');
+            ->assertJsonPath('architecture_operations.commands.23.doc', 'docs/ap/AP-693-retrieval-rivals-shadow-comparison-contract.md')
+            ->assertJsonPath('architecture_operations.commands.23.review_contract', 'atlas.memory_retrieval_rivals_shadow_plan_review_packet.v1')
+            ->assertJsonPath('architecture_operations.commands.24.review_contract', 'atlas.memory_retrieval_rivals_shadow_case_contract.v1')
+            ->assertJsonPath('architecture_operations.commands.25.review_contract', 'atlas.local_rag_graph_promotion_review.v1');
 
         $this->getJson('/ai/architecture/operations?id=external_vector_rag_preflight_inbox', $this->headers)
             ->assertOk()

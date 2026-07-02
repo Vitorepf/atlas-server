@@ -402,7 +402,6 @@ class AtlasAiArchitectureValidationService
             'ap168_productive_failure_governance_contract' => $staticScanReport['ap168_productive_failure_governance_contract'],
             'ap169_personal_worked_example_privacy_contract' => $staticScanReport['ap169_personal_worked_example_privacy_contract'],
             'ap170_predictive_failure_governance_contract' => $staticScanReport['ap170_predictive_failure_governance_contract'],
-            'ap200_ap_agent_workflow_contracts' => $staticScanReport['ap200_ap_agent_workflow_contracts'],
             'ap201_runtime_language_boundary_contract' => $staticScanReport['ap201_runtime_language_boundary_contract'],
             'ap33_surface_capability_parity' => [
                 'valid' => $surfaceCapabilityReport['ok'],

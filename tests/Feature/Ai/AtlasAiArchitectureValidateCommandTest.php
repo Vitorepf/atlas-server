@@ -439,8 +439,6 @@ class AtlasAiArchitectureValidateCommandTest extends TestCase
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap169_personal_worked_example_privacy_contract.violations'));
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap170_predictive_failure_governance_contract.valid'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap170_predictive_failure_governance_contract.violations'));
-        $this->assertTrue(data_get($payload, 'kernel.static_scan.ap200_ap_agent_workflow_contracts.valid'));
-        $this->assertSame([], data_get($payload, 'kernel.static_scan.ap200_ap_agent_workflow_contracts.violations'));
         // AP-201: runtime language boundary.
         $this->assertTrue(data_get($payload, 'kernel.static_scan.ap201_runtime_language_boundary_contract.valid'));
         $this->assertSame([], data_get($payload, 'kernel.static_scan.ap201_runtime_language_boundary_contract.violations'));
