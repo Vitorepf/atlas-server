@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Observability;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -38,34 +39,7 @@ final class AtlasLoopCycleSignalEmitter
                 'payload' => $this->filterPayloadProviderSafe($payload),
             ];
 
-            $encoded = json_encode($signal, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            if (! is_string($encoded)) {
-                throw new \RuntimeException('signal_encode_failed');
-            }
-
-            $path = $this->sinkPath();
-            $directory = dirname($path);
-            if (! is_dir($directory) && ! @mkdir($directory, 0o755, true) && ! is_dir($directory)) {
-                throw new \RuntimeException('signal_sink_directory_unavailable');
-            }
-
-            $handle = @fopen($path, 'ab');
-            if (! is_resource($handle)) {
-                throw new \RuntimeException('signal_sink_open_failed');
-            }
-
-            try {
-                if (! @flock($handle, LOCK_EX)) {
-                    throw new \RuntimeException('signal_sink_lock_failed');
-                }
-                if (@fwrite($handle, $encoded."\n") === false) {
-                    throw new \RuntimeException('signal_sink_write_failed');
-                }
-                @fflush($handle);
-            } finally {
-                @flock($handle, LOCK_UN);
-                @fclose($handle);
-            }
+            (new JsonlReceiptStore($this->sinkPath()))->append($signal);
         } catch (Throwable $e) {
             try {
                 Log::channel('atlas-loop')->warning('Atlas loop cycle signal emit failed.', [
