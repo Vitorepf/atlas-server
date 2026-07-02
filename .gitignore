@@ -18,7 +18,6 @@ runtimes/swift/**/Package.resolved
 .env
 .env.*
 !.env.example
-!.env.testing
 .phpactor.json
 .phpunit.result.cache
 /.codex
