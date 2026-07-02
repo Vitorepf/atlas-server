@@ -288,7 +288,7 @@ PHP,
         $task->refresh();
         $this->assertSame(AtlasLoopTask::STATUS_DONE, $task->status);
         $this->assertSame(1, data_get($task->result, 'implementation_gate.proposals_in'), json_encode($task->result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        $this->assertSame(1, data_get($task->result, 'implementation_gate.proposals_certified'));
+        $this->assertSame(1, data_get($task->result, 'implementation_gate.proposals_certified'), json_encode($task->result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.proposals_in'));
         $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.proposals_certified'));
         $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.provider_refuters_required'));
