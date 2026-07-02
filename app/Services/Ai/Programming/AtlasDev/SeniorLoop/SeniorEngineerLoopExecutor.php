@@ -123,7 +123,13 @@ final class SeniorEngineerLoopExecutor
             // human_action_required=true (Dev never auto-creates an Obra);
             // this block only DECIDES and records, it never invokes a
             // stronger provider by itself.
-            $escalationDecision = $this->escalationEngine->decide(
+            // Fail-open: the decision is telemetry over an ALREADY-FAILED
+            // run — a bad scorer input (e.g. a rehydrated CompactSdd whose
+            // risk_level was never validated by fromArray()) must degrade to
+            // "no escalation decision", never crash the senior loop after
+            // the capsule + ledger were already persisted.
+            try {
+                $escalationDecision = $this->escalationEngine->decide(
                 input: new EscalationSignalsInput(
                     riskLevel: $plan->compactSdd->riskLevel,
                     fileCount: count($failureCapsule->changedFiles),
@@ -142,9 +148,13 @@ final class SeniorEngineerLoopExecutor
                 runId: $plan->envelope->runId,
                 taskContractHash: $plan->taskContract->taskContractHash,
                 triggeredAtIso: now()->toIso8601String(),
-            );
-            if ($escalationDecision !== null) {
-                $escalationDecisionPath = $this->persister->writeEscalationDecision($escalationDecision);
+                );
+                if ($escalationDecision !== null) {
+                    $escalationDecisionPath = $this->persister->writeEscalationDecision($escalationDecision);
+                }
+            } catch (\Throwable) {
+                $escalationDecision = null;
+                $escalationDecisionPath = null;
             }
         }
 
