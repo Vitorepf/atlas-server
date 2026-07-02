@@ -28,6 +28,12 @@ final class AgentControlPlaneReportLearningBridgeTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+        // The admission ledger + observation store live on a phpunit-pinned
+        // /tmp path shared by every test run: without cleanup, rows written
+        // by earlier runs (or earlier code versions) leak state into the
+        // accumulator-dependent assertions below.
+        @unlink(\App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger::defaultPath());
+        @unlink(\App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferObservationStore::defaultPath());
     }
 
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
