@@ -70,12 +70,16 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 fn ($l) => (int) (explode("\t", $l)[0] ?? 0) + (int) (explode("\t", $l)[1] ?? 0),
                 array_filter(explode("\n", $diffStat))
             ));
-            if ($diffLines === 0 || $diffLines > $maxDiff) {
-                continue;
+            $minDiff = (int) config('atlas_rivals2.atlasbench.min_diff_lines', 40);
+            $minCodeFiles = (int) config('atlas_rivals2.atlasbench.min_code_files', 2);
+            if ($diffLines < $minDiff || $diffLines > $maxDiff || count($codeFiles) < $minCodeFiles) {
+                continue; // piso sênior: sem micro-commit, sem single-file trivial
             }
 
             $case = [
                 'schema_version' => 'atlas.rivals2.atlasbench_case.v1',
+                'protocol' => 'atlasbench.v2_hidden_tests',
+                'commit_date' => trim(Process::path($repo)->run('git show -s --format=%cI '.escapeshellarg($sha))->output()),
                 'case_id' => 'ab_'.substr($sha, 0, 10),
                 'task_type' => $this->taskTypeFor($subject),
                 'title' => $subject,
@@ -182,16 +186,44 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
 
             $patchOutput = $this->applySolver($repo, $worktree, $case, $modelId, $runtime, $plan);
 
+            // protocolo v2 (hidden tests): o solver nunca vê nem controla a prova.
+            // 1) tocar nos arquivos de teste do case = tampering → error fail-closed;
+            // 2) o diff de TESTES do commit golden é injetado só agora, pós-solve.
+            $testFiles = $case['changed_files']['tests'] ?? [];
+            $blockReason = null;
+            if ($modelId !== 'harness_golden' && $testFiles !== []) {
+                $touched = array_filter(explode("\n", Process::path($worktree)->run('git diff --name-only')->output()));
+                if (array_intersect($touched, $testFiles) !== []) {
+                    $blockReason = 'test_tampering_detected: solver modified hidden acceptance test files';
+                } else {
+                    $testDiff = Process::path($repo)->run(
+                        'git diff '.escapeshellarg($case['base_sha']).' '.escapeshellarg($case['golden_sha']).' -- '
+                        .implode(' ', array_map('escapeshellarg', $testFiles))
+                    );
+                    if (trim($testDiff->output()) !== '') {
+                        $apply = Process::path($worktree)->input($testDiff->output())->run('git apply -');
+                        if (! $apply->successful()) {
+                            $blockReason = 'hidden_test_injection_failed: '.substr($apply->errorOutput(), 0, 300);
+                        }
+                    }
+                }
+            }
+
             $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);
             $timedOut = false;
-            try {
-                $check = Process::path($worktree)->timeout($timeout)->run($case['check_command']);
-                $status = $check->successful() ? 'success' : 'failure';
-                $checkOutput = $check->output()."\n".$check->errorOutput();
-            } catch (\Illuminate\Process\Exceptions\ProcessTimedOutException) {
-                $timedOut = true;
-                $status = 'timeout';
-                $checkOutput = "check timed out after {$timeout}s";
+            if ($blockReason !== null) {
+                $status = 'error';
+                $checkOutput = $blockReason;
+            } else {
+                try {
+                    $check = Process::path($worktree)->timeout($timeout)->run($case['check_command']);
+                    $status = $check->successful() ? 'success' : 'failure';
+                    $checkOutput = $check->output()."\n".$check->errorOutput();
+                } catch (\Illuminate\Process\Exceptions\ProcessTimedOutException) {
+                    $timedOut = true;
+                    $status = 'timeout';
+                    $checkOutput = "check timed out after {$timeout}s";
+                }
             }
 
             $artifacts = [];
@@ -277,14 +309,18 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
             throw new RuntimeException("atlasbench_provider_spend_not_allowed:{$modelId}");
         }
 
+        // protocolo v2 (anti-cola): tarefa under-specified como um ticket real —
+        // sem check command, sem paths de teste, sem lista de arquivos-alvo.
+        // Os testes de aceitação são OCULTOS e injetados só na correção.
         $promptFile = $worktree.'/.rivals2_task.md';
         file_put_contents($promptFile, implode("\n", [
-            "# Task: {$case['title']}",
+            "# Ticket: {$case['title']}",
             '',
-            'Repository is checked out at the base state. Implement the change so the check passes.',
-            "Task type: {$case['task_type']}",
-            "Check command: {$case['check_command']}",
-            'Files under test: '.implode(', ', $case['changed_files']['tests'] ?? []),
+            'You are a senior engineer on this codebase. Implement what this ticket asks,',
+            'end to end, at production quality. The team will grade your change against',
+            'their own acceptance checks — they are NOT provided to you.',
+            'Explore the repository, find where the change belongs, implement it fully,',
+            'and follow the existing code style. Do not ask questions.',
         ]));
 
         $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);

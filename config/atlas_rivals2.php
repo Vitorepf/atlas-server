@@ -84,6 +84,9 @@ return [
     'atlasbench' => [
         'repo_path' => env('ATLAS_RIVALS2_ATLASBENCH_REPO', base_path()),
         'mine_window_commits' => 300,
+        // piso de dificuldade sênior: nada de micro-commit "receita"
+        'min_diff_lines' => (int) env('ATLAS_RIVALS2_MIN_DIFF_LINES', 40),
+        'min_code_files' => (int) env('ATLAS_RIVALS2_MIN_CODE_FILES', 2),
         'max_diff_lines' => 400,
         'check_timeout_seconds' => (int) env('ATLAS_RIVALS2_CHECK_TIMEOUT', 300),
     ],
