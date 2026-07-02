@@ -28,6 +28,67 @@ use RuntimeException;
  */
 trait AtlasDevProviderFixtures
 {
+    /**
+     * The M3 senior critic reviews every green run; its 'critic_reviewed'
+     * flag downgrades PASSED->needs_review, polluting axis-isolated feature
+     * suites written before it landed. Bind a no-concerns critic so the
+     * completion state reflects only the axis under test.
+     */
+    private function bindNoConcernsCritic(\Illuminate\Container\Container $container): void
+    {
+        $container->instance(\App\Services\Ai\Programming\AtlasDev\Intelligence\ReviewIntelligenceService::class, new class
+        {
+            public function analyse(array $input, array $options = []): \App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt
+            {
+                return \App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt::issue(
+                    receiptId: 'rr-fixture-'.bin2hex(random_bytes(4)),
+                    runId: (string) ($input['run_id'] ?? 'run-fixture'),
+                    status: \App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt::STATUS_NO_CONCERNS,
+                    reviewedFiles: [],
+                    findings: [],
+                    missingTestsCount: 0,
+                    confidence: 1.0,
+                    evidenceRefs: [],
+                    blockerReasons: [],
+                    createdAt: '2026-01-01T00:00:00Z',
+                );
+            }
+        });
+    }
+
+    /**
+     * The honesty flags a run persisted, read back from the verification
+     * receipt artifact (completion.honesty_flags).
+     *
+     * @return list<string>
+     */
+    private function readHonestyFlags(\App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage $storage, string $runId): array
+    {
+        $receipt = $storage->read($runId, \App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames::VERIFICATION_RECEIPT);
+
+        return is_array($receipt)
+            ? array_values(array_map('strval', (array) data_get($receipt, 'completion.honesty_flags', [])))
+            : [];
+    }
+
+    /**
+     * Same flags, read via the run result's persisted receipt path (for runs
+     * whose ReceiptStorage is scenario-local).
+     *
+     * @return list<string>
+     */
+    private function readHonestyFlagsFromResult(mixed $result): array
+    {
+        $path = $result->persistedReceiptPaths[\App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames::VERIFICATION_RECEIPT] ?? '';
+        $receipt = is_string($path) && is_file($path)
+            ? json_decode((string) file_get_contents($path), true)
+            : null;
+
+        return is_array($receipt)
+            ? array_values(array_map('strval', (array) data_get($receipt, 'completion.honesty_flags', [])))
+            : [];
+    }
+
     private function fixturesRoot(): string
     {
         return realpath(__DIR__.'/../../../../../Fixtures/AtlasDev')

@@ -54,6 +54,11 @@ final class CandidateDivergenceFeatureTest extends TestCase
         parent::setUp();
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
         config()->set('atlas_dev.best_of_n.candidate_count', 1);
+        // Axis isolation: elevations that landed after this suite raise their
+        // own flags on these minimal seeded runs (see ShadowDiffFeatureTest).
+        foreach (['e1', 'e2', 'e3', 'e5', 'e6'] as $elevation) {
+            config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
+        }
 
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-e4-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);
@@ -326,6 +331,7 @@ final class CandidateDivergenceFeatureTest extends TestCase
             $container = new Container;
             $container->instance(ClaudeCliGateway::class, new FakeClaudeCliGateway);
             $container->instance(VerificationCommandRunner::class, $commandRunner);
+            $this->bindNoConcernsCritic($container);
             $executor = new PipelineRunExecutor($container, $storage);
 
             return $this->executeRunWithScriptedCandidatesIn($executor, $runId, $workspace);
@@ -340,8 +346,27 @@ final class CandidateDivergenceFeatureTest extends TestCase
         $container = new Container;
         $container->instance(ClaudeCliGateway::class, new FakeClaudeCliGateway);
         $container->instance(VerificationCommandRunner::class, $commandRunner);
+        $this->bindNoConcernsCritic($container);
+        $this->bindAgreementShadowHarness($container);
 
         return new PipelineRunExecutor($container, $storage);
+    }
+
+    /**
+     * This suite pins the E4 CANDIDATE-DIVERGENCE sub-gate; both sub-gates
+     * share the e4 mode key, so the SHADOW sub-gate (which spawns a real PHP
+     * subprocess and genuinely detects these fake pure-function edits as
+     * regressions) must be quiesced with an always-agreeing harness.
+     */
+    private function bindAgreementShadowHarness(Container $container): void
+    {
+        $container->instance('atlas_dev.e4.shadow_diff_harness', new class implements \App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarness
+        {
+            public function shadowDiff(string $oldBodySource, string $newBodySource, array $probeInputs): \App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarnessResult
+            {
+                return \App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarnessResult::executed([], []);
+            }
+        });
     }
 
     private function executeRun(PipelineRunExecutor $executor, string $runId): mixed

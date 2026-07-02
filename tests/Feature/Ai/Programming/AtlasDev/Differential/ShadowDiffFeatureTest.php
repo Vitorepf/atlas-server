@@ -16,11 +16,13 @@ use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarnessRe
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGateResult;
+use App\Services\Ai\Programming\AtlasDev\Intelligence\ReviewIntelligenceService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
+use App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
@@ -52,11 +54,21 @@ final class ShadowDiffFeatureTest extends TestCase
 
     private string $tmpWorkspace;
 
+    /** @var list<string> scenario-local storages removed in tearDown (see runShadowDivergent) */
+    private array $scenarioStoragePaths = [];
+
     protected function setUp(): void
     {
         parent::setUp();
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
         config()->set('atlas_dev.best_of_n.candidate_count', 1);
+        // This suite pins the E4 axis. The elevations that landed AFTER it was
+        // written (E1/E2/E3/E5/E6) raise their own flags on these minimal seeded
+        // runs, polluting completion-state assertions — pin them off so every
+        // assertion isolates E4 semantics (per-test config, house pattern).
+        foreach (['e1', 'e2', 'e3', 'e5', 'e6'] as $elevation) {
+            config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
+        }
 
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-shadow-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);
@@ -69,6 +81,10 @@ final class ShadowDiffFeatureTest extends TestCase
     {
         $this->rmrf($this->tmpStorage);
         $this->rmrf($this->tmpWorkspace);
+        foreach ($this->scenarioStoragePaths as $path) {
+            $this->rmrf($path);
+        }
+        $this->scenarioStoragePaths = [];
         parent::tearDown();
     }
 
@@ -373,12 +389,16 @@ final class ShadowDiffFeatureTest extends TestCase
             $container = new Container;
             $container->instance(ClaudeCliGateway::class, new FakeClaudeCliGateway);
             $container->instance(VerificationCommandRunner::class, $commandRunner);
+            $this->bindNoConcernsCritic($container);
             $executor = new PipelineRunExecutor($container, $storage);
 
             return $this->executeRunWithHarnessIn($executor, $runId, $workspace, $container, $harness);
         } finally {
             $this->rmrf($workspace);
-            $this->rmrf($storagePath);
+            // The scenario-local receipt storage must OUTLIVE this call:
+            // readHonestyFlagsFromResult() reads the persisted verification
+            // receipt from disk after the run returns. tearDown removes it.
+            $this->scenarioStoragePaths[] = $storagePath;
         }
     }
 
@@ -394,6 +414,7 @@ final class ShadowDiffFeatureTest extends TestCase
         // subprocess spawns). Bound under the canonical container key the
         // executor resolves.
         $container->instance('atlas_dev.e4.shadow_diff_harness', $harness);
+        $this->bindNoConcernsCritic($container);
 
         return new PipelineRunExecutor($container, $storage);
     }
