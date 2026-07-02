@@ -24,6 +24,8 @@ final class AtlasLoopStewardshipPlanCommandTest extends TestCase
             'allowed_scope_roots' => ['/repo/app'],
             'merge_policy' => ['mode' => 'shared_main_with_scope_lock'],
             'verification_commands' => ['phpunit'],
+            // knowledge_sync_policy targets became REQUIRED lane facts after this froze.
+            'knowledge_sync_policy' => ['targets' => ['docs', 'code_index']],
         ];
     }
 

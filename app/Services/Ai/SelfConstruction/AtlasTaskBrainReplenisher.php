@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCortexRoleTokenSemanticDisambiguator;
+use App\Services\Ai\SelfConstruction\GovernedTargets\AtlasTaskPropertyGatedTargetPolicy;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionQuery;
@@ -530,6 +531,23 @@ final class AtlasTaskBrainReplenisher
      */
     private function packet(string $id, string $objective, array $allowed, array $accept): array
     {
+        // Producer/inspector parity: a packet whose allowed_files include a
+        // PROPERTY-GATED target must carry constitution_gate_receipt in
+        // required_evidence (the inspector fail-closes on
+        // property_gated_target_missing_constitution_evidence — every docgap
+        // packet minted into AutonomousEvolution/Generated/ was dying at the
+        // replenisher's own self-check).
+        $evidence = ['tests_or_gates_result'];
+        $gated = (new AtlasTaskPropertyGatedTargetPolicy)->classifyAll($allowed)[AtlasTaskPropertyGatedTargetPolicy::CLASSIFICATION_PROPERTY_GATED] ?? [];
+        $gatedNonTest = array_filter($gated, static function (string $p): bool {
+            $norm = ltrim(str_replace('\\', '/', $p), '/');
+
+            return ! str_starts_with($norm, 'tests/') && ! str_contains($norm, '/tests/');
+        });
+        if ($gatedNonTest !== []) {
+            $evidence[] = 'constitution_gate_receipt';
+        }
+
         return [
             'task_packet_id' => $id,
             'objective' => $objective,
@@ -537,7 +555,7 @@ final class AtlasTaskBrainReplenisher
             'allowed_files' => $allowed,
             'scope_in' => $allowed,
             'acceptance_criteria' => $accept,
-            'required_evidence' => ['tests_or_gates_result'],
+            'required_evidence' => $evidence,
             'workspace_policy' => [
                 'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
                 'isolation' => 'shared_local_main_with_scope_lock',
