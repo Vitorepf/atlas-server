@@ -88,11 +88,17 @@ final class AtlasLoopV2AuditJournalTest extends TestCase
 
     public function test_append_uses_exclusive_flock(): void
     {
+        // Locking is owned by the kernel JsonlReceiptStore; append must derive prev_hash inside
+        // its appendWith lock (never a bare unguarded fwrite).
         $source = (string) file_get_contents(app_path('Services/Ai/AutonomousEvolution/V2/AtlasLoopV2AuditJournal.php'));
 
-        $this->assertStringContainsString('flock($handle, LOCK_EX)', $source);
-        $this->assertStringContainsString('fflush($handle)', $source);
-        $this->assertStringContainsString('fclose($handle)', $source);
+        $this->assertStringContainsString('JsonlReceiptStore', $source);
+        $this->assertStringContainsString('appendWith', $source);
+        $this->assertStringNotContainsString('fwrite(', $source);
+
+        $store = (string) file_get_contents(app_path('Services/Ai/EngineeringKernel/Adapters/JsonlReceiptStore.php'));
+        $this->assertStringContainsString('flock($fh, LOCK_EX)', $store);
+        $this->assertStringContainsString('fflush($fh)', $store);
     }
 
     /**

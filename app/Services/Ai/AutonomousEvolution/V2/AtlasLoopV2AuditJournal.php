@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\V2;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use InvalidArgumentException;
-use RuntimeException;
 
 final class AtlasLoopV2AuditJournal
 {
@@ -35,18 +35,16 @@ final class AtlasLoopV2AuditJournal
             throw new InvalidArgumentException('event_type_empty');
         }
 
-        $this->ensureParentDirectory();
-        $handle = fopen($this->journalPath, 'c+');
-        if ($handle === false) {
-            throw new RuntimeException('audit_journal_open_failed');
-        }
-
-        try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException('audit_journal_lock_failed');
+        $store = new JsonlReceiptStore($this->journalPath);
+        $entry = [];
+        // prev_hash derivation (last VALID line_hash, skipping malformed lines) runs INSIDE the lock.
+        $store->appendWith(function (?string $lastLine) use ($store, $eventType, $payload, &$entry): array {
+            $prevHash = self::GENESIS_HASH;
+            foreach ($store->replay() as $row) {
+                if (is_string($row['line_hash'] ?? null) && $row['line_hash'] !== '') {
+                    $prevHash = $row['line_hash'];
+                }
             }
-
-            $prevHash = $this->lastHashFromHandle($handle);
             $entry = [
                 'ts' => $this->timestamp(),
                 'event_type' => $eventType,
@@ -56,13 +54,8 @@ final class AtlasLoopV2AuditJournal
             ];
             $entry['line_hash'] = $this->lineHash($entry);
 
-            fseek($handle, 0, SEEK_END);
-            fwrite($handle, json_encode($entry, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)."\n");
-            fflush($handle);
-            flock($handle, LOCK_UN);
-        } finally {
-            fclose($handle);
-        }
+            return $entry;
+        });
 
         return $entry;
     }
@@ -112,31 +105,6 @@ final class AtlasLoopV2AuditJournal
         }
 
         return $decoded;
-    }
-
-    private function ensureParentDirectory(): void
-    {
-        $dir = dirname($this->journalPath);
-        if ($dir !== '' && $dir !== '.' && ! is_dir($dir)) {
-            mkdir($dir, 0o755, true);
-        }
-    }
-
-    /**
-     * @param  resource  $handle
-     */
-    private function lastHashFromHandle($handle): string
-    {
-        rewind($handle);
-        $last = self::GENESIS_HASH;
-        while (($line = fgets($handle)) !== false) {
-            $entry = json_decode(trim($line), true);
-            if (is_array($entry) && is_string($entry['line_hash'] ?? null) && $entry['line_hash'] !== '') {
-                $last = $entry['line_hash'];
-            }
-        }
-
-        return $last;
     }
 
     /**
