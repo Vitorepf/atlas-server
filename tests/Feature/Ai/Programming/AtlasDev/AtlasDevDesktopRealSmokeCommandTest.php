@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming\AtlasDev;
 
-use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
-use App\Services\Ai\Programming\AtlasDev\Provider\SymfonyClaudeCliGateway;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\Feature\Ai\Programming\AtlasDev\Http\AtlasDevHttpTestCase;
@@ -23,50 +21,55 @@ final class AtlasDevDesktopRealSmokeCommandTest extends AtlasDevHttpTestCase
 
         $this->fakeBinDir = sys_get_temp_dir().'/atlas-dev-real-smoke-bin-'.bin2hex(random_bytes(4));
         mkdir($this->fakeBinDir, 0o755, true);
-        $binary = $this->fakeBinDir.'/claude';
+        // The fast-path routing now targets the loop-native provider (hermes,
+        // a WORKSPACE-MUTATING provider) — the old claude stub was never
+        // invoked and every test run made a live ~60s hermes call. The stub
+        // edits the file in place, exactly like the real hermes lane.
+        $binary = $this->fakeBinDir.'/hermes';
         file_put_contents($binary, <<<'SH'
 #!/usr/bin/env bash
 if [[ "${1:-}" == "--version" ]]; then
-  echo "2.1.143 (Claude Code)"
+  echo "hermes 1.0 (stub)"
   exit 0
 fi
 
 cat >/dev/null
-cat <<'DIFF'
-```diff
---- src/SmokeSubject.php
-+++ src/SmokeSubject.php
-@@ -5,7 +5,7 @@ final class SmokeSubject
-     public function greeting(): string
-     {
--        return 'helo atlas';
-+        return 'hello atlas';
-     }
- }
-```
-DIFF
+if [[ -f src/SmokeSubject.php ]]; then
+  /usr/bin/sed -i '' "s/helo atlas/hello atlas/" src/SmokeSubject.php
+fi
+echo "fixed greeting typo in src/SmokeSubject.php"
 SH);
         chmod($binary, 0o755);
-
-        config()->set('atlas.ai.providers.claude_cli.binary', $binary);
-        config()->set('atlas.ai.providers.claude_cli.args', [
-            '-p',
-            '--output-format',
-            'stream-json',
-            '--verbose',
-            '--no-session-persistence',
-            '--allowedTools',
-            'Read',
-        ]);
-
-        $this->app->forgetInstance(ClaudeCliGateway::class);
-        $this->app->singleton(ClaudeCliGateway::class, function ($app): SymfonyClaudeCliGateway {
-            return new SymfonyClaudeCliGateway($app['config']);
-        });
+        config()->set('atlas.ai.providers.hermes_cli.binary', $binary);
+        // The live .env pins the Dev lane to the ACP transport (persistent
+        // session against the real hermes agent) which never touches the
+        // binary — force the CLI transport so the stub is what runs.
+        config()->set('atlas_dev.hermes_execution_transport', 'cli');
+        // run_dispatch_mode=process spawns a FRESH artisan worker that re-boots
+        // config from the environment — config()->set() is invisible there. A
+        // real env var crosses the proc_open boundary and Dotenv (immutable)
+        // never overwrites it, so the worker uses the stub too.
+        putenv('ATLAS_AI_HERMES_BIN='.$binary);
+        $_ENV['ATLAS_AI_HERMES_BIN'] = $binary;
+        $_SERVER['ATLAS_AI_HERMES_BIN'] = $binary;
+        // The live .env pins the Dev lane to the ACP transport (a persistent
+        // session against the real hermes agent), which never touches the
+        // binary. Force the CLI transport so the stub is what runs.
+        putenv('ATLAS_DEV_HERMES_EXECUTION_TRANSPORT=cli');
+        $_ENV['ATLAS_DEV_HERMES_EXECUTION_TRANSPORT'] = 'cli';
+        $_SERVER['ATLAS_DEV_HERMES_EXECUTION_TRANSPORT'] = 'cli';
     }
 
     protected function tearDown(): void
     {
+        putenv('ATLAS_AI_HERMES_BIN');
+        putenv('ATLAS_DEV_HERMES_EXECUTION_TRANSPORT');
+        unset(
+            $_ENV['ATLAS_AI_HERMES_BIN'],
+            $_SERVER['ATLAS_AI_HERMES_BIN'],
+            $_ENV['ATLAS_DEV_HERMES_EXECUTION_TRANSPORT'],
+            $_SERVER['ATLAS_DEV_HERMES_EXECUTION_TRANSPORT'],
+        );
         $this->rmrf($this->fakeBinDir);
 
         parent::tearDown();
@@ -103,10 +106,11 @@ SH);
         $this->assertSame('passed', $payload['run']['completion_state']);
         $this->assertSame('passed', $payload['run']['scope_guard_status']);
         $this->assertSame('passed', $payload['run']['verification_status']);
-        $this->assertSame('claude_cli', $payload['run']['provider']);
-        $this->assertSame('sonnet', $payload['run']['model_family']);
+        $this->assertSame('hermes_cli', $payload['run']['provider']);
+        $this->assertSame('hermes_cli_default', $payload['run']['model_family']);
         $this->assertSame(1, $payload['run']['provider_calls']);
-        $this->assertSame('applied', $payload['run']['patch_apply_status']);
+        // hermes is a workspace-mutating provider: it edits in place, apply is skipped.
+        $this->assertSame('skipped', $payload['run']['patch_apply_status']);
         $this->assertSame(true, $payload['receipt']['present']);
         $this->assertSame([], $payload['receipt']['honesty_flags']);
         $this->assertSame(true, $payload['workspace_assertion']['passed']);
@@ -122,9 +126,9 @@ SH);
         $this->assertSame('passed', $evidence['status']);
         $this->assertSame($payload['run_id'], $evidence['run_id']);
         $this->assertSame('passed', $evidence['completion_state']);
-        $this->assertSame('claude_cli', $evidence['provider']);
-        $this->assertSame('sonnet', $evidence['model_family']);
-        $this->assertSame('applied', $evidence['patch_apply_status']);
+        $this->assertSame('hermes_cli', $evidence['provider']);
+        $this->assertSame('hermes_cli_default', $evidence['model_family']);
+        $this->assertSame('skipped', $evidence['patch_apply_status']);
         $this->assertSame([], $evidence['honesty_flags']);
         $this->assertSame(true, $evidence['workspace_assertion_passed']);
     }
