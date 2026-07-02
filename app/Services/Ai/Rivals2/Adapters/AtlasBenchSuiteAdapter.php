@@ -213,10 +213,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         }
 
         try {
-            // vendor compartilhado read-only p/ rodar checks PHP sem composer install
-            if (is_dir($repo.'/vendor') && ! is_dir($worktree.'/vendor')) {
-                symlink($repo.'/vendor', $worktree.'/vendor');
-            }
+            $this->provisionVendor($repo, $worktree);
 
             // timeout do SOLVER é medição (receipt timeout), nunca morte da bateria
             $solverTimedOut = false;
@@ -301,10 +298,37 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
             ])->append();
             EventStream::append($runId, 'case_finished', ['case' => $case['case_id'], 'arm' => $armId, 'rep' => $rep, 'status' => $status, 'timed_out' => $timedOut]);
         } finally {
-            if (is_link($worktree.'/vendor')) {
-                unlink($worktree.'/vendor');
-            }
+            $this->removeVendor($worktree);
             Process::path($repo)->run('git worktree remove --force '.escapeshellarg($worktree));
+        }
+    }
+
+    /**
+     * Vendor ISOLADO por worktree via clone APFS copy-on-write — nunca symlink do
+     * vendor vivo: solver com --yolo rodando "composer dump-autoload" através do
+     * symlink reescreve o classmap do repo VIVO com paths da worktree (incidente
+     * real 02/07: autoload do Atlas quebrado no meio da bateria).
+     */
+    protected function provisionVendor(string $repo, string $worktree): void
+    {
+        if (! is_dir($repo.'/vendor') || file_exists($worktree.'/vendor')) {
+            return;
+        }
+        $clone = Process::run('cp -Rc '.escapeshellarg($repo.'/vendor').' '.escapeshellarg($worktree.'/vendor'));
+        if (! $clone->successful()) {
+            throw new RuntimeException('atlasbench_vendor_clone_failed: '.substr($clone->errorOutput(), 0, 300));
+        }
+    }
+
+    protected function removeVendor(string $worktree): void
+    {
+        if (is_link($worktree.'/vendor')) {
+            unlink($worktree.'/vendor'); // legado: worktrees antigas ainda symlinkadas
+
+            return;
+        }
+        if (is_dir($worktree.'/vendor')) {
+            Process::run('rm -rf '.escapeshellarg($worktree.'/vendor'));
         }
     }
 
