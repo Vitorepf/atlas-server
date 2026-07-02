@@ -138,6 +138,7 @@ class AtlasRivals2Command extends Command
         return match ($suiteId) {
             LocalFakeSuiteAdapter::SUITE_ID => new LocalFakeSuiteAdapter,
             AtlasBenchSuiteAdapter::SUITE_ID => new AtlasBenchSuiteAdapter,
+            \App\Services\Ai\Rivals2\Adapters\EliteRealitySuiteAdapter::SUITE_ID => new \App\Services\Ai\Rivals2\Adapters\EliteRealitySuiteAdapter,
             'senior_swe_bench' => new \App\Services\Ai\Rivals2\Adapters\External\SeniorSweBenchAdapter,
             'harbor_terminal_bench' => new \App\Services\Ai\Rivals2\Adapters\External\HarborTerminalBenchAdapter,
             'aider_polyglot' => new \App\Services\Ai\Rivals2\Adapters\External\AiderBenchAdapter,
@@ -222,11 +223,17 @@ class AtlasRivals2Command extends Command
 
     private function mine(): array
     {
-        $cases = (new AtlasBenchSuiteAdapter)->mineCases((int) $this->option('limit'));
+        // --suite=elite_reality minera com pisos elite; default segue atlas_bench
+        $adapter = $this->adapterFor((string) $this->option('suite'));
+        if (! $adapter instanceof AtlasBenchSuiteAdapter) {
+            $adapter = new AtlasBenchSuiteAdapter;
+        }
+        $cases = $adapter->mineCases((int) $this->option('limit'));
 
         return [
             'schema_version' => 'atlas.rivals2.mine.v1',
             'status' => 'ok',
+            'suite' => $adapter->suiteId(),
             'mined' => count($cases),
             'cases' => array_map(fn ($c) => [
                 'case_id' => $c['case_id'],
@@ -297,10 +304,10 @@ class AtlasRivals2Command extends Command
     {
         return $this->withRun(function (string $runId) {
             $plan = RunPlan::load($runId);
-            if ($plan->data['suite_id'] !== AtlasBenchSuiteAdapter::SUITE_ID) {
+            $adapter = $this->adapterFor($plan->data['suite_id']);
+            if (! $adapter instanceof AtlasBenchSuiteAdapter) {
                 return ['status' => 'error', 'error' => 'run_is_not_atlas_bench'];
             }
-            $adapter = new AtlasBenchSuiteAdapter;
             $adapter->execute($plan);
             $pack = (new \App\Services\Ai\Rivals2\Core\EvidencePackBuilder)->build($runId);
 

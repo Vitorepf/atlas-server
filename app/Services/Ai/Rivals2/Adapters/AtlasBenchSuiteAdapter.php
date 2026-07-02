@@ -32,17 +32,29 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         return rtrim(config('atlas_rivals2.atlasbench.repo_path'), '/');
     }
 
-    private function casesDir(): string
+    /** Bloco de config da suite (elite_reality sobrescreve com pisos mais duros). */
+    protected function configBlock(): string
     {
-        return RunPaths::root().'/atlasbench/cases';
+        return 'atlasbench';
+    }
+
+    protected function benchConfig(string $key, mixed $default = null): mixed
+    {
+        return config('atlas_rivals2.'.$this->configBlock().".{$key}",
+            config("atlas_rivals2.atlasbench.{$key}", $default));
+    }
+
+    protected function casesDir(): string
+    {
+        return RunPaths::root().'/'.$this->configBlock().'/cases';
     }
 
     /** Minera cases frescos do histórico git. Retorna os cases gerados. */
     public function mineCases(int $limit = 5): array
     {
         $repo = $this->repoPath();
-        $window = (int) config('atlas_rivals2.atlasbench.mine_window_commits', 300);
-        $maxDiff = (int) config('atlas_rivals2.atlasbench.max_diff_lines', 400);
+        $window = (int) $this->benchConfig('mine_window_commits', 300);
+        $maxDiff = (int) $this->benchConfig('max_diff_lines', 400);
 
         $log = Process::path($repo)->run(
             "git log --no-merges -n {$window} --pretty=format:%H%x09%s"
@@ -70,20 +82,21 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 fn ($l) => (int) (explode("\t", $l)[0] ?? 0) + (int) (explode("\t", $l)[1] ?? 0),
                 array_filter(explode("\n", $diffStat))
             ));
-            $minDiff = (int) config('atlas_rivals2.atlasbench.min_diff_lines', 40);
-            $minCodeFiles = (int) config('atlas_rivals2.atlasbench.min_code_files', 2);
+            $minDiff = (int) $this->benchConfig('min_diff_lines', 40);
+            $minCodeFiles = (int) $this->benchConfig('min_code_files', 2);
             if ($diffLines < $minDiff || $diffLines > $maxDiff || count($codeFiles) < $minCodeFiles) {
                 continue; // piso sênior: sem micro-commit, sem single-file trivial
             }
 
+            $ticketBody = trim(Process::path($repo)->run('git show -s --format=%b '.escapeshellarg($sha))->output());
             $case = [
                 'schema_version' => 'atlas.rivals2.atlasbench_case.v1',
                 'protocol' => 'atlasbench.v3_real_ticket',
                 'commit_date' => trim(Process::path($repo)->run('git show -s --format=%cI '.escapeshellarg($sha))->output()),
                 // intenção REAL escrita pelo autor do commit (corpo da mensagem)
-                'ticket_body' => trim(Process::path($repo)->run('git show -s --format=%b '.escapeshellarg($sha))->output()),
+                'ticket_body' => $ticketBody,
                 'case_id' => 'ab_'.substr($sha, 0, 10),
-                'task_type' => $this->taskTypeFor($subject),
+                'task_type' => $this->taskTypeFor($subject, $ticketBody, $codeFiles),
                 'title' => $subject,
                 'base_sha' => trim(Process::path($repo)->run('git rev-parse '.escapeshellarg($sha.'^'))->output()),
                 'golden_sha' => $sha,
@@ -95,6 +108,16 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
             // sintoma REAL: roda a prova oculta no estado base e captura a falha —
             // é o "bug report" que um sênior receberia, sem revelar o código do teste
             $case['symptom_excerpt'] = $this->captureSymptom($repo, $case);
+            if (! $this->acceptCase($case)) {
+                continue;
+            }
+
+            // Contamination Guard fail-closed: case com receita/sem snapshot não vira corpus
+            $audit = (new \App\Services\Ai\Rivals2\Core\ContaminationGuard)->audit($case);
+            if ($audit['violations'] !== []) {
+                continue;
+            }
+            $case['contamination'] = $audit;
 
             file_put_contents(
                 $this->casesDir().'/'.$case['case_id'].'.json',
@@ -111,10 +134,15 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         if (! is_dir($this->casesDir())) {
             return [];
         }
+        $guard = new \App\Services\Ai\Rivals2\Core\ContaminationGuard;
         $cases = [];
         foreach (glob($this->casesDir().'/*.json') as $file) {
             $case = json_decode(file_get_contents($file), true);
             if (isset($filters['task_type']) && $case['task_type'] !== $filters['task_type']) {
+                continue;
+            }
+            // re-auditoria a cada leitura: corpus que envelheceu (long-lived) sai do jogo
+            if ($guard->audit($case)['violations'] !== []) {
                 continue;
             }
             $cases[] = $case;
@@ -263,10 +291,11 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 'cost_usd' => 0.0,
                 'artifacts' => $artifacts,
                 'judge_config' => $plan->data['judge_config'] ?? null,
-                // disciplina de escopo: inchaço do patch vs golden (mecânico, sem juiz)
-                'patch_lines' => $patchLines = count(preg_grep('/^[+-][^+-]/', explode("\n", $patchOutput))),
-                'golden_lines' => $case['diff_lines'] ?? null,
-                'patch_bloat_ratio' => ! empty($case['diff_lines']) ? round($patchLines / $case['diff_lines'], 3) : null,
+                // Reality Score: vetor mecânico por dimensão (nunca score único)
+                'reality' => $reality = (new \App\Services\Ai\Rivals2\Core\RealityScoreCard)->evaluate($case, $patchOutput, $status),
+                'patch_lines' => $reality['patch_lines'],
+                'golden_lines' => $reality['golden_lines'],
+                'patch_bloat_ratio' => $reality['bloat_ratio'],
                 'started_at' => $startedAt,
                 'finished_at' => now()->toIso8601String(),
             ])->append();
@@ -333,6 +362,26 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         // sem check command, sem paths de teste, sem lista de arquivos-alvo.
         // Os testes de aceitação são OCULTOS e injetados só na correção.
         $promptFile = $worktree.'/.rivals2_task.md';
+        file_put_contents($promptFile, $this->ticketFor($case));
+
+        $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);
+        $resolved = str_replace(
+            ['{workspace}', '{prompt_file}', '{cli_model}'],
+            [escapeshellarg($worktree), escapeshellarg($promptFile), escapeshellarg($model['cli_model'] ?? $modelId)],
+            $command
+        );
+        $exec = Process::path($worktree)->timeout($timeout)->run($resolved);
+        if (! $exec->successful()) {
+            throw new RuntimeException("atlasbench_model_cli_failed:{$modelId}: ".substr($exec->errorOutput(), 0, 500));
+        }
+        unlink($promptFile);
+
+        return Process::path($worktree)->run('git diff')->output();
+    }
+
+    /** Ticket visível ao solver. Elite sobrescreve (sem título = sem cola do subject). */
+    protected function ticketFor(array $case): string
+    {
         $ticket = [
             "# Ticket: {$case['title']}",
             '',
@@ -353,21 +402,8 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         $ticket[] = 'their own acceptance checks — they are NOT provided to you.';
         $ticket[] = 'Explore the repository, find where the change belongs, implement it fully,';
         $ticket[] = 'and follow the existing code style. Do not ask questions.';
-        file_put_contents($promptFile, implode("\n", $ticket));
 
-        $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);
-        $resolved = str_replace(
-            ['{workspace}', '{prompt_file}', '{cli_model}'],
-            [escapeshellarg($worktree), escapeshellarg($promptFile), escapeshellarg($model['cli_model'] ?? $modelId)],
-            $command
-        );
-        $exec = Process::path($worktree)->timeout($timeout)->run($resolved);
-        if (! $exec->successful()) {
-            throw new RuntimeException("atlasbench_model_cli_failed:{$modelId}: ".substr($exec->errorOutput(), 0, 500));
-        }
-        unlink($promptFile);
-
-        return Process::path($worktree)->run('git diff')->output();
+        return implode("\n", $ticket);
     }
 
     /**
@@ -416,7 +452,13 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         }
     }
 
-    private function taskTypeFor(string $subject): string
+    /** Piso extra por suite (elite endurece). Base aceita tudo que passou nos pisos gerais. */
+    protected function acceptCase(array $case): bool
+    {
+        return true;
+    }
+
+    protected function taskTypeFor(string $subject, string $body = '', array $codeFiles = []): string
     {
         $s = mb_strtolower($subject);
 

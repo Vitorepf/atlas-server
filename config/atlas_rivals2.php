@@ -29,10 +29,36 @@ return [
     'runtimes' => ['bare', 'atlas_dev', 'forge', 'loop', 'autonomous'],
 
     // Régua de dificuldade (decisão do operador 02/07): frontier deve pontuar
-    // ~20-35% em braço bare. Acima disso a SUITE é acusada de fácil demais —
+    // ~20-30% em braço bare. Acima disso a SUITE é acusada de fácil demais —
     // o report levanta difficulty_flags em vez de celebrar o número.
+    // Bandas do DifficultyCalibrator (success_rate do braço bare mais forte):
+    // >35% too_easy | 30-35% borderline | 20-30% elite_valid | 5-20% hard | <5% frontier (válida).
     'difficulty' => [
         'frontier_bare_target_max' => 0.35,
+        'bands' => [
+            'too_easy' => 0.35,
+            'borderline' => 0.30,
+            'elite_valid' => 0.20,
+            'hard' => 0.05,
+        ],
+    ],
+
+    // Contamination Guard: case só é prova se for fresh; corpus long-lived expira.
+    'contamination' => [
+        'max_case_age_days' => (int) env('ATLAS_RIVALS2_CASE_MAX_AGE_DAYS', 30),
+    ],
+
+    // Reality Score: acima deste inchaço vs golden, o patch deixa de contar como minimal.
+    'reality' => [
+        'max_bloat_ratio' => 2.0,
+    ],
+
+    // Elite Reality Suite: pisos mais duros que o atlasbench (chaves omitidas herdam dele).
+    'elite' => [
+        'mine_window_commits' => 1000,
+        'min_diff_lines' => (int) env('ATLAS_RIVALS2_ELITE_MIN_DIFF_LINES', 80),
+        'min_code_files' => (int) env('ATLAS_RIVALS2_ELITE_MIN_CODE_FILES', 3),
+        'max_diff_lines' => 900,
     ],
 
     'task_types' => [
@@ -49,6 +75,16 @@ return [
         'repair_regression_fixing',
         'cost_sensitive_work',
         'local_offline_model_work',
+        // task families da Elite Reality Suite (classificação sênior por conteúdo real)
+        'senior_bug_investigation',
+        'architecture_refactor',
+        'migration_backward_compat',
+        'performance_regression',
+        'concurrency_state_bug',
+        'security_privacy_boundary',
+        'flaky_behavior',
+        'long_horizon_repair',
+        'unknown_unknown',
     ],
 
     // Modelos que o operador consegue usar no Mac (CLI/API/local).

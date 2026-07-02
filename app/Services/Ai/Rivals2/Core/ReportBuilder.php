@@ -44,24 +44,25 @@ class ReportBuilder
                 'avg_patch_bloat' => ($bloats = array_filter(array_column($items, 'patch_bloat_ratio'), 'is_numeric')) === []
                     ? null
                     : round(array_sum($bloats) / count($bloats), 3),
+                'reality' => $this->realityAggregate($items),
             ];
         }
 
-        // suite fácil demais = sinal de cola/contaminação/case trivial, não de modelo bom
-        $targetMax = (float) config('atlas_rivals2.difficulty.frontier_bare_target_max', 0.35);
-        $difficultyFlags = [];
-        foreach ($rows as $row) {
-            $isHarness = str_starts_with($row['arm_id'], 'harness_');
-            if (! $isHarness && str_ends_with($row['arm_id'], '@bare') && $row['success_rate'] > $targetMax) {
-                $difficultyFlags[] = "suite_too_easy_for:{$row['arm_id']}:{$row['task_type']}:{$row['success_rate']}>{$targetMax}";
-            }
+        // Difficulty Calibrator: banda por linha + banda da suite (baseline bare mais forte).
+        // Suite fácil demais = sinal de cola/contaminação/case trivial, não de modelo bom.
+        $calibration = (new DifficultyCalibrator)->calibrate($rows);
+        foreach ($rows as &$row) {
+            $row['difficulty_band'] = $calibration['row_bands']["{$row['task_type']}|{$row['arm_id']}"] ?? null;
         }
+        unset($row);
 
         $report = [
             'schema_version' => SchemaContract::REPORT,
             'run_id' => $runId,
             'rows' => $rows,
-            'difficulty_flags' => $difficultyFlags,
+            'difficulty_band' => $calibration['suite_band'],
+            'difficulty_baseline' => $calibration['baseline'],
+            'difficulty_flags' => $calibration['flags'],
             'claim_allowed' => $claimAllowed,
             'claim_blockers' => $blockers,
             'claim_scope' => $adjudication['claim_scope'] ?? null,
@@ -135,9 +136,33 @@ class ReportBuilder
         ];
     }
 
+    /**
+     * Agregado do Reality Score por task_type × arm — vetor de dimensões,
+     * nunca colapsado. Só agrega o que os receipts realmente carregam.
+     */
+    private function realityAggregate(array $items): ?array
+    {
+        $cards = array_values(array_filter(array_column($items, 'reality')));
+        if ($cards === []) {
+            return null;
+        }
+        $n = count($cards);
+        $rate = fn (string $key) => round(count(array_filter($cards, fn ($c) => ($c[$key] ?? null) === true)) / $n, 4);
+
+        return [
+            'n' => $n,
+            'hidden_regression_pass_rate' => $rate('hidden_regression_pass'),
+            'minimal_rate' => $rate('minimal'),
+            'hardcode_suspects' => count(array_filter($cards, fn ($c) => ($c['hardcode_suspect'] ?? null) === true)),
+            'avg_blast_radius_outside_golden' => round(array_sum(array_column($cards, 'blast_radius_outside_golden')) / $n, 2),
+            'requires_judge' => $cards[0]['requires_judge'] ?? [],
+        ];
+    }
+
     private function markdown(array $report): string
     {
         $md = "# Rivals 2.0 — run {$report['run_id']}\n\n";
+        $md .= 'difficulty_band: '.($report['difficulty_band'] ?? 'uncalibrated')."\n";
         $md .= 'claim_allowed: '.($report['claim_allowed'] ? 'true' : 'false')."\n";
         if ($report['claim_blockers'] !== []) {
             $md .= "claim_blockers:\n".implode("\n", array_map(fn ($b) => "- {$b}", $report['claim_blockers']))."\n";
