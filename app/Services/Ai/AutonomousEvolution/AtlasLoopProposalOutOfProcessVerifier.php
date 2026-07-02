@@ -108,7 +108,7 @@ final class AtlasLoopProposalOutOfProcessVerifier
                         $refutedPath,
                         $verdict,
                         JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-                        FILE_APPEND,
+                        FILE_APPEND | LOCK_EX,
                         0o755,
                     );
                     $summary['processed']++;
@@ -128,7 +128,7 @@ final class AtlasLoopProposalOutOfProcessVerifier
                     $outcome === 'independently_verified' ? $verifiedPath : $refutedPath,
                     $verdict,
                     JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-                    FILE_APPEND,
+                    FILE_APPEND | LOCK_EX,
                     0o755,
                 );
                 if ($hash !== '') {

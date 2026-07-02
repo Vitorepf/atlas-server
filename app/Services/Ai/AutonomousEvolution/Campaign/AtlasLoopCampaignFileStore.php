@@ -66,7 +66,7 @@ final class AtlasLoopCampaignFileStore
         AppendOnlyJsonlStore::appendEncodedLineSilently(
             self::ledgerPath($campaignId, $storageRoot),
             $line === false ? '' : $line,
-            FILE_APPEND,
+            FILE_APPEND | LOCK_EX,
             0o755,
         );
     }

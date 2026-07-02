@@ -315,7 +315,7 @@ final class AtlasLoopProposalPromotionGate
             ];
             $line = json_encode($detail, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             if (function_exists('storage_path') && $line !== false) {
-                @file_put_contents(storage_path('logs/loop-reprove-failures.log'), $line."\n", FILE_APPEND);
+                @file_put_contents(storage_path('logs/loop-reprove-failures.log'), $line."\n", FILE_APPEND | LOCK_EX);
             }
         } catch (Throwable) {
             // diagnóstico best-effort; jamais afeta a re-prova

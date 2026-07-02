@@ -240,7 +240,7 @@ final class AtlasUnifiedLoopOrchestrator
                 $runDir.'/'.($outcome['outcome'] === 'certified' ? 'proposals.jsonl' : 'rejected.jsonl'),
                 $outcome['record'],
                 JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-                FILE_APPEND,
+                FILE_APPEND | LOCK_EX,
                 0o755,
             );
             $state['seen'] = $seen;

@@ -67,7 +67,7 @@ final class AtlasBrainEvolutionDocAuthor
         if ($refuted !== [] || ($grounding['grounded'] ?? true) === false) {
             $flagged = $refuted !== [] ? $refuted : ['grounding_failed'];
             $annotation = "\n<!-- grounding: ".implode(', ', array_map('strval', $flagged))." ungrounded -->\n";
-            @file_put_contents($filePath, $annotation, FILE_APPEND);
+            @file_put_contents($filePath, $annotation, FILE_APPEND | LOCK_EX);
         }
 
         return $filePath;

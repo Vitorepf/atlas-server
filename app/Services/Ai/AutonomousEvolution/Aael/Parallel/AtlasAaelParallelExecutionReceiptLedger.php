@@ -78,7 +78,7 @@ final class AtlasAaelParallelExecutionReceiptLedger
                     continue;
                 }
                 // Mid-file malformed line: also quarantine, do not yield.
-                @file_put_contents($path.'.partial', ($line)."\n", FILE_APPEND);
+                @file_put_contents($path.'.partial', ($line)."\n", FILE_APPEND | LOCK_EX);
 
                 continue;
             }

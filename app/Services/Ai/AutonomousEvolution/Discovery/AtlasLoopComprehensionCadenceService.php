@@ -126,7 +126,7 @@ final class AtlasLoopComprehensionCadenceService
         if (! is_dir($dir)) {
             @mkdir($dir, 0o755, true);
         }
-        @file_put_contents($log, $line."\n", FILE_APPEND);
+        @file_put_contents($log, $line."\n", FILE_APPEND | LOCK_EX);
     }
 
     private function countPhpFiles(string $root): int
