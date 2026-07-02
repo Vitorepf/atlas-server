@@ -31,17 +31,10 @@ final class AtlasCortexLocalityIntersectionEmitter
         private readonly string $outputJsonlPath,
         ?callable $masterSwitch = null,
     ) {
-        $this->masterSwitch = $masterSwitch ?? static function (): bool {
-            if (function_exists('config')) {
-                $v = config('atlas.loop.master_enabled');
-                if ($v !== null) {
-                    return (bool) $v;
-                }
-            }
-            $env = getenv('ATLAS_LOOP_MASTER_ENABLED');
-
-            return $env === false ? true : in_array(strtolower((string) $env), ['1', 'true', 'on', 'yes'], true);
-        };
+        // Canonical master switch (config, default OFF); the old getenv() fallback was
+        // dead inside Laravel and defaulted ON when the var was unset.
+        $this->masterSwitch = $masterSwitch
+            ?? static fn (): bool => (bool) config('atlas.loop.master_enabled', false);
         $dir = dirname($this->outputJsonlPath);
         if (! is_dir($dir)) {
             @mkdir($dir, 0o755, true);

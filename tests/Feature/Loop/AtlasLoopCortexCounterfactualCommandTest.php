@@ -19,14 +19,13 @@ final class AtlasLoopCortexCounterfactualCommandTest extends TestCase
         @mkdir($this->tmpRoot, 0o755, true);
         AtlasCortexCounterfactualHypothesisLedger::setRootForTesting($this->tmpRoot);
         AtlasCortexCounterfactualHypothesisLedger::$flagOverride = true;
-        putenv('ATLAS_LOOP_MASTER_ENABLED=true');
+        config()->set('atlas.loop.master_enabled', true);
     }
 
     protected function tearDown(): void
     {
         AtlasCortexCounterfactualHypothesisLedger::setRootForTesting(null);
         AtlasCortexCounterfactualHypothesisLedger::$flagOverride = null;
-        putenv('ATLAS_LOOP_MASTER_ENABLED');
         foreach ((array) glob($this->tmpRoot.'/*') as $f) {
             @unlink((string) $f);
         }
@@ -64,7 +63,7 @@ final class AtlasLoopCortexCounterfactualCommandTest extends TestCase
 
     public function test_master_disabled_exits_zero_without_writes(): void
     {
-        putenv('ATLAS_LOOP_MASTER_ENABLED=false');
+        config()->set('atlas.loop.master_enabled', false);
         AtlasCortexCounterfactualHypothesisLedger::$flagOverride = false;
 
         Artisan::call('atlas:loop:cortex:counterfactual', ['action' => 'hypothesis', '--site' => 'x', '--walk' => 'w', '--json' => true]);
@@ -76,8 +75,8 @@ final class AtlasLoopCortexCounterfactualCommandTest extends TestCase
 
     public function test_master_unset_exits_zero_without_writes_fail_closed(): void
     {
-        // ATLAS_LOOP_MASTER_ENABLED unset ⇒ getenv returns false ⇒ command must fail-closed (no-op, no writes).
-        putenv('ATLAS_LOOP_MASTER_ENABLED');  // unsets the env var
+        // Master ausente (config null) ⇒ o comando fail-closa (no-op, sem writes).
+        config()->set('atlas.loop.master_enabled', null);
         AtlasCortexCounterfactualHypothesisLedger::$flagOverride = false;
 
         Artisan::call('atlas:loop:cortex:counterfactual', ['action' => 'hypothesis', '--site' => 'x', '--walk' => 'w', '--json' => true]);

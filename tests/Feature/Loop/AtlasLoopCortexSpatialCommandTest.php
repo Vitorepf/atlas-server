@@ -14,15 +14,23 @@ class AtlasLoopCortexSpatialCommandTest extends TestCase
 {
     private string $storageRoot = '';
 
+    private string $fixtureRoot = '';
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->storageRoot = storage_path('atlas/cortex/spatial');
         config()->set('atlas.loop.master_enabled', true);
 
-        // Bind controlled reporters: FS uses base_path scope, all three persist into a tmp tree
-        // we own (cleaned in tearDown). The CallGraph reporter receives an empty adjacency source.
-        $scope = base_path(AtlasCortexFsLocalityReporter::ALLOWED_SCOPE_RELATIVE);
+        // Bind controlled reporters. FS scans a SMALL tmp fixture tree that satisfies the
+        // allowed-scope boundary — never the live app tree: the per-file neighbor scan over
+        // the real AutonomousEvolution dir is O(n²), emits hundreds of MB of JSON and OOMs
+        // the process. The CallGraph reporter receives an empty adjacency source.
+        $this->fixtureRoot = sys_get_temp_dir().'/atlas-spatial-'.bin2hex(random_bytes(6));
+        $scope = $this->fixtureRoot.'/'.AtlasCortexFsLocalityReporter::ALLOWED_SCOPE_RELATIVE;
+        @mkdir($scope.'/Discovery', 0o755, true);
+        file_put_contents($scope.'/Foo.php', '<?php');
+        file_put_contents($scope.'/Discovery/Bar.php', '<?php');
         app()->instance(
             AtlasCortexFsLocalityReporter::class,
             new AtlasCortexFsLocalityReporter($scope, $this->storageRoot.'/fs'),
@@ -45,6 +53,12 @@ class AtlasLoopCortexSpatialCommandTest extends TestCase
         );
     }
 
+    protected function tearDown(): void
+    {
+        (new \Symfony\Component\Process\Process(['rm', '-rf', $this->fixtureRoot]))->run();
+        parent::tearDown();
+    }
+
     private function runCmd(array $params): array
     {
         $buf = new BufferedOutput();
@@ -61,6 +75,9 @@ class AtlasLoopCortexSpatialCommandTest extends TestCase
         self::assertSame(0, $r['exit']);
         $payload = json_decode(trim($r['output']), true);
         self::assertIsArray($payload);
+        // Não-vácuo: com o master armado via config o scan da fixture EMITE records
+        // (o guard getenv antigo fazia este teste passar com report vazio).
+        self::assertNotEmpty($payload);
     }
 
     public function test_callgraph_mode_emits_json_with_known_schema(): void

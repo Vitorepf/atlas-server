@@ -233,9 +233,9 @@ final class AtlasLoopCortexHotpathCommand extends Command
 
     private function masterEnabled(): bool
     {
-        $env = getenv('ATLAS_LOOP_MASTER_ENABLED');
-
-        return $env === false || $env === '' || strtolower((string) $env) === 'true';
+        // Canonical master switch (config, default OFF) — the raw getenv() this replaces
+        // defaulted ON when the var was unset (hermetic tests, cron).
+        return (bool) config('atlas.loop.master_enabled', false);
     }
 
     private function failWith(string $reason): int

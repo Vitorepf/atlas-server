@@ -158,12 +158,9 @@ final class AtlasLoopCortexCounterfactualCommand extends Command
 
     private function masterEnabled(): bool
     {
-        $env = getenv('ATLAS_LOOP_MASTER_ENABLED');
-        if ($env === false) {
-            return false;
-        }
-
-        return ! in_array(strtolower((string) $env), ['0', 'false', 'off', ''], true);
+        // Canonical master switch (config, default OFF) — preserves the fail-closed
+        // contract this command always had, now via the single source of truth.
+        return (bool) config('atlas.loop.master_enabled', false);
     }
 
     private function emit(bool $json, array $payload): void

@@ -118,15 +118,9 @@ final class AtlasMaestroPriorityFactSnapshotter
 
     private function masterSwitchOn(): bool
     {
-        if (function_exists('config')) {
-            $val = config('atlas.loop.master_enabled');
-            if ($val !== null) {
-                return (bool) $val;
-            }
-        }
-        $env = getenv('ATLAS_LOOP_MASTER_ENABLED');
-
-        return $env === false ? true : in_array(strtolower((string) $env), ['1', 'true', 'on', 'yes'], true);
+        // Canonical master switch (config, default OFF); the old getenv() fallback was
+        // dead inside Laravel and defaulted ON when the var was unset.
+        return (bool) config('atlas.loop.master_enabled', false);
     }
 
     /**

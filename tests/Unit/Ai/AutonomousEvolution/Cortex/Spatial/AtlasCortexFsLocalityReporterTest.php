@@ -60,7 +60,7 @@ final class AtlasCortexFsLocalityReporterTest extends TestCase
 
     public function test_reports_neighbors_per_file_and_depth_deterministically(): void
     {
-        putenv('ATLAS_LOOP_MASTER_ENABLED=true');
+        config()->set('atlas.loop.master_enabled', true);
         $reporter = new AtlasCortexFsLocalityReporter($this->scopeRoot, $this->sandbox.'/storage', [1, 2]);
 
         $a = $reporter->report()->toArray();
@@ -80,7 +80,7 @@ final class AtlasCortexFsLocalityReporterTest extends TestCase
 
     public function test_master_off_writes_zero_bytes_and_returns_empty_collection(): void
     {
-        putenv('ATLAS_LOOP_MASTER_ENABLED=false');
+        config()->set('atlas.loop.master_enabled', false);
         $reporter = new AtlasCortexFsLocalityReporter($this->scopeRoot, $this->sandbox.'/storage');
 
         $out = $reporter->report();
@@ -88,13 +88,11 @@ final class AtlasCortexFsLocalityReporterTest extends TestCase
 
         $jsonl = $this->sandbox.'/storage/atlas/cortex/spatial/fs/locality.jsonl';
         $this->assertTrue(! is_file($jsonl) || filesize($jsonl) === 0);
-
-        putenv('ATLAS_LOOP_MASTER_ENABLED');
     }
 
     public function test_scope_outside_allowed_boundary_throws_runtime_exception(): void
     {
-        putenv('ATLAS_LOOP_MASTER_ENABLED=true');
+        config()->set('atlas.loop.master_enabled', true);
         // Build a different tree outside the AutonomousEvolution scope.
         $bad = $this->sandbox.'/app/Services/Ai/MarketingDomain';
         @mkdir($bad, 0o755, true);

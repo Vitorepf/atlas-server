@@ -174,11 +174,9 @@ final class AtlasCortexFsLocalityReporter
 
     private function masterEnabled(): bool
     {
-        $env = getenv('ATLAS_LOOP_MASTER_ENABLED');
-        if ($env === false) {
-            return true; // default ON for the reporter; the storage write is bounded
-        }
-
-        return ! in_array(strtolower((string) $env), ['0', 'false', 'off', ''], true);
+        // Canonical master switch (config, default OFF). The raw getenv() guard this
+        // replaces defaulted ON when the var was unset, so any context without the
+        // .env line (hermetic tests, cron) ran the unbounded O(n²) neighbor scan.
+        return (bool) config('atlas.loop.master_enabled', false);
     }
 }

@@ -123,28 +123,20 @@ final class AtlasLoopCortexHotpathCommandTest extends TestCase
 
     public function test_strict_master_with_master_disabled_exits_zero_with_status_disabled(): void
     {
-        putenv('ATLAS_LOOP_MASTER_ENABLED=false');
-        try {
-            $r = $this->runCmd(['action' => 'report', '--window' => 4, '--json' => true, '--strict-master' => true]);
-            self::assertSame(0, $r['exit']);
-            $payload = json_decode(trim($r['output']), true);
-            self::assertSame('disabled', $payload['status']);
-        } finally {
-            putenv('ATLAS_LOOP_MASTER_ENABLED');
-        }
+        config()->set('atlas.loop.master_enabled', false);
+        $r = $this->runCmd(['action' => 'report', '--window' => 4, '--json' => true, '--strict-master' => true]);
+        self::assertSame(0, $r['exit']);
+        $payload = json_decode(trim($r['output']), true);
+        self::assertSame('disabled', $payload['status']);
     }
 
     public function test_without_strict_master_runs_even_when_master_disabled(): void
     {
-        putenv('ATLAS_LOOP_MASTER_ENABLED=false');
-        try {
-            $r = $this->runCmd(['action' => 'report', '--window' => 4, '--json' => true]);
-            self::assertSame(0, $r['exit']);
-            $payload = json_decode(trim($r['output']), true);
-            self::assertIsArray($payload);
-        } finally {
-            putenv('ATLAS_LOOP_MASTER_ENABLED');
-        }
+        config()->set('atlas.loop.master_enabled', false);
+        $r = $this->runCmd(['action' => 'report', '--window' => 4, '--json' => true]);
+        self::assertSame(0, $r['exit']);
+        $payload = json_decode(trim($r['output']), true);
+        self::assertIsArray($payload);
     }
 
     public function test_goodhart_violation_exits_one_with_canonical_message(): void

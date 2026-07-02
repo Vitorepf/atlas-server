@@ -119,17 +119,8 @@ final class AtlasLoopWeeklyDigestComposer
 
     private function masterSwitchEnabled(): bool
     {
-        if (function_exists('config')) {
-            $cfg = config('atlas.loop.master_enabled');
-            if ($cfg !== null) {
-                return (bool) $cfg;
-            }
-        }
-        $env = getenv('ATLAS_LOOP_MASTER_ENABLED');
-        if ($env === false) {
-            return true; // default ON when neither config nor env set
-        }
-
-        return in_array(strtolower((string) $env), ['1', 'true', 'on', 'yes'], true);
+        // Canonical master switch (config, default OFF); the old getenv() fallback was
+        // dead inside Laravel and defaulted ON when the var was unset.
+        return (bool) config('atlas.loop.master_enabled', false);
     }
 }
