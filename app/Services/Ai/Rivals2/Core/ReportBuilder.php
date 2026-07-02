@@ -64,6 +64,63 @@ class ReportBuilder
         return $report;
     }
 
+    /**
+     * Agregado cross-run: varre runs/ e consolida por task_type × arm.
+     * Só receipts de runs com adjudicação VÁLIDA contam para linhas com
+     * claim; runs inválidos/não-adjudicados entram apenas na contagem de
+     * excluded_runs (nunca somem silenciosamente).
+     */
+    public function buildAll(): array
+    {
+        $runsDir = RunPaths::runsDir();
+        $runIds = is_dir($runsDir) ? array_values(array_diff(scandir($runsDir), ['.', '..'])) : [];
+
+        $groups = [];
+        $included = [];
+        $excluded = [];
+        foreach ($runIds as $runId) {
+            $adjPath = RunPaths::adjudicationPath($runId);
+            $adj = is_file($adjPath) ? (json_decode(file_get_contents($adjPath), true) ?? []) : [];
+            if (($adj['claim_allowed'] ?? false) !== true) {
+                $excluded[] = ['run_id' => $runId, 'reason' => $adj === [] ? 'not_adjudicated' : 'invalid'];
+                continue;
+            }
+            $included[] = $runId;
+            foreach (RunReceipt::loadAll($runId) as $receipt) {
+                $groups["{$receipt->data['task_type']}|{$receipt->data['arm_id']}"][] = $receipt->data;
+            }
+        }
+
+        $rows = [];
+        foreach ($groups as $key => $items) {
+            [$taskType, $armId] = explode('|', $key, 2);
+            $successFlags = array_map(fn ($r) => $r['status'] === 'success' ? 1.0 : 0.0, $items);
+            $n = count($items);
+            $successRate = array_sum($successFlags) / $n;
+            $variance = array_sum(array_map(fn ($f) => ($f - $successRate) ** 2, $successFlags)) / $n;
+            $rows[] = [
+                'task_type' => $taskType,
+                'arm_id' => $armId,
+                'n' => $n,
+                'success_rate' => round($successRate, 4),
+                'avg_cost_usd' => round(array_sum(array_column($items, 'cost_usd')) / $n, 6),
+                'avg_wall_ms' => (int) round(array_sum(array_column($items, 'wall_ms')) / $n),
+                'stability' => round(1.0 - sqrt($variance), 4),
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.rivals2.report_all.v1',
+            'rows' => $rows,
+            'included_runs' => $included,
+            'excluded_runs' => $excluded,
+            // agregado é leitura consolidada; claim continua POR RUN (escopo pinado lá)
+            'claim_allowed' => false,
+            'claim_blockers' => ['aggregate_view_claims_live_per_run'],
+            'built_at' => now()->toIso8601String(),
+        ];
+    }
+
     private function markdown(array $report): string
     {
         $md = "# Rivals 2.0 — run {$report['run_id']}\n\n";

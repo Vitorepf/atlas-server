@@ -22,7 +22,7 @@ use Illuminate\Console\Command;
 class AtlasRivals2Command extends Command
 {
     protected $signature = 'atlas:rivals2
-        {action : doctor|models|arms|mine|plan|run-fake|run-bench|verify|adjudicate|report|uplift|ledger}
+        {action : doctor|models|arms|mine|plan|run-fake|run-bench|verify|adjudicate|report|report-all|uplift|ledger}
         {--model= : (uplift) model_id comparado nos dois runtimes}
         {--base-runtime=bare}
         {--atlas-runtime=atlas_dev}
@@ -57,6 +57,7 @@ class AtlasRivals2Command extends Command
                 return $adjudication + ['ledger_entry_id' => $entry['entry_id']];
             }),
             'report' => $this->withRun(fn ($runId) => (new ReportBuilder)->build($runId)),
+            'report-all' => (new ReportBuilder)->buildAll(),
             'uplift' => $this->withRun(function ($runId) {
                 $model = (string) $this->option('model');
                 if ($model === '') {

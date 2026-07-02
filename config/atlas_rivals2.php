@@ -47,12 +47,14 @@ return [
     // Modelos que o operador consegue usar no Mac (CLI/API/local).
     // access_type: cli | api | local. Custos são hints (USD por 1M tokens);
     // o custo REAL de cada run vem do receipt, nunca daqui.
+    // 'command' = template CLI executado DENTRO da worktree ({workspace}, {prompt_file},
+    // {cli_model}); só roda com provider_spend_allowed=true (gate fail-closed no adapter).
     'models' => [
-        'claude_opus_4_8' => ['provider' => 'anthropic', 'access_type' => 'cli', 'cost_hint_in' => 15.0, 'cost_hint_out' => 75.0, 'local' => false, 'enabled' => true],
-        'claude_sonnet_5' => ['provider' => 'anthropic', 'access_type' => 'cli', 'cost_hint_in' => 3.0, 'cost_hint_out' => 15.0, 'local' => false, 'enabled' => true],
-        'codex_gpt_5_5' => ['provider' => 'openai', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true],
-        'gemini' => ['provider' => 'google', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true],
-        'minimax_m3' => ['provider' => 'minimax', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true],
+        'claude_opus_4_8' => ['provider' => 'anthropic', 'access_type' => 'cli', 'cost_hint_in' => 15.0, 'cost_hint_out' => 75.0, 'local' => false, 'enabled' => true, 'cli_model' => 'claude-opus-4-8', 'command' => env('ATLAS_RIVALS2_CLAUDE_CMD', 'claude -p "$(cat {prompt_file})" --model {cli_model} --dangerously-skip-permissions')],
+        'claude_sonnet_5' => ['provider' => 'anthropic', 'access_type' => 'cli', 'cost_hint_in' => 3.0, 'cost_hint_out' => 15.0, 'local' => false, 'enabled' => true, 'cli_model' => 'claude-sonnet-5', 'command' => env('ATLAS_RIVALS2_CLAUDE_CMD', 'claude -p "$(cat {prompt_file})" --model {cli_model} --dangerously-skip-permissions')],
+        'codex_gpt_5_5' => ['provider' => 'openai', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true, 'cli_model' => 'gpt-5.5-codex', 'command' => env('ATLAS_RIVALS2_CODEX_CMD', 'codex exec --full-auto "$(cat {prompt_file})"')],
+        'gemini' => ['provider' => 'google', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true, 'cli_model' => 'gemini', 'command' => env('ATLAS_RIVALS2_GEMINI_CMD', 'gemini --yolo -p "$(cat {prompt_file})"')],
+        'minimax_m3' => ['provider' => 'minimax', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true, 'cli_model' => 'minimax-m3', 'command' => env('ATLAS_RIVALS2_MINIMAX_CMD')],
         'kimi' => ['provider' => 'moonshot', 'access_type' => 'api', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => false],
         'composer_2_5' => ['provider' => 'cursor', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => false],
         'glm_5_2' => ['provider' => 'zai', 'access_type' => 'api', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true],
@@ -61,6 +63,17 @@ return [
         // golden = reaplica o patch real minerado). Nunca são medição de modelo.
         'harness_null' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true],
         'harness_golden' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true],
+    ],
+
+    // Executores de runtime Atlas (objetivo 2 — uplift). Template CLI que envolve
+    // o MESMO modelo com o cérebro Atlas, rodando na worktree ({workspace},
+    // {prompt_file}, {cli_model}). null = runtime ainda sem wrapper → o adapter
+    // bloqueia honesto (uplift_supported=false); NUNCA simula.
+    'runtime_commands' => [
+        'atlas_dev' => env('ATLAS_RIVALS2_ATLAS_DEV_CMD'),
+        'forge' => env('ATLAS_RIVALS2_FORGE_CMD'),
+        'loop' => env('ATLAS_RIVALS2_LOOP_CMD'),
+        'autonomous' => env('ATLAS_RIVALS2_AUTONOMOUS_CMD'),
     ],
 
     // AtlasBench interno: cases frescos minerados do histórico git dos repos Atlas

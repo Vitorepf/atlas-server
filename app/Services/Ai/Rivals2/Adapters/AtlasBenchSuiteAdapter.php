@@ -230,9 +230,14 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
     private function applySolver(string $repo, string $worktree, array $case, string $modelId, string $runtime, RunPlan $plan): string
     {
         if ($runtime !== 'bare') {
-            // S4: uplift real exige o wrapper Atlas (Harbor-compatible); até lá é
-            // bloqueio honesto para QUALQUER braço — nunca simular runtime Atlas
-            throw new RuntimeException("atlasbench_runtime_not_executable:{$runtime}:uplift_supported=false");
+            // S4: runtime Atlas roda via wrapper CLI configurado (mesmo modelo,
+            // cérebro Atlas por cima). Sem wrapper → bloqueio honesto, nunca simula.
+            $runtimeCmd = config("atlas_rivals2.runtime_commands.{$runtime}");
+            if (! is_string($runtimeCmd) || $runtimeCmd === '') {
+                throw new RuntimeException("atlasbench_runtime_not_executable:{$runtime}:uplift_supported=false");
+            }
+
+            return $this->runCliArm($worktree, $case, $modelId, $runtimeCmd);
         }
 
         return match ($modelId) {
@@ -248,23 +253,23 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
 
                 return $diff->output();
             })(),
-            default => $this->runModelArm($worktree, $case, $modelId, $runtime, $plan),
+            default => $this->runCliArm($worktree, $case, $modelId),
         };
     }
 
     /**
-     * Slice 3: braço de modelo real via perfil CLI do ModelRegistry, rodando
-     * DENTRO da worktree isolada. Fail-closed em três portas: runtime Atlas
-     * ainda sem wrapper → bloqueia (nunca simula uplift); modelo sem perfil
-     * CLI → bloqueia; provider não-local sem flag de spend → bloqueia.
+     * Braço executado via CLI dentro da worktree isolada — modelo puro (S3, template
+     * do ModelRegistry) ou runtime Atlas sobre o modelo (S4, template de
+     * runtime_commands). Fail-closed: modelo desconhecido/sem perfil CLI → bloqueia;
+     * provider não-local sem flag de spend → bloqueia. NUNCA inventa resultado.
      */
-    private function runModelArm(string $worktree, array $case, string $modelId, string $runtime, RunPlan $plan): string
+    private function runCliArm(string $worktree, array $case, string $modelId, ?string $overrideCommand = null): string
     {
         $model = (new \App\Services\Ai\Rivals2\Core\ModelRegistry)->get($modelId);
         if ($model === null || ! ($model['enabled'] ?? false)) {
             throw new RuntimeException("atlasbench_unknown_or_disabled_model:{$modelId}");
         }
-        $command = $model['command'] ?? null;
+        $command = $overrideCommand ?? ($model['command'] ?? null);
         if (! is_string($command) || $command === '') {
             throw new RuntimeException("atlasbench_model_has_no_cli_command:{$modelId}");
         }
@@ -283,7 +288,11 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         ]));
 
         $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);
-        $resolved = str_replace(['{workspace}', '{prompt_file}'], [escapeshellarg($worktree), escapeshellarg($promptFile)], $command);
+        $resolved = str_replace(
+            ['{workspace}', '{prompt_file}', '{cli_model}'],
+            [escapeshellarg($worktree), escapeshellarg($promptFile), escapeshellarg($model['cli_model'] ?? $modelId)],
+            $command
+        );
         $exec = Process::path($worktree)->timeout($timeout)->run($resolved);
         if (! $exec->successful()) {
             throw new RuntimeException("atlasbench_model_cli_failed:{$modelId}: ".substr($exec->errorOutput(), 0, 500));
