@@ -71,6 +71,9 @@
              ~50s provider calls per run. Tests pin the documented default; hermes-lane
              tests opt in per-test. -->
         <env name="ATLAS_DEV_DEFAULT_PROVIDER" value="claude_cli"/>
+        <!-- Campaign flag armed in the live .env; suites assert the documented default
+             (per-lane certification) and opt in per-test where universal cert is under test. -->
+        <env name="ATLAS_LOOP_UNIVERSAL_CERTIFICATION" value="false"/>
         <!-- T1.2: capture quality gate is ENFORCE in dev/prod .env, but tests stay
              deterministic on the historical default (per-test config()->set turns
              enforce on where the gate itself is under test). -->
