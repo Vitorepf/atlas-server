@@ -489,6 +489,23 @@ class AiWorker
                     ?? data_get($result->metadata, 'estimated_cost_usd');
                 $qualityScore = data_get($result->metadata, 'quality_score')
                     ?? data_get($result->metadata, 'atlas_decide.quality_score');
+                // Chat weak-response probe → ADML: a structurally weak
+                // response on a nominally successful call floors the quality
+                // signal to 0.0 (our mechanical evidence beats any provider
+                // self-declared score — O-5 anti-self-declared contract), so
+                // learned routes that produce weak answers degrade instead of
+                // looking permanently green.
+                if ($result->ok) {
+                    $probe = (new \App\Services\Ai\Gateway\ChatWeakResponseProbe)->inspect(
+                        $result->output,
+                        is_array(data_get($job->payload, 'specialist_flow_execution'))
+                            ? (array) data_get($job->payload, 'specialist_flow_execution')
+                            : [],
+                    );
+                    if ($probe['weak']) {
+                        $qualityScore = 0.0;
+                    }
+                }
                 $this->liveOutcomeFeedback->record([
                     'task_category' => $taskCategory,
                     'role' => $role,
@@ -1875,13 +1892,31 @@ class AiWorker
                 'artifact_count' => 1,
             ], 'system');
 
+            // Chat weak-response probe (advisory, chat-side sibling of Dev W1):
+            // a structurally weak/contract-violating response is FLAGGED on the
+            // job metadata for surfaces/telemetry — never blocked. Absent key
+            // when clean keeps the metadata byte-identical to the pre-probe
+            // baseline.
+            $weakProbe = (new \App\Services\Ai\Gateway\ChatWeakResponseProbe)->inspect(
+                $result->output,
+                is_array(data_get($job->payload, 'specialist_flow_execution'))
+                    ? (array) data_get($job->payload, 'specialist_flow_execution')
+                    : [],
+            );
+
             $job->update([
                 'status' => 'succeeded',
                 'result_text' => $result->output,
                 'error_code' => null,
                 'error_message' => null,
                 'finished_at' => now(),
-                'metadata' => array_merge($job->metadata ?? [], $this->programmingDispatchUpdate($job, 'executed', $attempt->provider, $responseHash)),
+                'metadata' => array_merge(
+                    $job->metadata ?? [],
+                    $this->programmingDispatchUpdate($job, 'executed', $attempt->provider, $responseHash),
+                    $weakProbe['weak']
+                        ? ['weak_response' => ['detected' => true, 'reasons' => $weakProbe['reasons']]]
+                        : [],
+                ),
             ]);
 
             try {
