@@ -94,6 +94,15 @@ return [
         // Set ATLAS_DEV_DEFAULT_PROVIDER=minimax_m27_cli to use MiniMax as
         // automatic fallback when Claude/Codex are exhausted.
         'default_provider' => env('ATLAS_DEV_DEFAULT_PROVIDER', 'claude_cli'),
+
+        // Hyperflow organ / model routing: when the operator gave NO explicit
+        // provider choice, SpecComposer consults the Atlas Decide learned
+        // route (ADML cost+outcome ledger, scope = programming/<task_kind>)
+        // before falling back to default_provider. Behavior only changes when
+        // ADML has actually learned a route from real outcomes; free_to_choose,
+        // requires_approval, blocked, errors and unknown providers all keep
+        // the default. {@see SpecComposer::learnedOrDefaultProvider}
+        'consult_decide' => (bool) env('ATLAS_DEV_PROVIDER_CONSULT_DECIDE', true),
     ],
 
     'receipts_path' => env(

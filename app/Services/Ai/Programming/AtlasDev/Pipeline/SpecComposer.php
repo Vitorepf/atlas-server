@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
+use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
@@ -236,7 +237,7 @@ class SpecComposer
             abortOnSameSignatureTwice: true,
         );
 
-        $providerLock = $this->resolveProviderLock($envelope);
+        $providerLock = $this->resolveProviderLock($envelope, $compactSdd->taskKind);
 
         // E2: intent_text sourced from the normalized intent. For write tasks
         // (the only path that mutates the workspace), never empty: fall back
@@ -313,7 +314,22 @@ class SpecComposer
         }
     }
 
-    private function resolveProviderLock(OperationEnvelope $envelope): ProviderLock
+    /**
+     * Providers this fast path has a runtime driver for. A learned route
+     * pointing anywhere else is ignored (fail-open to the config default) —
+     * PipelineRunExecutor would otherwise die on unsupported_provider_lock.
+     *
+     * @var list<string>
+     */
+    private const DEV_RUNTIME_PROVIDERS = [
+        'claude_cli',
+        'cursor_cli',
+        'codex_cli',
+        'minimax_m27_cli',
+        'hermes_cli',
+    ];
+
+    private function resolveProviderLock(OperationEnvelope $envelope, string $taskKind = ''): ProviderLock
     {
         $choice = strtolower(trim((string) ($envelope->surfaceContext->providerChoice ?? '')));
         $provider = match ($choice) {
@@ -322,18 +338,7 @@ class SpecComposer
             'codex', 'codex_cli', 'openai_codex' => 'codex_cli',
             'minimax', 'minimax_cli', 'minimax_m27', 'minimax_m27_cli' => 'minimax_m27_cli',
             'hermes', 'hermes_cli', 'hermes-agent', 'hermes_agent', 'nous' => 'hermes_cli',
-            default => (static function (): string {
-                if (! function_exists('config')) {
-                    return 'claude_cli';
-                }
-                try {
-                    $val = config('atlas_dev.provider.default_provider', 'claude_cli');
-
-                    return is_string($val) && trim($val) !== '' ? trim($val) : 'claude_cli';
-                } catch (\Throwable) {
-                    return 'claude_cli';
-                }
-            })(),
+            default => $this->learnedOrDefaultProvider($taskKind),
         };
 
         return new ProviderLock(
@@ -341,6 +346,59 @@ class SpecComposer
             modelFamily: $this->resolveModelFamily($envelope, $provider),
             fallbackAllowed: false,
         );
+    }
+
+    /**
+     * No explicit operator provider choice: consult the Atlas Decide learned
+     * route (ADML cost+outcome ledger — the SAME brain the gateway consults
+     * via AiProviderManager::getRecommended) before the static config
+     * default. The scope is (programming, <task_kind>), so ADML can learn
+     * e.g. that repairs land better on one provider and questions on a
+     * cheaper one. Fail-open on every edge: consultation error, no learned
+     * signal (free_to_choose), requires_approval/blocked verdicts, or a
+     * learned provider without a Dev runtime driver all fall back to the
+     * config default. The consultation service persists its own append-only
+     * ticket, so the routing decision is auditable without new receipts.
+     */
+    private function learnedOrDefaultProvider(string $taskKind): string
+    {
+        $default = (static function (): string {
+            if (! function_exists('config')) {
+                return 'claude_cli';
+            }
+            try {
+                $val = config('atlas_dev.provider.default_provider', 'claude_cli');
+
+                return is_string($val) && trim($val) !== '' ? trim($val) : 'claude_cli';
+            } catch (\Throwable) {
+                return 'claude_cli';
+            }
+        })();
+
+        try {
+            if (! (bool) config('atlas_dev.provider.consult_decide', true)) {
+                return $default;
+            }
+
+            $consultation = app(AtlasDecideGatewayConsultationService::class)->consult([
+                'task_category' => 'programming',
+                'role' => $taskKind !== '' ? $taskKind : 'atlas_dev_fast_path',
+                'framework' => null,
+                'privacy_class' => 'normal',
+                'actor' => 'atlas_dev_spec_composer',
+            ]);
+
+            if (($consultation['verdict'] ?? null) === AtlasDecideGatewayConsultationService::VERDICT_FOLLOW_LEARNED) {
+                $candidate = $consultation['active_route']['provider'] ?? null;
+                if (is_string($candidate) && in_array($candidate, self::DEV_RUNTIME_PROVIDERS, true)) {
+                    return $candidate;
+                }
+            }
+        } catch (\Throwable) {
+            // ADML must never break plan composition (mirrors the gateway).
+        }
+
+        return $default;
     }
 
     private function resolveModelFamily(OperationEnvelope $envelope, string $provider): string
