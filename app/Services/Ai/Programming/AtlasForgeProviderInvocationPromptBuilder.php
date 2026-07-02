@@ -6,6 +6,8 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
+use App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -114,6 +116,27 @@ class AtlasForgeProviderInvocationPromptBuilder
         $codeGraphPack = $this->codeGraphPack($project, $metadata, $intent, $allowedFiles);
         if ($codeGraphPack !== null) {
             $evidenceContract['code_graph_pack'] = $codeGraphPack;
+        }
+
+        // M5 failure-mode memory reaches the Forge prompt too — the SAME
+        // injector the Dev fast path uses (workspace+area scoped capsules,
+        // VAL-M5-003/-005/-007 inherited), so an obra touching files that
+        // already failed sees those failure modes BEFORE spending a governed
+        // provider call. Fail-open, best-effort; zero matching capsules keeps
+        // the evidence contract byte-identical.
+        try {
+            if ($allowedFiles !== []) {
+                $workspacePath = AiValueNormalizer::trimmedStringOrNull(data_get($metadata, 'workspace_path'));
+                $failureModes = (new DevFailureCapsulePromptInjector)->injectFor(
+                    $allowedFiles,
+                    $workspacePath !== null ? WorkspaceOriginIdentity::slug($workspacePath) : null,
+                );
+                if ($failureModes !== []) {
+                    $evidenceContract['known_failure_modes'] = $failureModes;
+                }
+            }
+        } catch (Throwable) {
+            // Memory recall must never break a governed prompt.
         }
 
         return [
