@@ -341,7 +341,6 @@ final class PipelineRunExecutor implements RunExecutor
                     )
                     : $this->verificationFailedDueToPatchApply($patchApplyResult);
 
-                fwrite(STDERR, "DBGLOOP agg=".$verificationResult->aggregateStatus." tests=".json_encode(array_map(fn($t)=>[$t->command,$t->ok,$t->exitCode], $verificationResult->tests))." patch=".$patchApplyResult->status." cap=".$repairCap."\n");
                 // Check if repair loop should continue
                 if ($verificationResult->aggregateStatus !== VerificationGateResult::STATUS_FAILED
                     || $repairCap <= 0
@@ -482,7 +481,6 @@ final class PipelineRunExecutor implements RunExecutor
         if (! $e2Config->isOff()) {
             $intentNotTested = $this->probeIntentCoverage($runId, $taskContract);
             if ($intentNotTested) {
-fwrite(STDERR, "DBGTRIP line=484\n");
                 if ($e2Config->isHard()) {
                     // Hard mode => sanctioned hard gate channel (STATUS_FAILED).
                     // The verification gate becomes red so completion resolves
@@ -612,7 +610,6 @@ fwrite(STDERR, "DBGTRIP line=484\n");
             $verdict = $gate->evaluate($mutationResult);
 
             if ($verdict->tripped) {
-fwrite(STDERR, "DBGTRIP line=613\n");
                 if ($e3Config->isHard()) {
                     // Hard => sanctioned hard gate channel (STATUS_FAILED).
                     // Rebuild the gate result preserving the gathered
@@ -675,7 +672,6 @@ fwrite(STDERR, "DBGTRIP line=613\n");
                 $regressionVerdict = $regressionGate->evaluate($regressionResult);
 
                 if ($regressionVerdict->tripped) {
-fwrite(STDERR, "DBGTRIP line=675\n");
                     if ($e5Config->isHard()) {
                         // Hard => sanctioned hard gate channel (STATUS_FAILED).
                         // Rebuild the gate result preserving the gathered
@@ -772,7 +768,6 @@ fwrite(STDERR, "DBGTRIP line=675\n");
                 $shadowVerdict = $shadowGate->evaluate($shadowResult);
 
                 if ($shadowVerdict->tripped) {
-fwrite(STDERR, "DBGTRIP e4 flags=".json_encode($shadowVerdict->honestyFlags)." divergent=".json_encode($shadowResult->divergent ?? null)."\n");
                     if ($e4Config->isHard()) {
                         // Hard => sanctioned hard gate channel (STATUS_FAILED).
                         // Rebuild the gate result preserving the gathered
@@ -863,7 +858,6 @@ fwrite(STDERR, "DBGTRIP e4 flags=".json_encode($shadowVerdict->honestyFlags)." d
                     );
                 }
             } elseif ($e6Verdict->tripped) {
-fwrite(STDERR, "DBGTRIP line=849\n");
                 // Spec/constitution violation (VAL-M2-021/022/024).
                 //   - advisory => honesty flag only (drives the
                 //     CompletionStateGate PASSED -> needs_review downgrade).
