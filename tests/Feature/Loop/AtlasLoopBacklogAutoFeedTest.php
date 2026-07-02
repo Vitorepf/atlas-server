@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use App\Models\AtlasLoopCampaign;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -21,19 +20,16 @@ use Tests\TestCase;
  */
 final class AtlasLoopBacklogAutoFeedTest extends TestCase
 {
-    private string $manifestPath;
+    use ArmsAtlasLoopMaster;
 
-    private string $masterEnvPath;
+    private string $manifestPath;
 
     protected function setUp(): void
     {
         parent::setUp();
-        // The command gained a §0 master-switch gate (reads the .env FILE, not
-        // config) after this contract froze; arm it via the test seam so the
-        // suite keeps testing the auto-feed contract, not the kill switch.
-        $this->masterEnvPath = storage_path('framework/testing/atlas-loop-master-'.(string) Str::uuid().'.env');
-        File::put($this->masterEnvPath, "ATLAS_LOOP_MASTER_ENABLED=true\n");
-        AtlasLoopMasterSwitch::$envPathOverride = $this->masterEnvPath;
+        // The command gained a §0 master-switch gate after this contract froze;
+        // arm it so the suite keeps testing the auto-feed contract, not the kill switch.
+        $this->armLoopMasterOn();
 
         $this->manifestPath = storage_path('framework/testing/atlas-loop-backlog-feed-'.(string) Str::uuid().'.json');
         if (! Schema::hasTable('atlas_loop_campaigns')) {
@@ -53,8 +49,7 @@ final class AtlasLoopBacklogAutoFeedTest extends TestCase
 
     protected function tearDown(): void
     {
-        AtlasLoopMasterSwitch::$envPathOverride = null;
-        @File::delete($this->masterEnvPath);
+        $this->disarmLoopMaster();
         @File::delete($this->manifestPath);
         parent::tearDown();
     }

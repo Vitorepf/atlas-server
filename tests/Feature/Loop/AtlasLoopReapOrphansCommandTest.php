@@ -16,14 +16,25 @@ use Tests\TestCase;
  */
 final class AtlasLoopReapOrphansCommandTest extends TestCase
 {
+    use ArmsAtlasLoopMaster;
+
     protected function setUp(): void
     {
         parent::setUp();
+        // The reaper gained the §0 master-switch gate after this contract froze;
+        // arm it so the suite keeps proving the reap semantics, not the kill switch.
+        $this->armLoopMasterOn();
         if (! Schema::hasTable('atlas_loop_campaigns')) {
             foreach (['2026_06_02_000100_create_atlas_loop_runtime_tables.php', '2026_06_02_000200_complete_atlas_loop_runtime_schema.php'] as $file) {
                 (require base_path('database/migrations/'.$file))->up();
             }
         }
+    }
+
+    protected function tearDown(): void
+    {
+        $this->disarmLoopMaster();
+        parent::tearDown();
     }
 
     private function runningCampaign(int $heartbeatMinutesAgo): AtlasLoopCampaign
