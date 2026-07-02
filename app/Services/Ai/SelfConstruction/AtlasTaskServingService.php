@@ -184,6 +184,12 @@ final class AtlasTaskServingService
                 // with a real commit. Both advisory, both fail-open.
                 $task['sibling_tests'] = $this->siblingTestsFor($task);
                 $task['green_run_exemplars'] = $this->greenRunExemplarsFor($task);
+                // M5 failure capsules travel WITH the served packet: the
+                // external worker (often a small model) sees how this exact
+                // area failed before — the same memory the Dev senior loop,
+                // fast path and Forge prompts already receive. Advisory,
+                // fail-open, workspace-scoped (anti cross-repo bleed).
+                $task['known_failure_modes'] = $this->knownFailureModesFor($task);
                 return $this->served($clientId, $this->envelope('served', $clientId, $task, []));
             }
 
@@ -562,6 +568,31 @@ final class AtlasTaskServingService
      * @param  array<string,mixed>  $task
      * @return list<array{production_file:string, test_path:string, test_methods:list<string>}>
      */
+    /**
+     * M5 known failure modes for the packet's area — provider-safe strings
+     * from persisted {@see \App\Models\AtlasDevFailureCapsule} rows, scoped
+     * to THIS repo's workspace identity (the serving stack always serves
+     * self-construction work on this repository).
+     *
+     * @return list<string>
+     */
+    private function knownFailureModesFor(array $task): array
+    {
+        try {
+            $files = array_values(array_map('strval', (array) ($task['allowed_files'] ?? [])));
+            if ($files === []) {
+                return [];
+            }
+
+            return (new \App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector)->injectFor(
+                $files,
+                \App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity::slug(base_path()),
+            );
+        } catch (Throwable) {
+            return []; // fail-open: advisory memory never blocks a serve
+        }
+    }
+
     private function siblingTestsFor(array $task): array
     {
         try {
