@@ -103,4 +103,34 @@ final class AtlasLoopChangedSymbolCoverageCensusTest extends TestCase
             (bool) array_filter($out['dynamic_dispatch_sites'], static fn (string $s): bool => str_contains($s, 'Other') || str_contains($s, 'reflection')),
         );
     }
+
+    // ── V1 strict "exercised" census (armed in the live .env, opt-in in tests) ──
+
+    public function test_strict_census_rejects_a_thin_test_that_names_but_never_asserts(): void
+    {
+        config(['atlas.loop.symbol_branch_census_enabled' => true]);
+        $this->workspace(
+            "  public function alpha(): int { return 1; }",
+            // Calls alpha but carries NO assert/expect token — named+called yet unexercised.
+            "<?php\n\$c = new App\\Calc(); \$c->alpha();\n",
+        );
+
+        $out = $this->census()->evaluate($this->ws, ['php tests/CalcTest.php']);
+
+        $this->assertFalse($out['passed'], 'strict census must reject a call with no assertion');
+        $this->assertContains('src/Calc.php::alpha', $out['uncovered']);
+    }
+
+    public function test_strict_census_accepts_a_called_and_asserted_symbol(): void
+    {
+        config(['atlas.loop.symbol_branch_census_enabled' => true]);
+        $this->workspace(
+            "  public function alpha(): int { return 1; }",
+            "<?php\n\$c = new App\\Calc(); assert(\$c->alpha() === 1);\n",
+        );
+
+        $out = $this->census()->evaluate($this->ws, ['php tests/CalcTest.php']);
+
+        $this->assertTrue($out['passed'], 'uncovered='.implode(',', $out['uncovered']));
+    }
 }
