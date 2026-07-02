@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemor
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryEpisodeRecord;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryEpisodicLedger;
 use PHPUnit\Framework\TestCase;
+use Tests\Feature\Loop\ArmsAtlasLoopMaster;
 
 /**
  * Proves the Cortex blind-spot tracker: G1 in cycles 1,2,3 then absent in cycle 4 ⇒ persistence_runs=3
@@ -17,6 +18,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class AtlasCortexMemoryBlindSpotTrackerTest extends TestCase
 {
+    use ArmsAtlasLoopMaster;
+
     private string $ledgerPath;
 
     private AtlasCortexMemoryEpisodicLedger $ledger;
@@ -24,12 +27,15 @@ final class AtlasCortexMemoryBlindSpotTrackerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // O ledger fail-closa no master switch (§0); armar espelha `atlas:loop:on`.
+        $this->armLoopMasterOn();
         $this->ledgerPath = sys_get_temp_dir().'/atlas_cortex_blindspot_'.bin2hex(random_bytes(6)).'.ndjson';
         $this->ledger = new AtlasCortexMemoryEpisodicLedger($this->ledgerPath);
     }
 
     protected function tearDown(): void
     {
+        $this->disarmLoopMaster();
         @unlink($this->ledgerPath);
         parent::tearDown();
     }

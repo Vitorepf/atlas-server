@@ -7,20 +7,26 @@ namespace Tests\Unit\Ai\AutonomousEvolution\Discovery\Cortex\Memory;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryEpisodeRecord;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryEpisodicLedger;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryRetrievalService;
+use Tests\Feature\Loop\ArmsAtlasLoopMaster;
 use Tests\TestCase;
 
 final class AtlasCortexMemoryRetrievalServiceTest extends TestCase
 {
+    use ArmsAtlasLoopMaster;
+
     private string $ledgerPath = '';
 
     protected function setUp(): void
     {
         parent::setUp();
+        // O ledger fail-closa no master switch (§0); armar espelha `atlas:loop:on`.
+        $this->armLoopMasterOn();
         $this->ledgerPath = sys_get_temp_dir().'/atlas-cortex-mem-ret-'.bin2hex(random_bytes(6)).'.ndjson';
     }
 
     protected function tearDown(): void
     {
+        $this->disarmLoopMaster();
         @unlink($this->ledgerPath);
         parent::tearDown();
     }

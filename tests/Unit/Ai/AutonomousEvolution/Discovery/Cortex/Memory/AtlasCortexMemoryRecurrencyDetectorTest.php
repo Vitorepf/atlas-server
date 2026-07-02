@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemor
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryEpisodicLedger;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryRecurrencyDetector;
 use PHPUnit\Framework\TestCase;
+use Tests\Feature\Loop\ArmsAtlasLoopMaster;
 
 /**
  * Proves the Cortex recurrency detector: across 5 episodes, item Y appears every cycle (run=5) and item X
@@ -16,6 +17,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class AtlasCortexMemoryRecurrencyDetectorTest extends TestCase
 {
+    use ArmsAtlasLoopMaster;
+
     private string $ledgerPath;
 
     private AtlasCortexMemoryEpisodicLedger $ledger;
@@ -23,12 +26,15 @@ final class AtlasCortexMemoryRecurrencyDetectorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // O ledger fail-closa no master switch (§0); armar espelha `atlas:loop:on`.
+        $this->armLoopMasterOn();
         $this->ledgerPath = sys_get_temp_dir().'/atlas_cortex_recurrency_'.bin2hex(random_bytes(6)).'.ndjson';
         $this->ledger = new AtlasCortexMemoryEpisodicLedger($this->ledgerPath);
     }
 
     protected function tearDown(): void
     {
+        $this->disarmLoopMaster();
         @unlink($this->ledgerPath);
         parent::tearDown();
     }
