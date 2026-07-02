@@ -190,7 +190,14 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 symlink($repo.'/vendor', $worktree.'/vendor');
             }
 
-            $patchOutput = $this->applySolver($repo, $worktree, $case, $modelId, $runtime, $plan);
+            // timeout do SOLVER é medição (receipt timeout), nunca morte da bateria
+            $solverTimedOut = false;
+            try {
+                $patchOutput = $this->applySolver($repo, $worktree, $case, $modelId, $runtime, $plan);
+            } catch (\Illuminate\Process\Exceptions\ProcessTimedOutException) {
+                $solverTimedOut = true;
+                $patchOutput = "(solver timed out)\n";
+            }
 
             // protocolo v2 (hidden tests): o solver nunca vê nem controla a prova.
             // 1) tocar nos arquivos de teste do case = tampering → error fail-closed;
@@ -216,8 +223,11 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
             }
 
             $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);
-            $timedOut = false;
-            if ($blockReason !== null) {
+            $timedOut = $solverTimedOut;
+            if ($solverTimedOut) {
+                $status = 'timeout';
+                $checkOutput = "solver timed out after {$timeout}s";
+            } elseif ($blockReason !== null) {
                 $status = 'error';
                 $checkOutput = $blockReason;
             } else {
