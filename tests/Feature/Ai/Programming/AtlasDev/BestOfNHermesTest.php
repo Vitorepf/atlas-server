@@ -52,6 +52,11 @@ final class BestOfNHermesTest extends TestCase
     {
         parent::setUp();
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
+        // Axis isolation: elevations that landed after this suite froze pollute
+        // its green fixtures (see ShadowDiffFeatureTest) — pin the others off.
+        foreach (['e1', 'e2', 'e3', 'e4', 'e5', 'e6'] as $elevation) {
+            config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
+        }
         // Best-of-N is OFF by default (N=1 = pre-M4 single-call behavior).
         config()->set('atlas_dev.best_of_n.candidate_count', 1);
 

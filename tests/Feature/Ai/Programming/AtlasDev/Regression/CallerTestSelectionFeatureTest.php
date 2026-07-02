@@ -72,6 +72,11 @@ final class CallerTestSelectionFeatureTest extends TestCase
     {
         parent::setUp();
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
+        // Axis isolation: elevations that landed after this suite froze pollute
+        // its green fixtures (see ShadowDiffFeatureTest) — pin the others off.
+        foreach (['e1', 'e2', 'e3', 'e4', 'e6'] as $elevation) {
+            config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
+        }
 
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-e5-cts-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);

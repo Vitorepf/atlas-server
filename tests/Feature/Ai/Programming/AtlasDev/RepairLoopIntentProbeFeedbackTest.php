@@ -56,6 +56,11 @@ final class RepairLoopIntentProbeFeedbackTest extends TestCase
     {
         parent::setUp();
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
+        // Axis isolation: elevations that landed after this suite froze pollute
+        // its green fixtures (see ShadowDiffFeatureTest) — pin the others off.
+        foreach (['e2', 'e3', 'e4', 'e5', 'e6'] as $elevation) {
+            config()->set('atlas_dev.elevations.'.$elevation.'.mode', 'off');
+        }
         config()->set('atlas_dev.elevations.e1.mode', 'advisory');
 
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-e1-repair-'.bin2hex(random_bytes(4));
