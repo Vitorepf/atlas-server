@@ -6,9 +6,9 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionOriginationCandidates;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\File;
 use Throwable;
 
 /**
@@ -352,28 +352,12 @@ final class AtlasLoopOriginationPipeline
         }
 
         try {
-            File::ensureDirectoryExists(dirname($path));
-            $handle = @fopen($path, 'ab');
-            if ($handle === false) {
-                return;
-            }
-
-            try {
-                if (! flock($handle, LOCK_EX)) {
-                    return;
-                }
-
-                foreach ($records as $record) {
-                    $payload = array_merge([
-                        'schema_version' => 'atlas.loop.leverage_dropped_candidates.v1',
-                        'recorded_at' => Carbon::now()->toIso8601String(),
-                    ], $record);
-                    fwrite($handle, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-                }
-                fflush($handle);
-                flock($handle, LOCK_UN);
-            } finally {
-                fclose($handle);
+            $store = new JsonlReceiptStore($path);
+            foreach ($records as $record) {
+                $store->append(array_merge([
+                    'schema_version' => 'atlas.loop.leverage_dropped_candidates.v1',
+                    'recorded_at' => Carbon::now()->toIso8601String(),
+                ], $record));
             }
 
             AtlasLoopMorningDigestService::trimJsonl(

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\MultiCycle;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Closure;
 use RuntimeException;
 
@@ -24,9 +25,11 @@ final class AtlasLoopMultiCycleCoordinationProtocol
      */
     public function claim(string $cycleId, array $subScope): array
     {
-        return $this->withJournalLock(function ($handle) use ($cycleId, $subScope): array {
-            $facts = $this->readFacts($handle);
-            $active = $this->activeClaims($facts);
+        $store = $this->store();
+        $fact = [];
+        // Derivation (active claims from the journal tail) runs INSIDE the store's exclusive lock.
+        $store->appendWith(function () use ($store, $cycleId, $subScope, &$fact): array {
+            $active = $this->activeClaims($store->replay());
             $subScopeHash = $this->subScopeHash($subScope);
 
             if (isset($active[$subScopeHash]) && (string) $active[$subScopeHash]['cycle_id'] !== $cycleId) {
@@ -46,10 +49,10 @@ final class AtlasLoopMultiCycleCoordinationProtocol
                 'status' => 'claimed',
             ];
 
-            $this->appendFact($handle, $fact);
-
             return $fact;
         });
+
+        return $fact;
     }
 
     /**
@@ -58,9 +61,10 @@ final class AtlasLoopMultiCycleCoordinationProtocol
      */
     public function release(string $cycleId, array $subScope, string $outcome): array
     {
-        return $this->withJournalLock(function ($handle) use ($cycleId, $subScope, $outcome): array {
-            $facts = $this->readFacts($handle);
-            $active = $this->activeClaims($facts);
+        $store = $this->store();
+        $fact = [];
+        $store->appendWith(function () use ($store, $cycleId, $subScope, $outcome, &$fact): array {
+            $active = $this->activeClaims($store->replay());
             $subScopeHash = $this->subScopeHash($subScope);
             $claim = $active[$subScopeHash] ?? null;
 
@@ -76,10 +80,10 @@ final class AtlasLoopMultiCycleCoordinationProtocol
                 'status' => 'released:'.trim($outcome),
             ];
 
-            $this->appendFact($handle, $fact);
-
             return $fact;
         });
+
+        return $fact;
     }
 
     /**
@@ -87,16 +91,21 @@ final class AtlasLoopMultiCycleCoordinationProtocol
      */
     public function holders(): array
     {
-        return $this->withJournalLock(function ($handle): array {
-            $active = array_values($this->activeClaims($this->readFacts($handle)));
+        $store = $this->store();
+        $active = [];
+        // Read under the same exclusive lock as writers (null return aborts the write).
+        $store->appendWith(function () use ($store, &$active): ?array {
+            $active = array_values($this->activeClaims($store->replay()));
 
-            usort(
-                $active,
-                static fn (array $left, array $right): int => [$left['claimed_at'], $left['cycle_id']] <=> [$right['claimed_at'], $right['cycle_id']],
-            );
-
-            return $active;
+            return null;
         });
+
+        usort(
+            $active,
+            static fn (array $left, array $right): int => [$left['claimed_at'], $left['cycle_id']] <=> [$right['claimed_at'], $right['cycle_id']],
+        );
+
+        return $active;
     }
 
     public function journalPath(): string
@@ -104,69 +113,9 @@ final class AtlasLoopMultiCycleCoordinationProtocol
         return $this->journalPath ?? storage_path('atlas/loop/multicycle/journal.jsonl');
     }
 
-    /**
-     * @template T
-     * @param  Closure(resource):T  $callback
-     * @return T
-     */
-    private function withJournalLock(Closure $callback): mixed
+    private function store(): JsonlReceiptStore
     {
-        $path = $this->journalPath();
-        $dir = dirname($path);
-        if (! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
-            throw new RuntimeException('Unable to create journal directory: '.$dir);
-        }
-
-        $handle = fopen($path, 'c+');
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open journal: '.$path);
-        }
-
-        try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException('Unable to lock journal: '.$path);
-            }
-
-            return $callback($handle);
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
-    }
-
-    /**
-     * @param  resource  $handle
-     * @return list<array<string,mixed>>
-     */
-    private function readFacts($handle): array
-    {
-        rewind($handle);
-
-        $facts = [];
-        while (($line = fgets($handle)) !== false) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $facts[] = $decoded;
-            }
-        }
-
-        return $facts;
-    }
-
-    /**
-     * @param  resource  $handle
-     * @param  array<string,mixed>  $fact
-     */
-    private function appendFact($handle, array $fact): void
-    {
-        fseek($handle, 0, SEEK_END);
-        fwrite($handle, json_encode($fact, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
-        fflush($handle);
+        return new JsonlReceiptStore($this->journalPath());
     }
 
     /**

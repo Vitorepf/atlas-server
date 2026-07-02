@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Aael\Execution\TraceReplay;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Closure;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -147,31 +148,7 @@ final class AtlasAaelExecutionTraceRecorder
      */
     private function appendRow(array $row): void
     {
-        $path = $this->traceFilePath();
-        $dir = dirname($path);
-        if (! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
-            throw new RuntimeException('Unable to create trace directory: '.$dir);
-        }
-
-        $handle = fopen($path, 'ab');
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open trace file: '.$path);
-        }
-
-        try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException('Unable to lock trace file: '.$path);
-            }
-
-            $bytes = fwrite($handle, json_encode($this->rowEnvelope($row), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n");
-            if ($bytes === false) {
-                throw new RuntimeException('Unable to append trace row to: '.$path);
-            }
-            fflush($handle);
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
+        (new JsonlReceiptStore($this->traceFilePath()))->append($this->rowEnvelope($row));
     }
 
     private function traceRoot(): string
