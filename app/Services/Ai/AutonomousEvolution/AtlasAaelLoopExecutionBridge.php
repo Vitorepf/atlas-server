@@ -29,8 +29,12 @@ final class AtlasAaelLoopExecutionBridge
 {
     public const SCHEMA = 'atlas.evolution.aael_bridge.v1';
 
+    // $runner stays duck-typed (tests inject fakes down to stdClass) but is now
+    // OPTIONAL: a required untyped object made the class container-unresolvable,
+    // so `atlas aael bridge-execute` (which injects the bridge) crashed with
+    // BindingResolutionException. Null resolves lazily to the real loop runner.
     public function __construct(
-        private readonly object $runner,
+        private readonly ?object $runner = null,
         private readonly ?AtlasAaelExecutionPlanProver $prover = null,
         private readonly ?AtlasAaelExecutionDriftAuditor $driftAuditor = null,
         private readonly ?AtlasAaelInFlightStepValidator $inFlightStepValidator = null,
@@ -113,7 +117,7 @@ final class AtlasAaelLoopExecutionBridge
                 }
             }
 
-            $stepRun = $this->runner->run([$task], $options + ['max_tasks' => 1]);
+            $stepRun = ($this->runner ?? new AtlasEvolutionLoopRunner)->run([$task], $options + ['max_tasks' => 1]);
             $stepExplorations = is_array($stepRun['explorations'] ?? null) ? $stepRun['explorations'] : [];
             $exploration = is_array($stepExplorations[0] ?? null) ? $stepExplorations[0] : [];
 

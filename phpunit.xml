@@ -62,6 +62,9 @@
              deterministic buildPlan lane; per-test config()->set turns planning on where
              the planning machinery itself is under test (with the provider seam stubbed). -->
         <env name="ATLAS_LOOP_PLANNING_ENABLED" value="false"/>
+        <!-- V1 strict census is armed in the live .env; tests assert the documented
+             default (named-based census) and opt in per-test for strict mode. -->
+        <env name="ATLAS_LOOP_SYMBOL_BRANCH_CENSUS_ENABLED" value="false"/>
         <!-- T1.2: capture quality gate is ENFORCE in dev/prod .env, but tests stay
              deterministic on the historical default (per-test config()->set turns
              enforce on where the gate itself is under test). -->

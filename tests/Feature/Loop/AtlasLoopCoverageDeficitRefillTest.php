@@ -280,7 +280,11 @@ PHP;
         $this->assertSame(1, $scorecard['tasks_total']);
         $this->assertSame(1, $scorecard['real_work_tasks']);
         $this->assertSame(1, $scorecard['verification_tasks']);
-        $this->assertTrue($scorecard['claim_policy']['loop_real_work_claim_allowed']);
+        // O-5 anti-proxy hardening: a verification-only campaign slice is real
+        // work but NOT a substantive real-work CLAIM (bug_fix/feature/self_improvement
+        // >= 1 required). The honest scorecard therefore blocks the claim here.
+        $this->assertFalse($scorecard['claim_policy']['loop_real_work_claim_allowed']);
+        $this->assertContains('verification_only_no_substantive_value', $scorecard['claim_policy']['blockers']);
     }
 
     public function test_first_proof_mode_promotes_characterization_priority_above_refactor_band(): void
@@ -325,7 +329,11 @@ PHP;
         $scorecard = app(AtlasLoopRealWorkScorecardService::class)->scorecard((string) $campaign->id);
         $this->assertSame(1, $scorecard['real_work_tasks']);
         $this->assertSame(0, $scorecard['proxy_refactor_tasks']);
-        $this->assertTrue($scorecard['claim_policy']['loop_real_work_claim_allowed']);
+        // O-5 anti-proxy hardening: a verification-only campaign slice is real
+        // work but NOT a substantive real-work CLAIM (bug_fix/feature/self_improvement
+        // >= 1 required). The honest scorecard therefore blocks the claim here.
+        $this->assertFalse($scorecard['claim_policy']['loop_real_work_claim_allowed']);
+        $this->assertContains('verification_only_no_substantive_value', $scorecard['claim_policy']['blockers']);
     }
 
     public function test_meta_harness_self_improvement_is_grounded_before_generic_fallback_quarantine(): void
