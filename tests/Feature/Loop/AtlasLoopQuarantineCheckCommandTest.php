@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Loop;
 
+use App\Services\Ai\SelfConstruction\NamingPolicy\QuarantineAuthorizationGate;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -52,6 +53,8 @@ final class AtlasLoopQuarantineCheckCommandTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertSame('blocked', $decoded['decision']);
         $this->assertContains('path_out_of_self_construction_scope', $decoded['blocking_reasons']);
-        $this->assertContains('missing_operator_decision_receipt', $decoded['blocking_reasons']);
+        // The gate widened operator-only receipts to any decision receipt (codex 30/06);
+        // pin the constant so the contract cannot silently drift again.
+        $this->assertContains(QuarantineAuthorizationGate::REASON_MISSING_RECEIPT, $decoded['blocking_reasons']);
     }
 }

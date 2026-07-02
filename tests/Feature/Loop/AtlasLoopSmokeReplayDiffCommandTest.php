@@ -26,11 +26,30 @@ final class AtlasLoopSmokeReplayDiffCommandTest extends TestCase
         return ['exit' => $exit, 'd' => json_decode(trim(Artisan::output()), true)];
     }
 
+    /** A run whose protected fields all carry well-formed hashes (the post-freeze
+     * hardening requires them present + sha256-shaped). */
+    private function validRun(array $over = []): array
+    {
+        $h = static fn (string $seed): string => hash('sha256', $seed);
+
+        return array_merge([
+            'status' => 'passed',
+            'provider_run_id' => 'r1',
+            'smoke_hash' => $h('smoke'),
+            'operator_approval_receipt_hash' => $h('approval'),
+            'evidence_ledger_hash' => $h('ledger'),
+            'work_product_manifest_hash' => $h('manifest'),
+            'cost_event_hash' => $h('cost'),
+            'continuation_summary_hash' => $h('continuation'),
+            'provider_response_hash' => $h('response'),
+        ], $over);
+    }
+
     public function test_mutated_protected_field_is_flagged(): void
     {
         ['exit' => $exit, 'd' => $d] = $this->compare(
-            ['status' => 'passed', 'smoke_hash' => 'h1'],
-            ['status' => 'passed', 'smoke_hash' => 'h2'], // smoke_hash mutated
+            $this->validRun(),
+            $this->validRun(['smoke_hash' => hash('sha256', 'mutated')]), // smoke_hash mutated
         );
 
         $this->assertSame(0, $exit);
@@ -42,7 +61,7 @@ final class AtlasLoopSmokeReplayDiffCommandTest extends TestCase
 
     public function test_identical_runs_pass(): void
     {
-        $run = ['status' => 'passed', 'smoke_hash' => 'h1', 'provider_run_id' => 'r1'];
+        $run = $this->validRun();
 
         ['exit' => $exit, 'd' => $d] = $this->compare($run, $run);
 
