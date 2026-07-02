@@ -53,6 +53,13 @@ class AtlasBenchAdapterTest extends TestCase
         file_put_contents($this->fixtureRepo.'/tests/check.php', "<?php\nrequire __DIR__.'/../app/calc.php';\nexit(add(2, 3) === 5 ? 0 : 1);\n");
         $git('git add -A && git commit -qm "base: buggy add"');
 
+        // solver stub versionado no base: simula um "modelo CLI" local que edita a worktree
+        file_put_contents(
+            $this->fixtureRepo.'/tests/solver.php',
+            "<?php\nfile_put_contents(__DIR__.'/../app/calc.php', \"<?php\\nfunction add(int \\\$a, int \\\$b): int { return \\\$a + \\\$b; }\\n\");\n"
+        );
+        $git('git add -A && git commit -qm "base: add solver stub" --amend -q');
+
         // golden: o fix real
         file_put_contents($this->fixtureRepo.'/app/calc.php', "<?php\nfunction add(int \$a, int \$b): int { return \$a + \$b; }\n");
         $git('git add -A && git commit -qm "fix: add sums correctly"');
@@ -109,8 +116,38 @@ class AtlasBenchAdapterTest extends TestCase
         $this->assertSame([], glob(RunPaths::runDir($runId).'/worktrees/*') ?: []);
     }
 
-    public function test_real_model_arm_fails_closed_never_simulated(): void
+    public function test_local_cli_model_arm_executes_for_real_and_passes_check(): void
     {
+        // S3: "modelo" = perfil CLI local (stub) que edita a worktree de verdade
+        config()->set('atlas_rivals2.models.stub_cli', [
+            'provider' => 'local', 'access_type' => 'cli', 'local' => true, 'enabled' => true,
+            'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0,
+            'command' => 'php tests/solver.php',
+        ]);
+        $caseId = $this->writeCase();
+        $adapter = new AtlasBenchSuiteAdapter;
+        $plan = RunPlan::make(
+            $adapter->suiteId(),
+            [$caseId],
+            [(new ArmRegistry)->makeArm('stub_cli', 'bare')],
+            3,
+            ['max_usd' => 0.0, 'max_minutes' => 5],
+            7,
+        );
+        $runId = $plan->persist();
+        $adapter->execute($plan);
+        (new EvidencePackBuilder)->build($runId);
+
+        $adjudication = (new Adjudicator)->adjudicate($runId);
+        $this->assertTrue($adjudication['claim_allowed'], implode(',', $adjudication['claim_blockers']));
+        $report = (new ReportBuilder)->build($runId);
+        $this->assertSame(1.0, collect($report['rows'])->firstWhere('arm_id', 'stub_cli@bare')['success_rate']);
+    }
+
+    public function test_non_local_model_without_spend_flag_fails_closed(): void
+    {
+        config()->set('atlas_rivals2.models.claude_sonnet_5.command', 'claude -p "solve" --cwd {workspace}');
+        config()->set('atlas_rivals2.provider_spend_allowed', false);
         $caseId = $this->writeCase();
         $adapter = new AtlasBenchSuiteAdapter;
         $plan = RunPlan::make(
@@ -123,7 +160,26 @@ class AtlasBenchAdapterTest extends TestCase
         );
         $plan->persist();
 
-        $this->expectExceptionMessageMatches('/atlasbench_arm_not_executable_in_slice_2/');
+        $this->expectExceptionMessageMatches('/atlasbench_provider_spend_not_allowed/');
+        $adapter->execute($plan);
+    }
+
+    public function test_atlas_runtime_without_wrapper_blocks_honestly(): void
+    {
+        $caseId = $this->writeCase();
+        $adapter = new AtlasBenchSuiteAdapter;
+        $plan = RunPlan::make(
+            $adapter->suiteId(),
+            [$caseId],
+            [(new ArmRegistry)->makeArm('harness_golden', 'atlas_dev')],
+            3,
+            ['max_usd' => 0.0, 'max_minutes' => 5],
+            7,
+        );
+        $plan->persist();
+
+        // harness_golden@atlas_dev não existe como executor → nunca simular
+        $this->expectExceptionMessageMatches('/uplift_supported=false/');
         $adapter->execute($plan);
     }
 

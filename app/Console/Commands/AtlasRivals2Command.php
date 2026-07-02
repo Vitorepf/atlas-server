@@ -22,7 +22,10 @@ use Illuminate\Console\Command;
 class AtlasRivals2Command extends Command
 {
     protected $signature = 'atlas:rivals2
-        {action : doctor|models|arms|mine|plan|run-fake|run-bench|verify|adjudicate|report|ledger}
+        {action : doctor|models|arms|mine|plan|run-fake|run-bench|verify|adjudicate|report|uplift|ledger}
+        {--model= : (uplift) model_id comparado nos dois runtimes}
+        {--base-runtime=bare}
+        {--atlas-runtime=atlas_dev}
         {--suite=local_fake}
         {--limit=5 : (mine) máximo de cases a minerar}
         {--run= : run_id (default: run mais recente)}
@@ -54,6 +57,19 @@ class AtlasRivals2Command extends Command
                 return $adjudication + ['ledger_entry_id' => $entry['entry_id']];
             }),
             'report' => $this->withRun(fn ($runId) => (new ReportBuilder)->build($runId)),
+            'uplift' => $this->withRun(function ($runId) {
+                $model = (string) $this->option('model');
+                if ($model === '') {
+                    return ['status' => 'error', 'error' => 'uplift_requires_model_option'];
+                }
+
+                return (new \App\Services\Ai\Rivals2\Core\AtlasUpliftRunner)->compare(
+                    $runId,
+                    $model,
+                    (string) $this->option('base-runtime'),
+                    (string) $this->option('atlas-runtime'),
+                );
+            }),
             'ledger' => $this->ledger(),
             default => ['status' => 'error', 'error' => "unknown_action:{$action}"],
         };

@@ -71,7 +71,8 @@ class LocalFakeSuiteAdapter implements BenchmarkSuiteAdapter
         EventStream::append($runId, 'fake_execution_started', ['seed' => $plan->data['seed']]);
 
         foreach ($this->planCommands($plan) as $cmd) {
-            $status = $this->statusFor($cmd['case_id'], $cmd['repetition']);
+            $runtime = explode('@', $cmd['arm_id'], 2)[1] ?? 'bare';
+            $status = $this->statusFor($cmd['case_id'], $cmd['repetition'], $runtime);
             $artifactRel = "artifacts/{$cmd['case_id']}__".str_replace('@', '_', $cmd['arm_id'])."__r{$cmd['repetition']}.txt";
             $artifactAbs = RunPaths::runDir($runId).'/'.$artifactRel;
             // conteúdo determinístico por (seed, case, arm, rep)
@@ -111,12 +112,14 @@ class LocalFakeSuiteAdapter implements BenchmarkSuiteAdapter
         return RunReceipt::loadAll(basename($runDir));
     }
 
-    private function statusFor(string $caseId, int $repetition): string
+    private function statusFor(string $caseId, int $repetition, string $runtime = 'bare'): string
     {
         return match (true) {
             str_ends_with($caseId, '_timeout') => 'timeout',
             str_ends_with($caseId, '_fail') => 'failure',
-            str_ends_with($caseId, '_flaky') => $repetition % 2 === 1 ? 'success' : 'failure',
+            // runtime != bare estabiliza o flaky — uplift FAKE, só para provar a
+            // mecânica do delta; nunca é claim sobre runtime Atlas real
+            str_ends_with($caseId, '_flaky') => ($runtime !== 'bare' || $repetition % 2 === 1) ? 'success' : 'failure',
             default => 'success',
         };
     }

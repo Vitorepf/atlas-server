@@ -160,7 +160,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
     {
         $runId = $plan->runId();
         $repo = $this->repoPath();
-        $modelId = explode('@', $armId, 2)[0];
+        [$modelId, $runtime] = array_pad(explode('@', $armId, 2), 2, 'bare');
         $slug = $case['case_id'].'__'.str_replace('@', '_', $armId)."__r{$rep}";
         $worktree = RunPaths::runDir($runId).'/worktrees/'.$slug;
         RunPaths::ensureDir(dirname($worktree));
@@ -180,7 +180,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 symlink($repo.'/vendor', $worktree.'/vendor');
             }
 
-            $patchOutput = $this->applySolver($repo, $worktree, $case, $modelId);
+            $patchOutput = $this->applySolver($repo, $worktree, $case, $modelId, $runtime, $plan);
 
             $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);
             $timedOut = false;
@@ -227,8 +227,14 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         }
     }
 
-    private function applySolver(string $repo, string $worktree, array $case, string $modelId): string
+    private function applySolver(string $repo, string $worktree, array $case, string $modelId, string $runtime, RunPlan $plan): string
     {
+        if ($runtime !== 'bare') {
+            // S4: uplift real exige o wrapper Atlas (Harbor-compatible); até lá é
+            // bloqueio honesto para QUALQUER braço — nunca simular runtime Atlas
+            throw new RuntimeException("atlasbench_runtime_not_executable:{$runtime}:uplift_supported=false");
+        }
+
         return match ($modelId) {
             'harness_null' => "(no patch — null solver)\n",
             'harness_golden' => (function () use ($repo, $worktree, $case): string {
@@ -242,10 +248,49 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
 
                 return $diff->output();
             })(),
-            // fail-closed: arm de modelo real ainda não é executável (Slice 3);
-            // NUNCA simular resultado de modelo que não rodou.
-            default => throw new RuntimeException("atlasbench_arm_not_executable_in_slice_2:{$modelId}"),
+            default => $this->runModelArm($worktree, $case, $modelId, $runtime, $plan),
         };
+    }
+
+    /**
+     * Slice 3: braço de modelo real via perfil CLI do ModelRegistry, rodando
+     * DENTRO da worktree isolada. Fail-closed em três portas: runtime Atlas
+     * ainda sem wrapper → bloqueia (nunca simula uplift); modelo sem perfil
+     * CLI → bloqueia; provider não-local sem flag de spend → bloqueia.
+     */
+    private function runModelArm(string $worktree, array $case, string $modelId, string $runtime, RunPlan $plan): string
+    {
+        $model = (new \App\Services\Ai\Rivals2\Core\ModelRegistry)->get($modelId);
+        if ($model === null || ! ($model['enabled'] ?? false)) {
+            throw new RuntimeException("atlasbench_unknown_or_disabled_model:{$modelId}");
+        }
+        $command = $model['command'] ?? null;
+        if (! is_string($command) || $command === '') {
+            throw new RuntimeException("atlasbench_model_has_no_cli_command:{$modelId}");
+        }
+        if (($model['provider'] ?? '') !== 'local' && config('atlas_rivals2.provider_spend_allowed') !== true) {
+            throw new RuntimeException("atlasbench_provider_spend_not_allowed:{$modelId}");
+        }
+
+        $promptFile = $worktree.'/.rivals2_task.md';
+        file_put_contents($promptFile, implode("\n", [
+            "# Task: {$case['title']}",
+            '',
+            'Repository is checked out at the base state. Implement the change so the check passes.',
+            "Task type: {$case['task_type']}",
+            "Check command: {$case['check_command']}",
+            'Files under test: '.implode(', ', $case['changed_files']['tests'] ?? []),
+        ]));
+
+        $timeout = (int) config('atlas_rivals2.atlasbench.check_timeout_seconds', 300);
+        $resolved = str_replace(['{workspace}', '{prompt_file}'], [escapeshellarg($worktree), escapeshellarg($promptFile)], $command);
+        $exec = Process::path($worktree)->timeout($timeout)->run($resolved);
+        if (! $exec->successful()) {
+            throw new RuntimeException("atlasbench_model_cli_failed:{$modelId}: ".substr($exec->errorOutput(), 0, 500));
+        }
+        unlink($promptFile);
+
+        return Process::path($worktree)->run('git diff')->output();
     }
 
     private function taskTypeFor(string $subject): string
