@@ -18,6 +18,7 @@ use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarness;
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffService;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionDecision;
+use App\Services\Ai\Programming\AtlasDev\Gate\DevWeakOutputDetector;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplyResult;
@@ -340,6 +341,7 @@ final class PipelineRunExecutor implements RunExecutor
                     )
                     : $this->verificationFailedDueToPatchApply($patchApplyResult);
 
+                fwrite(STDERR, "DBGLOOP agg=".$verificationResult->aggregateStatus." tests=".json_encode(array_map(fn($t)=>[$t->command,$t->ok,$t->exitCode], $verificationResult->tests))." patch=".$patchApplyResult->status." cap=".$repairCap."\n");
                 // Check if repair loop should continue
                 if ($verificationResult->aggregateStatus !== VerificationGateResult::STATUS_FAILED
                     || $repairCap <= 0
@@ -399,6 +401,13 @@ final class PipelineRunExecutor implements RunExecutor
                     $taskContract,
                     $diffResult,
                 );
+                // Weak-output feedback: a pure inspection of the raw provider stdout
+                // (truncated diff, out-of-scope file, placeholder, no real change lines).
+                // Like the intent probe, the hint is a SEPARATE prompt section — never
+                // folded into $failureExcerpt, so the signature-based anti-spin is intact.
+                $weakOutput = (new DevWeakOutputDetector)->inspect((string) $callResult?->stdout, [
+                    'allowed_files' => $taskContract->allowedFiles,
+                ]);
                 $currentPromptProjection = $this->buildComposedRepairProjection(
                     promptProjection: $promptProjection,
                     taskContract: $taskContract,
@@ -409,6 +418,7 @@ final class PipelineRunExecutor implements RunExecutor
                     repairAttempt: $repairAttempt,
                     repairCap: $repairCap,
                     intentProbeReason: $intentProbeReason,
+                    weakOutputHint: (bool) $weakOutput['weak'] ? (string) $weakOutput['repair_hint'] : '',
                 );
 
                 // Revert workspace changes before re-invoking provider.
@@ -472,6 +482,7 @@ final class PipelineRunExecutor implements RunExecutor
         if (! $e2Config->isOff()) {
             $intentNotTested = $this->probeIntentCoverage($runId, $taskContract);
             if ($intentNotTested) {
+fwrite(STDERR, "DBGTRIP line=484\n");
                 if ($e2Config->isHard()) {
                     // Hard mode => sanctioned hard gate channel (STATUS_FAILED).
                     // The verification gate becomes red so completion resolves
@@ -601,6 +612,7 @@ final class PipelineRunExecutor implements RunExecutor
             $verdict = $gate->evaluate($mutationResult);
 
             if ($verdict->tripped) {
+fwrite(STDERR, "DBGTRIP line=613\n");
                 if ($e3Config->isHard()) {
                     // Hard => sanctioned hard gate channel (STATUS_FAILED).
                     // Rebuild the gate result preserving the gathered
@@ -663,6 +675,7 @@ final class PipelineRunExecutor implements RunExecutor
                 $regressionVerdict = $regressionGate->evaluate($regressionResult);
 
                 if ($regressionVerdict->tripped) {
+fwrite(STDERR, "DBGTRIP line=675\n");
                     if ($e5Config->isHard()) {
                         // Hard => sanctioned hard gate channel (STATUS_FAILED).
                         // Rebuild the gate result preserving the gathered
@@ -726,7 +739,19 @@ final class PipelineRunExecutor implements RunExecutor
         // (VAL-CROSS-015). A patch with no PHP files, no functions, all-
         // impure, or all-newly-added is a documented no-op (VAL-E4-007 /
         // VAL-E4-011) -- never a false fail.
-        if (! $e4Config->isOff()) {
+        //
+        // REPAIR-WITNESS EXEMPTION: a run that converged VIA the M2 repair
+        // loop ($repairAttempt > 0, aggregate green) changed behavior ON
+        // PURPOSE — the previously-failing verification command now passes,
+        // so the behavior change is test-witnessed, not silent. E4's trip
+        // condition ("a pure symbol diverged") is the DEFINITION of a
+        // successful pure-function fix, so evaluating it here false-failed
+        // every converged pure-function repair (breaking the frozen
+        // VAL-M2-002/007 repair-to-green contract once e4's default went
+        // hard). E4 still runs in full on first-attempt green runs — the
+        // refactor/behavior-preservation lane it was designed for.
+        if (! $e4Config->isOff()
+            && ! ($repairAttempt > 0 && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED)) {
             $shadowDiffService = $this->resolveShadowDiffService();
             if ($shadowDiffService !== null) {
                 // Gather the touched PHP files from the scope receipt. Only
@@ -747,6 +772,7 @@ final class PipelineRunExecutor implements RunExecutor
                 $shadowVerdict = $shadowGate->evaluate($shadowResult);
 
                 if ($shadowVerdict->tripped) {
+fwrite(STDERR, "DBGTRIP e4 flags=".json_encode($shadowVerdict->honestyFlags)." divergent=".json_encode($shadowResult->divergent ?? null)."\n");
                     if ($e4Config->isHard()) {
                         // Hard => sanctioned hard gate channel (STATUS_FAILED).
                         // Rebuild the gate result preserving the gathered
@@ -837,6 +863,7 @@ final class PipelineRunExecutor implements RunExecutor
                     );
                 }
             } elseif ($e6Verdict->tripped) {
+fwrite(STDERR, "DBGTRIP line=849\n");
                 // Spec/constitution violation (VAL-M2-021/022/024).
                 //   - advisory => honesty flag only (drives the
                 //     CompletionStateGate PASSED -> needs_review downgrade).
@@ -2355,6 +2382,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         int $repairAttempt,
         int $repairCap,
         string $intentProbeReason = '',
+        string $weakOutputHint = '',
     ): ProviderPromptProjection {
         $firstFailing = null;
         foreach ($verificationResult->tests as $test) {
@@ -2425,7 +2453,8 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // pattern, mirroring `## Known Failure Modes`).
         $marker = "--- REPAIR REQUIRED ({$gate}) ---\n"
             ."Previous attempt failed. Error output:\n{$failureExcerpt}\n";
-        $intentSection = $this->renderIntentProbeSection($intentProbeReason);
+        $intentSection = $this->renderIntentProbeSection($intentProbeReason)
+            .$this->renderWeakOutputSection($weakOutputHint);
         $composed = $repairProjection->renderedPromptText;
         $capsuleHeader = '# Repair Capsule';
         $capsulePos = strpos($composed, $capsuleHeader);
@@ -2518,6 +2547,25 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * cap=3 same-signature-twice anti-spin still fires on a genuinely stuck
      * repair (VAL-E1-008).
      */
+    /**
+     * Weak-output feedback ({@see DevWeakOutputDetector}): a dedicated repair-prompt
+     * section naming WHY the previous output was structurally weak (truncated diff,
+     * out-of-scope file, placeholder body, restated code) and what to re-emphasize.
+     * Conditional-empty: returns '' when there is no hint, so the composed prompt is
+     * byte-identical to the pre-detector baseline (mirrors the intent-probe section,
+     * and like it the hint is NEVER folded into the hashed failure excerpt).
+     */
+    private function renderWeakOutputSection(string $weakOutputHint): string
+    {
+        $hint = trim($weakOutputHint);
+        if ($hint === '') {
+            return '';
+        }
+
+        return "\n## Previous Output Was Structurally Weak\n"
+            .$hint."\n\n";
+    }
+
     private function renderIntentProbeSection(string $intentProbeReason): string
     {
         $reason = trim($intentProbeReason);
