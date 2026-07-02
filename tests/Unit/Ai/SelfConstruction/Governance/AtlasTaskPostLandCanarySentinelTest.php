@@ -181,8 +181,8 @@ final class AtlasTaskPostLandCanarySentinelTest extends TestCase
         $orchestrator = new AgentControlPlaneTaskQueueOrchestrator(
             new AgentControlPlaneTaskPacketBuilder,
             new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
+            new AgentControlPlaneTaskPacketQueueRepository('atlas_serving_canary_test'),
+            new AgentControlPlaneClaimLeaseRepository('atlas_serving_canary_test'),
             new AgentControlPlaneEvidenceLedgerDryRun,
             new AgentControlPlaneContinuationSummaryBuilder,
         );
