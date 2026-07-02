@@ -29,7 +29,20 @@ final class DevGreenRunExemplarRetriever
 
     private const RECEIPT_FILENAME = 'verification_receipt.json';
 
-    public function __construct(private readonly ?string $baseDirOverride = null) {}
+    /**
+     * Newest run dirs examined per retrieval. The receipts store is
+     * append-only audit evidence (never pruned by this reader) and grows
+     * unbounded — an uncapped scan is O(all runs) and runs N+1 times per
+     * planOnly (measured: ~131ms per call at 5k dirs). Run ids start with a
+     * millisecond timestamp (dev-<ms>-<rand>), so reverse-lexical order is
+     * newest-first; recent green runs are also the most relevant exemplars.
+     */
+    public const DEFAULT_SCAN_CAP = 300;
+
+    public function __construct(
+        private readonly ?string $baseDirOverride = null,
+        private readonly int $scanCap = self::DEFAULT_SCAN_CAP,
+    ) {}
 
     /**
      * @param  list<string>  $likelyFiles
@@ -57,11 +70,16 @@ final class DevGreenRunExemplarRetriever
 
         $likelyFiles = array_values(array_filter(array_map('strval', $likelyFiles)));
 
+        // Newest-first, capped (see DEFAULT_SCAN_CAP): reverse-lexical order
+        // of dev-<ms>-<rand> ids is reverse-chronological.
+        $entries = array_values(array_filter(
+            scandir($baseDir, SCANDIR_SORT_DESCENDING) ?: [],
+            static fn (string $entry): bool => $entry !== '.' && $entry !== '..',
+        ));
+        $entries = array_slice($entries, 0, max(1, $this->scanCap));
+
         $scored = [];
-        foreach (scandir($baseDir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
+        foreach ($entries as $entry) {
             $runDir = $baseDir.DIRECTORY_SEPARATOR.$entry;
             if (! is_dir($runDir)) {
                 continue;
@@ -128,7 +146,8 @@ final class DevGreenRunExemplarRetriever
                 && (string) ($decoded['workspace_hash'] ?? '') === $workspaceHash;
             $matchesOrigin = false;
             if (! $matchesWorkspace && $originHash !== null && $originHash !== '') {
-                $originRaw = @file_get_contents($runDir.DIRECTORY_SEPARATOR.'workspace_origin.json');
+                $originPath = $runDir.DIRECTORY_SEPARATOR.'workspace_origin.json';
+                $originRaw = is_file($originPath) ? @file_get_contents($originPath) : false;
                 $originDecoded = $originRaw === false ? null : json_decode($originRaw, true);
                 $matchesOrigin = is_array($originDecoded)
                     && (string) ($originDecoded['origin_hash'] ?? '') === $originHash;
@@ -190,7 +209,11 @@ final class DevGreenRunExemplarRetriever
      */
     private function objectiveExcerpt(string $runDir): string
     {
-        $raw = @file_get_contents($runDir.DIRECTORY_SEPARATOR.'mini_programming_spec.json');
+        $path = $runDir.DIRECTORY_SEPARATOR.'mini_programming_spec.json';
+        if (! is_file($path)) {
+            return '';
+        }
+        $raw = @file_get_contents($path);
         if ($raw === false) {
             return '';
         }

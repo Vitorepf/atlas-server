@@ -216,6 +216,23 @@ final class DevGreenRunExemplarRetrieverTest extends TestCase
         );
     }
 
+    public function test_scan_cap_examines_only_the_newest_run_dirs(): void
+    {
+        // dev-<ms>-<rand> ids sort chronologically; the cap must keep the
+        // NEWEST dirs (an old green run beyond the cap is not scanned).
+        $store = $this->tempStore();
+        $this->writeReceipt($store, 'dev-1000-old');
+        $this->writeReceipt($store, 'dev-2000-mid');
+        $this->writeReceipt($store, 'dev-3000-new');
+
+        $out = (new DevGreenRunExemplarRetriever($store, scanCap: 2))->retrieve('patch', 'safe_refactor', [], 5);
+
+        $runIds = array_column($out, 'run_id');
+        $this->assertContains('dev-3000-new', $runIds);
+        $this->assertContains('dev-2000-mid', $runIds);
+        $this->assertNotContains('dev-1000-old', $runIds, 'dirs beyond the newest-N cap must not be scanned');
+    }
+
     public function test_empty_store_returns_empty_list(): void
     {
         $store = $this->tempStore();
