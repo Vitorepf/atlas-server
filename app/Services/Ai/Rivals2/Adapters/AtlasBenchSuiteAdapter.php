@@ -234,6 +234,17 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 if (array_intersect($touched, $testFiles) !== []) {
                     $blockReason = 'test_tampering_detected: solver modified hidden acceptance test files';
                 } else {
+                    // teste PRÓPRIO criado pelo solver no path do teste oculto não é
+                    // tampering (arquivo não existia no base) — mas a prova oculta manda:
+                    // remove a colisão UNTRACKED antes do inject, senão git apply falha.
+                    // Tracked fica intacto (modificação tracked já caiu como tampering).
+                    foreach ($testFiles as $testFile) {
+                        $tracked = Process::path($worktree)
+                            ->run('git ls-files --error-unmatch '.escapeshellarg($testFile))->successful();
+                        if (! $tracked && is_file($worktree.'/'.$testFile)) {
+                            unlink($worktree.'/'.$testFile);
+                        }
+                    }
                     $testDiff = Process::path($repo)->run(
                         'git diff '.escapeshellarg($case['base_sha']).' '.escapeshellarg($case['golden_sha']).' -- '
                         .implode(' ', array_map('escapeshellarg', $testFiles))
