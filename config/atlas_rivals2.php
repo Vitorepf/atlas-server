@@ -57,5 +57,19 @@ return [
         'composer_2_5' => ['provider' => 'cursor', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => false],
         'glm_5_2' => ['provider' => 'zai', 'access_type' => 'api', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true],
         'local_fake_model' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true],
+        // harness_* existem SÓ para validar a mecânica do AtlasBench (null = não faz nada,
+        // golden = reaplica o patch real minerado). Nunca são medição de modelo.
+        'harness_null' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true],
+        'harness_golden' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true],
+    ],
+
+    // AtlasBench interno: cases frescos minerados do histórico git dos repos Atlas
+    // (estilo SWE-smith): reverte um commit real e pede a reimplementação; o
+    // check é o teste real que o commit tocou. Geração 100% provider-free.
+    'atlasbench' => [
+        'repo_path' => env('ATLAS_RIVALS2_ATLASBENCH_REPO', base_path()),
+        'mine_window_commits' => 300,
+        'max_diff_lines' => 400,
+        'check_timeout_seconds' => 300,
     ],
 ];

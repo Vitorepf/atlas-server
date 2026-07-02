@@ -2,7 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Rivals2\Adapters\AtlasBenchSuiteAdapter;
 use App\Services\Ai\Rivals2\Adapters\LocalFakeSuiteAdapter;
+use App\Services\Ai\Rivals2\Contracts\BenchmarkSuiteAdapter;
 use App\Services\Ai\Rivals2\Core\Adjudicator;
 use App\Services\Ai\Rivals2\Core\ArmRegistry;
 use App\Services\Ai\Rivals2\Core\ModelRegistry;
@@ -20,8 +22,9 @@ use Illuminate\Console\Command;
 class AtlasRivals2Command extends Command
 {
     protected $signature = 'atlas:rivals2
-        {action : doctor|models|arms|plan|run-fake|verify|adjudicate|report|ledger}
+        {action : doctor|models|arms|mine|plan|run-fake|run-bench|verify|adjudicate|report|ledger}
         {--suite=local_fake}
+        {--limit=5 : (mine) máximo de cases a minerar}
         {--run= : run_id (default: run mais recente)}
         {--arms=local_fake_model@bare : lista model@runtime separada por vírgula}
         {--repetitions=3}
@@ -38,8 +41,10 @@ class AtlasRivals2Command extends Command
             'doctor' => $this->doctor(),
             'models' => ['schema_version' => 'atlas.rivals2.models.v1', 'models' => (new ModelRegistry)->all()],
             'arms' => $this->arms(),
+            'mine' => $this->mine(),
             'plan' => $this->plan(),
             'run-fake' => $this->runFake(),
+            'run-bench' => $this->runBench(),
             'verify' => $this->withRun(fn ($runId) => ['run_id' => $runId] + (new ReplayVerifier)->verify($runId)),
             'adjudicate' => $this->withRun(function ($runId) {
                 $adjudication = (new Adjudicator)->adjudicate($runId);
@@ -108,12 +113,42 @@ class AtlasRivals2Command extends Command
         ];
     }
 
+    private function adapterFor(string $suiteId): ?BenchmarkSuiteAdapter
+    {
+        return match ($suiteId) {
+            LocalFakeSuiteAdapter::SUITE_ID => new LocalFakeSuiteAdapter,
+            AtlasBenchSuiteAdapter::SUITE_ID => new AtlasBenchSuiteAdapter,
+            default => null,
+        };
+    }
+
+    private function mine(): array
+    {
+        $cases = (new AtlasBenchSuiteAdapter)->mineCases((int) $this->option('limit'));
+
+        return [
+            'schema_version' => 'atlas.rivals2.mine.v1',
+            'status' => 'ok',
+            'mined' => count($cases),
+            'cases' => array_map(fn ($c) => [
+                'case_id' => $c['case_id'],
+                'task_type' => $c['task_type'],
+                'title' => $c['title'],
+                'diff_lines' => $c['diff_lines'],
+            ], $cases),
+        ];
+    }
+
     private function plan(): array
     {
-        if ($this->option('suite') !== LocalFakeSuiteAdapter::SUITE_ID) {
-            return ['status' => 'error', 'error' => 'only_local_fake_supported_in_slice_1'];
+        $adapter = $this->adapterFor((string) $this->option('suite'));
+        if ($adapter === null) {
+            return ['status' => 'error', 'error' => 'unknown_suite:'.$this->option('suite')];
         }
-        $adapter = new LocalFakeSuiteAdapter;
+        $cases = $adapter->listCases();
+        if ($cases === []) {
+            return ['status' => 'error', 'error' => 'no_cases_available_mine_first'];
+        }
         $registry = new ArmRegistry;
         try {
             $arms = array_map(fn ($s) => $registry->parse(trim($s)), explode(',', (string) $this->option('arms')));
@@ -123,7 +158,7 @@ class AtlasRivals2Command extends Command
 
         $plan = RunPlan::make(
             $adapter->suiteId(),
-            array_column($adapter->listCases(), 'case_id'),
+            array_column($cases, 'case_id'),
             $arms,
             (int) $this->option('repetitions'),
             ['max_usd' => 0.0, 'max_minutes' => 5],
@@ -152,6 +187,27 @@ class AtlasRivals2Command extends Command
 
             return [
                 'schema_version' => 'atlas.rivals2.run_fake.v1',
+                'status' => 'ok',
+                'run_id' => $runId,
+                'receipts' => count($adapter->ingestResults(RunPaths::runDir($runId))),
+                'evidence_pack_built' => ($pack['receipts_hash']['present'] ?? false) === true,
+            ];
+        });
+    }
+
+    private function runBench(): array
+    {
+        return $this->withRun(function (string $runId) {
+            $plan = RunPlan::load($runId);
+            if ($plan->data['suite_id'] !== AtlasBenchSuiteAdapter::SUITE_ID) {
+                return ['status' => 'error', 'error' => 'run_is_not_atlas_bench'];
+            }
+            $adapter = new AtlasBenchSuiteAdapter;
+            $adapter->execute($plan);
+            $pack = (new \App\Services\Ai\Rivals2\Core\EvidencePackBuilder)->build($runId);
+
+            return [
+                'schema_version' => 'atlas.rivals2.run_bench.v1',
                 'status' => 'ok',
                 'run_id' => $runId,
                 'receipts' => count($adapter->ingestResults(RunPaths::runDir($runId))),
