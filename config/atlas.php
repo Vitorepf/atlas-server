@@ -1852,6 +1852,12 @@ return [
     // ensure-launchd self-heal. Operator activates production via
     // `php artisan atlas:patamar4:activate-flags --apply`.
     'patamar4' => [
+        // O-1 single-feeder bridge: Forge work-packet completions may feed
+        // the central compounding loop THROUGH the conductor
+        // (recordExternalEngineeringOutcome — same substance gates as live
+        // runs; the conductor stays the only recordExecution caller).
+        // Default OFF, mirroring the opt-in `compound` option.
+        'forge_compounding_bridge_enabled' => (bool) env('ATLAS_PATAMAR4_FORGE_COMPOUNDING_BRIDGE_ENABLED', false),
         'scheduler_heartbeat_enabled' => (bool) env('ATLAS_PATAMAR4_SCHEDULER_HEARTBEAT_ENABLED', true),
         'scheduler_ensure_launchd_enabled' => (bool) env('ATLAS_PATAMAR4_SCHEDULER_ENSURE_LAUNCHD_ENABLED', true),
         'reconciliation_enabled' => (bool) env('ATLAS_PATAMAR4_RECONCILIATION_ENABLED', true),

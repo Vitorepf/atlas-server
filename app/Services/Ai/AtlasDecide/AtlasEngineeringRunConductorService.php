@@ -859,6 +859,122 @@ final class AtlasEngineeringRunConductorService
         }
     }
 
+    public const FORGE_BRIDGE_FLAG = 'atlas.patamar4.forge_compounding_bridge_enabled';
+
+    /**
+     * O-1 single-feeder bridge: record an engineering outcome that was
+     * ALREADY executed outside the conductor (today: a Forge work-packet
+     * cycle) by applying the SAME substance gates maybeRecordCompounding
+     * applies to its own runs. This method never re-executes anything, and
+     * the conductor remains the ONLY class that talks to
+     * AtlasCompoundingRuntimeService::recordExecution.
+     *
+     * Substance gates (each rejection returns recorded=false + reason):
+     *   - runtime wired + bridge flag ON (default OFF — mirrors the
+     *     opt-in `compound` option);
+     *   - execution_mode === 'real' (a simulation never trains — mirror of
+     *     the never-SHADOW guard);
+     *   - non-empty evidence refs with at least one non-simulation kind;
+     *   - a REAL passed gate, re-validated HERE (the gate lives in the
+     *     feeder, never trusted from the caller);
+     *   - confidence is DERIVED, never caller-supplied: promotable (75)
+     *     only when gates all passed AND the evidence carries a
+     *     verification receipt; partial/failed outcomes are capped at
+     *     hold-level so they become candidates, never memories.
+     *
+     * @param  array<string,mixed>  $outcome  see the shape asserted below
+     * @return array{recorded: bool, reason?: string, learning_candidate_status?: string|null, compounding_memory_id?: int|string|null}
+     */
+    public function recordExternalEngineeringOutcome(array $outcome): array
+    {
+        if ($this->compoundingRuntime === null) {
+            return ['recorded' => false, 'reason' => 'compounding_runtime_unavailable'];
+        }
+        try {
+            $enabled = (bool) config(self::FORGE_BRIDGE_FLAG, false);
+        } catch (\Throwable) {
+            $enabled = false;
+        }
+        if (! $enabled) {
+            return ['recorded' => false, 'reason' => 'bridge_flag_off'];
+        }
+
+        if ((string) ($outcome['execution_mode'] ?? '') !== 'real') {
+            return ['recorded' => false, 'reason' => 'not_a_real_execution'];
+        }
+
+        $evidenceRefs = array_values(array_filter(array_map('strval', (array) ($outcome['evidence_refs'] ?? []))));
+        $evidenceKinds = array_values(array_filter(array_map('strval', (array) ($outcome['evidence_kinds'] ?? []))));
+        $substantiveKinds = array_values(array_diff($evidenceKinds, ['simulation_log']));
+        if ($evidenceRefs === [] || $substantiveKinds === []) {
+            return ['recorded' => false, 'reason' => 'no_substantive_evidence'];
+        }
+
+        $gateResult = (array) ($outcome['gate_result'] ?? []);
+        $allPassed = ($gateResult['all_passed'] ?? false) === true;
+        $anyPassed = $allPassed;
+        foreach ((array) ($gateResult['gates'] ?? []) as $gate) {
+            if (is_array($gate) && ($gate['status'] ?? null) === 'passed') {
+                $anyPassed = true;
+                break;
+            }
+        }
+        if (! $anyPassed) {
+            return ['recorded' => false, 'reason' => 'no_passed_gate'];
+        }
+
+        $outcomeStatus = (string) ($outcome['outcome_status'] ?? '') === 'failed' ? 'failed' : 'passed';
+        // Derived confidence — the anti-farm core: promotable ONLY for a
+        // fully-passed REAL run whose evidence includes a verification
+        // receipt (the artifact a gate runner produces, not a caller claim).
+        $hasVerificationReceipt = in_array('verification_receipt', $evidenceKinds, true);
+        $confidence = match (true) {
+            $outcomeStatus === 'failed' => 50,
+            $allPassed && $hasVerificationReceipt => 75,
+            default => 65,
+        };
+
+        $claim = trim((string) ($outcome['claim'] ?? ''));
+        if ($claim === '') {
+            return ['recorded' => false, 'reason' => 'empty_claim'];
+        }
+        $failureClass = trim((string) ($outcome['failure_class'] ?? ''));
+        if ($outcomeStatus === 'failed' && $failureClass !== '') {
+            $claim .= ' (failure_class: '.$failureClass.')';
+        }
+
+        $flowId = trim((string) ($outcome['flow_id'] ?? '')) ?: 'atlas_forge';
+        $runId = trim((string) ($outcome['run_id'] ?? ''));
+        if ($runId === '') {
+            return ['recorded' => false, 'reason' => 'missing_run_id'];
+        }
+
+        try {
+            $result = $this->compoundingRuntime->recordExecution([
+                'outcome_status' => $outcomeStatus,
+                'flow_id' => $flowId,
+                'run_id' => $runId,
+                'evidence_refs' => $evidenceRefs,
+                'learning_signal' => [
+                    'claim' => mb_substr($claim, 0, 220),
+                    'memory_type' => 'forge_packet_memory',
+                    'scope' => 'engineering',
+                    'confidence' => $confidence,
+                    'flow_id' => $flowId,
+                    'evidence_refs' => $evidenceRefs,
+                ],
+            ]);
+
+            return [
+                'recorded' => true,
+                'learning_candidate_status' => $result['learning_candidate']['status'] ?? null,
+                'compounding_memory_id' => $result['compounding_memory']['id'] ?? null,
+            ];
+        } catch (\Throwable) {
+            return ['recorded' => false, 'reason' => 'compounding_record_failed'];
+        }
+    }
+
     /**
      * L5-11 recall→use attribution. Builds a provider-safe RAG feedback block
      * that marks each governed memory recalled into a PASSING run's prompt as

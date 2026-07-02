@@ -64,6 +64,11 @@ class ForgeWorkPacketExecutionCycleService
         private readonly ForgeSpecialistWorkcellRouterService $workcellRouter,
         private readonly ForgeFailureIntelligenceService $failureIntelligence,
         private readonly ForgeOutcomeMemoryService $outcomeMemory,
+        // O-1 bridge: terminal cycles feed the central compounding loop
+        // THROUGH the conductor (the single legitimate feeder). Nullable so
+        // plain `new` construction keeps working; the bridge is opt-in via
+        // config anyway.
+        private readonly ?\App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService $engineeringConductor = null,
     ) {}
 
     /**
@@ -341,6 +346,7 @@ class ForgeWorkPacketExecutionCycleService
         $cycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($cycle));
         $cycle->save();
         $cycle = $this->persistOutcomeMemory($cycle);
+        $this->feedCentralLearning($cycle);
 
         AiForgeWorkPacket::query()
             ->where('id', $cycle->work_packet_id)
@@ -406,6 +412,7 @@ class ForgeWorkPacketExecutionCycleService
         $cycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($cycle));
         $cycle->save();
         $cycle = $this->persistOutcomeMemory($cycle, $failureCapsule);
+        $this->feedCentralLearning($cycle, $failureCapsule);
 
         if ($state !== null) {
             $this->longHorizon->recordCycle($state, [
@@ -513,6 +520,55 @@ class ForgeWorkPacketExecutionCycleService
     /**
      * @param  array<string,mixed>|null  $failureCapsule
      */
+    /**
+     * O-1 bridge, Forge side: hand the terminal cycle's FACTS to the
+     * conductor (the single legitimate compounding feeder). This method
+     * never decides substance — execution mode, evidence kinds, gate
+     * re-validation and confidence derivation all live in
+     * {@see AtlasEngineeringRunConductorService::recordExternalEngineeringOutcome}.
+     * Fail-open: learning must never break a cycle transition.
+     *
+     * @param  array<string,mixed>|null  $failureCapsule
+     */
+    private function feedCentralLearning(AiForgeWorkPacketExecutionCycle $cycle, ?array $failureCapsule = null): void
+    {
+        if ($this->engineeringConductor === null) {
+            return;
+        }
+
+        try {
+            $evidence = array_values(array_filter((array) ($cycle->evidence_refs ?? []), 'is_array'));
+            $packet = AiForgeWorkPacket::query()->find($cycle->work_packet_id);
+            $objective = trim((string) ($packet?->objective ?? $packet?->title ?? $cycle->work_packet_canonical_id));
+
+            $this->engineeringConductor->recordExternalEngineeringOutcome([
+                'source' => 'forge_work_packet_cycle',
+                'flow_id' => 'atlas_forge',
+                'run_id' => 'wp-cycle-'.$cycle->uuid,
+                'outcome_status' => $cycle->outcome_status === ForgeWorkPacketExecutionCycleCanon::OUTCOME_SUCCESS ? 'passed' : 'failed',
+                'execution_mode' => (string) $cycle->execution_mode,
+                'evidence_refs' => array_map(
+                    static fn (array $r): string => 'forge_evidence:'.((string) ($r['kind'] ?? 'unknown')).':'.((string) ($r['ref'] ?? '')),
+                    $evidence,
+                ),
+                'evidence_kinds' => array_values(array_unique(array_map(
+                    static fn (array $r): string => (string) ($r['kind'] ?? 'unknown'),
+                    $evidence,
+                ))),
+                'gate_result' => (array) ($cycle->gate_result ?? []),
+                'claim' => sprintf(
+                    'Forge work packet "%s" %s (gates: %s).',
+                    mb_substr($objective !== '' ? $objective : (string) $cycle->work_packet_canonical_id, 0, 140),
+                    $cycle->outcome_status === ForgeWorkPacketExecutionCycleCanon::OUTCOME_SUCCESS ? 'completed with real evidence' : 'failed',
+                    ((array) ($cycle->gate_result ?? []))['all_passed'] ?? false ? 'all_passed' : 'partial',
+                ),
+                'failure_class' => is_array($failureCapsule) ? (string) ($failureCapsule['failure_class'] ?? '') : null,
+            ]);
+        } catch (\Throwable) {
+            // fail-open
+        }
+    }
+
     private function persistOutcomeMemory(
         AiForgeWorkPacketExecutionCycle $cycle,
         ?array $failureCapsule = null,
