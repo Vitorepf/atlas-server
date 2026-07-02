@@ -82,10 +82,15 @@ final class AgentControlPlaneLeasePathCanonicalizer
 
     /**
      * Derive the canonical lease storage path for a given lease ID.
+     *
+     * MUST equal the repository's STORAGE_PREFIX: the split-claimlease-repo extraction shipped a
+     * divergent hardcoded dir here, so writeLeaseFile/readLeaseFile landed in one directory while
+     * rebuildRegistryFromLeaseFiles/prune scanned another — post-corruption rebuild recovered ZERO
+     * leases and write-set conflicts were silently lost.
      */
     public function leasePath(string $leaseId): string
     {
-        return 'app/atlas/self-construction/leases/' . $this->canonicalizeLeaseId($leaseId) . '.json';
+        return \App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$this->canonicalizeLeaseId($leaseId).'.json';
     }
 
     /**

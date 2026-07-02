@@ -30,7 +30,11 @@ final class AtlasMaestroPacketAgeFactReporterTest extends TestCase
         $this->assertSame(60, $facts[2]['time_in_queue_seconds']);
 
         foreach ($facts as $f) {
-            $this->assertSame(['age_bucket', 'enqueued_at', 'observed_at', 'queue_status', 'stale_risk', 'task_packet_id', 'time_in_queue_seconds'], array_keys($f));
+            // r89 added age_seconds/value_class/freshness_status additively.
+            $this->assertSame(
+                ['age_bucket', 'age_seconds', 'enqueued_at', 'freshness_status', 'observed_at', 'queue_status', 'stale_risk', 'task_packet_id', 'time_in_queue_seconds', 'value_class'],
+                collect(array_keys($f))->sort()->values()->all(),
+            );
         }
     }
 
