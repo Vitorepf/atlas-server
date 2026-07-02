@@ -71,6 +71,9 @@ final class AtlasTaskServingResolveLoopE2ETest extends TestCase
         // admitted then. The old expectation (3 up-front) predates the gate.
         $enqueued = $replenisher->replenishFromModel($this->model(), 'app/Demo', targetMin: 50, maxPerRun: 50);
         $this->assertSame(1, $enqueued['enqueued_count'], 'anti-farm admission lets exactly one template sibling be claimable');
+        // The two farm-blocked siblings are COUNTED, never silently dropped.
+        $this->assertSame(2, $enqueued['skipped_blocked_admission'], 'blocked admissions are visible in the summary');
+        $this->assertSame(['template_farm_similarity' => 2], $enqueued['blocked_admission_reasons']);
 
         // Verifier + committer MUST share the same repo (the throwaway one), or the server-side verification
         // checks the wrong tree. The full chain — Fase-2 verify → governance (observe) → scoped commit — is

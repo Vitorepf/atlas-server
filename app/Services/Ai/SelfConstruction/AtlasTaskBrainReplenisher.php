@@ -184,6 +184,8 @@ final class AtlasTaskBrainReplenisher
         $enqueued = [];
         $skippedExisting = 0;
         $skippedDeficient = 0;
+        $skippedBlockedAdmission = 0;
+        $blockedAdmissionReasons = [];
         $depth = $before;
 
         foreach ($candidates as $packet) {
@@ -212,6 +214,13 @@ final class AtlasTaskBrainReplenisher
             if ((string) ($res['event'] ?? '') === 'prepared_and_enqueued') {
                 $enqueued[] = $id;
                 $depth++;
+            } else {
+                // No silent drop: a candidate the orchestrator refused at admission
+                // (e.g. template_farm_similarity, near-duplicate) is COUNTED, so the
+                // replenish summary always explains why considered > enqueued.
+                $skippedBlockedAdmission++;
+                $reason = (string) ($res['reason'] ?? $res['event'] ?? 'unknown');
+                $blockedAdmissionReasons[$reason] = ($blockedAdmissionReasons[$reason] ?? 0) + 1;
             }
         }
 
@@ -222,6 +231,8 @@ final class AtlasTaskBrainReplenisher
             [
                 'skipped_existing'              => $skippedExisting,
                 'skipped_deficient'             => $skippedDeficient,
+                'skipped_blocked_admission'     => $skippedBlockedAdmission,
+                'blocked_admission_reasons'     => $blockedAdmissionReasons,
                 'candidates_considered'         => count($candidates),
                 'skipped_template_family_count' => $this->lastSkippedTemplateFamilyCount,
             ],

@@ -40,7 +40,8 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
             // Resolvable: the new class file AND its new test file are BOTH in allowed_files (nothing to wire).
             $this->assertCount(2, $t['allowed_files']);
             $this->assertStringContainsString('tests/', implode(' ', $t['allowed_files']));
-            $this->assertSame(['tests_or_gates_result'], $t['required_evidence']);
+            // fable-refactor c48: property-gated docgap targets ALSO mint constitution evidence.
+            $this->assertSame(['tests_or_gates_result', 'constitution_gate_receipt'], $t['required_evidence']);
             $this->assertSame('shared_local_main_with_scope_lock', $t['workspace_policy']['isolation']);
         }
     }
@@ -206,12 +207,16 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
         $replenisher = new AtlasTaskBrainReplenisher($orch);
         $model = $this->model();
 
-        // First pass: the queue is empty → the brain mints its structured tasks.
+        // First pass: the queue is empty → the brain mints its structured tasks. The 3 doc-gaps
+        // share one minting template, so the fable-v3-w1 anti-farm admission SERIALIZES them:
+        // exactly one claimable sibling; the other two are counted as blocked, never dropped silently.
         $r1 = $replenisher->replenishFromModel($model, 'app/Demo', targetMin: 20, maxPerRun: 40);
-        $this->assertGreaterThanOrEqual(3, $r1['enqueued_count'], 'the brain filled the queue from comprehension');
+        $this->assertSame(1, $r1['enqueued_count'], 'anti-farm admission lets one template sibling through');
+        $this->assertSame(2, $r1['skipped_blocked_admission'], 'farm-blocked candidates are counted');
         $this->assertGreaterThan(0, $this->claimable($orch), 'tasks are now claimable by any AI');
 
-        // Second pass: same comprehension → nothing new (dedup), no duplicate tasks.
+        // Second pass: same comprehension → nothing new (dedup + the claimable sibling still
+        // farm-blocks its twins), no duplicate tasks.
         $r2 = $replenisher->replenishFromModel($model, 'app/Demo', targetMin: 20, maxPerRun: 40);
         $this->assertSame(0, $r2['enqueued_count'], 'a re-run mints nothing already in the queue (idempotent)');
         $this->assertSame($r1['enqueued_count'], $r2['skipped_existing']);
