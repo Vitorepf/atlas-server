@@ -155,12 +155,19 @@ final class HumanDecisionReceiptSigner
     {
         $path = (string) config('atlas_code_signing.audit_log_path', storage_path('app/atlas-code/decision-receipts.jsonl'));
         try {
-            AppendOnlyJsonlStore::appendSilently($path, [
+            // Strict append: a signature audit trail with silent holes is not an
+            // audit trail. Signing still proceeds on failure (the receipt travels
+            // in the caller's envelope), but the loss is LOGGED, never invisible.
+            AppendOnlyJsonlStore::append($path, [
                 'receipt' => $receipt,
                 'canonical_payload' => $canonicalPayload,
             ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        } catch (Throwable) {
-            // Audit log is best-effort. Signing decision still proceeds.
+        } catch (Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('human_decision_receipt_audit_append_failed', [
+                'path' => $path,
+                'canonical_payload_hash' => (string) ($receipt['canonical_payload_hash'] ?? ''),
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }
