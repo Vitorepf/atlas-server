@@ -10,7 +10,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Engineering\EngineeringStringListNormalizer;
-use App\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Closure;
 use Illuminate\Support\Facades\File;
 

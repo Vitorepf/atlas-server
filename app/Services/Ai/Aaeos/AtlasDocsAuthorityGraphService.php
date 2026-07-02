@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Aaeos;
 
 use App\Models\AtlasDocsAuthorityGraph;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\EngineeringStringListNormalizer;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\DB;
@@ -119,6 +120,13 @@ class AtlasDocsAuthorityGraphService
     public function locate(string $needle, int $limit = 5): array
     {
         $normalized = mb_strtolower(trim($needle));
+
+        // Read-model fail-open: when the table was never materialized (fresh
+        // env, test sqlite without migrations), resolve to "not found" instead
+        // of a QueryException. Guard here, once, for every caller.
+        if (! DatabaseTableAvailability::has('atlas_docs_authority_graph')) {
+            return $this->result($needle, collect(), fallback: true);
+        }
 
         $exact = AtlasDocsAuthorityGraph::query()
             ->where('needle_normalized', $normalized)
