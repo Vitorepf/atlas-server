@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift;
 
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use Closure;
 use Throwable;
@@ -53,21 +54,42 @@ final class AtlasLoopIntentDriftReceiptLedger
     {
         $contentHash = $this->contentHash($detectorFact, $recalibration);
 
-        $existing = $this->findByContentHash($contentHash);
-        if ($existing !== null) {
-            return $existing;
+        $result = null;
+        try {
+            // Idempotency check runs INSIDE the store's exclusive lock — no dedup TOCTOU between writers.
+            (new JsonlReceiptStore($this->path()))->appendWith(function (?string $lastLine) use (&$result, $contentHash, $detectorFact, $recalibration): ?array {
+                $existing = $this->findByContentHash($contentHash);
+                if ($existing !== null) {
+                    $result = $existing;
+
+                    return null;
+                }
+
+                $result = $this->buildReceipt($contentHash, $detectorFact, $recalibration);
+
+                return $result->toArray();
+            });
+        } catch (Throwable) {
+            // best-effort append preserved from the legacy @file_put_contents path
         }
 
+        // Fail-open fallback: the legacy writer returned the receipt even when the disk write failed.
+        return $result ?? $this->buildReceipt($contentHash, $detectorFact, $recalibration);
+    }
+
+    /**
+     * @param  array<string,mixed>  $detectorFact
+     * @param  array<string,mixed>  $recalibration
+     */
+    private function buildReceipt(string $contentHash, array $detectorFact, array $recalibration): AtlasLoopIntentDriftReceipt
+    {
         $recordedAt = $this->now();
         $receiptId = hash('sha256', $this->canonicalJson([
             'recorded_at' => $recordedAt,
             'content_hash' => $contentHash,
         ]));
 
-        $receipt = new AtlasLoopIntentDriftReceipt($receiptId, $recordedAt, $detectorFact, $recalibration, $contentHash);
-        $this->appendLine((string) json_encode($receipt->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-
-        return $receipt;
+        return new AtlasLoopIntentDriftReceipt($receiptId, $recordedAt, $detectorFact, $recalibration, $contentHash);
     }
 
     /**
@@ -176,16 +198,6 @@ final class AtlasLoopIntentDriftReceiptLedger
             (array) ($decoded['recalibration'] ?? []),
             (string) ($decoded['content_hash'] ?? ''),
         );
-    }
-
-    private function appendLine(string $line): void
-    {
-        $path = $this->path();
-        $dir = \dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0755, true);
-        }
-        @file_put_contents($path, $line.PHP_EOL, FILE_APPEND | LOCK_EX);
     }
 
     private function now(): string

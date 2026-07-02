@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Quaternity\IntentIngest;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Carbon\CarbonImmutable;
 use Closure;
 use InvalidArgumentException;
@@ -11,8 +12,8 @@ use Throwable;
 
 /**
  * APPEND-ONLY JSONL ledger of operator-intent FACTS + the downstream DECISION keyed to each. Tamper-evident:
- * receipt_id = sha256(fact_id|recorded_at|decision). Concurrent writers are serialized by an EXCLUSIVE flock
- * around `file_put_contents(..., FILE_APPEND|LOCK_EX)`.
+ * receipt_id = sha256(fact_id|recorded_at|decision). Concurrent writers are serialized by the kernel
+ * {@see JsonlReceiptStore} exclusive-lock append.
  *
  * Path: storage_path('atlas/quaternity/intent-receipts.jsonl'). Injectable via the ctor for tests.
  */
@@ -57,7 +58,11 @@ final class AtlasLoopOperatorIntentReceiptLedger
             $downstreamRef !== null ? trim($downstreamRef) : null,
         );
 
-        $this->appendLine((string) json_encode($receipt->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        try {
+            (new JsonlReceiptStore($this->path()))->append($receipt->toArray());
+        } catch (Throwable) {
+            // best-effort append preserved from the legacy @file_put_contents path
+        }
 
         return $receipt;
     }
@@ -98,18 +103,6 @@ final class AtlasLoopOperatorIntentReceiptLedger
         }
 
         return $rows;
-    }
-
-    private function appendLine(string $line): void
-    {
-        $path = $this->path();
-        $dir = \dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0755, true);
-        }
-
-        // file_put_contents with FILE_APPEND|LOCK_EX gives atomic append + flock semantics — never truncates.
-        @file_put_contents($path, $line.PHP_EOL, FILE_APPEND | LOCK_EX);
     }
 
     private function now(): CarbonImmutable

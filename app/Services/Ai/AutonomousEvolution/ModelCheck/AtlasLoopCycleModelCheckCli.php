@@ -179,26 +179,16 @@ final class AtlasLoopCycleModelCheckCli
 
     private function appendHistory(string $action, string $artifactPath, string $sha): void
     {
-        $line = (string) json_encode([
-            'action' => $action,
-            'artifact_path' => $artifactPath,
-            'sha256' => $sha,
-            'ts' => ($this->clock)(),
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $historyPath = $this->storageRoot.'/'.self::HISTORY_FILE;
-        $fh = @fopen($historyPath, 'ab');
-        if ($fh === false) {
-            throw new \RuntimeException('atlas_model_check_history_open_failed');
-        }
         try {
-            if (! @flock($fh, LOCK_EX)) {
-                throw new \RuntimeException('atlas_model_check_history_lock_failed');
-            }
-            fwrite($fh, $line."\n");
-            fflush($fh);
-        } finally {
-            @flock($fh, LOCK_UN);
-            fclose($fh);
+            (new \App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore($this->storageRoot.'/'.self::HISTORY_FILE))->append([
+                'action' => $action,
+                'artifact_path' => $artifactPath,
+                'sha256' => $sha,
+                'ts' => ($this->clock)(),
+            ]);
+        } catch (\Throwable $e) {
+            // Preserve the domain exception type on IO failure.
+            throw new \RuntimeException('atlas_model_check_history_append_failed', 0, $e);
         }
     }
 }

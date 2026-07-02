@@ -9,7 +9,6 @@ use App\Models\AtlasLoopProposal;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
 
@@ -655,11 +654,10 @@ final class AtlasLoopMorningDigestService
         }
 
         try {
-            File::ensureDirectoryExists(dirname($path));
             $payload['source_schema_version'] = $payload['schema_version'] ?? null;
             $payload['schema_version'] = 'atlas.loop.keepalive.digest_event.v1';
             $payload['recorded_at'] = Carbon::now()->toIso8601String();
-            file_put_contents($path, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n", FILE_APPEND | LOCK_EX);
+            (new \App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore($path))->append($payload);
             self::trimJsonl($path, (int) config('atlas.loop.morning_digest.keepalive_event_log_max_lines', 2000));
         } catch (Throwable) {
             // Digest evidence is best-effort; keepalive itself must never fail on logging.

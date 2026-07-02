@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Quaternity\CortexIntentMeaning;
 
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use Carbon\CarbonImmutable;
 use Closure;
@@ -62,7 +63,11 @@ final class AtlasCortexIntentMeaningReceiptLedger
             'fact_digest' => sha1($this->canonicalJson($triangulationFacts)),
         ]);
 
-        $this->appendLine($this->canonicalJson($receipt));
+        try {
+            (new JsonlReceiptStore($this->path()))->append($receipt);
+        } catch (Throwable) {
+            // best-effort: a receipt write must not crash the loop
+        }
 
         return $receipt;
     }
@@ -92,29 +97,6 @@ final class AtlasCortexIntentMeaningReceiptLedger
         }
 
         return $limit > 0 ? array_slice($rows, -$limit) : $rows;
-    }
-
-    private function appendLine(string $line): void
-    {
-        $path = $this->path();
-        $dir = \dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0755, true);
-        }
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            return; // best-effort: a receipt write must not crash the loop
-        }
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, $line.PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
     }
 
     private function now(): CarbonImmutable

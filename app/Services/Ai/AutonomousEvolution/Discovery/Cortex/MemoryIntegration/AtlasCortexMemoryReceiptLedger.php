@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery\Cortex\MemoryIntegration;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 final class AtlasCortexMemoryReceiptLedger
 {
     public function __construct(
@@ -41,13 +43,7 @@ final class AtlasCortexMemoryReceiptLedger
             'outcome' => (string) ($receipt['outcome'] ?? ''),
         ];
 
-        $path = $this->path();
-        $directory = dirname($path);
-        if (! is_dir($directory)) {
-            mkdir($directory, 0777, true);
-        }
-
-        file_put_contents($path, json_encode($normalized, JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND | LOCK_EX);
+        (new JsonlReceiptStore($this->path()))->append($normalized);
 
         return $normalized;
     }

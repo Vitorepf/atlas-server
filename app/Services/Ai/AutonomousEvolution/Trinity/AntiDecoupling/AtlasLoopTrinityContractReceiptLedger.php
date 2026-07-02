@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Trinity\AntiDecoupling;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
 
 /**
@@ -73,25 +74,24 @@ final class AtlasLoopTrinityContractReceiptLedger
 
         $ts = $this->now();
         $path = $this->dayPath($ts);
-        $seq = $this->nextSeq();
 
-        $receipt = [
-            'seq' => $seq,
-            'ts' => $ts,
-            'kind' => (string) $partial['kind'],
-            'primitive' => (string) ($partial['primitive'] ?? ''),
-            'counterpart' => isset($partial['counterpart']) ? (string) $partial['counterpart'] : null,
-            'side' => isset($partial['side']) ? (string) $partial['side'] : null,
-            'contract_fingerprint' => (string) ($partial['contract_fingerprint'] ?? ''),
-            'outcome' => isset($partial['outcome']) ? (string) $partial['outcome'] : null,
-            'source_command_sha' => isset($partial['source_command_sha']) ? (string) $partial['source_command_sha'] : null,
-        ];
+        $receipt = [];
+        // seq derivation runs INSIDE the store's exclusive lock — same-day writers cannot mint the same seq.
+        (new JsonlReceiptStore($path))->appendWith(function (?string $lastLine) use (&$receipt, $ts, $partial): array {
+            $receipt = [
+                'seq' => $this->nextSeq(),
+                'ts' => $ts,
+                'kind' => (string) $partial['kind'],
+                'primitive' => (string) ($partial['primitive'] ?? ''),
+                'counterpart' => isset($partial['counterpart']) ? (string) $partial['counterpart'] : null,
+                'side' => isset($partial['side']) ? (string) $partial['side'] : null,
+                'contract_fingerprint' => (string) ($partial['contract_fingerprint'] ?? ''),
+                'outcome' => isset($partial['outcome']) ? (string) $partial['outcome'] : null,
+                'source_command_sha' => isset($partial['source_command_sha']) ? (string) $partial['source_command_sha'] : null,
+            ];
 
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        file_put_contents($path, (string) json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n", FILE_APPEND | LOCK_EX);
+            return $receipt;
+        });
 
         return $receipt;
     }

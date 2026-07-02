@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Trinity\ThreeWay;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
 
 /**
@@ -120,28 +121,33 @@ final class AtlasLoopTrinityReceiptChain
      */
     public function append(TrinityCycleResult $cycle, object $audit): TrinityReceiptChainEntry
     {
-        $entries = $this->readEntries();
+        $entry = null;
+        // Duplicate-cycle check + prevCycleHash derivation run INSIDE the store's exclusive lock, so two
+        // concurrent appends cannot both read the same tail (no chain-fork TOCTOU).
+        (new JsonlReceiptStore($this->chainFile))->appendWith(function (?string $lastLine) use (&$entry, $cycle, $audit): array {
+            $entries = $this->readEntries();
 
-        foreach ($entries as $existing) {
-            if ($existing->cycleId === $cycle->cycleId) {
-                throw new TrinityReceiptChainDuplicateCycleException('Trinity cycle already chained: cycleId='.$cycle->cycleId);
+            foreach ($entries as $existing) {
+                if ($existing->cycleId === $cycle->cycleId) {
+                    throw new TrinityReceiptChainDuplicateCycleException('Trinity cycle already chained: cycleId='.$cycle->cycleId);
+                }
             }
-        }
 
-        $last = $entries === [] ? null : $entries[array_key_last($entries)];
-        $prevCycleHash = $last === null ? self::GENESIS_PREV_HASH : $last->entryHash();
+            $last = $entries === [] ? null : $entries[array_key_last($entries)];
+            $prevCycleHash = $last === null ? self::GENESIS_PREV_HASH : $last->entryHash();
 
-        $entry = new TrinityReceiptChainEntry(
-            $cycle->cycleId,
-            $prevCycleHash,
-            $cycle->loopReceiptId,
-            $cycle->cortexReceiptId,
-            $cycle->maestroReceiptId,
-            self::hashCanonical($cycle->factStream),
-            self::hashCanonical((array) $audit->toArray()),
-        );
+            $entry = new TrinityReceiptChainEntry(
+                $cycle->cycleId,
+                $prevCycleHash,
+                $cycle->loopReceiptId,
+                $cycle->cortexReceiptId,
+                $cycle->maestroReceiptId,
+                self::hashCanonical($cycle->factStream),
+                self::hashCanonical((array) $audit->toArray()),
+            );
 
-        $this->persist($entry);
+            return $entry->toArray();
+        });
 
         return $entry;
     }
@@ -195,17 +201,6 @@ final class AtlasLoopTrinityReceiptChain
         }
 
         return $entries;
-    }
-
-    private function persist(TrinityReceiptChainEntry $entry): void
-    {
-        $dir = dirname($this->chainFile);
-        if (! is_dir($dir)) {
-            mkdir($dir, 0775, true);
-        }
-
-        $line = (string) json_encode($entry->toArray(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        file_put_contents($this->chainFile, $line."\n", FILE_APPEND | LOCK_EX);
     }
 
     /**
