@@ -30,6 +30,15 @@ final class AtlasLoopDriftRestartDebounceWiringTest extends TestCase
         // §0 master switch defaults OFF (fail-closed) — arm ON to exercise the keepalive's active drift path.
         $this->armLoopMasterOn();
         $this->beforeApplicationDestroyed(fn () => $this->disarmLoopMaster());
+        if (! \Illuminate\Support\Facades\Schema::hasTable('atlas_agent_desired_state')) {
+            (require base_path('database/migrations/2026_06_22_000100_create_atlas_agent_governance_tables.php'))->up();
+        }
+        // Desired-state gate (post-freeze): only operator-ON campaigns are revived;
+        // backdate the ON floor so it precedes every seeded campaign.
+        \Illuminate\Support\Carbon::setTestNow(now()->subDays(2));
+        (new \App\Services\Ai\AgentGovernance\AtlasAgentDesiredStateStore)
+            ->setOn(\App\Services\Ai\AgentGovernance\AtlasFleetCatalog::LOOP, by: 'test-operator');
+        \Illuminate\Support\Carbon::setTestNow();
         if (! Schema::hasTable('atlas_loop_campaigns')) {
             foreach ([
                 '2026_06_02_000100_create_atlas_loop_runtime_tables.php',

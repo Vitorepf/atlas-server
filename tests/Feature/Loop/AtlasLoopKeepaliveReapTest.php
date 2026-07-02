@@ -35,6 +35,17 @@ final class AtlasLoopKeepaliveReapTest extends TestCase
                 (require base_path('database/migrations/'.$file))->up();
             }
         }
+        if (! Schema::hasTable('atlas_agent_desired_state')) {
+            (require base_path('database/migrations/2026_06_22_000100_create_atlas_agent_governance_tables.php'))->up();
+        }
+        // The keepalive gained the operator desired-state gate after this contract
+        // froze: only campaigns launched AT/AFTER an explicit operator ON are ever
+        // respawned. Declare the ON with a floor that PRECEDES every seeded
+        // campaign (the suite seeds created_at up to a day ago).
+        \Illuminate\Support\Carbon::setTestNow(now()->subDays(2));
+        (new \App\Services\Ai\AgentGovernance\AtlasAgentDesiredStateStore)
+            ->setOn(\App\Services\Ai\AgentGovernance\AtlasFleetCatalog::LOOP, by: 'test-operator');
+        \Illuminate\Support\Carbon::setTestNow();
         // Don't let the revive-starved pass interfere; these are running-row tests.
         config(['atlas.loop.keepalive_revive_starved' => false, 'atlas.loop.keepalive_reap_after_minutes' => 1440]);
     }
