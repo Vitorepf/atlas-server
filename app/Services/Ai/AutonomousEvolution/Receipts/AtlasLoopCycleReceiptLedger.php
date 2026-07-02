@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Receipts;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Generator;
 use RuntimeException;
 use Throwable;
@@ -53,43 +54,24 @@ final class AtlasLoopCycleReceiptLedger
             throw new CycleReceiptChainRejection('refusing to chain a signed receipt that fails verification');
         }
 
-        $path = $this->path();
-        $dir = \dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0755, true);
-        }
-
-        $fp = fopen($path, 'c+');
-        if ($fp === false) {
-            throw new RuntimeException('cannot open cycle-receipt chain: '.$path);
-        }
-
-        try {
-            if (! flock($fp, LOCK_EX)) {
-                throw new RuntimeException('cannot lock cycle-receipt chain for append');
-            }
-
-            // Compute seq + prev INSIDE the lock so concurrent appenders never collide.
-            $last = $this->lastEntryFromHandle($fp);
+        $entry = [];
+        // appendWith computes seq + prev from the tail line INSIDE the lock so concurrent
+        // appenders never collide.
+        (new JsonlReceiptStore($this->path()))->appendWith(function (?string $lastLine) use ($signedReceipt, &$entry): array {
+            $last = $lastLine !== null ? json_decode($lastLine, true) : null;
+            $last = is_array($last) ? $last : null;
             $prev = $last !== null ? (string) ($last['chain_hash'] ?? self::GENESIS_PREV) : self::GENESIS_PREV;
             $seq = $last !== null ? ((int) ($last['seq'] ?? 0) + 1) : 1;
 
-            $entry = [
+            return $entry = [
                 'seq' => $seq,
                 'prev_chain_hash' => $prev,
                 'signed_receipt' => $signedReceipt,
                 'chain_hash' => $this->chainHash($prev, $signedReceipt),
             ];
+        });
 
-            fseek($fp, 0, SEEK_END);
-            fwrite($fp, json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR).PHP_EOL);
-            fflush($fp);
-
-            return $entry;
-        } finally {
-            @flock($fp, LOCK_UN);
-            @fclose($fp);
-        }
+        return $entry;
     }
 
     /**
@@ -166,31 +148,4 @@ final class AtlasLoopCycleReceiptLedger
         return hash('sha256', $prev.$bodySha.$signature);
     }
 
-    /**
-     * Read the LAST decoded entry directly from the open (locked) handle.
-     *
-     * @param  resource  $fp
-     * @return array<string,mixed>|null
-     */
-    private function lastEntryFromHandle($fp): ?array
-    {
-        rewind($fp);
-        $content = (string) stream_get_contents($fp);
-        $last = null;
-        foreach (explode("\n", $content) as $line) {
-            if (trim($line) === '') {
-                continue;
-            }
-            try {
-                $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-            } catch (Throwable) {
-                continue;
-            }
-            if (is_array($decoded)) {
-                $last = $decoded;
-            }
-        }
-
-        return $last;
-    }
 }

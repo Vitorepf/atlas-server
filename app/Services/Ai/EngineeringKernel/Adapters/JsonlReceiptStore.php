@@ -67,7 +67,9 @@ final class JsonlReceiptStore implements ReceiptLedger
             if ($payload === null) {
                 return null;
             }
-            $line = (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            // PRESERVE_ZERO_FRACTION: signed/hashed payloads canonicalize floats as "1.0"; storage
+            // must round-trip them identically or disk re-verification of signatures breaks.
+            $line = (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
             fseek($fh, 0, SEEK_END);
             fwrite($fh, $line."\n");
             fflush($fh);
