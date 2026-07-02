@@ -177,6 +177,13 @@ final class AtlasTaskServingService
                 // how similar work failed before spending muscle. Advisory,
                 // fail-open — the admission ledger was write-only until now.
                 $task['known_lessons'] = $this->knownLessonsFor($task);
+                // Muscle-side context assembler: the worker also gets (a) the
+                // sibling tests that pin its allowed_files — it never has to
+                // hunt for what proves its own change — and (b) proven
+                // exemplars: packets of the same AREA that already resolved
+                // with a real commit. Both advisory, both fail-open.
+                $task['sibling_tests'] = $this->siblingTestsFor($task);
+                $task['green_run_exemplars'] = $this->greenRunExemplarsFor($task);
                 return $this->served($clientId, $this->envelope('served', $clientId, $task, []));
             }
 
@@ -544,6 +551,96 @@ final class AtlasTaskServingService
             return $lessons;
         } catch (Throwable) {
             return []; // fail-open: advisory learning never blocks a serve
+        }
+    }
+
+    /**
+     * Sibling tests pinning this packet's allowed_files (reuses the loop's
+     * cached mirror resolver): the worker never hunts for what proves its own
+     * change. Advisory; a file without a sibling simply doesn't appear.
+     *
+     * @param  array<string,mixed>  $task
+     * @return list<array{production_file:string, test_path:string, test_methods:list<string>}>
+     */
+    private function siblingTestsFor(array $task): array
+    {
+        try {
+            $resolver = new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
+            $siblings = [];
+            foreach (array_values(array_map('strval', (array) ($task['allowed_files'] ?? []))) as $file) {
+                $resolved = $resolver->resolve($file);
+                if (($resolved['has_sibling'] ?? false) === true) {
+                    $siblings[] = [
+                        'production_file' => $file,
+                        'test_path' => (string) $resolved['sibling_path'],
+                        'test_methods' => array_values(array_map('strval', (array) ($resolved['asserted_methods'] ?? []))),
+                    ];
+                }
+            }
+
+            return $siblings;
+        } catch (Throwable) {
+            return []; // fail-open: discovery advice never blocks a serve
+        }
+    }
+
+    /**
+     * Proven exemplars: packets of the same AREA (directory overlap — the
+     * same identity known_lessons uses) that already resolved with a real
+     * lease-validated commit. Newest first, capped. The muscle-side analogue
+     * of the Dev green-run exemplars.
+     *
+     * @param  array<string,mixed>  $task
+     * @return list<array<string,mixed>>
+     */
+    private function greenRunExemplarsFor(array $task, int $cap = 2): array
+    {
+        try {
+            $taskDirs = array_values(array_unique(array_map(
+                static fn (string $file): string => dirname($file),
+                array_values(array_map('strval', (array) ($task['allowed_files'] ?? []))),
+            )));
+            if ($taskDirs === []) {
+                return [];
+            }
+
+            $path = AgentControlPlaneTaskQueueOrchestrator::resolvedReceiptsPath();
+            if (! is_file($path)) {
+                return [];
+            }
+
+            $exemplars = [];
+            // ponytail: newest-500-lines scan per serve; index if it grows past that.
+            $lines = array_reverse(array_slice(
+                file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [],
+                -500,
+            ));
+            foreach ($lines as $line) {
+                $row = json_decode($line, true);
+                if (! is_array($row)) {
+                    continue;
+                }
+                $rowDirs = array_values(array_unique(array_map(
+                    static fn (string $file): string => dirname($file),
+                    array_values(array_map('strval', (array) ($row['allowed_files'] ?? []))),
+                )));
+                if ($rowDirs === [] || array_intersect($rowDirs, $taskDirs) === []) {
+                    continue;
+                }
+                $exemplars[] = [
+                    'task_packet_id' => (string) ($row['task_packet_id'] ?? ''),
+                    'objective_excerpt' => (string) ($row['objective_excerpt'] ?? ''),
+                    'commit_sha' => (string) ($row['commit_sha'] ?? ''),
+                    'resolved_at' => (string) ($row['resolved_at'] ?? ''),
+                ];
+                if (count($exemplars) >= $cap) {
+                    break;
+                }
+            }
+
+            return $exemplars;
+        } catch (Throwable) {
+            return []; // fail-open: exemplar advice never blocks a serve
         }
     }
 

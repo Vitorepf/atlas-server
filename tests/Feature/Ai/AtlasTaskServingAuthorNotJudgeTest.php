@@ -165,6 +165,50 @@ final class AtlasTaskServingAuthorNotJudgeTest extends TestCase
         @unlink($ledgerPath);
     }
 
+    public function test_resolved_packet_becomes_a_green_run_exemplar_for_same_area_tasks(): void
+    {
+        $receiptsPath = AgentControlPlaneTaskQueueOrchestrator::resolvedReceiptsPath();
+        @unlink($receiptsPath);
+
+        // Real resolution through the funnel: claim + lease-validated commit.
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('exemplar-source')]);
+        $claim = $orch->claimNext('agent-exemplar');
+        $orch->markResolved('exemplar-source', (string) $claim['lease_id'], 'agent-exemplar', 'abc123ex');
+
+        // A NEW task in the same directory (different file) is served the exemplar.
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('exemplar-consumer')]);
+        $res = (new AtlasTaskServingService($orch))->next('client-cold');
+
+        self::assertSame('served', $res['status']);
+        self::assertCount(1, $res['task']['green_run_exemplars']);
+        self::assertSame('exemplar-source', $res['task']['green_run_exemplars'][0]['task_packet_id']);
+        self::assertSame('abc123ex', $res['task']['green_run_exemplars'][0]['commit_sha']);
+        self::assertNotSame('', $res['task']['green_run_exemplars'][0]['objective_excerpt']);
+
+        @unlink($receiptsPath);
+    }
+
+    public function test_served_packet_carries_sibling_tests_for_real_repo_files(): void
+    {
+        // Uses a REAL production file with a REAL mirrored test in this repo.
+        $orch = $this->orchestrator();
+        $input = $this->input('sibling-probe');
+        $input['allowed_files'] = ['app/Services/Ai/Gateway/ChatWeakResponseProbe.php'];
+        $input['scope_in'] = $input['allowed_files'];
+        $orch->prepareAndEnqueue(['task_packet' => $input]);
+
+        $res = (new AtlasTaskServingService($orch))->next('client-cold');
+
+        self::assertSame('served', $res['status']);
+        self::assertCount(1, $res['task']['sibling_tests']);
+        self::assertSame(
+            'tests/Unit/Ai/Gateway/ChatWeakResponseProbeTest.php',
+            $res['task']['sibling_tests'][0]['test_path'],
+        );
+        self::assertNotEmpty($res['task']['sibling_tests'][0]['test_methods']);
+    }
+
     public function test_served_packet_known_lessons_is_empty_when_ledger_absent(): void
     {
         config()->set('atlas.self_construction.learning_transfer_admission_ledger_path', sys_get_temp_dir().'/atlas-anj-missing-'.bin2hex(random_bytes(5)).'.jsonl');

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger;
 use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionOrchestrator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -1182,6 +1183,20 @@ final class AgentControlPlaneTaskQueueOrchestrator
      * @param  array<string,mixed>  $extra  agent_id, give_back_reason (when outcome=give_back)
      * @return array{status:string, outcome?:string, lesson_key?:mixed, error?:string}
      */
+    /**
+     * Green-run exemplar ledger path — derived from the admission ledger path
+     * (`.jsonl` → `.resolved.jsonl`) so the phpunit env pin covers it with
+     * zero new config, mirroring the observation store convention.
+     */
+    public static function resolvedReceiptsPath(): string
+    {
+        return (string) preg_replace(
+            '/\.jsonl$/',
+            '.resolved.jsonl',
+            AtlasSelfConstructionLearningTransferAdmissionLedger::defaultPath(),
+        );
+    }
+
     private function bridgeOutcomeToLearning(string $taskPacketId, string $outcome, array $extra = []): array
     {
         try {
@@ -1338,6 +1353,30 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'agent_id' => $agentId,
             'commit_sha' => $commitSha,
         ]);
+
+        // Green-run exemplar ledger: one compact append per REAL resolution
+        // (lease-validated + committed), so future packets of the same area
+        // can be served a proven exemplar (the muscle-side analogue of the
+        // Dev DevGreenRunExemplarRetriever). objective_excerpt rides because
+        // an opaque id teaches nothing (w9 lesson). Fail-open: never breaks
+        // the resolve.
+        try {
+            $packet = (array) data_get($queueRecord, 'task_packet', []);
+            $objective = (string) data_get($packet, 'objective', '');
+            (new \App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore(
+                self::resolvedReceiptsPath(),
+            ))->appendWith(static fn (?string $lastLine): ?array => [
+                'schema_version' => 'atlas.self_construction.resolved_receipt.v1',
+                'resolved_at' => gmdate('Y-m-d\TH:i:s\Z'),
+                'task_packet_id' => $taskPacketId,
+                'allowed_files' => array_values(array_map('strval', (array) data_get($packet, 'normalized_scope.allowed_files', []))),
+                'objective_excerpt' => mb_substr(trim($objective), 0, 140),
+                'commit_sha' => $commitSha,
+                'agent_id' => $agentId,
+            ]);
+        } catch (Throwable) {
+            // fail-open
+        }
 
         return $this->envelope('task_resolved', [
             'task_packet_id' => $taskPacketId,
