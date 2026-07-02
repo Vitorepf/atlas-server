@@ -39,6 +39,13 @@ final class DevWeakOutputDetector
 
     public const SIGNAL_HALLUCINATED_SYMBOL = 'hallucinated_symbol';
 
+    /**
+     * Honesty flag appended by the post-gate applied-diff probe
+     * ({@see self::inspectAppliedDiff()}) via the sanctioned advisory channel:
+     * CompletionStateGate downgrades PASSED -> needs_review, never green.
+     */
+    public const FLAG_WEAK_OUTPUT_DETECTED = 'weak_output_detected';
+
     /** Context section to re-emphasize per signal, in priority order (first failing signal drives repair_hint). */
     private const CONTEXT_SECTION_BY_SIGNAL = [
         self::SIGNAL_EMPTY_OR_TRUNCATED_DIFF => 'the full diff hunk with matching braces/brackets',
@@ -117,6 +124,44 @@ final class DevWeakOutputDetector
             'signals' => $signals,
             'repair_hint' => $repairHint,
         ];
+    }
+
+    /**
+     * Post-gate variant for the FINAL applied diff: scans only the ADDED
+     * lines ('+' prefix stripped) for placeholder markers (TODO/FIXME,
+     * ellipsis-only body, fake always-true assertion).
+     *
+     * The other inspect() signals are deliberately excluded here because on a
+     * green gate they are either covered elsewhere or false-positive:
+     * scope escapes are ScopeGuard's job, the verification command was
+     * actually RUN by the VerificationGate (not merely mentioned), and a
+     * no-change diff already fires E1's intent-falsification probe. What can
+     * still survive a green gate is a placeholder inside applied code whose
+     * tests pass vacuously — exactly what this catches.
+     *
+     * @return array{weak:bool, signals:list<array{id:string,detail:string}>}
+     */
+    public function inspectAppliedDiff(string $diff): array
+    {
+        $added = [];
+        foreach (explode("\n", $diff) as $line) {
+            if (str_starts_with($line, '+') && ! str_starts_with($line, '+++')) {
+                $added[] = substr($line, 1);
+            }
+        }
+        $text = implode("\n", $added);
+
+        $signals = [];
+        if ($text !== '') {
+            foreach (self::PLACEHOLDER_PATTERNS as $pattern) {
+                if (preg_match($pattern, $text) === 1) {
+                    $signals[] = ['id' => self::SIGNAL_PLACEHOLDER_MARKER, 'detail' => 'placeholder in added lines: '.$pattern];
+                    break;
+                }
+            }
+        }
+
+        return ['weak' => $signals !== [], 'signals' => $signals];
     }
 
     private function looksTruncated(string $output): bool

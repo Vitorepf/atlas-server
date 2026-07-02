@@ -300,5 +300,19 @@ return [
         //     ATLAS_DEV_ELEVATION_E6_MODE once the trip condition is verified
         //     stable at advisory.
         'e6' => ['mode' => env('ATLAS_DEV_ELEVATION_E6_MODE', 'advisory')],
+
+        // W1: Weak-output probe on the FINAL applied diff (post-gate).
+        //   - mode: tri-state off|advisory|hard. The DevWeakOutputDetector
+        //     already feeds the M2 repair loop on a FAILED gate; this channel
+        //     covers the opposite corner — a weak output that PASSES
+        //     verification. inspectAppliedDiff() scans only the ADDED lines
+        //     of the final diff for placeholder markers (TODO/FIXME,
+        //     ellipsis-only body, fake always-true assertion). Advisory-first
+        //     rollout (house pattern, VAL-M2-028): advisory => honesty flag
+        //     `weak_output_detected` (PASSED -> needs_review downgrade, never
+        //     silently green); hard => STATUS_FAILED gate channel; off =>
+        //     byte-identical no-op. Promote via ATLAS_DEV_ELEVATION_WEAK_OUTPUT_MODE
+        //     once the trip condition is verified stable at advisory.
+        'weak_output' => ['mode' => env('ATLAS_DEV_ELEVATION_WEAK_OUTPUT_MODE', 'advisory')],
     ],
 ];

@@ -571,6 +571,51 @@ final class PipelineRunExecutor implements RunExecutor
             }
         }
 
+        // W1: Weak-output probe on the FINAL applied diff — deterministic
+        // post-gate check, same tri-state channel contract as E1/E2/E3.
+        //
+        // The DevWeakOutputDetector already runs INSIDE the M2 repair loop,
+        // but only as a repair-prompt hint on a FAILED gate. A weak output
+        // that PASSES verification (a TODO/FIXME placeholder or a fake
+        // always-true assertion inside the applied added lines, with tests
+        // passing vacuously) previously exited silently green. This block
+        // closes that false-green corner: inspectAppliedDiff() scans only the
+        // added lines of the final diff for placeholder markers and routes
+        // the verdict through the sanctioned channels — advisory => honesty
+        // flag `weak_output_detected` (CompletionStateGate downgrades
+        // PASSED -> needs_review); hard => STATUS_FAILED gate rebuild; off =>
+        // byte-identical no-op. Scope escapes / ignored verification commands
+        // are NOT re-checked here: ScopeGuard owns scope and the gate ran the
+        // command for real. Like E1/E2/E3 this is provider-agnostic and also
+        // covers the best-of-N winner path through the same post-gate block.
+        $weakOutputConfig = $this->resolveWeakOutputConfig();
+        if (! $weakOutputConfig->isOff() && $diffResult->hasPatch()) {
+            $appliedDiffInspection = (new DevWeakOutputDetector)->inspectAppliedDiff((string) $diffResult->diff);
+            if ($appliedDiffInspection['weak']) {
+                if ($weakOutputConfig->isHard()) {
+                    // Hard => sanctioned hard gate channel (STATUS_FAILED),
+                    // preserving gathered tests/gates and recording the flag
+                    // for auditability (mirrors the E1/E2 hard rebuild).
+                    $verificationResult = new VerificationGateResult(
+                        tests: $verificationResult->tests,
+                        gates: $verificationResult->gates,
+                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
+                        honestyFlags: $verificationResult->withHonestyFlags([
+                            DevWeakOutputDetector::FLAG_WEAK_OUTPUT_DETECTED,
+                        ])->honestyFlags,
+                        evidenceRefs: $verificationResult->evidenceRefs,
+                        profile: $verificationResult->profile,
+                    );
+                } else {
+                    // Advisory => honesty flag only (drives the
+                    // CompletionStateGate PASSED -> needs_review downgrade).
+                    $verificationResult = $verificationResult->withHonestyFlags([
+                        DevWeakOutputDetector::FLAG_WEAK_OUTPUT_DETECTED,
+                    ]);
+                }
+            }
+        }
+
         // E3: Mutation-score gate — reads the REAL infection-reported MSI and
         // routes the verdict through the sanctioned channels.
         //
@@ -3515,6 +3560,21 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             return ElevationConfig::fromConfig('e3');
         } catch (\Throwable) {
             return ElevationConfig::for('e3', null);
+        }
+    }
+
+    /**
+     * W1: resolve the weak_output elevation config. Same resolution pattern
+     * as E1/E2/E3: reads the live config kernel when available, otherwise
+     * degrades to the safe default (advisory) so plain-PHPunit unit tests
+     * never crash.
+     */
+    private function resolveWeakOutputConfig(): ElevationConfig
+    {
+        try {
+            return ElevationConfig::fromConfig('weak_output');
+        } catch (\Throwable) {
+            return ElevationConfig::for('weak_output', null);
         }
     }
 

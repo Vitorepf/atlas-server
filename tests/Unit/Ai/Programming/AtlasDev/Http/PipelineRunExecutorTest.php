@@ -607,7 +607,12 @@ DIFF;
         $runner = new AtlasForgeProviderProcessRunner;
         $runner->setProcessFactory(function (array $argv, ?string $cwd, ?array $env, int $timeout) use ($test): Process {
             mkdir(dirname($test), 0o755, true);
-            file_put_contents($test, "<?php\nit('pins foo', function (): void { expect(true)->toBeTrue(); });\n");
+            // Real assertion (not expect(true)->toBeTrue()): the W1 weak-output
+            // probe flags a fake always-true assertion in added lines as
+            // weak_output_detected, which would downgrade this run's completion
+            // to needs_review. This fixture is about the cursor untracked-file
+            // diff, so the delivered test must be a genuine one.
+            file_put_contents($test, "<?php\nit('pins foo', function (): void { expect((new Foo)->value())->toBe('before'); });\n");
 
             return new Process([PHP_BINARY, '-r', 'echo "cursor ok";'], $cwd, $env, null, $timeout);
         });
