@@ -778,8 +778,8 @@ final class AtlasCodeRealityUsageIntelligenceService
                 continue;
             }
 
-            if (preg_match_all('/^\s*(?:abstract\s+|final\s+)?(?:class|interface|trait|enum)\s+([A-Za-z_][A-Za-z0-9_]*)/m', $content, $matches)) {
-                foreach ($matches[1] as $name) {
+            if (str_ends_with($path, '.php')) {
+                foreach ($this->declaredPhpTypeNames($content) as $name) {
                     $classes[] = ['name' => $name, 'path' => $path];
                 }
             }
@@ -5545,6 +5545,55 @@ final class AtlasCodeRealityUsageIntelligenceService
                 }
             }
         }
+    }
+
+    /**
+     * Real class/interface/trait/enum declarations via the PHP tokenizer, so
+     * declarations inside string literals/heredocs (test fixtures embedded in
+     * commands) never count as duplicates. Skips `Foo::class` and anonymous
+     * classes by looking at the surrounding meaningful tokens.
+     *
+     * @return array<int,string>
+     */
+    private function declaredPhpTypeNames(string $content): array
+    {
+        $names = [];
+        try {
+            $tokens = token_get_all($content);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $declarationIds = [T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM];
+        $count = count($tokens);
+        $previousMeaningfulId = null;
+
+        for ($i = 0; $i < $count; $i++) {
+            $token = $tokens[$i];
+            if (! is_array($token)) {
+                $previousMeaningfulId = null;
+
+                continue;
+            }
+            if (in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+            if (in_array($token[0], $declarationIds, true) && $previousMeaningfulId !== T_DOUBLE_COLON && $previousMeaningfulId !== T_NEW) {
+                for ($j = $i + 1; $j < $count; $j++) {
+                    $next = $tokens[$j];
+                    if (is_array($next) && in_array($next[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                        continue;
+                    }
+                    if (is_array($next) && $next[0] === T_STRING) {
+                        $names[] = (string) $next[1];
+                    }
+                    break;
+                }
+            }
+            $previousMeaningfulId = $token[0];
+        }
+
+        return $names;
     }
 
     /**
