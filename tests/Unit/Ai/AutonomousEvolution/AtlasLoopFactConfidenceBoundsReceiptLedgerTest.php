@@ -52,7 +52,8 @@ class AtlasLoopFactConfidenceBoundsReceiptLedgerTest extends TestCase
             'value' => true,
             'sample_size' => 42,
             'source_count' => 3,
-            'confidence_bounds' => ['lower' => 0.9, 'upper' => 0.97],
+            // Envelope canônico (AtlasLoopFactConfidenceBoundsEnvelope::toArray()) desde ad3d08de1a.
+            'confidence_bounds' => ['sample_size' => 42, 'source_count' => 3, 'value' => true],
         ]);
 
         self::assertFileExists($this->ledgerPath);
@@ -80,7 +81,7 @@ class AtlasLoopFactConfidenceBoundsReceiptLedgerTest extends TestCase
             enforceFlagReader: fn (): bool => true,
         );
 
-        $fact = ['confidence_bounds' => ['lower' => 0.1, 'upper' => 0.2]];
+        $fact = ['confidence_bounds' => ['sample_size' => 5, 'source_count' => 2, 'value' => true]];
         $decorator->validate('loop.comprehend.snapshot_writer', $fact);
         $decorator->validate('loop.next_work_decider', $fact);
 
