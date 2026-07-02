@@ -62,8 +62,15 @@ final class AtlasTaskServingResolveLoopE2ETest extends TestCase
     public function test_the_full_brain_to_resolved_loop_runs_clean_and_terminates(): void
     {
         $orch = $this->orchestrator();
-        $enqueued = (new AtlasTaskBrainReplenisher($orch))->replenishFromModel($this->model(), 'app/Demo', targetMin: 50, maxPerRun: 50);
-        $this->assertSame(3, $enqueued['enqueued_count'], 'the brain filled the queue with 3 resolvable doc-gap tasks');
+        $replenisher = new AtlasTaskBrainReplenisher($orch);
+
+        // RECONCILED CONTRACT (fable-v3-w1 anti-farm admission): the 3 doc-gap tasks share one
+        // minting template (same objective skeleton / acceptance shape / target dir), so the
+        // template-farm gate SERIALIZES them — exactly ONE claimable instance of the mechanism
+        // at a time. The brain re-replenishes after each resolve and the next sibling is
+        // admitted then. The old expectation (3 up-front) predates the gate.
+        $enqueued = $replenisher->replenishFromModel($this->model(), 'app/Demo', targetMin: 50, maxPerRun: 50);
+        $this->assertSame(1, $enqueued['enqueued_count'], 'anti-farm admission lets exactly one template sibling be claimable');
 
         // Verifier + committer MUST share the same repo (the throwaway one), or the server-side verification
         // checks the wrong tree. The full chain — Fase-2 verify → governance (observe) → scoped commit — is
@@ -95,6 +102,10 @@ final class AtlasTaskServingResolveLoopE2ETest extends TestCase
             $this->assertSame('resolved', $report['status'], 'each task resolves (Atlas commits its scope)');
             $this->assertSame($task['allowed_files'], $report['files_committed'], 'the commit holds exactly the task scope');
             $resolved[] = $task['task_packet_id'];
+
+            // The brain's continuous cycle: after a resolve, replenish admits the NEXT
+            // template sibling (the farm gate only compares against claimable entries).
+            $replenisher->replenishFromModel($this->model(), 'app/Demo', targetMin: 50, maxPerRun: 50);
         }
 
         // GUARANTEES:
