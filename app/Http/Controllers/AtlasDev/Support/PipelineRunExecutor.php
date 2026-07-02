@@ -2549,13 +2549,35 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             return;
         }
 
-        // Revert all changes in the workspace (git checkout + clean)
-        $process = new Process(['git', 'checkout', '.'], $workspace);
-        $process->run();
+        // Scope the revert to the run's allowed_files (the only paths a
+        // compliant attempt may have touched). The former whole-workspace
+        // `git checkout . && git clean -fd` destroyed the OPERATOR's
+        // uncommitted changes outside the task's scope on every repair
+        // iteration — an operator-present runtime must never blast paths the
+        // task contract does not own. Out-of-scope provider writes are the
+        // ScopeGuard's job (the attempt fails scope), not this revert's.
+        $paths = [];
+        foreach ($allowedFiles as $file) {
+            if (is_string($file) && trim($file) !== '' && ! str_contains($file, '..')) {
+                $paths[] = trim($file);
+            }
+        }
 
-        // Also clean untracked files that the provider may have created
-        $process = new Process(['git', 'clean', '-fd'], $workspace);
-        $process->run();
+        if ($paths === []) {
+            // No declared scope to revert — do NOT fall back to a
+            // whole-workspace wipe.
+            return;
+        }
+
+        // Restore tracked allowed files to HEAD (tolerates paths that do not
+        // exist at HEAD — e.g. a provider-created file — hence per-path).
+        foreach ($paths as $path) {
+            (new Process(['git', 'checkout', '-q', '--', $path], $workspace))->run();
+        }
+
+        // Remove untracked files the provider may have created, scoped to the
+        // allowed paths only.
+        (new Process(['git', 'clean', '-fd', '--', ...$paths], $workspace))->run();
     }
 
     private function blockedProviderCallResult(

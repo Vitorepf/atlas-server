@@ -56,13 +56,28 @@ final class DevWeakOutputDetector
         self::SIGNAL_IGNORES_VERIFICATION_COMMAND => 'the required verification command',
     ];
 
+    /**
+     * Case-SENSITIVE marker tokens with unicode word boundaries ((*UCP)):
+     * the former `/\bTODO\b/i` matched Portuguese prose — 'todo o workspace',
+     * 'Todo', and even 'método'/'MÉTODO' (the accented char is a non-word
+     * byte for ASCII \b, so the boundary landed mid-word). This repo writes
+     * code comments in PT-BR, so that was a systematic false positive. The
+     * fake-assert pattern accepts the 1-arg form too (assertTrue(true)).
+     */
     private const PLACEHOLDER_PATTERNS = [
-        '/\bTODO\b/i',
-        '/\bFIXME\b/i',
+        '/(*UCP)\bTODO\b/u',
+        '/(*UCP)\bFIXME\b/u',
         '/^\s*\.\.\.\s*$/m',
-        '/assert(?:True|Equal)\(\s*true\s*,?\s*true\s*\)/i',
+        '/assert(?:True|Equal)\(\s*true\s*(?:,\s*true\s*)?\)/i',
         '/expect\(true\)->toBeTrue\(\)/i',
     ];
+
+    /**
+     * File extensions the applied-diff placeholder probe skips: a literal
+     * `...` line is the canonical YAML document end, and TODO lists are
+     * normal content in docs — neither is a weak CODE delivery.
+     */
+    private const NON_CODE_EXTENSIONS = ['md', 'markdown', 'rst', 'txt', 'yaml', 'yml', 'json', 'lock', 'csv'];
 
     /**
      * @param  array{allowed_files?:list<string>, verification_command?:string, known_symbols?:list<string>}  $workcell
@@ -144,8 +159,16 @@ final class DevWeakOutputDetector
     public function inspectAppliedDiff(string $diff): array
     {
         $added = [];
+        $inNonCodeFile = false;
         foreach (explode("\n", $diff) as $line) {
-            if (str_starts_with($line, '+') && ! str_starts_with($line, '+++')) {
+            if (str_starts_with($line, '+++')) {
+                $target = trim(preg_replace('/^\+\+\+\s+(?:b\/)?/', '', $line) ?? '');
+                $extension = strtolower(pathinfo($target, PATHINFO_EXTENSION));
+                $inNonCodeFile = in_array($extension, self::NON_CODE_EXTENSIONS, true);
+
+                continue;
+            }
+            if (! $inNonCodeFile && str_starts_with($line, '+')) {
                 $added[] = substr($line, 1);
             }
         }

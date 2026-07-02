@@ -1601,6 +1601,68 @@ final class RepairToGreenTest extends TestCase
     }
 
     /**
+     * The repair-iteration revert is scoped to the run's allowed_files: an
+     * operator's uncommitted change OUTSIDE the task scope must survive
+     * every repair revert (the former whole-workspace
+     * `git checkout . && git clean -fd` destroyed it).
+     */
+    public function test_repair_revert_preserves_operator_changes_outside_allowed_files(): void
+    {
+        $this->initGitWorkspace();
+
+        $target = $this->tmpWorkspace.'/app/Foo.php';
+        $operatorFile = $this->tmpWorkspace.'/app/Operator.php';
+        mkdir(dirname($target), 0o755, true);
+        file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n");
+        file_put_contents($operatorFile, "<?php\nfinal class Operator { public function wip(): string { return 'committed'; } }\n");
+        $this->git(['add', 'app/Foo.php', 'app/Operator.php']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        // Operator work-in-progress OUTSIDE the task's allowed_files:
+        // uncommitted tracked change + untracked scratch file.
+        file_put_contents($operatorFile, "<?php\nfinal class Operator { public function wip(): string { return 'UNCOMMITTED OPERATOR WORK'; } }\n");
+        file_put_contents($this->tmpWorkspace.'/app/operator-scratch.txt', "operator notes\n");
+
+        // Provider attempt artifacts INSIDE allowed_files: a tracked edit and
+        // an untracked new file.
+        file_put_contents($target, "<?php\nfinal class Foo { public function value(): string { return 'provider-attempt'; } }\n");
+        file_put_contents($this->tmpWorkspace.'/app/FooHelper.php', "<?php\n// provider-created\n");
+
+        $executor = new PipelineRunExecutor(new Container, new ReceiptStorage($this->tmpStorage));
+        $revert = new \ReflectionMethod($executor, 'revertWorkspaceChanges');
+        $revert->invoke($executor, $this->tmpWorkspace, ['app/Foo.php', 'app/FooHelper.php']);
+
+        $this->assertStringContainsString(
+            "'before'",
+            (string) file_get_contents($target),
+            'allowed tracked file must be reverted to HEAD',
+        );
+        $this->assertFileDoesNotExist(
+            $this->tmpWorkspace.'/app/FooHelper.php',
+            'allowed untracked provider file must be cleaned',
+        );
+        $this->assertStringContainsString(
+            'UNCOMMITTED OPERATOR WORK',
+            (string) file_get_contents($operatorFile),
+            'repair revert must NOT destroy operator changes outside allowed_files',
+        );
+        $this->assertFileExists(
+            $this->tmpWorkspace.'/app/operator-scratch.txt',
+            'repair revert must NOT git-clean untracked files outside allowed_files',
+        );
+
+        // Declared-scope floor: an empty allowed_files list must NOT fall
+        // back to a whole-workspace wipe.
+        file_put_contents($operatorFile, "<?php\nfinal class Operator { public function wip(): string { return 'STILL HERE'; } }\n");
+        $revert->invoke($executor, $this->tmpWorkspace, []);
+        $this->assertStringContainsString(
+            'STILL HERE',
+            (string) file_get_contents($operatorFile),
+            'empty allowed_files must be a no-op revert, never a workspace wipe',
+        );
+    }
+
+    /**
      * Axis isolation for the W1 weak-green tests: E1-E6 landed with hard
      * defaults that are not under test here; weak_output stays at its
      * config default (advisory) unless the test overrides it.

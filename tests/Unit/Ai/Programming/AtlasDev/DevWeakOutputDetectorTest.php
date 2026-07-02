@@ -155,6 +155,48 @@ final class DevWeakOutputDetectorTest extends TestCase
         $this->assertFalse($r['weak']);
     }
 
+    public function test_applied_diff_portuguese_prose_is_not_a_placeholder(): void
+    {
+        // Regression: /\bTODO\b/i matched PT-BR prose — 'todo o workspace',
+        // 'Todo', and even 'método'/'MÉTODO' (accented char breaks ASCII \b).
+        // This repo writes code comments in PT-BR; these are NOT placeholders.
+        $diff = "--- a/x.php\n+++ b/x.php\n@@ -1,1 +1,4 @@\n context\n"
+            ."+// Este método aplica o gate em todo o workspace.\n"
+            ."+// Todo caller passa por aqui.\n"
+            ."+const LABEL = 'MÉTODO DE PAGAMENTO';\n";
+        $r = $this->svc()->inspectAppliedDiff($diff);
+
+        $this->assertFalse($r['weak'], 'PT-BR prose must never trip the placeholder probe');
+    }
+
+    public function test_applied_diff_uppercase_todo_marker_still_trips(): void
+    {
+        $diff = "--- a/x.php\n+++ b/x.php\n@@ -1,1 +1,2 @@\n context\n+// TODO implementar de verdade\n";
+        $r = $this->svc()->inspectAppliedDiff($diff);
+
+        $this->assertTrue($r['weak']);
+    }
+
+    public function test_applied_diff_yaml_document_end_is_not_a_placeholder(): void
+    {
+        // Regression: a literal '...' line is the canonical YAML document
+        // end, not an ellipsis placeholder. Non-code files are skipped.
+        $diff = "--- a/config/pipeline.yaml\n+++ b/config/pipeline.yaml\n@@ -1,2 +1,3 @@\n key: value\n+extra: value\n+...\n";
+        $r = $this->svc()->inspectAppliedDiff($diff);
+
+        $this->assertFalse($r['weak'], 'YAML/docs added lines are out of the placeholder probe scope');
+    }
+
+    public function test_applied_diff_single_arg_fake_assert_trips(): void
+    {
+        // Regression: the 1-arg form assertTrue(true) escaped the 2-arg-only
+        // pattern.
+        $diff = "--- a/t.php\n+++ b/t.php\n@@ -1,1 +1,2 @@\n context\n+        \$this->assertTrue(true);\n";
+        $r = $this->svc()->inspectAppliedDiff($diff);
+
+        $this->assertTrue($r['weak']);
+    }
+
     public function test_repair_hint_prioritizes_first_failing_signal_in_declared_order(): void
     {
         // Empty output alone triggers only SIGNAL_EMPTY_OR_TRUNCATED_DIFF, which is first
