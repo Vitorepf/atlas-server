@@ -773,6 +773,16 @@ return [
         'default_tier' => env('ATLAS_AI_DEFAULT_TIER', 'daily'),
         'council_allow_auto' => (bool) env('ATLAS_AI_COUNCIL_ALLOW_AUTO', false),
 
+        // Hyperflow organ: AtlasAiRouterService consumes the RouterRuntime
+        // flow decision (payload.hyperflow_runtime) for auto-routing instead
+        // of re-deriving one from keyword heuristics. Operator-explicit
+        // branches (slash command, atlas_code surface, programming mode)
+        // always win; heuristics remain the fallback when the envelope is
+        // absent/errored or resolved to the conversation fallback.
+        'router' => [
+            'consume_hyperflow_runtime' => (bool) env('ATLAS_AI_ROUTER_CONSUME_HYPERFLOW', true),
+        ],
+
         // L3-10: custo medido por execução (eixo custo do N×M, antes 100% cego). Overrides
         // opcionais sobre os defaults in-class do ProviderCostEstimator (tokens×rate, ou
         // runtime×taxa/min p/ providers locais sem tokens). Vazio = usa os defaults seguros.

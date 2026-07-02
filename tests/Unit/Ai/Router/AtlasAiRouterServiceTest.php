@@ -158,4 +158,107 @@ class AtlasAiRouterServiceTest extends TestCase
         $this->assertSame('slash_command', $decision->flowOrigin);
         $this->assertSame('debug', $decision->commandIntent);
     }
+
+    /** @return array<string,mixed> */
+    private function hyperflowEnvelope(string $flowId, string $status = 'ready', float $confidence = 0.9): array
+    {
+        return [
+            'schema_version' => 'atlas.ai.hyperflow_runtime.v1',
+            'status' => $status,
+            'flow_id' => $flowId,
+            'routing_confidence' => $confidence,
+            'fallback_flows' => ['atlas_conversation'],
+        ];
+    }
+
+    public function test_consumes_hyperflow_runtime_decision_for_canon_only_flow(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'analise o fluxo de caixa do trimestre com premissas explicitas',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_finance'),
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_FINANCE, $decision->flowId);
+        $this->assertSame('router_runtime', $decision->flowOrigin);
+        $this->assertSame('finance', $decision->commandIntent);
+        $this->assertSame('hyperflow_runtime_flow_decision', $decision->routingReason);
+        $this->assertSame('strong', $decision->routingConfidence);
+        $this->assertSame(['atlas_conversation'], $decision->alternativeFlowIds);
+    }
+
+    public function test_hyperflow_conversation_fallback_is_not_consumed_so_attachment_heuristics_still_win(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'Revise isso',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_conversation'),
+                'attachments' => [
+                    ['kind' => 'file', 'name' => 'changes.diff'],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_REVIEW, $decision->flowId);
+        $this->assertSame('diff_or_pr_attachment', $decision->routingReason);
+    }
+
+    public function test_hyperflow_envelope_not_ready_falls_back_to_keyword_heuristics(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'Implemente o endpoint de billing com teste',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'workspace' => '/repo',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_finance', status: 'error'),
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_DEV, $decision->flowId);
+        $this->assertSame('patch_like_with_workspace', $decision->routingReason);
+    }
+
+    public function test_slash_command_still_wins_over_hyperflow_runtime_decision(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => '/plan estruturar a migracao',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_finance'),
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_PLAN, $decision->flowId);
+        $this->assertSame('slash_command', $decision->flowOrigin);
+    }
+
+    public function test_hyperflow_unknown_flow_id_is_ignored(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'me explica como funciona o router',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_unknown_flow'),
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_EXPLAIN, $decision->flowId);
+    }
+
+    public function test_hyperflow_low_confidence_maps_to_low_routing_confidence(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'talvez algo de marketing',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_marketing', confidence: 0.3),
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_MARKETING, $decision->flowId);
+        $this->assertSame('low', $decision->routingConfidence);
+    }
 }

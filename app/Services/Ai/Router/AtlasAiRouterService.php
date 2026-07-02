@@ -100,6 +100,22 @@ final class AtlasAiRouterService
             );
         }
 
+        // Hyperflow organ: the RouterRuntime chain (intent → domain → flow)
+        // already decided on this payload — AtlasHyperflowEntryService runs
+        // first in AiInteractionController. Consume that decision instead of
+        // re-deriving one from keyword heuristics, so there is ONE auto-routing
+        // brain and the canon-only flows (finance/marketing/strategy/cyber/
+        // automation/personal_development) become reachable downstream.
+        // Operator-explicit branches above (slash, atlas_code surface,
+        // programming mode) still win. atlas_conversation is NOT consumed:
+        // it is the RouterRuntime fallback and the legacy heuristics below see
+        // signals the intent kernel does not (diff/PR attachments), so they
+        // keep the final word before falling back to conversation themselves.
+        $hyperflowDecision = $this->hyperflowRuntimeDecision($payload, $surfaceId, $workspace, $rawIntent, $intent);
+        if ($hyperflowDecision !== null) {
+            return $hyperflowDecision;
+        }
+
         $haystack = Str::lower($rawIntent."\n".$this->attachmentText($attachments));
 
         if ($this->hasDiffOrPr($attachments, $haystack)) {
@@ -168,6 +184,66 @@ final class AtlasAiRouterService
         }
 
         return $this->decision(AtlasAiRouterDecision::FLOW_CONVERSATION, 'router_auto', 'converse', 'fallback_conversation', 'low', $surfaceId, $workspace, $rawIntent, [], $intent);
+    }
+
+    /**
+     * Consume the RouterRuntime/Hyperflow flow decision carried on the
+     * payload. Returns null (keyword heuristics run) unless the envelope is
+     * present with status=ready, its flow is a known non-conversation flow,
+     * and the kill-switch is on.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $intent
+     */
+    private function hyperflowRuntimeDecision(
+        array $payload,
+        string $surfaceId,
+        ?string $workspace,
+        string $rawIntent,
+        array $intent,
+    ): ?AtlasAiRouterDecision {
+        try {
+            $enabled = (bool) config('atlas.ai.router.consume_hyperflow_runtime', true);
+        } catch (\Throwable) {
+            $enabled = true;
+        }
+        if (! $enabled) {
+            return null;
+        }
+
+        $envelope = $payload['hyperflow_runtime'] ?? null;
+        if (! is_array($envelope) || ($envelope['status'] ?? null) !== 'ready') {
+            return null;
+        }
+
+        $flowId = $this->string($envelope['flow_id'] ?? null);
+        if ($flowId === null
+            || $flowId === AtlasAiRouterDecision::FLOW_CONVERSATION
+            || ! in_array($flowId, AtlasAiRouterDecision::FLOWS, true)
+        ) {
+            return null;
+        }
+
+        $confidence = (float) ($envelope['routing_confidence'] ?? 0.0);
+        $alternatives = array_values(array_filter(
+            array_map($this->string(...), (array) ($envelope['fallback_flows'] ?? [])),
+            static fn (?string $flow): bool => $flow !== null
+                && $flow !== $flowId
+                && in_array($flow, AtlasAiRouterDecision::FLOWS, true),
+        ));
+
+        return $this->decision(
+            flowId: $flowId,
+            origin: 'router_runtime',
+            command: str_starts_with($flowId, 'atlas_') ? substr($flowId, strlen('atlas_')) : $flowId,
+            reason: 'hyperflow_runtime_flow_decision',
+            confidence: $confidence >= 0.75 ? 'strong' : ($confidence >= 0.45 ? 'medium' : 'low'),
+            surfaceId: $surfaceId,
+            workspace: $workspace,
+            rawIntent: $rawIntent,
+            alternatives: $alternatives,
+            intent: $intent,
+        );
     }
 
     private function decision(string $flowId, string $origin, string $command, string $reason, string $confidence, string $surfaceId, ?string $workspace, string $rawIntent, array $alternatives, array $intent = []): AtlasAiRouterDecision

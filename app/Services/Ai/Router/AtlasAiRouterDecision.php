@@ -26,6 +26,22 @@ final class AtlasAiRouterDecision
 
     public const FLOW_FORGE = 'atlas_forge';
 
+    // RouterRuntime canon flows (superset adapter): the legacy decision can
+    // now carry every RouterRuntimeCanon::ALLOWED_FLOW_IDS flow, so the
+    // Hyperflow chain's routing reaches the specialist flow contracts that
+    // were previously unreachable (the legacy heuristics never emitted them).
+    public const FLOW_FINANCE = 'atlas_finance';
+
+    public const FLOW_MARKETING = 'atlas_marketing';
+
+    public const FLOW_STRATEGY = 'atlas_strategy';
+
+    public const FLOW_CYBER = 'atlas_cyber';
+
+    public const FLOW_PERSONAL_DEVELOPMENT = 'atlas_personal_development';
+
+    public const FLOW_AUTOMATION = 'atlas_automation';
+
     public const FLOWS = [
         self::FLOW_DEV,
         self::FLOW_RESEARCH,
@@ -35,6 +51,12 @@ final class AtlasAiRouterDecision
         self::FLOW_PLAN,
         self::FLOW_CONVERSATION,
         self::FLOW_FORGE,
+        self::FLOW_FINANCE,
+        self::FLOW_MARKETING,
+        self::FLOW_STRATEGY,
+        self::FLOW_CYBER,
+        self::FLOW_PERSONAL_DEVELOPMENT,
+        self::FLOW_AUTOMATION,
     ];
 
     public function __construct(
