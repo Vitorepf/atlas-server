@@ -4266,6 +4266,11 @@ return [
     |
     */
     'self_construction' => [
+        // Learning-transfer admission ledger (outcome → lesson JSONL). Pinned to a
+        // temp path in phpunit.xml so tests that exercise the report → learning
+        // bridge never leak fixture lessons (pkt-A / evidence://) into the real
+        // ledger a future reader would trust.
+        'learning_transfer_admission_ledger_path' => env('ATLAS_LEARNING_TRANSFER_ADMISSION_LEDGER_PATH'),
         // Thread the AURG brain context for the signal into the code-gen prompt
         // (the AIM half of the 412-fix). Default ON — the whole point of S3.
         'use_brain_context' => (bool) env('ATLAS_SELF_CONSTRUCTION_USE_BRAIN_CONTEXT', true),

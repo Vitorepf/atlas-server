@@ -56,6 +56,12 @@
              so without this the AUCRI feature suite would spawn real Python.
              Per-test config()->set + a bound fake runtime turn it on where needed. -->
         <env name="ATLAS_AUCRI_LOCAL_SEMANTIC_SCORING" value="false"/>
+        <!-- Learning-transfer admission ledger: tests exercising the report→learning
+             bridge default-construct the orchestrator, which appended fixture lessons
+             (pkt-A / evidence://) to the REAL storage/atlas/learning-transfer/admission.jsonl.
+             Pin the default path to /tmp so fixture lessons can never poison a ledger a
+             future reader will trust. Tests that assert ledger content inject their own path. -->
+        <env name="ATLAS_LEARNING_TRANSFER_ADMISSION_LEDGER_PATH" value="/tmp/atlas-testing-learning-transfer-admission.jsonl"/>
         <!-- Loop obra planning is armed in the dev/prod .env (live campaign), but with it
              ON every Feature test that reaches executeAndProve() invokes the REAL default
              provider (hermes) — 60-600s per call, flaky, and it spends. Tests stay on the
