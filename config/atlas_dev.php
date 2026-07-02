@@ -315,4 +315,13 @@ return [
         //     once the trip condition is verified stable at advisory.
         'weak_output' => ['mode' => env('ATLAS_DEV_ELEVATION_WEAK_OUTPUT_MODE', 'advisory')],
     ],
+
+    // Hyperflow organ: AtlasDevRuntimeService honors the RouterRuntime flow
+    // decision (atlas_dev / atlas_debug / atlas_review) when the operator did
+    // not pick a mode manually AND the payload carries a workspace. Kill
+    // switch for the auto-engagement only; explicit operator mode always wins
+    // and no-workspace payloads keep plain chat behavior (never a 422).
+    'hyperflow_engagement' => [
+        'enabled' => (bool) env('ATLAS_DEV_HYPERFLOW_ENGAGEMENT', true),
+    ],
 ];

@@ -85,6 +85,25 @@ class AtlasDevRuntimeService
 
         $mode = $this->normalizeMode($payload);
 
+        // Hyperflow organ: when the operator did NOT pick a mode manually,
+        // honor the RouterRuntime flow decision already computed on this
+        // payload (intent → domain → flow; AtlasHyperflowEntryService runs
+        // first in AiInteractionController). Fail-open by construction: only
+        // engages with a workspace present, so a programming-classified chat
+        // without workspace stays a normal chat instead of hitting the 422
+        // below. Explicit operator mode (programming OR operational) always
+        // wins over the router.
+        $hyperflowEngagement = null;
+        if ($mode === 'general') {
+            $hyperflowEngagement = $this->hyperflowProgrammingEngagement($payload);
+            if ($hyperflowEngagement !== null) {
+                $mode = 'programming';
+                if (AiValueNormalizer::trimmedScalarStringOrNull($payload['routing_task'] ?? null) === null) {
+                    $payload['routing_task'] = $hyperflowEngagement['task'];
+                }
+            }
+        }
+
         if ($mode !== 'programming') {
             return $data;
         }
@@ -128,6 +147,9 @@ class AtlasDevRuntimeService
             'workspace_source' => $workspaceSource,
             'open_brain_policy' => 'auto',
         ];
+        if ($hyperflowEngagement !== null) {
+            $payload['atlas_dev_runtime']['hyperflow_engagement'] = $hyperflowEngagement;
+        }
         $artifactAgentPacket = $this->artifactAgentPacket($payload);
         if ($artifactAgentPacket !== null) {
             $payload['atlas_dev_runtime']['artifact_agent_packet'] = $this->safeArtifactAgentPacket($artifactAgentPacket);
@@ -603,6 +625,66 @@ class AtlasDevRuntimeService
         }
 
         return true;
+    }
+
+    /**
+     * Hyperflow programming flows this runtime honors when the operator did
+     * not pick a mode manually. Non-programming flows (research, finance,
+     * marketing, …) NEVER engage the Dev runtime — mirrors the
+     * non_programming_does_not_route_to_dev readiness check.
+     */
+    private const HYPERFLOW_FLOW_TASK_MAP = [
+        'atlas_dev' => 'dev',
+        'atlas_debug' => 'debug',
+        'atlas_review' => 'review',
+    ];
+
+    /**
+     * Resolve an auto-engagement decision from the RouterRuntime/Hyperflow
+     * envelope. Returns null (never engage) unless ALL hold: the kill-switch
+     * config is on, the envelope is present with status=ready, its flow_id is
+     * a programming flow, and the payload carries a workspace (no-workspace
+     * payloads must keep today's chat behavior — never the 422).
+     *
+     * @param  array<string,mixed>  $payload
+     * @return ?array{flow_id:string,task:string,intent_type:?string,routing_confidence:float}
+     */
+    private function hyperflowProgrammingEngagement(array $payload): ?array
+    {
+        // Kill-switch; default ON. Guarded like MandatoryRagGate::bypassConfig
+        // so plain-PHPUnit callers (no bootstrapped app) never crash.
+        try {
+            $enabled = function_exists('config')
+                ? (bool) config('atlas_dev.hyperflow_engagement.enabled', true)
+                : true;
+        } catch (\Throwable) {
+            $enabled = true;
+        }
+        if (! $enabled) {
+            return null;
+        }
+
+        $envelope = $payload['hyperflow_runtime'] ?? null;
+        if (! is_array($envelope) || ($envelope['status'] ?? null) !== 'ready') {
+            return null;
+        }
+
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($envelope['flow_id'] ?? null);
+        $task = self::HYPERFLOW_FLOW_TASK_MAP[$flowId] ?? null;
+        if ($flowId === null || $task === null) {
+            return null;
+        }
+
+        if ($this->extractWorkspace($payload) === null) {
+            return null;
+        }
+
+        return [
+            'flow_id' => $flowId,
+            'task' => $task,
+            'intent_type' => AiValueNormalizer::trimmedScalarStringOrNull(data_get($envelope, 'intent.type')),
+            'routing_confidence' => (float) ($envelope['routing_confidence'] ?? 0.0),
+        ];
     }
 
     /**

@@ -236,4 +236,125 @@ class AtlasDevRuntimeServiceTest extends TestCase
             $service->supportedFlows(),
         );
     }
+
+    /** @return array<string,mixed> */
+    private function hyperflowEnvelope(string $flowId, string $status = 'ready'): array
+    {
+        return [
+            'schema_version' => 'atlas.ai.hyperflow_runtime.v1',
+            'status' => $status,
+            'flow_id' => $flowId,
+            'routing_confidence' => 0.91,
+            'intent' => ['type' => 'debug'],
+        ];
+    }
+
+    public function test_hyperflow_programming_flow_engages_dev_runtime_without_manual_mode(): void
+    {
+        $service = new AtlasDevRuntimeService;
+
+        $result = $service->apply([
+            'input_text' => 'conserta o teste quebrado do WorkflowService',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'workspace' => '/repos/atlas',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_debug'),
+            ],
+        ]);
+
+        $runtime = $result['payload']['atlas_dev_runtime'];
+        $this->assertTrue($runtime['enabled']);
+        $this->assertSame('programming.repair', $runtime['flow_id']);
+        $this->assertSame('debug', $runtime['task']);
+        $this->assertSame('atlas_debug', $runtime['hyperflow_engagement']['flow_id']);
+        $this->assertSame('debug', $runtime['hyperflow_engagement']['intent_type']);
+        $this->assertSame('programming', $result['payload']['atlas_mode']);
+    }
+
+    public function test_hyperflow_non_programming_flow_never_engages_dev_runtime(): void
+    {
+        $service = new AtlasDevRuntimeService;
+
+        $input = [
+            'input_text' => 'pesquisa mercado de anuncios',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'workspace' => '/repos/atlas',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_research'),
+            ],
+        ];
+
+        $result = $service->apply($input);
+
+        $this->assertArrayNotHasKey('atlas_dev_runtime', $result['payload']);
+    }
+
+    public function test_hyperflow_programming_flow_without_workspace_stays_plain_chat(): void
+    {
+        $service = new AtlasDevRuntimeService;
+
+        $result = $service->apply([
+            'input_text' => 'conserta o bug do parser',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_dev'),
+            ],
+        ]);
+
+        // No workspace: must NOT throw programming_requires_workspace and
+        // must NOT engage — today's chat behavior is preserved.
+        $this->assertArrayNotHasKey('atlas_dev_runtime', $result['payload']);
+    }
+
+    public function test_explicit_operational_mode_wins_over_hyperflow_flow(): void
+    {
+        $service = new AtlasDevRuntimeService;
+
+        $result = $service->apply([
+            'input_text' => 'roda o comando de deploy',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'atlas_mode' => 'operational',
+                'workspace' => '/repos/atlas',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_dev'),
+            ],
+        ]);
+
+        $this->assertArrayNotHasKey('atlas_dev_runtime', $result['payload']);
+    }
+
+    public function test_hyperflow_envelope_not_ready_never_engages(): void
+    {
+        $service = new AtlasDevRuntimeService;
+
+        $result = $service->apply([
+            'input_text' => 'conserta o bug do parser',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'workspace' => '/repos/atlas',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_dev', status: 'error'),
+            ],
+        ]);
+
+        $this->assertArrayNotHasKey('atlas_dev_runtime', $result['payload']);
+    }
+
+    public function test_hyperflow_engagement_respects_explicit_routing_task(): void
+    {
+        $service = new AtlasDevRuntimeService;
+
+        $result = $service->apply([
+            'input_text' => 'revisa esse diff',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'workspace' => '/repos/atlas',
+                'routing_task' => 'review',
+                'hyperflow_runtime' => $this->hyperflowEnvelope('atlas_dev'),
+            ],
+        ]);
+
+        // Pre-set routing_task is preserved; hyperflow only fills the gap.
+        $this->assertSame('review', $result['payload']['atlas_dev_runtime']['task']);
+        $this->assertSame('programming.review', $result['payload']['atlas_dev_runtime']['flow_id']);
+    }
 }
