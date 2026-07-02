@@ -421,8 +421,15 @@ final class AtlasTaskServingService
                 ? app(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService::class)
                 : new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService();
             $cadence->invalidate('task_outcome_'.$outcome.':'.$taskPacketId);
-        } catch (\Throwable) {
-            // never let a comprehension hiccup wedge a give_back report
+        } catch (\Throwable $e) {
+            // never let a comprehension hiccup wedge a give_back report — but a
+            // failed invalidation means the brain keeps authoring against a stale
+            // scope model, so the loss is logged, never invisible.
+            \Illuminate\Support\Facades\Log::warning('comprehension_invalidation_failed', [
+                'task_packet_id' => $taskPacketId,
+                'outcome' => $outcome,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return $this->reportEnvelope('reported', $clientId, [
