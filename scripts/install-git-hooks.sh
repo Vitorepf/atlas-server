@@ -11,22 +11,20 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-SRC="$ROOT/scripts/hooks/pre-commit"
 HOOKS_DIR="$ROOT/.git/hooks"
-DEST="$HOOKS_DIR/pre-commit"
-
-if [ ! -f "$SRC" ]; then
-    echo "[install-git-hooks] source hook not found: $SRC" >&2
-    exit 1
-fi
 
 if [ ! -d "$HOOKS_DIR" ]; then
     echo "[install-git-hooks] hooks dir not found (is this a git checkout?): $HOOKS_DIR" >&2
     exit 1
 fi
 
-cp "$SRC" "$DEST"
-chmod +x "$DEST"
+# Every tracked hook in scripts/hooks/ is managed: overwrite + chmod.
+for SRC in "$ROOT"/scripts/hooks/*; do
+    NAME="$(basename "$SRC")"
+    cp "$SRC" "$HOOKS_DIR/$NAME"
+    chmod +x "$HOOKS_DIR/$NAME"
+    echo "[install-git-hooks] installed $NAME -> $HOOKS_DIR/$NAME"
+done
 
-echo "[install-git-hooks] installed pre-commit -> $DEST (ADRS write-bound gate active)."
-echo "[install-git-hooks] override a single commit with: ATLAS_SKIP_ADRS_GATE=1 git commit ..."
+echo "[install-git-hooks] pre-commit: NON-BLOCKING doc auto-heal (blocking ADRS variant: scripts/hooks-optional/)"
+echo "[install-git-hooks] pre-push:   .env secret-leak gate (operator bypass: git push --no-verify)"
