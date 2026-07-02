@@ -44,10 +44,21 @@ class ReportBuilder
             ];
         }
 
+        // suite fácil demais = sinal de cola/contaminação/case trivial, não de modelo bom
+        $targetMax = (float) config('atlas_rivals2.difficulty.frontier_bare_target_max', 0.35);
+        $difficultyFlags = [];
+        foreach ($rows as $row) {
+            $isHarness = str_starts_with($row['arm_id'], 'harness_');
+            if (! $isHarness && str_ends_with($row['arm_id'], '@bare') && $row['success_rate'] > $targetMax) {
+                $difficultyFlags[] = "suite_too_easy_for:{$row['arm_id']}:{$row['task_type']}:{$row['success_rate']}>{$targetMax}";
+            }
+        }
+
         $report = [
             'schema_version' => SchemaContract::REPORT,
             'run_id' => $runId,
             'rows' => $rows,
+            'difficulty_flags' => $difficultyFlags,
             'claim_allowed' => $claimAllowed,
             'claim_blockers' => $blockers,
             'claim_scope' => $adjudication['claim_scope'] ?? null,

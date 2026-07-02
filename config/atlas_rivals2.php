@@ -28,6 +28,13 @@ return [
 
     'runtimes' => ['bare', 'atlas_dev', 'forge', 'loop', 'autonomous'],
 
+    // Régua de dificuldade (decisão do operador 02/07): frontier deve pontuar
+    // ~20-35% em braço bare. Acima disso a SUITE é acusada de fácil demais —
+    // o report levanta difficulty_flags em vez de celebrar o número.
+    'difficulty' => [
+        'frontier_bare_target_max' => 0.35,
+    ],
+
     'task_types' => [
         'coding_patch',
         'feature_under_specified',
