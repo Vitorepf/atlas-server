@@ -288,6 +288,7 @@ class CapabilityComplianceTest extends TestCase
                 'atlas_mcp_readonly' => ['atlas_mcp_readonly'],
                 'atlas_vault' => ['atlas_vault'],
                 'atlas_voice' => ['voice_realtime'],
+                'atlas_desktop' => ['atlas_desktop_ai'],
             ],
             capabilityAdapterRequirements: [],
         );
