@@ -435,6 +435,8 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         $ticket[] = 'You are a senior engineer on this codebase. Implement what this ticket asks,';
         $ticket[] = 'end to end, at production quality. The team will grade your change against';
         $ticket[] = 'their own acceptance checks — they are NOT provided to you.';
+        $ticket[] = 'Do NOT modify or delete any existing test files: grading runs on the';
+        $ticket[] = 'pristine test suite, and touching it invalidates your submission.';
         $ticket[] = 'Explore the repository, find where the change belongs, implement it fully,';
         $ticket[] = 'and follow the existing code style. Do not ask questions.';
 

@@ -79,7 +79,9 @@ class EliteRealitySuiteAdapter extends AtlasBenchSuiteAdapter
         $ticket[] = 'you will never see; behavior is what counts, not resemblance to a recipe.';
         $ticket[] = 'Prefer the minimal change that fixes the root cause. Do not hardcode';
         $ticket[] = 'observed values, do not fake behavior with mocks, keep the blast radius';
-        $ticket[] = 'small, and preserve backward compatibility. Do not ask questions.';
+        $ticket[] = 'small, and preserve backward compatibility. Do NOT modify or delete any';
+        $ticket[] = 'existing test files — grading runs on the pristine test suite, and';
+        $ticket[] = 'touching it invalidates your submission. Do not ask questions.';
 
         return implode("\n", $ticket);
     }
