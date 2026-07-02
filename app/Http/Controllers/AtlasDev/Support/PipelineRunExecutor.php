@@ -7,6 +7,7 @@ namespace App\Http\Controllers\AtlasDev\Support;
 use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
@@ -1050,6 +1051,62 @@ final class PipelineRunExecutor implements RunExecutor
                     'output_tokens' => $callResultForGates->tokensOut,
                     'actor' => 'atlas_dev_pipeline',
                 ]);
+            } catch (\Throwable) {
+                // fail-open
+            }
+        }
+
+        // Context-pack ROI feedback (write side): AOBG requests used/noise/missed
+        // after every pack and no internal flow ever answered — the retrieval
+        // ranker never learned what was noise. Mechanical attribution from run
+        // evidence: a delivered ref that names a file the run actually changed is
+        // used; on a PASSED run the rest are noise candidates (a failed run never
+        // blames the context). Same unit-test guard as the ADML block. Fail-open.
+        if (! app()->runningUnitTests() || app()->bound(AtlasRetrievalFeedbackLoopService::class)) {
+            try {
+                $projection = $this->storage->read($runId, ArtifactNames::OPEN_BRAIN_PROJECTION);
+                $delivered = [];
+                foreach (['code_refs', 'knowledge_refs', 'memory_refs'] as $bucket) {
+                    foreach ((array) (is_array($projection) ? ($projection[$bucket] ?? []) : []) as $ref) {
+                        $r = is_array($ref) ? (string) ($ref['ref'] ?? '') : '';
+                        if ($r !== '') {
+                            $delivered[] = $r;
+                        }
+                    }
+                }
+                if ($delivered !== []) {
+                    $changedPaths = array_map(
+                        static fn (ScopeFileDiff $diff): string => $diff->path,
+                        $scopeReceipt->observed->fileDiffs,
+                    );
+                    $used = array_values(array_filter($delivered, static function (string $ref) use ($changedPaths): bool {
+                        foreach ($changedPaths as $path) {
+                            if ($path !== '' && (str_contains($ref, $path) || str_contains($path, $ref))) {
+                                return true;
+                            }
+                        }
+
+                        return false;
+                    }));
+                    $passed = $receipt->completion->status === CompletionSummary::STATUS_PASSED;
+                    app(AtlasRetrievalFeedbackLoopService::class)->capture([
+                        'objective' => $envelope->normalizedIntent,
+                        'workspace' => $envelope->workspace,
+                        'task_type' => $taskKind !== '' ? $taskKind : 'dev',
+                        'domain' => 'atlas',
+                        'risk_level' => strtolower($riskLevel),
+                        'outcome_status' => $passed
+                            ? 'passed'
+                            : ($receipt->completion->status === CompletionSummary::STATUS_NEEDS_REVIEW ? 'partial' : 'failed'),
+                        'context_pack_hash' => $this->contextPackHash($runId),
+                        'retrieval_receipt_id' => $this->contextPackHash($runId),
+                        'delivered_context_refs' => $delivered,
+                        'used_context_refs' => $used,
+                        'noise_context_refs' => $passed ? array_values(array_diff($delivered, $used)) : [],
+                        'flow_id' => 'atlas.dev',
+                        'record' => true,
+                    ]);
+                }
             } catch (\Throwable) {
                 // fail-open
             }

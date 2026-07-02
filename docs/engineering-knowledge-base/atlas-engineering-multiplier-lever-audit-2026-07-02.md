@@ -175,8 +175,19 @@ de falha que ficou invisível por semanas agora bloqueia.
   intocado após a suite. Nota honesta: a ATIVAÇÃO de rota (free_to_choose → follow_learned)
   continua sendo passo offline do ADML — o que fechou aqui é a evidência live que faltava.
 
+## Execução S9 (02/07/2026)
+
+- **S9 (entregue — ranking #6):** Dev run → context-pack ROI feedback, write side. Todo run
+  do `PipelineRunExecutor` responde o pedido do AOBG mecanicamente: refs entregues (projeção
+  code/knowledge/memory) × arquivos realmente mudados → used; em run PASSED o resto vira
+  noise candidate (run falhado nunca culpa o contexto); outcome_status
+  passed/partial/failed. Persiste via `AtlasRetrievalFeedbackLoopService::capture(record:
+  true)` → `ai_rag_feedback_events` (ranker/policy de contexto passam a ter sinal). Mesmo
+  guard de teste do S8. Prova: `test_completed_run_records_context_pack_roi_feedback`
+  (used≥1, noise≥1 no evento persistido).
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Ranking #6 — Dev run → atlas_context_feedback:** AOBG pede feedback (used/noise/missed)
-e nenhum fluxo interno grava; gravar feedback pós-verification no senior loop ensina o
-context pack a cortar ruído. Depois: #7 distiller mid-entry truncation.
+**Ranking #7 — distiller mid-entry truncation:** `DevContextBudgetDistiller:108` corta
+`substr` no meio de unidade lógica; cortar na fronteira de item preserva fato crítico na
+compaction. Depois: #9 GC/índice do receipt store.
