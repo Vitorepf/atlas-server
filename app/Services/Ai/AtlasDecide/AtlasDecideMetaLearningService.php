@@ -138,13 +138,16 @@ class AtlasDecideMetaLearningService
             $framework = null;
         }
 
-        // Rivals 1.0 ledger retired: the offline signal is honestly insufficient
-        // until the Rivals 2.0 ledger feeds this service (fail-closed).
-        $signal = [
+        // Offline (Rivals 1.0) ledger retired. The LIVE outcome ledger — real Dev
+        // runs recording result/latency/cost per (task_category, role) — is the
+        // evidence source now: enough samples with a strong success rate produce
+        // an actionable signal; anything less stays honestly insufficient
+        // (fail-closed, byte-identical to the retired-ledger behavior).
+        $signal = $this->liveEvidenceSignal($taskCategory, $role, $framework) ?? [
             'signal' => self::SIGNAL_INSUFFICIENT,
             'evidence_count' => 0,
             'confidence' => self::CONFIDENCE_INSUFFICIENT,
-            'reason' => ['rivals_ledger_retired'],
+            'reason' => ['rivals_ledger_retired', 'insufficient_live_outcome_evidence'],
         ];
 
         return $this->recommendationFromSignal($signal, $taskCategory, $role, $framework);
@@ -646,6 +649,82 @@ class AtlasDecideMetaLearningService
     /**
      * @param  array<string,mixed>  $signal
      */
+    /**
+     * Build an OK signal from the live outcome ledger, or null when the evidence
+     * is not strong enough to act on. Floors: at least MIN_CALLS_FOR_SIGNAL
+     * samples in the provider's window AND a success rate at or above the
+     * degradation threshold — a route we would immediately flag as degrading is
+     * never recommended for activation. Confidence: high needs 10+ samples at
+     * 0.8+, otherwise medium. The top-vs-runner-up gap is expressed on the same
+     * 0-100 scale CLOSE_RACE_DELTA compares against, so a close live race stays
+     * non-actionable exactly like a close offline score race.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function liveEvidenceSignal(string $taskCategory, string $role, ?string $framework): ?array
+    {
+        if ($this->liveFeedback === null || $taskCategory === '' || $role === '') {
+            return null;
+        }
+
+        // HERMETIC: a unit test that did not pin the live-outcome log path must
+        // never have its recommendation shaped by the PRODUCTION ledger.
+        if (function_exists('app') && app()->runningUnitTests() && ! $this->liveFeedback->usesOverriddenLogPath()) {
+            return null;
+        }
+
+        try {
+            $stats = $this->liveFeedback->routeStats($taskCategory, $role, $framework);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $eligible = array_values(array_filter(
+            (array) ($stats['providers'] ?? []),
+            static fn (array $p): bool => (int) ($p['window_size'] ?? 0) >= AtlasDecideLiveOutcomeFeedbackService::MIN_CALLS_FOR_SIGNAL
+                && ($p['success_rate'] ?? null) !== null,
+        ));
+        if ($eligible === []) {
+            return null;
+        }
+
+        usort($eligible, static function (array $a, array $b): int {
+            $rate = ((float) $b['success_rate']) <=> ((float) $a['success_rate']);
+            if ($rate !== 0) {
+                return $rate;
+            }
+
+            // tie: cheaper route wins; unknown cost sorts last
+            return ((float) ($a['avg_cost_usd'] ?? PHP_FLOAT_MAX)) <=> ((float) ($b['avg_cost_usd'] ?? PHP_FLOAT_MAX));
+        });
+
+        $top = $eligible[0];
+        $runnerUp = $eligible[1] ?? null;
+        $rate = (float) $top['success_rate'];
+        if ($rate < AtlasDecideLiveOutcomeFeedbackService::DEGRADATION_THRESHOLD) {
+            return null;
+        }
+
+        return [
+            'signal' => self::SIGNAL_OK,
+            'evidence_count' => (int) ($stats['total_calls_observed'] ?? 0),
+            'confidence' => ((int) $top['window_size'] >= 10 && $rate >= 0.8)
+                ? self::CONFIDENCE_HIGH
+                : self::CONFIDENCE_MEDIUM,
+            // With a runner-up present the gap is floored at 0.01 (never exactly
+            // 0.0): recommendationFromSignal treats delta===0.0 as "no race", and
+            // a dead-heat live race must fall in the close-race guard instead.
+            'top_vs_runner_up_score_gap' => $runnerUp === null
+                ? 0.0
+                : max(0.01, ($rate - (float) $runnerUp['success_rate']) * 100),
+            'top_measured_provider' => (string) $top['provider'],
+            'top_measured_model' => $top['last_model'] ?? null,
+            'runner_up_provider' => $runnerUp['provider'] ?? null,
+            'runner_up_model' => $runnerUp['last_model'] ?? null,
+            'reason' => ['live_outcome_evidence'],
+        ];
+    }
+
     private function recommendationFromSignal(array $signal, string $taskCategory, string $role, ?string $framework): array
     {
         $sig = (string) ($signal['signal'] ?? self::SIGNAL_INSUFFICIENT);

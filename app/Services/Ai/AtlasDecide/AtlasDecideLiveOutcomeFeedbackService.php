@@ -76,6 +76,12 @@ final class AtlasDecideLiveOutcomeFeedbackService
         $this->logPathOverride = $path;
     }
 
+    /** True when a test pinned the log path — the hermeticity signal ADML checks. */
+    public function usesOverriddenLogPath(): bool
+    {
+        return $this->logPathOverride !== null;
+    }
+
     public function logPath(): string
     {
         if ($this->logPathOverride !== null) {
@@ -226,7 +232,11 @@ final class AtlasDecideLiveOutcomeFeedbackService
             $costCount = 0;
             $tokenSum = 0;
             $tokenCount = 0;
+            $lastModel = null;
             foreach ($window as $w) {
+                if (isset($w['model']) && is_string($w['model']) && $w['model'] !== '') {
+                    $lastModel = $w['model'];
+                }
                 $r = (string) ($w['result'] ?? '');
                 match ($r) {
                     self::RESULT_SUCCESS => $success++,
@@ -265,6 +275,7 @@ final class AtlasDecideLiveOutcomeFeedbackService
                 'cost_sample_count' => $costCount,
                 'avg_tokens_used' => $tokenCount > 0 ? (int) round($tokenSum / $tokenCount) : null,
                 'token_sample_count' => $tokenCount,
+                'last_model' => $lastModel,
             ];
         }
         ksort($providers);

@@ -209,10 +209,24 @@ rodar. Cobre qualquer commit de base (o braço não precisa ter o kill-switch no
 Restauração: migração des-carimbada + `migrate` (drift 0/449 no doctor, exit 0) + 56
 failure capsules re-backfilled dos receipts reais (rows=56).
 
+## Execução S12 (02/07/2026)
+
+- **S12 (entregue — teto novo):** ativação de rota ADML por evidência LIVE.
+  `recommend()` (que sempre retornava insufficient desde a aposentadoria do ledger offline)
+  agora deriva sinal do ledger live que o S8 alimenta: piso fail-closed de
+  MIN_CALLS_FOR_SIGNAL amostras + success rate ≥ DEGRADATION_THRESHOLD (nunca recomenda rota
+  que o sweep marcaria como degradando); empate vivo cai no guard de close-race;
+  `routeStats` expõe `last_model` por provider (rota sem model nunca ativava). Com isso
+  `applyAction(activate)` → `activeRouteFor` → SpecComposer `follow_learned` fecha
+  inteiramente por evidência real. Guard de hermeticidade: teste sem log path pinado nunca
+  tem recomendação moldada pelo ledger de produção. Prova:
+  `AtlasDecideLiveEvidenceActivationTest` (4 cenários: forte→ativável; amostras
+  insuficientes; rate abaixo do piso; empate) + 300 testes AtlasDecide/Patamar4 verdes.
+  Ativação continua ação explícita (operador/CLI) — o que fechou é a evidência tornando-a
+  possível; sweep de auto-ativação flag-gated é candidato futuro.
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Re-rankear:** o tail do ranking original (#9 GC receipts) é menor que o teto novo exposto
-pelos S8/S9 — ADML tem evidência live mas nada ATIVA rota (free_to_choose → follow_learned
-continua passo manual/offline). Candidato a próxima alavanca grande: ciclo de ativação de
-rota por evidência (respeitando admission/kernel), ou o próximo gargalo que a medição
-apontar.
+**Candidatos re-rankeados:** (a) sweep de auto-ativação de rota flag-gated (fecha o loop
+routing 100% autônomo, admission-gated); (b) #9 GC/índice do receipt store (latência do
+retrieve de exemplares); (c) próximo gargalo da medição.
