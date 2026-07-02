@@ -88,7 +88,9 @@ final class AtlasTaskServingHealthFlagActionRouterWorkerFloorTest extends TestCa
             ],
         ]));
 
-        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_INSPECT_LEASE_PARITY, $r['primary_action']);
+        // Queue corruption/leakage outranks worker-floor top-up guidance; with recoverable
+        // leases present the reap action dominates parity inspection (router-documented order).
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_REAP_LEASES, $r['primary_action']);
     }
 
     public function test_low_pressure_without_replenish_soon_continues_work(): void
