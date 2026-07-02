@@ -70,12 +70,22 @@ final class AtlasTaskServingHealthFlagActionRouterWorkerFloorTest extends TestCa
         $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_SWEEP_MALFORMED, $r['primary_action']);
     }
 
-    public function test_lease_leak_takes_precedence_over_worker_floor_pressure(): void
+    public function test_real_lease_leak_takes_precedence_over_worker_floor_pressure(): void
     {
+        // r96 ghost-noop floor: parity inspection requires a REAL leak (flag + servable work +
+        // recoverable backlog), not a bare count mismatch.
         $r = $this->router()->route($this->snapshot([
             'queue_pressure' => 'high',
             'replenish_recommendation' => 'replenish_soon',
             'leases_match_claimed' => false,
+            'recoverable' => ['total' => 2],
+            'health_flags' => [
+                'dry_queue' => false,
+                'serving_jammed' => false,
+                'recoverable_backlog' => false,
+                'lease_leak_detected' => true,
+                'malformed_risk' => false,
+            ],
         ]));
 
         $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_INSPECT_LEASE_PARITY, $r['primary_action']);

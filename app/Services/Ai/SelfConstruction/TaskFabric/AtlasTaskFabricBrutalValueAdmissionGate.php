@@ -113,4 +113,124 @@ final class AtlasTaskFabricBrutalValueAdmissionGate
             'reasons' => $reasons,
         ];
     }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @return array<string,mixed>
+     */
+    public function decide(array $candidate): array
+    {
+        $target         = trim((string) ($candidate['target'] ?? ''));
+        $objective      = trim((string) ($candidate['objective'] ?? ''));
+        $allowedFiles   = is_array($candidate['allowed_files'] ?? null) ? $candidate['allowed_files'] : [];
+        $impactScore    = (float) ($candidate['compound_impact_score'] ?? 0.0);
+        $giveBackRisk   = (float) ($candidate['give_back_risk_score'] ?? 0.0);
+        $knownTargets   = is_array($candidate['known_targets'] ?? null)
+            ? array_map('strtolower', array_map('trim', array_map('strval', $candidate['known_targets'])))
+            : [];
+        $isTemplateFarm = (bool) ($candidate['is_template_farm'] ?? false);
+        $workerFloorContext = (bool) ($candidate['worker_floor_context'] ?? false);
+        $impactReason = trim((string) ($candidate['impact_reason'] ?? ''));
+        $runnableAcceptance = (bool) ($candidate['runnable_acceptance'] ?? false);
+
+        $thresholds = is_array($candidate['thresholds'] ?? null) ? $candidate['thresholds'] : [];
+        $minChars       = (int) ($thresholds['min_objective_chars']   ?? self::MIN_OBJECTIVE_CHARS);
+        $impactFloor    = (float) ($thresholds['compound_impact_floor']  ?? self::COMPOUND_IMPACT_FLOOR);
+        $giveBackCeil   = (float) ($thresholds['give_back_risk_ceiling'] ?? self::GIVE_BACK_RISK_CEILING);
+
+        $rejectionReasons = [];
+
+        // 1. Semantic duplicate.
+        if ($target !== '' && in_array(strtolower($target), $knownTargets, true)) {
+            $rejectionReasons[] = 'semantic_duplicate';
+        }
+
+        // 2. Template farm.
+        if ($isTemplateFarm || ($objective !== '' && strlen($objective) < $minChars)) {
+            $rejectionReasons[] = 'template_farm';
+        }
+
+        // 3. Implementability.
+        $hasImpl = false;
+        $hasTest = false;
+        foreach ($allowedFiles as $file) {
+            $file = (string) $file;
+            if (str_contains($file, self::TEST_PATTERN)) {
+                $hasTest = true;
+            } else {
+                foreach (self::IMPL_PATTERNS as $pattern) {
+                    if (str_contains($file, $pattern)) {
+                        $hasImpl = true;
+                        break;
+                    }
+                }
+            }
+        }
+        // Only apply the check when allowed_files was provided.
+        if ($allowedFiles !== []) {
+            if (! $hasImpl) {
+                $rejectionReasons[] = 'implementability_weak:no_implementation_file';
+            }
+            if (! $hasTest) {
+                $rejectionReasons[] = 'implementability_weak:no_test_file';
+            }
+        }
+
+        // 4. Compound impact — UNLESS this is a genuinely muscle-feed packet during
+        // replenish_soon: worker_floor_context + impact_reason=worker_continuity + a proven
+        // impl+test+runnable-acceptance shape. Never lowers the floor for template farms or
+        // duplicates — those are rejected by checks 1/2 above regardless of this exception.
+        $isWorkerContinuityExempt = $workerFloorContext
+            && $impactReason === 'worker_continuity'
+            && $hasImpl
+            && $hasTest
+            && $runnableAcceptance;
+
+        if ($impactScore < $impactFloor && ! $isWorkerContinuityExempt) {
+            $rejectionReasons[] = 'compound_impact_low';
+        }
+
+        // 5. Give_back risk.
+        if ($giveBackRisk >= $giveBackCeil) {
+            $rejectionReasons[] = 'give_back_risk_high';
+        }
+
+        $admitted = $rejectionReasons === [];
+
+        if (! $admitted) {
+            return [
+                'schema'            => self::SCHEMA,
+                'admitted'          => false,
+                'rejection_reasons' => $rejectionReasons,
+            ];
+        }
+
+        $valueScore = $impactScore * (1.0 - $giveBackRisk);
+        $requiredFollowups = [];
+        if (! $hasImpl && $allowedFiles !== []) {
+            $requiredFollowups[] = 'add_implementation';
+        }
+        if (! $hasTest && $allowedFiles !== []) {
+            $requiredFollowups[] = 'add_test_coverage';
+        }
+
+        return [
+            'schema'             => self::SCHEMA,
+            'admitted'           => true,
+            'rejection_reasons'  => [],
+            'value_score'        => round($valueScore, 6),
+            'risk_score'         => $giveBackRisk,
+            'required_followups' => $requiredFollowups,
+            'admitted_via_worker_continuity_exception' => $isWorkerContinuityExempt && $impactScore < $impactFloor,
+        ];
+    }
+    private const GIVE_BACK_RISK_CEILING = 0.70;
+    private const IMPL_PATTERNS = [
+        'Service.php', 'Command.php', 'Controller.php', 'Repository.php',
+        'Handler.php', 'Listener.php', 'Job.php', 'Policy.php', 'Provider.php',
+        '/Services/', '/Commands/', '/Controllers/', '/Repositories/',
+    ];
+    private const COMPOUND_IMPACT_FLOOR  = 0.30;
+    private const TEST_PATTERN = 'Test.php';
+    private const MIN_OBJECTIVE_CHARS    = 30;
 }
