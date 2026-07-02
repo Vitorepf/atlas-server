@@ -7,7 +7,7 @@ namespace Tests\Unit\Ai\AutonomousEvolution\Discovery;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraDecompositionPlanner;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraPlanValidator;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopPlanReadinessGate;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 /**
  * ITEM8 — proves the CREATE-FIRST DAG shape is gate-valid: a generator that emits a create-class node at

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AutonomousEvolution\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObraDecompositionPlanner;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 /**
  * Lever 1 — the decomposition planner. Iterate-to-READY against the REAL readiness gate (structural
