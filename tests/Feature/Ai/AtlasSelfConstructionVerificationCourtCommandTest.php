@@ -64,6 +64,12 @@ final class AtlasSelfConstructionVerificationCourtCommandTest extends TestCase
             'allowed_files' => ['app/Foo.php'],
             'packet_facts' => ['declared_gates' => []],
             'risk_level' => 'low',
+            'receipt_chain' => [
+                'task_packet_id' => 'pkt-1',
+                'lease_id' => 'lease_01XYZ',
+                'allowed_files_hash' => 'afh-1',
+                'command_hash' => 'ch-1',
+            ],
         ];
     }
 

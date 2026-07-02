@@ -75,7 +75,7 @@ final class AtlasSelfConstructionVerificationCourtCommand extends Command
         if (! is_array($evidence)) {
             return ['status' => 'usage_error', 'reason' => '--evidence JSON file required'];
         }
-        $contract = $this->app()->make(AtlasVerificationCourtEvidenceContract::class)->evaluate($evidence);
+        $contract = $this->evidenceContract($evidence);
         $plan = $this->app()->make(AtlasVerificationCourtGateReplayPlan::class)->derive([
             'packet_facts' => is_array($evidence['packet_facts'] ?? null) ? $evidence['packet_facts'] : [],
             'evidence_contract_result' => $contract,
@@ -85,6 +85,21 @@ final class AtlasSelfConstructionVerificationCourtCommand extends Command
         ]);
 
         return ['status' => 'ok', 'evidence_contract' => $contract, 'replay_plan' => $plan];
+    }
+
+    /**
+     * The contract's verify() takes (allegation, evidence); the CLI evidence file carries the
+     * allegation inline under 'allegation' (empty allegation = chain-completeness check only).
+     *
+     * @param  array<string,mixed>  $evidence
+     * @return array<string,mixed>
+     */
+    private function evidenceContract(array $evidence): array
+    {
+        return $this->app()->make(AtlasVerificationCourtEvidenceContract::class)->verify(
+            is_array($evidence['allegation'] ?? null) ? $evidence['allegation'] : [],
+            $evidence,
+        );
     }
 
     /**
@@ -98,7 +113,7 @@ final class AtlasSelfConstructionVerificationCourtCommand extends Command
             return ['status' => 'usage_error', 'reason' => '--evidence and --replay JSON files required'];
         }
 
-        $contract = $this->app()->make(AtlasVerificationCourtEvidenceContract::class)->evaluate($evidence);
+        $contract = $this->evidenceContract($evidence);
         $plan = $this->app()->make(AtlasVerificationCourtGateReplayPlan::class)->derive([
             'packet_facts' => is_array($evidence['packet_facts'] ?? null) ? $evidence['packet_facts'] : [],
             'evidence_contract_result' => $contract,
