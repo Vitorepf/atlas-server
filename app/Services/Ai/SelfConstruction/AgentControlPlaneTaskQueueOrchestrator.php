@@ -1195,6 +1195,27 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 'agent_id' => (string) ($extra['agent_id'] ?? ''),
                 'allowed_files' => array_values((array) data_get($packet, 'normalized_scope.allowed_files', [])),
                 'objective_digest' => hash('sha256', $objective),
+                // r125 outcome-proof floor producers — only what this bridge
+                // verifiably has (the c5 contract: the caller carries the
+                // proof, the orchestrator never invents it). Without these,
+                // EVERY live admit was refused_by_admission_floor and the
+                // admission ledger never got a single row — the known_lessons
+                // reader (w15) was reading an empty well. The packet id is a
+                // real, resolvable reference (queue record + receipts).
+                'evidence_refs' => ['task_packet:'.$taskPacketId],
+                'impact_class' => 'packet_admission',
+                'design_path_refs' => ['task_packet:'.$taskPacketId.'#objective:'.substr(hash('sha256', $objective), 0, 16)],
+                // The ledger floor whitelists success-class outcomes only
+                // ('success'|'resolved'|'green_commit'): a 'resolved' lesson
+                // records; give_back / completed_dry_run still classify and
+                // feed the family-recurrence signal, but the ledger refuses
+                // them by floor design (visible in the w17 blocked-admission
+                // histogram) — never faked into a success status here.
+                'muscle_outcome' => [
+                    'status' => $outcome,
+                    'task_packet_id' => $taskPacketId,
+                    'agent_id' => (string) ($extra['agent_id'] ?? ''),
+                ],
             ];
             if (isset($extra['give_back_reason'])) {
                 // The classifier reads 'reason' to derive the lesson class.

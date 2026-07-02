@@ -106,6 +106,54 @@ final class AgentControlPlaneReportLearningBridgeTest extends TestCase
         $this->assertSame('completed_dry_run', $result['learning_bridge']['fact']['outcome']);
     }
 
+    // ── (b2) r125 floor producers ride on every fact; the bottleneck is now the gate ──
+
+    public function test_resolved_report_carries_the_r125_outcome_proofs_and_reaches_the_gate(): void
+    {
+        $id = 'bridge-ledger-'.substr(bin2hex(random_bytes(6)), 0, 10);
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input($id)]);
+        $claim = $svc->claimNext('agent-ledger');
+
+        $result = $svc->markResolved($id, (string) $claim['lease_id'], 'agent-ledger', 'abc123def');
+
+        $bridge = $result['learning_bridge'];
+        $fact = $bridge['fact'];
+        // The bridge now produces every proof the r125 admission floor requires
+        // (before this, admits died at refused_by_admission_floor for missing
+        // muscle_outcome — the ledger never got a single live row).
+        $this->assertSame(['task_packet:'.$id], $fact['evidence_refs']);
+        $this->assertSame('packet_admission', $fact['impact_class']);
+        $this->assertNotEmpty($fact['design_path_refs']);
+        $this->assertSame('resolved', $fact['muscle_outcome']['status']);
+        // Honest pin of the CURRENT structural ceiling: a single-run lesson is
+        // held at the gate's independent-repetition threshold (the gate is
+        // stateless, one observation per admit). Opening this requires a
+        // design decision (observation accumulator + floor/classifier
+        // reconciliation), not a quick producer patch. If this assertion ever
+        // flips to admitted_and_recorded, the accumulator landed — update the
+        // test to assert the ledger row instead.
+        $this->assertSame('short_circuited_at_gate', $bridge['outcome'], json_encode($bridge));
+    }
+
+    public function test_give_back_report_is_refused_by_the_success_only_floor_not_an_error(): void
+    {
+        $id = 'bridge-floor-'.substr(bin2hex(random_bytes(6)), 0, 10);
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input($id)]);
+        $claim = $svc->claimNext('agent-floor');
+
+        $result = $svc->reportGiveBack($id, (string) $claim['lease_id'], 'agent-floor', 'scope_conflict_with_sibling_task');
+
+        $bridge = $result['learning_bridge'];
+        // give_back is not in the ledger's success whitelist: the admit must be
+        // a governed refusal (or gate short-circuit), never a bridge error and
+        // never faked into a success status.
+        $this->assertNotSame('error', $bridge['status'], json_encode($bridge));
+        $this->assertNotSame('admitted_and_recorded', $bridge['outcome'] ?? null);
+        $this->assertSame('give_back', $bridge['fact']['muscle_outcome']['status']);
+    }
+
     // ── (c) a learning-side exception leaves the report envelope intact, fail-open ──
 
     public function test_learning_side_exception_leaves_report_envelope_intact_with_learning_bridge_error(): void
