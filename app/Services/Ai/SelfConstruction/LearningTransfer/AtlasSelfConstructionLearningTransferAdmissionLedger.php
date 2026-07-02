@@ -30,6 +30,24 @@ final class AtlasSelfConstructionLearningTransferAdmissionLedger
     public function __construct(private readonly string $ledgerPath) {}
 
     /**
+     * Canonical default ledger location: config-pinned (phpunit pins it to /tmp so
+     * fixture lessons never poison the real ledger), storage fallback otherwise.
+     */
+    public static function defaultPath(): string
+    {
+        $configured = function_exists('config')
+            ? (string) (config('atlas.self_construction.learning_transfer_admission_ledger_path') ?? '')
+            : '';
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        return function_exists('storage_path')
+            ? storage_path('atlas/learning-transfer/admission.jsonl')
+            : sys_get_temp_dir().'/atlas-learning-transfer-admission.jsonl';
+    }
+
+    /**
      * @param  array<string,mixed>  $plan
      * @param  array<string,mixed>  $context
      * @return array<string,mixed>

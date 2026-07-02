@@ -172,6 +172,11 @@ final class AtlasTaskServingService
 
             if (! $selfBlocked && ! $independentBlocked) {
                 $task['packet_quality'] = $independentQuality; // advisory facts travel with the served packet
+                // Outcome learning, closed: admitted give-back lessons whose
+                // files overlap this packet travel WITH it, so the worker sees
+                // how similar work failed before spending muscle. Advisory,
+                // fail-open — the admission ledger was write-only until now.
+                $task['known_lessons'] = $this->knownLessonsFor($task);
                 return $this->served($clientId, $this->envelope('served', $clientId, $task, []));
             }
 
@@ -476,6 +481,50 @@ final class AtlasTaskServingService
      * @param  array<string, mixed>  $claim
      * @return array<string, mixed>
      */
+    /**
+     * Admitted give-back lessons relevant to this packet (file-overlap match),
+     * newest first, capped. Read-only over the admission ledger; any hiccup
+     * degrades to [] — learning advice must never block serving.
+     *
+     * @param  array<string,mixed>  $task
+     * @return list<array<string,mixed>>
+     */
+    private function knownLessonsFor(array $task): array
+    {
+        try {
+            $taskFiles = array_values(array_map('strval', (array) ($task['allowed_files'] ?? [])));
+            if ($taskFiles === []) {
+                return [];
+            }
+            $rows = (new LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger(
+                LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger::defaultPath()
+            ))->all();
+
+            $lessons = [];
+            // ponytail: full-ledger replay per serve; index by file if the ledger grows past ~1k rows.
+            foreach (array_reverse($rows) as $row) {
+                $classification = (array) ($row['classification'] ?? []);
+                $lessonFiles = array_values(array_map('strval', (array) ($classification['allowed_files'] ?? [])));
+                if ($lessonFiles === [] || array_intersect($lessonFiles, $taskFiles) === []) {
+                    continue;
+                }
+                $lessons[] = [
+                    'class' => (string) ($classification['class'] ?? ''),
+                    'blocking_facts' => array_values(array_map('strval', (array) ($classification['blocking_facts'] ?? []))),
+                    'evidence_refs' => array_values(array_map('strval', (array) ($classification['evidence_refs'] ?? []))),
+                    'recorded_at' => (string) ($row['recorded_at'] ?? ''),
+                ];
+                if (count($lessons) >= 3) {
+                    break;
+                }
+            }
+
+            return $lessons;
+        } catch (Throwable) {
+            return []; // fail-open: advisory learning never blocks a serve
+        }
+    }
+
     private function projectTask(array $claim): array
     {
         $packet = (array) data_get($claim, 'queue_entry.task_packet', []);

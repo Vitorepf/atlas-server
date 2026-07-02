@@ -55,13 +55,8 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         $this->gate = $gate ?? new AtlasSelfConstructionLearningTransferLessonCandidateGate();
         $this->planner = $planner ?? new AtlasSelfConstructionLearningTransferContextUpdatePlan();
         $this->updater = $updater ?? new AtlasSelfConstructionLearningTransferPacketTemplateUpdater();
-        $configuredPath = function_exists('config')
-            ? (string) (config('atlas.self_construction.learning_transfer_admission_ledger_path') ?? '')
-            : '';
         $this->ledger = $ledger ?? new AtlasSelfConstructionLearningTransferAdmissionLedger(
-            $configuredPath !== ''
-                ? $configuredPath
-                : (function_exists('storage_path') ? storage_path('atlas/learning-transfer/admission.jsonl') : sys_get_temp_dir().'/atlas-learning-transfer-admission.jsonl')
+            AtlasSelfConstructionLearningTransferAdmissionLedger::defaultPath()
         );
     }
 

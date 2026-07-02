@@ -97,6 +97,57 @@ final class AtlasTaskServingAuthorNotJudgeTest extends TestCase
         self::assertSame([], $res['task']['packet_quality']['blocking_deficiencies']);
     }
 
+    public function test_served_packet_carries_known_lessons_matching_its_files(): void
+    {
+        $ledgerPath = sys_get_temp_dir().'/atlas-anj-lessons-'.bin2hex(random_bytes(5)).'.jsonl';
+        config()->set('atlas.self_construction.learning_transfer_admission_ledger_path', $ledgerPath);
+        file_put_contents($ledgerPath, json_encode([
+            'schema_version' => 'atlas.learning_transfer.admission_ledger.v1',
+            'recorded_at' => '2026-07-01T00:00:00Z',
+            'classification' => [
+                'class' => 'duplicate_capability',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/lesson-match.php'],
+                'blocking_facts' => ['observed_already_exists'],
+                'evidence_refs' => ['evidence://lesson'],
+            ],
+        ])."\n".json_encode([
+            'schema_version' => 'atlas.learning_transfer.admission_ledger.v1',
+            'recorded_at' => '2026-07-01T00:00:01Z',
+            'classification' => [
+                'class' => 'scope_gap',
+                'allowed_files' => ['app/Other/Unrelated.php'],
+                'blocking_facts' => [],
+                'evidence_refs' => [],
+            ],
+        ])."\n");
+
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('lesson-match')]);
+
+        $res = (new AtlasTaskServingService($orch))->next('client-cold');
+
+        self::assertSame('served', $res['status']);
+        // The lesson whose files overlap travels with the packet; the unrelated one does not.
+        self::assertCount(1, $res['task']['known_lessons']);
+        self::assertSame('duplicate_capability', $res['task']['known_lessons'][0]['class']);
+        self::assertSame(['observed_already_exists'], $res['task']['known_lessons'][0]['blocking_facts']);
+
+        @unlink($ledgerPath);
+    }
+
+    public function test_served_packet_known_lessons_is_empty_when_ledger_absent(): void
+    {
+        config()->set('atlas.self_construction.learning_transfer_admission_ledger_path', sys_get_temp_dir().'/atlas-anj-missing-'.bin2hex(random_bytes(5)).'.jsonl');
+
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('no-lessons')]);
+
+        $res = (new AtlasTaskServingService($orch))->next('client-cold');
+
+        self::assertSame('served', $res['status']);
+        self::assertSame([], $res['task']['known_lessons']);
+    }
+
     // ── prepareAndEnqueue own quality-rejection + receipt + author-not-judge guarantees ──
 
     public function test_prepare_and_enqueue_rejects_not_self_sufficient_packet_and_returns_quality_not_queue_entry(): void
