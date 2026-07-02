@@ -37,6 +37,13 @@ final class AtlasLoopGrinderComprehensionCitationDeriver
      * its class-name shape: basename minus the `.php` extension. Empty => the
      * gate fails OPEN (grounded=true).
      *
+     * Only CLASS-SHAPED basenames (StudlyCase) are citations: a non-class file
+     * (routes/api.php, config/atlas.php, snake_case scripts) never declared a
+     * symbol, so treating its basename as one made the gate flag every honest
+     * HTTP-route/config task as "hallucinated" ('api' resolves nowhere) and
+     * drop its certified proposal. The gate's own contract says it refutes
+     * only positively-fabricated citations — a path fragment is not one.
+     *
      * @param  array<string,mixed>  $payload
      * @param  array<string,mixed>  $explorerTask
      * @return list<string>
@@ -50,7 +57,7 @@ final class AtlasLoopGrinderComprehensionCitationDeriver
                 $base = substr($base, 0, -4);
             }
             $base = trim($base);
-            if ($base !== '') {
+            if ($base !== '' && preg_match('/^[A-Z][A-Za-z0-9]*$/', $base) === 1) {
                 $citations[] = $base;
             }
         }

@@ -437,7 +437,7 @@ CMD;
         $this->assertSame(AtlasLoopTask::STATUS_DONE, $task->status);
         $this->assertSame('http_response', data_get($task->result, 'intent_verifier_factory.verification_atom_types.0'));
         $this->assertSame('red', data_get($task->result, 'intent_verifier_factory.red_preflight.status'));
-        $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.proposals_certified'));
+        $this->assertSame(1, data_get($task->result, 'semantic_implementation_certification.proposals_certified'), json_encode(data_get($task->result, 'semantic_implementation_certification'), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         $proposals = AtlasLoopProposal::query()->where('campaign_id', $campaign->id)->get();
         $this->assertCount(1, $proposals);
