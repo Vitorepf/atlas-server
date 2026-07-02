@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * Append-only ledger of parent↔child sub-cycle events (SPAWN, MERGE, CLOSE). One JSONL line per
  * record; receipts are never updated or deleted. Reconstructible purely from the file — no
@@ -47,44 +49,36 @@ final class AtlasLoopSubCycleReceiptLedger
             return $this->rejection('empty_parent_cycle_id');
         }
 
-        $dir = \dirname($this->path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            return $this->rejection('mkdir_failed', ['dir' => $dir]);
-        }
-
-        $fh = @fopen($this->path, 'cb+');
-        if (! is_resource($fh)) {
-            return $this->rejection('open_failed');
-        }
+        $store = new JsonlReceiptStore($this->path);
+        $record = null;
         try {
-            if (! @flock($fh, LOCK_EX)) {
-                return $this->rejection('lock_failed');
-            }
+            // Seq derivation happens INSIDE the exclusive write lock (no read-then-write race).
+            $store->appendWith(function (?string $lastLine) use ($store, $eventType, $parentCycleId, $childCycleId, $depth, $recordedAt, $payload, &$record): array {
+                $max = 0;
+                foreach ($store->replay() as $row) {
+                    $max = max($max, (int) ($row['seq'] ?? 0));
+                }
+                $payloadDigest = hash('sha256', (string) json_encode($this->sortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                $record = [
+                    'seq' => $max + 1,
+                    'event_type' => $eventType,
+                    'parent_cycle_id' => $parentCycleId,
+                    'child_cycle_id' => $childCycleId,
+                    'depth' => $depth,
+                    'recorded_at' => $recordedAt,
+                    'payload_digest' => $payloadDigest,
+                ];
 
-            $seq = $this->maxSeqIn($fh) + 1;
-            $payloadDigest = hash('sha256', (string) json_encode($this->sortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-            $record = [
-                'seq' => $seq,
-                'event_type' => $eventType,
-                'parent_cycle_id' => $parentCycleId,
-                'child_cycle_id' => $childCycleId,
-                'depth' => $depth,
-                'recorded_at' => $recordedAt,
-                'payload_digest' => $payloadDigest,
-            ];
-            $line = (string) json_encode($this->sortRecursive($record), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                return $this->sortRecursive($record);
+            });
+        } catch (\RuntimeException $e) {
+            $reason = str_contains($e->getMessage(), 'mkdir') ? 'mkdir_failed'
+                : (str_contains($e->getMessage(), 'lock') ? 'lock_failed' : 'open_failed');
 
-            fseek($fh, 0, SEEK_END);
-            if (fwrite($fh, $line."\n") === false) {
-                return $this->rejection('write_failed');
-            }
-            @fflush($fh);
-
-            return $record;
-        } finally {
-            @flock($fh, LOCK_UN);
-            @fclose($fh);
+            return $this->rejection($reason);
         }
+
+        return $record;
     }
 
     /**
@@ -92,13 +86,9 @@ final class AtlasLoopSubCycleReceiptLedger
      */
     public function chain(string $parentCycleId): array
     {
-        if (! is_file($this->path)) {
-            return [];
-        }
         $rows = [];
-        foreach ((array) file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (! is_array($decoded) || (string) ($decoded['parent_cycle_id'] ?? '') !== $parentCycleId) {
+        foreach ((new JsonlReceiptStore($this->path))->replay() as $decoded) {
+            if ((string) ($decoded['parent_cycle_id'] ?? '') !== $parentCycleId) {
                 continue;
             }
             $rows[] = [
@@ -113,23 +103,6 @@ final class AtlasLoopSubCycleReceiptLedger
         usort($rows, static fn (array $a, array $b): int => $a['seq'] <=> $b['seq']);
 
         return $rows;
-    }
-
-    /**
-     * @param  resource  $fh
-     */
-    private function maxSeqIn($fh): int
-    {
-        rewind($fh);
-        $max = 0;
-        while (($line = fgets($fh)) !== false) {
-            $decoded = json_decode((string) trim($line), true);
-            if (is_array($decoded) && (int) ($decoded['seq'] ?? 0) > $max) {
-                $max = (int) $decoded['seq'];
-            }
-        }
-
-        return $max;
     }
 
     /**

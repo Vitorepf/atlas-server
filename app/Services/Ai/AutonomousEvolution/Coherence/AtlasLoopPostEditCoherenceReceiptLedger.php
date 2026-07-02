@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Coherence;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * Append-only JSONL ledger of post-edit coherence scan receipts. NEVER mutates prior lines;
  * exposes ONLY append/read methods (no update/delete/truncate by design).
@@ -44,21 +46,7 @@ final class AtlasLoopPostEditCoherenceReceiptLedger
         ];
         ksort($receipt, SORT_STRING);
 
-        $line = json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $handle = @fopen($this->ledgerPath, 'a');
-        if ($handle === false) {
-            throw new \RuntimeException('AtlasLoopPostEditCoherenceReceiptLedger: cannot open '.$this->ledgerPath);
-        }
-        try {
-            if (! @flock($handle, LOCK_EX)) {
-                // best-effort lock; still append.
-            }
-            fwrite($handle, $line."\n");
-            fflush($handle);
-            @flock($handle, LOCK_UN);
-        } finally {
-            fclose($handle);
-        }
+        (new JsonlReceiptStore($this->ledgerPath))->append($receipt);
 
         return $receipt;
     }
@@ -102,26 +90,6 @@ final class AtlasLoopPostEditCoherenceReceiptLedger
      */
     private function readAll(): array
     {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $rows = [];
-        $handle = @fopen($this->ledgerPath, 'r');
-        if ($handle === false) {
-            return [];
-        }
-        while (($line = fgets($handle)) !== false) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-        fclose($handle);
-
-        return $rows;
+        return (new JsonlReceiptStore($this->ledgerPath))->replay();
     }
 }

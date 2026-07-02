@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * SUBSTRATE RECEIPT LEDGER — append-only journal that consolidates every substrate-sovereignty FACT into one
  * auditable stream at `storage/app/atlas/loop/substrate-ledger/{YYYY-MM-DD}.jsonl`.
@@ -51,28 +53,7 @@ final class AtlasLoopSubstrateReceiptLedger
         $body['receipt_id'] = $receiptId;
         ksort($body);
 
-        $path = $this->dayPath($recordedAt);
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-
-        $fh = @fopen($path, 'c+');
-        if ($fh === false) {
-            throw new \RuntimeException('Substrate ledger cannot open '.$path);
-        }
-        try {
-            if (! flock($fh, LOCK_EX)) {
-                throw new \RuntimeException('Substrate ledger cannot acquire LOCK_EX');
-            }
-            fseek($fh, 0, SEEK_END);
-            fwrite($fh, (string) json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-            fflush($fh);
-            @\fsync($fh);
-        } finally {
-            flock($fh, LOCK_UN);
-            fclose($fh);
-        }
+        (new JsonlReceiptStore($this->dayPath($recordedAt)))->append($body);
 
         return $receiptId;
     }
@@ -101,11 +82,7 @@ final class AtlasLoopSubstrateReceiptLedger
             if ($dayEnd < $sinceEpoch || $dayStart > $untilEpoch) {
                 continue;
             }
-            foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-                $decoded = json_decode((string) $line, true);
-                if (! is_array($decoded)) {
-                    continue;
-                }
+            foreach ((new JsonlReceiptStore($path))->replay() as $decoded) {
                 $ts = (int) strtotime((string) ($decoded['recorded_at_iso8601'] ?? ''));
                 if ($ts < $sinceEpoch || $ts > $untilEpoch) {
                     continue;

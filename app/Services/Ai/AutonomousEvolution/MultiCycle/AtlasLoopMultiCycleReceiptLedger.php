@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\MultiCycle;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Closure;
-use RuntimeException;
 
 final class AtlasLoopMultiCycleReceiptLedger
 {
@@ -36,7 +36,7 @@ final class AtlasLoopMultiCycleReceiptLedger
             'payload' => $payload,
         ];
 
-        $this->appendRow($row);
+        (new JsonlReceiptStore($this->ledgerPath()))->append($row);
 
         return $receiptId;
     }
@@ -46,74 +46,21 @@ final class AtlasLoopMultiCycleReceiptLedger
      */
     public function history(?string $cycleId = null): iterable
     {
-        $path = $this->ledgerPath();
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $handle = fopen($path, 'rb');
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open receipt ledger: '.$path);
-        }
-
-        try {
-            $rows = [];
-            while (($line = fgets($handle)) !== false) {
-                $line = trim($line);
-                if ($line === '') {
-                    continue;
-                }
-
-                $decoded = json_decode($line, true);
-                if (! is_array($decoded)) {
-                    continue;
-                }
-
-                if ($cycleId !== null && (string) ($decoded['cycle_id'] ?? '') !== $cycleId) {
-                    continue;
-                }
-
-                $rows[] = $decoded;
+        $rows = [];
+        foreach ((new JsonlReceiptStore($this->ledgerPath()))->replay() as $decoded) {
+            if ($cycleId !== null && (string) ($decoded['cycle_id'] ?? '') !== $cycleId) {
+                continue;
             }
 
-            return $rows;
-        } finally {
-            fclose($handle);
+            $rows[] = $decoded;
         }
+
+        return $rows;
     }
 
     public function ledgerPath(): string
     {
         return $this->ledgerPath ?? storage_path('atlas/loop/multicycle/receipts.ndjson');
-    }
-
-    /**
-     * @param  array<string,mixed>  $row
-     */
-    private function appendRow(array $row): void
-    {
-        $path = $this->ledgerPath();
-        $dir = dirname($path);
-        if (! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
-            throw new RuntimeException('Unable to create receipt ledger directory: '.$dir);
-        }
-
-        $handle = fopen($path, 'ab');
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open receipt ledger: '.$path);
-        }
-
-        try {
-            if (! flock($handle, LOCK_EX)) {
-                throw new RuntimeException('Unable to lock receipt ledger: '.$path);
-            }
-
-            fwrite($handle, json_encode($row, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
-            fflush($handle);
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
     }
 
     private function receiptId(): string

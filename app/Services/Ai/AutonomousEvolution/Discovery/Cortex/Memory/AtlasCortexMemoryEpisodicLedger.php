@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Generator;
 use RuntimeException;
 use Throwable;
@@ -51,30 +52,21 @@ final class AtlasCortexMemoryEpisodicLedger
             return $episode;
         }
 
-        // Duplicate-cycle_id fail-closed check (under LOCK_EX for true serialization).
-        $this->ensureDirExists();
-        $fh = @fopen($this->ledgerPath, 'a+');
-        if ($fh === false) {
-            throw new RuntimeException('Cortex episodic ledger cannot open '.$this->ledgerPath);
-        }
-        try {
-            if (! flock($fh, LOCK_EX)) {
-                throw new RuntimeException('Cortex episodic ledger cannot acquire LOCK_EX');
-            }
+        // Duplicate-cycle_id fail-closed check runs INSIDE the store's LOCK_EX for true serialization.
+        $this->store()->appendWith(function (?string $lastLine) use ($episode, $canonical): array {
             if ($this->cycleAlreadyRecorded($episode->cycleId)) {
                 throw new RuntimeException('duplicate cycle_id: '.$episode->cycleId);
             }
-            $payload = (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            fseek($fh, 0, SEEK_END);
-            fwrite($fh, $payload."\n");
-            fflush($fh);
-            @\fsync($fh);
-        } finally {
-            flock($fh, LOCK_UN);
-            fclose($fh);
-        }
+
+            return $canonical;
+        });
 
         return $episode;
+    }
+
+    private function store(): JsonlReceiptStore
+    {
+        return new JsonlReceiptStore($this->ledgerPath);
     }
 
     /**
@@ -101,11 +93,7 @@ final class AtlasCortexMemoryEpisodicLedger
 
     public function count(): int
     {
-        if (! is_file($this->ledgerPath)) {
-            return 0;
-        }
-
-        return count(file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []);
+        return count($this->store()->rawLines());
     }
 
     /**
@@ -130,16 +118,7 @@ final class AtlasCortexMemoryEpisodicLedger
      */
     private function loadAllSorted(): array
     {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
+        $out = $this->store()->replay();
         usort($out, static function (array $a, array $b): int {
             $tsA = (int) ($a['captured_at'] ?? 0);
             $tsB = (int) ($b['captured_at'] ?? 0);
@@ -152,12 +131,8 @@ final class AtlasCortexMemoryEpisodicLedger
 
     private function cycleAlreadyRecorded(string $cycleId): bool
     {
-        if (! is_file($this->ledgerPath)) {
-            return false;
-        }
-        foreach (file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded) && (string) ($decoded['cycle_id'] ?? '') === $cycleId) {
+        foreach ($this->store()->replay() as $decoded) {
+            if ((string) ($decoded['cycle_id'] ?? '') === $cycleId) {
                 return true;
             }
         }
@@ -207,14 +182,6 @@ final class AtlasCortexMemoryEpisodicLedger
         }
 
         return $row;
-    }
-
-    private function ensureDirExists(): void
-    {
-        $dir = dirname($this->ledgerPath);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
     }
 
     private function masterEnabled(): bool

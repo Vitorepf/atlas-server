@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Permissions;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopWorkspaceMaterializerSupport2;
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
 
 /**
@@ -42,29 +43,11 @@ final class AtlasLoopPermissionLevelReceiptLedger
         $path = $this->resolvePath();
         $this->assertSandboxFloor($path);
 
-        $dir = \dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new RuntimeException('atlas_loop_permission_ledger_mkdir_failed:'.$dir);
+        $row = json_decode($receipt->toJsonLine(), true);
+        if (! is_array($row)) {
+            throw new RuntimeException('atlas_loop_permission_ledger_write_failed');
         }
-
-        $line = $receipt->toJsonLine();
-        $fh = @fopen($path, 'ab');
-        if ($fh === false) {
-            throw new RuntimeException('atlas_loop_permission_ledger_open_failed');
-        }
-        try {
-            if (! @flock($fh, LOCK_EX)) {
-                throw new RuntimeException('atlas_loop_permission_ledger_lock_failed');
-            }
-            $written = fwrite($fh, $line."\n");
-            if ($written === false) {
-                throw new RuntimeException('atlas_loop_permission_ledger_write_failed');
-            }
-            fflush($fh);
-        } finally {
-            @flock($fh, LOCK_UN);
-            fclose($fh);
-        }
+        (new JsonlReceiptStore($path))->append($row);
     }
 
     public function path(): string

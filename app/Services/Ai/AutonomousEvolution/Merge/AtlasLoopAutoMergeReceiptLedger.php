@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Merge;
 
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\UsesUtcClock;
 /**
  * WAVE-14 · AUTO-MERGE RECEIPT LEDGER — the append-only Evidence Ledger of every auto-merge attempt (allowed,
@@ -98,28 +99,7 @@ final class AtlasLoopAutoMergeReceiptLedger
         $body = self::canonicalize($body);
         $this->assertSchema($body);
 
-        $path = $this->resolvedPath();
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-
-        $fh = @fopen($path, 'c+');
-        if ($fh === false) {
-            throw new \RuntimeException('AutoMergeReceiptLedger cannot open '.$path);
-        }
-        try {
-            if (! flock($fh, LOCK_EX)) {
-                throw new \RuntimeException('AutoMergeReceiptLedger cannot acquire exclusive lock');
-            }
-            fseek($fh, 0, SEEK_END);
-            fwrite($fh, (string) json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-            fflush($fh);
-            @\fsync($fh);
-        } finally {
-            flock($fh, LOCK_UN);
-            fclose($fh);
-        }
+        (new JsonlReceiptStore($this->resolvedPath()))->append($body);
 
         return $receiptId;
     }
@@ -132,14 +112,9 @@ final class AtlasLoopAutoMergeReceiptLedger
      */
     public function verify(): array
     {
-        $path = $this->resolvedPath();
-        if (! is_file($path)) {
-            return ['ok' => true, 'integrity_violation' => false, 'total' => 0, 'breaks' => []];
-        }
-
         $breaks = [];
         $total = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $idx => $raw) {
+        foreach ((new JsonlReceiptStore($this->resolvedPath()))->rawLines() as $idx => $raw) {
             $total++;
             $decoded = json_decode((string) $raw, true);
             if (! is_array($decoded)) {
