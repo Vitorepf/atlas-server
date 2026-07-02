@@ -357,7 +357,6 @@ final class AtlasChangeClassTrustLadder
             $this->logPath(),
             $row,
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-            FILE_APPEND,
         );
     }
 

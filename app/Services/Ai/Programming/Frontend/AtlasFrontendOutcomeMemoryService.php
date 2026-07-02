@@ -143,7 +143,6 @@ final class AtlasFrontendOutcomeMemoryService
             $this->storePath($storePath),
             $record,
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-            FILE_APPEND,
         );
     }
 

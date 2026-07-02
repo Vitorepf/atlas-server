@@ -2489,7 +2489,6 @@ class AtlasAobgWorkspaceOnboardingService
                 $base.DIRECTORY_SEPARATOR.'aobg_workspace_onboarding.jsonl',
                 array_merge(['schema' => self::SCHEMA, 'action' => $action, 'recorded_at' => now()->toJSON()], $entry),
                 JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-                FILE_APPEND,
             );
         } catch (Throwable) {
             // audit logging is best-effort; the decision never depends on it.

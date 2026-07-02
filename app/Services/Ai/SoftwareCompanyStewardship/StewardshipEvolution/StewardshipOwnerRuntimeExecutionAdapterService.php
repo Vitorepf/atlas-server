@@ -512,7 +512,6 @@ final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Servi
             $path,
             $recordPayload,
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-            FILE_APPEND,
             0o755,
         );
 

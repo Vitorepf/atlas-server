@@ -330,7 +330,6 @@ final class TrustLedgerService
             $path,
             $event,
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-            FILE_APPEND,
         );
 
         return $event;

@@ -580,7 +580,6 @@ final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\
             $path,
             $recordPayload,
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-            FILE_APPEND,
         );
 
         return $recordPayload + ['result_storage_status' => 'recorded'];

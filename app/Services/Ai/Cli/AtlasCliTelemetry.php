@@ -162,7 +162,6 @@ class AtlasCliTelemetry
                 $this->spoolPath(),
                 $event,
                 JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-                FILE_APPEND,
             );
         } catch (\Throwable) {
             // Best effort only.

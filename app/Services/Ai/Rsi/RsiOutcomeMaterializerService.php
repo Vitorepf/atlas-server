@@ -288,7 +288,6 @@ final class RsiOutcomeMaterializerService
             $this->ledgerPath($areaId, $focus),
             $outcome,
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-            FILE_APPEND,
         );
     }
 

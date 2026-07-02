@@ -396,7 +396,6 @@ class AtlasOpenBrainWriteBackService
                 $base.DIRECTORY_SEPARATOR.'aobg_write_back.jsonl',
                 array_merge(['schema' => self::SCHEMA, 'action' => $action, 'recorded_at' => now()->toJSON()], $entry),
                 JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-                FILE_APPEND,
             );
         } catch (Throwable) {
             // audit logging is best-effort; the write decision never depends on it.

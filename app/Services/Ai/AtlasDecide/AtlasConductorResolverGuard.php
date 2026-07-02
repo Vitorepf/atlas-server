@@ -147,7 +147,6 @@ final class AtlasConductorResolverGuard
         AppendOnlyJsonlStore::appendEncodedLineSilently(
             $this->observeLogPath,
             $line === false ? '{}' : $line,
-            FILE_APPEND,
         );
     }
 }

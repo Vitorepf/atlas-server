@@ -212,7 +212,7 @@ final class AppendOnlyJsonlStore
     public static function appendEncodedLineSilently(
         string $path,
         string $line,
-        int $writeFlags = FILE_APPEND,
+        int $writeFlags = FILE_APPEND | LOCK_EX,
         int $directoryMode = 0775,
     ): void {
         self::ensureDirectory(dirname($path), $directoryMode);

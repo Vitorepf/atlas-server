@@ -235,7 +235,6 @@ final class KillAuthorityService
             $this->ledgerPath(),
             $event,
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-            FILE_APPEND,
         );
 
         if ($eventType === self::EVENT_ARM) {

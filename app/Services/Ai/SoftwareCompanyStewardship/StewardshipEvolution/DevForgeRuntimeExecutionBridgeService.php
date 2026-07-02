@@ -978,7 +978,6 @@ final class DevForgeRuntimeExecutionBridgeService
             $path,
             $recordPayload,
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-            FILE_APPEND,
             0o755,
         );
 

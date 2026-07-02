@@ -226,7 +226,6 @@ final class StewardshipFirstLiveBranchProofService
             $path,
             $recordPayload,
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-            FILE_APPEND,
         );
 
         return $recordPayload + ['proof_storage_status' => 'recorded'];

@@ -632,7 +632,6 @@ class AtlasOpenBrainSessionCaptureService
                     'outcome_reason' => (string) data_get($entry, 'outcome.reason', ''),
                 ]),
                 JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-                FILE_APPEND,
             );
         } catch (Throwable) {
             // audit logging is best-effort; the capture decision never depends on it.

@@ -114,7 +114,6 @@ class AtlasSwarmProductionResolverService
         AppendOnlyJsonlStore::appendEncodedLineSilently(
             $this->costLogPath,
             $line === false ? '{}' : $line,
-            FILE_APPEND,
         );
     }
 

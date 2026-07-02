@@ -1153,7 +1153,6 @@ PHP);
             $path,
             $recordPayload,
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-            FILE_APPEND,
         );
 
         return $recordPayload + ['run_storage_status' => 'recorded'];
