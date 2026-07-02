@@ -229,7 +229,11 @@ final class AtlasLoopMultiRepoMergeAuthorityTest extends TestCase
     public function test_drain_merges_authorized_foreign_repo_for_real(): void
     {
         $original = "<?php\nfunction val(){ return 1; }\n";
-        $modified = "<?php\nfunction val(){ return 2; }\n";
+        // ≥30 linhas vanilla tocadas: o substance floor do value gate (pós-freeze)
+        // rejeita diffs não-refactor menores; a porta multi-repo é o que se prova aqui.
+        $modified = "<?php\n"
+            .implode("\n", array_map(fn (int $i) => "// substance line {$i}", range(1, 32)))
+            ."\nfunction val(){ return 2; }\n";
         $repo = $this->gitRepo($original);
         $proposal = $this->certifiedProposal($this->makeDiff($repo, $original, $modified), 'multirepo-merge-1');
 
