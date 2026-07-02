@@ -254,7 +254,13 @@ final class AtlasLoopTrustLadderRealHistoryFeedTest extends TestCase
      */
     private function drainOneDocMerge(string $modifiedBody): array
     {
-        $repo = $this->docRepo("doc body original\n", $modifiedBody);
+        // The anti-farm substance floor (deliberate, post-freeze) refuses merges
+        // touching <10 lines (and vanilla merges <30) — pad the doc change into a real-substance diff.
+        $padded = $modifiedBody;
+        for ($line = 1; $line <= 32; $line++) {
+            $padded .= "substance line {$line} for ".trim($modifiedBody)."\n";
+        }
+        $repo = $this->docRepo("doc body original\n", $padded);
 
         return app(AtlasLoopAutoMergeService::class)->drain($repo, 5);
     }

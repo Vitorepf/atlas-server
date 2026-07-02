@@ -31,7 +31,9 @@ final class AtlasLoopExecutionEnvelopeCommandTest extends TestCase
             'task_id' => 't1',
             'lease_id' => 'l1',
             'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
-            'gates' => ['phpunit'],
+            // an ARTISAN proof became a required gate/evidence fact after this froze
+            // (blocker no_artisan_proof_in_gates_or_evidence, fail-closed).
+            'gates' => ['php artisan test tests/Unit/FooTest.php'],
             'evidence_requirements' => ['tests_or_gates_result'],
         ]);
 
