@@ -2,7 +2,7 @@
 id: AP-757-owner-queue-sandbox-binding-contract
 type: architecture_proposal
 title: AP-757 Owner Queue Sandbox Binding Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Binds AP-749 owner-specific Dev/Forge queue consumption to a real AP-756 materialized branch/worktree sandbox. AP-757 closes the gap between "queue item is approved" and "owner runtime adapter may start" by requiring the AP-756 record to match the AP-747 handoff, prove a local worktree exists and travel inside the owner_runtime_input for AP-758/AP-759. It creates no executor, provider path, branch manager, merge, deploy, external push, secret access or new OS.

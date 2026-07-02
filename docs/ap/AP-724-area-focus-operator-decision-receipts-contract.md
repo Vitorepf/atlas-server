@@ -2,7 +2,7 @@
 id: AP-724-area-focus-operator-decision-receipts-contract
 type: architecture_proposal
 title: AP-724 Area Focus Operator Decision Inbox Receipts
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Lets the operator accept, reject, defer or request changes on Area Focus Loop findings, specs, work orders and evidence packs, captured as deterministic operator decision receipts. Read-only / decision-oriented — an accept never executes a branch or fix; it only declares the next allowed action for future slices. No auto-approval, no auto-implementation, no parallel registry.

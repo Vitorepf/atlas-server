@@ -2,7 +2,7 @@
 id: AP-748-stewardship-release-outcome-bridge-contract
 type: architecture_proposal
 title: AP-748 Stewardship Release Outcome Bridge Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Extends the existing AP-740 outcome bridge so AP-747 Dev/Forge operator-owned release records become canonical Evidence Ledger items, Morning Inbox review items and Portfolio Stewardship input signals. AP-749 consumes those signals before owner-specific Dev/Forge runtime input; AP-750 later bridges the owner runtime result back into Evidence, Morning Inbox and Portfolio. AP-748 reuses AP-740, AP-747, Product Mode, Evidence, Morning Inbox and Portfolio owners; it creates no new runtime, executor, OS, branch, provider call, merge, deploy or secret access.

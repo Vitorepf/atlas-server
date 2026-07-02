@@ -1,7 +1,7 @@
 ---
 ap: AP-806
 title: Loop Autonomy Certification + Integration-Lane Autonomy Envelope (slice spec)
-status: building
+status: planned
 owner: agentic_engineering_os/dev_forge
 schema: atlas.software_company_stewardship.loop_autonomy_certification.v1
 supersedes: none

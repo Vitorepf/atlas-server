@@ -2,7 +2,7 @@
 id: AP-717-agentic-engineering-os-area-finding-engine-contract
 type: architecture_proposal
 title: AP-717 Agentic Engineering OS Area Finding Engine Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Adds a read-only Area Finding Engine for area_id agentic_engineering_os inside the Atlas Software Company Stewardship Stack. The engine scans owner docs, AP docs, architecture docs, service/test paths and optional safe read-only command output to emit deduplicated, deterministic, risk-classified, confidence-scored findings with a route hint, feeding the Area Focus Loop. It writes no code, opens no branch, creates no spec and calls no provider.

@@ -2,7 +2,7 @@
 id: AP-708-self-directed-evolution-gap-read-model-v01-contract
 type: architecture_proposal
 title: AP-708 Self-Directed Evolution Gap Read Model v0.1 Contract
-status: accepted
+status: active
 owner: atlas-ai
 created_at: 2026-05-26
 summary: Defines the first operational slice of the Self-Directed Evolution Layer as a read-only gap read model that composes the existing Self-Construction Subsystem Builder, Self-Improvement Proposal Backlog and AAEL control-plane owners into normalized gap candidates, without writing state, invoking providers or auto-approving anything.

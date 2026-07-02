@@ -2,7 +2,7 @@
 id: AP-816-self-construction-readiness-compaction-contract
 type: architecture_proposal
 title: AP-816 Self-Construction Readiness Compaction Contract
-status: accepted
+status: active
 owner: atlas-ai
 created_at: 2026-06-09
 summary: Governa a compactacao incremental de AtlasSelfConstructionReadinessService em helpers/read-models pequenos, read-only e compat-preserving, sem novo runtime, surface, provider flow ou schema paralelo.

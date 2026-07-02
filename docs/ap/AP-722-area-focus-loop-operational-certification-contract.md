@@ -2,7 +2,7 @@
 id: AP-722-area-focus-loop-operational-certification-contract
 type: architecture_proposal
 title: AP-722 Area Focus Loop Operational Certification
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Closes the Area Focus Loop for area_id=agentic_engineering_os with a read-only, decision-oriented operational certification that composes the existing slices (AP-716 read model, AP-717 finding engine, AP-718 inbox + spec bridge, AP-719 dev/forge router, AP-720 durable cycle + evidence pack) into one end-to-end verdict. It proves the loop runs scan -> findings -> inbox -> work orders -> evidence and certifies it operational, partial or blocked. It creates no new OS, no parallel runtime and no parallel registry, and it never merges, deploys, accesses secrets, implements fixes or opens mutative branches.

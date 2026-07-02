@@ -2,7 +2,7 @@
 id: AP-742-product-mode-cockpit-stewardship-history-contract
 type: architecture_proposal
 title: AP-742 Product Mode Cockpit Stewardship History Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Extends the existing AP-739 Product Mode Cockpit with AP-740 outcome history and AP-741 Domain Runtime Creation Gate handoff packets. It resolves the AP-740/AP-741 visibility gap by reusing ProductModeCockpitSurfaceService, StewardshipOutcomeEvidenceBridgeService and SelfExpandingDomainRuntimeCreationHandoffService; it creates no new cockpit, ledger, inbox, runtime, domain, branch, provider run or executor.

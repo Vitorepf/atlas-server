@@ -2,7 +2,7 @@
 id: AP-743-area-stewardship-active-handoff-contract
 type: architecture_proposal
 title: AP-743 Area Stewardship Active Handoff Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Creates the governed handoff packet between AP-732 promotion readiness and AP-744 active Area Stewardship operating slice. It consumes AP-730 Area Stewardship projection, AP-731 operator accept receipts and AP-732 ready_for_active_handoff evidence, emits an operator-reviewable active handoff packet and exposes it in the existing AP-739 Product Mode/Cockpit without starting the active loop, invoking Dev/Forge, creating branches, mutating repos or creating a parallel runtime.

@@ -1,8 +1,8 @@
 ---
-id: AP-722-area-focus-operational-orchestrator-contract
+id: AP-821-area-focus-operational-orchestrator-contract
 type: architecture_proposal
-title: AP-722 Area Focus Loop Operational Orchestrator and Certification
-status: accepted
+title: AP-821 Area Focus Loop Operational Orchestrator and Certification
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Closes the Area Focus Loop operational for agentic_engineering_os by composing the existing slice owners into one read-only governed end-to-end cycle — AP-716 core read model, AP-717 finding engine scan, AP-718 inbox, AP-719 work order router and AP-720 evidence pack — and emitting an operational certification. It wires the previously orphaned deep finding engine (AP-717) and work order router (AP-719) into the operational path. It orchestrates scans, findings, inbox, work orders, evidence and certification only; it implements no fix, opens no branch, dispatches no work, and never merges, deploys, accesses secrets or makes destructive changes. It is not a new OS, not a parallel runtime and creates no new owner.
@@ -25,18 +25,18 @@ related_paths:
 requires_evidence: true
 risk_level: high
 ---
-# AP-722 Area Focus Loop Operational Orchestrator and Certification
+# AP-821 Area Focus Loop Operational Orchestrator and Certification
 
 ## Decision
 
 The Area Focus Loop slices exist as discrete owners (AP-716..AP-721) but the
 deep finding engine (AP-717) and the work order router (AP-719) are not wired
-into a single operational path. AP-722 closes the loop operational for
+into a single operational path. AP-821 closes the loop operational for
 `agentic_engineering_os` by composing the existing owners into one read-only,
 governed, end-to-end cycle and emitting an operational certification.
 
 Atlas Software Company Stewardship Stack é stack/capability family dentro do
-Atlas Autonomous Software Company Runtime, não OS novo. AP-722 is a composition /
+Atlas Autonomous Software Company Runtime, não OS novo. AP-821 is a composition /
 certification layer inside that stack. It is not a new OS, not a parallel runtime
 and creates no new owner. This block stays read-only / decision-oriented: it
 orchestrates scans, findings, inbox, work orders, evidence and certification; it
@@ -44,7 +44,7 @@ implements no fix and opens no mutating branch.
 
 ## Reuse Contract (no duplication)
 
-AP-722 only conducts existing owners and reuses their output verbatim:
+AP-821 only conducts existing owners and reuses their output verbatim:
 
 | Stage | Owner | AP | Reused method |
 |---|---|---|---|

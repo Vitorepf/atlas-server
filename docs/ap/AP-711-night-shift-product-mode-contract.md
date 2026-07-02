@@ -2,7 +2,7 @@
 id: AP-711-night-shift-product-mode-contract
 type: architecture_proposal
 title: AP-711 Night Shift Product Mode Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Elevates Atlas Autonomous Software Company Night Shift from an operational loop into a final product target with Cockpit, repository onboarding, autonomy tiers, Atlas Continuous Stewardship Loop, budget controls, kill switch, team inbox and product-grade trust surfaces. AP-755 turns Product Mode control changes into AP-731 append-only operator receipts; AP-756 materializes branch sandboxes only with explicit operator receipt.

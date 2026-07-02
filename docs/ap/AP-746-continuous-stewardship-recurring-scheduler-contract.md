@@ -2,7 +2,7 @@
 id: AP-746-continuous-stewardship-recurring-scheduler-contract
 type: architecture_proposal
 title: AP-746 Continuous Stewardship Recurring Scheduler Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Promotes AP-745 into a recurring scheduler-safe runner that an external cron, heartbeat, launchd or automation caller may invoke repeatedly. It is disabled by default, enforces pause policy, kill switch, AP-745 lock lease/rate limit and max one AP-745 tick per invocation, and can record append-only JSONL scheduler evidence. It does not install a scheduler, create a new OS/runtime/executor, invoke providers, dispatch Dev/Forge, create branches or mutate target repos.

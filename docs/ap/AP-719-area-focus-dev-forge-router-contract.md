@@ -2,7 +2,7 @@
 id: AP-719-area-focus-dev-forge-router-contract
 type: architecture_proposal
 title: AP-719 Area Focus Dev/Forge Work Order Router
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Turns Area Focus Loop findings and inbox items into governed, proposal-only work orders inside the Atlas Software Company Stewardship Stack (Night Shift Product Mode). The router classifies each item into Self-Directed Evolution, Atlas Dev, Forge or operator review, allocates governed Dev/Forge budgets and a WIP limit, and blocks anything over budget or WIP. It emits work orders only — it never executes Dev or Forge, never merges, deploys, accesses secrets or makes destructive changes, and creates no parallel runtime.

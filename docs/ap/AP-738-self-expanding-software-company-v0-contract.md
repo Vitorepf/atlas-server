@@ -2,7 +2,7 @@
 id: AP-738-self-expanding-software-company-v0-contract
 type: architecture_proposal
 title: AP-738 Self-Expanding Software Company v0 Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Materializes the ceiling of the Atlas Software Company Stewardship Stack as a proposal-only v0 read model. It composes AP-737 New Area Proposal Gate into a Self-Expanding Software Company report that classifies new-domain candidates, existing-capability handoffs, sensitive candidates, operator inbox items and ready-for-Domain-Runtime-Creation-Gate handoffs. AP-739 exposes this top-level operator inbox, AP-740 records outcomes, AP-741 creates gated handoff packets and AP-742 shows AP-740/AP-741 history in the same cockpit. It creates no domain, department, OS, executor, branch, scheduler, Dev/Forge dispatch or autonomous mutation path.

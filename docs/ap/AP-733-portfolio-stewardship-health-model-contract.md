@@ -2,7 +2,7 @@
 id: AP-733-portfolio-stewardship-health-model-contract
 type: architecture_proposal
 title: AP-733 Portfolio Stewardship Health Model Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Adds the first persistent/replayable Portfolio Stewardship health model inside Atlas Software Company Stewardship Stack. It reuses AP-730 Evolution Read Model, AP-731 Operator Decision Ledger, AP-732 Area Stewardship Promotion Readiness and AP-751 owner-runtime result signals from AP-750; it creates no OS, executor, brancher or autonomous mutation path.

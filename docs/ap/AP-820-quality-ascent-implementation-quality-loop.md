@@ -5,10 +5,7 @@ owner: atlas-ai / autonomous-evolution / quality
 line_limit: 240
 related_paths:
   - app/Services/Ai/AutonomousEvolution/Quality/AtlasImplementationQualityScorer.php
-  - app/Services/Ai/AutonomousEvolution/Quality/AtlasQualityAscentRunner.php
   - app/Console/Commands/AtlasLoopQualityScoreCommand.php
-  - app/Console/Commands/AtlasQualityAscentCommand.php
-  - app/Http/Controllers/AtlasLoopQualityController.php
   - app/Services/Ai/AutonomousEvolution/AtlasEvolutionFrozenJudge.php
   - app/Services/Ai/AutonomousEvolution/AtlasEvolutionScenarioExplorer.php
   - app/Services/Ai/AutonomousEvolution/AtlasEvolutionLoopRunner.php

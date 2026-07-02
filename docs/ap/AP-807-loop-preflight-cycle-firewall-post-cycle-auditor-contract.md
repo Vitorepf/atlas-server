@@ -1,7 +1,7 @@
 ---
 ap: AP-807
 title: Loop Preflight + Cycle Firewall and Post-Cycle Auditor
-status: proposal
+status: proposed
 owner: agentic_engineering_os/dev_forge
 schema: atlas.software_company_stewardship.loop_cycle_firewall.v1
 supersedes: none

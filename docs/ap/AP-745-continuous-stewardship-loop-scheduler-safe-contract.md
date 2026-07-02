@@ -2,7 +2,7 @@
 id: AP-745-continuous-stewardship-loop-scheduler-safe-contract
 type: architecture_proposal
 title: AP-745 Continuous Stewardship Loop Scheduler-Safe Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Promotes AP-744 Area Stewardship active operation into a scheduler-safe Atlas Continuous Stewardship Loop tick. The loop enforces disabled-by-default operation, kill switch, lock lease, rate limit, one-cycle budget and append-only JSONL cycle state. It reuses AP-744 and Product Mode; it creates no new OS, executor, provider path, branch manager, Dev/Forge dispatcher or mutation authority.

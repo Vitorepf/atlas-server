@@ -2,7 +2,7 @@
 id: AP-736-executive-decision-inbox-surface-contract
 type: architecture_proposal
 title: AP-736 Executive Decision Inbox Surface Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Adds a read-only Executive Decision Inbox surface over AP-735 Autonomous Executive recommendation packs and AP-731 operator receipts. It gives Product Mode/Cockpit a stable review projection with pending/accepted/deferred/rejected states and decision command anchors. AP-739 now consumes this surface in the Stewardship Product Mode Cockpit; AP-752 consumes accepted AP-735/AP-731 anchors to prepare owner allocation handoffs. It creates no inbox system, executor, brancher, scheduler, Dev/Forge dispatch or autonomous mutation path.

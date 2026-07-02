@@ -2,7 +2,7 @@
 id: AP-741-self-expanding-domain-runtime-creation-handoff-contract
 type: architecture_proposal
 title: AP-741 Self-Expanding Domain Runtime Creation Handoff Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Turns AP-738 Self-Expanding Software Company v0 accepted proposals into governed Domain Runtime Creation Gate handoff packets after AP-731 accept, AP-737 blockers clear and AP-740 Evidence Ledger outcomes are recorded. It reuses NewAreaProposalGateService, StewardshipOutcomeEvidenceBridgeService and DomainManifestRegistryService; AP-742 shows projected AP-741 packets inside Product Mode/Cockpit. It creates no domain, manifest, department, branch, provider run or executor.

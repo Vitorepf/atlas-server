@@ -2,7 +2,7 @@
 id: AP-713-area-stewardship-layer-contract
 type: architecture_proposal
 title: AP-713 Atlas Area Stewardship Layer Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Canonizes Atlas Area Stewardship Layer as the layer above Area Focus Loop: Atlas continuously owns the health, roadmap, prioritization, Dev/Forge routing, evidence and operator decision inbox for a chosen area without creating a new OS or bypassing Night Shift/Product Mode safety gates. AP-743 adds the active handoff packet after AP-732 readiness; AP-744 consumes that packet and runs the first governed active operating slice without provider calls, branch creation, Dev/Forge dispatch, repo mutation, merge, deploy or secrets; AP-745 wraps the active slice in a disabled-by-default scheduler-safe tick; AP-746 wraps AP-745 in a recurring scheduler-safe runner; AP-747 releases AP-726 handoffs to Dev/Forge queues; AP-748 records visibility; AP-749 gates owner consumption; AP-758 adapts ready consumption into an AP-750-compatible owner result; AP-759 executes approved owner CLI commands inside AP-756 sandbox; AP-760/AP-761 make the run visible in Product Mode/Desktop; AP-750 bridges owner runtime results.

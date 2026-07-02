@@ -2,7 +2,7 @@
 id: AP-731-stewardship-evolution-operator-decision-ledger-contract
 type: architecture_proposal
 title: AP-731 Stewardship Evolution Operator Decision Ledger
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Adds persistent, replayable operator decision receipts for AP-730 Stewardship Evolution outputs: Area Stewardship, Portfolio Stewardship, Autonomous Executive and Self-Expanding Software Company proposals. AP-735 uses this ledger for Autonomous Executive recommendation decisions, AP-736 projects those receipts into the read-only Executive Decision Inbox surface, AP-737 uses it for New Area Proposal Gate decisions, AP-738 composes the Self-Expanding v0 review state, AP-740 bridges outcomes into canonical Evidence Ledger and Morning Inbox, and AP-755 reuses this ledger for Product Mode operational control receipts. This is an inbox/ledger bridge only; it creates no OS, no executor, no branch, no provider call, no Dev/Forge dispatch and no auto-promotion.

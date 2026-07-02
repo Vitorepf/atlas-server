@@ -2,7 +2,7 @@
 id: AP-707-self-directed-evolution-reuse-boundary-contract
 type: architecture_proposal
 title: AP-707 Self-Directed Evolution Reuse Boundary Contract
-status: accepted
+status: active
 owner: atlas-ai
 created_at: 2026-05-26
 summary: Corrects Self-Directed Evolution documentation so future AI sessions reuse Self-Construction Subsystem Builder, Self-Improvement, AAEL, Spec OS and Evidence instead of creating duplicate self-evolution runtimes.

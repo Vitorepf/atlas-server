@@ -2,7 +2,7 @@
 id: AP-718-area-focus-inbox-spec-draft-bridge-contract
 type: architecture_proposal
 title: AP-718 Area Focus Inbox and Self-Directed Evolution Spec Draft Bridge
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Turns Area Focus Loop findings into operator-reviewable inbox items and proposal-only spec drafts inside the Atlas Software Company Stewardship Stack (Night Shift Product Mode), by reusing the Self-Directed Evolution Curation Inbox and Spec Proposal Adapter. Read-only and proposal-only — no canonical writes, no auto-approval, no auto-implementation, no parallel proposal registry.

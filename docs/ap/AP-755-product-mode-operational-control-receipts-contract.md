@@ -2,7 +2,7 @@
 id: AP-755-product-mode-operational-control-receipts-contract
 type: architecture_proposal
 title: AP-755 Product Mode Operational Control Receipts Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Turns AP-754 Product Mode controls from transient CLI/cockpit inputs into append-only operator receipts by reusing the AP-731 Stewardship Evolution Decision Ledger with target_type=product_mode_control. AP-755 records repository authorization, autonomy tier, budget, safety, risk and evidence policy decisions, replays accepted receipts into AP-754 projections and keeps all execution, branch, provider, merge, deploy and secret authority outside the cockpit.

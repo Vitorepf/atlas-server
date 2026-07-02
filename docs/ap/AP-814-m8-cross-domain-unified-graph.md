@@ -1,6 +1,7 @@
 ---
 title: AP-814 M-8 Cross-Domain Unified Graph — one governed entity graph over the domains
-status: implemented (Fase-1+2+3 live 2026-06-08; world-model persist gated pending scope-filtered resolution)
+status: implemented
+status_note: "Fase-1+2+3 live 2026-06-08; world-model persist gated pending scope-filtered resolution"
 owner: cross_domain_governance / ai-runtime
 line_limit: 260
 related_paths:
@@ -14,7 +15,7 @@ related_paths:
   - app/Services/Ai/AutonomousEngineering/WorldModel/WorldModelGraphRanker.php
   - runtimes/python/code_graph/atlas_code_graph/centrality.py
   - docs/engineering-knowledge-base/atlas-cross-domain-mesh-arptl.md
-  - dissecar/graphify/atlas-adoption/ATLAS-CODE-GRAPH-PARITY-AND-BEYOND-ROADMAP.md
+  - ../dissecar/graphify/atlas-adoption/ATLAS-CODE-GRAPH-PARITY-AND-BEYOND-ROADMAP.md
 ---
 
 # [AP-814] M-8 Cross-Domain Unified Graph

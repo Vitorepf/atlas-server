@@ -2,7 +2,7 @@
 id: AP-739-product-mode-cockpit-stewardship-review-contract
 type: architecture_proposal
 title: AP-739 Product Mode Cockpit Stewardship Review Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Integrates AP-736 Executive Decision Inbox, AP-737 New Area Proposal Gate, AP-738 Self-Expanding Software Company v0, AP-740/AP-748 outcome history, AP-741 handoff packets, AP-743 Area Stewardship active handoff packets, AP-744 active operation projections, AP-745 Continuous Stewardship Loop status, AP-746 recurring scheduler state, AP-747 release outcomes, AP-749 owner-consumption controls, AP-759 owner sandbox runtime visibility, AP-750 owner-runtime result review, AP-752 executive allocation handoff visibility, AP-754 Product Mode operational controls and AP-761 Desktop end-to-end console rendering into the existing Night Shift Product Mode/Cockpit surface for the Atlas Software Company Stewardship Stack. The cockpit is read-only: it aggregates review queues, counters, health, operator commands and handoff boundaries without recording decisions, invoking Dev/Forge, executing AP-759, opening branches, creating domains or promoting runtimes.

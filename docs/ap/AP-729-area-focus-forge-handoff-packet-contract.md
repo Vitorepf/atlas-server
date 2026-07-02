@@ -2,7 +2,7 @@
 id: AP-729-area-focus-forge-handoff-packet-contract
 type: architecture_proposal
 title: AP-729 Area Focus Forge Handoff Packet Builder
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Converts a long-horizon or cross-system Area Focus work order (route=forge) into a Forge/Obra handoff packet for agentic_engineering_os, gated by an AP-724 operator accept receipt and an AP-720 evidence pack. It declares an obra candidate targeting the real Forge runtime (atlas.forge.parallel_durable.v1) - it NEVER executes Forge, spawns agents, creates a branch, merges, deploys, pushes or accesses secrets, and never creates a parallel Forge.

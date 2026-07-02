@@ -1,20 +1,20 @@
 ---
-title: AP-786 Real Cycle Certification & Three-Cycle Audit Contract
+title: AP-823 Real Cycle Certification & Three-Cycle Audit Contract
 status: active
 implementation_state: implemented
 requires_evidence: true
 owner: software_company_stewardship
-companion_of: AP-786-autonomous-evolution-session-contract
+companion_of: AP-823-autonomous-evolution-session-contract
 glossary: docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 ---
 
-# AP-786 Real Cycle Certification & Three-Cycle Audit Contract
+# AP-823 Real Cycle Certification & Three-Cycle Audit Contract
 
 ## Authority
 
-This is the **proof / audit / replay** companion of AP-786. It does not run the
+This is the **proof / audit / replay** companion of AP-823. It does not run the
 loop, the owner-flow, providers, git, merge or scheduler. It is a read-only,
-deterministic judge: given an AP-786 autonomous evolution session report (inline
+deterministic judge: given an AP-823 autonomous evolution session report (inline
 or replayed from the append-only JSONL), it decides whether each cycle is a
 **real full-owner-flow cycle** or a **fake / incomplete** one, and whether at
 least N (default 3) cycles are genuinely real.
@@ -63,7 +63,7 @@ review downgrades to `partial`, never to certified, and never to fake.
 
 ## Owner-Flow Evidence Contract (what the integrator must emit)
 
-For a cycle to certify, the AP-786 owner-flow integrator should emit, per cycle,
+For a cycle to certify, the AP-823 owner-flow integrator should emit, per cycle,
 an `owner_flow` map keyed by AP with `{status, id}`, where `status` is one of
 `ready|recorded|materialized|merged|passed|completed|done`:
 

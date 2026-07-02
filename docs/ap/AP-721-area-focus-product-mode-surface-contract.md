@@ -2,7 +2,7 @@
 id: AP-721-area-focus-product-mode-surface-contract
 type: architecture_proposal
 title: AP-721 Area Focus Product Mode Surface Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Adds a read-only HTTP surface so Mission Control / Night Shift Product Mode can display an Area Focus Loop area (such as agentic_engineering_os) as a Desktop-ready read model — area summary, health, findings, inbox items, work orders, budgets, evidence packs, kill-switch state and next actions — without executing any mutation. It is a projection over the existing read-only Area Focus Loop, not a new OS, runtime or executor.

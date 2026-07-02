@@ -59,7 +59,7 @@ final class StewardshipBranchSystemCertificationService
             $this->component('AP-771', 'priority_engine', StewardshipPriorityEngineService::class, [
                 'rank',
             ], [
-                'docs/ap/AP-771-stewardship-priority-engine-contract.md',
+                'docs/ap/AP-771-stewardship-priority-engine.md',
                 'tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/StewardshipPriorityEngineServiceTest.php',
             ], [
                 'priority-rank',

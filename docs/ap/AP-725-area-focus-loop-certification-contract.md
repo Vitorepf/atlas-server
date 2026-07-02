@@ -2,7 +2,7 @@
 id: AP-725-area-focus-loop-certification-contract
 type: architecture_proposal
 title: AP-725 Area Focus Loop Certification Command
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Adds a structural, read-only certification that proves the Area Focus Loop family is present and healthy for agentic_engineering_os inside the Atlas Software Company Stewardship Stack. It checks presence/health of the stack and Product Mode docs, the AP contracts (AP-715, AP-716..AP-725), the read model, finding engine, inbox/spec bridge, Dev/Forge router, cycle/evidence services, the orchestrator + operational certification, the operator command, the canonical schemas, the safety gates, the operator decision receipts and the declared validations. It complements (does not duplicate) the AP-722 runtime operational certification: AP-722 proves the loop RUNS; AP-725 proves the loop EXISTS and is wired. When a required component is missing it returns status blocked with missing_components; when all are present it returns ready_read_only and never ready_for_autonomous_mutation.

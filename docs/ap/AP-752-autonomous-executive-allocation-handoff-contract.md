@@ -2,7 +2,7 @@
 id: AP-752-autonomous-executive-allocation-handoff-contract
 type: architecture_proposal
 title: AP-752 Autonomous Executive Allocation Handoff Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Adds the governed handoff gate after AP-735 Autonomous Executive recommendations and AP-731 operator accept receipts. It converts an accepted executive recommendation into an operator-reviewable allocation handoff packet for the correct owner: owner-runtime result review, Area Stewardship follow-up, Area Focus/Dev/Forge release preparation, or Product Mode review. It creates no executor, scheduler, provider call, branch, worktree, merge, deploy, secret access, budget spend or autonomous mutation path.

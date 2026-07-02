@@ -1,7 +1,7 @@
 ---
 ap: AP-808
 title: Loop Assurance Kernel and Chaos Certification
-status: proposal
+status: proposed
 owner: agentic_engineering_os/dev_forge
 schema: atlas.software_company_stewardship.loop_assurance_kernel.v1
 supersedes: none

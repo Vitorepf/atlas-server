@@ -2,7 +2,7 @@
 id: AP-740-stewardship-outcome-evidence-and-morning-inbox-contract
 type: architecture_proposal
 title: AP-740 Stewardship Outcome Evidence And Morning Inbox Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Bridges AP-731 Stewardship Evolution operator decisions, AP-738 Self-Expanding Software Company v0 outcomes and AP-747 Dev/Forge release outcomes into the canonical Evidence Ledger and Morning Inbox. AP-740 explicitly reuses AtlasEvidenceLedger, atlas_ledger_events and ProposalInboxEmitter; AP-748 extends it with release outcome/portfolio feed consumed by AP-749; AP-750 later bridges owner runtime result receipts back into the same Evidence/Morning Inbox/Portfolio flow; AP-741 consumes recorded evidence to create Domain Runtime Creation handoff packets; AP-742 shows projected/recorded AP-740 history inside Product Mode/Cockpit. It does not create a new ledger, inbox, runtime, OS, domain, branch or executor.

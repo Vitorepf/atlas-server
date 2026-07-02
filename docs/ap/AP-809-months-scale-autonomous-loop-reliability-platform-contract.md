@@ -1,7 +1,7 @@
 ---
 ap: AP-809
 title: Months-Scale Autonomous Loop Reliability Platform
-status: proposal
+status: proposed
 owner: agentic_engineering_os/dev_forge
 schema: atlas.software_company_stewardship.months_scale_loop_reliability.v1
 supersedes: none

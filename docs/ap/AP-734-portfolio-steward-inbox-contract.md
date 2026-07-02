@@ -2,7 +2,7 @@
 id: AP-734-portfolio-steward-inbox-contract
 type: architecture_proposal
 title: AP-734 Portfolio Steward Inbox Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Adds a Portfolio Steward Inbox over AP-733 Portfolio Health snapshots. It turns portfolio rebalance candidates, including AP-751 owner-runtime result review/follow-up candidates, into operator-reviewable inbox items, persists inbox snapshots as append-only JSONL and records explicit operator decisions through AP-731. AP-735 consumes this inbox for Autonomous Executive recommendations. It creates no inbox system, executor, brancher, scheduler, Dev/Forge dispatch or autonomous mutation path.

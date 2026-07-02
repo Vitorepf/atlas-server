@@ -15,7 +15,7 @@ related_paths:
   - app/Services/Ai/AutonomousEngineering/AtlasAutonomousEngineeringService.php
   - app/Models/AiCodebaseWorldModelEdge.php
   - app/Services/Ai/AtlasOpenBrainMcpService.php
-  - ../../dissecar/graphify/atlas-adoption/ATLAS-CODE-GRAPH-PARITY-AND-BEYOND-ROADMAP.md
+  - ../dissecar/graphify/atlas-adoption/ATLAS-CODE-GRAPH-PARITY-AND-BEYOND-ROADMAP.md
 ---
 
 # AP-811 - Atlas Code Graph: Real Edges, Traversal and Governed Roadmap

@@ -2,7 +2,7 @@
 id: AP-730-stewardship-evolution-read-model-contract
 type: architecture_proposal
 title: AP-730 Stewardship Evolution Read Model Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Implements the first read-only/proposal-only code surface for the levels above Area Focus Loop inside Atlas Software Company Stewardship Stack: Area Stewardship, Portfolio Stewardship, Autonomous Executive and Self-Expanding Software Company. AP-735 extends its Autonomous Executive concept with concrete recommendation packs, AP-736 projects those packs plus AP-731 receipts into the Executive Decision Inbox surface, AP-737 gates AP-730 new-area proposals before Domain Runtime Creation Gate review, and AP-738 composes the Self-Expanding v0 top-level report. It reuses AP-716 Area Focus Loop, AP-714 Ladder and AP-715 Stack; it creates no new OS, no executor, no proposal registry and no permissionless autonomy.

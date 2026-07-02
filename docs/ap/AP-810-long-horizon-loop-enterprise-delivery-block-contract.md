@@ -1,7 +1,7 @@
 ---
 ap: AP-810
 title: Long-Horizon Loop Enterprise Delivery Block
-status: proposal
+status: proposed
 owner: agentic_engineering_os/dev_forge
 schema: atlas.software_company_stewardship.long_horizon_loop_delivery_block.v1
 supersedes: none

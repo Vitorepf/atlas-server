@@ -2,7 +2,7 @@
 id: AP-737-new-area-proposal-gate-contract
 type: architecture_proposal
 title: AP-737 New Area Proposal Gate Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Adds the first concrete Self-Expanding Software Company gate inside the Atlas Software Company Stewardship Stack. It projects AP-730 new-area proposals, AP-731 operator decisions and the existing Atlas Domain Runtime Creation Gate into a proposal-only gate that can say awaiting review, accepted for Domain Runtime Creation Gate, rejected, deferred or blocked. AP-739 now exposes these gate items in the Stewardship Product Mode Cockpit. It creates no domain, department, OS, executor, branch, scheduler, Dev/Forge dispatch or autonomous mutation path.

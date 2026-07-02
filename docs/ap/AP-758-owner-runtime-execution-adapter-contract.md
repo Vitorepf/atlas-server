@@ -1,7 +1,7 @@
 ---
 id: AP-758-owner-runtime-execution-adapter
 title: AP-758 Owner Runtime Execution Adapter Contract
-status: accepted
+status: active
 owner: programming
 summary: Adds the governed adapter between AP-749 owner queue consumption and AP-759/AP-750 owner runtime result flow. AP-758 consumes a ready AP-749 packet, requires the AP-757/AP-756 materialized sandbox and an explicit operator runtime-start receipt, projects the existing Atlas Dev / Forge owner handoff, and emits an AP-750-compatible owner result shape for review or AP-759 execution. It creates no OS, runtime, branch, worktree, provider path, merge, deploy, external push, secret access or destructive change.
 related_paths:

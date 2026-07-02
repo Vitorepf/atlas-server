@@ -2,7 +2,7 @@
 id: AP-720-area-focus-durable-cycle-evidence-pack-contract
 type: architecture_proposal
 title: AP-720 Area Focus Durable Cycle and Evidence Pack Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Adds a read-only durable, replayable cycle and an evidence pack projection for the Area Focus Loop (AP-712) inside the Atlas Software Company Stewardship Stack. Each read-only Area Focus projection can be recorded to append-only local JSONL, replayed and inspected by cycle_id, and turned into a completeness-checked evidence pack for the Morning Inbox. It opens no branch, executes no provider, mutates no repo and stores no secrets.

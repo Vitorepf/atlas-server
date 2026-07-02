@@ -2,7 +2,7 @@
 id: AP-749-owner-specific-dev-forge-queue-consumption-gate-contract
 type: architecture_proposal
 title: AP-749 Owner-Specific Dev/Forge Queue Consumption Gate Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Lets existing Atlas Dev and Forge owners consume AP-747 queue items only after AP-748/AP-740 proved Evidence Ledger, Morning Inbox and Portfolio visibility and AP-757 binds the queue item to a materialized AP-756 branch/worktree sandbox. AP-749 produces owner runtime input packets and optional append-only consumption records; AP-758 invokes the governed owner runtime adapter; AP-750 bridges the eventual owner runtime result back to Evidence, Morning Inbox and Portfolio. AP-749 does not invoke providers, create branches/worktrees, mutate repos, merge, deploy, push, access secrets, create a new runtime or bypass Product Mode review.

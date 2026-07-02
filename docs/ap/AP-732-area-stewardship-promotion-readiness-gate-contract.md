@@ -2,7 +2,7 @@
 id: AP-732-area-stewardship-promotion-readiness-gate-contract
 type: architecture_proposal
 title: AP-732 Area Stewardship Promotion Readiness Gate
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Adds a read-only promotion readiness gate for moving an AP-730 Area Stewardship proposal toward an active Area Stewardship implementation slice. It requires health model, roadmap, Dev/Forge policy, operator inbox, evidence refs, no-mutation claims and an AP-731 operator accept decision. It never executes promotion, creates branches, invokes providers or mutates the target repo. AP-743 consumes its ready_for_active_handoff output to create a reviewable handoff packet.

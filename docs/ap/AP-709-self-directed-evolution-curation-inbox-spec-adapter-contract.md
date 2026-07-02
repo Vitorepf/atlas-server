@@ -2,7 +2,7 @@
 id: AP-709-self-directed-evolution-curation-inbox-spec-adapter-contract
 type: architecture_proposal
 title: AP-709 Self-Directed Evolution Curation Inbox + Spec Proposal Adapter v0.2 Contract
-status: accepted
+status: active
 owner: atlas-ai
 created_at: 2026-05-26
 summary: Defines v0.2 of the Self-Directed Evolution Layer — an operator Curation Inbox (read-only projection over the v0.1 gap read model) and a proposal-only Spec Proposal Adapter that turns a gap candidate into an AP/spec/doc draft. Neither writes canonical docs, invokes a provider, nor auto-approves; the operator reviews, approves or vetoes and execution routes back to the canonical owner.

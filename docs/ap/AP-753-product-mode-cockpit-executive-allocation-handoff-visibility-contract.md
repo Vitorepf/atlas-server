@@ -2,7 +2,7 @@
 id: AP-753-product-mode-cockpit-executive-allocation-handoff-visibility-contract
 type: architecture_proposal
 title: AP-753 Product Mode Cockpit Executive Allocation Handoff Visibility Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Extends the existing AP-739 Product Mode/Cockpit read-only surface so AP-752 Autonomous Executive allocation handoff packets are visible in the same review queue, counters, health model and operator controls. It creates no cockpit, executor, scheduler, provider call, Dev/Forge dispatch, branch, worktree, merge, deploy, secret access, budget spend or autonomous mutation path.

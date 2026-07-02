@@ -2,7 +2,7 @@
 id: AP-754-product-mode-operational-controls-read-model-contract
 type: architecture_proposal
 title: AP-754 Product Mode Operational Controls Read Model Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Adds the first Product Mode operational controls read model to the existing AP-739 cockpit: repository onboarding state, autonomy tier policy, budget/rate limits, kill switch/pause/lock state, branch review center, evidence inspector and risk policy. AP-755 can now feed this projection with accepted AP-731 Product Mode control receipts. It is read-only/projection-only and creates no new runtime, scheduler, provider path, branch/worktree, repo authorization mutation, tier mutation, merge, deploy or secret access.

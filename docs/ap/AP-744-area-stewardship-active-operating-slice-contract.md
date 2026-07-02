@@ -2,7 +2,7 @@
 id: AP-744-area-stewardship-active-operating-slice-contract
 type: architecture_proposal
 title: AP-744 Area Stewardship Active Operating Slice Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Implements the first governed active Area Stewardship operating slice. It consumes AP-743 active handoff packets, runs the existing AP-722 Area Focus operational cycle, prepares AP-718 Self-Directed Evolution spec drafts and AP-726 Dev/Forge branch-sandbox handoffs, and may record an idempotent JSONL active operation. It creates no new OS, runtime or executor and never invokes providers, creates branches, dispatches Dev/Forge, mutates repos, merges, deploys, touches secrets or bypasses operator review.
@@ -12,7 +12,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-stewardship-evolution-ladder.md
   - docs/ap/AP-713-area-stewardship-layer-contract.md
   - docs/ap/AP-722-area-focus-loop-operational-certification-contract.md
-  - docs/ap/AP-726-area-focus-branch-sandbox-handoff-contract.md
+  - docs/ap/AP-822-area-focus-branch-sandbox-handoff-contract.md
   - docs/ap/AP-739-product-mode-cockpit-stewardship-review-contract.md
   - docs/ap/AP-743-area-stewardship-active-handoff-contract.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaStewardship/AreaStewardshipActiveOperatingService.php

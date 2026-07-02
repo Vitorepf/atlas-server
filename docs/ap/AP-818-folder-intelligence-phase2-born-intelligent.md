@@ -1,6 +1,6 @@
 ---
 title: AP-818 Folder Intelligence Fase 2 — Workspace Nasce Inteligente (on-link intelligence assembly)
-status: approved
+status: active
 owner: atlas_code / code_graph / ai-runtime
 line_limit: 220
 related_paths:

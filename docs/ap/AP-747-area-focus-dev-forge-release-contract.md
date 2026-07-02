@@ -2,7 +2,7 @@
 id: AP-747-area-focus-dev-forge-release-contract
 type: architecture_proposal
 title: AP-747 Area Focus Dev/Forge Operator-Owned Release Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Releases an AP-726 Area Focus branch-sandbox handoff into the real Atlas Dev or Forge owner queue only after an explicit operator release receipt. AP-748 bridges recorded releases into Evidence, Morning Inbox and Portfolio signals; AP-749 then gates owner-specific consumption; AP-750 bridges the eventual owner runtime result back to Stewardship outcomes. It creates no new OS/runtime/executor, does not invoke providers, does not create branches/worktrees, and never merges, deploys, pushes externally, touches secrets or performs destructive changes.

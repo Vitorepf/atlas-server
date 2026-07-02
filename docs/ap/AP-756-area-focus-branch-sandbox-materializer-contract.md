@@ -2,7 +2,7 @@
 id: AP-756-area-focus-branch-sandbox-materializer-contract
 type: architecture_proposal
 title: AP-756 Area Focus Branch Sandbox Materializer Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Materializes an AP-726 Area Focus branch sandbox into an isolated local git branch/worktree only after an explicit operator sandbox receipt. AP-756 reuses AP-726/AP-747/AP-749/AP-758/AP-759 owners, writes only an append-only JSONL sandbox record, and does not run Dev/Forge, invoke providers, apply fixes, mutate the source worktree, merge, deploy, push externally, access secrets or perform destructive changes.

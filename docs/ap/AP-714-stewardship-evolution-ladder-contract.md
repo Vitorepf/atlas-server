@@ -2,7 +2,7 @@
 id: AP-714-stewardship-evolution-ladder-contract
 type: architecture_proposal
 title: AP-714 Atlas Stewardship Evolution Ladder Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Canonizes the evolution beyond Atlas Continuous Stewardship Loop and Area Stewardship as a governed ladder: Area Focus Loop, Area Stewardship, Portfolio Stewardship, Autonomous Executive Layer and Self-Expanding Software Company. AP-738 provides Self-Expanding Software Company v0 while preserving no OS/runtime duplication or permissionless autonomy; AP-739 exposes the high-level review state in Product Mode/Cockpit; AP-740/AP-748 bridge AP-731/AP-738/AP-747 outcomes into Evidence Ledger, Morning Inbox and Portfolio; AP-749 gates owner-specific Dev/Forge consumption; AP-758 adapts ready consumption into AP-750-compatible owner results; AP-750 bridges owner runtime results back to Evidence, Morning Inbox and Portfolio; AP-755 reuses AP-731 for Product Mode operational control receipts; AP-756 materializes AP-726 branch sandboxes into local isolated git worktrees only by explicit operator receipt; AP-757 binds AP-749 consumption to that materialized sandbox; AP-741 creates the gated Domain Runtime Creation handoff packet; AP-742 exposes AP-740/AP-741 history inside the same cockpit; AP-743 creates the Area Stewardship active handoff packet after AP-732 readiness; AP-744 consumes it for the first governed active operating slice; AP-745 makes that slice scheduler-safe; AP-746 makes Continuous Stewardship recurring-scheduler-safe.

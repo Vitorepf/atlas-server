@@ -2,7 +2,7 @@
 id: AP-726-area-focus-branch-sandbox-preflight-handoff-contract
 type: architecture_proposal
 title: AP-726 Area Focus Branch Sandbox Preflight + Governed Handoff Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Adds the branch sandbox preflight + governed Dev/Forge handoff stage to the Area Focus Loop. After an operator accept (AP-724) of an emitted work order (AP-719) that passes the safety gates (AP-723), Atlas prepares a branch-metadata-only, dry-run sandbox plan and a handoff packet for Atlas Dev / Forge. It creates no branch, touches no target code, and never merges, deploys, pushes, accesses secrets or makes destructive changes. Materializing the branch requires an explicit branch-creation receipt in a future slice.

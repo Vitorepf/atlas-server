@@ -1,6 +1,7 @@
 ---
 title: AP-813 Atlas Compression Layer — CacheAligner + CCR-over-Evidence-Ledger + SmartCrusher
-status: implemented (live 2026-06-08; promotion-review pending)
+status: implemented
+status_note: "live 2026-06-08; promotion-review pending"
 owner: evidence / ai-runtime
 line_limit: 240
 related_paths:
@@ -12,7 +13,7 @@ related_paths:
   - app/Services/Ai/Compounding/AtlasCompoundingRuntimeService.php
   - app/Services/Engineering/CodeGraph/CodeGraphRuntimeInvoker.php
   - docs/engineering-knowledge-base/atlas-ai-runtime-language-boundaries.md
-  - dissecar/headroom/ATLAS-HEADROOM-DISSECTION.md
+  - ../dissecar/headroom/ATLAS-HEADROOM-DISSECTION.md
 ---
 
 # [AP-813] Atlas Compression Layer

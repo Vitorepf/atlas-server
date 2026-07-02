@@ -4,7 +4,7 @@ type: architecture_proposal
 title: AP-817 Blog Editorial Planning Contract
 status: proposed
 owner: atlas-kernel
-line_limit: 180
+line_limit: 220
 related_paths:
   - docs/engineering-knowledge-base/atlas-blog-editorial-planning-system.md
   - app/Services/Ai/Publishing/BlogEditorialPlannerService.php

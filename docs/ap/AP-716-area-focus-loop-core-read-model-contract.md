@@ -2,7 +2,7 @@
 id: AP-716-area-focus-loop-core-read-model-contract
 type: architecture_proposal
 title: AP-716 Area Focus Loop Core Read-Only Runtime Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Adds the first real read-only runtime/read-model of the Area Focus Loop inside the Atlas Software Company Stewardship Stack. It resolves a canonical area contract (first area_id agentic_engineering_os), resolves owner docs, computes readiness, emits coarse finding seeds, a health summary, claim policy, evidence refs and next actions. It is read-only, reuses existing owners and is NOT a new OS or parallel runtime.

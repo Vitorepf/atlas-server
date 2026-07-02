@@ -2,7 +2,7 @@
 id: AP-735-autonomous-executive-recommendation-contract
 type: architecture_proposal
 title: AP-735 Autonomous Executive Recommendation Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-27
 summary: Adds the first concrete Autonomous Executive recommendation pack on top of AP-734 Portfolio Steward Inbox. It converts portfolio rebalance inbox items, including AP-751 owner-runtime result review/follow-up items, into strategy, capacity, budget, regret and risk recommendations, records packs as append-only JSONL, and records operator decisions through AP-731. AP-736 projects these packs into a read-only Executive Decision Inbox surface, and AP-752 turns accepted recommendations into governed owner allocation handoff packets. It creates no CEO agent, executor, scheduler, brancher, Dev/Forge dispatch or autonomous mutation path.

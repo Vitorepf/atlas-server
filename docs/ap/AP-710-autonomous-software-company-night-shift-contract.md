@@ -2,7 +2,7 @@
 id: AP-710-autonomous-software-company-night-shift-contract
 type: architecture_proposal
 title: AP-710 Autonomous Software Company Night Shift Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Defines Atlas Autonomous Software Company Night Shift as an operational child contract of the Autonomous Software Company Runtime, with mandatory v1 proof inside Atlas before v2 can operate authorized external companies such as BlackInk.

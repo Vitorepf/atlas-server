@@ -2,7 +2,7 @@
 id: AP-723-area-focus-safety-gates-contract
 type: architecture_proposal
 title: AP-723 Area Focus Safety Gate Evaluator Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Adds a read-only Area Focus Safety Gate Evaluator for the Atlas Software Company Stewardship Stack. It evaluates the canonical safety gates for every Area Focus Loop run — owner docs, budget, WIP, risk policy, kill switch, no secrets/merge/deploy/destructive change, evidence completeness, operator inbox and Atlas-internal-first — and decides allow/warn/block. It executes nothing; it only decides. max_governed is bounded strictly by these gates.

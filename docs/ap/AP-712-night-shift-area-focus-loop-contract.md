@@ -2,7 +2,7 @@
 id: AP-712-night-shift-area-focus-loop-contract
 type: architecture_proposal
 title: AP-712 Night Shift Area Focus Loop Contract
-status: accepted
+status: active
 owner: programming
 created_at: 2026-05-26
 summary: Adds Area Focus Loop to Product Mode / Atlas Continuous Stewardship Loop so the operator can choose a canonical area, such as Agentic Engineering OS, and let Atlas scan that area for bugs, failures, gaps and improvements while routing work through Atlas Dev, Forge, Self-Directed Evolution and Morning Inbox under governed maximum capacity.
