@@ -91,6 +91,36 @@ class AtlasDevRuntimeIntelligenceTest extends TestCase
         $this->assertSame(64, strlen((string) $capsule->failure_hash));
     }
 
+    public function test_structured_senior_loop_excerpt_classifies_by_gate_values_not_bag_of_words(): void
+    {
+        $packet = (new DevTaskPacketRuntimeService)->persist($this->readyTaskInput());
+        $svc = new DevFailureCapsuleRuntimeService;
+
+        // The literal "scope=passed" boilerplate must NOT classify as
+        // scope_violation (28/56 of the real corpus were stamped with that lie).
+        $noPatch = $svc->build([
+            'run_id' => $packet->run_id,
+            'task_id' => $packet->task_id,
+            'error' => 'senior loop execution did not pass: completion=no_patch_needed, scope=passed, verification=passed',
+        ], $packet->toArray());
+        $this->assertSame('no_patch_produced', $noPatch['failure_class']);
+        $this->assertStringContainsString('unified diff', $noPatch['suggested_repair']);
+
+        $verifyFail = $svc->build([
+            'run_id' => $packet->run_id,
+            'task_id' => $packet->task_id,
+            'error' => 'senior loop execution did not pass: completion=failed, scope=passed, verification=failed',
+        ], $packet->toArray());
+        $this->assertSame('test_failure', $verifyFail['failure_class']);
+
+        $scopeFail = $svc->build([
+            'run_id' => $packet->run_id,
+            'task_id' => $packet->task_id,
+            'error' => 'senior loop execution did not pass: completion=failed, scope=failed, verification=passed',
+        ], $packet->toArray());
+        $this->assertSame('scope_violation', $scopeFail['failure_class']);
+    }
+
     public function test_outcome_memory_persists_success_and_failure_outcomes(): void
     {
         $packet = (new DevTaskPacketRuntimeService)->persist($this->readyTaskInput());

@@ -236,7 +236,22 @@ failure capsules re-backfilled dos receipts reais (rows=56).
   → outcome → recomendação → ativação → follow_learned → degradação → desativação. Prova:
   5 cenários no `AtlasDecideLiveEvidenceActivationTest` + 216 testes AtlasDecide verdes.
 
+## Execução S14 (02/07/2026)
+
+- **S14 (entregue — data-driven):** classificador de failure capsule mentia — o
+  bag-of-words via o boilerplate `scope=passed` e carimbava 28/56 do corpus real como
+  `scope_violation`. Excerpt estruturado do senior loop agora classifica pelos VALORES dos
+  gates (`completion=no_patch_needed` → `no_patch_produced` [classe nova com
+  suggested_repair de diff concreto]; `verification=failed` → test_failure; `scope=failed`
+  → scope_violation); matcher genérico de 'scope' estreitado. Corpus re-backfilled honesto:
+  no_patch_produced 18 / test_failure 15 / unknown 18 / scope_violation 4 / missing_context
+  1 — o modo dominante REAL é o modelo não produzir diff, não violação de escopo. Toda
+  injeção futura de known_failure_modes agora ensina a lição certa. Prova:
+  `test_structured_senior_loop_excerpt_classifies_by_gate_values_not_bag_of_words` + 50
+  testes das suites de failure memory verdes.
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Candidatos:** (a) #9 GC/índice do receipt store (latência/qualidade do retrieve de
-exemplares: 6k+ receipts, scandir cap 300); (b) próximo gargalo que a medição apontar.
+**Candidatos:** (a) atacar `no_patch_produced` (modo dominante real: 18/56 — por que o
+provider devolve zero diff? prompt/driver/refusal); (b) #9 índice do receipt store; (c)
+próximo gargalo da medição.

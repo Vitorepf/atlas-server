@@ -67,15 +67,29 @@ class DevFailureCapsuleRuntimeService
 
     private function classify(string $declared, string $error): string
     {
-        if (in_array($declared, ['test_failure', 'type_error', 'scope_violation', 'missing_context', 'architecture_risk', 'weak_output', 'unknown'], true)) {
+        if (in_array($declared, ['test_failure', 'type_error', 'scope_violation', 'missing_context', 'architecture_risk', 'weak_output', 'no_patch_produced', 'unknown'], true)) {
             return $declared;
         }
 
         $error = strtolower($error);
 
+        // Structured senior-loop excerpts ("completion=X, scope=Y, verification=Z")
+        // classify by the actual gate values FIRST — the old bag-of-words matcher
+        // saw the literal "scope=passed" boilerplate and stamped half the real
+        // corpus as scope_violation (28/56 audited 02/07), poisoning every
+        // known_failure_modes injection with a lie.
+        if (preg_match('/completion=([a-z_]+)/', $error, $m) === 1) {
+            return match (true) {
+                $m[1] === 'no_patch_needed' => 'no_patch_produced',
+                str_contains($error, 'scope=failed') => 'scope_violation',
+                str_contains($error, 'verification=failed') => 'test_failure',
+                default => 'unknown',
+            };
+        }
+
         return match (true) {
             str_contains($error, 'weak_output') || str_contains($error, 'placeholder') => 'weak_output',
-            str_contains($error, 'scope') || str_contains($error, 'forbidden') => 'scope_violation',
+            str_contains($error, 'scope violation') || str_contains($error, 'scope_violation') || str_contains($error, 'scope=failed') || str_contains($error, 'forbidden') => 'scope_violation',
             str_contains($error, 'context') || str_contains($error, 'rag') => 'missing_context',
             str_contains($error, 'type') || str_contains($error, 'phpstan') || str_contains($error, 'tsc') => 'type_error',
             str_contains($error, 'architecture') || str_contains($error, 'boundary') => 'architecture_risk',
@@ -93,6 +107,7 @@ class DevFailureCapsuleRuntimeService
             'architecture_risk' => 'pause Dev fast path and promote to Forge/Senior review',
             'test_failure' => 'use failure capsule to repair the minimal failing behavior and rerun selected tests',
             'weak_output' => 'replace placeholder/TODO/fake-assert output with a concrete implementation; do not ship vacuously green diffs',
+            'no_patch_produced' => 'the model returned no diff for a write task in this area before: produce a concrete patch — restate the target files and emit a unified diff, never an explanation-only reply',
             default => 'inspect failure capsule, add missing evidence and retry once',
         };
     }
