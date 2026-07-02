@@ -20,6 +20,10 @@ final class TraceStepRecord implements JsonSerializable
         public readonly int $stderrByteLength,
         public readonly string $workingTreeHash,
         public readonly string $decisionContextId,
+        // base64 of the CANONICAL output bytes (the output_fingerprint pre-image).
+        // Without it a null-actor replay can never be non-divergent: sha256 is
+        // one-way, so the replayer had nothing to reproduce the bytes from.
+        public readonly string $outputB64 = '',
     ) {
     }
 
@@ -41,6 +45,7 @@ final class TraceStepRecord implements JsonSerializable
             'stderr_byte_length' => $this->stderrByteLength,
             'working_tree_hash' => $this->workingTreeHash,
             'decision_context_id' => $this->decisionContextId,
+            'output_b64' => $this->outputB64,
         ];
     }
 

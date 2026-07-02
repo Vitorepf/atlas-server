@@ -79,18 +79,24 @@ final class AtlasAaelExecutionTraceRecorder
         $stdout = (string) ($payload['stdout'] ?? '');
         $stderr = (string) ($payload['stderr'] ?? '');
 
+        // The canonical output bytes are persisted alongside their fingerprint:
+        // they ARE the fingerprint's pre-image, and without them a null-actor
+        // replay could never reproduce the recorded bytes (sha256 is one-way).
+        $outputBytes = $this->canonicalBytes($output);
+
         $record = new TraceStepRecord(
             stepIndex: $this->stepCount + 1,
             monotonicTimestamp: $this->now(),
             actionName: (string) ($payload['action_name'] ?? ''),
             inputFingerprint: $this->fingerprint($input),
-            outputFingerprint: $this->fingerprint($output),
+            outputFingerprint: hash('sha256', $outputBytes),
             providerId: (string) ($payload['provider_id'] ?? ''),
             exitCode: (int) ($payload['exit_code'] ?? 0),
             stdoutByteLength: strlen($stdout),
             stderrByteLength: strlen($stderr),
             workingTreeHash: $this->workingTreeHash(),
             decisionContextId: (string) ($payload['decision_context_id'] ?? ''),
+            outputB64: base64_encode($outputBytes),
         );
 
         $this->appendRow($record->toArray());
@@ -186,7 +192,13 @@ final class AtlasAaelExecutionTraceRecorder
      */
     private function fingerprint(array $payload): string
     {
-        return hash('sha256', (string) json_encode($this->sortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        return hash('sha256', $this->canonicalBytes($payload));
+    }
+
+    /** The canonical JSON bytes a fingerprint is computed over (its pre-image). */
+    private function canonicalBytes(array $payload): string
+    {
+        return (string) json_encode($this->sortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
     private function workingTreeHash(): string

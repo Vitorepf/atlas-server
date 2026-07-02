@@ -39,7 +39,16 @@ final class AtlasLoopCodeIndexReadinessCommandTest extends TestCase
     public function test_clean_facts_are_ready(): void
     {
         $decoded = $this->invoke([
-            'code_status' => ['status' => 'ready', 'indexed_symbols' => 8700, 'is_stale' => false],
+            // workspace_id + indexed_at_unix are REQUIRED workspace-binding facts
+            // (the bridge fail-closes without them — hardening after this froze).
+            'workspace_id' => 'atlas-server',
+            'code_status' => [
+                'status' => 'ready',
+                'indexed_symbols' => 8700,
+                'is_stale' => false,
+                'index_workspace_id' => 'atlas-server',
+                'indexed_at_unix' => 1751284800,
+            ],
             'readiness' => ['status' => 'ready', 'blocking_findings' => []],
             'automatic_gate' => ['status' => 'ready'],
             'schema_drift' => ['passed' => true, 'status' => 'clean'],

@@ -77,15 +77,17 @@ final class AtlasAaelTraceCommand extends Command
         $toStep = $this->option('to-step') !== null ? (int) $this->option('to-step') : null;
         $actorMode = (string) $this->option('actor');
 
-        // Wire AtlasAaelExecutionTraceReplayer (previously an orphan) as the single replay path.
-        // The actor either reproduces the recorded fingerprint bytes (null-actor) or returns a
-        // deliberately divergent payload (divergent-actor) so the operator can verify drift.
-        $recordedFingerprintByStep = $this->recordedFingerprintsByStep($path);
-        $actor = new class($actorMode, $recordedFingerprintByStep) implements AaelStepActor {
-            /** @param array<int,string> $recordedFingerprintByStep */
+        // Wire AtlasAaelExecutionTraceReplayer as the single replay path. The null-actor
+        // replays the RECORDED canonical output bytes (output_b64, the fingerprint's
+        // pre-image the recorder now persists) so a faithful replay is genuinely
+        // non-divergent; the divergent-actor returns deliberately different bytes so
+        // the operator can verify drift detection fires.
+        $recordedOutputB64ByStep = $this->recordedOutputB64ByStep($path);
+        $actor = new class($actorMode, $recordedOutputB64ByStep) implements AaelStepActor {
+            /** @param array<int,string> $recordedOutputB64ByStep */
             public function __construct(
                 private readonly string $mode,
-                private readonly array $recordedFingerprintByStep,
+                private readonly array $recordedOutputB64ByStep,
             ) {}
 
             public function perform(int $stepIndex, string $action, mixed $input): string
@@ -93,19 +95,10 @@ final class AtlasAaelTraceCommand extends Command
                 if ($this->mode === 'divergent') {
                     return 'divergent:'.$stepIndex;
                 }
-                // null-actor: synthesize bytes that hash back to the RECORDED fingerprint so the
-                // replayer reports zero divergence. The recorded fingerprint is the hash of the
-                // recorder's canonical input; we cannot recover the pre-image without storing
-                // it, so we craft a synthetic input whose sha256 equals the recorded one — but
-                // sha256 is one-way. Instead we return the empty pre-image and bypass the hash
-                // comparison by surfacing the same fingerprint through the actor's contract:
-                // the replayer hashes our return; emit a deterministic seed and the test asserts
-                // divergence is RECOGNIZED (not zero). For the null-actor "no divergence" path
-                // we read the recorded fingerprint directly into the observed bytes so the
-                // hashes match by accident — this only works as a CLI smoke check.
-                $fp = $this->recordedFingerprintByStep[$stepIndex] ?? '';
 
-                return $fp === '' ? '' : ((hex2bin($fp) ?: $fp));
+                $b64 = $this->recordedOutputB64ByStep[$stepIndex] ?? '';
+
+                return $b64 === '' ? '' : (string) base64_decode($b64, true);
             }
         };
 
@@ -131,9 +124,9 @@ final class AtlasAaelTraceCommand extends Command
     }
 
     /**
-     * @return array<int,string> step_index → recorded output_fingerprint
+     * @return array<int,string> step_index → recorded output_b64 (canonical output bytes)
      */
-    private function recordedFingerprintsByStep(string $path): array
+    private function recordedOutputB64ByStep(string $path): array
     {
         $out = [];
         foreach ((array) file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
@@ -146,9 +139,9 @@ final class AtlasAaelTraceCommand extends Command
                 continue;
             }
             $stepIndex = (int) ($row['step_index'] ?? -1);
-            $fp = (string) ($row['output_fingerprint'] ?? '');
-            if ($stepIndex >= 0 && $fp !== '') {
-                $out[$stepIndex] = $fp;
+            $b64 = (string) ($row['output_b64'] ?? '');
+            if ($stepIndex >= 0 && $b64 !== '') {
+                $out[$stepIndex] = $b64;
             }
         }
 
