@@ -1867,6 +1867,12 @@ return [
         // L5-6: ADML cost×outcome routing. This is not a parallel router:
         // activation still goes through the existing Atlas Decide routing
         // table + operator receipt, and gateway fallback remains intact.
+        // Gates AtlasDecideMetaLearningService::autoActivateFromLiveEvidence() —
+        // the auto-activation arc of the live evidence loop. OFF by default:
+        // flipping to true is an operator decision; every activation still writes
+        // the standard audit receipt and consult keeps its kernel/admission gates.
+        'adml_auto_activation_enabled' => (bool) env('ATLAS_PATAMAR4_ADML_AUTO_ACTIVATION_ENABLED', false),
+
         'adml_cost_outcome' => [
             'enabled' => (bool) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED', false),
             'min_evidence' => max(1, (int) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_MIN_EVIDENCE', 3)),

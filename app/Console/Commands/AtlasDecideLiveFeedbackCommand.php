@@ -23,7 +23,7 @@ use Illuminate\Console\Command;
 class AtlasDecideLiveFeedbackCommand extends Command
 {
     protected $signature = 'atlas:atlas-decide:live-feedback
-        {--action=stats : record|stats|signal|sweep|list-outcomes}
+        {--action=stats : record|stats|signal|sweep|activate-sweep|list-outcomes}
         {--task-category= : task category (e.g., code_generation)}
         {--role= : role (e.g., primary)}
         {--framework= : framework (e.g., laravel)}
@@ -94,6 +94,11 @@ class AtlasDecideLiveFeedbackCommand extends Command
 
             case 'sweep':
                 $env = $adml->autoDeactivateOnDegradation((string) $this->option('actor'));
+
+                return $this->emit($env, $json);
+
+            case 'activate-sweep':
+                $env = $adml->autoActivateFromLiveEvidence((string) $this->option('actor'));
 
                 return $this->emit($env, $json);
 

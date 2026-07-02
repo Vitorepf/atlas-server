@@ -481,6 +481,83 @@ class AtlasDecideMetaLearningService
      *
      * @return array<string,mixed> sweep envelope
      */
+    public const AUTO_ACTIVATION_SCHEMA = 'atlas.atlas_decide.auto_activation_sweep.v1';
+
+    /**
+     * Sweep the LIVE outcome ledger's scopes and activate every route whose
+     * recommendation is actionable — the closing arc of the evidence loop
+     * (record → recommend → activate → follow_learned → sweep-deactivate on
+     * degradation). Flag-gated (config atlas.patamar4.adml_auto_activation_enabled,
+     * default OFF): flipping it on is an operator decision; each activation
+     * writes the same audit receipt as a manual activate, and the consult path's
+     * kernel/admission gates still govern whether a caller may FOLLOW the route.
+     *
+     * @return array<string,mixed>
+     */
+    public function autoActivateFromLiveEvidence(string $actor = 'autonomous_live_evidence'): array
+    {
+        $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        $envelope = [
+            'schema_version' => self::AUTO_ACTIVATION_SCHEMA,
+            'generated_at' => $generatedAt,
+            'enabled' => (bool) (function_exists('config') ? config('atlas.patamar4.adml_auto_activation_enabled', false) : false),
+            'feedback_wired' => $this->liveFeedback !== null,
+            'inspected' => [],
+            'activated' => [],
+            'skipped' => [],
+        ];
+        if (! $envelope['enabled'] || $this->liveFeedback === null) {
+            return $envelope;
+        }
+
+        $scopes = [];
+        foreach ($this->liveFeedback->listOutcomes() as $o) {
+            $task = (string) ($o['task_category'] ?? '');
+            $role = (string) ($o['role'] ?? '');
+            if ($task === '' || $role === '') {
+                continue;
+            }
+            $framework = $o['framework'] ?? null;
+            $scopes[$task.'|'.$role.'|'.($framework ?? '')] = [$task, $role, $framework];
+        }
+
+        foreach ($scopes as [$task, $role, $framework]) {
+            $envelope['inspected'][] = ['task_category' => $task, 'role' => $role, 'framework' => $framework];
+            $rec = $this->recommend(['task_category' => $task, 'role' => $role, 'framework' => $framework]);
+            if (! (bool) ($rec['actionable'] ?? false)) {
+                $envelope['skipped'][] = ['task_category' => $task, 'role' => $role, 'reason' => $rec['reason'] ?? []];
+
+                continue;
+            }
+            $active = $this->activeRouteFor($task, $role, $framework);
+            if ($active !== null && ($active['provider'] ?? null) === ($rec['recommended_provider'] ?? null)) {
+                $envelope['skipped'][] = ['task_category' => $task, 'role' => $role, 'reason' => ['already_active_same_provider']];
+
+                continue;
+            }
+            try {
+                $receipt = $this->applyAction([
+                    'action' => self::ACTION_ACTIVATE,
+                    'task_category' => $task,
+                    'role' => $role,
+                    'framework' => $framework,
+                    'actor' => $actor,
+                ]);
+                $envelope['activated'][] = [
+                    'task_category' => $task,
+                    'role' => $role,
+                    'framework' => $framework,
+                    'provider' => $receipt['recommended_provider'] ?? null,
+                    'model' => $receipt['recommended_model'] ?? null,
+                ];
+            } catch (\Throwable $e) {
+                $envelope['skipped'][] = ['task_category' => $task, 'role' => $role, 'reason' => ['activation_failed: '.$e->getMessage()]];
+            }
+        }
+
+        return $envelope;
+    }
+
     public function autoDeactivateOnDegradation(string $actor = 'autonomous_feedback_loop'): array
     {
         $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);

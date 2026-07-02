@@ -114,6 +114,30 @@ final class AtlasDecideLiveEvidenceActivationTest extends TestCase
         $this->assertFalse((bool) $rec['actionable']);
     }
 
+    public function test_auto_activation_sweep_is_off_by_default_and_activates_when_flagged(): void
+    {
+        $this->record('hermes_cli', 'success', 10);
+
+        // Default OFF: byte-identical no-op, nothing activated.
+        $off = $this->adml->autoActivateFromLiveEvidence('test_sweep');
+        $this->assertFalse($off['enabled']);
+        $this->assertSame([], $off['activated']);
+        $this->assertNull($this->adml->activeRouteFor('programming', 'repair'));
+
+        // Flag ON: the scope with strong live evidence activates autonomously.
+        config(['atlas.patamar4.adml_auto_activation_enabled' => true]);
+        $on = $this->adml->autoActivateFromLiveEvidence('test_sweep');
+        $this->assertTrue($on['enabled']);
+        $this->assertCount(1, $on['activated'], json_encode($on['skipped']));
+        $this->assertSame('hermes_cli', $on['activated'][0]['provider']);
+        $this->assertSame('hermes_cli', $this->adml->activeRouteFor('programming', 'repair')['provider']);
+
+        // Idempotent: a second sweep skips the already-active same-provider route.
+        $again = $this->adml->autoActivateFromLiveEvidence('test_sweep');
+        $this->assertSame([], $again['activated']);
+        $this->assertContains(['already_active_same_provider'], array_column($again['skipped'], 'reason'));
+    }
+
     public function test_close_live_race_stays_not_actionable(): void
     {
         // 0.75 vs 0.75 — a dead-heat race must not activate either provider.

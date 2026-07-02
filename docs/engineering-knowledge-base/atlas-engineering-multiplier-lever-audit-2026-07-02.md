@@ -225,8 +225,18 @@ failure capsules re-backfilled dos receipts reais (rows=56).
   Ativação continua ação explícita (operador/CLI) — o que fechou é a evidência tornando-a
   possível; sweep de auto-ativação flag-gated é candidato futuro.
 
+## Execução S13 (02/07/2026)
+
+- **S13 (entregue):** sweep de auto-ativação `autoActivateFromLiveEvidence()` — varre os
+  escopos do ledger live, ativa toda rota com recomendação actionable (mesmo receipt de
+  auditoria do activate manual; consult mantém kernel/admission). Flag
+  `ATLAS_PATAMAR4_ADML_AUTO_ACTIVATION_ENABLED` default OFF. Idempotente
+  (already_active_same_provider skip). CLI: `atlas:atlas-decide:live-feedback
+  --action=activate-sweep`. Com S8+S12+S13 o circuito de roteamento fecha inteiro: run real
+  → outcome → recomendação → ativação → follow_learned → degradação → desativação. Prova:
+  5 cenários no `AtlasDecideLiveEvidenceActivationTest` + 216 testes AtlasDecide verdes.
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Candidatos re-rankeados:** (a) sweep de auto-ativação de rota flag-gated (fecha o loop
-routing 100% autônomo, admission-gated); (b) #9 GC/índice do receipt store (latência do
-retrieve de exemplares); (c) próximo gargalo da medição.
+**Candidatos:** (a) #9 GC/índice do receipt store (latência/qualidade do retrieve de
+exemplares: 6k+ receipts, scandir cap 300); (b) próximo gargalo que a medição apontar.
