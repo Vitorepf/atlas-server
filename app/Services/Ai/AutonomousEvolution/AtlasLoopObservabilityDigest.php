@@ -58,8 +58,14 @@ final class AtlasLoopObservabilityDigest
                 $parked++;
             }
             // in-flight = a live lease (claimed by a worker, not yet expired).
-            if (($row->claim_owner ?? null) !== null && $row->lease_expires_at !== null && Carbon::parse($row->lease_expires_at)->greaterThan($now)) {
-                $inFlight++;
+            if (($row->claim_owner ?? null) !== null && $row->lease_expires_at !== null) {
+                try {
+                    if (Carbon::parse($row->lease_expires_at)->greaterThan($now)) {
+                        $inFlight++;
+                    }
+                } catch (Throwable) {
+                    // Unparseable lease_expires_at — treat as not in-flight.
+                }
             }
             $maxEv = max($maxEv, (float) ($row->accrued_ev ?? 0.0));
         }
