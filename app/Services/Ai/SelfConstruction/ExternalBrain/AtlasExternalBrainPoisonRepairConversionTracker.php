@@ -26,8 +26,6 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
 
     public const STATUS_RETIRED = 'retired';
 
-    private const RUNNABLE_ACCEPTANCE_MARKERS = ['phpunit', 'artisan test', 'pytest', 'jest', 'rspec'];
-
     /**
      * True when a "repaired_success" claim carries enough evidence to prove the resulting
      * packet is genuinely claimable. Only checked when the event explicitly supplies
@@ -55,16 +53,8 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
         }
 
         $acceptanceCriteria = array_values(array_map('strval', (array) ($event['output_acceptance_criteria'] ?? [])));
-        foreach ($acceptanceCriteria as $criterion) {
-            $lower = strtolower($criterion);
-            foreach (self::RUNNABLE_ACCEPTANCE_MARKERS as $marker) {
-                if (str_contains($lower, $marker)) {
-                    return true;
-                }
-            }
-        }
 
-        return false;
+        return SharedAtlasExternalBrainRoadmapCoverageGapGovernorSeam::hasRunnableAcceptance($acceptanceCriteria);
     }
 
     private static function isTestPath(string $path): bool
