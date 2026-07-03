@@ -2556,8 +2556,11 @@ class AtlasOpenBrainMcpService
         $lastIndexAt = $codeSummary['last_indexed_at'] ?? null;
         $indexFresh = false;
         if ($lastIndexAt !== null) {
-            $indexFresh = Carbon::parse($lastIndexAt)
-                ->greaterThan(now()->subDay());
+            try {
+                $indexFresh = Carbon::parse($lastIndexAt)->greaterThan(now()->subDay());
+            } catch (\Throwable $e) {
+                $indexFresh = false;
+            }
         }
 
         return [
