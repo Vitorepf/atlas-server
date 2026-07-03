@@ -88,4 +88,54 @@ final class AtlasLoopComprehensionGraphSerializerTest extends TestCase
 
         return $dir;
     }
+
+    /**
+     * A corrupt snapshot file (invalid JSON) must throw a RuntimeException
+     * instead of silently returning an empty array that a downstream
+     * comprehension model would treat as a genuinely empty graph.
+     */
+    public function test_read_snapshot_throws_on_corrupt_file(): void
+    {
+        $dir = $this->tmpDir();
+        $corruptPath = $dir.'/corrupt.json';
+        file_put_contents($corruptPath, '{this is not valid json!!!');
+
+        $serializer = new AtlasLoopComprehensionGraphSerializer;
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Snapshot file contains invalid JSON');
+        $serializer->readSnapshot($corruptPath);
+    }
+
+    /**
+     * A valid empty-array snapshot must still return an empty array
+     * (distinguishable from corruption).
+     */
+    public function test_read_snapshot_returns_empty_array_for_valid_empty_snapshot(): void
+    {
+        $dir = $this->tmpDir();
+        $emptyPath = $dir.'/empty.json';
+        file_put_contents($emptyPath, '[]');
+
+        $serializer = new AtlasLoopComprehensionGraphSerializer;
+
+        $result = $serializer->readSnapshot($emptyPath);
+
+        $this->assertSame([], $result);
+    }
+
+    /**
+     * A valid snapshot with content must still round-trip correctly.
+     */
+    public function test_read_snapshot_round_trips_valid_snapshot(): void
+    {
+        $dir = $this->tmpDir();
+        $serializer = new AtlasLoopComprehensionGraphSerializer;
+        $snapshot = $this->snapshot();
+
+        $path = $serializer->writeSnapshot($snapshot, $dir);
+        $result = $serializer->readSnapshot($path);
+
+        $this->assertSame($snapshot, $result);
+    }
 }

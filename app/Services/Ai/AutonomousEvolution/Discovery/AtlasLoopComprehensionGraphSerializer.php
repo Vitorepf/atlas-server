@@ -49,10 +49,19 @@ final class AtlasLoopComprehensionGraphSerializer
 
     /**
      * @return array<string,mixed>
+     *
+     * @throws \RuntimeException when the snapshot file contains invalid JSON
      */
     public function readSnapshot(string $path): array
     {
-        return $this->decode((string) file_get_contents($path));
+        $contents = (string) file_get_contents($path);
+        $decoded = json_decode($contents, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException('Snapshot file contains invalid JSON: '.$path);
+        }
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     /**
