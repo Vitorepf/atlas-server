@@ -220,6 +220,7 @@ final class AgentControlPlaneReplaySnapshotStore
      */
     private function capRegistry(array $registry, int $keep): array
     {
+        $keep = max(0, $keep);
         $entries = array_values((array) ($registry['entries'] ?? []));
         if (count($entries) > $keep) {
             $excess = array_slice($entries, 0, count($entries) - $keep);
