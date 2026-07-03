@@ -499,3 +499,14 @@ Schedule::command('atlas:loop:cortex:cadence --json')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/cortex-comprehension-build.log'))
     ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
+
+// fable-M S23 — cadência da AUTO-ATIVAÇÃO de rota por evidência (S8/S12/S13): com a flag ON,
+// o sweep ativa rotas cujo ledger live sustenta a recomendação (o sweep de DEGRADAÇÃO/desativação
+// já roda agendado como autonomous_feedback_loop — este é o arco de ativação que faltava).
+// Flag default OFF ⇒ byte-idêntico a hoje. §0 MASTER SWITCH também exigido.
+Schedule::command('atlas:atlas-decide:live-feedback --action=activate-sweep --actor=scheduled_live_evidence --json')
+    ->hourly()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/adml-activate-sweep.log'))
+    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
+        && (bool) config('atlas.patamar4.adml_auto_activation_enabled', false));
