@@ -227,6 +227,7 @@ final class AtlasExternalBrainProviderPoolOutputNormalizer
             return [];
         }
 
-        return array_values(array_filter(array_map('strval', $value), static fn (string $s): bool => $s !== ''));
+        $scalars = array_filter($value, static fn (mixed $v): bool => is_scalar($v));
+        return array_values(array_filter(array_map('strval', $scalars), static fn (string $s): bool => $s !== ''));
     }
 }
