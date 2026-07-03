@@ -164,7 +164,7 @@ final class AtlasSelfConstructionAutonomyTransitionMap
             }
 
             $nextStep = $laneDeps !== []
-                ? $laneDeps[0]['task_fabric_action']
+                ? ($laneDeps[0]['task_fabric_action'] ?? self::LANE_DEFAULT_NEXT_STEP[$lane])
                 : self::LANE_DEFAULT_NEXT_STEP[$lane];
 
             $laneMap[$lane] = [
