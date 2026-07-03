@@ -275,6 +275,19 @@ failure capsules re-backfilled dos receipts reais (rows=56).
   custo por chamada capped. Prova: 15 testes do retriever (3 novos: backfill além do cap,
   lazy+tombstone, anti-bleed no índice) + 134 testes dos consumidores verdes.
 
+## Incidente #3 — 2º vetor do wiper + fix estrutural (S17+S18, 02/07 23:46 UTC)
+
+Onda 23:46 UTC (5ª): `captureSymptom()` da mineração provisiona worktree temporário PRÓPRIO
+(vendor symlinkado) e rodava o check sem `.env` → pgsql vivo via default de config →
+`migration->down()` dropou as tabelas de novo. Fixes:
+- **S17** (`bd7271336c`): mesmo `provisionDatabaseFloor()` aplicado no captureSymptom.
+- **S18** (`a73c6799f6`): fix estrutural raiz — `config/database.php` default de
+  `DB_CONNECTION` virou `sqlite` (o repo vivo declara pgsql explicitamente no `.env`);
+  QUALQUER boot sem env, de qualquer site de provision futuro, cai em sqlite local e nunca
+  alcança produção. Sanity: repo vivo continua pgsql.
+- `atlas:dev:capsule-backfill` — recuperação da tabela de capsules em um comando idempotente
+  (updateOrCreate por failure_hash; 3ª recuperação foi a última manual).
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
 **Candidatos:** (a) re-medição do funil (pass_rate baseline 0.346) quando os canais novos
