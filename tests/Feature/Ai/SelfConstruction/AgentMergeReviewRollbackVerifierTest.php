@@ -353,4 +353,22 @@ final class AgentMergeReviewRollbackVerifierTest extends TestCase
 
         $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_ROLLBACK_READY, $result['decision']);
     }
+
+    /**
+     * The rollback fingerprint hash must fail closed when json_encode returns
+     * false, instead of hashing an empty string and aliasing distinct rollback
+     * states under one fingerprint.
+     */
+    public function test_fingerprint_hash_fails_closed_for_unencodable_payload(): void
+    {
+        $svc = new AgentMergeReviewRollbackVerifier;
+        $method = new \ReflectionMethod($svc, 'hashEnvelope');
+
+        // A resource cannot be JSON-encoded — json_encode returns false.
+        $unencodable = ['_resource' => fopen('php://memory', 'r')];
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('json_encode failed on rollback verification envelope');
+        $method->invoke($svc, $unencodable);
+    }
 }

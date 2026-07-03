@@ -287,6 +287,12 @@ final class AgentMergeReviewRollbackVerifier
         $copy = $envelope;
         unset($copy['verification_hash']);
 
-        return hash('sha256', (string) json_encode($copy, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $encoded = json_encode($copy, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        if ($encoded === false) {
+            throw new \RuntimeException('json_encode failed on rollback verification envelope — cannot produce fingerprint hash');
+        }
+
+        return hash('sha256', $encoded);
     }
 }
