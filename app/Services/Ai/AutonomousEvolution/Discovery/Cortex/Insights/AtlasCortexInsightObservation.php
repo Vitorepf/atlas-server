@@ -59,9 +59,13 @@ final class AtlasCortexInsightObservation implements JsonSerializable
 
     public static function normalizeTimestamp(?string $value = null): string
     {
-        $timestamp = $value === null || trim($value) === ''
-            ? new DateTimeImmutable('now', new DateTimeZone('UTC'))
-            : new DateTimeImmutable($value);
+        try {
+            $timestamp = $value === null || trim($value) === ''
+                ? new DateTimeImmutable('now', new DateTimeZone('UTC'))
+                : new DateTimeImmutable($value);
+        } catch (\Throwable $e) {
+            $timestamp = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        }
 
         return $timestamp
             ->setTimezone(new DateTimeZone('UTC'))
