@@ -59,9 +59,18 @@ class CodexCliProvider implements AiProvider
             $args[] = $model;
         }
 
+        // Visibilidade de execução (03/07): `--json` faz o codex emitir cada
+        // passo (comando, edição, busca, raciocínio) como JSONL; o parser
+        // abaixo traduz em eventos TIPADOS persistidos no stream do job —
+        // a UI mostra "o que ele está fazendo" como Claude Code/Codex.
+        // A resposta final continua vindo do --output-last-message.
+        $args[] = '--json';
         $args[] = '--output-last-message';
         $args[] = $tmp;
         $args[] = '-';
+
+        $parser = new \App\Services\Ai\Streaming\CodexJsonlEventParser;
+        $onEvent = $this->wrapOnEventWithJsonlParser($onEvent, $parser);
 
         $result = $this->runProcessStreaming(
             command: array_values(array_merge([$binary], $args)),
@@ -116,6 +125,33 @@ class CodexCliProvider implements AiProvider
                 'compute_effort' => $computeEffort,
             ]),
         );
+    }
+
+    /**
+     * Intercepta os buffers stdout do processo e re-emite como eventos
+     * TIPADOS (tool/thinking/response/lifecycle) via CodexJsonlEventParser.
+     * Eventos não-stdout (stderr, lifecycle do runner) passam direto — e
+     * forçam o flush do resto de linha para preservar a ordem.
+     */
+    private function wrapOnEventWithJsonlParser(?callable $onEvent, \App\Services\Ai\Streaming\CodexJsonlEventParser $parser): ?callable
+    {
+        if ($onEvent === null) {
+            return null;
+        }
+
+        return static function (array $event) use ($onEvent, $parser): void {
+            if (($event['type'] ?? null) !== 'stdout') {
+                if (($flushed = $parser->flushRemainder()) !== null) {
+                    $onEvent($flushed + ['occurred_at' => now()->toJSON()]);
+                }
+                $onEvent($event);
+
+                return;
+            }
+            foreach ($parser->feed((string) ($event['content'] ?? '')) as $typed) {
+                $onEvent($typed + ['occurred_at' => now()->toJSON()]);
+            }
+        };
     }
 
     public function health(): AiProviderHealthCheck
