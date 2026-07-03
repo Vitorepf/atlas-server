@@ -43,9 +43,13 @@ final class AtlasBrainHeartbeatLedger
     /** @return list<array<string,mixed>> */
     public function tail(string $scope, int $k = 30): array
     {
+        if ($k <= 0) {
+            return [];
+        }
+
         $rows = (new JsonlReceiptStore($this->pathFor($this->slugify($scope))))->replay();
 
-        return array_values(array_slice($rows, -max(1, $k)));
+        return array_values(array_slice($rows, -$k));
     }
 
     private function pathFor(string $scope): string
