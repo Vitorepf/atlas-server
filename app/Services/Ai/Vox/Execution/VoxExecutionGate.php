@@ -79,13 +79,20 @@ final class VoxExecutionGate
 
         // 3. Receipt expiry.
         $expires = (string) ($receipt['expires_at'] ?? '');
-        if ($expires !== '' && Carbon::parse($expires)->isPast()) {
-            return $this->block(
-                code: 'receipt_expired',
-                message: 'Receipt has expired; re-compile intent before executing.',
-                intentPacket: $intentPacket,
-                receipt: $receipt,
-            );
+        if ($expires !== '') {
+            try {
+                $expired = Carbon::parse($expires)->isPast();
+            } catch (\Throwable $e) {
+                $expired = false;
+            }
+            if ($expired) {
+                return $this->block(
+                    code: 'receipt_expired',
+                    message: 'Receipt has expired; re-compile intent before executing.',
+                    intentPacket: $intentPacket,
+                    receipt: $receipt,
+                );
+            }
         }
 
         // 4. Hard veto on the compiled_prompt + human_input combined surface.
