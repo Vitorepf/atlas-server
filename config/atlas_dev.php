@@ -78,8 +78,9 @@ return [
     // PASSING em ordem determinística. Existia BUILT sem chave declarada
     // (só o fallback config(...,1) — mais um órgão adormecido). Default 1 =
     // byte-idêntico; ligar via env é decisão do operador (N× custo hermes).
-    // repo real o re-apply do vencedor falhou "corrupt patch" →
-    // winner_reapply_failed. NÃO ligar até o bug do reapply ser corrigido.
+    // Provado VIVO em 03/07 (S46): N=2 em repo real fechou passed com refactor
+    // de 28L (escada de apply --recount/--3way + divergência textual tratada
+    // como informação auditável no summary).
     'best_of_n' => [
         'candidate_count' => (int) env('ATLAS_DEV_BEST_OF_N', 1),
     ],
