@@ -76,6 +76,11 @@ final class CodexJsonlEventParser
         }
 
         if (str_starts_with($type, 'item.') && $itemType !== '') {
+            // item_id permite a UI casar started→completed do MESMO passo:
+            // "Executando X…" (linha viva, phase item.started) vira o item
+            // concluído com exit code no grupo — padrão Claude Code/Codex.
+            $itemId = (string) ($item['id'] ?? '');
+
             return match ($itemType) {
                 'command_execution' => [
                     'type' => 'tool',
@@ -84,6 +89,7 @@ final class CodexJsonlEventParser
                     'channel' => 'activity',
                     'metadata' => [
                         'phase' => $type,
+                        'item_id' => $itemId,
                         'exit_code' => $item['exit_code'] ?? null,
                         'status' => $item['status'] ?? null,
                         'output_excerpt' => mb_substr((string) ($item['aggregated_output'] ?? ''), 0, 400),
@@ -94,35 +100,35 @@ final class CodexJsonlEventParser
                     'name' => 'edit',
                     'content' => $this->fileChangeSummary($item),
                     'channel' => 'activity',
-                    'metadata' => ['phase' => $type, 'status' => $item['status'] ?? null],
+                    'metadata' => ['phase' => $type, 'item_id' => $itemId, 'status' => $item['status'] ?? null],
                 ],
                 'web_search' => [
                     'type' => 'tool',
                     'name' => 'search',
                     'content' => (string) ($item['query'] ?? ''),
                     'channel' => 'activity',
-                    'metadata' => ['phase' => $type],
+                    'metadata' => ['phase' => $type, 'item_id' => $itemId],
                 ],
                 'mcp_tool_call' => [
                     'type' => 'tool',
                     'name' => (string) ($item['tool'] ?? 'mcp'),
                     'content' => (string) ($item['server'] ?? ''),
                     'channel' => 'activity',
-                    'metadata' => ['phase' => $type, 'status' => $item['status'] ?? null],
+                    'metadata' => ['phase' => $type, 'item_id' => $itemId, 'status' => $item['status'] ?? null],
                 ],
                 'reasoning' => [
                     'type' => 'thinking',
                     'name' => 'reasoning',
                     'content' => mb_substr((string) ($item['text'] ?? $item['summary'] ?? ''), 0, 600),
                     'channel' => 'activity',
-                    'metadata' => ['phase' => $type],
+                    'metadata' => ['phase' => $type, 'item_id' => $itemId],
                 ],
                 'agent_message' => [
                     'type' => 'response',
                     'name' => 'assistant_message',
                     'content' => (string) ($item['text'] ?? ''),
                     'channel' => 'assistant',
-                    'metadata' => ['phase' => $type],
+                    'metadata' => ['phase' => $type, 'item_id' => $itemId],
                 ],
                 default => $this->raw($line),
             };
