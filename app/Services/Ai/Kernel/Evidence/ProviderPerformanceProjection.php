@@ -148,12 +148,12 @@ class ProviderPerformanceProjection
             'failure_reason_counts' => $events->pluck('failure_reason')->filter()->countBy()->all(),
             'selection_mode_counts' => $events->pluck('selection_mode')->filter()->countBy()->all(),
             'groups' => $events
-                ->groupBy(fn (array $event): string => implode('|', [
+                ->groupBy(fn (array $event): string => json_encode([
                     $event['provider_cli'] ?: 'unknown',
                     $event['domain'] ?: 'unknown',
                     $event['specialist_profile'] ?: 'unknown',
                     $event['task_type'] ?: 'unknown',
-                ]))
+                ], JSON_THROW_ON_ERROR))
                 ->map(fn (Collection $group, string $key): array => $this->groupSummary($key, $group))
                 ->sortByDesc('success_rate')
                 ->values()
