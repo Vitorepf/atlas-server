@@ -140,12 +140,12 @@ final class MemoryFeedbackDecayScorer
             return 'inactivate';
         }
 
-        if ($wrongContext > 0 && $healthScore <= self::INACTIVATE_HEALTH_CEILING) {
-            $reasons[] = 'inactivated_by_wrong_context_feedback';
-
-            return 'inactivate';
-        }
-
+        // CONTRATO CONGELADO (AND-not-OR, teste de 01/06): wrong_context
+        // sozinho NUNCA inativa — inativação exige o gate conjuntivo
+        // (negativos>=limiar E health<=teto); wrong_context apenas degrada.
+        // Um auto-merge do Loop em 13/06 (6df5fa50c6, pré-O-3/reprove)
+        // enxertou aqui uma regra que inativava memórias agressivamente e
+        // quebrou o teste congelado por 3 semanas — removido em 03/07.
         if ($negative >= self::INACTIVATE_NEGATIVE_THRESHOLD || $wrongContext > 0 || $healthScore <= self::DEGRADE_HEALTH_CEILING) {
             $reasons[] = 'degraded_by_feedback_pressure';
 
@@ -181,10 +181,11 @@ final class MemoryFeedbackDecayScorer
             return 'stale_review_recommended';
         }
 
-        if ($this->softStale($recordedAge) || $this->softStale($lastUsedAge)) {
-            return 'stale_review_recommended';
-        }
-
+        // CONTRATO CONGELADO (teste de 01/06): banda SOFT-stale é AVISO
+        // (threshold_reasons carrega soft_stale_age_exceeds_45d) — o ESTADO
+        // continua 'fresh'; só hard-stale muda staleness. Auto-merge do Loop
+        // de 12/06 (9f8d214599, pré-O-3) promovia soft→review e quebrou o
+        // teste congelado por 3 semanas — removido em 03/07.
         return 'fresh';
     }
 
