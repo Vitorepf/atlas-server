@@ -65,6 +65,21 @@ next_actions:
   - Concluir slices restantes do rebuild e registrar evidencia por slice.
 ---
 
+## Contrato de nomenclatura (2026-07-03, decisão do operador)
+
+Produto público: **Rivals**. Versão: **2.0**. Comando canônico: `atlas:rivals`
+(`atlas:rivals2` é só alias temporário de compat). Config: `config/atlas_rivals.php`
+com `version=2.0`. Namespace de código: `App\Services\Ai\Rivals`. Nenhuma
+superfície pública nova pode usar "Rivals2"; schema ids `atlas.rivals2.*`, env
+vars `ATLAS_RIVALS2_*` e storage `atlas/rivals2` ficam como formato interno
+preservado (runs existentes + .env vivo). Referências a `atlas:rivals2` abaixo
+neste doc são históricas do rebuild.
+
+Benchmark repos externos REAIS: registry em `config/atlas_rivals.php`
+(`benchmarks.repos`, os 9 do operador), clones pinados em `tools/rivals/benchmarks/`,
+smoke real via `atlas:rivals benchmark-smoke --repo=<id> --json` (receipts em
+`storage/atlas/rivals2/benchmarks/`). Adapter sem smoke verde = blocked, nunca done.
+
 ## Resumo
 
 Kill-map canonico do Rivals 1.0 e mapa do rebuild 2.0. Ver secoes numeradas abaixo (fonte de verdade A/B/C/D).

@@ -38,6 +38,7 @@ class AtlasRivalsCommand extends Command
         {--repetitions=3}
         {--seed=1}
         {--verify : (ledger) verifica a hash chain}
+        {--workspace= : (compat launcher bin/atlas) ignorado — Rivals roda no atlas-server}
         {--json}';
 
     protected $description = 'Rivals 2.0 — benchmark interno Atlas (model-vs-model + Atlas uplift), fail-closed';
