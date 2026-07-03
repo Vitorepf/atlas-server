@@ -166,11 +166,15 @@ final class AtlasCortexSymbolAgeReporter
         return $this->normalizeTimestamp($timestamp);
     }
 
-    private function normalizeTimestamp(string $value): string
+    private function normalizeTimestamp(string $value): ?string
     {
-        return (new DateTimeImmutable($value))
-            ->setTimezone(new \DateTimeZone('UTC'))
-            ->format('Y-m-d\TH:i:s\Z');
+        try {
+            return (new DateTimeImmutable($value))
+                ->setTimezone(new \DateTimeZone('UTC'))
+                ->format('Y-m-d\TH:i:s\Z');
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     private function relativePath(string $path): string
