@@ -371,7 +371,15 @@ class RecommendationMeasurementService
         $history = collect((array) $recommendation->state_history)->reverse();
         $entry = $history->first(fn (mixed $entry): bool => is_array($entry) && ($entry['state'] ?? null) === 'applied' && is_string($entry['at'] ?? null));
 
-        return is_array($entry) ? CarbonImmutable::parse((string) $entry['at']) : null;
+        return is_array($entry)
+            ? (function () use ($entry): ?\Carbon\CarbonImmutable {
+                try {
+                    return CarbonImmutable::parse((string) $entry['at']);
+                } catch (\Throwable $e) {
+                    return null;
+                }
+            })()
+            : null;
     }
 
     private function clock(CarbonInterface|string|null $now): CarbonImmutable
@@ -381,7 +389,11 @@ class RecommendationMeasurementService
         }
 
         if (is_string($now) && trim($now) !== '') {
-            return CarbonImmutable::parse(trim($now));
+            try {
+                return CarbonImmutable::parse(trim($now));
+            } catch (\Throwable $e) {
+                return CarbonImmutable::now();
+            }
         }
 
         return CarbonImmutable::now();
