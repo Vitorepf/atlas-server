@@ -95,7 +95,12 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
             'next_level' => $nextLevel,
             'promotion_blocked' => $bindingBreaches !== [],
             'binding_breaches' => $bindingBreaches,
-            'evaluated_bands' => $firstFailingIndex === null ? count($bands) : $firstFailingIndex + 1,
+            // CONTRATO CONGELADO (teste de 01/06): evaluated_bands = total de
+            // bandas do CONTRATO avaliado (consistente com highest_evaluable_
+            // level acima), não "visitadas até a 1ª falha". Um auto-merge do
+            // Loop em 13/06 (eb14ed9000, pré-O-3/reprove) trocou a semântica
+            // sem reconciliar o teste — 5 testes vermelhos por 3 semanas.
+            'evaluated_bands' => count($bands),
             'evaluated_metrics' => $evaluatedMetrics,
         ]);
     }
