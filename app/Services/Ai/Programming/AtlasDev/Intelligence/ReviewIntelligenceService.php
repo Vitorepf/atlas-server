@@ -55,7 +55,9 @@ final class ReviewIntelligenceService
 
     public const PERFORMANCE_KEYWORDS = [
         'while (true)', 'while(true)', 'sleep(', 'select * from',
-        'foreach ($', 'n+1',
+        // 'foreach ($' removido 03/07: TODO diff PHP com um loop virava
+        // finding de performance → needs_review universal (ruído, não sinal).
+        'n+1',
     ];
 
     public const SECRET_LEAK_FILE_PATTERNS = [
@@ -259,7 +261,7 @@ final class ReviewIntelligenceService
         foreach ($diffChunks as $hunk) {
             $body = strtolower((string) ($hunk['body'] ?? ''));
             foreach (['"password":', "'password' =>", 'aws_secret', 'private_key='] as $needle) {
-                if (str_contains($body, $needle)) {
+                if ($this->keywordInBody($body, $needle)) {
                     $counter++;
                     $findings[] = new ReviewFinding(
                         findingId: 'secret_leak_'.$counter,
@@ -295,7 +297,7 @@ final class ReviewIntelligenceService
             $line = isset($hunk['line']) && is_int($hunk['line']) && $hunk['line'] >= 1 ? $hunk['line'] : null;
 
             foreach (self::DATA_LOSS_KEYWORDS as $needle) {
-                if (str_contains($body, $needle)) {
+                if ($this->keywordInBody($body, $needle)) {
                     $counter++;
                     $findings[] = new ReviewFinding(
                         findingId: 'data_loss_'.$counter,
@@ -313,7 +315,7 @@ final class ReviewIntelligenceService
                 }
             }
             foreach (self::PERFORMANCE_KEYWORDS as $needle) {
-                if (str_contains($body, $needle)) {
+                if ($this->keywordInBody($body, $needle)) {
                     $counter++;
                     $findings[] = new ReviewFinding(
                         findingId: 'perf_'.$counter,
@@ -331,7 +333,7 @@ final class ReviewIntelligenceService
                 }
             }
             foreach (self::SECURITY_KEYWORDS as $needle) {
-                if (str_contains($body, $needle) && (str_contains($body, 'public ') || str_contains($body, 'return '))) {
+                if ($this->keywordInBody($body, $needle) && (str_contains($body, 'public ') || str_contains($body, 'return '))) {
                     $counter++;
                     $findings[] = new ReviewFinding(
                         findingId: 'sec_'.$counter,
@@ -863,13 +865,33 @@ final class ReviewIntelligenceService
             }
             $body = strtolower((string) ($hunk['body'] ?? ''));
             foreach ($keywords as $k) {
-                if (str_contains($body, $k)) {
+                if ($this->keywordInBody($body, $k)) {
                     return true;
                 }
             }
         }
 
         return false;
+    }
+
+    /**
+     * Matching de keyword nos hunks: tokens de uma palavra exigem fronteira
+     * de palavra ('token' NÃO casa dentro de 'riskyTokens' — falso finding
+     * de segurança em todo identificador que contém a palavra; mesma doença
+     * corrigida no IntentKernelService em 03/07). Needles com espaço/pontuação
+     * ('drop table', 'sha256(', 'rm -rf') mantêm substring.
+     */
+    private function keywordInBody(string $body, string $needle): bool
+    {
+        $needle = strtolower($needle);
+        if ($needle === '') {
+            return false;
+        }
+        if (preg_match('/\A[a-z0-9_]+\z/', $needle) === 1) {
+            return preg_match('/(?<![a-z0-9_])'.preg_quote($needle, '/').'(?![a-z0-9_])/', $body) === 1;
+        }
+
+        return str_contains($body, $needle);
     }
 
     /**
