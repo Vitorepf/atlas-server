@@ -110,11 +110,15 @@ final class AtlasCortexOrphanAgeReporter
             return null;
         }
 
-        $start = new DateTimeImmutable($unwiredSinceAt, new DateTimeZone('UTC'));
-        $end = new DateTimeImmutable($headTimestamp, new DateTimeZone('UTC'));
-        $seconds = max(0, $end->getTimestamp() - $start->getTimestamp());
+        try {
+            $start = new DateTimeImmutable($unwiredSinceAt, new DateTimeZone('UTC'));
+            $end = new DateTimeImmutable($headTimestamp, new DateTimeZone('UTC'));
+            $seconds = max(0, $end->getTimestamp() - $start->getTimestamp());
 
-        return (int) floor($seconds / 86400);
+            return (int) floor($seconds / 86400);
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     private function gitTimestamp(array $args): ?string
@@ -132,11 +136,15 @@ final class AtlasCortexOrphanAgeReporter
         return $this->normalizeTimestamp($timestamp);
     }
 
-    private function normalizeTimestamp(string $value): string
+    private function normalizeTimestamp(string $value): ?string
     {
-        return (new DateTimeImmutable($value))
-            ->setTimezone(new DateTimeZone('UTC'))
-            ->format('Y-m-d\TH:i:s\Z');
+        try {
+            return (new DateTimeImmutable($value))
+                ->setTimezone(new DateTimeZone('UTC'))
+                ->format('Y-m-d\TH:i:s\Z');
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     private function relativePath(string $path): string
