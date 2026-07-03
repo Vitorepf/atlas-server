@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Hermes\Acp;
 
 use App\Services\Ai\Hermes\HermesAdapterReceipt;
+use App\Services\Ai\Hermes\Mesh\SharedHermesCheckpointPolicySeam;
 use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use App\Support\AtlasSecurity;
 use Throwable;
@@ -176,7 +177,7 @@ class HermesAcpPermissionGate
                 continue;
             }
 
-            $optionId = $this->string($option['optionId'] ?? null, 190);
+            $optionId = SharedHermesCheckpointPolicySeam::boundedString($option['optionId'] ?? null, 190);
             if ($optionId === null) {
                 // An option with no usable id can never be selected safely.
                 continue;
@@ -184,8 +185,8 @@ class HermesAcpPermissionGate
 
             $out[] = [
                 'optionId' => $optionId,
-                'name' => $this->string($option['name'] ?? null, 190),
-                'kind' => $this->string($option['kind'] ?? null, 80),
+                'name' => SharedHermesCheckpointPolicySeam::boundedString($option['name'] ?? null, 190),
+                'kind' => SharedHermesCheckpointPolicySeam::boundedString($option['kind'] ?? null, 80),
             ];
         }
 
@@ -395,20 +396,6 @@ class HermesAcpPermissionGate
             return (string) $id;
         }
 
-        return $this->string($id, 190);
-    }
-
-    private function string(mixed $value, int $limit): ?string
-    {
-        if (! is_string($value) && ! is_numeric($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-        if ($value === '') {
-            return null;
-        }
-
-        return mb_strlen($value) > $limit ? mb_substr($value, 0, $limit) : $value;
+        return SharedHermesCheckpointPolicySeam::boundedString($id, 190);
     }
 }

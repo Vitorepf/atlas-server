@@ -71,9 +71,9 @@ class HermesMeshReconciler
             'hermes_mesh_can_decide' => false,
             'memory_promotion_requires_atlas_memory_gate' => true,
             'authority' => 'atlas',
-            'mesh_plan_id' => $this->string($plan['mesh_plan_id'] ?? $plan['plan_id'] ?? null, 190),
-            'mission_id' => $this->string($plan['mission_id'] ?? null, 190),
-            'mission_hash' => $this->string($plan['mission_hash'] ?? null, 190),
+            'mesh_plan_id' => SharedHermesCheckpointPolicySeam::boundedString($plan['mesh_plan_id'] ?? $plan['plan_id'] ?? null, 190),
+            'mission_id' => SharedHermesCheckpointPolicySeam::boundedString($plan['mission_id'] ?? null, 190),
+            'mission_hash' => SharedHermesCheckpointPolicySeam::boundedString($plan['mission_hash'] ?? null, 190),
             'mesh_enabled' => $meshEnabled,
             'reconciliation_allowed_now' => $reconciliationAllowedNow,
             'aggregate_status' => $aggregateStatus,
@@ -114,7 +114,7 @@ class HermesMeshReconciler
                 'child_id' => $this->childId($planChild, $packet, $index),
                 'status' => $this->childStatus($packet),
                 'has_packet' => $packet !== null,
-                'result_hash' => $packet !== null ? $this->string($packet['result_hash'] ?? null, 190) : null,
+                'result_hash' => $packet !== null ? SharedHermesCheckpointPolicySeam::boundedString($packet['result_hash'] ?? null, 190) : null,
             ];
         }
 
@@ -250,14 +250,14 @@ class HermesMeshReconciler
     private function childId(?array $planChild, ?array $packet, int $index): ?string
     {
         $fromPlan = $planChild !== null
-            ? $this->string($planChild['child_id'] ?? $planChild['mission_id'] ?? null, 190)
+            ? SharedHermesCheckpointPolicySeam::boundedString($planChild['child_id'] ?? $planChild['mission_id'] ?? null, 190)
             : null;
         if ($fromPlan !== null) {
             return $fromPlan;
         }
 
         $fromPacket = $packet !== null
-            ? $this->string($packet['result_id'] ?? $packet['mission_id'] ?? null, 190)
+            ? SharedHermesCheckpointPolicySeam::boundedString($packet['result_id'] ?? $packet['mission_id'] ?? null, 190)
             : null;
         if ($fromPacket !== null) {
             return $fromPacket;
@@ -298,19 +298,5 @@ class HermesMeshReconciler
         }
 
         return $this->hashValue($evidence);
-    }
-
-    private function string(mixed $value, int $limit): ?string
-    {
-        if (! is_string($value) && ! is_numeric($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-        if ($value === '') {
-            return null;
-        }
-
-        return mb_substr($value, 0, $limit);
     }
 }

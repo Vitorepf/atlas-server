@@ -37,8 +37,8 @@ class HermesCheckpointPolicy
     {
         $policy = $this->policy();
         $permissionMode = $this->permissionMode($permissionMode);
-        $missionId = $this->string($mission['mission_id'] ?? null, 190);
-        $missionHash = $this->string($mission['mission_hash'] ?? null, 190);
+        $missionId = SharedHermesCheckpointPolicySeam::boundedString($mission['mission_id'] ?? null, 190);
+        $missionHash = SharedHermesCheckpointPolicySeam::boundedString($mission['mission_hash'] ?? null, 190);
 
         $receipt = [
             'schema_version' => 'atlas.hermes.checkpoint_policy.v1',
@@ -101,19 +101,5 @@ class HermesCheckpointPolicy
         $mode = strtolower(trim($permissionMode));
 
         return in_array($mode, ['read', 'write', 'danger'], true) ? $mode : 'read';
-    }
-
-    private function string(mixed $value, int $limit): ?string
-    {
-        if (! is_string($value) && ! is_numeric($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-        if ($value === '') {
-            return null;
-        }
-
-        return mb_strlen($value) > $limit ? mb_substr($value, 0, $limit) : $value;
     }
 }
