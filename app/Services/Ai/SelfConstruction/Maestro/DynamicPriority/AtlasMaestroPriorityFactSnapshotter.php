@@ -300,6 +300,9 @@ final class AtlasMaestroPriorityFactSnapshotter
     private function appendRow(array $row): void
     {
         $line = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($line === false) {
+            return; // Unencodable row — skip silently to avoid corrupting the JSONL stream.
+        }
         $handle = @fopen($this->snapshotsPath, 'a');
         if ($handle === false) {
             return;
