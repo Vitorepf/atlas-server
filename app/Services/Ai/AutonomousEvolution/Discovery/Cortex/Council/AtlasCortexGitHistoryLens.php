@@ -83,10 +83,13 @@ final class AtlasCortexGitHistoryLens implements LensContract
                 continue;
             }
             $parts = explode("\t", substr($line, strlen('__C__')));
+            if (count($parts) < 3) {
+                continue;
+            }
             $commits[] = [
-                'sha' => (string) ($parts[0] ?? ''),
-                'date' => (string) ($parts[1] ?? ''),
-                'author' => (string) ($parts[2] ?? ''),
+                'sha' => (string) $parts[0],
+                'date' => (string) $parts[1],
+                'author' => (string) $parts[2],
                 'files' => [],
             ];
         }
@@ -281,10 +284,13 @@ final class AtlasCortexGitHistoryLens implements LensContract
                     $commits[] = $current;
                 }
                 $parts = explode("\t", substr($line, strlen('__C__')));
+                if (count($parts) < 3) {
+                    continue;
+                }
                 $current = [
-                    'sha' => (string) ($parts[0] ?? ''),
-                    'date' => (string) ($parts[1] ?? ''),
-                    'author' => (string) ($parts[2] ?? ''),
+                    'sha' => (string) $parts[0],
+                    'date' => (string) $parts[1],
+                    'author' => (string) $parts[2],
                     'files' => [],
                 ];
 
