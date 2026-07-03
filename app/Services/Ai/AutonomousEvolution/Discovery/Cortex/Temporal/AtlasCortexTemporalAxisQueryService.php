@@ -208,7 +208,11 @@ final class AtlasCortexTemporalAxisQueryService
             return null;
         }
 
-        return new DateTimeImmutable($value, new DateTimeZone('UTC'));
+        try {
+            return new DateTimeImmutable($value, new DateTimeZone('UTC'));
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     private function now(): DateTimeImmutable
