@@ -18,10 +18,12 @@ final class ReadinessDocumentProbe
         $absolutePath = base_path($path);
         $exists = is_file($absolutePath);
 
+        $lines = $exists ? @file($absolutePath, FILE_IGNORE_NEW_LINES) : false;
+
         $cached[$path] = [
             'path' => $path,
             'exists' => $exists,
-            'line_count' => $exists ? count(file($absolutePath, FILE_IGNORE_NEW_LINES)) : null,
+            'line_count' => is_array($lines) ? count($lines) : null,
         ];
 
         return $cached[$path];
