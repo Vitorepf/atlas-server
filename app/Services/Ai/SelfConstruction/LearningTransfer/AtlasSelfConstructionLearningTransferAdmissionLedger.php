@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\LearningTransfer;
 
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use App\Services\Ai\SelfConstruction\LearningTransfer\SharedAtlasSelfConstructionLearningLedgerSeam;
 
 /**
  * Append-only JSONL ledger of admitted lesson plans. Idempotent on plan_hash: a second append
@@ -139,7 +140,7 @@ final class AtlasSelfConstructionLearningTransferAdmissionLedger
      */
     public function planHash(array $plan): string
     {
-        $sorted = $this->sortRecursive($plan);
+        $sorted = SharedAtlasSelfConstructionLearningLedgerSeam::sortLedgerPayloadRecursively($plan);
 
         return hash('sha256', (string) json_encode($sorted, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
@@ -149,33 +150,6 @@ final class AtlasSelfConstructionLearningTransferAdmissionLedger
      */
     private function findByHash(string $hash): ?array
     {
-        foreach ($this->all() as $row) {
-            if ((string) ($row['plan_hash'] ?? '') === $hash) {
-                return $row;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return mixed
-     */
-    private function sortRecursive(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $v): mixed => $this->sortRecursive($v), $value);
-        }
-        ksort($value, SORT_STRING);
-        $out = [];
-        foreach ($value as $k => $v) {
-            $out[$k] = $this->sortRecursive($v);
-        }
-
-        return $out;
+        return SharedAtlasSelfConstructionLearningLedgerSeam::findLedgerRowByHash($this->all(), 'plan_hash', $hash);
     }
 }

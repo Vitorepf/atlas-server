@@ -80,11 +80,13 @@ final class AtlasBrainWorkerPromptCommand extends Command
 
     private function fillQuotaPromptBudget(string $prompt, int $targetSeeds): string
     {
-        if ($targetSeeds <= 0 || mb_strlen($prompt) >= 3900) {
+        if (mb_strlen($prompt) >= 3900) {
             return $prompt;
         }
 
-        $extra = "\nSPARE-BUDGET: dry vein=>pivot design-paths/web/repos/papers; no wrappers; seed distinct levers. No self-stop.";
+        $extra = $targetSeeds > 0
+            ? "\nSPARE-BUDGET: dry vein=>pivot design-paths; Hermes/refused/no_proposal=>ORIGINATE+SEED; no final; Obra/prod/pipeline valid; no self-contained dry; no wrappers; seed distinct levers. No self-stop."
+            : "\nSPARE-BUDGET: before authoring run queued-targets+contract-gaps; reject stale/queued targets; prefer bug/gate/live/simplify/frontier levers; require caller proof, before/after delta, and why-this-now; no wrappers. If vein dries pivot design-paths/repos/papers. Quality bar: prove real caller, real failing/risky behavior, implementability, smallest allowed_files, exact runnable test, and downstream unlock; avoid shallow CLI, template farm, doc-only unless docs are product contract. Rotate DomainMap/LeverageRanker/OutcomeLearning/QueueSelfHealing/TaskGraph/ModelAmplifier/Simplification. Every seed must teach muscles something useful. Scoring: one concrete root cause, one measurable delta, one worker-safe scope, one non-proxy proof, one compounding effect. If the first idea is shallow, discard it and search a harder vein. Prefer one excellent seed over five weak ones, but never stop while Atlas says not dry. Strong seeds only.";
         $room = 3948 - mb_strlen($prompt);
 
         return $room > 0 ? $prompt.mb_substr($extra, 0, $room) : $prompt;
@@ -146,7 +148,7 @@ PROMPT;
             : "HARD CONSTRAINTS:\n- NEVER edit app/; no commit/merge/queue. Write ONLY docs/. Queue via `atlas:brain:seed`.\n- NEVER turn the brain switch on; ATLAS_BRAIN_MASTER_ENABLED operator-only.\n- NO proxy/faxina/duplicate. STOP only on an ATLAS signal: `disabled` or `dry`.\nAMBITION:\n- ROTATE the self-improvement portfolio; seek the most exponential lift.\n- LOW/sufficient_depth/healthy queue NEVER stop, wait, or \"no task created\". Full queue=>use skills: codebase-design,improve-codebase-architecture,domain-modeling,diagnosing-bugs,tdd,code-review,teach,grilling,prototype,to-prd,grill-with-docs.\n- refused/no_proposal=>ORIGINATE+SEED; no final. Obra/prod/pipeline valid; no self-contained dry.\n- A refusal/blocked path is NOT a stop; change path.";
 
         return <<<PROMPT
-{$firstAction}Atlas BRAIN {$scope} id {$client} (`{$php}`). author≠judge.
+{$firstAction}Atlas BRAIN {$scope} {$client}. author≠judge.
 
 {$quota}
 {$altitude}

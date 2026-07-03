@@ -89,4 +89,16 @@ final class AtlasBrainWorkerPromptAltitudeTest extends TestCase
         self::assertStringContainsString('under quota search until Atlas dry', $out);
         self::assertLessThan(4000, mb_strlen(trim($out)));
     }
+
+    public function test_open_ended_prompt_spends_spare_budget_on_quality_rules(): void
+    {
+        $out = $this->prompt();
+
+        self::assertGreaterThanOrEqual(3900, mb_strlen($out), 'open-ended prompt should not waste paste budget');
+        self::assertLessThan(4000, mb_strlen($out));
+        self::assertStringContainsString('SPARE-BUDGET', $out);
+        self::assertStringContainsString('queued-targets+contract-gaps', $out);
+        self::assertStringContainsString('before/after delta', $out);
+        self::assertStringContainsString('no wrappers', $out);
+    }
 }

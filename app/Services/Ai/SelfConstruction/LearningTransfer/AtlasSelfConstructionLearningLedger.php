@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\LearningTransfer;
 
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use App\Services\Ai\SelfConstruction\LearningTransfer\SharedAtlasSelfConstructionLearningLedgerSeam;
 use RuntimeException;
 
 /**
@@ -63,7 +64,7 @@ final class AtlasSelfConstructionLearningLedger
             'schema_version' => self::SCHEMA,
             'lesson_hash' => $lessonHash,
             'recorded_at' => gmdate('Y-m-d\TH:i:s\Z'),
-            'lesson' => $this->sortRecursive($lesson),
+            'lesson' => SharedAtlasSelfConstructionLearningLedgerSeam::sortLedgerPayloadRecursively($lesson),
         ];
         ksort($row, SORT_STRING);
 
@@ -104,7 +105,7 @@ final class AtlasSelfConstructionLearningLedger
      */
     public function lessonHash(array $lesson): string
     {
-        return hash('sha256', (string) json_encode($this->sortRecursive($lesson), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return hash('sha256', (string) json_encode(SharedAtlasSelfConstructionLearningLedgerSeam::sortLedgerPayloadRecursively($lesson), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /**
@@ -182,33 +183,6 @@ final class AtlasSelfConstructionLearningLedger
      */
     private function findByHash(string $hash): ?array
     {
-        foreach ($this->all() as $row) {
-            if ((string) ($row['lesson_hash'] ?? '') === $hash) {
-                return $row;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return mixed
-     */
-    private function sortRecursive(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $v): mixed => $this->sortRecursive($v), $value);
-        }
-        ksort($value, SORT_STRING);
-        $out = [];
-        foreach ($value as $k => $v) {
-            $out[$k] = $this->sortRecursive($v);
-        }
-
-        return $out;
+        return SharedAtlasSelfConstructionLearningLedgerSeam::findLedgerRowByHash($this->all(), 'lesson_hash', $hash);
     }
 }
