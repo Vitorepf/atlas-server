@@ -41,7 +41,7 @@ final class AtlasCortexMemoryRecurrencyDetector
                 $itemId = (string) ($item['item_id'] ?? '');
                 $kind = (string) ($item['kind'] ?? '');
                 $fp = (string) ($item['fingerprint'] ?? '');
-                if ($itemId === '') {
+                if ($itemId === '' || $kind === '') {
                     continue;
                 }
                 $key = $itemId."\0".$kind."\0".$fp;
