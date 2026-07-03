@@ -117,6 +117,45 @@ final class AtlasAaelExecutionDriftAuditorTest extends TestCase
         $this->assertSame([['id' => 'p1']], $result['loop_run']['proposals']);
     }
 
+    public function test_anchor_file_picks_primary_target_not_incidental_file(): void
+    {
+        // The objective mentions an incidental file (Incidental.php) before the real target.
+        // anchorFile must pick the allowed_files entry, not the incidental file from the prose.
+        $runner = new class
+        {
+            public function run(array $tasks, array $options = []): array
+            {
+                return [
+                    'schema_version' => AtlasEvolutionLoopRunner::SCHEMA,
+                    'merged_to_main' => false,
+                    'proposals' => [['id' => 'p1']],
+                    'proposals_certified_for_review' => 1,
+                    'tasks_processed' => 1,
+                    'explorations' => [[
+                        'commands_exercised' => ['php artisan test'],
+                        'diff_paths' => ['app/Services/Ai/AutonomousEvolution/AtlasAaelLoopExecutionBridge.php'],
+                    ]],
+                ];
+            }
+        };
+
+        $bridge = new AtlasAaelLoopExecutionBridge($runner, new AtlasAaelExecutionPlanProver, new AtlasAaelExecutionDriftAuditor);
+        $result = $bridge->execute([[
+            'objective' => 'op',
+            'task' => $this->task(
+                'Refactor app/Services/Ai/AutonomousEvolution/Incidental.php and app/Services/Ai/AutonomousEvolution/AtlasAaelLoopExecutionBridge.php to fix the guard',
+                ['app/Services/Ai/AutonomousEvolution/AtlasAaelLoopExecutionBridge.php'],
+                ['php artisan test']
+            ),
+        ]]);
+
+        $audit = $result['drift_audit']['Refactor app/Services/Ai/AutonomousEvolution/Incidental.php and app/Services/Ai/AutonomousEvolution/AtlasAaelLoopExecutionBridge.php to fix the guard'];
+        // The anchor should be AtlasAaelLoopExecutionBridge.php (from allowed_files), not Incidental.php (from prose).
+        // Since the bridge file IS in diff_paths, anchor_file_untouched should be false.
+        $this->assertFalse($audit['anchor_file_untouched']);
+        $this->assertFalse($audit['drift_detected']);
+    }
+
     /**
      * @param  list<string>  $allowedFiles
      * @param  list<string>  $commands

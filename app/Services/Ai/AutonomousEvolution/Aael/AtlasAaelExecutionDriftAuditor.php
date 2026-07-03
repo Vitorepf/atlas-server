@@ -32,7 +32,7 @@ final class AtlasAaelExecutionDriftAuditor
         $extraPaths = array_values(array_diff($actualPaths, $plannedPaths));
         $missingPaths = array_values(array_diff($plannedPaths, $actualPaths));
         $skippedCommands = array_values(array_diff($plannedCommands, $actualCommands));
-        $anchorFile = $this->anchorFile((string) ($task['objective'] ?? ''));
+        $anchorFile = $this->anchorFile($plannedPaths);
         $anchorUntouched = $anchorFile !== null && ! in_array($anchorFile, $actualPaths, true);
 
         return [
@@ -44,8 +44,23 @@ final class AtlasAaelExecutionDriftAuditor
         ];
     }
 
-    private function anchorFile(string $objective): ?string
+    /**
+     * Select the drift anchor from the packet's allowed_files (the primary target).
+     * Falls back to the first .php/.json token in the objective when allowed_files is empty.
+     *
+     * @param  list<string>  $allowedFiles
+     * @return string|null
+     */
+    private function anchorFile(array $allowedFiles, string $objective = ''): ?string
     {
+        // Primary: pick the first allowed file as the anchor — it's the packet's declared target.
+        foreach ($allowedFiles as $file) {
+            if ($file !== '' && (str_ends_with($file, '.php') || str_ends_with($file, '.json'))) {
+                return $file;
+            }
+        }
+
+        // Fallback: extract from objective prose when no allowed files match.
         if (preg_match('/[A-Za-z0-9_\/\\\\.-]+\.(?:php|json)/', $objective, $match) === 1) {
             return $match[0];
         }
