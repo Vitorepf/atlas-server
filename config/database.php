@@ -17,7 +17,11 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'pgsql'),
+    // PISO PÉTREO: um boot SEM env (worktree/checkout sem .env — os dois vetores
+    // do wiper de 02/07) nunca pode herdar o pgsql VIVO por default. O repo vivo
+    // declara DB_CONNECTION=pgsql explicitamente no .env; qualquer ambiente
+    // anônimo cai em sqlite local e não alcança dados de produção.
+    'default' => env('DB_CONNECTION', 'sqlite'),
 
     /*
     |--------------------------------------------------------------------------
