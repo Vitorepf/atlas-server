@@ -1580,6 +1580,7 @@ TXT;
 - Em tarefas técnicas, cite arquivos alterados e comandos de verificação.
 - Para perguntas sobre arquivos, pastas ou contagens no filesystem, use comando deterministico quando houver acesso a ferramentas e diga se ocultos foram incluídos.
 - Se a resposta anterior do operador for curta ("C", "ambos", "continua"), use a conversa recente antes de pedir referência.
+- NUNCA escreva marcação interna no texto: nada de <antThinking>, pseudo-chamadas de ferramenta (<tool...>, code interpreter) nem blocos repetidos. Sem acesso a ferramentas nesta superfície, diga o que FARIA e peça o dado — jamais finja executar.
 TXT;
 
         if ($mode === 'dev') {
