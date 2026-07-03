@@ -362,6 +362,26 @@ Canais entregues e provados, aguardando decisão de ligar:
   `observe→enforce` por risco no policy plane.
 O salto seguinte de M exige RUNS REAIS alimentando os canais (proibido sem OK do operador).
 
+## Execução S25+S26 (03/07/2026) — incidente de USO REAL do operador
+
+Operador reportou "impossível de usar" com screenshots: pedido "verificação rigorosa do
+fluxo atlas dev" no app → chat Hermes SEM tools → `<antThinking>` e pseudo-tool-calls
+`<toolcodeinterpreter(...)>` renderizados como texto, mesmo bloco repetido dezenas de vezes.
+- **S25 (`f837c20e5d`):** `AtlasFinalResponseSanitizer` agora remove markup vazado (pares
+  fechados + truncado no fim), deduplica parágrafos/sentenças consecutivas idênticas (gated
+  no sentinel — resposta limpa fica byte-idêntica) e resposta só-markup vira placeholder
+  honesto. Provado com o texto real do incidente.
+- **S26 (`69ee272530`):** raiz do roteamento — reproduzido que o prompt real caía em
+  `fallback_conversation`. Kernel ganhou sinal `verify_like` (verificação/auditoria sem
+  diff anexado → review com workspace); router ganhou catch kernel-authoritative antes do
+  fallback (só classes de engenharia com confiança strong). O prompt do incidente agora
+  roteia para `atlas_review`; smalltalk continua conversa. 956 testes Router/Hyperflow
+  verdes.
+- **Pendências do incidente:** streaming ao vivo pode exibir texto cru até o final
+  substituir (lado desktop); resposta com markup vazado ainda não conta como failure no
+  ledger live do ADML (rota não é punida automaticamente).
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-Re-medição do funil com runs reais; próximo gargalo que a medição apontar.
+Incidentes de uso real do operador são o combustível de maior valor — cada screenshot vira
+causa-raiz + fix + teste com o texto real. Pendências acima; depois, re-medição do funil.
