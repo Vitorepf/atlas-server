@@ -230,13 +230,17 @@ final class AtlasCortexInsightReceiptLedger
 
     private function normalizeTimestamp(?string $value): string
     {
-        $timestamp = $value === null || trim($value) === ''
-            ? new DateTimeImmutable('now', new DateTimeZone('UTC'))
-            : new DateTimeImmutable($value);
+        try {
+            $timestamp = $value === null || trim($value) === ''
+                ? new DateTimeImmutable('now', new DateTimeZone('UTC'))
+                : new DateTimeImmutable($value);
 
-        return $timestamp
-            ->setTimezone(new DateTimeZone('UTC'))
-            ->format('Y-m-d\TH:i:s\Z');
+            return $timestamp
+                ->setTimezone(new DateTimeZone('UTC'))
+                ->format('Y-m-d\TH:i:s\Z');
+        } catch (\Exception $e) {
+            return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+        }
     }
 
     private function pathForSnapshot(string $snapshotId): string
