@@ -76,7 +76,24 @@ final class AtlasMaestroTieredRoutingPolicy
 
         $workerTier = $workerRecord->declaredMaxTier;
         $packetRank = self::TIER_ORDER[$packetTier] ?? PHP_INT_MAX;
-        $workerRank = self::TIER_ORDER[$workerTier] ?? 0;
+        $workerRank = self::TIER_ORDER[$workerTier] ?? null;
+
+        // Unknown worker tier: refuse to route — fail closed.
+        if ($workerRank === null) {
+            return [
+                'schema' => self::SCHEMA,
+                'verdict' => self::VERDICT_REFUSE,
+                'packet_tier' => $packetTier,
+                'packet_fact_basis' => $factBasis,
+                'worker_declared_max_tier' => $workerTier,
+                'client_id' => $clientId,
+                'reason' => sprintf('unknown worker tier "%s"; refusing to route', $workerTier),
+                'worker_outcome_confidence' => null,
+                'override_applied' => false,
+                'hold_reason' => null,
+                'capability_gap' => null,
+            ];
+        }
 
         $meta = $workerRecord->meta;
         $overrideTierMismatch = (bool) ($meta['override_tier_mismatch'] ?? false);
