@@ -107,7 +107,7 @@ final class AtlasSelfImprovementMetaMetricService
         $brainAnchored = (bool) ($summary['brain_anchored'] ?? true);
 
         // Deterministic cycle fingerprint — idempotent upsert key.
-        $cycleHash = hash('sha256', (string) json_encode([
+        $hashPayload = json_encode([
             'receipt' => $receiptHash,
             'detected' => $signalsDetected,
             'generated' => $generated,
@@ -115,7 +115,13 @@ final class AtlasSelfImprovementMetaMetricService
             'rejected' => $rejected,
             'branches' => $branches,
             'brain_added' => $brainAdded,
-        ], JSON_UNESCAPED_SLASHES));
+        ], JSON_UNESCAPED_SLASHES);
+
+        if ($hashPayload === false) {
+            return ['recorded' => false, 'reason' => 'json_encode failed on cycle summary — cannot produce cycle_hash'];
+        }
+
+        $cycleHash = hash('sha256', $hashPayload);
 
         try {
             $row = AtlasSelfConstructCycle::query()->updateOrCreate(
