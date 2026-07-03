@@ -81,22 +81,39 @@ final class AtlasAaelExecutionReceiptLedger
         }
 
         $path = rtrim($root, '/').'/'.$executionId.'.json';
+        $lockPath = $path.'.lock';
 
-        if (is_file($path)) {
-            $existing = (string) @file_get_contents($path);
-            if ($existing === $body) {
-                return ['status' => self::STATUS_OK, 'execution_id' => $executionId, 'path' => $path, 'error' => null];
+        // Exclusive lock guards the read-compare-write so two writers for the same
+        // execution_id cannot both pass the is_file check and lose idempotency.
+        $lockFd = @fopen($lockPath, 'c');
+        if ($lockFd === false || ! @flock($lockFd, LOCK_EX | LOCK_NB)) {
+            if (is_resource($lockFd)) {
+                fclose($lockFd);
             }
 
-            return ['status' => self::STATUS_CONFLICT, 'execution_id' => $executionId, 'path' => $path, 'error' => 'execution_id_collision_with_mutated_content'];
+            return ['status' => self::STATUS_ERROR, 'execution_id' => $executionId, 'path' => null, 'error' => 'lock_unavailable'];
         }
 
-        $written = @file_put_contents($path, $body, LOCK_EX);
-        if ($written === false) {
-            return ['status' => self::STATUS_ERROR, 'execution_id' => $executionId, 'path' => null, 'error' => 'write_failed'];
-        }
+        try {
+            if (is_file($path)) {
+                $existing = (string) @file_get_contents($path);
+                if ($existing === $body) {
+                    return ['status' => self::STATUS_OK, 'execution_id' => $executionId, 'path' => $path, 'error' => null];
+                }
 
-        return ['status' => self::STATUS_OK, 'execution_id' => $executionId, 'path' => $path, 'error' => null];
+                return ['status' => self::STATUS_CONFLICT, 'execution_id' => $executionId, 'path' => $path, 'error' => 'execution_id_collision_with_mutated_content'];
+            }
+
+            $written = @file_put_contents($path, $body, LOCK_EX);
+            if ($written === false) {
+                return ['status' => self::STATUS_ERROR, 'execution_id' => $executionId, 'path' => null, 'error' => 'write_failed'];
+            }
+
+            return ['status' => self::STATUS_OK, 'execution_id' => $executionId, 'path' => $path, 'error' => null];
+        } finally {
+            flock($lockFd, LOCK_UN);
+            fclose($lockFd);
+        }
     }
 
     /**
