@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\Provenance;
 
+use App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation\SharedAtlasMaestroProviderBidProposerSeam;
 use InvalidArgumentException;
 
 final class AtlasMaestroPacketProvenanceComposer
@@ -218,27 +219,8 @@ final class AtlasMaestroPacketProvenanceComposer
     private function canonicalJson(mixed $value): string
     {
         return (string) json_encode(
-            $this->sortRecursive($value),
+            SharedAtlasMaestroProviderBidProposerSeam::sortRecursive($value),
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
         );
-    }
-
-    private function sortRecursive(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $item): mixed => $this->sortRecursive($item), $value);
-        }
-
-        ksort($value, SORT_STRING);
-        $sorted = [];
-        foreach ($value as $key => $item) {
-            $sorted[$key] = $this->sortRecursive($item);
-        }
-
-        return $sorted;
     }
 }

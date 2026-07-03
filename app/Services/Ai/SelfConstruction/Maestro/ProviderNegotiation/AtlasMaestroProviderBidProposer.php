@@ -270,30 +270,7 @@ final class AtlasMaestroProviderBidProposer
      */
     private function canonicalJson(array $payload): string
     {
-        return (string) json_encode($this->sortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return mixed
-     */
-    private function sortRecursive(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $item): mixed => $this->sortRecursive($item), $value);
-        }
-
-        ksort($value, SORT_STRING);
-        $sorted = [];
-        foreach ($value as $key => $item) {
-            $sorted[$key] = $this->sortRecursive($item);
-        }
-
-        return $sorted;
+        return (string) json_encode(SharedAtlasMaestroProviderBidProposerSeam::sortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 }
 
