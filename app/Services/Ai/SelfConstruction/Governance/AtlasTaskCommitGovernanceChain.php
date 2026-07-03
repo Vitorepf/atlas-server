@@ -165,7 +165,14 @@ final class AtlasTaskCommitGovernanceChain
                     if ($name === '' || ! array_key_exists($name, $checks)) {
                         continue;
                     }
-                    if (strtolower(trim((string) $checks[$name])) !== 'pass') {
+                    $status = strtolower(trim((string) $checks[$name]));
+                    // Same attribution exemption as missingRerun(): a status the
+                    // verification gate did NOT attribute to this task never
+                    // becomes this worker's unmet obligation.
+                    if (in_array($status, ['fail_unattributed_open', 'skip_infra', 'fail_open_runner_error'], true)) {
+                        continue;
+                    }
+                    if ($status !== 'pass') {
                         $unmetObligations[] = $name;
                     }
                 }
@@ -361,6 +368,16 @@ final class AtlasTaskCommitGovernanceChain
                 continue;
             }
             $status = strtolower(trim((string) $checks[$check]));
+            // Honour the verification gate's OWN attribution semantics: a check the
+            // gate explicitly did not attribute to this task (tree already broken by
+            // someone else, or the runner infra could not run) must not become this
+            // worker's unmet obligation — the court was recording verdict=failed for
+            // exactly the workers the gate had just absolved (79 real verdicts on
+            // 02/07, all during the DB-wiper windows), poisoning the evidence base
+            // that justifies observe→enforce. A plain skip/fail stays unmet.
+            if (in_array($status, ['fail_unattributed_open', 'skip_infra', 'fail_open_runner_error'], true)) {
+                continue;
+            }
             if ($status !== 'pass') {
                 $missing[] = $check;
             }

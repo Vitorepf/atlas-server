@@ -83,8 +83,33 @@ final class AtlasSelfConstructionMergeGovernorCommand extends Command
             return ['status' => 'candidate_unreadable', 'reason' => 'not a JSON object'];
         }
 
-        $risk = $this->app()->make(AtlasMergeGovernorRiskClassifier::class)->classify($candidate['risk_input'] ?? []);
-        $rollback = $this->app()->make(AtlasMergeGovernorRollbackPlanGate::class)->evaluate($candidate['rollback_plan'] ?? []);
+        $riskInput = is_array($candidate['risk_input'] ?? null) ? $candidate['risk_input'] : [];
+        if (trim((string) ($riskInput['task_evidence_ref'] ?? '')) === '') {
+            // Same derivation as AtlasTaskCommitGovernanceChain::govern(): the task id
+            // when present, else a deterministic hash of the candidate's evidence. The
+            // classifier grew a hard task_evidence_ref requirement and this caller was
+            // never updated — every command decide risk_blocked on the missing ref
+            // (1833 recorded would-blocks on 30/06-01/07 were exactly this).
+            $taskId = trim((string) ($candidate['task_packet_id'] ?? ''));
+            $riskInput['task_evidence_ref'] = $taskId !== '' ? $taskId : hash('sha256', (string) json_encode($riskInput));
+        }
+        $risk = $this->app()->make(AtlasMergeGovernorRiskClassifier::class)->classify($riskInput);
+
+        // Same derivations AtlasTaskCommitGovernanceChain::govern() applies before the
+        // rollback gate — the gate grew required fields (pre_image_hash, restore_target,
+        // verification_command) this candidate-JSON caller was never updated to derive.
+        $rollbackInput = is_array($candidate['rollback_plan'] ?? null) ? $candidate['rollback_plan'] : [];
+        $taskId = trim((string) ($candidate['task_packet_id'] ?? ''));
+        $rollbackInput['restore_target'] = trim((string) ($rollbackInput['restore_target'] ?? '')) !== ''
+            ? $rollbackInput['restore_target']
+            : ($taskId !== '' ? 'git_revert:'.$taskId : 'git_revert:HEAD');
+        $rollbackInput['pre_image_hash'] = trim((string) ($rollbackInput['pre_image_hash'] ?? '')) !== ''
+            ? $rollbackInput['pre_image_hash']
+            : (string) $riskInput['task_evidence_ref'];
+        $rollbackInput['verification_command'] = trim((string) ($rollbackInput['verification_command'] ?? '')) !== ''
+            ? $rollbackInput['verification_command']
+            : 'php artisan atlas:task test-suite';
+        $rollback = $this->app()->make(AtlasMergeGovernorRollbackPlanGate::class)->evaluate($rollbackInput);
         $facts = [
             'project_id' => (string) ($candidate['project_id'] ?? ''),
             'risk_classification' => $risk,
@@ -105,7 +130,16 @@ final class AtlasSelfConstructionMergeGovernorCommand extends Command
         if ($ledgerPath !== '' && isset($candidate['ledger_envelope'])) {
             $ledger = new AtlasMergeGovernorReleaseDecisionLedger($ledgerPath);
             try {
-                $envelope['ledger'] = $ledger->append($candidate['ledger_envelope']);
+                $ledgerEnvelope = (array) $candidate['ledger_envelope'];
+                // The ledger grew required fields (risk_level, changed_files_hash);
+                // derive them from the classification this very decide just computed.
+                if (trim((string) ($ledgerEnvelope['risk_level'] ?? '')) === '') {
+                    $ledgerEnvelope['risk_level'] = (string) ($risk['risk_level'] ?? 'medium');
+                }
+                if (trim((string) ($ledgerEnvelope['changed_files_hash'] ?? '')) === '') {
+                    $ledgerEnvelope['changed_files_hash'] = hash('sha256', (string) json_encode(array_values((array) ($riskInput['changed_files'] ?? []))));
+                }
+                $envelope['ledger'] = $ledger->append($ledgerEnvelope);
             } catch (Throwable $e) {
                 $envelope['ledger'] = ['status' => 'error', 'message' => $e->getMessage()];
             }

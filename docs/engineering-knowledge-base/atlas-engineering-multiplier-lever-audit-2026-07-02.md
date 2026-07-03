@@ -313,8 +313,26 @@ Onda 23:46 UTC (5ª): `captureSymptom()` da mineração provisiona worktree temp
   `worker_report_failed`/`test_failure` → próximo serve na área injeta; bare give_back →
   zero rows; 176 testes AtlasTaskServing* verdes.
 
+## Execução S21 (02/07/2026)
+
+- **S21 (entregue — prova honesta p/ observe→enforce):** a base de evidência da corte
+  estava envenenada por dois defeitos: (1) a corte registrava `verdict=failed`
+  (`missing_rerun:boot`) para workers que o próprio gate de verificação tinha ABSOLVIDO
+  (`fail_unattributed_open`/`skip_infra`/`fail_open_runner_error` — 79 verdicts reais em
+  02/07, todos nas janelas do wiper); agora `missingRerun` e as replay obligations honram a
+  semântica de atribuição do gate. (2) o caminho CLI do merge-governor (`decide`) quebrou
+  quando classifier/rollback-gate/ledger ganharam campos obrigatórios sem atualizar o
+  caller — 1833 would-blocks históricos por `missing_task_evidence_ref` eram 100% esse
+  produtor; o comando agora deriva `task_evidence_ref`/`restore_target`/`pre_image_hash`/
+  `verification_command`/`risk_level`/`changed_files_hash` com as MESMAS derivações da
+  chain. A partir daqui o ledger de verdicts registra evidência limpa — pré-requisito para
+  promover observe→enforce por dados. Prova: 201 testes MergeGovernor/VerificationCourt/
+  GovernanceChain verdes (3 pré-existentes quebrados consertados + regressão nova de
+  atribuição).
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
 **Candidatos:** (a) re-medição do funil quando os canais novos rodarem em runs reais; (b)
-próximo gargalo da medição. Nota: `atlas_dev_outcome_memories`=0 é organ PARKED sem
-read-side vivo (exemplares cobrem a lição de sucesso) — não wire às cegas.
+fold de evidência do verdict ledger → recomendação observe→enforce (agora possível com
+ledger limpo); (c) próximo gargalo da medição. Nota: `atlas_dev_outcome_memories`=0 é organ
+PARKED sem read-side vivo — não wire às cegas.

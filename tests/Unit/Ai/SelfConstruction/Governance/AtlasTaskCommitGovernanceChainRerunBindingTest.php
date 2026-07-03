@@ -92,6 +92,33 @@ final class AtlasTaskCommitGovernanceChainRerunBindingTest extends TestCase
         $this->assertNotContains('missing_rerun:boot', $result['blockers']);
     }
 
+    public function test_unattributed_environment_failures_are_not_this_workers_unmet_obligation(): void
+    {
+        // The verification gate explicitly absolves the worker on
+        // fail_unattributed_open (tree broken by someone else) and skip_infra
+        // (runner infra could not run) — the court must honour that attribution
+        // instead of recording verdict=failed for the absolved worker (79 real
+        // verdicts on 02/07, all during the DB-wiper windows).
+        $config = [
+            'risk_levels' => [
+                'high' => [
+                    'required_checks' => ['syntax', 'boot', 'task_tests'],
+                    'in_release_window' => true,
+                    'mode' => 'observe',
+                ],
+            ],
+        ];
+
+        $result = $this->chain($config)->govern($this->highRiskContext([
+            'syntax' => 'pass',
+            'boot' => 'fail_unattributed_open',
+            'task_tests' => 'fail_open_runner_error',
+        ]));
+
+        $this->assertNotContains('missing_rerun:boot', $result['blockers']);
+        $this->assertNotContains('missing_rerun:task_tests', $result['blockers']);
+    }
+
     public function test_missing_check_key_entirely_is_not_flagged(): void
     {
         // A required check that never appears in $checks at all is left alone -- this stays a
