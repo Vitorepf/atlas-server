@@ -42,7 +42,13 @@ class AtlasEvidenceLedger
 
         $payload = $this->canonicalize($payload);
         $occurredAt = isset($context['occurred_at'])
-            ? CarbonImmutable::parse($context['occurred_at'])
+            ? (function () use ($context): \Carbon\CarbonImmutable {
+                try {
+                    return CarbonImmutable::parse($context['occurred_at']);
+                } catch (\Throwable $e) {
+                    return CarbonImmutable::now();
+                }
+            })()
             : CarbonImmutable::now();
 
         $eventId = $this->string($context['event_id'] ?? (string) Str::ulid(), 32);
