@@ -559,7 +559,11 @@ final class AgentRuntimeRegistryRepository
                 if ($lastHeartbeatAt === null) {
                     $issues[] = $this->issue($agentId, 'active_status_missing_heartbeat', "status={$status}", 'require_heartbeat_or_transition_this_agent_to_stale');
                 } else {
-                    $ageSeconds = abs($now->diffInSeconds(CarbonImmutable::parse((string) $lastHeartbeatAt)));
+                    try {
+                        $ageSeconds = abs($now->diffInSeconds(CarbonImmutable::parse((string) $lastHeartbeatAt)));
+                    } catch (\Throwable $e) {
+                        $ageSeconds = 0;
+                    }
                     if ($ageSeconds > self::HEARTBEAT_STALENESS_CEILING_SECONDS) {
                         $issues[] = $this->issue($agentId, 'stale_heartbeat_with_active_status', sprintf('status=%s age_seconds=%d', $status, (int) $ageSeconds), 'transition_this_agent_to_stale_until_next_heartbeat');
                     }
