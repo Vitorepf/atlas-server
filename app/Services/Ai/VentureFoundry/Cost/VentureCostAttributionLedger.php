@@ -39,7 +39,13 @@ class VentureCostAttributionLedger
             throw VentureFoundryException::invalidValue('cost_attribution', 'cost_microusd', 'cost cannot be negative');
         }
 
-        $occurredAt = isset($args['occurred_at']) ? Carbon::parse((string) $args['occurred_at']) : Carbon::now();
+        $occurredAt = isset($args['occurred_at']) ? (function () use ($args) {
+            try {
+                return Carbon::parse((string) $args['occurred_at']);
+            } catch (\Throwable) {
+                return Carbon::now();
+            }
+        })() : Carbon::now();
         $uuid = (string) Str::uuid();
 
         return AiVentureCostAttribution::query()->create([
