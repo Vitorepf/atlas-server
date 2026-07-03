@@ -73,6 +73,18 @@ return [
         'run_dispatch_mode' => env('ATLAS_DEV_RUN_DISPATCH_MODE', 'process'),
     ],
 
+    // M4 — Best-of-N no caminho hermes (PipelineRunExecutor): N candidatos
+    // independentes, cada um pelo floor+gate completo; vence o primeiro
+    // PASSING em ordem determinística. Existia BUILT sem chave declarada
+    // (só o fallback config(...,1) — mais um órgão adormecido). Default 1 =
+    // byte-idêntico; ligar via env é decisão do operador (N× custo hermes).
+    // ATENÇÃO (fire test 03/07, run dev-1783066505769-d48baffa): com N=2 em
+    // repo real o re-apply do vencedor falhou "corrupt patch" →
+    // winner_reapply_failed. NÃO ligar até o bug do reapply ser corrigido.
+    'best_of_n' => [
+        'candidate_count' => (int) env('ATLAS_DEV_BEST_OF_N', 1),
+    ],
+
     'confirmation_token' => [
         'ttl_seconds' => (int) env('ATLAS_DEV_CONFIRMATION_TOKEN_TTL_SECONDS', 300),
         'plaintext_bytes' => (int) env('ATLAS_DEV_CONFIRMATION_TOKEN_BYTES', 32),
