@@ -59,7 +59,18 @@ class RoutingDecisionEngine
             $blockers[] = 'intent_clarity_blocking';
             $reasons[] = 'intent_clarity_blocking';
         }
-        if ($discovery->confidence === CodeDiscoveryManifest::CONFIDENCE_BLOCKING_AMBIGUITY) {
+        // Ambiguidade de discovery só bloqueia ESCRITA (não pode patchear sem
+        // saber onde). Pergunta/review/planejamento são read-only: o provider
+        // agêntico explora o workspace sozinho — exigir arquivos confirmados
+        // matava metade do dia a dia do operador (matriz 03/07: planejamento/
+        // evolução/análise conceituais bloqueados com zero tokens extraídos).
+        $readOnlyKinds = [
+            TaskClassification::KIND_QUESTION,
+            TaskClassification::KIND_REVIEW,
+        ];
+        if ($discovery->confidence === CodeDiscoveryManifest::CONFIDENCE_BLOCKING_AMBIGUITY
+            && ! in_array($classification->taskKind, $readOnlyKinds, true)
+        ) {
             $blockers[] = 'discovery_blocking_ambiguity';
             $reasons[] = 'discovery_blocking_ambiguity';
         }

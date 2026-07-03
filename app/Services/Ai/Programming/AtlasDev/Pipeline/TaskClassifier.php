@@ -70,6 +70,11 @@ class TaskClassifier
         'conserta', 'conserte', 'consertar', 'refator', 'refactor', 'extract', 'extraia', 'rode', 'execute',
         'altere', 'alterar', 'update ', 'atualize', 'atualizar', 'edit ',
         'apply ', 'implement ', 'implemente',
+        // Vocabulário real do dia a dia do operador (matriz 03/07): otimizar/
+        // simplificar/solidificar SÃO escrita — classificar como pergunta
+        // significava que o modelo nunca editava nada.
+        'otimize', 'otimizar', 'otimiza ', 'optimize', 'simplifique', 'simplificar', 'simplifica ',
+        'solidifique', 'solidificar', 'deduplique', 'deduplicar', 'unifique', 'unificar',
     ];
 
     public function classify(OperationEnvelope $envelope): TaskClassification

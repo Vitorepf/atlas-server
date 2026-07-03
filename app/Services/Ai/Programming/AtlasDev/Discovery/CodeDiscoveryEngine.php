@@ -275,7 +275,23 @@ final class CodeDiscoveryEngine
             }
         }
 
-        if (preg_match_all('/\b[a-z][a-z0-9]+(?:_[a-z0-9]+){2,}\b/u', $haystack, $matches) > 0) {
+        // Nome de BLOCO capitalizado simples ("Rivals", "Autonomos", "Hyperflow")
+        // é como o operador se refere a módulos no dia a dia — sem isto, um
+        // intent conceitual legítimo extraía ZERO tokens e morria em
+        // discovery_blocking_ambiguity (matriz de cenários 03/07: análise/
+        // planejamento/feature bloqueados). Candidato que não confirmar no
+        // workspace vira HYPOTHESIS (não bloqueia); o confirm filtra o ruído.
+        if (preg_match_all('/\b[A-Z][a-z0-9]{3,}\b/u', $haystack, $matches) > 0) {
+            foreach ($matches[0] as $hit) {
+                if (! in_array(strtolower($hit), self::STOPWORDS, true)) {
+                    $symbols[] = $hit;
+                }
+            }
+        }
+
+        // snake_case de 2+ segmentos ("failure_class", "give_back") — o piso
+        // anterior de 3+ segmentos deixava identificadores comuns de fora.
+        if (preg_match_all('/\b[a-z][a-z0-9]+(?:_[a-z0-9]+)+\b/u', $haystack, $matches) > 0) {
             foreach ($matches[0] as $hit) {
                 if (! in_array($hit, self::STOPWORDS, true)) {
                     $symbols[] = $hit;
