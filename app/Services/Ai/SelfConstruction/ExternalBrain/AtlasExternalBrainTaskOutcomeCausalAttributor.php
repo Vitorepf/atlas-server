@@ -238,7 +238,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
 
         $confidence  = $this->computeConfidence($primaryCause, $poorSpec, $workerMismatch, $isSuccess);
         $adjustment  = $this->recommendedAdjustment($primaryCause);
-        $attributionId = hash('sha256', $primaryCause.'|'.implode(',', $contributing));
+        $attributionId = hash('sha256', json_encode([$primaryCause, $contributing], JSON_THROW_ON_ERROR));
 
         $taskPacketId = isset($input['task_packet_id']) ? (string) $input['task_packet_id'] : null;
         $family = isset($input['family']) ? (string) $input['family'] : ($taskClass !== '' ? $taskClass : null);
