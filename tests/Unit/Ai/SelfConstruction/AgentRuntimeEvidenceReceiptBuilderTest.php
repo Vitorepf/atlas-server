@@ -238,4 +238,20 @@ final class AgentRuntimeEvidenceReceiptBuilderTest extends TestCase
             $this->assertFalse($receiptB[$flag]);
         }
     }
+
+    public function test_json_encode_failure_throws_instead_of_hashing_empty_string(): void
+    {
+        // stableHash is private; test through build() with a payload that contains
+        // a value json_encode cannot handle. We use reflection to call stableHash directly
+        // with an array containing a resource (which json_encode always rejects).
+        $builder = $this->builder();
+        $method = new \ReflectionMethod($builder, 'stableHash');
+
+        // A resource cannot be JSON-encoded — json_encode returns false.
+        $unencodable = ['_resource' => fopen('php://memory', 'r')];
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('json_encode failed on receipt payload');
+        $method->invoke($builder, $unencodable);
+    }
 }

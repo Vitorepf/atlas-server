@@ -92,6 +92,11 @@ final class AgentRuntimeEvidenceReceiptBuilder
     {
         ksort($payload);
 
-        return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $encoded = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($encoded === false) {
+            throw new \RuntimeException('json_encode failed on receipt payload — cannot produce stable hash');
+        }
+
+        return hash('sha256', $encoded);
     }
 }
