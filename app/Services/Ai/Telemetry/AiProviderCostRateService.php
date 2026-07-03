@@ -170,7 +170,15 @@ class AiProviderCostRateService
                     'reason' => $reason,
                     'can_import_rate' => $provider !== null && $model !== null,
                     'traces' => (int) $row->traces,
-                    'latest_computed_at' => $row->latest_computed_at ? CarbonImmutable::parse((string) $row->latest_computed_at)->toJSON() : null,
+                    'latest_computed_at' => $row->latest_computed_at
+                        ? (function () use ($row): ?string {
+                            try {
+                                return CarbonImmutable::parse((string) $row->latest_computed_at)->toJSON();
+                            } catch (\Throwable $e) {
+                                return null;
+                            }
+                        })()
+                        : null,
                     'rate_template' => $provider !== null && $model !== null
                         ? $this->rateTemplate($provider, $model, (int) $row->traces)
                         : null,
