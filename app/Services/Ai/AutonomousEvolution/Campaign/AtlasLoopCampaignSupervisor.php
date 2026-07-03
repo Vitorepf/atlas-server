@@ -835,7 +835,7 @@ final class AtlasLoopCampaignSupervisor
             return [];
         }
         $lines = array_values(array_filter(explode("\n", (string) @file_get_contents($path)), static fn (string $l): bool => trim($l) !== ''));
-        $lines = array_slice($lines, -max(1, $tail));
+        $lines = $tail <= 0 ? [] : array_slice($lines, -$tail);
 
         return array_values(array_filter(array_map(static fn (string $l): mixed => json_decode($l, true), $lines), 'is_array'));
     }
