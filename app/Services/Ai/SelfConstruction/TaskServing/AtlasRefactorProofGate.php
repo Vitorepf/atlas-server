@@ -53,6 +53,12 @@ final class AtlasRefactorProofGate
                 if ($path === '' || ! str_ends_with($path, '.php')) {
                     continue; // metric heuristics are PHP-shaped; non-PHP scope files are out of proof scope
                 }
+                // The delta judges PRODUCTION code. A proof stage that AUTHORS
+                // tests grows the tree on purpose — new tests are a gain, never
+                // a "no measurable improvement" fake.
+                if (str_starts_with($path, 'tests/') || str_contains($path, '/tests/') || str_ends_with($path, 'Test.php')) {
+                    continue;
+                }
                 $show = new Process(['git', 'show', 'HEAD:'.$path], $repo, null, null, 20.0);
                 $show->run();
                 if ($show->isSuccessful()) {

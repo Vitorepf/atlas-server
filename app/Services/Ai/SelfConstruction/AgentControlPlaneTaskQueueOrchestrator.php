@@ -1549,6 +1549,10 @@ final class AgentControlPlaneTaskQueueOrchestrator
         return [
             'allowed_files' => array_values((array) data_get($packet, 'normalized_scope.allowed_files', data_get($packet, 'allowed_files', []))),
             'objective' => (string) data_get($packet, 'objective', ''),
+            // The seam decision (when present) — the refactor proof judges the WHOLE
+            // seam, not one chain stage in isolation (an extraction stage alone always
+            // grows; the payoff lands when the callers shed their copies).
+            'refactor_design_spec' => data_get($packet, 'refactor_design_spec'),
         ];
     }
 

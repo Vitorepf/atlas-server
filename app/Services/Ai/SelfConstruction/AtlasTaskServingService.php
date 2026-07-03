@@ -337,8 +337,25 @@ final class AtlasTaskServingService
             // non-PHP scope) never blocks.
             $refactorProofMode = $this->policyPlane->refactorProofMode();
             $refactorProof = null;
-            if ($refactorProofMode !== 'off' && AtlasRefactorProofGate::appliesTo((string) $scope['objective'])) {
-                $refactorProof = $this->refactorProofGate->prove(array_values((array) $scope['allowed_files']));
+            // A stage whose OWN scope is entirely tests AUTHORS proof — it is judged by
+            // the verifier + test contract, never by shrink axes (its callers already
+            // landed in earlier stages; their delta here is legitimately zero).
+            $stageProductionFiles = array_values(array_filter(
+                array_map('strval', (array) $scope['allowed_files']),
+                static fn (string $f): bool => ! (str_starts_with($f, 'tests/') || str_contains($f, '/tests/') || str_ends_with($f, 'Test.php')),
+            ));
+            if ($refactorProofMode !== 'off'
+                && $stageProductionFiles !== []
+                && AtlasRefactorProofGate::appliesTo((string) $scope['objective'])) {
+                // CHAIN-AWARE proof scope: when the packet carries a design spec, the
+                // delta is judged over the WHOLE seam (spec callers + stage files) —
+                // an extraction stage alone always grows; the seam is the unit of
+                // improvement, the stage is a transaction slice of it.
+                $proofScope = array_values(array_unique(array_merge(
+                    (array) $scope['allowed_files'],
+                    array_values(array_map('strval', (array) data_get($scope, 'refactor_design_spec.callers', []))),
+                )));
+                $refactorProof = $this->refactorProofGate->prove($proofScope);
                 if ($refactorProof !== null) {
                     try {
                         $this->orchestrator->appendReportReceipt($taskPacketId, [
