@@ -309,6 +309,10 @@ class AiMetricDailySnapshotService
             return CarbonImmutable::instance($date)->setTimezone($timezone)->startOfDay();
         }
 
-        return CarbonImmutable::parse($date, $timezone)->startOfDay();
+        try {
+            return CarbonImmutable::parse($date, $timezone)->startOfDay();
+        } catch (\Throwable $e) {
+            return CarbonImmutable::now()->setTimezone($timezone)->startOfDay();
+        }
     }
 }
