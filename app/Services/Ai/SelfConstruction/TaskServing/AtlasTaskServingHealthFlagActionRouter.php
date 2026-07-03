@@ -66,9 +66,12 @@ final class AtlasTaskServingHealthFlagActionRouter
         $forecast = is_array($snapshot['worker_drain_forecast'] ?? null) ? $snapshot['worker_drain_forecast'] : [];
         $forecastReplenishRecommendation = (string) ($forecast['replenish_recommendation'] ?? '');
         $activeLeases = (int) ($snapshot['active_leases'] ?? ($forecast['active_leases'] ?? 0));
-        $claimablePerActiveWorker = isset($forecast['claimable_per_active_worker'])
-            ? (float) $forecast['claimable_per_active_worker']
-            : (isset($snapshot['claimable_per_active_worker']) ? (float) $snapshot['claimable_per_active_worker'] : null);
+        $claimablePerActiveWorker = null;
+        if (isset($forecast['claimable_per_active_worker']) && $forecast['claimable_per_active_worker'] !== null) {
+            $claimablePerActiveWorker = (float) $forecast['claimable_per_active_worker'];
+        } elseif (isset($snapshot['claimable_per_active_worker']) && $snapshot['claimable_per_active_worker'] !== null) {
+            $claimablePerActiveWorker = (float) $snapshot['claimable_per_active_worker'];
+        }
         $nearWorkerFloor = $activeLeases > 0 && $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= 2.0;
         $workerFloorPressure = $queuePressure === 'high'
             || $replenishRecommendation === 'replenish_soon'

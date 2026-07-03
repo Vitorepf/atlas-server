@@ -141,4 +141,28 @@ final class AtlasTaskServingHealthFlagActionRouterWorkerFloorTest extends TestCa
 
         $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_CONTINUE_WORK, $r['primary_action']);
     }
+
+    public function test_null_claimable_per_active_worker_does_not_trigger_worker_floor(): void
+    {
+        // When the claimable_per_active_worker metric is null (missing telemetry),
+        // it must NOT be coerced to 0.0 and compared as below the worker floor.
+        $r = $this->router()->route($this->snapshot([
+            'active_leases' => 5,
+            'worker_drain_forecast' => ['claimable_per_active_worker' => null],
+        ]));
+
+        // null metric = unknown, not maximum pressure → should NOT trigger top_up.
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_CONTINUE_WORK, $r['primary_action']);
+    }
+
+    public function test_null_claimable_at_snapshot_level_does_not_trigger_worker_floor(): void
+    {
+        // Same guard at the snapshot level (not nested in forecast).
+        $r = $this->router()->route($this->snapshot([
+            'active_leases' => 5,
+            'claimable_per_active_worker' => null,
+        ]));
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_CONTINUE_WORK, $r['primary_action']);
+    }
 }
