@@ -25,7 +25,8 @@ class AtlasRivalsCommand extends Command
     protected $aliases = ['atlas:rivals2'];
 
     protected $signature = 'atlas:rivals
-        {action : doctor|models|arms|mine|plan|run-fake|run-bench|verify|adjudicate|report|report-all|uplift|ledger}
+        {action : doctor|benchmarks|benchmark-smoke|models|arms|mine|plan|run|run-fake|run-bench|verify|adjudicate|report|report-all|uplift|ledger}
+        {--repo= : (benchmark-smoke) repo_id do registry (vazio = todos)}
         {--model= : (uplift) model_id comparado nos dois runtimes}
         {--base-runtime=bare}
         {--atlas-runtime=atlas_dev}
@@ -46,6 +47,9 @@ class AtlasRivalsCommand extends Command
         $action = $this->argument('action');
         $payload = match ($action) {
             'doctor' => $this->doctor(),
+            'benchmarks' => (new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager)->status(),
+            'benchmark-smoke' => $this->benchmarkSmoke(),
+            'run' => $this->runSuite(),
             'models' => ['schema_version' => 'atlas.rivals2.models.v1', 'models' => (new ModelRegistry)->all()],
             'arms' => $this->arms(),
             'mine' => $this->mine(),
@@ -104,6 +108,14 @@ class AtlasRivalsCommand extends Command
             'provider_spend_allowed' => (bool) config('atlas_rivals.provider_spend_allowed'),
             'ledger_chain' => (new ResultLedger)->verifyChain(),
         ];
+        // resumo honesto dos benchmark repos externos (informativo; blocked
+        // não derruba o doctor — é estado do mundo, não defeito do Rivals)
+        $benchmarks = (new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager)->status();
+        $checks['benchmark_repos'] = [
+            'total' => $benchmarks['total'],
+            'running' => $benchmarks['running'],
+            'blocked' => $benchmarks['blocked'],
+        ];
         $ok = $checks['config_loaded'] && $checks['storage_writable'] && $checks['ledger_chain']['verified'];
 
         return [
@@ -114,6 +126,58 @@ class AtlasRivalsCommand extends Command
             'storage_root' => $root,
             'checks' => $checks,
         ];
+    }
+
+    /** Smoke REAL (clone/install/execução externa) de 1 repo ou de todos. */
+    private function benchmarkSmoke(): array
+    {
+        $manager = new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager;
+        $repo = (string) $this->option('repo');
+        if ($repo !== '' && ! isset($manager->registry()[$repo])) {
+            return ['status' => 'error', 'error' => "unknown_benchmark_repo:{$repo}"];
+        }
+        $ids = $repo !== '' ? [$repo] : array_keys($manager->registry());
+
+        $results = [];
+        $blocked = 0;
+        foreach ($ids as $id) {
+            try {
+                $result = $manager->smoke($id);
+            } catch (\Throwable $e) {
+                $result = ['repo_id' => $id, 'status' => 'blocked', 'error' => $e->getMessage()];
+            }
+            $blocked += $result['status'] === 'blocked' ? 1 : 0;
+            $results[] = $result;
+        }
+
+        return [
+            'schema_version' => 'atlas.rivals2.benchmark_smoke_action.v1',
+            // smoke que falha é resultado HONESTO (blocked), não erro do comando;
+            // erro do comando = repo desconhecido/registry vazio
+            'status' => $results === [] ? 'error' : 'ok',
+            'error' => $results === [] ? 'no_repos_in_registry' : null,
+            'running' => count($results) - $blocked,
+            'blocked' => $blocked,
+            'results' => $results,
+        ];
+    }
+
+    /** Dispatcher canônico: roda o run mais recente conforme a suite do plano. */
+    private function runSuite(): array
+    {
+        return $this->withRun(function (string $runId) {
+            $plan = RunPlan::load($runId);
+            $suiteId = $plan->data['suite_id'];
+
+            return match (true) {
+                $suiteId === LocalFakeSuiteAdapter::SUITE_ID => $this->runFake(),
+                $this->adapterFor($suiteId) instanceof AtlasBenchSuiteAdapter => $this->runBench(),
+                default => [
+                    'status' => 'error',
+                    'error' => "suite_runs_externally:{$suiteId} — use benchmark-smoke + import-results",
+                ],
+            };
+        });
     }
 
     private function arms(): array

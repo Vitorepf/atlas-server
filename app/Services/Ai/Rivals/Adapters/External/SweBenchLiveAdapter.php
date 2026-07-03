@@ -18,7 +18,8 @@ class SweBenchLiveAdapter extends AbstractExternalSuiteAdapter
 
     protected function commandTemplate(): string
     {
-        return 'python -m swebench.harness.run_evaluation --dataset SWE-bench-Live/SWE-bench-Live --instance_ids {case_id} --predictions_path predictions.jsonl --run_id {rep}';
+        // entrypoint atual do repo (main, multi-lang); swebench.harness era só do branch python-only antigo
+        return 'python -m evaluation.evaluation --dataset SWE-bench-Live/SWE-bench-Live --instance_ids {case_id} --predictions_path predictions.jsonl --run_id {rep}';
     }
 
     protected function mapResults(array $native): array

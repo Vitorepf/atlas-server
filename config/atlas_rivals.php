@@ -128,6 +128,73 @@ return [
         'autonomous' => env('ATLAS_RIVALS2_AUTONOMOUS_CMD'),
     ],
 
+    // Benchmark repos EXTERNOS reais (os 9 fornecidos pelo operador), clonados em
+    // área isolada (tools/rivals/benchmarks). Adapter só é "pronto" com smoke real
+    // verde aqui; erro vira status=blocked com o erro exato, nunca "done".
+    // install/smoke rodam DENTRO do clone com .atlas-venv/bin no PATH (venv uv
+    // isolado por repo — nunca o vendor/autoload vivo). Nenhum smoke gasta provider.
+    'benchmarks' => [
+        'root' => env('ATLAS_RIVALS_BENCHMARKS_ROOT', base_path('tools/rivals/benchmarks')),
+        'install_timeout_seconds' => 900,
+        'smoke_timeout_seconds' => 300,
+        'repos' => [
+            'tau2_bench' => [
+                'url' => 'https://github.com/sierra-research/tau2-bench.git',
+                'adapter' => 'tau2_bfcl',
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . -q'],
+                'smoke' => 'tau2 check-data',
+            ],
+            'bfcl' => [
+                'url' => 'https://github.com/ShishirPatil/gorilla.git',
+                'adapter' => 'tau2_bfcl',
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e ./berkeley-function-call-leaderboard soundfile -q'],
+                'smoke' => 'bfcl test-categories',
+            ],
+            'terminal_bench' => [
+                'url' => 'https://github.com/laude-institute/terminal-bench.git',
+                'adapter' => 'harbor_terminal_bench',
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . -q'],
+                'smoke' => 'tb datasets list',
+            ],
+            'senior_swe_bench' => [
+                'url' => 'https://github.com/snorkel-ai/senior-swe-bench-v2026.06.git',
+                'adapter' => 'senior_swe_bench',
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python harbor -q'],
+                'smoke' => 'harbor --help',
+            ],
+            'swe_bench_live' => [
+                'url' => 'https://github.com/microsoft/SWE-bench-Live.git',
+                'adapter' => 'swe_bench_live',
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'git submodule update --init --depth 1 launch', 'uv pip install -p .atlas-venv/bin/python -e . -q'],
+                'smoke' => 'python -m evaluation.evaluation --help',
+            ],
+            'live_code_bench' => [
+                'url' => 'https://github.com/LiveCodeBench/LiveCodeBench.git',
+                'adapter' => 'live_code_bench',
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . -q'],
+                'smoke' => 'python -m lcb_runner.runner.main --help',
+            ],
+            'inspect_evals' => [
+                'url' => 'https://github.com/UKGovernmentBEIS/inspect_evals.git',
+                'adapter' => 'inspect_evals',
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . inspect-ai -q'],
+                'smoke' => 'inspect eval inspect_evals/gsm8k --model mockllm/model --limit 1',
+            ],
+            'hal_harness' => [
+                'url' => 'https://github.com/princeton-pli/hal-harness.git',
+                'adapter' => 'hal_harness',
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . -q'],
+                'smoke' => 'hal-eval --help',
+            ],
+            'aider_polyglot' => [
+                'url' => 'https://github.com/Aider-AI/aider.git',
+                'adapter' => 'aider_polyglot',
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . -q', 'uv pip install -p .atlas-venv/bin/python -r requirements/requirements-dev.txt -q'],
+                'smoke' => 'python benchmark/benchmark.py --help',
+            ],
+        ],
+    ],
+
     // AtlasBench interno: cases frescos minerados do histórico git dos repos Atlas
     // (estilo SWE-smith): reverte um commit real e pede a reimplementação; o
     // check é o teste real que o commit tocou. Geração 100% provider-free.
