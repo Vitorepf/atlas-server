@@ -23,7 +23,13 @@ final readonly class Provenance
             surfaceId: self::string($input['surface_id'] ?? 'atlas_cli') ?: 'atlas_cli',
             surfaceVersion: self::string($input['surface_version'] ?? 'dev') ?: 'dev',
             sessionId: self::string($input['session_id'] ?? 'default') ?: 'default',
-            receivedAt: isset($input['received_at']) ? CarbonImmutable::parse($input['received_at']) : CarbonImmutable::now(),
+            receivedAt: isset($input['received_at']) ? (function () use ($input) {
+                try {
+                    return CarbonImmutable::parse($input['received_at']);
+                } catch (\Throwable) {
+                    return CarbonImmutable::now();
+                }
+            })() : CarbonImmutable::now(),
             upstreamEnvelopeId: self::optionalString($input['upstream_envelope_id'] ?? null),
         );
     }
