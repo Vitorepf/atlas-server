@@ -41,6 +41,28 @@ class AtlasFinalResponseSanitizer
             ]];
         }
 
+        // Modelos sem harness de tools (ex.: rota Hermes) vazam marcação interna
+        // como TEXTO: <antThinking>…</antThinking> e pseudo-tool-calls
+        // <toolcodeinterpreter(code="…")>…</tool…>, às vezes com o MESMO bloco
+        // repetido várias vezes (retry/continuation costurado). Isso chegava cru
+        // na UI (incidente 02/07 — chat inusável). Strip fechado + fallback para
+        // marcação não fechada + dedupe de parágrafos consecutivos idênticos.
+        $stripped = $this->stripLeakedModelMarkup($original);
+        if ($stripped !== $original) {
+            $clean = trim($stripped);
+            if ($clean === '') {
+                return ['O modelo devolveu apenas marcação interna (raciocínio/pseudo-ferramentas) sem resposta utilizável. Reenvie o pedido — o Atlas registrou a falha do provider para a próxima decisão de rota.', [
+                    'changed' => true,
+                    'reason' => 'model_markup_only_response',
+                ]];
+            }
+
+            return [$clean, [
+                'changed' => true,
+                'reason' => 'leaked_model_markup_stripped',
+            ]];
+        }
+
         return [$original, ['changed' => false, 'reason' => null]];
     }
 
@@ -167,6 +189,67 @@ class AtlasFinalResponseSanitizer
         $clean = trim(implode("\n", $lines));
 
         return $this->hasInternalLeakMarkers($clean) ? '' : $clean;
+    }
+
+    private function stripLeakedModelMarkup(string $text): string
+    {
+        // Só age quando há sentinel de marcação vazada — parágrafos repetidos
+        // sem markup são conteúdo legítimo do modelo, não um leak (não inventar
+        // mudança).
+        if (preg_match('/<antThinking>|<tool[a-z_]*\s*\(code=|<\/tool/i', $text) !== 1) {
+            return $text;
+        }
+
+        // 1) Pares fechados de raciocínio interno vazado como texto.
+        $text = (string) preg_replace('/<antThinking>.*?<\/antThinking>/su', '', $text);
+
+        // 2) Pseudo-tool-calls fechados: <tool…(…)>corpo</tool…>.
+        $text = (string) preg_replace('/<tool[^<]*?>.*?<\/tool[^>]*>/su', '', $text);
+
+        // 3) Marcação NÃO fechada: do sentinel ao fim do texto (o modelo foi
+        //    cortado no meio da "chamada"). Só quando o sentinel é inequívoco.
+        $text = (string) preg_replace('/<antThinking>(?!.*<\/antThinking>).*$/su', '', $text);
+        $text = (string) preg_replace('/<tool[a-z_]*\s*\(code=.*$/su', '', $text);
+
+        // 4) Dedupe de parágrafos consecutivos idênticos (retry costurado
+        //    repetindo o mesmo bloco em torno da marcação). Só igualdade exata
+        //    pós-trim — nunca remove conteúdo genuinamente distinto.
+        $paragraphs = preg_split('/\n{2,}/', $text) ?: [];
+        $deduped = [];
+        $previous = null;
+        foreach ($paragraphs as $paragraph) {
+            $key = trim($paragraph);
+            if ($key !== '' && $key === $previous) {
+                continue;
+            }
+            $deduped[] = $paragraph;
+            $previous = $key === '' ? $previous : $key;
+        }
+        $text = implode("\n\n", $deduped);
+
+        // 5) Dedupe de FRASES consecutivas idênticas, por parágrafo — o retry
+        //    costurado da rota sem-harness repete a mesma sentença inline (o
+        //    incidente tinha a mesma frase dezenas de vezes). Só igualdade
+        //    exata entre sentenças vizinhas pós-trim; texto genuíno não repete
+        //    sentença literal colada em si mesma. Por-parágrafo preserva
+        //    quebras de linha/headings intocados.
+        $paragraphs = explode("\n\n", $text);
+        foreach ($paragraphs as $i => $paragraph) {
+            $sentences = preg_split('/(?<=[.!?])[ \t]+/u', $paragraph) ?: [];
+            $kept = [];
+            $previousSentence = null;
+            foreach ($sentences as $sentence) {
+                $key = trim($sentence);
+                if ($key !== '' && $key === $previousSentence) {
+                    continue;
+                }
+                $kept[] = $sentence;
+                $previousSentence = $key === '' ? $previousSentence : $key;
+            }
+            $paragraphs[$i] = implode(' ', $kept);
+        }
+
+        return implode("\n\n", $paragraphs);
     }
 
     public function hasInternalLeakMarkers(string $text): bool

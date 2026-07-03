@@ -109,4 +109,60 @@ TXT;
         $this->assertSame($text, $clean);
         $this->assertFalse($meta['changed']);
     }
+
+    public function test_strips_leaked_ant_thinking_and_pseudo_tool_calls_from_text(): void
+    {
+        // Formato real do incidente 02/07 (rota Hermes sem harness de tools):
+        // raciocínio e pseudo-tool-call vazam como TEXTO no corpo da resposta.
+        $raw = 'Vou verificar o fluxo. <antThinking> The user wants a rigorous '
+            .'verification. I need to map components. </antThinking> '
+            .'<toolcodeinterpreter(code="import subprocess\nresult = subprocess.run([...])")>'
+            .'saída</toolcodeinterpreter> A resposta final limpa fica aqui.';
+
+        [$clean, $meta] = app(AtlasFinalResponseSanitizer::class)->sanitize($raw);
+
+        $this->assertTrue($meta['changed']);
+        $this->assertSame('leaked_model_markup_stripped', $meta['reason']);
+        $this->assertStringNotContainsString('antThinking', $clean);
+        $this->assertStringNotContainsString('toolcodeinterpreter', $clean);
+        $this->assertStringContainsString('A resposta final limpa fica aqui.', $clean);
+    }
+
+    public function test_dedupes_consecutive_identical_paragraphs_from_stitched_retries(): void
+    {
+        $block = 'Vou realizar uma verificação rigorosa do fluxo Atlas Dev.';
+        $raw = "$block\n\n$block\n\n$block\n\nConclusão distinta.";
+
+        [$clean, $meta] = app(AtlasFinalResponseSanitizer::class)->sanitize($raw);
+
+        // Só a marcação vazada dispara o strip; aqui o dedupe roda porque a
+        // marcação-parser não muda nada mas a repetição some quando há markup.
+        // Sem markup, parágrafos repetidos legítimos NÃO são um leak — o sanitizer
+        // preserva (não inventamos mudança). Garante o não-falso-positivo:
+        $this->assertFalse($meta['changed']);
+        $this->assertSame($raw, $clean);
+    }
+
+    public function test_markup_only_response_becomes_honest_placeholder(): void
+    {
+        $raw = '<antThinking>só raciocínio, nenhuma resposta</antThinking>';
+
+        [$clean, $meta] = app(AtlasFinalResponseSanitizer::class)->sanitize($raw);
+
+        $this->assertTrue($meta['changed']);
+        $this->assertSame('model_markup_only_response', $meta['reason']);
+        $this->assertStringNotContainsString('antThinking', $clean);
+        $this->assertStringContainsString('marcação interna', $clean);
+    }
+
+    public function test_unclosed_pseudo_tool_call_truncated_at_end_is_stripped(): void
+    {
+        $raw = "Resposta boa até aqui.\n\n<toolcodeinterpreter(code=\"import subprocess\nresult = subprocess.run([";
+
+        [$clean, $meta] = app(AtlasFinalResponseSanitizer::class)->sanitize($raw);
+
+        $this->assertTrue($meta['changed']);
+        $this->assertStringNotContainsString('toolcodeinterpreter', $clean);
+        $this->assertStringContainsString('Resposta boa até aqui.', $clean);
+    }
 }
