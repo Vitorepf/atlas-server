@@ -97,6 +97,37 @@ final class AtlasLoopCharacterizationTestVerifierTest extends TestCase
         $this->assertStringContainsString('target_missing', $r['reason']);
     }
 
+    public function test_verify_leaves_target_byte_identical_when_original_read_fails(): void
+    {
+        // Write known content so we can prove byte-identity afterwards.
+        $knownContent = "<?php\nfunction subject(\$a, \$b): int { return (\$a === \$b) ? 1 : 0; }\n";
+        $absTarget = $this->dir.'/'.$this->rel;
+        file_put_contents($absTarget, $knownContent);
+        $checksumBefore = hash_file('sha256', $absTarget);
+
+        // Make the target unreadable so file_get_contents returns false.
+        chmod($absTarget, 0o000);
+
+        // Ensure cleanup even if the test asserts or errors.
+        register_shutdown_function(static function () use ($absTarget): void {
+            @chmod($absTarget, 0o644);
+        });
+
+        $v = new AtlasLoopCharacterizationTestVerifier(static fn (): array => ['passed' => true, 'exit_code' => 0, 'output' => '']);
+        $r = $v->verify($this->dir, $this->rel, 'tests/Unit/SubjectTest.php', 'strict_equals');
+
+        // Restore permissions for cleanup.
+        @chmod($absTarget, 0o644);
+
+        // verify must reject when it cannot read the original.
+        $this->assertFalse($r['certified']);
+        $this->assertStringContainsString('target_unreadable', $r['reason']);
+
+        // CRITICAL: the target file must be byte-identical — no mutation leaked.
+        $this->assertSame($checksumBefore, hash_file('sha256', $absTarget));
+        $this->assertSame($knownContent, (string) file_get_contents($absTarget));
+    }
+
     public function test_default_runner_forces_hermetic_testing_database_env(): void
     {
         mkdir($this->dir.'/vendor/bin', 0o755, true);

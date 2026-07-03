@@ -93,7 +93,11 @@ final class AtlasLoopCharacterizationTestVerifier
         } catch (Throwable $e) {
             return $this->verdict(false, 'mutant_run_error:'.$e->getMessage(), true, false, $operator);
         } finally {
-            @file_put_contents($absTarget, $original);
+            // Invariant: never write a non-string back — if $original is not a string (read failed),
+            // skip the restore rather than poisoning the target file with false/null.
+            if (is_string($original)) {
+                @file_put_contents($absTarget, $original);
+            }
         }
 
         if ($mutantRun['passed'] ?? false) {
