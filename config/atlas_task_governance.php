@@ -44,6 +44,12 @@ return [
     // improves the delivery and re-reports.
     'refactor_proof_mode' => 'observe',
 
+    // When true, the packet builder BLOCKS a heavy refactor (refactor-shaped objective over
+    // 3+ allowed_files) that arrives without a complete refactor_design_spec (problem, real
+    // callers, proposed abstraction, rejected alternative, risk, expected measurable delta).
+    // False (default) records the same fact as a packet warning — visible, not blocking.
+    'refactor_design_spec_required' => false,
+
     // Per risk-level governance policy. required_checks is a subset of:
     //   syntax, boot, task_tests, required_test
     'risk_levels' => [

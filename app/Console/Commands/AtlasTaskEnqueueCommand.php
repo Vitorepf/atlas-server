@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Throwable;
@@ -39,7 +39,7 @@ class AtlasTaskEnqueueCommand extends Command
     public function handle(AtlasTaskPacketQualityInspector $inspector): int
     {
         // Enqueue onto the DEDICATED serving queue (isolated from the certification-probe pollution).
-        $orchestrator = \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::orchestrator();
+        $orchestrator = AtlasTaskServingStack::orchestrator();
         $specs = $this->collectSpecs();
         if ($specs === []) {
             $this->error('nothing to enqueue: pass --objective + --allow (+ --accept --evidence) or --file=tasks.json');
@@ -145,6 +145,10 @@ class AtlasTaskEnqueueCommand extends Command
             // ORDER: prerequisite task ids + the version-ladder wave (the serving gates a claim on depends_on).
             'depends_on' => array_values(array_filter((array) ($spec['depends_on'] ?? []), 'is_string')),
             'wave' => (int) ($spec['wave'] ?? 0),
+            // Heavy-refactor seam decision (validated + carried by the builder).
+            'refactor_design_spec' => (array) ($spec['refactor_design_spec'] ?? []),
+            // e.g. brain_seed_credit.test_only_contract for a test-only proof stage.
+            'continuation_context' => (array) ($spec['continuation_context'] ?? []),
         ];
     }
 }

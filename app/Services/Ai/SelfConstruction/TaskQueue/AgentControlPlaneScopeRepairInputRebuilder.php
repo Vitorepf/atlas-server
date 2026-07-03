@@ -87,6 +87,9 @@ final class AgentControlPlaneScopeRepairInputRebuilder
         return [
             'task_packet_id' => (string) data_get($packet, 'task_packet_id', ''),
             'objective' => $objective,
+            // The seam decision survives every rebuild (repair, scope expansion) —
+            // dropping it would strip the design contract from every later stage.
+            'refactor_design_spec' => (array) data_get($packet, 'refactor_design_spec', []),
             'source' => (string) data_get($packet, 'source', 'operator_intake'),
             'operator_id' => (string) data_get($packet, 'operator_id', 'operator-unknown'),
             'parent_run_id' => (string) data_get($packet, 'parent_run_id', ''),

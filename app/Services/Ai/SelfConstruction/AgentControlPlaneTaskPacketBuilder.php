@@ -2,12 +2,13 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketSchemaDeprecationGate;
 use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketSchemaVersioning;
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasRefactorProofGate;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
-use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Builds a deterministic, dry-run task packet for a single agent inside the
@@ -23,8 +24,9 @@ use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
  */
 final class AgentControlPlaneTaskPacketBuilder
 {
-    use RecursivelyKsortsArrays;
     use HashesKsortedPayloadCanonically;
+    use RecursivelyKsortsArrays;
+
     public const SCHEMA_VERSION = AtlasMaestroPacketSchemaVersioning::CANONICAL_V1;
 
     public const MODE = 'read_only_agent_control_plane_task_packet_builder';
@@ -36,6 +38,39 @@ final class AgentControlPlaneTaskPacketBuilder
      *
      * @return array<string,mixed>
      */
+    /**
+     * The seam decision a heavy refactor must carry: every field named, every field
+     * substantive. Returns the normalized spec or null when absent/incomplete —
+     * an incomplete spec is treated exactly like no spec (never half-trusted).
+     *
+     * @param  array<string,mixed>  $spec
+     * @return array<string,mixed>|null
+     */
+    public static function normalizeRefactorDesignSpec(array $spec): ?array
+    {
+        if ($spec === []) {
+            return null;
+        }
+        $out = [];
+        foreach (['problem', 'proposed_abstraction', 'rejected_alternative', 'risk', 'expected_delta'] as $key) {
+            $value = trim((string) ($spec[$key] ?? ''));
+            if (mb_strlen($value) < 10) {
+                return null;
+            }
+            $out[$key] = $value;
+        }
+        $callers = array_values(array_filter(array_map(
+            static fn ($c): string => trim((string) $c),
+            (array) ($spec['callers'] ?? []),
+        ), static fn (string $c): bool => $c !== ''));
+        if ($callers === []) {
+            return null;
+        }
+        $out['callers'] = $callers;
+
+        return $out;
+    }
+
     public static function defaultSimplicityContract(): array
     {
         return [
@@ -168,6 +203,25 @@ final class AgentControlPlaneTaskPacketBuilder
         if (! in_array($riskLevel, ['low', 'medium', 'high', 'critical'], true)) {
             $warnings[] = 'risk_level_unknown_defaulting_low';
             $riskLevel = 'low';
+        }
+
+        // REFACTOR DESIGN SPEC GATE — a HEAVY refactor (refactor-shaped objective over 3+
+        // files) is design work first: the brain must have decided the seam BEFORE a worker
+        // burns muscle (problem, real callers, proposed abstraction, rejected alternative,
+        // risk, expected measurable delta). Warning by default; the operator flips
+        // atlas_task_governance.refactor_design_spec_required to make it blocking. The spec
+        // travels ON the packet so every stage worker sees the same seam decision.
+        $refactorDesignSpec = self::normalizeRefactorDesignSpec((array) ($input['refactor_design_spec'] ?? []));
+        $isHeavyRefactor = count($allowed) >= 3
+            && AtlasRefactorProofGate::appliesTo($objective);
+        if ($isHeavyRefactor && $refactorDesignSpec === null) {
+            $required = function_exists('config')
+                && (bool) config('atlas_task_governance.refactor_design_spec_required', false);
+            if ($required) {
+                $blockingReasons[] = 'heavy_refactor_requires_design_spec';
+            } else {
+                $warnings[] = 'heavy_refactor_without_design_spec';
+            }
         }
 
         $maxRuntime = max(0, (int) ($input['max_runtime_seconds'] ?? 3600));
@@ -309,6 +363,7 @@ final class AgentControlPlaneTaskPacketBuilder
             'continuation_context' => $continuationContext,
             'dedup_target' => (string) ($input['dedup_target'] ?? $scopeHash),
             'expected_structural_leverage' => (float) ($input['expected_structural_leverage'] ?? 0.0),
+            'refactor_design_spec' => $refactorDesignSpec,
             'blocking_reasons' => $blockingReasons,
             'warnings' => $warnings,
             'read_only' => true,
@@ -606,6 +661,4 @@ final class AgentControlPlaneTaskPacketBuilder
 
         return $workspacePolicy;
     }
-
-
 }
