@@ -133,9 +133,15 @@ class RoutingDecisionEngine
             );
         }
 
-        // Hypothesis-confidence discovery on a write goes plan-only.
+        // Hypothesis-confidence discovery on a write goes plan-only — EXCETO
+        // quando o operador deu allowed_files= explícito: tarefa de CRIAÇÃO
+        // pura (todos os alvos são arquivos NOVOS) sempre tem discovery
+        // hypothesis (não há o que confirmar no disco), e o escopo explícito
+        // do operador É a confirmação (lote real 03/07: "crie X.php e o teste"
+        // com allowed_files nomeando os 2 alvos era demovido a read-only).
         if ($discovery->confidence === CodeDiscoveryManifest::CONFIDENCE_HYPOTHESIS
-            && $classification->writeImplied) {
+            && $classification->writeImplied
+            && ! $this->hasExplicitAllowedFilesConstraint($envelope)) {
             $reasons[] = 'discovery_hypothesis_with_write_implied';
 
             return new RoutingDecision(
@@ -168,6 +174,24 @@ class RoutingDecisionEngine
             $normalized = strtolower(trim((string) $constraint));
             if ($normalized === 'rivals_runtime_execution=true') {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Escopo explícito do operador (allowed_file(s)=...) presente nos
+     * constraints: em tarefa de criação pura a discovery nunca confirma
+     * (arquivos ainda não existem) — o allowed_files explícito é a âncora
+     * de escopo que substitui a confirmação da discovery.
+     */
+    private function hasExplicitAllowedFilesConstraint($envelope): bool
+    {
+        foreach ($envelope->userConstraints as $constraint) {
+            $normalized = strtolower(trim((string) $constraint));
+            if (str_starts_with($normalized, 'allowed_files=') || str_starts_with($normalized, 'allowed_file=')) {
+                return trim(substr($normalized, strpos($normalized, '=') + 1)) !== '';
             }
         }
 
