@@ -45,7 +45,11 @@ final class AtlasLoopZombieReaper
             ? ! (bool) $options['apply']
             : (bool) ($options['dry_run'] ?? true);
         $graceSeconds = max(0, (int) ($options['grace_seconds'] ?? 60));
-        $now = Carbon::parse((string) ($options['now'] ?? Carbon::now('UTC')->toIso8601String()));
+        try {
+            $now = Carbon::parse((string) ($options['now'] ?? Carbon::now('UTC')->toIso8601String()));
+        } catch (Throwable) {
+            $now = Carbon::now('UTC');
+        }
         $livePids = $this->livePids($topologySnapshot);
         $reaped = [];
         $spared = [];
@@ -154,7 +158,11 @@ final class AtlasLoopZombieReaper
             return null;
         }
 
-        return (int) max(0, Carbon::parse((string) $row->{$column})->diffInSeconds($now));
+        try {
+            return (int) max(0, Carbon::parse((string) $row->{$column})->diffInSeconds($now));
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function isClaimedStatus(string $table, object $row): bool
