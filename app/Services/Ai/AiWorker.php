@@ -216,6 +216,71 @@ class AiWorker
         return $job->refresh();
     }
 
+    /**
+     * Árbitro SEMÂNTICO no worker (decisão do operador 03/07): quando o
+     * léxico caiu no fallback (S52), um modelo LOCAL lê a mensagem contra o
+     * catálogo de flows e escolhe o destino — "analise esse ativo" vira
+     * finanças, "essa página quebrou" vira debug — sem lista de frases.
+     * Roda AQUI (job assíncrono; ~15-20s do hermes são invisíveis) e nunca
+     * no router HTTP. Fail-open em qualquer falha: o job segue como estava
+     * (gateway agêntico S52). Segue o padrão rebuild-prompt-pós-claim do
+     * {@see refreshReadyYouTubePrompt}.
+     */
+    private function applySemanticFlowArbiter(AiJob $job): AiJob
+    {
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $reason = (string) data_get($payload, 'atlas_ai_router.routing_reason', '');
+        if (! in_array($reason, ['agentic_gateway_default', 'fallback_conversation'], true)) {
+            return $job;
+        }
+        $message = trim((string) $job->input_text);
+        if (mb_strlen($message) < 13) {
+            return $job;
+        }
+
+        try {
+            $flowId = app(\App\Services\Ai\Router\AtlasSemanticFlowArbiterService::class)->arbitrate($message);
+        } catch (\Throwable) {
+            return $job;
+        }
+        if ($flowId === null || $flowId === (string) data_get($payload, 'atlas_ai_router.flow_id')) {
+            return $job;
+        }
+
+        // Reescreve a decisão de forma auditável e mapeia a execução como o
+        // AiInteractionController mapeia flows de programação.
+        $payload['atlas_ai_router']['flow_id'] = $flowId;
+        $payload['atlas_ai_router']['routing_reason'] = 'semantic_arbiter:'.$reason;
+        $payload['flow_id'] = $flowId;
+        if (in_array($flowId, ['atlas_dev', 'atlas_debug', 'atlas_review', 'atlas_plan'], true)
+            && (bool) data_get($payload, 'atlas_ai_router.handoff_payload.workspace_present', false)) {
+            $payload['atlas_mode'] = 'programming';
+            $payload['routing_task'] = match ($flowId) {
+                'atlas_debug' => 'debug',
+                'atlas_review' => 'review',
+                'atlas_plan' => 'plan',
+                default => 'dev',
+            };
+        }
+
+        $prompt = $this->prompts->build((string) $job->input_text, [
+            'provider' => $job->provider,
+            'model' => $job->model,
+            'source_type' => $job->trace?->source_type,
+            'payload' => $payload,
+        ]);
+        $metadata = is_array($job->metadata) ? $job->metadata : [];
+        $metadata['semantic_flow_arbiter'] = ['flow_id' => $flowId, 'superseded_reason' => $reason];
+        $job->forceFill([
+            'prompt' => $prompt->prompt,
+            'context_refs' => $prompt->contextRefs,
+            'payload' => $payload,
+            'metadata' => $metadata,
+        ])->save();
+
+        return $job->refresh();
+    }
+
     private function runNextMatching(?string $traceId = null, ?string $providerOverride = null, ?string $workerId = null, ?callable $onStream = null): ?AiJob
     {
         $workerId = $workerId ?: (string) config('atlas.ai.worker_id', 'atlas-worker');
@@ -244,6 +309,7 @@ class AiWorker
             return $this->completeAttempt($job, $attempt, $this->fairModeViolationResult($violation), $workerId);
         }
         $job = $this->applyExpiredAtlasScoutDependency($job);
+        $job = $this->applySemanticFlowArbiter($job);
         $job = $this->applyProgrammingProviderPolicyRuntime($job);
         $job = $this->refreshReadyYouTubePrompt($job);
         if ($violation = $this->decisionReceipts->violationForJob($job, $providerKey, $job->model)) {
