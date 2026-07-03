@@ -65,7 +65,12 @@ final class ReadinessPathPolicy
         }
 
         if (str_ends_with($pattern, '/**')) {
-            return str_starts_with($path, substr($pattern, 0, -3).'/');
+            $prefix = substr($pattern, 0, -3);
+            if ($prefix === '') {
+                return false;
+            }
+
+            return str_starts_with($path, $prefix.'/');
         }
 
         return false;
