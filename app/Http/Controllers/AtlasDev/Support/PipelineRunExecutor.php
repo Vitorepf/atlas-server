@@ -205,7 +205,7 @@ final class PipelineRunExecutor implements RunExecutor
         $regressionBaseline = null;
         $e5Config = $this->resolveE5Config();
         if (! $e5Config->isOff()) {
-            $baselineService = $this->resolveRegressionBaselineService();
+            $baselineService = $this->resolveRegressionBaselineService($commandRunner);
             if ($baselineService !== null) {
                 $regressionBaseline = $baselineService->captureBaseline(
                     runId: $runId,
@@ -595,8 +595,23 @@ final class PipelineRunExecutor implements RunExecutor
         // flag / STATUS_FAILED channels are provider-agnostic by design. This
         // also covers the best-of-N winner path (VAL-CROSS-015) which flows
         // through the same post-gate block.
+        // RED→GREEN WITNESS (repair): o baseline E5 pré-patch registrou pelo
+        // menos um comando de validação FALHANDO e a verificação final passou.
+        // Para task_kind=repair isso é a prova comportamental de que o intent
+        // foi endereçado — o teste que definia o bug virou verde. Sem isto,
+        // um micro-fix perfeito ("$a - $b" → "$a + $b") era flagado por E1
+        // (linhas adicionadas sem subject tokens) e por E4 (mudar comportamento
+        // É o fix) — falso-positivo real do teste de fogo E2E de 03/07.
+        // A testemunha exige o vermelho pré-patch: um repair com baseline
+        // todo-verde (arquivo certo, comportamento errado — fixture VAL-M2-002)
+        // NÃO é testemunhado e segue sob E1/E4 plenos.
+        $redToGreenWitnessed = $taskKind === 'repair'
+            && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED
+            && $regressionBaseline !== null
+            && in_array(false, $regressionBaseline->results, true);
+
         $e1Config = $this->resolveE1Config();
-        if (! $e1Config->isOff()) {
+        if (! $e1Config->isOff() && ! $redToGreenWitnessed) {
             $intentMissing = (new IntentFalsificationProbe)->isIntentLikelyNotAddressed(
                 $taskContract,
                 $diffResult,
@@ -739,7 +754,7 @@ final class PipelineRunExecutor implements RunExecutor
         // a property of the test results, not the provider) and covers the
         // best-of-N winner path through the same post-gate block.
         if (! $e5Config->isOff() && $regressionBaseline !== null) {
-            $baselineService = $this->resolveRegressionBaselineService();
+            $baselineService = $this->resolveRegressionBaselineService($commandRunner);
             if ($baselineService !== null) {
                 $regressionResult = $baselineService->buildResult(
                     baseline: $regressionBaseline,
@@ -807,7 +822,18 @@ final class PipelineRunExecutor implements RunExecutor
         // ($sawFailedGate): a weak-green repair chain (W1 placeholder on a
         // gate that never failed) is NOT test-witnessed, so E4 still runs in
         // full there.
+        // RED→GREEN WITNESS EXEMPTION (extensão da doutrina acima): um
+        // task_kind=repair cujo baseline E5 pré-patch tinha comando de
+        // validação VERMELHO e cuja verificação final passou é o mesmo mérito
+        // do repair convergido — o contrato de um repair É mudar comportamento,
+        // e o red→green é a testemunha. Sem isto, todo bug-fix perfeito de
+        // função pura ("a-b"→"a+b", teste que define o comportamento certo
+        // VERDE) era flagado shadow_diff_regression (falso-positivo real do
+        // teste de fogo E2E de 03/07). Um repair de baseline todo-verde NÃO é
+        // testemunhado (VAL-M2-009 continua disparando); kinds refactor/patch
+        // (preservação de comportamento) continuam sob E4 pleno.
         if (! $e4Config->isOff()
+            && ! $redToGreenWitnessed
             && ! ($repairAttempt > 0 && $sawFailedGate && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED)) {
             $shadowDiffService = $this->resolveShadowDiffService();
             if ($shadowDiffService !== null) {
@@ -934,6 +960,7 @@ final class PipelineRunExecutor implements RunExecutor
                     taskContract: $taskContract,
                     verificationResult: $verificationResult,
                     diffResult: $diffResult,
+                    intentWitnessed: $redToGreenWitnessed,
                 );
                 // E1: pass the LLM-as-judge sub-layer options to the critic
                 // so detectIntentFalsification() can invoke the (optional,
@@ -1862,7 +1889,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             // applied to the WINNER through the post-gate E5 block.
             $candidateRegressions = [];
             if ($e5Active) {
-                $baselineService = $this->resolveRegressionBaselineService();
+                $baselineService = $this->resolveRegressionBaselineService($commandRunner);
                 if ($baselineService !== null) {
                     $candidateRegressions = $baselineService->computeRegressions(
                         $regressionBaseline,
@@ -2248,6 +2275,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         LightTaskContract $taskContract,
         VerificationGateResult $verificationResult,
         DiffParseResult $diffResult,
+        bool $intentWitnessed = false,
     ): array {
         // changed_files from the observed diff (canonical "what changed" source)
         $changedFiles = array_map(
@@ -2289,8 +2317,14 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             // source of truth, no re-detection (VAL-CROSS-005). Absent for
             // read-only paths (intentVerbs empty) so the detector stays
             // silent and the critic is byte-identical to pre-E1 there.
+            // RED→GREEN WITNESS: quando o repair é comportamentalmente
+            // testemunhado (baseline vermelho → verificação verde), o intent
+            // FOI endereçado por prova de execução — verbs vazios usam o
+            // caminho silencioso documentado acima (detector mudo), evitando
+            // que o critic re-flague pelo mesmo probe heurístico que o
+            // executor já isentou.
             'intent_basis' => [
-                'intent_verbs' => array_values($taskContract->intentVerbs),
+                'intent_verbs' => $intentWitnessed ? [] : array_values($taskContract->intentVerbs),
                 'intent_text' => $taskContract->intentText,
                 'diff' => $diffResult->diff ?? '',
             ],
@@ -3826,13 +3860,22 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * VerificationRegressionBaselineRunner. The container binding convention
      * mirrors `atlas_dev.e3.mutation_adapter` and `atlas_dev.e1.intent_judge`.
      */
-    private function resolveRegressionBaselineService(): ?RegressionBaselineService
+    private function resolveRegressionBaselineService(?VerificationCommandRunner $commandRunner = null): ?RegressionBaselineService
     {
         if ($this->container->bound('atlas_dev.e5.regression_baseline_service')) {
             $bound = $this->container->make('atlas_dev.e5.regression_baseline_service');
             if ($bound instanceof RegressionBaselineService) {
                 return $bound;
             }
+        }
+
+        // Produção: nada binda o serviço no container (só testes bindam), o
+        // que deixava E5 morto em runs vivos — baseline nunca capturado, gate
+        // hard sem efeito e a testemunha red→green sempre falsa. Com o command
+        // runner real em mãos, monta o wiring de produção documentado no
+        // VerificationRegressionBaselineRunner.
+        if ($commandRunner !== null) {
+            return new RegressionBaselineService(new VerificationRegressionBaselineRunner($commandRunner));
         }
 
         return null;

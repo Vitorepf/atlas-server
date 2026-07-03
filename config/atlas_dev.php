@@ -48,11 +48,14 @@ return [
         // provider evidence cannot be confused with deterministic execution.
         'deterministic_fast_path_enabled' => (bool) env('ATLAS_DEV_DETERMINISTIC_FAST_PATH_ENABLED', true),
 
-        // L4-9: Atlas Dev single-file Hermes runs are already fully governed by
-        // TaskContract + ScopeGuard + VerificationGate. Use ACP transport and a
-        // one-turn cap for those narrow edits; broader multi-file Dev runs keep
-        // the global Hermes max-turn policy.
-        'hermes_execution_transport' => env('ATLAS_DEV_HERMES_EXECUTION_TRANSPORT', 'acp'),
+        // Transporte Hermes do Dev. 'cli' (one-shot `hermes -z`, aprovações
+        // auto-bypass) é o transporte PROVADO: edita o workspace e valida.
+        // 'acp' (warm pool) devolvia texto SEM editar — o mesmo bug já
+        // corrigido no loop ("acp retornava diff 0") ficou vivo aqui e é a
+        // causa-raiz dos 18/56 no_patch_produced do corpus real + do teste de
+        // fogo E2E de 03/07 (pipeline: no_patch 2×; hermes -z direto no mesmo
+        // workspace: editou e validou em segundos).
+        'hermes_execution_transport' => env('ATLAS_DEV_HERMES_EXECUTION_TRANSPORT', 'cli'),
         'hermes_single_file_max_turns' => (int) env('ATLAS_DEV_HERMES_SINGLE_FILE_MAX_TURNS', 1),
 
         // Canonical default path for CLI / API entrypoints. When `efficient`,

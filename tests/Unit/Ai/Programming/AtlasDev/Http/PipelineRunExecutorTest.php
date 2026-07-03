@@ -81,6 +81,13 @@ final class PipelineRunExecutorTest extends TestCase
         // branches, not E6. (m2-e6-constitution-gate)
         config()->set('atlas_dev.elevations.e6.mode', 'off');
 
+        // E5 baseline is off for these fixtures: with E5 live in production
+        // wiring (03/07), the pre-patch baseline capture consumes the first
+        // result of scripted command-runner fakes and shifts their sequence.
+        // These tests cover F-03 receipt routing and provider branches, not
+        // E5 (covered by RegressionBaseline*Test).
+        config()->set('atlas_dev.elevations.e5.mode', 'off');
+
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-exec-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);
 

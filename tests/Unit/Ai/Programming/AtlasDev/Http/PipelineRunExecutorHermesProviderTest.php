@@ -219,7 +219,9 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
         // (getAttribute is exactly what the magic __get delegates to).
         $this->assertSame($this->tmpWorkspace, data_get($job->getAttribute('payload'), 'workspace'));
         $this->assertSame($this->tmpWorkspace, data_get($job->getAttribute('payload'), 'tool_permissions.workspace'));
-        $this->assertSame('acp', data_get($job->getAttribute('payload'), 'hermes.execution_transport'));
+        // Default flipped acp→cli em 03/07: o transporte acp retornava texto
+        // sem editar o workspace (diff 0 em 18/56 do corpus + teste de fogo).
+        $this->assertSame('cli', data_get($job->getAttribute('payload'), 'hermes.execution_transport'));
         $this->assertSame(1, data_get($job->getAttribute('payload'), 'hermes.max_turns'));
         $this->assertSame('hermes_cli', $job->getAttribute('provider'));
         // Atlas defers sub-model selection to Hermes' own executive runtime: the

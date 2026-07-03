@@ -51,6 +51,14 @@ final class RepairToGreenTest extends TestCase
         parent::setUp();
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
 
+        // E5 baseline is off for these fixtures: the scripted command-runner
+        // fakes sequence their results per gate attempt ("1st call fails, 2nd
+        // passes"). With E5 live in production wiring (03/07), the pre-patch
+        // baseline capture would consume the first scripted result and shift
+        // the whole sequence, changing what the gate observes. These tests
+        // pin the M2 repair loop, not E5 (covered by RegressionBaseline*Test).
+        config()->set('atlas_dev.elevations.e5.mode', 'off');
+
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-repair-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);
 
