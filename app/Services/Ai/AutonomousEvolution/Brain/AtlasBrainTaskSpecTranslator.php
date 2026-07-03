@@ -166,8 +166,12 @@ final class AtlasBrainTaskSpecTranslator
         if (str_contains($path, '...') || str_contains($path, "\u{2026}")) {
             return false;
         }
-        // Any `..` SEGMENT (not just substring — `foo..bar.php` is a legit filename). Split on / and \.
-        foreach (preg_split('#[/\\\\]+#', $path) ?: [] as $segment) {
+        // Any `..` SEGMENT (not just substring — `foo..bar.php` is a legit filename). Split on / and \\.
+        $segments = preg_split('#[/\\\\]+#', $path);
+        if ($segments === false) {
+            return false;
+        }
+        foreach ($segments as $segment) {
             if ($segment === '..') {
                 return false;
             }
