@@ -90,6 +90,10 @@ final class AtlasLoopTaskClassMiner
             ksort($histogram);
             $supportCount = count($members);
 
+            if ($supportCount === 0) {
+                continue;
+            }
+
             $facts[] = [
                 'cluster_id' => hash('sha256', json_encode([
                     'cluster_key' => $clusterKey,
