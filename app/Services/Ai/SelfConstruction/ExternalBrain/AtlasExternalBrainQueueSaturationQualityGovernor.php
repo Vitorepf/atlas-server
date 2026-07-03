@@ -149,7 +149,9 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
         }
 
         $remainingCapacity = ($activeWorkers * 2) - $servableDepth;
-        $maxNewTasks = max(1, min(self::MAX_NEW_TASKS_CAP, $remainingCapacity));
+        $maxNewTasks = $activeWorkers === 0
+            ? 0
+            : max(1, min(self::MAX_NEW_TASKS_CAP, $remainingCapacity));
 
         return [
             'schema' => self::SCHEMA,
