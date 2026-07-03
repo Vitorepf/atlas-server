@@ -3316,7 +3316,15 @@ TEXT);
     private function pauseForChoice(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId): AiJob
     {
         $resetAtIso = data_get($result->metadata, 'provider_reset_at');
-        $resetAt = is_string($resetAtIso) ? CarbonImmutable::parse($resetAtIso) : null;
+        $resetAt = is_string($resetAtIso)
+            ? (function () use ($resetAtIso): ?\Carbon\CarbonImmutable {
+                try {
+                    return CarbonImmutable::parse($resetAtIso);
+                } catch (\Throwable $e) {
+                    return null;
+                }
+            })()
+            : null;
 
         $options = $this->choices->build(
             errorCode: (string) $result->errorCode,
