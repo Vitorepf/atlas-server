@@ -123,7 +123,7 @@ final class AtlasTaskFabricAgeAwareAdmissionPenalty
 
         $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $queueFacts)
             ? (float) $queueFacts['claimable_per_active_worker']
-            : ($activeWorkers > 0 ? $claimableDepth / $activeWorkers : null);
+            : ($activeWorkers > 0 ? $claimableDepth / $activeWorkers : ($claimableDepth > 0 ? INF : null));
         if ($claimablePerActiveWorker !== null && $claimablePerActiveWorker >= self::SATURATION_CLAIMABLE_PER_WORKER_THRESHOLD) {
             $reasons[] = sprintf('claimable_per_active_worker=%.2f_indicates_saturation', $claimablePerActiveWorker);
         }
