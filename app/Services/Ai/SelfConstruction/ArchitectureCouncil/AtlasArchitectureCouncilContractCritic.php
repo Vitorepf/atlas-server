@@ -166,7 +166,8 @@ final class AtlasArchitectureCouncilContractCritic
         foreach (self::HIDDEN_SIDE_EFFECT_PATTERNS as $pattern => $key) {
             if (preg_match($pattern, $haystack)) {
                 // If the contract EXPLICITLY forbids the side-effect, the finding is suppressed.
-                $tag = explode(':', $key)[1];
+                $parts = explode(':', $key, 2);
+                $tag = $parts[1] ?? $key;
                 $covered = false;
                 foreach ($forbiddenSE as $f) {
                     if (stripos($f, $tag) !== false) {

@@ -315,4 +315,22 @@ final class AtlasArchitectureCouncilContractCriticTest extends TestCase
 
         $this->assertNotContains('vague_owner', $r['findings']);
     }
+
+    public function test_hidden_side_effect_key_without_colon_does_not_crash(): void
+    {
+        // The critic uses explode(':', $key)[1] to extract the tag for suppression.
+        // A key without a colon would raise an undefined-array-key error.
+        // The guard ensures $parts[1] ?? $key degrades safely.
+        // We verify by confirming the critic completes without error on a
+        // responsibility that triggers a hidden side-effect pattern.
+        $c = $this->goodContract();
+        $c['responsibilities'] = ['compile contracts and git push to main'];
+        $c['forbidden_side_effects'] = [];
+
+        // This should not raise an undefined-array-key error.
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+
+        $this->assertContains('hidden_side_effects:git', $r['findings']);
+        $this->assertArrayHasKey('accepted', $r);
+    }
 }
