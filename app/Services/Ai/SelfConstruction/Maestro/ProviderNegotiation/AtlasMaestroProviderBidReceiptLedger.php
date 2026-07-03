@@ -136,6 +136,9 @@ final class AtlasMaestroProviderBidReceiptLedger
         }
         foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
             $row = json_decode($line, true);
+            if ($row === null && json_last_error() !== JSON_ERROR_NONE) {
+                throw new \RuntimeException('AtlasMaestroProviderBidReceiptLedger: corrupt outcome ledger line: '.substr($line, 0, 128), 1);
+            }
             if (is_array($row) && ($row['task_id'] ?? '') === $taskId) {
                 return (string) $row['outcome'];
             }
