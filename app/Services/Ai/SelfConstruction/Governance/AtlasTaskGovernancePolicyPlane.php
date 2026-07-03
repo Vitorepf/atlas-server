@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Governance;
 
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasRefactorProofGate;
+use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract;
+
 /**
  * v3 Policy Plane for the task lane: governance policy as inspectable DATA
  * (config/atlas_task_governance.php) instead of scattered env reads and hard-codes.
@@ -43,7 +46,7 @@ final class AtlasTaskGovernancePolicyPlane
 
     /**
      * @param  array<string,mixed>|null  $configOverride  injectable for pure unit tests; null reads
-     *                                                     config('atlas_task_governance') at call time
+     *                                                    config('atlas_task_governance') at call time
      */
     public function __construct(private readonly ?array $configOverride = null) {}
 
@@ -111,7 +114,7 @@ final class AtlasTaskGovernancePolicyPlane
     }
 
     /**
-     * Default OFF. Gates {@see \App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel}
+     * Default OFF. Gates {@see AtlasTaskPostLandCanarySentinel}
      * in the serving report commit path — absent config key reproduces today's behavior exactly
      * (no canary observation, zero receipts).
      */
@@ -133,7 +136,7 @@ final class AtlasTaskGovernancePolicyPlane
 
     /**
      * off|observe|enforce, default observe. Gates
-     * {@see \App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract}
+     * {@see AtlasVerificationCourtEvidenceContract}
      * on the serving report commit path: off skips evaluation entirely (byte-identical legacy
      * behavior), observe records the verdict without blocking, enforce refuses the commit on a
      * failed verdict. An invalid/unknown config value safely falls back to observe.
@@ -141,6 +144,21 @@ final class AtlasTaskGovernancePolicyPlane
     public function evidenceContractMode(): string
     {
         $raw = strtolower(trim((string) ($this->config()['evidence_contract_mode'] ?? '')));
+
+        return in_array($raw, self::VALID_MODES, true) ? $raw : self::DEFAULT_EVIDENCE_CONTRACT_MODE;
+    }
+
+    /**
+     * off|observe|enforce, default observe. Gates
+     * {@see AtlasRefactorProofGate}
+     * on the serving report commit path for refactor/optimize objectives: off skips the
+     * proof entirely, observe records the before/after delta verdict without blocking,
+     * enforce refuses the commit when the delta shows no measurable improvement or an
+     * anti-fake flag (move_only / wrapper_only). Invalid config falls back to observe.
+     */
+    public function refactorProofMode(): string
+    {
+        $raw = strtolower(trim((string) ($this->config()['refactor_proof_mode'] ?? '')));
 
         return in_array($raw, self::VALID_MODES, true) ? $raw : self::DEFAULT_EVIDENCE_CONTRACT_MODE;
     }

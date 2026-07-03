@@ -4,15 +4,25 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Models\AtlasDevFailureCapsule;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\EngineeringKernel\Adapters\MaestroCostBudgetMeterAdapter;
 use App\Services\Ai\EngineeringKernel\BudgetMeter;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService;
+use App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
 use App\Services\Ai\SelfConstruction\Maestro\Cost\AtlasMaestroCostAggregator;
 use App\Services\Ai\SelfConstruction\Maestro\Cost\AtlasMaestroCostLedger;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasRefactorProofGate;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract;
 use Closure;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -64,6 +74,8 @@ final class AtlasTaskServingService
     /** @var Closure(array<string,mixed>,array<string,mixed>):array<string,mixed> */
     private readonly Closure $evidenceContractEvaluator;
 
+    private readonly AtlasRefactorProofGate $refactorProofGate;
+
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly ?AtlasTaskServingSentinel $sentinel = null,
@@ -75,7 +87,9 @@ final class AtlasTaskServingService
         ?AtlasTaskGovernancePolicyPlane $policyPlane = null,
         ?Closure $evidenceContractEvaluator = null,
         ?BudgetMeter $budgetMeter = null,
+        ?AtlasRefactorProofGate $refactorProofGate = null,
     ) {
+        $this->refactorProofGate = $refactorProofGate ?? new AtlasRefactorProofGate;
         $this->inspector = $inspector ?? new AtlasTaskPacketQualityInspector;
         $this->committer = $committer ?? new AtlasTaskScopedCommitter;
         $this->verifier = $verifier ?? new AtlasTaskCommitVerificationGate;
@@ -190,6 +204,7 @@ final class AtlasTaskServingService
                 // fast path and Forge prompts already receive. Advisory,
                 // fail-open, workspace-scoped (anti cross-repo bleed).
                 $task['known_failure_modes'] = $this->knownFailureModesFor($task);
+
                 return $this->served($clientId, $this->envelope('served', $clientId, $task, []));
             }
 
@@ -313,6 +328,42 @@ final class AtlasTaskServingService
                 }
             }
 
+            // REFACTOR DELTA PROOF — for refactor/optimize objectives, GREEN IS NOT ENOUGH: the
+            // delivery must show a measurable delta (less code / complexity / duplication /
+            // shorter functions) against the HEAD the worker started from. observe (default)
+            // records the proof on the envelope + receipt; enforce refuses the commit on a
+            // non-improving or anti-fake delivery (move_only / wrapper_only), keeping the lease
+            // so the worker improves it and re-reports. Fail-open: an uncomputable proof (infra,
+            // non-PHP scope) never blocks.
+            $refactorProofMode = $this->policyPlane->refactorProofMode();
+            $refactorProof = null;
+            if ($refactorProofMode !== 'off' && AtlasRefactorProofGate::appliesTo((string) $scope['objective'])) {
+                $refactorProof = $this->refactorProofGate->prove(array_values((array) $scope['allowed_files']));
+                if ($refactorProof !== null) {
+                    try {
+                        $this->orchestrator->appendReportReceipt($taskPacketId, [
+                            'receipt_kind' => 'refactor_delta_proof',
+                            'mode' => $refactorProofMode,
+                            'proof' => $refactorProof,
+                        ]);
+                    } catch (Throwable) {
+                        // Receipt is observability; never fail a report over it.
+                    }
+                }
+                if ($refactorProofMode === 'enforce'
+                    && $refactorProof !== null
+                    && ($refactorProof['improved'] ?? true) !== true) {
+                    return $this->reportEnvelope('commit_failed', $clientId, [
+                        'outcome' => 'success',
+                        'lease_closed' => false,
+                        'task_packet_id' => $taskPacketId,
+                        'lease_id' => $leaseId,
+                        'reason' => 'refactor_delta_refused',
+                        'refactor_proof' => $refactorProof,
+                    ]);
+                }
+            }
+
             // SPINE — the Merge Governor + Verification Court finally run on a LIVE delivery. In observe mode
             // (default) it RECORDS the verdict and NEVER blocks (the bootstrap swarm builds these very organs,
             // which score HIGH risk — enforcing here would self-lock the build). In enforce mode a non-admitted
@@ -403,7 +454,8 @@ final class AtlasTaskServingService
                 'files_committed' => array_values((array) ($commit['files_committed'] ?? [])),
                 'governance' => $governance,
                 'result' => $resolved,
-            ], $evidenceContractMode !== 'off' ? ['evidence_contract' => $evidenceContractVerdict] : []));
+            ], $evidenceContractMode !== 'off' ? ['evidence_contract' => $evidenceContractVerdict] : [],
+                $refactorProof !== null ? ['refactor_proof' => $refactorProof] : []));
         }
 
         if ($outcome === 'success') {
@@ -419,6 +471,33 @@ final class AtlasTaskServingService
                 'orchestrator_event' => $event,
                 'result' => $result,
             ]);
+        }
+
+        // GOVERNED SCOPE EXPANSION — a give_back that carries a structured expansion request
+        // (files + justification) is a discovery, not a failure: the seam needs files the
+        // packet did not anticipate. Granted, the packet is rebuilt with the wider scope and
+        // the SAME worker reclaims it immediately (no give_back stamp, no cooldown, WIP kept).
+        // Refused (thin justification / forbidden target / too broad), it falls through to
+        // the normal give_back below — fail-closed to today's behavior.
+        $expansion = (array) data_get($payload, 'evidence.scope_expansion_request', []);
+        if ($outcome === 'give_back' && $expansion !== []) {
+            $granted = $this->orchestrator->requestScopeExpansion(
+                $taskPacketId,
+                $leaseId,
+                $clientId,
+                array_values((array) ($expansion['files'] ?? [])),
+                (string) ($expansion['justification'] ?? ''),
+            );
+            if ((string) ($granted['event'] ?? '') === 'scope_expanded') {
+                return $this->reportEnvelope('scope_expanded', $clientId, [
+                    'outcome' => $outcome,
+                    'lease_closed' => true,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'result' => $granted,
+                ]);
+            }
+            // Refusal is audible on the give_back reason below.
         }
 
         // failed / give_back => anti-loop release: another worker can retry, but NEVER the same worker that just
@@ -439,15 +518,15 @@ final class AtlasTaskServingService
             try {
                 $served = $this->orchestrator->taskScope($taskPacketId);
                 $files = array_values(array_map('strval', (array) ($served['allowed_files'] ?? [])));
-                $anchor = app(\App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService::class)->persist([
+                $anchor = app(DevTaskPacketRuntimeService::class)->persist([
                     'run_id' => 'serving-'.$taskPacketId,
                     'task_id' => $taskPacketId,
                     'objective' => (string) ($served['objective'] ?? ''),
-                    'workspace_slug' => \App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity::slug(base_path()),
+                    'workspace_slug' => WorkspaceOriginIdentity::slug(base_path()),
                     'allowed_files' => $files,
                     'source' => 'task_serving_report',
                 ]);
-                app(\App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService::class)->persist([
+                app(DevFailureCapsuleRuntimeService::class)->persist([
                     'run_id' => 'serving-'.$taskPacketId,
                     'task_id' => $taskPacketId,
                     'failing_gate' => 'worker_report_'.$outcome,
@@ -463,15 +542,15 @@ final class AtlasTaskServingService
         // worker's mental model of the scope diverged from reality. Drop the comprehension
         // snapshot so the next authoring round rebuilds against fresh inventory. Fail-open.
         try {
-            $cadence = app()->bound(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService::class)
-                ? app(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService::class)
-                : new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService();
+            $cadence = app()->bound(AtlasLoopComprehensionCadenceService::class)
+                ? app(AtlasLoopComprehensionCadenceService::class)
+                : new AtlasLoopComprehensionCadenceService;
             $cadence->invalidate('task_outcome_'.$outcome.':'.$taskPacketId);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // never let a comprehension hiccup wedge a give_back report — but a
             // failed invalidation means the brain keeps authoring against a stale
             // scope model, so the loss is logged, never invisible.
-            \Illuminate\Support\Facades\Log::warning('comprehension_invalidation_failed', [
+            Log::warning('comprehension_invalidation_failed', [
                 'task_packet_id' => $taskPacketId,
                 'outcome' => $outcome,
                 'error' => $e->getMessage(),
@@ -485,12 +564,12 @@ final class AtlasTaskServingService
         $autoRepair = null;
         if ($event === 'give_back_quarantined' && $this->policyPlane->autoRespecOnQuarantineEnabled()) {
             try {
-                \Illuminate\Support\Facades\Artisan::call('atlas:task:repair-blocked', [
+                Artisan::call('atlas:task:repair-blocked', [
                     '--limit' => 10,
                     '--actor' => 'auto_respec_on_quarantine',
                     '--json' => true,
                 ]);
-                $autoRepair = json_decode(\Illuminate\Support\Facades\Artisan::output(), true);
+                $autoRepair = json_decode(Artisan::output(), true);
             } catch (Throwable) {
                 // fail-open
             }
@@ -621,7 +700,7 @@ final class AtlasTaskServingService
      */
     /**
      * M5 known failure modes for the packet's area — provider-safe strings
-     * from persisted {@see \App\Models\AtlasDevFailureCapsule} rows, scoped
+     * from persisted {@see AtlasDevFailureCapsule} rows, scoped
      * to THIS repo's workspace identity (the serving stack always serves
      * self-construction work on this repository).
      *
@@ -635,9 +714,9 @@ final class AtlasTaskServingService
                 return [];
             }
 
-            return (new \App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector)->injectFor(
+            return (new DevFailureCapsulePromptInjector)->injectFor(
                 $files,
-                \App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity::slug(base_path()),
+                WorkspaceOriginIdentity::slug(base_path()),
             );
         } catch (Throwable) {
             return []; // fail-open: advisory memory never blocks a serve
@@ -647,7 +726,7 @@ final class AtlasTaskServingService
     private function siblingTestsFor(array $task): array
     {
         try {
-            $resolver = new \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
+            $resolver = new AtlasLoopSiblingTestResolver;
             $siblings = [];
             foreach (array_values(array_map('strval', (array) ($task['allowed_files'] ?? []))) as $file) {
                 $resolved = $resolver->resolve($file);

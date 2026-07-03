@@ -1,10 +1,11 @@
 <?php
 
 declare(strict_types=1);
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 
 /**
  * v3 Policy Plane for the task lane: governance policy as inspectable DATA instead of scattered
- * env reads and hard-codes. Read by {@see \App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane}.
+ * env reads and hard-codes. Read by {@see AtlasTaskGovernancePolicyPlane}.
  *
  * Every value below reproduces TODAY's hard-coded behavior exactly — this file makes the policy
  * inspectable/editable without touching code, it does not change any default outcome by itself.
@@ -33,6 +34,15 @@ return [
     // records the verdict without blocking (bootstrap-safe default); enforce refuses a commit
     // whose evidence fails the receipt-chain contract, keeping the lease.
     'evidence_contract_mode' => 'observe',
+
+    // Default for AtlasTaskGovernancePolicyPlane::refactorProofMode(). off|observe|enforce.
+    // Gates AtlasRefactorProofGate on the serving report commit path for refactor/optimize
+    // objectives: the delivery must PROVE a measurable delta (less code, complexity,
+    // duplication, or shorter functions) — a green diff that improves nothing, a pure move,
+    // or a wrapper-only "abstraction" is not a delivered refactor. observe records the
+    // proof without blocking; enforce refuses the commit, keeping the lease so the worker
+    // improves the delivery and re-reports.
+    'refactor_proof_mode' => 'observe',
 
     // Per risk-level governance policy. required_checks is a subset of:
     //   syntax, boot, task_tests, required_test
