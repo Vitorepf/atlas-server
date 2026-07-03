@@ -116,7 +116,7 @@ final class AtlasMaestroRetryEvidenceMiner
             $failureReason = (string) ($row['failure_reason'] ?? 'unknown');
             $outcome = (string) ($row['eventual_outcome'] ?? 'failure');
 
-            $key = implode('|', [$taskFamily, $workerClass, $failureReason]);
+            $key = json_encode([$taskFamily, $workerClass, $failureReason], JSON_THROW_ON_ERROR);
             $buckets[$key] ??= [
                 'task_family' => $taskFamily,
                 'worker_class' => $workerClass,
