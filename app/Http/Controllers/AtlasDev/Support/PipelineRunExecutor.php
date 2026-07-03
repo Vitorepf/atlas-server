@@ -1111,7 +1111,20 @@ final class PipelineRunExecutor implements RunExecutor
                         ? AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS
                         : AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
                     'latency_ms' => $callResultForGates->durationMs,
-                    'cost_usd' => $callResultForGates->costEstimateUsd,
+                    // Custo real: hermes_cli é LOCAL (custo marginal zero) —
+                    // null deixava a camada cost-outcome do ADML sem evidência
+                    // ("cost_outcome_no_relevant_cost_outcome_evidence") e a
+                    // recomendação nunca amadurecia. Providers pagos sem
+                    // estimativa continuam null (nunca fabricar custo).
+                    'cost_usd' => $callResultForGates->costEstimateUsd
+                        ?? ($callResult->actualProvider === 'hermes_cli' ? 0.0 : null),
+                    // Qualidade = juízo real dos gates do run (não
+                    // self-declared): passed=1.0, needs_review=0.5, resto=0.0.
+                    'quality_score' => match ($receipt->completion->status) {
+                        CompletionSummary::STATUS_PASSED => 1.0,
+                        CompletionSummary::STATUS_NEEDS_REVIEW => 0.5,
+                        default => 0.0,
+                    },
                     'input_tokens' => $callResultForGates->tokensIn,
                     'output_tokens' => $callResultForGates->tokensOut,
                     'actor' => 'atlas_dev_pipeline',

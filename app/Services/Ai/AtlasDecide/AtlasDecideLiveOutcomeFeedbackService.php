@@ -135,7 +135,12 @@ final class AtlasDecideLiveOutcomeFeedbackService
         $model = $input['model'] ?? null;
         $latency = isset($input['latency_ms']) ? max(0, (int) $input['latency_ms']) : null;
         $quality = isset($input['quality_score']) ? max(0.0, min(1.0, (float) $input['quality_score'])) : null;
-        $costUsd = $this->positiveFloatOrNull($input['cost_usd'] ?? null);
+        // Custo ZERO é evidência válida (provider local: hermes) — descartar
+        // 0.0 deixava a camada cost-outcome do ADML eternamente sem dados
+        // para rotas locais. null continua significando "custo desconhecido".
+        $costUsd = is_numeric($input['cost_usd'] ?? null) && (float) $input['cost_usd'] >= 0.0
+            ? (float) $input['cost_usd']
+            : null;
         $inputTokens = $this->positiveIntOrNull($input['input_tokens'] ?? null);
         $outputTokens = $this->positiveIntOrNull($input['output_tokens'] ?? null);
         $tokensUsed = $this->positiveIntOrNull($input['tokens_used'] ?? null);
