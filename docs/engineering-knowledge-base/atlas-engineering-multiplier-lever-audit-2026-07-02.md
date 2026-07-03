@@ -341,8 +341,27 @@ Onda 23:46 UTC (5ª): `captureSymptom()` da mineração provisiona worktree temp
   low contaminado por espúrias históricas → not ready, honesto. Prova: teste do fold
   (janela limpa ready / janela espúria fail-closed) + 6 testes do comando verdes.
 
+## Execução S23 (03/07/2026 00:5x UTC)
+
+- **S23 (entregue):** auto-ativação de rota entrou na CADÊNCIA — sweep hourly agendado,
+  gated no master switch + flag de auto-ativação (default OFF ⇒ byte-idêntico). Degradação
+  e repair-blocked já rodavam agendados (duplicatas detectadas e evitadas). Com a flag ON o
+  circuito record→recommend→activate→follow_learned→deactivate roda sem humano.
+- **Pisos provados sob fogo:** symptom-capture da suite rodou ao vivo com os floors S17/S18
+  no código — zero drops no Postgres na janela (vs 1380 drops nas ondas anteriores).
+- **Descartes honestos do ciclo:** compactação NÃO é gargalo (prompt médio 6.4KB, seções
+  magras — medido em 419 projeções reais); exemplares/siblings JÁ chegam ao prompt via
+  contextRefs (w31); dedup de intent kernels tem payoff marginal p/ amplificação.
+
+## Estado da campanha (S6–S23) — mapa de ativação p/ o operador
+
+Canais entregues e provados, aguardando decisão de ligar:
+- `ATLAS_PATAMAR4_ADML_AUTO_ACTIVATION_ENABLED` → roteamento 100% autônomo por evidência.
+- `atlas_task_governance.auto_respec_on_quarantine` → fila auto-curativa.
+- `enforce-readiness` (`--since=2026-07-03`) → quando janelas limpas acumularem, promover
+  `observe→enforce` por risco no policy plane.
+O salto seguinte de M exige RUNS REAIS alimentando os canais (proibido sem OK do operador).
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Candidatos:** (a) re-medição do funil quando os canais novos rodarem em runs reais; (b)
-próximo gargalo da medição. Nota: `atlas_dev_outcome_memories`=0 é organ PARKED sem
-read-side vivo — não wire às cegas.
+Re-medição do funil com runs reais; próximo gargalo que a medição apontar.
