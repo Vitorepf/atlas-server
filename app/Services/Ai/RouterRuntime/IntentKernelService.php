@@ -25,15 +25,25 @@ class IntentKernelService
             'obra', 'forge',
             'adicione metodo', 'crie funcao', 'crie função', 'crie classe',
             'escreva teste', 'crie teste',
+            // Vocabulário real do dia a dia do operador (probe 03/07: 11/20
+            // frases reais caíam em unknown → conversa sem tools).
+            'otimize', 'otimizar', 'otimização', 'otimizacao',
+            'simplifique', 'simplificar', 'simplificação', 'simplificacao',
+            'solidifique', 'solidificar', 'deduplique', 'deduplicar',
+            'unifique', 'unificar', 'duplicação', 'duplicacao', 'ineficiencia', 'ineficiência',
         ],
         RouterRuntimeCanon::INTENT_DEBUG => [
             'debug', 'depurar', 'rastreie',
             'investigue bug', 'why does it fail', 'porque falha',
             'stack trace', 'erro', 'exception',
+            'falhando', 'quebrou', 'quebrado', 'quebrada', 'nao funciona', 'não funciona', 'stacktrace',
         ],
         RouterRuntimeCanon::INTENT_REVIEW => [
-            'review', 'revise', 'revisar',
+            'review', 'revise', 'revisar', 'revisa',
             'code review', 'analise esse pr', 'analise esse commit',
+            'analise rigorosa', 'análise rigorosa', 'verificacao', 'verificação',
+            'auditoria', 'audite', 'inspecione', 'analise do fluxo', 'análise do fluxo',
+            'todo o fluxo', 'diff',
         ],
         RouterRuntimeCanon::INTENT_RESEARCH => [
             'pesquise', 'pesquisar', 'pesquisa',
@@ -41,6 +51,7 @@ class IntentKernelService
             'fontes', 'source quality',
             'state of the art', 'estado da arte',
             'levantamento', 'mapping',
+            'busque', 'buscar melhorias', 'busca melhorias', 'compare ferramentas',
         ],
         RouterRuntimeCanon::INTENT_EXPLAIN => [
             'explique', 'explain', 'o que é', 'o que e ',
@@ -50,12 +61,15 @@ class IntentKernelService
             'plano', 'plan', 'estruture',
             'roadmap', 'cronograma', 'fases',
             'objetivos da meta', 'definicao de done',
+            'planeje', 'planejar', 'planejamento', 'planeja ', 'decomponha',
         ],
         RouterRuntimeCanon::INTENT_FINANCE => [
             'carteira', 'investimento', 'portfolio',
             'valuation', 'fluxo de caixa',
             'day trade', 'daytrade', 'broker',
             'asset allocation', 'risco de mercado',
+            'renda fixa', 'renda variavel', 'renda variável', 'alocar', 'alocacao', 'alocação',
+            'dividendos', 'aporte', 'patrimonio', 'patrimônio', 'cripto', 'financeira', 'financeiro',
         ],
         RouterRuntimeCanon::INTENT_MARKETING => [
             'campanha', 'campaign',
@@ -77,12 +91,16 @@ class IntentKernelService
             'vulnerabilidade', 'vulnerability', 'cve',
             'exploit',
             'osint',
+            'postura defensiva', 'hardening', 'firewall', 'incidente de seguranca',
+            'incidente de segurança', 'phishing', 'malware', 'defesa cibernetica', 'defesa cibernética',
         ],
         RouterRuntimeCanon::INTENT_PERSONAL_DEVELOPMENT => [
             'rotina', 'hábito', 'habito', 'habit',
             'estudo', 'estudar', 'aprendizado',
             'professor', 'coach',
             'pratica deliberada', 'prática deliberada',
+            'minhas metas', 'organizar minha', 'organizacao pessoal', 'organização pessoal',
+            'disciplina', 'produtividade pessoal',
         ],
         RouterRuntimeCanon::INTENT_AUTOMATION => [
             'automatize', 'automatizar', 'automation',
@@ -90,10 +108,12 @@ class IntentKernelService
             'integre site', 'integre api',
             'webhook',
             'crawl', 'scrape', 'scraping',
+            'automacao', 'automação', 'pipeline de', 'agendamento', 'cron ', 'workflow',
         ],
         RouterRuntimeCanon::INTENT_CONVERSATION => [
             'oi', 'olá', 'ola', 'hello', 'bom dia', 'boa tarde', 'boa noite',
             'obrigado', 'thanks', 'valeu',
+            'que modelo', 'quem e voce', 'quem é você', 'tudo bem',
         ],
     ];
 
@@ -216,10 +236,22 @@ class IntentKernelService
             $hits = 0;
             foreach ($keywords as $keyword) {
                 $needle = mb_strtolower($keyword);
-                if ($needle === '' || str_contains($normalized, $needle)) {
-                    if ($needle !== '' && str_contains($normalized, $needle)) {
+                if ($needle === '') {
+                    continue;
+                }
+                // Tokens curtos (≤4) exigem fronteira de palavra dos dois
+                // lados: substring puro fazia 'fix' casar "renda FIXa" e
+                // roteava finanças para programming. Tokens longos mantêm
+                // substring (stemming grátis: 'refator' casa 'refatoração').
+                if (mb_strlen($needle) <= 4 && ! str_contains($needle, ' ')) {
+                    if (preg_match('/(?<![\pL\pN_])'.preg_quote($needle, '/').'(?![\pL\pN_])/u', $normalized) === 1) {
                         $hits++;
                     }
+
+                    continue;
+                }
+                if (str_contains($normalized, $needle)) {
+                    $hits++;
                 }
             }
             $scores[$intent] = $hits;
