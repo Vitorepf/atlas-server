@@ -204,4 +204,29 @@ final class AtlasSelfConstructionNativeImplementationReleasePreflightTest extend
         $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_ALLOW, $verdict['decision']);
         $this->assertSame([], $verdict['blockers']);
     }
+
+    /**
+     * An evidence ref with a leading colon (e.g. ":tests_or_gates_result") must
+     * parse to an empty kind — not the whole ref — so the missing-evidence verdict
+     * is correct. Previously, strpos(kind, ':') returned 0, and 0 ?: null collapsed
+     * to null, causing substr(kind, 0, null) to return the entire string.
+     */
+    public function test_leading_colon_evidence_ref_parses_to_empty_kind(): void
+    {
+        // The evidence ref ":tests_or_gates_result" has a colon at position 0.
+        // The kind should parse to "" (empty string), not ":tests_or_gates_result".
+        $verdict = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->preflight(
+            $this->happyProposal([
+                'evidence_refs' => [
+                    ':tests_or_gates_result',  // leading colon → empty kind
+                    'rollback_plan:revert_commit',
+                    'bounded_rollback:sha-bounded',
+                ],
+            ])
+        );
+
+        // The empty kind "" does NOT cover "phpunit", so phpunit is still missing.
+        $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_NEEDS_MORE_EVIDENCE, $verdict['decision']);
+        $this->assertContains('missing_evidence_kinds:phpunit', $verdict['blockers']);
+    }
 }

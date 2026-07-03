@@ -71,8 +71,9 @@ final class AtlasSelfConstructionNativeImplementationReleasePreflight
         $coveredKinds = [];
         foreach ($evidenceRefs as $ref) {
             $kind = (string) $ref;
-            if (str_contains($kind, ':')) {
-                $kind = substr($kind, 0, strpos($kind, ':') ?: null);
+            $colonPos = strpos($kind, ':');
+            if ($colonPos !== false) {
+                $kind = substr($kind, 0, $colonPos);
             }
             $coveredKinds[$kind] = true;
         }
