@@ -131,7 +131,7 @@ final class AtlasLoopSelfModInvariantExtractor
         ?ReflectionMethod $method = null,
     ): array {
         $lines = preg_split("/\r?\n/", $docComment) ?: [];
-        $docStartLine = $startLine - count($lines);
+        $docStartLine = max(1, $startLine - count($lines));
         $records = [];
 
         foreach ($lines as $index => $line) {
