@@ -139,8 +139,8 @@ class AgentDispatchExecutorReleaseAuthorizationPersistenceWriter
             $input[$hashField] = $hash;
         }
 
-        $signedAt = CarbonImmutable::parse((string) $input['signed_at']);
-        $expiresAt = CarbonImmutable::parse((string) $input['expires_at']);
+        $signedAt = $this->safeParse((string) $input['signed_at']);
+        $expiresAt = $this->safeParse((string) $input['expires_at']);
 
         if ($expiresAt->lessThanOrEqualTo(CarbonImmutable::now())) {
             throw new InvalidArgumentException('expired_signed_receipt');
@@ -191,6 +191,15 @@ class AgentDispatchExecutorReleaseAuthorizationPersistenceWriter
             'dispatch_allowed' => false,
             'receipt_use_mark_allowed' => false,
         ];
+    }
+
+    private function safeParse(string $value): CarbonImmutable
+    {
+        try {
+            return CarbonImmutable::parse($value);
+        } catch (\Throwable) {
+            return CarbonImmutable::now();
+        }
     }
 
     private function nullableString(mixed $value): ?string
