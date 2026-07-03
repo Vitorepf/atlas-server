@@ -87,7 +87,14 @@ final class ProviderReleaseIngestionProposal
         }
 
         // Use payload hash as canonical fingerprint when not supplied.
-        $fingerprint ??= hash('sha256', json_encode($rawSignal, JSON_UNESCAPED_SLASHES) ?: '');
+        $fingerprint ??= (function () use ($rawSignal): string {
+            $encoded = json_encode($rawSignal, JSON_UNESCAPED_SLASHES);
+            if ($encoded === false) {
+                throw new \RuntimeException('provider_release_ingestion_encode_failure');
+            }
+
+            return hash('sha256', $encoded);
+        })();
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
