@@ -230,7 +230,11 @@ class RecommendationLifecycleService
         }
 
         if ($state === 'snoozed' && isset($metadata['snoozed_until'])) {
-            $updates['snoozed_until'] = Carbon::parse((string) $metadata['snoozed_until']);
+            try {
+                $updates['snoozed_until'] = Carbon::parse((string) $metadata['snoozed_until']);
+            } catch (\Throwable) {
+                $updates['snoozed_until'] = Carbon::now();
+            }
         }
 
         if (in_array($state, self::TERMINAL_STATES, true)) {
