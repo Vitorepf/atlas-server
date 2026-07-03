@@ -253,6 +253,47 @@ final class AtlasAiRouterService
             return $arbitrated;
         }
 
+        // INVERSÃO DO FALLBACK (03/07, decisão do operador): frase que nenhuma
+        // regra reconheceu NÃO cai mais em "conversa" — com workspace presente
+        // vai para o GATEWAY AGÊNTICO (mesmo desenho do Claude Code/Codex:
+        // não existe router; o modelo executor lê a mensagem com ferramentas
+        // na mão e ELE decide se conversa ou trabalha). O léxico vira só
+        // atalho de confiança-forte; nunca mais um ralo. Sem workspace,
+        // conversa segue sendo o desfecho honesto.
+        $fallbackDecision = $workspace !== null ? 'agentic_gateway_default' : 'fallback_conversation';
+
+        // LEDGER DE CANDIDATOS A MISS: toda queda no fallback com intent
+        // não-trivial fica registrada (append-only, local, zero provider,
+        // fail-open) — colheita para novos atalhos do kernel e para o teste
+        // congelado de frases reais. HERMÉTICO: testes nunca escrevem no
+        // ledger vivo (fixtures poluiriam a colheita).
+        if (! app()->runningUnitTests() && mb_strlen(trim($rawIntent)) > 12) {
+            try {
+                \App\Services\Ai\Support\AppendOnlyJsonlStore::append(
+                    storage_path('atlas/router/misroute_candidates.jsonl'),
+                    [
+                        'schema_version' => 'atlas.router.misroute_candidate.v1',
+                        'recorded_at' => now()->toIso8601String(),
+                        'surface_id' => $surfaceId,
+                        'intent' => mb_substr(trim($rawIntent), 0, 500),
+                        'decision' => $fallbackDecision,
+                    ],
+                );
+            } catch (\Throwable) {
+                // fail-open: registrar candidato nunca bloqueia o roteamento
+            }
+        }
+
+        if ($workspace !== null) {
+            // Review agêntico read-only: o AiInteractionController mapeia
+            // atlas_review+workspace → atlas_mode=programming/routing_task=
+            // review (AiWorker agêntico com cwd=workspace, sandbox read).
+            // Papo? O modelo responde. Trabalho? Investiga com contexto real.
+            // Escrita governada continua exigindo o pipeline Dev (atalho de
+            // confiança-forte ou picker explícito) — o gateway não edita.
+            return $this->decision(AtlasAiRouterDecision::FLOW_REVIEW, 'router_auto', 'review', 'agentic_gateway_default', 'low', $surfaceId, $workspace, $rawIntent, [AtlasAiRouterDecision::FLOW_CONVERSATION], $intent);
+        }
+
         return $this->decision(AtlasAiRouterDecision::FLOW_CONVERSATION, 'router_auto', 'converse', 'fallback_conversation', 'low', $surfaceId, $workspace, $rawIntent, [], $intent);
     }
 

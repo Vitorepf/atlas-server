@@ -281,14 +281,33 @@ class AtlasAiRouterServiceTest extends TestCase
         $this->assertSame('intent_kernel_class:review', $decision->routingReason);
     }
 
-    public function test_smalltalk_with_workspace_still_falls_back_to_conversation(): void
+    public function test_unrecognized_intent_with_workspace_goes_to_agentic_gateway(): void
     {
+        // INVERSAO DO FALLBACK (03/07, decisao do operador): com workspace
+        // presente, frase que nenhuma regra reconheceu vai ao gateway
+        // AGENTICO (review read-only) — o modelo executor decide se conversa
+        // ou trabalha, como no Claude Code/Codex. "Conversa" deixou de ser
+        // uma rota que o lexico escolhe; e um desfecho do modelo.
         $decision = app(AtlasAiRouterService::class)->decide([
             'input_text' => 'bom dia, como voce esta?',
             'source_type' => 'app',
             'payload' => [
                 'surface_id' => 'atlas_desktop_ai',
                 'workspace' => '/tmp/fake-workspace',
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_REVIEW, $decision->flowId);
+        $this->assertSame('agentic_gateway_default', $decision->routingReason);
+    }
+
+    public function test_unrecognized_intent_without_workspace_still_converses(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'bom dia, como voce esta?',
+            'source_type' => 'app',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
             ],
         ]);
 
