@@ -60,6 +60,10 @@ final class AtlasAaelParallelLockManager
                 return null;
             }
             $contents = stream_get_contents($fh);
+            if ($contents === false) {
+                // Failed read — fail closed rather than defaulting to empty locks.
+                return null;
+            }
             $state = is_string($contents) && $contents !== '' ? json_decode($contents, true) : ['locks' => []];
             if (! is_array($state) || ! isset($state['locks']) || ! is_array($state['locks'])) {
                 // Malformed ledger ⇒ fail-closed.
