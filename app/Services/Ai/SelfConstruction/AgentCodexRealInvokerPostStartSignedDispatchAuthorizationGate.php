@@ -332,7 +332,11 @@ class AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate
             return ['valid' => false, 'reason' => 'signature_allowed_scope_mismatch', 'digest' => $digest];
         }
 
-        $issuedAt = CarbonImmutable::parse($normalized['signature_issued_at']);
+        try {
+            $issuedAt = CarbonImmutable::parse($normalized['signature_issued_at']);
+        } catch (\Throwable $e) {
+            return ['valid' => false, 'reason' => 'signature_parse_failure', 'digest' => $digest];
+        }
 
         if (abs(CarbonImmutable::now()->diffInSeconds($issuedAt)) > 900) {
             return ['valid' => false, 'reason' => 'signature_stale', 'digest' => $digest];
