@@ -65,9 +65,13 @@ final class AtlasMaestroAssignmentReceiptLedger
      */
     public function recent(int $n = 50): array
     {
+        if ($n <= 0) {
+            return [];
+        }
+
         $rows = $this->rows();
 
-        return array_slice($rows, -max(1, $n));
+        return array_slice($rows, -$n);
     }
 
     /**
