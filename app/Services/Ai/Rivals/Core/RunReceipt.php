@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
-use App\Services\Ai\Rivals2\Support\RunPaths;
-use App\Services\Ai\Rivals2\Support\SchemaContract;
+use App\Services\Ai\Rivals\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\SchemaContract;
 use InvalidArgumentException;
 
 /**
@@ -20,7 +20,7 @@ class RunReceipt
     {
         $violations = SchemaContract::validate($data, SchemaContract::RUN_RECEIPT);
         if ($violations !== []) {
-            throw new InvalidArgumentException('rivals2_invalid_receipt: '.implode(',', $violations));
+            throw new InvalidArgumentException('rivals_invalid_receipt: '.implode(',', $violations));
         }
 
         return new self($data);

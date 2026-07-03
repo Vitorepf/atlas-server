@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Rivals2;
+namespace Tests\Unit\Ai\Rivals;
 
-use App\Services\Ai\Rivals2\Core\DifficultyCalibrator;
+use App\Services\Ai\Rivals\Core\DifficultyCalibrator;
 use Tests\TestCase;
 
 class DifficultyCalibratorTest extends TestCase

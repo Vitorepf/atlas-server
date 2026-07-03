@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
-use App\Services\Ai\Rivals2\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\RunPaths;
 
 /**
  * Re-verificação fail-closed: recomputa todos os hashes do evidence pack

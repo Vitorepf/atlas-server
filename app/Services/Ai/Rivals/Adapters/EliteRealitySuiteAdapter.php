@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Adapters;
+namespace App\Services\Ai\Rivals\Adapters;
 
 /**
  * Elite Reality Suite: camada de dificuldade elite sobre o AtlasBench.

@@ -1,13 +1,13 @@
 <?php
 
-namespace Tests\Feature\Ai\Rivals2;
+namespace Tests\Feature\Ai\Rivals;
 
-use App\Services\Ai\Rivals2\Adapters\LocalFakeSuiteAdapter;
-use App\Services\Ai\Rivals2\Core\Adjudicator;
-use App\Services\Ai\Rivals2\Core\ArmRegistry;
-use App\Services\Ai\Rivals2\Core\AtlasUpliftRunner;
-use App\Services\Ai\Rivals2\Core\EvidencePackBuilder;
-use App\Services\Ai\Rivals2\Core\RunPlan;
+use App\Services\Ai\Rivals\Adapters\LocalFakeSuiteAdapter;
+use App\Services\Ai\Rivals\Core\Adjudicator;
+use App\Services\Ai\Rivals\Core\ArmRegistry;
+use App\Services\Ai\Rivals\Core\AtlasUpliftRunner;
+use App\Services\Ai\Rivals\Core\EvidencePackBuilder;
+use App\Services\Ai\Rivals\Core\RunPlan;
 use Tests\TestCase;
 
 class AtlasUpliftRunnerTest extends TestCase
@@ -17,8 +17,8 @@ class AtlasUpliftRunnerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->storage = sys_get_temp_dir().'/rivals2_uplift_test_'.uniqid();
-        config()->set('atlas_rivals2.storage_root', $this->storage);
+        $this->storage = sys_get_temp_dir().'/rivals_uplift_test_'.uniqid();
+        config()->set('atlas_rivals.storage_root', $this->storage);
     }
 
     protected function tearDown(): void
@@ -83,7 +83,7 @@ class AtlasUpliftRunnerTest extends TestCase
     {
         $runId = $this->runWithArms(['local_fake_model@bare']);
 
-        $this->expectExceptionMessageMatches('/rivals2_uplift_invalid_runtimes/');
+        $this->expectExceptionMessageMatches('/rivals_uplift_invalid_runtimes/');
         (new AtlasUpliftRunner)->compare($runId, 'local_fake_model', 'bare', 'bare');
     }
 }

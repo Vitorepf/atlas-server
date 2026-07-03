@@ -2,14 +2,19 @@
 
 /*
 |--------------------------------------------------------------------------
-| Atlas Rivals 2.0 — benchmark interno (model-vs-model + Atlas uplift)
+| Atlas Rivals — benchmark interno (model-vs-model + Atlas uplift)
 |--------------------------------------------------------------------------
+| Produto público: Rivals. Versão: 2.0. Comando: atlas:rivals.
 | Rivals 1.0 está morto (ver docs/engineering-knowledge-base/atlas-rivals2-rebuild-map-v1.md).
-| Este arquivo governa APENAS o Rivals 2.0. O juiz final é sempre o Rivals 2.0
-| local; suites externas são adapters. claim_allowed=false é o default pétreo.
+| O juiz final é sempre o núcleo Rivals local; suites externas são adapters.
+| claim_allowed=false é o default pétreo.
+| Compat interno preservado de propósito (runs existentes em disco + .env vivo):
+| schema ids atlas.rivals2.*, env vars ATLAS_RIVALS2_*, storage atlas/rivals2.
 */
 
 return [
+    'version' => '2.0',
+
     'enabled' => env('ATLAS_RIVALS2_ENABLED', false),
 
     // Nenhum run pode gastar provider sem esta flag E aprovação explícita por run.

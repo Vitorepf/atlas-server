@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Rivals2;
+namespace Tests\Unit\Ai\Rivals;
 
-use App\Services\Ai\Rivals2\Core\RealityScoreCard;
+use App\Services\Ai\Rivals\Core\RealityScoreCard;
 use Tests\TestCase;
 
 class RealityScoreCardTest extends TestCase

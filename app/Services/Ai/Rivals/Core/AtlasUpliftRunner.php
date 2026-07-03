@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
-use App\Services\Ai\Rivals2\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\RunPaths;
 use InvalidArgumentException;
 
 /**
@@ -15,9 +15,9 @@ class AtlasUpliftRunner
 {
     public function compare(string $runId, string $modelId, string $baseRuntime = 'bare', string $atlasRuntime = 'atlas_dev'): array
     {
-        $runtimes = config('atlas_rivals2.runtimes', []);
+        $runtimes = config('atlas_rivals.runtimes', []);
         if ($baseRuntime === $atlasRuntime || ! in_array($atlasRuntime, $runtimes, true)) {
-            throw new InvalidArgumentException("rivals2_uplift_invalid_runtimes:{$baseRuntime}vs{$atlasRuntime}");
+            throw new InvalidArgumentException("rivals_uplift_invalid_runtimes:{$baseRuntime}vs{$atlasRuntime}");
         }
 
         $baseArm = "{$modelId}@{$baseRuntime}";

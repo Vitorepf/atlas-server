@@ -1,17 +1,17 @@
 <?php
 
-namespace Tests\Feature\Ai\Rivals2;
+namespace Tests\Feature\Ai\Rivals;
 
-use App\Services\Ai\Rivals2\Adapters\External\AbstractExternalSuiteAdapter;
-use App\Services\Ai\Rivals2\Adapters\External\AiderBenchAdapter;
-use App\Services\Ai\Rivals2\Adapters\External\HalHarnessAdapter;
-use App\Services\Ai\Rivals2\Adapters\External\HarborTerminalBenchAdapter;
-use App\Services\Ai\Rivals2\Adapters\External\InspectEvalsAdapter;
-use App\Services\Ai\Rivals2\Adapters\External\LiveCodeBenchAdapter;
-use App\Services\Ai\Rivals2\Adapters\External\SeniorSweBenchAdapter;
-use App\Services\Ai\Rivals2\Adapters\External\SweBenchLiveAdapter;
-use App\Services\Ai\Rivals2\Adapters\External\Tau2BfclAdapter;
-use App\Services\Ai\Rivals2\Support\RunPaths;
+use App\Services\Ai\Rivals\Adapters\External\AbstractExternalSuiteAdapter;
+use App\Services\Ai\Rivals\Adapters\External\AiderBenchAdapter;
+use App\Services\Ai\Rivals\Adapters\External\HalHarnessAdapter;
+use App\Services\Ai\Rivals\Adapters\External\HarborTerminalBenchAdapter;
+use App\Services\Ai\Rivals\Adapters\External\InspectEvalsAdapter;
+use App\Services\Ai\Rivals\Adapters\External\LiveCodeBenchAdapter;
+use App\Services\Ai\Rivals\Adapters\External\SeniorSweBenchAdapter;
+use App\Services\Ai\Rivals\Adapters\External\SweBenchLiveAdapter;
+use App\Services\Ai\Rivals\Adapters\External\Tau2BfclAdapter;
+use App\Services\Ai\Rivals\Support\RunPaths;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -27,8 +27,8 @@ class ExternalAdaptersIngestTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->storage = sys_get_temp_dir().'/rivals2_external_test_'.uniqid();
-        config()->set('atlas_rivals2.storage_root', $this->storage);
+        $this->storage = sys_get_temp_dir().'/rivals_external_test_'.uniqid();
+        config()->set('atlas_rivals.storage_root', $this->storage);
     }
 
     protected function tearDown(): void
@@ -45,7 +45,7 @@ class ExternalAdaptersIngestTest extends TestCase
         $runDir = $this->storage.'/runs/run_'.$suiteId;
         RunPaths::ensureDir($runDir.'/external_results');
         copy(
-            base_path("tests/Fixtures/Rivals2/{$suiteId}_results.json"),
+            base_path("tests/Fixtures/Rivals/{$suiteId}_results.json"),
             $runDir."/external_results/{$suiteId}.json"
         );
 
@@ -62,7 +62,7 @@ class ExternalAdaptersIngestTest extends TestCase
         ]));
     }
 
-    /** @return array<int, \App\Services\Ai\Rivals2\Core\RunReceipt> */
+    /** @return array<int, \App\Services\Ai\Rivals\Core\RunReceipt> */
     private function ingestAndAssertCommon(AbstractExternalSuiteAdapter $adapter): array
     {
         $receipts = $adapter->ingestResults($this->stageRunDir($adapter->suiteId()));
@@ -72,7 +72,7 @@ class ExternalAdaptersIngestTest extends TestCase
             // RunReceipt::fromArray já validou o schema (senão teria lançado)
             $this->assertContains(
                 $receipt->data['task_type'],
-                config('atlas_rivals2.task_types'),
+                config('atlas_rivals.task_types'),
                 $adapter->suiteId().': task_type inválido '.$receipt->data['task_type']
             );
             $this->assertNotEmpty($receipt->data['artifacts'][0]['sha256']);

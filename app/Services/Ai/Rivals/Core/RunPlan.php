@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
-use App\Services\Ai\Rivals2\Support\RunPaths;
-use App\Services\Ai\Rivals2\Support\SchemaContract;
+use App\Services\Ai\Rivals\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\SchemaContract;
 use InvalidArgumentException;
 
 /** Plano imutável de um run: suite × cases × arms × repetitions × budget × seed. */
@@ -42,7 +42,7 @@ class RunPlan
 
         $violations = SchemaContract::validate($data, SchemaContract::RUN_PLAN);
         if ($violations !== []) {
-            throw new InvalidArgumentException('rivals2_invalid_plan: '.implode(',', $violations));
+            throw new InvalidArgumentException('rivals_invalid_plan: '.implode(',', $violations));
         }
 
         return new self($data);
@@ -52,7 +52,7 @@ class RunPlan
     {
         $violations = SchemaContract::validate($data, SchemaContract::RUN_PLAN);
         if ($violations !== []) {
-            throw new InvalidArgumentException('rivals2_invalid_plan: '.implode(',', $violations));
+            throw new InvalidArgumentException('rivals_invalid_plan: '.implode(',', $violations));
         }
 
         return new self($data);
@@ -62,7 +62,7 @@ class RunPlan
     {
         $path = RunPaths::planPath($runId);
         if (! is_file($path)) {
-            throw new InvalidArgumentException("rivals2_plan_not_found:{$runId}");
+            throw new InvalidArgumentException("rivals_plan_not_found:{$runId}");
         }
 
         return self::fromArray(json_decode(file_get_contents($path), true) ?? []);

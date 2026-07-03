@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Adapters\External;
+namespace App\Services\Ai\Rivals\Adapters\External;
 
-use App\Services\Ai\Rivals2\Contracts\BenchmarkSuiteAdapter;
-use App\Services\Ai\Rivals2\Core\RunPlan;
-use App\Services\Ai\Rivals2\Core\RunReceipt;
-use App\Services\Ai\Rivals2\Support\RunPaths;
-use App\Services\Ai\Rivals2\Support\SchemaContract;
+use App\Services\Ai\Rivals\Contracts\BenchmarkSuiteAdapter;
+use App\Services\Ai\Rivals\Core\RunPlan;
+use App\Services\Ai\Rivals\Core\RunReceipt;
+use App\Services\Ai\Rivals\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\SchemaContract;
 use RuntimeException;
 
 /**

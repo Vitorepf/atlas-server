@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Adapters;
+namespace App\Services\Ai\Rivals\Adapters;
 
-use App\Services\Ai\Rivals2\Contracts\BenchmarkSuiteAdapter;
-use App\Services\Ai\Rivals2\Core\RunPlan;
-use App\Services\Ai\Rivals2\Core\RunReceipt;
-use App\Services\Ai\Rivals2\Support\EventStream;
-use App\Services\Ai\Rivals2\Support\RunPaths;
-use App\Services\Ai\Rivals2\Support\SchemaContract;
+use App\Services\Ai\Rivals\Contracts\BenchmarkSuiteAdapter;
+use App\Services\Ai\Rivals\Core\RunPlan;
+use App\Services\Ai\Rivals\Core\RunReceipt;
+use App\Services\Ai\Rivals\Support\EventStream;
+use App\Services\Ai\Rivals\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\SchemaContract;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
@@ -29,7 +29,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
 
     private function repoPath(): string
     {
-        return rtrim(config('atlas_rivals2.atlasbench.repo_path'), '/');
+        return rtrim(config('atlas_rivals.atlasbench.repo_path'), '/');
     }
 
     /** Bloco de config da suite (elite_reality sobrescreve com pisos mais duros). */
@@ -40,8 +40,8 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
 
     protected function benchConfig(string $key, mixed $default = null): mixed
     {
-        return config('atlas_rivals2.'.$this->configBlock().".{$key}",
-            config("atlas_rivals2.atlasbench.{$key}", $default));
+        return config('atlas_rivals.'.$this->configBlock().".{$key}",
+            config("atlas_rivals.atlasbench.{$key}", $default));
     }
 
     protected function casesDir(): string
@@ -113,7 +113,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
             }
 
             // Contamination Guard fail-closed: case com receita/sem snapshot não vira corpus
-            $audit = (new \App\Services\Ai\Rivals2\Core\ContaminationGuard)->audit($case);
+            $audit = (new \App\Services\Ai\Rivals\Core\ContaminationGuard)->audit($case);
             if ($audit['violations'] !== []) {
                 continue;
             }
@@ -134,7 +134,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         if (! is_dir($this->casesDir())) {
             return [];
         }
-        $guard = new \App\Services\Ai\Rivals2\Core\ContaminationGuard;
+        $guard = new \App\Services\Ai\Rivals\Core\ContaminationGuard;
         $cases = [];
         foreach (glob($this->casesDir().'/*.json') as $file) {
             $case = json_decode(file_get_contents($file), true);
@@ -161,7 +161,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                         'case_id' => $caseId,
                         'arm_id' => $arm['arm_id'],
                         'repetition' => $rep,
-                        'command' => "rivals2-atlasbench --case={$caseId} --arm={$arm['arm_id']} --rep={$rep}",
+                        'command' => "rivals-atlasbench --case={$caseId} --arm={$arm['arm_id']} --rep={$rep}",
                     ];
                 }
             }
@@ -301,7 +301,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 'artifacts' => $artifacts,
                 'judge_config' => $plan->data['judge_config'] ?? null,
                 // Reality Score: vetor mecânico por dimensão (nunca score único)
-                'reality' => $reality = (new \App\Services\Ai\Rivals2\Core\RealityScoreCard)->evaluate($case, $patchOutput, $status),
+                'reality' => $reality = (new \App\Services\Ai\Rivals\Core\RealityScoreCard)->evaluate($case, $patchOutput, $status),
                 'patch_lines' => $reality['patch_lines'],
                 'golden_lines' => $reality['golden_lines'],
                 'patch_bloat_ratio' => $reality['bloat_ratio'],
@@ -373,7 +373,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         if ($runtime !== 'bare') {
             // S4: runtime Atlas roda via wrapper CLI configurado (mesmo modelo,
             // cérebro Atlas por cima). Sem wrapper → bloqueio honesto, nunca simula.
-            $runtimeCmd = config("atlas_rivals2.runtime_commands.{$runtime}");
+            $runtimeCmd = config("atlas_rivals.runtime_commands.{$runtime}");
             if (! is_string($runtimeCmd) || $runtimeCmd === '') {
                 throw new RuntimeException("atlasbench_runtime_not_executable:{$runtime}:uplift_supported=false");
             }
@@ -406,7 +406,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
      */
     private function runCliArm(string $worktree, array $case, string $modelId, ?string $overrideCommand = null): string
     {
-        $model = (new \App\Services\Ai\Rivals2\Core\ModelRegistry)->get($modelId);
+        $model = (new \App\Services\Ai\Rivals\Core\ModelRegistry)->get($modelId);
         if ($model === null || ! ($model['enabled'] ?? false)) {
             throw new RuntimeException("atlasbench_unknown_or_disabled_model:{$modelId}");
         }
@@ -414,14 +414,14 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         if (! is_string($command) || $command === '') {
             throw new RuntimeException("atlasbench_model_has_no_cli_command:{$modelId}");
         }
-        if (($model['provider'] ?? '') !== 'local' && config('atlas_rivals2.provider_spend_allowed') !== true) {
+        if (($model['provider'] ?? '') !== 'local' && config('atlas_rivals.provider_spend_allowed') !== true) {
             throw new RuntimeException("atlasbench_provider_spend_not_allowed:{$modelId}");
         }
 
         // protocolo v2 (anti-cola): tarefa under-specified como um ticket real —
         // sem check command, sem paths de teste, sem lista de arquivos-alvo.
         // Os testes de aceitação são OCULTOS e injetados só na correção.
-        $promptFile = $worktree.'/.rivals2_task.md';
+        $promptFile = $worktree.'/.rivals_task.md';
         file_put_contents($promptFile, $this->ticketFor($case));
 
         $timeout = (int) $this->benchConfig('solver_timeout_seconds', 3600);
@@ -475,7 +475,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
      */
     private function captureSymptom(string $repo, array $case): ?string
     {
-        $worktree = sys_get_temp_dir().'/rivals2_symptom_'.$case['case_id'].'_'.substr(bin2hex(random_bytes(3)), 0, 6);
+        $worktree = sys_get_temp_dir().'/rivals_symptom_'.$case['case_id'].'_'.substr(bin2hex(random_bytes(3)), 0, 6);
         $provision = Process::path($repo)->run(
             'git worktree add --detach '.escapeshellarg($worktree).' '.escapeshellarg($case['base_sha'])
         );

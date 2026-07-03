@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Adapters\External;
+namespace App\Services\Ai\Rivals\Adapters\External;
 
 use RuntimeException;
 

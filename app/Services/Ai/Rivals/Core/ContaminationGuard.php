@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
 /**
  * Contamination Guard: um case só é prova de capacidade se for fresh, pinado a
@@ -29,7 +29,7 @@ class ContaminationGuard
         if ($minedAt === null) {
             $violations[] = 'mined_at_missing';
         } else {
-            $maxAge = (int) config('atlas_rivals2.contamination.max_case_age_days', 30);
+            $maxAge = (int) config('atlas_rivals.contamination.max_case_age_days', 30);
             $ageDays = (int) floor((now()->getTimestamp() - strtotime((string) $minedAt)) / 86400);
             if ($ageDays > $maxAge) {
                 $violations[] = "case_stale:{$ageDays}d>{$maxAge}d";

@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Support;
+namespace App\Services\Ai\Rivals\Support;
 
 /** Fonte única do layout de disco do Rivals 2.0 (storage/atlas/rivals2). */
 class RunPaths
 {
     public static function root(): string
     {
-        return rtrim(config('atlas_rivals2.storage_root'), '/');
+        return rtrim(config('atlas_rivals.storage_root'), '/');
     }
 
     public static function ledgerPath(): string

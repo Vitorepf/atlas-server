@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Adapters\External;
+namespace App\Services\Ai\Rivals\Adapters\External;
 
 use RuntimeException;
 
@@ -31,7 +31,7 @@ class AiderBenchAdapter extends AbstractExternalSuiteAdapter
                 'case_id' => $testcase,
                 'task_type' => 'coding_patch',
                 'arm_id' => $model.'@aider',
-                // tries do aider são retries internos do harness, não repetitions Rivals2
+                // tries do aider são retries internos do harness, não repetitions Rivals
                 'repetition' => 1,
                 'status' => end($outcomes) === true ? 'success' : 'failure',
                 'wall_ms' => (int) round((float) ($r['duration'] ?? 0) * 1000),

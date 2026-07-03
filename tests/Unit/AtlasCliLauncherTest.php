@@ -33,7 +33,8 @@ class AtlasCliLauncherTest extends TestCase
         $this->assertStringContainsString('expand|expand-context|context-expand|expand_context)', $script);
         $this->assertStringContainsString('exec_artisan_with_workspace atlas:open-brain:expand-context "$@"', $script);
         $this->assertStringContainsString('rivals|rival)', $script);
-        $this->assertStringContainsString('exec_artisan_with_workspace atlas:engineering:benchmark:rivals "$subcmd" "$@"', $script);
-        $this->assertStringContainsString('exec_artisan_with_workspace atlas:engineering:benchmark:rivals "$@"', $script);
+        $this->assertStringContainsString('exec_artisan_with_workspace atlas:rivals "$@"', $script);
+        // Rivals 1.0 morreu; o launcher não pode apontar para o comando aposentado.
+        $this->assertStringNotContainsString('atlas:engineering:benchmark:rivals', $script);
     }
 }

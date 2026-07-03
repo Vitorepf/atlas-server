@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
 /**
  * Difficulty Calibrator (decisão do operador 02/07): o baseline forte em braço
@@ -13,7 +13,7 @@ class DifficultyCalibrator
 {
     public function bandFor(float $rate): string
     {
-        $bands = config('atlas_rivals2.difficulty.bands', []);
+        $bands = config('atlas_rivals.difficulty.bands', []);
         $tooEasy = (float) ($bands['too_easy'] ?? 0.35);
         $borderline = (float) ($bands['borderline'] ?? 0.30);
         $eliteValid = (float) ($bands['elite_valid'] ?? 0.20);
@@ -45,7 +45,7 @@ class DifficultyCalibrator
             $band = $this->bandFor((float) $row['success_rate']);
             $rowBands["{$row['task_type']}|{$row['arm_id']}"] = $band;
             if ($band === 'too_easy') {
-                $max = config('atlas_rivals2.difficulty.bands.too_easy', 0.35);
+                $max = config('atlas_rivals.difficulty.bands.too_easy', 0.35);
                 $flags[] = "suite_too_easy_for:{$row['arm_id']}:{$row['task_type']}:{$row['success_rate']}>{$max}";
             }
             // a suite é calibrada pelo braço bare MAIS FORTE presente

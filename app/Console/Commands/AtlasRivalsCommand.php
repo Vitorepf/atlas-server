@@ -2,26 +2,29 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\Rivals2\Adapters\AtlasBenchSuiteAdapter;
-use App\Services\Ai\Rivals2\Adapters\LocalFakeSuiteAdapter;
-use App\Services\Ai\Rivals2\Contracts\BenchmarkSuiteAdapter;
-use App\Services\Ai\Rivals2\Core\Adjudicator;
-use App\Services\Ai\Rivals2\Core\ArmRegistry;
-use App\Services\Ai\Rivals2\Core\ModelRegistry;
-use App\Services\Ai\Rivals2\Core\ReplayVerifier;
-use App\Services\Ai\Rivals2\Core\ReportBuilder;
-use App\Services\Ai\Rivals2\Core\ResultLedger;
-use App\Services\Ai\Rivals2\Core\RunPlan;
-use App\Services\Ai\Rivals2\Support\RunPaths;
+use App\Services\Ai\Rivals\Adapters\AtlasBenchSuiteAdapter;
+use App\Services\Ai\Rivals\Adapters\LocalFakeSuiteAdapter;
+use App\Services\Ai\Rivals\Contracts\BenchmarkSuiteAdapter;
+use App\Services\Ai\Rivals\Core\Adjudicator;
+use App\Services\Ai\Rivals\Core\ArmRegistry;
+use App\Services\Ai\Rivals\Core\ModelRegistry;
+use App\Services\Ai\Rivals\Core\ReplayVerifier;
+use App\Services\Ai\Rivals\Core\ReportBuilder;
+use App\Services\Ai\Rivals\Core\ResultLedger;
+use App\Services\Ai\Rivals\Core\RunPlan;
+use App\Services\Ai\Rivals\Support\RunPaths;
 use Illuminate\Console\Command;
 
 /**
- * Único entrypoint do Rivals 2.0 (benchmark interno; substitui atlas:forge:rivals).
- * Fail-closed: nenhuma ação chama provider; run-fake é a única execução no Slice 1.
+ * Único entrypoint do Rivals (produto público: Rivals, versão 2.0; substitui
+ * atlas:forge:rivals). Fail-closed: nenhuma ação chama provider por conta própria.
+ * atlas:rivals2 permanece só como alias temporário de compatibilidade.
  */
-class AtlasRivals2Command extends Command
+class AtlasRivalsCommand extends Command
 {
-    protected $signature = 'atlas:rivals2
+    protected $aliases = ['atlas:rivals2'];
+
+    protected $signature = 'atlas:rivals
         {action : doctor|models|arms|mine|plan|run-fake|run-bench|verify|adjudicate|report|report-all|uplift|ledger}
         {--model= : (uplift) model_id comparado nos dois runtimes}
         {--base-runtime=bare}
@@ -67,7 +70,7 @@ class AtlasRivals2Command extends Command
                     return ['status' => 'error', 'error' => 'uplift_requires_model_option'];
                 }
 
-                return (new \App\Services\Ai\Rivals2\Core\AtlasUpliftRunner)->compare(
+                return (new \App\Services\Ai\Rivals\Core\AtlasUpliftRunner)->compare(
                     $runId,
                     $model,
                     (string) $this->option('base-runtime'),
@@ -96,15 +99,17 @@ class AtlasRivals2Command extends Command
         $root = RunPaths::root();
         RunPaths::ensureDir($root);
         $checks = [
-            'config_loaded' => config('atlas_rivals2') !== null,
+            'config_loaded' => config('atlas_rivals') !== null,
             'storage_writable' => is_writable($root),
-            'provider_spend_allowed' => (bool) config('atlas_rivals2.provider_spend_allowed'),
+            'provider_spend_allowed' => (bool) config('atlas_rivals.provider_spend_allowed'),
             'ledger_chain' => (new ResultLedger)->verifyChain(),
         ];
         $ok = $checks['config_loaded'] && $checks['storage_writable'] && $checks['ledger_chain']['verified'];
 
         return [
             'schema_version' => 'atlas.rivals2.doctor.v1',
+            'product' => 'Rivals',
+            'version' => (string) config('atlas_rivals.version'),
             'status' => $ok ? 'ok' : 'error',
             'storage_root' => $root,
             'checks' => $checks,
@@ -129,7 +134,7 @@ class AtlasRivals2Command extends Command
             'status' => $errors === [] ? 'ok' : 'error',
             'arms' => $arms,
             'errors' => $errors,
-            'runtimes' => config('atlas_rivals2.runtimes'),
+            'runtimes' => config('atlas_rivals.runtimes'),
         ];
     }
 
@@ -138,15 +143,15 @@ class AtlasRivals2Command extends Command
         return match ($suiteId) {
             LocalFakeSuiteAdapter::SUITE_ID => new LocalFakeSuiteAdapter,
             AtlasBenchSuiteAdapter::SUITE_ID => new AtlasBenchSuiteAdapter,
-            \App\Services\Ai\Rivals2\Adapters\EliteRealitySuiteAdapter::SUITE_ID => new \App\Services\Ai\Rivals2\Adapters\EliteRealitySuiteAdapter,
-            'senior_swe_bench' => new \App\Services\Ai\Rivals2\Adapters\External\SeniorSweBenchAdapter,
-            'harbor_terminal_bench' => new \App\Services\Ai\Rivals2\Adapters\External\HarborTerminalBenchAdapter,
-            'aider_polyglot' => new \App\Services\Ai\Rivals2\Adapters\External\AiderBenchAdapter,
-            'inspect_evals' => new \App\Services\Ai\Rivals2\Adapters\External\InspectEvalsAdapter,
-            'swe_bench_live' => new \App\Services\Ai\Rivals2\Adapters\External\SweBenchLiveAdapter,
-            'hal_harness' => new \App\Services\Ai\Rivals2\Adapters\External\HalHarnessAdapter,
-            'tau2_bfcl' => new \App\Services\Ai\Rivals2\Adapters\External\Tau2BfclAdapter,
-            'live_code_bench' => new \App\Services\Ai\Rivals2\Adapters\External\LiveCodeBenchAdapter,
+            \App\Services\Ai\Rivals\Adapters\EliteRealitySuiteAdapter::SUITE_ID => new \App\Services\Ai\Rivals\Adapters\EliteRealitySuiteAdapter,
+            'senior_swe_bench' => new \App\Services\Ai\Rivals\Adapters\External\SeniorSweBenchAdapter,
+            'harbor_terminal_bench' => new \App\Services\Ai\Rivals\Adapters\External\HarborTerminalBenchAdapter,
+            'aider_polyglot' => new \App\Services\Ai\Rivals\Adapters\External\AiderBenchAdapter,
+            'inspect_evals' => new \App\Services\Ai\Rivals\Adapters\External\InspectEvalsAdapter,
+            'swe_bench_live' => new \App\Services\Ai\Rivals\Adapters\External\SweBenchLiveAdapter,
+            'hal_harness' => new \App\Services\Ai\Rivals\Adapters\External\HalHarnessAdapter,
+            'tau2_bfcl' => new \App\Services\Ai\Rivals\Adapters\External\Tau2BfclAdapter,
+            'live_code_bench' => new \App\Services\Ai\Rivals\Adapters\External\LiveCodeBenchAdapter,
             default => null,
         };
     }
@@ -208,7 +213,7 @@ class AtlasRivals2Command extends Command
             foreach ($receipts as $receipt) {
                 $receipt->append();
             }
-            $pack = (new \App\Services\Ai\Rivals2\Core\EvidencePackBuilder)->build($runId);
+            $pack = (new \App\Services\Ai\Rivals\Core\EvidencePackBuilder)->build($runId);
 
             return [
                 'schema_version' => 'atlas.rivals2.import_results.v1',
@@ -288,7 +293,7 @@ class AtlasRivals2Command extends Command
             }
             $adapter = new LocalFakeSuiteAdapter;
             $adapter->execute($plan);
-            $pack = (new \App\Services\Ai\Rivals2\Core\EvidencePackBuilder)->build($runId);
+            $pack = (new \App\Services\Ai\Rivals\Core\EvidencePackBuilder)->build($runId);
 
             return [
                 'schema_version' => 'atlas.rivals2.run_fake.v1',
@@ -309,7 +314,7 @@ class AtlasRivals2Command extends Command
                 return ['status' => 'error', 'error' => 'run_is_not_atlas_bench'];
             }
             $adapter->execute($plan);
-            $pack = (new \App\Services\Ai\Rivals2\Core\EvidencePackBuilder)->build($runId);
+            $pack = (new \App\Services\Ai\Rivals\Core\EvidencePackBuilder)->build($runId);
 
             return [
                 'schema_version' => 'atlas.rivals2.run_bench.v1',

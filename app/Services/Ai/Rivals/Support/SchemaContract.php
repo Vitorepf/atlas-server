@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Support;
+namespace App\Services\Ai\Rivals\Support;
 
 /**
  * Validação fail-closed dos payloads Rivals 2.0: validate() devolve a lista de

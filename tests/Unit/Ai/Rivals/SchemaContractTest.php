@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Rivals2;
+namespace Tests\Unit\Ai\Rivals;
 
-use App\Services\Ai\Rivals2\Support\SchemaContract;
+use App\Services\Ai\Rivals\Support\SchemaContract;
 use PHPUnit\Framework\TestCase;
 
 class SchemaContractTest extends TestCase

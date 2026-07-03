@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Ai\Rivals2;
+namespace Tests\Unit\Ai\Rivals;
 
-use App\Services\Ai\Rivals2\Core\ResultLedger;
+use App\Services\Ai\Rivals\Core\ResultLedger;
 use Tests\TestCase;
 
 class ResultLedgerTest extends TestCase
@@ -12,8 +12,8 @@ class ResultLedgerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->storage = sys_get_temp_dir().'/rivals2_ledger_test_'.uniqid();
-        config()->set('atlas_rivals2.storage_root', $this->storage);
+        $this->storage = sys_get_temp_dir().'/rivals_ledger_test_'.uniqid();
+        config()->set('atlas_rivals.storage_root', $this->storage);
     }
 
     protected function tearDown(): void

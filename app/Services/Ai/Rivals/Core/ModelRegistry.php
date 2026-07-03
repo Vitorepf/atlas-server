@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
 /**
  * Modelos que o operador consegue usar no Mac (CLI/API/local), config-driven.
@@ -11,7 +11,7 @@ class ModelRegistry
     /** @return array<string, array> */
     public function all(): array
     {
-        return config('atlas_rivals2.models', []);
+        return config('atlas_rivals.models', []);
     }
 
     /** @return array<string, array> */

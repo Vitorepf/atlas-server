@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
-use App\Services\Ai\Rivals2\Support\RunPaths;
-use App\Services\Ai\Rivals2\Support\SchemaContract;
+use App\Services\Ai\Rivals\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\SchemaContract;
 use RuntimeException;
 
 /**
@@ -20,7 +20,7 @@ class ResultLedger
 
         $handle = fopen($path, 'c+');
         if ($handle === false || ! flock($handle, LOCK_EX)) {
-            throw new RuntimeException('rivals2_ledger_lock_failed');
+            throw new RuntimeException('rivals_ledger_lock_failed');
         }
 
         try {

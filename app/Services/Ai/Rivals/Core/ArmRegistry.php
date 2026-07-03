@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
 use InvalidArgumentException;
 
@@ -18,11 +18,11 @@ class ArmRegistry
     public function makeArm(string $modelId, string $runtime): array
     {
         if (! $this->models->isUsable($modelId)) {
-            throw new InvalidArgumentException("rivals2_unknown_or_disabled_model:{$modelId}");
+            throw new InvalidArgumentException("rivals_unknown_or_disabled_model:{$modelId}");
         }
-        $runtimes = config('atlas_rivals2.runtimes', []);
+        $runtimes = config('atlas_rivals.runtimes', []);
         if (! in_array($runtime, $runtimes, true)) {
-            throw new InvalidArgumentException("rivals2_unknown_runtime:{$runtime}");
+            throw new InvalidArgumentException("rivals_unknown_runtime:{$runtime}");
         }
 
         return [
@@ -37,7 +37,7 @@ class ArmRegistry
     {
         $parts = explode('@', $armSpec, 2);
         if (count($parts) !== 2) {
-            throw new InvalidArgumentException("rivals2_invalid_arm_spec:{$armSpec}");
+            throw new InvalidArgumentException("rivals_invalid_arm_spec:{$armSpec}");
         }
 
         return $this->makeArm($parts[0], $parts[1]);

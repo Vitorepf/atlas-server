@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Feature\Ai\Rivals2;
+namespace Tests\Feature\Ai\Rivals;
 
-use App\Services\Ai\Rivals2\Adapters\EliteRealitySuiteAdapter;
+use App\Services\Ai\Rivals\Adapters\EliteRealitySuiteAdapter;
 use Tests\TestCase;
 
 /** Guard pétreo: mineração roda contra repo git de fixture em temp, nunca no repo vivo. */
@@ -15,13 +15,13 @@ class EliteRealitySuiteAdapterTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->storage = sys_get_temp_dir().'/rivals2_elite_test_'.uniqid();
-        $this->fixtureRepo = sys_get_temp_dir().'/rivals2_elite_repo_'.uniqid();
-        config()->set('atlas_rivals2.storage_root', $this->storage);
-        config()->set('atlas_rivals2.atlasbench.repo_path', $this->fixtureRepo);
+        $this->storage = sys_get_temp_dir().'/rivals_elite_test_'.uniqid();
+        $this->fixtureRepo = sys_get_temp_dir().'/rivals_elite_repo_'.uniqid();
+        config()->set('atlas_rivals.storage_root', $this->storage);
+        config()->set('atlas_rivals.atlasbench.repo_path', $this->fixtureRepo);
         // pisos elite reais (80/3) exigiriam fixture gigante; o teste pina o MECANISMO
-        config()->set('atlas_rivals2.elite.min_diff_lines', 20);
-        config()->set('atlas_rivals2.elite.min_code_files', 3);
+        config()->set('atlas_rivals.elite.min_diff_lines', 20);
+        config()->set('atlas_rivals.elite.min_code_files', 3);
         $this->buildFixtureRepo();
     }
 
@@ -82,7 +82,7 @@ class EliteRealitySuiteAdapterTest extends TestCase
         $this->assertCount(1, $cases);
         $case = $cases[0];
         $this->assertSame('concurrency_state_bug', $case['task_type']);
-        $this->assertContains($case['task_type'], config('atlas_rivals2.task_types'));
+        $this->assertContains($case['task_type'], config('atlas_rivals.task_types'));
         $this->assertSame([], $case['contamination']['violations']);
         $this->assertNotNull($case['contamination']['prompt_fingerprint']);
         $this->assertGreaterThanOrEqual(3, count($case['changed_files']['code']));

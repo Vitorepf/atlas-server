@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Adapters;
+namespace App\Services\Ai\Rivals\Adapters;
 
-use App\Services\Ai\Rivals2\Contracts\BenchmarkSuiteAdapter;
-use App\Services\Ai\Rivals2\Core\RunPlan;
-use App\Services\Ai\Rivals2\Core\RunReceipt;
-use App\Services\Ai\Rivals2\Support\EventStream;
-use App\Services\Ai\Rivals2\Support\RunPaths;
-use App\Services\Ai\Rivals2\Support\SchemaContract;
+use App\Services\Ai\Rivals\Contracts\BenchmarkSuiteAdapter;
+use App\Services\Ai\Rivals\Core\RunPlan;
+use App\Services\Ai\Rivals\Core\RunReceipt;
+use App\Services\Ai\Rivals\Support\EventStream;
+use App\Services\Ai\Rivals\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\SchemaContract;
 
 /**
  * Suite determinística provider-free que prova o pipeline inteiro
@@ -53,7 +53,7 @@ class LocalFakeSuiteAdapter implements BenchmarkSuiteAdapter
                         'case_id' => $caseId,
                         'arm_id' => $arm['arm_id'],
                         'repetition' => $rep,
-                        'command' => "rivals2-local-fake --case={$caseId} --arm={$arm['arm_id']} --rep={$rep} --seed={$plan->data['seed']}",
+                        'command' => "rivals-local-fake --case={$caseId} --arm={$arm['arm_id']} --rep={$rep} --seed={$plan->data['seed']}",
                     ];
                 }
             }
@@ -76,7 +76,7 @@ class LocalFakeSuiteAdapter implements BenchmarkSuiteAdapter
             $artifactRel = "artifacts/{$cmd['case_id']}__".str_replace('@', '_', $cmd['arm_id'])."__r{$cmd['repetition']}.txt";
             $artifactAbs = RunPaths::runDir($runId).'/'.$artifactRel;
             // conteúdo determinístico por (seed, case, arm, rep)
-            file_put_contents($artifactAbs, "rivals2 local_fake output\n".hash(
+            file_put_contents($artifactAbs, "rivals local_fake output\n".hash(
                 'sha256',
                 "{$plan->data['seed']}|{$cmd['case_id']}|{$cmd['arm_id']}|{$cmd['repetition']}"
             )."\nstatus={$status}\n");

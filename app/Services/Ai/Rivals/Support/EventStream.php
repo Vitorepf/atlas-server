@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Support;
+namespace App\Services\Ai\Rivals\Support;
 
 /** events.jsonl append-only por run: uma linha = um evento auditável. */
 class EventStream

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
 /**
  * Reality Score: vetor de dimensões por receipt — NUNCA colapsado em número
@@ -16,7 +16,7 @@ class RealityScoreCard
         $patchLines = count(preg_grep('/^[+-][^+-]/', explode("\n", $patch)));
         $goldenLines = $case['diff_lines'] ?? null;
         $bloat = ! empty($goldenLines) ? round($patchLines / $goldenLines, 3) : null;
-        $maxBloat = (float) config('atlas_rivals2.reality.max_bloat_ratio', 2.0);
+        $maxBloat = (float) config('atlas_rivals.reality.max_bloat_ratio', 2.0);
 
         $touched = [];
         if (preg_match_all('/^\+\+\+ b\/(.+)$/m', $patch, $m)) {

@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Services\Ai\Rivals2\Core;
+namespace App\Services\Ai\Rivals\Core;
 
-use App\Services\Ai\Rivals2\Support\RunPaths;
-use App\Services\Ai\Rivals2\Support\SchemaContract;
+use App\Services\Ai\Rivals\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\SchemaContract;
 
 /**
  * SÓ hard gates, fail-closed. claim_allowed=false é o default e qualquer gate
@@ -42,7 +42,7 @@ class Adjudicator
         }
 
         // gate: repetições >= mínimo de claim
-        $minReps = (int) config('atlas_rivals2.claim.min_repetitions', 3);
+        $minReps = (int) config('atlas_rivals.claim.min_repetitions', 3);
         if ($plan->data['repetitions'] < $minReps) {
             $blockers[] = "repetitions_below_min:{$plan->data['repetitions']}<{$minReps}";
         }

@@ -1,14 +1,14 @@
 <?php
 
-namespace Tests\Feature\Ai\Rivals2;
+namespace Tests\Feature\Ai\Rivals;
 
-use App\Services\Ai\Rivals2\Adapters\AtlasBenchSuiteAdapter;
-use App\Services\Ai\Rivals2\Core\Adjudicator;
-use App\Services\Ai\Rivals2\Core\ArmRegistry;
-use App\Services\Ai\Rivals2\Core\EvidencePackBuilder;
-use App\Services\Ai\Rivals2\Core\ReportBuilder;
-use App\Services\Ai\Rivals2\Core\RunPlan;
-use App\Services\Ai\Rivals2\Support\RunPaths;
+use App\Services\Ai\Rivals\Adapters\AtlasBenchSuiteAdapter;
+use App\Services\Ai\Rivals\Core\Adjudicator;
+use App\Services\Ai\Rivals\Core\ArmRegistry;
+use App\Services\Ai\Rivals\Core\EvidencePackBuilder;
+use App\Services\Ai\Rivals\Core\ReportBuilder;
+use App\Services\Ai\Rivals\Core\RunPlan;
+use App\Services\Ai\Rivals\Support\RunPaths;
 use Tests\TestCase;
 
 /**
@@ -24,10 +24,10 @@ class AtlasBenchAdapterTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->storage = sys_get_temp_dir().'/rivals2_bench_test_'.uniqid();
-        $this->fixtureRepo = sys_get_temp_dir().'/rivals2_bench_repo_'.uniqid();
-        config()->set('atlas_rivals2.storage_root', $this->storage);
-        config()->set('atlas_rivals2.atlasbench.repo_path', $this->fixtureRepo);
+        $this->storage = sys_get_temp_dir().'/rivals_bench_test_'.uniqid();
+        $this->fixtureRepo = sys_get_temp_dir().'/rivals_bench_repo_'.uniqid();
+        config()->set('atlas_rivals.storage_root', $this->storage);
+        config()->set('atlas_rivals.atlasbench.repo_path', $this->fixtureRepo);
         $this->buildFixtureRepo();
     }
 
@@ -119,7 +119,7 @@ class AtlasBenchAdapterTest extends TestCase
     public function test_local_cli_model_arm_executes_for_real_and_passes_check(): void
     {
         // S3: "modelo" = perfil CLI local (stub) que edita a worktree de verdade
-        config()->set('atlas_rivals2.models.stub_cli', [
+        config()->set('atlas_rivals.models.stub_cli', [
             'provider' => 'local', 'access_type' => 'cli', 'local' => true, 'enabled' => true,
             'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0,
             'command' => 'php tests/solver.php',
@@ -146,8 +146,8 @@ class AtlasBenchAdapterTest extends TestCase
 
     public function test_non_local_model_without_spend_flag_fails_closed(): void
     {
-        config()->set('atlas_rivals2.models.claude_sonnet_5.command', 'claude -p "solve" --cwd {workspace}');
-        config()->set('atlas_rivals2.provider_spend_allowed', false);
+        config()->set('atlas_rivals.models.claude_sonnet_5.command', 'claude -p "solve" --cwd {workspace}');
+        config()->set('atlas_rivals.provider_spend_allowed', false);
         $caseId = $this->writeCase();
         $adapter = new AtlasBenchSuiteAdapter;
         $plan = RunPlan::make(
@@ -186,7 +186,7 @@ class AtlasBenchAdapterTest extends TestCase
     public function test_mining_live_repo_is_read_only_and_yields_valid_cases(): void
     {
         // mining pode ler o repo real (git log/show apenas; zero worktree)
-        config()->set('atlas_rivals2.atlasbench.repo_path', base_path());
+        config()->set('atlas_rivals.atlasbench.repo_path', base_path());
         $cases = (new AtlasBenchSuiteAdapter)->mineCases(2);
 
         $this->assertNotEmpty($cases);
@@ -194,7 +194,7 @@ class AtlasBenchAdapterTest extends TestCase
             $this->assertNotEmpty($case['base_sha']);
             $this->assertNotEmpty($case['golden_sha']);
             $this->assertStringContainsString('phpunit', $case['check_command']);
-            $this->assertContains($case['task_type'], config('atlas_rivals2.task_types'));
+            $this->assertContains($case['task_type'], config('atlas_rivals.task_types'));
         }
     }
 }

@@ -1,27 +1,27 @@
 <?php
 
-namespace Tests\Feature\Ai\Rivals2;
+namespace Tests\Feature\Ai\Rivals;
 
-use App\Services\Ai\Rivals2\Adapters\LocalFakeSuiteAdapter;
-use App\Services\Ai\Rivals2\Core\Adjudicator;
-use App\Services\Ai\Rivals2\Core\ArmRegistry;
-use App\Services\Ai\Rivals2\Core\EvidencePackBuilder;
-use App\Services\Ai\Rivals2\Core\ReplayVerifier;
-use App\Services\Ai\Rivals2\Core\ReportBuilder;
-use App\Services\Ai\Rivals2\Core\ResultLedger;
-use App\Services\Ai\Rivals2\Core\RunPlan;
-use App\Services\Ai\Rivals2\Support\RunPaths;
+use App\Services\Ai\Rivals\Adapters\LocalFakeSuiteAdapter;
+use App\Services\Ai\Rivals\Core\Adjudicator;
+use App\Services\Ai\Rivals\Core\ArmRegistry;
+use App\Services\Ai\Rivals\Core\EvidencePackBuilder;
+use App\Services\Ai\Rivals\Core\ReplayVerifier;
+use App\Services\Ai\Rivals\Core\ReportBuilder;
+use App\Services\Ai\Rivals\Core\ResultLedger;
+use App\Services\Ai\Rivals\Core\RunPlan;
+use App\Services\Ai\Rivals\Support\RunPaths;
 use Tests\TestCase;
 
-class Rivals2FakePipelineTest extends TestCase
+class RivalsFakePipelineTest extends TestCase
 {
     private string $storage;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->storage = sys_get_temp_dir().'/rivals2_pipeline_test_'.uniqid();
-        config()->set('atlas_rivals2.storage_root', $this->storage);
+        $this->storage = sys_get_temp_dir().'/rivals_pipeline_test_'.uniqid();
+        config()->set('atlas_rivals.storage_root', $this->storage);
     }
 
     protected function tearDown(): void
