@@ -131,6 +131,9 @@ final class AtlasCortexTestCoverageLens implements LensContract
                     continue;
                 }
                 $type = $lineNode->getAttribute('type'); // method | stmt
+                if (! $lineNode->hasAttribute('num')) {
+                    continue;
+                }
                 $num = (int) $lineNode->getAttribute('num');
                 $count = (int) $lineNode->getAttribute('count');
                 $methodName = $lineNode->hasAttribute('name') ? $lineNode->getAttribute('name') : null;
