@@ -2841,10 +2841,28 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         foreach ([
             ['git', 'diff', '--no-ext-diff', '--name-only'],
             ['git', 'diff', '--cached', '--no-ext-diff', '--name-only'],
-            ['git', 'ls-files', '--others', '--exclude-standard'],
         ] as $argv) {
             $paths = array_merge($paths, $this->gitNameOnlyPaths($workspace, $argv));
         }
+
+        // Untracked comuns: mesmo princípio pré/pós dos ignorados-proibidos —
+        // um untracked que JÁ EXISTIA antes do provider rodar (com a mesma
+        // assinatura) é estado do operador/run anterior, não mutação deste
+        // provider (matriz real 03/07: teste criado por um cenário anterior
+        // derrubava o cenário seguinte como scope violation). Untracked NOVO
+        // ou alterado continua contando (invariante do scope guard preservado).
+        $untracked = $this->gitNameOnlyPaths($workspace, ['git', 'ls-files', '--others', '--exclude-standard']);
+        if ($preIgnoredForbidden !== null) {
+            $untracked = array_values(array_filter(
+                $untracked,
+                function (string $path) use ($workspace, $preIgnoredForbidden): bool {
+                    $pre = $preIgnoredForbidden[$path] ?? null;
+
+                    return $pre === null || $pre !== $this->fileSignature($workspace.'/'.$path);
+                },
+            ));
+        }
+        $paths = array_merge($paths, $untracked);
 
         $ignoredForbidden = $this->safeRelativePaths($forbiddenFiles);
         if ($ignoredForbidden !== []) {
@@ -2902,6 +2920,11 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
 
         $snapshot = [];
         foreach ($this->gitNameOnlyPaths($workspace, $argv) as $path) {
+            $snapshot[$path] = $this->fileSignature($workspace.'/'.$path);
+        }
+        // Untracked comuns pré-existentes: mesma semântica delta (o detector
+        // pós-run só reporta untracked novo/alterado como mutação do provider).
+        foreach ($this->gitNameOnlyPaths($workspace, ['git', 'ls-files', '--others', '--exclude-standard']) as $path) {
             $snapshot[$path] = $this->fileSignature($workspace.'/'.$path);
         }
 
