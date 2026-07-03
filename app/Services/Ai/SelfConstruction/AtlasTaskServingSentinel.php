@@ -189,7 +189,21 @@ final class AtlasTaskServingSentinel
      */
     public function windowCounters(array $queueRecords, ?string $windowStartIso = null): array
     {
-        $windowStartTimestamp = $windowStartIso !== null ? strtotime($windowStartIso) : null;
+        $windowStartTimestamp = null;
+        if ($windowStartIso !== null) {
+            $ts = strtotime($windowStartIso);
+            if ($ts === false) {
+                // Invalid ISO — fail-closed: no transitions count.
+                return [
+                    'schema' => self::SCHEMA,
+                    'claim_delta' => 0,
+                    'completion_delta' => 0,
+                    'release_delta' => 0,
+                    'window_start_iso8601' => $windowStartIso,
+                ];
+            }
+            $windowStartTimestamp = $ts;
+        }
 
         $claimDelta = 0;
         $completionDelta = 0;
@@ -204,7 +218,7 @@ final class AtlasTaskServingSentinel
                 $status = (string) ($transition['status'] ?? '');
                 $at = (string) ($transition['at'] ?? '');
 
-                if ($windowStartTimestamp !== false && $windowStartTimestamp !== null) {
+                if ($windowStartTimestamp !== null) {
                     $atTimestamp = $at !== '' ? strtotime($at) : false;
                     if ($atTimestamp === false || $atTimestamp < $windowStartTimestamp) {
                         continue;

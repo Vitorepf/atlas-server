@@ -190,4 +190,33 @@ final class AtlasTaskServingSentinelTest extends TestCase
         $this->assertSame(16, AtlasAgentControlPlaneSafetyInvariantsService::INVARIANT_COUNT);
         $this->assertCount(16, $svc->describe()['invariants']);
     }
+
+    public function test_window_counters_returns_zero_deltas_for_invalid_window_start_iso(): void
+    {
+        $s = $this->sentinel();
+
+        // Queue records with transitions that would normally count.
+        $records = [
+            [
+                'task_packet_id' => 'task-1',
+                'history' => [
+                    ['status' => 'claimed', 'at' => '2025-01-01T00:00:00Z'],
+                    ['status' => 'completed_dry_run', 'at' => '2025-01-01T00:01:00Z'],
+                ],
+            ],
+        ];
+
+        // An invalid ISO string — strtotime returns false, so windowCounters must fail-closed.
+        $r = $s->windowCounters($records, 'not-a-valid-iso-string');
+
+        $this->assertSame(0, $r['claim_delta']);
+        $this->assertSame(0, $r['completion_delta']);
+        $this->assertSame(0, $r['release_delta']);
+        $this->assertSame('not-a-valid-iso-string', $r['window_start_iso8601']);
+
+        // A valid ISO for comparison — transitions after the boundary should count.
+        $r2 = $s->windowCounters($records, '2024-01-01T00:00:00Z');
+        $this->assertSame(1, $r2['claim_delta']);
+        $this->assertSame(1, $r2['completion_delta']);
+    }
 }
