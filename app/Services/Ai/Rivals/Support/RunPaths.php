@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Rivals\Support;
 
-/** Fonte única do layout de disco do Rivals 2.0 (storage/atlas/rivals2). */
+/** Fonte única do layout de disco do Rivals 2.0 (storage/atlas/rivals). */
 class RunPaths
 {
     public static function root(): string

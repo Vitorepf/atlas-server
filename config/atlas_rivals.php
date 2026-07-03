@@ -9,7 +9,8 @@
 | O juiz final é sempre o núcleo Rivals local; suites externas são adapters.
 | claim_allowed=false é o default pétreo.
 | Compat interno preservado de propósito (runs existentes em disco + .env vivo):
-| schema ids atlas.rivals2.*, env vars ATLAS_RIVALS2_*, storage atlas/rivals2.
+| schema ids atlas.rivals2.* e env vars ATLAS_RIVALS2_*. Storage público é
+| storage/atlas/rivals (decisão do operador 03/07); atlas/rivals2 vira symlink.
 */
 
 return [
@@ -20,7 +21,7 @@ return [
     // Nenhum run pode gastar provider sem esta flag E aprovação explícita por run.
     'provider_spend_allowed' => env('ATLAS_RIVALS2_PROVIDER_SPEND', false),
 
-    'storage_root' => env('ATLAS_RIVALS2_STORAGE', storage_path('atlas/rivals2')),
+    'storage_root' => env('ATLAS_RIVALS2_STORAGE', storage_path('atlas/rivals')),
 
     'claim' => [
         'min_repetitions' => 3,

@@ -71,14 +71,15 @@ Produto público: **Rivals**. Versão: **2.0**. Comando canônico: `atlas:rivals
 (`atlas:rivals2` é só alias temporário de compat). Config: `config/atlas_rivals.php`
 com `version=2.0`. Namespace de código: `App\Services\Ai\Rivals`. Nenhuma
 superfície pública nova pode usar "Rivals2"; schema ids `atlas.rivals2.*`, env
-vars `ATLAS_RIVALS2_*` e storage `atlas/rivals2` ficam como formato interno
-preservado (runs existentes + .env vivo). Referências a `atlas:rivals2` abaixo
+vars `ATLAS_RIVALS2_*` ficam como formato interno preservado (runs existentes
++ .env vivo). Storage público: `storage/atlas/rivals` (03/07; `atlas/rivals2`
+é symlink de compat). Referências a `atlas:rivals2` abaixo
 neste doc são históricas do rebuild.
 
 Benchmark repos externos REAIS: registry em `config/atlas_rivals.php`
 (`benchmarks.repos`, os 9 do operador), clones pinados em `tools/rivals/benchmarks/`,
 smoke real via `atlas:rivals benchmark-smoke --repo=<id> --json` (receipts em
-`storage/atlas/rivals2/benchmarks/`). Adapter sem smoke verde = blocked, nunca done.
+`storage/atlas/rivals/benchmarks/`). Adapter sem smoke verde = blocked, nunca done.
 
 ## Resumo
 
