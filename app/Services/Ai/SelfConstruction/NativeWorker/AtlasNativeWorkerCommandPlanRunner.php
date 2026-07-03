@@ -217,7 +217,8 @@ final class AtlasNativeWorkerCommandPlanRunner
 
     private function isGitMutation(array $argv): bool
     {
-        return isset($argv[0], $argv[1])
+        return array_key_exists(0, $argv) && array_key_exists(1, $argv)
+            && is_string($argv[0]) && is_string($argv[1])
             && basename($argv[0]) === 'git'
             && in_array(strtolower($argv[1]), self::FORBIDDEN_GIT_SUBCOMMANDS, true);
     }
