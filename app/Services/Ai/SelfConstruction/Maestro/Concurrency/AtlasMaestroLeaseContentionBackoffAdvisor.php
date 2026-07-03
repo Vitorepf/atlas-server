@@ -77,7 +77,9 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
             if ($isSaturated && ! $hasContention) {
                 $reasonCodes[] = 'saturation:active_leases_ge_servable_now';
             }
-            $delta = -max(1, (int) ceil($activeLeases / 2));
+            $delta = $activeLeases === 0
+                ? 0
+                : -max(1, (int) ceil($activeLeases / 2));
             $retryAfter = max(30, (int) round($averageTaskMinutes * 60 / 4));
 
             return $this->result(self::DECISION_BACKOFF, $delta, $retryAfter, $reasonCodes, $qualityGateReasonCodes);
