@@ -56,7 +56,7 @@ graph_parent: atlas-forge-rivals-provider-performance-ledger-v1
 graph_status: active
 graph_source: repo
 repo_paths:
-  - app/Services/Ai/Rivals2/
+  - app/Services/Ai/Rivals/
 allowed_changes:
   - Evoluir invariantes quando novas etapas de evidence lifecycle forem adicionadas.
 forbidden_changes:

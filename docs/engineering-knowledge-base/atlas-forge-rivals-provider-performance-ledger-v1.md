@@ -57,7 +57,7 @@ canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-provider-pe
 owner: programming
 
 repo_paths:
-  - app/Services/Ai/Rivals2/
+  - app/Services/Ai/Rivals/
 
 allowed_changes:
   - Atualizar quando o adjudicator emitir novos campos no scorecard ou quando os thresholds de confidence/stale precisarem evoluir.

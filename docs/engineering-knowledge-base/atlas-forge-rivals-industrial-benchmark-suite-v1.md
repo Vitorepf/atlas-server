@@ -55,7 +55,7 @@ technical_name: atlas-forge-rivals-industrial-benchmark-suite-v1
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-industrial-benchmark-suite-v1.md
 repo_paths:
-  - app/Services/Ai/Rivals2/
+  - app/Services/Ai/Rivals/
 allowed_changes:
   - Adicionar presets industriais com corpus validado, tests e claim gates fail-closed.
   - Evoluir executor industrial preservando evidence pack, replay, matrix lock e advisory-only.

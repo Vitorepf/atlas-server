@@ -58,7 +58,7 @@ technical_name: atlas-forge-rivals-provider-arena-v2
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-provider-arena-v2.md
 repo_paths:
-  - app/Services/Ai/Rivals2/
+  - app/Services/Ai/Rivals/
 allowed_changes:
   - Adicionar modelos, providers e arms por registry central e testes.
   - Evoluir executor real v2 somente preservando evidence/replay/report para qualquer par de arms.

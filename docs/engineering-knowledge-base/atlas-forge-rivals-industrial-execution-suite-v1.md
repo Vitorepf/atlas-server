@@ -52,7 +52,7 @@ technical_name: atlas-forge-rivals-industrial-execution-suite-v1
 cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-industrial-execution-suite-v1.md
 repo_paths:
-  - app/Services/Ai/Rivals2/
+  - app/Services/Ai/Rivals/
 allowed_changes:
   - Adicionar fixtures executaveis locais por case industrial.
   - Expandir execution readiness para outros presets industriais sem provider call.

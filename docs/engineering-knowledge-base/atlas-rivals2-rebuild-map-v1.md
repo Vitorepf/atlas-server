@@ -24,9 +24,9 @@ maintenance:
   - Atualizar este doc a cada slice do rebuild concluido.
   - Este doc e a fonte de verdade da classificacao A/B/C/D do 1.0.
 related_paths:
-  - app/Services/Ai/Rivals2/
+  - app/Services/Ai/Rivals/
   - app/Console/Commands/AtlasRivals2Command.php
-  - config/atlas_rivals2.php
+  - config/atlas_rivals.php
   - docs/acde-teto-closure.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-rivals2-rebuild-map-v1
@@ -39,8 +39,8 @@ graph_status: active
 graph_source: repo
 owner: programming
 repo_paths:
-  - app/Services/Ai/Rivals2/
-  - config/atlas_rivals2.php
+  - app/Services/Ai/Rivals/
+  - config/atlas_rivals.php
 allowed_changes:
   - Registrar progresso dos slices e ajustes de classificacao com justificativa.
 forbidden_changes:
@@ -106,7 +106,7 @@ Proibido importar ForgeRivals no Rivals2; proibido leaderboard/score unico; clai
 
 ## Escopo de Implementacao
 
-app/Services/Ai/Rivals2/, AtlasRivals2Command, config/atlas_rivals2.php, storage/atlas/rivals2/.
+app/Services/Ai/Rivals/, AtlasRivals2Command, config/atlas_rivals.php, storage/atlas/rivals2/.
 
 ## Dependencias
 
@@ -141,10 +141,10 @@ Escopo do 2.0 (único):
 
 Relação com per-delivery: a avaliação per-delivery (docs/acde-teto-closure.md) SEGUE sendo a forma oficial
 de avaliar entregas do Loop. Rivals 2.0 mede modelos e runtimes, não entregas. Não há conflito.
-`allow_rivals_programmatic` (governa o 1.0) permanece `false`; o 2.0 tem flags próprias em `config/atlas_rivals2.php`.
+`allow_rivals_programmatic` (governa o 1.0) permanece `false`; o 2.0 tem flags próprias em `config/atlas_rivals.php`.
 
 Legenda:
-- **A** Manter como PADRÃO, reimplementado pequeno no `app/Services/Ai/Rivals2/` (proibido importar `ForgeRivals\*`)
+- **A** Manter como PADRÃO, reimplementado pequeno no `app/Services/Ai/Rivals/` (proibido importar `ForgeRivals\*`)
 - **B** Adaptar CONCEITO, não código
 - **C** Aposentar (freeze read-only/deprecated; remoção no Slice 6)
 - **D** Deletar no Slice 6
