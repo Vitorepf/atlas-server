@@ -20,9 +20,17 @@ class DecisionReceiptIssuer
      */
     public function issue(OperationEnvelope $envelope, array $decision): DecisionReceipt
     {
-        $issuedAt = isset($decision['issued_at']) ? CarbonImmutable::parse($decision['issued_at']) : CarbonImmutable::now();
+        try {
+            $issuedAt = isset($decision['issued_at']) ? CarbonImmutable::parse($decision['issued_at']) : CarbonImmutable::now();
+        } catch (\Throwable $e) {
+            $issuedAt = CarbonImmutable::now();
+        }
         $ttlSeconds = max(1, (int) ($decision['ttl_seconds'] ?? 30));
-        $expiresAt = isset($decision['expires_at']) ? CarbonImmutable::parse($decision['expires_at']) : $issuedAt->addSeconds($ttlSeconds);
+        try {
+            $expiresAt = isset($decision['expires_at']) ? CarbonImmutable::parse($decision['expires_at']) : $issuedAt->addSeconds($ttlSeconds);
+        } catch (\Throwable $e) {
+            $expiresAt = $issuedAt->addSeconds($ttlSeconds);
+        }
         $receiptId = $this->string($decision['receipt_id'] ?? (string) Str::ulid());
         $dryRun = (bool) ($decision['dry_run'] ?? false);
         $signedBy = $this->string($decision['signed_by'] ?? 'atlas.decide.v2') ?: 'atlas.decide.v2';
