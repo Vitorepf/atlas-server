@@ -195,4 +195,50 @@ final class AgentRuntimeRegistryQuarantineRepositoryTest extends TestCase
         $this->assertSame('active', $result['quarantine_status']);
         $this->assertTrue($result['dispatch_block']);
     }
+
+    // ── Corrupt vs missing quarantine file ──────────────────────────────────────
+
+    public function test_corrupt_quarantine_file_is_treated_as_quarantined(): void
+    {
+        $repo = $this->svc();
+        // Write corrupt JSON directly to the quarantine file path
+        // agentPath() produces: atlas/.../agent_<agentId>.json
+        Storage::disk('local')->put(
+            'atlas/self-construction/agent-control-plane/agent-quarantine/agent_corrupt-agent.json',
+            '{not valid json!!!'
+        );
+
+        $this->assertTrue($repo->isQuarantined('corrupt-agent'));
+    }
+
+    public function test_missing_quarantine_file_is_treated_as_not_quarantined(): void
+    {
+        $repo = $this->svc();
+
+        $this->assertFalse($repo->isQuarantined('agent-never-seen'));
+    }
+
+    public function test_dispatch_block_reports_active_for_corrupt_quarantine_file(): void
+    {
+        $repo = $this->svc();
+        Storage::disk('local')->put(
+            'atlas/self-construction/agent-control-plane/agent-quarantine/agent_corrupt-agent2.json',
+            'CORRUPT-BINARY-DATA'
+        );
+
+        $result = $repo->dispatchBlock('corrupt-agent2');
+
+        $this->assertSame('active', $result['quarantine_status']);
+        $this->assertTrue($result['dispatch_block']);
+    }
+
+    public function test_dispatch_block_reports_unrelated_for_missing_quarantine_file(): void
+    {
+        $repo = $this->svc();
+
+        $result = $repo->dispatchBlock('agent-never-seen-at-all');
+
+        $this->assertSame('unrelated', $result['quarantine_status']);
+        $this->assertFalse($result['dispatch_block']);
+    }
 }

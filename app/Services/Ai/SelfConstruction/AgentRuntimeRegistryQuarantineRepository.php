@@ -270,6 +270,12 @@ final class AgentRuntimeRegistryQuarantineRepository
         $isQuarantined = $record !== null && (bool) ($record['is_quarantined'] ?? false);
         $retryAfterAt = $record['retry_after_at'] ?? null;
 
+        // Corrupt file: fail closed — treat as active quarantine
+        $isCorrupt = $record === null && $this->isQuarantineFileCorrupt($targetId);
+        if ($isCorrupt) {
+            $isQuarantined = true;
+        }
+
         $isExpired = false;
         if ($isQuarantined && $retryAfterAt !== null) {
             try {
@@ -280,7 +286,8 @@ final class AgentRuntimeRegistryQuarantineRepository
         }
 
         $quarantineStatus = match (true) {
-            $record === null => 'unrelated',
+            $record === null && ! $isCorrupt => 'unrelated',
+            $isCorrupt => 'active',
             ! $isQuarantined => 'released',
             $isExpired => 'expired',
             default => 'active',
@@ -289,7 +296,7 @@ final class AgentRuntimeRegistryQuarantineRepository
 
         $releaseHint = null;
         if ($isQuarantined) {
-            $releaseCondition = (string) ($record['release_condition'] ?? '');
+            $releaseCondition = $isCorrupt ? '' : ((string) ($record['release_condition'] ?? ''));
             $releaseHint = $releaseCondition !== ''
                 ? $releaseCondition
                 : ($retryAfterAt !== null
@@ -301,7 +308,7 @@ final class AgentRuntimeRegistryQuarantineRepository
             'schema_version'     => self::SCHEMA_VERSION,
             'target_id'          => $targetId,
             'dispatch_block'     => $dispatchBlockFlag,
-            'target_type'        => $record['target_type'] ?? null,
+            'target_type'        => $isCorrupt ? null : ($record['target_type'] ?? null),
             'release_hint'       => $releaseHint,
             'retry_after_at'     => $retryAfterAt,
             'quarantine_status'  => $quarantineStatus,
@@ -315,6 +322,10 @@ final class AgentRuntimeRegistryQuarantineRepository
         }
         $record = $this->readQuarantineFile($agentId);
         if ($record === null) {
+            // File missing or corrupt — distinguish: corrupt = fail closed (treat as quarantined)
+            if ($this->isQuarantineFileCorrupt($agentId)) {
+                return true;
+            }
             return false;
         }
 
@@ -430,6 +441,30 @@ final class AgentRuntimeRegistryQuarantineRepository
         }
 
         return $decoded;
+    }
+
+    /**
+     * Returns true when the quarantine file exists but contains invalid JSON.
+     * This distinguishes corrupt (fail-closed) from missing (never quarantined).
+     */
+    private function isQuarantineFileCorrupt(string $agentId): bool
+    {
+        if (! $this->isValidAgentId($agentId)) {
+            return false;
+        }
+        $path = $this->agentPath($agentId);
+        $disk = $this->disk();
+        if (! $disk->exists($path)) {
+            return false;
+        }
+        $raw = (string) $disk->get($path);
+        try {
+            json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
+        } catch (Throwable) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
