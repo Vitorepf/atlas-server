@@ -193,7 +193,11 @@ final class AtlasMaestroLeaseLifetimeHistogram
 
         foreach (['leased_at', 'acquired_at', 'claimed_at'] as $key) {
             if (isset($lease[$key]) && is_string($lease[$key]) && trim($lease[$key]) !== '') {
-                return (new DateTimeImmutable($lease[$key]))->setTimezone(new DateTimeZone('UTC'))->getTimestamp();
+                try {
+                    return (new DateTimeImmutable($lease[$key]))->setTimezone(new DateTimeZone('UTC'))->getTimestamp();
+                } catch (\Throwable) {
+                    // Malformed date — skip this key and try the next
+                }
             }
         }
 
@@ -239,7 +243,11 @@ final class AtlasMaestroLeaseLifetimeHistogram
             return (int) $lease['expires_at_unix'];
         }
         if (isset($lease['expires_at']) && is_string($lease['expires_at']) && trim($lease['expires_at']) !== '') {
-            return (new DateTimeImmutable($lease['expires_at']))->setTimezone(new DateTimeZone('UTC'))->getTimestamp();
+            try {
+                return (new DateTimeImmutable($lease['expires_at']))->setTimezone(new DateTimeZone('UTC'))->getTimestamp();
+            } catch (\Throwable) {
+                // Malformed date — skip
+            }
         }
         if (isset($lease['ttl_seconds']) && is_numeric($lease['ttl_seconds'])) {
             return $this->leasedAtUnix($lease) + (int) $lease['ttl_seconds'];
