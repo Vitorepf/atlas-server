@@ -732,11 +732,24 @@ final class MutationTestingAdapterTest extends TestCase
             touchedFiles: ['tests/Unit/FooTest.php', 'app/Foo.php'],
         );
 
+        // infection 0.33 NÃO tem a flag CLI --logger-json (o comando antigo
+        // falhava "option does not exist" em todo run real — achado 03/07);
+        // o report JSON per-file agora viaja no per-run config `logs.json`.
         $command = $runner->calls[0]['command'];
-        $this->assertStringContainsString(
-            '--logger-json=',
-            $command,
-            'command carries --logger-json for per-file MSI analysis',
-        );
+        $this->assertStringNotContainsString('--logger-json=', $command);
+
+        $configPath = null;
+        if (preg_match("/--configuration='([^']+)'/", $command, $m) === 1) {
+            $configPath = $m[1];
+        }
+        $this->assertNotNull($configPath, 'command carries a per-run --configuration');
+        if (is_file($configPath)) {
+            $config = json_decode((string) file_get_contents($configPath), true);
+            $this->assertSame(
+                '/repo/storage/atlas-dev/mutation/run-e3-json/infection-report.json',
+                $config['logs']['json'] ?? null,
+                'per-run config carries logs.json for per-file MSI analysis',
+            );
+        }
     }
 }

@@ -270,7 +270,7 @@ final class ReviewIntelligenceService
                         remediation: 'Replace the literal with a config/env reference and rotate the credential.',
                         confidence: 0.65,
                         file: (string) ($hunk['file'] ?? null) ?: null,
-                        line: isset($hunk['line']) && is_int($hunk['line']) ? $hunk['line'] : null,
+                        line: isset($hunk['line']) && is_int($hunk['line']) && $hunk['line'] >= 1 ? $hunk['line'] : null,
                         evidenceRefKinds: ['diff'],
                     );
                     break;
@@ -292,7 +292,7 @@ final class ReviewIntelligenceService
         foreach ($diffChunks as $hunk) {
             $body = strtolower((string) ($hunk['body'] ?? ''));
             $file = (string) ($hunk['file'] ?? '');
-            $line = isset($hunk['line']) && is_int($hunk['line']) ? $hunk['line'] : null;
+            $line = isset($hunk['line']) && is_int($hunk['line']) && $hunk['line'] >= 1 ? $hunk['line'] : null;
 
             foreach (self::DATA_LOSS_KEYWORDS as $needle) {
                 if (str_contains($body, $needle)) {

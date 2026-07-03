@@ -409,13 +409,10 @@ final class MutationTestingAdapter
             '--filter='.escapeshellarg(implode(',', $scope->sourceFiles)),
             // VAL-E3-007: read the REAL reported MSI from the summary JSON.
             '--logger-summary-json='.escapeshellarg($summaryPath),
-            // VAL-E3-013: full mutation report for per-source-file MSI so a
-            // weak file among strong ones is not masked by a high aggregate.
-            // The JSON report groups mutants by result category
-            // (killed/escaped/etc.) and each entry carries
-            // mutator.originalFilePath, so per-file MSI is computed by
-            // grouping on the source file path.
-            '--logger-json='.escapeshellarg($reportPath),
+            // VAL-E3-013: o report JSON completo (per-file MSI) vai via
+            // per-run config `logs.json` — infection 0.33 NÃO tem a flag CLI
+            // `--logger-json` (o adapter falhava "option does not exist" em
+            // TODO run desde a escrita; achado da matriz real 03/07).
         ];
 
         // VAL-E3-011 + VAL-E3-001 + m3-e3 Defect 1: scope pcov coverage
@@ -496,6 +493,9 @@ final class MutationTestingAdapter
             'phpUnit' => ['configDir' => $repoRoot],
             'tmpDir' => $tmpDir,
             'threads' => 1,
+            // VAL-E3-013: report JSON completo per-run (infection 0.33 só
+            // aceita json log via config; a flag CLI --logger-json não existe).
+            'logs' => ['json' => $this->reportPath($runId)],
         ];
         $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
         if (@file_put_contents($path, $json) === false) {

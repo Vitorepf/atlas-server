@@ -723,7 +723,7 @@ final class PipelineRunExecutor implements RunExecutor
         // documented no-op (VAL-E3-008) — never a false fail.
         $e3Config = $this->resolveE3Config();
         if (! $e3Config->isOff()) {
-            $adapter = $this->resolveMutationTestingAdapter();
+            $adapter = $this->resolveMutationTestingAdapter($envelope->workspace);
             $touchedFiles = array_map(
                 static fn (ScopeFileDiff $diff): string => $diff->path,
                 $scopeReceipt->observed->fileDiffs,
@@ -4094,7 +4094,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * `$this->container->bound(...) ? make(...) : new ...` so the binding is
      * optional and degrades to a fresh adapter in production.
      */
-    private function resolveMutationTestingAdapter(): MutationTestingAdapter
+    private function resolveMutationTestingAdapter(string $workspace = ''): MutationTestingAdapter
     {
         if ($this->container->bound('atlas_dev.e3.mutation_adapter')) {
             $bound = $this->container->make('atlas_dev.e3.mutation_adapter');
@@ -4103,7 +4103,13 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             }
         }
 
-        $repoRoot = rtrim((string) ($this->workspaceRoot() ?? base_path()), '/');
+        // Infection roda no WORKSPACE do run (onde o diff vive), não no
+        // base_path() do servidor: em worktree o E3 media o repo errado —
+        // sem o patch — e falhava (mutation_run_failed em toda criação de
+        // teste da matriz real 03/07). Fallback antigo só sem workspace.
+        $repoRoot = $workspace !== '' && is_dir($workspace)
+            ? rtrim($workspace, '/')
+            : rtrim((string) ($this->workspaceRoot() ?? base_path()), '/');
 
         return new MutationTestingAdapter(
             commandRunner: new SymfonyMutationCommandRunner,
