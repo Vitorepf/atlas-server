@@ -7,6 +7,7 @@ namespace App\Services\Engineering;
 use App\Models\AiOutcomeLink;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Engineering\SharedAtlasDocumentationRealitySelfImprovementModelingServiceSeam as RealityEnvelopeHashSeam;
 use Illuminate\Support\Collection;
 
 /**
@@ -424,14 +425,10 @@ class AtlasDocumentationRealityOutcomeGroundingService
      */
     private function finalize(array $envelope): array
     {
-        $hashPayload = $envelope;
-        unset($hashPayload['generated_at'], $hashPayload['outcome_grounding_hash']);
-        $envelope['outcome_grounding_hash'] = hash(
-            'sha256',
-            json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        return RealityEnvelopeHashSeam::finalizeTamperEvidentEnvelope(
+            $envelope,
+            'outcome_grounding_hash',
         );
-
-        return $envelope;
     }
 
     private function str(mixed $value): ?string

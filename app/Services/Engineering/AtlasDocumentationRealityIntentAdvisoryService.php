@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
+use App\Services\Engineering\SharedAtlasDocumentationRealitySelfImprovementModelingServiceSeam as RealityEnvelopeHashSeam;
+
 /**
  * L2-O2 — Intent Co-Formation (first increment): the INTENT ADVISORY.
  *
@@ -385,14 +387,10 @@ class AtlasDocumentationRealityIntentAdvisoryService
      */
     private function finalize(array $envelope): array
     {
-        $hashPayload = $envelope;
-        unset($hashPayload['generated_at'], $hashPayload['intent_advisory_hash']);
-        $envelope['intent_advisory_hash'] = hash(
-            'sha256',
-            json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        return RealityEnvelopeHashSeam::finalizeTamperEvidentEnvelope(
+            $envelope,
+            'intent_advisory_hash',
         );
-
-        return $envelope;
     }
 
     private function str(mixed $value): ?string

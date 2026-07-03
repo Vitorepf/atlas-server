@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Engineering;
 
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Engineering\SharedAtlasDocumentationRealitySelfImprovementModelingServiceSeam as RealityEnvelopeHashSeam;
 use LogicException;
 
 /**
@@ -913,14 +914,10 @@ class AtlasDocumentationRealityCausalSelfModelService
      */
     private function finalize(array $envelope): array
     {
-        $hashPayload = $envelope;
-        unset($hashPayload['generated_at'], $hashPayload['causal_self_model_hash']);
-        $envelope['causal_self_model_hash'] = hash(
-            'sha256',
-            json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        return RealityEnvelopeHashSeam::finalizeTamperEvidentEnvelope(
+            $envelope,
+            'causal_self_model_hash',
         );
-
-        return $envelope;
     }
 
     private function str(mixed $value): ?string
