@@ -149,7 +149,13 @@ class AiDecisionReceiptRefreshService
         $windowSeconds = max(60, (int) config('atlas.ai.decision_receipt_refresh_window_seconds', 21600));
         $createdAt = $job->created_at instanceof CarbonImmutable
             ? $job->created_at
-            : CarbonImmutable::parse($job->created_at ?? now());
+            : (function () use ($job) {
+                try {
+                    return CarbonImmutable::parse($job->created_at ?? now());
+                } catch (\Throwable) {
+                    return CarbonImmutable::now();
+                }
+            })();
 
         return CarbonImmutable::now()->greaterThan($createdAt->addSeconds($windowSeconds));
     }
