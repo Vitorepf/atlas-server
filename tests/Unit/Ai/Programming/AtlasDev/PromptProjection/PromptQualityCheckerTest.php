@@ -251,6 +251,41 @@ final class PromptQualityCheckerTest extends TestCase
         $this->assertTrue($result->noForgeOrCouncilLeakage);
     }
 
+    public function test_checker_does_not_treat_target_file_docblock_prose_as_forge_leakage(): void
+    {
+        // The dominant real false positive (7/7 audited runs): a Forge-area
+        // task legitimately carries the target file's docblock prose ("Atlas
+        // Forge Provider Fallback Policy") and schema ids (atlas.forge.*) in
+        // its context sections. Domain vocabulary is not an orchestration
+        // instruction.
+        $base = $this->baselineSections();
+        $sections = new PromptSections(
+            objective: $base->objective,
+            operatingRules: $base->operatingRules,
+            miniSpecRef: $base->miniSpecRef,
+            taskContractRef: $base->taskContractRef,
+            contextRefs: [
+                'Atlas Forge Provider Fallback Policy — schema atlas.forge.provider_fallback_policy.v1',
+            ],
+            codeDiscoveryRef: $base->codeDiscoveryRef,
+            allowedFiles: $base->allowedFiles,
+            forbiddenFiles: $base->forbiddenFiles,
+            expectedTests: $base->expectedTests,
+            acceptanceCriteria: $base->acceptanceCriteria,
+            stopConditions: $base->stopConditions,
+            escalationConditions: $base->escalationConditions,
+            outputContract: $base->outputContract,
+        );
+
+        $result = $this->checker()->check(
+            sections: $sections,
+            renderedPromptText: "rendered prompt\n",
+            taskContract: $this->baselineTaskContract(),
+        );
+
+        $this->assertTrue($result->noForgeOrCouncilLeakage);
+    }
+
     public function test_checker_does_not_treat_rendered_code_symbols_as_forge_leakage(): void
     {
         $result = $this->checker()->check(

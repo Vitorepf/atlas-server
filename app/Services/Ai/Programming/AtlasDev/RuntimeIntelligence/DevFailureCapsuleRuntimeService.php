@@ -67,7 +67,7 @@ class DevFailureCapsuleRuntimeService
 
     private function classify(string $declared, string $error): string
     {
-        if (in_array($declared, ['test_failure', 'type_error', 'scope_violation', 'missing_context', 'architecture_risk', 'weak_output', 'no_patch_produced', 'unknown'], true)) {
+        if (in_array($declared, ['test_failure', 'type_error', 'scope_violation', 'missing_context', 'architecture_risk', 'weak_output', 'no_patch_produced', 'prompt_not_sendable', 'timeout', 'infra_error', 'unknown'], true)) {
             return $declared;
         }
 
@@ -81,10 +81,24 @@ class DevFailureCapsuleRuntimeService
         if (preg_match('/completion=([a-z_]+)/', $error, $m) === 1) {
             return match (true) {
                 $m[1] === 'no_patch_needed' => 'no_patch_produced',
+                $m[1] === 'needs_review' => 'weak_output',
                 str_contains($error, 'scope=failed') => 'scope_violation',
                 str_contains($error, 'verification=failed') => 'test_failure',
                 default => 'unknown',
             };
+        }
+
+        // Harness-side failures (the provider never even ran): the lesson is for
+        // the HARNESS, not the model — a distinct class keeps the injected
+        // known_failure_modes honest about who failed.
+        if (str_contains($error, 'prompt_projection_not_sendable')) {
+            return 'prompt_not_sendable';
+        }
+        if (str_contains($error, 'timeout') || str_contains($error, 'timed out')) {
+            return 'timeout';
+        }
+        if (str_contains($error, 'worker_unbound') || str_contains($error, 'cli_error') || str_contains($error, 'driver')) {
+            return 'infra_error';
         }
 
         return match (true) {
@@ -108,6 +122,9 @@ class DevFailureCapsuleRuntimeService
             'test_failure' => 'use failure capsule to repair the minimal failing behavior and rerun selected tests',
             'weak_output' => 'replace placeholder/TODO/fake-assert output with a concrete implementation; do not ship vacuously green diffs',
             'no_patch_produced' => 'the model returned no diff for a write task in this area before: produce a concrete patch — restate the target files and emit a unified diff, never an explanation-only reply',
+            'prompt_not_sendable' => 'harness-side: the prompt projection failed a sendability guard before the provider ran — fix prompt assembly (leakage/forbidden sections), not the model output',
+            'timeout' => 'previous run in this area timed out: prefer a smaller focused change and the narrowest verification command',
+            'infra_error' => 'harness-side: provider driver/worker was unavailable — check bindings and provider health before blaming the diff',
             default => 'inspect failure capsule, add missing evidence and retry once',
         };
     }

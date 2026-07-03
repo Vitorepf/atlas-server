@@ -288,8 +288,22 @@ Onda 23:46 UTC (5ª): `captureSymptom()` da mineração provisiona worktree temp
 - `atlas:dev:capsule-backfill` — recuperação da tabela de capsules em um comando idempotente
   (updateOrCreate por failure_hash; 3ª recuperação foi a última manual).
 
+## Execução S19 (02/07/2026)
+
+- **S19 (entregue — 2º maior modo de falha real):** `prompt_not_sendable` era 10/56 do
+  corpus — runs mortos ANTES do provider porque o guard `no_forge_or_council_leakage` tinha
+  token cru `forge`/`council` com 100% de falso-positivo provado (7/7 runs auditados eram
+  tasks legítimas da área Forge: o docblock/schema do PRÓPRIO arquivo-alvo carrega a
+  palavra). Guard agora bloqueia só compostos de INSTRUÇÃO (invoke forge, council session,
+  forge battle...) — a intenção real do gate — e o subsistema Forge voltou a ser reparável
+  pelo Dev. Classificador ganhou as classes honestas restantes (prompt_not_sendable,
+  timeout, infra_error; needs_review→weak_output) com suggested_repair "harness-side" (a
+  lição certa: quem falhou foi a montagem, não o modelo). Corpus final SEM unknown:
+  no_patch 18 / test_failure 14 / prompt_not_sendable 10 / scope 4 / infra 4 / timeout 3 /
+  weak_output 2 / missing_context 1. Prova: 88 testes prompt-projection+runtime verdes
+  (2 pinados de compostos preservados + regressão nova do falso-positivo).
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
-**Candidatos:** (a) re-medição do funil (pass_rate baseline 0.346) quando os canais novos
-rodarem em runs reais; (b) 18 capsules `unknown` (excerpts estruturados com
-completion=blocked etc. — classe própria?); (c) próximo gargalo da medição.
+**Candidatos:** (a) re-medição do funil quando os canais novos rodarem em runs reais; (b)
+próximo gargalo da medição.

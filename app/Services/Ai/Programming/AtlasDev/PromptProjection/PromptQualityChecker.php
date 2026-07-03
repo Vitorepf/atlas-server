@@ -44,10 +44,18 @@ final class PromptQualityChecker
         'compete against',
     ];
 
+    /**
+     * INSTRUCTION tokens only — never the bare domain words. "Forge" is the
+     * name of a first-class Atlas organ: target-file docblocks, schema ids
+     * (atlas.forge.*) and doc titles legitimately carry it, and the bare token
+     * had a 100% false-positive rate on real runs (7/7 audited 02/07 were
+     * legit Forge-area tasks killed pre-provider), making the whole Forge
+     * subsystem un-repairable by Dev. The guard's intent is blocking
+     * orchestration INSTRUCTIONS leaking into a Dev prompt — the compound
+     * forms below are what an actual leak looks like.
+     */
     public const FORGE_COUNCIL_TOKENS = [
-        'forge',
         'forge battle',
-        'council',
         'council session',
         'open council',
         'rival council',
