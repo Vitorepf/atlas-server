@@ -6,11 +6,11 @@ namespace App\Http\Controllers\AtlasDev\Support;
 
 use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
-use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
-use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
+use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\HermesCliProvider;
 use App\Services\Ai\Programming\AtlasDev\Differential\CandidateDivergenceGate;
 use App\Services\Ai\Programming\AtlasDev\Differential\DifferentialTestingService;
@@ -20,8 +20,8 @@ use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarness;
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffService;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionDecision;
-use App\Services\Ai\Programming\AtlasDev\Gate\DevWeakOutputDetector;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionStateGate;
+use App\Services\Ai\Programming\AtlasDev\Gate\DevWeakOutputDetector;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplier;
 use App\Services\Ai\Programming\AtlasDev\Gate\PatchApplyResult;
 use App\Services\Ai\Programming\AtlasDev\Gate\ReceiptComposer;
@@ -55,10 +55,10 @@ use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineGate;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService;
 use App\Services\Ai\Programming\AtlasDev\Regression\VerificationRegressionBaselineRunner;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
-use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService;
-use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureSignatureHasher;
 use App\Services\Ai\Programming\AtlasDev\Repair\RepairPromptComposer;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
@@ -556,8 +556,18 @@ final class PipelineRunExecutor implements RunExecutor
         // coverage check is a property of the SPEC, not the provider, and
         // the honesty-flag / STATUS_FAILED channels are provider-agnostic by
         // design.
+        // TRANSFORMAÇÃO TESTEMUNHADA: refator/simplificação/otimização
+        // preserva comportamento por definição — não existe teste novo
+        // red→green para "a refatoração aconteceu". Diff produzido + gate
+        // verde (suite + lint escopado) É a testemunha do intent; exigir AC
+        // comportamental aqui false-failava todo refactor perfeito (fire test
+        // 03/07 no repo real). Objetivos não-transformação seguem sob E2 pleno.
+        $transformationWitnessed = \App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder::isTransformationObjective($envelope->normalizedIntent)
+            && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED
+            && $diffResult->hasPatch();
+
         $e2Config = $this->resolveE2Config();
-        if (! $e2Config->isOff()) {
+        if (! $e2Config->isOff() && ! $transformationWitnessed) {
             $intentNotTested = $this->probeIntentCoverage($runId, $taskContract);
             if ($intentNotTested) {
                 $verificationResult = $this->routeElevationVerdict($verificationResult, $e2Config, [
@@ -1661,6 +1671,10 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             ],
         ]);
 
+        // Snapshot pré-run dos ignorados-proibidos (vendor/, caches): o
+        // detector pós-run reporta só o delta como mutação do provider.
+        $preIgnoredForbidden = $this->ignoredForbiddenSnapshot($envelope->workspace, $taskContract->forbiddenFiles);
+
         $startMs = (int) (microtime(true) * 1_000);
         try {
             $result = $provider->run($job, $promptText);
@@ -1695,6 +1709,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 $envelope->workspace,
                 $taskContract->allowedFiles,
                 $taskContract->forbiddenFiles,
+                $preIgnoredForbidden,
             ))
             : [];
         $scopeViolations = array_values(array_filter(
@@ -1743,6 +1758,16 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         $transport = strtolower(trim((string) config('atlas_dev.efficient.hermes_execution_transport', '')));
         if (in_array($transport, ['cli', 'acp'], true)) {
             $overrides['execution_transport'] = $transport;
+        }
+
+        // transporte cli = one-shot `hermes -z` DE VERDADE. Sem isto o provider
+        // caía em `hermes chat --max-turns 1 --query`: no repo real 1 turno só
+        // explora e nunca edita (fire test 03/07: toy passava por sorte — o
+        // one-shot com o MESMO prompt editou e validou; o chat devolvia
+        // no_patch_needed). O one-shot roda a missão completa e ignora
+        // max_turns por construção.
+        if ($transport === 'cli') {
+            $overrides['cli_oneshot'] = true;
         }
 
         $singleFileMaxTurns = (int) config('atlas_dev.efficient.hermes_single_file_max_turns', 0);
@@ -2802,7 +2827,10 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * @param  list<string>  $forbiddenFiles
      * @return list<string>
      */
-    private function changedFilePathsInWorkspace(string $workspace, array $allowedFiles, array $forbiddenFiles = []): array
+    /**
+     * @param  array<string,string>|null  $preIgnoredForbidden  snapshot pré-provider de ignoredForbiddenSnapshot()
+     */
+    private function changedFilePathsInWorkspace(string $workspace, array $allowedFiles, array $forbiddenFiles = [], ?array $preIgnoredForbidden = null): array
     {
         if (! is_dir($workspace)) {
             return [];
@@ -2822,10 +2850,80 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         if ($ignoredForbidden !== []) {
             $argv = ['git', 'ls-files', '--others', '--ignored', '--exclude-standard', '--'];
             array_push($argv, ...$ignoredForbidden);
-            $paths = array_merge($paths, $this->gitNameOnlyPaths($workspace, $argv));
+            $ignoredNow = $this->gitNameOnlyPaths($workspace, $argv);
+            // Só o DELTA contra o snapshot pré-provider conta como mutação:
+            // num repo real, vendor/ e caches (phpunit, storage/framework)
+            // PRÉ-EXISTEM ignorados — listá-los inteiros fazia todo run em
+            // repo real virar scope violation (achado do fire test 03/07 em
+            // worktree do atlas-server). Sem snapshot (caller legado), o
+            // comportamento antigo se mantém fail-closed.
+            if ($preIgnoredForbidden !== null) {
+                $ignoredNow = array_values(array_filter(
+                    $ignoredNow,
+                    function (string $path) use ($workspace, $preIgnoredForbidden): bool {
+                        // Caches efêmeros de test-runner nunca são mutação de
+                        // escopo: o provider RODA a validação (permitido pelo
+                        // prompt) e o phpunit atualiza o próprio cache.
+                        if ($this->isEphemeralInfraPath($path)) {
+                            return false;
+                        }
+                        $sig = $this->fileSignature($workspace.'/'.$path);
+
+                        return ($preIgnoredForbidden[$path] ?? null) !== $sig;
+                    },
+                ));
+            }
+            $paths = array_merge($paths, $ignoredNow);
         }
 
         return array_values(array_unique($paths));
+    }
+
+    /**
+     * Snapshot (path => assinatura size:mtime) dos arquivos ignorados que
+     * casam os padrões proibidos — capturado ANTES do provider rodar para o
+     * detector reportar só o que o provider realmente criou/alterou.
+     *
+     * @param  list<string>  $forbiddenFiles
+     * @return array<string,string>
+     */
+    private function ignoredForbiddenSnapshot(string $workspace, array $forbiddenFiles): array
+    {
+        if (! is_dir($workspace)) {
+            return [];
+        }
+        $ignoredForbidden = $this->safeRelativePaths($forbiddenFiles);
+        if ($ignoredForbidden === []) {
+            return [];
+        }
+
+        $argv = ['git', 'ls-files', '--others', '--ignored', '--exclude-standard', '--'];
+        array_push($argv, ...$ignoredForbidden);
+
+        $snapshot = [];
+        foreach ($this->gitNameOnlyPaths($workspace, $argv) as $path) {
+            $snapshot[$path] = $this->fileSignature($workspace.'/'.$path);
+        }
+
+        return $snapshot;
+    }
+
+    private function isEphemeralInfraPath(string $path): bool
+    {
+        return preg_match(
+            '#^storage/framework/|(^|/)\.phpunit\.(cache|result\.cache)|(^|/)phpunit-cache/|(^|/)node_modules/\.cache/#',
+            $path,
+        ) === 1;
+    }
+
+    private function fileSignature(string $absolutePath): string
+    {
+        $stat = @stat($absolutePath);
+        if ($stat === false) {
+            return 'missing';
+        }
+
+        return $stat['size'].':'.$stat['mtime'];
     }
 
     /**

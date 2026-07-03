@@ -355,7 +355,16 @@ final class VerificationGate
 
         $pintPath = rtrim($workspace, '/').'/vendor/bin/pint';
         if ($hasPhpFiles && file_exists($pintPath)) {
-            $commands[] = './vendor/bin/pint --test';
+            // Lint SÓ os arquivos do diff: pint --test repo-inteiro falha por
+            // débito de estilo pré-existente e derruba runs cujo patch está
+            // limpo (fire test 03/07 em repo real). Elite julga o diff, não o
+            // repo herdado.
+            $phpChanged = array_values(array_filter(
+                $changedFiles,
+                static fn (string $f): bool => str_ends_with(strtolower($f), '.php')
+                    && preg_match('/\A[\w.\/\-]+\z/', $f) === 1,
+            ));
+            $commands[] = './vendor/bin/pint --test '.implode(' ', array_map(escapeshellarg(...), $phpChanged));
         }
 
         return array_values(array_unique($commands));

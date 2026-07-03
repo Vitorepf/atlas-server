@@ -64,7 +64,11 @@ final class ProviderPromptBuilder
             ? $taskContract->providerLock->modelFamily
             : 'sonnet';
 
-        $sections = $this->adaptSectionsForProvider($sections, $provider);
+        $sections = $this->adaptSectionsForProvider(
+            $sections,
+            $provider,
+            self::isTransformationObjective($envelope->normalizedIntent),
+        );
 
         $upstreamHashes = $this->buildUpstreamHashes(
             envelope: $envelope,
@@ -126,7 +130,24 @@ final class ProviderPromptBuilder
         );
     }
 
-    private function adaptSectionsForProvider(PromptSections $sections, string $provider): PromptSections
+    /**
+     * Objetivos de TRANSFORMAÇÃO (refatorar/simplificar/otimizar/unificar)
+     * preservam comportamento por definição — os testes JÁ passam antes do
+     * diff. As Operating Rules default ("no_patch_needed quando o teste já
+     * prova o objetivo" + "nada de refator oportunista") instruíam o modelo
+     * fraco a NÃO editar exatamente nessas tarefas (fire test 03/07 no repo
+     * real: hermes devolveu no_patch_needed para um dedup pedido). Rules
+     * viram task-aware.
+     */
+    public static function isTransformationObjective(string $normalizedIntent): bool
+    {
+        return preg_match(
+            '/refator|refactor|simplifi|otimiz|optimiz|unifiqu|unificar|dedupli|extraia|extract|solidifi|consolid/iu',
+            $normalizedIntent,
+        ) === 1;
+    }
+
+    private function adaptSectionsForProvider(PromptSections $sections, string $provider, bool $transformationTask = false): PromptSections
     {
         // Single source of truth: only providers that edit the worktree directly
         // receive the in-place mutation contract. Every other provider (the Claude
@@ -140,6 +161,17 @@ final class ProviderPromptBuilder
 
         $label = $this->mutatingProviderLabel($provider);
 
+        $intentRules = $transformationTask
+            ? [
+                'O objetivo desta corrida E uma transformacao (refator/simplificacao/otimizacao): os testes ja passam ANTES do diff e continuarao passando DEPOIS — teste verde NAO significa no_patch_needed.',
+                'Voce DEVE produzir o diff da transformacao pedida; no_patch_needed so e valido se a transformacao ja foi aplicada literalmente no codigo atual.',
+                'Nao expanda alem da transformacao pedida: nada de dependencia nova, flag de configuracao ou mudanca de comportamento observavel.',
+            ]
+            : [
+                'Se os acceptance criteria nao forem executaveis no estado atual, responda blocked com a causa verificavel; no_patch_needed so e valido quando o codigo/teste existente ja prova o objetivo.',
+                'Nao expanda o escopo: nada de refator oportunista, dependencia nova ou flag de configuracao.',
+            ];
+
         return new PromptSections(
             objective: $sections->objective,
             operatingRules: [
@@ -147,9 +179,8 @@ final class ProviderPromptBuilder
                 $label.' deve editar diretamente apenas arquivos listados em allowed_files no worktree isolado.',
                 'Caminhos em forbidden_files nunca podem ser tocados, nem para leitura sensivel.',
                 'Atlas captura o git diff apos a execucao do '.$label.' e aplica validacao fora do provider.',
-                'Se os acceptance criteria nao forem executaveis no estado atual, responda blocked com a causa verificavel; no_patch_needed so e valido quando o codigo/teste existente ja prova o objetivo.',
+                ...$intentRules,
                 'Se houver ambiguidade que impeca o avanco, responda blocked com a pergunta exata necessaria para destravar.',
-                'Nao expanda o escopo: nada de refator oportunista, dependencia nova ou flag de configuracao.',
                 'Patches pequenos sao preferidos a refactors amplos; quebre em diff minimo.',
                 'Preserve as mudancas preexistentes do usuario no worktree; nao reverta arquivos fora do diff.',
                 'Use context_refs como leitura primaria; nao invente paths nem cite arquivos fora da lista.',
