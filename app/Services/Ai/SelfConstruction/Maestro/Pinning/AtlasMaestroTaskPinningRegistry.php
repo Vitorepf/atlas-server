@@ -39,7 +39,7 @@ final class AtlasMaestroTaskPinningRegistry
         }
         $state = $this->load();
         $existing = $state[$taskPacketId] ?? null;
-        $pinHash = hash('sha256', $taskPacketId.':'.$workerId.':'.$reason);
+        $pinHash = hash('sha256', json_encode([$taskPacketId, $workerId, $reason], JSON_THROW_ON_ERROR));
         if (is_array($existing) && (string) ($existing['pin_hash'] ?? '') === $pinHash) {
             return $existing;
         }
