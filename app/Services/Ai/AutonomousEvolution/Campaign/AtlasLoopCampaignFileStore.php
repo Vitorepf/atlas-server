@@ -74,6 +74,10 @@ final class AtlasLoopCampaignFileStore
     public static function acquireLock(string $campaignId, int $leaseSeconds, ?string $storageRoot = null, ?int $nowOverride = null): bool
     {
         $now = $nowOverride ?? time();
+        // A corrupt lock file is treated as held (fail closed).
+        if (self::isLockCorrupt($campaignId, $storageRoot)) {
+            return false;
+        }
         $existing = self::readLock($campaignId, $storageRoot);
         if ($existing !== null) {
             $alive = isset($existing['pid']) && ! self::lockProcessIsDead((int) $existing['pid']);
@@ -105,6 +109,22 @@ final class AtlasLoopCampaignFileStore
         $data = json_decode((string) @file_get_contents($path), true);
 
         return is_array($data) ? $data : null;
+    }
+
+    /**
+     * Returns true when the lock file exists but contains corrupt/truncated JSON.
+     * A corrupt lock is treated as held (fail closed) to prevent two supervisors
+     * from entering the critical section simultaneously.
+     */
+    public static function isLockCorrupt(string $campaignId, ?string $storageRoot = null): bool
+    {
+        $path = self::storageDir($campaignId, $storageRoot).'/lock.json';
+        if (! is_file($path)) {
+            return false;
+        }
+        $data = json_decode((string) @file_get_contents($path), true);
+
+        return ! is_array($data);
     }
 
     public static function lockProcessIsDead(int $pid): bool
