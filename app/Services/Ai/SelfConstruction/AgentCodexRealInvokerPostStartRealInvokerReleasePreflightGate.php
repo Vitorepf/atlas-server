@@ -206,7 +206,7 @@ class AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate
             $generatedAt = isset($proof['generated_at']) ? strtotime((string) $proof['generated_at']) : false;
             $ttlMinutes = max(0, (int) ($proof['ttl_minutes'] ?? 0));
 
-            if ($generatedAt === false || $now - $generatedAt > $ttlMinutes * 60) {
+            if ($generatedAt === false || $now - $generatedAt >= $ttlMinutes * 60) {
                 $staleProofs[] = $proofType;
             }
         }
