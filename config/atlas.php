@@ -783,6 +783,17 @@ return [
             'consume_hyperflow_runtime' => (bool) env('ATLAS_AI_ROUTER_CONSUME_HYPERFLOW', true),
         ],
 
+        // Árbitro SEMÂNTICO de flow (S53): quando o léxico cai no fallback,
+        // um modelo LOCAL (hermes one-shot) lê a mensagem contra o catálogo
+        // de flows e escolhe o destino — roda no WORKER (latência invisível
+        // no job assíncrono), validado contra catálogo fechado, fail-open.
+        // {@see AtlasSemanticFlowArbiterService}
+        'semantic_arbiter' => [
+            'enabled' => (bool) env('ATLAS_AI_SEMANTIC_ARBITER_ENABLED', true),
+            'binary' => env('ATLAS_AI_SEMANTIC_ARBITER_BINARY', 'hermes'),
+            'timeout_seconds' => (int) env('ATLAS_AI_SEMANTIC_ARBITER_TIMEOUT_SECONDS', 60),
+        ],
+
         // L3-10: custo medido por execução (eixo custo do N×M, antes 100% cego). Overrides
         // opcionais sobre os defaults in-class do ProviderCostEstimator (tokens×rate, ou
         // runtime×taxa/min p/ providers locais sem tokens). Vazio = usa os defaults seguros.
