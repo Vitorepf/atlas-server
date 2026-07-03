@@ -11,6 +11,9 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneScopeLockRuntimeValidator;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
+use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger;
+use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferObservationStore;
+use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerBehaviorLedger;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -32,8 +35,9 @@ final class AgentControlPlaneReportLearningBridgeTest extends TestCase
         // /tmp path shared by every test run: without cleanup, rows written
         // by earlier runs (or earlier code versions) leak state into the
         // accumulator-dependent assertions below.
-        @unlink(\App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger::defaultPath());
-        @unlink(\App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferObservationStore::defaultPath());
+        @unlink(AtlasSelfConstructionLearningTransferAdmissionLedger::defaultPath());
+        @unlink(AtlasSelfConstructionLearningTransferObservationStore::defaultPath());
+        @unlink(AtlasMaestroWorkerBehaviorLedger::defaultPath());
     }
 
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
@@ -158,6 +162,67 @@ final class AgentControlPlaneReportLearningBridgeTest extends TestCase
         $this->assertNotSame('error', $bridge['status'], json_encode($bridge));
         $this->assertNotSame('admitted_and_recorded', $bridge['outcome'] ?? null);
         $this->assertSame('give_back', $bridge['fact']['muscle_outcome']['status']);
+    }
+
+    // ── (b3) the SAME outcome also lands in the durable worker-behavior ledger ──
+
+    public function test_give_back_writes_a_durable_worker_behavior_fact_a_fresh_process_can_recall(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('behavior-fact')]);
+        $claim = $svc->claimNext('agent-behavior');
+
+        $svc->reportGiveBack('behavior-fact', (string) $claim['lease_id'], 'agent-behavior', 'scope_conflict_with_sibling_task');
+
+        // A FRESH ledger instance (≙ the next process) must recall the fact —
+        // this is exactly what the pure in-memory ledger could never do.
+        $fresh = new AtlasMaestroWorkerBehaviorLedger;
+        $recall = $fresh->recall('agent-behavior', 'family:app/Services');
+
+        $this->assertTrue($recall['seen'], json_encode($fresh->allStats()));
+        $this->assertSame(1.0, $recall['give_back_rate']);
+        $this->assertStringContainsString('scope_conflict_with_sibling_task', $fresh->topGiveBackCauses()[0]['root_cause_key']);
+    }
+
+    // ── (b4) claim path READS the behavior ledger: repeated give-back families demote ──
+
+    public function test_claim_order_demotes_a_family_this_worker_keeps_giving_back_when_flag_is_on(): void
+    {
+        $svc = $this->orchestrator();
+        // Packet A (family:app/Services) enqueued FIRST — wins the stable order by default.
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('demote-target')]);
+        // Packet B in a DIFFERENT family (app/Console).
+        $svc->prepareAndEnqueue(['task_packet' => array_merge($this->input('demote-alt'), [
+            'objective' => 'distinct console-side objective for demotion proof',
+            'allowed_files' => ['app/Console/Commands/DemoteAlt.php'],
+            'scope_in' => ['app/Console/Commands/DemoteAlt.php'],
+            'acceptance_criteria' => ['console alt claimable'],
+        ])]);
+
+        // Durable evidence: this worker gave family:app/Services back 3 times.
+        $ledger = new AtlasMaestroWorkerBehaviorLedger;
+        for ($i = 0; $i < 3; $i++) {
+            $ledger->record(['client_id' => 'agent-demote', 'task_family' => 'family:app/Services', 'outcome' => 'give_back']);
+        }
+
+        // Flag OFF (default): stable order serves packet A first. Proven via a
+        // DIFFERENT worker so the claim doesn't consume the queue for the real probe.
+        $claimOff = $svc->claimNext('agent-other');
+        $this->assertSame('demote-target', $claimOff['task_packet_id']);
+        $svc->reportGiveBack('demote-target', (string) $claimOff['lease_id'], 'agent-other', 'putting_it_back_for_the_probe');
+
+        // Anti-vacuity probe: packet A really is claimable again right now (a third
+        // worker gets it first under the default order) — so B-wins below can only
+        // come from the demotion, never from A being stuck in `released`.
+        $probe = $svc->claimNext('agent-probe');
+        $this->assertSame('demote-target', $probe['task_packet_id']);
+        $svc->reportGiveBack('demote-target', (string) $probe['lease_id'], 'agent-probe', 'putting_it_back_again');
+
+        // Flag ON: the burned family sorts LAST for agent-demote → it claims B.
+        config(['atlas.maestro.adaptive.behavior_ledger_enabled' => true]);
+        $claim = $svc->claimNext('agent-demote');
+        $this->assertSame('claimed', $claim['event'], json_encode($claim));
+        $this->assertSame('demote-alt', $claim['task_packet_id']);
     }
 
     // ── (c) a learning-side exception leaves the report envelope intact, fail-open ──

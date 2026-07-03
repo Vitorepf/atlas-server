@@ -4298,6 +4298,24 @@ return [
     | + per-cycle bounds); this config bounds a single run's fan-out.
     |
     */
+    // Maestro adaptive routing — the worker-behavior learning circuit. The write
+    // side (outcome bridge → durable behavior ledger) is ALWAYS on (it is just a
+    // fact record); the READ side (claim-order demotion of families a worker keeps
+    // giving back, plus the maestro:behaviors/route CLI verbs) is gated here.
+    // Operator switch — OFF by default.
+    'maestro' => [
+        'adaptive' => [
+            'behavior_ledger_enabled' => (bool) env('ATLAS_MAESTRO_BEHAVIOR_LEDGER_ENABLED', false),
+            'router_enabled' => (bool) env('ATLAS_MAESTRO_ADAPTIVE_ROUTER_ENABLED', false),
+            'reshape_enabled' => (bool) env('ATLAS_MAESTRO_ADAPTIVE_RESHAPE_ENABLED', false),
+            'router_min_success' => (int) env('ATLAS_MAESTRO_ROUTER_MIN_SUCCESS', 3),
+            'max_active_claims' => (int) env('ATLAS_MAESTRO_MAX_ACTIVE_CLAIMS', 3),
+            // Claim-order demotion floors: only demote with real evidence volume.
+            'demotion_min_events' => (int) env('ATLAS_MAESTRO_DEMOTION_MIN_EVENTS', 3),
+            'demotion_give_back_rate' => (float) env('ATLAS_MAESTRO_DEMOTION_GIVE_BACK_RATE', 0.5),
+        ],
+    ],
+
     'self_construction' => [
         // Learning-transfer admission ledger (outcome → lesson JSONL). Pinned to a
         // temp path in phpunit.xml so tests that exercise the report → learning

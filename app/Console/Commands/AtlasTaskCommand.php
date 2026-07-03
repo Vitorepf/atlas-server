@@ -10,6 +10,8 @@ use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroGiveBackPatter
 use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroPacketReshaper;
 use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerAffinityRouter;
 use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerBehaviorLedger;
+use App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTieringCli;
+use App\Services\Ai\SelfConstruction\TaskGraph\AtlasSelfConstructionTaskGraphAutonomousReplenisher;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskSimplicityContractAuditor;
 use Illuminate\Console\Command;
 use Throwable;
@@ -73,7 +75,7 @@ class AtlasTaskCommand extends Command
 
         $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
 
-        $ok = in_array((string) ($result['status'] ?? ''), ['served', 'no_claimable_task', 'no_self_sufficient_task', 'reported', 'resolved', 'disabled', 'ok', 'adaptive_disabled', 'waiting_on_dependencies'], true);
+        $ok = in_array((string) ($result['status'] ?? ''), ['served', 'no_claimable_task', 'no_self_sufficient_task', 'reported', 'resolved', 'disabled', 'ok', 'adaptive_disabled', 'waiting_on_dependencies', 'scope_expanded'], true);
 
         return $ok ? self::SUCCESS : self::FAILURE;
     }
@@ -125,7 +127,7 @@ class AtlasTaskCommand extends Command
         if (! (bool) config('atlas.maestro.adaptive.behavior_ledger_enabled', false)) {
             return ['schema' => 'atlas.task_serving.maestro_behaviors.v1', 'status' => 'adaptive_disabled', 'rows' => []];
         }
-        $rows = (new AtlasMaestroWorkerBehaviorLedger)->topGiveBackClasses(50);
+        $rows = (new AtlasMaestroWorkerBehaviorLedger)->topGiveBackCauses(50);
 
         return ['schema' => 'atlas.task_serving.maestro_behaviors.v1', 'status' => 'ok', 'rows' => $rows];
     }
@@ -192,13 +194,13 @@ class AtlasTaskCommand extends Command
 
     /**
      * Maestro tiering — advisory routing surface (classify / register-worker / policy / history).
-     * Delegates ALL logic to {@see \App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTieringCli}.
+     * Delegates ALL logic to {@see AtlasMaestroTieringCli}.
      *
      * @return array<string,mixed>
      */
     private function maestroTiering(): array
     {
-        $cli = app(\App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTieringCli::class);
+        $cli = app(AtlasMaestroTieringCli::class);
         $packetLookup = static function (string $packetId): ?array {
             // Test-friendly override: container-bound callable wins.
             if (app()->bound('atlas.maestro.tiering.packet_lookup')) {
@@ -371,7 +373,7 @@ class AtlasTaskCommand extends Command
     {
         $apply = (bool) $this->option('apply');
 
-        $inputs = ['coverage_facts' => [], 'planner_drafts' => [], 'queue_facts' => [], 'max_applied' => \App\Services\Ai\SelfConstruction\TaskGraph\AtlasSelfConstructionTaskGraphAutonomousReplenisher::DEFAULT_MAX_APPLIED];
+        $inputs = ['coverage_facts' => [], 'planner_drafts' => [], 'queue_facts' => [], 'max_applied' => AtlasSelfConstructionTaskGraphAutonomousReplenisher::DEFAULT_MAX_APPLIED];
         if (app()->bound('atlas.task_graph.replenisher.inputs')) {
             $provider = app('atlas.task_graph.replenisher.inputs');
             if (is_callable($provider)) {
@@ -399,7 +401,7 @@ class AtlasTaskCommand extends Command
             }
         }
 
-        $replenisher = new \App\Services\Ai\SelfConstruction\TaskGraph\AtlasSelfConstructionTaskGraphAutonomousReplenisher;
+        $replenisher = new AtlasSelfConstructionTaskGraphAutonomousReplenisher;
         $verdict = $replenisher->run(
             (array) $inputs['coverage_facts'],
             array_values((array) $inputs['planner_drafts']),
@@ -410,7 +412,7 @@ class AtlasTaskCommand extends Command
         $plan = (array) ($verdict['plan'] ?? []);
 
         return [
-            'schema' => \App\Services\Ai\SelfConstruction\TaskGraph\AtlasSelfConstructionTaskGraphAutonomousReplenisher::SCHEMA,
+            'schema' => AtlasSelfConstructionTaskGraphAutonomousReplenisher::SCHEMA,
             'status' => 'ok',
             'mode' => $apply ? 'apply' : 'dry_run',
             'dry_run' => (bool) ($verdict['dry_run'] ?? true),

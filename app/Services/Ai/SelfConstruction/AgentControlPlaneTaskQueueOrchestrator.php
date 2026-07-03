@@ -2,8 +2,11 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger;
 use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionOrchestrator;
+use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerBehaviorLedger;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Throwable;
@@ -155,7 +158,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
      * envelope by the caller) when a candidate is a near-duplicate or template-farm packet,
      * or null when admission may proceed.
      *
-     * @param  array<string,mixed>  $packet       built packet (objective, acceptance_criteria, normalized_scope)
+     * @param  array<string,mixed>  $packet  built packet (objective, acceptance_criteria, normalized_scope)
      * @param  array<string,mixed>  $packetInput  raw caller input (may carry capability_key/target_family/acceptance_intent)
      * @return array<string,mixed>|null
      */
@@ -257,8 +260,14 @@ final class AgentControlPlaneTaskQueueOrchestrator
         // ORDER (soft): serve lower waves first so the version-ladder advances v1 → v2 → v3 in sequence. This is
         // a stable preference, not a hard gate (depends_on is the hard gate); a stable sort preserves the prior
         // ordering within a wave, so same-wave disjoint tasks still flow in parallel.
-        usort($candidates, static function (array $a, array $b): int {
-            return ((int) data_get($a, 'metadata.wave', 0)) <=> ((int) data_get($b, 'metadata.wave', 0));
+        // BEHAVIOR DEMOTION (flag-gated, soft): within a wave, families THIS worker has repeatedly given back
+        // (durable worker-behavior ledger, written by the outcome bridge) sort LAST — never skipped, so a task
+        // can never starve: the worker still claims it when nothing better exists, and other workers see the
+        // normal order. This is the read side of the learning circuit: outcome → ledger → next claim.
+        $demote = $this->behaviorDemotionScorer($agentId);
+        usort($candidates, static function (array $a, array $b) use ($demote): int {
+            return [((int) data_get($a, 'metadata.wave', 0)), $demote($a)]
+                <=> [((int) data_get($b, 'metadata.wave', 0)), $demote($b)];
         });
         $depCache = []; // per-call {status, depends_on} memo so dependency+cycle resolution bounds file reads.
         foreach ($candidates as $candidate) {
@@ -322,6 +331,45 @@ final class AgentControlPlaneTaskQueueOrchestrator
      *     (R1) and failing to re-serve recoverable work (R2). The recovery itself SKIPS released-with-blocker
      *     reasons (operator-investigation), so only transient give-backs are re-admitted.
      */
+    /**
+     * Returns a candidate → {0,1} scorer for the claim sort: 1 = demote (this worker has enough durable
+     * give-back evidence on the candidate's scope-family). OFF by default (atlas.maestro.adaptive.
+     * behavior_ledger_enabled) and fail-open: any hiccup returns the all-zeros scorer (today's ordering).
+     * Recalls are memoized per family — the ledger hydrates once, each family resolves once per claim call.
+     *
+     * @return callable(array<string,mixed>):int
+     */
+    private function behaviorDemotionScorer(string $agentId): callable
+    {
+        $zero = static fn (array $candidate): int => 0;
+        try {
+            if (! (bool) config('atlas.maestro.adaptive.behavior_ledger_enabled', false)) {
+                return $zero;
+            }
+            $minEvents = max(1, (int) config('atlas.maestro.adaptive.demotion_min_events', 3));
+            $minRate = (float) config('atlas.maestro.adaptive.demotion_give_back_rate', 0.5);
+            $ledger = new AtlasMaestroWorkerBehaviorLedger;
+            $memo = [];
+
+            return static function (array $candidate) use ($ledger, $agentId, $minEvents, $minRate, &$memo): int {
+                try {
+                    $family = self::scopeFamily((array) data_get($candidate, 'task_packet.normalized_scope.allowed_files', []));
+                    if (! array_key_exists($family, $memo)) {
+                        $facts = $ledger->recall($agentId, $family);
+                        $memo[$family] = ((int) $facts['total_events'] >= $minEvents
+                            && (float) $facts['give_back_rate'] >= $minRate) ? 1 : 0;
+                    }
+
+                    return $memo[$family];
+                } catch (Throwable) {
+                    return 0;
+                }
+            };
+        } catch (Throwable) {
+            return $zero;
+        }
+    }
+
     private function reapExpiredBeforeListing(): void
     {
         try {
@@ -698,7 +746,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
      */
     public function repairBlockedForbiddenSelfTargetTasks(int $limit = 0, bool $dryRun = false, string $actor = 'task_repair'): array
     {
-        $guard = new \App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+        $guard = new AtlasLoopHarnessGuard;
         $inspector = new AtlasTaskPacketQualityInspector($guard);
         $limit = max(0, $limit);
         $inspected = 0;
@@ -822,7 +870,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
      */
     public function repairScopeBlockedTasks(int $limit = 0, bool $dryRun = false, string $actor = 'task_repair'): array
     {
-        $guard = new \App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+        $guard = new AtlasLoopHarnessGuard;
         $inspector = new AtlasTaskPacketQualityInspector($guard);
         $limit = max(0, $limit);
         $inspected = 0;
@@ -988,7 +1036,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
      * @param  list<string>  $removedTargets
      * @return list<string>
      */
-    private function petreoPathsToScrub(array $packet, array $removedTargets, \App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard $guard): array
+    private function petreoPathsToScrub(array $packet, array $removedTargets, AtlasLoopHarnessGuard $guard): array
     {
         return TaskQueue\AgentControlPlaneScopeRepairInputRebuilder::petreoPathsToScrub($packet, $removedTargets, $guard);
     }
@@ -1245,6 +1293,18 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 $fact['give_back_reason'] = (string) $extra['give_back_reason'];
             }
 
+            // Worker-behavior ledger: the SAME outcome also becomes a durable
+            // (agent × scope-family) fact so the claim path can demote serving
+            // a family back to a worker that keeps giving it back. Identity is
+            // the packet's dominant scope directory — the one identity real
+            // packets actually carry (task_class/lane never exist on them).
+            $this->recordWorkerBehavior(
+                (string) ($extra['agent_id'] ?? ''),
+                $fact['allowed_files'],
+                $outcome,
+                (string) ($extra['give_back_reason'] ?? ''),
+            );
+
             $result = (new AtlasSelfConstructionLearningTransferAdmissionOrchestrator)->admit($fact);
             $admissionOutcome = (string) ($result['outcome'] ?? '');
 
@@ -1260,6 +1320,183 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * GOVERNED SCOPE EXPANSION — a worker mid-refactor discovers the seam needs files the
+     * packet did not anticipate. Instead of a dumb give_back (losing the WIP to the cooldown
+     * ladder), it requests expansion WITH justification; the packet is rebuilt through the
+     * SAME builder + quality-inspector + replaceBlockedTaskPacket machinery the repair path
+     * uses (never a raw packet mutation — hashes and forbidden-axes stay enforced), audited
+     * on the receipt chain, and returns claimable with NO give_back stamp — the requesting
+     * worker reclaims it immediately and continues.
+     *
+     * Fail-closed: an invalid request (empty/too-broad file list, thin justification, a file
+     * the builder refuses — pétreo, forbidden axis, traversal) refuses the expansion WITHOUT
+     * touching the packet or the lease; the caller falls back to the normal give_back path.
+     *
+     * @param  list<string>  $files
+     * @return array<string,mixed>
+     */
+    public function requestScopeExpansion(string $taskPacketId, string $leaseId, string $agentId, array $files, string $justification): array
+    {
+        $files = array_values(array_unique(array_filter(array_map(
+            static fn ($f): string => trim((string) $f),
+            $files,
+        ), static fn (string $f): bool => $f !== '')));
+
+        $refuse = fn (string $reason, array $extra = []): array => $this->envelope('scope_expansion_refused', array_merge([
+            'task_packet_id' => $taskPacketId,
+            'agent_id' => $agentId,
+            'reason' => $reason,
+        ], $extra));
+
+        if ($files === [] || count($files) > 5) {
+            return $refuse('expansion_must_name_1_to_5_files', ['requested' => count($files)]);
+        }
+        if (mb_strlen(trim($justification)) < 20) {
+            return $refuse('justification_too_thin_name_the_seam_and_the_evidence');
+        }
+
+        $record = $this->queue->get($taskPacketId);
+        $packet = (array) data_get($record, 'task_packet', []);
+        if ($packet === [] || (string) data_get($record, 'status') !== 'claimed') {
+            return $refuse('packet_not_claimed', ['actual_status' => (string) data_get($record, 'status')]);
+        }
+
+        $current = $this->stringList((array) data_get($packet, 'normalized_scope.allowed_files', []));
+        $new = array_values(array_diff($files, $current));
+        if ($new === []) {
+            return $refuse('requested_files_already_in_scope');
+        }
+        if (count($current) + count($new) > AgentControlPlaneScopeLockRuntimeValidator::DEFAULT_MAX_FILES) {
+            return $refuse('expansion_exceeds_max_scope_files', ['max' => AgentControlPlaneScopeLockRuntimeValidator::DEFAULT_MAX_FILES]);
+        }
+
+        // Rebuild FIRST (pure): the builder re-runs every scope gate (forbidden axes, pétreo,
+        // traversal, risk). A refused build = a refused expansion, nothing mutated.
+        $input = $this->repairInputKeepingScope($packet, []);
+        $input['allowed_files'] = array_values(array_unique(array_merge($input['allowed_files'], $new)));
+        $input['scope_in'] = array_values(array_unique(array_merge($input['scope_in'], $new)));
+        $rebuilt = $this->builder->build($input);
+        if ((string) ($rebuilt['status'] ?? '') !== 'planned') {
+            return $refuse('builder_refused_expanded_scope', [
+                'blocking_reasons' => array_values((array) ($rebuilt['blocking_reasons'] ?? [])),
+            ]);
+        }
+        $quality = (new AtlasTaskPacketQualityInspector)->inspect($rebuilt);
+        if (! (bool) ($quality['self_sufficient'] ?? false)) {
+            return $refuse('expanded_packet_not_self_sufficient', [
+                'blocking_deficiencies' => array_values((array) ($quality['blocking_deficiencies'] ?? [])),
+            ]);
+        }
+
+        // Commit the expansion through the sanctioned mutation path: release the lease,
+        // park claimed→blocked (the only replaceable state), swap in the rebuilt packet
+        // (flips back to claimable), and leave the audit trail. Deliberately NO
+        // give_back_count / last_give_back stamps: an expansion is not a failure, so the
+        // requesting worker faces no cooldown and reclaims immediately.
+        $this->leases->release($leaseId, $agentId, ['reason' => 'scope_expansion_requested']);
+        $this->queue->updateStatus($taskPacketId, 'blocked', [
+            'lease_id' => $leaseId,
+            'agent_id' => $agentId,
+            'reason' => 'scope_expansion_requested',
+        ]);
+        $replace = $this->queue->replaceBlockedTaskPacket($taskPacketId, $rebuilt, [
+            'reason' => 'scope_expansion_granted',
+            'agent_id' => $agentId,
+            'expanded_files' => $new,
+            'expansion_justification' => $justification,
+        ]);
+        if ((string) ($replace['status'] ?? '') !== 'ok') {
+            // Packet stays blocked — operator-recoverable and LOUD, never silently lost.
+            return $refuse('expansion_replace_failed_packet_parked_blocked', [
+                'replace_status' => (string) ($replace['status'] ?? 'unknown'),
+            ]);
+        }
+        $this->queue->appendReceipt($taskPacketId, [
+            'receipt_kind' => 'scope_expansion_granted',
+            'agent_id' => $agentId,
+            'expanded_files' => $new,
+            'justification' => $justification,
+        ]);
+
+        return $this->envelope('scope_expanded', [
+            'task_packet_id' => $taskPacketId,
+            'agent_id' => $agentId,
+            'expanded_files' => $new,
+            'allowed_files' => array_values((array) data_get($rebuilt, 'normalized_scope.allowed_files', [])),
+            'reclaimable_now' => true,
+        ]);
+    }
+
+    /**
+     * Report-path receipt append for composing gates (e.g. the refactor delta
+     * proof) that live in the serving service but must leave their verdict on
+     * the packet's durable receipt chain.
+     *
+     * @param  array<string,mixed>  $receipt
+     */
+    public function appendReportReceipt(string $taskPacketId, array $receipt): void
+    {
+        $this->queue->appendReceipt($taskPacketId, $receipt);
+    }
+
+    /**
+     * Records the outcome into the durable worker-behavior ledger as an
+     * (agent × scope-family) fact. Fail-open — a behavior-ledger hiccup never
+     * breaks the caller's report. Read back by {@see claimNext}'s demotion sort.
+     */
+    private function recordWorkerBehavior(string $agentId, array $allowedFiles, string $outcome, string $giveBackReason): void
+    {
+        if ($agentId === '') {
+            return;
+        }
+        try {
+            $event = [
+                'client_id' => $agentId,
+                'task_family' => self::scopeFamily($allowedFiles),
+                'outcome' => $outcome,
+            ];
+            if ($outcome === 'give_back' && $giveBackReason !== '') {
+                // Classified family, not the free-form reason string — otherwise
+                // topGiveBackCauses() fragments into one bucket per unique phrase.
+                // An 'unknown' classification keeps the raw reason: losing the
+                // signal is worse than one extra bucket.
+                $family = (new Maestro\Adaptive\AtlasMaestroGiveBackPatternMiner)
+                    ->classifyGiveBackReason(['give_back_reason' => $giveBackReason]);
+                $event['root_cause_family'] = $family === 'unknown' ? $giveBackReason : $family;
+            }
+            (new AtlasMaestroWorkerBehaviorLedger)->record($event);
+        } catch (Throwable) {
+            // Fail-open by contract.
+        }
+    }
+
+    /**
+     * The ONE family identity real packets carry: the dominant top-two-segment
+     * directory of the allowed_files scope (the same directory identity the
+     * w28 lesson accumulator and the w30 known-lessons matcher use). Packets
+     * never carry task_class/lane/task_family, so any key built on those would
+     * write facts no reader could ever recall.
+     */
+    public static function scopeFamily(array $allowedFiles): string
+    {
+        $counts = [];
+        foreach ($allowedFiles as $file) {
+            $segments = explode('/', trim((string) $file, '/'));
+            if ($segments === [] || $segments[0] === '') {
+                continue;
+            }
+            $dir = implode('/', array_slice($segments, 0, min(2, max(1, count($segments) - 1))));
+            $counts[$dir] = ($counts[$dir] ?? 0) + 1;
+        }
+        if ($counts === []) {
+            return 'family:unscoped';
+        }
+        arsort($counts);
+
+        return 'family:'.array_key_first($counts);
     }
 
     /**
@@ -1370,7 +1607,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
         try {
             $packet = (array) data_get($queueRecord, 'task_packet', []);
             $objective = (string) data_get($packet, 'objective', '');
-            (new \App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore(
+            (new JsonlReceiptStore(
                 self::resolvedReceiptsPath(),
             ))->appendWith(static fn (?string $lastLine): ?array => [
                 'schema_version' => 'atlas.self_construction.resolved_receipt.v1',

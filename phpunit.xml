@@ -109,5 +109,13 @@
              production ledger (storage/atlas/governance/change_class_trust.jsonl). Tests
              that assert on the ledger override this with their own temp file. -->
         <env name="ATLAS_TRUST_LADDER_LOG_PATH" value="storage/framework/testing/atlas-trust-ladder-testenv.jsonl"/>
+        <!-- Hermes governed skill provisioning is activated in the dev .env
+             (atlas_adapter). Pin tests to the historical 'off' default so the
+             invocation-args contract stays deterministic; the provisioning
+             tests opt in via config set explicitly. -->
+        <env name="ATLAS_AI_HERMES_SKILL_PROVISION_POLICY" value="off"/>
+        <env name="ATLAS_AI_HERMES_MEMORY_POLICY" value="off"/>
+        <env name="ATLAS_AI_HERMES_PROCEDURE_POLICY" value="off"/>
+        <env name="ATLAS_AI_HERMES_SCHEDULE_POLICY" value="off"/>
     </php>
 </phpunit>
