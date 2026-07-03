@@ -123,7 +123,10 @@ final class AtlasLoopScopeComprehensionReadModel
 
     private function pathFor(string $snapshotId): string
     {
-        $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $snapshotId) ?? $snapshotId;
+        $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $snapshotId);
+        if ($safe === false) {
+            $safe = 'snapshot_'.bin2hex(random_bytes(4));
+        }
 
         return $this->root().'/'.substr($safe, 0, 128).'.json';
     }
