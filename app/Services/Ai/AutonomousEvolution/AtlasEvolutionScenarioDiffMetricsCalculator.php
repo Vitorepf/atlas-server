@@ -66,8 +66,8 @@ final class AtlasEvolutionScenarioDiffMetricsCalculator
         foreach (preg_split('/\R/', trim((string) $others->getOutput())) ?: [] as $row) {
             if (trim($row) !== '') {
                 $files++;
-                $contents = (string) file_get_contents($workspace.'/'.trim($row));
-                if ($contents !== '') {
+                $contents = @file_get_contents($workspace.'/'.trim($row));
+                if (is_string($contents) && $contents !== '') {
                     $lines += substr_count($contents, "\n") + (str_ends_with($contents, "\n") ? 0 : 1);
                 }
             }
