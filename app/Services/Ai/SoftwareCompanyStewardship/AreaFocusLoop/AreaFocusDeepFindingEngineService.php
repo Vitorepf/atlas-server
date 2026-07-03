@@ -1953,7 +1953,7 @@ class AreaFocusDeepFindingEngineService
         $affectedDocs = array_values(array_filter($affectedPaths, static fn (string $p): bool => str_starts_with($p, 'docs/')));
 
         $sourceRef = (string) ($base['source_ref'] ?? ($kind.':'.$title));
-        $raw = hash('sha256', implode('|', [$areaId, $focus, $kind, $owner, $sourceRef]));
+        $raw = hash('sha256', json_encode([$areaId, $focus, $kind, $owner, $sourceRef], JSON_THROW_ON_ERROR));
         $findingId = 'afdf_'.substr($raw, 0, 16);
         $findingHash = 'sha256:'.$raw;
 
