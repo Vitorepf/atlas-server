@@ -257,7 +257,10 @@ class VoxMetricsService
                 continue;
             }
             $seenSessions[$sessionId] = true;
-            $occurredAt = CarbonImmutable::parse($row->occurred_at);
+            $occurredAt = $this->safeParse($row->occurred_at);
+            if ($occurredAt === null) {
+                continue;
+            }
             $days[$occurredAt->toDateString()] = true;
             if ($first === null || $occurredAt->lt($first)) {
                 $first = $occurredAt;
@@ -277,5 +280,18 @@ class VoxMetricsService
             'first_session_at' => $first?->toIso8601String(),
             'last_session_at' => $last?->toIso8601String(),
         ];
+    }
+
+    private function safeParse(mixed $value): ?CarbonImmutable
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }
