@@ -98,6 +98,7 @@ class AiPromptBuilder
             $this->atlasModeInstructions($options),
             $this->harnessInstructionSection(),
             $this->specialistFlowInstructions($options),
+            $this->programmingAreaFailureMemory($options),
             $this->permissionInstructions($options),
             $this->workflowInstructions($options),
             $this->attachmentInstructions($options, $input),
@@ -1564,6 +1565,47 @@ Regras:
 - Não tente contornar sandbox, permissões, workspace ou políticas do Atlas.
 - Se precisar de uma capacidade maior, pare e explique a solicitação de permissão em termos operacionais.
 TXT;
+    }
+
+    /**
+     * Memória de falha da ÁREA no prompt do chat de programação — o mesmo canal
+     * known_failure_modes que o pipeline Dev e a esteira já recebem (M5/S2),
+     * agora também no caminho interativo: o modelo agêntico entra sabendo o que
+     * já falhou nos arquivos-alvo antes de tocar neles. Só em mode=programming
+     * com arquivos-alvo identificados; fail-open (memória nunca quebra prompt).
+     */
+    private function programmingAreaFailureMemory(array $options): string
+    {
+        try {
+            $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+            $mode = data_get($payload, 'atlas_mode') ?? data_get($payload, 'current_mode');
+            if ($mode !== 'programming') {
+                return '';
+            }
+
+            $files = array_values(array_filter(array_map('strval', array_merge(
+                (array) data_get($payload, 'tool_permissions.allowed_files', []),
+                (array) ($payload['expected_files'] ?? []),
+            ))));
+            $workspace = data_get($payload, 'tool_permissions.workspace') ?? data_get($payload, 'workspace');
+            if ($files === [] || ! is_string($workspace) || trim($workspace) === '') {
+                return '';
+            }
+
+            $modes = app(\App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector::class)->injectFor(
+                array_slice($files, 0, 12),
+                \App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity::slug($workspace),
+            );
+            if ($modes === []) {
+                return '';
+            }
+
+            return "# Memória da área (falhas conhecidas nestes arquivos)\n\n"
+                .implode("\n", array_map(static fn (string $m): string => '- '.$m, array_slice($modes, 0, 6)))
+                ."\nEvite repetir esses modos de falha; quando relevante, diga como o seu approach os evita.";
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     private function outputContract(array $options): string
