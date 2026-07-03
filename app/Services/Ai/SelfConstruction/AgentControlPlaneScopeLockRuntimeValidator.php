@@ -330,8 +330,12 @@ final class AgentControlPlaneScopeLockRuntimeValidator
                 continue;
             }
             $value = str_replace('\\', '/', $value);
-            $value = preg_replace('#/{2,}#', '/', $value) ?? $value;
-            $out[] = ltrim($value, '/');
+            $normalized = preg_replace('#/{2,}#', '/', $value);
+            if ($normalized === null) {
+                // preg_replace failure — fail closed: skip this path entirely.
+                continue;
+            }
+            $out[] = ltrim($normalized, '/');
         }
         $out = array_values(array_unique($out));
         sort($out);
