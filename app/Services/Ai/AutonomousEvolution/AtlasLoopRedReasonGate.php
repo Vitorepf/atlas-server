@@ -55,8 +55,11 @@ final class AtlasLoopRedReasonGate
 
         // (2) the test must exercise the target — require/include it by basename.
         $targetBase = basename($targetRel);
+        if ($targetBase === '') {
+            return ['is_red' => false, 'reason' => 'target_has_empty_basename'];
+        }
         $exercisePattern = '/(?=.*\\b(require|include)(_once)?\\b)(?=.*'.preg_quote($targetBase, '/').')/is';
-        if (preg_match('/.+/', $targetBase) !== 1 || preg_match($exercisePattern, $src) !== 1) {
+        if (preg_match($exercisePattern, $src) !== 1) {
             return ['is_red' => false, 'reason' => 'test_does_not_exercise_target'];
         }
 

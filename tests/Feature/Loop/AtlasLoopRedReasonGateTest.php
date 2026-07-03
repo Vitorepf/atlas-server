@@ -91,4 +91,27 @@ final class AtlasLoopRedReasonGateTest extends TestCase
         $this->assertFalse($r['is_red']);
         $this->assertSame('test_is_green', $r['reason']);
     }
+
+    public function test_slash_only_target_is_rejected(): void
+    {
+        $this->writeTest("<?php\nrequire __DIR__.'/../Target.php';\nexit(1);\n");
+
+        // A target of '/' has an empty basename — must be rejected before building the exercise pattern.
+        $r = (new AtlasLoopRedReasonGate)->evaluate($this->base, 'tests/t.php', '/');
+
+        $this->assertFalse($r['is_red']);
+        $this->assertSame('target_has_empty_basename', $r['reason']);
+    }
+
+    public function test_trailing_slash_target_is_rejected(): void
+    {
+        $this->writeTest("<?php\nrequire __DIR__.'/../Target.php';\nexit(1);\n");
+
+        // basename('/some/path/') returns 'path', not '' — so it passes the empty-basename check,
+        // but the exercise pattern looks for 'path' which the test doesn't require => rejected.
+        $r = (new AtlasLoopRedReasonGate)->evaluate($this->base, 'tests/t.php', '/some/path/');
+
+        $this->assertFalse($r['is_red']);
+        $this->assertSame('test_does_not_exercise_target', $r['reason']);
+    }
 }
