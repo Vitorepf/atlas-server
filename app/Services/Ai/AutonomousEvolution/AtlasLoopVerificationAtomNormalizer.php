@@ -188,6 +188,15 @@ final class AtlasLoopVerificationAtomNormalizer
         if ($path === '' || ! str_starts_with($path, '/')) {
             return null;
         }
+
+        $method = strtoupper(trim((string) ($atom['method'] ?? '')));
+        if ($method === '') {
+            return null;
+        }
+        if (! $this->isHttpMethod($method)) {
+            return null;
+        }
+
         $contains = array_key_exists('body_contains', $atom) ? ($this->literal)($atom['body_contains']) : null;
         $exact = array_key_exists('body_exact', $atom) ? ($this->literal)($atom['body_exact']) : null;
         if (! is_string($contains) && ! is_string($exact)) {
@@ -196,12 +205,17 @@ final class AtlasLoopVerificationAtomNormalizer
 
         return [
             'type' => 'http_response',
-            'method' => strtoupper(trim((string) ($atom['method'] ?? 'GET'))) ?: 'GET',
+            'method' => $method,
             'path' => $path,
             'status' => is_numeric($atom['status'] ?? null) ? (int) $atom['status'] : 200,
             'body_contains' => is_string($contains) ? $contains : null,
             'body_exact' => is_string($exact) ? $exact : null,
         ];
+    }
+
+    private function isHttpMethod(string $method): bool
+    {
+        return in_array($method, ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'TRACE', 'CONNECT'], true);
     }
 
     /**
