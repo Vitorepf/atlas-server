@@ -94,7 +94,7 @@ final class AtlasAiIntentKernelService
     {
         return [
             'review_like' => $this->hasDiffOrPr($attachments, $haystack),
-            'verify_like' => $this->containsAny($haystack, ['verificacao', 'verificação', 'verifique o', 'verificar o', 'auditoria', 'audite', 'auditar', 'valide o fluxo', 'validar o fluxo', 'checagem do', 'inspecione o codigo', 'inspecione o código', 'verify the', 'audit the', 'rigorous check']),
+            'verify_like' => $this->containsAny($haystack, ['verificacao', 'verificação', 'verifique o', 'verificar o', 'auditoria', 'audite', 'auditar', 'valide o fluxo', 'validar o fluxo', 'checagem do', 'inspecione o codigo', 'inspecione o código', 'verify the', 'audit the', 'rigorous check', 'analise rigorosa', 'análise rigorosa', 'analise do codigo', 'análise do código', 'analise o codigo', 'analise o código', 'analise do fluxo', 'análise do fluxo', 'analise o fluxo', 'todo o fluxo do', 'todo o fluxo da']),
             'debug_like' => $this->containsAny($haystack, ['stack trace', 'stacktrace', 'traceback', 'debug ', 'debugue', 'logs', 'log ', 'erro em producao', 'erro em produção', 'exception', 'observability']),
             'forge_like' => $this->containsAny($haystack, ['obra ', 'multi-semana', 'multi semana', 'sistema inteiro', 'sistema todo', 'app inteiro', 'one shot enterprise', 'one-shot enterprise']),
             'plan_like' => $this->containsAny($haystack, ['planeje', 'planejar', 'plano', 'plan ', 'planning', 'roadmap', 'estruture', 'arquitetura antes', 'antes de implementar']),
