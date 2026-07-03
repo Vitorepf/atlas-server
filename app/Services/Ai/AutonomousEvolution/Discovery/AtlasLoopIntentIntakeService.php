@@ -84,7 +84,16 @@ final class AtlasLoopIntentIntakeService
         if (! is_file($path)) {
             return [];
         }
-        $decoded = json_decode((string) @file_get_contents($path), true);
+
+        $raw = @file_get_contents($path);
+        if ($raw === false) {
+            throw new \RuntimeException('AtlasLoopIntentIntakeService: unable to read intent manifest: '.$path, 1);
+        }
+
+        $decoded = json_decode($raw, true);
+        if ($decoded === null) {
+            throw new \RuntimeException('AtlasLoopIntentIntakeService: corrupt intent manifest (invalid JSON): '.$path, 1);
+        }
 
         return is_array($decoded['items'] ?? null) ? array_values($decoded['items']) : [];
     }
