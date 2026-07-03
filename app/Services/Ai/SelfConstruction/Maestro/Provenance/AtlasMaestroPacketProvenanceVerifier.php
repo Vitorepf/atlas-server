@@ -200,7 +200,10 @@ final class AtlasMaestroPacketProvenanceVerifier
         if (isset($packet['now'], $packet['max_age_seconds'])) {
             $generatedAt = strtotime((string) $packet['generated_at']);
             $now = strtotime((string) $packet['now']);
-            if ($generatedAt !== false && $now !== false && ($now - $generatedAt) > (int) $packet['max_age_seconds']) {
+            if ($generatedAt === false || $now === false) {
+                return $this->bindingVerdict(false, self::REASON_STALE_PACKET);
+            }
+            if (($now - $generatedAt) > (int) $packet['max_age_seconds']) {
                 return $this->bindingVerdict(false, self::REASON_STALE_PACKET);
             }
         }
