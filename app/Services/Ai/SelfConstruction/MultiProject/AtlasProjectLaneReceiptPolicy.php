@@ -117,7 +117,11 @@ final class AtlasProjectLaneReceiptPolicy
         ];
         $canonical = $envelope;
         ksort($canonical);
-        $envelope['envelope_hash'] = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $encoded = json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($encoded === false) {
+            throw new \RuntimeException('lane_receipt_policy_encode_failure');
+        }
+        $envelope['envelope_hash'] = hash('sha256', $encoded);
 
         return $envelope;
     }
