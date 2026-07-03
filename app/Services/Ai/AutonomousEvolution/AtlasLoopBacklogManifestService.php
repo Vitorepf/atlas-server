@@ -50,7 +50,11 @@ final class AtlasLoopBacklogManifestService
         $manifest['items'] = array_slice($items, 0, max(10, $manifestLimit));
 
         File::ensureDirectoryExists(dirname($manifestPath));
-        File::put($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+        $encoded = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($encoded === false) {
+            return ['type' => 'backlog_intent', 'status' => 'encoding_error', 'source_key' => $sourceKey, 'item' => $item];
+        }
+        File::put($manifestPath, $encoded."\n");
 
         return ['type' => 'backlog_intent', 'status' => 'enqueued', 'source_key' => $sourceKey, 'item' => $item];
     }
