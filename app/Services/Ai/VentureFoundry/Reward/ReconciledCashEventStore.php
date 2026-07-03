@@ -69,12 +69,24 @@ class ReconciledCashEventStore
             return $existing;
         }
 
-        $occurredAt = isset($args['occurred_at']) ? Carbon::parse((string) $args['occurred_at']) : Carbon::now();
+        $occurredAt = isset($args['occurred_at'])
+            ? (function () use ($args): \Carbon\Carbon {
+                try {
+                    return Carbon::parse((string) $args['occurred_at']);
+                } catch (\Throwable $e) {
+                    return Carbon::now();
+                }
+            })()
+            : Carbon::now();
         $horizon = (int) ($args['settlement_horizon_days'] ?? 0);
         // settled_at is null until the clawback window clears; horizon 0 = settled now.
         $settledAt = $horizon <= 0 ? $occurredAt : null;
         if (array_key_exists('settled_at', $args) && $args['settled_at'] !== null) {
-            $settledAt = Carbon::parse((string) $args['settled_at']);
+            try {
+                $settledAt = Carbon::parse((string) $args['settled_at']);
+            } catch (\Throwable $e) {
+                $settledAt = $occurredAt;
+            }
         }
 
         $uuid = (string) Str::uuid();
