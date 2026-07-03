@@ -382,7 +382,11 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
                 }
                 if (($state[$next] ?? 0) === 1) {
                     $idx = array_search($next, $path, true);
-                    $cycle = array_slice($path, (int) $idx);
+                    if ($idx === false) {
+                        $cycle = [$next];
+                    } else {
+                        $cycle = array_slice($path, $idx);
+                    }
 
                     return;
                 }
