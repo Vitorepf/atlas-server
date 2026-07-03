@@ -107,7 +107,10 @@ final class AtlasMaestroPacketSchemaMigrator
             $before = $current;
             $transformed = ($row['transform'])($current);
             $appliedAt = ($this->clock)();
-            $current = is_array($transformed) ? $transformed : [];
+            if (! is_array($transformed)) {
+                throw new RuntimeException('packet_schema_migrator_transform_non_array:'.$cursor.'->'.$nextId);
+            }
+            $current = $transformed;
             $current['schema_version'] = $nextId;
             // Lossless contract: restore evidence fields a buggy transform may have dropped.
             foreach (self::LOSSLESS_FIELDS as $field) {
