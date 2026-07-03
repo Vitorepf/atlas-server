@@ -41,16 +41,16 @@ final class WriteSetOverlapTest extends TestCase
 
     public function test_conflicts_are_dir_vs_file_aware(): void
     {
-        $this->assertSame(['app/Foo'], WriteSetOverlap::conflicts(['app/Foo'], [], ['app/Foo/Bar.php'], []));
+        $this->assertSame(['app/foo'], WriteSetOverlap::conflicts(['app/Foo'], [], ['app/Foo/Bar.php'], []));
         $this->assertSame([], WriteSetOverlap::conflicts(['app/Foo'], [], ['app/Bar/Baz.php'], []));
     }
 
     public function test_canonical_slash_normalization_detects_collision(): void
     {
         $this->assertTrue(WriteSetOverlap::pathsCollide('app//Foo', 'app/Foo/Bar.php'));
-        $this->assertTrue(WriteSetOverlap::pathsCollide('app\\Foo', 'app/Foo/Bar.php'));
-        $this->assertSame(['app/Foo'], WriteSetOverlap::conflicts(['app//Foo'], [], ['app/Foo/Bar.php'], []));
-        $this->assertSame(['app/Foo'], WriteSetOverlap::conflicts(['app\\Foo'], [], ['app/Foo/Bar.php'], []));
+        $this->assertTrue(WriteSetOverlap::pathsCollide("app\\Foo", 'app/Foo/Bar.php'));
+        $this->assertSame(['app/foo'], WriteSetOverlap::conflicts(['app//Foo'], [], ['app/Foo/Bar.php'], []));
+        $this->assertSame(['app/foo'], WriteSetOverlap::conflicts(["app\\Foo"], [], ['app/Foo/Bar.php'], []));
     }
 
     public function test_traversal_paths_are_always_unsafe_collision(): void
@@ -67,5 +67,21 @@ final class WriteSetOverlapTest extends TestCase
         $this->assertFalse(WriteSetOverlap::pathsCollide('app/Foo.php', ''));
         $this->assertSame([], WriteSetOverlap::conflicts([''], [], ['app/Foo.php'], []));
         $this->assertSame([], WriteSetOverlap::conflicts(['app/Foo.php'], [], [''], []));
+    }
+
+    public function test_case_variant_paths_collide_on_case_insensitive_fs(): void
+    {
+        // On macOS (case-insensitive FS), app/Foo/X.php and app/foo/X.php are the same file.
+        $this->assertTrue(WriteSetOverlap::pathsCollide('app/Foo/X.php', 'app/foo/X.php'));
+        $this->assertTrue(WriteSetOverlap::pathsCollide('app/FOO/X.php', 'app/foo/x.php'));
+        $this->assertTrue(WriteSetOverlap::pathsCollide('app/Foo', 'app/foo/Bar.php'));
+        $this->assertTrue(WriteSetOverlap::pathsCollide('APP/Foo.php', 'app/FOO.php'));
+
+        // Case-variant paths must also collide through conflicts().
+        $this->assertNotEmpty(WriteSetOverlap::conflicts(['app/Foo/X.php'], [], ['app/foo/X.php'], []));
+        $this->assertNotEmpty(WriteSetOverlap::conflicts(['app/Foo'], [], ['app/foo/Bar.php'], []));
+
+        // Different files (not just case variants) must NOT collide.
+        $this->assertFalse(WriteSetOverlap::pathsCollide('app/Foo.php', 'app/Bar.php'));
     }
 }

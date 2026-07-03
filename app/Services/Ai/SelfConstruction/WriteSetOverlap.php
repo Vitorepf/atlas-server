@@ -103,7 +103,7 @@ final class WriteSetOverlap
         $p = str_replace('\\', '/', trim($path));
         $p = (string) preg_replace('#/+#', '/', $p);
 
-        return rtrim($p, '/');
+        return strtolower(rtrim($p, '/'));
     }
 
     private static function hasTraversal(string $normPath): bool
