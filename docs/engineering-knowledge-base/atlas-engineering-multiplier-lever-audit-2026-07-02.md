@@ -303,7 +303,18 @@ Onda 23:46 UTC (5ª): `captureSymptom()` da mineração provisiona worktree temp
   weak_output 2 / missing_context 1. Prova: 88 testes prompt-projection+runtime verdes
   (2 pinados de compostos preservados + regressão nova do falso-positivo).
 
+## Execução S20 (02/07/2026)
+
+- **S20 (entregue):** write side de failure memory da ESTEIRA. Report failed/give_back do
+  worker externo com excerpt REAL de erro persiste failure capsule ancorada ao slug do repo
+  + allowed_files do packet — o mesmo canal known_failure_modes que o próximo packet
+  servido na área recebe (S2 era só o read side). Give_back sem evidência não grava nada
+  (nunca fabricar lição). Prova: worker falha com evidência → capsule
+  `worker_report_failed`/`test_failure` → próximo serve na área injeta; bare give_back →
+  zero rows; 176 testes AtlasTaskServing* verdes.
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
 **Candidatos:** (a) re-medição do funil quando os canais novos rodarem em runs reais; (b)
-próximo gargalo da medição.
+próximo gargalo da medição. Nota: `atlas_dev_outcome_memories`=0 é organ PARKED sem
+read-side vivo (exemplares cobrem a lição de sucesso) — não wire às cegas.

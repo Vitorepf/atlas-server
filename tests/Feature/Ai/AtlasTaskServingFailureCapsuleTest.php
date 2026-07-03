@@ -106,6 +106,77 @@ final class AtlasTaskServingFailureCapsuleTest extends TestCase
         ], $packet);
     }
 
+    public function test_worker_reported_failure_with_evidence_becomes_a_capsule_the_next_serve_injects(): void
+    {
+        // Esteira write side (mirrors the S2 read side): a failed report
+        // carrying a REAL error excerpt persists a failure capsule anchored to
+        // this repo's workspace slug + the packet's files — the next packet
+        // served in the same area receives it as a known_failure_mode.
+        $orch = $this->orchestrator();
+        $serving = new AtlasTaskServingService($orch);
+
+        $file = 'app/Services/Ai/SelfConstruction/CapsuleTarget.php';
+        $orch->prepareAndEnqueue(['task_packet' => [
+            'task_packet_id' => 'cap-write-1',
+            'objective' => 'fix CapsuleTarget',
+            'operator_id' => 'tester',
+            'allowed_files' => [$file],
+            'scope_in' => [$file],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
+        ]]);
+
+        $a = $serving->next('worker-a');
+        $this->assertSame('served', $a['status']);
+        $serving->report('worker-a', 'cap-write-1', $a['task']['lease_id'], [
+            'outcome' => 'failed',
+            'evidence' => ['error' => 'PHPUnit: CapsuleTargetTest::test_value failed asserting 2 matches expected 3'],
+        ]);
+
+        $capsule = \App\Models\AtlasDevFailureCapsule::query()->where('task_id', 'cap-write-1')->first();
+        $this->assertNotNull($capsule, 'a failed report with evidence persists a capsule');
+        $this->assertSame('worker_report_failed', $capsule->failing_gate);
+        $this->assertSame('test_failure', $capsule->failure_class);
+
+        // Next packet in the SAME area gets the memory on serve.
+        $orch->prepareAndEnqueue(['task_packet' => [
+            'task_packet_id' => 'cap-write-2',
+            'objective' => 'retry CapsuleTarget',
+            'operator_id' => 'tester',
+            'allowed_files' => [$file],
+            'scope_in' => [$file],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
+        ]]);
+        $b = $serving->next('worker-b');
+        $this->assertSame('served', $b['status']);
+        $modes = (array) ($b['task']['known_failure_modes'] ?? []);
+        $this->assertNotSame([], $modes, 'the next serve in the area injects the worker-reported capsule');
+    }
+
+    public function test_bare_give_back_without_evidence_records_nothing(): void
+    {
+        $orch = $this->orchestrator();
+        $serving = new AtlasTaskServingService($orch);
+        $orch->prepareAndEnqueue(['task_packet' => [
+            'task_packet_id' => 'cap-bare-1',
+            'objective' => 'no evidence',
+            'operator_id' => 'tester',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Bare.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/Bare.php'],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
+        ]]);
+
+        $a = $serving->next('worker-a');
+        $serving->report('worker-a', 'cap-bare-1', $a['task']['lease_id'], ['outcome' => 'give_back']);
+
+        $this->assertNull(
+            \App\Models\AtlasDevFailureCapsule::query()->where('task_id', 'cap-bare-1')->first(),
+            'no evidence => no fabricated lesson',
+        );
+    }
+
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         return new AgentControlPlaneTaskQueueOrchestrator(

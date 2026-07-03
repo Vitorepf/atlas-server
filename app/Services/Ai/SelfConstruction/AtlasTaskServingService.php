@@ -426,6 +426,39 @@ final class AtlasTaskServingService
         $result = $this->orchestrator->reportGiveBack($taskPacketId, $leaseId, $clientId, 'client_reported_'.$outcome);
         $event = (string) ($result['event'] ?? '');
 
+        // Esteira failure memory: a worker-reported failure carrying a REAL error
+        // excerpt becomes a failure capsule for this packet's area — the same
+        // known_failure_modes channel the NEXT served packet in the area receives
+        // (S2 read side; this is its serving write side). Never fabricated: a bare
+        // give_back without evidence records nothing. Fail-open.
+        $excerpt = trim((string) (data_get($payload, 'evidence.error')
+            ?? data_get($payload, 'evidence.error_excerpt')
+            ?? data_get($payload, 'evidence.failure_excerpt')
+            ?? ''));
+        if ($excerpt !== '') {
+            try {
+                $served = $this->orchestrator->taskScope($taskPacketId);
+                $files = array_values(array_map('strval', (array) ($served['allowed_files'] ?? [])));
+                $anchor = app(\App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService::class)->persist([
+                    'run_id' => 'serving-'.$taskPacketId,
+                    'task_id' => $taskPacketId,
+                    'objective' => (string) ($served['objective'] ?? ''),
+                    'workspace_slug' => \App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity::slug(base_path()),
+                    'allowed_files' => $files,
+                    'source' => 'task_serving_report',
+                ]);
+                app(\App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService::class)->persist([
+                    'run_id' => 'serving-'.$taskPacketId,
+                    'task_id' => $taskPacketId,
+                    'failing_gate' => 'worker_report_'.$outcome,
+                    'error_excerpt' => $excerpt,
+                    'changed_files' => $files,
+                ], $anchor);
+            } catch (Throwable) {
+                // fail-open: learning must never wedge a report
+            }
+        }
+
         // govA-cortex-cadence — outcome-triggered invalidation: a give_back/failure means the
         // worker's mental model of the scope diverged from reality. Drop the comprehension
         // snapshot so the next authoring round rebuilds against fresh inventory. Fail-open.
