@@ -184,7 +184,7 @@ final class AtlasLoopTaxa2DialOverlayService
                 'refill_delta' => 1,
             ],
             [
-                'active' => (int) $m['pending_tasks'] < $base['queue_low_watermark'],
+                'active' => array_key_exists('pending_tasks', $m) && (int) $m['pending_tasks'] < $base['queue_low_watermark'],
                 'reason' => 'pending_queue_below_base_watermark',
                 'scenario_delta' => 0,
                 'watermark_delta' => 1,
