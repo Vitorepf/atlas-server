@@ -111,10 +111,11 @@ final class AtlasMaestroProviderAssignmentPolicy
         }
 
         // All options exhausted — return last resort with explicit reason.
-        $last = (string) end($ordered);
+        $last = end($ordered);
+        $provider = $last !== false ? (string) $last : 'none';
 
         return [
-            'provider' => $last,
+            'provider' => $provider,
             'reason' => 'all-unavailable:last-resort',
             'failover' => true,
             'tried' => array_slice($ordered, 0, count($ordered) - 1),
