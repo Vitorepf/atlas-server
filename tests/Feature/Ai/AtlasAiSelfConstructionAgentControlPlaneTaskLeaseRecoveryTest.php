@@ -20,6 +20,15 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest extend
     protected function setUp(): void
     {
         parent::setUp();
+        // Pino hermético: com ATLAS_TASK_SERVING_QUEUE_DISK=atlas_serving no
+        // .env vivo, AtlasTaskServingStack::disk() apontava os testes para a
+        // FILA DE PRODUÇÃO (milhares de packets reais poluíam claimNext e 2
+        // testes falhavam por estado vivo). O fake só cobre o disco que o
+        // stack resolve.
+        // 'local' e PROIBIDO pelo health do stack (serving_disk_default_local_
+        // forbidden) - o pino precisa ser um disk dedicado FAKE.
+        config()->set('atlas.task_serving.queue_disk', 'atlas_serving_test');
+        Storage::fake('atlas_serving_test');
         Storage::fake('local');
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-15T10:00:00Z'));
     }
@@ -706,15 +715,30 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest extend
     /**
      * @return array<string, mixed>
      */
+    private const FIXTURE_FLAVORS = [
+        'refatorar o parser de manifesto',
+        'otimizar o indice de descoberta',
+        'corrigir a validacao de escopo do worker',
+        'consolidar o ledger de evidencia da fila',
+        'endurecer o guard de replay de leases',
+        'mapear a superficie de inspecao de claims',
+        'simplificar o registro de heartbeats',
+    ];
+
     private function input(string $id): array
     {
         return [
             'task_packet_id' => $id,
-            'objective' => 'lease recovery test '.$id,
+            // Fixtures materialmente DISTINTOS por id: o gate anti-farm
+            // (template_farm_similarity) compara stems de objective e
+            // fragmentos de acceptance entre packets da fila viva — fixtures
+            // "template" (mesmo stem + acceptance 'ok') eram bloqueados no 2o
+            // enqueue como farm, exatamente como packets clonados reais.
+            'objective' => self::FIXTURE_FLAVORS[crc32($id) % count(self::FIXTURE_FLAVORS)].' para '.$id,
             'operator_id' => 'tester',
             'allowed_files' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
             'scope_in' => ['app/Services/Ai/SelfConstruction/'.$id.'.php'],
-            'acceptance_criteria' => ['ok'],
+            'acceptance_criteria' => ['criterio de '.$id.': '.self::FIXTURE_FLAVORS[(crc32($id) + 3) % count(self::FIXTURE_FLAVORS)]],
             'required_evidence' => ['task_packet_created'],
         ];
     }
