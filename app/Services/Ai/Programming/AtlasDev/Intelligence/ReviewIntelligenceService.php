@@ -299,10 +299,16 @@ final class ReviewIntelligenceService
             foreach (self::DATA_LOSS_KEYWORDS as $needle) {
                 if ($this->keywordInBody($body, $needle)) {
                     $counter++;
+                    // Hunk de arquivo de TESTE: unlink/destroy em cleanup de
+                    // tmp é padrão legítimo de teste — HIGH (needs_review),
+                    // nunca CRITICAL (critic_escalate bloqueava toda criação
+                    // de teste com cleanup; lote real 03/07, B4). Produção
+                    // continua CRITICAL fail-closed.
+                    $isTestFile = str_starts_with($file, 'tests/');
                     $findings[] = new ReviewFinding(
                         findingId: 'data_loss_'.$counter,
                         title: "Potential data-loss operation: `{$needle}`",
-                        severity: ReviewFinding::SEVERITY_CRITICAL,
+                        severity: $isTestFile ? ReviewFinding::SEVERITY_HIGH : ReviewFinding::SEVERITY_CRITICAL,
                         riskType: ReviewFinding::RISK_DATA_LOSS,
                         description: "Diff hunk introduces `{$needle}` which can destroy data when applied.",
                         remediation: 'Wrap the operation behind an explicit confirmation gate or migration with a documented rollback.',
