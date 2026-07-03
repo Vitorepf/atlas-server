@@ -93,6 +93,46 @@ final class AtlasRefactorDeltaProver
         ];
     }
 
+    /**
+     * CROSS-FILE duplication clusters — the origination-side read of the same
+     * shingle metric prove() judges deliveries by: which normalized 6-line
+     * blocks appear in MORE THAN ONE file, and which files share them. The
+     * scout derives evidence-backed refactor design specs from this.
+     *
+     * @param  array<string,string>  $files  path => content
+     * @return list<array{shingle_hash:string, files:list<string>, occurrences:int, excerpt:string}>
+     */
+    public function duplicateClusters(array $files): array
+    {
+        $byShingle = [];
+        foreach ($files as $path => $content) {
+            $lines = $this->normalizedLines($content);
+            for ($i = 0; $i + self::DUP_SHINGLE_LINES <= count($lines); $i++) {
+                $block = implode("\n", array_slice($lines, $i, self::DUP_SHINGLE_LINES));
+                $key = hash('xxh3', $block);
+                $byShingle[$key] ??= ['files' => [], 'occurrences' => 0, 'excerpt' => $block];
+                $byShingle[$key]['files'][$path] = true;
+                $byShingle[$key]['occurrences']++;
+            }
+        }
+
+        $clusters = [];
+        foreach ($byShingle as $key => $row) {
+            if (count($row['files']) < 2) {
+                continue;
+            }
+            $clusters[] = [
+                'shingle_hash' => (string) $key,
+                'files' => array_keys($row['files']),
+                'occurrences' => (int) $row['occurrences'],
+                'excerpt' => mb_substr($row['excerpt'], 0, 400),
+            ];
+        }
+        usort($clusters, static fn (array $a, array $b): int => [count($b['files']), $b['occurrences']] <=> [count($a['files']), $a['occurrences']]);
+
+        return $clusters;
+    }
+
     /** @param array<string,string> $files */
     private function scopeMetrics(array $files): array
     {
