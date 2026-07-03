@@ -137,6 +137,82 @@ final class AtlasAaelExecutionTraceRecorderTest extends TestCase
         $this->assertSame([0, 1, 2, 3], array_column($lines, 'step_index'));
     }
 
+    public function test_begin_after_finish_starts_fresh_trace_not_finished_id(): void
+    {
+        $counter = 0;
+        $recorder = new AtlasAaelExecutionTraceRecorder(
+            traceRoot: $this->tmpDir,
+            clock: fn (): string => '2026-06-24T08:00:00+00:00',
+            traceIdGenerator: static function () use (&$counter): string { return 'trace-'.(++$counter); },
+            workingTreeHashResolver: fn (): string => 'abc123',
+        );
+
+        $firstId = $recorder->begin(['scope' => ['app/Foo.php']], 'root-commit');
+        $recorder->recordStep([
+            'action_name' => 'step-1',
+            'input' => ['foo' => 'bar'],
+            'output' => ['result' => 'ok'],
+            'provider_id' => 'provider.test',
+            'exit_code' => 0,
+            'stdout' => 'hello',
+            'stderr' => 'warning',
+            'decision_context_id' => 'ctx-1',
+        ]);
+        $recorder->finish('success');
+
+        $secondId = $recorder->begin(['scope' => ['app/Bar.php']], 'root-commit-2');
+
+        $this->assertNotSame($firstId, $secondId, 'begin() after finish() must start a fresh trace');
+    }
+
+    public function test_begin_after_finish_resets_step_count(): void
+    {
+        $counter = 0;
+        $recorder = new AtlasAaelExecutionTraceRecorder(
+            traceRoot: $this->tmpDir,
+            clock: fn (): string => '2026-06-24T08:00:00+00:00',
+            traceIdGenerator: static function () use (&$counter): string { return 'trace-'.(++$counter); },
+            workingTreeHashResolver: fn (): string => 'abc123',
+        );
+
+        $recorder->begin(['scope' => ['app/Foo.php']], 'root-commit');
+        $recorder->recordStep([
+            'action_name' => 'step-1',
+            'input' => ['foo' => 'bar'],
+            'output' => ['result' => 'ok'],
+            'provider_id' => 'provider.test',
+            'exit_code' => 0,
+            'stdout' => 'hello',
+            'stderr' => 'warning',
+            'decision_context_id' => 'ctx-1',
+        ]);
+        $recorder->recordStep([
+            'action_name' => 'step-2',
+            'input' => ['foo' => 'bar'],
+            'output' => ['result' => 'ok'],
+            'provider_id' => 'provider.test',
+            'exit_code' => 0,
+            'stdout' => 'hello',
+            'stderr' => 'warning',
+            'decision_context_id' => 'ctx-1',
+        ]);
+        $recorder->finish('success');
+
+        $recorder->begin(['scope' => ['app/Bar.php']], 'root-commit-2');
+        $record = $recorder->recordStep([
+            'action_name' => 'step-1',
+            'input' => ['foo' => 'bar'],
+            'output' => ['result' => 'ok'],
+            'provider_id' => 'provider.test',
+            'exit_code' => 0,
+            'stdout' => 'hello',
+            'stderr' => 'warning',
+            'decision_context_id' => 'ctx-1',
+        ]);
+
+        $this->assertSame(1, $record->stepIndex);
+    }
+
     /**
      * @param  list<string>  $timestamps
      */

@@ -40,10 +40,13 @@ final class AtlasAaelExecutionTraceRecorder
      */
     public function begin(array $scope, string $rootCommit): string
     {
-        if ($this->traceId !== null) {
+        if ($this->traceId !== null && ! $this->finished) {
             return $this->traceId;
         }
 
+        // Reset for fresh trace after finish
+        $this->finished = false;
+        $this->stepCount = 0;
         $this->traceId = $this->generateTraceId();
         $this->rootCommit = $rootCommit;
         $this->scope = $scope;
