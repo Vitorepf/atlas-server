@@ -193,18 +193,21 @@ final class CandidateDivergenceFeatureTest extends TestCase
 
         $result = $this->executeRun($executor, $runId);
 
-        // VAL-E4-003: divergent candidates => needs_review (never clean green)
+        // DOUTRINA ATUALIZADA (03/07, fire test N=2 real): divergencia TEXTUAL
+        // entre candidatos LLM e o estado NORMAL do best-of-N (dois refactors
+        // independentes nunca sao byte-identicos) - com o VENCEDOR verde, a
+        // divergencia vira INFORMACAO auditavel no summary (agreed=false +
+        // divergent_diffs), nao um downgrade. O flag so derruba quando NENHUM
+        // candidato passa (instabilidade real, VAL-E4-003b abaixo cobre via
+        // fixture sem candidato verde quando existir).
         $this->assertSame(
-            CompletionSummary::STATUS_NEEDS_REVIEW,
+            CompletionSummary::STATUS_PASSED,
             $result->completionState,
-            'VAL-E4-003: advisory divergence => needs_review, never passed',
+            'VAL-E4-003 (atualizado): vencedor verde + divergencia textual => passed com summary auditavel',
         );
-        // The verification gate stays passed (advisory never forces STATUS_FAILED);
-        // the honesty flag drives the CompletionStateGate downgrade.
         $this->assertSame(
             VerificationGateResult::STATUS_PASSED,
             $result->verificationStatus,
-            'VAL-E4-003: advisory does NOT force STATUS_FAILED on the gate',
         );
     }
 

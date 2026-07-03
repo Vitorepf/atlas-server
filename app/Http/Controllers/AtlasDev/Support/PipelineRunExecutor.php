@@ -2033,6 +2033,17 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // reapplyCandidateDiff() reports as success.
         $winnerDiffText = trim((string) ($winner['candidate_diff_text'] ?? ''));
         if (! $reapplyOk && $winnerDiffText !== '') {
+            // Forense: persiste o diff exato que o git apply recusou (o run
+            // dev-1783066505769 perdeu a evidência — sem o patch não há como
+            // diagnosticar o "corrupt patch"). Best-effort, nunca falha o run.
+            try {
+                $forensic = storage_path('atlas-dev/receipts/'.$promptProjection->runId.'/best_of_n_winner_reapply_failed.patch');
+                if (is_dir(dirname($forensic))) {
+                    @file_put_contents($forensic, $winnerDiffText."\n\n--- git apply stderr ---\n".$reapplyStderr."\n");
+                }
+            } catch (\Throwable) {
+                // fail-open
+            }
             $reapplyBlocked = $this->blockedProviderCallResult(
                 runId: $promptProjection->runId,
                 provider: 'hermes_cli',
@@ -2099,7 +2110,17 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             $diffGate = new CandidateDivergenceGate($e4Config);
             $e4Verdict = $diffGate->evaluate($diffResult4);
 
-            if ($e4Verdict->tripped) {
+            // Divergência TEXTUAL entre candidatos LLM é o estado NORMAL do
+            // best-of-N (dois refactors independentes nunca são byte-idênticos
+            // — fire test 03/07: todo N=2 real virava needs_review/failed, o
+            // amplificador nunca fechava passed). Quando o VENCEDOR passou a
+            // verificação completa, a divergência vira INFORMAÇÃO no summary
+            // (auditável, nunca silenciosa); o flag só derruba o run quando
+            // NENHUM candidato passou (divergência + falha geral = sinal real
+            // de instabilidade). Comparação byte-a-byte era doutrina do mundo
+            // determinístico.
+            $winnerPassed = $winnerVerificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED;
+            if ($e4Verdict->tripped && ! $winnerPassed) {
                 $winnerVerificationResult = $this->routeElevationVerdict(
                     $winnerVerificationResult,
                     $e4Config,
@@ -2191,19 +2212,29 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
         file_put_contents($tmp, $diffText."\n");
         try {
-            $process = new Process(['git', 'apply', '--whitespace=nowarn', $tmp], $workspace, null, null, 15.0);
-            $process->run();
-            if (! $process->isSuccessful()) {
-                // FAIL-CLOSED: surface the git apply stderr so the caller can
-                // refuse to persist a desynced winner's green metadata.
-                $stderrRef = $process->getErrorOutput() !== ''
+            // Escada de tolerância (fire test 03/07: winner real falhou
+            // "corrupt patch" no apply puro): --recount recomputa os
+            // contadores de hunk; --3way usa os blobs. Qualquer sucesso
+            // produz o MESMO conteúdo final do diff; falha total continua
+            // fail-closed (nunca green de workspace dessincronizado).
+            $lastError = '';
+            foreach ([
+                ['git', 'apply', '--whitespace=nowarn', $tmp],
+                ['git', 'apply', '--whitespace=nowarn', '--recount', $tmp],
+                ['git', 'apply', '--whitespace=nowarn', '--3way', $tmp],
+            ] as $argv) {
+                $process = new Process($argv, $workspace, null, null, 15.0);
+                $process->run();
+                if ($process->isSuccessful()) {
+                    return true;
+                }
+                $lastError = $process->getErrorOutput() !== ''
                     ? $process->getErrorOutput()
                     : 'git apply failed with exit code '.$process->getExitCode();
-
-                return false;
             }
+            $stderrRef = $lastError;
 
-            return true;
+            return false;
         } finally {
             @unlink($tmp);
         }
