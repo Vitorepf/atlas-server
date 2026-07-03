@@ -86,6 +86,17 @@ class RipgrepRunner
             $args[] = $glob;
         }
 
+        // -uu desliga o .gitignore (necessário p/ arquivos untracked do
+        // operador), mas sem estas exclusões o discovery varria storage/ —
+        // incluindo worktrees TRANSIENTES de bateria com cópias inteiras de
+        // app/tests, que entravam em expected_files como se fossem código do
+        // produto (provado no smoke de 03/07). Artefato transiente nunca é
+        // alvo de patch.
+        foreach (['!storage/**', '!vendor/**', '!node_modules/**', '!.git/**'] as $exclusion) {
+            $args[] = '-g';
+            $args[] = $exclusion;
+        }
+
         $args[] = '--';
         $args[] = $needle;
         $args[] = '.';
