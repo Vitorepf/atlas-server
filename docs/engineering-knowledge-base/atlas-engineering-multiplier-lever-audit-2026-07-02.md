@@ -361,6 +361,11 @@ Canais entregues e provados, aguardando decisão de ligar:
 - `enforce-readiness` (`--since=2026-07-03`) → quando janelas limpas acumularem, promover
   `observe→enforce` por risco no policy plane.
 O salto seguinte de M exige RUNS REAIS alimentando os canais (proibido sem OK do operador).
+- **Infra (descoberto 03/07):** o scheduler inteiro está OFF deliberado (cron
+  "DISABLED-BY-CLAUDE" + launchd `com.atlas.scheduler`/`ai-health` disabled — proteção
+  anti token-burn). Enquanto OFF, nenhuma cadência roda (drains, heartbeat, sweeps,
+  automerge). Os `ai-worker.{codex,claude}` foram RELIGADOS em 03/07 (uso interativo do
+  operador; daemons independentes do scheduler). Religar o scheduler é o 4º switch do mapa.
 
 ## Execução S25+S26 (03/07/2026) — incidente de USO REAL do operador
 
