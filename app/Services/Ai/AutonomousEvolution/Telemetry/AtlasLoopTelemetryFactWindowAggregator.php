@@ -23,7 +23,11 @@ final class AtlasLoopTelemetryFactWindowAggregator
      */
     public function aggregate(array $facts, string $nowIso, int $windowMinutes): array
     {
-        $now = new DateTimeImmutable($nowIso);
+        try {
+            $now = new DateTimeImmutable($nowIso);
+        } catch (\Throwable $e) {
+            $now = new DateTimeImmutable('now');
+        }
         $cutoff = $now->sub(new DateInterval('PT'.max(0, $windowMinutes).'M'));
         $counts = [
             'claim' => 0,
