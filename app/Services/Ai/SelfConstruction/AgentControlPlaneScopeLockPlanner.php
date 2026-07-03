@@ -265,6 +265,12 @@ final class AgentControlPlaneScopeLockPlanner
     {
         $payload = $this->recursivelyKsort($payload);
 
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $encoded = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        if ($encoded === false) {
+            throw new \RuntimeException('json_encode failed on scope-lock plan payload — cannot produce stable hash');
+        }
+
+        return hash('sha256', $encoded);
     }
 }
