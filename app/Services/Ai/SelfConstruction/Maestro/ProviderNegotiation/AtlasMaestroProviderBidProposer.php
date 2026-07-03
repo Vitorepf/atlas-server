@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation;
 
+use App\Services\Ai\SelfConstruction\Maestro\Support\AtlasMaestroCanonicalSorter;
 use RuntimeException;
 
 /**
@@ -270,7 +271,7 @@ final class AtlasMaestroProviderBidProposer
      */
     private function canonicalJson(array $payload): string
     {
-        return (string) json_encode(SharedAtlasMaestroProviderBidProposerSeam::sortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        return (string) json_encode(AtlasMaestroCanonicalSorter::sortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 }
 

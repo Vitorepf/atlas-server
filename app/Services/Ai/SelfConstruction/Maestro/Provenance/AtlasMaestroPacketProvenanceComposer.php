@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\Provenance;
 
-use App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation\SharedAtlasMaestroProviderBidProposerSeam;
+use App\Services\Ai\SelfConstruction\Maestro\Support\AtlasMaestroCanonicalSorter;
 use InvalidArgumentException;
 
 final class AtlasMaestroPacketProvenanceComposer
@@ -219,7 +219,7 @@ final class AtlasMaestroPacketProvenanceComposer
     private function canonicalJson(mixed $value): string
     {
         return (string) json_encode(
-            SharedAtlasMaestroProviderBidProposerSeam::sortRecursive($value),
+            AtlasMaestroCanonicalSorter::sortRecursive($value),
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
         );
     }

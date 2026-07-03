@@ -50,6 +50,16 @@ return [
     // False (default) records the same fact as a packet warning — visible, not blocking.
     'refactor_design_spec_required' => false,
 
+    // Semantic ARCHITECTURE JUDGE over refactor deliveries (advisory|off). Local hermes
+    // one-shot (S53 arbiter pattern — worker-side, zero cloud spend) reads the seam diff
+    // + design spec and judges clarity/coupling/safety — what shrink metrics cannot see.
+    // Never blocks; the verdict rides the refactor_delta_proof receipt. Operator directive
+    // 03/07: provider verboo, strongest qwen.
+    'refactor_semantic_judge' => env('ATLAS_REFACTOR_SEMANTIC_JUDGE', 'advisory'),
+    'refactor_judge_binary' => 'hermes',
+    'refactor_judge_model' => 'verboo/qwen3.6-35b',
+    'refactor_judge_timeout_seconds' => 120,
+
     // Per risk-level governance policy. required_checks is a subset of:
     //   syntax, boot, task_tests, required_test
     'risk_levels' => [

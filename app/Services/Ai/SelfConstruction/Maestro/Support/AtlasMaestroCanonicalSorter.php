@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation;
+namespace App\Services\Ai\SelfConstruction\Maestro\Support;
 
-final class SharedAtlasMaestroProviderBidProposerSeam
+final class AtlasMaestroCanonicalSorter
 {
     public static function sortRecursive(mixed $value): mixed
     {

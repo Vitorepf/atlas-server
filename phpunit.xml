@@ -117,5 +117,8 @@
         <env name="ATLAS_AI_HERMES_MEMORY_POLICY" value="off"/>
         <env name="ATLAS_AI_HERMES_PROCEDURE_POLICY" value="off"/>
         <env name="ATLAS_AI_HERMES_SCHEDULE_POLICY" value="off"/>
+        <!-- The semantic architecture judge calls the LOCAL hermes one-shot (~30-120s).
+             Suites stay hermetic + fast; judge tests inject a fake runner explicitly. -->
+        <env name="ATLAS_REFACTOR_SEMANTIC_JUDGE" value="off"/>
     </php>
 </phpunit>

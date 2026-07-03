@@ -357,6 +357,17 @@ final class AtlasTaskServingService
                 )));
                 $refactorProof = $this->refactorProofGate->prove($proofScope);
                 if ($refactorProof !== null) {
+                    // ARCHITECTURE JUDGE (advisory, semantic): local hermes reads the
+                    // actual diff against the seam decision and judges what shrink
+                    // metrics cannot see. Never blocks; verdict rides receipt+envelope.
+                    if ((string) config('atlas_task_governance.refactor_semantic_judge', 'advisory') === 'advisory') {
+                        try {
+                            $refactorProof['architecture_judgment'] = (new TaskServing\AtlasRefactorArchitectureJudge)
+                                ->judge((array) data_get($scope, 'refactor_design_spec', []), $refactorProof, $proofScope);
+                        } catch (Throwable) {
+                            // Advisory by contract.
+                        }
+                    }
                     try {
                         $this->orchestrator->appendReportReceipt($taskPacketId, [
                             'receipt_kind' => 'refactor_delta_proof',
