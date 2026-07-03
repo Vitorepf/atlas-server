@@ -42,7 +42,11 @@ final class AtlasLoopRollingWindowAggregator
      */
     public function aggregate(array $facts, string $nowIso): array
     {
-        $now = new DateTimeImmutable($nowIso, new DateTimeZone('UTC'));
+        try {
+            $now = new DateTimeImmutable($nowIso, new DateTimeZone('UTC'));
+        } catch (\Throwable $e) {
+            $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        }
 
         $buckets = [];
         foreach (self::WINDOW_HOURS as $label => $hours) {
