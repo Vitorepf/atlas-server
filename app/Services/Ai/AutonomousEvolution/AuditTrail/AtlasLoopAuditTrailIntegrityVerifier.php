@@ -199,7 +199,13 @@ final class AtlasLoopAuditTrailIntegrityVerifier
     {
         $this->ksortRecursive($facts);
 
-        return hash('sha256', (string) json_encode($facts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $encoded = json_encode($facts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        if ($encoded === false) {
+            throw new \RuntimeException('AtlasLoopAuditTrailIntegrityVerifier: canonicalHash failed to encode facts payload', 1);
+        }
+
+        return hash('sha256', $encoded);
     }
 
     /**
