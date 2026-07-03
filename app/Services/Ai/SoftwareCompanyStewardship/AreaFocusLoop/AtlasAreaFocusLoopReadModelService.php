@@ -307,7 +307,7 @@ class AtlasAreaFocusLoopReadModelService
      */
     private function seed(string $areaId, string $kind, string $severity, string $summary, string $recommendedOwner, array $evidenceRefs): array
     {
-        $raw = hash('sha256', implode('|', [$areaId, $kind, $summary]));
+        $raw = hash('sha256', json_encode([$areaId, $kind, $summary], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return [
             'schema_version' => self::SEED_SCHEMA,
