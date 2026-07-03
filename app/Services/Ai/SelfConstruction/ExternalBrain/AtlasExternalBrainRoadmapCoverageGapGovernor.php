@@ -38,8 +38,6 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
     /** claimable_per_active_worker at or below this ratio means workers are about to starve. */
     private const WORKER_FLOOR_LOW_THRESHOLD = 2.0;
 
-    private const RUNNABLE_ACCEPTANCE_MARKERS = ['phpunit', 'artisan test', 'pytest', 'jest', 'rspec'];
-
     private const PRIORITY_NAME_VALUES = [
         'critical' => 10.0,
         'high' => 8.0,
@@ -215,16 +213,7 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
      */
     private function hasRunnableAcceptance(array $acceptanceCriteria): bool
     {
-        foreach ($acceptanceCriteria as $criterion) {
-            $lower = strtolower($criterion);
-            foreach (self::RUNNABLE_ACCEPTANCE_MARKERS as $marker) {
-                if (str_contains($lower, $marker)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return SharedAtlasExternalBrainRoadmapCoverageGapGovernorSeam::hasRunnableAcceptance($acceptanceCriteria);
     }
 
     private function priorityValue(mixed $priority): float
