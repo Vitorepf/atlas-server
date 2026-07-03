@@ -141,8 +141,8 @@ final class AtlasMaestroFairnessGiniReporter
                 if ($packetId === '') {
                     continue;
                 }
-                $outcome = (string) ($row['outcome'] ?? 'success');
-                if ($outcome !== 'success' && $outcome !== '') {
+                $outcome = (string) ($row['outcome'] ?? '');
+                if ($outcome !== 'success') {
                     continue;
                 }
                 $cls = $this->taskClassOf($packetId);
