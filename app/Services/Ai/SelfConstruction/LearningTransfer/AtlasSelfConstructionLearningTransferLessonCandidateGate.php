@@ -110,7 +110,7 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGate
             $sorted = $outcomeCounts;
             arsort($sorted);
             [$top, $second] = array_slice(array_values($sorted), 0, 2) + [0, 0];
-            if ((int) $second > $conflictTolerance) {
+            if ((int) $second >= $conflictTolerance) {
                 $reasons[] = 'conflicting_outcomes:'.json_encode($outcomeCounts, JSON_UNESCAPED_SLASHES);
                 $next[] = 'resolve_outcome_conflict_with_specific_disambiguator';
 
