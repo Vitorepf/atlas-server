@@ -288,6 +288,8 @@ final class AtlasMaestroTaskTierClassifier
             return 0;
         }
 
+        $s = str_replace("\r\n", "\n", $s);
+
         return substr_count($s, "\n") + 1;
     }
 }
