@@ -190,7 +190,11 @@ final class AtlasSystemGraphContextBuilderService
             'summary' => $this->compileSummary($obra, $intent, $sources),
             'limits' => [
                 'budget' => $budget,
-                'admitted' => count($admitted),
+                // CONTRATO CONGELADO (teste 01/06): admitted = o que ENTROU
+                // no pack (== count(sources) pós-trim), não os candidatos
+                // pré-trim. Auto-merge do Loop c11f400c15 (13/06, pré-O-3)
+                // trocou a semântica sem reconciliar — revertido 03/07.
+                'admitted' => count($sources),
                 'trimmed' => count($trimmed),
                 'rejected' => count($rejected),
             ],

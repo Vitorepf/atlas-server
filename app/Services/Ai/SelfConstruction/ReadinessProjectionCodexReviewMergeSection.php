@@ -15,6 +15,34 @@ namespace App\Services\Ai\SelfConstruction;
  */
 final class ReadinessProjectionCodexReviewMergeSection
 {
+    /**
+     * O split de 26/06 (cl2-split-rdy-2) extraiu a família codexReviewMerge*
+     * mas 2 dependências upstream (codexReviewPostSignatureRunbook /
+     * codexReviewSignatureRequest) FICARAM na mãe — as chamadas $this->
+     * viravam fatal "undefined method" em todo template de merge (3 call
+     * sites; Error dormente até a regressão larga de 03/07). A mãe injeta-se
+     * aqui e os upstreams são resolvidos de volta nela.
+     */
+    public function __construct(
+        private readonly ?AtlasSelfConstructionReadinessService $readiness = null,
+    ) {}
+
+    private function upstream(): AtlasSelfConstructionReadinessService
+    {
+        return $this->readiness ?? app(AtlasSelfConstructionReadinessService::class);
+    }
+
+    /**
+     * Qualquer dependência upstream que o split deixou na mãe (execution
+     * status, integration report, merge readiness, signature request,
+     * post-signature runbook, ...) resolve de volta nela — espelho dos thin
+     * delegators mãe→section. Método inexistente na mãe continua explodindo
+     * com o erro honesto de lá.
+     */
+    public function __call(string $method, array $arguments): mixed
+    {
+        return $this->upstream()->{$method}(...$arguments);
+    }
 
 public function codexReviewMergeActionTemplate(array $options = []): array
     {

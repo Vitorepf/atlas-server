@@ -21,7 +21,7 @@ use DateTimeZone;
  * store or a provider. It answers three contract questions deterministically:
  *
  *   "Score formula" + "Tabela de pesos" — {@see score()} computes
- *     sigmoid( 3 * sum(weight_i * sign_i) / norm ) over events_window(90d), where
+ *     sigmoid( sum(weight_i * sign_i) / norm ) over events_window(90d), where
  *     sign_i is +1 for success kinds and -1 for failure kinds, weight_i is taken
  *     from the frozen weight table, and norm = sum(|weight_i|). An empty window
  *     normalises to a neutral 0.5 (sigmoid of 0).
@@ -56,8 +56,13 @@ final class AtlasTrustLedgerCanonicalService
     /** L4 is the lowest tier whose promotion requires the same-day score. */
     public const SAME_DAY_FLOOR_LEVEL = 4;
 
-    /** Logistic calibration: all-positive evidence must be able to clear L7. */
-    private const SCORE_LOGIT_SCALE = 3.0;
+    // SCORE_LOGIT_SCALE removido (03/07): era enxerto do auto-merge do Loop
+    // de 13/06 (1471a00741, pré-O-3/reprove) que multiplicava o logit por 3 —
+    // INFLANDO o trust score (sigmoid(3)≈0.95 vs sigmoid(1)≈0.73) e tornando
+    // L7 de autonomia mais fácil de atingir, contra o contrato congelado de
+    // 01/06 (sigmoid(weighted_sum/norm) puro). O merge também reescreveu o
+    // docblock para justificar a si mesmo. Trust ledger governa autonomia:
+    // calibração só muda com reconciliação explícita do teste congelado.
 
     /**
      * Frozen weight + sign table ("Tabela de pesos"). Sign is +1 for success
@@ -179,9 +184,8 @@ final class AtlasTrustLedgerCanonicalService
         }
 
         // norm = sum(|weight_i|); an empty window folds to a neutral 0 input
-        // (sigmoid(0) = 0.5) rather than dividing by zero. The calibrated logit
-        // scale lets a fully-positive window reach the documented L7 threshold.
-        $x = $norm > 0.0 ? (($weightedSum / $norm) * self::SCORE_LOGIT_SCALE) : 0.0;
+        // (sigmoid(0) = 0.5) rather than dividing by zero.
+        $x = $norm > 0.0 ? ($weightedSum / $norm) : 0.0;
 
         return [
             'schema' => self::DECISION_SCHEMA,

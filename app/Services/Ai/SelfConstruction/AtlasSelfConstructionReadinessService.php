@@ -6624,7 +6624,7 @@ final class AtlasSelfConstructionReadinessService
 
     private function codexReviewMergeSection(): \App\Services\Ai\SelfConstruction\ReadinessProjectionCodexReviewMergeSection
     {
-        return $this->codexReviewMergeSection ??= new \App\Services\Ai\SelfConstruction\ReadinessProjectionCodexReviewMergeSection();
+        return $this->codexReviewMergeSection ??= new \App\Services\Ai\SelfConstruction\ReadinessProjectionCodexReviewMergeSection($this);
     }
 
 public function releasePacket(array $options = []): array
