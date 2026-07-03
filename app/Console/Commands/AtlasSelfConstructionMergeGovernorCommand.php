@@ -22,7 +22,7 @@ use Throwable;
 final class AtlasSelfConstructionMergeGovernorCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:self-construction:merge-governor {action : inspect|decide|history} {--candidate=} {--ledger=} {--json}';
+    protected $signature = 'atlas:self-construction:merge-governor {action : inspect|decide|history|enforce-readiness} {--candidate=} {--ledger=} {--since=} {--json}';
 
     /** @var string */
     protected $description = 'Read-only Merge Governor surface: inspect / decide (dry-run) / history.';
@@ -34,6 +34,7 @@ final class AtlasSelfConstructionMergeGovernorCommand extends Command
             'inspect' => $this->inspect(),
             'decide' => $this->decide(),
             'history' => $this->history(),
+            'enforce-readiness' => $this->enforceReadiness(),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
@@ -165,6 +166,95 @@ final class AtlasSelfConstructionMergeGovernorCommand extends Command
         }
 
         return ['status' => 'ok', 'rows' => $rows];
+    }
+
+    /**
+     * Evidence fold: per risk level, is the CLEAN release-decision ledger ready
+     * to justify observe→enforce? Mechanical + fail-closed: readiness requires
+     * enough samples AND zero decisions carrying a known-spurious reason (the
+     * producer bugs the S21 fixes closed). NEVER flips a mode — same contract
+     * as the ADML activation sweep: the fold produces the evidence, flipping
+     * remains an explicit operator/flag decision.
+     *
+     * @return array<string,mixed>
+     */
+    private function enforceReadiness(): array
+    {
+        $path = (string) ($this->option('ledger') ?? '');
+        if ($path === '') {
+            $path = storage_path('atlas/governance/merge-governor-release-decision-ledger.jsonl');
+        }
+        $since = trim((string) ($this->option('since') ?? ''));
+
+        try {
+            $rows = (new AtlasMergeGovernorReleaseDecisionLedger($path))->listChronological();
+        } catch (Throwable $e) {
+            return ['status' => 'error', 'message' => $e->getMessage()];
+        }
+
+        // Reasons produced by caller/attribution bugs, not by bad commits — a
+        // ledger window containing ANY of them is not evidence for enforce.
+        $spuriousReasons = ['missing_task_evidence_ref', 'project_lane_missing'];
+        $minSamples = 20;
+
+        $byRisk = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if ($since !== '' && (string) ($row['decided_at'] ?? '') < $since) {
+                continue;
+            }
+            $risk = (string) ($row['risk_level'] ?? 'unknown');
+            $byRisk[$risk] ??= ['samples' => 0, 'decisions' => [], 'spurious' => 0, 'top_reasons' => []];
+            $byRisk[$risk]['samples']++;
+            $decision = (string) ($row['decision'] ?? 'unknown');
+            $byRisk[$risk]['decisions'][$decision] = ($byRisk[$risk]['decisions'][$decision] ?? 0) + 1;
+            foreach ((array) ($row['reasons'] ?? []) as $reason) {
+                $reason = (string) $reason;
+                $byRisk[$risk]['top_reasons'][$reason] = ($byRisk[$risk]['top_reasons'][$reason] ?? 0) + 1;
+                foreach ($spuriousReasons as $spurious) {
+                    if (str_contains($reason, $spurious)) {
+                        $byRisk[$risk]['spurious']++;
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        $levels = [];
+        foreach ($byRisk as $risk => $agg) {
+            arsort($agg['top_reasons']);
+            $admitted = (int) ($agg['decisions']['admitted'] ?? 0);
+            $wouldBlock = $agg['samples'] - $admitted;
+            $ready = $agg['samples'] >= $minSamples && $agg['spurious'] === 0;
+            $reason = match (true) {
+                $agg['samples'] < $minSamples => 'insufficient_samples',
+                $agg['spurious'] > 0 => 'spurious_reasons_in_window',
+                default => 'evidence_clean',
+            };
+            $levels[$risk] = [
+                'samples' => $agg['samples'],
+                'decisions' => $agg['decisions'],
+                'would_block_rate' => $agg['samples'] > 0 ? round($wouldBlock / $agg['samples'], 4) : null,
+                'spurious_reason_count' => $agg['spurious'],
+                'top_reasons' => array_slice($agg['top_reasons'], 0, 5, true),
+                'enforce_ready' => $ready,
+                'reason' => $reason,
+            ];
+        }
+        ksort($levels);
+
+        return [
+            'status' => 'ok',
+            'schema' => 'atlas.mergegovernor.enforce_readiness.v1',
+            'since' => $since !== '' ? $since : null,
+            'min_samples' => $minSamples,
+            'spurious_reasons' => $spuriousReasons,
+            'risk_levels' => $levels,
+            'note' => 'read-only evidence fold; flipping observe->enforce remains an explicit operator decision',
+        ];
     }
 
     /** @return \Illuminate\Contracts\Container\Container */

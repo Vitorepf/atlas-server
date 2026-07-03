@@ -330,9 +330,19 @@ Onda 23:46 UTC (5ª): `captureSymptom()` da mineração provisiona worktree temp
   GovernanceChain verdes (3 pré-existentes quebrados consertados + regressão nova de
   atribuição).
 
+## Execução S22 (02/07/2026)
+
+- **S22 (entregue):** fold de evidência `enforce-readiness` no merge-governor CLI — por
+  risco: samples, decisões, would_block_rate, top razões, contagem de razões espúrias
+  (classes de bug de produtor que o S21 fechou). `enforce_ready` só com ≥20 amostras E zero
+  espúrias na janela (`--since` recorta pós-fix); NUNCA flipa modo (mesmo contrato do sweep
+  ADML: fold produz a evidência, ligar é decisão do operador). Rodado no vivo: high com 58
+  amostras limpas (release window + ambiguous_sha — fatos de política, não bugs);
+  low contaminado por espúrias históricas → not ready, honesto. Prova: teste do fold
+  (janela limpa ready / janela espúria fail-closed) + 6 testes do comando verdes.
+
 ## Próxima maior alavanca (identificada, não iniciada)
 
 **Candidatos:** (a) re-medição do funil quando os canais novos rodarem em runs reais; (b)
-fold de evidência do verdict ledger → recomendação observe→enforce (agora possível com
-ledger limpo); (c) próximo gargalo da medição. Nota: `atlas_dev_outcome_memories`=0 é organ
-PARKED sem read-side vivo — não wire às cegas.
+próximo gargalo da medição. Nota: `atlas_dev_outcome_memories`=0 é organ PARKED sem
+read-side vivo — não wire às cegas.

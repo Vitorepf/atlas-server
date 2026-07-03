@@ -41,6 +41,41 @@ final class AtlasSelfConstructionMergeGovernorCommandTest extends TestCase
         file_put_contents($this->candidatePath, json_encode($candidate, JSON_UNESCAPED_SLASHES));
     }
 
+    public function test_enforce_readiness_folds_evidence_and_fails_closed_on_spurious_reasons(): void
+    {
+        // Clean window: enough samples, real reasons only => ready. Spurious
+        // window (producer-bug reason) => NOT ready, regardless of volume.
+        $rowBase = [
+            'candidate_hash' => 'c', 'verification_hash' => 'v', 'rollback_hash' => 'r',
+            'changed_files_hash' => 'cf', 'project_lane' => ['project_id' => 'demo'],
+        ];
+        $ledger = new \App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger($this->ledgerPath);
+        for ($i = 0; $i < 21; $i++) {
+            $ledger->append($rowBase + [
+                'task_packet_id' => 'clean-'.$i,
+                'decision' => 'admitted',
+                'reasons' => ['service_or_test_change'],
+                'risk_level' => 'medium',
+                'decided_at' => '2026-07-02T0'.($i % 9).':00:00Z',
+            ]);
+            $ledger->append($rowBase + [
+                'task_packet_id' => 'spur-'.$i,
+                'decision' => 'blocked',
+                'reasons' => ['risk:missing_task_evidence_ref', 'risk_blocked'],
+                'risk_level' => 'low',
+                'decided_at' => '2026-07-02T0'.($i % 9).':00:00Z',
+            ]);
+        }
+
+        Artisan::call('atlas:self-construction:merge-governor', ['action' => 'enforce-readiness', '--ledger' => $this->ledgerPath, '--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertTrue($payload['risk_levels']['medium']['enforce_ready']);
+        $this->assertFalse($payload['risk_levels']['low']['enforce_ready']);
+        $this->assertSame('spurious_reasons_in_window', $payload['risk_levels']['low']['reason']);
+    }
+
     private function admittedCandidate(): array
     {
         return [
