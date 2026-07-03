@@ -257,7 +257,10 @@ final class AtlasDecideLiveOutcomeFeedbackService
                     $qualitySum += (float) $w['quality_score'];
                     $qualityCount++;
                 }
-                if (isset($w['cost_usd']) && is_numeric($w['cost_usd']) && (float) $w['cost_usd'] > 0.0) {
+                // >= 0: custo ZERO (provider local) é amostra válida — o
+                // filtro > 0 zerava cost_sample_count e o avg ficava null
+                // mesmo com o ledger cheio de cost_usd:0 (S47).
+                if (isset($w['cost_usd']) && is_numeric($w['cost_usd']) && (float) $w['cost_usd'] >= 0.0) {
                     $costSum += (float) $w['cost_usd'];
                     $costCount++;
                 }
