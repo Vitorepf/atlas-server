@@ -1100,7 +1100,12 @@ final class PipelineRunExecutor implements RunExecutor
         // stats and degradation signals run on evidence. Skipped in unit tests
         // unless a test binds an explicit instance (never pollute the live ledger
         // with fixture runs). Fail-open: routing evidence must never break the run.
-        if (! app()->runningUnitTests() || app()->bound(AtlasDecideLiveOutcomeFeedbackService::class)) {
+        // no_patch_needed NÃO entra no ledger de rota: o provider julgou
+        // corretamente que não havia o que mudar — nem sucesso nem falha de
+        // MÚSCULO. Gravar como failure envenenava a taxa da janela com runs
+        // sem trabalho (lote de evidência 03/07).
+        $admlRecordable = $receipt->completion->status !== CompletionSummary::STATUS_NO_PATCH_NEEDED;
+        if ($admlRecordable && (! app()->runningUnitTests() || app()->bound(AtlasDecideLiveOutcomeFeedbackService::class))) {
             try {
                 app(AtlasDecideLiveOutcomeFeedbackService::class)->record([
                     'task_category' => 'programming',
