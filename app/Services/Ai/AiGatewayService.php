@@ -115,6 +115,28 @@ class AiGatewayService
         $provider = $this->providerFromOptions($options);
         $options['provider'] = $provider;
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
+
+        // ROTA NO FUNIL ÚNICO (03/07): a decisão do router viajava só quando
+        // a superfície era o AiInteractionController HTTP — CLI chat e
+        // enqueues programáticos chegavam SEM atlas_ai_router e perdiam a
+        // escada inteira (inversão S52 + árbitro semântico S53). O gateway é
+        // o funil por onde TODA superfície passa: decide aqui quando ausente;
+        // superfícies que já decidiram (controller) são respeitadas. Fail-open.
+        if (! is_array($payload['atlas_ai_router'] ?? null)) {
+            try {
+                $routerDecision = app(\App\Services\Ai\Router\AtlasAiRouterService::class)->decide([
+                    'input_text' => $input,
+                    'source_type' => (string) ($options['source_type'] ?? 'app'),
+                    'payload' => $payload,
+                ])->toArray();
+                $payload['atlas_ai_router'] = $routerDecision;
+                $payload['flow_origin'] = $payload['flow_origin'] ?? $routerDecision['flow_origin'];
+                $payload['command_intent'] = $payload['command_intent'] ?? $routerDecision['command_intent'];
+            } catch (\Throwable) {
+                // roteamento nunca bloqueia o enqueue
+            }
+        }
+
         $payload = $this->enforceFairModeProvider($payload, $provider);
         $options['payload'] = $payload;
         if ($this->fairClaude->isFairPayload($payload) && ! is_string($options['model'] ?? null)) {
