@@ -57,7 +57,11 @@ final class AtlasAaelParallelExecutionReceiptLedger
         if (! is_file($path)) {
             return;
         }
-        $raw = (string) file_get_contents($path);
+        $raw = file_get_contents($path);
+        if ($raw === false) {
+            throw new \RuntimeException('AtlasAaelParallelExecutionReceiptLedger: unable to read ledger file: '.$path, 1);
+        }
+        $raw = (string) $raw;
         if ($raw === '') {
             return;
         }
