@@ -271,6 +271,26 @@ class AiWorker
         ]);
         $metadata = is_array($job->metadata) ? $job->metadata : [];
         $metadata['semantic_flow_arbiter'] = ['flow_id' => $flowId, 'superseded_reason' => $reason];
+
+        // Cada arbitragem é um EXEMPLO ROTULADO grátis (frase real → flow
+        // escolhido pelo modelo): gravar a resolução no ledger de misses
+        // fecha o ciclo de aprendizado — frases recorrentes viram atalho
+        // léxico por evidência e o custo do árbitro amortiza sozinho.
+        try {
+            \App\Services\Ai\Support\AppendOnlyJsonlStore::append(
+                storage_path('atlas/router/misroute_candidates.jsonl'),
+                [
+                    'schema_version' => 'atlas.router.misroute_candidate.v1',
+                    'recorded_at' => now()->toIso8601String(),
+                    'surface_id' => (string) data_get($payload, 'surface_id', ''),
+                    'intent' => mb_substr($message, 0, 500),
+                    'decision' => 'semantic_arbiter_resolved',
+                    'resolved_flow' => $flowId,
+                ],
+            );
+        } catch (\Throwable) {
+            // fail-open
+        }
         $job->forceFill([
             'prompt' => $prompt->prompt,
             'context_refs' => $prompt->contextRefs,
