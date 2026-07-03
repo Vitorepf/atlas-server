@@ -64,4 +64,35 @@ final class AgentValidationGateFailureClassifierTest extends TestCase
         $this->assertSame('not_applicable', $skip['supply_impact']);
         $this->assertFalse($skip['is_failure_classification']);
     }
+
+    public function test_null_blocks_supply_falls_back_to_gate_id_list(): void
+    {
+        // A supply-blocking gate with blocks_supply explicitly set to null
+        // must fall back to the authoritative SUPPLY_BLOCKING_GATE_IDS list,
+        // not coerce null to false and downgrade to isolated.
+        $result = $this->classifier()->classify([
+            'gate_id' => 'packet_admission_gate',
+            'gate_type' => 'admission',
+            'observed_status' => 'fail',
+            'severity' => 'low',
+            'blocks_supply' => null,
+        ]);
+
+        $this->assertSame('queue_supply_blocker', $result['supply_impact']);
+        $this->assertContains($result['severity'], ['high', 'critical']);
+    }
+
+    public function test_null_blocks_supply_on_non_supply_gate_is_isolated(): void
+    {
+        // A non-supply-blocking gate with blocks_supply=null stays isolated.
+        $result = $this->classifier()->classify([
+            'gate_id' => 'php_lint',
+            'gate_type' => 'lint',
+            'observed_status' => 'fail',
+            'severity' => 'medium',
+            'blocks_supply' => null,
+        ]);
+
+        $this->assertSame('isolated_implementation_failure', $result['supply_impact']);
+    }
 }

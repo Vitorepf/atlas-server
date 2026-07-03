@@ -173,9 +173,12 @@ final class AgentValidationGateFailureClassifier
         $supplyImpact = self::SUPPLY_IMPACT_NOT_APPLICABLE;
         if ($isFailureClass) {
             $gateId = (string) ($gateResult['gate_id'] ?? '');
-            $blocksSupply = array_key_exists('blocks_supply', $gateResult)
-                ? (bool) $gateResult['blocks_supply']
-                : in_array($gateId, self::SUPPLY_BLOCKING_GATE_IDS, true);
+            $blocksSupply = null;
+            if (array_key_exists('blocks_supply', $gateResult) && $gateResult['blocks_supply'] !== null) {
+                $blocksSupply = (bool) $gateResult['blocks_supply'];
+            } else {
+                $blocksSupply = in_array($gateId, self::SUPPLY_BLOCKING_GATE_IDS, true);
+            }
 
             $supplyImpact = $blocksSupply ? self::SUPPLY_IMPACT_BLOCKER : self::SUPPLY_IMPACT_ISOLATED;
             if ($blocksSupply && ! in_array($severity, ['high', 'critical'], true)) {
