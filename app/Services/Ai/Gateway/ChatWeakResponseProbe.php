@@ -50,6 +50,15 @@ final class ChatWeakResponseProbe
             $reasons[] = 'placeholder_marker_in_response';
         }
 
+        // Marcação interna vazada como texto (incidente 02/07, rota sem
+        // harness de tools): <antThinking> / pseudo-tool-calls. O sanitizer
+        // limpa o que o operador vê; ESTE flag roda no output CRU e derruba o
+        // quality_score da rota no ledger ADML — a rota que finge executar
+        // código degrada em vez de parecer permanentemente verde.
+        if (preg_match('/<antThinking>|<tool[a-z_]*\s*\(code=|<\/tool[a-z_]*>/i', $trimmed) === 1) {
+            $reasons[] = 'leaked_model_markup';
+        }
+
         $flowId = trim((string) ($specialistExecution['flow_id'] ?? ''));
         $hasContract = $specialistExecution !== [] && $flowId !== '' && $flowId !== 'atlas_conversation';
 

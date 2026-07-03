@@ -97,4 +97,22 @@ final class ChatWeakResponseProbeTest extends TestCase
         $noContract = $this->probe()->inspect($short, []);
         $this->assertFalse($noContract['weak']);
     }
+
+    public function test_leaked_model_markup_flags_weak_on_raw_output(): void
+    {
+        // Incidente 02/07: rota sem harness de tools vaza <antThinking> e
+        // pseudo-tool-calls como texto. O flag roda no output CRU e derruba o
+        // quality_score da rota no ledger ADML.
+        $raw = 'Vou verificar. <antThinking>internal</antThinking> '
+            .'<toolcodeinterpreter(code="import subprocess")>x</toolcodeinterpreter> fim.';
+
+        $result = $this->probe()->inspect($raw, []);
+
+        $this->assertTrue($result['weak']);
+        $this->assertContains('leaked_model_markup', $result['reasons']);
+
+        // Prosa legítima mencionando tools/thinking NÃO dispara.
+        $clean = $this->probe()->inspect('O harness de tools do Atlas usa thinking estruturado.', []);
+        $this->assertFalse($clean['weak']);
+    }
 }
