@@ -180,7 +180,11 @@ final class AtlasMaestroQueueAgeHistogram
 
         foreach (['claimable_since', 'created_at', 'enqueued_at', 'updated_at'] as $key) {
             if (isset($packet[$key]) && is_string($packet[$key]) && trim($packet[$key]) !== '') {
-                return (new DateTimeImmutable($packet[$key]))->setTimezone(new DateTimeZone('UTC'))->getTimestamp();
+                try {
+                    return (new DateTimeImmutable($packet[$key]))->setTimezone(new DateTimeZone('UTC'))->getTimestamp();
+                } catch (\Throwable) {
+                    // Malformed timestamp — skip to the next key.
+                }
             }
         }
 
