@@ -214,6 +214,24 @@ class RiskLevelScorer
             }
         }
 
+        // Paths concretos NOMEADOS no intent são escopo explícito na língua do
+        // operador — o mesmo princípio do allowed_files= acima. Sem isto,
+        // "corrija o teste falhando em tests/Unit/.../FooTest.php" herdava a
+        // LARGURA do discovery (likelyFiles>=6) e virava R4/forge-preview: o
+        // fast path nunca executava nem o repair mais simples (provado no
+        // smoke de 03/07). Só tokens com barra + extensão contam — palavra
+        // solta nunca casa. Determinístico, sem filesystem.
+        if ($files === []) {
+            preg_match_all(
+                '~(?<![A-Za-z0-9_])(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+\.[A-Za-z]{2,10}(?![A-Za-z0-9_])~',
+                $envelope->normalizedIntent,
+                $matches,
+            );
+            foreach ($matches[0] ?? [] as $candidate) {
+                $files[] = trim($candidate);
+            }
+        }
+
         return AtlasDevStringListNormalizer::uniqueTrimmedStrings($files);
     }
 }

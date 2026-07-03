@@ -57,7 +57,8 @@ final class RiskLevelScorerTest extends TestCase
 
     public function test_three_files_raise_to_r3(): void
     {
-        $envelope = $this->envelope('refactor service em app/Foo.php');
+        // Intent SEM path nomeado: a largura do discovery continua mandando.
+        $envelope = $this->envelope('refactor no servico de relatorios');
         $discovery = $this->discoveryWith([
             '/ws/app/Services/A.php',
             '/ws/app/Services/B.php',
@@ -65,14 +66,33 @@ final class RiskLevelScorerTest extends TestCase
         ]);
         $this->assertSame(RiskLevelScorer::R3, (new RiskLevelScorer)->score(
             $envelope,
-            $this->classify('refactor service em app/Foo.php'),
+            $this->classify('refactor no servico de relatorios'),
+            $discovery,
+        ));
+    }
+
+    public function test_intent_naming_one_concrete_path_bounds_breadth_like_allowed_files(): void
+    {
+        // Incidente 03/07: "corrija o teste falhando em <path>" herdava a
+        // largura do discovery (>=6 likely files) e virava R4/forge-preview —
+        // o fast path nunca executava o repair mais simples. Path nomeado no
+        // intent e escopo explicito na lingua do operador (mesmo principio do
+        // allowed_files=).
+        $envelope = $this->envelope('corrija o teste falhando em tests/Unit/Services/FooTest.php');
+        $discovery = $this->discoveryWith([
+            '/ws/app/Services/A.php', '/ws/app/Services/B.php', '/ws/app/Services/C.php',
+            '/ws/app/Services/D.php', '/ws/app/Services/E.php', '/ws/app/Services/F.php',
+        ]);
+        $this->assertSame(RiskLevelScorer::R2, (new RiskLevelScorer)->score(
+            $envelope,
+            $this->classify('corrija o teste falhando em tests/Unit/Services/FooTest.php'),
             $discovery,
         ));
     }
 
     public function test_six_files_or_three_layers_raise_to_r4(): void
     {
-        $envelope = $this->envelope('ajuste cobertura em app/Foo.php e tests');
+        $envelope = $this->envelope('ajuste a cobertura da area de pagamentos');
         $discovery = $this->discoveryWith([
             '/ws/app/Models/Foo.php',
             '/ws/app/Http/Controllers/FooController.php',
@@ -82,7 +102,7 @@ final class RiskLevelScorerTest extends TestCase
         // 4 buckets touched (db, api, ui, service) → R4
         $this->assertSame(RiskLevelScorer::R4, (new RiskLevelScorer)->score(
             $envelope,
-            $this->classify('ajuste cobertura em app/Foo.php e tests'),
+            $this->classify('ajuste a cobertura da area de pagamentos'),
             $discovery,
         ));
     }
