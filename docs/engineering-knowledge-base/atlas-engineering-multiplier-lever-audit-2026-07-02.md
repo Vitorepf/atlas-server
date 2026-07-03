@@ -390,3 +390,34 @@ fluxo atlas dev" no app → chat Hermes SEM tools → `<antThinking>` e pseudo-t
 
 Incidentes de uso real do operador são o combustível de maior valor — cada screenshot vira
 causa-raiz + fix + teste com o texto real. Pendências acima; depois, re-medição do funil.
+
+## Execução 03/07 — arco "elite no repo real" (S36–S42)
+
+Método consolidado: **fire test em repo real** (worktree do atlas-server, vendor CoW) como
+régua obrigatória — o toy workspace esconde a casca. Quatro órgãos "wired ≠ vivo"
+ressuscitados com prova nesta sequência:
+
+- **S36 (`f3ef85ac0d`):** transporte hermes acp→cli (acp devolvia texto sem diff — raiz de
+  18/56 no_patch_produced); **E5 baseline estava morto em produção** (só testes bindavam o
+  serviço) → wiring real; testemunha red→green isenta E1/E4/critic-intent em repair
+  (baseline vermelho + verificação verde = prova comportamental). Fire test toy: passed.
+- **S37 (`f92c24619a`):** router à prova de erro — LEI da escolha explícita (picker
+  explicit_flow/domain era IGNORADO) + árbitro do kernel canônico no fallback (conversa só
+  quando classificada conversa; sem envelope, classifyShape puro).
+- **S38 (`c5e2125e72`):** kernel canônico entende o dia a dia — word-boundary p/ tokens ≤4
+  ('fix' casava "renda FIXa") + vocabulário PT-BR real; matriz de 20 frases 11/20→0/20,
+  congelada em teste.
+- **S39 (`101e4e8d78`):** 5 bloqueios do repo real: scope-delta (vendor/caches
+  pré-existentes), caches efêmeros, **`hermes chat --max-turns 1` → cli_oneshot `-z`**
+  (1 turno só explorava), Operating Rules task-aware p/ TRANSFORMAÇÃO, gates julgam o
+  DIFF (pint escopado + E2 transformação-testemunhada). Refactor real de 18L: passed.
+- **S40 (`2fc495113e`):** untracked pré-existente ≠ mutação do provider. Matriz real:
+  repair passed / refactor passed / feature+otimização needs_review honestos.
+- **S41 (`8c71dc311a`):** **E3 nunca tinha funcionado** (infection 0.33 sem --logger-json;
+  rodava no base_path, não no workspace) + critic morria com line=0 em arquivo novo.
+  Primeira medição E3 real: MSI 100.0. Multi-arquivo (código+teste) provado.
+- **S42 (`e9016da9c9`):** critic sem ruído sistêmico (word-boundary; 'foreach ($' não é
+  finding — todo diff com loop era needs_review).
+
+Baseline em re-medição: lote de 6 fire tests variados no repo real (repair/simplify/
+refactor/feature/otimização/multi-file) — resultado vira o novo placar honesto do funil.
