@@ -50,6 +50,29 @@ final class AtlasAiRouterService
             );
         }
 
+        // LEI DA ESCOLHA EXPLÍCITA: quando o operador seleciona um domínio/
+        // flow no picker (selection_source explicit_*), a escolha É a rota —
+        // nenhuma heurística, kernel ou Hyperflow pode sobrepor. Antes deste
+        // lane o patch do domain-catalog (payload.flow_id) era hint que o
+        // router IGNORAVA: escolher "Finanças" no desktop só funcionava se o
+        // Hyperflow reclassificasse igual. "Se eu pedir, ele precisa entender
+        // sem erros" — pedido explícito não passa por classificador.
+        $explicitFlow = $this->explicitOperatorFlow($payload);
+        if ($explicitFlow !== null) {
+            return $this->decision(
+                flowId: $explicitFlow,
+                origin: 'operator_override',
+                command: str_starts_with($explicitFlow, 'atlas_') ? substr($explicitFlow, strlen('atlas_')) : $explicitFlow,
+                reason: 'explicit_domain_catalog_selection',
+                confidence: 'confirmed',
+                surfaceId: $surfaceId,
+                workspace: $workspace,
+                rawIntent: $rawIntent,
+                alternatives: [],
+                intent: $intent,
+            );
+        }
+
         if ($surfaceId === 'atlas_code') {
             return $this->decision(
                 flowId: AtlasAiRouterDecision::FLOW_FORGE,
@@ -218,7 +241,108 @@ final class AtlasAiRouterService
             }
         }
 
+        // ÁRBITRO DO KERNEL CANÔNICO: antes de cair em conversa, consulta a
+        // classificação do IntentKernelService (Hyperflow) que já viajou no
+        // envelope — 13 tipos, cobre finanças/marketing/cyber/estratégia/
+        // pessoal/automação que as heurísticas legadas NÃO têm. Conversa deixa
+        // de ser ralo de "nenhuma keyword casou": só é rota quando o kernel
+        // canônico classificou conversation/unknown de verdade. Fecha o buraco
+        // "Hyperflow indisponível ⇒ domínios não-engenharia nunca roteiam".
+        $arbitrated = $this->canonicalIntentArbiter($payload, $surfaceId, $workspace, $rawIntent, $intent);
+        if ($arbitrated !== null) {
+            return $arbitrated;
+        }
+
         return $this->decision(AtlasAiRouterDecision::FLOW_CONVERSATION, 'router_auto', 'converse', 'fallback_conversation', 'low', $surfaceId, $workspace, $rawIntent, [], $intent);
+    }
+
+    /**
+     * Lei da escolha explícita: flow selecionado pelo operador no picker
+     * (domain catalog selection_source explicit_flow/explicit_domain, ou
+     * payload.flow_id validado) vira rota confirmada. Retorna null quando a
+     * seleção é ux_mapping/ausente — aí a autodetecção decide.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function explicitOperatorFlow(array $payload): ?string
+    {
+        $selection = is_array($payload['domain_catalog_selection'] ?? null) ? $payload['domain_catalog_selection'] : [];
+        $source = (string) ($selection['selection_source'] ?? '');
+        if (! in_array($source, ['explicit_flow', 'explicit_domain'], true)) {
+            return null;
+        }
+
+        $flowId = $this->string($selection['flow_id'] ?? null) ?? $this->string($payload['flow_id'] ?? null);
+        if ($flowId === null || ! in_array($flowId, AtlasAiRouterDecision::FLOWS, true)) {
+            return null;
+        }
+
+        return $flowId;
+    }
+
+    /**
+     * Árbitro do kernel canônico para a cauda ambígua: consome o intent do
+     * envelope Hyperflow (intent.type + confidence) quando NENHUMA heurística
+     * legada casou. Mapeia intent→flow pelo canon; conversation/unknown
+     * retornam null (fallback conversa é legítimo aí). Threshold baixo de
+     * propósito: para pedido de TRABALHO, rotear ao domínio com confiança
+     * média-baixa erra menos que cair num chat sem tools.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $intent
+     */
+    private function canonicalIntentArbiter(
+        array $payload,
+        string $surfaceId,
+        ?string $workspace,
+        string $rawIntent,
+        array $intent,
+    ): ?AtlasAiRouterDecision {
+        $envelope = is_array($payload['hyperflow_runtime'] ?? null) ? $payload['hyperflow_runtime'] : [];
+        $kernelIntent = is_array($envelope['intent'] ?? null) ? $envelope['intent'] : [];
+        $type = (string) ($kernelIntent['type'] ?? '');
+        $confidence = (float) ($kernelIntent['confidence'] ?? 0.0);
+
+        // Envelope ausente (Hyperflow desligado/erro): roda o MESMO kernel
+        // canônico em forma pura (sem persistência) — fonte única de verdade
+        // independente do pipeline estar vivo.
+        if ($type === '' && $rawIntent !== '') {
+            try {
+                $shape = (new \App\Services\Ai\RouterRuntime\IntentKernelService)->classifyShape($rawIntent);
+                $type = (string) $shape['intent_type'];
+                $confidence = (float) $shape['confidence'];
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        if ($type === '' || $type === 'conversation' || $type === 'unknown' || $confidence < 0.35) {
+            return null;
+        }
+
+        $flowId = \App\Services\Ai\RouterRuntime\RouterRuntimeCanon::INTENT_TO_FLOW[$type] ?? null;
+        if ($flowId === null || $flowId === AtlasAiRouterDecision::FLOW_CONVERSATION) {
+            return null;
+        }
+
+        // Escrita de código sem workspace não tem onde editar: degrade honesto
+        // para plan (mesmo contrato da heurística patch-like legada).
+        if ($flowId === AtlasAiRouterDecision::FLOW_DEV && $workspace === null) {
+            $flowId = AtlasAiRouterDecision::FLOW_PLAN;
+        }
+
+        return $this->decision(
+            flowId: $flowId,
+            origin: 'router_auto',
+            command: str_starts_with($flowId, 'atlas_') ? substr($flowId, strlen('atlas_')) : $flowId,
+            reason: 'canonical_intent_arbiter:'.$type,
+            confidence: $confidence >= 0.75 ? 'strong' : 'medium',
+            surfaceId: $surfaceId,
+            workspace: $workspace,
+            rawIntent: $rawIntent,
+            alternatives: [AtlasAiRouterDecision::FLOW_CONVERSATION],
+            intent: $intent,
+        );
     }
 
     /**

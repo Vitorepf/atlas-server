@@ -98,6 +98,30 @@ class IntentKernelService
     ];
 
     /**
+     * Pure classification shape (no persistence, no DB): the single source of
+     * truth for keyword scoring, usable by callers that only need the verdict
+     * (ex.: o árbitro de fallback do AtlasAiRouterService, que roda mesmo com
+     * o pipeline Hyperflow indisponível).
+     *
+     * @return array{intent_type:string,confidence:float,ambiguity_score:float,matched_keywords:array<int,string>}
+     */
+    public function classifyShape(string $rawInput): array
+    {
+        $normalized = $this->normalize($rawInput);
+        [$intentType, $confidence, $ambiguity, $matchedKeywords] = $this->resolveIntent(
+            $this->rank($this->scoreKeywords($normalized)),
+            $normalized,
+        );
+
+        return [
+            'intent_type' => $intentType,
+            'confidence' => $confidence,
+            'ambiguity_score' => $ambiguity,
+            'matched_keywords' => $matchedKeywords,
+        ];
+    }
+
+    /**
      * Classify a raw input prompt. Returns a persisted classification record.
      *
      * @param  array<string,mixed>  $context
