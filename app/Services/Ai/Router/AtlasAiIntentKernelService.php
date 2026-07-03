@@ -49,6 +49,17 @@ final class AtlasAiIntentKernelService
             return ['intent_class' => 'review', 'confidence' => 'strong'];
         }
 
+        // Verificação/auditoria de código SEM diff anexado — "realiza uma
+        // verificação rigorosa do fluxo X", "audite o módulo Y". Com workspace
+        // aberto isso é trabalho de engenharia com leitura de código (review
+        // flow), nunca conversa: o incidente 02/07 mandou exatamente esse
+        // pedido para chat sem tools e o modelo FINGIU executar código.
+        if ($signals['verify_like']) {
+            return $workspacePresent
+                ? ['intent_class' => 'review', 'confidence' => 'strong']
+                : ['intent_class' => 'research', 'confidence' => 'medium'];
+        }
+
         if ($signals['debug_like']) {
             return ['intent_class' => 'debug', 'confidence' => 'strong'];
         }
@@ -83,6 +94,7 @@ final class AtlasAiIntentKernelService
     {
         return [
             'review_like' => $this->hasDiffOrPr($attachments, $haystack),
+            'verify_like' => $this->containsAny($haystack, ['verificacao', 'verificação', 'verifique o', 'verificar o', 'auditoria', 'audite', 'auditar', 'valide o fluxo', 'validar o fluxo', 'checagem do', 'inspecione o codigo', 'inspecione o código', 'verify the', 'audit the', 'rigorous check']),
             'debug_like' => $this->containsAny($haystack, ['stack trace', 'stacktrace', 'traceback', 'debug ', 'debugue', 'logs', 'log ', 'erro em producao', 'erro em produção', 'exception', 'observability']),
             'forge_like' => $this->containsAny($haystack, ['obra ', 'multi-semana', 'multi semana', 'sistema inteiro', 'sistema todo', 'app inteiro', 'one shot enterprise', 'one-shot enterprise']),
             'plan_like' => $this->containsAny($haystack, ['planeje', 'planejar', 'plano', 'plan ', 'planning', 'roadmap', 'estruture', 'arquitetura antes', 'antes de implementar']),
@@ -105,7 +117,7 @@ final class AtlasAiIntentKernelService
             return 'medium';
         }
 
-        if ($signals['debug_like'] || $signals['review_like']) {
+        if ($signals['debug_like'] || $signals['review_like'] || ($signals['verify_like'] && $workspacePresent)) {
             return 'medium';
         }
 

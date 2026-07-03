@@ -183,6 +183,41 @@ final class AtlasAiRouterService
             return $this->decision(AtlasAiRouterDecision::FLOW_RESEARCH, 'router_auto', 'research', 'research_like_intent', 'strong', $surfaceId, $workspace, $rawIntent, [AtlasAiRouterDecision::FLOW_CONVERSATION], $intent);
         }
 
+        // Kernel-authoritative catch: quando o intent kernel classificou com
+        // confiança um intent de ENGENHARIA que as heurísticas legadas acima
+        // não têm keyword para pegar, a classificação vira rota em vez de cair
+        // em conversa. Incidente 02/07: "realiza uma verificação rigorosa do
+        // fluxo atlas dev" (workspace aberto) caiu em chat Hermes sem tools e
+        // o modelo FINGIU executar código. Só classes de engenharia, só com
+        // confiança strong — conversation/low continua no fallback.
+        $kernelClass = (string) ($intent['intent_class'] ?? '');
+        $kernelConfident = ($intent['confidence'] ?? '') === 'strong';
+        if ($kernelConfident) {
+            $kernelFlow = match ($kernelClass) {
+                'review' => AtlasAiRouterDecision::FLOW_REVIEW,
+                'debug' => AtlasAiRouterDecision::FLOW_DEBUG,
+                'dev' => $workspace !== null ? AtlasAiRouterDecision::FLOW_DEV : null,
+                'plan' => AtlasAiRouterDecision::FLOW_PLAN,
+                'research' => AtlasAiRouterDecision::FLOW_RESEARCH,
+                'explain' => AtlasAiRouterDecision::FLOW_EXPLAIN,
+                default => null,
+            };
+            if ($kernelFlow !== null) {
+                return $this->decision(
+                    $kernelFlow,
+                    'router_auto',
+                    $kernelClass,
+                    'intent_kernel_class:'.$kernelClass,
+                    'strong',
+                    $surfaceId,
+                    $workspace,
+                    $rawIntent,
+                    $workspace !== null ? [AtlasAiRouterDecision::FLOW_DEV] : [AtlasAiRouterDecision::FLOW_CONVERSATION],
+                    $intent,
+                );
+            }
+        }
+
         return $this->decision(AtlasAiRouterDecision::FLOW_CONVERSATION, 'router_auto', 'converse', 'fallback_conversation', 'low', $surfaceId, $workspace, $rawIntent, [], $intent);
     }
 

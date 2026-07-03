@@ -261,4 +261,37 @@ class AtlasAiRouterServiceTest extends TestCase
         $this->assertSame(AtlasAiRouterDecision::FLOW_MARKETING, $decision->flowId);
         $this->assertSame('low', $decision->routingConfidence);
     }
+
+    public function test_rigorous_verification_request_with_workspace_routes_to_review_not_conversation(): void
+    {
+        // Incidente 02/07: este prompt REAL (workspace aberto) caiu em chat
+        // Hermes sem tools e o modelo fingiu executar código. Verificação/
+        // auditoria de código com workspace é trabalho de engenharia: o intent
+        // kernel classifica review (verify_like) e o router consome a classe.
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'realiza uma verificacao rigorosa de todo o fluxo do atlas dev para programacao seria de desenvolcimento',
+            'source_type' => 'app',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'workspace' => '/tmp/fake-workspace',
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_REVIEW, $decision->flowId);
+        $this->assertSame('intent_kernel_class:review', $decision->routingReason);
+    }
+
+    public function test_smalltalk_with_workspace_still_falls_back_to_conversation(): void
+    {
+        $decision = app(AtlasAiRouterService::class)->decide([
+            'input_text' => 'bom dia, como voce esta?',
+            'source_type' => 'app',
+            'payload' => [
+                'surface_id' => 'atlas_desktop_ai',
+                'workspace' => '/tmp/fake-workspace',
+            ],
+        ]);
+
+        $this->assertSame(AtlasAiRouterDecision::FLOW_CONVERSATION, $decision->flowId);
+    }
 }
