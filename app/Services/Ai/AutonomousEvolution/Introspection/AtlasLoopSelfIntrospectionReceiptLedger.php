@@ -104,8 +104,13 @@ final class AtlasLoopSelfIntrospectionReceiptLedger
         foreach ($this->iterateAllReceiptPaths() as $path) {
             $receipt = $this->readReceipt($path);
             if ($since !== null) {
-                $takenAt = Carbon::parse((string) ($receipt['taken_at_utc'] ?? '0000-01-01T00:00:00Z'));
-                if ($takenAt->lt($since)) {
+                try {
+                    $takenAt = Carbon::parse((string) ($receipt['taken_at_utc'] ?? '0000-01-01T00:00:00Z'));
+                    if ($takenAt->lt($since)) {
+                        continue;
+                    }
+                } catch (Throwable) {
+                    // Unparseable taken_at_utc — skip this receipt.
                     continue;
                 }
             }
