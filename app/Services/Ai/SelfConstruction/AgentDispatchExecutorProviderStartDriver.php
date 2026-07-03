@@ -61,7 +61,7 @@ class AgentDispatchExecutorProviderStartDriver
         $adapterReady = (bool) ($proof['adapter_ready'] ?? false);
         $adapterReadyCheckedAt = $proof['adapter_ready_checked_at'] ?? null;
         $adapterProofStale = $adapterReadyCheckedAt === null
-            || abs(CarbonImmutable::now()->diffInSeconds(CarbonImmutable::parse((string) $adapterReadyCheckedAt))) > self::PROOF_STALENESS_CEILING_SECONDS;
+            || $this->isStale($adapterReadyCheckedAt, self::PROOF_STALENESS_CEILING_SECONDS);
 
         if (! $adapterReady) {
             $missingProof[] = 'adapter_readiness_missing';
@@ -474,5 +474,23 @@ class AgentDispatchExecutorProviderStartDriver
         $path = preg_replace('#/+#', '/', $path) ?? $path;
 
         return rtrim($path, '/');
+    }
+
+    /**
+     * Check if a timestamp is stale (older than the given ceiling).
+     * Returns true for unparseable dates (fail-safe: treat as stale).
+     */
+    private function isStale(mixed $value, int $ceilingSeconds): bool
+    {
+        if ($value === null || $value === '') {
+            return true;
+        }
+
+        try {
+            $parsed = CarbonImmutable::parse((string) $value);
+            return abs(CarbonImmutable::now()->diffInSeconds($parsed)) > $ceilingSeconds;
+        } catch (\Throwable) {
+            return true;
+        }
     }
 }
