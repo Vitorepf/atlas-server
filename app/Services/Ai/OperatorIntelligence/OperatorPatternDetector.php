@@ -168,11 +168,11 @@ final class OperatorPatternDetector
         // COHERENCE: group by (day-of-week + taxonomy item), so a cadence means the operator
         // does the SAME thing on that weekday — NOT merely "did anything on 3 Mondays" (which
         // would manufacture a false pattern from 3 unrelated expressions sharing a weekday).
-        $byDowTax = $signals->groupBy(fn (OperatorLearningSignal $s): string => Carbon::parse($s->created_at)->dayOfWeekIso.'|'.(string) $s->taxonomy_item_id);
+        $byDowTax = $signals->groupBy(fn (OperatorLearningSignal $s): string => $this->safeParse($s->created_at)->dayOfWeekIso.'|'.(string) $s->taxonomy_item_id);
 
         $out = [];
         foreach ($byDowTax as $key => $group) {
-            $distinctDays = $group->map(fn (OperatorLearningSignal $s): string => Carbon::parse($s->created_at)->toDateString())->unique();
+            $distinctDays = $group->map(fn (OperatorLearningSignal $s): string => $this->safeParse($s->created_at)->toDateString())->unique();
             if ($distinctDays->count() < $minOcc) {
                 continue;
             }
@@ -286,9 +286,22 @@ final class OperatorPatternDetector
         return $group->take(12)->map(fn (OperatorLearningSignal $s): array => [
             'source' => 'operator_learning_signal',
             'id' => (string) $s->id,
-            'occurred_at' => Carbon::parse($s->created_at)->toIso8601String(),
+            'occurred_at' => $this->safeParse($s->created_at)->toIso8601String(),
             'taxonomy_item_id' => (string) $s->taxonomy_item_id,
         ])->values()->all();
+    }
+
+    /**
+     * Safely parse a date string, returning a Carbon instance that defaults to
+     * '1970-01-01' when the value is not a valid date.
+     */
+    private function safeParse(mixed $value): Carbon
+    {
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return Carbon::parse('1970-01-01');
+        }
     }
 
     private function dowName(int $dowIso): string
