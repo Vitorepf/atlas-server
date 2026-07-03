@@ -283,7 +283,13 @@ final class FoundryEvidenceVerifierService
             'payload_hash' => $row['payload_hash'] ?? null,
             'occurred_at' => $occurredAt === null
                 ? null
-                : CarbonImmutable::parse((string) $occurredAt)->toISOString(),
+                : (function () use ($occurredAt): ?string {
+                    try {
+                        return CarbonImmutable::parse((string) $occurredAt)->toISOString();
+                    } catch (\Throwable $e) {
+                        return null;
+                    }
+                })(),
         ];
     }
 
