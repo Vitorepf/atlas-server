@@ -620,8 +620,13 @@ final class PipelineRunExecutor implements RunExecutor
             && $regressionBaseline !== null
             && in_array(false, $regressionBaseline->results, true);
 
+        // TRANSFORMAÇÃO também isenta E1: simplificação/refator REMOVE ou
+        // move linhas — exigir subject tokens nas linhas ADICIONADAS é a
+        // doutrina errada (lote real 03/07, B2: simplificação genuína com
+        // suite verde hard-failou intent_likely_not_addressed). Diff presente
+        // + gate verde é a testemunha, como no E2.
         $e1Config = $this->resolveE1Config();
-        if (! $e1Config->isOff() && ! $redToGreenWitnessed) {
+        if (! $e1Config->isOff() && ! $redToGreenWitnessed && ! $transformationWitnessed) {
             $intentMissing = (new IntentFalsificationProbe)->isIntentLikelyNotAddressed(
                 $taskContract,
                 $diffResult,
@@ -970,7 +975,7 @@ final class PipelineRunExecutor implements RunExecutor
                     taskContract: $taskContract,
                     verificationResult: $verificationResult,
                     diffResult: $diffResult,
-                    intentWitnessed: $redToGreenWitnessed,
+                    intentWitnessed: $redToGreenWitnessed || $transformationWitnessed,
                 );
                 // E1: pass the LLM-as-judge sub-layer options to the critic
                 // so detectIntentFalsification() can invoke the (optional,

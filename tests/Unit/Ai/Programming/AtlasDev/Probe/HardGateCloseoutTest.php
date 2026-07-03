@@ -438,6 +438,12 @@ final class HardGateCloseoutTest extends TestCase
         $target = $this->tmpWorkspace.'/tests/Unit/FooTest.php';
         mkdir(dirname($target), 0o755, true);
         file_put_contents($target, "<?php\nreturn true;\n");
+
+        // Source coberto por convencao existe no workspace (desde 03/07 o
+        // adapter E3 filtra candidatos derivados inexistentes - skip honesto).
+        $source = $this->tmpWorkspace.'/app/Foo.php';
+        mkdir(dirname($source), 0o755, true);
+        file_put_contents($source, "<?php\nfinal class Foo { public function value(): bool { return true; } }\n");
     }
 
     /**

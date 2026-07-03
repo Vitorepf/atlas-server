@@ -171,6 +171,25 @@ final class MutationTestingAdapter
             );
         }
 
+        // Candidatos DERIVADOS POR CONVENÇÃO que não existem no disco não são
+        // alvo de mutação: um teste novo "FooEdgeCasesTest" deriva
+        // "FooEdgeCases.php" inexistente → --filter sem match → infection
+        // completa com summary sem MSI → failed falso (lote real 03/07, B4).
+        // Sources explicitamente tocados são confiados (vêm do diff real;
+        // fixtures os passam sintéticos) — só o derivado exige existência.
+        $explicitlyTouched = array_flip(AtlasDevStringListNormalizer::uniqueTrimmedStrings($touchedFiles));
+        $existingSources = array_values(array_filter(
+            $scope->sourceFiles,
+            fn (string $f): bool => isset($explicitlyTouched[$f])
+                || is_file(rtrim($this->repoRoot, '/').'/'.$f),
+        ));
+        if ($existingSources !== $scope->sourceFiles) {
+            $scope = new MutationScope(
+                testFiles: $scope->testFiles,
+                sourceFiles: $existingSources,
+            );
+        }
+
         // If the scope has source files to mutate, run infection scoped to
         // that source. If touched test files exist but no source resolved
         // (rare: test files without a convention-covered unit-under-test),

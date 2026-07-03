@@ -667,6 +667,15 @@ final class E3AdvisoryGateTest extends TestCase
         $target = $this->tmpWorkspace.'/tests/Unit/FooTest.php';
         mkdir(dirname($target), 0o755, true);
         file_put_contents($target, "<?php\nreturn true;\n");
+
+        // O source coberto por convencao EXISTE no workspace (fiel ao cenario
+        // simulado): desde 03/07 o adapter filtra candidatos derivados
+        // inexistentes (skip honesto - caso B4 do lote real) em vez de rodar
+        // infection sem alvo. Sem este arquivo, o E3 destes fixtures viraria
+        // no-op e nenhum trip aconteceria.
+        $source = $this->tmpWorkspace.'/app/Foo.php';
+        mkdir(dirname($source), 0o755, true);
+        file_put_contents($source, "<?php\nfinal class Foo { public function value(): bool { return true; } }\n");
     }
 
     /**
