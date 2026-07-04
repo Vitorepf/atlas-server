@@ -287,4 +287,96 @@ final class AtlasExternalBrainScaffoldContractVersionerTest extends TestCase
 
         $this->assertSame(['required_one', 'required_two'], $r['required_sections']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: silent safety removal requires retirement + rollout evidence
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_silent_safety_removal_is_breaking_without_explicit_retirement(): void
+    {
+        $r = $this->versioner()->version([
+            'current_version' => '1.0.0',
+            'current_checks'  => [$this->check('safety_gate', safety: true)],
+            'proposed_checks' => [],
+            // no explicit_retirements, no rollout_evidence → silent removal → breaking
+        ]);
+
+        $this->assertSame('breaking', $r['compatibility']);
+        $this->assertStringContainsString('silently removed', $r['migration_notes'][0]);
+    }
+
+    public function test_explicit_safety_retirement_without_rollout_evidence_is_breaking(): void
+    {
+        $r = $this->versioner()->version([
+            'current_version'      => '1.0.0',
+            'current_checks'       => [$this->check('safety_gate', safety: true)],
+            'proposed_checks'      => [],
+            'explicit_retirements' => ['safety_gate'],
+            // no rollout_evidence → breaking even though explicitly retired
+        ]);
+
+        $this->assertSame('breaking', $r['compatibility']);
+        $this->assertStringContainsString('without rollout_evidence', $r['migration_notes'][0]);
+    }
+
+    public function test_explicit_safety_retirement_with_rollout_evidence_is_not_breaking(): void
+    {
+        $r = $this->versioner()->version([
+            'current_version'      => '1.0.0',
+            'current_checks'       => [$this->check('safety_gate', safety: true)],
+            'proposed_checks'      => [],
+            'explicit_retirements' => ['safety_gate'],
+            'rollout_evidence'     => ['migration-guide.md'],
+        ]);
+
+        $this->assertNotSame('breaking', $r['compatibility']);
+        $this->assertSame('migration_required', $r['compatibility']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC3: SemVer bump
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_semver_compatible_is_patch_bump(): void
+    {
+        $r = $this->versioner()->version([
+            'current_version' => '2.5.9',
+            'current_checks'  => [],
+            'proposed_checks' => [$this->check('new', false, false)],
+        ]);
+        $this->assertSame('2.5.10', $r['next_version']);
+    }
+
+    public function test_semver_migration_required_is_minor_bump(): void
+    {
+        $r = $this->versioner()->version([
+            'current_version' => '2.5.9',
+            'current_checks'  => [$this->check('old')],
+            'proposed_checks' => [],
+        ]);
+        $this->assertSame('2.6.0', $r['next_version']);
+    }
+
+    public function test_semver_breaking_is_major_bump(): void
+    {
+        $r = $this->versioner()->version([
+            'current_version' => '2.5.9',
+            'current_checks'  => [$this->check('guard', safety: true)],
+            'proposed_checks' => [],
+        ]);
+        $this->assertSame('3.0.0', $r['next_version']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: output contract
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_output_contract_has_all_required_keys(): void
+    {
+        $r = $this->versioner()->version([]);
+
+        foreach (['next_version', 'compatibility', 'migration_notes', 'retired_checks', 'rollout_guidance'] as $key) {
+            $this->assertArrayHasKey($key, $r, "Output missing required key: {$key}");
+        }
+    }
 }
