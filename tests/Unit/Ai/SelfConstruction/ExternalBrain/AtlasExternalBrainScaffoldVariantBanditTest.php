@@ -414,4 +414,41 @@ final class AtlasExternalBrainScaffoldVariantBanditTest extends TestCase
 
         $this->assertGreaterThan(0.0, $r['expected_quality_lift']);
     }
+
+    // ── retired_variants ──
+
+    public function test_retired_variants_empty_when_no_rejected_or_quarantined(): void
+    {
+        $r = $this->select([$this->variant('good', 10, 8, 0, 8.0)]);
+        $this->assertSame([], $r['retired_variants']);
+    }
+
+    public function test_retired_variants_includes_rejected_variants(): void
+    {
+        $r = $this->select([
+            $this->variant('good', 10, 8, 0, 8.0, 0.8, 0.0, 5.0, 0.8),
+            $this->variant('bad', 10, 1, 0, 1.0, 0.1, 0.0, 5.0, 0.1),
+        ]);
+        $this->assertContains('bad', $r['retired_variants']);
+    }
+
+    public function test_retired_variants_includes_quarantined_variants(): void
+    {
+        $r = $this->select([
+            $this->variant('good', 10, 8, 0, 8.0),
+            ['variant_id' => 'leaky', 'total_runs' => 10, 'successes' => 5, 'heldout_pass_rate' => 0.5, 'proxy_leak_rate' => 0.50],
+        ]);
+        $this->assertContains('leaky', $r['retired_variants']);
+    }
+
+    public function test_retired_variants_is_union_of_rejected_and_quarantined(): void
+    {
+        $r = $this->select([
+            $this->variant('good', 10, 8, 0, 8.0, 0.8, 0.0, 5.0, 0.8),
+            $this->variant('bad', 10, 1, 0, 1.0, 0.1, 0.0, 5.0, 0.1),
+            ['variant_id' => 'leaky', 'total_runs' => 10, 'successes' => 5, 'heldout_pass_rate' => 0.5, 'proxy_leak_rate' => 0.50],
+        ]);
+        $this->assertContains('bad', $r['retired_variants']);
+        $this->assertContains('leaky', $r['retired_variants']);
+    }
 }

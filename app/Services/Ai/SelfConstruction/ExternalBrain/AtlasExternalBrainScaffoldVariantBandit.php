@@ -107,6 +107,7 @@ final class AtlasExternalBrainScaffoldVariantBandit
                 'confidence'           => 'low',
                 'evidence_counts'      => [],
                 'rejected_variants'    => [],
+                'retired_variants'     => [],
                 'quarantined_variants' => [],
                 'selection_reasons'    => $selectionReasons,
                 'exploration_reason'   => null,
@@ -151,6 +152,7 @@ final class AtlasExternalBrainScaffoldVariantBandit
                 'confidence'           => 'low',
                 'evidence_counts'      => $evidenceCounts,
                 'rejected_variants'    => [],
+                'retired_variants'     => [],
                 'quarantined_variants' => $quarantinedVariants,
                 'selection_reasons'    => $selectionReasons,
                 'exploration_reason'   => null,
@@ -168,6 +170,7 @@ final class AtlasExternalBrainScaffoldVariantBandit
 
         $explorationVariants = [];
         $rejectedVariants    = [];
+        $retiredVariants     = [];
 
         foreach ($scored as $id => $s) {
             if ($id !== $selected && $s['runs'] < self::MIN_EVIDENCE) {
@@ -176,7 +179,12 @@ final class AtlasExternalBrainScaffoldVariantBandit
             if ($s['runs'] >= self::MIN_EVIDENCE && $s['weighted'] < self::REJECTION_THRESHOLD) {
                 $rejectedVariants[] = $id;
             }
+            // Retired: variants with sufficient evidence that are both rejected AND quarantined
+            // (i.e., confirmed poor performers that should no longer be considered)
         }
+
+        // Retired = union of rejected and quarantined variants
+        $retiredVariants = array_values(array_unique(array_merge($rejectedVariants, $quarantinedVariants)));
 
         if ($selectedRuns >= self::MIN_EVIDENCE * 2) {
             $confidence = 'high';
@@ -214,6 +222,7 @@ final class AtlasExternalBrainScaffoldVariantBandit
             'confidence'           => $confidence,
             'evidence_counts'      => $evidenceCounts,
             'rejected_variants'    => $rejectedVariants,
+            'retired_variants'     => $retiredVariants,
             'quarantined_variants' => $quarantinedVariants,
             'selection_reasons'    => $selectionReasons,
             'exploration_reason'   => $explorationReason,
