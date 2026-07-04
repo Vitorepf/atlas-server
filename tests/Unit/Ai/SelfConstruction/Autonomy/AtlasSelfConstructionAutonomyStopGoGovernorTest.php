@@ -339,4 +339,35 @@ final class AtlasSelfConstructionAutonomyStopGoGovernorTest extends TestCase
         $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_CONSOLIDATE, $result['decision']);
         $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_GO, $result['stop_go_decision']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: self_heal > replenish, low worker floor veto, go vs pause
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_self_heal_prioritized_over_replenish(): void
+    {
+        $result = $this->governor->decide($this->healthy([
+            'malformed_risk' => true,
+            'dry_queue' => true,
+        ]));
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_SELF_HEAL, $result['decision']);
+    }
+
+    public function test_low_worker_floor_vetoes_go_autonomous_to_go_repair_queue(): void
+    {
+        $result = $this->governor->decide($this->healthy([
+            'claimable_per_active_worker' => 1.5,
+        ]));
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_GO_REPAIR_QUEUE, $result['decision']);
+        $this->assertContains('worker_feed_below_floor', $result['rationale']);
+    }
+
+    public function test_dry_queue_returns_replenish_with_guardrails(): void
+    {
+        $result = $this->governor->decide($this->healthy([
+            'dry_queue' => true,
+            'value_trend' => 'low',
+        ]));
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_REPLENISH, $result['decision']);
+    }
 }
