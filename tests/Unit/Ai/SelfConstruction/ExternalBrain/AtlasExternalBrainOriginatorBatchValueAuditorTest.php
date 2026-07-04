@@ -172,4 +172,44 @@ final class AtlasExternalBrainOriginatorBatchValueAuditorTest extends TestCase
             json_encode($auditor->audit($facts)),
         );
     }
+
+    // ── compoundProofAudit: compound_value_score, weak_compound_evidence_task_ids, recommendation_reasons ──
+
+    public function test_strong_compound_evidence_yields_high_score(): void
+    {
+        $r = (new AtlasExternalBrainOriginatorBatchValueAuditor)->compoundProofAudit([
+            ['task_id' => 't1', 'downstream_unlocks' => 1.0, 'risk_reduction' => 0.8, 'proof_strength' => 0.9, 'simplification_gain' => 0.7],
+        ]);
+        $this->assertGreaterThan(0.7, $r['compound_value_score']);
+        $this->assertSame([], $r['weak_compound_evidence_task_ids']);
+    }
+
+    public function test_no_compound_evidence_flags_task_as_weak(): void
+    {
+        $r = (new AtlasExternalBrainOriginatorBatchValueAuditor)->compoundProofAudit([
+            ['task_id' => 't1', 'impact_score' => 0.5],
+        ]);
+        $this->assertSame(0.0, $r['compound_value_score']);
+        $this->assertSame(['t1'], $r['weak_compound_evidence_task_ids']);
+        $this->assertContains('majority_tasks_lack_compound_proof_evidence', $r['recommendation_reasons']);
+    }
+
+    public function test_mixed_batch_identifies_weak_tasks(): void
+    {
+        $r = (new AtlasExternalBrainOriginatorBatchValueAuditor)->compoundProofAudit([
+            ['task_id' => 't1', 'downstream_unlocks' => 1.0, 'risk_reduction' => 0.5, 'proof_strength' => 0.8, 'simplification_gain' => 0.3],
+            ['task_id' => 't2'],
+            ['task_id' => 't3'],
+        ]);
+        $this->assertSame(['t2', 't3'], $r['weak_compound_evidence_task_ids']);
+        $this->assertContains('majority_tasks_lack_compound_proof_evidence', $r['recommendation_reasons']);
+    }
+
+    public function test_empty_tasks_returns_zero_score(): void
+    {
+        $r = (new AtlasExternalBrainOriginatorBatchValueAuditor)->compoundProofAudit([]);
+        $this->assertSame(0.0, $r['compound_value_score']);
+        $this->assertSame([], $r['weak_compound_evidence_task_ids']);
+        $this->assertSame([], $r['recommendation_reasons']);
+    }
 }

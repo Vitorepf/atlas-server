@@ -305,4 +305,60 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
             'mutates_queue' => false,
         ];
     }
+
+    /**
+     * Compound proof audit: rewards tasks with downstream_unlocks, risk_reduction,
+     * proof_strength and simplification_gain evidence. Flags structurally valid batches
+     * as low_value when compound proof evidence is absent across most tasks.
+     *
+     * @param  list<mixed>  $tasks
+     * @return array{compound_value_score:float, weak_compound_evidence_task_ids:list<string>, recommendation_reasons:list<string>}
+     */
+    public function compoundProofAudit(array $tasks): array
+    {
+        $compoundEvidenceKeys = ['downstream_unlocks', 'risk_reduction', 'proof_strength', 'simplification_gain'];
+        $weakCompoundEvidenceTaskIds = [];
+        $totalCompoundScore = 0.0;
+
+        foreach ($tasks as $task) {
+            $task = (array) $task;
+            $taskId = (string) ($task['task_id'] ?? '');
+            if ($taskId === '') {
+                continue;
+            }
+
+            $taskCompoundScore = 0.0;
+            foreach ($compoundEvidenceKeys as $key) {
+                $val = (float) ($task[$key] ?? 0.0);
+                $taskCompoundScore += max(0.0, min(1.0, $val));
+            }
+
+            $totalCompoundScore += $taskCompoundScore;
+
+            // A task is weak if it has no compound evidence at all
+            if ($taskCompoundScore <= 0.0) {
+                $weakCompoundEvidenceTaskIds[] = $taskId;
+            }
+        }
+
+        $taskCount = count($tasks);
+        $compoundValueScore = $taskCount > 0 ? round($totalCompoundScore / ($taskCount * count($compoundEvidenceKeys)), 6) : 0.0;
+
+        $recommendationReasons = [];
+        if ($weakCompoundEvidenceTaskIds !== []) {
+            $weakShare = count($weakCompoundEvidenceTaskIds) / max(1, $taskCount);
+            if ($weakShare > 0.5) {
+                $recommendationReasons[] = 'majority_tasks_lack_compound_proof_evidence';
+            }
+        }
+        if ($compoundValueScore < 0.2 && $taskCount > 0) {
+            $recommendationReasons[] = 'batch_compound_value_below_threshold';
+        }
+
+        return [
+            'compound_value_score' => $compoundValueScore,
+            'weak_compound_evidence_task_ids' => $weakCompoundEvidenceTaskIds,
+            'recommendation_reasons' => $recommendationReasons,
+        ];
+    }
 }
