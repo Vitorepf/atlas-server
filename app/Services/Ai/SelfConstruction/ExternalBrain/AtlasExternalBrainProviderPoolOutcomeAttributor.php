@@ -216,7 +216,7 @@ final class AtlasExternalBrainProviderPoolOutcomeAttributor
      */
     private function groupKey(array $row): string
     {
-        return implode('|', array_map(static fn (string $k): string => (string) ($row[$k] ?? ''), self::GROUP_KEYS));
+        return json_encode(array_map(static fn (string $k): string => (string) ($row[$k] ?? ''), self::GROUP_KEYS), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
