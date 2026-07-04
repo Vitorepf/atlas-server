@@ -119,6 +119,41 @@ final class AtlasExternalBrainProviderPoolOutputNormalizerTest extends TestCase
         $this->assertArrayNotHasKey('cost_summary', $row['provider_specific_fields']);
     }
 
+    // ── AC1: sensitive keys in provider_specific_fields are redacted ─────────
+
+    public function test_prompt_token_and_secret_keys_in_provider_specific_fields_are_redacted(): void
+    {
+        $result = (new AtlasExternalBrainProviderPoolOutputNormalizer)->normalize([
+            'outputs' => [[
+                'provider_id' => 'codex',
+                'tests_reported' => ['t1'],
+                'evidence_refs' => ['e1'],
+                'claimed_success' => true,
+                'raw_prompt' => 'this is a secret prompt',
+                'provider_trace' => ['model' => 'gpt-5', 'tokens' => 500],
+                'api_key_override' => 'sk-abc123',
+                'auth_token_field' => 'ghp_xyz',
+                'safe_model_hint' => 'gpt-5.5',
+            ]],
+        ]);
+
+        $row = $result['normalized_outputs'][0];
+        // The prompt, trace, key and token fields must be listed as redacted.
+        $redacted = $row['redacted_provider_fields'];
+        $this->assertContains('raw_prompt', $redacted);
+        $this->assertContains('provider_trace', $redacted);
+        $this->assertContains('api_key_override', $redacted);
+        $this->assertContains('auth_token_field', $redacted);
+        // Non-sensitive fields remain visible in provider_specific_fields.
+        $this->assertArrayHasKey('safe_model_hint', $row['provider_specific_fields']);
+        $this->assertSame('gpt-5.5', $row['provider_specific_fields']['safe_model_hint']);
+        // Sensitive field values must never appear in the output JSON.
+        $outputJson = (string) json_encode($result);
+        $this->assertStringNotContainsString('this is a secret prompt', $outputJson);
+        $this->assertStringNotContainsString('sk-abc123', $outputJson);
+        $this->assertStringNotContainsString('ghp_xyz', $outputJson);
+    }
+
     public function test_non_array_outputs_are_skipped(): void
     {
         $result = (new AtlasExternalBrainProviderPoolOutputNormalizer)->normalize([
