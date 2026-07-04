@@ -11,7 +11,7 @@ final class AtlasExternalBrainTaskGraphReleaseGateTest extends TestCase
 {
     public function test_on_critical_path_candidate_is_allowed(): void
     {
-        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluate([
+        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluateBatch([
             'candidates' => [['task_id' => 't1', 'on_critical_path' => true]],
             'critical_path_task_ids' => ['t1', 't2'],
         ]);
@@ -22,7 +22,7 @@ final class AtlasExternalBrainTaskGraphReleaseGateTest extends TestCase
 
     public function test_off_path_leaf_work_is_blocked_while_critical_path_unresolved(): void
     {
-        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluate([
+        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluateBatch([
             'candidates' => [['task_id' => 'leaf-task', 'novelty_score' => 0.9]],
             'critical_path_task_ids' => ['root', 'child'],
         ]);
@@ -35,7 +35,7 @@ final class AtlasExternalBrainTaskGraphReleaseGateTest extends TestCase
 
     public function test_off_path_leaf_work_is_allowed_once_critical_path_is_clear(): void
     {
-        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluate([
+        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluateBatch([
             'candidates' => [['task_id' => 'leaf-task', 'novelty_score' => 0.9]],
             'critical_path_task_ids' => [],
         ]);
@@ -46,7 +46,7 @@ final class AtlasExternalBrainTaskGraphReleaseGateTest extends TestCase
 
     public function test_roadmap_gap_coverage_admits_even_when_off_path(): void
     {
-        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluate([
+        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluateBatch([
             'candidates' => [['task_id' => 'gap-task', 'covers_roadmap_gap' => true, 'novelty_score' => 0.9]],
             'critical_path_task_ids' => ['root'],
         ]);
@@ -56,7 +56,7 @@ final class AtlasExternalBrainTaskGraphReleaseGateTest extends TestCase
 
     public function test_repairs_blocker_admits_even_when_off_path(): void
     {
-        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluate([
+        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluateBatch([
             'candidates' => [['task_id' => 'repair-task', 'repairs_blocker' => true, 'novelty_score' => 0.9]],
             'critical_path_task_ids' => ['root'],
         ]);
@@ -66,7 +66,7 @@ final class AtlasExternalBrainTaskGraphReleaseGateTest extends TestCase
 
     public function test_low_novelty_score_blocks_even_an_on_critical_path_candidate(): void
     {
-        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluate([
+        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluateBatch([
             'candidates' => [['task_id' => 't1', 'on_critical_path' => true, 'novelty_score' => 0.1]],
             'critical_path_task_ids' => ['t1'],
         ]);
@@ -78,7 +78,7 @@ final class AtlasExternalBrainTaskGraphReleaseGateTest extends TestCase
 
     public function test_mixed_batch_blocks_only_the_offending_task_id(): void
     {
-        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluate([
+        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluateBatch([
             'candidates' => [
                 ['task_id' => 'good-on-path', 'on_critical_path' => true, 'novelty_score' => 0.9],
                 ['task_id' => 'bad-off-path', 'novelty_score' => 0.9],
@@ -92,7 +92,7 @@ final class AtlasExternalBrainTaskGraphReleaseGateTest extends TestCase
 
     public function test_no_candidates_is_trivially_allowed(): void
     {
-        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluate(['candidates' => [], 'critical_path_task_ids' => ['x']]);
+        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluateBatch(['candidates' => [], 'critical_path_task_ids' => ['x']]);
 
         $this->assertTrue($result['release_allowed']);
         $this->assertSame([], $result['blocked_task_ids']);
@@ -100,7 +100,7 @@ final class AtlasExternalBrainTaskGraphReleaseGateTest extends TestCase
 
     public function test_never_mutates_anything_just_reports_facts(): void
     {
-        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluate([
+        $result = (new AtlasExternalBrainTaskGraphReleaseGate)->evaluateBatch([
             'candidates' => [['task_id' => 't1', 'on_critical_path' => true]],
             'critical_path_task_ids' => ['t1'],
             'backlog_depth' => 12,
