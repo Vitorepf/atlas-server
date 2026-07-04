@@ -21,6 +21,7 @@ final class AtlasVerificationCourtEvidenceContract
      *   lease_id?:string,
      *   allowed_files_hash?:string,
      *   command_hash?:string,
+     *   claims_autonomous_execution_quality?:bool,
      * }  $allegation
      * @param  array{
      *   receipt_chain?:?array{
@@ -29,11 +30,15 @@ final class AtlasVerificationCourtEvidenceContract
      *     allowed_files_hash?:string,
      *     command_hash?:string,
      *   },
+     *   runtime_owner?:string,
+     *   runnable_proof?:bool,
+     *   evidence_age_seconds?:float,
      * }  $evidence
      * @return array{
      *   schema:string,
      *   accepted:bool,
      *   blockers:list<string>,
+     *   court_admissible:bool,
      * }
      */
     public function verify(array $allegation, array $evidence): array
@@ -59,15 +64,37 @@ final class AtlasVerificationCourtEvidenceContract
             }
         }
 
-        if (count($blockers) > 0) {
-            return $this->envelope(false, $blockers);
+        // Autonomous execution quality claims require atlas-native runtime ownership
+        // runnable proof and fresh evidence
+        if ((bool) ($allegation['claims_autonomous_execution_quality'] ?? false)) {
+            $runtimeOwner = (string) ($evidence['runtime_owner'] ?? '');
+            if ($runtimeOwner !== 'atlas_native') {
+                $blockers[] = 'blocker:runtime_owner_not_atlas_native';
+            }
+
+            $runnableProof = (bool) ($evidence['runnable_proof'] ?? false);
+            $evidenceAge = (float) ($evidence['evidence_age_seconds'] ?? 0);
+            $fresh = $evidenceAge <= 3600;
+
+            $courtAdmissible = $runnableProof && $fresh;
+
+            if (! $runnableProof) {
+                $blockers[] = 'blocker:missing_runnable_proof';
+            }
+            if (! $fresh) {
+                $blockers[] = 'blocker:evidence_stale';
+            }
         }
 
-        return $this->envelope(true, []);
+        if (count($blockers) > 0) {
+            return $this->envelope(false, $blockers, $courtAdmissible ?? false);
+        }
+
+        return $this->envelope(true, [], true);
     }
 
     /** @param  list<string>  $blockers */
-    private function envelope(bool $accepted, array $blockers): array
+    private function envelope(bool $accepted, array $blockers, bool $courtAdmissible = false): array
     {
         sort($blockers, SORT_STRING);
 
@@ -75,6 +102,7 @@ final class AtlasVerificationCourtEvidenceContract
             'schema' => self::SCHEMA,
             'accepted' => $accepted,
             'blockers' => $blockers,
+            'court_admissible' => $courtAdmissible,
         ];
     }
 }
