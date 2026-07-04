@@ -138,4 +138,112 @@ final class AtlasTaskGraphDependencyUnlockSequencerTest extends TestCase
 
         $this->assertSame($sequencer->sequence($tasks), $sequencer->sequence($tasks));
     }
+
+    // ── AC2: worker_feed, proof_blocker, downstream_leverage ordering ────────
+
+    public function test_worker_feed_ranks_above_equal_unlock_counts(): void
+    {
+        $tasks = [
+            ['task_packet_id' => 'feeds-workers', 'depends_on' => [], 'risk' => 1, 'worker_feed' => true],
+            ['task_packet_id' => 'no-feed', 'depends_on' => [], 'risk' => 1],
+        ];
+
+        $result = $this->sequencer()->sequence($tasks);
+
+        $this->assertSame('feeds-workers', $result['ordered_task_ids'][0]);
+    }
+
+    public function test_proof_blocker_ranks_above_ordinary(): void
+    {
+        $tasks = [
+            ['task_packet_id' => 'resolves-proof', 'depends_on' => [], 'risk' => 1, 'proof_blocker' => true],
+            ['task_packet_id' => 'ordinary', 'depends_on' => [], 'risk' => 1],
+        ];
+
+        $result = $this->sequencer()->sequence($tasks);
+
+        $this->assertSame('resolves-proof', $result['ordered_task_ids'][0]);
+    }
+
+    public function test_higher_downstream_leverage_ranks_first(): void
+    {
+        $tasks = [
+            ['task_packet_id' => 'high-leverage', 'depends_on' => [], 'risk' => 1, 'downstream_leverage' => 10],
+            ['task_packet_id' => 'low-leverage', 'depends_on' => [], 'risk' => 1, 'downstream_leverage' => 1],
+        ];
+
+        $result = $this->sequencer()->sequence($tasks);
+
+        $this->assertSame('high-leverage', $result['ordered_task_ids'][0]);
+    }
+
+    public function test_worker_feed_takes_priority_over_downstream_leverage(): void
+    {
+        $tasks = [
+            ['task_packet_id' => 'feeds-workers', 'depends_on' => [], 'risk' => 1, 'worker_feed' => true, 'downstream_leverage' => 1],
+            ['task_packet_id' => 'high-leverage', 'depends_on' => [], 'risk' => 1, 'downstream_leverage' => 99],
+        ];
+
+        $result = $this->sequencer()->sequence($tasks);
+
+        $this->assertSame('feeds-workers', $result['ordered_task_ids'][0]);
+    }
+
+    public function test_proof_blocker_takes_priority_over_downstream_leverage(): void
+    {
+        $tasks = [
+            ['task_packet_id' => 'resolves-proof', 'depends_on' => [], 'risk' => 1, 'proof_blocker' => true, 'downstream_leverage' => 1],
+            ['task_packet_id' => 'high-leverage', 'depends_on' => [], 'risk' => 1, 'downstream_leverage' => 99],
+        ];
+
+        $result = $this->sequencer()->sequence($tasks);
+
+        $this->assertSame('resolves-proof', $result['ordered_task_ids'][0]);
+    }
+
+    // ── AC3: repair hints in blocked reasons ────────────────────────────────
+
+    public function test_blocked_reasons_include_repair_hint(): void
+    {
+        $result = $this->sequencer()->sequence([
+            ['task_packet_id' => 'orphan', 'depends_on' => ['missing-prereq']],
+            ['task_packet_id' => 'safe', 'depends_on' => []],
+        ]);
+
+        $this->assertNotEmpty($result['blocked_reasons']);
+        $br = $result['blocked_reasons'][0];
+        $this->assertArrayHasKey('repair_hint', $br);
+        $this->assertStringContainsString('missing-prereq', $br['repair_hint']);
+    }
+
+    public function test_blocked_by_downstream_orphan_also_has_repair_hint(): void
+    {
+        $result = $this->sequencer()->sequence([
+            ['task_packet_id' => 'orphan-dep', 'depends_on' => ['does-not-exist']],
+            ['task_packet_id' => 'downstream-of-orphan', 'depends_on' => ['orphan-dep']],
+        ]);
+
+        $downstreamBlocked = array_values(array_filter(
+            $result['blocked_reasons'],
+            fn (array $r): bool => $r['reason'] === 'blocked_by_unsequenceable_prerequisite',
+        ));
+        $this->assertNotEmpty($downstreamBlocked);
+        $this->assertArrayHasKey('repair_hint', $downstreamBlocked[0]);
+        $this->assertStringContainsString('blocked prerequisite chain', $downstreamBlocked[0]['repair_hint']);
+    }
+
+    // ── AC2: cycle path includes repair hint ─────────────────────────────────
+
+    public function test_cycle_detected_output_carries_repair_hints_in_blocked_reasons(): void
+    {
+        $result = $this->sequencer()->sequence([
+            ['task_packet_id' => 'a', 'depends_on' => ['b']],
+            ['task_packet_id' => 'b', 'depends_on' => ['c']],
+            ['task_packet_id' => 'c', 'depends_on' => ['a']],
+        ]);
+
+        $this->assertTrue($result['cycle_detected']);
+        // Blocked_reasons should be present even on cycle
+        $this->assertIsArray($result['blocked_reasons']);
+    }
 }

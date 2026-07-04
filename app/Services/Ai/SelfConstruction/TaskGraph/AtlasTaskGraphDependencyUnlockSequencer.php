@@ -35,7 +35,12 @@ final class AtlasTaskGraphDependencyUnlockSequencer
         foreach ($byId as $id => $task) {
             foreach ($this->dependsOn($task) as $dep) {
                 if (! isset($byId[$dep])) {
-                    $blockedReasons[] = ['task_packet_id' => $id, 'reason' => 'missing_prerequisite', 'missing' => $dep];
+                    $blockedReasons[] = [
+                        'task_packet_id' => $id,
+                        'reason' => 'missing_prerequisite',
+                        'missing' => $dep,
+                        'repair_hint' => sprintf('Add "%s" to the task list or remove the depends_on entry for "%s".', $dep, $dep),
+                    ];
                     $missingIds[$id] = true;
                 }
             }
@@ -63,7 +68,11 @@ final class AtlasTaskGraphDependencyUnlockSequencer
         }
         foreach ($unsequenceable as $id => $bad) {
             if ($bad && ! isset($missingIds[$id])) {
-                $blockedReasons[] = ['task_packet_id' => $id, 'reason' => 'blocked_by_unsequenceable_prerequisite'];
+                $blockedReasons[] = [
+                    'task_packet_id' => $id,
+                    'reason' => 'blocked_by_unsequenceable_prerequisite',
+                    'repair_hint' => 'Resolve the blocked prerequisite chain before attempting this task.',
+                ];
             }
         }
 
@@ -243,9 +252,40 @@ final class AtlasTaskGraphDependencyUnlockSequencer
             if ($ready === []) {
                 break; // defensive: should not happen on an acyclic, fully-resolved graph
             }
-            usort($ready, static fn (string $a, string $b): int => ($unlockCounts[$b] ?? 0) <=> ($unlockCounts[$a] ?? 0)
-                ?: ((int) ($byId[$a]['risk'] ?? 0)) <=> ((int) ($byId[$b]['risk'] ?? 0))
-                ?: strcmp($a, $b));
+            usort($ready, static function (string $a, string $b) use ($byId, $unlockCounts): int {
+                $aTask = $byId[$a];
+                $bTask = $byId[$b];
+                // 1. Worker feed tasks rank first.
+                $aWf = (bool) ($aTask['worker_feed'] ?? false);
+                $bWf = (bool) ($bTask['worker_feed'] ?? false);
+                if ($aWf !== $bWf) {
+                    return $bWf <=> $aWf; // true first
+                }
+                // 2. Proof-blocker-resolving tasks rank next.
+                $aPb = (bool) ($aTask['proof_blocker'] ?? false);
+                $bPb = (bool) ($bTask['proof_blocker'] ?? false);
+                if ($aPb !== $bPb) {
+                    return $bPb <=> $aPb; // true first
+                }
+                // 3. Downstream leverage (higher first).
+                $aLvg = (int) ($aTask['downstream_leverage'] ?? 0);
+                $bLvg = (int) ($bTask['downstream_leverage'] ?? 0);
+                if ($aLvg !== $bLvg) {
+                    return $bLvg <=> $aLvg;
+                }
+                // 4. Unlock count (higher first).
+                $uCmp = ($unlockCounts[$b] ?? 0) <=> ($unlockCounts[$a] ?? 0);
+                if ($uCmp !== 0) {
+                    return $uCmp;
+                }
+                // 5. Risk (lower first).
+                $rCmp = ((int) ($byId[$a]['risk'] ?? 0)) <=> ((int) ($byId[$b]['risk'] ?? 0));
+                if ($rCmp !== 0) {
+                    return $rCmp;
+                }
+
+                return strcmp($a, $b);
+            });
 
             $next = $ready[0];
             $ordered[] = $next;
