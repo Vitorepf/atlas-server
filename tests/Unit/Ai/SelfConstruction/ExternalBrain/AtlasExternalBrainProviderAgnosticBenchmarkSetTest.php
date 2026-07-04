@@ -371,6 +371,69 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSetTest extends TestCase
         $this->assertSame([], $result['provider_safe_status']['violations']);
     }
 
+    // ── AC1: outcome-learning regression cases cover poison/quarantine and proxy/fake-value ──
+
+    public function test_outcome_grounded_cases_include_poison_quarantine(): void
+    {
+        $result = $this->benchmarkSet()->load();
+        $ids = array_column($result['outcome_grounded_cases'], 'case_id');
+
+        $this->assertContains('og-3-poison-quarantine', $ids);
+    }
+
+    public function test_outcome_grounded_cases_include_proxy_fake_value(): void
+    {
+        $result = $this->benchmarkSet()->load();
+        $ids = array_column($result['outcome_grounded_cases'], 'case_id');
+
+        $this->assertContains('og-4-proxy-fake-value', $ids);
+    }
+
+    // ── AC2: each new outcome-grounded case has deterministic expected_behavior and evidence_requirements ──
+
+    public function test_new_outcome_cases_have_expected_behavior_and_evidence_requirements(): void
+    {
+        $result = $this->benchmarkSet()->load();
+
+        $newCaseIds = ['og-3-poison-quarantine', 'og-4-proxy-fake-value'];
+        foreach ($result['outcome_grounded_cases'] as $case) {
+            if (! in_array($case['case_id'], $newCaseIds, true)) {
+                continue;
+            }
+            $this->assertArrayHasKey('expected_behavior', $case, "Missing expected_behavior in {$case['case_id']}");
+            $this->assertArrayHasKey('evidence_requirements', $case, "Missing evidence_requirements in {$case['case_id']}");
+            $this->assertNotEmpty($case['expected_behavior']);
+            $this->assertNotEmpty($case['evidence_requirements']);
+        }
+    }
+
+    public function test_new_outcome_cases_are_provider_safe(): void
+    {
+        $result = $this->benchmarkSet()->load();
+
+        $newCaseIds = ['og-3-poison-quarantine', 'og-4-proxy-fake-value'];
+        foreach ($result['outcome_grounded_cases'] as $case) {
+            if (! in_array($case['case_id'], $newCaseIds, true)) {
+                continue;
+            }
+            $this->assertTrue($case['provider_safe'] ?? true, "{$case['case_id']} must be provider-safe");
+        }
+        // None of the 4 outcome-grounded cases should trigger unsafe provider keywords.
+        $json = (string) json_encode($result['outcome_grounded_cases']);
+        foreach (['requires_live_llm', 'live_api_call', 'raw_provider_trace', 'internal_prompt'] as $trigger) {
+            $this->assertStringNotContainsString($trigger, $json);
+        }
+    }
+
+    // ── AC3: scoring_dimensions unchanged by the new cases ────────────────────
+
+    public function test_scoring_dimensions_still_sum_to_one_after_outcome_additions(): void
+    {
+        $result = $this->benchmarkSet()->load();
+        $total = array_sum(array_column($result['scoring_dimensions'], 'weight'));
+        $this->assertEqualsWithDelta(1.0, $total, 0.001);
+    }
+
     // ── AC1: cases cover origination, anti-template-farm, simplification, queue self-healing ──
 
     public function test_cases_cover_task_origination_family(): void
