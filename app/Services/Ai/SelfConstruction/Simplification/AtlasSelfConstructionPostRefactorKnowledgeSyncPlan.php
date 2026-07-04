@@ -27,6 +27,11 @@ namespace App\Services\Ai\SelfConstruction\Simplification;
  * reported as a stale_knowledge_risk — the brain must never keep believing a retired organ
  * still exists.
  *
+ * MALFORMED MERGED ORGAN BLOCK: every merged organ with an empty name, empty old_paths or
+ * empty new_path is blocked with an explicit malformed_merged_organ blocker. No sync_actions
+ * are produced even when wave safe=true, preventing empty docs/memory/code_index/capability_map
+ * actions from being emitted.
+ *
  * Pure / deterministic. No I/O — callers persist the returned sync_actions.
  */
 final class AtlasSelfConstructionPostRefactorKnowledgeSyncPlan
@@ -74,6 +79,20 @@ final class AtlasSelfConstructionPostRefactorKnowledgeSyncPlan
             ];
         }
 
+        // ── Malformed merged organ guard ─────────────────────────────────
+        // Every merged organ must have a non-empty name, non-empty old_paths,
+        // and a non-empty new_path. Malformed data blocks the entire wave
+        // and produces no sync actions.
+        $malformedBlockers = $this->detectMalformedOrgans($mergedOrgans);
+        if ($malformedBlockers !== []) {
+            return [
+                'schema' => self::SCHEMA,
+                'status' => self::STATUS_BLOCKED,
+                'sync_actions' => [],
+                'blockers' => $malformedBlockers,
+            ];
+        }
+
         $syncActions = [];
         foreach ($mergedOrgans as $organ) {
             $name = (string) ($organ['name'] ?? '');
@@ -114,6 +133,36 @@ final class AtlasSelfConstructionPostRefactorKnowledgeSyncPlan
             'blockers' => [],
             'stale_knowledge_risks' => $staleKnowledgeRisks,
         ];
+    }
+
+    /**
+     * Detect merged organs with empty name, empty old_paths or empty new_path.
+     *
+     * @param  list<array<string,mixed>>  $mergedOrgans
+     * @return list<string>
+     */
+    private function detectMalformedOrgans(array $mergedOrgans): array
+    {
+        $blockers = [];
+        foreach ($mergedOrgans as $i => $organ) {
+            $name = (string) ($organ['name'] ?? '');
+            $oldPaths = array_values((array) ($organ['old_paths'] ?? []));
+            $newPath = (string) ($organ['new_path'] ?? '');
+
+            $label = $name !== '' ? $name : "index_{$i}";
+
+            if ($name === '') {
+                $blockers[] = "malformed_merged_organ:{$label}:empty_name";
+            }
+            if ($oldPaths === []) {
+                $blockers[] = "malformed_merged_organ:{$label}:empty_old_paths";
+            }
+            if ($newPath === '') {
+                $blockers[] = "malformed_merged_organ:{$label}:empty_new_path";
+            }
+        }
+
+        return $blockers;
     }
 
     /**
