@@ -44,6 +44,10 @@ final class AtlasExternalBrainOrganIntegrationVerifierTest extends TestCase
         $this->assertContains('A', $r['integrated_ids']);
         $this->assertSame(['decision_loop'], $r['results'][0]['consumers']);
         $this->assertSame([], $r['results'][0]['circuit_gaps']);
+        $this->assertNull($r['results'][0]['orphan_reason'], 'integrated organ must have null orphan_reason');
+        $this->assertIsArray($r['results'][0]['required_wiring']);
+        $this->assertContains('input_source', $r['results'][0]['required_wiring']);
+        $this->assertNotEmpty($r['results'][0]['evidence_refs']);
     }
 
     public function test_organ_with_control_plane_exposure_satisfies_output_consumer_leg(): void
@@ -165,6 +169,11 @@ final class AtlasExternalBrainOrganIntegrationVerifierTest extends TestCase
         $this->assertContains('D', $r['orphaned_ids']);
         $this->assertTrue($r['results'][0]['capability_island'], 'has_tests+impl but no wiring → capability_island=true');
         $this->assertTrue($r['results'][0]['orphan']);
+        $this->assertIsString($r['results'][0]['orphan_reason']);
+        $this->assertStringContainsString('not wired', $r['results'][0]['orphan_reason']);
+        $this->assertStringContainsString('no_input_source', $r['results'][0]['orphan_reason']);
+        $this->assertSame([], $r['results'][0]['evidence_refs'], 'orphan with no wiring has no evidence refs');
+        $this->assertIsArray($r['results'][0]['required_wiring']);
     }
 
     public function test_orphaned_organ_sets_has_orphans_true(): void
@@ -393,5 +402,191 @@ final class AtlasExternalBrainOrganIntegrationVerifierTest extends TestCase
         ));
 
         $this->assertFalse($r['results'][0]['retirement_candidate']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: orphan_reason / required_wiring / evidence_refs
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_orphan_reason_null_for_fully_integrated_organ(): void
+    {
+        $r = $this->svc()->verify(array_merge(
+            ['organ_inventory' => [$this->organ('W')]],
+            $this->fullCircuitFacts('W'),
+        ));
+
+        $this->assertNull($r['results'][0]['orphan_reason']);
+    }
+
+    public function test_orphan_reason_mentions_all_circuit_gaps_for_completely_unwired_organ(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('X', false, false)],
+        ]);
+
+        $reason = $r['results'][0]['orphan_reason'];
+        $this->assertStringContainsString('no_input_source', $reason);
+        $this->assertStringContainsString('no_decision_role', $reason);
+        $this->assertStringContainsString('no_output_consumer', $reason);
+        $this->assertStringContainsString('no_learning_feedback', $reason);
+        $this->assertStringContainsString('no_failure_handling', $reason);
+    }
+
+    public function test_orphan_reason_present_for_standalone_organ(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('Y', false, false)],
+            'standalone_justifications' => ['Y' => 'utility only'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_INTENTIONALLY_STANDALONE, $r['results'][0]['status']);
+        $this->assertIsString($r['results'][0]['orphan_reason']);
+        $this->assertStringContainsString('Y', $r['results'][0]['orphan_reason']);
+    }
+
+    public function test_orphan_reason_present_for_partially_integrated_organ(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('Z')],
+            'input_sources' => ['Z' => ['source_a']],
+            'decision_roles' => ['Z' => 'decides_x'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_PARTIALLY_INTEGRATED, $r['results'][0]['status']);
+        $this->assertIsString($r['results'][0]['orphan_reason']);
+        $this->assertStringContainsString('no_output_consumer', $r['results'][0]['orphan_reason']);
+    }
+
+    public function test_required_wiring_contains_expected_paths(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('W')],
+        ]);
+
+        $wiring = $r['results'][0]['required_wiring'];
+        $this->assertContains('input_source', $wiring);
+        $this->assertContains('decision_role', $wiring);
+        $this->assertContains('output_consumer', $wiring);
+        $this->assertContains('learning_feedback', $wiring);
+        $this->assertContains('failure_handling', $wiring);
+        $this->assertCount(5, $wiring);
+    }
+
+    public function test_required_wiring_includes_proof_and_knowledge_sync_when_required(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('W')],
+            'require_proof_and_knowledge_sync' => true,
+        ]);
+
+        $wiring = $r['results'][0]['required_wiring'];
+        $this->assertContains('proof_path', $wiring);
+        $this->assertContains('knowledge_sync', $wiring);
+        $this->assertCount(7, $wiring);
+    }
+
+    public function test_evidence_refs_includes_all_legs_for_full_circuit(): void
+    {
+        $r = $this->svc()->verify(array_merge(
+            ['organ_inventory' => [$this->organ('W')]],
+            $this->fullCircuitFacts('W'),
+        ));
+
+        $refs = $r['results'][0]['evidence_refs'];
+        $this->assertContains('input_source:real_upstream_signal', $refs);
+        $this->assertContains('decision_role:gates_dispatch', $refs);
+        $this->assertContains('flow_usage:decision_loop', $refs);
+        $this->assertContains('learning_feedback:present', $refs);
+        $this->assertContains('failure_handling:present', $refs);
+    }
+
+    public function test_evidence_refs_includes_control_plane_exposure(): void
+    {
+        $facts = $this->fullCircuitFacts('W');
+        unset($facts['flow_usage']);
+        $facts['control_plane_exposure'] = ['W' => true];
+
+        $r = $this->svc()->verify(array_merge(
+            ['organ_inventory' => [$this->organ('W')]],
+            $facts,
+        ));
+
+        $refs = $r['results'][0]['evidence_refs'];
+        $this->assertContains('control_plane_exposure:true', $refs);
+        $this->assertNotContains('flow_usage:decision_loop', $refs,
+            'flow_usage evidence should not appear when only control_plane_exposure is set');
+    }
+
+    public function test_evidence_refs_includes_proof_and_knowledge_sync_when_present(): void
+    {
+        $facts = $this->fullCircuitFacts('W');
+        $facts['require_proof_and_knowledge_sync'] = true;
+        $facts['proof_paths'] = ['W' => 'evidence/audit-1'];
+        $facts['knowledge_sync'] = ['W' => 'yes'];
+
+        $r = $this->svc()->verify(array_merge(
+            ['organ_inventory' => [$this->organ('W')]],
+            $facts,
+        ));
+
+        $refs = $r['results'][0]['evidence_refs'];
+        $this->assertContains('proof_path:evidence/audit-1', $refs);
+        $this->assertContains('knowledge_sync:yes', $refs);
+    }
+
+    public function test_evidence_refs_empty_when_no_wiring_and_require_proof_sync(): void
+    {
+        // Even with require_proof_and_knowledge_sync=true, if no wiring exists, evidence_refs is empty.
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('X', false, false)],
+            'require_proof_and_knowledge_sync' => true,
+        ]);
+
+        $this->assertSame([], $r['results'][0]['evidence_refs']);
+    }
+
+    public function test_evidence_refs_partial_for_partially_wired_organ(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('Z')],
+            'input_sources' => ['Z' => ['source_a']],
+            'decision_roles' => ['Z' => 'decides_x'],
+        ]);
+
+        $refs = $r['results'][0]['evidence_refs'];
+        $this->assertContains('input_source:source_a', $refs);
+        $this->assertContains('decision_role:decides_x', $refs);
+        $this->assertCount(2, $refs);
+    }
+
+    public function test_orphan_reason_proxy_only_organ(): void
+    {
+        $r = $this->svc()->verify([
+            'organ_inventory' => [$this->organ('U', false, false)],
+            'flow_usage' => ['U' => ['some_consumer']],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOrganIntegrationVerifier::STATUS_PROXY_ONLY, $r['results'][0]['status']);
+        $this->assertIsString($r['results'][0]['orphan_reason']);
+        $this->assertStringContainsString('not wired', $r['results'][0]['orphan_reason']);
+        // proxy_only has output_consumer but no input_source or decision_role
+        $this->assertStringContainsString('no_input_source', $r['results'][0]['orphan_reason']);
+        $this->assertStringContainsString('no_decision_role', $r['results'][0]['orphan_reason']);
+        $this->assertStringNotContainsString('no_output_consumer', $r['results'][0]['orphan_reason']);
+    }
+
+    public function test_evidence_refs_present_in_batch_top_level_contract(): void
+    {
+        $r = $this->svc()->verify(array_merge(
+            ['organ_inventory' => [$this->organ('A')]],
+            $this->fullCircuitFacts('A'),
+        ));
+
+        // All results in the batch have the new fields.
+        foreach ($r['results'] as $result) {
+            $this->assertArrayHasKey('orphan_reason', $result);
+            $this->assertArrayHasKey('required_wiring', $result);
+            $this->assertArrayHasKey('evidence_refs', $result);
+        }
     }
 }

@@ -34,6 +34,10 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *                          ships output but nothing ever reports back whether it helped.
  *   missing_failure_path — failure_handling[organ_id] is not true: the organ has no
  *                          defined behavior when its own operation fails.
+ *
+ * orphan_reason, required_wiring and evidence_refs are emitted on every organ
+ * result so callers can diagnose WHY an organ is orphaned and WHAT wiring paths
+ * need to be established.
  */
 final class AtlasExternalBrainOrganIntegrationVerifier
 {
@@ -105,6 +109,37 @@ final class AtlasExternalBrainOrganIntegrationVerifier
             $hasKnowledgeSync = ! empty($knowledgeSync[$id]);
             $isStale = ! empty($staleEvidence[$id]);
 
+            // Build evidence_refs (AC3/AC4): concrete references to wiring paths that exist.
+            $evidenceRefs = [];
+            if ($hasInputSource && is_array($inputSources[$id])) {
+                foreach ($inputSources[$id] as $src) {
+                    $evidenceRefs[] = "input_source:{$src}";
+                }
+            }
+            if ($hasDecisionRole) {
+                $evidenceRefs[] = "decision_role:{$decisionRoles[$id]}";
+            }
+            if ($hasOutputConsumer) {
+                foreach ($consumers as $c) {
+                    $evidenceRefs[] = "flow_usage:{$c}";
+                }
+                if ($hasControlPlane) {
+                    $evidenceRefs[] = 'control_plane_exposure:true';
+                }
+            }
+            if ($hasLearningFeedback) {
+                $evidenceRefs[] = 'learning_feedback:present';
+            }
+            if ($hasFailureHandling) {
+                $evidenceRefs[] = 'failure_handling:present';
+            }
+            if ($hasProofPath) {
+                $evidenceRefs[] = "proof_path:{$proofPaths[$id]}";
+            }
+            if ($hasKnowledgeSync) {
+                $evidenceRefs[] = "knowledge_sync:{$knowledgeSync[$id]}";
+            }
+
             $coreCircuitOk = $hasInputSource && $hasDecisionRole && $hasOutputConsumer && $hasLearningFeedback && $hasFailureHandling;
             $fullyIntegrated = $coreCircuitOk && (! $requireProofAndKnowledgeSync || ($hasProofPath && $hasKnowledgeSync));
 
@@ -160,6 +195,20 @@ final class AtlasExternalBrainOrganIntegrationVerifier
                 $circuitGaps[] = 'no_knowledge_sync';
             }
 
+            // orphan_reason (AC4): human-readable explanation when the organ is not integrated.
+            $orphanReason = null;
+            if ($status !== self::STATUS_INTEGRATED) {
+                $gapList = implode(', ', $circuitGaps);
+                $orphanReason = $gapList !== ''
+                    ? "Organ '{$id}' is not wired into a real decision path, learning loop, or control plane. Missing: {$gapList}."
+                    : "Organ '{$id}' has no circuit gaps but is not integrated (status={$status}).";
+            }
+
+            // required_wiring (AC4): static list of wiring paths the verifier checks for integration.
+            $requiredWiring = $requireProofAndKnowledgeSync
+                ? ['input_source', 'decision_role', 'output_consumer', 'learning_feedback', 'failure_handling', 'proof_path', 'knowledge_sync']
+                : ['input_source', 'decision_role', 'output_consumer', 'learning_feedback', 'failure_handling'];
+
             $orphanFlag = $status !== self::STATUS_INTEGRATED && ! $hasOutputConsumer;
             $oneWayOutputFlag = $status !== self::STATUS_INTEGRATED && $hasOutputConsumer && ! $hasLearningFeedback;
             $missingFailurePathFlag = $status !== self::STATUS_INTEGRATED && ! $hasFailureHandling;
@@ -214,6 +263,10 @@ final class AtlasExternalBrainOrganIntegrationVerifier
                 'one_way_output' => $oneWayOutputFlag,
                 'missing_failure_path' => $missingFailurePathFlag,
                 'remediation' => $remediation,
+                // New AC4 fields
+                'orphan_reason' => $orphanReason,
+                'required_wiring' => $requiredWiring,
+                'evidence_refs' => $evidenceRefs,
             ];
         }
 
