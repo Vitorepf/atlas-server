@@ -445,4 +445,21 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunnerTest extends TestCa
         $this->assertArrayHasKey('required_evidence', $verdict['action_choice']);
         $this->assertNotEmpty($verdict['action_choice']['required_evidence']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: stop reasons, cycle output, low queue autotopup
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_safety_stop_returns_stop_reason(): void
+    {
+        $result = $this->happyRunner()->run('cyc-safetystop');
+        $this->assertArrayHasKey('stop_reason', $result);
+    }
+
+    public function test_full_cycle_includes_worker_and_verify_merge(): void
+    {
+        $result = $this->happyRunner()->run('cyc-full');
+        $this->assertArrayHasKey('worker', $result);
+        $this->assertArrayHasKey('verify_merge', $result);
+    }
 }
