@@ -19,13 +19,13 @@ final class AtlasSpecGateAdapter implements SpecAdversary
     private readonly SovereignSpecFloor $floor;
 
     public function __construct(
-        SpecOracle $oracle,
+        ?SpecOracle $oracle = null,
         ?WitnessResolver $witnessResolver = null,
         int $configMinDiscriminating = 0,
         private readonly ?ClarificationSink $clarificationSink = null,
     ) {
         $this->floor = new SovereignSpecFloor(
-            $oracle,
+            $oracle ?? new UnmeasuredSpecOracle, // fail-closed default until a real executional oracle is wired
             $witnessResolver ?? new SelfComposedWitnessResolver,
             $configMinDiscriminating,
         );

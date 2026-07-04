@@ -18,7 +18,7 @@ use App\Services\Ai\EngineeringKernel\TrustLevel;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Slice 2 — the deterministic spec floor: the no-op-stub oracle (dente anti-tautologia) + verb
+ * Slice 2 — the deterministic spec floor: the no-op-impl oracle (dente anti-tautologia) + verb
  * fidelity + ambiguity HOLD + witness/lane + one-directional divergence. Wiper-safe: pure floor,
  * ports faked, zero DB.
  */

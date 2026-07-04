@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 /**
- * Slice 3 — the real no-op-stub oracle via WorkcellExecutor + the AtlasSpecGateAdapter regression.
+ * Slice 3 — the real no-op-impl oracle via WorkcellExecutor + the AtlasSpecGateAdapter regression.
  * Wiper-safe: the executor is faked, no real execution, no DB.
  */
 final class WorkcellSpecOracleTest extends TestCase

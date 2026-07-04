@@ -22,7 +22,7 @@ final class SovereignSpecFloor implements SpecAdversary
     /** Bumped whenever the invariant set changes — sealed into provenance. */
     public const FLOOR_VERSION = 'atlas.engineering_kernel.sovereign_spec_floor.v1';
 
-    /** At least this many behavioral criteria must go RED on the no-op stub (discrimination). */
+    /** At least this many behavioral criteria must go RED on the no-op impl (discrimination). */
     public const SOVEREIGN_MIN_DISCRIMINATING = 1;
 
     public function __construct(
