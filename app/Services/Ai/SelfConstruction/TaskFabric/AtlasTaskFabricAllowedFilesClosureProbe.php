@@ -118,10 +118,21 @@ final class AtlasTaskFabricAllowedFilesClosureProbe
     {
         $missing = [];
 
-        $knownCollaborators = array_values(array_map('strval', (array) ($task['known_collaborators'] ?? [])));
+        $knownCollaborators = (array) ($task['known_collaborators'] ?? []);
         foreach ($knownCollaborators as $collaborator) {
-            if ($collaborator !== '' && ! in_array($collaborator, $allowed, true)) {
-                $missing[] = $collaborator;
+            // Support both flat string paths and transitive_caller arrays.
+            if (is_array($collaborator)) {
+                $transitiveCallers = array_values(array_map('strval', (array) ($collaborator['transitive_callers'] ?? [])));
+                foreach ($transitiveCallers as $caller) {
+                    if ($caller !== '' && ! in_array($caller, $allowed, true) && ! in_array($caller, $missing, true)) {
+                        $missing[] = $caller;
+                    }
+                }
+            } else {
+                $path = (string) $collaborator;
+                if ($path !== '' && ! in_array($path, $allowed, true) && ! in_array($path, $missing, true)) {
+                    $missing[] = $path;
+                }
             }
         }
 

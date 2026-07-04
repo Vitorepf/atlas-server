@@ -252,4 +252,127 @@ final class AtlasTaskFabricAllowedFilesClosureProbeTest extends TestCase
 
         $this->assertSame([], $r['recommended_closure']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: transitive_callers in known_collaborators
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_transitive_callers_in_known_collaborators_appear_in_missing_files(): void
+    {
+        $r = $this->svc()->probe([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => [
+                'app/Services/Ai/Foo/AtlasFoo.php',
+                'tests/Unit/Ai/Foo/AtlasFooTest.php',
+            ],
+            'known_collaborators' => [
+                ['transitive_callers' => ['app/Services/Ai/Middleware/FooMiddleware.php']],
+            ],
+        ]);
+
+        $this->assertContains('missing_behavior_path', $r['findings']);
+        $this->assertContains(
+            'app/Services/Ai/Middleware/FooMiddleware.php',
+            $r['missing_files'],
+            'transitive_caller not in allowed_files must appear in missing_files',
+        );
+    }
+
+    public function test_multiple_transitive_callers_all_appear_in_missing_files(): void
+    {
+        $r = $this->svc()->probe([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+            'known_collaborators' => [
+                ['transitive_callers' => [
+                    'app/Services/Ai/Middleware/FooMiddleware.php',
+                    'app/Services/Ai/Controllers/FooController.php',
+                ]],
+            ],
+        ]);
+
+        $this->assertContains('app/Services/Ai/Middleware/FooMiddleware.php', $r['missing_files']);
+        $this->assertContains('app/Services/Ai/Controllers/FooController.php', $r['missing_files']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC3: impl + test but missing required caller emits missing_behavior_path
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_implementation_plus_test_with_missing_transitive_caller_emits_missing_behavior_path(): void
+    {
+        // The task has impl + test, so closed=true for scope, but the transitive
+        // caller is missing → missing_behavior_path still fires.
+        $r = $this->svc()->probe([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => [
+                'app/Services/Ai/Foo/AtlasFoo.php',
+                'tests/Unit/Ai/Foo/AtlasFooTest.php',
+            ],
+            'known_collaborators' => [
+                ['transitive_callers' => ['app/Services/Ai/Middleware/FooMiddleware.php']],
+            ],
+        ]);
+
+        $this->assertContains('missing_behavior_path', $r['findings'],
+            'impl+test scope with missing transitive caller must still emit missing_behavior_path');
+        $this->assertNotEmpty($r['missing_files']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: forbidden transitive caller → give_back_or_respec
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_forbidden_transitive_caller_recommends_give_back_or_respec(): void
+    {
+        $r = $this->svc()->probe([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => [
+                'app/Services/Ai/Foo/AtlasFoo.php',
+                'tests/Unit/Ai/Foo/AtlasFooTest.php',
+            ],
+            'known_collaborators' => [
+                ['transitive_callers' => ['app/Services/Ai/Constitution/SacredBylaw.php']],
+            ],
+            'forbidden_files' => ['app/Services/Ai/Constitution/SacredBylaw.php'],
+        ]);
+
+        $this->assertContains('forbidden_real_fix_path', $r['findings']);
+        $this->assertSame(AtlasTaskFabricAllowedFilesClosureProbe::ACTION_GIVE_BACK_OR_RESPEC, $r['recommended_action']);
+    }
+
+    public function test_transitive_callers_coexist_with_flat_known_collaborators(): void
+    {
+        // A known_collaborators list with both flat strings and transitive_caller arrays.
+        $r = $this->svc()->probe([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+            'known_collaborators' => [
+                'app/Services/Ai/FlatCaller.php',  // flat string
+                ['transitive_callers' => ['app/Services/Ai/TransitiveCaller.php']],
+            ],
+        ]);
+
+        $this->assertContains('app/Services/Ai/FlatCaller.php', $r['missing_files']);
+        $this->assertContains('app/Services/Ai/TransitiveCaller.php', $r['missing_files']);
+    }
+
+    public function test_transitive_caller_already_in_allowed_not_flagged(): void
+    {
+        $r = $this->svc()->probe([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => [
+                'app/Services/Ai/Foo/AtlasFoo.php',
+                'tests/Unit/Ai/Foo/AtlasFooTest.php',
+                'app/Services/Ai/Middleware/FooMiddleware.php',
+            ],
+            'known_collaborators' => [
+                ['transitive_callers' => ['app/Services/Ai/Middleware/FooMiddleware.php']],
+            ],
+        ]);
+
+        $this->assertTrue($r['closed'], 'transitive caller already in allowed_files must not flag findings');
+        $this->assertSame([], $r['findings']);
+        $this->assertNotContains('app/Services/Ai/Middleware/FooMiddleware.php', $r['missing_files']);
+    }
 }
