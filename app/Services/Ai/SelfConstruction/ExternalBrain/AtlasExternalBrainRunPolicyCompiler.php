@@ -139,6 +139,18 @@ final class AtlasExternalBrainRunPolicyCompiler
                 'max_template_repetition_rate' => self::DEFAULT_MAX_TEMPLATE_REPETITION_RATE,
             ],
             'autonomy_action_thresholds' => $autonomyThresholds,
+            'stop_conditions' => [
+                'quota_reached_and_quality_gates_pass',
+                'honest_exhausted_with_all_escalation_modes_attempted',
+                'forbidden_behaviour_detected',
+            ],
+            'continue_conditions' => [
+                'fresh_high_leverage_candidates_exist',
+                'queue_depth_below_target_and_no_stall',
+                'breakthrough_actions_available',
+                'learning_or_self_heal_remaining',
+            ],
+            'forbidden_originator_behaviors' => $forbidden,
         ];
     }
 

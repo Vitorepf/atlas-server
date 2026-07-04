@@ -453,4 +453,49 @@ final class AtlasExternalBrainRunPolicyCompilerTest extends TestCase
         $this->assertIsArray($verdict['proof_requirements']);
         $this->assertNotEmpty($verdict['proof_requirements']);
     }
+
+    // ── stop_conditions, continue_conditions, forbidden_originator_behaviors ──
+
+    public function test_compile_includes_stop_conditions(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+        $this->assertArrayHasKey('stop_conditions', $policy);
+        $this->assertIsArray($policy['stop_conditions']);
+        $this->assertNotEmpty($policy['stop_conditions']);
+        $this->assertContains('quota_reached_and_quality_gates_pass', $policy['stop_conditions']);
+        $this->assertContains('honest_exhausted_with_all_escalation_modes_attempted', $policy['stop_conditions']);
+        $this->assertContains('forbidden_behaviour_detected', $policy['stop_conditions']);
+    }
+
+    public function test_compile_includes_continue_conditions(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+        $this->assertArrayHasKey('continue_conditions', $policy);
+        $this->assertIsArray($policy['continue_conditions']);
+        $this->assertNotEmpty($policy['continue_conditions']);
+        $this->assertContains('fresh_high_leverage_candidates_exist', $policy['continue_conditions']);
+        $this->assertContains('queue_depth_below_target_and_no_stall', $policy['continue_conditions']);
+        $this->assertContains('breakthrough_actions_available', $policy['continue_conditions']);
+        $this->assertContains('learning_or_self_heal_remaining', $policy['continue_conditions']);
+    }
+
+    public function test_compile_includes_forbidden_originator_behaviors(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+        $this->assertArrayHasKey('forbidden_originator_behaviors', $policy);
+        $this->assertIsArray($policy['forbidden_originator_behaviors']);
+        $this->assertNotEmpty($policy['forbidden_originator_behaviors']);
+        $this->assertContains('padding', $policy['forbidden_originator_behaviors']);
+        $this->assertContains('same_template_quota_fill', $policy['forbidden_originator_behaviors']);
+        $this->assertContains('human_dependent_steady_state', $policy['forbidden_originator_behaviors']);
+    }
+
+    public function test_stop_conditions_state_queue_depth_alone_is_not_stop(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+        // stop_conditions should NOT include "sufficient_queue_depth" as a stop reason
+        foreach ($policy['stop_conditions'] as $condition) {
+            $this->assertStringNotContainsString('sufficient_queue_depth', $condition);
+        }
+    }
 }
