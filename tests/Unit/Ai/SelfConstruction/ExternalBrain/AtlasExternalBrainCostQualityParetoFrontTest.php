@@ -642,4 +642,42 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
 
         $this->assertSame($this->front()->compute($input), $this->front()->compute($input));
     }
+
+    // ── costAdjustedRouting: pareto_front, dominated_candidates, routing_rationale ──
+
+    public function test_cost_adjusted_routing_has_required_keys(): void
+    {
+        $r = $this->front()->costAdjustedRouting([
+            'candidates' => [
+                ['candidate_id' => 'cheap', 'cost' => 1.0, 'quality_score' => 0.8, 'impact_evidence' => ['fix_bug'], 'give_back_risk' => 0.1, 'autonomy_value' => 0.9],
+                ['candidate_id' => 'expensive', 'cost' => 10.0, 'quality_score' => 0.9, 'impact_evidence' => [], 'give_back_risk' => 0.05, 'autonomy_value' => 0.8],
+            ],
+        ]);
+        $this->assertArrayHasKey('pareto_front', $r);
+        $this->assertArrayHasKey('dominated_candidates', $r);
+        $this->assertArrayHasKey('routing_rationale', $r);
+    }
+
+    public function test_cheaper_tier_outranks_frontier_when_quality_and_impact_meet_floor(): void
+    {
+        $r = $this->front()->costAdjustedRouting([
+            'candidates' => [
+                ['candidate_id' => 'cheap', 'cost' => 1.0, 'quality_score' => 0.85, 'impact_evidence' => ['fix_bug', 'reduce_latency'], 'give_back_risk' => 0.1, 'autonomy_value' => 0.9],
+                ['candidate_id' => 'frontier', 'cost' => 10.0, 'quality_score' => 0.90, 'impact_evidence' => [], 'give_back_risk' => 0.05, 'autonomy_value' => 0.8],
+            ],
+        ]);
+        $this->assertSame('cheap', $r['pareto_front'][0]['candidate_id']);
+        $this->assertNotEmpty($r['routing_rationale']);
+    }
+
+    public function test_dominated_candidates_identified(): void
+    {
+        $r = $this->front()->costAdjustedRouting([
+            'candidates' => [
+                ['candidate_id' => 'dominant', 'cost' => 1.0, 'quality_score' => 0.9, 'impact_evidence' => ['a'], 'give_back_risk' => 0.05, 'autonomy_value' => 0.9],
+                ['candidate_id' => 'dominated', 'cost' => 2.0, 'quality_score' => 0.8, 'impact_evidence' => [], 'give_back_risk' => 0.1, 'autonomy_value' => 0.7],
+            ],
+        ]);
+        $this->assertContains('dominated', $r['dominated_candidates']);
+    }
 }

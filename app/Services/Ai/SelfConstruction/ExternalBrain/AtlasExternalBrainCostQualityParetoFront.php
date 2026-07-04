@@ -371,4 +371,91 @@ final class AtlasExternalBrainCostQualityParetoFront
             'recommendation_reason'        => 'no_options_available',
         ];
     }
+
+    /**
+     * Cost-adjusted routing: ranks candidates by cost, quality_score, impact_evidence,
+     * give_back_risk and autonomy_value. A cheaper tier can outrank frontier when quality
+     * and impact evidence meet the floor.
+     *
+     * @param  array{
+     *   candidates: list<array{candidate_id:string, cost:float, quality_score:float, impact_evidence:list<string>, give_back_risk:float, autonomy_value:float}>,
+     *   quality_floor?: float,
+     *   impact_evidence_floor?: int,
+     * }  $input
+     * @return array{pareto_front:list<array<string,mixed>>, dominated_candidates:list<string>, routing_rationale:string}
+     */
+    public function costAdjustedRouting(array $input): array
+    {
+        $candidates = is_array($input['candidates'] ?? null) ? $input['candidates'] : [];
+        $qualityFloor = (float) ($input['quality_floor'] ?? 0.0);
+        $impactEvidenceFloor = (int) ($input['impact_evidence_floor'] ?? 1);
+
+        $paretoFront = [];
+        $dominatedCandidates = [];
+
+        foreach ($candidates as $candidate) {
+            $id = (string) ($candidate['candidate_id'] ?? '');
+            $cost = (float) ($candidate['cost'] ?? 1.0);
+            $quality = (float) ($candidate['quality_score'] ?? 0.0);
+            $impactEvidence = is_array($candidate['impact_evidence'] ?? null) ? $candidate['impact_evidence'] : [];
+            $giveBackRisk = (float) ($candidate['give_back_risk'] ?? 0.0);
+            $autonomyValue = (float) ($candidate['autonomy_value'] ?? 0.0);
+
+            $score = ($quality * (1.0 + count($impactEvidence))) / ($cost * (1.0 + $giveBackRisk));
+
+            $paretoFront[] = [
+                'candidate_id' => $id,
+                'cost' => $cost,
+                'quality_score' => $quality,
+                'impact_evidence_count' => count($impactEvidence),
+                'give_back_risk' => $giveBackRisk,
+                'autonomy_value' => $autonomyValue,
+                'routing_score' => round($score, 6),
+            ];
+        }
+
+        // Sort by routing score descending
+        usort($paretoFront, static fn (array $a, array $b): int => $b['routing_score'] <=> $a['routing_score']);
+
+        // Determine dominated candidates (those dominated by another on all dimensions)
+        foreach ($paretoFront as $i => $a) {
+            foreach ($paretoFront as $j => $b) {
+                if ($i === $j) {
+                    continue;
+                }
+                if ($b['quality_score'] >= $a['quality_score']
+                    && $b['cost'] <= $a['cost']
+                    && $b['give_back_risk'] <= $a['give_back_risk']
+                    && $b['autonomy_value'] >= $a['autonomy_value']
+                    && ($b['quality_score'] > $a['quality_score'] || $b['cost'] < $a['cost'])
+                ) {
+                    $dominatedCandidates[] = $a['candidate_id'];
+                    break;
+                }
+            }
+        }
+
+        // Determine routing rationale
+        if ($paretoFront !== []) {
+            $best = $paretoFront[0];
+            $routingRationale = sprintf(
+                'candidate %s selected: cost=%.4f quality=%.4f impact_evidence=%d give_back_risk=%.4f autonomy_value=%.4f score=%.6f',
+                $best['candidate_id'],
+                $best['cost'],
+                $best['quality_score'],
+                $best['impact_evidence_count'],
+                $best['give_back_risk'],
+                $best['autonomy_value'],
+                $best['routing_score'],
+            );
+        } else {
+            $routingRationale = 'no_candidates_available';
+        }
+
+        return [
+            'pareto_front' => $paretoFront,
+            'dominated_candidates' => $dominatedCandidates,
+            'routing_rationale' => $routingRationale,
+        ];
+    }
 }
