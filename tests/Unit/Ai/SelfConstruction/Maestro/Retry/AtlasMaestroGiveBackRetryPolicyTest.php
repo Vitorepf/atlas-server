@@ -332,4 +332,70 @@ final class AtlasMaestroGiveBackRetryPolicyTest extends TestCase
         $this->assertFalse($verdict->allow);
         $this->assertSame(AtlasMaestroGiveBackRetryPolicy::REASON_RESPEC_NEEDED, $verdict->reason);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: contract — packet_defect → respec, quarantine at threshold, worker_mismatch
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_packet_defect_returns_respec_needed_before_any_retry(): void
+    {
+        $policy = new AtlasMaestroGiveBackRetryPolicy();
+        $verdict = $policy->evaluate([
+            'task_packet_id' => 'pkt-defect',
+            'retries_used' => 0,
+            'give_back_reason_class' => 'packet_defect',
+            'new_fingerprint' => 'fp-1',
+        ]);
+
+        $this->assertFalse($verdict->allow);
+        $this->assertSame(AtlasMaestroGiveBackRetryPolicy::REASON_RESPEC_NEEDED, $verdict->reason);
+    }
+
+    public function test_give_back_at_threshold_with_zero_prior_success_quarantines(): void
+    {
+        $policy = new AtlasMaestroGiveBackRetryPolicy();
+        $verdict = $policy->evaluate([
+            'task_packet_id' => 'pkt-q',
+            'retries_used' => 0,
+            'give_back_count' => 3,
+            'prior_success_count' => 0,
+            'give_back_reason_class' => 'worker_mismatch',
+            'new_fingerprint' => 'fp-1',
+            'alternate_worker_available' => true,
+        ]);
+
+        $this->assertFalse($verdict->allow);
+        $this->assertSame(AtlasMaestroGiveBackRetryPolicy::REASON_QUARANTINE, $verdict->reason);
+    }
+
+    public function test_give_back_at_threshold_with_prior_success_respecs(): void
+    {
+        $policy = new AtlasMaestroGiveBackRetryPolicy();
+        $verdict = $policy->evaluate([
+            'task_packet_id' => 'pkt-rs',
+            'retries_used' => 0,
+            'give_back_count' => 3,
+            'prior_success_count' => 2,
+            'give_back_reason_class' => 'worker_mismatch',
+            'new_fingerprint' => 'fp-1',
+            'alternate_worker_available' => true,
+        ]);
+
+        $this->assertFalse($verdict->allow);
+        $this->assertSame(AtlasMaestroGiveBackRetryPolicy::REASON_RESPEC_NEEDED, $verdict->reason);
+    }
+
+    public function test_worker_mismatch_without_alternate_worker_denied(): void
+    {
+        $policy = new AtlasMaestroGiveBackRetryPolicy();
+        $verdict = $policy->evaluate([
+            'task_packet_id' => 'pkt-wm',
+            'retries_used' => 0,
+            'give_back_reason_class' => 'worker_mismatch',
+            'new_fingerprint' => 'fp-1',
+            'alternate_worker_available' => false,
+        ]);
+
+        $this->assertFalse($verdict->allow);
+    }
 }
