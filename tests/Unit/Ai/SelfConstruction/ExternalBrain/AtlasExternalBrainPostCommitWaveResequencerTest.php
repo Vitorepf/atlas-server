@@ -92,4 +92,66 @@ final class AtlasExternalBrainPostCommitWaveResequencerTest extends TestCase
         }
         $this->assertFalse($result['mutates_queue']);
     }
+
+    // ── capability_chain_order, removed_obsolete_task_ids ──
+
+    public function test_output_has_capability_chain_order_and_removed_obsolete_task_ids(): void
+    {
+        $result = $this->resequencer()->resequence([]);
+        $this->assertArrayHasKey('capability_chain_order', $result);
+        $this->assertArrayHasKey('removed_obsolete_task_ids', $result);
+    }
+
+    public function test_capability_chain_order_promotes_unblocked_tasks(): void
+    {
+        $result = $this->resequencer()->resequence([
+            'previous_wave' => ['task_ids' => ['a', 'b', 'c']],
+            'queue_tasks' => [
+                ['task_id' => 'a', 'unblocked_by_latest_commit' => true, 'is_critical_path' => true],
+                ['task_id' => 'b'],
+                ['task_id' => 'c'],
+            ],
+        ]);
+        $this->assertSame('a', $result['capability_chain_order'][0]);
+    }
+
+    public function test_removed_obsolete_task_ids_includes_superseded_tasks(): void
+    {
+        $result = $this->resequencer()->resequence([
+            'previous_wave' => ['task_ids' => ['a', 'b']],
+            'queue_tasks' => [
+                ['task_id' => 'a', 'superseded_by_commit' => true],
+                ['task_id' => 'b'],
+            ],
+        ]);
+        $this->assertContains('a', $result['removed_obsolete_task_ids']);
+        $this->assertNotContains('b', $result['removed_obsolete_task_ids']);
+    }
+
+    public function test_removed_obsolete_task_ids_includes_stale_tasks(): void
+    {
+        $result = $this->resequencer()->resequence([
+            'previous_wave' => ['task_ids' => ['a', 'b']],
+            'queue_tasks' => [
+                ['task_id' => 'a'],
+                ['task_id' => 'b'],
+            ],
+            'stale_dependency_findings' => ['stale_task_ids' => ['b']],
+        ]);
+        $this->assertContains('b', $result['removed_obsolete_task_ids']);
+        $this->assertNotContains('a', $result['removed_obsolete_task_ids']);
+    }
+
+    public function test_removed_obsolete_task_ids_includes_repeated_give_back(): void
+    {
+        $result = $this->resequencer()->resequence([
+            'previous_wave' => ['task_ids' => ['a', 'b']],
+            'queue_tasks' => [
+                ['task_id' => 'a'],
+                ['task_id' => 'b', 'give_back_repeat_count' => 3],
+            ],
+        ]);
+        $this->assertContains('b', $result['removed_obsolete_task_ids']);
+        $this->assertNotContains('a', $result['removed_obsolete_task_ids']);
+    }
 }
