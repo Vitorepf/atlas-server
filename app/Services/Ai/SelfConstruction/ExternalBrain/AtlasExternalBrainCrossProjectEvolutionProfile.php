@@ -71,6 +71,25 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
             'safe_first_task_chain' => self::buildSafeFirstTaskChain($taskLanes, self::AUTONOMY_FULL_AUTONOMOUS, $testReadiness),
             'transfer_blocked' => false,
             'transfer_blocked_reasons' => [],
+            'reusable_patterns' => [
+                'task_lane_ranking_by_safety',
+                'autonomy_level_gating',
+                'evidence_contract_enforcement',
+                'proof_gate_composition',
+            ],
+            'project_specific_constraints' => [
+                'php_artisan_required',
+                'laravel_11_minimum',
+                'atlas_cli_dependency',
+            ],
+            'unsafe_transfer_assumptions' => [
+                'atlas_server_is_canonical',
+                'full_autonomy_without_safety_contract',
+                'merge_governor_always_available',
+            ],
+            'transfer_ready' => true,
+            'next_context_probe' => 'verify_target_project_has_compatible_build_system_and_test_suite',
+            'first_safe_task_family' => 'test_and_doc_lanes_only',
         ]);
     }
 
@@ -154,6 +173,38 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
         }
         $transferBlocked = $transferBlockedReasons !== [];
 
+        // transfer_ready: false when evidence is stale, absent or contradicted
+        $evidenceStatus = (string) ($config['evidence_status'] ?? '');
+        $transferReady = ! $transferBlocked && $evidenceStatus !== 'stale' && $evidenceStatus !== 'contradicted' && $evidenceStatus !== 'absent';
+
+        // Derive reusable patterns, project-specific constraints, unsafe transfer assumptions
+        $reusablePatterns = [
+            'task_lane_ranking_by_safety',
+            'autonomy_level_gating',
+            'evidence_contract_enforcement',
+        ];
+        $projectSpecificConstraints = [
+            'project_id:' . $projectId,
+            'allowed_targets:' . implode(',', $allowedTargets),
+        ];
+        $unsafeTransferAssumptions = $transferReady ? [] : [
+            'insufficient_evidence_for_transfer',
+        ];
+        if ($evidenceStatus === 'stale') {
+            $unsafeTransferAssumptions[] = 'stale_evidence_requires_refresh';
+        }
+        if ($evidenceStatus === 'contradicted') {
+            $unsafeTransferAssumptions[] = 'contradicted_evidence_requires_resolution';
+        }
+
+        // next_context_probe and first_safe_task_family
+        $nextContextProbe = $transferReady
+            ? 'verify_target_project_test_readiness_and_lane_coverage'
+            : 'collect_source_of_truth_docs_and_allowed_targets';
+        $firstSafeTaskFamily = $transferReady
+            ? 'test_and_doc_lanes_only'
+            : 'readonly_planning_only';
+
         return new self([
             'project_id' => $projectId,
             'project_name' => (string) ($config['project_name'] ?? $projectId),
@@ -174,6 +225,12 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
             'safe_first_task_chain' => $transferBlocked ? [] : self::buildSafeFirstTaskChain($taskLanes, $resolvedLevel, $testReadiness),
             'transfer_blocked' => $transferBlocked,
             'transfer_blocked_reasons' => $transferBlockedReasons,
+            'reusable_patterns' => $reusablePatterns,
+            'project_specific_constraints' => $projectSpecificConstraints,
+            'unsafe_transfer_assumptions' => $unsafeTransferAssumptions,
+            'transfer_ready' => $transferReady,
+            'next_context_probe' => $nextContextProbe,
+            'first_safe_task_family' => $firstSafeTaskFamily,
         ]);
     }
 
