@@ -161,4 +161,40 @@ final class AtlasTaskFabricReadyQueueValueBalancerTest extends TestCase
         $b     = $this->balancer()->balance($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC2: deep+diverse but low avg expected value → originate_targeted ────
+
+    public function test_deep_diverse_queue_with_low_expected_value_originates_targeted(): void
+    {
+        // Deep + diverse (25 tasks, 5 dims) but avg_expected_value is very low (0.2).
+        $r = $this->balancer()->balance([
+            'task_groups' => [
+                $this->group('queue_health', 5, 0.2),
+                $this->group('verification', 5, 0.2),
+                $this->group('implementation', 5, 0.2),
+                $this->group('learning', 5, 0.2),
+                $this->group('hardening', 5, 0.2),
+            ],
+        ]);
+
+        $this->assertSame('originate_targeted', $r['recommendation']);
+        $this->assertSame('low_value_queue', $r['reason']);
+        $this->assertNotEmpty($r['target_dimensions']);
+    }
+
+    public function test_deep_diverse_queue_with_moderate_value_still_stops(): void
+    {
+        // avg_expected_value = 0.8 (above MIN_AVG_VALUE_FLOOR 0.5) → still stops.
+        $r = $this->balancer()->balance([
+            'task_groups' => [
+                $this->group('queue_health', 5, 0.8),
+                $this->group('verification', 5, 0.8),
+                $this->group('implementation', 5, 0.8),
+                $this->group('learning', 5, 0.8),
+                $this->group('hardening', 5, 0.8),
+            ],
+        ]);
+
+        $this->assertSame('stop_or_consolidate', $r['recommendation']);
+    }
 }

@@ -35,6 +35,8 @@ final class AtlasTaskFabricReadyQueueValueBalancer
 
     private const DEFAULT_MINIMUM_READY_PER_WORKER = 1;
 
+    private const MIN_AVG_VALUE_FLOOR = 0.50;
+
     private const CANONICAL_DIMENSIONS = [
         'queue_health', 'learning', 'verification', 'simplification',
         'implementation', 'hardening', 'monitoring', 'research',
@@ -87,7 +89,7 @@ final class AtlasTaskFabricReadyQueueValueBalancer
             || in_array((string) ($queueFacts['replenish_recommendation'] ?? ''), ['replenish_soon', 'replenish_urgently'], true);
         $belowWorkerFloor   = $belowWorkerFloor || $externalWorkerFloorSignal;
 
-        [$recommendation, $reason] = $this->decide($poisonRatio, $deepQueue, $diverse, $totalTasks, $belowWorkerFloor);
+        [$recommendation, $reason] = $this->decide($poisonRatio, $deepQueue, $diverse, $totalTasks, $belowWorkerFloor, $avgValue);
 
         $targetDimensions = ($recommendation === 'originate_targeted') ? array_slice($missingDims, 0, 3) : [];
 
@@ -115,7 +117,7 @@ final class AtlasTaskFabricReadyQueueValueBalancer
     /**
      * @return array{string, string}
      */
-    private function decide(float $poisonRatio, bool $deepQueue, bool $diverse, int $totalTasks, bool $belowWorkerFloor): array
+    private function decide(float $poisonRatio, bool $deepQueue, bool $diverse, int $totalTasks, bool $belowWorkerFloor, float $avgValue): array
     {
         // 1. High poison ratio blocks progress regardless of depth.
         if ($poisonRatio > self::MAX_POISON_RATIO) {
@@ -129,17 +131,24 @@ final class AtlasTaskFabricReadyQueueValueBalancer
             return ['originate_more', 'worker_floor'];
         }
 
-        // 3. Deep and diverse: already good enough — don't add more.
+        // 3. Deep and diverse, but avg expected value is below the minimum floor:
+        // targeted high-value replenishment keeps muscles fed with better work rather
+        // than preserving a large weak backlog.
+        if ($deepQueue && $diverse && $avgValue < self::MIN_AVG_VALUE_FLOOR) {
+            return ['originate_targeted', 'low_value_queue'];
+        }
+
+        // 4. Deep and diverse with good value: already good enough — don't add more.
         if ($deepQueue && $diverse) {
             return ['stop_or_consolidate', 'queue_deep_and_diverse'];
         }
 
-        // 3. Deep but dimension-sparse: target missing capability areas.
+        // 5. Deep but dimension-sparse: target missing capability areas.
         if ($deepQueue && ! $diverse) {
             return ['originate_targeted', 'queue_deep_but_dimension_sparse'];
         }
 
-        // 4. Thin queue: add more tasks.
+        // 6. Thin queue: add more tasks.
         return ['originate_more', 'queue_too_thin'];
     }
 }
