@@ -309,4 +309,79 @@ final class AtlasTaskGraphChainAdmissionBinderTest extends TestCase
         $this->assertContains('allowed_files_ambiguous', $r['rejected_chains'][0]['rejection_reasons']);
         $this->assertContains('lane_namespace_ambiguous', $r['rejected_chains'][0]['rejection_reasons']);
     }
+
+    // ── AC2: transitive dependency path exempts write-set conflict ──
+
+    public function test_transitive_dep_chain_sharing_write_file_is_allowed(): void
+    {
+        $shared = 'app/Services/Ai/SharedService.php';
+        $r = $this->bind([
+            $this->chain('c1', [
+                $this->step('t1', files: [$shared, 'tests/T1Test.php']),
+                $this->step('t2', deps: ['t1'], files: ['app/Services/Ai/T2Service.php', 'tests/T2Test.php']),
+                $this->step('t3', deps: ['t2'], files: [$shared, 'tests/T3Test.php']),
+                // t3 → t2 → t1: transitive path → t3 and t1 sharing a file is fine
+            ]),
+        ]);
+
+        $this->assertSame([], $r['write_set_conflicts']);
+        $this->assertCount(1, $r['accepted_chains']);
+    }
+
+    // ── AC3: no dependency path → write_set_conflict ──
+
+    public function test_parallel_steps_without_dep_path_are_rejected_as_write_set_conflict(): void
+    {
+        $shared = 'app/Services/Ai/SharedService.php';
+        $r = $this->bind([
+            $this->chain('c1', [
+                $this->step('t1', files: [$shared, 'tests/T1Test.php']),
+                $this->step('t2', deps: ['t1'], files: ['app/Services/Ai/T2Service.php', 'tests/T2Test.php']),
+                $this->step('t3', files: [$shared, 'tests/T3Test.php']),
+                // t3 has no dep path to t1 or t2 → sharing with t1 is a conflict
+            ]),
+        ]);
+
+        $this->assertCount(1, $r['write_set_conflicts']);
+        $this->assertContains('write_set_conflict', $r['rejected_chains'][0]['rejection_reasons']);
+    }
+
+    // ── AC4: read_only_files still exempt ──
+
+    public function test_read_only_files_exempt_even_for_parallel_steps_without_dep_path(): void
+    {
+        $shared = 'app/Services/Ai/SharedContext.php';
+        $t1 = $this->step('t1', files: [$shared, 'tests/T1Test.php']);
+        $t1['read_only_files'] = [$shared];
+        $t2 = $this->step('t2', deps: ['t1'], files: ['app/Services/Ai/T2Service.php', 'tests/T2Test.php']);
+
+        // t1 also shares with a parallel step that only reads the file
+        $t3 = $this->step('t3', files: [$shared, 'tests/T3Test.php']);
+        $t3['read_only_files'] = [$shared];
+
+        $r = $this->bind([$this->chain('c1', [$t1, $t2, $t3])]);
+
+        // t1 and t3 have no dep path, but the shared file is read-only for both → exempt
+        $this->assertSame([], $r['write_set_conflicts']);
+        $this->assertCount(1, $r['accepted_chains']);
+    }
+
+    // ── AC2: deeper transitive chain ──
+
+    public function test_deeper_transitive_chain_allows_write_file_sharing(): void
+    {
+        $shared = 'app/Services/Ai/SharedService.php';
+        $r = $this->bind([
+            $this->chain('c1', [
+                $this->step('t1', files: [$shared, 'tests/T1Test.php']),
+                $this->step('t2', deps: ['t1'], files: ['app/Services/Ai/T2Service.php', 'tests/T2Test.php']),
+                $this->step('t3', deps: ['t2'], files: ['app/Services/Ai/T3Service.php', 'tests/T3Test.php']),
+                $this->step('t4', deps: ['t3'], files: [$shared, 'tests/T4Test.php']),
+                // t4 → t3 → t2 → t1: transitive path means t4 and t1 sharing is fine
+            ]),
+        ]);
+
+        $this->assertSame([], $r['write_set_conflicts']);
+        $this->assertCount(1, $r['accepted_chains']);
+    }
 }

@@ -157,6 +157,15 @@ final class AtlasTaskGraphChainAdmissionBinder
         $conflicts = [];
         $n = count($steps);
 
+        // Build dependency graph for transitive reachability.
+        $depGraph = [];
+        $taskIds = [];
+        foreach ($steps as $step) {
+            $id = (string) ($step['task_id'] ?? '');
+            $taskIds[] = $id;
+            $depGraph[$id] = array_values(array_unique(array_map('strval', (array) ($step['depends_on'] ?? []))));
+        }
+
         for ($i = 0; $i < $n; $i++) {
             for ($j = $i + 1; $j < $n; $j++) {
                 $a = $steps[$i];
@@ -164,12 +173,10 @@ final class AtlasTaskGraphChainAdmissionBinder
                 $aId = (string) ($a['task_id'] ?? '');
                 $bId = (string) ($b['task_id'] ?? '');
 
-                $aDeps = is_array($a['depends_on'] ?? null) ? $a['depends_on'] : [];
-                $bDeps = is_array($b['depends_on'] ?? null) ? $b['depends_on'] : [];
+                // Transitive dependency check: is b reachable from a, or a from b?
+                $hasDepPath = $this->isReachable($depGraph, $aId, $bId) || $this->isReachable($depGraph, $bId, $aId);
 
-                $directDep = in_array($bId, $aDeps, true) || in_array($aId, $bDeps, true);
-
-                if (! $directDep) {
+                if (! $hasDepPath) {
                     $aReadOnly = is_array($a['read_only_files'] ?? null) ? $a['read_only_files'] : [];
                     $bReadOnly = is_array($b['read_only_files'] ?? null) ? $b['read_only_files'] : [];
 
@@ -190,5 +197,35 @@ final class AtlasTaskGraphChainAdmissionBinder
         }
 
         return $conflicts;
+    }
+
+    /**
+     * BFS reachability: can $target be reached from $start following depends_on edges?
+     *
+     * @param  array<string,list<string>>  $graph
+     */
+    private function isReachable(array $graph, string $start, string $target): bool
+    {
+        if ($start === $target) {
+            return true;
+        }
+
+        $visited = [$start => true];
+        $queue = [$start];
+
+        while ($queue !== []) {
+            $current = array_shift($queue);
+            foreach ($graph[$current] ?? [] as $neighbor) {
+                if (! isset($visited[$neighbor])) {
+                    if ($neighbor === $target) {
+                        return true;
+                    }
+                    $visited[$neighbor] = true;
+                    $queue[] = $neighbor;
+                }
+            }
+        }
+
+        return false;
     }
 }
