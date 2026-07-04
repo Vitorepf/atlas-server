@@ -523,4 +523,21 @@ final class AtlasExternalBrainTaskFamilyYieldModelTest extends TestCase
 
         $this->assertSame($entry['reasons'][0], $entry['reason']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: output contract — family_yields, ranked_families, low_yield, summary
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_ac4_output_contract_keys(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['family_id' => 'a', 'accepted_specs' => 5, 'resolved_capability_deltas' => 4]),
+            $this->family(['family_id' => 'b', 'accepted_specs' => 10, 'resolved_capability_deltas' => 0]),
+        ]]);
+
+        $this->assertArrayHasKey('family_yields', $r);
+        $this->assertArrayHasKey('ranked_families', $r);
+        $this->assertArrayHasKey('low_yield_families', $r);
+        $this->assertArrayHasKey('summary', $r);
+    }
 }
