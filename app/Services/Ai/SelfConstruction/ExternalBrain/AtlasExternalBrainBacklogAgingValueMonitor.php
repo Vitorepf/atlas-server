@@ -71,14 +71,32 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
         $retireCandidates = [];
         $consolidateCandidates = [];
         $revalidateCandidates = [];
+        $staleButProven = [];
+        $staleProxyRisk = [];
+        $staleNeedsResearch = [];
         $staleCount = 0;
+        $usefulDepth = 0;
 
         foreach ($rows as $row) {
             if ($row['is_stale']) {
                 $staleCount++;
+
+                // Categorize stale tasks
+                $isProxy = (bool) ($row['is_proxy'] ?? false);
+                $hasProof = (bool) ($row['has_value_proof'] ?? false);
+
+                if ($hasProof) {
+                    $staleButProven[] = ['task_id' => $row['task_id'], 'reason' => 'stale_but_proven'];
+                } elseif ($isProxy) {
+                    $staleProxyRisk[] = ['task_id' => $row['task_id'], 'reason' => 'stale_proxy_risk'];
+                } else {
+                    $staleNeedsResearch[] = ['task_id' => $row['task_id'], 'reason' => 'stale_needs_research'];
+                }
+            } else {
+                $usefulDepth++;
             }
-            if ($row['retire_reason'] !== null) {
-                $retireCandidates[] = ['task_id' => $row['task_id'], 'reason' => $row['retire_reason']];
+            if ($row['retire_reason'] !== null || $row['aging_action'] === self::ACTION_RETIRE) {
+                $retireCandidates[] = ['task_id' => $row['task_id'], 'reason' => $row['retire_reason'] ?? $row['aging_reason']];
 
                 continue;
             }
@@ -135,6 +153,12 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
             'revalidate_candidates' => $revalidateCandidates,
             'consolidate_candidates' => $consolidateCandidates,
             'retire_candidates' => $retireCandidates,
+            'useful_depth_after_decay' => $usefulDepth,
+            'stale_value_actions' => [
+                'stale_but_proven' => $staleButProven,
+                'stale_proxy_risk' => $staleProxyRisk,
+                'stale_needs_research' => $staleNeedsResearch,
+            ],
             'mutates_queue' => false,
         ];
     }
@@ -162,7 +186,7 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
         $downstreamUnlockCount = max(0, (int) ($task['downstream_unlock_count'] ?? 0));
         $valueProofFresh = (bool) ($task['value_proof_fresh'] ?? false);
         $acceptanceEvidenceStale = (bool) ($task['acceptance_evidence_stale'] ?? false);
-        $hasValueProof = $downstreamUnlockCount > 0 && $valueProofFresh;
+        $hasValueProof = (bool) ($task['has_value_proof'] ?? false) || ($downstreamUnlockCount > 0 && $valueProofFresh);
 
         $retireReason = match (true) {
             $supersededBy !== '' => 'superseded_by_newer_task',
@@ -207,6 +231,8 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
             'retire_reason' => $retireReason,
             'downstream_unlock_count' => $downstreamUnlockCount,
             'value_proof_fresh' => $valueProofFresh,
+            'is_proxy' => (bool) ($task['is_proxy'] ?? false),
+            'has_value_proof' => $hasValueProof,
             'aging_action' => $agingAction,
             'evidence_needed' => $evidenceNeeded,
             'aging_reason' => $agingReason,
