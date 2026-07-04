@@ -76,4 +76,48 @@ final class AgentControlPlaneTaskQueueLeaseCertificationServiceTest extends Test
         $this->assertSame('available', $result['status']);
         $this->assertTrue($result['invariants_all_true']);
     }
+
+    // ── leases_match_claimed regression ──
+
+    public function test_lease_certification_includes_leases_match_claimed(): void
+    {
+        $result = $this->certify();
+
+        $this->assertArrayHasKey('leases_match_claimed', $result);
+        $this->assertIsBool($result['leases_match_claimed']);
+    }
+
+    public function test_lease_certification_includes_mismatch_reason(): void
+    {
+        $result = $this->certify();
+
+        $this->assertArrayHasKey('mismatch_reason', $result);
+        $this->assertIsString($result['mismatch_reason']);
+    }
+
+    public function test_lease_certification_includes_recommended_recovery_action(): void
+    {
+        $result = $this->certify();
+
+        $this->assertArrayHasKey('recommended_recovery_action', $result);
+        $this->assertIsString($result['recommended_recovery_action']);
+    }
+
+    public function test_lease_certification_includes_healthy(): void
+    {
+        $result = $this->certify();
+
+        $this->assertArrayHasKey('healthy', $result);
+        $this->assertIsBool($result['healthy']);
+    }
+
+    public function test_healthy_is_true_when_no_violations_and_leases_match(): void
+    {
+        $result = $this->certify();
+
+        // Clean certification: no violations, leases match claimed
+        $this->assertTrue($result['leases_match_claimed']);
+        $this->assertTrue($result['healthy']);
+        $this->assertSame('', $result['mismatch_reason']);
+    }
 }
