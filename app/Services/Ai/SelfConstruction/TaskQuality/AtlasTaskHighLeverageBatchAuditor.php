@@ -70,6 +70,7 @@ final class AtlasTaskHighLeverageBatchAuditor
         'semantic_near_duplicate_template_farm',
         'single_family_volume',
         'worker_coverage_insufficient',
+        'missing_batch_value_proof',
     ];
 
     /**
@@ -318,6 +319,40 @@ final class AtlasTaskHighLeverageBatchAuditor
                     ? "Batch supplies {$total} specs but worker demand requires at least {$requiredCoverage}; add {$gap} more creditable specs."
                     : 'All specs concentrate allowed_files in a single family; diversify so multiple workers can claim in parallel.';
             }
+        }
+
+        // AC2: missing_batch_value_proof — at least one non-doc spec must carry explicit
+        // value_proof or impact_trace evidence, otherwise the batch looks green but hollow.
+        // Doc-only batches are implicitly exempt since their evidence is acceptance-runnable
+        // documentation, not code-level proof.
+        $hasValueProof = false;
+        $hasNonDocSpec = false;
+        foreach ($specs as $s) {
+            $files = is_array($s['allowed_files'] ?? null) ? array_map('strval', (array) $s['allowed_files']) : [];
+            $isDocOnly = $files !== [] && count($files) === count(array_filter($files, static fn (string $f): bool => str_starts_with($f, 'docs/')));
+            if ($isDocOnly) {
+                continue; // doc-only specs are exempt
+            }
+            $hasNonDocSpec = true;
+            if (
+                (bool) ($s['value_proof'] ?? false)
+                || (bool) ($s['impact_trace'] ?? false)
+                || (is_array($s['packet_quality']['facts']['impact_trace'] ?? null) && $s['packet_quality']['facts']['impact_trace'] !== [])
+            ) {
+                $hasValueProof = true;
+                break;
+            }
+        }
+        // If all specs are doc-only, the gate is implicitly satisfied.
+        if (! $hasNonDocSpec) {
+            $hasValueProof = true;
+        }
+        if (! $hasValueProof) {
+            $antiProxy[] = [
+                'pattern' => 'missing_batch_value_proof',
+                'total' => $total,
+            ];
+            $hints[] = 'No non-doc spec carries value_proof or impact_trace; add concrete value evidence to at least one spec.';
         }
 
         // AC3: reward distinct capability lift, simplification, risk reduction, downstream

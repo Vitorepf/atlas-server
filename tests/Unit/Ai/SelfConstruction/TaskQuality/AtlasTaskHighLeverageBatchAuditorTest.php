@@ -22,6 +22,8 @@ final class AtlasTaskHighLeverageBatchAuditorTest extends TestCase
             'allowed_files' => $files,
             'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test '.$id.'Test exits 0 and returns the expected result'],
             'required_evidence' => ['tests_or_gates_result'],
+            'value_proof' => true,
+            'impact_trace' => true,
             'packet_quality' => array_merge(
                 ['self_sufficient' => true, 'facts' => ['dormant_cli_arm_proxy' => false, 'test_only_has_contract' => false]],
                 $qualityOverrides,
@@ -383,5 +385,66 @@ final class AtlasTaskHighLeverageBatchAuditorTest extends TestCase
         $result = $this->svc()->audit([]);
 
         $this->assertSame('accept', $result['decision']);
+    }
+
+    // ── AC2: missing_batch_value_proof fires when no non-doc spec has value_proof or impact_trace ──
+
+    public function test_diverse_batch_without_value_proof_or_impact_trace_fails(): void
+    {
+        $specs = [
+            $this->spec('d-1', 'Fix the null pointer bug in the user authentication flow service',
+                ['app/Services/Auth/UserService.php', 'tests/Unit/Auth/UserServiceTest.php'],
+                [], ['value_proof' => false, 'impact_trace' => false]),
+            $this->spec('d-2', 'Harden the certification gate against malformed edge case inputs to prevent bypass',
+                ['app/Services/Gate/CertGate.php', 'tests/Unit/Gate/CertGateTest.php'],
+                [], ['value_proof' => false, 'impact_trace' => false]),
+            $this->spec('d-3', 'Wire the runtime adapter into the provider registry to complete integration plumbing',
+                ['app/Services/Runtime/RuntimeAdapter.php', 'tests/Unit/Runtime/RuntimeAdapterTest.php'],
+                [], ['value_proof' => false, 'impact_trace' => false]),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $this->assertFalse($result['creditable']);
+        $patterns = array_column($result['anti_proxy_facts'], 'pattern');
+        $this->assertContains('missing_batch_value_proof', $patterns);
+    }
+
+    // ── AC3: one value_proof on a non-doc spec makes the batch pass the gate ──
+
+    public function test_batch_with_one_value_proof_on_non_doc_spec_passes_value_proof_gate(): void
+    {
+        $specs = [
+            $this->spec('vp-impl', 'Fix the null pointer bug in the user authentication flow service',
+                ['app/Services/Auth/UserService.php', 'tests/Unit/Auth/UserServiceTest.php'],
+                [], ['value_proof' => true, 'impact_trace' => false]),
+            $this->spec('no-vp', 'Harden the certification gate against malformed edge case inputs to prevent bypass',
+                ['app/Services/Gate/CertGate.php', 'tests/Unit/Gate/CertGateTest.php'],
+                [], ['value_proof' => false, 'impact_trace' => false]),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $patterns = array_column($result['anti_proxy_facts'], 'pattern');
+        $this->assertNotContains('missing_batch_value_proof', $patterns,
+            'one non-doc spec with value_proof must satisfy the gate');
+    }
+
+    // ── AC4: doc-only batch is not forced to provide code value proof ─────────
+
+    public function test_doc_only_batch_passess_value_proof_gate_without_proof(): void
+    {
+        $specs = [
+            $this->spec('doc-1', 'Synchronise the canonical engineering documentation for the gate subsystem',
+                ['docs/gate-subsystem.md'], [], ['value_proof' => false, 'impact_trace' => false]),
+            $this->spec('doc-2', 'Update the architecture decision log for the routing subsystem',
+                ['docs/adr/routing.md'], [], ['value_proof' => false, 'impact_trace' => false]),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $patterns = array_column($result['anti_proxy_facts'], 'pattern');
+        $this->assertNotContains('missing_batch_value_proof', $patterns,
+            'doc-only batch must not be forced to provide code value proof');
     }
 }
