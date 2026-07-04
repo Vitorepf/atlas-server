@@ -119,12 +119,18 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
                 $rejected[] = [
                     'scenario_id' => (string) ($scenario['scenario_id'] ?? 'unknown'),
                     'fingerprint' => $fp,
-                    'reason'      => 'duplicate_structure:family+failure_modes+success_criteria identical to existing scenario',
+                    'duplicate_reason' => 'duplicate_structure:family+failure_modes+success_criteria identical to existing scenario',
                 ];
                 continue;
             }
             $seen[$fp]  = true;
             $accepted[] = $scenario;
+        }
+
+        // Enrich each accepted scenario with scenario_type, target_surface, expected_leverage, evidence_needed
+        foreach ($accepted as $i => $scenario) {
+            $family = (string) ($scenario['family'] ?? '');
+            $accepted[$i] = array_merge($scenario, $this->enrichScenario($family));
         }
 
         $coverage = array_values(array_unique(array_column($accepted, 'family')));
@@ -591,5 +597,91 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
         sort($successCriteria);
 
         return md5($family.'|'.implode(',', $failureModes).'|'.implode(',', $successCriteria));
+    }
+
+    /**
+     * Enrich a scenario with scenario_type, target_surface, expected_leverage, evidence_needed
+     * based on its family.
+     */
+    private function enrichScenario(string $family): array
+    {
+        $typeMap = [
+            self::FAMILY_HIGH_YIELD             => 'bug',
+            self::FAMILY_LOW_YIELD              => 'bug',
+            self::FAMILY_ADVERSARIAL            => 'refactor',
+            self::FAMILY_CROSS_PROJECT          => 'research_transfer',
+            self::FAMILY_BLOCKED_POISON         => 'autonomy_regression',
+            self::FAMILY_STALE_DOC              => 'proof_gap',
+            self::FAMILY_ARCHITECTURE_LEAP      => 'refactor',
+            self::FAMILY_SUCCESS_LOW_IMPACT     => 'simplification',
+            self::FAMILY_GIVE_BACK_DIAGNOSTIC   => 'bug',
+            self::FAMILY_QUARANTINE_RESPEC      => 'refactor',
+            self::FAMILY_PROXY_GREEN_COMMIT     => 'proof_gap',
+            self::FAMILY_MODEL_TIER_FAILURE     => 'autonomy_regression',
+            self::FAMILY_MALFORMED_QUEUE_REPAIR => 'bug',
+            self::FAMILY_FRONTIER_EXHAUSTION    => 'research_transfer',
+            self::FAMILY_SIMPLIFICATION_FIRST   => 'simplification',
+        ];
+
+        $surfaceMap = [
+            self::FAMILY_HIGH_YIELD             => 'task_batch_quality',
+            self::FAMILY_LOW_YIELD              => 'task_batch_quality',
+            self::FAMILY_ADVERSARIAL            => 'input_validation',
+            self::FAMILY_CROSS_PROJECT          => 'cross_project_transfer',
+            self::FAMILY_BLOCKED_POISON         => 'queue_health',
+            self::FAMILY_STALE_DOC              => 'documentation_sync',
+            self::FAMILY_ARCHITECTURE_LEAP      => 'architecture_evolution',
+            self::FAMILY_SUCCESS_LOW_IMPACT     => 'impact_measurement',
+            self::FAMILY_GIVE_BACK_DIAGNOSTIC   => 'diagnostic_quality',
+            self::FAMILY_QUARANTINE_RESPEC      => 'task_quarantine',
+            self::FAMILY_PROXY_GREEN_COMMIT     => 'proxy_metric_validation',
+            self::FAMILY_MODEL_TIER_FAILURE     => 'model_tier_selection',
+            self::FAMILY_MALFORMED_QUEUE_REPAIR => 'queue_integrity',
+            self::FAMILY_FRONTIER_EXHAUSTION    => 'frontier_exploration',
+            self::FAMILY_SIMPLIFICATION_FIRST   => 'simplification_leverage',
+        ];
+
+        $leverageMap = [
+            self::FAMILY_HIGH_YIELD             => 'high',
+            self::FAMILY_LOW_YIELD              => 'low',
+            self::FAMILY_ADVERSARIAL            => 'medium',
+            self::FAMILY_CROSS_PROJECT          => 'high',
+            self::FAMILY_BLOCKED_POISON         => 'high',
+            self::FAMILY_STALE_DOC              => 'medium',
+            self::FAMILY_ARCHITECTURE_LEAP      => 'high',
+            self::FAMILY_SUCCESS_LOW_IMPACT     => 'low',
+            self::FAMILY_GIVE_BACK_DIAGNOSTIC   => 'medium',
+            self::FAMILY_QUARANTINE_RESPEC      => 'medium',
+            self::FAMILY_PROXY_GREEN_COMMIT     => 'high',
+            self::FAMILY_MODEL_TIER_FAILURE     => 'medium',
+            self::FAMILY_MALFORMED_QUEUE_REPAIR => 'high',
+            self::FAMILY_FRONTIER_EXHAUSTION    => 'high',
+            self::FAMILY_SIMPLIFICATION_FIRST   => 'high',
+        ];
+
+        $evidenceMap = [
+            self::FAMILY_HIGH_YIELD             => 'task_batch_with_capability_delta',
+            self::FAMILY_LOW_YIELD              => 'task_batch_with_leverage_scores',
+            self::FAMILY_ADVERSARIAL            => 'noise_injection_and_rejection_log',
+            self::FAMILY_CROSS_PROJECT          => 'multi_project_evidence_comparison',
+            self::FAMILY_BLOCKED_POISON         => 'queue_health_and_yield_history',
+            self::FAMILY_STALE_DOC              => 'doc_sync_status_and_cert_gate',
+            self::FAMILY_ARCHITECTURE_LEAP      => 'anti_goodhart_proof_and_evidence',
+            self::FAMILY_SUCCESS_LOW_IMPACT     => 'capability_delta_measurement',
+            self::FAMILY_GIVE_BACK_DIAGNOSTIC   => 'give_back_root_cause_analysis',
+            self::FAMILY_QUARANTINE_RESPEC      => 'quarantine_and_respec_log',
+            self::FAMILY_PROXY_GREEN_COMMIT     => 'proxy_vs_real_impact_comparison',
+            self::FAMILY_MODEL_TIER_FAILURE     => 'model_tier_and_quality_correlation',
+            self::FAMILY_MALFORMED_QUEUE_REPAIR => 'malformed_packet_and_repair_log',
+            self::FAMILY_FRONTIER_EXHAUSTION    => 'frontier_exploration_and_origination',
+            self::FAMILY_SIMPLIFICATION_FIRST   => 'simplification_leverage_and_capability_check',
+        ];
+
+        return [
+            'scenario_type'      => $typeMap[$family] ?? 'unknown',
+            'target_surface'     => $surfaceMap[$family] ?? 'unknown',
+            'expected_leverage'  => $leverageMap[$family] ?? 'unknown',
+            'evidence_needed'   => $evidenceMap[$family] ?? 'unknown',
+        ];
     }
 }
