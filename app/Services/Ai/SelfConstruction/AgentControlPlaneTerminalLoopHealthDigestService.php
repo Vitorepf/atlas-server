@@ -59,6 +59,8 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         $queueTags = $this->stringList((array) ($options['queue_tags'] ?? []));
         $targetMinClaimable = max(1, min(25, (int) ($options['target_min_claimable_tasks'] ?? 6)));
         $maxNewTasks = max(0, min(25, (int) ($options['max_new_tasks'] ?? $targetMinClaimable)));
+        $healthFlags = is_array($options['health_flags'] ?? null) ? $options['health_flags'] : [];
+        $leaseLeakDetected = (bool) ($healthFlags['lease_leak_detected'] ?? false);
 
         $queue = $this->queueRepo();
         $recovery = $this->recoveryService();
@@ -231,6 +233,20 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
                 'recoverable_released_task_count' => $recoverableReleasedCount,
                 'recoverability_totals' => (array) ($recoverability['totals_by_classification'] ?? []),
             ],
+            'lease_leak_diagnostic' => $leaseLeakDetected
+                ? [
+                    'queue_pressure' => $claimableCount >= $targetMinClaimable ? 'adequate' : 'low',
+                    'worker_impact' => $activeLeaseCount > 0
+                        ? "{$activeLeaseCount} active lease(s) may be affected by lease inconsistency"
+                        : 'no active workers directly impacted',
+                    'likely_cause' => $recoverableCount > 0
+                        ? 'lease_mismatch_with_recoverable_leases'
+                        : 'ghost_lease_leak_with_no_recoverable_leases',
+                    'next_self_healing_action' => $recoverableCount > 0
+                        ? 'recover_stale_or_orphaned_leases'
+                        : 'monitor_lease_parity_on_next_cycle',
+                ]
+                : null,
             'loop_decision' => [
                 'recommended_action' => $recommendedAction,
                 'safe_to_start_new_worker' => $safeToStartNewWorker,

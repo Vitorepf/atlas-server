@@ -177,4 +177,62 @@ final class AgentControlPlaneTerminalLoopHealthDigestServiceTest extends TestCas
         $this->assertSame('recover_stale_or_orphaned_leases', $digest['loop_decision']['recommended_action']);
         $this->assertSame('reap_recoverable', $digest['muscle_supply_state']['next_safe_action']);
     }
+
+    // ── AC2/AC3: lease_leak_diagnostic ──
+
+    public function test_lease_leak_diagnostic_present_when_lease_leak_detected(): void
+    {
+        $digest = $this->service()->digest([
+            'target_min_claimable_tasks' => 3,
+            'health_flags' => ['lease_leak_detected' => true],
+        ]);
+
+        $this->assertArrayHasKey('lease_leak_diagnostic', $digest);
+        $this->assertNotNull($digest['lease_leak_diagnostic']);
+    }
+
+    public function test_lease_leak_diagnostic_null_when_not_detected(): void
+    {
+        $digest = $this->service()->digest(['target_min_claimable_tasks' => 3]);
+
+        $this->assertArrayHasKey('lease_leak_diagnostic', $digest);
+        $this->assertNull($digest['lease_leak_diagnostic']);
+    }
+
+    public function test_lease_leak_diagnostic_contains_required_fields(): void
+    {
+        $digest = $this->service()->digest([
+            'target_min_claimable_tasks' => 3,
+            'health_flags' => ['lease_leak_detected' => true],
+        ]);
+
+        $diagnostic = $digest['lease_leak_diagnostic'];
+        $this->assertArrayHasKey('queue_pressure', $diagnostic);
+        $this->assertArrayHasKey('worker_impact', $diagnostic);
+        $this->assertArrayHasKey('likely_cause', $diagnostic);
+        $this->assertArrayHasKey('next_self_healing_action', $diagnostic);
+        $this->assertNotEmpty($diagnostic['queue_pressure']);
+        $this->assertNotEmpty($diagnostic['likely_cause']);
+        $this->assertNotEmpty($diagnostic['next_self_healing_action']);
+    }
+
+    // ── AC4: does not recommend creating more tasks for lease consistency issues ──
+
+    public function test_lease_leak_diagnostic_next_healing_action_is_not_create_more_tasks(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->enqueue($queue, 'task-leak', 'claimable');
+        $queue->updateStatus('task-leak', 'claimed', ['lease_id' => 'lease-missing', 'agent_id' => 'agent-z']);
+
+        $digest = $this->service()->digest([
+            'target_min_claimable_tasks' => 5,
+            'health_flags' => ['lease_leak_detected' => true],
+        ]);
+
+        $diagnostic = $digest['lease_leak_diagnostic'];
+        $this->assertNotSame('replenish', $digest['loop_decision']['recommended_action']);
+        $this->assertStringNotContainsString('replenish', $diagnostic['next_self_healing_action']);
+        $this->assertStringNotContainsString('originate', $diagnostic['next_self_healing_action']);
+        $this->assertStringNotContainsString('create', $diagnostic['next_self_healing_action']);
+    }
 }
