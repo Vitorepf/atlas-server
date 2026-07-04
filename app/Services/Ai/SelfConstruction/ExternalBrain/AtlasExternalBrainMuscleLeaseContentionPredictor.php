@@ -92,4 +92,60 @@ final class AtlasExternalBrainMuscleLeaseContentionPredictor
             ],
         ];
     }
+
+    /**
+     * File family pressure: computes file_family_pressure from queued family concentration
+     * and active worker count. Marks safe_to_add_another_muscle false when one family dominates.
+     *
+     * @param  array{
+     *   file_families: list<string>,
+     *   active_workers: int,
+     *   dominant_family_threshold: float,
+     * }  $input
+     * @return array{safe_parallelism:int, bottleneck_reason:string, recommended_worker_mix:string, file_family_pressure:float}
+     */
+    public function fileFamilyPressure(array $input): array
+    {
+        $fileFamilies = is_array($input['file_families'] ?? null) ? array_map('strval', $input['file_families']) : [];
+        $activeWorkers = max(0, (int) ($input['active_workers'] ?? 0));
+        $dominantThreshold = (float) ($input['dominant_family_threshold'] ?? 0.5);
+
+        $distinctFamilies = count(array_unique($fileFamilies));
+        $totalFamilies = count($fileFamilies);
+        $safeParallelism = max(1, $distinctFamilies);
+
+        // Compute file_family_pressure: ratio of workers to distinct families
+        $fileFamilyPressure = $distinctFamilies > 0 ? $activeWorkers / $distinctFamilies : (float) $activeWorkers;
+
+        // Check if one family dominates the queue
+        $familyCounts = array_count_values($fileFamilies);
+        $dominantFamily = null;
+        $dominantRatio = 0.0;
+        foreach ($familyCounts as $family => $count) {
+            $ratio = $totalFamilies > 0 ? $count / $totalFamilies : 0.0;
+            if ($ratio > $dominantRatio) {
+                $dominantRatio = $ratio;
+                $dominantFamily = $family;
+            }
+        }
+
+        $bottleneckReason = match (true) {
+            $dominantFamily !== null && $dominantRatio > $dominantThreshold => sprintf('family_dominance:%s=%.2f', $dominantFamily, $dominantRatio),
+            $activeWorkers > $safeParallelism => 'worker_count_exceeds_safe_parallelism',
+            default => 'none',
+        };
+
+        $recommendedWorkerMix = match (true) {
+            $dominantFamily !== null && $dominantRatio > $dominantThreshold => sprintf('reduce_workers_on_%s_to_1', $dominantFamily),
+            $activeWorkers > $safeParallelism => sprintf('scale_workers_to_%d', $safeParallelism),
+            default => sprintf('maintain_%d_workers', $activeWorkers),
+        };
+
+        return [
+            'safe_parallelism' => $safeParallelism,
+            'bottleneck_reason' => $bottleneckReason,
+            'recommended_worker_mix' => $recommendedWorkerMix,
+            'file_family_pressure' => round($fileFamilyPressure, 4),
+        ];
+    }
 }
