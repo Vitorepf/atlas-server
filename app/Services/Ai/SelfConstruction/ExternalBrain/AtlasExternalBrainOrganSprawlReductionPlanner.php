@@ -64,6 +64,15 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
     {
         $organs = (array) ($input['organs'] ?? []);
 
+        // AC2: count how many organs own each capability label to detect
+        // last-owner situations before classifying.
+        $capabilityOwnerCount = [];
+        foreach ($organs as $organ) {
+            foreach ((array) ($organ['capability_labels'] ?? []) as $label) {
+                $capabilityOwnerCount[$label] = ($capabilityOwnerCount[$label] ?? 0) + 1;
+            }
+        }
+
         $actions             = [];
         $totalLineDelta      = 0;
         $capabilityPreserved = 0;
@@ -74,10 +83,36 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
         $yieldBefore         = 0;
         $mergedHandoffReduction = 0;
         $yieldAfter          = 0;
+        $preservationFloor   = [];
 
         foreach ($organs as $organ) {
-            $entry   = $this->classify($organ);
+            $id = (string) ($organ['organ_id'] ?? 'unknown');
+            $lastOwnedLabels = [];
+            foreach ((array) ($organ['capability_labels'] ?? []) as $label) {
+                if (($capabilityOwnerCount[$label] ?? 0) === 1) {
+                    $lastOwnedLabels[] = $label;
+                }
+            }
+            $hasPreservationEvidence = (bool) ($organ['has_capability_preservation_evidence'] ?? false);
+
+            $entry   = $this->classify($organ, $lastOwnedLabels, $hasPreservationEvidence);
             $actions[] = $entry;
+
+            // Build capability_preservation_floor entry if this organ is a last owner.
+            if ($lastOwnedLabels !== []) {
+                $preservationReason = $hasPreservationEvidence
+                    ? 'preservation_evidence_present'
+                    : 'last_owner_no_preservation_evidence';
+                foreach ($lastOwnedLabels as $cap) {
+                    $preservationFloor[] = [
+                        'capability'           => $cap,
+                        'last_owner_organ_id'  => $id,
+                        'proposed_action'      => $entry['action'],
+                        'blocked'              => ! $hasPreservationEvidence,
+                        'reason'               => $preservationReason,
+                    ];
+                }
+            }
 
             $organYield = max(0, (int) ($organ['claimable_yield'] ?? ($organ['consumer_count'] ?? 0)));
             $handoffCountBefore += count((array) ($organ['overlap_organs'] ?? []));
@@ -160,6 +195,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
             'handoff_reduction_score'    => $handoffReductionScore,
             'required_tests'             => array_values($allRequiredTests),
             'capability_groups'          => $this->buildCapabilityGroups($organs),
+            'capability_preservation_floor' => $preservationFloor,
             'task_feed_impact'           => [
                 'handoff_count_before' => $handoffCountBefore,
                 'handoff_count_after' => $handoffCountAfter,
@@ -170,7 +206,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
         ];
     }
 
-    private function classify(array $organ): array
+    private function classify(array $organ, array $lastOwnedLabels = [], bool $hasPreservationEvidence = false): array
     {
         $id            = (string) ($organ['organ_id']              ?? 'unknown');
         $labels        = (array)  ($organ['capability_labels']     ?? []);
@@ -201,8 +237,17 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
             'high', "{$id}:provide ".implode(' and ', $missing).' before retirement');
         }
 
-        // RETIRE
+        // RETIRE — but block if last owner without preservation evidence (AC2)
         if ($needsRetirement) {
+            if ($lastOwnedLabels !== [] && ! $hasPreservationEvidence) {
+                $capList = implode(',', $lastOwnedLabels);
+                return $this->entry($id, self::ACTION_RETIRE_BLOCKED, [
+                    'last_capability_owner:' . $capList,
+                ], 0, $this->requiredTests($id, $labels),
+                "Cannot retire — organ is the last owner of capability '{$capList}' and no preservation evidence exists.",
+                'high', "{$id}:provide_capability_preservation_evidence_for:{$capList}");
+            }
+
             return $this->entry($id, self::ACTION_RETIRE, [
                 $evidence < self::LOW_EVIDENCE_THRESHOLD
                     ? sprintf('evidence_strength:%.4f<%.2f', $evidence, self::LOW_EVIDENCE_THRESHOLD)
@@ -244,6 +289,17 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
                 ], 0, $this->requiredTests($id, $labels),
                 'Merge would drop claimable-task yield without a compensating repair/top-up action; consolidation rejected.',
                 'medium');
+            }
+
+            // MERGE — but block if last owner without preservation evidence (AC2)
+            if ($lastOwnedLabels !== [] && ! $hasPreservationEvidence) {
+                $capList = implode(',', $lastOwnedLabels);
+                return $this->entry($id, self::ACTION_MERGE_BLOCKED, [
+                    'overlaps_with:' . implode(',', $overlapOrgans),
+                    'last_capability_owner:' . $capList,
+                ], 0, $this->requiredTests($id, $labels),
+                "Cannot merge — organ is the last owner of capability '{$capList}' and no preservation evidence exists.",
+                'medium', "{$id}:provide_capability_preservation_evidence_for:{$capList}");
             }
 
             return $this->entry($id, self::ACTION_MERGE, [

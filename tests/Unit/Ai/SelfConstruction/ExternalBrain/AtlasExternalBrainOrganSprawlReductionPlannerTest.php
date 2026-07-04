@@ -52,7 +52,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
     {
         $result = $this->plan($this->organ('o1'));
 
-        foreach (['schema', 'ranked_actions', 'expected_line_delta', 'capability_preserved_count', 'first_safe_batch', 'required_tests'] as $k) {
+        foreach (['schema', 'ranked_actions', 'expected_line_delta', 'capability_preserved_count', 'first_safe_batch', 'required_tests', 'capability_preservation_floor'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::SCHEMA, $result['schema']);
@@ -67,6 +67,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
             'line_count'            => 150,
             'has_replacement_owner' => true,
             'has_test_coverage'     => true,
+            'has_capability_preservation_evidence' => true,
         ]));
 
         $entry = $this->findEntry($result, 'safe-r');
@@ -112,6 +113,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
             'line_count'            => 200,
             'has_replacement_owner' => true,
             'has_test_coverage'     => true,
+            'has_capability_preservation_evidence' => true,
         ]));
 
         $entry = $this->findEntry($result, 'safe-m');
@@ -384,6 +386,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
             'line_count' => 200,
             'has_replacement_owner' => true,
             'has_test_coverage' => true,
+            'has_capability_preservation_evidence' => true,
         ]));
 
         $this->assertArrayHasKey('task_feed_impact', $result);
@@ -424,6 +427,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
             'has_test_coverage' => true,
             'merge_expected_yield_after' => 1,
             'has_compensating_repair_or_topup' => true,
+            'has_capability_preservation_evidence' => true,
         ]));
 
         $entry = $this->findEntry($result, 'compensated-m');
@@ -495,6 +499,7 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
             'overlap_organs'        => ['organ-v9'],
             'has_replacement_owner' => true,
             'has_test_coverage'     => true,
+            'has_capability_preservation_evidence' => true,
         ]));
 
         $this->assertContains('safe-m3', $result['first_safe_handoff_batch']);
@@ -616,5 +621,160 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
 
         $entry = $this->findEntry($result, 'wrap-real');
         $this->assertLessThan(0, $entry['line_delta']);
+    }
+
+    // ── AC2/AC3: capability_preservation_floor — last-owner protection ────────
+
+    public function test_retire_blocked_when_last_owner_of_capability(): void
+    {
+        // 'sole-owner' is the only organ with 'unique_label' and no preservation evidence.
+        $result = $this->plan($this->organ('sole-owner', [
+            'evidence_strength'     => 0.10,
+            'has_replacement_owner' => true,
+            'has_test_coverage'     => true,
+            'capability_labels'     => ['unique_label'],
+        ]));
+
+        $entry = $this->findEntry($result, 'sole-owner');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE_BLOCKED, $entry['action']);
+        $this->assertStringContainsString('last_capability_owner', implode(' ', $entry['reasons']));
+    }
+
+    public function test_merge_blocked_when_last_owner_of_capability(): void
+    {
+        $result = $this->plan($this->organ('sole-merge', [
+            'overlap_organs'        => ['other-organ'],
+            'has_replacement_owner' => true,
+            'has_test_coverage'     => true,
+            'capability_labels'     => ['unique_label'],
+        ]));
+
+        $entry = $this->findEntry($result, 'sole-merge');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_MERGE_BLOCKED, $entry['action']);
+        $this->assertStringContainsString('last_capability_owner', implode(' ', $entry['reasons']));
+    }
+
+    public function test_last_owner_retire_allowed_with_preservation_evidence(): void
+    {
+        $result = $this->plan($this->organ('evidenced-retire', [
+            'evidence_strength'     => 0.10,
+            'has_replacement_owner' => true,
+            'has_test_coverage'     => true,
+            'has_capability_preservation_evidence' => true,
+            'capability_labels'     => ['unique_label'],
+        ]));
+
+        $entry = $this->findEntry($result, 'evidenced-retire');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE, $entry['action']);
+    }
+
+    public function test_capability_preservation_floor_reports_last_owner(): void
+    {
+        $result = $this->plan($this->organ('last-one', [
+            'evidence_strength'     => 0.10,
+            'has_replacement_owner' => true,
+            'has_test_coverage'     => true,
+            'capability_labels'     => ['critical_cap'],
+        ]));
+
+        $this->assertArrayHasKey('capability_preservation_floor', $result);
+        $this->assertNotEmpty($result['capability_preservation_floor']);
+
+        $floor = $result['capability_preservation_floor'][0];
+        $this->assertSame('critical_cap', $floor['capability']);
+        $this->assertSame('last-one', $floor['last_owner_organ_id']);
+        $this->assertTrue($floor['blocked']);
+        $this->assertSame('last_owner_no_preservation_evidence', $floor['reason']);
+    }
+
+    public function test_capability_preservation_floor_not_blocked_with_evidence(): void
+    {
+        $result = $this->plan($this->organ('preserved', [
+            'evidence_strength'     => 0.10,
+            'has_replacement_owner' => true,
+            'has_test_coverage'     => true,
+            'has_capability_preservation_evidence' => true,
+            'capability_labels'     => ['some_cap'],
+        ]));
+
+        $this->assertNotEmpty($result['capability_preservation_floor']);
+
+        $floor = $result['capability_preservation_floor'][0];
+        $this->assertFalse($floor['blocked']);
+        $this->assertSame('preservation_evidence_present', $floor['reason']);
+    }
+
+    public function test_multiple_owners_not_blocked_when_other_organ_holds_same_capability(): void
+    {
+        $result = $this->plan(
+            $this->organ('org-a', ['capability_labels' => ['shared_cap'], 'evidence_strength' => 0.10, 'has_replacement_owner' => true, 'has_test_coverage' => true]),
+            $this->organ('org-b', ['capability_labels' => ['shared_cap']]),
+        );
+
+        $entry = $this->findEntry($result, 'org-a');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE, $entry['action'],
+            'org-a is NOT last owner of shared_cap (org-b also has it), so retire should be allowed');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3: last capability owner cannot be retire/merge without preservation evidence
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_last_owner_of_capability_blocked_on_retire_without_preservation_evidence(): void
+    {
+        $result = $this->plan(
+            $this->organ('org-a', [
+                'capability_labels' => ['unique_cap'],
+                'evidence_strength' => 0.10,
+                'has_replacement_owner' => false,
+                'has_test_coverage' => true,
+            ]),
+        );
+
+        $entry = $this->findEntry($result, 'org-a');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE_BLOCKED, $entry['action'],
+            'last owner of unique_cap must be blocked for retire without preservation evidence');
+    }
+
+    public function test_last_owner_blocked_on_merge_without_preservation_evidence(): void
+    {
+        // Two organs overlapping, but only org-a holds unique_cap
+        $result = $this->plan(
+            $this->organ('org-a', [
+                'capability_labels' => ['unique_cap'],
+                'evidence_strength' => 2.0,
+                'overlap_organs' => ['org-b'],
+                'has_replacement_owner' => false,
+                'has_test_coverage' => true,
+            ]),
+            $this->organ('org-b', [
+                'capability_labels' => ['other_cap'],
+                'evidence_strength' => 2.0,
+            ]),
+        );
+
+        $entry = $this->findEntry($result, 'org-a');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_MERGE_BLOCKED, $entry['action'],
+            'last owner of unique_cap must be blocked for merge without preservation evidence');
+    }
+
+    public function test_output_includes_capability_preservation_floor(): void
+    {
+        $result = $this->plan(
+            $this->organ('org-a', [
+                'capability_labels' => ['unique_cap'],
+                'evidence_strength' => 0.10,
+                'has_replacement_owner' => false,
+                'has_test_coverage' => true,
+            ]),
+        );
+
+        $this->assertArrayHasKey('capability_preservation_floor', $result,
+            'output must include capability_preservation_floor');
+        foreach ($result['capability_preservation_floor'] as $floor) {
+            $this->assertArrayHasKey('capability', $floor);
+            $this->assertArrayHasKey('reason', $floor);
+            $this->assertArrayHasKey('blocked', $floor);
+        }
     }
 }
