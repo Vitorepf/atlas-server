@@ -119,6 +119,7 @@ final class AtlasExternalBrainBreakthroughPlanner
         $waveYield = isset($escalationState['wave_yield']) ? (float) $escalationState['wave_yield'] : 1.0;
         $yieldDropped = $gap > 0 && $waveYield < self::LOW_YIELD_THRESHOLD;
         $breakthroughPath = $yieldDropped ? self::BREAKTHROUGH_PATH_OPTIONS : [];
+        $constraintEscapeMoves = $yieldDropped ? $this->buildConstraintEscapeMoves($stallState) : [];
 
         // AC: any caller-proposed strategy that farms quota via volume is refused outright — it
         // never becomes an investigation, regardless of stall severity.
@@ -164,6 +165,7 @@ final class AtlasExternalBrainBreakthroughPlanner
                 'modes_with_evidence'  => $escalation['modes_with_evidence'],
                 'second_pass_strategies' => self::SECOND_PASS_STRATEGIES,
                 'breakthrough_path'    => [],
+                'constraint_escape_moves' => [],
                 'padding_rejected'     => $paddingRejected,
             ];
         }
@@ -186,6 +188,7 @@ final class AtlasExternalBrainBreakthroughPlanner
                 'second_pass_strategies' => self::SECOND_PASS_STRATEGIES,
                 'backlog_freshness_stop_go' => $backlogFreshness,
                 'breakthrough_path'    => $breakthroughPath,
+                'constraint_escape_moves' => [],
                 'padding_rejected'     => $paddingRejected,
             ];
         }
@@ -216,6 +219,7 @@ final class AtlasExternalBrainBreakthroughPlanner
             'second_pass_strategies' => self::SECOND_PASS_STRATEGIES,
             'backlog_freshness_stop_go' => $backlogFreshness,
             'breakthrough_path'    => $breakthroughPath,
+            'constraint_escape_moves' => $constraintEscapeMoves,
             'padding_rejected'     => $paddingRejected,
         ];
     }
@@ -303,5 +307,51 @@ final class AtlasExternalBrainBreakthroughPlanner
                 default => 'mode_evidence_recorded',
             },
         ];
+    }
+
+    /**
+     * Build constraint escape moves: concrete playbook when yield stalls.
+     * At least 3 moves spanning new code surfaces, design path reuse and research-to-task.
+     * Ranked by structural leverage; rejects template-farm/wrapper/cosmetic moves.
+     *
+     * @param  array<string, mixed>  $stallState
+     * @return list<array{move:string,category:string,leverage:string,rationale:string}>
+     */
+    private function buildConstraintEscapeMoves(array $stallState): array
+    {
+        $moves = [
+            [
+                'move' => 'scan_unwired_primitives',
+                'category' => 'new_code_surfaces',
+                'leverage' => 'high',
+                'rationale' => 'grep for implemented-but-unwired primitives that could unblock candidates',
+            ],
+            [
+                'move' => 'rotate_design_path',
+                'category' => 'design_path_reuse',
+                'leverage' => 'high',
+                'rationale' => 'try a different architecture angle on the same target to escape local optimum',
+            ],
+            [
+                'move' => 'convert_research_to_task',
+                'category' => 'research_to_task',
+                'leverage' => 'medium',
+                'rationale' => 'turn external research findings into task-ready candidates',
+            ],
+            [
+                'move' => 'simplify_critical_path',
+                'category' => 'simplification_first',
+                'leverage' => 'high',
+                'rationale' => 'reduce critical-path complexity to free capacity for new candidates',
+            ],
+        ];
+
+        // Filter out padding strategies from the candidate_strategy
+        $candidateStrategy = trim((string) ($stallState['candidate_strategy'] ?? ''));
+        if ($candidateStrategy !== '' && self::isPaddingStrategy($candidateStrategy)) {
+            return [];
+        }
+
+        return $moves;
     }
 }
