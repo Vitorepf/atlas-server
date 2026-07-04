@@ -242,4 +242,126 @@ final class AtlasTaskServingLeaseMismatchRepairPlanTest extends TestCase
 
         $this->assertSame(AtlasTaskServingLeaseMismatchRepairPlan::CATEGORY_AUTOMATIC_REAP, $result['category']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC1: lease_mismatch_without_recoverable detection
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_active_leases_exceeds_claimed_without_recoverable_detected_as_mismatch(): void
+    {
+        $report = [
+            'active_leases' => 3,
+            'claimed_records' => 1,
+            'recoverable_candidates' => ['total' => 0],
+        ];
+
+        $result = $this->plan()->compile($report);
+
+        $this->assertSame(
+            AtlasTaskServingLeaseMismatchRepairPlan::MISMATCH_LEASE_MISMATCH_WITHOUT_RECOVERABLE,
+            $result['mismatch_type'],
+        );
+    }
+
+    public function test_clean_parity_does_not_flag_mismatch(): void
+    {
+        $report = [
+            'active_leases' => 1,
+            'claimed_records' => 1,
+            'recoverable_candidates' => ['total' => 0],
+        ];
+
+        $result = $this->plan()->compile($report);
+
+        $this->assertSame(
+            AtlasTaskServingLeaseMismatchRepairPlan::MISMATCH_CLEAN,
+            $result['mismatch_type'],
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: output contract keys — inspect_target, safe_action, operator_free,
+    // expected_health_delta, do_not_create_more_tasks_as_fix, claimable_depth, servable_now
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_output_includes_all_new_keys(): void
+    {
+        $report = [
+            'active_leases' => 3,
+            'claimed_records' => 1,
+            'recoverable_candidates' => ['total' => 0],
+            'claimable_depth' => 5,
+            'servable_now' => 10,
+        ];
+
+        $result = $this->plan()->compile($report);
+
+        $this->assertArrayHasKey('mismatch_type', $result);
+        $this->assertArrayHasKey('inspect_target', $result);
+        $this->assertArrayHasKey('safe_action', $result);
+        $this->assertArrayHasKey('operator_free', $result);
+        $this->assertArrayHasKey('expected_health_delta', $result);
+        $this->assertArrayHasKey('do_not_create_more_tasks_as_fix', $result);
+        $this->assertArrayHasKey('claimable_depth', $result);
+        $this->assertArrayHasKey('servable_now', $result);
+    }
+
+    public function test_lease_mismatch_without_recoverable_has_inspect_target_and_do_not_create_tasks(): void
+    {
+        $report = [
+            'active_leases' => 3,
+            'claimed_records' => 1,
+            'recoverable_candidates' => ['total' => 0],
+        ];
+
+        $result = $this->plan()->compile($report);
+
+        $this->assertSame('lease_registry', $result['inspect_target']);
+        $this->assertTrue($result['do_not_create_more_tasks_as_fix'],
+            'lease_mismatch_without_recoverable must flag do_not_create_more_tasks');
+    }
+
+    public function test_recoverable_mismatch_has_safe_action_and_operator_free(): void
+    {
+        $report = [
+            'active_leases' => 2,
+            'claimed_records' => 0,
+            'recoverable_candidates' => ['total' => 1],
+        ];
+
+        $result = $this->plan()->compile($report);
+
+        $this->assertSame('atlas:acp:reap-leases', $result['safe_action']);
+        $this->assertTrue($result['operator_free'],
+            'reap-leases must be operator-free');
+    }
+
+    public function test_claim_without_lease_is_not_operator_free(): void
+    {
+        $report = (new AtlasTaskServingLeaseClaimParityInspector)->inspect(
+            [],
+            [['task_packet_id' => 'tp-1', 'status' => 'claimed']],
+        );
+
+        $result = $this->plan()->compile($report);
+
+        $this->assertFalse($result['operator_free'],
+            'investigate_writer must NOT be operator-free');
+    }
+
+    public function test_claimable_depth_and_servable_now_preserved_from_input(): void
+    {
+        $report = [
+            'active_leases' => 1,
+            'claimed_records' => 1,
+            'recoverable_candidates' => ['total' => 0],
+            'claimable_depth' => 42,
+            'servable_now' => 7,
+        ];
+
+        $result = $this->plan()->compile($report);
+
+        $this->assertSame(42, $result['claimable_depth']);
+        $this->assertSame(7, $result['servable_now']);
+    }
 }

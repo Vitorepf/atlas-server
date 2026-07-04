@@ -34,6 +34,14 @@ final class AtlasTaskServingLeaseMismatchRepairPlan
 
     public const CATEGORY_NOOP = 'noop';
 
+    public const MISMATCH_LEASE_MISMATCH_WITHOUT_RECOVERABLE = 'lease_mismatch_without_recoverable';
+
+    public const MISMATCH_CLEAN = 'clean';
+
+    public const MISMATCH_RECOVERABLE = 'recoverable';
+
+    public const MISMATCH_CLAIM_WITHOUT_LEASE = 'claim_without_lease';
+
     /**
      * @param  array<string, mixed>  $parityReport
      * @return array<string, mixed>
@@ -44,6 +52,8 @@ final class AtlasTaskServingLeaseMismatchRepairPlan
         $recoverableTotal = (int) data_get($parityReport, 'recoverable_candidates.total', 0);
         $activeLeases = (int) ($parityReport['active_leases'] ?? 0);
         $claimedRecords = (int) ($parityReport['claimed_records'] ?? 0);
+        $claimableDepth = (int) ($parityReport['claimable_depth'] ?? 0);
+        $servableNow = (int) ($parityReport['servable_now'] ?? 0);
 
         $steps = [];
 
@@ -87,10 +97,38 @@ final class AtlasTaskServingLeaseMismatchRepairPlan
             $steps[] = $this->step(self::ACTION_OBSERVE, 'clean_parity', 'clean', 'none');
         }
 
+        // AC1: detect active_leases > claimed_records with recoverable_total=0.
+        $mismatchType = self::MISMATCH_CLEAN;
+        if ($activeLeases > $claimedRecords && $recoverableTotal === 0) {
+            $mismatchType = self::MISMATCH_LEASE_MISMATCH_WITHOUT_RECOVERABLE;
+        } elseif ($recoverableTotal > 0) {
+            $mismatchType = self::MISMATCH_RECOVERABLE;
+        } elseif ($classification === 'claim_without_lease_drift') {
+            $mismatchType = self::MISMATCH_CLAIM_WITHOUT_LEASE;
+        }
+
+        // Derive top-level plan metadata from the mismatch type and first step.
+        $safeAction = $steps[0]['action'] ?? self::ACTION_OBSERVE;
+        $operatorFree = $safeAction !== self::ACTION_INVESTIGATE_WRITER;
+        $doNotCreateMoreTasks = $mismatchType === self::MISMATCH_LEASE_MISMATCH_WITHOUT_RECOVERABLE;
+
         return [
             'schema' => self::SCHEMA,
             'steps' => $steps,
             'mutates_queue' => false,
+            'mismatch_type' => $mismatchType,
+            'inspect_target' => match ($mismatchType) {
+                self::MISMATCH_LEASE_MISMATCH_WITHOUT_RECOVERABLE => 'lease_registry',
+                self::MISMATCH_RECOVERABLE => 'recoverable_leases',
+                self::MISMATCH_CLAIM_WITHOUT_LEASE => 'claim_writer',
+                default => null,
+            },
+            'safe_action' => $safeAction,
+            'operator_free' => $operatorFree,
+            'expected_health_delta' => $steps[0]['expected_health_delta'] ?? 'none',
+            'do_not_create_more_tasks_as_fix' => $doNotCreateMoreTasks,
+            'claimable_depth' => $claimableDepth,
+            'servable_now' => $servableNow,
         ];
     }
 
