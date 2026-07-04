@@ -248,4 +248,78 @@ final class AtlasTaskFabricEvidenceFloorSynthesizerTest extends TestCase
         $r = $this->synth('Fix the bug in the simplification autonomy loop', ['risk_level' => 'high']);
         $this->assertSame($r['required_evidence'], array_values(array_unique($r['required_evidence'])));
     }
+
+    // ── AC2: risk_reduction_delta for high-risk tasks ──
+
+    public function test_high_risk_adds_risk_reduction_delta(): void
+    {
+        $r = $this->synth('Implement new feature', ['risk_level' => 'high']);
+        $this->assertContains('risk_reduction_delta', $r['required_evidence']);
+    }
+
+    public function test_low_risk_does_not_add_risk_reduction_delta(): void
+    {
+        $r = $this->synth('Implement new feature', ['risk_level' => 'low']);
+        $this->assertNotContains('risk_reduction_delta', $r['required_evidence']);
+    }
+
+    // ── AC2: behavior_delta and simplification_delta for simplification tasks ──
+
+    public function test_simplification_goal_adds_behavior_delta_and_simplification_delta(): void
+    {
+        $r = $this->synth('Simplify the redundant wrapper organ in the scheduler');
+        $this->assertContains('behavior_delta', $r['required_evidence']);
+        $this->assertContains('simplification_delta', $r['required_evidence']);
+    }
+
+    public function test_simplification_task_family_adds_delta_evidence(): void
+    {
+        $r = $this->synth('Add capability X', ['task_family' => 'simplification']);
+        $this->assertContains('behavior_delta', $r['required_evidence']);
+        $this->assertContains('simplification_delta', $r['required_evidence']);
+    }
+
+    // ── AC2: autonomy_delta for autonomy/runtime tasks ──
+
+    public function test_autonomy_goal_adds_autonomy_delta(): void
+    {
+        $r = $this->synth('Strengthen the autonomous evolution loop originator');
+        $this->assertContains('autonomy_delta', $r['required_evidence']);
+    }
+
+    public function test_runtime_task_family_adds_autonomy_delta(): void
+    {
+        $r = $this->synth('Add capability X', ['task_family' => 'runtime']);
+        $this->assertContains('autonomy_delta', $r['required_evidence']);
+    }
+
+    // ── AC4: tests_or_gates_insufficiency_explanation ──
+
+    public function test_high_risk_output_includes_insufficiency_explanation(): void
+    {
+        $r = $this->synth('Implement new feature', ['risk_level' => 'high']);
+        $this->assertArrayHasKey('tests_or_gates_insufficiency_explanation', $r);
+        $this->assertNotEmpty($r['tests_or_gates_insufficiency_explanation']);
+        $this->assertStringContainsString('risk_reduction_delta', implode(' ', $r['tests_or_gates_insufficiency_explanation']));
+    }
+
+    public function test_simplification_output_includes_insufficiency_explanation(): void
+    {
+        $r = $this->synth('Simplify the redundant wrapper');
+        $this->assertNotEmpty($r['tests_or_gates_insufficiency_explanation']);
+        $this->assertStringContainsString('behavior_delta', implode(' ', $r['tests_or_gates_insufficiency_explanation']));
+    }
+
+    public function test_autonomy_output_includes_insufficiency_explanation(): void
+    {
+        $r = $this->synth('Strengthen the autonomous loop');
+        $this->assertNotEmpty($r['tests_or_gates_insufficiency_explanation']);
+        $this->assertStringContainsString('autonomy_delta', implode(' ', $r['tests_or_gates_insufficiency_explanation']));
+    }
+
+    public function test_low_risk_neutral_goal_has_empty_insufficiency_explanation(): void
+    {
+        $r = $this->synth('Add a utility helper', ['risk_level' => 'low']);
+        $this->assertSame([], $r['tests_or_gates_insufficiency_explanation']);
+    }
 }

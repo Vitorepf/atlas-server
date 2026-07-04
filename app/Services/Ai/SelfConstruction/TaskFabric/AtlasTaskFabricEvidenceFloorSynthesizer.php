@@ -72,15 +72,36 @@ final class AtlasTaskFabricEvidenceFloorSynthesizer
         }
         if ($riskLevel === 'high') {
             $evidence[] = 'anti_stale_timestamp_receipt';
+            $evidence[] = 'risk_reduction_delta';
         }
         if ($this->matchesAny($searchTarget, self::BUG_FIX_KEYWORDS)) {
             $evidence[] = 'reproduction_evidence';
         }
-        if ($this->matchesAny($searchTarget, self::SIMPLIFICATION_KEYWORDS)) {
+        $isSimplification = $this->matchesAny($searchTarget, self::SIMPLIFICATION_KEYWORDS);
+        if ($isSimplification) {
             $evidence[] = 'behavior_equivalence_or_deletion_safety_evidence';
+            $evidence[] = 'behavior_delta';
+            $evidence[] = 'simplification_delta';
         }
-        if ($this->matchesAny($searchTarget, self::AUTONOMY_KEYWORDS)) {
+        $isAutonomy = $this->matchesAny($searchTarget, self::AUTONOMY_KEYWORDS);
+        if ($isAutonomy) {
             $evidence[] = 'liveness_or_decision_impact_evidence';
+            $evidence[] = 'autonomy_delta';
+        }
+
+        // AC4: explain why tests_or_gates_result alone is insufficient for high-value claims.
+        $insufficiencyReasons = [];
+        if ($riskLevel === 'high' || $highGuard || $isSimplification || $isAutonomy) {
+            $insufficiencyReasons[] = 'A green test run alone does not prove high-value claims:';
+            if ($riskLevel === 'high') {
+                $insufficiencyReasons[] = '  - risk_reduction_delta requires measurable before/after risk evidence beyond green tests';
+            }
+            if ($isSimplification) {
+                $insufficiencyReasons[] = '  - behavior_delta/simplification_delta require behavior equivalence proof, not just test green';
+            }
+            if ($isAutonomy) {
+                $insufficiencyReasons[] = '  - autonomy_delta requires liveness or decision-impact evidence, not just unit test pass';
+            }
         }
 
         return [
@@ -90,6 +111,7 @@ final class AtlasTaskFabricEvidenceFloorSynthesizer
             'high_guard_active'  => $highGuard,
             'acceptance_criteria' => $acceptance,
             'required_evidence'  => array_values(array_unique($evidence)),
+            'tests_or_gates_insufficiency_explanation' => $insufficiencyReasons,
         ];
     }
 
