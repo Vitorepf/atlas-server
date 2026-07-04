@@ -558,4 +558,69 @@ final class AtlasExternalBrainScaffoldComplianceVerifierTest extends TestCase
         $this->assertContains('task-1', $result['credited_tasks']);
         $this->assertSame([], $result['refused_tasks']);
     }
+
+    // ── valueProofVerify: value_proof, impact_trace, missing_value_proof ──
+
+    public function test_task_with_runnable_acceptance_but_no_value_proof_is_refused(): void
+    {
+        $tasks = [
+            [
+                'task_id' => 'task-1',
+                'acceptance_criteria' => ['Running ./vendor/bin/phpunit tests/Unit/FooTest.php'],
+            ],
+        ];
+        $result = $this->verifier()->valueProofVerify($tasks);
+        $this->assertSame([], $result['credited_tasks']);
+        $this->assertSame(['task-1'], $result['missing_value_proof']);
+        $this->assertCount(1, $result['refused_tasks']);
+        $this->assertStringContainsString('missing_value_proof', $result['refused_tasks'][0]['reason']);
+    }
+
+    public function test_task_with_value_proof_is_credited(): void
+    {
+        $tasks = [
+            [
+                'task_id' => 'task-1',
+                'acceptance_criteria' => ['Running ./vendor/bin/phpunit tests/Unit/FooTest.php'],
+                'value_proof' => ['reduced_give_back_rate_by_15_percent'],
+            ],
+        ];
+        $result = $this->verifier()->valueProofVerify($tasks);
+        $this->assertSame(['task-1'], $result['credited_tasks']);
+        $this->assertSame([], $result['missing_value_proof']);
+        $this->assertSame([], $result['refused_tasks']);
+    }
+
+    public function test_task_with_impact_trace_is_credited(): void
+    {
+        $tasks = [
+            [
+                'task_id' => 'task-1',
+                'acceptance_criteria' => ['Running ./vendor/bin/phpunit tests/Unit/FooTest.php'],
+                'impact_trace' => ['improved_worker_routing_latency'],
+            ],
+        ];
+        $result = $this->verifier()->valueProofVerify($tasks);
+        $this->assertSame(['task-1'], $result['credited_tasks']);
+        $this->assertSame([], $result['missing_value_proof']);
+    }
+
+    public function test_missing_value_proof_makes_compliant_false_without_hiding_other_failures(): void
+    {
+        $tasks = [
+            [
+                'task_id' => 'task-1',
+                'acceptance_criteria' => ['Running ./vendor/bin/phpunit tests/Unit/FooTest.php'],
+            ],
+            [
+                'task_id' => 'task-2',
+                'acceptance_criteria' => ['Running ./vendor/bin/phpunit tests/Unit/BarTest.php'],
+                'value_proof' => ['verified'],
+            ],
+        ];
+        $result = $this->verifier()->valueProofVerify($tasks);
+        $this->assertSame(['task-2'], $result['credited_tasks']);
+        $this->assertSame(['task-1'], $result['missing_value_proof']);
+        $this->assertCount(1, $result['refused_tasks']);
+    }
 }

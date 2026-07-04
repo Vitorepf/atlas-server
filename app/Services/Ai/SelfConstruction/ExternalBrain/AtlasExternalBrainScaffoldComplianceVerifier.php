@@ -310,4 +310,44 @@ final class AtlasExternalBrainScaffoldComplianceVerifier
 
         return false;
     }
+
+    /**
+     * Value proof verification: tasks must include explicit value_proof or impact_trace
+     * evidence to be credited. Runnable acceptance alone is not enough.
+     *
+     * @param  list<array<string,mixed>>  $tasks  Each task has task_id, acceptance_criteria, value_proof?, impact_trace?
+     * @return array{credited_tasks:list<string>, refused_tasks:list<array{task_id:string,reason:string}>, missing_value_proof:list<string>}
+     */
+    public function valueProofVerify(array $tasks): array
+    {
+        $creditedTasks = [];
+        $refusedTasks = [];
+        $missingValueProof = [];
+
+        foreach ($tasks as $task) {
+            if (! is_array($task) || ! isset($task['task_id'])) {
+                continue;
+            }
+
+            $taskId = (string) $task['task_id'];
+            $hasValueProof = isset($task['value_proof']) && ! $this->isEmpty($task['value_proof']);
+            $hasImpactTrace = isset($task['impact_trace']) && ! $this->isEmpty($task['impact_trace']);
+
+            if ($hasValueProof || $hasImpactTrace) {
+                $creditedTasks[] = $taskId;
+            } else {
+                $missingValueProof[] = $taskId;
+                $refusedTasks[] = [
+                    'task_id' => $taskId,
+                    'reason' => 'missing_value_proof: task lacks value_proof or impact_trace evidence',
+                ];
+            }
+        }
+
+        return [
+            'credited_tasks' => $creditedTasks,
+            'refused_tasks' => $refusedTasks,
+            'missing_value_proof' => $missingValueProof,
+        ];
+    }
 }
