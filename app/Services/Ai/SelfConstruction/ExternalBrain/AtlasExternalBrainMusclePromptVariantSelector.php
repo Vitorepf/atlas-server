@@ -149,4 +149,43 @@ final class AtlasExternalBrainMusclePromptVariantSelector
             'reason'                   => self::VARIANT_REASONS[$variantId],
         ];
     }
+
+    /**
+     * Evidence density check: includes evidence_density section for low-context tasks with
+     * weak evidence or local_subscription tasks with high give_back risk.
+     *
+     * @param  array{
+     *   muscle_type: string,
+     *   task_risk: string,
+     *   evidence_strength: string,
+     *   give_back_risk: string,
+     * }  $input
+     * @return array{evidence_density_included:bool, reason:string}
+     */
+    public function evidenceDensityCheck(array $input): array
+    {
+        $muscleType = (string) ($input['muscle_type'] ?? '');
+        $taskRisk = (string) ($input['task_risk'] ?? '');
+        $evidenceStrength = (string) ($input['evidence_strength'] ?? '');
+        $giveBackRisk = (string) ($input['give_back_risk'] ?? '');
+
+        $evidenceDensityIncluded = match (true) {
+            // Low-context tasks with weak evidence
+            $taskRisk === 'low_context' && $evidenceStrength === 'weak' => true,
+            // Local subscription tasks with high give_back risk
+            $muscleType === 'local_subscription_client' && $giveBackRisk === 'high' => true,
+            default => false,
+        };
+
+        $reason = match (true) {
+            $taskRisk === 'low_context' && $evidenceStrength === 'weak' => 'low_context_task_with_weak_evidence_requires_density',
+            $muscleType === 'local_subscription_client' && $giveBackRisk === 'high' => 'local_subscription_with_high_give_back_risk_requires_density',
+            default => 'normal_prompt_no_extra_evidence_density_bulk',
+        };
+
+        return [
+            'evidence_density_included' => $evidenceDensityIncluded,
+            'reason' => $reason,
+        ];
+    }
 }

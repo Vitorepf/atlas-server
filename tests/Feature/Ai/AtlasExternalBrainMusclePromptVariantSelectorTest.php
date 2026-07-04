@@ -161,4 +161,42 @@ final class AtlasExternalBrainMusclePromptVariantSelectorTest extends TestCase
         }
         $this->assertContains('no_paid_api_dependency', $r['guardrails']);
     }
+
+    // ── evidenceDensityCheck: evidence_density_included, reason ──
+
+    public function test_low_context_weak_evidence_includes_evidence_density(): void
+    {
+        $r = (new AtlasExternalBrainMusclePromptVariantSelector)->evidenceDensityCheck([
+            'muscle_type' => 'external_muscle',
+            'task_risk' => 'low_context',
+            'evidence_strength' => 'weak',
+            'give_back_risk' => 'low',
+        ]);
+        $this->assertTrue($r['evidence_density_included']);
+        $this->assertSame('low_context_task_with_weak_evidence_requires_density', $r['reason']);
+    }
+
+    public function test_local_subscription_high_give_back_includes_evidence_density(): void
+    {
+        $r = (new AtlasExternalBrainMusclePromptVariantSelector)->evidenceDensityCheck([
+            'muscle_type' => 'local_subscription_client',
+            'task_risk' => 'normal',
+            'evidence_strength' => 'strong',
+            'give_back_risk' => 'high',
+        ]);
+        $this->assertTrue($r['evidence_density_included']);
+        $this->assertSame('local_subscription_with_high_give_back_risk_requires_density', $r['reason']);
+    }
+
+    public function test_normal_prompt_no_extra_evidence_density_bulk(): void
+    {
+        $r = (new AtlasExternalBrainMusclePromptVariantSelector)->evidenceDensityCheck([
+            'muscle_type' => 'external_muscle',
+            'task_risk' => 'normal',
+            'evidence_strength' => 'strong',
+            'give_back_risk' => 'low',
+        ]);
+        $this->assertFalse($r['evidence_density_included']);
+        $this->assertSame('normal_prompt_no_extra_evidence_density_bulk', $r['reason']);
+    }
 }
