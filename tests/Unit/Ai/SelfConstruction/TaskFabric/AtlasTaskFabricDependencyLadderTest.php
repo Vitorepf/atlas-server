@@ -164,4 +164,150 @@ final class AtlasTaskFabricDependencyLadderTest extends TestCase
         $l = new AtlasTaskFabricDependencyLadder;
         $this->assertSame(json_encode($l->ladder($input)), json_encode($l->ladder($input)));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: rung_type ordering — foundation before proof before cleanup before feature
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_foundation_repair_placed_before_feature_expansion_in_same_wave(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'F', 'rung_type' => 'feature_expansion', 'allowed_files' => ['app/Feature.php']],
+            ['id' => 'R', 'rung_type' => 'foundation_repair', 'allowed_files' => ['app/Foundation.php']],
+        ]);
+
+        $this->assertCount(1, $r['waves']);
+        $this->assertSame(['R', 'F'], $r['waves'][0],
+            'foundation_repair must appear before feature_expansion in the wave');
+    }
+
+    public function test_rung_types_ordered_by_priority_across_waves(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'A', 'rung_type' => 'foundation_repair', 'produces' => ['F'], 'allowed_files' => ['app/F.php']],
+            ['id' => 'B', 'rung_type' => 'proof_gate', 'produces' => ['P'], 'allowed_files' => ['app/P.php'], 'consumes' => ['F']],
+            ['id' => 'C', 'rung_type' => 'cleanup', 'produces' => ['C'], 'allowed_files' => ['app/C.php'], 'consumes' => ['P']],
+            ['id' => 'D', 'rung_type' => 'feature_expansion', 'allowed_files' => ['app/D.php'], 'consumes' => ['C']],
+        ]);
+
+        $this->assertCount(4, $r['waves']);
+        $this->assertSame(['A'], $r['waves'][0], 'foundation_repair first');
+        $this->assertSame(['B'], $r['waves'][1], 'proof_gate second');
+        $this->assertSame(['C'], $r['waves'][2], 'cleanup third');
+        $this->assertSame(['D'], $r['waves'][3], 'feature_expansion last');
+    }
+
+    public function test_ordered_rungs_includes_deduplicated_rung_types_in_priority_order(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'A', 'rung_type' => 'foundation_repair', 'allowed_files' => ['app/A.php']],
+            ['id' => 'B', 'rung_type' => 'feature_expansion', 'allowed_files' => ['app/B.php']],
+        ]);
+
+        $this->assertContains('foundation_repair', $r['ordered_rungs']);
+        $this->assertContains('feature_expansion', $r['ordered_rungs']);
+        $this->assertLessThan(
+            array_search('feature_expansion', $r['ordered_rungs'], true),
+            array_search('foundation_repair', $r['ordered_rungs'], true),
+            'foundation_repair must appear before feature_expansion in ordered_rungs',
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC3: blocked_by_prerequisite when earlier rungs are absent
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_feature_expansion_without_foundation_repair_is_blocked(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'feat', 'rung_type' => 'feature_expansion', 'allowed_files' => ['app/Feature.php']],
+        ]);
+
+        $this->assertNotEmpty($r['blocked_tasks']);
+        $this->assertSame('feat', $r['blocked_tasks'][0]['packet_id']);
+        $this->assertContains('foundation_repair', $r['blocked_tasks'][0]['missing_prerequisite_rungs']);
+    }
+
+    public function test_feature_expansion_with_all_prerequisites_not_blocked(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'R', 'rung_type' => 'foundation_repair', 'allowed_files' => ['app/R.php']],
+            ['id' => 'G', 'rung_type' => 'proof_gate', 'allowed_files' => ['app/G.php']],
+            ['id' => 'C', 'rung_type' => 'cleanup', 'allowed_files' => ['app/C.php']],
+            ['id' => 'F', 'rung_type' => 'feature_expansion', 'allowed_files' => ['app/F.php']],
+        ]);
+
+        $this->assertSame([], $r['blocked_tasks'],
+            'feature with all three prerequisites present must not be blocked');
+    }
+
+    public function test_unlock_reason_present_when_tasks_blocked(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'feat', 'rung_type' => 'feature_expansion', 'allowed_files' => ['app/Feature.php']],
+        ]);
+
+        $this->assertNotNull($r['unlock_reason']);
+        $this->assertStringContainsString('feat', $r['unlock_reason']);
+        $this->assertStringContainsString('foundation_repair', $r['unlock_reason']);
+    }
+
+    public function test_unlock_reason_null_when_no_tasks_blocked(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'R', 'rung_type' => 'foundation_repair', 'allowed_files' => ['app/R.php']],
+        ]);
+
+        $this->assertNull($r['unlock_reason']);
+    }
+
+    public function test_feature_expansion_with_some_prerequisites_present_still_blocked(): void
+    {
+        // Only foundation_repair present, missing proof_gate and cleanup.
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'R', 'rung_type' => 'foundation_repair', 'allowed_files' => ['app/R.php']],
+            ['id' => 'F', 'rung_type' => 'feature_expansion', 'allowed_files' => ['app/F.php']],
+        ]);
+
+        $this->assertNotEmpty($r['blocked_tasks']);
+        $this->assertSame('F', $r['blocked_tasks'][0]['packet_id']);
+        $this->assertContains('proof_gate', $r['blocked_tasks'][0]['missing_prerequisite_rungs']);
+        $this->assertContains('cleanup', $r['blocked_tasks'][0]['missing_prerequisite_rungs']);
+        $this->assertNotContains('foundation_repair', $r['blocked_tasks'][0]['missing_prerequisite_rungs']);
+    }
+
+    public function test_output_includes_ordered_rungs_blocked_tasks_and_unlock_reason(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'feat', 'rung_type' => 'feature_expansion', 'allowed_files' => ['app/F.php']],
+        ]);
+
+        $this->assertArrayHasKey('ordered_rungs', $r);
+        $this->assertArrayHasKey('blocked_tasks', $r);
+        $this->assertArrayHasKey('unlock_reason', $r);
+    }
+
+    public function test_non_feature_rungs_not_blocked_when_other_rungs_missing(): void
+    {
+        // foundation_repair doesn't need proof_gate or cleanup — only feature_expansion does.
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'R', 'rung_type' => 'foundation_repair', 'allowed_files' => ['app/R.php']],
+        ]);
+
+        $this->assertSame([], $r['blocked_tasks'],
+            'non-feature rungs must not be marked as blocked');
+    }
+
+    public function test_default_rung_type_is_feature_expansion_for_backward_compat(): void
+    {
+        // Packets without explicit rung_type default to feature_expansion.
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'A', 'allowed_files' => ['app/A.php']],
+        ]);
+
+        $this->assertArrayHasKey('ordered_rungs', $r);
+        $this->assertSame(['feature_expansion'], $r['ordered_rungs']);
+        $this->assertNotEmpty($r['blocked_tasks'],
+            'default feature_expansion without earlier rungs must be blocked');
+    }
 }
