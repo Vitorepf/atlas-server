@@ -186,6 +186,20 @@ final class AtlasExternalBrainTaskGraphRuntimeBridge
 
         $unresolvedLeveragePresent = $blockers !== [];
 
+        // Build blocked_off_path_reasons — the specific blockers that make off-path work inadvisable.
+        $blockedOffPathReasons = [];
+        if ($unresolvedLeveragePresent) {
+            foreach ($blockers as $blocker) {
+                $blockedOffPathReasons[] = 'off_path_blocked:'.$blocker;
+            }
+        }
+
+        // runtime_guidance: a deterministic one-liner describing the live state.
+        $runtimeGuidance = match (true) {
+            $unresolvedLeveragePresent => 'critical_path_blockers_or_stale_dependencies_dominate:block_off_path_replenishment',
+            default => 'no_critical_path_blockers:maintain_normal_replenishment',
+        };
+
         $prioritizedIds = array_keys($prioritized);
         usort($prioritizedIds, static fn (string $a, string $b): int => ($prioritized[$b] <=> $prioritized[$a]) ?: strcmp($a, $b));
 
@@ -193,8 +207,11 @@ final class AtlasExternalBrainTaskGraphRuntimeBridge
             'schema' => self::SCHEMA,
             'unresolved_leverage_present' => $unresolvedLeveragePresent,
             'block_off_path_low_novelty' => $unresolvedLeveragePresent,
+            'block_off_path_replenishment' => $unresolvedLeveragePresent,
             'prioritized_task_packet_ids' => array_values($prioritizedIds),
+            'runtime_guidance' => $runtimeGuidance,
             'blockers' => $blockers,
+            'blocked_off_path_reasons' => $blockedOffPathReasons,
         ];
     }
 }

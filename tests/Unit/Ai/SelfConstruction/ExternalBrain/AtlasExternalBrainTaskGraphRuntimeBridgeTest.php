@@ -203,4 +203,83 @@ final class AtlasExternalBrainTaskGraphRuntimeBridgeTest extends TestCase
 
         $this->assertSame($this->bridge()->bridgeNodes($facts), $this->bridge()->bridgeNodes($facts));
     }
+
+    // ── AC tests for bridge() ──
+
+    public function test_bridge_output_has_required_keys(): void
+    {
+        $result = $this->bridge()->bridge([]);
+
+        foreach (['schema', 'unresolved_leverage_present', 'block_off_path_low_novelty',
+                  'block_off_path_replenishment', 'prioritized_task_packet_ids',
+                  'runtime_guidance', 'blockers', 'blocked_off_path_reasons'] as $key) {
+            $this->assertArrayHasKey($key, $result, "Missing bridge output key: {$key}");
+        }
+    }
+
+    public function test_bridge_emits_block_off_path_replenishment_when_blockers_exist(): void
+    {
+        $result = $this->bridge()->bridge([
+            'critical_path' => [['task_packet_id' => 'a', 'blocked' => true, 'leverage' => 5]],
+        ]);
+
+        $this->assertTrue($result['block_off_path_replenishment']);
+        $this->assertNotEmpty($result['blocked_off_path_reasons']);
+    }
+
+    public function test_bridge_block_off_path_replenishment_false_when_no_blockers(): void
+    {
+        $result = $this->bridge()->bridge([]);
+
+        $this->assertFalse($result['block_off_path_replenishment']);
+        $this->assertSame([], $result['blocked_off_path_reasons']);
+    }
+
+    public function test_bridge_runtime_guidance_reflects_state(): void
+    {
+        $withBlockers = $this->bridge()->bridge([
+            'critical_path' => [['task_packet_id' => 'a', 'blocked' => true, 'leverage' => 3]],
+        ]);
+        $this->assertStringContainsString('block_off_path', $withBlockers['runtime_guidance']);
+
+        $clean = $this->bridge()->bridge([]);
+        $this->assertStringContainsString('maintain_normal', $clean['runtime_guidance']);
+    }
+
+    public function test_bridge_prioritizes_critical_path_by_leverage(): void
+    {
+        $result = $this->bridge()->bridge([
+            'critical_path' => [
+                ['task_packet_id' => 'low', 'blocked' => true, 'leverage' => 1],
+                ['task_packet_id' => 'high', 'blocked' => true, 'leverage' => 10],
+                ['task_packet_id' => 'medium', 'blocked' => true, 'leverage' => 5],
+            ],
+        ]);
+
+        $ids = $result['prioritized_task_packet_ids'];
+        $this->assertSame(['high', 'medium', 'low'], $ids);
+    }
+
+    public function test_bridge_stale_dependency_adds_to_prioritized(): void
+    {
+        $result = $this->bridge()->bridge([
+            'broken_dependencies' => [
+                ['task_packet_id' => 'stale-dep', 'stale' => true],
+            ],
+        ]);
+
+        $this->assertContains('stale-dep', $result['prioritized_task_packet_ids']);
+        $this->assertContains('stale_dependency:stale-dep', $result['blockers']);
+    }
+
+    public function test_bridge_blockers_includes_critical_path_and_release_gate(): void
+    {
+        $result = $this->bridge()->bridge([
+            'critical_path' => [['task_packet_id' => 'cp1', 'blocked' => true, 'leverage' => 3]],
+            'release_gate_findings' => [['task_packet_id' => 'rg1', 'gate_status' => 'blocked']],
+        ]);
+
+        $this->assertContains('critical_path_blocked:cp1', $result['blockers']);
+        $this->assertContains('release_gate_blocked:rg1', $result['blockers']);
+    }
 }
