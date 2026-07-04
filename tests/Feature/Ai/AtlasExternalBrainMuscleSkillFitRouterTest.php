@@ -304,4 +304,83 @@ final class AtlasExternalBrainMuscleSkillFitRouterTest extends TestCase
         $this->assertSame('best', $r['primary_muscle']);
         $this->assertSame('second-best', $r['fallback_muscle']);
     }
+
+    // AC: scope-tag bonus requires minimum sample count
+    public function test_scope_bonus_requires_minimum_sample_count(): void
+    {
+        $router = new AtlasExternalBrainMuscleSkillFitRouter();
+        // Only 1 sample — below minimum of 3 — should NOT get scope bonus
+        $r = $router->route([
+            'task_family' => 'refactor',
+            'required_skills' => ['php'],
+            'file_scope' => ['app/Services/Foo.php'],
+            'candidates' => [
+                [
+                    'muscle_id' => 'm1',
+                    'skills' => ['php'],
+                    'history' => [
+                        'app/services' => ['total' => 1, 'success' => 1],
+                    ],
+                ],
+            ],
+        ]);
+
+        $entry = $r['ranked_muscles'][0];
+        // Without scope bonus, fit_score = 1.0*0.40 + 0.5*0.35 + 1.0*0.25 = 0.925
+        $this->assertSame(0.825, $entry['fit_score']);
+    }
+
+    // AC: scope-tag bonus applies when sample count meets minimum
+    public function test_scope_bonus_applies_when_minimum_sample_count_met(): void
+    {
+        $router = new AtlasExternalBrainMuscleSkillFitRouter();
+        // 3 samples — meets minimum — should get scope bonus
+        $r = $router->route([
+            'task_family' => 'refactor',
+            'required_skills' => ['php'],
+            'file_scope' => ['app/Services/Foo.php'],
+            'candidates' => [
+                [
+                    'muscle_id' => 'm1',
+                    'skills' => ['php'],
+                    'history' => [
+                        'app/services' => ['total' => 3, 'success' => 3],
+                    ],
+                ],
+            ],
+        ]);
+
+        $entry = $r['ranked_muscles'][0];
+        // With scope bonus (100% success rate => bonus = (1.0 - 0.5) * 0.10 = 0.05)
+        // fit_score = 0.825 + 0.05 = 0.875
+        $this->assertSame(0.875, $entry['fit_score']);
+    }
+
+    // AC: insufficient scope samples still ranked by other factors
+    public function test_insufficient_scope_samples_still_ranked_by_other_factors(): void
+    {
+        $router = new AtlasExternalBrainMuscleSkillFitRouter();
+        $r = $router->route([
+            'task_family' => 'refactor',
+            'required_skills' => ['php', 'laravel'],
+            'file_scope' => ['app/Services/Foo.php'],
+            'candidates' => [
+                [
+                    'muscle_id' => 'm1',
+                    'skills' => ['php'],
+                    'history' => [
+                        'app/services' => ['total' => 1, 'success' => 1],
+                    ],
+                ],
+                [
+                    'muscle_id' => 'm2',
+                    'skills' => ['php', 'laravel'],
+                    'history' => [],
+                ],
+            ],
+        ]);
+
+        // m2 has all required skills, m1 is missing laravel — m2 ranks higher
+        $this->assertSame('m2', $r['primary_muscle']);
+    }
 }
