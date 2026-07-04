@@ -212,6 +212,7 @@ final class AtlasMaestroOutcomePatternMiner
                     'delivered'     => (int) $entry['delivered'],
                     'recent_count'  => (int) $entry['recent_count'],
                     'stale_count'   => (int) $entry['stale_count'],
+                    'policy_hint'   => $this->computePolicyHint($dimension, $bucket, $entry),
                 ];
             }
         }
@@ -241,12 +242,10 @@ final class AtlasMaestroOutcomePatternMiner
                 if ((bool) $entry['insufficient_support']) {
                     continue;
                 }
-                // Recency-weighted comparison: an old failure trend does not dominate once
-                // recent delivered evidence outweighs it, even though the raw counts still show
-                // more failures than successes.
                 if ((float) $entry['weighted_failure'] <= (float) $entry['weighted_delivered']) {
                     continue;
                 }
+                $policyHint = $this->computePolicyHint($dimension, $bucket, $entry);
                 $patterns[] = [
                     'dimension'     => $dimension,
                     'bucket'        => $bucket,
@@ -258,6 +257,7 @@ final class AtlasMaestroOutcomePatternMiner
                     'delivered'     => (int) $entry['delivered'],
                     'recent_count'  => (int) $entry['recent_count'],
                     'stale_count'   => (int) $entry['stale_count'],
+                    'policy_hint'   => $policyHint,
                 ];
             }
         }
@@ -269,6 +269,33 @@ final class AtlasMaestroOutcomePatternMiner
         });
 
         return $patterns;
+    }
+
+    /**
+     * Compute worker-family policy hint for a negative pattern.
+     *
+     * @param  array<string, mixed>  $entry
+     * @return string
+     */
+    private function computePolicyHint(string $dimension, string $bucket, array $entry): string
+    {
+        // worker_id dimension with high failure = worker fit problem → reroute
+        if ($dimension === 'worker_id') {
+            return 'reroute_worker_fit';
+        }
+
+        // file_family or task_shape dimension with high failure = packet shape problem → respec
+        if ($dimension === 'file_family' || $dimension === 'task_shape') {
+            return 'respec_packet_shape';
+        }
+
+        // origin_kind or proof_command_class = routing problem
+        if ($dimension === 'origin_kind' || $dimension === 'proof_command_class') {
+            return 'reroute_origin_policy';
+        }
+
+        // Default: avoid this shape
+        return 'avoid_shape';
     }
 
     /**
