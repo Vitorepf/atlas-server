@@ -35,7 +35,7 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
     {
         $result = $this->governor()->decide($this->input());
 
-        foreach (['schema', 'decision', 'reason', 'urgent_override', 'under_pressure', 'live_ratio_reason', 'batch_budget'] as $key) {
+        foreach (['schema', 'decision', 'reason', 'urgent_override', 'under_pressure', 'live_ratio_reason', 'batch_budget', 'high_leverage_escape', 'pressure_evidence'] as $key) {
             $this->assertArrayHasKey($key, $result);
         }
         $this->assertSame(AtlasExternalBrainQueuePressureGovernor::SCHEMA, $result['schema']);
@@ -95,7 +95,7 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
         // claimable >= 30 AND active_leases >= 15 → stop
         $result = $this->governor()->decide($this->input(
             queueState: ['claimable_depth' => 35, 'active_leases' => 20],
-            candidate:  ['leverage_score' => 0.95, 'task_class' => 'normal'],
+            candidate:  ['leverage_score' => 0.40, 'task_class' => 'normal'], // below HIGH_LEVERAGE so STOP
         ));
 
         $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_STOP, $result['decision']);
@@ -253,7 +253,7 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
     {
         $result = $this->governor()->decide($this->input(
             queueState: ['claimable_depth' => 35, 'active_leases' => 20],
-            candidate:  ['leverage_score' => 0.95, 'task_class' => 'normal'],
+            candidate:  ['leverage_score' => 0.40, 'task_class' => 'normal'], // below HIGH_LEVERAGE so STOP
         ));
 
         $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_STOP, $result['decision']);
@@ -570,13 +570,130 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
         $this->assertNotSame(AtlasExternalBrainQueuePressureGovernor::DECISION_STOP, $result['decision']);
     }
 
-    public function test_decide_stops_only_when_queue_and_lease_pressure_are_both_critical(): void
+    // ── decide(): high-leverage escape from critical pressure (anti-blind-wait) ─
+
+    public function test_high_leverage_bypasses_critical_pressure_and_does_not_stop(): void
+    {
+        // Both claimable_depth (35 >= 30) AND active_leases (20 >= 15) are saturated,
+        // but the candidate has high leverage (0.80 >= 0.75) — must enqueue_now, not stop.
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 35, 'active_leases' => 20],
+            candidate:  ['leverage_score' => 0.80, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision'],
+            'High-leverage candidate must bypass critical pressure');
+        $this->assertFalse($result['urgent_override']);
+        $this->assertTrue($result['high_leverage_escape']);
+        $this->assertStringContainsString('bypasses critical pressure', $result['reason']);
+    }
+
+    public function test_dependency_unlock_bypasses_critical_pressure(): void
     {
         $result = $this->governor()->decide($this->input(
             queueState: ['claimable_depth' => 35, 'active_leases' => 20],
-            candidate:  ['leverage_score' => 0.50, 'task_class' => 'normal'],
+            candidate:  ['leverage_score' => 0.10, 'dependency_unlock_score' => 0.90, 'task_class' => 'normal'],
         ));
 
-        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_STOP, $result['decision']);
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision'],
+            'High dependency_unlock_score candidate must bypass critical pressure');
+        $this->assertTrue($result['high_leverage_escape']);
+        $this->assertStringContainsString('dependency_unlock_score', $result['reason']);
+    }
+
+    public function test_low_leverage_stops_under_critical_pressure(): void
+    {
+        // Both dimensions saturated AND low leverage → must STILL stop.
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 35, 'active_leases' => 20],
+            candidate:  ['leverage_score' => 0.40, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_STOP, $result['decision'],
+            'Low-leverage candidate under critical pressure must still stop');
+        $this->assertFalse($result['high_leverage_escape']);
+    }
+
+    // ── pressure_evidence (AC4) ───────────────────────────────────────────────
+
+    public function test_pressure_evidence_emitted_on_all_decisions(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 35, 'active_leases' => 20],
+            candidate:  ['leverage_score' => 0.40, 'task_class' => 'normal'],
+        ));
+
+        $this->assertArrayHasKey('pressure_evidence', $result);
+
+        $ev = $result['pressure_evidence'];
+        $this->assertArrayHasKey('claimable_depth', $ev);
+        $this->assertArrayHasKey('active_leases', $ev);
+        $this->assertArrayHasKey('servable_depth', $ev);
+        $this->assertArrayHasKey('servable_per_worker_ratio', $ev);
+        $this->assertArrayHasKey('high_servable_ratio', $ev);
+        $this->assertArrayHasKey('completion_slope', $ev);
+        $this->assertArrayHasKey('slowing_completions', $ev);
+    }
+
+    public function test_pressure_evidence_reflects_critical_state(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 35, 'active_leases' => 20],
+            candidate:  ['leverage_score' => 0.40, 'task_class' => 'normal'],
+        ));
+
+        $ev = $result['pressure_evidence'];
+        $this->assertSame(35, $ev['claimable_depth']);
+        $this->assertSame(20, $ev['active_leases']);
+        $this->assertSame(0, $ev['servable_depth']); // default
+    }
+
+    public function test_pressure_evidence_servable_ratio_rounded(): void
+    {
+        // servable_depth(100) / active_leases(10) = 10.0
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 20, 'active_leases' => 10, 'servable_depth' => 100],
+            candidate:  ['leverage_score' => 0.40, 'task_class' => 'normal'],
+        ));
+
+        $ev = $result['pressure_evidence'];
+        $this->assertSame(10.0, $ev['servable_per_worker_ratio']);
+        $this->assertTrue($ev['high_servable_ratio']);
+    }
+
+    public function test_pressure_evidence_empty_on_healthy_queue(): void
+    {
+        $result = $this->governor()->decide($this->input());
+
+        $this->assertArrayHasKey('pressure_evidence', $result);
+        $this->assertSame([], $result['pressure_evidence'],
+            'Healthy queue with no pressure should have empty pressure_evidence');
+    }
+
+    public function test_pressure_evidence_includes_completion_slope_when_registered(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 5, 'active_leases' => 10, 'servable_depth' => 30],
+            candidate:  ['leverage_score' => 0.10, 'dependency_unlock_score' => 0.90, 'task_class' => 'normal'],
+            context:    ['completion_slope' => 0.10],
+        ));
+
+        $ev = $result['pressure_evidence'];
+        $this->assertSame(0.10, $ev['completion_slope']);
+        $this->assertTrue($ev['slowing_completions'],
+            'slowing_completions must be true when completion_slope < LOW_COMPLETION_SLOPE and ratio >= SLOWING_SERVABLE_PER_WORKER_RATIO');
+    }
+
+    public function test_pressure_evidence_populated_on_critical_pressure_bypass(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 40, 'active_leases' => 18],
+            candidate:  ['leverage_score' => 0.90, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+        $ev = $result['pressure_evidence'];
+        $this->assertSame(40, $ev['claimable_depth']);
+        $this->assertSame(18, $ev['active_leases']);
     }
 }
