@@ -302,4 +302,37 @@ final class AtlasMaestroTieredRoutingPolicyTest extends TestCase
         $this->assertNull($v['hold_reason']);
         $this->assertSame(0, $v['capability_gap']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: unknown worker → allow_unknown, tier matching, confidence floor
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_rejects_tier_above_declared_max_without_override(): void
+    {
+        $this->registry->register('mid-worker', 'hard');
+        $hardPacket = [
+            'packet_id' => 'p-tier-above',
+            'objective' => str_repeat('x', 1500), // objective length >= 1200 → hard
+            'allowed_files' => ['app/A.php'],
+            'acceptance_criteria' => [],
+        ];
+        $v = $this->policy->evaluate('mid-worker', $hardPacket);
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW, $v['verdict'],
+            'hard packet to hard worker must allow');
+    }
+
+    public function test_low_confidence_hardest_packet_is_allow_with_review(): void
+    {
+        $this->registry->register('low-conf', 'hardest', ['outcome_confidence' => 0.1]);
+        $v = $this->policy->evaluate('low-conf', $this->hardestPacket());
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW_WITH_REVIEW, $v['verdict']);
+    }
+
+    public function test_unknown_worker_returns_allow_unknown(): void
+    {
+        $v = $this->policy->evaluate('never-seen-worker', $this->hardestPacket());
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW_UNKNOWN, $v['verdict']);
+    }
 }
