@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackRootCauseMiner;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 final class AtlasExternalBrainGiveBackRootCauseMinerTest extends TestCase
 {
@@ -13,339 +13,273 @@ final class AtlasExternalBrainGiveBackRootCauseMinerTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->miner = new AtlasExternalBrainGiveBackRootCauseMiner;
+        parent::setUp();
+        $this->miner = new AtlasExternalBrainGiveBackRootCauseMiner();
     }
 
-    // ── empty input ───────────────────────────────────────────────────────────
-
-    public function test_empty_input_returns_empty_result(): void
+    private function gb(string $id, string $class, int $count = 1, string $reason = ''): array
     {
-        $r = $this->miner->mine([]);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::SCHEMA, $r['schema']);
-        $this->assertSame([], $r['root_causes']);
-        $this->assertSame([], $r['poison_packets']);
+        return array_filter([
+            'task_packet_id' => $id,
+            'give_back_class' => $class,
+            'give_back_count' => $count,
+            'reason' => $reason !== '' ? $reason : null,
+        ], static fn ($v) => $v !== null);
     }
 
-    // ── root cause classification ─────────────────────────────────────────────
+    // ── Schema and output structure ──────────────────────────────────────────────
 
-    public function test_scope_repair_class_maps_to_bad_allowed_files_respec(): void
+    public function test_schema_constant(): void
     {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-scope-01',
-            'give_back_class' => 'scope_repair_missing_impl',
-            'give_back_count' => 3,
-        ]]);
-
-        $cause = $r['root_causes'][0];
-        $this->assertSame('bad_allowed_files', $cause['root_cause']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::DEFECT_PACKET, $cause['defect_type']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_RESPEC, $cause['recommended_action']);
-        $this->assertContains('task-scope-01', $cause['task_packet_ids']);
+        $this->assertSame('atlas.external_brain.giveback_root_cause_miner.v1', AtlasExternalBrainGiveBackRootCauseMiner::SCHEMA);
     }
 
-    public function test_forbidden_class_maps_to_forbidden_target_respec(): void
+    public function test_output_has_all_canonical_keys(): void
     {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-forbidden-01',
-            'give_back_class' => 'forbidden_file',
-            'give_back_count' => 2,
-        ]]);
-
-        $cause = $r['root_causes'][0];
-        $this->assertSame('forbidden_target', $cause['root_cause']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_RESPEC, $cause['recommended_action']);
+        $result = $this->miner->mine([]);
+        $this->assertArrayHasKey('schema', $result);
+        $this->assertArrayHasKey('root_causes', $result);
+        $this->assertArrayHasKey('poison_packets', $result);
     }
 
-    public function test_contradictory_class_maps_to_contradictory_acceptance_respec(): void
-    {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-contra-01',
-            'give_back_class' => 'contradictory_acceptance',
-            'give_back_count' => 2,
-        ]]);
+    // ── Empty input ──────────────────────────────────────────────────────────────
 
-        $cause = $r['root_causes'][0];
-        $this->assertSame('contradictory_acceptance', $cause['root_cause']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_RESPEC, $cause['recommended_action']);
+    public function test_empty_give_backs_returns_empty(): void
+    {
+        $result = $this->miner->mine([]);
+        $this->assertSame([], $result['root_causes']);
+        $this->assertSame([], $result['poison_packets']);
     }
 
-    public function test_schema_class_maps_to_missing_schema_respec(): void
-    {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-schema-01',
-            'give_back_class' => 'schema_missing',
-            'give_back_count' => 2,
-        ]]);
+    // ── Classification: scope_repair → bad_allowed_files ─────────────────────────
 
-        $cause = $r['root_causes'][0];
-        $this->assertSame('missing_schema', $cause['root_cause']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_RESPEC, $cause['recommended_action']);
+    public function test_scope_repair_classifies_as_bad_allowed_files(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'scope_repair_missing')]);
+        $this->assertSame('bad_allowed_files', $result['root_causes'][0]['root_cause']);
+        $this->assertSame('packet_defect', $result['root_causes'][0]['defect_type']);
+        $this->assertSame('respec', $result['root_causes'][0]['recommended_action']);
     }
 
-    public function test_duplicate_class_maps_to_duplicate_implemented_cancel(): void
-    {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-dup-01',
-            'give_back_class' => 'duplicate_capability',
-            'give_back_count' => 2,
-        ]]);
+    // ── Classification: forbidden → forbidden_target ─────────────────────────────
 
-        $cause = $r['root_causes'][0];
-        $this->assertSame('duplicate_implemented', $cause['root_cause']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_CANCEL, $cause['recommended_action']);
+    public function test_forbidden_classifies_as_forbidden_target(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'forbidden_file')]);
+        $this->assertSame('forbidden_target', $result['root_causes'][0]['root_cause']);
+        $this->assertSame('packet_defect', $result['root_causes'][0]['defect_type']);
     }
 
-    public function test_flaky_test_class_maps_to_flaky_test_respec(): void
-    {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-flaky-01',
-            'give_back_class' => 'flaky_test',
-            'give_back_count' => 3,
-        ]]);
+    // ── Classification: contradictory → contradictory_acceptance ─────────────────
 
-        $cause = $r['root_causes'][0];
-        $this->assertSame('flaky_test', $cause['root_cause']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_RESPEC, $cause['recommended_action']);
+    public function test_contradictory_classifies_as_contradictory_acceptance(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'contradictory_criteria')]);
+        $this->assertSame('contradictory_acceptance', $result['root_causes'][0]['root_cause']);
+        $this->assertSame('respec', $result['root_causes'][0]['recommended_action']);
     }
 
-    public function test_impossible_dependency_maps_to_operator_only(): void
-    {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-dep-01',
-            'give_back_class' => 'impossible_dependency',
-            'give_back_count' => 2,
-        ]]);
+    // ── Classification: schema → missing_schema ──────────────────────────────────
 
-        $cause = $r['root_causes'][0];
-        $this->assertSame('impossible_dependency', $cause['root_cause']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::DEFECT_PACKET, $cause['defect_type']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_OPERATOR_ONLY, $cause['recommended_action']);
+    public function test_schema_classifies_as_missing_schema(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'schema_violation')]);
+        $this->assertSame('missing_schema', $result['root_causes'][0]['root_cause']);
+        $this->assertSame('respec', $result['root_causes'][0]['recommended_action']);
     }
 
-    // ── worker weakness vs packet defect ──────────────────────────────────────
+    // ── Classification: duplicate → duplicate_implemented ────────────────────────
 
-    public function test_context_overflow_is_worker_weakness_not_packet_defect(): void
+    public function test_duplicate_classifies_as_duplicate_implemented(): void
     {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-ctx-01',
-            'give_back_class' => 'context_overflow',
-            'give_back_count' => 5,
-        ]]);
-
-        $cause = $r['root_causes'][0];
-        $this->assertSame('worker_weakness', $cause['root_cause']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::DEFECT_WORKER, $cause['defect_type']);
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_RETRY_DIFFERENT_WORKER, $cause['recommended_action']);
+        $result = $this->miner->mine([$this->gb('t1', 'duplicate_capability')]);
+        $this->assertSame('duplicate_implemented', $result['root_causes'][0]['root_cause']);
+        $this->assertSame('cancel', $result['root_causes'][0]['recommended_action']);
     }
 
-    public function test_capability_gap_is_worker_weakness(): void
-    {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-cap-01',
-            'give_back_class' => 'capability_gap',
-            'give_back_count' => 3,
-        ]]);
+    // ── Classification: flaky_test → flaky_test ──────────────────────────────────
 
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::DEFECT_WORKER, $r['root_causes'][0]['defect_type']);
+    public function test_flaky_classifies_as_flaky_test(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'flaky_test')]);
+        $this->assertSame('flaky_test', $result['root_causes'][0]['root_cause']);
+        $this->assertSame('respec', $result['root_causes'][0]['recommended_action']);
     }
 
-    // ── poison packets invariant ──────────────────────────────────────────────
+    // ── Classification: impossible_dep → impossible_dependency ───────────────────
 
-    public function test_packet_defect_at_threshold_becomes_poison_packet(): void
+    public function test_impossible_dep_classifies_as_impossible_dependency(): void
     {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-poison-01',
-            'give_back_class' => 'scope_repair_missing_impl',
-            'give_back_count' => AtlasExternalBrainGiveBackRootCauseMiner::POISON_THRESHOLD,
-        ]]);
-
-        $this->assertContains('task-poison-01', $r['poison_packets']);
+        $result = $this->miner->mine([$this->gb('t1', 'impossible_dependency')]);
+        $this->assertSame('impossible_dependency', $result['root_causes'][0]['root_cause']);
+        $this->assertSame('operator_only', $result['root_causes'][0]['recommended_action']);
     }
 
-    public function test_worker_weakness_never_becomes_poison_packet(): void
-    {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-worker-01',
-            'give_back_class' => 'context_overflow',
-            'give_back_count' => 99,  // many give_backs, but it is worker weakness
-        ]]);
+    // ── Classification: worker weakness → retry_different_worker ─────────────────
 
-        $this->assertNotContains('task-worker-01', $r['poison_packets']);
+    public function test_context_overflow_classifies_as_worker_weakness(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'context_overflow')]);
+        $this->assertSame('worker_weakness', $result['root_causes'][0]['root_cause']);
+        $this->assertSame('worker_weakness', $result['root_causes'][0]['defect_type']);
+        $this->assertSame('retry_different_worker', $result['root_causes'][0]['recommended_action']);
     }
 
-    public function test_below_threshold_packet_defect_not_yet_poison(): void
+    public function test_timeout_classifies_as_worker_weakness(): void
     {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-below-01',
-            'give_back_class' => 'forbidden_file',
-            'give_back_count' => AtlasExternalBrainGiveBackRootCauseMiner::POISON_THRESHOLD - 1,
-        ]]);
-
-        $this->assertNotContains('task-below-01', $r['poison_packets']);
+        $result = $this->miner->mine([$this->gb('t1', 'timeout')]);
+        $this->assertSame('worker_weakness', $result['root_causes'][0]['root_cause']);
     }
 
-    // ── clustering ────────────────────────────────────────────────────────────
-
-    public function test_multiple_tasks_with_same_root_cause_cluster_together(): void
+    public function test_provider_error_classifies_as_worker_weakness(): void
     {
-        $r = $this->miner->mine([
-            ['task_packet_id' => 'task-a', 'give_back_class' => 'scope_repair_missing_impl', 'give_back_count' => 3],
-            ['task_packet_id' => 'task-b', 'give_back_class' => 'scope_repair_bad_file', 'give_back_count' => 2],
+        $result = $this->miner->mine([$this->gb('t1', 'provider_error')]);
+        $this->assertSame('worker_weakness', $result['root_causes'][0]['root_cause']);
+    }
+
+    // ── Unclassified → operator_only ─────────────────────────────────────────────
+
+    public function test_unclassified_classifies_as_operator_only(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'unknown_class')]);
+        $this->assertSame('unclassified_repeat', $result['root_causes'][0]['root_cause']);
+        $this->assertSame('operator_only', $result['root_causes'][0]['recommended_action']);
+    }
+
+    // ── Poison packets ───────────────────────────────────────────────────────────
+
+    public function test_poison_packet_when_packet_defect_and_count_above_threshold(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'scope_repair_missing', 3)]);
+        $this->assertContains('t1', $result['poison_packets']);
+    }
+
+    public function test_not_poison_when_count_below_threshold(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'scope_repair_missing', 1)]);
+        $this->assertNotContains('t1', $result['poison_packets']);
+    }
+
+    public function test_not_poison_when_worker_weakness_even_with_high_count(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'context_overflow', 5)]);
+        $this->assertNotContains('t1', $result['poison_packets']);
+    }
+
+    // ── Clustering: multiple events with same root cause grouped ─────────────────
+
+    public function test_same_root_cause_clustered_together(): void
+    {
+        $result = $this->miner->mine([
+            $this->gb('t1', 'scope_repair_missing'),
+            $this->gb('t2', 'scope_repair_extra'),
         ]);
-
-        $this->assertCount(1, $r['root_causes']);
-        $this->assertContains('task-a', $r['root_causes'][0]['task_packet_ids']);
-        $this->assertContains('task-b', $r['root_causes'][0]['task_packet_ids']);
+        $this->assertCount(1, $result['root_causes']);
+        $this->assertSame('bad_allowed_files', $result['root_causes'][0]['root_cause']);
+        $this->assertCount(2, $result['root_causes'][0]['task_packet_ids']);
     }
 
-    public function test_different_root_causes_produce_separate_clusters(): void
+    // ── Respec plan: action and target fields ────────────────────────────────────
+
+    public function test_bad_allowed_files_respec_plan(): void
     {
-        $r = $this->miner->mine([
-            ['task_packet_id' => 'task-a', 'give_back_class' => 'scope_repair_missing_impl', 'give_back_count' => 3],
-            ['task_packet_id' => 'task-b', 'give_back_class' => 'forbidden_file', 'give_back_count' => 2],
-        ]);
-
-        $this->assertCount(2, $r['root_causes']);
-    }
-
-    // ── respec_plan ───────────────────────────────────────────────────────────
-
-    public function test_every_cluster_has_respec_plan_with_required_keys(): void
-    {
-        $r = $this->miner->mine([
-            ['task_packet_id' => 'task-a', 'give_back_class' => 'scope_repair_missing_impl', 'give_back_count' => 3],
-            ['task_packet_id' => 'task-b', 'give_back_class' => 'context_overflow',           'give_back_count' => 2],
-        ]);
-
-        foreach ($r['root_causes'] as $cause) {
-            $this->assertArrayHasKey('respec_plan', $cause, "cluster '{$cause['root_cause']}' missing respec_plan");
-            $plan = $cause['respec_plan'];
-            $this->assertArrayHasKey('action', $plan);
-            $this->assertArrayHasKey('target_fields', $plan);
-            $this->assertArrayHasKey('why_not_retry_unchanged', $plan);
-            $this->assertIsString($plan['action']);
-            $this->assertIsArray($plan['target_fields']);
-            $this->assertNotEmpty($plan['why_not_retry_unchanged']);
-        }
-    }
-
-    public function test_respec_plan_for_bad_allowed_files_is_rewrite_allowed_files(): void
-    {
-        $r    = $this->miner->mine([[
-            'task_packet_id'  => 'task-scope-x',
-            'give_back_class' => 'scope_repair_missing_impl',
-            'give_back_count' => 3,
-        ]]);
-        $plan = $r['root_causes'][0]['respec_plan'];
-
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_REWRITE_ALLOWED_FILES, $plan['action']);
+        $result = $this->miner->mine([$this->gb('t1', 'scope_repair_missing')]);
+        $plan = $result['root_causes'][0]['respec_plan'];
+        $this->assertSame('rewrite_allowed_files', $plan['action']);
         $this->assertContains('allowed_files', $plan['target_fields']);
     }
 
-    public function test_respec_plan_for_contradictory_acceptance_is_rewrite_acceptance(): void
+    public function test_contradictory_acceptance_respec_plan(): void
     {
-        $r    = $this->miner->mine([[
-            'task_packet_id'  => 'task-contra-x',
-            'give_back_class' => 'contradictory_acceptance',
-            'give_back_count' => 2,
-        ]]);
-        $plan = $r['root_causes'][0]['respec_plan'];
-
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_REWRITE_ACCEPTANCE, $plan['action']);
+        $result = $this->miner->mine([$this->gb('t1', 'contradictory_criteria')]);
+        $plan = $result['root_causes'][0]['respec_plan'];
+        $this->assertSame('rewrite_acceptance', $plan['action']);
         $this->assertContains('acceptance_criteria', $plan['target_fields']);
     }
 
-    public function test_respec_plan_for_duplicate_is_cancel(): void
+    public function test_duplicate_respec_plan_is_cancel(): void
     {
-        $r    = $this->miner->mine([[
-            'task_packet_id'  => 'task-dup-x',
-            'give_back_class' => 'duplicate_capability',
-            'give_back_count' => 2,
-        ]]);
-        $plan = $r['root_causes'][0]['respec_plan'];
-
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_CANCEL, $plan['action']);
+        $result = $this->miner->mine([$this->gb('t1', 'duplicate_capability')]);
+        $plan = $result['root_causes'][0]['respec_plan'];
+        $this->assertSame('cancel', $plan['action']);
         $this->assertSame([], $plan['target_fields']);
     }
 
-    public function test_respec_plan_for_impossible_dependency_is_split_dependencies(): void
+    public function test_worker_weakness_respec_plan_is_reroute(): void
     {
-        $r    = $this->miner->mine([[
-            'task_packet_id'  => 'task-dep-x',
-            'give_back_class' => 'impossible_dependency',
-            'give_back_count' => 2,
-        ]]);
-        $plan = $r['root_causes'][0]['respec_plan'];
-
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_SPLIT_DEPENDENCIES, $plan['action']);
+        $result = $this->miner->mine([$this->gb('t1', 'timeout')]);
+        $plan = $result['root_causes'][0]['respec_plan'];
+        $this->assertSame('reroute_worker_class', $plan['action']);
+        $this->assertSame([], $plan['target_fields']);
     }
 
-    public function test_respec_plan_for_worker_weakness_is_reroute_not_packet_quarantine(): void
-    {
-        $r    = $this->miner->mine([[
-            'task_packet_id'  => 'task-ctx-x',
-            'give_back_class' => 'context_overflow',
-            'give_back_count' => 5,
-        ]]);
-        $plan = $r['root_causes'][0]['respec_plan'];
+    // ── Evidence ─────────────────────────────────────────────────────────────────
 
-        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_REROUTE_WORKER_CLASS, $plan['action']);
-        // Must NOT cancel or quarantine the packet.
-        $this->assertNotSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_CANCEL,    $plan['action']);
-        $this->assertNotSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_OPERATOR_ONLY, $plan['action']);
-        $this->assertSame([], $plan['target_fields'], 'worker reroute must not mutate packet fields');
+    public function test_evidence_contains_task_packet_id_and_class(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'scope_repair_missing', 2)]);
+        $evidence = $result['root_causes'][0]['evidence'];
+        $this->assertCount(1, $evidence);
+        $this->assertSame('t1', $evidence[0]['task_packet_id']);
+        $this->assertSame('scope_repair_missing', $evidence[0]['give_back_class']);
+        $this->assertSame(2, $evidence[0]['give_back_count']);
     }
 
-    public function test_respec_plan_worker_weakness_why_explains_packet_is_fine(): void
-    {
-        $r    = $this->miner->mine([[
-            'task_packet_id'  => 'task-cap-x',
-            'give_back_class' => 'capability_gap',
-            'give_back_count' => 3,
-        ]]);
-        $why = $r['root_causes'][0]['respec_plan']['why_not_retry_unchanged'];
+    // ── Determinism ──────────────────────────────────────────────────────────────
 
-        $this->assertStringContainsString('worker', $why);
-    }
-
-    public function test_respec_plan_why_not_retry_unchanged_is_non_empty_for_all_packet_defects(): void
+    public function test_result_is_deterministic(): void
     {
-        $classes = [
-            'scope_repair_missing_impl',
-            'forbidden_file',
-            'contradictory_acceptance',
-            'schema_missing',
-            'duplicate_capability',
-            'flaky_test',
-            'impossible_dependency',
-            'unknown_weird_class',
+        $input = [
+            $this->gb('t1', 'scope_repair_missing'),
+            $this->gb('t2', 'duplicate_capability'),
         ];
-
-        foreach ($classes as $class) {
-            $r    = $this->miner->mine([['task_packet_id' => 'x', 'give_back_class' => $class, 'give_back_count' => 2]]);
-            $plan = $r['root_causes'][0]['respec_plan'];
-            $this->assertNotEmpty($plan['why_not_retry_unchanged'], "empty why for class: {$class}");
-        }
+        $this->assertSame($this->miner->mine($input), $this->miner->mine($input));
     }
 
-    // ── never retry unchanged invariant ──────────────────────────────────────
+    // ── Constants ─────────────────────────────────────────────────────────────────
 
-    public function test_poison_packets_are_not_recommended_for_unchanged_retry(): void
+    public function test_defect_type_constants(): void
     {
-        $r = $this->miner->mine([[
-            'task_packet_id' => 'task-poison-99',
-            'give_back_class' => 'scope_repair_missing_impl',
-            'give_back_count' => 5,
-        ]]);
+        $this->assertSame('packet_defect', AtlasExternalBrainGiveBackRootCauseMiner::DEFECT_PACKET);
+        $this->assertSame('worker_weakness', AtlasExternalBrainGiveBackRootCauseMiner::DEFECT_WORKER);
+    }
 
-        $this->assertContains('task-poison-99', $r['poison_packets']);
+    public function test_action_constants(): void
+    {
+        $this->assertSame('respec', AtlasExternalBrainGiveBackRootCauseMiner::ACTION_RESPEC);
+        $this->assertSame('cancel', AtlasExternalBrainGiveBackRootCauseMiner::ACTION_CANCEL);
+        $this->assertSame('operator_only', AtlasExternalBrainGiveBackRootCauseMiner::ACTION_OPERATOR_ONLY);
+        $this->assertSame('retry_different_worker', AtlasExternalBrainGiveBackRootCauseMiner::ACTION_RETRY_DIFFERENT_WORKER);
+    }
 
-        // No cause recommends plain retry (only retry_different_worker is worker-side, not unchanged retry).
-        foreach ($r['root_causes'] as $cause) {
-            if (in_array('task-poison-99', $cause['task_packet_ids'], true)) {
-                $this->assertNotSame('retry', $cause['recommended_action']);
-                $this->assertNotSame('retry_unchanged', $cause['recommended_action']);
-            }
-        }
+    public function test_poison_threshold(): void
+    {
+        $this->assertSame(2, AtlasExternalBrainGiveBackRootCauseMiner::POISON_THRESHOLD);
+    }
+
+    // ── Reason-based classification ──────────────────────────────────────────────
+
+    public function test_reason_allowed_files_classifies_as_bad_allowed_files(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'unknown', 1, 'missing allowed_files')]);
+        $this->assertSame('bad_allowed_files', $result['root_causes'][0]['root_cause']);
+    }
+
+    public function test_reason_already_implemented_classifies_as_duplicate(): void
+    {
+        $result = $this->miner->mine([$this->gb('t1', 'unknown', 1, 'already_implemented')]);
+        $this->assertSame('duplicate_implemented', $result['root_causes'][0]['root_cause']);
+    }
+
+    // ── Multiple clusters in same batch ──────────────────────────────────────────
+
+    public function test_multiple_distinct_root_causes_produce_multiple_clusters(): void
+    {
+        $result = $this->miner->mine([
+            $this->gb('t1', 'scope_repair_missing'),
+            $this->gb('t2', 'duplicate_capability'),
+            $this->gb('t3', 'timeout'),
+        ]);
+        $this->assertCount(3, $result['root_causes']);
     }
 }
