@@ -142,6 +142,32 @@ final class AtlasTaskServingServiceTest extends TestCase
         $this->assertSame('give_back', $result['outcome']);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: contract — disabled/empty_client, self-sufficient, valid outcomes
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_next_returns_invalid_client_for_empty_client_id(): void
+    {
+        AtlasTaskServingSwitch::on();
+        $serving = new AtlasTaskServingService($this->orchestrator());
+        $res = $serving->next('');
+
+        $this->assertSame('invalid_client', $res['status']);
+    }
+
+    public function test_report_validates_outcome_against_whitelist(): void
+    {
+        $served = $this->servedTask('op-whitelist');
+        $serving = new AtlasTaskServingService($this->orchestrator());
+
+        foreach (['success', 'failed', 'give_back'] as $valid) {
+            $result = $serving->report($served['client'], $served['task_packet_id'], $served['lease_id'], [
+                'outcome' => $valid,
+            ]);
+            $this->assertNotSame('invalid_report', $result['status'], "outcome $valid must not be invalid");
+        }
+    }
+
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         return new AgentControlPlaneTaskQueueOrchestrator(
