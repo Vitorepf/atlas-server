@@ -293,4 +293,49 @@ final class AtlasMaestroTaskTierClassifierTest extends TestCase
 
         $this->assertSame(AtlasMaestroTaskTierClassifier::CAPABILITY_FRONTIER, $r['required_worker_capability']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: contract — output schema, hardest triggers, missing evidence
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_classify_output_includes_schema_and_packet_id(): void
+    {
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-schema',
+            'objective' => 'x',
+            'allowed_files' => ['app/X.php'],
+            'acceptance_criteria' => [],
+        ]);
+
+        $this->assertArrayHasKey('schema', $r);
+        $this->assertSame('p-schema', $r['packet_id']);
+        $this->assertArrayHasKey('fact_basis', $r);
+        $this->assertArrayHasKey('signals', $r);
+        $this->assertArrayHasKey('content_hash', $r);
+    }
+
+    public function test_missing_evidence_escalates_easy_to_hard(): void
+    {
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-evidence',
+            'objective' => 'x',
+            'allowed_files' => ['app/X.php'],
+            'acceptance_criteria' => [],
+            'required_evidence' => ['receipt_chain', 'operator_approval'],
+        ]);
+
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_HARD, $r['tier']);
+    }
+
+    public function test_constitution_path_forced_hardest(): void
+    {
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-constitution',
+            'objective' => 'modify constitution',
+            'allowed_files' => ['app/Services/Ai/AutonomousEvolution/Constitution/Bylaw.php'],
+            'acceptance_criteria' => [],
+        ]);
+
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_HARDEST, $r['tier']);
+    }
 }
