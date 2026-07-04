@@ -526,4 +526,38 @@ final class AtlasExternalBrainSurfaceSaturationMeterTest extends TestCase
         $this->assertSame([], $r['remaining_mechanisms']);
         $this->assertNull($r['next_probe_hint']);
     }
+
+    // ── recommended_next_probe and saturation_confidence ──
+
+    public function test_output_has_recommended_next_probe_and_saturation_confidence(): void
+    {
+        $r = $this->meter->measure('surf', [$this->candidate(), $this->candidate(), $this->candidate()]);
+        $this->assertArrayHasKey('recommended_next_probe', $r);
+        $this->assertArrayHasKey('saturation_confidence', $r);
+    }
+
+    public function test_saturation_confidence_is_low_for_small_sample(): void
+    {
+        $r = $this->meter->measure('surf', [$this->candidate()]);
+        $this->assertSame('low', $r['saturation_confidence']);
+    }
+
+    public function test_saturation_confidence_is_medium_for_medium_sample(): void
+    {
+        $r = $this->meter->measure('surf', array_fill(0, 5, $this->candidate()));
+        $this->assertSame('medium', $r['saturation_confidence']);
+    }
+
+    public function test_saturation_confidence_is_high_for_large_sample(): void
+    {
+        $r = $this->meter->measure('surf', array_fill(0, 10, $this->candidate()));
+        $this->assertSame('high', $r['saturation_confidence']);
+    }
+
+    public function test_recommended_next_probe_is_non_empty_string(): void
+    {
+        $r = $this->meter->measure('surf', [$this->candidate(), $this->candidate(), $this->candidate()]);
+        $this->assertIsString($r['recommended_next_probe']);
+        $this->assertNotEmpty($r['recommended_next_probe']);
+    }
 }

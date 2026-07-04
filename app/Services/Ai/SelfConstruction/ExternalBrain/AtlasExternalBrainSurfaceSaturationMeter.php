@@ -101,7 +101,7 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         if ($total < $minCandidates) {
             $knownMechanismsEarly = array_values(array_map('strval', (array) ($context['known_leverage_mechanisms'] ?? [])));
 
-            return $this->result($surfaceId, self::VERDICT_INSUFFICIENT, 0.0,
+            return $this->result($surfaceId, self::VERDICT_INSUFFICIENT, 0.0, $total,
                 "Only {$total} candidates — need at least {$minCandidates} before a verdict.",
                 null, 0.0, 0.0, [], null, $knownMechanismsEarly, null);
         }
@@ -186,7 +186,7 @@ final class AtlasExternalBrainSurfaceSaturationMeter
                     ? "value-proof evidence is thin (count={$valueProofCount} < {$minValueProofCount}, rate={$valueProofRate} < {$minValueProofRate})."
                     : "search modes not fully covered. Run {$nextRecommendedMode} next.";
 
-                return $this->result($surfaceId, $blockedVerdict, $saturationScore, $reason,
+                return $this->result($surfaceId, $blockedVerdict, $saturationScore, $total, $reason,
                     $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode,
                     $remainingMechanisms, $nextProbeHint);
             }
@@ -195,25 +195,25 @@ final class AtlasExternalBrainSurfaceSaturationMeter
                 ? "dominant mechanism concentration={$mechanismConcentration} ≥ threshold={$threshold}. Same leverage mechanism keeps repeating. All search modes covered. Surface is spent."
                 : "duplicate_rate={$duplicateRate} and low_yield_rate={$lowYieldRate} both exceed threshold={$threshold}. All search modes covered. Surface is spent.";
 
-            return $this->result($surfaceId, self::VERDICT_EXHAUSTED, $saturationScore, $reason,
+            return $this->result($surfaceId, self::VERDICT_EXHAUSTED, $saturationScore, $total, $reason,
                 $dominantSubsystem, $duplicateRate, $lowYieldRate, [], null, $remainingMechanisms, $nextProbeHint);
         }
 
         if ($duplicateRate >= $threshold) {
-            return $this->result($surfaceId, self::VERDICT_ROTATE, $saturationScore,
+            return $this->result($surfaceId, self::VERDICT_ROTATE, $saturationScore, $total,
                 "duplicate_rate={$duplicateRate} ≥ {$threshold}: same targets keep reappearing. Rotate to a different surface.",
                 $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode,
                 $remainingMechanisms, $nextProbeHint);
         }
 
         if ($lowYieldRate >= $threshold) {
-            return $this->result($surfaceId, self::VERDICT_CONSOLIDATE, $saturationScore,
+            return $this->result($surfaceId, self::VERDICT_CONSOLIDATE, $saturationScore, $total,
                 "low_yield_rate={$lowYieldRate} ≥ {$threshold} but duplicate_rate={$duplicateRate} is healthy. Many unique but low-value ideas — consolidate before expanding.",
                 $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode,
                 $remainingMechanisms, $nextProbeHint);
         }
 
-        return $this->result($surfaceId, self::VERDICT_DEEPEN, $saturationScore,
+        return $this->result($surfaceId, self::VERDICT_DEEPEN, $saturationScore, $total,
             "duplicate_rate={$duplicateRate} and low_yield_rate={$lowYieldRate} both below threshold={$threshold}. Surface still has signal — keep mining.",
             $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode,
             $remainingMechanisms, $nextProbeHint);
@@ -241,6 +241,7 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         string $surfaceId,
         string $verdict,
         float $saturationScore,
+        int $total,
         string $reasoning,
         ?string $dominantSubsystem,
         float $duplicateRate,
@@ -260,6 +261,8 @@ final class AtlasExternalBrainSurfaceSaturationMeter
             'verdict'               => $verdict,
             'recommendation'        => $this->deriveRecommendation($verdict),
             'saturation_score'      => round($saturationScore, 4),
+            'saturation_confidence' => $this->saturationConfidence($saturationScore, $total),
+            'recommended_next_probe' => $nextProbeHint ?: $this->deriveRecommendedNextProbe($verdict, $missingModes, $nextRecommendedMode),
             'reasoning'             => $reasoning,
             'dominant_subsystem'    => $dominantSubsystem,
             'duplicate_rate'        => round($duplicateRate, 4),
@@ -284,6 +287,28 @@ final class AtlasExternalBrainSurfaceSaturationMeter
             self::VERDICT_CONSOLIDATE     => 'consolidate',
             self::VERDICT_UNDER_EVIDENCED => 'deepen_second_pass',
             default                       => 'continue',
+        };
+    }
+
+    private function saturationConfidence(float $score, int $total): string
+    {
+        if ($total < 3) {
+            return 'low';
+        }
+        if ($total < 8) {
+            return 'medium';
+        }
+        return 'high';
+    }
+
+    private function deriveRecommendedNextProbe(string $verdict, array $missingModes, ?string $nextMode): string
+    {
+        return match ($verdict) {
+            self::VERDICT_EXHAUSTED => 'switch_vein: explore a different surface or subsystem',
+            self::VERDICT_ROTATE => 'rotate: try a different search mode on this surface',
+            self::VERDICT_CONSOLIDATE => 'consolidate: merge partial findings into a task',
+            self::VERDICT_UNDER_EVIDENCED => 'deepen_second_pass: apply second-pass patterns',
+            default => ($nextMode ?? '') !== '' ? "probe_mode:{$nextMode}" : ($missingModes[0] ?? 'continue_current_search'),
         };
     }
 }
