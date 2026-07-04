@@ -260,4 +260,52 @@ final class AgentRuntimeEvidenceCertificationServiceTest extends TestCase
 
         $this->assertSame([], $result['repair_steps']);
     }
+
+    // ── certification summary fields ──
+
+    public function test_output_has_certified_failed_checks_freshness_status_and_proof_refs(): void
+    {
+        $result = (new AgentRuntimeEvidenceCertificationService)->certify();
+        $this->assertArrayHasKey('certified', $result);
+        $this->assertArrayHasKey('failed_checks', $result);
+        $this->assertArrayHasKey('freshness_status', $result);
+        $this->assertArrayHasKey('proof_refs', $result);
+    }
+
+    public function test_certified_is_true_when_all_invariants_pass(): void
+    {
+        $result = (new AgentRuntimeEvidenceCertificationService)->certify();
+        $this->assertTrue($result['certified']);
+        $this->assertSame('available', $result['status']);
+    }
+
+    public function test_failed_checks_lists_violation_names(): void
+    {
+        $result = (new AgentRuntimeEvidenceCertificationService)->certify();
+        $this->assertIsArray($result['failed_checks']);
+        if ($result['certified'] === false) {
+            $this->assertNotEmpty($result['failed_checks']);
+            foreach ($result['failed_checks'] as $check) {
+                $this->assertIsString($check);
+                $this->assertNotEmpty($check);
+            }
+        } else {
+            $this->assertSame([], $result['failed_checks']);
+        }
+    }
+
+    public function test_freshness_status_is_fresh_when_no_stale_classes(): void
+    {
+        $result = (new AgentRuntimeEvidenceCertificationService)->certify();
+        $this->assertContains($result['freshness_status'], ['fresh', 'stale']);
+    }
+
+    public function test_proof_refs_contains_evidence_refs(): void
+    {
+        $result = (new AgentRuntimeEvidenceCertificationService)->certify();
+        $this->assertIsArray($result['proof_refs']);
+        foreach ($result['proof_refs'] as $ref) {
+            $this->assertIsString($ref);
+        }
+    }
 }

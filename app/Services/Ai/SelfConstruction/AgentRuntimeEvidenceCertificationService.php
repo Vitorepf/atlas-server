@@ -179,6 +179,15 @@ final class AgentRuntimeEvidenceCertificationService
         ];
         $payload['certification_hash'] = $this->stableHash($payload);
 
+        // Add certification summary fields
+        $payload['certified'] = $allTrue;
+        $payload['failed_checks'] = array_values(array_map(fn (array $v) => (string) $v['name'], $violations));
+        $payload['freshness_status'] = $staleEvidenceClasses !== [] ? 'stale' : 'fresh';
+        $payload['proof_refs'] = array_values(array_map(
+            static fn (array $e) => (string) ($e['evidence_ref'] ?? $e['evidence_type'] ?? ''),
+            $realEntries,
+        ));
+
         return $payload;
     }
 
