@@ -263,4 +263,94 @@ final class AtlasTaskFabricMuscleReadyPacketCompilerTest extends TestCase
             json_encode($r2, JSON_UNESCAPED_SLASHES),
         );
     }
+
+    // ── AC2: duplicate_check_ref, give_back_triggers, verification_command ──
+
+    public function test_packet_includes_duplicate_check_ref(): void
+    {
+        $r = $this->svc()->compile($this->validIntent());
+
+        $this->assertArrayHasKey('duplicate_check_ref', $r['packet']);
+        $this->assertSame(64, strlen($r['packet']['duplicate_check_ref']));
+    }
+
+    public function test_duplicate_check_ref_is_deterministic(): void
+    {
+        $a = $this->svc()->compile($this->validIntent())['packet']['duplicate_check_ref'];
+        $b = $this->svc()->compile($this->validIntent())['packet']['duplicate_check_ref'];
+
+        $this->assertSame($a, $b);
+    }
+
+    public function test_packet_includes_verification_command(): void
+    {
+        $r = $this->svc()->compile($this->validIntent());
+
+        $this->assertArrayHasKey('verification_command', $r['packet']);
+        $this->assertNotEmpty($r['packet']['verification_command']);
+    }
+
+    public function test_verification_command_extracted_from_acceptance(): void
+    {
+        $r = $this->svc()->compile($this->validIntent([
+            'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test --filter=AtlasFooServiceTest exits 0'],
+        ]));
+
+        $this->assertStringContainsString('AtlasFooServiceTest', $r['packet']['verification_command']);
+    }
+
+    public function test_packet_includes_give_back_triggers(): void
+    {
+        $r = $this->svc()->compile($this->validIntent());
+
+        $this->assertArrayHasKey('give_back_triggers', $r['packet']);
+        $this->assertNotEmpty($r['packet']['give_back_triggers']);
+        $this->assertContains('give_back_trigger:verification_command_fails', $r['packet']['give_back_triggers']);
+        $this->assertContains('give_back_trigger:scope_changed', $r['packet']['give_back_triggers']);
+        $this->assertContains('give_back_trigger:acceptance_not_met', $r['packet']['give_back_triggers']);
+    }
+
+    // ── AC3: broad directory rejection ──
+
+    public function test_broad_directory_impl_rejected(): void
+    {
+        $r = $this->svc()->compile($this->validIntent([
+            'implementation_target' => 'app/Services/Ai/Foo/',
+        ]));
+
+        $this->assertFalse($r['admitted']);
+        $this->assertContains('broad_directory_implementation_target', $r['blockers']);
+    }
+
+    public function test_broad_directory_test_rejected(): void
+    {
+        $r = $this->svc()->compile($this->validIntent([
+            'test_target' => 'app/Services/Ai/Foo/',
+        ]));
+
+        $this->assertFalse($r['admitted']);
+        $this->assertContains('broad_directory_test_target', $r['blockers']);
+    }
+
+    public function test_path_without_extension_is_broad_directory(): void
+    {
+        $r = $this->svc()->compile($this->validIntent([
+            'implementation_target' => 'app/Services/Ai/Foo/SomeClass',
+        ]));
+
+        $this->assertFalse($r['admitted']);
+        $this->assertContains('broad_directory_implementation_target', $r['blockers']);
+    }
+
+    // ── AC4: provider-safe output ──
+
+    public function test_packet_contains_no_raw_hidden_prompts_or_provider_traces(): void
+    {
+        $r = $this->svc()->compile($this->validIntent());
+
+        $encoded = (string) json_encode($r, JSON_UNESCAPED_SLASHES);
+        foreach (['hidden', 'prompt:', 'provider_trace', '### SYSTEM'] as $forbidden) {
+            $this->assertStringNotContainsStringIgnoringCase($forbidden, $encoded);
+        }
+    }
 }

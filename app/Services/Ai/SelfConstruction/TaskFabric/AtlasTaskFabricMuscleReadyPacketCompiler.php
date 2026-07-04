@@ -46,11 +46,15 @@ final class AtlasTaskFabricMuscleReadyPacketCompiler
         $impl = trim((string) ($intent['implementation_target'] ?? ''));
         if ($impl === '') {
             $blockers[] = 'missing_implementation_target';
+        } elseif ($this->isBroadDirectory($impl)) {
+            $blockers[] = 'broad_directory_implementation_target';
         }
 
         $test = trim((string) ($intent['test_target'] ?? ''));
         if ($test === '') {
             $blockers[] = 'missing_test_target';
+        } elseif ($this->isBroadDirectory($test)) {
+            $blockers[] = 'broad_directory_test_target';
         }
 
         $acceptance = array_values(array_filter(
@@ -109,6 +113,20 @@ final class AtlasTaskFabricMuscleReadyPacketCompiler
             ];
         }
 
+        // Extract the exact verification command from acceptance criteria.
+        $verificationCommand = $this->extractVerificationCommand($acceptance);
+
+        // deterministic reference for duplicate detection
+        $packetToHash = ['objective' => $objective, 'allowed_files' => [$impl, $test], 'required_evidence' => $evidence];
+        ksort($packetToHash);
+        $duplicateCheckRef = hash('sha256', (string) json_encode($packetToHash, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        $giveBackTriggers = [
+            'give_back_trigger:verification_command_fails',
+            'give_back_trigger:scope_changed',
+            'give_back_trigger:acceptance_not_met',
+        ];
+
         return [
             'schema' => self::SCHEMA,
             'admitted' => true,
@@ -119,8 +137,28 @@ final class AtlasTaskFabricMuscleReadyPacketCompiler
                 'scope_in' => [$impl, $test],
                 'acceptance_criteria' => $acceptance,
                 'required_evidence' => $evidence,
+                'duplicate_check_ref' => $duplicateCheckRef,
+                'verification_command' => $verificationCommand,
+                'give_back_triggers' => $giveBackTriggers,
             ],
         ];
+    }
+
+    /** @param list<string> $acceptance */
+    private function extractVerificationCommand(array $acceptance): string
+    {
+        foreach ($acceptance as $criterion) {
+            if (preg_match('#(\S*?php\s+(?:artisan\s+test|unit))#i', $criterion) === 1) {
+                return trim((string) $criterion);
+            }
+        }
+
+        return '/opt/homebrew/bin/php artisan test';
+    }
+
+    private function isBroadDirectory(string $path): bool
+    {
+        return str_ends_with($path, '/') || pathinfo($path, PATHINFO_EXTENSION) === '';
     }
 
     /** Derives the implementation/test family for a path: basename without extension or Test suffix. */
