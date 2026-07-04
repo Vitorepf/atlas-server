@@ -61,6 +61,19 @@ final class AtlasExternalBrainSpecRegressionHarness
 
     private const NEGATION_MARKERS = ['must not', 'never', 'cannot', 'should not', 'is forbidden'];
 
+    /** @var array<string,string> */
+    private const REPAIR_HINTS = [
+        self::CLASS_POISON => 'Rewrite the spec objective so it no longer resembles a known poison pattern — add precise domain-specific context and measurable acceptance criteria.',
+        self::CLASS_WRAPPER_FARM => 'Eliminate thin delegation. The spec must describe novel behavior, not just wrap an existing service.',
+        self::CLASS_DUPLICATE => 'Consolidate with the duplicate spec or re-scope to a materially different objective.',
+        self::CLASS_UNDERSPECIFIED => 'Add implementation_files, test_files and acceptance_criteria so the spec has concrete scope.',
+        self::CLASS_TEST_ONLY_PACKET => 'Include an implementation target (app/ file) alongside the test file. A repair spec without code to fix is not actionable.',
+        self::CLASS_FORBIDDEN_TARGET => 'Remove the forbidden target from allowed_files and re-scope to a different implementation path.',
+        self::CLASS_CONTRADICTORY_ACCEPTANCE => 'Remove or rephrase one of the conflicting acceptance criteria so the spec no longer demands mutually exclusive outcomes.',
+        self::CLASS_DUPLICATE_TARGET => 'Each spec must target a unique primary file. Consolidate or split scopes across distinct target paths.',
+        self::CLASS_TEMPLATE_FARM => 'Add domain-specific behavior evidence and concrete implementation details. Template-only specs add no measurable capability.',
+    ];
+
     /**
      * @param  array{
      *   candidate_specs?: list<array<string,mixed>>,
@@ -86,6 +99,7 @@ final class AtlasExternalBrainSpecRegressionHarness
                 'class'                 => $class,
                 'evidence'              => $evidence,
                 'matched_example_label' => $matchedLabel,
+                'severity'              => $severity,
                 'gate'                  => self::GATE_BY_CLASS[$class],
             ];
 
@@ -224,12 +238,36 @@ final class AtlasExternalBrainSpecRegressionHarness
             ? 'all candidates passed regression replay'
             : count($matchedRegressions).' regression(s) matched across '.count($candidates).' candidate(s)';
 
+        // AC4: replayed_fixtures — count of historical examples replayed.
+        $replayedFixtures = count($historical);
+
+        // AC4: failed_fixtures — unique labels from historical examples that caused a FAIL.
+        $failedFixtureLabels = array_values(array_unique(array_filter(array_map(
+            static fn (array $m): string => $m['severity'] === self::VERDICT_FAIL ? $m['matched_example_label'] : '',
+            $matchedRegressions,
+        ), static fn (string $l): bool => $l !== '')));
+
+        // AC4: repaired_spec_hints — hints targeted at the regression classes found.
+        $matchedClasses = array_values(array_unique(array_map(
+            static fn (array $m): string => $m['class'],
+            $matchedRegressions,
+        )));
+        $repairHints = [];
+        foreach ($matchedClasses as $class) {
+            if (isset(self::REPAIR_HINTS[$class])) {
+                $repairHints[] = ['class' => $class, 'hint' => self::REPAIR_HINTS[$class]];
+            }
+        }
+
         return [
             'schema'               => self::SCHEMA,
             'verdict'              => $overallVerdict,
             'matched_regressions'  => $matchedRegressions,
             'evidence'             => $evidenceLines,
             'covered_regressions'  => array_values(array_keys(self::GATE_BY_CLASS)),
+            'replayed_fixtures'    => $replayedFixtures,
+            'failed_fixtures'      => $failedFixtureLabels,
+            'repaired_spec_hints'  => $repairHints,
         ];
     }
 

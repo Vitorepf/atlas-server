@@ -428,4 +428,113 @@ final class AtlasExternalBrainSpecRegressionHarnessTest extends TestCase
         $this->assertArrayHasKey('covered_regressions', $result);
         $this->assertNotEmpty($result['covered_regressions']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: replayed_fixtures, failed_fixtures, repaired_spec_hints
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_output_includes_ac4_keys(): void
+    {
+        $result = $this->harness->replay($this->input([$this->spec()]));
+
+        $this->assertArrayHasKey('replayed_fixtures', $result);
+        $this->assertArrayHasKey('failed_fixtures', $result);
+        $this->assertArrayHasKey('repaired_spec_hints', $result);
+    }
+
+    public function test_replayed_fixtures_reports_count_of_historical_examples(): void
+    {
+        $result = $this->harness->replay($this->input(
+            [$this->spec()],
+            [$this->example('poison', 'bad pattern A'), $this->example('duplicate', 'bad pattern B')],
+        ));
+
+        $this->assertSame(2, $result['replayed_fixtures']);
+    }
+
+    public function test_replayed_fixtures_zero_when_no_historical_examples(): void
+    {
+        $result = $this->harness->replay($this->input([$this->spec()]));
+
+        $this->assertSame(0, $result['replayed_fixtures']);
+    }
+
+    public function test_failed_fixtures_lists_labels_that_caused_a_fail(): void
+    {
+        $candidate = $this->spec(['objective' => 'implement queue saturation poison detection service']);
+        $poisonEx  = $this->example('poison', 'queue saturation poison detection service implement');
+
+        $result = $this->harness->replay($this->input([$candidate], [$poisonEx]));
+
+        $this->assertContains('poison', $result['failed_fixtures']);
+    }
+
+    public function test_failed_fixtures_empty_when_no_failures(): void
+    {
+        $result = $this->harness->replay($this->input([$this->spec()]));
+
+        $this->assertSame([], $result['failed_fixtures']);
+    }
+
+    public function test_failed_fixtures_does_not_include_warnings(): void
+    {
+        $candidate = $this->spec(['objective' => 'wrap existing service with thin delegation layer proxy']);
+        $wrapperEx = $this->example('shallow_wrapper', 'thin delegation layer proxy wrap existing service');
+
+        $result = $this->harness->replay($this->input([$candidate], [$wrapperEx]));
+
+        // shallow_wrapper → warning, not fail
+        $this->assertSame([], $result['failed_fixtures'],
+            'failed_fixtures must not include warning-level matches');
+    }
+
+    public function test_repaired_spec_hints_includes_all_matched_regression_classes(): void
+    {
+        // Two candidates with very similar objectives and identical target → duplicate + duplicate_target
+        $c1 = $this->spec([
+            'task_id' => 'cand-001',
+            'objective' => 'implement entropy restoration planner service component',
+            'allowed_files' => ['app/Services/Shared.php'],
+        ]);
+        $c2 = $this->spec([
+            'task_id' => 'cand-002',
+            'objective' => 'implement entropy restoration planner service component',
+            'allowed_files' => ['app/Services/Shared.php'],
+        ]);
+
+        $result = $this->harness->replay($this->input([$c1, $c2]));
+
+        $this->assertNotEmpty($result['repaired_spec_hints']);
+        $hintClasses = array_column($result['repaired_spec_hints'], 'class');
+        $this->assertContains(AtlasExternalBrainSpecRegressionHarness::CLASS_DUPLICATE, $hintClasses,
+            'duplicate cross-candidate match must produce a repair hint');
+        $this->assertContains(AtlasExternalBrainSpecRegressionHarness::CLASS_DUPLICATE_TARGET, $hintClasses,
+            'duplicate_target match must produce a repair hint');
+    }
+
+    public function test_repaired_spec_hints_empty_when_no_regressions(): void
+    {
+        $result = $this->harness->replay($this->input([$this->spec()]));
+
+        $this->assertSame([], $result['repaired_spec_hints']);
+    }
+
+    public function test_repaired_spec_hints_contains_human_readable_text(): void
+    {
+        $candidate = $this->spec([
+            'acceptance_criteria' => [
+                'the system must always return json',
+                'the system must never return json',
+            ],
+        ]);
+
+        $result = $this->harness->replay($this->input([$candidate]));
+
+        $this->assertNotEmpty($result['repaired_spec_hints']);
+        $hint = $result['repaired_spec_hints'][0];
+        $this->assertArrayHasKey('class', $hint);
+        $this->assertArrayHasKey('hint', $hint);
+        $this->assertNotEmpty($hint['hint']);
+        $this->assertStringContainsString('conflicting', strtolower($hint['hint']));
+    }
 }
