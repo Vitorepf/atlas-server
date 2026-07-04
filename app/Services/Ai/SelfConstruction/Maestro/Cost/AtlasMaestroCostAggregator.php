@@ -69,7 +69,7 @@ final class AtlasMaestroCostAggregator
             if (! is_array($r)) {
                 continue;
             }
-            $r['__provider_model__'] = (string) ($r['provider'] ?? '').':'.(string) ($r['model'] ?? '');
+            $r['__provider_model__'] = json_encode([(string) ($r['provider'] ?? ''), (string) ($r['model'] ?? '')], JSON_THROW_ON_ERROR);
             $tagged[] = $r;
         }
 
@@ -77,7 +77,8 @@ final class AtlasMaestroCostAggregator
 
         // Annotate atlas_native buckets as zero-cost providers (no provider spend).
         foreach ($groups as $key => $group) {
-            $provider = explode(':', $key, 2)[0] ?? '';
+            $decoded = json_decode($key, true);
+            $provider = is_array($decoded) ? ($decoded[0] ?? '') : '';
             $groups[$key]['is_zero_cost_provider'] = $provider === self::ZERO_COST_PROVIDER;
         }
 
