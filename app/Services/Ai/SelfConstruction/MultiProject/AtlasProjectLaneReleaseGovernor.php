@@ -233,4 +233,77 @@ final class AtlasProjectLaneReleaseGovernor
 
         return $sorted[0];
     }
+
+    /**
+     * Lane release decision: blocks release when lane_health, task_quality, proof_freshness
+     * or rollback_readiness is below floor. Allows release only with provider-safe lane evidence
+     * and no unresolved cross-project leakage.
+     *
+     * @param  array{
+     *   lane_health: float,
+     *   task_quality: float,
+     *   proof_freshness: float,
+     *   rollback_readiness: float,
+     *   lane_health_floor: float,
+     *   task_quality_floor: float,
+     *   proof_freshness_floor: float,
+     *   rollback_readiness_floor: float,
+     *   cross_project_leakage: list<string>,
+     *   provider_safe_evidence: bool,
+     *   rollback_plan_ref?: string,
+     * }  $input
+     * @return array{release_decision:string, blocked_reasons:list<string>, rollback_plan_ref:string, next_lane_action:string}
+     */
+    public function laneReleaseDecision(array $input): array
+    {
+        $laneHealth = (float) ($input['lane_health'] ?? 0.0);
+        $taskQuality = (float) ($input['task_quality'] ?? 0.0);
+        $proofFreshness = (float) ($input['proof_freshness'] ?? 0.0);
+        $rollbackReadiness = (float) ($input['rollback_readiness'] ?? 0.0);
+        $laneHealthFloor = (float) ($input['lane_health_floor'] ?? 0.7);
+        $taskQualityFloor = (float) ($input['task_quality_floor'] ?? 0.7);
+        $proofFreshnessFloor = (float) ($input['proof_freshness_floor'] ?? 0.5);
+        $rollbackReadinessFloor = (float) ($input['rollback_readiness_floor'] ?? 0.8);
+        $crossProjectLeakage = is_array($input['cross_project_leakage'] ?? null) ? $input['cross_project_leakage'] : [];
+        $providerSafeEvidence = (bool) ($input['provider_safe_evidence'] ?? false);
+        $rollbackPlanRef = (string) ($input['rollback_plan_ref'] ?? '');
+
+        $blockedReasons = [];
+
+        if ($laneHealth < $laneHealthFloor) {
+            $blockedReasons[] = sprintf('lane_health=%.4f < floor=%.4f', $laneHealth, $laneHealthFloor);
+        }
+        if ($taskQuality < $taskQualityFloor) {
+            $blockedReasons[] = sprintf('task_quality=%.4f < floor=%.4f', $taskQuality, $taskQualityFloor);
+        }
+        if ($proofFreshness < $proofFreshnessFloor) {
+            $blockedReasons[] = sprintf('proof_freshness=%.4f < floor=%.4f', $proofFreshness, $proofFreshnessFloor);
+        }
+        if ($rollbackReadiness < $rollbackReadinessFloor) {
+            $blockedReasons[] = sprintf('rollback_readiness=%.4f < floor=%.4f', $rollbackReadiness, $rollbackReadinessFloor);
+        }
+        if (!$providerSafeEvidence) {
+            $blockedReasons[] = 'missing_provider_safe_evidence';
+        }
+        foreach ($crossProjectLeakage as $leak) {
+            $blockedReasons[] = 'cross_project_leakage:'.$leak;
+        }
+
+        $releaseDecision = match (true) {
+            $blockedReasons !== [] => 'blocked',
+            default => 'approved',
+        };
+
+        $nextLaneAction = match ($releaseDecision) {
+            'approved' => 'proceed_with_lane_release',
+            'blocked' => 'resolve_blocked_reasons_and_recheck',
+        };
+
+        return [
+            'release_decision' => $releaseDecision,
+            'blocked_reasons' => $blockedReasons,
+            'rollback_plan_ref' => $rollbackPlanRef,
+            'next_lane_action' => $nextLaneAction,
+        ];
+    }
 }

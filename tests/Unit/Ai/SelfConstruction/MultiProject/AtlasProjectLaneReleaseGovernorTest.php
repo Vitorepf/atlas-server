@@ -279,4 +279,67 @@ final class AtlasProjectLaneReleaseGovernorTest extends TestCase
 
         $this->assertSame('queue_namespace_not_isolated', $r['smallest_missing_evidence']);
     }
+
+    // ── laneReleaseDecision: release_decision, blocked_reasons, rollback_plan_ref, next_lane_action ──
+
+    public function test_all_floors_met_allows_release(): void
+    {
+        $r = (new AtlasProjectLaneReleaseGovernor)->laneReleaseDecision([
+            'lane_health' => 0.9,
+            'task_quality' => 0.85,
+            'proof_freshness' => 0.7,
+            'rollback_readiness' => 0.9,
+            'provider_safe_evidence' => true,
+            'cross_project_leakage' => [],
+            'rollback_plan_ref' => 'plan-123',
+        ]);
+        $this->assertSame('approved', $r['release_decision']);
+        $this->assertSame([], $r['blocked_reasons']);
+        $this->assertSame('plan-123', $r['rollback_plan_ref']);
+        $this->assertSame('proceed_with_lane_release', $r['next_lane_action']);
+    }
+
+    public function test_lane_health_below_floor_blocks_release(): void
+    {
+        $r = (new AtlasProjectLaneReleaseGovernor)->laneReleaseDecision([
+            'lane_health' => 0.3,
+            'task_quality' => 0.85,
+            'proof_freshness' => 0.7,
+            'rollback_readiness' => 0.9,
+            'provider_safe_evidence' => true,
+            'cross_project_leakage' => [],
+        ]);
+        $this->assertSame('blocked', $r['release_decision']);
+        $this->assertCount(1, $r['blocked_reasons']);
+        $this->assertStringContainsString('lane_health', $r['blocked_reasons'][0]);
+        $this->assertSame('resolve_blocked_reasons_and_recheck', $r['next_lane_action']);
+    }
+
+    public function test_cross_project_leakage_blocks_release(): void
+    {
+        $r = (new AtlasProjectLaneReleaseGovernor)->laneReleaseDecision([
+            'lane_health' => 0.9,
+            'task_quality' => 0.85,
+            'proof_freshness' => 0.7,
+            'rollback_readiness' => 0.9,
+            'provider_safe_evidence' => true,
+            'cross_project_leakage' => ['project-alpha'],
+        ]);
+        $this->assertSame('blocked', $r['release_decision']);
+        $this->assertContains('cross_project_leakage:project-alpha', $r['blocked_reasons']);
+    }
+
+    public function test_missing_provider_safe_evidence_blocks_release(): void
+    {
+        $r = (new AtlasProjectLaneReleaseGovernor)->laneReleaseDecision([
+            'lane_health' => 0.9,
+            'task_quality' => 0.85,
+            'proof_freshness' => 0.7,
+            'rollback_readiness' => 0.9,
+            'provider_safe_evidence' => false,
+            'cross_project_leakage' => [],
+        ]);
+        $this->assertSame('blocked', $r['release_decision']);
+        $this->assertContains('missing_provider_safe_evidence', $r['blocked_reasons']);
+    }
 }
