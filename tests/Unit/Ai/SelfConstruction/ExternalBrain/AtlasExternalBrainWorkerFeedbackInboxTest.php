@@ -456,4 +456,67 @@ final class AtlasExternalBrainWorkerFeedbackInboxTest extends TestCase
         $this->assertSame(1, $result['by_routing_signal'][AtlasExternalBrainWorkerFeedbackInbox::ROUTING_POISON_QUARANTINE]);
         $this->assertSame(1, $result['by_routing_signal'][AtlasExternalBrainWorkerFeedbackInbox::ROUTING_WEAK_GREEN_REVIEW]);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: success without runnable evidence → unverified, weak-green review
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_success_without_runnable_evidence_routes_to_weak_green_review(): void
+    {
+        // Use weak-green triggering pattern: non-runnable evidence string, not empty.
+        $result = $this->inbox()->normalize($this->note('success', [
+            'note' => 'Ran the checks and everything looks great here.',
+            'evidence' => 'tests passed',
+        ]));
+
+        $this->assertSame('route_to_weak_green_review', $result['routing_signal'],
+            'success with non-runnable evidence must route to weak_green_review');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC3: distinct routing signals for give_back, blocked, poison, ambiguous
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_give_back_routes_to_give_back_repair(): void
+    {
+        $result = $this->inbox()->normalize($this->note('give_back', ['note' => 'scope too wide']));
+
+        $this->assertSame('route_to_give_back_repair', $result['routing_signal']);
+    }
+
+    public function test_blocked_routes_to_blocker_resolution(): void
+    {
+        $result = $this->inbox()->normalize($this->note('blocked', ['note' => 'dependency missing']));
+
+        $this->assertSame('route_to_blocker_resolution', $result['routing_signal']);
+    }
+
+    public function test_poison_routes_to_poison_quarantine(): void
+    {
+        $result = $this->inbox()->normalize($this->note('poison', ['note' => 'bad packet']));
+
+        $this->assertSame('route_to_poison_quarantine', $result['routing_signal']);
+    }
+
+    public function test_ambiguous_routes_to_triage(): void
+    {
+        $result = $this->inbox()->normalize($this->note('ambiguous'));
+
+        $this->assertSame('route_to_triage', $result['routing_signal']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: output includes outcome_type, evidence_status, confidence, root_cause_hint, routing_signal
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_normalize_output_includes_all_required_fields(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success'));
+
+        $this->assertArrayHasKey('outcome_type', $result);
+        $this->assertArrayHasKey('evidence_status', $result);
+        $this->assertArrayHasKey('confidence', $result);
+        $this->assertArrayHasKey('root_cause_hint', $result);
+        $this->assertArrayHasKey('routing_signal', $result);
+    }
 }
