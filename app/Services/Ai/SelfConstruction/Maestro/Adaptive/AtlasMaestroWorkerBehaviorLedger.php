@@ -125,7 +125,7 @@ final class AtlasMaestroWorkerBehaviorLedger
         $clientId = (string) ($event['client_id'] ?? 'unknown');
         $family = (string) ($event['task_family'] ?? 'unknown');
         $outcome = (string) ($event['outcome'] ?? '');
-        $key = $clientId.'|'.$family;
+        $key = json_encode([$clientId, $family], JSON_THROW_ON_ERROR);
 
         if (! isset($this->stats[$key])) {
             $this->stats[$key] = ['success' => 0, 'give_back' => 0, 'weak_green' => 0];
@@ -140,7 +140,7 @@ final class AtlasMaestroWorkerBehaviorLedger
             case 'give_back':
                 $this->stats[$key]['give_back']++;
                 $rootCause = (string) ($event['root_cause_family'] ?? 'unspecified');
-                $rcKey = $family.':'.$rootCause;
+                $rcKey = json_encode([$family, $rootCause], JSON_THROW_ON_ERROR);
                 $this->giveBackRootCauses[$rcKey] = ($this->giveBackRootCauses[$rcKey] ?? 0) + 1;
                 break;
             case 'weak_green':
@@ -166,7 +166,7 @@ final class AtlasMaestroWorkerBehaviorLedger
     public function recall(string $clientId, string $family): array
     {
         $this->ensureHydrated();
-        $key = $clientId.'|'.$family;
+        $key = json_encode([$clientId, $family], JSON_THROW_ON_ERROR);
         $row = $this->stats[$key] ?? null;
 
         if ($row === null) {
