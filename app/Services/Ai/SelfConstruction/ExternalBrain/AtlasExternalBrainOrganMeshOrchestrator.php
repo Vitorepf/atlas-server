@@ -93,6 +93,19 @@ final class AtlasExternalBrainOrganMeshOrchestrator
 
         [$executionOrder, $cycleDetected] = $this->topologicalSort(array_keys($organsById), $dataAdjacency);
 
+        // Cycle edges: data edges between nodes that were not processed (part of a cycle)
+        $cycleNodes = $cycleDetected ? array_diff(array_keys($organsById), $executionOrder) : [];
+        $cycleEdges = [];
+        if ($cycleDetected) {
+            foreach ($dataAdjacency as $from => $targets) {
+                foreach ($targets as $to) {
+                    if (in_array($from, $cycleNodes, true) && in_array($to, $cycleNodes, true)) {
+                        $cycleEdges[] = ['from' => $from, 'to' => $to];
+                    }
+                }
+            }
+        }
+
         $orphanOrgans = array_values(array_filter(
             array_keys($organsById),
             static fn (string $organId): bool => ! isset($connected[$organId]),
@@ -112,6 +125,7 @@ final class AtlasExternalBrainOrganMeshOrchestrator
             'organs' => $organsById,
             'execution_order' => $executionOrder,
             'cycle_detected' => $cycleDetected,
+            'cycle_edges' => $cycleEdges,
             'feedback_edges' => $feedbackEdges,
             'orphan_organs' => $orphanOrgans,
             'mesh_status' => $meshStatus,

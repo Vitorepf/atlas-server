@@ -287,4 +287,38 @@ final class AtlasExternalBrainOrganMeshOrchestratorTest extends TestCase
         $this->assertSame('invalid', $result['mesh_status']);
         $this->assertSame('unknown_organ_in_edge', $result['invalid_edges'][0]['reason']);
     }
+
+    // ── cycle_edges ──
+
+    public function test_cycle_edges_empty_for_valid_mesh(): void
+    {
+        $result = (new AtlasExternalBrainOrganMeshOrchestrator)->buildMesh([
+            'organs' => [
+                ['organ_id' => 'a', 'input_contracts' => ['x'], 'output_contracts' => ['y']],
+                ['organ_id' => 'b', 'input_contracts' => ['y'], 'output_contracts' => ['z']],
+            ],
+            'edges' => [
+                ['from' => 'a', 'to' => 'b', 'type' => 'data'],
+            ],
+        ]);
+        $this->assertSame([], $result['cycle_edges']);
+        $this->assertFalse($result['cycle_detected']);
+    }
+
+    public function test_cycle_edges_populated_for_cyclic_mesh(): void
+    {
+        $result = (new AtlasExternalBrainOrganMeshOrchestrator)->buildMesh([
+            'organs' => [
+                ['organ_id' => 'a', 'input_contracts' => ['x'], 'output_contracts' => ['y']],
+                ['organ_id' => 'b', 'input_contracts' => ['y'], 'output_contracts' => ['x']],
+            ],
+            'edges' => [
+                ['from' => 'a', 'to' => 'b', 'type' => 'data'],
+                ['from' => 'b', 'to' => 'a', 'type' => 'data'],
+            ],
+        ]);
+        $this->assertTrue($result['cycle_detected']);
+        $this->assertNotEmpty($result['cycle_edges']);
+        $this->assertSame('invalid', $result['mesh_status']);
+    }
 }
