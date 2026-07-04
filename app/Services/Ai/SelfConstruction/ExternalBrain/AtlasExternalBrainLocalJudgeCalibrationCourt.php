@@ -243,6 +243,9 @@ final class AtlasExternalBrainLocalJudgeCalibrationCourt
             'sample_counts'                  => $sampleCounts,
             'recommended_weight_adjustments' => $recommendedWeightAdjustments,
             'judge_results'                  => $judgeResults,
+            'calibrated_thresholds'          => $this->buildCalibratedThresholds($thresholds, $calibratedJudges, $suspectJudges),
+            'failed_examples'               => $this->buildFailedExamples($judges),
+            'next_gate_repair_hint'          => $this->buildNextGateRepairHint($suspectJudges, $calibratedJudges),
         ];
     }
 
@@ -279,5 +282,84 @@ final class AtlasExternalBrainLocalJudgeCalibrationCourt
         }
 
         return $counts;
+    }
+
+    /**
+     * Build calibrated_thresholds from the current thresholds and calibration results.
+     *
+     * @param  array<string, mixed>  $thresholds
+     * @param  list<string>  $calibratedJudges
+     * @param  list<array<string, string>>  $suspectJudges
+     * @return array{min_samples:int,over_optimism_threshold:float,under_optimism_threshold:float,calibration_error_ceiling:float,calibrated_count:int,suspect_count:int}
+     */
+    private function buildCalibratedThresholds(array $thresholds, array $calibratedJudges, array $suspectJudges): array
+    {
+        return [
+            'min_samples' => (int) ($thresholds['min_samples'] ?? self::DEFAULT_MIN_SAMPLES),
+            'over_optimism_threshold' => (float) ($thresholds['over_optimism_threshold'] ?? self::DEFAULT_OVER_OPTIMISM_THRESHOLD),
+            'under_optimism_threshold' => (float) ($thresholds['under_optimism_threshold'] ?? self::DEFAULT_UNDER_OPTIMISM_THRESHOLD),
+            'calibration_error_ceiling' => (float) ($thresholds['calibration_error_ceiling'] ?? self::DEFAULT_CALIBRATION_ERROR_CEILING),
+            'calibrated_count' => count($calibratedJudges),
+            'suspect_count' => count($suspectJudges),
+        ];
+    }
+
+    /**
+     * Build failed_examples: outcomes where the judge approved poison/proxy or rejected known-good.
+     *
+     * @param  list<array<string, mixed>>  $judges
+     * @return list<array{judge_id:string,outcome_category:string,issue:string}>
+     */
+    private function buildFailedExamples(array $judges): array
+    {
+        $failed = [];
+        foreach ($judges as $judge) {
+            if (! is_array($judge) || ! isset($judge['judge_id'])) {
+                continue;
+            }
+            $judgeId = (string) $judge['judge_id'];
+            foreach ((array) ($judge['outcomes'] ?? []) as $outcome) {
+                if ((bool) ($outcome['false_green'] ?? false)) {
+                    $failed[] = ['judge_id' => $judgeId, 'outcome_category' => 'false_green', 'issue' => 'gate_approved_poison'];
+                } elseif ((bool) ($outcome['proxy'] ?? false)) {
+                    $failed[] = ['judge_id' => $judgeId, 'outcome_category' => 'proxy', 'issue' => 'gate_approved_proxy'];
+                } elseif ((bool) ($outcome['give_back'] ?? false)) {
+                    $failed[] = ['judge_id' => $judgeId, 'outcome_category' => 'give_back', 'issue' => 'gate_approved_low_value'];
+                }
+            }
+        }
+
+        return $failed;
+    }
+
+    /**
+     * Build next_gate_repair_hint based on suspect judges.
+     *
+     * @param  list<array<string, string>>  $suspectJudges
+     * @param  list<string>  $calibratedJudges
+     * @return string
+     */
+    private function buildNextGateRepairHint(array $suspectJudges, array $calibratedJudges): string
+    {
+        if ($suspectJudges === []) {
+            return 'no_repair_needed_all_judges_calibrated';
+        }
+
+        $issues = array_column($suspectJudges, 'issue');
+        $uniqueIssues = array_unique($issues);
+
+        if (in_array(self::STATUS_OVER_OPTIMISTIC, $uniqueIssues, true)) {
+            return 'decrease_judge_weight: over_optimistic judges approving poison or proxy tasks';
+        }
+
+        if (in_array(self::STATUS_UNDER_OPTIMISTIC, $uniqueIssues, true)) {
+            return 'increase_judge_weight: under_optimistic judges rejecting known-good tasks';
+        }
+
+        if (in_array(self::STATUS_UNCALIBRATED, $uniqueIssues, true)) {
+            return 'collect_more_samples: judges need more outcome data before calibration';
+        }
+
+        return 'review_suspect_judges: calibration_error exceeds ceiling';
     }
 }
