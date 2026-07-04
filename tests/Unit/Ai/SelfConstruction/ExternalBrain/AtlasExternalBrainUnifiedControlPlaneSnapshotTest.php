@@ -74,4 +74,66 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshotTest extends TestCase
 
         $this->assertSame('harden_task_fabric', $result['recommended_next_decision']);
     }
+
+    // AC: unified snapshot includes external_brain_state, muscle_state, proof_state, task_fabric_state, queue_state
+    public function test_snapshot_includes_all_subsystem_states(): void
+    {
+        $result = $this->snapshot->snapshot([]);
+
+        $this->assertArrayHasKey('external_brain_state', $result);
+        $this->assertArrayHasKey('muscle_state', $result);
+        $this->assertArrayHasKey('proof_state', $result);
+        $this->assertArrayHasKey('task_fabric_state', $result);
+        $this->assertArrayHasKey('queue_state', $result);
+    }
+
+    // AC: snapshot emits recommended_decision plus evidence_refs
+    public function test_snapshot_emits_recommended_decision_and_evidence_refs(): void
+    {
+        $result = $this->snapshot->snapshot([
+            'evidence_refs' => ['ref:001', 'ref:002'],
+        ]);
+
+        $this->assertArrayHasKey('recommended_decision', $result);
+        $this->assertNotEmpty($result['recommended_decision']);
+        $this->assertArrayHasKey('evidence_refs', $result);
+        $this->assertSame(['ref:001', 'ref:002'], $result['evidence_refs']);
+    }
+
+    // AC: provider-sensitive internals are not emitted
+    public function test_provider_sensitive_fields_are_filtered(): void
+    {
+        $result = $this->snapshot->snapshot([
+            'external_brain_state' => [
+                'autonomy_level' => 'full_autonomous',
+                'raw_prompt' => 'this should be filtered',
+                'provider_trace' => 'also filtered',
+                'secret' => 'never included',
+            ],
+        ]);
+
+        $state = $result['external_brain_state'];
+        $this->assertArrayHasKey('autonomy_level', $state);
+        $this->assertArrayNotHasKey('raw_prompt', $state);
+        $this->assertArrayNotHasKey('provider_trace', $state);
+        $this->assertArrayNotHasKey('secret', $state);
+    }
+
+    // AC: subsystem states pass through provided data
+    public function test_subsystem_states_pass_through_provided_data(): void
+    {
+        $result = $this->snapshot->snapshot([
+            'external_brain_state' => ['autonomy_level' => 'supervised', 'maturity_risk' => 'medium'],
+            'muscle_state' => ['active_workers' => 3, 'yield_rate' => 0.85],
+            'proof_state' => ['evidence_freshness' => 'fresh', 'cert_gate_status' => 'passing'],
+            'task_fabric_state' => ['queue_depth' => 12, 'blocked_count' => 0],
+            'queue_state' => ['pending' => 5, 'in_progress' => 3, 'completed' => 100],
+        ]);
+
+        $this->assertSame(['autonomy_level' => 'supervised', 'maturity_risk' => 'medium'], $result['external_brain_state']);
+        $this->assertSame(['active_workers' => 3, 'yield_rate' => 0.85], $result['muscle_state']);
+        $this->assertSame(['evidence_freshness' => 'fresh', 'cert_gate_status' => 'passing'], $result['proof_state']);
+        $this->assertSame(['queue_depth' => 12, 'blocked_count' => 0], $result['task_fabric_state']);
+        $this->assertSame(['pending' => 5, 'in_progress' => 3, 'completed' => 100], $result['queue_state']);
+    }
 }
