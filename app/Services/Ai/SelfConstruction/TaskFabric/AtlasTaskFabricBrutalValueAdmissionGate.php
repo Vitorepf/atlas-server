@@ -176,7 +176,16 @@ final class AtlasTaskFabricBrutalValueAdmissionGate
             }
         }
 
-        // 4. Compound impact — UNLESS this is a genuinely muscle-feed packet during
+        // 4. Proof/evidence floor — a candidate with high compound_impact_score must carry
+        // concrete proof_floor or evidence_floor evidence; without it, the high-value claim
+        // is unsubstantiated and the candidate is rejected with a named deficiency.
+        $proofFloor = $candidate['proof_floor'] ?? null;
+        $evidenceFloor = $candidate['evidence_floor'] ?? null;
+        if ($impactScore >= $impactFloor && empty($proofFloor) && empty($evidenceFloor)) {
+            $rejectionReasons[] = 'proof_floor_deficiency:compound_impact_above_floor_without_proof_or_evidence_floor';
+        }
+
+        // 5. Compound impact — UNLESS this is a genuinely muscle-feed packet during
         // replenish_soon: worker_floor_context + impact_reason=worker_continuity + a proven
         // impl+test+runnable-acceptance shape. Never lowers the floor for template farms or
         // duplicates — those are rejected by checks 1/2 above regardless of this exception.
