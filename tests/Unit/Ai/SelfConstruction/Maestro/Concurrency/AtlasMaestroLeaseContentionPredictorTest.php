@@ -268,4 +268,79 @@ final class AtlasMaestroLeaseContentionPredictorTest extends TestCase
         $this->assertSame('low', $r['contention_risk']);
         $this->assertSame('serve', $r['recommended_action']);
     }
+
+    // ── hotspot_families, safe_parallelism, recommended_backoff_seconds ──
+
+    public function test_output_has_hotspot_families_safe_parallelism_and_backoff(): void
+    {
+        $r = $this->predictor()->predict([
+            'worker_snapshot' => [
+                ['id' => 'w1', 'write_set' => ['app/Foo.php', 'app/Bar.php']],
+                ['id' => 'w2', 'write_set' => ['app/Foo.php']],
+            ],
+        ]);
+        $this->assertArrayHasKey('hotspot_families', $r);
+        $this->assertArrayHasKey('safe_parallelism', $r);
+        $this->assertArrayHasKey('recommended_backoff_seconds', $r);
+    }
+
+    public function test_hotspot_families_identifies_contended_directories(): void
+    {
+        $r = $this->predictor()->predict([
+            'worker_snapshot' => [
+                ['id' => 'w1', 'write_set' => ['app/Services/Ai/Foo.php']],
+                ['id' => 'w2', 'write_set' => ['app/Services/Ai/Foo.php']],
+                ['id' => 'w3', 'write_set' => ['app/Services/Ai/Bar.php']],
+            ],
+        ]);
+        $this->assertContains('app/Services/Ai', $r['hotspot_families']);
+    }
+
+    public function test_safe_parallelism_equals_worker_count_when_no_hotspots(): void
+    {
+        $r = $this->predictor()->predict([
+            'worker_snapshot' => [
+                ['id' => 'w1', 'write_set' => ['app/A.php']],
+                ['id' => 'w2', 'write_set' => ['app/B.php']],
+                ['id' => 'w3', 'write_set' => ['app/C.php']],
+            ],
+        ]);
+        $this->assertSame(3, $r['safe_parallelism']);
+    }
+
+    public function test_safe_parallelism_equals_family_count_when_hotspots(): void
+    {
+        $r = $this->predictor()->predict([
+            'worker_snapshot' => [
+                ['id' => 'w1', 'write_set' => ['app/Foo.php']],
+                ['id' => 'w2', 'write_set' => ['app/Foo.php']],
+                ['id' => 'w3', 'write_set' => ['app/Bar.php']],
+                ['id' => 'w4', 'write_set' => ['app/Bar.php']],
+            ],
+        ]);
+        $this->assertGreaterThanOrEqual(1, $r['safe_parallelism']);
+    }
+
+    public function test_recommended_backoff_seconds_zero_when_low_risk(): void
+    {
+        $r = $this->predictor()->predict([
+            'worker_snapshot' => [
+                ['id' => 'w1', 'write_set' => ['app/A.php']],
+                ['id' => 'w2', 'write_set' => ['app/B.php']],
+            ],
+        ]);
+        $this->assertSame(0, $r['recommended_backoff_seconds']);
+    }
+
+    public function test_recommended_backoff_seconds_positive_when_high_risk(): void
+    {
+        $r = $this->predictor()->predict([
+            'worker_snapshot' => [
+                ['id' => 'w1', 'write_set' => ['app/Foo.php']],
+                ['id' => 'w2', 'write_set' => ['app/Foo.php']],
+                ['id' => 'w3', 'write_set' => ['app/Foo.php']],
+            ],
+        ]);
+        $this->assertGreaterThan(0, $r['recommended_backoff_seconds']);
+    }
 }

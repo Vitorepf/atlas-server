@@ -79,11 +79,23 @@ final class AtlasMaestroLeaseContentionPredictor
         $mostContended = $this->topContentedPaths($pathWorkers, $pathFailures);
         $hotPathCount  = count(array_filter($pathWorkers, static fn (array $ws): bool => count($ws) >= 2));
 
+        // hotspot_families: distinct file families (directory prefixes) with contention
+        $hotspotFamilies = $this->computeHotspotFamilies($pathWorkers);
+
+        // safe_parallelism: how many workers can run safely without contention
+        $safeParallelism = $this->computeSafeParallelism($workerCount, $maxOverlap, $hotspotFamilies);
+
+        // recommended_backoff_seconds: 0 when low risk, scaled when high
+        $recommendedBackoffSeconds = $this->computeRecommendedBackoffSeconds($risk, $maxOverlap, $totalFailures);
+
         [$recommendedAction, $actionReasons] = $this->recommendation($risk, $hotPathCount, $maxOverlap, $failureRate, $totalFailures);
 
         return [
             'schema_version'        => self::SCHEMA,
             'contention_risk'       => $risk,
+            'hotspot_families'      => $hotspotFamilies,
+            'safe_parallelism'      => $safeParallelism,
+            'recommended_backoff_seconds' => $recommendedBackoffSeconds,
             'is_healthy_parallelism' => $isHealthy,
             'most_contended_paths'  => $mostContended,
             'mitigation_hints'      => $this->mitigationHints($risk, $totalFailures),
@@ -96,6 +108,63 @@ final class AtlasMaestroLeaseContentionPredictor
                 'hot_path_count'       => $hotPathCount,
             ],
         ];
+    }
+
+    /**
+     * Compute distinct file families (directory prefixes) with contention.
+     *
+     * @param  array<string, list<string>>  $pathWorkers
+     * @return list<string>
+     */
+    private function computeHotspotFamilies(array $pathWorkers): array
+    {
+        $families = [];
+        foreach ($pathWorkers as $path => $workers) {
+            if (count($workers) >= 2) {
+                $parts = explode('/', $path);
+                $family = implode('/', array_slice($parts, 0, max(1, count($parts) - 1)));
+                $families[$family] = ($families[$family] ?? 0) + 1;
+            }
+        }
+
+        return array_keys($families);
+    }
+
+    /**
+     * Compute safe parallelism: how many workers can run without contention.
+     */
+    private function computeSafeParallelism(int $workerCount, int $maxOverlap, array $hotspotFamilies): int
+    {
+        if ($workerCount === 0) {
+            return 0;
+        }
+
+        // If no hotspots, all workers are safe
+        if ($hotspotFamilies === []) {
+            return $workerCount;
+        }
+
+        // Safe parallelism = number of distinct families (each family can handle 1 worker safely)
+        $familyCount = count($hotspotFamilies);
+
+        return max(1, $familyCount);
+    }
+
+    /**
+     * Compute recommended backoff seconds based on risk level.
+     */
+    private function computeRecommendedBackoffSeconds(string $risk, int $maxOverlap, int $totalFailures): int
+    {
+        if ($risk === 'low') {
+            return 0;
+        }
+
+        if ($risk === 'medium') {
+            return 30;
+        }
+
+        // High risk: scale with overlap and failures
+        return min(300, max(60, ($maxOverlap * 20) + ($totalFailures * 10)));
     }
 
     /**
