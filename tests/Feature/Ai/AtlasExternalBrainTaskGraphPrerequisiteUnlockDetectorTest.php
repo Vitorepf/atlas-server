@@ -86,4 +86,88 @@ final class AtlasExternalBrainTaskGraphPrerequisiteUnlockDetectorTest extends Te
         $hints = $result['implementation_order_hints'];
         $this->assertLessThan(array_search('leaf', $hints, true), array_search('prereq', $hints, true));
     }
+
+    // ── AC2: critical_chain_score and blocked_depth ──
+
+    public function test_prerequisite_candidate_has_critical_chain_score_and_blocked_depth(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector)->detect([
+            'tasks' => [
+                ['task_id' => 'prereq-1', 'impact_class' => 'low', 'status' => 'queued', 'unlocks' => ['dep-hi', 'dep-lo']],
+                ['task_id' => 'dep-hi', 'impact_class' => 'high', 'depends_on' => ['prereq-1', 'missing-x'], 'status' => 'queued'],
+                ['task_id' => 'dep-lo', 'impact_class' => 'low', 'depends_on' => ['prereq-1'], 'status' => 'queued'],
+            ],
+        ]);
+
+        $candidate = collect($result['prerequisite_candidates'])->firstWhere('task_id', 'prereq-1');
+        $this->assertNotNull($candidate);
+
+        // critical_chain_score = high_impact_count * 10 + total_dependents = 1*10 + 2 = 12
+        $this->assertSame(12, $candidate['critical_chain_score']);
+        // blocked_depth = count of dependents that have unfinished blockers
+        // dep-hi depends_on 'missing-x' which is not done → blocked
+        // dep-lo depends_on 'prereq-1' only, which is queued → blocked (prereq-1 is queued, not done)
+        // Actually wait, dep-lo's only blocker is prereq-1 which is queued → hasUnfinishedBlocker=true
+        $this->assertSame(2, $candidate['blocked_depth']);
+    }
+
+    // ── AC3: few high-impact beats many low-impact ──
+
+    public function test_few_high_impact_dependents_outranks_many_low_impact(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector)->detect([
+            'tasks' => [
+                ['task_id' => 'precise', 'impact_class' => 'low', 'status' => 'queued', 'unlocks' => ['hi-1', 'hi-2']],
+                ['task_id' => 'broad', 'impact_class' => 'low', 'status' => 'queued', 'unlocks' => ['lo-1', 'lo-2', 'lo-3']],
+                ['task_id' => 'hi-1', 'impact_class' => 'high', 'depends_on' => ['precise'], 'status' => 'queued'],
+                ['task_id' => 'hi-2', 'impact_class' => 'high', 'depends_on' => ['precise'], 'status' => 'queued'],
+                ['task_id' => 'lo-1', 'impact_class' => 'low', 'depends_on' => ['broad'], 'status' => 'queued'],
+                ['task_id' => 'lo-2', 'impact_class' => 'low', 'depends_on' => ['broad'], 'status' => 'queued'],
+                ['task_id' => 'lo-3', 'impact_class' => 'low', 'depends_on' => ['broad'], 'status' => 'queued'],
+            ],
+        ]);
+
+        $this->assertSame('precise', $result['prerequisite_candidates'][0]['task_id']);
+        $this->assertSame('broad', $result['prerequisite_candidates'][1]['task_id']);
+    }
+
+    // ── AC4: collision_risk from overlapping allowed_files ──
+
+    public function test_collision_risk_reported_for_overlapping_allowed_files(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector)->detect([
+            'tasks' => [
+                ['task_id' => 'A', 'status' => 'queued', 'unlocks' => ['dep-a'], 'allowed_files' => ['app/Shared.php']],
+                ['task_id' => 'dep-a', 'depends_on' => ['A'], 'status' => 'queued'],
+                ['task_id' => 'B', 'status' => 'queued', 'unlocks' => ['dep-b'], 'allowed_files' => ['app/Shared.php']],
+                ['task_id' => 'dep-b', 'depends_on' => ['B'], 'status' => 'queued'],
+            ],
+        ]);
+
+        $candidateA = collect($result['prerequisite_candidates'])->firstWhere('task_id', 'A');
+        $candidateB = collect($result['prerequisite_candidates'])->firstWhere('task_id', 'B');
+
+        $this->assertNotNull($candidateA);
+        $this->assertNotNull($candidateB);
+
+        // A and B share 'app/Shared.php' → each lists the other as collision_risk
+        $this->assertContains('B', $candidateA['collision_risk']);
+        $this->assertContains('A', $candidateB['collision_risk']);
+        $this->assertSame(1, $candidateA['downstream_unlock_count']); // unlock value preserved
+    }
+
+    public function test_no_collision_risk_when_allowed_files_disjoint(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector)->detect([
+            'tasks' => [
+                ['task_id' => 'A', 'status' => 'queued', 'unlocks' => ['dep-a'], 'allowed_files' => ['app/A.php']],
+                ['task_id' => 'dep-a', 'depends_on' => ['A'], 'status' => 'queued'],
+                ['task_id' => 'B', 'status' => 'queued', 'unlocks' => ['dep-b'], 'allowed_files' => ['app/B.php']],
+                ['task_id' => 'dep-b', 'depends_on' => ['B'], 'status' => 'queued'],
+            ],
+        ]);
+
+        $candidateA = collect($result['prerequisite_candidates'])->firstWhere('task_id', 'A');
+        $this->assertSame([], $candidateA['collision_risk']);
+    }
 }

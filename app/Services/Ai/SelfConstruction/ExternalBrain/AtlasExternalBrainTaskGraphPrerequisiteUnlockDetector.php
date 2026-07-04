@@ -137,16 +137,31 @@ final class AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector
 
             if ($task['status'] !== 'done' && $dependentIds !== []) {
                 $highImpactDependentCount = 0;
+                $blockedDepth = 0;
                 foreach ($dependentIds as $depId) {
                     if (($tasks[$depId]['impact_class'] ?? 'low') === 'high') {
                         $highImpactDependentCount++;
                     }
+                    $depDeps = $tasks[$depId]['depends_on'] ?? [];
+                    $hasUnfinishedBlocker = false;
+                    foreach ($depDeps as $depPrereq) {
+                        if (($tasks[$depPrereq]['status'] ?? 'queued') !== 'done') {
+                            $hasUnfinishedBlocker = true;
+                            break;
+                        }
+                    }
+                    if ($hasUnfinishedBlocker) {
+                        $blockedDepth++;
+                    }
                 }
+                $criticalChainScore = $highImpactDependentCount * 10 + count($dependentIds);
                 $prerequisiteCandidates[] = [
                     'task_id' => $id,
                     'capability' => $task['capability'],
                     'downstream_unlock_count' => count($dependentIds),
                     'high_impact_dependent_count' => $highImpactDependentCount,
+                    'critical_chain_score' => $criticalChainScore,
+                    'blocked_depth' => $blockedDepth,
                     'dependents' => $dependentIds,
                     'unlock_notes' => $this->unlockNotes($id, $task['capability'], $dependentIds, $tasks),
                 ];
@@ -170,6 +185,26 @@ final class AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector
             return [$b['high_impact_dependent_count'], $b['downstream_unlock_count']]
                 <=> [$a['high_impact_dependent_count'], $a['downstream_unlock_count']];
         });
+
+        // Compute collision_risk: which prerequisite candidates share overlapping allowed_files.
+        $prereqIds = array_column($prerequisiteCandidates, 'task_id');
+        $collisionMap = [];
+        foreach ($prerequisiteCandidates as &$candidate) {
+            $cid = $candidate['task_id'];
+            $ourFiles = $tasks[$cid]['allowed_files'] ?? [];
+            $collisions = [];
+            foreach ($prereqIds as $otherId) {
+                if ($otherId === $cid) {
+                    continue;
+                }
+                $theirFiles = $tasks[$otherId]['allowed_files'] ?? [];
+                if (array_intersect($ourFiles, $theirFiles) !== []) {
+                    $collisions[] = $otherId;
+                }
+            }
+            $candidate['collision_risk'] = $collisions;
+        }
+        unset($candidate);
 
         $prerequisiteIds = array_column($prerequisiteCandidates, 'task_id');
         $leafOrder = [];
