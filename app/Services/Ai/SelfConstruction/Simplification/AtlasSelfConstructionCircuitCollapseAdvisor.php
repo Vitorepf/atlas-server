@@ -48,6 +48,19 @@ final class AtlasSelfConstructionCircuitCollapseAdvisor
             array_map(fn ($c) => is_array($c) ? $c : [], (array) ($facts['candidates'] ?? []))
         ));
 
+        // AC2: collapse requires boundary.safe_to_collapse=true.
+        $boundary = (array) ($facts['boundary'] ?? []);
+        $safeToCollapse = (bool) ($boundary['safe_to_collapse'] ?? false);
+        if (! $safeToCollapse) {
+            return $this->envelope(
+                self::STRATEGY_REJECT,
+                'reject: boundary not safe to collapse',
+                null,
+                null,
+                ['boundary_not_safe_to_collapse'],
+            );
+        }
+
         // Reject when equivalence is not proven.
         if ($verdict !== 'safe_to_consolidate') {
             return $this->envelope(
