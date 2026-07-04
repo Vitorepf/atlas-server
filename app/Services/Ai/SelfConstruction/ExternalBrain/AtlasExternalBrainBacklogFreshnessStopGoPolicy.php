@@ -218,6 +218,10 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
             'allowed_next_actions' => $allowedNextActions,
             'blocked_next_actions' => $blockedNextActions,
             'required_evidence' => $requiredEvidence,
+            'stale_family_count' => $isStale ? $claimableDepth : 0,
+            'fresh_high_value_count' => $freshHighValueTargetsAvailable ? $claimableDepth : 0,
+            'recommended_action' => $decision,
+            'rationale' => implode('; ', $reasons),
         ];
     }
 }
