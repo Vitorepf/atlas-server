@@ -82,6 +82,38 @@ final class AtlasSelfConstructionOsCompletionAuditHashCanonicalizer
             ksort($value);
         }
 
+        // AC2: indexed arrays whose elements are ALL arrays (evidence entries, blockers,
+        // proof items) are treated as unordered sets — sort by canonical JSON so reordering
+        // is invisible. Scalar lists remain ordered (preserves list-order semantics).
+        if ($value !== [] && array_keys($value) === range(0, count($value) - 1) && self::isArrayOfArrays($value)) {
+            usort($value, static function ($a, $b): int {
+                return strcmp(
+                    (string) json_encode($a, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                    (string) json_encode($b, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                );
+            });
+        }
+
         return $value;
+    }
+
+    /**
+     * Returns true when every element of $value is itself an array (a "list of records").
+     * Empty arrays return false — nothing to sort.
+     *
+     * @param  array<int|string, mixed>  $value
+     */
+    private static function isArrayOfArrays(array $value): bool
+    {
+        if ($value === []) {
+            return false;
+        }
+        foreach ($value as $item) {
+            if (! is_array($item)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

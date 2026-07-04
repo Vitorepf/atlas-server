@@ -138,6 +138,74 @@ class AtlasSelfConstructionOsCompletionAuditHashCanonicalizerTest extends TestCa
         self::assertNotSame($a, $b, 'proof_source change must change the hash');
     }
 
+    // ── AC2: evidence entry reordering is stable ───────────────────────────────
+
+    public function test_reordering_evidence_entries_produces_same_hash(): void
+    {
+        $entriesA = [
+            ['source' => 'phpunit', 'verdict' => 'passed'],
+            ['source' => 'manual', 'verdict' => 'passed'],
+        ];
+        $entriesB = [
+            ['source' => 'manual', 'verdict' => 'passed'],
+            ['source' => 'phpunit', 'verdict' => 'passed'],
+        ];
+
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['evidence' => $entriesA]);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['evidence' => $entriesB]);
+        self::assertSame($a, $b, 'reordering evidence entries must not change the hash');
+    }
+
+    public function test_reordering_blocker_entries_produces_same_hash(): void
+    {
+        $blockersA = [
+            ['key' => 'missing_proof', 'severity' => 'high'],
+            ['key' => 'stale_evidence', 'severity' => 'medium'],
+        ];
+        $blockersB = [
+            ['key' => 'stale_evidence', 'severity' => 'medium'],
+            ['key' => 'missing_proof', 'severity' => 'high'],
+        ];
+
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['blockers' => $blockersA]);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['blockers' => $blockersB]);
+        self::assertSame($a, $b, 'reordering blocker entries must not change the hash');
+    }
+
+    // ── AC3: readiness state change changes hash ───────────────────────────────
+
+    public function test_readiness_state_change_changes_hash(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['readiness_state' => 'ready']);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['readiness_state' => 'not_ready']);
+        self::assertNotSame($a, $b, 'readiness state change must change the hash');
+    }
+
+    // ── AC4: volatile timestamps excluded, freshness buckets preserved ──────────
+
+    public function test_freshness_bucket_preserved_while_volatile_timestamps_excluded(): void
+    {
+        // audited_at is volatile (excluded), freshness_bucket is preserved.
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash([
+            'verdict' => 'passed',
+            'audited_at' => 1000,
+            'freshness_bucket' => 'recent',
+        ]);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash([
+            'verdict' => 'passed',
+            'audited_at' => 9999,
+            'freshness_bucket' => 'recent',
+        ]);
+        self::assertSame($a, $b, 'volatile audited_at must not affect hash');
+
+        $c = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash([
+            'verdict' => 'passed',
+            'audited_at' => 1000,
+            'freshness_bucket' => 'stale',
+        ]);
+        self::assertNotSame($a, $c, 'freshness_bucket change must change the hash');
+    }
+
     // ── AC3: caller-declared extra volatile fields are ignored (stable hash) ──────
 
     public function test_extra_volatile_field_is_ignored_when_declared(): void
