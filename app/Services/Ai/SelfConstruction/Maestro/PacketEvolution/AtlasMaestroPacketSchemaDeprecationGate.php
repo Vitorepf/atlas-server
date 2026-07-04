@@ -177,6 +177,70 @@ final class AtlasMaestroPacketSchemaDeprecationGate
         return (string) ($registry->describe($schemaId)['status'] ?? '') === AtlasMaestroPacketSchemaVersioning::STATUS_PREVIEW;
     }
 
+    /**
+     * Check if a deprecated packet field can be safely removed from the schema.
+     *
+     * Blocks removal when live queued, claimed or blocked packets still reference the
+     * deprecated field. Allows removal only when migration evidence and zero live references
+     * are present.
+     *
+     * @param  array<string,mixed>  $proposal  {field_name, schema_version, live_packets: list<array>, migration_evidence: list<string>}
+     * @return array{removal_allowed: bool, live_reference_count: int, blocking_fields: list<string>, migration_evidence_required: bool}
+     */
+    public static function checkRemoval(array $proposal): array
+    {
+        $fieldName = (string) ($proposal['field_name'] ?? '');
+        $livePackets = (array) ($proposal['live_packets'] ?? []);
+        $migrationEvidence = (array) ($proposal['migration_evidence'] ?? []);
+
+        // Count live packets that still reference the deprecated field
+        $liveReferenceCount = 0;
+        $blockingFields = [];
+        foreach ($livePackets as $packet) {
+            if (! is_array($packet)) {
+                continue;
+            }
+            $status = (string) ($packet['queue_status'] ?? '');
+            // Only count live packets (queued, claimed, blocked)
+            if (in_array($status, ['waiting', 'queued', 'enqueued', 'pending', 'claimed', 'blocked', 'dispatched'], true)) {
+                // Check if the packet references the deprecated field
+                if (array_key_exists($fieldName, $packet) || self::packetReferencesField($packet, $fieldName)) {
+                    $liveReferenceCount++;
+                    $packetId = (string) ($packet['task_packet_id'] ?? $packet['label'] ?? 'unknown');
+                    $blockingFields[] = $packetId;
+                }
+            }
+        }
+
+        // Migration evidence is required when there are live references
+        $migrationEvidenceRequired = $liveReferenceCount > 0;
+
+        // Removal is allowed only when zero live references AND migration evidence is present
+        $removalAllowed = $liveReferenceCount === 0 && count($migrationEvidence) > 0;
+
+        return [
+            'removal_allowed' => $removalAllowed,
+            'live_reference_count' => $liveReferenceCount,
+            'blocking_fields' => $blockingFields,
+            'migration_evidence_required' => $migrationEvidenceRequired,
+        ];
+    }
+
+    /**
+     * Check if a packet references a specific field (directly or in acceptance/objective).
+     */
+    private static function packetReferencesField(array $packet, string $fieldName): bool
+    {
+        $haystack = implode(' ', [
+            (string) ($packet['objective'] ?? ''),
+            implode(' ', (array) ($packet['acceptance_criteria'] ?? [])),
+            implode(' ', (array) ($packet['allowed_files'] ?? [])),
+            implode(' ', (array) ($packet['required_evidence'] ?? [])),
+        ]);
+
+        return str_contains($haystack, $fieldName);
+    }
+
     private static function overrideAccepts(string $token, string $schemaId): bool
     {
         $overrides = self::loadOverrides();

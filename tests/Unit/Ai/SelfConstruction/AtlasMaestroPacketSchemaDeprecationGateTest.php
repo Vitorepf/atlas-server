@@ -147,4 +147,75 @@ final class AtlasMaestroPacketSchemaDeprecationGateTest extends TestCase
         $this->assertSame([], $verdict['blockers']);
         $this->assertSame(AtlasMaestroPacketSchemaVersioning::STATUS_ACTIVE, $verdict['schema_status']);
     }
+
+    // ── checkRemoval: removal_allowed, live_reference_count, blocking_fields, migration_evidence_required ──
+
+    public function test_check_removal_has_required_keys(): void
+    {
+        $result = AtlasMaestroPacketSchemaDeprecationGate::checkRemoval([
+            'field_name' => 'old_field',
+            'live_packets' => [],
+            'migration_evidence' => ['migrated_to_new_field'],
+        ]);
+        $this->assertArrayHasKey('removal_allowed', $result);
+        $this->assertArrayHasKey('live_reference_count', $result);
+        $this->assertArrayHasKey('blocking_fields', $result);
+        $this->assertArrayHasKey('migration_evidence_required', $result);
+    }
+
+    public function test_removal_blocked_when_live_packets_reference_field(): void
+    {
+        $result = AtlasMaestroPacketSchemaDeprecationGate::checkRemoval([
+            'field_name' => 'old_field',
+            'live_packets' => [
+                ['task_packet_id' => 'pkt-1', 'queue_status' => 'queued', 'old_field' => 'value'],
+                ['task_packet_id' => 'pkt-2', 'queue_status' => 'claimed', 'objective' => 'uses old_field'],
+            ],
+            'migration_evidence' => ['migrated_to_new_field'],
+        ]);
+        $this->assertFalse($result['removal_allowed']);
+        $this->assertSame(2, $result['live_reference_count']);
+        $this->assertTrue($result['migration_evidence_required']);
+        $this->assertContains('pkt-1', $result['blocking_fields']);
+        $this->assertContains('pkt-2', $result['blocking_fields']);
+    }
+
+    public function test_removal_allowed_when_zero_live_references_and_evidence_present(): void
+    {
+        $result = AtlasMaestroPacketSchemaDeprecationGate::checkRemoval([
+            'field_name' => 'old_field',
+            'live_packets' => [
+                ['task_packet_id' => 'pkt-1', 'queue_status' => 'delivered'], // not live
+            ],
+            'migration_evidence' => ['migrated_to_new_field'],
+        ]);
+        $this->assertTrue($result['removal_allowed']);
+        $this->assertSame(0, $result['live_reference_count']);
+        $this->assertFalse($result['migration_evidence_required']);
+    }
+
+    public function test_removal_blocked_when_no_migration_evidence(): void
+    {
+        $result = AtlasMaestroPacketSchemaDeprecationGate::checkRemoval([
+            'field_name' => 'old_field',
+            'live_packets' => [],
+            'migration_evidence' => [],
+        ]);
+        $this->assertFalse($result['removal_allowed']);
+        $this->assertSame(0, $result['live_reference_count']);
+    }
+
+    public function test_non_live_packets_do_not_block_removal(): void
+    {
+        $result = AtlasMaestroPacketSchemaDeprecationGate::checkRemoval([
+            'field_name' => 'old_field',
+            'live_packets' => [
+                ['task_packet_id' => 'pkt-1', 'queue_status' => 'delivered', 'old_field' => 'value'],
+                ['task_packet_id' => 'pkt-2', 'queue_status' => 'retired', 'old_field' => 'value'],
+            ],
+            'migration_evidence' => ['migrated'],
+        ]);
+        $this->assertTrue($result['removal_allowed']);
+        $this->assertSame(0, $result['live_reference_count']);
+    }
 }
