@@ -25,7 +25,7 @@ final class ReadinessCertificationWorkbenchQuartetBuilder
     public const STATUS_MISSING = 'missing';
 
     /** @var list<string> */
-    private const QUARTET_SECTIONS = ['code', 'queue', 'evidence', 'knowledge_sync'];
+    private const QUARTET_SECTIONS = ['context_check', 'queue_check', 'proof_check', 'worker_execution_check'];
 
     /**
      * Assembles the four MINIMAL proof surfaces needed for an autonomous engineering decision —
@@ -49,16 +49,19 @@ final class ReadinessCertificationWorkbenchQuartetBuilder
             $sections[$sectionKey] = self::evaluateSection($sectionKey, is_array($facts[$sectionKey] ?? null) ? $facts[$sectionKey] : null);
         }
 
-        $blockingSections = array_values(array_filter(
+        $failedChecks = array_values(array_filter(
             self::QUARTET_SECTIONS,
             static fn (string $key): bool => $sections[$key]['status'] !== self::STATUS_PASS,
         ));
+        $quartetReady = $failedChecks === [];
 
         $payload = [
             'schema_version' => self::READINESS_QUARTET_SCHEMA,
+            'quartet_ready' => $quartetReady,
             'sections' => $sections,
-            'blocking_sections' => $blockingSections,
-            'overall_status' => $blockingSections === [] ? 'ready' : 'blocked',
+            'blocking_sections' => $failedChecks,
+            'failed_checks' => $failedChecks,
+            'overall_status' => $quartetReady ? 'ready' : 'blocked',
         ];
         $payload['quartet_hash'] = ReadinessHash::stable($payload);
 
@@ -71,7 +74,7 @@ final class ReadinessCertificationWorkbenchQuartetBuilder
      */
     private static function evaluateSection(string $sectionKey, ?array $sectionFacts): array
     {
-        [$repairAction, $sourceExpectation] = self::sectionExpectations($sectionKey);
+        [$repairAction, $sourceExpectation, $evidenceRefs] = self::sectionExpectations($sectionKey);
 
         if ($sectionFacts === null) {
             return [
@@ -79,6 +82,7 @@ final class ReadinessCertificationWorkbenchQuartetBuilder
                 'status' => self::STATUS_MISSING,
                 'repair_action' => $repairAction,
                 'source_expectation' => $sourceExpectation,
+                'evidence_refs' => $evidenceRefs,
                 'checked_facts' => [],
             ];
         }
@@ -90,6 +94,7 @@ final class ReadinessCertificationWorkbenchQuartetBuilder
             'status' => $pass ? self::STATUS_PASS : self::STATUS_BLOCKER,
             'repair_action' => $pass ? null : $repairAction,
             'source_expectation' => $pass ? null : $sourceExpectation,
+            'evidence_refs' => $evidenceRefs,
             'checked_facts' => $sectionFacts,
         ];
     }
@@ -100,23 +105,23 @@ final class ReadinessCertificationWorkbenchQuartetBuilder
     private static function sectionPasses(string $sectionKey, array $sectionFacts): bool
     {
         return match ($sectionKey) {
-            'code' => (bool) ($sectionFacts['tests_green'] ?? false) && (bool) ($sectionFacts['lint_clean'] ?? false),
-            'queue' => (int) ($sectionFacts['claimable_depth'] ?? 0) > 0 && (float) ($sectionFacts['give_back_rate'] ?? 1.0) < 0.3,
-            'evidence' => (bool) ($sectionFacts['receipts_present'] ?? false) && (bool) ($sectionFacts['receipts_verified'] ?? false),
-            'knowledge_sync' => (bool) ($sectionFacts['docs_synced'] ?? false) && (bool) ($sectionFacts['code_index_fresh'] ?? false),
+            'context_check' => (bool) ($sectionFacts['tests_green'] ?? false) && (bool) ($sectionFacts['lint_clean'] ?? false),
+            'queue_check' => (int) ($sectionFacts['claimable_depth'] ?? 0) > 0 && (float) ($sectionFacts['give_back_rate'] ?? 1.0) < 0.3,
+            'proof_check' => (bool) ($sectionFacts['receipts_present'] ?? false) && (bool) ($sectionFacts['receipts_verified'] ?? false),
+            'worker_execution_check' => (bool) ($sectionFacts['docs_synced'] ?? false) && (bool) ($sectionFacts['code_index_fresh'] ?? false),
             default => false,
         };
     }
 
-    /** @return array{0:string,1:string} */
+    /** @return array{0:string,1:string,2:list<string>} */
     private static function sectionExpectations(string $sectionKey): array
     {
         return match ($sectionKey) {
-            'code' => ['run_tests_and_lint_then_fix_failures', 'php_artisan_test_and_lint_tool_output'],
-            'queue' => ['repair_or_replenish_the_task_queue', 'atlas_task_health_histogram_snapshot'],
-            'evidence' => ['generate_and_verify_evidence_receipts', 'evidence_ledger_receipts'],
-            'knowledge_sync' => ['run_engineering_knowledge_sync_and_index_code_with_prune', 'knowledge_sync_command_output'],
-            default => ['unknown_section', 'unknown_source'],
+            'context_check' => ['run_tests_and_lint_then_fix_failures', 'php_artisan_test_and_lint_tool_output', ['code_coverage_report', 'lint_results']],
+            'queue_check' => ['repair_or_replenish_the_task_queue', 'atlas_task_health_histogram_snapshot', ['task_queue_histogram', 'give_back_rate_metric']],
+            'proof_check' => ['generate_and_verify_evidence_receipts', 'evidence_ledger_receipts', ['receipt_verification_log', 'evidence_ledger_status']],
+            'worker_execution_check' => ['run_engineering_knowledge_sync_and_index_code_with_prune', 'knowledge_sync_command_output', ['knowledge_sync_timestamp', 'code_index_age']],
+            default => ['unknown_section', 'unknown_source', []],
         };
     }
 

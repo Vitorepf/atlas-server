@@ -158,10 +158,10 @@ class ReadinessCertificationWorkbenchQuartetBuilderTest extends TestCase
     private function passingFacts(): array
     {
         return [
-            'code' => ['tests_green' => true, 'lint_clean' => true],
-            'queue' => ['claimable_depth' => 5, 'give_back_rate' => 0.1],
-            'evidence' => ['receipts_present' => true, 'receipts_verified' => true],
-            'knowledge_sync' => ['docs_synced' => true, 'code_index_fresh' => true],
+            'context_check' => ['tests_green' => true, 'lint_clean' => true],
+            'queue_check' => ['claimable_depth' => 5, 'give_back_rate' => 0.1],
+            'proof_check' => ['receipts_present' => true, 'receipts_verified' => true],
+            'worker_execution_check' => ['docs_synced' => true, 'code_index_fresh' => true],
         ];
     }
 
@@ -169,7 +169,7 @@ class ReadinessCertificationWorkbenchQuartetBuilderTest extends TestCase
     {
         $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($this->passingFacts());
 
-        $this->assertSame(['code', 'queue', 'evidence', 'knowledge_sync'], array_keys($result['sections']));
+        $this->assertSame(['context_check', 'queue_check', 'proof_check', 'worker_execution_check'], array_keys($result['sections']));
     }
 
     public function test_readiness_quartet_ready_when_all_sections_pass(): void
@@ -188,26 +188,26 @@ class ReadinessCertificationWorkbenchQuartetBuilderTest extends TestCase
     public function test_missing_section_is_marked_missing_with_repair_action_and_source_expectation(): void
     {
         $facts = $this->passingFacts();
-        unset($facts['evidence']);
+        unset($facts['proof_check']);
 
         $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($facts);
 
-        $evidence = $result['sections']['evidence'];
+        $evidence = $result['sections']['proof_check'];
         $this->assertSame(ReadinessCertificationWorkbenchQuartetBuilder::STATUS_MISSING, $evidence['status']);
         $this->assertNotEmpty($evidence['repair_action']);
         $this->assertNotEmpty($evidence['source_expectation']);
-        $this->assertContains('evidence', $result['blocking_sections']);
+        $this->assertContains('proof_check', $result['blocking_sections']);
         $this->assertSame('blocked', $result['overall_status']);
     }
 
     public function test_failing_section_is_marked_blocker_with_repair_action_and_source_expectation(): void
     {
         $facts = $this->passingFacts();
-        $facts['code'] = ['tests_green' => false, 'lint_clean' => true];
+        $facts['context_check'] = ['tests_green' => false, 'lint_clean' => true];
 
         $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($facts);
 
-        $code = $result['sections']['code'];
+        $code = $result['sections']['context_check'];
         $this->assertSame(ReadinessCertificationWorkbenchQuartetBuilder::STATUS_BLOCKER, $code['status']);
         $this->assertNotEmpty($code['repair_action']);
         $this->assertNotEmpty($code['source_expectation']);
@@ -217,21 +217,21 @@ class ReadinessCertificationWorkbenchQuartetBuilderTest extends TestCase
     public function test_queue_section_fails_when_give_back_rate_too_high(): void
     {
         $facts = $this->passingFacts();
-        $facts['queue'] = ['claimable_depth' => 5, 'give_back_rate' => 0.9];
+        $facts['queue_check'] = ['claimable_depth' => 5, 'give_back_rate' => 0.9];
 
         $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($facts);
 
-        $this->assertSame(ReadinessCertificationWorkbenchQuartetBuilder::STATUS_BLOCKER, $result['sections']['queue']['status']);
+        $this->assertSame(ReadinessCertificationWorkbenchQuartetBuilder::STATUS_BLOCKER, $result['sections']['queue_check']['status']);
     }
 
     public function test_knowledge_sync_section_fails_when_code_index_stale(): void
     {
         $facts = $this->passingFacts();
-        $facts['knowledge_sync'] = ['docs_synced' => true, 'code_index_fresh' => false];
+        $facts['worker_execution_check'] = ['docs_synced' => true, 'code_index_fresh' => false];
 
         $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($facts);
 
-        $this->assertSame(ReadinessCertificationWorkbenchQuartetBuilder::STATUS_BLOCKER, $result['sections']['knowledge_sync']['status']);
+        $this->assertSame(ReadinessCertificationWorkbenchQuartetBuilder::STATUS_BLOCKER, $result['sections']['worker_execution_check']['status']);
     }
 
     public function test_readiness_quartet_no_speculative_extra_sections_beyond_the_four(): void
@@ -268,5 +268,79 @@ class ReadinessCertificationWorkbenchQuartetBuilderTest extends TestCase
         $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($this->passingFacts());
 
         $this->assertSame(ReadinessCertificationWorkbenchQuartetBuilder::READINESS_QUARTET_SCHEMA, $result['schema_version']);
+    }
+
+    // ── AC4: quartet_ready boolean and failed_checks ──
+
+    public function test_quartet_ready_true_when_all_sections_pass(): void
+    {
+        $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($this->passingFacts());
+
+        $this->assertTrue($result['quartet_ready']);
+        $this->assertSame([], $result['failed_checks']);
+    }
+
+    public function test_quartet_ready_false_when_any_section_missing(): void
+    {
+        $facts = $this->passingFacts();
+        unset($facts['proof_check']);
+
+        $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($facts);
+
+        $this->assertFalse($result['quartet_ready']);
+        $this->assertContains('proof_check', $result['failed_checks']);
+    }
+
+    public function test_quartet_ready_false_when_any_section_blocked(): void
+    {
+        $facts = $this->passingFacts();
+        $facts['context_check'] = ['tests_green' => false, 'lint_clean' => true];
+
+        $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($facts);
+
+        $this->assertFalse($result['quartet_ready']);
+        $this->assertContains('context_check', $result['failed_checks']);
+    }
+
+    public function test_quartet_ready_false_all_facts_missing(): void
+    {
+        $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet([]);
+
+        $this->assertFalse($result['quartet_ready']);
+        $this->assertCount(4, $result['failed_checks']);
+    }
+
+    // ── AC4: evidence_refs per section ──
+
+    public function test_every_section_includes_evidence_refs(): void
+    {
+        $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($this->passingFacts());
+
+        foreach ($result['sections'] as $key => $section) {
+            $this->assertArrayHasKey('evidence_refs', $section, "section {$key} missing evidence_refs");
+            $this->assertNotEmpty($section['evidence_refs'], "section {$key} has empty evidence_refs");
+        }
+    }
+
+    public function test_evidence_refs_are_present_even_when_section_missing(): void
+    {
+        $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet([]);
+
+        foreach ($result['sections'] as $key => $section) {
+            $this->assertArrayHasKey('evidence_refs', $section, "section {$key} missing evidence_refs when absent from input");
+            $this->assertNotEmpty($section['evidence_refs'], "section {$key} has empty evidence_refs when absent from input");
+        }
+    }
+
+    // ── failed_checks mirrors blocking_sections ──
+
+    public function test_failed_checks_mirrors_blocking_sections(): void
+    {
+        $facts = $this->passingFacts();
+        $facts['queue_check'] = ['claimable_depth' => 5, 'give_back_rate' => 0.9];
+
+        $result = ReadinessCertificationWorkbenchQuartetBuilder::buildReadinessQuartet($facts);
+
+        $this->assertSame($result['blocking_sections'], $result['failed_checks']);
     }
 }
