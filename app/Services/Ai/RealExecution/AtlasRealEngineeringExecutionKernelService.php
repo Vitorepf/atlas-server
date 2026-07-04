@@ -51,7 +51,11 @@ class AtlasRealEngineeringExecutionKernelService
         ]);
         $goal = AiAutonomousEngineeringGoal::query()->findOrFail((string) data_get($autonomous, 'goal.id'));
 
-        if (data_get($autonomous, 'certification.status') !== 'passed') {
+        // Real execution proceeds when the autonomous WORK completed — not when it self-certified.
+        // The autonomous certification now honestly BLOCKS a safe_simulation (sovereign gate, Obra #1),
+        // so gating on it here would stop real execution forever; the honesty gate that matters is
+        // this kernel's own certify() below, which still refuses the fake-green smoke.
+        if (data_get($autonomous, 'goal.status') !== 'completed') {
             $certification = $this->certify($goal);
 
             return $this->resultPayload($goal, $autonomous, null, null, null, null, null, null, null, $certification);
