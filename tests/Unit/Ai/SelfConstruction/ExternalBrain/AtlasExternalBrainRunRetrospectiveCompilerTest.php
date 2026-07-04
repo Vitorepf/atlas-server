@@ -416,4 +416,117 @@ final class AtlasExternalBrainRunRetrospectiveCompilerTest extends TestCase
             $this->assertArrayNotHasKey('measurable_acceptance_target', $policy);
         }
     }
+
+    // ── success_patterns, give_back_roots, cancellation_roots, malformed_roots, collision_roots, queue_health_drift, next_batch_rules ──
+
+    public function test_output_has_all_new_fields(): void
+    {
+        $result = $this->compiler()->compile([]);
+        foreach (['success_patterns', 'give_back_roots', 'cancellation_roots', 'malformed_roots', 'collision_roots', 'queue_health_drift', 'next_batch_rules'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+    }
+
+    public function test_success_patterns_groups_by_category_with_confidence(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('s1', 'success', 'arch'),
+            $this->outcome('s2', 'success', 'arch'),
+            $this->outcome('s3', 'success', 'arch'),
+            $this->outcome('s4', 'success', 'bug_fix'),
+        ]);
+        $patterns = $result['success_patterns'];
+        $arch = $patterns[0];
+        $this->assertSame('arch', $arch['category']);
+        $this->assertSame(3, $arch['count']);
+        $this->assertSame('high', $arch['confidence']);
+        $bug = $patterns[1];
+        $this->assertSame('low_confidence', $bug['confidence']);
+    }
+
+    public function test_give_back_roots_groups_by_reason(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('g1', 'give_back', 'arch', ['reason' => 'scope_too_large']),
+            $this->outcome('g2', 'give_back', 'arch', ['reason' => 'scope_too_large']),
+            $this->outcome('g3', 'give_back', 'bug_fix', ['reason' => 'insufficient_context']),
+        ]);
+        $roots = $result['give_back_roots'];
+        $this->assertSame('scope_too_large', $roots[0]['reason']);
+        $this->assertSame(2, $roots[0]['count']);
+        $this->assertSame('medium', $roots[0]['confidence']);
+    }
+
+    public function test_cancellation_roots_groups_rejected_by_reason(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('r1', 'rejected', 'arch', ['reason' => 'contradictory_acceptance']),
+            $this->outcome('r2', 'rejected', 'arch', ['reason' => 'contradictory_acceptance']),
+        ]);
+        $roots = $result['cancellation_roots'];
+        $this->assertCount(1, $roots);
+        $this->assertSame('contradictory_acceptance', $roots[0]['reason']);
+        $this->assertSame(2, $roots[0]['count']);
+    }
+
+    public function test_malformed_roots_detects_poison_patterns(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('p1', 'success', 'docs', ['poison_patterns' => ['test_count_padding']]),
+            $this->outcome('p2', 'success', 'docs', ['poison_patterns' => ['test_count_padding']]),
+        ]);
+        $roots = $result['malformed_roots'];
+        $this->assertCount(1, $roots);
+        $this->assertSame('test_count_padding', $roots[0]['pattern']);
+        $this->assertSame(2, $roots[0]['count']);
+    }
+
+    public function test_collision_roots_detects_duplicate_spec_ids(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('dup', 'success', 'arch'),
+            $this->outcome('dup', 'give_back', 'arch', ['reason' => 'scope_too_large']),
+        ]);
+        $collisions = $result['collision_roots'];
+        $this->assertCount(1, $collisions);
+        $this->assertSame('dup', $collisions[0]['spec_id']);
+    }
+
+    public function test_queue_health_drift_detects_degradation(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('g1', 'give_back', 'arch', ['reason' => 'scope_too_large']),
+            $this->outcome('g2', 'give_back', 'arch', ['reason' => 'scope_too_large']),
+            $this->outcome('s1', 'success', 'arch'),
+        ]);
+        $drift = $result['queue_health_drift'];
+        $this->assertArrayHasKey('direction', $drift);
+        $this->assertArrayHasKey('yield_rate', $drift);
+        $this->assertArrayHasKey('drift_detected', $drift);
+        $this->assertTrue($drift['drift_detected']);
+    }
+
+    public function test_next_batch_rules_derived_from_policies(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('s1', 'rejected', 'arch', ['reason' => 'contradictory_acceptance']),
+            $this->outcome('s2', 'rejected', 'arch', ['reason' => 'contradictory_acceptance']),
+        ]);
+        $rules = $result['next_batch_rules'];
+        foreach ($rules as $rule) {
+            $this->assertArrayHasKey('rule', $rule);
+            $this->assertArrayHasKey('action', $rule);
+            $this->assertArrayHasKey('confidence', $rule);
+        }
+    }
+
+    public function test_low_confidence_lesson_for_single_success(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('s1', 'success', 'arch'),
+        ]);
+        $patterns = $result['success_patterns'];
+        $this->assertCount(1, $patterns);
+        $this->assertSame('low_confidence', $patterns[0]['confidence']);
+    }
 }
