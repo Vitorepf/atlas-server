@@ -163,4 +163,49 @@ final class AtlasExternalBrainMuscleFailureEscalationPolicyTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainMuscleFailureEscalationPolicy::CLASS_TASK_POISON, $result['failure_class']);
     }
+
+    // ── failureEscalation: next_action, escalation_level, root_cause, retry_blocked_reason ──
+
+    public function test_give_back_below_threshold_allows_retry(): void
+    {
+        $r = (new AtlasExternalBrainMuscleFailureEscalationPolicy)->failureEscalation([
+            'root_cause' => 'give_back',
+            'repeat_count' => 1,
+            'max_repeat_count' => 3,
+        ]);
+        $this->assertSame('retry_with_adjusted_prompt', $r['next_action']);
+        $this->assertSame('info', $r['escalation_level']);
+        $this->assertSame('give_back', $r['root_cause']);
+        $this->assertStringContainsString('may retry', $r['retry_blocked_reason']);
+    }
+
+    public function test_give_back_at_threshold_blocks_retry(): void
+    {
+        $r = (new AtlasExternalBrainMuscleFailureEscalationPolicy)->failureEscalation([
+            'root_cause' => 'give_back',
+            'repeat_count' => 3,
+            'max_repeat_count' => 3,
+        ]);
+        $this->assertSame('respec_task', $r['next_action']);
+        $this->assertSame('critical', $r['escalation_level']);
+        $this->assertStringContainsString('exceeds threshold', $r['retry_blocked_reason']);
+    }
+
+    public function test_scope_violation_maps_to_respec_with_scope_repair(): void
+    {
+        $r = (new AtlasExternalBrainMuscleFailureEscalationPolicy)->failureEscalation([
+            'root_cause' => 'scope_violation',
+            'repeat_count' => 1,
+        ]);
+        $this->assertSame('respec_task_with_scope_repair', $r['next_action']);
+    }
+
+    public function test_local_client_stall_maps_to_switch_muscle(): void
+    {
+        $r = (new AtlasExternalBrainMuscleFailureEscalationPolicy)->failureEscalation([
+            'root_cause' => 'local_client_stall',
+            'repeat_count' => 1,
+        ]);
+        $this->assertSame('switch_muscle', $r['next_action']);
+    }
 }
