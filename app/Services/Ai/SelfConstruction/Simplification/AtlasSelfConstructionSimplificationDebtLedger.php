@@ -130,7 +130,7 @@ final class AtlasSelfConstructionSimplificationDebtLedger
 
             // Duplicate-debt collapse: same category + same affected_targets set is ONE debt item,
             // never inflated into repeat entries — evidence and observed-age merge into the original.
-            $dedupKey = $category.'|'.implode(',', $targets);
+            $dedupKey = json_encode([$category, $targets], JSON_THROW_ON_ERROR);
             if (isset($byKey[$dedupKey])) {
                 $existing = $byKey[$dedupKey];
                 $existing['evidence_refs'] = array_values(array_unique(array_merge($existing['evidence_refs'], $evidenceRefs)));
