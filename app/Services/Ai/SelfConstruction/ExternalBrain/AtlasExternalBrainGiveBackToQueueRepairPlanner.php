@@ -193,6 +193,12 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
             }
         }
 
+        // Build safe_respec_envelope when respec_for_queue_feed has scope and runnable proof
+        $safeRespecEnvelope = null;
+        if ($repairPlan === 'respec_for_queue_feed') {
+            $safeRespecEnvelope = $this->buildSafeRespecEnvelope($event);
+        }
+
         $repairType = in_array($repairPlan, self::SCOPE_REPAIR_PLANS, true) ? 'respec_packet' : $repairPlan;
 
         return [
@@ -203,6 +209,7 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
             'safety_score' => self::SAFETY_SCORES[$repairPlan],
             'token_savings' => $tokenSavings,
             'unblock_count' => $unblockCount,
+            'safe_respec_envelope' => $safeRespecEnvelope,
         ];
     }
 
@@ -221,6 +228,38 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
         }
 
         return false;
+    }
+
+    /**
+     * Build safe_respec_envelope with patches only when scope and runnable proof are present.
+     *
+     * @param  array<string, mixed>  $event
+     * @return array{objective_patch:string,allowed_files_patch:list<string>,acceptance_patch:list<string>,required_evidence_patch:list<string>}|null
+     */
+    private function buildSafeRespecEnvelope(array $event): ?array
+    {
+        $allowedFiles = is_array($event['allowed_files'] ?? null)
+            ? array_values(array_filter(array_map('strval', $event['allowed_files'])))
+            : [];
+        $acceptanceCriteria = is_array($event['acceptance_criteria'] ?? null)
+            ? array_values(array_filter(array_map('strval', $event['acceptance_criteria'])))
+            : [];
+        $requiredEvidence = is_array($event['required_evidence'] ?? null)
+            ? array_values(array_filter(array_map('strval', $event['required_evidence'])))
+            : [];
+        $objective = (string) ($event['objective'] ?? '');
+
+        // Refuse safe_respec_envelope when missing runnable acceptance or empty allowed_files
+        if ($allowedFiles === [] || ! $this->hasRunnableAcceptance($acceptanceCriteria)) {
+            return null;
+        }
+
+        return [
+            'objective_patch' => $objective !== '' ? 'retain_objective_with_scope_narrowing' : 'objective_missing_cannot_respec',
+            'allowed_files_patch' => $allowedFiles,
+            'acceptance_patch' => $acceptanceCriteria,
+            'required_evidence_patch' => $requiredEvidence !== [] ? $requiredEvidence : ['tests_or_gates_result'],
+        ];
     }
 
     /**
