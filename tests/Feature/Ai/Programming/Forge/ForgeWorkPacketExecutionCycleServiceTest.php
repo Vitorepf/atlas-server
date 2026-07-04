@@ -143,6 +143,30 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         $this->assertNotContains((string) $packet->packet_id, $state->active_work_packets);
     }
 
+    public function test_complete_records_sovereign_gate_observe_verdict_without_blocking(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $plan = $this->cycles->planExecution($packet);
+        $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
+
+        $cycle = $this->cycles->complete($cycle, [
+            ['kind' => 'work_packet_receipts', 'ref' => 'wpr://1'],
+            ['kind' => 'verification_receipt', 'ref' => 'vr://1'],
+            ['kind' => 'simulation_log', 'ref' => 'sim://1'],
+        ], $this->passingGate(), $state);
+
+        // observe-mode: the cycle still completes (the library stays functional)...
+        $this->assertSame(ForgeWorkPacketExecutionCycleCanon::STATUS_SUCCESS, $cycle->status);
+        // ...and the sovereign floor's verdict is sealed as provenance, honestly reporting that the
+        // thin Forge-execution evidence would NOT promote (no real test counts / mutation / judges).
+        $sovereign = $cycle->next_action['sovereign_engineering_gate'] ?? null;
+        $this->assertIsArray($sovereign);
+        $this->assertSame('observe', $sovereign['mode']);
+        $this->assertFalse($sovereign['promoted']);
+        $this->assertNotEmpty($sovereign['blockers']);
+        $this->assertSame(64, strlen((string) $sovereign['receipt_ref']));
+    }
+
     public function test_complete_refuses_when_evidence_refs_is_empty(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();

@@ -6,6 +6,9 @@ use App\Models\AiForgeIntake;
 use App\Models\AiForgeLongHorizonState;
 use App\Models\AiForgeWorkPacket;
 use App\Models\AiForgeWorkPacketExecutionCycle;
+use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
+use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeFailureIntelligenceService;
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeOutcomeMemoryService;
@@ -69,7 +72,13 @@ class ForgeWorkPacketExecutionCycleService
         // plain `new` construction keeps working; the bridge is opt-in via
         // config anyway.
         private readonly ?\App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService $engineeringConductor = null,
-    ) {}
+        ?AtlasDevGateAdapter $devGate = null,
+    ) {
+        $this->devGate = $devGate ?? new AtlasDevGateAdapter;
+    }
+
+    /** Obra #2/#3 — the sovereign floor, connected in observe-mode over completed Forge cycles. */
+    private readonly AtlasDevGateAdapter $devGate;
 
     /**
      * Pick the next eligible packet. Eligibility rules:
@@ -341,7 +350,10 @@ class ForgeWorkPacketExecutionCycleService
         $outcomeMemory = $this->outcomeMemory->summarize($cycle);
         $cycle->next_action = array_merge(
             $this->computeNextActionAfterSuccess($cycle, $state),
-            ['outcome_memory' => $outcomeMemory],
+            [
+                'outcome_memory' => $outcomeMemory,
+                'sovereign_engineering_gate' => $this->sovereignObserveVerdict($cycle, $gateResult),
+            ],
         );
         $cycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($cycle));
         $cycle->save();
@@ -361,6 +373,45 @@ class ForgeWorkPacketExecutionCycleService
         }
 
         return $cycle;
+    }
+
+    /**
+     * Obra #2/#3 — OBSERVE-mode sovereign gate over a completed Forge cycle. The sovereign floor
+     * evaluates the cycle's evidence and seals a provenance verdict, but does NOT block: this cycle
+     * library has no live executor emitting full sovereign evidence yet (real test counts, mutation
+     * kill-ratio, dual-family judges, security scan), so blocking would break a working library
+     * instead of killing a fake-green. The honest verdict is recorded (promoted=false on thin
+     * evidence) — flip to enforcing once the executor emits real evidence.
+     * See [[loop-governance-spine-observe-mode]].
+     *
+     * @param  array<string,mixed>  $gateResult
+     * @return array<string,mixed>
+     */
+    private function sovereignObserveVerdict(AiForgeWorkPacketExecutionCycle $cycle, array $gateResult): array
+    {
+        $artifacts = array_values(array_map('strval', (array) ($cycle->execution_plan['expected_artifacts'] ?? [])));
+        $verdict = $this->devGate->certify(
+            AcceptanceBundle::fromArray([
+                'changed_files' => $artifacts,
+                'execution' => [
+                    'commands' => [],
+                    'claimed_status' => ((bool) ($gateResult['all_passed'] ?? false)) ? 'passed' : 'failed',
+                    'tests_run' => 0,
+                    'assertions_executed' => 0,
+                    'selected_tests' => [],
+                    'artifacts' => $artifacts,
+                ],
+            ]),
+            TrustLevel::Forge,
+        );
+
+        return [
+            'mode' => 'observe',
+            'promoted' => $verdict->promoted(),
+            'blockers' => $verdict->blockers,
+            'receipt_ref' => $verdict->receiptRef,
+            'note' => 'sovereign floor connected in observe-mode; flips to enforcing once the Forge executor emits real evidence',
+        ];
     }
 
     /**
