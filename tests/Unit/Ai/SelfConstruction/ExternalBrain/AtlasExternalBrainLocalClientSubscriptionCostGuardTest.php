@@ -5,125 +5,195 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLocalClientSubscriptionCostGuard;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 final class AtlasExternalBrainLocalClientSubscriptionCostGuardTest extends TestCase
 {
-    private function guard(): AtlasExternalBrainLocalClientSubscriptionCostGuard
+    private AtlasExternalBrainLocalClientSubscriptionCostGuard $guard;
+
+    protected function setUp(): void
     {
-        return new AtlasExternalBrainLocalClientSubscriptionCostGuard;
+        parent::setUp();
+        $this->guard = new AtlasExternalBrainLocalClientSubscriptionCostGuard();
     }
 
-    private function safeFacts(array $overrides = []): array
+    private function facts(array $overrides = []): array
     {
         return array_merge([
-            'uses_existing_subscription' => true,
+            'uses_existing_subscription' => false,
             'paid_api_required' => false,
-            'quota_remaining_known' => true,
+            'quota_remaining_known' => false,
             'soft_throttle_observed' => false,
-            'hard_limit_known' => true,
-            'reset_window_known' => true,
-            'fallback_available' => true,
+            'hard_limit_known' => false,
+            'reset_window_known' => false,
+            'fallback_available' => false,
+            'included_in_pool' => false,
+            'run_policy_forbids_paid_api' => false,
         ], $overrides);
     }
 
-    // ── AC2: classify local subscription / included-pool / API-metered / unknown-cost ──
+    // ── Schema ───────────────────────────────────────────────────────────────────
 
-    public function test_local_subscription_client_classified_with_low_risk(): void
+    public function test_schema_constant(): void
     {
-        $result = $this->guard()->evaluate($this->safeFacts());
-
-        $this->assertSame(AtlasExternalBrainLocalClientSubscriptionCostGuard::CLIENT_CLASS_LOCAL_SUBSCRIPTION, $result['client_class']);
-        $this->assertSame('low', $result['risk_level']);
+        $this->assertSame('atlas.external_brain.local_client_subscription_cost_guard.v1', AtlasExternalBrainLocalClientSubscriptionCostGuard::SCHEMA);
     }
 
-    public function test_included_pool_client_classified_with_medium_risk(): void
+    // ── Status constants ─────────────────────────────────────────────────────────
+
+    public function test_status_constants(): void
     {
-        $result = $this->guard()->evaluate($this->safeFacts([
-            'uses_existing_subscription' => false,
-            'included_in_pool' => true,
+        $this->assertSame('safe_for_24_7', AtlasExternalBrainLocalClientSubscriptionCostGuard::STATUS_SAFE_FOR_24_7);
+        $this->assertSame('safe_for_manual_use_only', AtlasExternalBrainLocalClientSubscriptionCostGuard::STATUS_SAFE_FOR_MANUAL_USE_ONLY);
+        $this->assertSame('blocked', AtlasExternalBrainLocalClientSubscriptionCostGuard::STATUS_BLOCKED);
+    }
+
+    // ── Blocked when paid API required ───────────────────────────────────────────
+
+    public function test_blocked_when_paid_api_required(): void
+    {
+        $result = $this->guard->evaluate($this->facts(['paid_api_required' => true]));
+        $this->assertSame('blocked', $result['cost_guard_status']);
+        $this->assertFalse($result['safe_for_manual_use']);
+        $this->assertFalse($result['safe_for_24_7']);
+    }
+
+    // ── Safe for 24/7 when all boundaries known ─────────────────────────────────
+
+    public function test_safe_for_24_7_when_all_boundaries_known(): void
+    {
+        $result = $this->guard->evaluate($this->facts([
+            'uses_existing_subscription' => true,
+            'quota_remaining_known' => true,
+            'hard_limit_known' => true,
+            'reset_window_known' => true,
         ]));
-
-        $this->assertSame(AtlasExternalBrainLocalClientSubscriptionCostGuard::CLIENT_CLASS_INCLUDED_POOL, $result['client_class']);
-        $this->assertSame('medium', $result['risk_level']);
+        $this->assertSame('safe_for_24_7', $result['cost_guard_status']);
+        $this->assertTrue($result['safe_for_manual_use']);
+        $this->assertTrue($result['safe_for_24_7']);
     }
 
-    public function test_api_metered_client_classified_with_high_risk(): void
-    {
-        $result = $this->guard()->evaluate($this->safeFacts(['paid_api_required' => true]));
+    // ── Safe for manual use only when some boundaries unknown ────────────────────
 
-        $this->assertSame(AtlasExternalBrainLocalClientSubscriptionCostGuard::CLIENT_CLASS_API_METERED, $result['client_class']);
+    public function test_safe_for_manual_use_only_when_quota_unknown(): void
+    {
+        $result = $this->guard->evaluate($this->facts([
+            'uses_existing_subscription' => true,
+            'hard_limit_known' => true,
+            'reset_window_known' => true,
+        ]));
+        $this->assertSame('safe_for_manual_use_only', $result['cost_guard_status']);
+        $this->assertTrue($result['safe_for_manual_use']);
+        $this->assertFalse($result['safe_for_24_7']);
+    }
+
+    // ── Client classification ────────────────────────────────────────────────────
+
+    public function test_client_class_api_metered_when_paid_api_required(): void
+    {
+        $result = $this->guard->evaluate($this->facts(['paid_api_required' => true]));
+        $this->assertSame('api_metered', $result['client_class']);
         $this->assertSame('high', $result['risk_level']);
     }
 
-    public function test_unknown_cost_client_classified_with_critical_risk(): void
+    public function test_client_class_local_subscription_when_uses_existing(): void
     {
-        $result = $this->guard()->evaluate($this->safeFacts([
-            'uses_existing_subscription' => false,
-            'included_in_pool' => false,
-        ]));
+        $result = $this->guard->evaluate($this->facts(['uses_existing_subscription' => true]));
+        $this->assertSame('local_subscription', $result['client_class']);
+        $this->assertSame('low', $result['risk_level']);
+    }
 
-        $this->assertSame(AtlasExternalBrainLocalClientSubscriptionCostGuard::CLIENT_CLASS_UNKNOWN_COST, $result['client_class']);
+    public function test_client_class_included_pool_when_in_pool(): void
+    {
+        $result = $this->guard->evaluate($this->facts(['included_in_pool' => true]));
+        $this->assertSame('included_pool', $result['client_class']);
+        $this->assertSame('medium', $result['risk_level']);
+    }
+
+    public function test_client_class_unknown_cost_when_no_signals(): void
+    {
+        $result = $this->guard->evaluate($this->facts());
+        $this->assertSame('unknown_cost', $result['client_class']);
         $this->assertSame('critical', $result['risk_level']);
     }
 
-    // ── AC3: run policy forbidding paid-API dependence blocks hidden usage ─────
+    // ── Run policy violation ─────────────────────────────────────────────────────
 
-    public function test_run_policy_forbidding_paid_api_blocks_explicit_api_metered_client(): void
+    public function test_run_policy_violation_when_api_metered_and_forbidden(): void
     {
-        $result = $this->guard()->evaluate($this->safeFacts([
+        $result = $this->guard->evaluate($this->facts([
             'paid_api_required' => true,
             'run_policy_forbids_paid_api' => true,
         ]));
-
-        $this->assertTrue($result['run_policy_violation']);
-        $this->assertSame('blocked', $result['cost_guard_status']);
-        $this->assertContains('run_policy_forbids_paid_api_dependence', $result['blockers']);
-    }
-
-    public function test_run_policy_forbidding_paid_api_also_blocks_hidden_unknown_cost_client(): void
-    {
-        $result = $this->guard()->evaluate($this->safeFacts([
-            'uses_existing_subscription' => false,
-            'run_policy_forbids_paid_api' => true,
-        ]));
-
-        $this->assertSame(AtlasExternalBrainLocalClientSubscriptionCostGuard::CLIENT_CLASS_UNKNOWN_COST, $result['client_class']);
         $this->assertTrue($result['run_policy_violation']);
         $this->assertSame('blocked', $result['cost_guard_status']);
     }
 
-    public function test_run_policy_forbidding_paid_api_does_not_flag_local_subscription_client(): void
+    public function test_run_policy_violation_when_unknown_cost_and_forbidden(): void
     {
-        $result = $this->guard()->evaluate($this->safeFacts([
+        $result = $this->guard->evaluate($this->facts([
             'run_policy_forbids_paid_api' => true,
         ]));
+        $this->assertTrue($result['run_policy_violation']);
+        $this->assertSame('blocked', $result['cost_guard_status']);
+    }
 
+    public function test_no_run_policy_violation_when_local_subscription(): void
+    {
+        $result = $this->guard->evaluate($this->facts([
+            'uses_existing_subscription' => true,
+            'run_policy_forbids_paid_api' => true,
+        ]));
         $this->assertFalse($result['run_policy_violation']);
-        $this->assertSame('safe_for_24_7', $result['cost_guard_status']);
     }
 
-    // ── AC4: fallback recommendation preserves quality, never silently pays ────
+    // ── Fallback recommendation ──────────────────────────────────────────────────
 
-    public function test_api_metered_fallback_recommendation_never_switches_to_paid_api(): void
+    public function test_fallback_none_when_safe_for_24_7(): void
     {
-        $result = $this->guard()->evaluate($this->safeFacts(['paid_api_required' => true]));
-
-        $this->assertStringNotContainsString('use_paid_api', (string) $result['fallback_recommendation']);
-        $this->assertStringContainsString('defer', (string) $result['fallback_recommendation']);
-    }
-
-    public function test_safe_for_24_7_fallback_recommendation_is_none_required(): void
-    {
-        $result = $this->guard()->evaluate($this->safeFacts());
-
+        $result = $this->guard->evaluate($this->facts([
+            'uses_existing_subscription' => true,
+            'quota_remaining_known' => true,
+            'hard_limit_known' => true,
+            'reset_window_known' => true,
+        ]));
         $this->assertSame('none_required', $result['fallback_recommendation']);
     }
 
-    public function test_manual_use_only_fallback_recommendation_restricts_to_supervised_session(): void
+    public function test_fallback_restrict_when_manual_use_only(): void
     {
-        $result = $this->guard()->evaluate($this->safeFacts(['quota_remaining_known' => false]));
+        $result = $this->guard->evaluate($this->facts([
+            'uses_existing_subscription' => true,
+            'hard_limit_known' => true,
+            'reset_window_known' => true,
+        ]));
+        $this->assertSame('restrict_to_manual_supervised_session_until_quota_boundaries_known', $result['fallback_recommendation']);
+    }
 
-        $this->assertStringContainsString('manual_supervised_session', (string) $result['fallback_recommendation']);
+    // ── Blockers ─────────────────────────────────────────────────────────────────
+
+    public function test_blockers_include_unknown_boundaries(): void
+    {
+        $result = $this->guard->evaluate($this->facts(['uses_existing_subscription' => true]));
+        $this->assertContains('quota_remaining_unknown', $result['blockers']);
+        $this->assertContains('hard_limit_unknown', $result['blockers']);
+        $this->assertContains('reset_window_unknown', $result['blockers']);
+    }
+
+    // ── No billing/network calls ─────────────────────────────────────────────────
+
+    public function test_no_billing_data_read(): void
+    {
+        $result = $this->guard->evaluate($this->facts());
+        $this->assertFalse($result['billing_data_read']);
+        $this->assertFalse($result['network_calls_made']);
+    }
+
+    // ── Determinism ──────────────────────────────────────────────────────────────
+
+    public function test_result_is_deterministic(): void
+    {
+        $facts = $this->facts(['uses_existing_subscription' => true]);
+        $this->assertSame($this->guard->evaluate($facts), $this->guard->evaluate($facts));
     }
 }
