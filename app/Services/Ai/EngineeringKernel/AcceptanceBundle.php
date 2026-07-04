@@ -28,7 +28,9 @@ final readonly class AcceptanceBundle
      * @param  array{secret_free?:bool,critical_sast?:int,critical_cve?:int,ran?:bool}  $securityScan
      * @param  array<int,array{name:string,provider_family:string,approved:bool}>  $judges
      * @param  int  $contextSufficiency        0..100, re-proved inside the gate
-     * @param  array<string,string>  $nonFunctional  reserved slots (perf/migration/architecture/property)
+     * @param  array<string,array<string,mixed>>  $nonFunctional  Obra #3 evidence keyed by slot:
+     *          performance_budget{applies,budget,measured}, migration_safety{probed,safe,reasons},
+     *          architecture_no_regression{violations}, property_clean_for_tagged{tagged,checked,violations}
      */
     public function __construct(
         public string $criteriaHash,

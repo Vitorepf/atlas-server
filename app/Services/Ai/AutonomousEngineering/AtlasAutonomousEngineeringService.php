@@ -16,6 +16,10 @@ use App\Models\AiRivalsShadowRun;
 use App\Models\PersistentAiExecutionPlan as AiExecutionPlan;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
+use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
+use App\Services\Ai\EngineeringKernel\CertVerdict;
+use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Router\AtlasAiRouterDecision;
 use App\Services\Ai\Router\AtlasAiRouterService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -523,6 +527,44 @@ class AtlasAutonomousEngineeringService
         ];
     }
 
+    /**
+     * Route the recorded autonomous evidence through the sovereign AcceptanceGate. A safe_simulation
+     * step records zero real test cases, so the gate refuses it (false_claim_blocked) — which is how
+     * a green certification can no longer be emitted off a simulation.
+     */
+    private function sovereignEngineeringVerdict(?AiAutonomousEngineeringGoal $goal): CertVerdict
+    {
+        $step = ($goal !== null && DatabaseTableAvailability::has('ai_autonomous_work_steps'))
+            ? AiAutonomousWorkStep::query()->where('goal_record_id', $goal->id)->latest()->first()
+            : null;
+
+        $selected = $step !== null ? array_values((array) $step->expected_tests) : [];
+        $changedFiles = $step !== null ? array_values((array) $step->expected_files) : [];
+
+        $bundle = AcceptanceBundle::fromArray([
+            'criteria_hash' => '',
+            'frozen_hash' => '',
+            'changed_files' => $changedFiles,
+            'changed_public_symbols' => [],
+            'execution' => [
+                'commands' => $selected,
+                'claimed_status' => ($step?->status === 'passed') ? 'passed' : 'failed',
+                'tests_run' => 0,            // a safe_simulation runs zero real test cases
+                'assertions_executed' => 0,
+                'selected_tests' => $selected,
+                'artifacts' => $changedFiles,
+            ],
+            'mutation_report' => [],
+            'security_scan' => [],
+            'judges' => [],
+            'context_sufficiency' => 0,
+        ]);
+
+        $trust = ($goal?->promotion_target === 'atlas_forge') ? TrustLevel::Forge : TrustLevel::Autonomos;
+
+        return app(AtlasDevGateAdapter::class)->certify($bundle, $trust);
+    }
+
     public function certify(?AiAutonomousEngineeringGoal $goal = null): AiAutonomousEngineeringCertification
     {
         $latestGoal = $goal ?? AiAutonomousEngineeringGoal::query()->latest()->first();
@@ -537,6 +579,11 @@ class AtlasAutonomousEngineeringService
             $this->check('compounding_outcome_recorded', $latestGoal?->outcome_receipt_hash !== null),
             $this->check('rivals_false_claim_blocked', DatabaseTableAvailability::has('ai_rivals_shadow_runs') && AiRivalsShadowRun::query()->where('false_claim_blocked', true)->exists()),
         ];
+        // SOVEREIGN GATE — enforcement vivo. A safe-simulation step carries no real test run, so the
+        // sovereign AcceptanceGate refuses it (false_claim_blocked): this OS can no longer certify a
+        // green off a simulation. Identical bar to every other surface; only the witness-set differs.
+        $sovereignVerdict = $this->sovereignEngineeringVerdict($latestGoal);
+        $checks[] = $this->check('sovereign_engineering_gate_promoted', $sovereignVerdict->promoted());
         $blockers = array_values(array_map(
             fn (array $check): string => $check['id'],
             array_filter($checks, fn (array $check): bool => $check['status'] !== 'passed'),

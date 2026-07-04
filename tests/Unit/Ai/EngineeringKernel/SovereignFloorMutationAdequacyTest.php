@@ -212,13 +212,19 @@ final class SovereignFloorMutationAdequacyTest extends TestCase
         self::assertSame(['status' => 'fail', 'detail' => 'distinct_approving_provider_families 1 < 2'], $r);
     }
 
-    // --- reserved slots always pass with the exact reserved detail ---
+    // --- Obra #3: the non-functional gates are live and WAIVE on an honest functional-only change ---
 
-    public function test_reserved_slots_pass_until_detector_exists(): void
+    public function test_non_functional_gates_waive_on_a_functional_only_change(): void
     {
         $verdict = $this->floor()->certify(AcceptanceBundleFactory::honest(), TrustLevel::Dev);
-        foreach (['performance_budget', 'migration_safety', 'architecture_no_regression', 'property_clean_for_tagged'] as $slot) {
-            self::assertSame(['status' => 'pass', 'detail' => 'reserved_slot_pass_until_detector_exists'], $verdict->invariants[$slot]);
+        $expected = [
+            'performance_budget' => 'performance_budget_not_applicable',
+            'migration_safety' => 'no_migration_touched',
+            'architecture_no_regression' => 'no_architecture_regression',
+            'property_clean_for_tagged' => 'not_tagged_sensitive',
+        ];
+        foreach ($expected as $slot => $detail) {
+            self::assertSame(['status' => 'pass', 'detail' => $detail], $verdict->invariants[$slot]);
         }
     }
 }

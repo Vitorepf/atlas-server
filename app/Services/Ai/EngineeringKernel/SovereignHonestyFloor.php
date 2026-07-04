@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel;
 
+use App\Services\Ai\EngineeringKernel\NonFunctional\MigrationSafetyProbe;
+
 /**
  * Engineering Kernel mechanism: THE sovereign honesty floor. The single implementation of
  * AcceptanceGate every surface routes through. Always-on invariants, identical for all three
@@ -29,14 +31,6 @@ final class SovereignHonestyFloor implements AcceptanceGate
 
     /** Signature of the legacy fake-green kernel's fixed smoke artifact — a hard tell of a lint-as-suite lie. */
     public const FIXED_SMOKE_SIGNATURE = 'atlas_real_execution_smoke';
-
-    /** Reserved non-functional slots: pass until their detector ships (Obra #3+), never block today. */
-    private const RESERVED_SLOTS = [
-        'performance_budget',
-        'migration_safety',
-        'architecture_no_regression',
-        'property_clean_for_tagged',
-    ];
 
     public function __construct(
         private readonly float $configMutationFloor = 0.0,
@@ -79,11 +73,14 @@ final class SovereignHonestyFloor implements AcceptanceGate
             'security_free' => $this->securityFree($bundle),
             'criteria_hash_frozen' => $this->criteriaHashFrozen($bundle),
             'judge_diversity' => $this->judgeDiversity($bundle),
+            // Obra #3 — non-functional gates. Each WAIVES when the delivery does not touch its
+            // surface, so an honest functional-only change is never blocked by them; each fails
+            // closed when the surface IS touched but its safety is unproven.
+            'performance_budget' => $this->performanceBudget($bundle),
+            'migration_safety' => $this->migrationSafety($bundle),
+            'architecture_no_regression' => $this->architectureNoRegression($bundle),
+            'property_clean_for_tagged' => $this->propertyCleanForTagged($bundle),
         ];
-
-        foreach (self::RESERVED_SLOTS as $slot) {
-            $invariants[$slot] = ['status' => 'pass', 'detail' => 'reserved_slot_pass_until_detector_exists'];
-        }
 
         $blockers = [];
         foreach ($invariants as $id => $result) {
@@ -286,6 +283,100 @@ final class SovereignHonestyFloor implements AcceptanceGate
         return $distinct >= self::MIN_JUDGE_FAMILIES
             ? $this->pass("distinct_approving_provider_families {$distinct} >= ".self::MIN_JUDGE_FAMILIES)
             : $this->fail("distinct_approving_provider_families {$distinct} < ".self::MIN_JUDGE_FAMILIES);
+    }
+
+    /**
+     * Obra #3 — performance budget. Opt-in: a delivery that DECLARES a budget must show a measured
+     * metric within it. Declared-but-unmeasured is fail-closed; not declared is waived.
+     *
+     * @return array{status:string,detail:string}
+     */
+    private function performanceBudget(AcceptanceBundle $bundle): array
+    {
+        $nf = (array) ($bundle->nonFunctional['performance_budget'] ?? []);
+        if (($nf['applies'] ?? false) !== true) {
+            return $this->pass('performance_budget_not_applicable');
+        }
+        if (! array_key_exists('budget', $nf) || ! array_key_exists('measured', $nf)) {
+            return $this->fail('performance_budget_declared_but_unmeasured');
+        }
+        $budget = (float) $nf['budget'];
+        $measured = (float) $nf['measured'];
+
+        return $measured <= $budget
+            ? $this->pass("performance_within_budget {$measured} <= {$budget}")
+            : $this->fail("performance_regression_over_budget {$measured} > {$budget}");
+    }
+
+    /**
+     * Obra #3 — migration safety. Objective trigger: any changed file under database/migrations/.
+     * Touching a migration WITHOUT a safety probe is fail-closed (the direct guard against a data
+     * wipe); an unsafe probe result is refused. No migration touched => waived.
+     *
+     * @return array{status:string,detail:string}
+     */
+    private function migrationSafety(AcceptanceBundle $bundle): array
+    {
+        $touchesMigration = false;
+        foreach ($bundle->changedFiles as $file) {
+            if (MigrationSafetyProbe::isMigrationPath((string) $file)) {
+                $touchesMigration = true;
+                break;
+            }
+        }
+        if (! $touchesMigration) {
+            return $this->pass('no_migration_touched');
+        }
+
+        $nf = (array) ($bundle->nonFunctional['migration_safety'] ?? []);
+        if (($nf['probed'] ?? false) !== true) {
+            return $this->fail('migration_touched_without_safety_probe');
+        }
+
+        return ($nf['safe'] ?? false) === true
+            ? $this->pass('migrations_safe')
+            : $this->fail('unsafe_migration:'.implode(';', array_map('strval', (array) ($nf['reasons'] ?? ['unspecified']))));
+    }
+
+    /**
+     * Obra #3 — architecture no-regression. A diff that adds an import edge crossing a forbidden
+     * layer boundary is refused. No reported violation => pass.
+     * ponytail: advisory-strong — waives when no edge scan ran; fully fail-closes once the adapter
+     * extracts import edges on every delivery (upgrade path: wire ArchitectureRegressionProbe live).
+     *
+     * @return array{status:string,detail:string}
+     */
+    private function architectureNoRegression(AcceptanceBundle $bundle): array
+    {
+        $nf = (array) ($bundle->nonFunctional['architecture_no_regression'] ?? []);
+        $violations = array_values(array_map('strval', (array) ($nf['violations'] ?? [])));
+
+        return $violations === []
+            ? $this->pass('no_architecture_regression')
+            : $this->fail('architecture_regression:'.implode(';', $violations));
+    }
+
+    /**
+     * Obra #3 — property-clean for tagged (sovereignty). A delivery tagged sensitive/secret/cyber
+     * must prove its property invariant was checked and holds. Tagged-but-unchecked is fail-closed;
+     * a violation is refused. Untagged => waived.
+     *
+     * @return array{status:string,detail:string}
+     */
+    private function propertyCleanForTagged(AcceptanceBundle $bundle): array
+    {
+        $nf = (array) ($bundle->nonFunctional['property_clean_for_tagged'] ?? []);
+        if (($nf['tagged'] ?? false) !== true) {
+            return $this->pass('not_tagged_sensitive');
+        }
+        if (($nf['checked'] ?? false) !== true) {
+            return $this->fail('tagged_sensitive_but_property_unchecked');
+        }
+        $violations = array_values(array_map('strval', (array) ($nf['violations'] ?? [])));
+
+        return $violations === []
+            ? $this->pass('tagged_property_clean')
+            : $this->fail('tagged_property_violation:'.implode(';', $violations));
     }
 
     private function isLintCommand(string $cmd): bool

@@ -48,15 +48,19 @@ class AtlasAutonomousEngineeringOperatingSystemTest extends TestCase
         ]);
         $run = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
 
-        $this->assertSame(0, $runExit);
+        // enforcement vivo: the goal completes as a simulation, but the sovereign gate refuses to
+        // certify a green off a safe_simulation (zero real test cases) — so the run exits non-zero.
+        $this->assertSame(1, $runExit);
         $this->assertSame('completed', $run['status']);
         $this->assertSame('passed', data_get($run, 'rag_gate.status'));
         $this->assertSame('ready', data_get($run, 'execution_plan.status'));
         $this->assertSame('passed', data_get($run, 'work_step.status'));
-        $this->assertSame('passed', data_get($run, 'certification.status'));
+        $this->assertSame('blocked', data_get($run, 'certification.status'));
+        $this->assertContains('sovereign_engineering_gate_promoted', data_get($run, 'certification.blockers'));
         $this->assertNotEmpty(data_get($run, 'goal.evidence_refs'));
         $this->assertNotNull(data_get($run, 'goal.outcome_receipt_hash'));
-        $this->assertNotNull(data_get($run, 'goal.certification_hash'));
+        // no green certification => the goal is never stamped with a certification hash
+        $this->assertNull(data_get($run, 'goal.certification_hash'));
 
         $controlExit = Artisan::call('atlas:ai:autonomous-engineering', ['action' => 'control-plane', '--json' => true]);
         $control = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
@@ -72,9 +76,9 @@ class AtlasAutonomousEngineeringOperatingSystemTest extends TestCase
         $certifyExit = Artisan::call('atlas:ai:autonomous-engineering', ['action' => 'certify', '--json' => true]);
         $certification = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
 
-        $this->assertSame(0, $certifyExit);
-        $this->assertSame('passed', $certification['status']);
-        $this->assertSame([], $certification['blockers']);
+        $this->assertSame(1, $certifyExit);
+        $this->assertSame('blocked', $certification['status']);
+        $this->assertContains('sovereign_engineering_gate_promoted', $certification['blockers']);
     }
 
     public function test_runtime_persists_required_artifacts_and_contracts(): void

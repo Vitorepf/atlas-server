@@ -7,6 +7,8 @@ namespace App\Services\Ai\EngineeringKernel\Adapters;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\AcceptanceGate;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
+use App\Services\Ai\EngineeringKernel\NonFunctional\ArchitectureRegressionProbe;
+use App\Services\Ai\EngineeringKernel\NonFunctional\MigrationSafetyProbe;
 use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Programming\AtlasDev\Mutation\MutationScoreVerdict;
@@ -76,8 +78,35 @@ final class AtlasDevGateAdapter implements AcceptanceGate
             'security_scan' => $securityScan,
             'judges' => $evidence['judges'] ?? [],
             'context_sufficiency' => $evidence['context_sufficiency'] ?? 0,
-            'non_functional' => $evidence['non_functional'] ?? [],
+            'non_functional' => self::nonFunctionalFromEvidence($evidence),
         ]);
+    }
+
+    /**
+     * Obra #3 — build the non-functional evidence: run the deterministic probes on raw inputs
+     * (migration sources, import edges) and merge over any surface-provided report. The probes win
+     * for their slot because they are COMPUTED from the diff, not self-reported.
+     *
+     * @param  array<string,mixed>  $evidence
+     * @return array<string,array<string,mixed>>
+     */
+    public static function nonFunctionalFromEvidence(array $evidence): array
+    {
+        $nf = (array) ($evidence['non_functional'] ?? []);
+
+        $migrationSources = $evidence['migration_sources'] ?? null;
+        if (is_array($migrationSources)) {
+            $nf['migration_safety'] = MigrationSafetyProbe::probe(array_map('strval', $migrationSources));
+        }
+
+        $importEdges = $evidence['import_edges'] ?? null;
+        if (is_array($importEdges)) {
+            $nf['architecture_no_regression'] = [
+                'violations' => ArchitectureRegressionProbe::violations(array_values($importEdges)),
+            ];
+        }
+
+        return $nf;
     }
 
     /**
