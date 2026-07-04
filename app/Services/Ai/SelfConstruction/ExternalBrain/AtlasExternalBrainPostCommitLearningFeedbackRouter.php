@@ -82,6 +82,10 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
         $workerAffinityUpdates  = [];
         $taskFamilyPolicyUpdates = [];
         $contextQualityFeedback = [];
+        $nextRouteActions = [
+            'task_fabric' => [],
+            'maestro' => [],
+        ];
 
         foreach ($commits as $commit) {
             $capability = trim((string) ($commit['changed_capability'] ?? ''));
@@ -138,13 +142,23 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
                 }
             }
 
-            // Warnings + constraints.
+            // Warnings + constraints + next_route_actions.
             if ($scopeSize > self::EXCESSIVE_SCOPE_THRESHOLD) {
                 $warnings[] = ['warning' => 'excessive_scope', 'capability' => $capability, 'scope_size' => $scopeSize];
                 if (! isset($constraintsSeen['excessive_scope'])) {
                     $constraintsSeen['excessive_scope'] = true;
                     $nextBatchConstraints[] = self::CONSTRAINT_MAP['excessive_scope'];
                 }
+                $nextRouteActions['task_fabric'][] = [
+                    'action' => 'reduce_scope',
+                    'capability' => $capability,
+                    'reason' => 'excessive_scope',
+                ];
+                $nextRouteActions['maestro'][] = [
+                    'action' => 'split_task',
+                    'capability' => $capability,
+                    'reason' => 'excessive_scope',
+                ];
             }
             if ($weakTestsBlock) {
                 $warnings[] = ['warning' => 'weak_tests', 'capability' => $capability, 'test_strength' => $testStrength];
@@ -152,6 +166,16 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
                     $constraintsSeen['weak_tests'] = true;
                     $nextBatchConstraints[] = self::CONSTRAINT_MAP['weak_tests'];
                 }
+                $nextRouteActions['task_fabric'][] = [
+                    'action' => 'require_stronger_tests',
+                    'capability' => $capability,
+                    'reason' => 'weak_tests',
+                ];
+                $nextRouteActions['maestro'][] = [
+                    'action' => 'gate_on_test_strength',
+                    'capability' => $capability,
+                    'reason' => 'weak_tests',
+                ];
             }
             if ($duplicateDetected) {
                 $warnings[] = ['warning' => 'duplicate_capability', 'capability' => $capability];
@@ -159,6 +183,16 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
                     $constraintsSeen['duplicate_capability'] = true;
                     $nextBatchConstraints[] = self::CONSTRAINT_MAP['duplicate_capability'];
                 }
+                $nextRouteActions['task_fabric'][] = [
+                    'action' => 'skip_duplicate',
+                    'capability' => $capability,
+                    'reason' => 'duplicate_capability',
+                ];
+                $nextRouteActions['maestro'][] = [
+                    'action' => 'merge_duplicate',
+                    'capability' => $capability,
+                    'reason' => 'duplicate_capability',
+                ];
             }
             if ($compoundingValue < self::LOW_COMPOUNDING_THRESHOLD) {
                 $warnings[] = ['warning' => 'low_compounding_value', 'capability' => $capability, 'compounding_value' => $compoundingValue];
@@ -166,6 +200,16 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
                     $constraintsSeen['low_compounding_value'] = true;
                     $nextBatchConstraints[] = self::CONSTRAINT_MAP['low_compounding_value'];
                 }
+                $nextRouteActions['task_fabric'][] = [
+                    'action' => 'deprioritize',
+                    'capability' => $capability,
+                    'reason' => 'low_compounding_value',
+                ];
+                $nextRouteActions['maestro'][] = [
+                    'action' => 'reduce_batch_weight',
+                    'capability' => $capability,
+                    'reason' => 'low_compounding_value',
+                ];
             }
             if ($noCapabilityDelta) {
                 $warnings[] = ['warning' => 'no_capability_delta', 'capability' => $capability];
@@ -173,6 +217,16 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
                     $constraintsSeen['no_capability_delta'] = true;
                     $nextBatchConstraints[] = self::CONSTRAINT_MAP['no_capability_delta'];
                 }
+                $nextRouteActions['task_fabric'][] = [
+                    'action' => 'require_capability_delta',
+                    'capability' => $capability,
+                    'reason' => 'no_capability_delta',
+                ];
+                $nextRouteActions['maestro'][] = [
+                    'action' => 'block_no_delta',
+                    'capability' => $capability,
+                    'reason' => 'no_capability_delta',
+                ];
             }
             if ($hostileContext) {
                 $warnings[] = ['warning' => 'hostile_context', 'capability' => $capability];
@@ -249,6 +303,7 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
             'worker_affinity_updates'    => $workerAffinityUpdates,
             'task_family_policy_updates' => $taskFamilyPolicyUpdates,
             'context_quality_feedback'   => $contextQualityFeedback,
+            'next_route_actions'         => $nextRouteActions,
             'ignored_low_evidence_commits' => $ignoredCommits,
         ];
     }
