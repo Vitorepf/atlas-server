@@ -254,4 +254,83 @@ final class AtlasExternalBrainModelAmplifierShadowRollout
             'give_back_risk_rate' => round($giveBackRiskCount / $n, 4),
         ];
     }
+
+    /**
+     * Held-out promotion evidence: requires held_out_sample_count and held_out_pass_rate
+     * before promotion_candidate can be true. Blocks promotion when amplified proposals
+     * improve quality but increase proxy_leak_rate or duplicate_rate.
+     *
+     * @param  array{
+     *   held_out_sample_count?: int,
+     *   held_out_pass_count?: int,
+     *   proxy_leak_rate?: float,
+     *   duplicate_rate?: float,
+     *   quality_lift?: float,
+     *   baseline_proxy_leak_rate?: float,
+     *   baseline_duplicate_rate?: float,
+     * }  $input
+     * @return array{
+     *   promotion_evidence: array<string,mixed>,
+     *   held_out_summary: array{held_out_sample_count:int, held_out_pass_rate:float},
+     *   safety_findings: list<string>,
+     *   promotion_candidate: bool,
+     * }
+     */
+    public function heldOutPromotionEvidence(array $input): array
+    {
+        $heldOutSampleCount = (int) ($input['held_out_sample_count'] ?? 0);
+        $heldOutPassCount = (int) ($input['held_out_pass_count'] ?? 0);
+        $proxyLeakRate = (float) ($input['proxy_leak_rate'] ?? 0.0);
+        $duplicateRate = (float) ($input['duplicate_rate'] ?? 0.0);
+        $qualityLift = (float) ($input['quality_lift'] ?? 0.0);
+        $baselineProxyLeakRate = (float) ($input['baseline_proxy_leak_rate'] ?? 0.0);
+        $baselineDuplicateRate = (float) ($input['baseline_duplicate_rate'] ?? 0.0);
+
+        $heldOutPassRate = $heldOutSampleCount > 0 ? round($heldOutPassCount / $heldOutSampleCount, 4) : 0.0;
+
+        $safetyFindings = [];
+
+        // Check 1: held-out sample required
+        if ($heldOutSampleCount === 0) {
+            $safetyFindings[] = 'missing_held_out_sample: cannot promote without held-out evidence';
+        }
+
+        // Check 2: proxy leak rate increase blocks promotion
+        if ($proxyLeakRate > $baselineProxyLeakRate) {
+            $safetyFindings[] = sprintf(
+                'proxy_leak_increase: amplified=%.4f > baseline=%.4f',
+                $proxyLeakRate,
+                $baselineProxyLeakRate,
+            );
+        }
+
+        // Check 3: duplicate rate increase blocks promotion
+        if ($duplicateRate > $baselineDuplicateRate) {
+            $safetyFindings[] = sprintf(
+                'duplicate_rate_increase: amplified=%.4f > baseline=%.4f',
+                $duplicateRate,
+                $baselineDuplicateRate,
+            );
+        }
+
+        $promotionCandidate = $safetyFindings === []
+            && $heldOutSampleCount > 0
+            && $heldOutPassRate > 0.0
+            && $qualityLift > 0.0;
+
+        return [
+            'promotion_evidence' => [
+                'quality_lift' => $qualityLift,
+                'proxy_leak_rate' => $proxyLeakRate,
+                'duplicate_rate' => $duplicateRate,
+                'held_out_pass_rate' => $heldOutPassRate,
+            ],
+            'held_out_summary' => [
+                'held_out_sample_count' => $heldOutSampleCount,
+                'held_out_pass_rate' => $heldOutPassRate,
+            ],
+            'safety_findings' => $safetyFindings,
+            'promotion_candidate' => $promotionCandidate,
+        ];
+    }
 }
