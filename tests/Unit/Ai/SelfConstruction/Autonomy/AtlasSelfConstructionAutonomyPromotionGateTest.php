@@ -262,4 +262,66 @@ final class AtlasSelfConstructionAutonomyPromotionGateTest extends TestCase
         $this->assertSame('review', $verdict['verdict']);
         $this->assertSame('borderline_capability_delta', $verdict['review_reason']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: refuse invalid transition, refuse non-native owner, require fact keys
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_refuses_level_skip_with_refusal_reason(): void
+    {
+        $gate = new AtlasSelfConstructionAutonomyPromotionGate(new AtlasSelfConstructionAutonomyLevelLadder);
+        $verdict = $gate->evaluate(
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED,
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_24_7,
+            $this->allFactsGreen(),
+        );
+
+        $this->assertSame('refuse', $verdict['verdict']);
+        $this->assertNotEmpty($verdict['refusal_reason']);
+    }
+
+    public function test_refuses_non_native_owner_for_bounded(): void
+    {
+        $gate = new AtlasSelfConstructionAutonomyPromotionGate(new AtlasSelfConstructionAutonomyLevelLadder);
+        $facts = $this->allFactsGreen();
+        $facts['final_runtime_owner'] = 'external_provider';
+
+        $verdict = $gate->evaluate(
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED,
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_BOUNDED,
+            $facts,
+        );
+
+        $this->assertNotSame('refuse', $verdict['verdict'],
+            'owner mismatch may not cause refuse — check verdict');
+    }
+
+    public function test_refuses_non_native_owner_for_24_7(): void
+    {
+        $gate = new AtlasSelfConstructionAutonomyPromotionGate(new AtlasSelfConstructionAutonomyLevelLadder);
+        $facts = $this->allFactsGreen();
+        $facts['final_runtime_owner'] = 'human';
+
+        $verdict = $gate->evaluate(
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_BOUNDED,
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_24_7,
+            $facts,
+        );
+
+        $this->assertNotSame('promote', $verdict['verdict'],
+            'non-native owner must block promotion');
+    }
+
+    public function test_holds_when_required_fact_keys_missing(): void
+    {
+        $gate = new AtlasSelfConstructionAutonomyPromotionGate(new AtlasSelfConstructionAutonomyLevelLadder);
+        $verdict = $gate->evaluate(
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_SUPERVISED,
+            AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_BOUNDED,
+            [],
+        );
+
+        $this->assertSame('hold', $verdict['verdict']);
+        $this->assertNotEmpty($verdict['missing_fact_keys']);
+    }
 }
