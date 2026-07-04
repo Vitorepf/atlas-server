@@ -128,15 +128,23 @@ final class AtlasMaestroAdaptiveDecisionReceipt
         $selectedAction = $this->selectedAction($payload, $kind);
         $outcomeHook = (string) ($payload['outcome_hook'] ?? $payload['outcome_hook_or_null'] ?? '');
         $inputEvidenceRefs = array_values(array_map('strval', (array) ($payload['input_evidence_refs'] ?? $payload['evidence_refs'] ?? [])));
-        $evidenceHash = hash('sha256', (string) json_encode(
+        $evidencePayload = json_encode(
             [$packetId, $originalHash, $outcomeHash, $inputEvidenceRefs, $selectedAction, $rejectedAlternatives, $outcomeHook],
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
-        ));
+        );
+        if ($evidencePayload === false || $evidencePayload === '') {
+            throw new DomainException('atlas_maestro_adaptive_decision_evidence_unencodable');
+        }
+        $evidenceHash = hash('sha256', $evidencePayload);
 
-        $recordHash = hash('sha256', (string) json_encode(
+        $recordPayload = json_encode(
             [$kind, $packetId, $originalHash, $outcomeHash, $confidenceBand, $evidenceHash],
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
-        ));
+        );
+        if ($recordPayload === false || $recordPayload === '') {
+            throw new DomainException('atlas_maestro_adaptive_decision_record_unencodable');
+        }
+        $recordHash = hash('sha256', $recordPayload);
 
         return [
             'schema' => self::SCHEMA,

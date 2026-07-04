@@ -270,4 +270,53 @@ final class AtlasMaestroOldestPacketRotationAdvisorTest extends TestCase
 
         $this->assertSame($advisor->classifyOldestPackets($packets), $advisor->classifyOldestPackets($packets));
     }
+
+    // ── value-aware surface ordering ──
+
+    public function test_packet_ids_to_surface_ordered_by_unblock_count_and_value_class(): void
+    {
+        $result = $this->advisor()->advise([
+            'queue_age' => ['p95' => 120.0],
+            'oldest_packet_ids' => ['tp-low-1', 'tp-high-1', 'tp-critical-1'],
+            'claimable_depth' => 30,
+            'serve_rate_per_minute' => 0.5,
+            'packet_values' => [
+                'tp-low-1' => ['unblock_count' => 1, 'value_class' => 'low'],
+                'tp-high-1' => ['unblock_count' => 2, 'value_class' => 'high'],
+                'tp-critical-1' => ['unblock_count' => 3, 'value_class' => 'critical'],
+            ],
+        ]);
+
+        $this->assertSame(['tp-critical-1', 'tp-high-1', 'tp-low-1'], $result['packet_ids_to_surface']);
+    }
+
+    public function test_low_value_stale_packets_surfaced_after_high_value(): void
+    {
+        $result = $this->advisor()->advise([
+            'queue_age' => ['p95' => 120.0],
+            'oldest_packet_ids' => ['tp-low-1', 'tp-critical-1'],
+            'claimable_depth' => 30,
+            'serve_rate_per_minute' => 0.5,
+            'packet_values' => [
+                'tp-low-1' => ['unblock_count' => 0, 'value_class' => 'low'],
+                'tp-critical-1' => ['unblock_count' => 0, 'value_class' => 'critical'],
+            ],
+        ]);
+
+        $this->assertSame(['tp-critical-1', 'tp-low-1'], $result['packet_ids_to_surface']);
+    }
+
+    public function test_action_set_still_never_includes_originate_or_create_more_tasks(): void
+    {
+        $result = $this->advisor()->advise([
+            'queue_age' => ['p95' => 120.0],
+            'oldest_packet_ids' => ['tp-1'],
+            'claimable_depth' => 30,
+            'serve_rate_per_minute' => 0.5,
+            'packet_values' => ['tp-1' => ['unblock_count' => 1, 'value_class' => 'high']],
+        ]);
+
+        $this->assertStringNotContainsString('originate', $result['action']);
+        $this->assertStringNotContainsString('create_more_tasks', $result['action']);
+    }
 }

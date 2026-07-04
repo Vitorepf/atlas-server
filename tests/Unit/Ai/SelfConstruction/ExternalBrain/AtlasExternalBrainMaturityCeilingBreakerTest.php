@@ -440,4 +440,92 @@ final class AtlasExternalBrainMaturityCeilingBreakerTest extends TestCase
 
         $this->assertNotNull($r['proposed_jump']);
     }
+
+    // AC: output includes next_leverage_moves
+    public function test_next_leverage_moves_present(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertArrayHasKey('next_leverage_moves', $r);
+        $this->assertIsArray($r['next_leverage_moves']);
+    }
+
+    // AC: plateau_claim_allowed=false when unexplored high-leverage surfaces remain
+    public function test_plateau_claim_not_allowed_when_moves_exist(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertArrayHasKey('plateau_claim_allowed', $r);
+        $this->assertFalse($r['plateau_claim_allowed']);
+    }
+
+    // AC: plateau_claim_allowed=true when no ceiling and no moves
+    public function test_plateau_claim_allowed_when_healthy(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 3, $this->task(true)),
+            'proposed_capability_jumps' => [],
+        ]);
+
+        $this->assertTrue($r['plateau_claim_allowed']);
+    }
+
+    // AC: ceiling_type categorizes the ceiling
+    public function test_ceiling_type_stagnation(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertArrayHasKey('ceiling_type', $r);
+        $this->assertSame('stagnation', $r['ceiling_type']);
+    }
+
+    // AC: evidence_refs present
+    public function test_evidence_refs_present(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => [
+                ['id' => 't1', 'unlocks_new_capability' => false, 'evidence_ref' => 'ev-1'],
+                ['id' => 't2', 'unlocks_new_capability' => false, 'evidence_ref' => 'ev-2'],
+            ],
+            'proposed_capability_jumps' => [],
+        ]);
+
+        $this->assertArrayHasKey('evidence_refs', $r);
+        $this->assertSame(['ev-1', 'ev-2'], $r['evidence_refs']);
+    }
+
+    // AC: chosen_move equals proposed_jump
+    public function test_chosen_move_equals_proposed_jump(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertArrayHasKey('chosen_move', $r);
+        $this->assertSame($r['proposed_jump'], $r['chosen_move']);
+    }
+
+    // AC: rejected_moves equals rejected_jumps
+    public function test_rejected_moves_equals_rejected_jumps(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [
+                ['name' => 'bad', 'blast_radius' => 1.0, 'risk_score' => 1.0],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('rejected_moves', $r);
+        $this->assertSame($r['rejected_jumps'], $r['rejected_moves']);
+    }
 }

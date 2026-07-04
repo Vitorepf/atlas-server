@@ -157,6 +157,16 @@ class AtlasAutonomyLadderRuntimeService
      */
     public function evaluateDemote(string $currentLevel, array $recentCycles, int $consecutiveBreachTrigger = 2): array
     {
+        if ($consecutiveBreachTrigger < 1) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'demote' => false,
+                'from_level' => $currentLevel,
+                'to_level' => null,
+                'reason' => 'invalid_trigger_floor',
+            ];
+        }
+
         $index = $this->levelIndex($currentLevel);
         if ($index === null || $index === 0) {
             return [
@@ -170,7 +180,7 @@ class AtlasAutonomyLadderRuntimeService
 
         $rung = self::LADDER[$index];
         $tail = array_slice($recentCycles, -$consecutiveBreachTrigger);
-        $allBreach = count($tail) >= $consecutiveBreachTrigger;
+        $allBreach = count($tail) === $consecutiveBreachTrigger;
         $breaching = [];
         foreach ($tail as $cycleMetrics) {
             $cycleBreaches = $this->cycleBreaches($rung['exit'], $cycleMetrics);

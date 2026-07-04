@@ -412,4 +412,62 @@ final class AtlasExternalBrainLocalJudgeCalibrationCourtTest extends TestCase
         $this->assertSame(1, $breakdown['proxy']);
         $this->assertSame(1, $breakdown['false_green']);
     }
+
+    // ── calibrated_thresholds ──
+
+    public function test_calibrated_thresholds_present_in_output(): void
+    {
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.5, $this->nOutcomes(6, $this->successOutcome()))],
+        ]);
+
+        $this->assertArrayHasKey('calibrated_thresholds', $r);
+        $this->assertArrayHasKey('min_samples', $r['calibrated_thresholds']);
+        $this->assertArrayHasKey('over_optimism_threshold', $r['calibrated_thresholds']);
+        $this->assertArrayHasKey('calibrated_count', $r['calibrated_thresholds']);
+        $this->assertArrayHasKey('suspect_count', $r['calibrated_thresholds']);
+    }
+
+    // ── failed_examples ──
+
+    public function test_failed_examples_detects_false_green(): void
+    {
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.9, $this->nOutcomes(6, $this->falseGreenOutcome()))],
+        ]);
+
+        $this->assertArrayHasKey('failed_examples', $r);
+        $this->assertCount(6, $r['failed_examples']);
+        $this->assertSame('gate_approved_poison', $r['failed_examples'][0]['issue']);
+    }
+
+    public function test_failed_examples_empty_when_clean(): void
+    {
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.5, $this->nOutcomes(6, $this->successOutcome()))],
+        ]);
+
+        $this->assertSame([], $r['failed_examples']);
+    }
+
+    // ── next_gate_repair_hint ──
+
+    public function test_next_gate_repair_hint_no_repair_when_calibrated(): void
+    {
+        // Judge score 1.0 with all success outcomes (actual=1.0) → bias=0, calibrated
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 1.0, $this->nOutcomes(6, $this->successOutcome()))],
+        ]);
+
+        $this->assertStringContainsString('no_repair_needed', $r['next_gate_repair_hint']);
+    }
+
+    public function test_next_gate_repair_hint_decrease_when_over_optimistic(): void
+    {
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.9, $this->nOutcomes(6, $this->giveBackOutcome()))],
+        ]);
+
+        $this->assertStringContainsString('decrease_judge_weight', $r['next_gate_repair_hint']);
+    }
 }

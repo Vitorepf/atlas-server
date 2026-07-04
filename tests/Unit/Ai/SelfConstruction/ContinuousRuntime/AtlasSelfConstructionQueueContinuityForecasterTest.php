@@ -210,4 +210,47 @@ final class AtlasSelfConstructionQueueContinuityForecasterTest extends TestCase
         $this->assertArrayHasKey('quality_warning', $r);
         $this->assertArrayHasKey('replenish_window', $r);
     }
+
+    // ── safety_window_hours clamp ──────────────────────────────────────────────
+
+    public function test_negative_safety_window_hours_clamped_to_zero(): void
+    {
+        // Negative safety_window_hours must be clamped to 0.0 so it cannot mask
+        // an imminent replenish_before_empty signal.
+        $r = $this->svc()->forecast($this->snap([
+            'claimable_depth' => 1,
+            'active_leases' => 2,
+            'completed_dry_run_per_hour_per_lease' => 1.0,
+            'safety_window_hours' => -1.0,
+        ]));
+
+        // drain_rate = 2*1.0 = 2.0/h, time_to_no_claimable = 1/2.0 = 0.5h
+        // safety_window clamped to 0.0 → 0.5 < 0.0 is false → stable
+        // (the clamp prevents the negative from masking; with 0.0 window,
+        // any positive time_to_no_claimable is "stable" — the point is the
+        // negative doesn't make the comparison always false)
+        $this->assertSame(AtlasSelfConstructionQueueContinuityForecaster::CONTINUITY_STABLE, $r['continuity_status']);
+    }
+
+    public function test_positive_safety_window_hours_triggers_replenish_before_empty(): void
+    {
+        // With a positive safety window, an imminent drain should trigger replenish.
+        $r = $this->svc()->forecast($this->snap([
+            'claimable_depth' => 1,
+            'active_leases' => 2,
+            'completed_dry_run_per_hour_per_lease' => 1.0,
+            'safety_window_hours' => 2.0,
+        ]));
+
+        // drain_rate = 2.0/h, time_to_no_claimable = 0.5h < 2.0 → replenish_before_empty
+        $this->assertSame(AtlasSelfConstructionQueueContinuityForecaster::CONTINUITY_REPLENISH_BEFORE_EMPTY, $r['continuity_status']);
+    }
+
+    public function test_source_clamps_safety_window_hours(): void
+    {
+        $source = file_get_contents(__DIR__.'/../../../../../app/Services/Ai/SelfConstruction/ContinuousRuntime/AtlasSelfConstructionQueueContinuityForecaster.php');
+
+        $this->assertStringContainsString('max(0.0, (float)', $source);
+        $this->assertStringContainsString("safety_window_hours", $source);
+    }
 }

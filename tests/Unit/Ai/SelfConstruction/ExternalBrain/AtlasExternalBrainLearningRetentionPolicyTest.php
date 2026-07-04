@@ -418,4 +418,53 @@ final class AtlasExternalBrainLearningRetentionPolicyTest extends TestCase
 
         $this->assertSame('overridden_by_newer_learning', $r['retired'][0]['reason']);
     }
+
+    // ── source_refs, refresh_due, needs_refresh, dedup ──
+
+    public function test_retained_entry_has_source_refs_refresh_due_and_needs_refresh(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec([
+                'utility_score' => 0.9,
+                'age_days' => 5,
+                'source_refs' => ['mission:abc', 'outcome:123'],
+            ]),
+        ]]);
+
+        $entry = $r['retained'][0];
+        $this->assertSame(['mission:abc', 'outcome:123'], $entry['source_refs']);
+        $this->assertArrayHasKey('refresh_due', $entry);
+        $this->assertArrayHasKey('needs_refresh', $entry);
+    }
+
+    public function test_needs_refresh_is_true_for_stale_unconfirmed(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec(['utility_score' => 0.5, 'age_days' => 20, 'confirmed' => false]),
+        ]]);
+
+        $entry = $r['decaying'][0];
+        $this->assertTrue($entry['needs_refresh']);
+    }
+
+    public function test_needs_refresh_is_false_for_fresh_record(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec(['utility_score' => 0.9, 'age_days' => 3, 'confirmed' => true]),
+        ]]);
+
+        $entry = $r['retained'][0];
+        $this->assertFalse($entry['needs_refresh']);
+    }
+
+    public function test_deduplicate_keeps_highest_utility_version(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec(['id' => 'dup', 'utility_score' => 0.3, 'age_days' => 5]),
+            $this->rec(['id' => 'dup', 'utility_score' => 0.9, 'age_days' => 5]),
+        ]]);
+
+        $this->assertSame(1, $r['retained_count']);
+        $this->assertSame(0.9, $r['retained'][0]['utility_score']);
+    }
 }

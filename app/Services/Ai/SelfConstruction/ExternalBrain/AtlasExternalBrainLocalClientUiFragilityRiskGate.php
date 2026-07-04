@@ -64,6 +64,9 @@ final class AtlasExternalBrainLocalClientUiFragilityRiskGate
             default => 'no_risk_detected',
         };
 
+        // required_adapter_work: specific adapter work needed to make this client headless-safe
+        $requiredAdapterWork = $this->determineRequiredAdapterWork($facts);
+
         return [
             'schema' => self::SCHEMA,
             'facts' => $facts,
@@ -71,6 +74,48 @@ final class AtlasExternalBrainLocalClientUiFragilityRiskGate
             'risk_reason_count' => count($riskReasons),
             'safe_for_24_7' => $safeFor247,
             'recommendation' => $recommendation,
+            'required_adapter_work' => $requiredAdapterWork,
         ];
+    }
+
+    /**
+     * Determine specific adapter work required for the given risk facts.
+     *
+     * @param  array<string, bool>  $facts
+     * @return list<string>
+     */
+    private function determineRequiredAdapterWork(array $facts): array
+    {
+        $work = [];
+
+        if ($facts['ui_only']) {
+            $work[] = 'replace_ui_automation_with_headless_api_or_cli';
+        }
+
+        if ($facts['requires_screen_focus']) {
+            $work[] = 'eliminate_screen_focus_dependency_with_headless_display_or_virtual_x11';
+        }
+
+        if ($facts['brittle_selector_dependency']) {
+            $work[] = 'replace_brittle_selectors_with_stable_api_endpoints_or_robust_selectors';
+        }
+
+        if ($facts['cannot_stream_stdout']) {
+            $work[] = 'implement_stdout_streaming_or_file_based_output_for_headless_invocation';
+        }
+
+        if ($facts['cannot_set_workspace']) {
+            $work[] = 'add_workspace_path_configuration_for_headless_invocation';
+        }
+
+        if ($facts['cannot_bound_cost']) {
+            $work[] = 'implement_cost_bound_guard_or_pre_flight_cost_estimate';
+        }
+
+        if ($facts['cannot_enforce_timeout']) {
+            $work[] = 'implement_timeout_enforcement_or_external_process_monitor';
+        }
+
+        return $work;
     }
 }

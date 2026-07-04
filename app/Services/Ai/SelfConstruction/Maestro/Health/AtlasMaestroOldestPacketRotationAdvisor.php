@@ -71,6 +71,7 @@ final class AtlasMaestroOldestPacketRotationAdvisor
         $activeLeases = (int) ($facts['active_leases'] ?? 0);
         $serveRate = $facts['serve_rate_per_minute'] ?? null;
         $oldestIds = array_values(array_map('strval', (array) ($facts['oldest_packet_ids'] ?? [])));
+        $packetValues = (array) ($facts['packet_values'] ?? []);
 
         $isStale = $p95 >= self::P95_STALE_THRESHOLD_MINUTES;
         $isHighDepth = $claimableDepth >= self::CLAIMABLE_DEPTH_HIGH_THRESHOLD;
@@ -90,7 +91,10 @@ final class AtlasMaestroOldestPacketRotationAdvisor
         if ($isStale && $isHighDepth && $isLowOrUnknownConsumption) {
             $action = $activeLeases === 0 ? self::ACTION_ROTATE_OLDEST : self::ACTION_SURFACE_OLDEST_TO_MUSCLES;
 
-            return $this->result($action, $reasonCodes, $oldestIds);
+            // Value-aware surface ordering: by unblock_count desc, value_class asc, then raw age
+            $surfaceIds = $this->sortByValueAwarePriority($oldestIds, $packetValues);
+
+            return $this->result($action, $reasonCodes, $surfaceIds);
         }
 
         if ($isStale && ! $isHighDepth) {
@@ -100,6 +104,42 @@ final class AtlasMaestroOldestPacketRotationAdvisor
         }
 
         return $this->result(self::ACTION_OBSERVE, $reasonCodes, []);
+    }
+
+    /**
+     * Sort packet IDs by value-aware priority: unblock_count desc, value_class asc, then raw order.
+     *
+     * @param  list<string>  $ids
+     * @param  array<string, array<string, mixed>>  $packetValues
+     * @return list<string>
+     */
+    private function sortByValueAwarePriority(array $ids, array $packetValues): array
+    {
+        if ($packetValues === []) {
+            return $ids;
+        }
+
+        usort($ids, function (string $a, string $b) use ($packetValues): int {
+            $aUnblock = (int) ($packetValues[$a]['unblock_count'] ?? 0);
+            $bUnblock = (int) ($packetValues[$b]['unblock_count'] ?? 0);
+
+            // Higher unblock_count first
+            if ($aUnblock !== $bUnblock) {
+                return $bUnblock <=> $aUnblock;
+            }
+
+            $aValueClass = (string) ($packetValues[$a]['value_class'] ?? 'medium');
+            $bValueClass = (string) ($packetValues[$b]['value_class'] ?? 'medium');
+
+            // Higher value class first (critical > high > medium > low)
+            $valueOrder = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
+            $aRank = $valueOrder[$aValueClass] ?? 2;
+            $bRank = $valueOrder[$bValueClass] ?? 2;
+
+            return $aRank <=> $bRank;
+        });
+
+        return $ids;
     }
 
     /**

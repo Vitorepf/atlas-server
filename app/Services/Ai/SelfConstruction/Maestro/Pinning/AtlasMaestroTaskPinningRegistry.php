@@ -103,6 +103,82 @@ final class AtlasMaestroTaskPinningRegistry
         return (string) json_encode($this->snapshot(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
+    /**
+     * Audit surface: active_pins, releasable_pins, receipt_hashes, stale_pin_count.
+     *
+     * @return array{active_pins:list<array>, releasable_pins:list<array>, receipt_hashes:list<string>, stale_pin_count:int}
+     */
+    public function inspect(): array
+    {
+        $state = $this->load();
+        $now = (string) ($this->now)();
+
+        $activePins = [];
+        $releasablePins = [];
+        $receiptHashes = [];
+
+        foreach ($state as $taskPacketId => $pin) {
+            if (! is_array($pin)) {
+                continue;
+            }
+
+            $ttlExpiresAt = (string) ($pin['ttl_expires_at'] ?? '');
+            $isExpired = $ttlExpiresAt !== '' && strcmp($ttlExpiresAt, $now) <= 0;
+
+            // Compute receipt hash for audit
+            $receiptHash = hash('sha256', json_encode([
+                'task_id' => $taskPacketId,
+                'worker_id' => (string) ($pin['worker_id'] ?? ''),
+                'expires_at' => $ttlExpiresAt,
+                'reason' => (string) ($pin['reason'] ?? ''),
+            ], JSON_THROW_ON_ERROR));
+            $receiptHashes[] = $receiptHash;
+
+            if ($isExpired) {
+                $releasablePins[] = $pin + ['task_packet_id' => $taskPacketId, 'release_reason' => 'ttl_expired'];
+            } else {
+                $activePins[] = $pin + ['task_packet_id' => $taskPacketId];
+            }
+        }
+
+        return [
+            'active_pins' => $activePins,
+            'releasable_pins' => $releasablePins,
+            'receipt_hashes' => $receiptHashes,
+            'stale_pin_count' => count($releasablePins),
+        ];
+    }
+
+    /**
+     * Mark pins for crashed workers as releasable.
+     *
+     * @param  list<string>  $crashedWorkerIds
+     * @return list<array<string,mixed>>
+     */
+    public function markCrashedWorkerPins(array $crashedWorkerIds): array
+    {
+        $state = $this->load();
+        $releasable = [];
+
+        foreach ($crashedWorkerIds as $workerId) {
+            foreach ($state as $taskPacketId => $pin) {
+                if (! is_array($pin)) {
+                    continue;
+                }
+                if ((string) ($pin['worker_id'] ?? '') === $workerId) {
+                    $releasable[] = $pin + ['task_packet_id' => $taskPacketId, 'release_reason' => 'worker_crashed'];
+                    unset($state[$taskPacketId]);
+                }
+            }
+        }
+
+        if ($releasable !== []) {
+            $this->save($state);
+        }
+
+        return $releasable;
+    }
+
     private function addSeconds(string $iso, int $seconds): string
     {
         $ts = strtotime($iso);

@@ -56,7 +56,17 @@ class VentureAdmissionGate
         }
 
         $uuid = (string) Str::uuid();
-        $decidedAt = isset($args['decided_at']) ? Carbon::parse((string) $args['decided_at']) : Carbon::now();
+        $decidedAt = null;
+        if (isset($args['decided_at'])) {
+            try {
+                $decidedAt = Carbon::parse((string) $args['decided_at']);
+            } catch (\Throwable) {
+                $decidedAt = null;
+            }
+        }
+        if ($decidedAt === null) {
+            $decidedAt = Carbon::now();
+        }
 
         return AiVentureAdmissionDecision::query()->create([
             'uuid' => $uuid,

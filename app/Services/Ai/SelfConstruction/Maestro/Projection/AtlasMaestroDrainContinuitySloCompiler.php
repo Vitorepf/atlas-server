@@ -230,6 +230,18 @@ final class AtlasMaestroDrainContinuitySloCompiler
             default => self::STATUS_HEALTHY,
         };
 
+        // hours_to_starvation: how long until servable_now drops to zero at current drain rate
+        $hoursToStarvation = $this->computeHoursToStarvation($servableNow, $avgThroughput, $activeWorkers);
+
+        // evidence_confidence: downgraded when throughput telemetry is sparse or self-reported
+        $evidenceConfidence = $this->computeEvidenceConfidence($throughputSamples, $telemetryConfidence, $facts);
+
+        // recommended_replenish_window: when to replenish based on hours_to_starvation
+        $recommendedReplenishWindow = $this->computeRecommendedReplenishWindow($hoursToStarvation);
+
+        // slo_status: derived from status + evidence_confidence
+        $sloStatus = $this->computeSloStatus($status, $evidenceConfidence);
+
         $originatorAction = match (true) {
             $isWorkerFloorBreach || $supplyVerdict === 'starved' => self::ORIGINATOR_ACTION_ORIGINATE_NOW,
             $giveBackVerdict === 'amplifying_risk' => self::ORIGINATOR_ACTION_REPAIR_GIVE_BACK_LOOP,
@@ -240,6 +252,10 @@ final class AtlasMaestroDrainContinuitySloCompiler
         return [
             'schema_version' => self::SCHEMA,
             'status' => $status,
+            'slo_status' => $sloStatus,
+            'hours_to_starvation' => $hoursToStarvation,
+            'evidence_confidence' => $evidenceConfidence,
+            'recommended_replenish_window' => $recommendedReplenishWindow,
             'verdicts' => $verdicts,
             'blockers' => $blockers,
             'originator_action' => $originatorAction,
@@ -253,5 +269,103 @@ final class AtlasMaestroDrainContinuitySloCompiler
                 'recommended_action' => $originatorAction,
             ],
         ];
+    }
+
+    /**
+     * Compute hours until servable_now drops to zero.
+     */
+    private function computeHoursToStarvation(int $servableNow, float $avgThroughput, int $activeWorkers): ?float
+    {
+        if ($servableNow <= 0) {
+            return 0.0;
+        }
+
+        // Net drain rate: throughput minus worker consumption (workers consume ~1 task each)
+        $netDrainRate = $avgThroughput - $activeWorkers;
+        if ($netDrainRate <= 0) {
+            // Workers are consuming faster than throughput replenishes — starvation imminent
+            return $avgThroughput > 0 ? $servableNow / $avgThroughput : null;
+        }
+
+        return round($servableNow / $netDrainRate, 2);
+    }
+
+    /**
+     * Compute evidence confidence from throughput telemetry quality.
+     *
+     * @param  list<float>  $throughputSamples
+     * @param  mixed  $telemetryConfidence
+     * @param  array<string, mixed>  $facts
+     */
+    private function computeEvidenceConfidence(array $throughputSamples, mixed $telemetryConfidence, array $facts): string
+    {
+        // Telemetry is blind — lowest confidence
+        if ((string) $telemetryConfidence === 'blind') {
+            return 'blind';
+        }
+
+        // Self-reported only — low confidence
+        $isSelfReported = (bool) ($facts['throughput_self_reported'] ?? false);
+        if ($isSelfReported && $throughputSamples === []) {
+            return 'self_reported_only';
+        }
+
+        // Sparse samples (< 3) — moderate confidence
+        if (count($throughputSamples) < 3) {
+            return 'sparse';
+        }
+
+        // Good sample count — high confidence
+        return 'high';
+    }
+
+    /**
+     * Compute recommended replenish window from hours_to_starvation.
+     */
+    private function computeRecommendedReplenishWindow(?float $hoursToStarvation): string
+    {
+        if ($hoursToStarvation === null) {
+            return 'unknown_insufficient_data';
+        }
+
+        if ($hoursToStarvation <= 0) {
+            return 'immediate';
+        }
+
+        if ($hoursToStarvation <= 2) {
+            return 'within_2_hours';
+        }
+
+        if ($hoursToStarvation <= 8) {
+            return 'within_8_hours';
+        }
+
+        return 'within_24_hours';
+    }
+
+    /**
+     * Compute SLO status from base status and evidence confidence.
+     */
+    private function computeSloStatus(string $status, string $evidenceConfidence): string
+    {
+        // Blind or self-reported evidence downgrades any status
+        if ($evidenceConfidence === 'blind') {
+            return 'slo_unverifiable';
+        }
+
+        if ($evidenceConfidence === 'self_reported_only') {
+            return 'slo_low_confidence';
+        }
+
+        if ($evidenceConfidence === 'sparse') {
+            return 'slo_moderate_confidence';
+        }
+
+        // High confidence — trust the base status
+        return match ($status) {
+            self::STATUS_CRITICAL => 'slo_breached',
+            self::STATUS_AT_RISK => 'slo_at_risk',
+            default => 'slo_met',
+        };
     }
 }

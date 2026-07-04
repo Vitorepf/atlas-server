@@ -48,7 +48,7 @@ final class AtlasTaskFabricSpecEntropyMonitor
             $criteria = array_map('strval', (array) ($candidate['acceptance_criteria'] ?? []));
             $shapeParts = array_map(fn (string $c): string => $this->skeleton($c), $criteria);
             sort($shapeParts);
-            $acceptanceShapes[] = implode('|', $shapeParts);
+            $acceptanceShapes[] = $this->signature($shapeParts);
             $combinedAcceptanceText .= ' '.implode(' ', $criteria);
 
             // Evidence-requirement shape: same anti-template-farm collapse as acceptance shapes,
@@ -57,7 +57,7 @@ final class AtlasTaskFabricSpecEntropyMonitor
             $evidence = array_map('strval', (array) ($candidate['required_evidence'] ?? []));
             $evidenceParts = array_map(fn (string $e): string => $this->skeleton($e), $evidence);
             sort($evidenceParts);
-            $evidenceShapes[] = implode('|', $evidenceParts);
+            $evidenceShapes[] = $this->signature($evidenceParts);
 
             $files = array_map('strval', (array) ($candidate['allowed_files'] ?? []));
             $families = array_unique(array_map(static fn (string $f): string => dirname($f), $files));
@@ -115,5 +115,18 @@ final class AtlasTaskFabricSpecEntropyMonitor
         $withoutNumbers = preg_replace('/\b\d+\b/', '<NUM>', $withoutIdentifiers) ?? $withoutIdentifiers;
 
         return trim(preg_replace('/\s+/', ' ', strtolower($withoutNumbers)) ?? '');
+    }
+
+    /**
+     * Build a collision-safe signature from parts.
+     * Each part is length-prefixed so a '|' inside a part cannot collide with the delimiter.
+     *
+     * @param  list<string>  $parts
+     */
+    private function signature(array $parts): string
+    {
+        $prefixed = array_map(static fn (string $p): string => strlen($p).':'.$p, $parts);
+
+        return implode('|', $prefixed);
     }
 }

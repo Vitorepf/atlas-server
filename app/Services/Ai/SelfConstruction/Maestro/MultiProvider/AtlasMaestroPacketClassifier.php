@@ -43,6 +43,146 @@ final class AtlasMaestroPacketClassifier
         };
     }
 
+    /**
+     * Full routing contract: task_family, complexity_tier, risk_tier, required_provider_capabilities, classification_evidence.
+     *
+     * @return array<string, mixed>
+     */
+    public function classifyWithContract(array $packet): array
+    {
+        $taskFamily = $this->classify($packet);
+        $allowedFiles = $this->paths($packet['allowed_files'] ?? []);
+        $objective = (string) ($packet['objective'] ?? '');
+        $acceptanceCriteria = (array) ($packet['acceptance_criteria'] ?? []);
+
+        $complexityTier = $this->computeComplexityTier($taskFamily, $allowedFiles, $acceptanceCriteria);
+        $riskTier = $this->computeRiskTier($packet, $allowedFiles, $acceptanceCriteria);
+        $requiredProviderCapabilities = $this->computeRequiredProviderCapabilities($taskFamily, $complexityTier);
+        $classificationEvidence = $this->computeClassificationEvidence($packet, $taskFamily, $complexityTier, $riskTier);
+
+        return [
+            'task_family' => $taskFamily,
+            'complexity_tier' => $complexityTier,
+            'risk_tier' => $riskTier,
+            'required_provider_capabilities' => $requiredProviderCapabilities,
+            'classification_evidence' => $classificationEvidence,
+        ];
+    }
+
+    /**
+     * Compute complexity tier from task family and scope.
+     */
+    private function computeComplexityTier(string $taskFamily, array $allowedFiles, array $acceptanceCriteria): string
+    {
+        $codePaths = $this->codePaths($allowedFiles);
+        $codeCount = count($codePaths);
+
+        // Architecture and multi-file are inherently high complexity
+        if ($taskFamily === self::ARCHITECTURE || $taskFamily === self::MULTI_FILE) {
+            return 'high';
+        }
+
+        // Task fabric and refactor OS are medium-high
+        if ($taskFamily === self::TASK_FABRIC || $taskFamily === self::REFACTOR_OS) {
+            return 'medium';
+        }
+
+        // Many files or acceptance criteria = higher complexity
+        if ($codeCount >= 5 || count($acceptanceCriteria) >= 4) {
+            return 'high';
+        }
+        if ($codeCount >= 3 || count($acceptanceCriteria) >= 2) {
+            return 'medium';
+        }
+
+        return 'low';
+    }
+
+    /**
+     * Compute risk tier from packet signals.
+     */
+    private function computeRiskTier(array $packet, array $allowedFiles, array $acceptanceCriteria): string
+    {
+        $objective = (string) ($packet['objective'] ?? '');
+        $squashed = $this->squash($objective.' '.implode(' ', $allowedFiles));
+
+        // Forbidden hints → high risk
+        if (str_contains($squashed, 'forbidden') || str_contains($squashed, 'petreo')) {
+            return 'high';
+        }
+
+        // Broad write sets (many code paths across subtrees) → high risk
+        $codePaths = $this->codePaths($allowedFiles);
+        if (count($codePaths) >= 5 && count($this->subtrees($codePaths)) >= 3) {
+            return 'high';
+        }
+
+        // Weak evidence (no tests, no acceptance criteria) → medium risk
+        $hasTests = str_starts_with($allowedFiles[0] ?? '', 'tests/') || count(array_filter($allowedFiles, fn ($p) => str_starts_with($p, 'tests/'))) > 0;
+        if (! $hasTests && count($acceptanceCriteria) === 0) {
+            return 'medium';
+        }
+
+        // Poison signals → medium risk
+        if (str_contains($squashed, 'poison') || str_contains($squashed, 'respec')) {
+            return 'medium';
+        }
+
+        return 'low';
+    }
+
+    /**
+     * Compute required provider capabilities from task family and complexity.
+     *
+     * @return list<string>
+     */
+    private function computeRequiredProviderCapabilities(string $taskFamily, string $complexityTier): array
+    {
+        $capabilities = ['code_edit'];
+
+        if ($complexityTier === 'high') {
+            $capabilities[] = 'deep_reasoning';
+        }
+
+        if ($taskFamily === self::ARCHITECTURE) {
+            $capabilities[] = 'architectural_design';
+        }
+
+        if ($taskFamily === self::TASK_FABRIC || $taskFamily === self::QUEUE_REPAIR) {
+            $capabilities[] = 'queue_management';
+        }
+
+        if ($taskFamily === self::LEARNING_LOOP) {
+            $capabilities[] = 'closed_loop_learning';
+        }
+
+        return $capabilities;
+    }
+
+    /**
+     * Compute classification evidence: the signals that drove the classification.
+     *
+     * @return list<string>
+     */
+    private function computeClassificationEvidence(array $packet, string $taskFamily, string $complexityTier, string $riskTier): array
+    {
+        $evidence = [
+            "task_family:{$taskFamily}",
+            "complexity_tier:{$complexityTier}",
+            "risk_tier:{$riskTier}",
+        ];
+
+        $allowedFiles = $this->paths($packet['allowed_files'] ?? []);
+        $codePaths = $this->codePaths($allowedFiles);
+        $evidence[] = "code_paths:".count($codePaths);
+        $evidence[] = "subtrees:".count($this->subtrees($codePaths));
+
+        $acceptanceCriteria = (array) ($packet['acceptance_criteria'] ?? []);
+        $evidence[] = "acceptance_criteria:".count($acceptanceCriteria);
+
+        return $evidence;
+    }
+
     public function reasonFor(array $packet): string
     {
         $allowedFiles = $this->paths($packet['allowed_files'] ?? []);

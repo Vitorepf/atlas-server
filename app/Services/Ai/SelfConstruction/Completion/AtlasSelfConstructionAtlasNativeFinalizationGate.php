@@ -71,6 +71,9 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
 
     public const MIN_QUEUE_DRAIN_CYCLES = 1;
 
+    /** Minimum independent evidence sources that must agree for finalization quorum */
+    public const MIN_EVIDENCE_QUORUM = 3;
+
     public function __construct(
         private readonly ?AtlasSelfConstructionAtlasNativeEvidenceVerifier $evidenceVerifier = null,
         private readonly ?AtlasSelfConstructionHumanDependencyRegressionGate $dependencyGate = null,
@@ -171,6 +174,22 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
             }
         }
 
+        // Independent evidence quorum — at least MIN_EVIDENCE_QUORUM independent sources
+        // must independently confirm readiness. Missing quorum → hold.
+        $quorumFacts = is_array($facts['independent_evidence_quorum'] ?? null) ? $facts['independent_evidence_quorum'] : [];
+        $quorumSources = is_array($quorumFacts['sources'] ?? null) ? $quorumFacts['sources'] : [];
+        $quorumConfirmed = 0;
+        foreach ($quorumSources as $source) {
+            if (is_array($source) && (string) ($source['status'] ?? '') === 'confirmed') {
+                $quorumConfirmed++;
+            }
+        }
+        $quorumMet = $quorumConfirmed >= self::MIN_EVIDENCE_QUORUM;
+        if (! $quorumMet) {
+            $holdRequested = true;
+            $nextActions[] = 'collect_independent_evidence_quorum';
+        }
+
         $finalState = self::FINAL_READY;
         if ($blockers !== []) {
             // If only refreshable-style blockers (none from ledger blocking keys, none dependency contract),
@@ -208,6 +227,11 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
                 ],
                 'autonomy_level' => $level,
                 'ledger' => $ledger,
+            ],
+            'evidence_quorum' => [
+                'required' => self::MIN_EVIDENCE_QUORUM,
+                'confirmed' => $quorumConfirmed,
+                'met' => $quorumMet,
             ],
             'next_atlas_actions' => array_values(array_unique($nextActions)),
         ];

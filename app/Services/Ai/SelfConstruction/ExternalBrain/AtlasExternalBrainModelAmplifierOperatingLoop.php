@@ -263,4 +263,74 @@ final class AtlasExternalBrainModelAmplifierOperatingLoop
             'feedback_payload' => $feedbackPayload,
         ];
     }
+
+    /**
+     * Promotion court: held-out replay evidence and negative outcome checks gate scaffold promotion.
+     *
+     * A scaffold with positive lift but missing held_out_replay_refs CANNOT be promoted.
+     * Recent weak_green, give_back or proxy_leak outcomes block promotion and route to repair_scaffold.
+     * A scaffold with verified lift, held-out replay refs and no negative outcome blockers CAN promote
+     * while frontier_required remains false.
+     *
+     * @param  array{
+     *   lift_score?: float,
+     *   held_out_replay_refs?: list<string>,
+     *   recent_outcomes?: list<string>,
+     *   frontier_required?: bool,
+     * }  $scaffold
+     * @return array{
+     *   promotion_allowed: bool,
+     *   decision: string,
+     *   frontier_required: bool,
+     *   block_reasons: list<string>,
+     *   route: string,
+     * }
+     */
+    public function promotionCourt(array $scaffold): array
+    {
+        $blockReasons = [];
+        $lift = (float) ($scaffold['lift_score'] ?? 0.0);
+        $heldOutReplayRefs = is_array($scaffold['held_out_replay_refs'] ?? null) ? $scaffold['held_out_replay_refs'] : [];
+        $recentOutcomes = is_array($scaffold['recent_outcomes'] ?? null) ? $scaffold['recent_outcomes'] : [];
+        $frontierRequired = (bool) ($scaffold['frontier_required'] ?? false);
+
+        // Check 1: held-out replay refs required for promotion
+        if ($heldOutReplayRefs === []) {
+            $blockReasons[] = 'missing_held_out_replay_refs';
+        }
+
+        // Check 2: negative outcomes block promotion
+        $negativeOutcomeTypes = ['weak_green', 'give_back', 'proxy_leak'];
+        foreach ($recentOutcomes as $outcome) {
+            $outcomeLower = strtolower(trim((string) $outcome));
+            foreach ($negativeOutcomeTypes as $negativeType) {
+                if (str_contains($outcomeLower, $negativeType)) {
+                    $blockReasons[] = "negative_outcome:{$outcomeLower}";
+                    break;
+                }
+            }
+        }
+
+        $promotionAllowed = $blockReasons === [] && $lift > 0.0;
+
+        // Determine decision and route
+        if ($promotionAllowed) {
+            $decision = 'promote';
+            $route = 'promote_scaffold';
+        } elseif (in_array('missing_held_out_replay_refs', $blockReasons, true)) {
+            $decision = 'keep_testing';
+            $route = 'collect_held_out_replay_evidence';
+        } else {
+            $decision = 'repair_scaffold';
+            $route = 'repair_scaffold';
+        }
+
+        return [
+            'promotion_allowed' => $promotionAllowed,
+            'decision' => $decision,
+            'frontier_required' => false,
+            'block_reasons' => $blockReasons,
+            'route' => $route,
+        ];
+    }
 }

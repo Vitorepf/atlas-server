@@ -85,7 +85,7 @@ final class AtlasExternalBrainScenarioPortfolioGeneratorTest extends TestCase
 
         $this->assertCount(1, $result2['rejected_duplicates']);
         $this->assertSame('scenario:renamed_copy:v1', $result2['rejected_duplicates'][0]['scenario_id']);
-        $this->assertStringContainsString('duplicate_structure', $result2['rejected_duplicates'][0]['reason']);
+        $this->assertStringContainsString('duplicate_structure', $result2['rejected_duplicates'][0]['duplicate_reason']);
         $this->assertSame(15, $result2['total_emitted']);
     }
 
@@ -431,5 +431,52 @@ final class AtlasExternalBrainScenarioPortfolioGeneratorTest extends TestCase
             }
         }
         $this->fail("No scenario found for family '{$family}'");
+    }
+
+    // AC: portfolios include distinct scenario_types for bug, refactor, simplification, research_transfer, proof_gap, autonomy_regression
+    public function test_portfolios_include_distinct_scenario_types(): void
+    {
+        $gen = new AtlasExternalBrainScenarioPortfolioGenerator();
+        $result = $gen->generate();
+        $scenarios = $result['scenarios'];
+
+        $types = array_unique(array_column($scenarios, 'scenario_type'));
+        sort($types);
+        $this->assertContains('bug', $types);
+        $this->assertContains('refactor', $types);
+        $this->assertContains('simplification', $types);
+        $this->assertContains('research_transfer', $types);
+        $this->assertContains('proof_gap', $types);
+        $this->assertContains('autonomy_regression', $types);
+    }
+
+    // AC: each scenario includes target_surface, expected_leverage, evidence_needed
+    public function test_each_scenario_has_target_surface_expected_leverage_evidence_needed(): void
+    {
+        $gen = new AtlasExternalBrainScenarioPortfolioGenerator();
+        $result = $gen->generate();
+
+        foreach ($result['scenarios'] as $scenario) {
+            $this->assertArrayHasKey('target_surface', $scenario);
+            $this->assertNotEmpty($scenario['target_surface']);
+            $this->assertArrayHasKey('expected_leverage', $scenario);
+            $this->assertNotEmpty($scenario['expected_leverage']);
+            $this->assertArrayHasKey('evidence_needed', $scenario);
+            $this->assertNotEmpty($scenario['evidence_needed']);
+        }
+    }
+
+    // AC: near-duplicate scenarios are rejected with duplicate_reason
+    public function test_duplicate_rejection_has_duplicate_reason(): void
+    {
+        $gen = new AtlasExternalBrainScenarioPortfolioGenerator();
+        $result = $gen->generate();
+        $dup = $result['scenarios'][0];
+        $dup['scenario_id'] = 'scenario:fake_duplicate:v1';
+
+        $result2 = $gen->generate([$dup]);
+        $this->assertCount(1, $result2['rejected_duplicates']);
+        $this->assertArrayHasKey('duplicate_reason', $result2['rejected_duplicates'][0]);
+        $this->assertStringContainsString('duplicate_structure', $result2['rejected_duplicates'][0]['duplicate_reason']);
     }
 }

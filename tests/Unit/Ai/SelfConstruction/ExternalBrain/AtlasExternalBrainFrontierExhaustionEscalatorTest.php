@@ -343,4 +343,62 @@ final class AtlasExternalBrainFrontierExhaustionEscalatorTest extends TestCase
         $this->assertNull($r['next_probe_pattern']);
         $this->assertNull($r['forbidden_repeat_pattern']);
     }
+
+    // AC: exhaustion_confidence present and reflects signal count
+    public function test_exhaustion_confidence_reflects_signals(): void
+    {
+        $esc = new AtlasExternalBrainFrontierExhaustionEscalator();
+        // All evidence floor fields present, declining findings + rising cost = 2 signals
+        $r = $esc->escalate([
+            ['verified_findings' => 10, 'token_cost' => 100, 'duplicate_findings' => 0, 'inspected_surface' => 'app/Services'],
+            ['verified_findings' => 5, 'token_cost' => 200, 'duplicate_findings' => 0, 'inspected_surface' => 'app/Services'],
+        ], ['current_pass' => 'bug_hunt']);
+
+        $this->assertArrayHasKey('exhaustion_confidence', $r);
+        $this->assertIsFloat($r['exhaustion_confidence']);
+        $this->assertGreaterThan(0, $r['exhaustion_confidence']);
+    }
+
+    // AC: next_strategy present
+    public function test_next_strategy_present(): void
+    {
+        $esc = new AtlasExternalBrainFrontierExhaustionEscalator();
+        $r = $esc->escalate([
+            ['verified_findings' => 10, 'token_cost' => 100, 'duplicate_findings' => 0, 'inspected_surface' => 'app/Services'],
+            ['verified_findings' => 5, 'token_cost' => 200, 'duplicate_findings' => 0, 'inspected_surface' => 'app/Services'],
+        ], ['current_pass' => 'bug_hunt']);
+
+        $this->assertArrayHasKey('next_strategy', $r);
+        // With declining findings + rising cost, should escalate to compression
+        $this->assertNotNull($r['next_strategy']);
+    }
+
+    // AC: missing_search_evidence present
+    public function test_missing_search_evidence_present(): void
+    {
+        $esc = new AtlasExternalBrainFrontierExhaustionEscalator();
+        // Missing evidence floor → missing_search_evidence populated
+        $r = $esc->escalate([
+            ['verified_findings' => 5, 'token_cost' => 200, 'duplicate_findings' => 0],
+        ], ['current_pass' => 'compression']);
+
+        $this->assertArrayHasKey('missing_search_evidence', $r);
+        $this->assertIsArray($r['missing_search_evidence']);
+        $this->assertNotEmpty($r['missing_search_evidence']);
+    }
+
+    // AC: exhausted only when all surfaces searched
+    public function test_not_exhausted_when_unsearched_surfaces_remain(): void
+    {
+        $esc = new AtlasExternalBrainFrontierExhaustionEscalator();
+        // Missing evidence floor → low exhaustion confidence
+        $r = $esc->escalate([
+            ['verified_findings' => 5, 'token_cost' => 200, 'duplicate_findings' => 0],
+        ], ['current_pass' => 'compression']);
+
+        // Low confidence because evidence floor not met
+        $this->assertLessThan(1.0, $r['exhaustion_confidence']);
+        // next_strategy should be null when evidence floor not met
+        $this->assertNull($r['next_strategy']);
+    }
 }

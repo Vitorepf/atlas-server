@@ -215,6 +215,24 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'max_new_tasks' => $maxNew,
             'queue_tags' => $queueTags,
             'queue_lane_contract' => $queueLaneContract,
+            'never_stop_before_drain_contract' => [
+                'contract' => 'never_stop_before_drain',
+                'description' => 'Worker must never stop the loop based on comfortable-queue or sufficient-depth heuristics. Continue until the queue is truly drained: no_claimable_task triggers retry with replenishment, waiting_on_dependencies triggers retry, and give_back triggers pull-next. Only stop when explicitly told by the operator or when disabled.',
+                'retry_on' => [
+                    'no_claimable_task' => 'replenish_and_retry',
+                    'waiting_on_dependencies' => 'retry_after_delay',
+                    'give_back' => 'pull_next_task',
+                ],
+                'forbidden_stop_language' => [
+                    'comfortable_queue',
+                    'sufficient_depth',
+                    'adequate_supply',
+                ],
+                'constraints' => [
+                    'allowed_files_only' => true,
+                    'one_task_at_a_time' => true,
+                ],
+            ],
             'claim_tag' => (string) ($claimFilters['tag'] ?? ''),
             'auto_replenishment_status' => (string) data_get($replenishment, 'status', 'unknown'),
             'auto_replenishment_hash' => (string) data_get($replenishment, 'auto_replenishment_hash', ''),
@@ -356,6 +374,24 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'max_new_tasks' => $maxNew,
             'queue_tags' => $queueTags,
             'queue_lane_contract' => $queueLaneContract,
+            'never_stop_before_drain_contract' => [
+                'contract' => 'never_stop_before_drain',
+                'description' => 'Worker must never stop the loop based on comfortable-queue or sufficient-depth heuristics. Continue until the queue is truly drained: no_claimable_task triggers retry with replenishment, waiting_on_dependencies triggers retry, and give_back triggers pull-next. Only stop when explicitly told by the operator or when disabled.',
+                'retry_on' => [
+                    'no_claimable_task' => 'replenish_and_retry',
+                    'waiting_on_dependencies' => 'retry_after_delay',
+                    'give_back' => 'pull_next_task',
+                ],
+                'forbidden_stop_language' => [
+                    'comfortable_queue',
+                    'sufficient_depth',
+                    'adequate_supply',
+                ],
+                'constraints' => [
+                    'allowed_files_only' => true,
+                    'one_task_at_a_time' => true,
+                ],
+            ],
             'claim_tag' => (string) ($queueTags[0] ?? ''),
             'auto_replenishment_status' => (string) data_get($replenishment, 'status', 'unknown'),
             'auto_replenishment_hash' => (string) data_get($replenishment, 'auto_replenishment_hash', ''),
@@ -494,6 +530,24 @@ final class AgentControlPlaneTerminalWorkerBootstrapService
             'max_new_tasks' => $maxNew,
             'queue_tags' => $queueTags,
             'queue_lane_contract' => $queueLaneContract,
+            'never_stop_before_drain_contract' => [
+                'contract' => 'never_stop_before_drain',
+                'description' => 'Worker must never stop the loop based on comfortable-queue or sufficient-depth heuristics. Continue until the queue is truly drained: no_claimable_task triggers retry with replenishment, waiting_on_dependencies triggers retry, and give_back triggers pull-next. Only stop when explicitly told by the operator or when disabled.',
+                'retry_on' => [
+                    'no_claimable_task' => 'replenish_and_retry',
+                    'waiting_on_dependencies' => 'retry_after_delay',
+                    'give_back' => 'pull_next_task',
+                ],
+                'forbidden_stop_language' => [
+                    'comfortable_queue',
+                    'sufficient_depth',
+                    'adequate_supply',
+                ],
+                'constraints' => [
+                    'allowed_files_only' => true,
+                    'one_task_at_a_time' => true,
+                ],
+            ],
             'claim_tag' => (string) ($queueTags[0] ?? ''),
             'auto_replenishment_status' => 'preview_only_not_run',
             'auto_replenishment_hash' => '',

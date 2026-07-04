@@ -115,6 +115,8 @@ final class AtlasExternalBrainDocsMemorySyncVerifier
             }
         }
 
+        $smallestFollowUp = $this->smallestFollowUp($requiredActions, $syncStatus);
+
         return [
             'schema' => self::SCHEMA,
             'sync_status' => $syncStatus,
@@ -124,6 +126,7 @@ final class AtlasExternalBrainDocsMemorySyncVerifier
             'missing_artifacts' => $missingArtifacts,
             'stale_artifacts' => $staleArtifacts,
             'sync_command_hints' => $syncCommandHints,
+            'smallest_follow_up' => $smallestFollowUp,
             'evidence' => [
                 'behavior_changed='.($behaviorChanged ? 'true' : 'false'),
                 'is_test_only='.($isTestOnly ? 'true' : 'false'),
@@ -134,5 +137,41 @@ final class AtlasExternalBrainDocsMemorySyncVerifier
                 'code_index_fresh='.($codeIndexFresh ? 'true' : 'false'),
             ],
         ];
+    }
+
+    /**
+     * Compute the smallest follow-up action from the required actions.
+     *
+     * @param  list<string>  $requiredActions
+     * @return string
+     */
+    private function smallestFollowUp(array $requiredActions, string $syncStatus): string
+    {
+        if ($syncStatus === self::STATUS_NO_ACTION) {
+            return 'no_follow_up_needed';
+        }
+
+        if ($requiredActions === []) {
+            return 'no_follow_up_needed';
+        }
+
+        // Pick the smallest single action — index refresh is cheapest, then docs, then memory.
+        $priority = [
+            'index_code_refresh' => 1,
+            'docs_patch' => 2,
+            'memory_outcome_record' => 3,
+        ];
+
+        $smallest = null;
+        $lowestPriority = PHP_INT_MAX;
+        foreach ($requiredActions as $action) {
+            $p = $priority[$action] ?? 99;
+            if ($p < $lowestPriority) {
+                $lowestPriority = $p;
+                $smallest = $action;
+            }
+        }
+
+        return $smallest ?? 'unknown_action';
     }
 }

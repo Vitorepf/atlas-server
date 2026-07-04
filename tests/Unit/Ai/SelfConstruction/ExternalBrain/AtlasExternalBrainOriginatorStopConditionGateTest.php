@@ -543,4 +543,45 @@ final class AtlasExternalBrainOriginatorStopConditionGateTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_REPAIR_FIRST, $result['verdict']);
     }
+
+    // ── continue_originating: supply sufficient but high-leverage targets exist ──
+
+    public function test_sufficient_supply_with_high_leverage_targets_continues_originating(): void
+    {
+        $result = $this->eval([
+            'supply_sufficient' => true,
+            'high_leverage_unqueued_targets' => 3,
+        ]);
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_CONTINUE_ORIGINATING, $result['verdict']);
+        $this->assertFalse($result['can_stop']);
+        $this->assertSame('continue_originating_high_leverage_targets', $result['next_required_action']);
+    }
+
+    public function test_sufficient_supply_without_targets_does_not_continue_originating(): void
+    {
+        $result = $this->eval([
+            'supply_sufficient' => true,
+            'high_leverage_unqueued_targets' => 0,
+        ]);
+        $this->assertNotSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_CONTINUE_ORIGINATING, $result['verdict']);
+    }
+
+    public function test_insufficient_supply_with_targets_does_not_continue_originating(): void
+    {
+        $result = $this->eval([
+            'supply_sufficient' => false,
+            'high_leverage_unqueued_targets' => 2,
+        ]);
+        $this->assertNotSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_CONTINUE_ORIGINATING, $result['verdict']);
+    }
+
+    public function test_continue_originating_beats_premature_stop(): void
+    {
+        $result = $this->eval([
+            'supply_sufficient' => true,
+            'high_leverage_unqueued_targets' => 1,
+        ]);
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_CONTINUE_ORIGINATING, $result['verdict']);
+        $this->assertNotSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_PREMATURE_STOP, $result['verdict']);
+    }
 }

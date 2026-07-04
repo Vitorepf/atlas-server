@@ -357,4 +357,68 @@ final class AtlasExternalBrainMuscleOutcomePromptFeedbackCompiler
 
         return round($successCount / count($list), 4);
     }
+
+    /**
+     * Negative pattern patches: repeated weak_green, proxy_success and high template_similarity
+     * successes produce prompt hardening patches that prevent future muscles from reporting shallow green.
+     *
+     * @param  list<array{outcome?:string, proof_strength?:float, template_similarity?:float, behavior_delta?:float}>  $outcomes
+     * @return list<array{pattern:string, recommended_patch_id:string, occurrences:int}>
+     */
+    public function negativePatternPatches(array $outcomes): array
+    {
+        $weakGreenCount = 0;
+        $proxySuccessCount = 0;
+        $highTemplateCount = 0;
+
+        foreach ($outcomes as $o) {
+            $outcome = (string) ($o['outcome'] ?? '');
+            $proofStrength = (float) ($o['proof_strength'] ?? 0.0);
+            $templateSimilarity = (float) ($o['template_similarity'] ?? 0.0);
+            $behaviorDelta = (float) ($o['behavior_delta'] ?? 0.0);
+
+            // weak_green: success with low proof strength
+            if ($outcome === 'success' && $proofStrength < 0.5) {
+                $weakGreenCount++;
+            }
+
+            // proxy_success: success without behavior delta
+            if ($outcome === 'success' && $behaviorDelta < 0.1) {
+                $proxySuccessCount++;
+            }
+
+            // high template similarity without strong proof and behavior delta
+            if ($templateSimilarity >= 0.8 && $proofStrength < 0.8 && $behaviorDelta < 0.5) {
+                $highTemplateCount++;
+            }
+        }
+
+        $patches = [];
+
+        if ($weakGreenCount >= 2) {
+            $patches[] = [
+                'pattern' => 'repeated_weak_green',
+                'recommended_patch_id' => 'require_concrete_command_path_and_behavior_delta',
+                'occurrences' => $weakGreenCount,
+            ];
+        }
+
+        if ($proxySuccessCount >= 2) {
+            $patches[] = [
+                'pattern' => 'repeated_proxy_success',
+                'recommended_patch_id' => 'reject_proxy_or_wrapper_success_without_capability_delta',
+                'occurrences' => $proxySuccessCount,
+            ];
+        }
+
+        if ($highTemplateCount >= 2) {
+            $patches[] = [
+                'pattern' => 'high_template_similarity_without_proof',
+                'recommended_patch_id' => 'require_proof_strength_and_behavior_delta_before_promotion',
+                'occurrences' => $highTemplateCount,
+            ];
+        }
+
+        return $patches;
+    }
 }

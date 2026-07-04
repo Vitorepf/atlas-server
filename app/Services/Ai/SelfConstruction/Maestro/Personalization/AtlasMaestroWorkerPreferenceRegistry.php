@@ -268,4 +268,74 @@ final class AtlasMaestroWorkerPreferenceRegistry
 
         return $ttl !== null && (int) ($profile['registered_at'] ?? 0) + (int) $ttl < $now;
     }
+
+    /**
+     * Outcome-calibrated preference profile: preferences weighted by verified outcomes.
+     *
+     * Increases preference only from verified successes with runnable evidence.
+     * Decays preference on recent give_back, poison or retry-loop outcomes.
+     *
+     * @param  string  $clientId
+     * @param  list<array{outcome?:string, task_family?:string, evidence?:list<string>}>  $recentOutcomes
+     * @return array{worker_preferences:array<string,mixed>, decayed_preferences:array<string,mixed>, confidence:float, evidence_refs:list<string>}
+     */
+    public function outcomeCalibratedProfile(string $clientId, array $recentOutcomes): array
+    {
+        $baseProfile = $this->inspect($clientId);
+        $evidenceRefs = [];
+        $preferenceScore = 0.0;
+        $decayCount = 0;
+        $successCount = 0;
+
+        foreach ($recentOutcomes as $outcome) {
+            $outcomeType = (string) ($outcome['outcome'] ?? '');
+            $evidence = (array) ($outcome['evidence'] ?? []);
+
+            switch ($outcomeType) {
+                case 'success':
+                case 'resolved':
+                    // Only count as verified success if runnable evidence is present
+                    if ($evidence !== []) {
+                        $preferenceScore += 1.0;
+                        $successCount++;
+                        foreach ($evidence as $ref) {
+                            $evidenceRefs[] = $ref;
+                        }
+                    }
+                    break;
+
+                case 'give_back':
+                case 'poison':
+                case 'poison_detected':
+                case 'retry_loop':
+                    $preferenceScore -= 1.5; // Decay faster than success builds
+                    $decayCount++;
+                    break;
+            }
+        }
+
+        $totalOutcomes = $successCount + $decayCount;
+        $confidence = $totalOutcomes > 0 ? round(min(1.0, $totalOutcomes / 10), 4) : 0.0;
+
+        // Compute decayed preferences
+        $decayedPreferences = $baseProfile;
+        if ($preferenceScore < 0) {
+            // Negative score: decay all preference values
+            $decayedPreferences['max_files'] = max(1, (int) $baseProfile['max_files'] / 2);
+            $decayedPreferences['max_loc'] = max(1, (int) $baseProfile['max_loc'] / 2);
+            $decayedPreferences['tier'] = 'decayed';
+        } elseif ($preferenceScore > 0) {
+            // Positive score: boost preferences slightly
+            $decayedPreferences['max_files'] = (int) $baseProfile['max_files'] + (int) min(3, $preferenceScore);
+            $decayedPreferences['max_loc'] = (int) $baseProfile['max_loc'] + (int) min(100, $preferenceScore * 20);
+            $decayedPreferences['tier'] = $successCount >= 3 ? 'calibrated_high' : 'calibrated';
+        }
+
+        return [
+            'worker_preferences' => $baseProfile,
+            'decayed_preferences' => $decayedPreferences,
+            'confidence' => $confidence,
+            'evidence_refs' => array_unique($evidenceRefs),
+        ];
+    }
 }

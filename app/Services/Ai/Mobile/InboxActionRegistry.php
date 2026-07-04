@@ -96,7 +96,7 @@ class InboxActionRegistry
                     : ['item' => $this->inbox->dismiss($locked, $this->string($input['reason'] ?? null))],
                 'snooze' => $this->isRecommendationItem($locked)
                     ? $this->transitionRecommendation($locked, $actionId, $input)
-                    : ['item' => $this->inbox->snooze($locked, Carbon::parse((string) ($input['snoozed_until'] ?? '')), $this->string($input['reason'] ?? null))],
+                    : ['item' => $this->inbox->snooze($locked, $this->parseSnoozeUntil($input), $this->string($input['reason'] ?? null))],
                 'discuss' => $this->discuss($locked),
                 'approve_once', 'approve_session', 'approve_workspace_1h', 'deny' => $this->resolveApproval($locked, $actionId, $input),
                 'view_trace', 'review_patch' => $this->readOnlyResult($locked, $actionId),
@@ -1579,5 +1579,27 @@ class InboxActionRegistry
     private function array(mixed $value): array
     {
         return is_array($value) ? $value : [];
+    }
+
+    /**
+     * Safely parse a snooze-until timestamp. Defaults to now + 1 hour on invalid/missing.
+     *
+     * @param  array<string,mixed>  $input
+     */
+    private function parseSnoozeUntil(array $input): Carbon
+    {
+        $raw = $input['snoozed_until'] ?? null;
+        if ($raw !== null && $raw !== '') {
+            try {
+                $parsed = Carbon::parse((string) $raw);
+                if ($parsed->isFuture()) {
+                    return $parsed;
+                }
+            } catch (\Throwable) {
+                // fall through to default
+            }
+        }
+
+        return Carbon::now()->addHour();
     }
 }

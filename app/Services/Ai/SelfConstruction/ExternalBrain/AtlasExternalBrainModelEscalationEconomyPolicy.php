@@ -218,4 +218,73 @@ final class AtlasExternalBrainModelEscalationEconomyPolicy
 
         return $out;
     }
+
+    /**
+     * Economy escalation: frontier escalation only when expected capability gain justifies cost
+     * and lower-tier scaffolded attempts are insufficient.
+     *
+     * @param  array{
+     *   lower_tier_quality: float,
+     *   quality_floor: float,
+     *   task_impact: float,
+     *   lower_tier_attempts: int,
+     *   replayable_evidence: list<string>,
+     *   expected_capability_gain: float,
+     *   frontier_cost: float,
+     *   lower_tier_cost: float,
+     * }  $input
+     * @return array{
+     *   escalation_decision: string,
+     *   cost_justification: string,
+     *   lower_tier_evidence: array<string,mixed>,
+     *   expected_capability_gain: float,
+     * }
+     */
+    public function economyEscalation(array $input): array
+    {
+        $lowerTierQuality = (float) ($input['lower_tier_quality'] ?? 0.0);
+        $qualityFloor = (float) ($input['quality_floor'] ?? 0.0);
+        $taskImpact = (float) ($input['task_impact'] ?? 0.0);
+        $lowerTierAttempts = (int) ($input['lower_tier_attempts'] ?? 0);
+        $replayableEvidence = is_array($input['replayable_evidence'] ?? null) ? $input['replayable_evidence'] : [];
+        $expectedCapabilityGain = (float) ($input['expected_capability_gain'] ?? 0.0);
+        $frontierCost = (float) ($input['frontier_cost'] ?? 1.0);
+        $lowerTierCost = (float) ($input['lower_tier_cost'] ?? 1.0);
+
+        $costRatio = $lowerTierCost > 0 ? $frontierCost / $lowerTierCost : 1.0;
+
+        // Lower tier meets floor → block escalation
+        $lowerTierMeetsFloor = $lowerTierQuality >= $qualityFloor;
+
+        // High impact + lower tier failures + replayable evidence → allow escalation
+        $highImpact = $taskImpact >= 0.7;
+        $lowerTierInsufficient = $lowerTierAttempts >= 2 && $lowerTierQuality < $qualityFloor;
+        $hasReplayableEvidence = count($replayableEvidence) > 0;
+
+        $escalationDecision = match (true) {
+            $lowerTierMeetsFloor => 'deny_escalation: lower-tier scaffolded quality meets floor',
+            $highImpact && $lowerTierInsufficient && $hasReplayableEvidence => 'allow_escalation: high impact with replayable evidence of lower-tier insufficiency',
+            $highImpact && $lowerTierInsufficient => 'conditional_escalation: high impact but missing replayable evidence',
+            default => 'deny_escalation: insufficient justification for frontier cost',
+        };
+
+        $costJustification = sprintf(
+            'frontier_cost=%.2f lower_tier_cost=%.2f cost_ratio=%.2f expected_capability_gain=%.4f',
+            $frontierCost, $lowerTierCost, $costRatio, $expectedCapabilityGain,
+        );
+
+        $lowerTierEvidence = [
+            'quality' => $lowerTierQuality,
+            'attempts' => $lowerTierAttempts,
+            'replayable_evidence' => $replayableEvidence,
+            'meets_floor' => $lowerTierMeetsFloor,
+        ];
+
+        return [
+            'escalation_decision' => $escalationDecision,
+            'cost_justification' => $costJustification,
+            'lower_tier_evidence' => $lowerTierEvidence,
+            'expected_capability_gain' => $expectedCapabilityGain,
+        ];
+    }
 }

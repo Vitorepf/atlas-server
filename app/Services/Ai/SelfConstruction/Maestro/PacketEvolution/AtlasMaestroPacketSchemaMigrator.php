@@ -146,6 +146,72 @@ final class AtlasMaestroPacketSchemaMigrator
         return $current;
     }
 
+    /**
+     * Migrate with enriched contract: migrated_packet, migration_receipt, preserved_fields, idempotent.
+     *
+     * @param  array<string,mixed>  $packet
+     * @return array{migrated_packet:array, migration_receipt:array, preserved_fields:list<string>, idempotent:bool}
+     */
+    public function migrateWithContract(array $packet, string $targetVersion): array
+    {
+        $source = (string) ($packet['schema_version'] ?? '');
+        $originalHash = $this->hashPacket($packet);
+
+        // Run migration
+        $migratedPacket = $this->migrateTo($packet, $targetVersion);
+        $migratedHash = $this->hashPacket($migratedPacket);
+
+        // Compute preserved fields: fields from LOSSLESS_FIELDS that survived the migration
+        $preservedFields = [];
+        foreach (self::LOSSLESS_FIELDS as $field) {
+            if (array_key_exists($field, $packet) && array_key_exists($field, $migratedPacket)) {
+                $preservedFields[] = $field;
+            }
+        }
+
+        // Idempotent check: run migration again on the result and compare
+        $idempotent = false;
+        if ($source === $targetVersion) {
+            // Already at target — trivially idempotent
+            $idempotent = true;
+        } else {
+            // Run migration on the migrated packet to the same target
+            $secondMigration = $this->migrateTo($migratedPacket, $targetVersion);
+            $secondHash = $this->hashPacket($secondMigration);
+            $idempotent = $migratedHash === $secondHash;
+        }
+
+        // Build migration receipt
+        $migrationReceipt = [
+            'from' => $source,
+            'to' => $targetVersion,
+            'original_hash' => $originalHash,
+            'migrated_hash' => $migratedHash,
+            'trail' => (array) ($migratedPacket['migration_trail'] ?? []),
+            'preserved_fields' => $preservedFields,
+            'idempotent' => $idempotent,
+        ];
+
+        return [
+            'migrated_packet' => $migratedPacket,
+            'migration_receipt' => $migrationReceipt,
+            'preserved_fields' => $preservedFields,
+            'idempotent' => $idempotent,
+        ];
+    }
+
+    /**
+     * Compute a deterministic hash of a packet for comparison.
+     */
+    private function hashPacket(array $packet): string
+    {
+        $hashable = $packet;
+        unset($hashable['migration_hash']);
+        ksort($hashable);
+
+        return hash('sha256', (string) json_encode($hashable, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
     private function key(string $from, string $to): string
     {
         return $from.'->'.$to;

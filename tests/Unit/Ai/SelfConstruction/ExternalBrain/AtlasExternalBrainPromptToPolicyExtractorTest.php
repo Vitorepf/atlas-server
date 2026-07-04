@@ -309,4 +309,15 @@ final class AtlasExternalBrainPromptToPolicyExtractorTest extends TestCase
         $this->assertCount(2, $result['policy_candidates']);
         $this->assertCount(1, $result['rejected_observations']);
     }
+
+    // ── padding_as_progress classification ──
+
+    public function test_padding_keyword_maps_to_continuity_discipline(): void
+    {
+        $result = $this->extract($this->obs('do not use padding to fill quota'));
+
+        $candidate = $result['policy_candidates'][0];
+        $this->assertSame('continuity_or_origination_discipline', $candidate['category']);
+        $this->assertSame('padding_as_progress', $candidate['blocked_behavior']);
+    }
 }

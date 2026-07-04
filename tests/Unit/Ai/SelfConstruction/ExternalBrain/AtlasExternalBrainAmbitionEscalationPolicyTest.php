@@ -382,4 +382,91 @@ final class AtlasExternalBrainAmbitionEscalationPolicyTest extends TestCase
             $attempted[] = $r['next_mode'];
         }
     }
+
+    // AC: escalation_moves includes deeper_probe, research_transfer, simplification_path, counterfactual_review
+    public function test_escalation_moves_include_all_four_types(): void
+    {
+        $policy = new AtlasExternalBrainAmbitionEscalationPolicy();
+        $r = $policy->decide([]);
+
+        $this->assertArrayHasKey('escalation_moves', $r);
+        $this->assertIsArray($r['escalation_moves']);
+        $this->assertNotEmpty($r['escalation_moves']);
+
+        // First mode (contract_mismatch) maps to deeper_probe
+        $this->assertContains('deeper_probe', $r['escalation_moves']);
+    }
+
+    // AC: stop_allowed only when exhaustion evidence covers all paths
+    public function test_stop_allowed_only_when_all_modes_have_evidence(): void
+    {
+        $policy = new AtlasExternalBrainAmbitionEscalationPolicy();
+
+        // All modes attempted with evidence → stop_allowed = true
+        $r = $policy->decide([
+            'attempted_modes' => [
+                'contract_mismatch', 'cross_domain_pattern', 'research_backed_design',
+                'architecture_simplification', 'runtime_health', 'certification_gap',
+            ],
+            'evidence_by_mode' => [
+                'contract_mismatch' => ['e1'],
+                'cross_domain_pattern' => ['e2'],
+                'research_backed_design' => ['e3'],
+                'architecture_simplification' => ['e4'],
+                'runtime_health' => ['e5'],
+                'certification_gap' => ['e6'],
+            ],
+        ]);
+
+        $this->assertTrue($r['stop_allowed']);
+        $this->assertTrue($r['honest_exhausted']);
+    }
+
+    // AC: stop_allowed false when evidence incomplete
+    public function test_stop_allowed_false_when_evidence_incomplete(): void
+    {
+        $policy = new AtlasExternalBrainAmbitionEscalationPolicy();
+
+        // Missing evidence for one mode → stop_allowed = false
+        $r = $policy->decide([
+            'attempted_modes' => [
+                'contract_mismatch', 'cross_domain_pattern', 'research_backed_design',
+                'architecture_simplification', 'runtime_health', 'certification_gap',
+            ],
+            'evidence_by_mode' => [
+                'contract_mismatch' => ['e1'],
+                'cross_domain_pattern' => ['e2'],
+                'research_backed_design' => ['e3'],
+                'architecture_simplification' => ['e4'],
+                'runtime_health' => ['e5'],
+                // certification_gap missing evidence
+            ],
+        ]);
+
+        $this->assertFalse($r['stop_allowed']);
+        $this->assertFalse($r['honest_exhausted']);
+    }
+
+    // AC: escalation_moves empty when exhausted
+    public function test_escalation_moves_empty_when_exhausted(): void
+    {
+        $policy = new AtlasExternalBrainAmbitionEscalationPolicy();
+
+        $r = $policy->decide([
+            'attempted_modes' => [
+                'contract_mismatch', 'cross_domain_pattern', 'research_backed_design',
+                'architecture_simplification', 'runtime_health', 'certification_gap',
+            ],
+            'evidence_by_mode' => [
+                'contract_mismatch' => ['e1'],
+                'cross_domain_pattern' => ['e2'],
+                'research_backed_design' => ['e3'],
+                'architecture_simplification' => ['e4'],
+                'runtime_health' => ['e5'],
+                'certification_gap' => ['e6'],
+            ],
+        ]);
+
+        $this->assertSame([], $r['escalation_moves']);
+    }
 }

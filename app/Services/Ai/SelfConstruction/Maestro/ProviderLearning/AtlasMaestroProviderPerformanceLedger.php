@@ -226,6 +226,105 @@ final class AtlasMaestroProviderPerformanceLedger
     }
 
     /**
+     * Evidence-weighted performance facts: discounts success outcomes without runnable tests
+     * or implementation evidence.
+     *
+     * @param  string  $taskClass
+     * @return array<string, array{evidence_weighted_success_rate:float, give_back_rate:float, poison_rate:float, routing_confidence:string}>
+     */
+    public function evidenceWeightedFacts(string $taskClass): array
+    {
+        $state = $this->load();
+        $classFacts = (array) ($state['facts'][$taskClass] ?? []);
+        $out = [];
+
+        foreach ($classFacts as $provider => $row) {
+            $row = (array) $row;
+            $successCount = (int) ($row['success_count'] ?? 0);
+            $giveBackCount = (int) ($row['give_back_count'] ?? 0);
+            $evidenceCount = (int) ($row['has_required_evidence_count'] ?? 0);
+            $proofPassed = (int) ($row['proof_passed_count'] ?? 0);
+            $proofFailed = (int) ($row['proof_failed_count'] ?? 0);
+
+            $totalOutcomes = $successCount + $giveBackCount;
+            if ($totalOutcomes === 0) {
+                $out[$provider] = [
+                    'evidence_weighted_success_rate' => 0.0,
+                    'give_back_rate' => 0.0,
+                    'poison_rate' => 0.0,
+                    'routing_confidence' => 'unknown',
+                ];
+                continue;
+            }
+
+            // Evidence-weighted success: only count successes with evidence
+            $evidenceWeightedSuccess = min($successCount, $evidenceCount);
+            $evidenceWeightedSuccessRate = $evidenceWeightedSuccess / $totalOutcomes;
+
+            // Give-back rate
+            $giveBackRate = $giveBackCount / $totalOutcomes;
+
+            // Poison rate: give_back + proof failures relative to total
+            $poisonCount = $giveBackCount + $proofFailed;
+            $poisonRate = $poisonCount / $totalOutcomes;
+
+            // Routing confidence based on evidence quality
+            $routingConfidence = $this->computeRoutingConfidence(
+                $totalOutcomes,
+                $evidenceCount,
+                $proofPassed,
+                $proofFailed,
+                $giveBackRate,
+            );
+
+            $out[$provider] = [
+                'evidence_weighted_success_rate' => round($evidenceWeightedSuccessRate, 4),
+                'give_back_rate' => round($giveBackRate, 4),
+                'poison_rate' => round($poisonRate, 4),
+                'routing_confidence' => $routingConfidence,
+            ];
+        }
+
+        ksort($out);
+
+        return $out;
+    }
+
+    /**
+     * Compute routing confidence from evidence signals.
+     */
+    private function computeRoutingConfidence(
+        int $totalOutcomes,
+        int $evidenceCount,
+        int $proofPassed,
+        int $proofFailed,
+        float $giveBackRate,
+    ): string {
+        // Too few outcomes
+        if ($totalOutcomes < self::SPARSE_SAMPLE_THRESHOLD) {
+            return 'unknown';
+        }
+
+        // High evidence coverage and proven proofs
+        $evidenceCoverage = $evidenceCount / max(1, $totalOutcomes);
+        if ($evidenceCoverage >= 0.8 && $proofPassed >= 3 && $giveBackRate < 0.2) {
+            return 'high';
+        }
+
+        // Contradictory evidence
+        if ($giveBackRate >= self::CONTRADICTORY_RATE_LOW && $giveBackRate <= self::CONTRADICTORY_RATE_HIGH) {
+            return 'low';
+        }
+
+        // Moderate evidence
+        if ($evidenceCoverage >= 0.5 && $totalOutcomes >= self::SPARSE_SAMPLE_THRESHOLD) {
+            return 'medium';
+        }
+
+        return 'low';
+    }
+
+    /**
      * @return array<string, array<string, array<string,mixed>>>
      */
     public function allFacts(): array

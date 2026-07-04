@@ -104,6 +104,18 @@ final class AtlasSelfConstructionAutonomyModePolicy
             return $this->envelope(self::MODE_EXECUTE_GUARDED, $blockers, $reasons, $facts, $summary);
         }
 
+        // Proof-system guard: missing, stale, contradictory receipts or unavailable replay
+        // block execute_continuous — 24/7 autonomy requires trustworthy receipts.
+        $proofSystemBlockers = $this->extractProofSystemBlockers($facts);
+        foreach ($proofSystemBlockers as $b) {
+            $blockers[] = $b;
+        }
+        if ($proofSystemBlockers !== [] && $continuousReady) {
+            $reasons[] = 'execute_guarded:proof_system_untrustworthy';
+
+            return $this->envelope(self::MODE_EXECUTE_GUARDED, $blockers, $reasons, $facts, $summary);
+        }
+
         // Queue-health guard: dirty serving metrics block execute_continuous without operator/external input.
         $queueHealthBlockers = $this->extractQueueHealthBlockers($facts);
         foreach ($queueHealthBlockers as $b) {
@@ -150,6 +162,33 @@ final class AtlasSelfConstructionAutonomyModePolicy
         }
 
         return $this->envelope($mode, $blockers, $reasons, $facts, $summary);
+    }
+
+    /**
+     * Returns named blockers for each proof-system fact issue present in facts.
+     * Pure — no I/O, no operator prompt, no external provider.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return list<string>
+     */
+    private function extractProofSystemBlockers(array $facts): array
+    {
+        $ps = is_array($facts['proof_system'] ?? null) ? $facts['proof_system'] : [];
+        $blockers = [];
+        if ((bool) ($ps['missing_receipts'] ?? false)) {
+            $blockers[] = 'proof_system:missing_receipts';
+        }
+        if ((bool) ($ps['stale_receipts'] ?? false)) {
+            $blockers[] = 'proof_system:stale_receipts';
+        }
+        if ((bool) ($ps['contradictory_receipts'] ?? false)) {
+            $blockers[] = 'proof_system:contradictory_receipts';
+        }
+        if ((bool) ($ps['replay_unavailable'] ?? false)) {
+            $blockers[] = 'proof_system:replay_unavailable';
+        }
+
+        return $blockers;
     }
 
     /**

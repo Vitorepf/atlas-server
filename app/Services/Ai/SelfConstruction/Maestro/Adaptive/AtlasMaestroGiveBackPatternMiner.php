@@ -78,11 +78,138 @@ final class AtlasMaestroGiveBackPatternMiner
         usort($facts, static fn (array $left, array $right): int => [-(int) $left['give_back_count'], (string) $left['shape_key']] <=> [-(int) $right['give_back_count'], (string) $right['shape_key']]);
         usort($abstentions, static fn (array $left, array $right): int => strcmp((string) $left['shape_key'], (string) $right['shape_key']));
 
+        // Cluster root causes and derive action candidates
+        $clusters = $this->clusterRootCauses($facts);
+
         return [
             'schema' => self::SCHEMA,
             'rows' => $facts,
             'abstentions' => $abstentions,
+            'root_cause_clusters' => $clusters['clusters'],
+            'packet_repair_candidates' => $clusters['packet_repair_candidates'],
+            'reroute_candidates' => $clusters['reroute_candidates'],
+            'quarantine_candidates' => $clusters['quarantine_candidates'],
         ];
+    }
+
+    /**
+     * Cluster give_backs into root cause families and derive action candidates.
+     *
+     * Families: scope, acceptance, dependency, duplicate, worker_weakness.
+     * packet_defect clusters (scope, acceptance, dependency, duplicate) are marked separately
+     * from worker_routing clusters (worker_weakness).
+     *
+     * @param  list<array<string,mixed>>  $facts
+     */
+    private function clusterRootCauses(array $facts): array
+    {
+        $clusters = [];
+        $packetRepairCandidates = [];
+        $rerouteCandidates = [];
+        $quarantineCandidates = [];
+
+        // Bucket families
+        $familyMap = [
+            'scope' => ['scope_gap', 'missing_impl_file', 'forbidden_target'],
+            'acceptance' => ['contradictory_acceptance', 'contradiction', 'schema_mismatch'],
+            'dependency' => ['missing_evidence'],
+            'duplicate' => ['duplicate_or_noop', 'duplicate_capability'],
+            'worker_weakness' => ['worker_mismatch'],
+        ];
+
+        // Group facts by family
+        $familyGroups = [];
+        foreach ($facts as $fact) {
+            $bucket = $fact['bucket'] ?? 'unknown';
+            $family = $this->resolveFamily($bucket, $familyMap);
+            $familyGroups[$family][] = $fact;
+        }
+
+        // Build clusters
+        foreach ($familyGroups as $family => $groupFacts) {
+            $totalGiveBacks = array_sum(array_column($groupFacts, 'give_back_count'));
+            $shapeKeys = array_column($groupFacts, 'shape_key');
+            $buckets = array_column($groupFacts, 'bucket');
+            $isWorkerRouting = $family === 'worker_weakness';
+
+            $cluster = [
+                'family' => $family,
+                'is_packet_defect' => ! $isWorkerRouting,
+                'is_worker_routing' => $isWorkerRouting,
+                'total_give_backs' => $totalGiveBacks,
+                'shape_keys' => array_values(array_unique($shapeKeys)),
+                'buckets' => array_values(array_unique($buckets)),
+                'repair_action' => $this->familyRepairAction($family),
+            ];
+            $clusters[] = $cluster;
+
+            // Derive candidates
+            foreach ($groupFacts as $fact) {
+                if ($isWorkerRouting) {
+                    $rerouteCandidates[] = [
+                        'shape_key' => $fact['shape_key'],
+                        'bucket' => $fact['bucket'],
+                        'give_back_count' => $fact['give_back_count'],
+                        'reason' => 'worker_mismatch_requires_rerouting',
+                    ];
+                } else {
+                    $packetRepairCandidates[] = [
+                        'shape_key' => $fact['shape_key'],
+                        'bucket' => $fact['bucket'],
+                        'give_back_count' => $fact['give_back_count'],
+                        'family' => $family,
+                        'repair_action' => $fact['repair_action'] ?? $this->familyRepairAction($family),
+                    ];
+                }
+
+                // High give_back count → quarantine candidate
+                if ($fact['give_back_count'] >= 5 && $fact['confidence'] === 'high') {
+                    $quarantineCandidates[] = [
+                        'shape_key' => $fact['shape_key'],
+                        'bucket' => $fact['bucket'],
+                        'give_back_count' => $fact['give_back_count'],
+                        'family' => $family,
+                        'reason' => 'high_confidence_repeated_give_back',
+                    ];
+                }
+            }
+        }
+
+        return [
+            'clusters' => $clusters,
+            'packet_repair_candidates' => $packetRepairCandidates,
+            'reroute_candidates' => $rerouteCandidates,
+            'quarantine_candidates' => $quarantineCandidates,
+        ];
+    }
+
+    /**
+     * Resolve a bucket to its family.
+     */
+    private function resolveFamily(string $bucket, array $familyMap): string
+    {
+        foreach ($familyMap as $family => $buckets) {
+            if (in_array($bucket, $buckets, true)) {
+                return $family;
+            }
+        }
+
+        return 'unknown';
+    }
+
+    /**
+     * Get the repair action for a family.
+     */
+    private function familyRepairAction(string $family): string
+    {
+        return match ($family) {
+            'scope' => 'respec_scope_to_allowed_files',
+            'acceptance' => 'rewrite_acceptance_criteria',
+            'dependency' => 'attach_required_evidence',
+            'duplicate' => 'deduplicate_and_reject',
+            'worker_weakness' => 'reroute_to_matching_worker',
+            default => 'inspect_manually',
+        };
     }
 
     /**
@@ -277,12 +404,27 @@ final class AtlasMaestroGiveBackPatternMiner
      */
     private function shapeKey(array $row): string
     {
-        return implode('|', [
+        $parts = [
             'task_class:'.$this->text($row['task_class'] ?? 'unknown'),
             'allowed_files:'.$this->allowedFilesBucket($row),
             'scope:'.$this->scopePrefix($row),
             'evidence:'.$this->evidenceKind($row),
-        ]);
+        ];
+
+        return $this->collisionSafeImplode($parts);
+    }
+
+    /**
+     * Build a collision-safe key from parts.
+     * Each part is length-prefixed so a '|' inside a part cannot collide with the delimiter.
+     *
+     * @param  list<string>  $parts
+     */
+    private function collisionSafeImplode(array $parts): string
+    {
+        $prefixed = array_map(static fn (string $p): string => strlen($p).':'.$p, $parts);
+
+        return implode('|', $prefixed);
     }
 
     /**

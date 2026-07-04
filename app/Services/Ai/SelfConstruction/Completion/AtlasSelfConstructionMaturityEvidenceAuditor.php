@@ -101,6 +101,9 @@ final class AtlasSelfConstructionMaturityEvidenceAuditor
         $overallAudited   = $dimensionCount > 0 ? round($scoreSum / $dimensionCount, 4) : 0.0;
         $highScoreRefused = $claimedOverall > self::HIGH_SCORE_THRESHOLD && count($refusalReasons) > 0;
 
+        // Build proof_gap_index: group non-proven dimensions by gap category
+        $proofGapIndex = $this->buildProofGapIndex($verdicts);
+
         return [
             'schema_version'           => self::SCHEMA,
             'overall_claimed_maturity' => $claimedOverall,
@@ -108,6 +111,7 @@ final class AtlasSelfConstructionMaturityEvidenceAuditor
             'dimension_verdicts'       => $verdicts,
             'high_score_refused'       => $highScoreRefused,
             'refusal_reasons'          => $refusalReasons,
+            'proof_gap_index'          => $proofGapIndex,
         ];
     }
 
@@ -159,5 +163,47 @@ final class AtlasSelfConstructionMaturityEvidenceAuditor
 
         // Intent / doc only (AC2 trigger).
         return ['intent_only', 'intent_or_doc_only_no_runtime_proof'];
+    }
+
+    /**
+     * Build proof_gap_index: group non-proven dimensions by gap category.
+     *
+     * @param  list<array<string,mixed>>  $verdicts
+     * @return list<array{dimension:string,severity:string,evidence_tier:string,next_atlas_action:string}>
+     */
+    private function buildProofGapIndex(array $verdicts): array
+    {
+        $gaps = [];
+        foreach ($verdicts as $v) {
+            $verdict = (string) ($v['verdict'] ?? '');
+            if ($verdict === 'proven') {
+                continue;
+            }
+
+            $severity = match ($verdict) {
+                'missing'        => 'critical',
+                'contradicted'   => 'critical',
+                'intent_only'    => 'high',
+                'weak'           => 'medium',
+                default          => 'low',
+            };
+
+            $nextAction = match ($verdict) {
+                'missing'        => 'establish_runtime_evidence_for_dimension',
+                'contradicted'   => 'resolve_evidence_contradiction_and_retest',
+                'intent_only'    => 'convert_intent_to_runtime_proof',
+                'weak'           => 'upgrade_integration_to_runtime_evidence',
+                default          => 'collect_evidence_for_dimension',
+            };
+
+            $gaps[] = [
+                'dimension' => (string) ($v['dimension'] ?? ''),
+                'severity' => $severity,
+                'evidence_tier' => $verdict,
+                'next_atlas_action' => $nextAction,
+            ];
+        }
+
+        return $gaps;
     }
 }

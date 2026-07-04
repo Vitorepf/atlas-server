@@ -34,6 +34,14 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
 
     private const QUALITY_WEAK_GREEN_RATE_CEILING = 0.3;
 
+    private const STARVATION_CONSECUTIVE_CONTENTION_THRESHOLD = 3;
+
+    private const MAX_BACKOFF_SECONDS = 300;
+
+    private const MIN_BACKOFF_SECONDS = 5;
+
+    private const JITTER_BAND_SECONDS = 15;
+
     /**
      * @param  array<string, mixed>  $facts
      * @return array<string, mixed>
@@ -47,6 +55,10 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
         $averageTaskMinutes = (float) ($facts['average_task_minutes'] ?? 10.0);
         $recentGiveBackRate = (float) ($facts['recent_give_back_rate'] ?? 0.0);
         $weakGreenRate = (float) ($facts['weak_green_rate'] ?? 0.0);
+        $consecutiveContentionRounds = (int) ($facts['consecutive_contention_rounds'] ?? 0);
+        $workerClass = (string) ($facts['worker_class'] ?? 'default');
+        $totalActiveWorkers = (int) ($facts['total_active_workers'] ?? 1);
+        $perClientContention = (array) ($facts['per_client_contention'] ?? []);
 
         $reasonCodes = [];
         $qualityGateReasonCodes = [];
@@ -71,6 +83,9 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
             $hasContention = true;
         }
 
+        // Compute per-client worker deltas
+        $clientWorkerDeltas = $this->computeClientWorkerDeltas($perClientContention, $hasContention, $servableNow, $activeLeases);
+
         $isSaturated = $servableNow <= $activeLeases;
 
         if ($hasContention || $isSaturated) {
@@ -82,7 +97,22 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
                 : -max(1, (int) ceil($activeLeases / 2));
             $retryAfter = max(30, (int) round($averageTaskMinutes * 60 / 4));
 
-            return $this->result(self::DECISION_BACKOFF, $delta, $retryAfter, $reasonCodes, $qualityGateReasonCodes);
+            // Compute backoff with starvation prevention
+            $backoffSeconds = $this->computeBackoffSeconds($consecutiveContentionRounds, $averageTaskMinutes);
+            $jitterBand = $this->computeJitterBand($consecutiveContentionRounds);
+            $fairnessReason = $this->computeFairnessReason($consecutiveContentionRounds, $workerClass, $totalActiveWorkers);
+
+            return $this->result(
+                self::DECISION_BACKOFF,
+                $delta,
+                $retryAfter,
+                $reasonCodes,
+                $qualityGateReasonCodes,
+                $backoffSeconds,
+                $jitterBand,
+                $fairnessReason,
+                $clientWorkerDeltas,
+            );
         }
 
         $headroom = $servableNow - $activeLeases;
@@ -92,17 +122,73 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
             if ($qualityBreached) {
                 $reasonCodes[] = 'headroom:servable_now_exceeds_active_leases='.$headroom;
 
-                return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes, $qualityGateReasonCodes);
+                return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes, $qualityGateReasonCodes, 0, 0, '', $clientWorkerDeltas);
             }
 
             $reasonCodes[] = 'headroom:servable_now_exceeds_active_leases='.$headroom;
 
-            return $this->result(self::DECISION_SPAWN_MORE, min($headroom, self::SPAWN_BURST_CAP), 0, $reasonCodes, $qualityGateReasonCodes);
+            return $this->result(self::DECISION_SPAWN_MORE, min($headroom, self::SPAWN_BURST_CAP), 0, $reasonCodes, $qualityGateReasonCodes, 0, 0, '', $clientWorkerDeltas);
         }
 
         $reasonCodes[] = 'stable:no_strong_signal';
 
-        return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes, $qualityGateReasonCodes);
+        return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes, $qualityGateReasonCodes, 0, 0, '', $clientWorkerDeltas);
+    }
+
+    /**
+     * Compute per-client worker deltas from per-client contention data.
+     *
+     * @param  list<array<string, mixed>>  $perClientContention
+     * @return list<array<string, mixed>>
+     */
+    private function computeClientWorkerDeltas(array $perClientContention, bool $hasGlobalContention, int $servableNow, int $activeLeases): array
+    {
+        if ($perClientContention === []) {
+            return [];
+        }
+
+        $deltas = [];
+        $headroom = $servableNow - $activeLeases;
+
+        foreach ($perClientContention as $client) {
+            $clientId = (string) ($client['client_id'] ?? $client['worker_id'] ?? 'unknown');
+            $clientCommitFailures = (int) ($client['commit_failures'] ?? 0);
+            $clientIndexLockRetries = (int) ($client['index_lock_retries'] ?? 0);
+            $clientHasContention = $clientCommitFailures >= self::COMMIT_FAILURE_THRESHOLD
+                || $clientIndexLockRetries >= self::INDEX_LOCK_RETRY_THRESHOLD;
+
+            if ($hasGlobalContention) {
+                // Global contention — all clients back off
+                $deltas[] = [
+                    'client_id' => $clientId,
+                    'worker_delta' => -1,
+                    'reason' => 'global_contention_backoff',
+                ];
+            } elseif ($clientHasContention) {
+                // Per-client contention — only this client backs off
+                $deltas[] = [
+                    'client_id' => $clientId,
+                    'worker_delta' => -1,
+                    'reason' => 'per_client_contention_backoff',
+                ];
+            } elseif ($headroom >= self::SPAWN_HEADROOM_THRESHOLD) {
+                // Healthy client with headroom — spawn more
+                $deltas[] = [
+                    'client_id' => $clientId,
+                    'worker_delta' => 1,
+                    'reason' => 'headroom_spawn',
+                ];
+            } else {
+                // No signal — hold current
+                $deltas[] = [
+                    'client_id' => $clientId,
+                    'worker_delta' => 0,
+                    'reason' => 'hold_current',
+                ];
+            }
+        }
+
+        return $deltas;
     }
 
     /**
@@ -110,8 +196,17 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
      * @param  list<string>  $qualityGateReasonCodes
      * @return array<string, mixed>
      */
-    private function result(string $decision, int $targetWorkerDelta, int $retryAfterSeconds, array $reasonCodes, array $qualityGateReasonCodes = []): array
-    {
+    private function result(
+        string $decision,
+        int $targetWorkerDelta,
+        int $retryAfterSeconds,
+        array $reasonCodes,
+        array $qualityGateReasonCodes = [],
+        int $backoffSeconds = 0,
+        int $jitterBand = 0,
+        string $fairnessReason = '',
+        array $clientWorkerDeltas = [],
+    ): array {
         return [
             'schema' => self::SCHEMA,
             'decision' => $decision,
@@ -119,6 +214,46 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
             'retry_after_seconds' => $retryAfterSeconds,
             'reason_codes' => $reasonCodes,
             'quality_gate_reason_codes' => $qualityGateReasonCodes,
+            'backoff_seconds' => $backoffSeconds,
+            'jitter_band' => $jitterBand,
+            'fairness_reason' => $fairnessReason,
+            'client_worker_deltas' => $clientWorkerDeltas,
         ];
+    }
+
+    /**
+     * Compute backoff seconds with exponential scaling capped at MAX_BACKOFF_SECONDS.
+     */
+    private function computeBackoffSeconds(int $consecutiveContentionRounds, float $averageTaskMinutes): int
+    {
+        $base = max(self::MIN_BACKOFF_SECONDS, (int) round($averageTaskMinutes * 60 / 4));
+        $scaled = $base * min(2 ** $consecutiveContentionRounds, 8);
+
+        return min(self::MAX_BACKOFF_SECONDS, max(self::MIN_BACKOFF_SECONDS, $scaled));
+    }
+
+    /**
+     * Compute jitter band to prevent thundering herd.
+     */
+    private function computeJitterBand(int $consecutiveContentionRounds): int
+    {
+        return min(self::JITTER_BAND_SECONDS * (1 + $consecutiveContentionRounds), self::MAX_BACKOFF_SECONDS / 2);
+    }
+
+    /**
+     * Compute fairness reason: prevent one worker class from starving others.
+     */
+    private function computeFairnessReason(int $consecutiveContentionRounds, string $workerClass, int $totalActiveWorkers): string
+    {
+        if ($consecutiveContentionRounds >= self::STARVATION_CONSECUTIVE_CONTENTION_THRESHOLD) {
+            return sprintf(
+                'starvation_prevention:worker_class=%s consecutive_contention=%d total_workers=%d increasing_backoff_to_yield_queue',
+                $workerClass,
+                $consecutiveContentionRounds,
+                $totalActiveWorkers,
+            );
+        }
+
+        return '';
     }
 }

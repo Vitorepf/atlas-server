@@ -85,6 +85,19 @@ final class AtlasExternalBrainLocalClientFallbackPolicy
             ],
         };
 
+        // Distinguish acceleration_allowed from steady_state_dependency_allowed.
+        // Local clients can accelerate but NEVER be the sole steady-state path.
+        $accelerationAllowed = $localClientUsable;
+        $steadyStateDependencyAllowed = false; // Invariant: never allowed
+
+        // safe_usage_mode: describes how the local client may be used safely
+        $safeUsageMode = match (true) {
+            $accelerationAllowed && $hasIndependentFallback => 'acceleration_with_fallback',
+            $accelerationAllowed && ! $hasIndependentFallback => 'acceleration_blocked_no_fallback',
+            ! $accelerationAllowed => 'local_client_unusable',
+            default => 'unknown',
+        };
+
         return [
             'schema_version' => self::SCHEMA,
             'local_client_available' => $localClientAvailable,
@@ -98,16 +111,12 @@ final class AtlasExternalBrainLocalClientFallbackPolicy
             'decision' => $decision,
             'reason' => $reason,
             'missing_atlas_native_fallback_capabilities' => $missingAtlasNativeFallbackCapabilities,
-            // True whenever the local client itself is unavailable, fragile, paid-api-only, or
-            // unverified — an Atlas-native (or manual) fallback must be able to cover for it.
             'native_fallback_required' => ! $localClientUsable,
-            // False only when an independent (Atlas-native or manual) fallback actually exists —
-            // otherwise steady-state autonomy silently depends on an external provider/client.
             'steady_state_provider_dependency' => ! $hasIndependentFallback,
-            // Policy invariant, never computed from facts: this policy NEVER allows steady-state
-            // autonomy to be declared dependent on an external client in any path — worst case it
-            // pauses provider routing instead of mandating reliance on the local client.
             'steady_state_requires_external_client' => false,
+            'acceleration_allowed' => $accelerationAllowed,
+            'steady_state_dependency_allowed' => $steadyStateDependencyAllowed,
+            'safe_usage_mode' => $safeUsageMode,
             'mutates_queue' => false,
         ];
     }

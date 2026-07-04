@@ -210,10 +210,12 @@ final class AtlasSelfConstructionLearningTransferObservationStore
      */
     private function dedupeKeyOf(array $row): string
     {
-        return ((string) ($row['lesson_key'] ?? ''))
-            .'|'.((string) ($row['task_packet_id'] ?? ''))
-            .'|'.((string) ($row['agent_id'] ?? ''))
-            .'|'.((string) ($row['outcome'] ?? ''));
+        return json_encode([
+            (string) ($row['lesson_key'] ?? ''),
+            (string) ($row['task_packet_id'] ?? ''),
+            (string) ($row['agent_id'] ?? ''),
+            (string) ($row['outcome'] ?? ''),
+        ], JSON_THROW_ON_ERROR);
     }
 
     private function hasDedupeKey(string $dedupeKey): bool

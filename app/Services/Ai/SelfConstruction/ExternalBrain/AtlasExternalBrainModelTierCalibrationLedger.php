@@ -90,7 +90,7 @@ final class AtlasExternalBrainModelTierCalibrationLedger
                 };
             }
 
-            $segKey = "{$tier}|{$scaffold}|{$critique}|{$taskClass}";
+            $segKey = json_encode([$tier, $scaffold, $critique, $taskClass], JSON_THROW_ON_ERROR);
 
             if (! isset($segments[$segKey])) {
                 $segments[$segKey] = [

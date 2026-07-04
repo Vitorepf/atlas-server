@@ -313,4 +313,57 @@ final class AtlasExternalBrainOutcomeBackpressurePolicy
             'outcome_summary' => $counts,
         ];
     }
+
+    /**
+     * Quality backpressure: distinguishes quality-driven pacing from idle waiting.
+     * When valuable targets remain, recommends smaller or better batches instead of no work.
+     * Escalates to repair when give_back, poison, or low-commit-yield signals exceed thresholds.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array{quality_backpressure:string, idle_waiting:bool, recommend_smaller_batch:bool, recommend_better_batch:bool, valuable_targets_remaining:bool, repair_escalation:bool, reason:string}
+     */
+    public function qualityBackpressure(array $input): array
+    {
+        $giveBackRate = max(0.0, min(1.0, (float) ($input['give_back_rate'] ?? 0.0)));
+        $poisonRate = max(0.0, min(1.0, (float) ($input['poison_rate'] ?? 0.0)));
+        $commitYield = max(0.0, min(1.0, (float) ($input['commit_yield'] ?? 1.0)));
+        $valuableTargetsRemaining = (bool) ($input['valuable_targets_remaining'] ?? false);
+        $queueDepth = max(0, (int) ($input['queue_depth'] ?? 0));
+        $recentGiveBackCount = max(0, (int) ($input['recent_give_back_count'] ?? 0));
+        $recentPoisonCount = max(0, (int) ($input['recent_poison_count'] ?? 0));
+
+        // Repair escalation: recent give_back, poison, or low-commit-yield signals exceed safe thresholds
+        $repairEscalation = $recentPoisonCount >= 2 || $recentGiveBackCount >= 3 || $commitYield < 0.3;
+
+        // Idle waiting: no valuable targets and queue is sufficient
+        $idleWaiting = ! $valuableTargetsRemaining && $queueDepth >= 3;
+
+        // Quality backpressure: valuable targets remain but quality signals suggest pacing
+        $qualityBackpressure = $valuableTargetsRemaining && ($giveBackRate > 0.3 || $poisonRate > 0.2 || $commitYield < 0.5);
+
+        // Recommend smaller batch when quality signals are moderate
+        $recommendSmallerBatch = $qualityBackpressure && $giveBackRate <= 0.5 && $poisonRate <= 0.3;
+
+        // Recommend better batch when quality signals are poor but targets remain
+        $recommendBetterBatch = $qualityBackpressure && ! $recommendSmallerBatch;
+
+        $reason = match (true) {
+            $repairEscalation => 'repair_escalation_triggered_by_quality_signals',
+            $idleWaiting => 'no_valuable_targets_and_queue_sufficient',
+            $recommendSmallerBatch => 'quality_backpressure_recommend_smaller_batches',
+            $recommendBetterBatch => 'quality_backpressure_recommend_better_batches',
+            $valuableTargetsRemaining => 'valuable_targets_remain_continue_normal_pace',
+            default => 'no_clear_signal_continue_monitoring',
+        };
+
+        return [
+            'quality_backpressure' => $qualityBackpressure ? 'active' : 'inactive',
+            'idle_waiting' => $idleWaiting,
+            'recommend_smaller_batch' => $recommendSmallerBatch,
+            'recommend_better_batch' => $recommendBetterBatch,
+            'valuable_targets_remaining' => $valuableTargetsRemaining,
+            'repair_escalation' => $repairEscalation,
+            'reason' => $reason,
+        ];
+    }
 }

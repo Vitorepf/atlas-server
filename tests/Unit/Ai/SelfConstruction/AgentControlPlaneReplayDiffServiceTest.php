@@ -184,4 +184,119 @@ final class AgentControlPlaneReplayDiffServiceTest extends TestCase
         $this->assertContains('pointer_advanced_with_chain_growth', $kinds);
         $this->assertSame([], $diff['regressions']);
     }
+
+    // ── mismatch classification ──
+
+    public function test_mismatch_classification_has_required_keys(): void
+    {
+        $diff = $this->newDiffService()->diff($this->freshReplay(), $this->freshReplay());
+        $this->assertArrayHasKey('mismatch_classification', $diff);
+        $mc = $diff['mismatch_classification'];
+        $this->assertArrayHasKey('mismatches', $mc);
+        $this->assertArrayHasKey('summary', $mc);
+        $this->assertArrayHasKey('deterministic', $mc);
+    }
+
+    public function test_identical_replays_produce_no_mismatches(): void
+    {
+        $replay = $this->freshReplay();
+        $replay['stage_hashes'] = ['context' => 'h1', 'task' => 'h2', 'execution' => 'h3', 'proof' => 'h4', 'learning' => 'h5'];
+        $diff = $this->newDiffService()->diff($replay, $replay);
+        $this->assertSame([], $diff['mismatch_classification']['mismatches']);
+    }
+
+    public function test_context_stage_mismatch_is_data_drift(): void
+    {
+        $before = $this->freshReplay();
+        $before['stage_hashes'] = ['context' => 'ctx_a', 'task' => 't', 'execution' => 'e', 'proof' => 'p', 'learning' => 'l'];
+        $after = $this->freshReplay();
+        $after['stage_hashes'] = ['context' => 'ctx_b', 'task' => 't', 'execution' => 'e', 'proof' => 'p', 'learning' => 'l'];
+        $after['deterministic_replay_hash'] = 'after_'.bin2hex(random_bytes(31));
+
+        $diff = $this->newDiffService()->diff($before, $after);
+        $mismatches = $diff['mismatch_classification']['mismatches'];
+        $this->assertCount(1, $mismatches);
+        $this->assertSame('data_drift', $mismatches[0]['kind']);
+        $this->assertSame('context', $mismatches[0]['affected_stage']);
+        $this->assertArrayHasKey('repair_hint', $mismatches[0]);
+    }
+
+    public function test_task_and_execution_mismatches_are_code_drift(): void
+    {
+        $before = $this->freshReplay();
+        $before['stage_hashes'] = ['context' => 'c', 'task' => 't_a', 'execution' => 'e_a', 'proof' => 'p', 'learning' => 'l'];
+        $after = $this->freshReplay();
+        $after['stage_hashes'] = ['context' => 'c', 'task' => 't_b', 'execution' => 'e_b', 'proof' => 'p', 'learning' => 'l'];
+        $after['deterministic_replay_hash'] = 'after_'.bin2hex(random_bytes(31));
+
+        $diff = $this->newDiffService()->diff($before, $after);
+        $mismatches = $diff['mismatch_classification']['mismatches'];
+        foreach ($mismatches as $m) {
+            $this->assertSame('code_drift', $m['kind']);
+        }
+    }
+
+    public function test_proof_mismatch_is_evidence_drift(): void
+    {
+        $before = $this->freshReplay();
+        $before['stage_hashes'] = ['context' => 'c', 'task' => 't', 'execution' => 'e', 'proof' => 'p_a', 'learning' => 'l'];
+        $after = $this->freshReplay();
+        $after['stage_hashes'] = ['context' => 'c', 'task' => 't', 'execution' => 'e', 'proof' => 'p_b', 'learning' => 'l'];
+        $after['deterministic_replay_hash'] = 'after_'.bin2hex(random_bytes(31));
+
+        $diff = $this->newDiffService()->diff($before, $after);
+        $mismatches = $diff['mismatch_classification']['mismatches'];
+        $this->assertCount(1, $mismatches);
+        $this->assertSame('evidence_drift', $mismatches[0]['kind']);
+    }
+
+    public function test_learning_mismatch_is_nondeterministic_output(): void
+    {
+        $before = $this->freshReplay();
+        $before['stage_hashes'] = ['context' => 'c', 'task' => 't', 'execution' => 'e', 'proof' => 'p', 'learning' => 'l_a'];
+        $after = $this->freshReplay();
+        $after['stage_hashes'] = ['context' => 'c', 'task' => 't', 'execution' => 'e', 'proof' => 'p', 'learning' => 'l_b'];
+        $after['deterministic_replay_hash'] = 'after_'.bin2hex(random_bytes(31));
+
+        $diff = $this->newDiffService()->diff($before, $after);
+        $mismatches = $diff['mismatch_classification']['mismatches'];
+        $this->assertCount(1, $mismatches);
+        $this->assertSame('nondeterministic_output', $mismatches[0]['kind']);
+    }
+
+    public function test_mismatch_includes_expected_and_actual_hash(): void
+    {
+        $before = $this->freshReplay();
+        $before['stage_hashes'] = ['context' => 'ctx_a', 'task' => 't', 'execution' => 'e', 'proof' => 'p', 'learning' => 'l'];
+        $after = $this->freshReplay();
+        $after['stage_hashes'] = ['context' => 'ctx_b', 'task' => 't', 'execution' => 'e', 'proof' => 'p', 'learning' => 'l'];
+        $after['deterministic_replay_hash'] = 'after_'.bin2hex(random_bytes(31));
+
+        $diff = $this->newDiffService()->diff($before, $after);
+        $m = $diff['mismatch_classification']['mismatches'][0];
+        $this->assertSame('ctx_a', $m['expected_hash']);
+        $this->assertSame('ctx_b', $m['actual_hash']);
+    }
+
+    public function test_null_replays_produce_empty_mismatches(): void
+    {
+        $diff = $this->newDiffService()->diff();
+        $this->assertSame([], $diff['mismatch_classification']['mismatches']);
+    }
+
+    public function test_mismatch_summary_counts_by_kind(): void
+    {
+        $before = $this->freshReplay();
+        $before['stage_hashes'] = ['context' => 'c_a', 'task' => 't_a', 'execution' => 'e', 'proof' => 'p_a', 'learning' => 'l_a'];
+        $after = $this->freshReplay();
+        $after['stage_hashes'] = ['context' => 'c_b', 'task' => 't_b', 'execution' => 'e', 'proof' => 'p_b', 'learning' => 'l_b'];
+        $after['deterministic_replay_hash'] = 'after_'.bin2hex(random_bytes(31));
+
+        $diff = $this->newDiffService()->diff($before, $after);
+        $summary = $diff['mismatch_classification']['summary'];
+        $this->assertSame(1, $summary['data_drift']);
+        $this->assertSame(1, $summary['code_drift']);
+        $this->assertSame(1, $summary['evidence_drift']);
+        $this->assertSame(1, $summary['nondeterministic_output']);
+    }
 }

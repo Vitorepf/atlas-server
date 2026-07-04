@@ -208,4 +208,66 @@ class AtlasMaestroPacketSchemaMigratorTest extends TestCase
         self::assertSame(['criterion-b'], $outB['acceptance_criteria']);
         self::assertNotSame($outA['migration_hash'], $outB['migration_hash'], 'migration_hash must change when restored evidence fields differ');
     }
+
+    // ── migrateWithContract: migrated_packet, migration_receipt, preserved_fields, idempotent ──
+
+    public function test_migrate_with_contract_has_required_keys(): void
+    {
+        $migrator = $this->buildMigrator();
+        $packet = $this->v1Packet();
+        $result = $migrator->migrateWithContract($packet, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+
+        $this->assertArrayHasKey('migrated_packet', $result);
+        $this->assertArrayHasKey('migration_receipt', $result);
+        $this->assertArrayHasKey('preserved_fields', $result);
+        $this->assertArrayHasKey('idempotent', $result);
+    }
+
+    public function test_migrate_with_contract_preserved_fields_survive_migration(): void
+    {
+        $migrator = $this->buildMigrator();
+        $packet = $this->v1Packet();
+        $result = $migrator->migrateWithContract($packet, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+
+        $this->assertContains('objective', $result['preserved_fields']);
+        $this->assertContains('required_evidence', $result['preserved_fields']);
+        $this->assertContains('acceptance_criteria', $result['preserved_fields']);
+        $this->assertContains('allowed_files', $result['preserved_fields']);
+    }
+
+    public function test_migrate_with_contract_idempotent_when_already_at_target(): void
+    {
+        $migrator = $this->buildMigrator();
+        $packet = $this->v1Packet();
+        // First migrate to v2, then check idempotency
+        $migrated = $migrator->migrateTo($packet, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+        $result = $migrator->migrateWithContract($migrated, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+
+        $this->assertTrue($result['idempotent']);
+    }
+
+    public function test_migrate_with_contract_idempotent_after_migration(): void
+    {
+        $migrator = $this->buildMigrator();
+        $packet = $this->v1Packet();
+        $result = $migrator->migrateWithContract($packet, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+
+        $this->assertTrue($result['idempotent']);
+    }
+
+    public function test_migration_receipt_contains_hashes_and_trail(): void
+    {
+        $migrator = $this->buildMigrator();
+        $packet = $this->v1Packet();
+        $result = $migrator->migrateWithContract($packet, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+
+        $receipt = $result['migration_receipt'];
+        $this->assertArrayHasKey('from', $receipt);
+        $this->assertArrayHasKey('to', $receipt);
+        $this->assertArrayHasKey('original_hash', $receipt);
+        $this->assertArrayHasKey('migrated_hash', $receipt);
+        $this->assertArrayHasKey('trail', $receipt);
+        $this->assertNotEmpty($receipt['original_hash']);
+        $this->assertNotEmpty($receipt['migrated_hash']);
+    }
 }

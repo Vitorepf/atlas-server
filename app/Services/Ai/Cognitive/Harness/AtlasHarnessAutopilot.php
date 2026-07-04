@@ -218,7 +218,11 @@ class AtlasHarnessAutopilot
             if (($entry['outcome'] ?? '') !== 'applied_under_observation') {
                 continue;
             }
-            $appliedAt = \Illuminate\Support\Carbon::parse((string) $entry['applied_at']);
+            try {
+                $appliedAt = \Illuminate\Support\Carbon::parse((string) $entry['applied_at']);
+            } catch (\Throwable $e) {
+                continue;
+            }
             $days = max(1, (int) ($entry['observation_days'] ?? $this->observationDays()));
             if ($appliedAt->copy()->addDays($days)->isFuture()) {
                 $report['still_observing']++;

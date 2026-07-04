@@ -82,6 +82,18 @@ final class AtlasMaestroForbiddenTargetUnblockDossier
         $targetClassification = $this->targetClassification($requiresReview, $safeAllowed);
         $lineEvidence         = (array) ($facts['forbidden_path_lines'] ?? []);
 
+        // verdict: safe_alternative, wrapper_path, or operator_only_retirement
+        $verdict = $this->computeVerdict($safeAllowed, $requiresReview, count($forbiddenPaths));
+
+        // safe_alternative_files: non-forbidden files that can achieve the same goal
+        $safeAlternativeFiles = $safeAllowed;
+
+        // operator_only_reason: why this target requires operator intervention
+        $operatorOnlyReason = $this->computeOperatorOnlyReason($requiresReview, $isSelfTarget, $isCoreTarget, $safeAllowed);
+
+        // requeue_allowed: false when no unblock path exists or requires operator review
+        $requeueAllowed = ($safeAllowed !== [] || count($forbiddenPaths) <= 3) && ! $requiresReview;
+
         return [
             'schema_version'          => self::SCHEMA,
             'task_id'                 => $taskId,
@@ -91,6 +103,10 @@ final class AtlasMaestroForbiddenTargetUnblockDossier
             'unblock_action'          => $unblockAction,
             'respec_recommendation'   => $respecRecommendation,
             'target_classification'   => $targetClassification,
+            'verdict'                 => $verdict,
+            'safe_alternative_files'  => $safeAlternativeFiles,
+            'operator_only_reason'    => $operatorOnlyReason,
+            'requeue_allowed'         => $requeueAllowed,
             'evidence'                => $this->buildEvidence($taskId, $forbiddenPaths, $lineEvidence),
             'workaround_policy'       => self::WORKAROUND_POLICY,
             'diagnostics' => [
@@ -101,6 +117,42 @@ final class AtlasMaestroForbiddenTargetUnblockDossier
                 'failure_reason'       => $failureReason,
             ],
         ];
+    }
+
+    /**
+     * Compute verdict: safe_alternative, wrapper_path, or operator_only_retirement.
+     */
+    private function computeVerdict(array $safeAllowed, bool $requiresReview, int $forbiddenCount): string
+    {
+        if ($requiresReview) {
+            return 'operator_only_retirement';
+        }
+
+        if ($safeAllowed !== []) {
+            return 'safe_alternative';
+        }
+
+        return 'wrapper_path';
+    }
+
+    /**
+     * Compute operator-only reason when the target requires operator intervention.
+     */
+    private function computeOperatorOnlyReason(bool $requiresReview, bool $isSelfTarget, bool $isCoreTarget, array $safeAllowed): ?string
+    {
+        if (! $requiresReview && $safeAllowed !== []) {
+            return null;
+        }
+
+        if ($isSelfTarget) {
+            return 'forbidden_self_target_cannot_be_modified_by_muscle';
+        }
+
+        if ($isCoreTarget) {
+            return 'core_system_target_requires_operator_review';
+        }
+
+        return 'no_safe_alternative_path_available';
     }
 
     /**

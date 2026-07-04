@@ -296,4 +296,67 @@ final class AtlasMaestroOutcomePatternMinerTest extends TestCase
             $this->assertNoCompositeScore($child);
         }
     }
+
+    // ── worker-family policy hints ──
+
+    public function test_worker_id_negative_pattern_produces_reroute_worker_fit_hint(): void
+    {
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        for ($i = 0; $i < 10; $i++) {
+            $ledger->record('bad-'.$i, $this->shapeFacts(['worker_id' => 'muscle-bad']), 'give_back');
+        }
+        $patterns = (new AtlasMaestroOutcomePatternMiner($ledger))->negativePatterns();
+
+        $workerPattern = null;
+        foreach ($patterns as $p) {
+            if ($p['dimension'] === 'worker_id') {
+                $workerPattern = $p;
+                break;
+            }
+        }
+
+        $this->assertNotNull($workerPattern);
+        $this->assertSame('reroute_worker_fit', $workerPattern['policy_hint']);
+    }
+
+    public function test_file_family_negative_pattern_produces_respec_packet_shape_hint(): void
+    {
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        for ($i = 0; $i < 10; $i++) {
+            $ledger->record('ff-'.$i, $this->shapeFacts(['file_family' => 'app/Brain/Core']), 'give_back');
+        }
+        $patterns = (new AtlasMaestroOutcomePatternMiner($ledger))->negativePatterns();
+
+        $familyPattern = null;
+        foreach ($patterns as $p) {
+            if ($p['dimension'] === 'file_family') {
+                $familyPattern = $p;
+                break;
+            }
+        }
+
+        $this->assertNotNull($familyPattern);
+        $this->assertSame('respec_packet_shape', $familyPattern['policy_hint']);
+    }
+
+    public function test_strategy_pattern_includes_policy_hint(): void
+    {
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        for ($i = 0; $i < 10; $i++) {
+            $ledger->record('good-'.$i, $this->shapeFacts(['worker_id' => 'muscle-good']), 'delivered');
+        }
+        $patterns = (new AtlasMaestroOutcomePatternMiner($ledger))->strategyPatterns();
+
+        $workerPattern = null;
+        foreach ($patterns as $p) {
+            if ($p['dimension'] === 'worker_id') {
+                $workerPattern = $p;
+                break;
+            }
+        }
+
+        $this->assertNotNull($workerPattern);
+        $this->assertArrayHasKey('policy_hint', $workerPattern);
+        $this->assertNotEmpty($workerPattern['policy_hint']);
+    }
 }

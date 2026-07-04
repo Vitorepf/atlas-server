@@ -83,4 +83,72 @@ final class AtlasExternalBrainValueGateBacktestReplay
             'audit_reason' => 'no_adjustment: backtest shows clean gate calibration',
         ];
     }
+
+    /**
+     * Replay individual candidates through the value gate and produce
+     * would_admit, false_reject_green, true_reject_poison counts with
+     * threshold adjustment guidance.
+     *
+     * @param  list<array{task_packet_id:string, outcome:string, value_density:float, gate_passed:bool}>  $candidates
+     * @param  float  $currentThreshold
+     * @return array{schema:string, would_admit:int, false_reject_green:int, true_reject_poison:int, total:int, threshold_adjustment:?array{direction:string, reason:string, suggested_threshold:float}}
+     */
+    public function replayCandidates(array $candidates, float $currentThreshold = 0.5): array
+    {
+        $wouldAdmit = 0;
+        $falseRejectGreen = 0;
+        $trueRejectPoison = 0;
+
+        foreach ($candidates as $c) {
+            $passed = (bool) ($c['gate_passed'] ?? false);
+            $outcome = (string) ($c['outcome'] ?? '');
+            $density = (float) ($c['value_density'] ?? 0);
+
+            // Gate-passing candidates increment would_admit
+            if ($passed) {
+                $wouldAdmit++;
+            }
+
+            // Rejected successful tasks increment false_reject_green
+            if (! $passed && in_array($outcome, ['success', 'resolved', 'green'], true)) {
+                $falseRejectGreen++;
+            }
+
+            // Give_back or poison tasks rejected by the gate increment true_reject_poison
+            if (! $passed && in_array($outcome, ['give_back', 'poison', 'rejected', 'failed'], true)) {
+                $trueRejectPoison++;
+            }
+        }
+
+        $total = count($candidates);
+        $adjustment = null;
+
+        if ($total > 0) {
+            $poisonRate = $trueRejectPoison / $total;
+            $greenMissRate = $falseRejectGreen / $total;
+
+            if ($poisonRate > 0.1) {
+                $adjustment = [
+                    'direction' => 'tighten',
+                    'reason' => "high_poison_rate:{$poisonRate} of rejected candidates were poison — gate too loose",
+                    'suggested_threshold' => round(min(1.0, $currentThreshold + 0.1), 4),
+                ];
+            } elseif ($greenMissRate > 0.1) {
+                $adjustment = [
+                    'direction' => 'loosen',
+                    'reason' => "high_green_miss_rate:{$greenMissRate} of rejected candidates were green — gate too tight",
+                    'suggested_threshold' => round(max(0.0, $currentThreshold - 0.1), 4),
+                ];
+            }
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'would_admit' => $wouldAdmit,
+            'false_reject_green' => $falseRejectGreen,
+            'true_reject_poison' => $trueRejectPoison,
+            'total' => $total,
+            'threshold_adjustment' => $adjustment,
+        ];
+    }
 }

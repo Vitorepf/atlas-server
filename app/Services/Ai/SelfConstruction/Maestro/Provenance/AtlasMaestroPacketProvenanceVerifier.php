@@ -151,6 +151,50 @@ final class AtlasMaestroPacketProvenanceVerifier
     }
 
     /**
+     * Enriched verification: adds verification_status, mismatch_reason, recomputed_hash, provenance_binding_valid.
+     *
+     * @param  array<string,mixed>  $record
+     * @return array{ok:bool, reason_code:string, verification_status:string, mismatch_reason:string, recomputed_hash:string, provenance_binding_valid:bool, broken_link_id?:string}
+     */
+    public function verifyWithContract(array $record): array
+    {
+        $base = $this->verify($record);
+        $chain = is_array($record['chain'] ?? null) ? array_values($record['chain']) : [];
+
+        // Recompute hash for the first link (or the broken link if available)
+        $recomputedHash = '';
+        $mismatchReason = '';
+        if ($chain !== []) {
+            $targetLink = $chain[0];
+            $recomputedHash = hash('sha256', $this->canonicalJson([
+                'parent_id' => $targetLink['parent_id'] ?? null,
+                'source_kind' => $targetLink['source_kind'] ?? '',
+                'source_id' => $targetLink['source_id'] ?? '',
+                'captured_at' => $targetLink['captured_at'] ?? '',
+            ]));
+        }
+
+        if (! $base['ok']) {
+            $mismatchReason = $base['reason_code'];
+        }
+
+        // Check provenance binding: origin_kind/origin_id must be present and non-empty
+        $provenanceBindingValid = $base['ok']
+            && (string) ($record['origin_kind'] ?? '') !== ''
+            && (string) ($record['origin_id'] ?? '') !== '';
+
+        return [
+            'ok' => $base['ok'],
+            'reason_code' => $base['reason_code'],
+            'verification_status' => $base['ok'] ? 'verified' : 'failed',
+            'mismatch_reason' => $mismatchReason,
+            'recomputed_hash' => $recomputedHash,
+            'provenance_binding_valid' => $provenanceBindingValid,
+            ...(isset($base['broken_link_id']) ? ['broken_link_id' => $base['broken_link_id']] : []),
+        ];
+    }
+
+    /**
      * Verifies a task packet's binding to its source/target/composer/queue record — distinct from
      * verify()'s provenance-CHAIN check. Requires source, target, content_hash, composer_version,
      * queued_record_hash, and generated_at to be present, then checks (first match wins):

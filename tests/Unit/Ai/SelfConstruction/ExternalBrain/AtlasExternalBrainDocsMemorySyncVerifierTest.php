@@ -279,4 +279,52 @@ final class AtlasExternalBrainDocsMemorySyncVerifierTest extends TestCase
         $this->assertSame([], $result['stale_artifacts']);
         $this->assertSame([], $result['sync_command_hints']);
     }
+
+    // ── smallest_follow_up ──
+
+    public function test_smallest_follow_up_present_in_output(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'docs_updated' => false,
+            'memory_facts_recorded' => false,
+            'code_index_fresh' => true,
+        ]);
+
+        $this->assertArrayHasKey('smallest_follow_up', $result);
+        $this->assertSame('docs_patch', $result['smallest_follow_up']);
+    }
+
+    public function test_smallest_follow_up_no_follow_up_when_no_action(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => false,
+            'code_index_fresh' => true,
+        ]);
+
+        $this->assertSame('no_follow_up_needed', $result['smallest_follow_up']);
+    }
+
+    public function test_smallest_follow_up_index_refresh_when_only_index_stale(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => false,
+            'code_index_fresh' => false,
+        ]);
+
+        $this->assertSame('index_code_refresh', $result['smallest_follow_up']);
+    }
+
+    public function test_smallest_follow_up_picks_cheapest_when_multiple_stale(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'docs_updated' => false,
+            'memory_facts_recorded' => false,
+            'code_index_fresh' => false,
+        ]);
+
+        // index_code_refresh is cheapest (priority 1)
+        $this->assertSame('index_code_refresh', $result['smallest_follow_up']);
+    }
 }

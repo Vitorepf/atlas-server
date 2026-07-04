@@ -303,4 +303,68 @@ final class AtlasMaestroProviderPerformanceLedgerTest extends TestCase
         $this->assertArrayHasKey('sample_size', $facts['codex']);
         $this->assertArrayHasKey('confidence', $facts['codex']);
     }
+
+    // ── evidenceWeightedFacts: evidence_weighted_success_rate, give_back_rate, poison_rate, routing_confidence ──
+
+    public function test_evidence_weighted_facts_has_required_keys(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000, null, null, null, true);
+        $facts = $ledger->evidenceWeightedFacts('refactor');
+        $this->assertArrayHasKey('evidence_weighted_success_rate', $facts['codex']);
+        $this->assertArrayHasKey('give_back_rate', $facts['codex']);
+        $this->assertArrayHasKey('poison_rate', $facts['codex']);
+        $this->assertArrayHasKey('routing_confidence', $facts['codex']);
+    }
+
+    public function test_evidence_weighted_success_rate_discounts_unproven_success(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        // 5 successes with evidence, 5 without
+        for ($i = 0; $i < 5; $i++) {
+            $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000, null, null, null, true);
+        }
+        for ($i = 0; $i < 5; $i++) {
+            $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000, null, null, null, false);
+        }
+        $facts = $ledger->evidenceWeightedFacts('refactor');
+        // 10 total, 5 with evidence → weighted rate = 0.5
+        $this->assertSame(0.5, $facts['codex']['evidence_weighted_success_rate']);
+    }
+
+    public function test_give_back_rate_computed_correctly(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000);
+        $ledger->recordOutcome('codex', 'refactor', 'give_back', 1000, 1700000000);
+        $facts = $ledger->evidenceWeightedFacts('refactor');
+        $this->assertSame(0.5, $facts['codex']['give_back_rate']);
+    }
+
+    public function test_poison_rate_includes_proof_failures(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000, null, null, null, null, null, 'failed');
+        $facts = $ledger->evidenceWeightedFacts('refactor');
+        // 1 success + 0 give_back = 1 total; poison = 0 + 1 proof_failed = 1 → rate = 1.0
+        $this->assertSame(1.0, $facts['codex']['poison_rate']);
+    }
+
+    public function test_routing_confidence_high_with_strong_evidence(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        for ($i = 0; $i < 10; $i++) {
+            $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000, null, null, null, true, null, 'passed');
+        }
+        $facts = $ledger->evidenceWeightedFacts('refactor');
+        $this->assertSame('high', $facts['codex']['routing_confidence']);
+    }
+
+    public function test_routing_confidence_unknown_for_sparse_sample(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000);
+        $facts = $ledger->evidenceWeightedFacts('refactor');
+        $this->assertSame('unknown', $facts['codex']['routing_confidence']);
+    }
 }

@@ -214,6 +214,17 @@ final class AtlasSelfConstructionNextActionSelector
             ], $scopeGate);
         }
 
+        // 9.9. ORIGINATOR DUTY CYCLE — when the originator's duty cycle is due,
+        // structural origination takes priority over a dumb hold_position, even if
+        // raw queue depth looks comfortable. This ensures the brain keeps originating
+        // structural work on a regular cadence. Repair and knowledge-sync still outrank.
+        $originatorDutyCycleDue = (bool) ($workQueue['originator_duty_cycle_due'] ?? false);
+        if ($originatorDutyCycleDue) {
+            return $this->envelope(self::ACTION_STRUCTURAL_ORIGINATION, [
+                'originator_duty_cycle_due',
+            ], $scopeGate);
+        }
+
         return $this->envelope(self::ACTION_HOLD_POSITION, ['queue_idle'], $scopeGate);
     }
 

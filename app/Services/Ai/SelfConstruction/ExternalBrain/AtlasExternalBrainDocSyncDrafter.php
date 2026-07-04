@@ -67,6 +67,12 @@ final class AtlasExternalBrainDocSyncDrafter
         $staleCodeIndex    = (bool)   ($snapshot['stale_code_index']          ?? false);
         $queueQualityRisks = (array)  ($snapshot['queue_quality_risks']       ?? []);
 
+        // Capability delta, architecture change, operating rule change, removed behavior evidence
+        $capabilityDelta = (array)  ($snapshot['capability_delta']            ?? []);
+        $architectureChange = (array) ($snapshot['architecture_change']       ?? []);
+        $operatingRuleChange = (array) ($snapshot['operating_rule_change']     ?? []);
+        $removedBehavior = (array)  ($snapshot['removed_behavior']            ?? []);
+
         $certBlocked      = $this->hasCertificationBlockers($blockers);
         $isReadinessCapped = $certBlocked
             || $evidenceGaps !== []
@@ -97,7 +103,15 @@ final class AtlasExternalBrainDocSyncDrafter
         $docDeltas = $this->buildDocDeltas(
             $band, $blockers, $evidenceGaps, $nextActions,
             $certBlocked, $staleDocs, $staleCodeIndex, $queueQualityRisks,
+            $capabilityDelta, $architectureChange, $operatingRuleChange, $removedBehavior,
         );
+
+        // Enrich each doc delta with target_doc, source_evidence, update_summary
+        foreach ($docDeltas as $i => $delta) {
+            $docDeltas[$i]['target_doc'] = $delta['doc_key'] ?? 'unknown';
+            $docDeltas[$i]['source_evidence'] = $delta['evidence_refs'] ?? [];
+            $docDeltas[$i]['update_summary'] = $delta['proposed_delta'] ?? '';
+        }
 
         return [
             'schema'                  => self::SCHEMA,
@@ -364,6 +378,10 @@ final class AtlasExternalBrainDocSyncDrafter
         bool $staleDocs,
         bool $staleCodeIndex,
         array $queueQualityRisks,
+        array $capabilityDelta = [],
+        array $architectureChange = [],
+        array $operatingRuleChange = [],
+        array $removedBehavior = [],
     ): array {
         $deltas = [];
 

@@ -122,6 +122,7 @@ final class AtlasExternalBrainCursorSdkPoolReadinessProbe
             'fallback_recommendation' => self::FALLBACK_RECOMMENDATIONS[$status],
             'provider_call_allowed' => false,
             'token_spend_allowed' => false,
+            'optional_adapter_only' => true,
         ];
     }
 }

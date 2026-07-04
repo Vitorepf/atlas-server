@@ -291,4 +291,27 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompilerTest extends TestCase
         $this->assertSame('hold', $plan['waves'][0]['stop_go']['decision']);
         $this->assertContains('no_capability_lift_item_in_wave', $plan['waves'][0]['stop_go']['reasons']);
     }
+
+    // ── capacity_assumptions ──
+
+    public function test_capacity_assumptions_present_in_ready_plan(): void
+    {
+        $plan = (new AtlasExternalBrainOneMonthAutonomyPlanCompiler)->compile([
+            'capability_scores' => [['capability_id' => 'auth', 'score' => 0.3]],
+            'worker_capacity' => ['tasks_per_day' => 8],
+            'queue_yield' => ['give_back_rate' => 0.2],
+        ]);
+        $this->assertArrayHasKey('capacity_assumptions', $plan);
+        $this->assertSame(8, $plan['capacity_assumptions']['tasks_per_day']);
+        $this->assertSame(0.2, $plan['capacity_assumptions']['give_back_rate']);
+        $this->assertSame(6, $plan['capacity_assumptions']['effective_tasks_per_day']);
+    }
+
+    public function test_capacity_assumptions_present_in_insufficient_input(): void
+    {
+        $plan = (new AtlasExternalBrainOneMonthAutonomyPlanCompiler)->compile([]);
+        $this->assertArrayHasKey('capacity_assumptions', $plan);
+        $this->assertSame(5, $plan['capacity_assumptions']['tasks_per_day']);
+        $this->assertSame(0.0, $plan['capacity_assumptions']['give_back_rate']);
+    }
 }

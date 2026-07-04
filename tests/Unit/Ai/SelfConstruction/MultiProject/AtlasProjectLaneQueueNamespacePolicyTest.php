@@ -301,4 +301,67 @@ final class AtlasProjectLaneQueueNamespacePolicyTest extends TestCase
         $derived = $p->derive($facts);
         $this->assertNotEmpty($derived['namespace']);
     }
+
+    // ── queueNamespaceIsolation: namespace_key, isolation_ok, collision_reasons, repair_hint ──
+
+    public function test_isolated_namespace_is_ok(): void
+    {
+        $r = (new AtlasProjectLaneQueueNamespacePolicy)->queueNamespaceIsolation([
+            'project_id' => 'atlas',
+            'lane_namespace' => 'lane-1',
+            'queued_targets' => [],
+            'target_project' => 'atlas',
+            'target_lane' => 'lane-1',
+            'namespace_age_seconds' => 100,
+        ]);
+        $this->assertSame('atlas:lane-1', $r['namespace_key']);
+        $this->assertTrue($r['isolation_ok']);
+        $this->assertSame([], $r['collision_reasons']);
+        $this->assertSame('no_action_required', $r['repair_hint']);
+    }
+
+    public function test_cross_project_collision_detected(): void
+    {
+        $r = (new AtlasProjectLaneQueueNamespacePolicy)->queueNamespaceIsolation([
+            'project_id' => 'atlas',
+            'lane_namespace' => 'lane-1',
+            'queued_targets' => [],
+            'target_project' => 'rivals2',
+            'target_lane' => 'lane-1',
+            'namespace_age_seconds' => 100,
+        ]);
+        $this->assertFalse($r['isolation_ok']);
+        $this->assertCount(1, $r['collision_reasons']);
+        $this->assertStringContainsString('target_project_mismatch', $r['collision_reasons'][0]);
+        $this->assertSame('fix_namespace_collision_and_revalidate', $r['repair_hint']);
+    }
+
+    public function test_stale_namespace_state_detected(): void
+    {
+        $r = (new AtlasProjectLaneQueueNamespacePolicy)->queueNamespaceIsolation([
+            'project_id' => 'atlas',
+            'lane_namespace' => 'lane-1',
+            'queued_targets' => [],
+            'target_project' => 'atlas',
+            'target_lane' => 'lane-1',
+            'namespace_age_seconds' => 7200,
+            'max_namespace_age_seconds' => 3600,
+        ]);
+        $this->assertFalse($r['isolation_ok']);
+        $this->assertStringContainsString('stale_namespace_state', $r['collision_reasons'][0]);
+    }
+
+    public function test_queued_target_cross_project_detected(): void
+    {
+        $r = (new AtlasProjectLaneQueueNamespacePolicy)->queueNamespaceIsolation([
+            'project_id' => 'atlas',
+            'lane_namespace' => 'lane-1',
+            'queued_targets' => ['rivals2:task-42'],
+            'target_project' => 'atlas',
+            'target_lane' => 'lane-1',
+            'namespace_age_seconds' => 100,
+        ]);
+        $this->assertFalse($r['isolation_ok']);
+        $this->assertStringContainsString('queued_target_cross_project', $r['collision_reasons'][0]);
+    }
 }

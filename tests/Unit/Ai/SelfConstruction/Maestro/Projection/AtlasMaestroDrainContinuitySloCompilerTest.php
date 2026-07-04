@@ -268,4 +268,76 @@ final class AtlasMaestroDrainContinuitySloCompilerTest extends TestCase
         $this->assertSame('present', $r['continuity']['recoverable_lease_pressure']);
         $this->assertSame('present', $r['continuity']['malformed_pressure']);
     }
+
+    // ── slo_status, hours_to_starvation, evidence_confidence, recommended_replenish_window ──
+
+    public function test_output_has_slo_status_hours_to_starvation_evidence_confidence_replenish_window(): void
+    {
+        $r = $this->compiler()->compile(['servable_now' => 10, 'throughput_samples' => [5.0, 6.0, 7.0]]);
+        $this->assertArrayHasKey('slo_status', $r);
+        $this->assertArrayHasKey('hours_to_starvation', $r);
+        $this->assertArrayHasKey('evidence_confidence', $r);
+        $this->assertArrayHasKey('recommended_replenish_window', $r);
+    }
+
+    public function test_hours_to_starvation_zero_when_no_servable(): void
+    {
+        $r = $this->compiler()->compile(['servable_now' => 0]);
+        $this->assertSame(0.0, $r['hours_to_starvation']);
+    }
+
+    public function test_hours_to_starvation_null_when_zero_throughput(): void
+    {
+        $r = $this->compiler()->compile(['servable_now' => 10, 'throughput_samples' => []]);
+        $this->assertNull($r['hours_to_starvation']);
+    }
+
+    public function test_evidence_confidence_blind_when_telemetry_blind(): void
+    {
+        $r = $this->compiler()->compile(['active_workers' => 2, 'telemetry_confidence' => 'blind']);
+        $this->assertSame('blind', $r['evidence_confidence']);
+        $this->assertSame('slo_unverifiable', $r['slo_status']);
+    }
+
+    public function test_evidence_confidence_self_reported_only(): void
+    {
+        $r = $this->compiler()->compile(['throughput_self_reported' => true, 'throughput_samples' => []]);
+        $this->assertSame('self_reported_only', $r['evidence_confidence']);
+        $this->assertSame('slo_low_confidence', $r['slo_status']);
+    }
+
+    public function test_evidence_confidence_sparse_with_few_samples(): void
+    {
+        $r = $this->compiler()->compile(['throughput_samples' => [5.0]]);
+        $this->assertSame('sparse', $r['evidence_confidence']);
+        $this->assertSame('slo_moderate_confidence', $r['slo_status']);
+    }
+
+    public function test_evidence_confidence_high_with_enough_samples(): void
+    {
+        $r = $this->compiler()->compile(['throughput_samples' => [5.0, 6.0, 7.0]]);
+        $this->assertSame('high', $r['evidence_confidence']);
+    }
+
+    public function test_recommended_replenish_window_immediate_when_starved(): void
+    {
+        $r = $this->compiler()->compile(['servable_now' => 0]);
+        $this->assertSame('immediate', $r['recommended_replenish_window']);
+    }
+
+    public function test_recommended_replenish_window_unknown_when_insufficient_data(): void
+    {
+        $r = $this->compiler()->compile(['servable_now' => 10, 'throughput_samples' => []]);
+        $this->assertSame('unknown_insufficient_data', $r['recommended_replenish_window']);
+    }
+
+    public function test_slo_met_when_healthy_and_high_confidence(): void
+    {
+        $r = $this->compiler()->compile([
+            'servable_now' => 20,
+            'active_workers' => 2,
+            'throughput_samples' => [10.0, 12.0, 11.0],
+        ]);
+        $this->assertSame('slo_met', $r['slo_status']);
+    }
 }

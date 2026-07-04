@@ -320,4 +320,58 @@ class AtlasMaestroPacketProvenanceVerifierTest extends TestCase
 
         $this->assertSame($verifier->verifyPacketBinding($packet), $verifier->verifyPacketBinding($packet));
     }
+
+    // ── verifyWithContract: verification_status, mismatch_reason, recomputed_hash, provenance_binding_valid ──
+
+    public function test_verify_with_contract_has_required_keys(): void
+    {
+        $verifier = new AtlasMaestroPacketProvenanceVerifier();
+        $result = $verifier->verifyWithContract($this->repairedChain());
+
+        $this->assertArrayHasKey('verification_status', $result);
+        $this->assertArrayHasKey('mismatch_reason', $result);
+        $this->assertArrayHasKey('recomputed_hash', $result);
+        $this->assertArrayHasKey('provenance_binding_valid', $result);
+    }
+
+    public function test_verify_with_contract_verified_status_for_valid_record(): void
+    {
+        $verifier = new AtlasMaestroPacketProvenanceVerifier();
+        $result = $verifier->verifyWithContract($this->repairedChain());
+
+        $this->assertSame('verified', $result['verification_status']);
+        $this->assertSame('', $result['mismatch_reason']);
+        $this->assertTrue($result['provenance_binding_valid']);
+    }
+
+    public function test_verify_with_contract_failed_status_for_hash_mismatch(): void
+    {
+        $record = $this->repairedChain();
+        $record['chain'][0]['content_hash'] = 'bad_hash';
+        $verifier = new AtlasMaestroPacketProvenanceVerifier();
+        $result = $verifier->verifyWithContract($record);
+
+        $this->assertSame('failed', $result['verification_status']);
+        $this->assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_HASH_MISMATCH, $result['mismatch_reason']);
+        $this->assertFalse($result['provenance_binding_valid']);
+    }
+
+    public function test_verify_with_contract_recomputed_hash_is_non_empty(): void
+    {
+        $verifier = new AtlasMaestroPacketProvenanceVerifier();
+        $result = $verifier->verifyWithContract($this->repairedChain());
+
+        $this->assertNotEmpty($result['recomputed_hash']);
+        $this->assertSame(strlen($result['recomputed_hash']), 64); // sha256 hex
+    }
+
+    public function test_verify_with_contract_provenance_binding_invalid_when_origin_missing(): void
+    {
+        $record = $this->repairedChain();
+        unset($record['origin_kind'], $record['origin_id']);
+        $verifier = new AtlasMaestroPacketProvenanceVerifier();
+        $result = $verifier->verifyWithContract($record);
+
+        $this->assertFalse($result['provenance_binding_valid']);
+    }
 }

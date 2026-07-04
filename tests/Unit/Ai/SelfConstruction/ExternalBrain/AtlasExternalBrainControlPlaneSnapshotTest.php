@@ -412,4 +412,124 @@ final class AtlasExternalBrainControlPlaneSnapshotTest extends TestCase
         $this->assertContains('EvolutionLoop', $areas);
         $this->assertContains('Forge',         $areas);
     }
+
+    // ── task_quality_drift ──
+
+    public function test_task_quality_drift_present_in_output(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+        $this->assertArrayHasKey('task_quality_drift', $result);
+        $this->assertArrayHasKey('direction', $result['task_quality_drift']);
+        $this->assertArrayHasKey('severity', $result['task_quality_drift']);
+        $this->assertArrayHasKey('signal', $result['task_quality_drift']);
+    }
+
+    public function test_task_quality_drift_declining_when_audit_reject(): void
+    {
+        $inputs = $this->healthyInputs();
+        $inputs['audit_result'] = ['verdict' => 'reject', 'findings' => ['poison']];
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertSame('declining', $result['task_quality_drift']['direction']);
+        $this->assertSame('high', $result['task_quality_drift']['severity']);
+    }
+
+    public function test_task_quality_drift_stable_when_healthy(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+        $this->assertSame('stable', $result['task_quality_drift']['direction']);
+        $this->assertSame('low', $result['task_quality_drift']['severity']);
+    }
+
+    // ── learning_freshness ──
+
+    public function test_learning_freshness_present_in_output(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+        $this->assertArrayHasKey('learning_freshness', $result);
+        $this->assertArrayHasKey('status', $result['learning_freshness']);
+        $this->assertArrayHasKey('reason', $result['learning_freshness']);
+    }
+
+    public function test_learning_freshness_fresh_when_healthy_ledger(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+        $this->assertSame('fresh', $result['learning_freshness']['status']);
+    }
+
+    public function test_learning_freshness_missing_when_no_ledger(): void
+    {
+        $inputs = $this->healthyInputs();
+        unset($inputs['ledger_summary']);
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertSame('missing', $result['learning_freshness']['status']);
+        $this->assertSame('no_ledger', $result['learning_freshness']['reason']);
+    }
+
+    // ── blocked_debt ──
+
+    public function test_blocked_debt_present_in_output(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+        $this->assertArrayHasKey('blocked_debt', $result);
+        $this->assertArrayHasKey('count', $result['blocked_debt']);
+        $this->assertArrayHasKey('dimensions', $result['blocked_debt']);
+        $this->assertArrayHasKey('repair_priority', $result['blocked_debt']);
+    }
+
+    public function test_blocked_debt_zero_when_healthy(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+        $this->assertSame(0, $result['blocked_debt']['count']);
+        $this->assertSame('none', $result['blocked_debt']['repair_priority']);
+    }
+
+    public function test_blocked_debt_elevated_when_stalled_queue(): void
+    {
+        $inputs = $this->healthyInputs();
+        $inputs['queue_health'] = ['status' => 'stalled', 'give_back_rate' => 0.6];
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertGreaterThan(0, $result['blocked_debt']['count']);
+        $this->assertSame('elevated', $result['blocked_debt']['repair_priority']);
+    }
+
+    // ── next_originator_action ──
+
+    public function test_next_originator_action_present_in_output(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+        $this->assertArrayHasKey('next_originator_action', $result);
+        $this->assertArrayHasKey('action', $result['next_originator_action']);
+        $this->assertArrayHasKey('reason', $result['next_originator_action']);
+    }
+
+    public function test_next_originator_action_repair_when_malformed(): void
+    {
+        $inputs = $this->healthyInputs();
+        $inputs['queue_health'] = [
+            'status' => 'degraded',
+            'give_back_rate' => 0.3,
+            'malformed_count' => 2,
+        ];
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertSame('repair_queue', $result['next_originator_action']['action']);
+    }
+
+    public function test_next_originator_action_high_value_when_healthy(): void
+    {
+        $inputs = $this->healthyInputs();
+        $inputs['high_value_gap_count'] = 3;
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertSame('high_value_origination', $result['next_originator_action']['action']);
+    }
+
+    public function test_next_originator_action_monitor_when_no_signals(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+        $this->assertSame('monitor', $result['next_originator_action']['action']);
+    }
 }

@@ -433,4 +433,103 @@ final class AtlasMaestroGiveBackPatternMinerTest extends TestCase
 
         return $rows;
     }
+
+    // ── root_cause_clusters, packet_repair_candidates, reroute_candidates, quarantine_candidates ──
+
+    public function test_output_has_root_cause_clusters_and_candidates(): void
+    {
+        $rows = $this->giveBackRows(3, 'scope_gap');
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes($rows, 1);
+        $this->assertArrayHasKey('root_cause_clusters', $result);
+        $this->assertArrayHasKey('packet_repair_candidates', $result);
+        $this->assertArrayHasKey('reroute_candidates', $result);
+        $this->assertArrayHasKey('quarantine_candidates', $result);
+    }
+
+    public function test_scope_gap_clusters_as_packet_defect(): void
+    {
+        $rows = $this->giveBackRows(3, 'scope_gap');
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes($rows, 1);
+        $clusters = $result['root_cause_clusters'];
+        $this->assertCount(1, $clusters);
+        $this->assertSame('scope', $clusters[0]['family']);
+        $this->assertTrue($clusters[0]['is_packet_defect']);
+        $this->assertFalse($clusters[0]['is_worker_routing']);
+    }
+
+    public function test_worker_mismatch_clusters_as_worker_routing(): void
+    {
+        $rows = $this->giveBackRows(3, 'worker_mismatch');
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes($rows, 1);
+        $clusters = $result['root_cause_clusters'];
+        $this->assertCount(1, $clusters);
+        $this->assertSame('worker_weakness', $clusters[0]['family']);
+        $this->assertFalse($clusters[0]['is_packet_defect']);
+        $this->assertTrue($clusters[0]['is_worker_routing']);
+    }
+
+    public function test_packet_repair_candidates_for_scope_cluster(): void
+    {
+        $rows = $this->giveBackRows(3, 'scope_gap');
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes($rows, 1);
+        $this->assertCount(1, $result['packet_repair_candidates']);
+        $candidate = $result['packet_repair_candidates'][0];
+        $this->assertSame('scope', $candidate['family']);
+        $this->assertSame('expand_scope_coverage', $candidate['repair_action']);
+    }
+
+    public function test_reroute_candidates_for_worker_mismatch(): void
+    {
+        $rows = $this->giveBackRows(3, 'worker_mismatch');
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes($rows, 1);
+        $this->assertCount(1, $result['reroute_candidates']);
+        $candidate = $result['reroute_candidates'][0];
+        $this->assertSame('worker_mismatch_requires_rerouting', $candidate['reason']);
+    }
+
+    public function test_quarantine_candidates_for_high_confidence_repeated_give_back(): void
+    {
+        $rows = $this->giveBackRows(5, 'scope_gap');
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes($rows, 1);
+        $this->assertCount(1, $result['quarantine_candidates']);
+        $candidate = $result['quarantine_candidates'][0];
+        $this->assertSame('high_confidence_repeated_give_back', $candidate['reason']);
+    }
+
+    public function test_no_quarantine_when_low_confidence(): void
+    {
+        $rows = $this->giveBackRows(2, 'scope_gap');
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes($rows, 1);
+        $this->assertSame([], $result['quarantine_candidates']);
+    }
+
+    public function test_empty_rows_produce_empty_clusters(): void
+    {
+        $result = (new AtlasMaestroGiveBackPatternMiner([]))->mineGiveBackShapes([], 1);
+        $this->assertSame([], $result['root_cause_clusters']);
+        $this->assertSame([], $result['packet_repair_candidates']);
+        $this->assertSame([], $result['reroute_candidates']);
+        $this->assertSame([], $result['quarantine_candidates']);
+    }
+
+    /**
+     * Helper: create rows where all are give_backs with a specific reason.
+     */
+    private function giveBackRows(int $count, string $reason): array
+    {
+        $rows = [];
+        for ($i = 0; $i < $count; $i++) {
+            $rows[] = [
+                'task_class' => 'test',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => $reason,
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/Maestro/Adaptive/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Ai/SelfConstruction/Maestro/Adaptive/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+
+        return $rows;
+    }
 }

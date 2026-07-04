@@ -104,6 +104,13 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
             'policy_adjustments'     => $policies,
             'next_cycle_hints'       => $hints,
             'next_cycle_adjustments' => $adjustments,
+            'success_patterns'       => $this->successPatterns($index['success']),
+            'give_back_roots'        => $this->giveBackRoots($index['give_back']),
+            'cancellation_roots'     => $this->cancellationRoots($index['rejected']),
+            'malformed_roots'        => $this->malformedRoots($outcomes),
+            'collision_roots'        => $this->collisionRoots($outcomes),
+            'queue_health_drift'     => $this->queueHealthDrift($summary),
+            'next_batch_rules'       => $this->nextBatchRules($policies, $index, $summary),
         ];
     }
 
@@ -684,5 +691,147 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
         }
 
         return $hints;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $successes
+     * @return list<array{category:string, count:int, confidence:string}>
+     */
+    private function successPatterns(array $successes): array
+    {
+        $counts = [];
+        foreach ($successes as $s) {
+            $cat = (string) ($s['category'] ?? 'unknown');
+            $counts[$cat] = ($counts[$cat] ?? 0) + 1;
+        }
+        $patterns = [];
+        foreach ($counts as $cat => $count) {
+            $patterns[] = [
+                'category' => $cat,
+                'count' => $count,
+                'confidence' => $count >= 3 ? 'high' : ($count >= 2 ? 'medium' : 'low_confidence'),
+            ];
+        }
+        usort($patterns, static fn ($a, $b) => $b['count'] <=> $a['count']);
+        return $patterns;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $giveBacks
+     * @return list<array{reason:string, count:int, confidence:string}>
+     */
+    private function giveBackRoots(array $giveBacks): array
+    {
+        $counts = [];
+        foreach ($giveBacks as $gb) {
+            $reason = (string) ($gb['reason'] ?? 'unknown');
+            $counts[$reason] = ($counts[$reason] ?? 0) + 1;
+        }
+        $roots = [];
+        foreach ($counts as $reason => $count) {
+            $roots[] = [
+                'reason' => $reason,
+                'count' => $count,
+                'confidence' => $count >= 3 ? 'high' : ($count >= 2 ? 'medium' : 'low_confidence'),
+            ];
+        }
+        usort($roots, static fn ($a, $b) => $b['count'] <=> $a['count']);
+        return $roots;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $rejected
+     * @return list<array{reason:string, count:int}>
+     */
+    private function cancellationRoots(array $rejected): array
+    {
+        $counts = [];
+        foreach ($rejected as $r) {
+            $reason = (string) ($r['reason'] ?? 'unknown');
+            $counts[$reason] = ($counts[$reason] ?? 0) + 1;
+        }
+        $roots = [];
+        foreach ($counts as $reason => $count) {
+            $roots[] = ['reason' => $reason, 'count' => $count];
+        }
+        usort($roots, static fn ($a, $b) => $b['count'] <=> $a['count']);
+        return $roots;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $outcomes
+     * @return list<array{pattern:string, count:int}>
+     */
+    private function malformedRoots(array $outcomes): array
+    {
+        $counts = [];
+        foreach ($outcomes as $o) {
+            foreach ((array) ($o['poison_patterns'] ?? []) as $pattern) {
+                $p = (string) $pattern;
+                $counts[$p] = ($counts[$p] ?? 0) + 1;
+            }
+        }
+        $roots = [];
+        foreach ($counts as $pattern => $count) {
+            $roots[] = ['pattern' => $pattern, 'count' => $count];
+        }
+        usort($roots, static fn ($a, $b) => $b['count'] <=> $a['count']);
+        return $roots;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $outcomes
+     * @return list<array{spec_id:string, duplicate_of:string}>
+     */
+    private function collisionRoots(array $outcomes): array
+    {
+        $seen = [];
+        $collisions = [];
+        foreach ($outcomes as $o) {
+            $specId = (string) ($o['spec_id'] ?? '');
+            if (isset($seen[$specId])) {
+                $collisions[] = ['spec_id' => $specId, 'duplicate_of' => $seen[$specId]];
+            } else {
+                $seen[$specId] = $specId;
+            }
+        }
+        return $collisions;
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     * @return array{direction:string, yield_rate:float, drift_detected:bool}
+     */
+    private function queueHealthDrift(array $summary): array
+    {
+        $yieldRate = (float) ($summary['yield_rate'] ?? 0);
+        $direction = $yieldRate >= 0.60 ? 'stable' : ($yieldRate >= 0.40 ? 'degrading' : 'critical');
+        return [
+            'direction' => $direction,
+            'yield_rate' => $yieldRate,
+            'drift_detected' => $yieldRate < 0.60,
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $policies
+     * @param  array<string,list<array<string,mixed>>>  $index
+     * @param  array<string,mixed>  $summary
+     * @return list<array{rule:string, action:string, confidence:string}>
+     */
+    private function nextBatchRules(array $policies, array $index, array $summary): array
+    {
+        $rules = [];
+        foreach ($policies as $policy) {
+            $action = (string) ($policy['action'] ?? '');
+            $appliesTo = (string) ($policy['applies_to'] ?? '');
+            $confidence = (string) ($policy['confidence'] ?? 'low_confidence');
+            $rules[] = [
+                'rule' => "{$action}:{$appliesTo}",
+                'action' => $action,
+                'confidence' => $confidence,
+            ];
+        }
+        return $rules;
     }
 }

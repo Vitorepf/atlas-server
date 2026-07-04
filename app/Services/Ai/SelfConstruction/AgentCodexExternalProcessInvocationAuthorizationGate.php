@@ -66,8 +66,11 @@ class AgentCodexExternalProcessInvocationAuthorizationGate
                 $denialReason = 'task_scope_signature_mismatch';
             } elseif ($leaseWorkerIdentity !== $workerIdentity) {
                 $denialReason = 'lease_worker_mismatch';
-            } elseif ($now !== '' && $leaseExpiresAt !== '' && strtotime($now) >= strtotime($leaseExpiresAt)) {
-                $denialReason = 'lease_expired';
+            } elseif ($now !== '' && $leaseExpiresAt !== '') {
+                $leaseExpiry = strtotime($leaseExpiresAt);
+                if ($leaseExpiry !== false && strtotime($now) >= $leaseExpiry) {
+                    $denialReason = 'lease_expired';
+                }
             }
         }
 

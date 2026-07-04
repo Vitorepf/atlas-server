@@ -401,6 +401,10 @@ final class LedgerProjectionRegistry
             return null;
         }
 
-        return CarbonImmutable::parse($value);
+        try {
+            return CarbonImmutable::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

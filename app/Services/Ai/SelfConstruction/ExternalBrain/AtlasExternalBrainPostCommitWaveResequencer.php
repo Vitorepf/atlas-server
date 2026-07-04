@@ -114,11 +114,24 @@ final class AtlasExternalBrainPostCommitWaveResequencer
 
         $resequencedTaskIds = array_values(array_merge($newlyUnblockedTaskIds, $remainder));
 
+        // capability_chain_order: tasks ordered by capability unlock chain (critical path first, then fresh value, then other unblocked, then remainder)
+        $capabilityChainOrder = array_values(array_unique(array_merge(
+            $newlyUnblockedCriticalPath,
+            $freshValuePromoted,
+            $newlyUnblockedOther,
+            $remainder,
+        )));
+
+        // removed_obsolete_task_ids: tasks removed because they are now obsolete (superseded, stale, or repeated give_back)
+        $removedObsoleteTaskIds = array_values(array_keys($removedTaskIds));
+
         return [
             'schema_version' => self::SCHEMA,
             'resequenced_task_ids' => $resequencedTaskIds,
             'next_wave_order' => $resequencedTaskIds,
-            'removed_stale_task_ids' => array_values(array_keys($removedTaskIds)),
+            'capability_chain_order' => $capabilityChainOrder,
+            'removed_obsolete_task_ids' => $removedObsoleteTaskIds,
+            'removed_stale_task_ids' => $removedObsoleteTaskIds,
             'retire_or_respec_task_ids' => $retireOrRespecTaskIds,
             'newly_unblocked_task_ids' => $newlyUnblockedTaskIds,
             'resequence_reasons' => $resequenceReasons,

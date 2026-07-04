@@ -223,4 +223,79 @@ final class AtlasMaestroOutcomeShapeLedgerTest extends TestCase
         $this->assertArrayHasKey('unknown', $aggregate);
         $this->assertSame(1, $aggregate['unknown']['success_count']);
     }
+
+    // ── outcomeShapes: routeable_patterns, repair_patterns, confidence_by_pattern ──
+
+    public function test_outcome_shapes_has_required_keys(): void
+    {
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        $result = $ledger->outcomeShapes();
+
+        $this->assertArrayHasKey('outcome_shapes', $result);
+        $this->assertArrayHasKey('routeable_patterns', $result);
+        $this->assertArrayHasKey('repair_patterns', $result);
+        $this->assertArrayHasKey('confidence_by_pattern', $result);
+    }
+
+    public function test_routeable_patterns_for_repeat_successes(): void
+    {
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        for ($i = 0; $i < 5; $i++) {
+            $ledger->record('success-'.$i, $this->shapeFacts(['file_family' => 'app/Services', 'worker_id' => 'muscle-1']), 'delivered');
+        }
+        $result = $ledger->outcomeShapes();
+
+        $this->assertNotEmpty($result['routeable_patterns']);
+        $pattern = $result['routeable_patterns'][0];
+        $this->assertSame('route_to_worker', $pattern['action']);
+        $this->assertArrayHasKey('confidence', $pattern);
+    }
+
+    public function test_repair_patterns_for_repeated_failures(): void
+    {
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        for ($i = 0; $i < 5; $i++) {
+            $ledger->record('fail-'.$i, $this->shapeFacts(['file_family' => 'app/Brain', 'worker_id' => 'muscle-1', 'give_back_root_cause' => 'malformed_spec']), 'give_back');
+        }
+        $result = $ledger->outcomeShapes();
+
+        $this->assertNotEmpty($result['repair_patterns']);
+        $pattern = $result['repair_patterns'][0];
+        $this->assertSame('respec_or_quarantine', $pattern['action']);
+        $this->assertSame('malformed_spec', $pattern['defect_type']);
+    }
+
+    public function test_confidence_by_pattern_includes_routeable_and_repair(): void
+    {
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        for ($i = 0; $i < 5; $i++) {
+            $ledger->record('s-'.$i, $this->shapeFacts(['file_family' => 'app/Good', 'worker_id' => 'muscle-1']), 'delivered');
+            $ledger->record('f-'.$i, $this->shapeFacts(['file_family' => 'app/Bad', 'worker_id' => 'muscle-1', 'give_back_root_cause' => 'forbidden_scope']), 'give_back');
+        }
+        $result = $ledger->outcomeShapes();
+
+        $this->assertNotEmpty($result['confidence_by_pattern']);
+        foreach ($result['confidence_by_pattern'] as $pattern => $confidence) {
+            $this->assertIsFloat($confidence);
+            $this->assertGreaterThanOrEqual(0.0, $confidence);
+            $this->assertLessThanOrEqual(1.0, $confidence);
+        }
+    }
+
+    public function test_outcome_shapes_groups_by_task_family_worker_class_defect_type_and_evidence_status(): void
+    {
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        $ledger->record('t1', $this->shapeFacts(['file_family' => 'app/Foo', 'worker_id' => 'w1']), 'delivered');
+        $ledger->record('t2', $this->shapeFacts(['file_family' => 'app/Bar', 'worker_id' => 'w2']), 'give_back');
+
+        $result = $ledger->outcomeShapes();
+        $this->assertNotEmpty($result['outcome_shapes']);
+
+        foreach ($result['outcome_shapes'] as $shape) {
+            $this->assertArrayHasKey('task_family', $shape);
+            $this->assertArrayHasKey('worker_class', $shape);
+            $this->assertArrayHasKey('defect_type', $shape);
+            $this->assertArrayHasKey('evidence_status', $shape);
+        }
+    }
 }

@@ -293,4 +293,58 @@ final class AtlasExternalBrainOriginatorStopOrPivotAdvisorTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── action_reason, target_gap, avoided_wait_reason ──
+
+    public function test_action_reason_present_and_non_empty(): void
+    {
+        $result = $this->advisor()->advise([
+            'queue' => ['claimable_depth' => 1, 'target_min_claimable' => 5],
+            'recent_batch_tasks' => [$this->healthyTask()],
+            'diversity_tasks' => $this->diverseTasks(),
+        ]);
+        $this->assertArrayHasKey('action_reason', $result);
+        $this->assertNotEmpty($result['action_reason']);
+    }
+
+    public function test_target_gap_set_when_unresolved_gaps_exist(): void
+    {
+        $result = $this->advisor()->advise([
+            'queue' => ['claimable_depth' => 1, 'target_min_claimable' => 5],
+            'recent_batch_tasks' => [$this->healthyTask()],
+            'unresolved_high_priority_gaps' => ['capability_a', 'capability_b'],
+        ]);
+        $this->assertSame('capability_a', $result['target_gap']);
+    }
+
+    public function test_target_gap_null_when_no_unresolved_gaps(): void
+    {
+        $result = $this->advisor()->advise([
+            'queue' => ['claimable_depth' => 1, 'target_min_claimable' => 5],
+            'recent_batch_tasks' => [$this->healthyTask()],
+            'diversity_tasks' => $this->diverseTasks(),
+        ]);
+        $this->assertNull($result['target_gap']);
+    }
+
+    public function test_avoided_wait_reason_set_when_queue_sufficient_but_actionable(): void
+    {
+        $result = $this->advisor()->advise([
+            'queue' => ['claimable_depth' => 5, 'target_min_claimable' => 3],
+            'recent_batch_tasks' => [],
+            'unresolved_high_priority_gaps' => ['capability_x'],
+        ]);
+        $this->assertNotNull($result['avoided_wait_reason']);
+        $this->assertStringContainsString('actionable', $result['avoided_wait_reason']);
+    }
+
+    public function test_avoided_wait_reason_null_when_queue_not_sufficient(): void
+    {
+        $result = $this->advisor()->advise([
+            'queue' => ['claimable_depth' => 1, 'target_min_claimable' => 5],
+            'recent_batch_tasks' => [$this->healthyTask()],
+            'diversity_tasks' => $this->diverseTasks(),
+        ]);
+        $this->assertNull($result['avoided_wait_reason']);
+    }
 }

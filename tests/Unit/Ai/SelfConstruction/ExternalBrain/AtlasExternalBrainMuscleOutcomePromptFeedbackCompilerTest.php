@@ -256,4 +256,45 @@ final class AtlasExternalBrainMuscleOutcomePromptFeedbackCompilerTest extends Te
 
         $this->assertSame([], $result['prompt_hardening_updates']);
     }
+
+    // ── negativePatternPatches: weak_green, proxy_success, template_similarity ──
+
+    public function test_repeated_weak_green_emits_require_concrete_command_path(): void
+    {
+        $r = (new AtlasExternalBrainMuscleOutcomePromptFeedbackCompiler)->negativePatternPatches([
+            ['outcome' => 'success', 'proof_strength' => 0.3, 'behavior_delta' => 0.8],
+            ['outcome' => 'success', 'proof_strength' => 0.2, 'behavior_delta' => 0.8],
+        ]);
+        $this->assertCount(1, $r);
+        $this->assertSame('require_concrete_command_path_and_behavior_delta', $r[0]['recommended_patch_id']);
+        $this->assertSame('repeated_weak_green', $r[0]['pattern']);
+    }
+
+    public function test_repeated_proxy_success_emits_reject_proxy_patch(): void
+    {
+        $r = (new AtlasExternalBrainMuscleOutcomePromptFeedbackCompiler)->negativePatternPatches([
+            ['outcome' => 'success', 'proof_strength' => 0.9, 'behavior_delta' => 0.05],
+            ['outcome' => 'success', 'proof_strength' => 0.9, 'behavior_delta' => 0.01],
+        ]);
+        $this->assertContains($r[0]['recommended_patch_id'], ['reject_proxy_or_wrapper_success_without_capability_delta']);
+        $this->assertSame('repeated_proxy_success', $r[0]['pattern']);
+    }
+
+    public function test_high_template_similarity_without_proof_emits_patch(): void
+    {
+        $r = (new AtlasExternalBrainMuscleOutcomePromptFeedbackCompiler)->negativePatternPatches([
+            ['outcome' => 'success', 'proof_strength' => 0.6, 'template_similarity' => 0.9, 'behavior_delta' => 0.3],
+            ['outcome' => 'success', 'proof_strength' => 0.5, 'template_similarity' => 0.85, 'behavior_delta' => 0.2],
+        ]);
+        $this->assertContains($r[0]['recommended_patch_id'], ['require_proof_strength_and_behavior_delta_before_promotion']);
+        $this->assertSame('high_template_similarity_without_proof', $r[0]['pattern']);
+    }
+
+    public function test_single_occurrence_does_not_emit_patch(): void
+    {
+        $r = (new AtlasExternalBrainMuscleOutcomePromptFeedbackCompiler)->negativePatternPatches([
+            ['outcome' => 'success', 'proof_strength' => 0.3, 'behavior_delta' => 0.8],
+        ]);
+        $this->assertSame([], $r);
+    }
 }

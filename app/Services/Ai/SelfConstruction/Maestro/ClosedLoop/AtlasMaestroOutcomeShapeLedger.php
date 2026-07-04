@@ -133,6 +133,113 @@ final class AtlasMaestroOutcomeShapeLedger
     }
 
     /**
+     * Routeable outcome shapes: groups by task_family, worker_class, defect_type, evidence_status.
+     * Emits routing patterns for repeat successes and repair patterns for repeated failures.
+     *
+     * @return array{outcome_shapes:array<string,array<string,mixed>>, routeable_patterns:list<array<string,mixed>>, repair_patterns:list<array<string,mixed>>, confidence_by_pattern:array<string,float>}
+     */
+    public function outcomeShapes(): array
+    {
+        $shapes = [];
+        $routeablePatterns = [];
+        $repairPatterns = [];
+        $confidenceByPattern = [];
+
+        foreach ($this->stream() as $row) {
+            $taskFamily = (string) ($row['file_family'] ?? 'unknown');
+            $workerClass = (string) ($row['worker_id'] ?? 'unknown');
+            $defectType = (string) ($row['give_back_root_cause'] ?? 'none');
+            $evidenceStatus = $this->evidenceStatus($row);
+            $outcome = (string) ($row['outcome'] ?? '');
+
+            $key = "{$taskFamily}|{$workerClass}|{$defectType}|{$evidenceStatus}";
+            $shapes[$key] ??= [
+                'task_family' => $taskFamily,
+                'worker_class' => $workerClass,
+                'defect_type' => $defectType,
+                'evidence_status' => $evidenceStatus,
+                'delivered' => 0,
+                'give_back' => 0,
+                'rejected' => 0,
+                'stale' => 0,
+                'quarantine' => 0,
+                'total' => 0,
+            ];
+            $shapes[$key][$outcome]++;
+            $shapes[$key]['total']++;
+        }
+
+        // Derive patterns from shapes
+        foreach ($shapes as $key => $shape) {
+            $total = $shape['total'];
+            if ($total < 3) {
+                continue; // insufficient evidence
+            }
+
+            $deliveredRate = $shape['delivered'] / $total;
+            $failureRate = ($shape['give_back'] + $shape['rejected'] + $shape['stale'] + $shape['quarantine']) / $total;
+
+            // Routeable pattern: repeat success
+            if ($deliveredRate >= 0.6) {
+                $patternKey = "{$shape['task_family']}|{$shape['worker_class']}";
+                $routeablePatterns[] = [
+                    'pattern' => $patternKey,
+                    'task_family' => $shape['task_family'],
+                    'worker_class' => $shape['worker_class'],
+                    'action' => 'route_to_worker',
+                    'confidence' => round($deliveredRate, 3),
+                ];
+                $confidenceByPattern[$patternKey] = round($deliveredRate, 3);
+            }
+
+            // Repair pattern: repeated failure
+            if ($failureRate >= 0.5 && $shape['defect_type'] !== 'none') {
+                $repairKey = "{$shape['task_family']}|{$shape['defect_type']}";
+                $repairPatterns[] = [
+                    'pattern' => $repairKey,
+                    'task_family' => $shape['task_family'],
+                    'defect_type' => $shape['defect_type'],
+                    'action' => 'respec_or_quarantine',
+                    'confidence' => round($failureRate, 3),
+                ];
+                $confidenceByPattern[$repairKey] = round($failureRate, 3);
+            }
+        }
+
+        // Deduplicate patterns
+        $routeablePatterns = array_values(array_unique($routeablePatterns, SORT_REGULAR));
+        $repairPatterns = array_values(array_unique($repairPatterns, SORT_REGULAR));
+
+        return [
+            'outcome_shapes' => $shapes,
+            'routeable_patterns' => $routeablePatterns,
+            'repair_patterns' => $repairPatterns,
+            'confidence_by_pattern' => $confidenceByPattern,
+        ];
+    }
+
+    /**
+     * Derive evidence status from shape facts.
+     */
+    private function evidenceStatus(array $row): string
+    {
+        $proofResult = (string) ($row['proof_result'] ?? 'unknown');
+        $hasTests = (bool) ($row['has_tests_path'] ?? false);
+
+        if ($proofResult === 'passed' && $hasTests) {
+            return 'verified';
+        }
+        if ($proofResult === 'failed') {
+            return 'failed_proof';
+        }
+        if (! $hasTests) {
+            return 'no_tests';
+        }
+
+        return 'unverified';
+    }
+
+    /**
      * AC4: aggregate success/give_back/quarantine/false-green-risk counts per task family
      * (file_family), for closed-loop routing and respec decisions.
      *

@@ -245,4 +245,50 @@ final class AtlasExternalBrainMuscleFailureEscalationPolicy
 
         return self::CLASS_TASK_POISON;
     }
+
+    /**
+     * Failure escalation: maps failure types to distinct next actions, escalation levels,
+     * and retry blocked reasons. Never returns continue_retry after repeat_count exceeds threshold.
+     *
+     * @param  array{
+     *   root_cause: string,
+     *   repeat_count: int,
+     *   max_repeat_count: int,
+     * }  $input
+     * @return array{next_action:string, escalation_level:string, root_cause:string, retry_blocked_reason:string}
+     */
+    public function failureEscalation(array $input): array
+    {
+        $rootCause = (string) ($input['root_cause'] ?? '');
+        $repeatCount = (int) ($input['repeat_count'] ?? 0);
+        $maxRepeatCount = (int) ($input['max_repeat_count'] ?? 3);
+
+        $retryBlocked = $repeatCount >= $maxRepeatCount;
+
+        $nextAction = match ($rootCause) {
+            'give_back' => $retryBlocked ? 'respec_task' : 'retry_with_adjusted_prompt',
+            'scope_violation' => 'respec_task_with_scope_repair',
+            'malformed_acceptance' => 'repair_acceptance_criteria',
+            'local_client_stall' => 'switch_muscle',
+            'repeated_retry' => 'quarantine_and_notify_operator',
+            default => $retryBlocked ? 'switch_muscle' : 'retry_with_adjusted_prompt',
+        };
+
+        $escalationLevel = match (true) {
+            $repeatCount >= $maxRepeatCount => 'critical',
+            $repeatCount >= $maxRepeatCount - 1 => 'warning',
+            default => 'info',
+        };
+
+        $retryBlockedReason = $retryBlocked
+            ? sprintf('repeat_count=%d exceeds threshold=%d; escalation to %s', $repeatCount, $maxRepeatCount, $nextAction)
+            : sprintf('repeat_count=%d within threshold=%d; may retry', $repeatCount, $maxRepeatCount);
+
+        return [
+            'next_action' => $nextAction,
+            'escalation_level' => $escalationLevel,
+            'root_cause' => $rootCause,
+            'retry_blocked_reason' => $retryBlockedReason,
+        ];
+    }
 }

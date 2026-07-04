@@ -471,4 +471,45 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicyTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_REPAIR_QUEUE, $r['decision']);
     }
+
+    // ── stale_family_count, fresh_high_value_count, recommended_action, rationale ──
+
+    public function test_output_has_stale_family_count_and_fresh_high_value_count(): void
+    {
+        $r = $this->svc()->decide([]);
+        $this->assertArrayHasKey('stale_family_count', $r);
+        $this->assertArrayHasKey('fresh_high_value_count', $r);
+        $this->assertArrayHasKey('recommended_action', $r);
+        $this->assertArrayHasKey('rationale', $r);
+    }
+
+    public function test_stale_family_count_reflects_stale_backlog(): void
+    {
+        $r = $this->svc()->decide([
+            'queue_age_histogram' => ['claimable_depth' => 20, 'oldest_age_p95_seconds' => 7200, 'stale_threshold_seconds' => 3600],
+        ]);
+        $this->assertSame(20, $r['stale_family_count']);
+    }
+
+    public function test_fresh_high_value_count_reflects_fresh_targets(): void
+    {
+        $r = $this->svc()->decide([
+            'queue_age_histogram' => ['claimable_depth' => 15, 'oldest_age_p95_seconds' => 60, 'stale_threshold_seconds' => 3600],
+            'target_novelty' => ['fresh_high_value_targets_available' => true],
+        ]);
+        $this->assertSame(15, $r['fresh_high_value_count']);
+    }
+
+    public function test_recommended_action_matches_decision(): void
+    {
+        $r = $this->svc()->decide([]);
+        $this->assertSame($r['decision'], $r['recommended_action']);
+    }
+
+    public function test_rationale_is_non_empty_string(): void
+    {
+        $r = $this->svc()->decide([]);
+        $this->assertIsString($r['rationale']);
+        $this->assertNotEmpty($r['rationale']);
+    }
 }

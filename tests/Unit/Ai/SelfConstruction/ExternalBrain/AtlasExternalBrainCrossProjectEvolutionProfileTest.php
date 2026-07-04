@@ -416,4 +416,83 @@ final class AtlasExternalBrainCrossProjectEvolutionProfileTest extends TestCase
             $this->assertArrayHasKey('autonomy_level', $array['safety_constraints']);
         }
     }
+
+    // AC: profiles separate reusable_patterns, project_specific_constraints, unsafe_transfer_assumptions
+    public function test_atlas_profile_has_reusable_patterns_and_constraints(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forAtlas();
+        $arr = $profile->toArray();
+
+        $this->assertArrayHasKey('reusable_patterns', $arr);
+        $this->assertNotEmpty($arr['reusable_patterns']);
+        $this->assertArrayHasKey('project_specific_constraints', $arr);
+        $this->assertNotEmpty($arr['project_specific_constraints']);
+        $this->assertArrayHasKey('unsafe_transfer_assumptions', $arr);
+        $this->assertNotEmpty($arr['unsafe_transfer_assumptions']);
+    }
+
+    // AC: transfer_ready=false when evidence is stale
+    public function test_transfer_ready_false_when_evidence_stale(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('test-project', [
+            'source_of_truth_docs' => ['docs/'],
+            'allowed_targets' => ['src/'],
+            'evidence_status' => 'stale',
+        ]);
+        $arr = $profile->toArray();
+        $this->assertFalse($arr['transfer_ready']);
+        $this->assertContains('stale_evidence_requires_refresh', $arr['unsafe_transfer_assumptions']);
+    }
+
+    // AC: transfer_ready=false when evidence is absent
+    public function test_transfer_ready_false_when_evidence_absent(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('test-project', [
+            'source_of_truth_docs' => ['docs/'],
+            'allowed_targets' => ['src/'],
+            'evidence_status' => 'absent',
+        ]);
+        $arr = $profile->toArray();
+        $this->assertFalse($arr['transfer_ready']);
+    }
+
+    // AC: transfer_ready=false when evidence is contradicted
+    public function test_transfer_ready_false_when_evidence_contradicted(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('test-project', [
+            'source_of_truth_docs' => ['docs/'],
+            'allowed_targets' => ['src/'],
+            'evidence_status' => 'contradicted',
+        ]);
+        $arr = $profile->toArray();
+        $this->assertFalse($arr['transfer_ready']);
+        $this->assertContains('contradicted_evidence_requires_resolution', $arr['unsafe_transfer_assumptions']);
+    }
+
+    // AC: output includes next_context_probe and first_safe_task_family
+    public function test_output_has_next_context_probe_and_first_safe_task_family(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forAtlas();
+        $arr = $profile->toArray();
+
+        $this->assertArrayHasKey('next_context_probe', $arr);
+        $this->assertNotEmpty($arr['next_context_probe']);
+        $this->assertArrayHasKey('first_safe_task_family', $arr);
+        $this->assertNotEmpty($arr['first_safe_task_family']);
+    }
+
+    // AC: transfer_ready=true when evidence is fresh and transfer not blocked
+    public function test_transfer_ready_true_when_fresh_evidence(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('test-project', [
+            'source_of_truth_docs' => ['docs/'],
+            'allowed_targets' => ['src/'],
+            'evidence_status' => 'fresh',
+            'has_test_suite' => true,
+            'test_command' => './vendor/bin/phpunit',
+        ]);
+        $arr = $profile->toArray();
+        $this->assertTrue($arr['transfer_ready']);
+        $this->assertSame('test_and_doc_lanes_only', $arr['first_safe_task_family']);
+    }
 }

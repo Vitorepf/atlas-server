@@ -203,11 +203,18 @@ class PersonalWorkedExampleExtractionRepository
         }
 
         $nextRunAt = $job['next_run_at'] ?? null;
-        if (is_string($nextRunAt) && trim($nextRunAt) !== '' && now()->lt(Carbon::parse($nextRunAt))) {
-            return array_merge($status, [
-                'ready_to_run' => false,
-                'skip_reason' => 'not_due',
-            ]);
+        if (is_string($nextRunAt) && trim($nextRunAt) !== '') {
+            try {
+                $parsed = Carbon::parse($nextRunAt);
+                if (now()->lt($parsed)) {
+                    return array_merge($status, [
+                        'ready_to_run' => false,
+                        'skip_reason' => 'not_due',
+                    ]);
+                }
+            } catch (\Throwable) {
+                // Invalid date — treat as not due
+            }
         }
 
         return array_merge($status, [

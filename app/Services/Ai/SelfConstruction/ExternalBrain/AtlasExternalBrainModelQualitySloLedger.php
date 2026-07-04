@@ -234,4 +234,76 @@ final class AtlasExternalBrainModelQualitySloLedger
 
         return round(array_sum($normalized) / count($normalized), 4);
     }
+
+    /**
+     * Worker tier guardrail: records SLOs by model_tier, worker_class and task_family.
+     * Marks SLO breach when evidence_quality, give_back_rate or verified_impact falls below threshold.
+     *
+     * @param  array{
+     *   model_tier: string,
+     *   worker_class: string,
+     *   task_family: string,
+     *   evidence_quality: float,
+     *   give_back_rate: float,
+     *   verified_impact: float,
+     *   evidence_quality_floor: float,
+     *   give_back_rate_ceiling: float,
+     *   verified_impact_floor: float,
+     * }  $input
+     * @return array{slo_status:string, breached_metrics:list<string>, routing_guardrail:string, remediation_hint:string}
+     */
+    public function workerTierGuardrail(array $input): array
+    {
+        $modelTier = (string) ($input['model_tier'] ?? '');
+        $workerClass = (string) ($input['worker_class'] ?? '');
+        $taskFamily = (string) ($input['task_family'] ?? '');
+        $evidenceQuality = (float) ($input['evidence_quality'] ?? 0.0);
+        $giveBackRate = (float) ($input['give_back_rate'] ?? 0.0);
+        $verifiedImpact = (float) ($input['verified_impact'] ?? 0.0);
+        $evidenceQualityFloor = (float) ($input['evidence_quality_floor'] ?? 0.7);
+        $giveBackRateCeiling = (float) ($input['give_back_rate_ceiling'] ?? 0.2);
+        $verifiedImpactFloor = (float) ($input['verified_impact_floor'] ?? 0.5);
+
+        $breachedMetrics = [];
+
+        if ($evidenceQuality < $evidenceQualityFloor) {
+            $breachedMetrics[] = sprintf('evidence_quality=%.4f < floor=%.4f', $evidenceQuality, $evidenceQualityFloor);
+        }
+        if ($giveBackRate > $giveBackRateCeiling) {
+            $breachedMetrics[] = sprintf('give_back_rate=%.4f > ceiling=%.4f', $giveBackRate, $giveBackRateCeiling);
+        }
+        if ($verifiedImpact < $verifiedImpactFloor) {
+            $breachedMetrics[] = sprintf('verified_impact=%.4f < floor=%.4f', $verifiedImpact, $verifiedImpactFloor);
+        }
+
+        $sloStatus = $breachedMetrics === [] ? 'green' : 'breach';
+
+        $routingGuardrail = match (true) {
+            $sloStatus === 'green' => sprintf(
+                'model_tier=%s worker_class=%s task_family=%s: all SLOs met',
+                $modelTier, $workerClass, $taskFamily,
+            ),
+            count($breachedMetrics) >= 3 => sprintf(
+                'model_tier=%s worker_class=%s task_family=%s: downgrade_tier — %d SLO breaches',
+                $modelTier, $workerClass, $taskFamily, count($breachedMetrics),
+            ),
+            default => sprintf(
+                'model_tier=%s worker_class=%s task_family=%s: extra_validation — %d SLO breach(es)',
+                $modelTier, $workerClass, $taskFamily, count($breachedMetrics),
+            ),
+        };
+
+        $remediationHint = match (true) {
+            $sloStatus === 'green' => 'no_action_required',
+            count($breachedMetrics) >= 3 => 'downgrade_tier_and_recalibrate_scaffold',
+            default => 'increase_validation_coverage_and_review_scaffold',
+        };
+
+        return [
+            'slo_status' => $sloStatus,
+            'breached_metrics' => $breachedMetrics,
+            'routing_guardrail' => $routingGuardrail,
+            'remediation_hint' => $remediationHint,
+        ];
+    }
 }

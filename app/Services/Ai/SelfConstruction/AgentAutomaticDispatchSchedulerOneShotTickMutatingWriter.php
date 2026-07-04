@@ -247,8 +247,16 @@ class AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter
             $input[$hashField] = $hash;
         }
 
-        $signedAt = CarbonImmutable::parse((string) $input['signed_at']);
-        $expiresAt = CarbonImmutable::parse((string) $input['expires_at']);
+        try {
+            $signedAt = CarbonImmutable::parse((string) $input['signed_at']);
+        } catch (\Throwable $e) {
+            throw new InvalidArgumentException('invalid_dispatch_signed_at');
+        }
+        try {
+            $expiresAt = CarbonImmutable::parse((string) $input['expires_at']);
+        } catch (\Throwable $e) {
+            throw new InvalidArgumentException('invalid_dispatch_expires_at');
+        }
 
         if ($expiresAt->lessThanOrEqualTo(CarbonImmutable::now())) {
             throw new InvalidArgumentException('expired_dispatch_receipt_signature');

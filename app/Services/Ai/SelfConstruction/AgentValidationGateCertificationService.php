@@ -218,4 +218,92 @@ final class AgentValidationGateCertificationService
 
         return hash('sha256', (string) json_encode($payload));
     }
+
+    /**
+     * Distinguish real executable proof from proxy evidence.
+     *
+     * Proxy evidence: schema-only output, vague success text, stale receipts.
+     * Real proof: concrete command run, target path touched, fresh result.
+     *
+     * @param  array{command?:string, target_path?:string, result?:string, evidence_type?:string, timestamp?:string}  $evidence
+     * @return array{certified:bool, evidence_class:string, reasons:list<string>, is_proxy:bool}
+     */
+    public function certifyEvidence(array $evidence): array
+    {
+        $reasons = [];
+        $evidenceType = (string) ($evidence['evidence_type'] ?? '');
+        $command = (string) ($evidence['command'] ?? '');
+        $targetPath = (string) ($evidence['target_path'] ?? '');
+        $result = (string) ($evidence['result'] ?? '');
+        $timestamp = (string) ($evidence['timestamp'] ?? '');
+
+        // Schema-only output: no concrete command or result
+        if ($command === '' && $result === '') {
+            $reasons[] = 'schema_only_output';
+        }
+
+        // Vague success text: result is generic boilerplate
+        if ($result !== '' && $this->isVagueSuccess($result)) {
+            $reasons[] = 'vague_success_text';
+        }
+
+        // Stale receipt: timestamp older than 24 hours
+        if ($timestamp !== '') {
+            try {
+                $ts = \Carbon\Carbon::parse($timestamp);
+                if ($ts->lt(now()->subHours(24))) {
+                    $reasons[] = 'stale_receipt';
+                }
+            } catch (\Throwable $e) {
+                $reasons[] = 'unparseable_timestamp';
+            }
+        }
+
+        // Proxy evidence types
+        if (in_array($evidenceType, ['schema', 'description', 'notes', 'summary', 'placeholder'], true)) {
+            $reasons[] = 'proxy_evidence_type';
+        }
+
+        $isProxy = $reasons !== [];
+
+        return [
+            'certified' => ! $isProxy && $command !== '' && $targetPath !== '' && $result !== '',
+            'evidence_class' => $isProxy ? 'proxy_evidence' : 'executable_proof',
+            'reasons' => $reasons,
+            'is_proxy' => $isProxy,
+        ];
+    }
+
+    /**
+     * Detect vague success text that provides no concrete proof.
+     */
+    private function isVagueSuccess(string $text): bool
+    {
+        $lower = strtolower(trim($text));
+        $vaguePatterns = [
+            'it works',
+            'it works correctly',
+            'all tests pass',
+            'everything is fine',
+            'no issues found',
+            'success',
+            'ok',
+            'done',
+            'completed',
+            'working as expected',
+        ];
+
+        foreach ($vaguePatterns as $pattern) {
+            if ($lower === $pattern || str_contains($lower, $pattern)) {
+                return true;
+            }
+        }
+
+        // Very short results are almost certainly vague
+        if (strlen($text) < 30) {
+            return true;
+        }
+
+        return false;
+    }
 }

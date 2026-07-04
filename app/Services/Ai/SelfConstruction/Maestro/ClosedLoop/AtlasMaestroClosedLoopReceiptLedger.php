@@ -28,6 +28,10 @@ final class AtlasMaestroClosedLoopReceiptLedger
         $entry = [
             'schema' => self::SCHEMA,
             'timestamp' => (string) ($payload['timestamp'] ?? gmdate('c')),
+            'decision_id' => (string) ($payload['decision_id'] ?? $this->generateDecisionId()),
+            'input_hash' => $this->computeInputHash($payload),
+            'output_hash' => $this->computeOutputHash($payload),
+            'recorded_at' => (string) ($payload['timestamp'] ?? gmdate('c')),
             'ledger_snapshot_hash' => $this->ledgerSnapshotHash(),
             'mined_bucket_count' => max(0, (int) ($payload['mined_bucket_count'] ?? 0)),
             'guarded_pass_or_reject' => $this->passOrReject($payload['guarded_pass_or_reject'] ?? null),
@@ -59,6 +63,89 @@ final class AtlasMaestroClosedLoopReceiptLedger
         }
 
         return $entry;
+    }
+
+    /**
+     * Audit the full receipt chain and produce structured findings.
+     *
+     * @return array{receipt_chain_valid:bool,latest_hash:string,tamper_findings:list<string>,replay_order:list<int>}
+     */
+    public function auditReceiptChain(): array
+    {
+        $replayOrder = [];
+        $tamperFindings = [];
+        $latestHash = '';
+
+        $verification = $this->verifyChain();
+        if (! $verification['ok']) {
+            $tamperFindings[] = sprintf(
+                'chain_broken_at_sequence=%d reason=%s',
+                $verification['broken_at_sequence'],
+                $verification['reason'],
+            );
+        }
+
+        $expectedPreviousHash = '';
+        foreach ($this->stream() as $row) {
+            $sequence = (int) ($row['sequence'] ?? 0);
+            $replayOrder[] = $sequence;
+            $entryHash = (string) ($row['entry_hash'] ?? '');
+            $latestHash = $entryHash;
+
+            // Verify per-entry hash integrity
+            if (! $this->verifyEntry($row)) {
+                $tamperFindings[] = sprintf('entry_hash_tampered_at_sequence=%d', $sequence);
+            }
+
+            // Verify chain linkage
+            $previousHash = (string) ($row['previous_hash'] ?? '');
+            if ($previousHash !== $expectedPreviousHash) {
+                $tamperFindings[] = sprintf('previous_hash_linkage_broken_at_sequence=%d', $sequence);
+            }
+            $expectedPreviousHash = $entryHash;
+        }
+
+        return [
+            'receipt_chain_valid' => $verification['ok'],
+            'latest_hash' => $latestHash,
+            'tamper_findings' => $tamperFindings,
+            'replay_order' => $replayOrder,
+        ];
+    }
+
+    /**
+     * Generate a decision ID from the payload.
+     */
+    private function generateDecisionId(): string
+    {
+        return sprintf('decision_%s_%s', substr(uniqid('', true), 0, 12), substr(md5((string) mt_rand()), 0, 8));
+    }
+
+    /**
+     * Compute a stable hash of the input payload (excluding volatile fields).
+     */
+    private function computeInputHash(array $payload): string
+    {
+        $stable = $payload;
+        unset($stable['timestamp'], $stable['decision_id']);
+        ksort($stable);
+
+        return hash('sha256', (string) json_encode($stable, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Compute a stable hash of the output (outcome + recommendation + quality flags).
+     */
+    private function computeOutputHash(array $payload): string
+    {
+        $output = [
+            'outcome' => $payload['outcome'] ?? '',
+            'next_action_recommendation' => $payload['next_action_recommendation'] ?? '',
+            'quality_flags' => $payload['quality_flags'] ?? [],
+        ];
+        ksort($output);
+
+        return hash('sha256', (string) json_encode($output, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /**
@@ -161,7 +248,7 @@ final class AtlasMaestroClosedLoopReceiptLedger
      */
     private function entryHash(array $entry): string
     {
-        unset($entry['entry_hash'], $entry['sequence'], $entry['previous_hash']);
+        unset($entry['entry_hash'], $entry['sequence'], $entry['previous_hash'], $entry['decision_id']);
         ksort($entry);
 
         return hash('sha256', (string) json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

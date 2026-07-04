@@ -88,6 +88,9 @@ final class AtlasSelfConstructionAutonomySoakPlanCompiler
 
         [$soakHours, $greenStreak] = $this->soakParams($failCount, $warnCount, $failClosedReason !== null);
 
+        // Soak windows: worker_feed_continuity, queue_drain_pressure, give_back_rate, lease_recovery, knowledge_sync
+        $soakWindows = $this->compileSoakWindows($soakHours, $criteria, $failClosedReason);
+
         return [
             'schema_version'               => self::SCHEMA,
             'soak_duration_hours'          => $soakHours,
@@ -96,6 +99,7 @@ final class AtlasSelfConstructionAutonomySoakPlanCompiler
             'disqualifiers'                => $disqualifiers,
             'is_soak_ready'                => $failCount === 0 && $failClosedReason === null,
             'fail_closed_reason'           => $failClosedReason,
+            'soak_windows'                 => $soakWindows,
         ];
     }
 
@@ -127,5 +131,52 @@ final class AtlasSelfConstructionAutonomySoakPlanCompiler
         }
 
         return false;
+    }
+
+    /**
+     * Compile explicit soak windows for 24/7 autonomy.
+     *
+     * @param  list<array<string,mixed>>  $criteria
+     * @return list<array{window:string,interval_hours:float,verification_command:string,blocked_by:array<string>}>
+     */
+    private function compileSoakWindows(float $soakHours, array $criteria, ?string $failClosedReason): array
+    {
+        $blockedBy = $failClosedReason !== null ? [$failClosedReason] : [];
+
+        // Derive interval from soak duration (spread across soak)
+        $interval = max(1.0, $soakHours / 5.0);
+
+        return [
+            [
+                'window' => 'worker_feed_continuity',
+                'interval_hours' => round($interval, 1),
+                'verification_command' => 'php artisan atlas:task status --json | jq .active_workers',
+                'blocked_by' => $blockedBy,
+            ],
+            [
+                'window' => 'queue_drain_pressure',
+                'interval_hours' => round($interval, 1),
+                'verification_command' => 'php artisan atlas:task status --json | jq .queue_depth',
+                'blocked_by' => $blockedBy,
+            ],
+            [
+                'window' => 'give_back_rate',
+                'interval_hours' => round($interval, 1),
+                'verification_command' => 'php artisan atlas:task status --json | jq .give_back_rate',
+                'blocked_by' => $blockedBy,
+            ],
+            [
+                'window' => 'lease_recovery',
+                'interval_hours' => round($interval, 1),
+                'verification_command' => 'php artisan atlas:task status --json | jq .lease_recovery_count',
+                'blocked_by' => $blockedBy,
+            ],
+            [
+                'window' => 'knowledge_sync',
+                'interval_hours' => round($interval, 1),
+                'verification_command' => 'php artisan atlas:knowledge:sync --status --json | jq .sync_status',
+                'blocked_by' => $blockedBy,
+            ],
+        ];
     }
 }

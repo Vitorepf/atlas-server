@@ -205,6 +205,16 @@ final class AtlasExternalBrainFrontierExhaustionEscalator
         }
         $escalationReason = $reasonParts !== [] ? implode(', ', $reasonParts) : 'surface_stable';
 
+        // Compute exhaustion_confidence: higher when more signals + evidence floor satisfied
+        $signalCount = (int)$decliningFindings + (int)$risingCost + (int)$highDuplicates + (int)($remainingHighRisk !== []);
+        $exhaustionConfidence = $missingEvidence === [] ? min(1.0, $signalCount * 0.25) : max(0.0, ($signalCount - count($missingEvidence)) * 0.25);
+
+        // next_strategy: derive from pass ladder position and signals
+        $nextStrategy = $this->deriveNextStrategy($currentPass, $nextPass, $missingEvidence, $signalCount);
+
+        // missing_search_evidence: what surfaces/sources haven't been searched yet
+        $missingSearchEvidence = $this->deriveMissingSearchEvidence($missingEvidence, $nextPass, $waveHistory);
+
         return [
             'schema_version' => self::SCHEMA,
             'next_pass' => $nextPass,
@@ -213,6 +223,9 @@ final class AtlasExternalBrainFrontierExhaustionEscalator
             'evidence_floor' => self::EVIDENCE_FLOOR_BY_PASS[$nextPass] ?? [],
             'missing_evidence' => $missingEvidence,
             'evidence_floor_satisfied' => $missingEvidence === [],
+            'exhaustion_confidence' => round($exhaustionConfidence, 2),
+            'next_strategy' => $nextStrategy,
+            'missing_search_evidence' => $missingSearchEvidence,
             'wave_analysis' => [
                 'wave_count' => count($waveHistory),
                 'declining_findings' => $decliningFindings,
@@ -291,5 +304,65 @@ final class AtlasExternalBrainFrontierExhaustionEscalator
         }
 
         return $missing;
+    }
+
+    /**
+     * Derive next strategy from pass transition and evidence state.
+     */
+    private function deriveNextStrategy(string $currentPass, string $nextPass, array $missingEvidence, int $signalCount): ?string
+    {
+        // If evidence floor is not met, stay on current pass
+        if ($missingEvidence !== []) {
+            return null;
+        }
+
+        // If no signals, keep current strategy
+        if ($signalCount === 0) {
+            return 'keep_current_strategy';
+        }
+
+        // If escalating to a deeper pass, that IS the next strategy
+        if ($nextPass !== $currentPass) {
+            return $nextPass;
+        }
+
+        // At the top of the ladder with signals — recommend external research or stop
+        if ($currentPass === 'stop_with_evidence') {
+            return 'stop_with_evidence';
+        }
+
+        return 'research_external';
+    }
+
+    /**
+     * Derive missing search evidence — what surfaces, sources, or refactor veins
+     * haven't been searched yet.
+     *
+     * @return list<string>
+     */
+    private function deriveMissingSearchEvidence(array $missingEvidence, string $nextPass, array $waveHistory): array
+    {
+        $missing = $missingEvidence;
+
+        // Map evidence floor gaps to concrete search surfaces
+        $surfaceMap = [
+            'inspected_surface' => 'code_surface_inspection',
+            'rejected_false_leads' => 'rejected_leads_documentation',
+            'expected_yield_range' => 'yield_estimation_from_research_sources',
+            'why_not_stop' => 'stop_criteria_analysis',
+        ];
+
+        foreach ($missing as $field) {
+            if (isset($surfaceMap[$field])) {
+                $missing[] = $surfaceMap[$field];
+            }
+        }
+
+        // If at stop_with_evidence and still missing evidence, note unsearched refactor veins
+        if ($nextPass === 'stop_with_evidence' && $missing !== []) {
+            $missing[] = 'unsearched_refactor_veins';
+        }
+
+        return array_values(array_unique($missing));
     }
 }

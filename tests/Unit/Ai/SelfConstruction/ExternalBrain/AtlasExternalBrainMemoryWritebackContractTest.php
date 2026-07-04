@@ -330,4 +330,70 @@ final class AtlasExternalBrainMemoryWritebackContractTest extends TestCase
         $this->assertSame([], $result['rejected']);
         $this->assertSame(0, $result['stats']['proposals_in']);
     }
+
+    // ── providerSafeSummary: accepted_memory, secret_rejection, duplicate_rejection, vague_lesson_rejection, missing_evidence_rejection, future_actionability ──
+
+    public function test_provider_safe_summary_has_required_keys(): void
+    {
+        $result = $this->contract()->providerSafeSummary([]);
+        $this->assertArrayHasKey('accepted_memory', $result);
+        $this->assertArrayHasKey('secret_rejection', $result);
+        $this->assertArrayHasKey('duplicate_rejection', $result);
+        $this->assertArrayHasKey('vague_lesson_rejection', $result);
+        $this->assertArrayHasKey('missing_evidence_rejection', $result);
+        $this->assertArrayHasKey('future_actionability', $result);
+    }
+
+    public function test_secret_rejection_counts_provider_unsafe_proposals(): void
+    {
+        $proposals = [
+            array_merge($this->proposal('delivered_leverage', 'WorkerBehaviorLedger tracks give_back_rate'), ['provider_safe' => false]),
+        ];
+        $result = $this->contract()->providerSafeSummary($proposals);
+        $this->assertSame(1, $result['secret_rejection']);
+    }
+
+    public function test_duplicate_rejection_counts_duplicates(): void
+    {
+        $base = $this->proposal('delivered_leverage', 'WorkerBehaviorLedger tracks give_back_rate');
+        $proposals = [$base, $base];
+        $result = $this->contract()->providerSafeSummary($proposals);
+        $this->assertSame(1, $result['duplicate_rejection']);
+    }
+
+    public function test_vague_lesson_rejection_counts_vague_facts(): void
+    {
+        $proposals = [
+            $this->proposal('delivered_leverage', 'things were not good today'),
+        ];
+        $result = $this->contract()->providerSafeSummary($proposals);
+        $this->assertSame(1, $result['vague_lesson_rejection']);
+    }
+
+    public function test_missing_evidence_rejection_counts_missing_fields(): void
+    {
+        $proposals = [
+            array_merge($this->proposal('delivered_leverage', 'some fact'), ['fact' => '', 'evidence_ref' => '']),
+        ];
+        $result = $this->contract()->providerSafeSummary($proposals);
+        $this->assertSame(1, $result['missing_evidence_rejection']);
+    }
+
+    public function test_future_actionability_true_with_proven_evidence(): void
+    {
+        $proposals = [
+            $this->proposal('delivered_leverage', 'WorkerBehaviorLedger tracks give_back_rate', 'proven'),
+        ];
+        $result = $this->contract()->providerSafeSummary($proposals);
+        $this->assertTrue($result['future_actionability']);
+    }
+
+    public function test_future_actionability_false_with_only_inferred_evidence(): void
+    {
+        $proposals = [
+            $this->proposal('delivered_leverage', 'WorkerBehaviorLedger tracks give_back_rate', 'inferred'),
+        ];
+        $result = $this->contract()->providerSafeSummary($proposals);
+        $this->assertFalse($result['future_actionability']);
+    }
 }

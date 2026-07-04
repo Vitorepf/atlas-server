@@ -309,7 +309,17 @@ final class AtlasLoopObraClusterDetectorService
                 return false;
             }
 
-            return Carbon::parse($recordedAt)->greaterThan(Carbon::now()->subHours($cooldownHours));
+            $parsed = null;
+            try {
+                $parsed = Carbon::parse($recordedAt);
+            } catch (\Throwable) {
+                $parsed = null;
+            }
+            if ($parsed === null) {
+                return false;
+            }
+
+            return $parsed->greaterThan(Carbon::now()->subHours($cooldownHours));
         } catch (Throwable) {
             return false;
         }

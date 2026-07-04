@@ -194,4 +194,93 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlannerTest extends TestCase
             $this->assertSame('operator_only_fix', $candidate['repair_plan']);
         }
     }
+
+    // ── safe_respec_envelope ──
+
+    public function test_respec_for_queue_feed_includes_safe_respec_envelope(): void
+    {
+        $event = [
+            'task_id' => 't1',
+            'root_cause' => 'missing_capability',
+            'allowed_files' => ['app/Services/Foo.php'],
+            'acceptance_criteria' => ['php artisan test tests/FooTest.php exits 0'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'objective' => 'Add Foo capability',
+        ];
+
+        $result = (new AtlasExternalBrainGiveBackToQueueRepairPlanner)->plan([
+            'claimable_per_active_worker' => 1.0,
+            'give_backs' => [$event, array_merge($event, ['task_id' => 't2'])],
+        ]);
+
+        $candidate = $result['repair_candidates'][0];
+        $this->assertSame('respec_for_queue_feed', $candidate['repair_plan']);
+        $this->assertNotNull($candidate['safe_respec_envelope']);
+        $envelope = $candidate['safe_respec_envelope'];
+        $this->assertArrayHasKey('objective_patch', $envelope);
+        $this->assertArrayHasKey('allowed_files_patch', $envelope);
+        $this->assertArrayHasKey('acceptance_patch', $envelope);
+        $this->assertArrayHasKey('required_evidence_patch', $envelope);
+        $this->assertSame('retain_objective_with_scope_narrowing', $envelope['objective_patch']);
+        $this->assertSame(['app/Services/Foo.php'], $envelope['allowed_files_patch']);
+    }
+
+    public function test_missing_runnable_acceptance_refuses_safe_respec_envelope(): void
+    {
+        $event = [
+            'task_id' => 't1',
+            'root_cause' => 'missing_capability',
+            'allowed_files' => ['app/Services/Foo.php'],
+            // No runnable acceptance criterion
+            'acceptance_criteria' => ['looks good'],
+        ];
+
+        $result = (new AtlasExternalBrainGiveBackToQueueRepairPlanner)->plan([
+            'claimable_per_active_worker' => 1.0,
+            'give_backs' => [$event, array_merge($event, ['task_id' => 't2'])],
+        ]);
+
+        $candidate = $result['repair_candidates'][0];
+        $this->assertSame('operator_only_fix', $candidate['repair_plan']);
+        $this->assertNull($candidate['safe_respec_envelope']);
+    }
+
+    public function test_empty_allowed_files_refuses_safe_respec_envelope(): void
+    {
+        $event = [
+            'task_id' => 't1',
+            'root_cause' => 'missing_capability',
+            'allowed_files' => [],
+            'acceptance_criteria' => ['php artisan test tests/FooTest.php exits 0'],
+        ];
+
+        $result = (new AtlasExternalBrainGiveBackToQueueRepairPlanner)->plan([
+            'claimable_per_active_worker' => 1.0,
+            'give_backs' => [$event, array_merge($event, ['task_id' => 't2'])],
+        ]);
+
+        $candidate = $result['repair_candidates'][0];
+        $this->assertSame('operator_only_fix', $candidate['repair_plan']);
+        $this->assertNull($candidate['safe_respec_envelope']);
+    }
+
+    public function test_forbidden_target_never_emits_safe_respec_envelope(): void
+    {
+        $event = [
+            'task_id' => 't1',
+            'forbidden_target' => true,
+            'allowed_files' => ['app/Services/Foo.php'],
+            'acceptance_criteria' => ['php artisan test tests/FooTest.php exits 0'],
+        ];
+
+        $result = (new AtlasExternalBrainGiveBackToQueueRepairPlanner)->plan([
+            'claimable_per_active_worker' => 1.0,
+            'give_backs' => [$event, array_merge($event, ['task_id' => 't2'])],
+        ]);
+
+        foreach ($result['repair_candidates'] as $candidate) {
+            $this->assertSame('operator_only_fix', $candidate['repair_plan']);
+            $this->assertNull($candidate['safe_respec_envelope']);
+        }
+    }
 }

@@ -136,7 +136,7 @@ final class AtlasSelfConstructionAutopoiesisHypothesisGenerator
         $seen = [];
         $deduped = [];
         foreach ($hypotheses as $h) {
-            $key = $h['target_organ'].'::'.$h['class'];
+            $key = json_encode([$h['target_organ'], $h['class']], JSON_THROW_ON_ERROR);
             if (! isset($seen[$key])) {
                 $seen[$key] = true;
                 $deduped[] = $h;

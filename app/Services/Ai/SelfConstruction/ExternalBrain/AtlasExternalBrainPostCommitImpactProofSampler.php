@@ -130,6 +130,10 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
             'missing_proof_signals'   => array_values($missingProofSignals),
             'missing_causal_evidence' => array_values($missingProofSignals),
             'next_learning_action'    => $this->nextLearningAction($label),
+            'impact_verified'         => $promisedDeltaObserved,
+            'overclaim_risk'          => $this->overclaimRisk($label, $hasDelta, $hasImpl, $hasTests, $hasBeyondFilePresence),
+            'proof_refs'              => $this->proofRefs($implFiles, $testFiles, $behaviorDelta, $learningDelta, $acceptanceDelta),
+            'learning_signal'         => $rankingSignalCapped,
         ];
     }
 
@@ -142,6 +146,48 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
             self::LABEL_NEGATIVE => 'flag_pattern_family_for_review_and_demote_priority',
             default              => 'request_implementation_and_test_evidence',
         };
+    }
+
+    private function overclaimRisk(string $label, bool $hasDelta, bool $hasImpl, bool $hasTests, bool $hasBeyondFilePresence): string
+    {
+        if ($label === self::LABEL_HIGH) {
+            return 'low';
+        }
+        if ($hasDelta && ! $hasImpl && ! $hasTests) {
+            return 'critical';
+        }
+        if ($hasDelta && ! $hasBeyondFilePresence) {
+            return 'high';
+        }
+        if ($label === self::LABEL_NEGATIVE) {
+            return 'high';
+        }
+        return 'medium';
+    }
+
+    /**
+     * @param  list<string>  $implFiles
+     * @param  list<string>  $testFiles
+     */
+    private function proofRefs(array $implFiles, array $testFiles, string $behaviorDelta, string $learningDelta, string $acceptanceDelta): array
+    {
+        $refs = [];
+        foreach ($implFiles as $f) {
+            $refs[] = 'impl:'.$f;
+        }
+        foreach ($testFiles as $f) {
+            $refs[] = 'test:'.$f;
+        }
+        if ($behaviorDelta !== '') {
+            $refs[] = 'behavior_delta:'.$behaviorDelta;
+        }
+        if ($learningDelta !== '') {
+            $refs[] = 'learning_delta:'.$learningDelta;
+        }
+        if ($acceptanceDelta !== '') {
+            $refs[] = 'acceptance_delta:'.$acceptanceDelta;
+        }
+        return $refs;
     }
 
     /**

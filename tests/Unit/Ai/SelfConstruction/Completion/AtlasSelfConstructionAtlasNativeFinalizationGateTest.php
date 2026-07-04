@@ -300,6 +300,62 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
         self::assertContains('worker_routing_loop_proof_not_passed:missing', $verdict['blockers']);
     }
 
+    // AC: final_ready=false when independent evidence quorum is missing
+    public function test_missing_evidence_quorum_yields_hold(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['independent_evidence_quorum']);
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_HOLD, $verdict['final_state']);
+        self::assertContains('collect_independent_evidence_quorum', $verdict['next_atlas_actions']);
+    }
+
+    // AC: final_ready=false when quorum has insufficient confirmed sources
+    public function test_insufficient_evidence_quorum_yields_hold(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['independent_evidence_quorum'] = [
+            'sources' => [
+                ['source' => 'task_serving', 'status' => 'confirmed'],
+            ],
+        ];
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_HOLD, $verdict['final_state']);
+    }
+
+    // AC: output includes evidence_quorum with required/confirmed/met
+    public function test_output_includes_evidence_quorum(): void
+    {
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($this->readyFacts());
+
+        self::assertArrayHasKey('evidence_quorum', $verdict);
+        self::assertSame(3, $verdict['evidence_quorum']['required']);
+        self::assertTrue($verdict['evidence_quorum']['met']);
+    }
+
+    // AC: final_ready=true only when fresh soak + passing regression + quorum all present
+    public function test_ready_requires_soak_regression_and_quorum(): void
+    {
+        $facts = $this->readyFacts();
+        // Remove quorum — should hold even with soak and regression
+        unset($facts['independent_evidence_quorum']);
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_HOLD, $verdict['final_state']);
+
+        // Add quorum back — should be ready
+        $facts['independent_evidence_quorum'] = [
+            'sources' => [
+                ['source' => 'a', 'status' => 'confirmed'],
+                ['source' => 'b', 'status' => 'confirmed'],
+                ['source' => 'c', 'status' => 'confirmed'],
+            ],
+        ];
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_READY, $verdict['final_state']);
+    }
+
     /**
      * @return array<string,mixed>
      */
@@ -362,6 +418,13 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
                 'release_blocker' => false,
                 'learning_blocker' => false,
                 'unsafe_release' => false,
+            ],
+            'independent_evidence_quorum' => [
+                'sources' => [
+                    ['source' => 'task_serving', 'status' => 'confirmed'],
+                    ['source' => 'verification_court', 'status' => 'confirmed'],
+                    ['source' => 'merge_governor', 'status' => 'confirmed'],
+                ],
             ],
         ];
     }

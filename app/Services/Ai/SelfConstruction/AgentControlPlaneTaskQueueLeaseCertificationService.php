@@ -150,6 +150,25 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
 
         $status = $violations === [] ? 'available' : 'blocked';
 
+        // Lease/claimed consistency check: active_leases > claimed_records with recoverable_total=0
+        $activeLeaseCount = (int) ($leaseSummary['active_lease_count'] ?? 0);
+        $claimedCount = (int) ($statusCounts['claimed'] ?? 0);
+        $recoverableTotal = (int) ($leaseSummary['recoverable_total'] ?? 0);
+        $leasesMatchClaimed = $activeLeaseCount <= $claimedCount || $recoverableTotal > 0;
+        $mismatchReason = '';
+        $recommendedRecoveryAction = '';
+        if (! $leasesMatchClaimed) {
+            $mismatchReason = sprintf(
+                'active_leases(%d) > claimed_records(%d) with recoverable_total=0: lease store has more active leases than claimed queue entries and no recoverable tasks to reconcile',
+                $activeLeaseCount,
+                $claimedCount,
+            );
+            $recommendedRecoveryAction = 'reconcile_active_leases_against_claimed_queue_and_release_orphaned_leases';
+        }
+
+        // healthy=true only when leases and claimed records are consistent or explicitly explained as benign
+        $healthy = $violations === [] && $leasesMatchClaimed;
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -171,6 +190,10 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             ],
             'lease_summary' => $leaseSummary,
             'runtime_safety' => $runtimeSafety,
+            'leases_match_claimed' => $leasesMatchClaimed,
+            'mismatch_reason' => $mismatchReason,
+            'recommended_recovery_action' => $recommendedRecoveryAction,
+            'healthy' => $healthy,
             'probe_evidence' => $probes,
             'probe_containment' => $probes['probe_containment'],
             'next_action' => $status === 'available' ? 'continue_runtime_pilot_observability' : 'investigate_violations',

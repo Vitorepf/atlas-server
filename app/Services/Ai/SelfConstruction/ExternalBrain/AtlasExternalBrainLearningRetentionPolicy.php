@@ -51,6 +51,16 @@ final class AtlasExternalBrainLearningRetentionPolicy
     {
         $records = is_array($facts['learning_records'] ?? null) ? $facts['learning_records'] : [];
 
+        // Deduplicate: keep the most evidence-backed version (highest utility_score, then newest)
+        $deduped = [];
+        foreach ($records as $rec) {
+            $id = (string) ($rec['id'] ?? '');
+            if (!isset($deduped[$id]) || (float) ($rec['utility_score'] ?? 0) > (float) ($deduped[$id]['utility_score'] ?? 0)) {
+                $deduped[$id] = $rec;
+            }
+        }
+        $records = array_values($deduped);
+
         $retained           = [];
         $decaying           = [];
         $retired            = [];
@@ -74,7 +84,16 @@ final class AtlasExternalBrainLearningRetentionPolicy
                 $type, $utility, $ageDays, $confirmed, $overridden, $actionable, $contradictionEvidence, $poisonAmplifying,
             );
 
-            $entry = ['id' => $id, 'type' => $type, 'utility_score' => $utility, 'age_days' => $ageDays, 'reason' => $reason];
+            $entry = [
+                'id' => $id,
+                'type' => $type,
+                'utility_score' => $utility,
+                'age_days' => $ageDays,
+                'reason' => $reason,
+                'source_refs' => (array) ($rec['source_refs'] ?? []),
+                'refresh_due' => $this->refreshDue($ageDays, $confirmed, $utility),
+                'needs_refresh' => $this->needsRefresh($ageDays, $confirmed, $utility),
+            ];
             if ($disposition === 'revalidation_needed') {
                 $entry['revalidation_chain'] = $this->revalidationChain($id, $type, $ageDays);
             }
@@ -185,5 +204,30 @@ final class AtlasExternalBrainLearningRetentionPolicy
 
         // 7. Default: decay (conservative).
         return ['decaying', 'default_decay'];
+    }
+
+    private function refreshDue(int $ageDays, bool $confirmed, float $utility): string
+    {
+        if ($ageDays <= 7) {
+            return 'not_due';
+        }
+        if ($ageDays <= 30) {
+            return $confirmed ? '30_days' : '14_days';
+        }
+        return $utility >= self::HIGH_UTILITY ? '90_days' : 'expired';
+    }
+
+    private function needsRefresh(int $ageDays, bool $confirmed, float $utility): bool
+    {
+        if ($ageDays <= 7) {
+            return false;
+        }
+        if (!$confirmed && $ageDays > 14) {
+            return true;
+        }
+        if ($utility >= self::HIGH_UTILITY && $ageDays > 30) {
+            return true;
+        }
+        return false;
     }
 }

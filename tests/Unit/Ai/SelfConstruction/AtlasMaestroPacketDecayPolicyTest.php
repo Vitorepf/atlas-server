@@ -144,4 +144,75 @@ final class AtlasMaestroPacketDecayPolicyTest extends TestCase
         $this->assertStringContainsString('park_due_to_poison_age', $p['reason']);
         $this->assertStringContainsString('poison_threshold_seconds=10800', $p['reason']); // 21600 * 0.5
     }
+
+    // ── decay_action, value_evidence_status, refresh_reason, retirement_reason ──
+
+    public function test_proposal_has_required_new_fields(): void
+    {
+        $policy = new AtlasMaestroPacketDecayPolicy(
+            $this->reporter([['task_packet_id' => 't1', 'queue_status' => 'waiting', 'time_in_queue_seconds' => 30000]]),
+            fn () => 21600, fn () => true,
+        );
+        $proposals = $policy->propose();
+        $this->assertCount(1, $proposals);
+        $p = $proposals[0];
+        $this->assertArrayHasKey('decay_action', $p);
+        $this->assertArrayHasKey('value_evidence_status', $p);
+        $this->assertArrayHasKey('refresh_reason', $p);
+        $this->assertArrayHasKey('retirement_reason', $p);
+    }
+
+    public function test_retire_proposal_has_retirement_reason(): void
+    {
+        $policy = new AtlasMaestroPacketDecayPolicy(
+            $this->reporter([['task_packet_id' => 'low', 'queue_status' => 'waiting', 'time_in_queue_seconds' => 30000]]),
+            fn () => 21600, fn () => true,
+            fn () => ['value' => 0.1],
+        );
+        $proposals = $policy->propose();
+        $p = $proposals[0];
+        $this->assertSame('retire', $p['proposed_action']);
+        $this->assertSame('retire', $p['decay_action']);
+        $this->assertNotEmpty($p['retirement_reason']);
+        $this->assertStringContainsString('stale_low_value', $p['retirement_reason']);
+    }
+
+    public function test_refresh_proposal_has_refresh_reason(): void
+    {
+        $policy = new AtlasMaestroPacketDecayPolicy(
+            $this->reporter([['task_packet_id' => 'high-weak', 'queue_status' => 'waiting', 'time_in_queue_seconds' => 30000]]),
+            fn () => 21600, fn () => true,
+            fn () => ['value' => 0.8, 'proof_strength' => 0.3],
+        );
+        $proposals = $policy->propose();
+        $p = $proposals[0];
+        $this->assertSame('refresh', $p['proposed_action']);
+        $this->assertSame('refresh', $p['decay_action']);
+        $this->assertNotEmpty($p['refresh_reason']);
+        $this->assertStringContainsString('stale_high_value_weak_proof', $p['refresh_reason']);
+    }
+
+    public function test_value_evidence_status_strong_when_value_and_proof_high(): void
+    {
+        $policy = new AtlasMaestroPacketDecayPolicy(
+            $this->reporter([['task_packet_id' => 'strong', 'queue_status' => 'waiting', 'time_in_queue_seconds' => 30000]]),
+            fn () => 21600, fn () => true,
+            fn () => ['value' => 0.9, 'proof_strength' => 0.8],
+        );
+        $proposals = $policy->propose();
+        $p = $proposals[0];
+        $this->assertSame('strong_value_evidence', $p['value_evidence_status']);
+    }
+
+    public function test_value_evidence_status_no_evidence_when_no_signals(): void
+    {
+        $policy = new AtlasMaestroPacketDecayPolicy(
+            $this->reporter([['task_packet_id' => 'none', 'queue_status' => 'waiting', 'time_in_queue_seconds' => 30000]]),
+            fn () => 21600, fn () => true,
+            fn () => [],
+        );
+        $proposals = $policy->propose();
+        $p = $proposals[0];
+        $this->assertSame('no_evidence', $p['value_evidence_status']);
+    }
 }

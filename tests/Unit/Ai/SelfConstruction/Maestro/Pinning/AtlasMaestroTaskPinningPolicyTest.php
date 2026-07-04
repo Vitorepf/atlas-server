@@ -79,4 +79,65 @@ final class AtlasMaestroTaskPinningPolicyTest extends TestCase
         $this->assertSame('capability_fit', $result['reason_category']);
         $this->assertSame(300, $result['ttl_seconds']);
     }
+
+    // ── evaluatePinWithContract: pin_allowed, pin_ttl_seconds, release_reason, safety_evidence_required ──
+
+    public function test_evaluate_pin_with_contract_has_required_keys(): void
+    {
+        $result = $this->policy()->evaluatePinWithContract([
+            'reason_category' => 'capability_fit',
+            'ttl_seconds' => 300,
+            'safety_evidence' => ['proven_capability'],
+        ]);
+        $this->assertArrayHasKey('pin_allowed', $result);
+        $this->assertArrayHasKey('pin_ttl_seconds', $result);
+        $this->assertArrayHasKey('release_reason', $result);
+        $this->assertArrayHasKey('safety_evidence_required', $result);
+    }
+
+    public function test_pin_allowed_when_valid_capability_fit_with_evidence(): void
+    {
+        $result = $this->policy()->evaluatePinWithContract([
+            'reason_category' => 'capability_fit',
+            'ttl_seconds' => 300,
+            'worker_fit' => 0.8,
+            'safety_evidence' => ['proven_capability'],
+        ]);
+        $this->assertTrue($result['pin_allowed']);
+        $this->assertSame(300, $result['pin_ttl_seconds']);
+        $this->assertTrue($result['safety_evidence_required']);
+    }
+
+    public function test_pin_rejected_when_capability_fit_without_safety_evidence(): void
+    {
+        $result = $this->policy()->evaluatePinWithContract([
+            'reason_category' => 'capability_fit',
+            'ttl_seconds' => 300,
+            'worker_fit' => 0.8,
+        ]);
+        $this->assertFalse($result['pin_allowed']);
+        $this->assertSame('capability_fit_requires_safety_evidence', $result['release_reason']);
+    }
+
+    public function test_pin_released_when_worker_fit_below_threshold(): void
+    {
+        $result = $this->policy()->evaluatePinWithContract([
+            'reason_category' => 'capability_fit',
+            'ttl_seconds' => 300,
+            'worker_fit' => 0.3,
+            'safety_evidence' => ['proven_capability'],
+        ]);
+        $this->assertFalse($result['pin_allowed']);
+        $this->assertSame('worker_fit_below_threshold', $result['release_reason']);
+    }
+
+    public function test_continuity_pin_does_not_require_safety_evidence(): void
+    {
+        $result = $this->policy()->evaluatePinWithContract([
+            'reason_category' => 'continuity',
+            'ttl_seconds' => 300,
+        ]);
+        $this->assertTrue($result['pin_allowed']);
+        $this->assertFalse($result['safety_evidence_required']);
+    }
 }

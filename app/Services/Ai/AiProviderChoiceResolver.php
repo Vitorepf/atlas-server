@@ -148,11 +148,21 @@ class AiProviderChoiceResolver
 
     private function applyWait(AiJob $job, array $option, array $metadata): void
     {
+        $availableAt = null;
+        if (isset($option['available_at_iso'])) {
+            try {
+                $availableAt = Carbon::parse((string) $option['available_at_iso']);
+            } catch (\Throwable) {
+                $availableAt = null;
+            }
+        }
+        if ($availableAt === null) {
+            $availableAt = now()->addMinutes(15);
+        }
+
         $job->update([
             'status' => 'queued',
-            'available_at' => isset($option['available_at_iso'])
-                ? Carbon::parse((string) $option['available_at_iso'])
-                : now()->addMinutes(15),
+            'available_at' => $availableAt,
             'reserved_at' => null,
             'started_at' => null,
             'finished_at' => null,

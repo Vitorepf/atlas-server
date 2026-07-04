@@ -65,8 +65,11 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
      *   local_surface_exhausted?: bool,
      *   exhaustive_escalation_attempted?: bool,
      *   value_found_after_escalation?: bool,
+     *   queue_health?: string,
+     *   value_density?: float,
+     *   learning_freshness?: float,
      * }  $facts
-     * @return array{schema:string, terminal:bool, terminal_reason:?string, next_action:?string, required_escalation_fronts:list<string>, reasons:list<string>}
+     * @return array{schema:string, terminal:bool, terminal_reason:?string, next_action:?string, required_escalation_fronts:list<string>, reasons:list<string>, selected_mode:string, mode_reason:string, forbidden_actions:list<string>}
      */
     public function evaluate(array $facts): array
     {
@@ -92,6 +95,7 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
                 $frontsAttempted = array_values(array_unique(array_map('strval', (array) $facts['escalation_fronts_attempted'])));
                 $missingFronts = array_values(array_diff(self::ESCALATION_FRONTS, $frontsAttempted));
                 if ($missingFronts !== []) {
+                    $mode = $this->selectMode($facts, self::ACTION_PIVOT_OR_RESEARCH);
                     return [
                         'schema' => self::SCHEMA,
                         'terminal' => false,
@@ -99,6 +103,9 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
                         'next_action' => self::ACTION_PIVOT_OR_RESEARCH,
                         'required_escalation_fronts' => $missingFronts,
                         'reasons' => ['exhaustive_escalation_claimed_without_evidence_for_all_fronts:missing='.implode(',', $missingFronts)],
+                        'selected_mode' => $mode['selected_mode'],
+                        'mode_reason' => $mode['mode_reason'],
+                        'forbidden_actions' => $mode['forbidden_actions'],
                     ];
                 }
             }
@@ -126,6 +133,9 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
                 'required_escalation_fronts' => self::ESCALATION_FRONTS,
                 'additional_recovery_paths' => $additionalRecoveryPaths,
                 'reasons' => ['local_surface_exhausted:pivot_required_instead_of_no_task_created'],
+                'selected_mode' => 'research',
+                'mode_reason' => 'local_surface_exhausted_pivot_required',
+                'forbidden_actions' => [],
             ];
         }
 
@@ -137,6 +147,7 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
         // AC2: a genuinely deep queue is not merely "comfortable" — the mission stays active by
         // switching to a more selective originator mode rather than easing into consolidation.
         if ($replenishAction === 'wait' && $claimablePerWorker >= self::DEEP_CLAIMABLE_PER_WORKER) {
+            $mode = $this->selectMode($facts, self::ACTION_SELECTIVE_ORIGINATOR_MODE);
             return [
                 'schema' => self::SCHEMA,
                 'terminal' => false,
@@ -144,10 +155,14 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
                 'next_action' => self::ACTION_SELECTIVE_ORIGINATOR_MODE,
                 'required_escalation_fronts' => [],
                 'reasons' => ['queue_deep:'.round($claimablePerWorker, 2).'_per_worker_switches_to_selective_originator_mode_not_idle'],
+                'selected_mode' => $mode['selected_mode'],
+                'mode_reason' => $mode['mode_reason'],
+                'forbidden_actions' => $mode['forbidden_actions'],
             ];
         }
 
         if ($replenishAction === 'wait' && $claimablePerWorker >= self::COMFORTABLE_CLAIMABLE_PER_WORKER) {
+            $mode = $this->selectMode($facts, self::ACTION_CONSOLIDATE_WITH_NEXT_BATCH);
             return [
                 'schema' => self::SCHEMA,
                 'terminal' => false,
@@ -155,9 +170,13 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
                 'next_action' => self::ACTION_CONSOLIDATE_WITH_NEXT_BATCH,
                 'required_escalation_fronts' => [],
                 'reasons' => ['queue_comfortable:'.round($claimablePerWorker, 2).'_per_worker_but_mission_active_so_consolidate_not_stop'],
+                'selected_mode' => $mode['selected_mode'],
+                'mode_reason' => $mode['mode_reason'],
+                'forbidden_actions' => $mode['forbidden_actions'],
             ];
         }
 
+        $mode = $this->selectMode($facts, self::ACTION_KEEP_ORIGINATING);
         return [
             'schema' => self::SCHEMA,
             'terminal' => false,
@@ -165,6 +184,9 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
             'next_action' => self::ACTION_KEEP_ORIGINATING,
             'required_escalation_fronts' => [],
             'reasons' => ['mission_active_and_no_terminal_condition_present'],
+            'selected_mode' => $mode['selected_mode'],
+            'mode_reason' => $mode['mode_reason'],
+            'forbidden_actions' => $mode['forbidden_actions'],
         ];
     }
 
@@ -177,6 +199,47 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
             'next_action' => null,
             'required_escalation_fronts' => [],
             'reasons' => [$reason],
+            'selected_mode' => 'pause',
+            'mode_reason' => $reason,
+            'forbidden_actions' => ['create', 'repair', 'consolidate', 'research'],
         ];
+    }
+
+    /**
+     * Select duty mode based on queue_health, value_density, learning_freshness.
+     */
+    private function selectMode(array $facts, string $nextAction): array
+    {
+        $queueHealth = strtolower(trim((string) ($facts['queue_health'] ?? '')));
+        $valueDensity = (float) ($facts['value_density'] ?? 0.5);
+        $learningFreshness = (float) ($facts['learning_freshness'] ?? 0.5);
+
+        // pause: terminal or exhausted
+        if ($nextAction === null) {
+            return ['selected_mode' => 'pause', 'mode_reason' => 'terminal_condition', 'forbidden_actions' => ['create', 'repair', 'consolidate', 'research']];
+        }
+
+        // research: local surface exhausted or pivot required
+        if ($nextAction === self::ACTION_PIVOT_OR_RESEARCH) {
+            return ['selected_mode' => 'research', 'mode_reason' => 'local_surface_exhausted_pivot_required', 'forbidden_actions' => []];
+        }
+
+        // consolidate: comfortable queue
+        if ($nextAction === self::ACTION_CONSOLIDATE_WITH_NEXT_BATCH) {
+            return ['selected_mode' => 'consolidate', 'mode_reason' => 'queue_comfortable_consolidate', 'forbidden_actions' => []];
+        }
+
+        // repair: low value density with consolidation or repair evidence stronger
+        if ($valueDensity < 0.3 && $queueHealth === 'degraded') {
+            return ['selected_mode' => 'repair', 'mode_reason' => 'low_value_density_degraded_queue', 'forbidden_actions' => ['create']];
+        }
+
+        // create: healthy queue with good value density
+        if ($valueDensity >= 0.5 && $queueHealth !== 'degraded') {
+            return ['selected_mode' => 'create', 'mode_reason' => 'healthy_queue_sufficient_value_density', 'forbidden_actions' => []];
+        }
+
+        // default: create mode for keep_originating and selective_originator
+        return ['selected_mode' => 'create', 'mode_reason' => 'default_create_mode', 'forbidden_actions' => []];
     }
 }

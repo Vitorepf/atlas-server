@@ -150,4 +150,70 @@ final class AtlasSelfConstructionNativeImplementationReleasePreflight
             'blockers' => array_values($blockers),
         ];
     }
+
+    /**
+     * Release preflight: blocks release when task_quality, proof_freshness, scope_isolation,
+     * rollback or knowledge_sync readiness is missing. Allows release only with provider-safe evidence refs.
+     *
+     * @param  array{
+     *   task_quality: float,
+     *   proof_freshness: float,
+     *   scope_isolation: bool,
+     *   rollback_readiness: bool,
+     *   knowledge_sync_readiness: bool,
+     *   evidence_refs: list<string>,
+     *   task_quality_floor: float,
+     *   proof_freshness_floor: float,
+     * }  $input
+     * @return array{release_ready:bool, blocking_gates:list<string>, evidence_refs:list<string>, next_unblock_action:string}
+     */
+    public function releasePreflight(array $input): array
+    {
+        $taskQuality = (float) ($input['task_quality'] ?? 0.0);
+        $proofFreshness = (float) ($input['proof_freshness'] ?? 0.0);
+        $scopeIsolation = (bool) ($input['scope_isolation'] ?? false);
+        $rollbackReadiness = (bool) ($input['rollback_readiness'] ?? false);
+        $knowledgeSyncReadiness = (bool) ($input['knowledge_sync_readiness'] ?? false);
+        $evidenceRefs = is_array($input['evidence_refs'] ?? null) ? $input['evidence_refs'] : [];
+        $taskQualityFloor = (float) ($input['task_quality_floor'] ?? 0.7);
+        $proofFreshnessFloor = (float) ($input['proof_freshness_floor'] ?? 0.5);
+
+        $blockingGates = [];
+
+        if ($taskQuality < $taskQualityFloor) {
+            $blockingGates[] = sprintf('task_quality=%.4f below floor=%.4f', $taskQuality, $taskQualityFloor);
+        }
+        if ($proofFreshness < $proofFreshnessFloor) {
+            $blockingGates[] = sprintf('proof_freshness=%.4f below floor=%.4f', $proofFreshness, $proofFreshnessFloor);
+        }
+        if (!$scopeIsolation) {
+            $blockingGates[] = 'scope_isolation_not_verified';
+        }
+        if (!$rollbackReadiness) {
+            $blockingGates[] = 'rollback_readiness_missing';
+        }
+        if (!$knowledgeSyncReadiness) {
+            $blockingGates[] = 'knowledge_sync_readiness_missing';
+        }
+        if ($evidenceRefs === []) {
+            $blockingGates[] = 'no_provider_safe_evidence_refs';
+        }
+
+        $releaseReady = $blockingGates === [];
+
+        $nextUnblockAction = match (true) {
+            $releaseReady => 'proceed_with_release',
+            in_array('scope_isolation_not_verified', $blockingGates, true) => 'verify_scope_isolation',
+            in_array('rollback_readiness_missing', $blockingGates, true) => 'prepare_rollback_plan',
+            in_array('knowledge_sync_readiness_missing', $blockingGates, true) => 'sync_knowledge_base',
+            default => 'address_blocking_gates',
+        };
+
+        return [
+            'release_ready' => $releaseReady,
+            'blocking_gates' => $blockingGates,
+            'evidence_refs' => $evidenceRefs,
+            'next_unblock_action' => $nextUnblockAction,
+        ];
+    }
 }

@@ -38,7 +38,13 @@ class MarketingDecisionLedger
     public function record(array $diagnosis, array $context = []): AiMarketingDecisionLedgerEntry
     {
         $decidedAt = isset($context['decided_at'])
-            ? Carbon::parse((string) $context['decided_at'])
+            ? (function () use ($context) {
+                try {
+                    return Carbon::parse((string) $context['decided_at']);
+                } catch (\Throwable) {
+                    return Carbon::now();
+                }
+            })()
             : Carbon::now();
 
         $offerState = (array) ($context['offer_state'] ?? []);

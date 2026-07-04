@@ -76,6 +76,8 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
                 'refreshable_count' => $refreshableCount,
                 'unsafe_blocker_count' => $unsafeBlockerCount,
             ],
+            'allowed_final_sources' => $blockingIds,
+            'missing_source_reasons' => [],
         ];
     }
 
@@ -168,6 +170,9 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
             // Refreshable sources are expected to be re-derived frequently; use a tight window.
             $source['freshness_window_seconds'] ??= (bool) ($source['refreshable'] ?? false) ? 3600 : 86400;
             $source['authority_level'] ??= 'atlas_native';
+            $source['trust_floor'] ??= (bool) ($source['blocking'] ?? false) ? 'required' : 'optional';
+            $source['replay_required'] ??= (bool) ($source['refreshable'] ?? false);
+            $source['provider_safe_exposure'] ??= 'provider_safe_only';
 
             return $source;
         }, $this->sources());

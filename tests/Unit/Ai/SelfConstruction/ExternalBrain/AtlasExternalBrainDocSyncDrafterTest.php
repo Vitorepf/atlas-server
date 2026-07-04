@@ -475,4 +475,59 @@ final class AtlasExternalBrainDocSyncDrafterTest extends TestCase
             json_encode($b['post_task_knowledge_sync'], JSON_UNESCAPED_SLASHES),
         );
     }
+
+    // AC: capability delta draft
+    public function test_capability_delta_produces_doc_sections(): void
+    {
+        $drafter = new AtlasExternalBrainDocSyncDrafter();
+        $result = $drafter->draft([
+            'capability_delta' => ['new_feature_x', 'improved_y'],
+        ]);
+
+        foreach ($result['doc_deltas'] as $delta) {
+            $this->assertArrayHasKey('target_doc', $delta);
+            $this->assertArrayHasKey('source_evidence', $delta);
+            $this->assertArrayHasKey('update_summary', $delta);
+        }
+    }
+
+    // AC: architecture change draft
+    public function test_architecture_change_produces_doc_sections(): void
+    {
+        $drafter = new AtlasExternalBrainDocSyncDrafter();
+        $result = $drafter->draft([
+            'architecture_change' => ['refactored_module_z'],
+        ]);
+
+        foreach ($result['doc_deltas'] as $delta) {
+            $this->assertArrayHasKey('target_doc', $delta);
+            $this->assertArrayHasKey('source_evidence', $delta);
+            $this->assertArrayHasKey('update_summary', $delta);
+        }
+    }
+
+    // AC: no-op cosmetic change rejection
+    public function test_no_op_cosmetic_change_rejection(): void
+    {
+        $drafter = new AtlasExternalBrainDocSyncDrafter();
+        $result = $drafter->draft([]);
+
+        $this->assertSame('10% final', $result['readiness_claim']);
+        $this->assertNotEmpty($result['doc_deltas']);
+    }
+
+    // AC: removed behavior documentation
+    public function test_removed_behavior_produces_doc_sections(): void
+    {
+        $drafter = new AtlasExternalBrainDocSyncDrafter();
+        $result = $drafter->draft([
+            'removed_behavior' => ['deprecated_api_v1'],
+        ]);
+
+        foreach ($result['doc_deltas'] as $delta) {
+            $this->assertArrayHasKey('target_doc', $delta);
+            $this->assertArrayHasKey('source_evidence', $delta);
+            $this->assertArrayHasKey('update_summary', $delta);
+        }
+    }
 }

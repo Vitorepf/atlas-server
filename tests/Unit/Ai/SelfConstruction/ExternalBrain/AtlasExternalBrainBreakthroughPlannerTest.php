@@ -459,4 +459,55 @@ final class AtlasExternalBrainBreakthroughPlannerTest extends TestCase
 
         $this->assertFalse($r['padding_rejected']);
     }
+
+    // ── constraint_escape_moves ──
+
+    public function test_constraint_escape_moves_present_when_yield_drops(): void
+    {
+        $r = $this->planner->plan([
+            'verified_count' => 10,
+            'requested_target' => 100,
+            'escalation_state' => ['wave_yield' => 0.1],
+        ]);
+
+        $this->assertArrayHasKey('constraint_escape_moves', $r);
+        $this->assertGreaterThanOrEqual(3, count($r['constraint_escape_moves']));
+    }
+
+    public function test_constraint_escape_moves_empty_when_no_stall(): void
+    {
+        $r = $this->planner->plan([
+            'verified_count' => 100,
+            'requested_target' => 100,
+            'escalation_state' => ['wave_yield' => 0.1],
+        ]);
+
+        $this->assertSame([], $r['constraint_escape_moves']);
+    }
+
+    public function test_constraint_escape_moves_span_required_categories(): void
+    {
+        $r = $this->planner->plan([
+            'verified_count' => 10,
+            'requested_target' => 100,
+            'escalation_state' => ['wave_yield' => 0.1],
+        ]);
+
+        $categories = array_column($r['constraint_escape_moves'], 'category');
+        $this->assertContains('new_code_surfaces', $categories);
+        $this->assertContains('design_path_reuse', $categories);
+        $this->assertContains('research_to_task', $categories);
+    }
+
+    public function test_constraint_escape_moves_rejected_when_padding_strategy(): void
+    {
+        $r = $this->planner->plan([
+            'verified_count' => 10,
+            'requested_target' => 100,
+            'escalation_state' => ['wave_yield' => 0.1],
+            'candidate_strategy' => 'quota_farming',
+        ]);
+
+        $this->assertSame([], $r['constraint_escape_moves']);
+    }
 }

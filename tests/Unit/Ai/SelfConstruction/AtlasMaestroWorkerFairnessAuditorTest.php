@@ -306,4 +306,61 @@ final class AtlasMaestroWorkerFairnessAuditorTest extends TestCase
         $this->assertSame('balanced', $facts['specialization_classification']['a']);
         $this->assertSame('balanced', $facts['specialization_classification']['b']);
     }
+
+    // ── riskAdjustedAudit: fairness_status, risk_adjusted_loads, overloaded_workers, rebalancing_hint ──
+
+    public function test_risk_adjusted_audit_has_required_keys(): void
+    {
+        $auditor = new AtlasMaestroWorkerFairnessAuditor($this->stubProbe([]));
+        $result = $auditor->riskAdjustedAudit([]);
+        $this->assertArrayHasKey('fairness_status', $result);
+        $this->assertArrayHasKey('risk_adjusted_loads', $result);
+        $this->assertArrayHasKey('overloaded_workers', $result);
+        $this->assertArrayHasKey('rebalancing_hint', $result);
+    }
+
+    public function test_balanced_workers_are_fair(): void
+    {
+        $auditor = new AtlasMaestroWorkerFairnessAuditor($this->stubProbe([]));
+        $profiles = [
+            ['client_id' => 'a', 'reliability' => 0.9, 'give_back_rate' => 0.1, 'active_leases' => 3],
+            ['client_id' => 'b', 'reliability' => 0.9, 'give_back_rate' => 0.1, 'active_leases' => 3],
+        ];
+        $result = $auditor->riskAdjustedAudit($profiles);
+        $this->assertSame('fair', $result['fairness_status']);
+        $this->assertSame([], $result['overloaded_workers']);
+    }
+
+    public function test_overloaded_worker_flagged_when_risk_adjusted_load_exceeds_threshold(): void
+    {
+        $auditor = new AtlasMaestroWorkerFairnessAuditor($this->stubProbe([]));
+        $profiles = [
+            ['client_id' => 'fast-risky', 'reliability' => 0.5, 'give_back_rate' => 0.6, 'active_leases' => 10],
+            ['client_id' => 'slow-reliable', 'reliability' => 0.95, 'give_back_rate' => 0.05, 'active_leases' => 2],
+        ];
+        $result = $auditor->riskAdjustedAudit($profiles);
+        $this->assertSame('unfair', $result['fairness_status']);
+        $this->assertContains('fast-risky', $result['overloaded_workers']);
+        $this->assertStringContainsString('fast-risky', $result['rebalancing_hint']);
+    }
+
+    public function test_risk_adjusted_load_penalizes_high_give_back_rate(): void
+    {
+        $auditor = new AtlasMaestroWorkerFairnessAuditor($this->stubProbe([]));
+        $profiles = [
+            ['client_id' => 'a', 'reliability' => 1.0, 'give_back_rate' => 0.0, 'active_leases' => 5],
+            ['client_id' => 'b', 'reliability' => 1.0, 'give_back_rate' => 0.5, 'active_leases' => 5],
+        ];
+        $result = $auditor->riskAdjustedAudit($profiles);
+        // Worker b has higher risk-adjusted load due to give_back penalty
+        $this->assertGreaterThan($result['risk_adjusted_loads']['a'], $result['risk_adjusted_loads']['b']);
+    }
+
+    public function test_empty_profiles_returns_no_data_status(): void
+    {
+        $auditor = new AtlasMaestroWorkerFairnessAuditor($this->stubProbe([]));
+        $result = $auditor->riskAdjustedAudit([]);
+        $this->assertSame('no_data', $result['fairness_status']);
+        $this->assertStringContainsString('no worker data', $result['rebalancing_hint']);
+    }
 }

@@ -313,4 +313,61 @@ final class AtlasExternalBrainModelAmplifierShadowRolloutTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $src, "shadow rollout must never {$forbidden}");
         }
     }
+
+    // ── heldOutPromotionEvidence: promotion_evidence, held_out_summary, safety_findings ──
+
+    public function test_held_out_sample_required_for_promotion(): void
+    {
+        $r = $this->rollout->heldOutPromotionEvidence([
+            'held_out_sample_count' => 0,
+            'quality_lift' => 0.1,
+        ]);
+        $this->assertFalse($r['promotion_candidate']);
+        $this->assertContains('missing_held_out_sample: cannot promote without held-out evidence', $r['safety_findings']);
+        $this->assertArrayHasKey('promotion_evidence', $r);
+        $this->assertArrayHasKey('held_out_summary', $r);
+    }
+
+    public function test_proxy_leak_increase_blocks_promotion(): void
+    {
+        $r = $this->rollout->heldOutPromotionEvidence([
+            'held_out_sample_count' => 10,
+            'held_out_pass_count' => 8,
+            'proxy_leak_rate' => 0.15,
+            'baseline_proxy_leak_rate' => 0.05,
+            'quality_lift' => 0.1,
+        ]);
+        $this->assertFalse($r['promotion_candidate']);
+        $this->assertNotEmpty(array_filter($r['safety_findings'], fn ($f) => str_contains($f, 'proxy_leak_increase')));
+    }
+
+    public function test_duplicate_rate_increase_blocks_promotion(): void
+    {
+        $r = $this->rollout->heldOutPromotionEvidence([
+            'held_out_sample_count' => 10,
+            'held_out_pass_count' => 8,
+            'duplicate_rate' => 0.20,
+            'baseline_duplicate_rate' => 0.10,
+            'quality_lift' => 0.1,
+        ]);
+        $this->assertFalse($r['promotion_candidate']);
+        $this->assertNotEmpty(array_filter($r['safety_findings'], fn ($f) => str_contains($f, 'duplicate_rate_increase')));
+    }
+
+    public function test_valid_held_out_evidence_allows_promotion(): void
+    {
+        $r = $this->rollout->heldOutPromotionEvidence([
+            'held_out_sample_count' => 20,
+            'held_out_pass_count' => 18,
+            'proxy_leak_rate' => 0.02,
+            'baseline_proxy_leak_rate' => 0.05,
+            'duplicate_rate' => 0.05,
+            'baseline_duplicate_rate' => 0.10,
+            'quality_lift' => 0.15,
+        ]);
+        $this->assertTrue($r['promotion_candidate']);
+        $this->assertSame([], $r['safety_findings']);
+        $this->assertSame(20, $r['held_out_summary']['held_out_sample_count']);
+        $this->assertSame(0.9, $r['held_out_summary']['held_out_pass_rate']);
+    }
 }

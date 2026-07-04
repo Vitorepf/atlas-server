@@ -161,7 +161,14 @@ final class VoxConfirmationService
             return ['ok' => false, 'code' => 'confirmation_binding_mismatch', 'reason' => 'intent_id/receipt_id do not match the issued confirmation'];
         }
 
-        $expiresAt = isset($row['expires_at']) ? Carbon::parse((string) $row['expires_at']) : null;
+        $expiresAt = null;
+        if (isset($row['expires_at'])) {
+            try {
+                $expiresAt = Carbon::parse((string) $row['expires_at']);
+            } catch (\Throwable) {
+                $expiresAt = null;
+            }
+        }
         if ($expiresAt === null || $expiresAt->isPast()) {
             Cache::store()->forget($cacheKey);
 

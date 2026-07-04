@@ -82,7 +82,11 @@ final class AtlasLoopAnchorGatePerPhaseReceiptLedger
     {
         $rows = array_values(array_filter($this->readAll(), static fn (array $r): bool => (string) ($r['phase'] ?? '') === $phase));
 
-        return array_values(array_slice($rows, -max(1, $limit)));
+        if ($limit <= 0) {
+            return [];
+        }
+
+        return array_values(array_slice($rows, -$limit));
     }
 
     /**

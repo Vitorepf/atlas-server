@@ -136,4 +136,50 @@ final class AtlasExternalBrainLocalClientFallbackPolicyTest extends TestCase
         $this->assertFalse($result['native_fallback_required']);
         $this->assertFalse($result['steady_state_requires_external_client']);
     }
+
+    public function test_acceleration_allowed_when_local_client_usable(): void
+    {
+        $result = $this->policy()->decide($this->baseFacts([
+            'atlas_native_fallback_capacity_available' => true,
+        ]));
+
+        $this->assertTrue($result['acceleration_allowed']);
+        $this->assertFalse($result['steady_state_dependency_allowed']);
+        $this->assertSame('acceleration_with_fallback', $result['safe_usage_mode']);
+    }
+
+    public function test_acceleration_blocked_when_no_fallback(): void
+    {
+        $result = $this->policy()->decide($this->baseFacts([
+            'atlas_native_fallback_capacity_available' => false,
+            'manual_muscle_available' => false,
+        ]));
+
+        $this->assertTrue($result['acceleration_allowed']);
+        $this->assertFalse($result['steady_state_dependency_allowed']);
+        $this->assertSame('acceleration_blocked_no_fallback', $result['safe_usage_mode']);
+    }
+
+    public function test_local_client_unusable_safe_usage_mode(): void
+    {
+        $result = $this->policy()->decide($this->baseFacts([
+            'local_client_available' => false,
+        ]));
+
+        $this->assertFalse($result['acceleration_allowed']);
+        $this->assertFalse($result['steady_state_dependency_allowed']);
+        $this->assertSame('local_client_unusable', $result['safe_usage_mode']);
+    }
+
+    public function test_steady_state_dependency_allowed_is_always_false(): void
+    {
+        foreach ([
+            ['atlas_native_fallback_capacity_available' => true],
+            ['atlas_native_fallback_capacity_available' => false, 'manual_muscle_available' => true],
+            ['atlas_native_fallback_capacity_available' => false, 'manual_muscle_available' => false],
+        ] as $facts) {
+            $result = $this->policy()->decide($this->baseFacts($facts));
+            $this->assertFalse($result['steady_state_dependency_allowed'], 'steady_state_dependency_allowed must always be false');
+        }
+    }
 }

@@ -160,7 +160,12 @@ final class AtlasExternalBrainOriginatorStopOrPivotAdvisor
         return [
             'schema' => self::SCHEMA,
             'next_action' => $action,
+            'action_reason' => implode('; ', $reasons),
             'reasons' => $reasons,
+            'target_gap' => $unresolvedHighPriorityGaps !== [] ? $unresolvedHighPriorityGaps[0] : null,
+            'avoided_wait_reason' => $action !== self::ACTION_STOP_DUE_TO_LOW_VALUE && $queueSufficient
+                ? 'queue_sufficient_but_actionable_alternative_exists'
+                : null,
             'evidence' => $evidence,
             'inputs' => [
                 'queue_sufficient' => $queueSufficient,

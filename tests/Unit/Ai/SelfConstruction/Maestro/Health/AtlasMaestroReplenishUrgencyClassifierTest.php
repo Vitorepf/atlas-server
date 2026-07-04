@@ -534,4 +534,52 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
 
         $this->assertSame(0, $result['inputs']['active_claimed_workers']);
     }
+
+    // ── classifyWithDrivers: urgency, drivers, ignored_nonblocking_flags ──
+
+    public function test_classify_with_drivers_has_required_keys(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 50, 'p95_seconds' => 50],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 10, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 9000, 'active_workers' => 0, 'poison_pressure' => 0],
+        )->classifyWithDrivers();
+        $this->assertArrayHasKey('urgency', $result);
+        $this->assertArrayHasKey('drivers', $result);
+        $this->assertArrayHasKey('ignored_nonblocking_flags', $result);
+    }
+
+    public function test_drivers_contain_queue_dry_when_queue_empty(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 0, 'p95_seconds' => 0],
+            lease: ['p95_seconds' => 0, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 0, 'serve_rate_per_minute' => 0.0, 'active_workers' => 0, 'poison_pressure' => 0],
+        )->classifyWithDrivers();
+        $this->assertSame('HIGH', $result['urgency']);
+        $this->assertContains('queue_dry', $result['drivers']);
+    }
+
+    public function test_ignored_nonblocking_flags_when_healthy(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 50, 'p95_seconds' => 50],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 10, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 9000, 'active_workers' => 0, 'poison_pressure' => 0],
+        )->classifyWithDrivers();
+        $this->assertSame('LOW', $result['urgency']);
+        $this->assertContains('no_replenish_pressure', $result['ignored_nonblocking_flags']);
+    }
+
+    public function test_drivers_contain_stale_age_when_p95_above_threshold(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 50, 'p95_seconds' => 7200],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 10, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 9000, 'active_workers' => 0, 'poison_pressure' => 0],
+            thresholdStaleClaimableAgeSeconds: 3600,
+        )->classifyWithDrivers();
+        $this->assertSame('MID', $result['urgency']);
+        $this->assertContains('p95_claimable_age_above_threshold_stale', $result['drivers']);
+    }
 }

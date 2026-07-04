@@ -57,7 +57,7 @@ final class AtlasMaestroPacketDecayPolicy
     }
 
     /**
-     * @return list<array{task_packet_id:string, age_seconds:int, threshold_seconds:int, proposed_action:string, reason:string}>
+     * @return list<array{task_packet_id:string, age_seconds:int, threshold_seconds:int, proposed_action:string, reason:string, decay_action:string, value_evidence_status:string, refresh_reason:string, retirement_reason:string}>
      */
     public function propose(): array
     {
@@ -87,20 +87,26 @@ final class AtlasMaestroPacketDecayPolicy
             $hasDependencyFreshSignal = array_key_exists('dependency_fresh', $meta);
             $dependencyFresh = (bool) ($meta['dependency_fresh'] ?? true);
 
+            // Derive value evidence status
+            $valueEvidenceStatus = $this->valueEvidenceStatus($hasValueSignal, $value, $hasProofSignal, $proofStrength);
+
             // Dependency-critical packets that are stale must be kept explicitly, never parked —
             // unless proof is explicitly weak or the dependency is explicitly stale, then 'rescue'.
             if ($critical && $age > $threshold && in_array($status, self::UNCLAIMED_STATUSES, true)) {
                 $needsRescue = ($hasProofSignal && $proofStrength < self::STRONG_PROOF_FLOOR)
                     || ($hasDependencyFreshSignal && ! $dependencyFresh);
-                $proposals[] = [
-                    'age_seconds' => $age,
-                    'proposed_action' => $needsRescue ? 'rescue' : 'keep',
-                    'reason' => $needsRescue
+                $refreshReason = $needsRescue ? 'critical_dependency_weak_proof_or_stale_dependency' : '';
+                $proposals[] = $this->proposal(
+                    $id, $age, $threshold,
+                    $needsRescue ? 'rescue' : 'keep',
+                    $needsRescue
                         ? 'rescue_due_to_critical_dependency_weak_proof_or_stale_dependency'
                         : 'keep_due_to_critical_dependency',
-                    'task_packet_id' => $id,
-                    'threshold_seconds' => $threshold,
-                ];
+                    $needsRescue ? 'rescue' : 'keep',
+                    $valueEvidenceStatus,
+                    $refreshReason,
+                    '',
+                );
                 continue;
             }
 
@@ -110,63 +116,118 @@ final class AtlasMaestroPacketDecayPolicy
 
             // Poison/give_back family uses a lower threshold so stale waste exits sooner.
             if ($poisonFamily && $age > $poisonThreshold) {
-                $proposals[] = [
-                    'age_seconds' => $age,
-                    'proposed_action' => self::PROPOSED_ACTION,
-                    'reason' => sprintf('park_due_to_poison_age age_seconds=%d exceeds poison_threshold_seconds=%d', $age, $poisonThreshold),
-                    'task_packet_id' => $id,
-                    'threshold_seconds' => $threshold,
-                ];
+                $proposals[] = $this->proposal(
+                    $id, $age, $threshold,
+                    self::PROPOSED_ACTION,
+                    sprintf('park_due_to_poison_age age_seconds=%d exceeds poison_threshold_seconds=%d', $age, $poisonThreshold),
+                    'park',
+                    $valueEvidenceStatus,
+                    '',
+                    '',
+                );
                 continue;
             }
 
             if ($age <= $threshold) {
                 // Fresh + explicitly strong-proof packets get an affirmative keep proposal.
                 if ($hasProofSignal && $proofStrength >= self::STRONG_PROOF_FLOOR) {
-                    $proposals[] = [
-                        'age_seconds' => $age,
-                        'proposed_action' => 'keep',
-                        'reason' => 'keep_fresh_strong_proof',
-                        'task_packet_id' => $id,
-                        'threshold_seconds' => $threshold,
-                    ];
+                    $proposals[] = $this->proposal(
+                        $id, $age, $threshold,
+                        'keep',
+                        'keep_fresh_strong_proof',
+                        'keep',
+                        $valueEvidenceStatus,
+                        '',
+                        '',
+                    );
                 }
                 continue;
             }
 
             // Stale, low-value ⇒ retire rather than park.
             if ($hasValueSignal && $value < self::LOW_VALUE_CEILING) {
-                $proposals[] = [
-                    'age_seconds' => $age,
-                    'proposed_action' => 'retire',
-                    'reason' => sprintf('retire_due_to_stale_low_value value=%.2f age_seconds=%d exceeds threshold_seconds=%d', $value, $age, $threshold),
-                    'task_packet_id' => $id,
-                    'threshold_seconds' => $threshold,
-                ];
+                $retirementReason = sprintf('stale_low_value value=%.2f below ceiling=%.2f', $value, self::LOW_VALUE_CEILING);
+                $proposals[] = $this->proposal(
+                    $id, $age, $threshold,
+                    'retire',
+                    sprintf('retire_due_to_stale_low_value value=%.2f age_seconds=%d exceeds threshold_seconds=%d', $value, $age, $threshold),
+                    'retire',
+                    $valueEvidenceStatus,
+                    '',
+                    $retirementReason,
+                );
                 continue;
             }
 
             // Stale, high-value, weak proof ⇒ refresh rather than park.
             if ($hasValueSignal && $value >= self::LOW_VALUE_CEILING && $hasProofSignal && $proofStrength < self::STRONG_PROOF_FLOOR) {
-                $proposals[] = [
-                    'age_seconds' => $age,
-                    'proposed_action' => 'refresh',
-                    'reason' => sprintf('refresh_due_to_stale_high_value_weak_proof value=%.2f proof_strength=%.2f', $value, $proofStrength),
-                    'task_packet_id' => $id,
-                    'threshold_seconds' => $threshold,
-                ];
+                $refreshReason = sprintf('stale_high_value_weak_proof value=%.2f proof_strength=%.2f below floor=%.2f', $value, $proofStrength, self::STRONG_PROOF_FLOOR);
+                $proposals[] = $this->proposal(
+                    $id, $age, $threshold,
+                    'refresh',
+                    sprintf('refresh_due_to_stale_high_value_weak_proof value=%.2f proof_strength=%.2f', $value, $proofStrength),
+                    'refresh',
+                    $valueEvidenceStatus,
+                    $refreshReason,
+                    '',
+                );
                 continue;
             }
 
-            $proposals[] = [
-                'age_seconds' => $age,
-                'proposed_action' => self::PROPOSED_ACTION,
-                'reason' => sprintf('age_seconds=%d exceeds threshold_seconds=%d', $age, $threshold),
-                'task_packet_id' => $id,
-                'threshold_seconds' => $threshold,
-            ];
+            $proposals[] = $this->proposal(
+                $id, $age, $threshold,
+                self::PROPOSED_ACTION,
+                sprintf('age_seconds=%d exceeds threshold_seconds=%d', $age, $threshold),
+                'park',
+                $valueEvidenceStatus,
+                '',
+                '',
+            );
         }
 
         return $proposals;
+    }
+
+    /**
+     * Derive value evidence status from signals.
+     */
+    private function valueEvidenceStatus(bool $hasValueSignal, float $value, bool $hasProofSignal, float $proofStrength): string
+    {
+        if (! $hasValueSignal && ! $hasProofSignal) {
+            return 'no_evidence';
+        }
+        if ($hasValueSignal && $value >= self::LOW_VALUE_CEILING && $hasProofSignal && $proofStrength >= self::STRONG_PROOF_FLOOR) {
+            return 'strong_value_evidence';
+        }
+        if ($hasValueSignal && $value >= self::LOW_VALUE_CEILING) {
+            return 'moderate_value_evidence';
+        }
+        if ($hasProofSignal && $proofStrength >= self::STRONG_PROOF_FLOOR) {
+            return 'strong_proof_only';
+        }
+
+        return 'weak_evidence';
+    }
+
+    /**
+     * Build a proposal with all required fields.
+     */
+    private function proposal(
+        string $id, int $age, int $threshold,
+        string $proposedAction, string $reason,
+        string $decayAction, string $valueEvidenceStatus,
+        string $refreshReason, string $retirementReason,
+    ): array {
+        return [
+            'task_packet_id' => $id,
+            'age_seconds' => $age,
+            'threshold_seconds' => $threshold,
+            'proposed_action' => $proposedAction,
+            'reason' => $reason,
+            'decay_action' => $decayAction,
+            'value_evidence_status' => $valueEvidenceStatus,
+            'refresh_reason' => $refreshReason,
+            'retirement_reason' => $retirementReason,
+        ];
     }
 }

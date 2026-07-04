@@ -47,6 +47,8 @@ final class AtlasMergeGovernorReleaseDecisionLedgerTest extends TestCase
             'changed_files_hash' => 'cfh-1',
             'project_lane' => ['project_id' => 'demo'],
             'decided_at' => $decidedAt,
+            'evidence_refs' => ['receipt:default'],
+            'rollback_posture' => 'immediate_rollback',
         ];
     }
 
@@ -145,5 +147,37 @@ final class AtlasMergeGovernorReleaseDecisionLedgerTest extends TestCase
 
         $filtered = $this->ledger->listChronological(sinceIso: '2026-06-26T00:00:00Z');
         $this->assertSame(['pkt-c', 'pkt-b'], array_column($filtered, 'task_packet_id'));
+    }
+
+    // ── evidence_refs, rejected_alternatives, rollback_posture, post_release_learning_hooks ──
+
+    public function test_append_requires_evidence_refs(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('missing evidence_refs');
+        $this->ledger->append(array_merge($this->payload(), ['evidence_refs' => []]));
+    }
+
+    public function test_append_requires_rollback_posture(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('missing rollback_posture');
+        $this->ledger->append(array_merge($this->payload(), ['rollback_posture' => '']));
+    }
+
+    public function test_row_includes_all_new_fields(): void
+    {
+        $result = $this->ledger->append(array_merge($this->payload(), [
+            'evidence_refs' => ['receipt:abc', 'outcome:123'],
+            'rejected_alternatives' => ['defer', 'consolidate'],
+            'rollback_posture' => 'immediate_rollback_on_failure',
+            'post_release_learning_hooks' => ['update_routing', 'refresh_learning_matrix'],
+        ]));
+
+        $this->assertSame(AtlasMergeGovernorReleaseDecisionLedger::STATUS_OK, $result['status']);
+        $this->assertSame(['receipt:abc', 'outcome:123'], $result['row']['evidence_refs']);
+        $this->assertSame(['defer', 'consolidate'], $result['row']['rejected_alternatives']);
+        $this->assertSame('immediate_rollback_on_failure', $result['row']['rollback_posture']);
+        $this->assertSame(['update_routing', 'refresh_learning_matrix'], $result['row']['post_release_learning_hooks']);
     }
 }

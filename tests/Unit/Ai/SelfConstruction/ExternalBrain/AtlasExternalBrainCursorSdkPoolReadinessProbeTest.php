@@ -125,4 +125,25 @@ final class AtlasExternalBrainCursorSdkPoolReadinessProbeTest extends TestCase
         $this->assertArrayHasKey('proof_capture_observed', $result['facts']);
         $this->assertFalse($result['facts']['proof_capture_observed']);
     }
+
+    // AC: output includes optional_adapter_only=true
+    public function test_output_includes_optional_adapter_only(): void
+    {
+        $result = $this->probe->probe([]);
+        $this->assertTrue($result['optional_adapter_only']);
+    }
+
+    // AC: probe never allows provider calls or token spend
+    public function test_probe_never_allows_provider_calls_or_token_spend(): void
+    {
+        $result = $this->probe->probe([
+            'sdk_package_detected' => true,
+            'billing_boundary_known' => true,
+            'headless_patch_apply_supported' => true,
+            'entitlement_proof_present' => true,
+            'proof_capture_observed' => true,
+        ]);
+        $this->assertFalse($result['provider_call_allowed']);
+        $this->assertFalse($result['token_spend_allowed']);
+    }
 }

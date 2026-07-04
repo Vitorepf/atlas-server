@@ -180,4 +180,77 @@ final class AtlasSelfConstructionNativeReplenisherPreflightTest extends TestCase
         $this->assertSame(2, $r['queue_depth']);
         $this->assertTrue($r['evidence_ready']);
     }
+
+    // ── healthAwareAdmission: enqueue_allowed, blocking_deficiencies, health_warnings ──
+
+    public function test_valid_spec_allowed_with_health_warning(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight)->healthAwareAdmission([
+            'self_sufficient' => true,
+            'blocking_deficiencies' => [],
+            'health_warnings' => ['lease_mismatch_nonblocking'],
+            'duplicate_target' => false,
+            'malformed' => false,
+            'low_value' => false,
+        ]);
+        $this->assertTrue($r['enqueue_allowed']);
+        $this->assertSame([], $r['blocking_deficiencies']);
+        $this->assertSame(['lease_mismatch_nonblocking'], $r['health_warnings']);
+    }
+
+    public function test_malformed_spec_blocked(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight)->healthAwareAdmission([
+            'self_sufficient' => true,
+            'blocking_deficiencies' => [],
+            'health_warnings' => [],
+            'duplicate_target' => false,
+            'malformed' => true,
+            'low_value' => false,
+        ]);
+        $this->assertFalse($r['enqueue_allowed']);
+        $this->assertContains('malformed_spec', $r['blocking_deficiencies']);
+    }
+
+    public function test_duplicate_target_blocked(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight)->healthAwareAdmission([
+            'self_sufficient' => true,
+            'blocking_deficiencies' => [],
+            'health_warnings' => [],
+            'duplicate_target' => true,
+            'malformed' => false,
+            'low_value' => false,
+        ]);
+        $this->assertFalse($r['enqueue_allowed']);
+        $this->assertContains('duplicate_target', $r['blocking_deficiencies']);
+    }
+
+    public function test_low_value_blocked(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight)->healthAwareAdmission([
+            'self_sufficient' => true,
+            'blocking_deficiencies' => [],
+            'health_warnings' => [],
+            'duplicate_target' => false,
+            'malformed' => false,
+            'low_value' => true,
+        ]);
+        $this->assertFalse($r['enqueue_allowed']);
+        $this->assertContains('low_value_spec', $r['blocking_deficiencies']);
+    }
+
+    public function test_not_self_sufficient_blocked(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherPreflight)->healthAwareAdmission([
+            'self_sufficient' => false,
+            'blocking_deficiencies' => [],
+            'health_warnings' => [],
+            'duplicate_target' => false,
+            'malformed' => false,
+            'low_value' => false,
+        ]);
+        $this->assertFalse($r['enqueue_allowed']);
+        $this->assertContains('not_self_sufficient', $r['blocking_deficiencies']);
+    }
 }

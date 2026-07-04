@@ -433,4 +433,69 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouterTest extends TestC
             json_encode($b['context_quality_feedback'], JSON_UNESCAPED_SLASHES),
         );
     }
+
+    // ── next_route_actions ──
+
+    public function test_next_route_actions_has_task_fabric_and_maestro(): void
+    {
+        $result = $this->route([$this->commit('foo', ['scope_size' => 5])]);
+        $this->assertArrayHasKey('next_route_actions', $result);
+        $this->assertArrayHasKey('task_fabric', $result['next_route_actions']);
+        $this->assertArrayHasKey('maestro', $result['next_route_actions']);
+    }
+
+    public function test_next_route_actions_emitted_for_weak_tests(): void
+    {
+        $result = $this->route([$this->commit('bar', ['test_strength' => 2])]);
+        $fabric = $result['next_route_actions']['task_fabric'];
+        $maestro = $result['next_route_actions']['maestro'];
+        $this->assertCount(1, $fabric);
+        $this->assertSame('require_stronger_tests', $fabric[0]['action']);
+        $this->assertSame('weak_tests', $fabric[0]['reason']);
+        $this->assertCount(1, $maestro);
+        $this->assertSame('gate_on_test_strength', $maestro[0]['action']);
+    }
+
+    public function test_next_route_actions_emitted_for_excessive_scope(): void
+    {
+        $result = $this->route([$this->commit('baz', ['scope_size' => 5])]);
+        $fabric = $result['next_route_actions']['task_fabric'];
+        $maestro = $result['next_route_actions']['maestro'];
+        $this->assertSame('reduce_scope', $fabric[0]['action']);
+        $this->assertSame('split_task', $maestro[0]['action']);
+    }
+
+    public function test_next_route_actions_emitted_for_duplicate(): void
+    {
+        $result = $this->route([$this->commit('dup', ['duplicate_detected' => true])]);
+        $fabric = $result['next_route_actions']['task_fabric'];
+        $maestro = $result['next_route_actions']['maestro'];
+        $this->assertSame('skip_duplicate', $fabric[0]['action']);
+        $this->assertSame('merge_duplicate', $maestro[0]['action']);
+    }
+
+    public function test_next_route_actions_emitted_for_low_compounding(): void
+    {
+        $result = $this->route([$this->commit('low', ['compounding_value' => 1])]);
+        $fabric = $result['next_route_actions']['task_fabric'];
+        $maestro = $result['next_route_actions']['maestro'];
+        $this->assertSame('deprioritize', $fabric[0]['action']);
+        $this->assertSame('reduce_batch_weight', $maestro[0]['action']);
+    }
+
+    public function test_next_route_actions_emitted_for_no_capability_delta(): void
+    {
+        $result = $this->route([$this->commit('nodelta', ['capability_delta' => 0])]);
+        $fabric = $result['next_route_actions']['task_fabric'];
+        $maestro = $result['next_route_actions']['maestro'];
+        $this->assertSame('require_capability_delta', $fabric[0]['action']);
+        $this->assertSame('block_no_delta', $maestro[0]['action']);
+    }
+
+    public function test_next_route_actions_empty_for_clean_commit(): void
+    {
+        $result = $this->route([$this->commit('clean', ['compounding_value' => 8, 'test_strength' => 8, 'scope_size' => 1])]);
+        $this->assertSame([], $result['next_route_actions']['task_fabric']);
+        $this->assertSame([], $result['next_route_actions']['maestro']);
+    }
 }

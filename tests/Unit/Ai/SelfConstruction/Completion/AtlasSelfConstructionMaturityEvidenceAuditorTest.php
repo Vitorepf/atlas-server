@@ -204,4 +204,75 @@ final class AtlasSelfConstructionMaturityEvidenceAuditorTest extends TestCase
         $b = $this->auditor()->audit($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // AC: proof_gap_index groups missing, weak, intent_only and contradicted separately
+    public function test_proof_gap_index_groups_dimensions_by_category(): void
+    {
+        $result = $this->auditor()->audit([
+            'overall_claimed_maturity' => 0.8,
+            'maturity_claims' => [
+                $this->claim(['dimension' => 'exec', 'evidence_refs' => []]),
+                $this->claim(['dimension' => 'plan', 'evidence_refs' => ['intent:plan']]),
+                $this->claim(['dimension' => 'integ', 'evidence_refs' => ['integration:deploy']]),
+                $this->claim(['dimension' => 'refute', 'evidence_refs' => ['contradicts:runtime']]),
+                $this->claim(['dimension' => 'proven', 'evidence_refs' => ['runtime:ok']]),
+            ],
+        ]);
+
+        $tiers = array_column($result['proof_gap_index'], 'evidence_tier');
+        $this->assertContains('missing', $tiers);
+        $this->assertContains('intent_only', $tiers);
+        $this->assertContains('weak', $tiers);
+        $this->assertContains('contradicted', $tiers);
+        // proven dimension should NOT be in gap index
+        $dims = array_column($result['proof_gap_index'], 'dimension');
+        $this->assertNotContains('proven', $dims);
+    }
+
+    // AC: each proof_gap_index row has dimension, severity, evidence_tier, next_atlas_action
+    public function test_proof_gap_index_row_has_required_fields(): void
+    {
+        $result = $this->auditor()->audit([
+            'overall_claimed_maturity' => 0.5,
+            'maturity_claims' => [
+                $this->claim(['dimension' => 'gap', 'evidence_refs' => ['intent:todo']]),
+            ],
+        ]);
+
+        foreach ($result['proof_gap_index'] as $row) {
+            $this->assertArrayHasKey('dimension', $row);
+            $this->assertArrayHasKey('severity', $row);
+            $this->assertArrayHasKey('evidence_tier', $row);
+            $this->assertArrayHasKey('next_atlas_action', $row);
+            $this->assertNotEmpty($row['next_atlas_action']);
+        }
+    }
+
+    // AC: proven runtime dimensions do not appear in proof_gap_index
+    public function test_proven_dimensions_not_in_proof_gap_index(): void
+    {
+        $result = $this->auditor()->audit([
+            'overall_claimed_maturity' => 0.9,
+            'maturity_claims' => [
+                $this->claim(['dimension' => 'a', 'evidence_refs' => ['runtime:ok']]),
+                $this->claim(['dimension' => 'b', 'evidence_refs' => ['live_proof:ok']]),
+            ],
+        ]);
+
+        $this->assertSame([], $result['proof_gap_index']);
+    }
+
+    // AC: proven dimensions do not lower audited maturity
+    public function test_proven_dimensions_do_not_lower_maturity(): void
+    {
+        $result = $this->auditor()->audit([
+            'overall_claimed_maturity' => 1.0,
+            'maturity_claims' => [
+                $this->claim(['dimension' => 'a', 'claimed_score' => 1.0, 'evidence_refs' => ['runtime:ok']]),
+            ],
+        ]);
+
+        $this->assertSame(1.0, $result['overall_audited_maturity']);
+        $this->assertSame([], $result['proof_gap_index']);
+    }
 }

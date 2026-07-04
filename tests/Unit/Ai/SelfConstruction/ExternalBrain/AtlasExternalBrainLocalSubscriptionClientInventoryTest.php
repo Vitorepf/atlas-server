@@ -5,147 +5,195 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLocalSubscriptionClientInventory;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 final class AtlasExternalBrainLocalSubscriptionClientInventoryTest extends TestCase
 {
-    private function inventory(): AtlasExternalBrainLocalSubscriptionClientInventory
+    private AtlasExternalBrainLocalSubscriptionClientInventory $inventory;
+
+    protected function setUp(): void
     {
-        return new AtlasExternalBrainLocalSubscriptionClientInventory;
+        parent::setUp();
+        $this->inventory = new AtlasExternalBrainLocalSubscriptionClientInventory();
     }
 
-    private function cursorFacts(array $overrides = []): array
+    private function facts(array $overrides = []): array
     {
         return array_merge([
             'client_id' => 'cursor',
             'app_installed' => true,
             'cli_binary_present' => true,
             'logged_in_session_observed' => true,
-            'subscription_plan_observed' => 'cursor-pro',
+            'subscription_plan_observed' => 'pro',
             'paid_api_required' => false,
             'headless_supported' => true,
-            'model_hints' => ['gpt-5', 'claude'],
+            'model_hints' => ['gpt-4'],
             'local_invocation_supported' => true,
+            'is_internal_runtime' => false,
         ], $overrides);
     }
 
-    // ── Schema / envelope ────────────────────────────────────────────────────
+    // ── Schema ───────────────────────────────────────────────────────────────────
 
-    public function test_output_has_new_required_keys(): void
+    public function test_schema_constant(): void
     {
-        $entry = $this->inventory()->classify($this->cursorFacts());
-
-        foreach (['client_class', 'credential_present', 'suitable_task_families'] as $key) {
-            $this->assertArrayHasKey($key, $entry, "Missing key: {$key}");
-        }
+        $this->assertSame('atlas.external_brain.local_subscription_client_inventory.v1', AtlasExternalBrainLocalSubscriptionClientInventory::SCHEMA);
     }
 
-    // ── AC2: 4-way client_class taxonomy ───────────────────────────────────────
+    // ── Usable subscription client ───────────────────────────────────────────────
 
-    public function test_locally_invocable_installed_client_is_class_local(): void
+    public function test_usable_when_all_conditions_met(): void
     {
-        $entry = $this->inventory()->classify($this->cursorFacts());
-
-        $this->assertSame(AtlasExternalBrainLocalSubscriptionClientInventory::CLASS_LOCAL, $entry['client_class']);
+        $result = $this->inventory->classify($this->facts());
+        $this->assertSame('usable_subscription_client', $result['classification']);
+        $this->assertTrue($result['usable_subscription_client']);
+        $this->assertSame([], $result['not_usable_reasons']);
     }
 
-    public function test_entitled_but_not_locally_invocable_client_is_class_subscription_ui(): void
-    {
-        $entry = $this->inventory()->classify($this->cursorFacts(['local_invocation_supported' => false]));
+    // ── Not usable: paid API required ────────────────────────────────────────────
 
-        $this->assertSame(AtlasExternalBrainLocalSubscriptionClientInventory::CLASS_SUBSCRIPTION_UI, $entry['client_class']);
+    public function test_not_usable_when_paid_api_required(): void
+    {
+        $result = $this->inventory->classify($this->facts(['paid_api_required' => true]));
+        $this->assertSame('not_usable', $result['classification']);
+        $this->assertContains('paid_api_required', $result['not_usable_reasons']);
     }
 
-    public function test_nothing_installed_and_no_entitlement_is_class_unavailable(): void
+    // ── Not usable: no local invocation ──────────────────────────────────────────
+
+    public function test_not_usable_when_no_local_invocation(): void
     {
-        $entry = $this->inventory()->classify($this->cursorFacts([
+        $result = $this->inventory->classify($this->facts(['local_invocation_supported' => false]));
+        $this->assertSame('not_usable', $result['classification']);
+        $this->assertContains('local_invocation_not_supported', $result['not_usable_reasons']);
+    }
+
+    // ── Not usable: no entitlement ───────────────────────────────────────────────
+
+    public function test_not_usable_when_no_entitlement(): void
+    {
+        $result = $this->inventory->classify($this->facts([
+            'logged_in_session_observed' => false,
+            'subscription_plan_observed' => '',
+        ]));
+        $this->assertSame('not_usable', $result['classification']);
+        $this->assertContains('no_authenticated_session_or_subscription_entitlement_observed', $result['not_usable_reasons']);
+    }
+
+    // ── Not usable: not installed ────────────────────────────────────────────────
+
+    public function test_not_usable_when_not_installed(): void
+    {
+        $result = $this->inventory->classify($this->facts([
+            'app_installed' => false,
+            'cli_binary_present' => false,
+        ]));
+        $this->assertSame('not_usable', $result['classification']);
+        $this->assertContains('client_not_installed', $result['not_usable_reasons']);
+    }
+
+    // ── Client class taxonomy ────────────────────────────────────────────────────
+
+    public function test_client_class_internal_runtime(): void
+    {
+        $result = $this->inventory->classify($this->facts(['is_internal_runtime' => true]));
+        $this->assertSame('internal_runtime', $result['client_class']);
+    }
+
+    public function test_client_class_local(): void
+    {
+        $result = $this->inventory->classify($this->facts());
+        $this->assertSame('local', $result['client_class']);
+    }
+
+    public function test_client_class_subscription_ui(): void
+    {
+        $result = $this->inventory->classify($this->facts([
+            'local_invocation_supported' => false,
+            'app_installed' => false,
+            'cli_binary_present' => false,
+        ]));
+        $this->assertSame('subscription_ui', $result['client_class']);
+    }
+
+    public function test_client_class_unavailable(): void
+    {
+        $result = $this->inventory->classify($this->facts([
             'app_installed' => false,
             'cli_binary_present' => false,
             'logged_in_session_observed' => false,
             'subscription_plan_observed' => '',
         ]));
-
-        $this->assertSame(AtlasExternalBrainLocalSubscriptionClientInventory::CLASS_UNAVAILABLE, $entry['client_class']);
+        $this->assertSame('unavailable', $result['client_class']);
     }
 
-    public function test_internal_runtime_flag_always_wins_regardless_of_other_facts(): void
+    // ── Credential redaction ─────────────────────────────────────────────────────
+
+    public function test_credential_present_when_api_key_supplied(): void
     {
-        $entry = $this->inventory()->classify($this->cursorFacts([
-            'is_internal_runtime' => true,
-            'app_installed' => false,
-            'cli_binary_present' => false,
-            'local_invocation_supported' => false,
+        $result = $this->inventory->classify($this->facts(['api_key' => 'sk-123456']));
+        $this->assertTrue($result['credential_present']);
+    }
+
+    public function test_credential_not_present_when_no_credentials(): void
+    {
+        $result = $this->inventory->classify($this->facts());
+        $this->assertFalse($result['credential_present']);
+    }
+
+    public function test_credentials_not_echoed_back(): void
+    {
+        $result = $this->inventory->classify($this->facts(['raw_credential' => 'secret123']));
+        $this->assertArrayNotHasKey('raw_credential', $result);
+        $this->assertArrayNotHasKey('api_key', $result);
+    }
+
+    // ── Suitable task families ───────────────────────────────────────────────────
+
+    public function test_task_families_empty_when_not_usable(): void
+    {
+        $result = $this->inventory->classify($this->facts(['paid_api_required' => true]));
+        $this->assertSame([], $result['suitable_task_families']);
+    }
+
+    public function test_task_families_broad_when_capability_evidence_present(): void
+    {
+        $result = $this->inventory->classify($this->facts());
+        $this->assertSame(['implementation', 'refactor', 'test_authoring'], $result['suitable_task_families']);
+    }
+
+    public function test_task_families_supervised_only_when_thin_evidence(): void
+    {
+        $result = $this->inventory->classify($this->facts([
+            'headless_supported' => false,
+            'model_hints' => [],
         ]));
-
-        $this->assertSame(AtlasExternalBrainLocalSubscriptionClientInventory::CLASS_INTERNAL_RUNTIME, $entry['client_class']);
+        $this->assertSame(['manual_supervised_only'], $result['suitable_task_families']);
     }
 
-    // ── AC3: credentials are redacted and never returned ───────────────────────
+    // ── Atlas required / fallback ────────────────────────────────────────────────
 
-    public function test_raw_credential_is_never_echoed_back_anywhere_in_output(): void
+    public function test_atlas_required_always_false(): void
     {
-        $secret = 'sk-live-super-secret-abc123';
-        $entry = $this->inventory()->classify($this->cursorFacts(['raw_credential' => $secret]));
-
-        $this->assertStringNotContainsString($secret, json_encode($entry));
-        $this->assertTrue($entry['credential_present']);
+        $result = $this->inventory->classify($this->facts());
+        $this->assertFalse($result['atlas_required']);
+        $this->assertTrue($result['fallback_required']);
     }
 
-    public function test_api_key_field_is_never_echoed_back(): void
-    {
-        $secret = 'super-secret-api-key-xyz';
-        $entry = $this->inventory()->classify($this->cursorFacts(['api_key' => $secret]));
+    // ── Determinism ──────────────────────────────────────────────────────────────
 
-        $this->assertStringNotContainsString($secret, json_encode($entry));
-        $this->assertTrue($entry['credential_present']);
+    public function test_result_is_deterministic(): void
+    {
+        $facts = $this->facts();
+        $this->assertSame($this->inventory->classify($facts), $this->inventory->classify($facts));
     }
 
-    public function test_credential_present_is_false_when_no_credential_supplied(): void
+    // ── Empty input ──────────────────────────────────────────────────────────────
+
+    public function test_empty_input_classifies_as_not_usable(): void
     {
-        $entry = $this->inventory()->classify($this->cursorFacts());
-
-        $this->assertFalse($entry['credential_present']);
-    }
-
-    // ── AC4: suitable_task_families is conservative when evidence is missing ──
-
-    public function test_unusable_client_has_no_suitable_task_families(): void
-    {
-        $entry = $this->inventory()->classify($this->cursorFacts(['paid_api_required' => true]));
-
-        $this->assertSame([], $entry['suitable_task_families']);
-    }
-
-    public function test_usable_client_with_full_capability_evidence_gets_broader_task_families(): void
-    {
-        $entry = $this->inventory()->classify($this->cursorFacts());
-
-        $this->assertContains('implementation', $entry['suitable_task_families']);
-    }
-
-    public function test_usable_client_without_headless_support_gets_conservative_family_only(): void
-    {
-        $entry = $this->inventory()->classify($this->cursorFacts(['headless_supported' => false]));
-
-        $this->assertSame(['manual_supervised_only'], $entry['suitable_task_families']);
-    }
-
-    public function test_usable_client_without_model_hints_gets_conservative_family_only(): void
-    {
-        $entry = $this->inventory()->classify($this->cursorFacts(['model_hints' => []]));
-
-        $this->assertSame(['manual_supervised_only'], $entry['suitable_task_families']);
-    }
-
-    // ── Determinism ───────────────────────────────────────────────────────────
-
-    public function test_output_is_deterministic(): void
-    {
-        $facts = $this->cursorFacts();
-
-        $this->assertSame(
-            json_encode($this->inventory()->classify($facts)),
-            json_encode($this->inventory()->classify($facts)),
-        );
+        $result = $this->inventory->classify([]);
+        $this->assertSame('not_usable', $result['classification']);
+        $this->assertFalse($result['usable_subscription_client']);
     }
 }

@@ -178,4 +178,69 @@ final class AtlasMaestroPersonalizedServingPolicyTest extends TestCase
         $this->assertTrue($verdict['deferred']);
         $this->assertSame(0.0, $verdict['shape_match'], 'safety gate must win over the value floor');
     }
+
+    // ── decideWithContract: selected_worker, preference_applied, preference_blocked_reason, safety_constraints_checked ──
+
+    public function test_decide_with_contract_has_required_keys(): void
+    {
+        $result = $this->policy()->decideWithContract('w', [
+            'task_packet_id' => 'pkt-1',
+            'task_family' => 'refactor',
+        ]);
+        $this->assertArrayHasKey('selected_worker', $result);
+        $this->assertArrayHasKey('preference_applied', $result);
+        $this->assertArrayHasKey('preference_blocked_reason', $result);
+        $this->assertArrayHasKey('safety_constraints_checked', $result);
+    }
+
+    public function test_preference_applied_when_family_matches_and_clean_poison(): void
+    {
+        $result = $this->policy()->decideWithContract('w', [
+            'task_packet_id' => 'pkt-1',
+            'task_family' => 'refactor',
+        ], [
+            'preferred_families' => ['refactor'],
+            'family_poison_rate' => ['refactor' => 0.0],
+        ]);
+        $this->assertTrue($result['preference_applied']);
+        $this->assertSame('', $result['preference_blocked_reason']);
+        $this->assertSame('w', $result['selected_worker']);
+    }
+
+    public function test_preference_blocked_when_high_poison_history(): void
+    {
+        $result = $this->policy()->decideWithContract('w', [
+            'task_packet_id' => 'pkt-1',
+            'task_family' => 'refactor',
+        ], [
+            'preferred_families' => ['refactor'],
+            'family_poison_rate' => ['refactor' => 0.5],
+        ]);
+        $this->assertFalse($result['preference_applied']);
+        $this->assertSame('high_poison_history_for_preferred_family', $result['preference_blocked_reason']);
+    }
+
+    public function test_preference_blocked_when_high_risk_without_proven_capability(): void
+    {
+        $result = $this->policy()->decideWithContract('w', [
+            'task_packet_id' => 'pkt-1',
+            'task_family' => 'security_patch',
+            'risk_level' => 'high',
+        ], [
+            'preferred_families' => ['security_patch'],
+            'family_poison_rate' => ['security_patch' => 0.0],
+            'skill_scores' => ['security_patch' => 0.3],
+        ]);
+        $this->assertFalse($result['preference_applied']);
+        $this->assertSame('high_risk_without_proven_capability', $result['preference_blocked_reason']);
+        $this->assertNull($result['selected_worker']);
+    }
+
+    public function test_safety_constraints_always_checked(): void
+    {
+        $result = $this->policy()->decideWithContract('w', [
+            'task_packet_id' => 'pkt-1',
+        ]);
+        $this->assertTrue($result['safety_constraints_checked']);
+    }
 }

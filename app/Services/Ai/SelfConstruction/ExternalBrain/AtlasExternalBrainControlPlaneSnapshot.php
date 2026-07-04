@@ -116,6 +116,25 @@ final class AtlasExternalBrainControlPlaneSnapshot
             'status'         => $queueStatus !== '' ? $queueStatus : 'unknown',
             'give_back_rate' => $giveBackRate,
         ];
+
+        // Task quality drift: detect when task quality is degrading over time
+        $taskQualityDrift = $this->computeTaskQualityDrift($inputs);
+
+        // Learning freshness: how recent is the learning signal
+        $learningFreshness = $this->computeLearningFreshness($inputs);
+
+        // Blocked debt: count of blocked/stalled items that need repair
+        $blockedDebt = $this->computeBlockedDebt($inputs, $blockers);
+
+        // Next originator action: what should the originator do next
+        $nextOriginatorAction = $this->computeNextOriginatorAction(
+            $queueStatus,
+            $auditVerdict,
+            $hasMissingLedger,
+            $taskQualityDrift,
+            $blockedDebt,
+            $inputs
+        );
         $workerState = array_key_exists('worker_state', $inputs)
             ? (string) ($inputs['worker_state']['status'] ?? 'unknown')
             : 'unknown';
@@ -174,6 +193,10 @@ final class AtlasExternalBrainControlPlaneSnapshot
                 ! empty($inputs['stalled_yield']),
                 $domainFacts,
             ),
+            'task_quality_drift'       => $taskQualityDrift,
+            'learning_freshness'       => $learningFreshness,
+            'blocked_debt'             => $blockedDebt,
+            'next_originator_action'    => $nextOriginatorAction,
         ];
     }
 
@@ -377,5 +400,121 @@ final class AtlasExternalBrainControlPlaneSnapshot
         usort($missing, static fn (array $a, array $b): int => $a['current_score'] <=> $b['current_score']);
 
         return array_values($missing);
+    }
+
+    /**
+     * Compute task quality drift from audit and queue signals.
+     *
+     * @param  array<string,mixed>  $inputs
+     * @return array{direction: string, severity: string, signal: string}
+     */
+    private function computeTaskQualityDrift(array $inputs): array
+    {
+        $auditVerdict = (string) ($inputs['audit_result']['verdict'] ?? 'unknown');
+        $giveBackRate = (float) ($inputs['queue_health']['give_back_rate'] ?? 0.0);
+
+        if ($auditVerdict === 'reject' || $giveBackRate > 0.5) {
+            return ['direction' => 'declining', 'severity' => 'high', 'signal' => 'audit_reject_or_high_give_back'];
+        }
+
+        if ($auditVerdict === 'repair_required' || $giveBackRate > 0.2) {
+            return ['direction' => 'declining', 'severity' => 'medium', 'signal' => 'audit_repair_or_elevated_give_back'];
+        }
+
+        if ($auditVerdict === 'pass' && $giveBackRate <= 0.1) {
+            return ['direction' => 'stable', 'severity' => 'low', 'signal' => 'audit_pass_low_give_back'];
+        }
+
+        return ['direction' => 'unknown', 'severity' => 'low', 'signal' => 'insufficient_data'];
+    }
+
+    /**
+     * Compute learning freshness from ledger signals.
+     *
+     * @param  array<string,mixed>  $inputs
+     * @return array{status: string, reason: string}
+     */
+    private function computeLearningFreshness(array $inputs): array
+    {
+        if (! array_key_exists('ledger_summary', $inputs) || $inputs['ledger_summary'] === null) {
+            return ['status' => 'missing', 'reason' => 'no_ledger'];
+        }
+
+        $total = (int) ($inputs['ledger_summary']['total'] ?? 0);
+        if ($total === 0) {
+            return ['status' => 'stale', 'reason' => 'empty_ledger'];
+        }
+
+        $successRate = (float) ($inputs['ledger_summary']['success_rate'] ?? 0.0);
+        if ($successRate >= 0.7) {
+            return ['status' => 'fresh', 'reason' => 'healthy_success_rate'];
+        }
+
+        return ['status' => 'stale', 'reason' => 'low_success_rate'];
+    }
+
+    /**
+     * Compute blocked debt from blockers and queue signals.
+     *
+     * @param  array<string,mixed>  $inputs
+     * @param  list<array<string,string>>  $blockers
+     * @return array{count: int, dimensions: list<string>, repair_priority: string}
+     */
+    private function computeBlockedDebt(array $inputs, array $blockers): array
+    {
+        $dimensions = [];
+        foreach ($blockers as $blocker) {
+            $dim = (string) ($blocker['dimension'] ?? '');
+            if ($dim !== '' && ! in_array($dim, $dimensions, true)) {
+                $dimensions[] = $dim;
+            }
+        }
+
+        $count = count($dimensions);
+        $repairPriority = $count === 0 ? 'none' : ($count >= 3 ? 'critical' : 'elevated');
+
+        return [
+            'count' => $count,
+            'dimensions' => $dimensions,
+            'repair_priority' => $repairPriority,
+        ];
+    }
+
+    /**
+     * Compute next originator action based on all signals.
+     *
+     * @param  array<string,mixed>  $inputs
+     * @return array{action: string, reason: string}
+     */
+    private function computeNextOriginatorAction(
+        string $queueStatus,
+        string $auditVerdict,
+        bool $hasMissingLedger,
+        array $taskQualityDrift,
+        array $blockedDebt,
+        array $inputs
+    ): array {
+        // Repair before origination when there are blockers
+        if ($blockedDebt['count'] > 0) {
+            $malformed = (int) ($inputs['queue_health']['malformed_count'] ?? 0);
+            $collision = (bool) ($inputs['queue_health']['collision_detected'] ?? false);
+            $staleLowValue = (bool) ($inputs['queue_health']['stale_low_value'] ?? false);
+
+            if ($malformed > 0 || $collision || $staleLowValue) {
+                return ['action' => 'repair_queue', 'reason' => 'malformed_or_collision_or_stale_low_value_signals_present'];
+            }
+
+            return ['action' => 'repair_blockers', 'reason' => 'resolve_blockers_before_origination'];
+        }
+
+        // High-value origination when queue is healthy and fresh candidates exist
+        $highValueGapCount = (int) ($inputs['high_value_gap_count'] ?? 0);
+        $originatorDutyCycleDue = (bool) ($inputs['originator_duty_cycle_due'] ?? false);
+
+        if ($highValueGapCount > 0 || $originatorDutyCycleDue) {
+            return ['action' => 'high_value_origination', 'reason' => 'healthy_queue_with_fresh_candidates'];
+        }
+
+        return ['action' => 'monitor', 'reason' => 'no_immediate_action_needed'];
     }
 }

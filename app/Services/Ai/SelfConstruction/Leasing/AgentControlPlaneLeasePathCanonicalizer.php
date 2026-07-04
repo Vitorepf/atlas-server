@@ -16,6 +16,70 @@ final class AgentControlPlaneLeasePathCanonicalizer
     public const SCHEMA = 'atlas.leasing.lease_path_canonicalizer.v1';
 
     /**
+     * Canonicalize lease and queue paths against the same serving disk identity.
+     *
+     * @param  string  $leasePath  Path from the lease registry
+     * @param  string  $queuePath  Path from the task queue
+     * @return array{same_disk:bool,disk_mismatch:string|null,canonical_key:string}
+     */
+    public function canonicalizeAgainstSameDisk(string $leasePath, string $queuePath): array
+    {
+        $leaseCanonical = $this->canonicalizePath($leasePath);
+        $queueCanonical = $this->canonicalizePath($queuePath);
+
+        // Extract the serving disk identity (root directory) from both paths
+        $leaseDisk = $this->extractServingDiskIdentity($leaseCanonical);
+        $queueDisk = $this->extractServingDiskIdentity($queueCanonical);
+
+        // Different textual paths that point to the same serving registry canonicalize to the same key
+        if ($leaseDisk === $queueDisk) {
+            $canonicalKey = $this->buildCanonicalKey($leaseDisk, $leaseCanonical);
+
+            return [
+                'same_disk' => true,
+                'disk_mismatch' => null,
+                'canonical_key' => $canonicalKey,
+            ];
+        }
+
+        // Mismatched disk identities are reported as disk_mismatch instead of lease_leak
+        return [
+            'same_disk' => false,
+            'disk_mismatch' => sprintf(
+                'disk_mismatch:lease_disk=%s queue_disk=%s lease_path=%s queue_path=%s',
+                $leaseDisk,
+                $queueDisk,
+                $leaseCanonical,
+                $queueCanonical,
+            ),
+            'canonical_key' => '',
+        ];
+    }
+
+    /**
+     * Extract the serving disk identity (root directory) from a canonical path.
+     */
+    private function extractServingDiskIdentity(string $canonicalPath): string
+    {
+        // The serving disk identity is the root directory of the path
+        // e.g. /var/atlas/leases/foo.json → /var/atlas
+        $parts = explode('/', $canonicalPath);
+        // Take the first 3 segments as the disk identity (e.g. /var/atlas)
+        $depth = min(count($parts) - 2, 3);
+        $diskParts = array_slice($parts, 0, max($depth, 1));
+
+        return implode('/', $diskParts);
+    }
+
+    /**
+     * Build a canonical key from disk identity and path.
+     */
+    private function buildCanonicalKey(string $diskIdentity, string $path): string
+    {
+        return $diskIdentity . ':' . $this->canonicalizePath($path);
+    }
+
+    /**
      * Normalize a lease ID: lowercase, trim, remove special chars.
      */
     public function canonicalizeLeaseId(string $leaseId): string

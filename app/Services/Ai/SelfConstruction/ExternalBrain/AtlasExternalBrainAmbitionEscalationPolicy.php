@@ -140,6 +140,9 @@ final class AtlasExternalBrainAmbitionEscalationPolicy
     /** @param list<string> $remaining @param list<string> $withEvidence @param list<array<string,mixed>> $dossier */
     private function envelope(string $next, string $rationale, array $remaining, array $withEvidence, bool $exhausted, array $dossier): array
     {
+        $escalationMoves = $this->deriveEscalationMoves($next, $remaining, $withEvidence, $exhausted);
+        $stopAllowed = $exhausted && count($withEvidence) === count(self::LADDER);
+
         return [
             'schema'              => self::SCHEMA,
             'next_mode'           => $next,
@@ -150,7 +153,47 @@ final class AtlasExternalBrainAmbitionEscalationPolicy
             'exhaustion_dossier'  => $dossier,
             'action'              => $exhausted ? self::MODE_HONEST_EXHAUSTED : self::ACTION_ESCALATE_STRATEGY,
             'escalation_category' => self::MODE_CATEGORY[$next] ?? null,
+            'escalation_moves'    => $escalationMoves,
+            'stop_allowed'        => $stopAllowed,
         ];
+    }
+
+    /**
+     * Derive concrete escalation moves from the current mode and remaining options.
+     *
+     * @return list<string>
+     */
+    private function deriveEscalationMoves(string $next, array $remaining, array $withEvidence, bool $exhausted): array
+    {
+        if ($exhausted) {
+            return [];
+        }
+
+        $moves = [];
+
+        // Map modes to escalation move types
+        $modeToMove = [
+            self::MODE_CONTRACT_MISMATCH           => 'deeper_probe',
+            self::MODE_CROSS_DOMAIN_PATTERN        => 'research_transfer',
+            self::MODE_RESEARCH_BACKED_DESIGN      => 'research_transfer',
+            self::MODE_ARCHITECTURE_SIMPLIFICATION => 'simplification_path',
+            self::MODE_RUNTIME_HEALTH              => 'deeper_probe',
+            self::MODE_CERTIFICATION_GAP           => 'counterfactual_review',
+        ];
+
+        // Current mode's move
+        if (isset($modeToMove[$next])) {
+            $moves[] = $modeToMove[$next];
+        }
+
+        // Remaining modes' moves
+        foreach ($remaining as $r) {
+            if (isset($modeToMove[$r])) {
+                $moves[] = $modeToMove[$r];
+            }
+        }
+
+        return array_values(array_unique($moves));
     }
 
     /**

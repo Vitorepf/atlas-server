@@ -25,6 +25,8 @@ final class AtlasExternalBrainOutputContractNormalizer
 
     private const REQUIRED_TASK_FIELDS = ['objective', 'allowed_files', 'acceptance_criteria', 'required_evidence'];
 
+    private const REDACTED_FIELDS = ['raw_prompt', 'provider_trace', 'provider_response', 'api_key', 'secret', 'token', 'password', 'credentials'];
+
     /**
      * @param  array<string,mixed>  $raw
      * @return array{
@@ -80,6 +82,9 @@ final class AtlasExternalBrainOutputContractNormalizer
         $repairHints = [];
         $payload = [];
 
+        // task_packet_id
+        $payload['task_packet_id'] = (string) ($raw['task_packet_id'] ?? '');
+
         foreach (self::REQUIRED_TASK_FIELDS as $field) {
             $value = $raw[$field] ?? null;
             if ($value === null || (is_string($value) && trim($value) === '') || (is_array($value) && $value === [])) {
@@ -88,10 +93,37 @@ final class AtlasExternalBrainOutputContractNormalizer
             $payload[$field] = $value ?? null;
         }
 
-        // If any required field is missing → still task_spec but with repair_hints
-        $type = $repairHints === [] ? self::TYPE_TASK_SPEC : self::TYPE_TASK_SPEC;
+        // decision_rationale
+        $payload['decision_rationale'] = (string) ($raw['decision_rationale'] ?? '');
 
-        return $this->envelope($type, $payload, $repairHints);
+        // Copy and redact provider-sensitive fields from raw input
+        foreach (self::REDACTED_FIELDS as $field) {
+            if (array_key_exists($field, $raw)) {
+                $payload[$field] = '[REDACTED_PROVIDER_SAFE_REF]';
+            }
+        }
+
+        // invalid flag
+        $payload['invalid'] = $repairHints !== [];
+
+        return $this->envelope(self::TYPE_TASK_SPEC, $payload, $repairHints);
+    }
+
+    /**
+     * Redact raw prompt text, provider traces, and secret-like fields.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function redactProviderFields(array $payload): array
+    {
+        foreach (self::REDACTED_FIELDS as $field) {
+            if (array_key_exists($field, $payload)) {
+                $payload[$field] = '[REDACTED_PROVIDER_SAFE_REF]';
+            }
+        }
+
+        return $payload;
     }
 
     /**

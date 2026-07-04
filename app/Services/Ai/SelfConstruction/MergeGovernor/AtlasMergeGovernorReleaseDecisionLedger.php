@@ -96,6 +96,19 @@ final class AtlasMergeGovernorReleaseDecisionLedger
             throw new RuntimeException('release decision: missing decided_at');
         }
 
+        // New fields: evidence_refs, rejected_alternatives, rollback_posture, post_release_learning_hooks
+        $evidenceRefs = is_array($payload['evidence_refs'] ?? null) ? array_values(array_map('strval', $payload['evidence_refs'])) : [];
+        $rejectedAlternatives = is_array($payload['rejected_alternatives'] ?? null) ? array_values(array_map('strval', $payload['rejected_alternatives'])) : [];
+        $rollbackPosture = (string) ($payload['rollback_posture'] ?? '');
+        $postReleaseLearningHooks = is_array($payload['post_release_learning_hooks'] ?? null) ? array_values(array_map('strval', $payload['post_release_learning_hooks'])) : [];
+
+        if ($evidenceRefs === []) {
+            throw new RuntimeException('release decision: missing evidence_refs');
+        }
+        if ($rollbackPosture === '') {
+            throw new RuntimeException('release decision: missing rollback_posture');
+        }
+
         sort($reasons, SORT_STRING);
         $decisionHash = $this->computeHash($taskId, $candHash, $decision, $reasons, $riskLevel, $verHash, $rollbackHash, $changedFilesHash, $laneProj, $decidedAt);
 
@@ -112,6 +125,10 @@ final class AtlasMergeGovernorReleaseDecisionLedger
             'project_lane' => ['project_id' => $laneProj],
             'decided_at' => $decidedAt,
             'decision_hash' => $decisionHash,
+            'evidence_refs' => $evidenceRefs,
+            'rejected_alternatives' => $rejectedAlternatives,
+            'rollback_posture' => $rollbackPosture,
+            'post_release_learning_hooks' => $postReleaseLearningHooks,
         ];
 
         // Idempotency check runs INSIDE the store's write lock; null return aborts the append.

@@ -44,7 +44,11 @@ class ObraReviewService
             return $this->blocked($intakeRef, $now, $intakeRef ? 'forge intake not found' : 'no forge intake available');
         }
 
-        $ageDays = CarbonImmutable::parse($intake->created_at)->diffInDays($now);
+        try {
+            $ageDays = CarbonImmutable::parse($intake->created_at)->diffInDays($now);
+        } catch (\Throwable $e) {
+            $ageDays = 0;
+        }
         $reviewKind = $ageDays >= 30
             ? AtlasLongHorizonCanon::OBRA_REVIEW_MONTHLY_ARCHITECTURE
             : AtlasLongHorizonCanon::OBRA_REVIEW_WEEKLY_SYNTHESIS;

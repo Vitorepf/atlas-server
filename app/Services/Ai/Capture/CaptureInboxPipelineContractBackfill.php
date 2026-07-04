@@ -323,7 +323,11 @@ class CaptureInboxPipelineContractBackfill
         }
 
         if (is_string($value) && $value !== '') {
-            return CarbonImmutable::parse($value)->toJSON();
+            try {
+                return CarbonImmutable::parse($value)->toJSON();
+            } catch (\Throwable) {
+                return null;
+            }
         }
 
         return null;

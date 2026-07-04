@@ -421,4 +421,141 @@ final class AtlasSelfConstructionAutonomyModePolicyTest extends TestCase
         $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_PROPOSE, $r['mode']);
         $this->assertContains('queue_health:malformed_count_positive', $r['blockers']);
     }
+
+    public function test_missing_receipts_downgrades_continuous_to_guarded(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric'             => $this->organ(true),
+            'maestro'                 => $this->organ(true),
+            'verification_court'      => $this->organ(true),
+            'merge_governor'          => $this->organ(true),
+            'native_worker'           => $this->organ(true),
+            'rollback'                => $this->organ(true),
+            'server_side_verification' => $this->organ(true),
+            'knowledge_sync'          => $this->organ(true),
+            'proof_system'            => ['missing_receipts' => true],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('proof_system:missing_receipts', $r['blockers']);
+        $this->assertContains('execute_guarded:proof_system_untrustworthy', $r['reasons']);
+    }
+
+    public function test_stale_receipts_downgrades_continuous_to_guarded(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric'             => $this->organ(true),
+            'maestro'                 => $this->organ(true),
+            'verification_court'      => $this->organ(true),
+            'merge_governor'          => $this->organ(true),
+            'native_worker'           => $this->organ(true),
+            'rollback'                => $this->organ(true),
+            'server_side_verification' => $this->organ(true),
+            'knowledge_sync'          => $this->organ(true),
+            'proof_system'            => ['stale_receipts' => true],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('proof_system:stale_receipts', $r['blockers']);
+    }
+
+    public function test_contradictory_receipts_downgrades_continuous_to_guarded(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric'             => $this->organ(true),
+            'maestro'                 => $this->organ(true),
+            'verification_court'      => $this->organ(true),
+            'merge_governor'          => $this->organ(true),
+            'native_worker'           => $this->organ(true),
+            'rollback'                => $this->organ(true),
+            'server_side_verification' => $this->organ(true),
+            'knowledge_sync'          => $this->organ(true),
+            'proof_system'            => ['contradictory_receipts' => true],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('proof_system:contradictory_receipts', $r['blockers']);
+    }
+
+    public function test_replay_unavailable_downgrades_continuous_to_guarded(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric'             => $this->organ(true),
+            'maestro'                 => $this->organ(true),
+            'verification_court'      => $this->organ(true),
+            'merge_governor'          => $this->organ(true),
+            'native_worker'           => $this->organ(true),
+            'rollback'                => $this->organ(true),
+            'server_side_verification' => $this->organ(true),
+            'knowledge_sync'          => $this->organ(true),
+            'proof_system'            => ['replay_unavailable' => true],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('proof_system:replay_unavailable', $r['blockers']);
+    }
+
+    public function test_all_proof_system_blockers_appear_in_blockers(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric'             => $this->organ(true),
+            'maestro'                 => $this->organ(true),
+            'verification_court'      => $this->organ(true),
+            'merge_governor'          => $this->organ(true),
+            'native_worker'           => $this->organ(true),
+            'rollback'                => $this->organ(true),
+            'server_side_verification' => $this->organ(true),
+            'knowledge_sync'          => $this->organ(true),
+            'proof_system' => [
+                'missing_receipts' => true,
+                'stale_receipts' => true,
+                'contradictory_receipts' => true,
+                'replay_unavailable' => true,
+            ],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('proof_system:missing_receipts', $r['blockers']);
+        $this->assertContains('proof_system:stale_receipts', $r['blockers']);
+        $this->assertContains('proof_system:contradictory_receipts', $r['blockers']);
+        $this->assertContains('proof_system:replay_unavailable', $r['blockers']);
+    }
+
+    public function test_clean_proof_system_preserves_execute_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric'             => $this->organ(true),
+            'maestro'                 => $this->organ(true),
+            'verification_court'      => $this->organ(true),
+            'merge_governor'          => $this->organ(true),
+            'native_worker'           => $this->organ(true),
+            'rollback'                => $this->organ(true),
+            'server_side_verification' => $this->organ(true),
+            'knowledge_sync'          => $this->organ(true),
+            'proof_system' => [
+                'missing_receipts' => false,
+                'stale_receipts' => false,
+                'contradictory_receipts' => false,
+                'replay_unavailable' => false,
+            ],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+    }
+
+    public function test_absent_proof_system_preserves_execute_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric'             => $this->organ(true),
+            'maestro'                 => $this->organ(true),
+            'verification_court'      => $this->organ(true),
+            'merge_governor'          => $this->organ(true),
+            'native_worker'           => $this->organ(true),
+            'rollback'                => $this->organ(true),
+            'server_side_verification' => $this->organ(true),
+            'knowledge_sync'          => $this->organ(true),
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+    }
 }

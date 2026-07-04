@@ -132,9 +132,19 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGate
             default => 'pivot_objective_or_scope',
         };
 
+        $duplicateFamily = null;
+        if ($duplicate && $bestMatch !== null) {
+            $candidateFamily = (string) ($candidate['task_family'] ?? '');
+            $matchFamily = (string) ($bestMatch['task_family'] ?? '');
+            if ($candidateFamily !== '' && $matchFamily !== '' && $candidateFamily === $matchFamily) {
+                $duplicateFamily = $candidateFamily;
+            }
+        }
+
         return [
             'class_name' => $className,
             'novelty_score' => round(1.0 - $bestSimilarity, 4),
+            'duplicate_family' => $duplicateFamily,
             'duplicate_evidence' => $duplicateEvidence,
             'safe_to_enqueue' => ! $duplicate,
             'suggested_merge_or_pivot_action' => $suggestedAction,
@@ -224,6 +234,7 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGate
                 'source' => $labelPrefix,
                 'class_name' => (string) ($item['class_name'] ?? ''),
                 'distinct_capability' => isset($item['distinct_capability']) ? (string) $item['distinct_capability'] : null,
+                'task_family' => isset($item['task_family']) ? (string) $item['task_family'] : '',
                 'objective_tokens' => $this->tokens((string) ($item['objective'] ?? '')),
                 'allowed_files' => $this->toStringSet($item['allowed_files'] ?? null),
                 'acceptance_tokens' => $this->tokens(implode(' ', $this->toStringSet($item['acceptance'] ?? null))),

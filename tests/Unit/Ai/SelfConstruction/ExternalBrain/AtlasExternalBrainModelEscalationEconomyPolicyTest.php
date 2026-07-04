@@ -307,4 +307,70 @@ final class AtlasExternalBrainModelEscalationEconomyPolicyTest extends TestCase
     {
         $this->assertSame('defer_for_more_evidence', AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_DEFER_FOR_MORE_EVIDENCE);
     }
+
+    // ── economyEscalation: escalation_decision, cost_justification, lower_tier_evidence, expected_capability_gain ──
+
+    public function test_lower_tier_meets_floor_blocks_escalation(): void
+    {
+        $r = $this->policy()->economyEscalation([
+            'lower_tier_quality' => 0.80,
+            'quality_floor' => 0.70,
+            'task_impact' => 0.9,
+            'lower_tier_attempts' => 3,
+            'replayable_evidence' => ['test_pass'],
+            'expected_capability_gain' => 0.3,
+            'frontier_cost' => 10.0,
+            'lower_tier_cost' => 1.0,
+        ]);
+        $this->assertStringContainsString('deny_escalation', $r['escalation_decision']);
+        $this->assertStringContainsString('cost_ratio', $r['cost_justification']);
+        $this->assertTrue($r['lower_tier_evidence']['meets_floor']);
+        $this->assertSame(0.3, $r['expected_capability_gain']);
+    }
+
+    public function test_high_impact_with_replayable_evidence_allows_escalation(): void
+    {
+        $r = $this->policy()->economyEscalation([
+            'lower_tier_quality' => 0.40,
+            'quality_floor' => 0.70,
+            'task_impact' => 0.9,
+            'lower_tier_attempts' => 3,
+            'replayable_evidence' => ['test_fail', 'give_back'],
+            'expected_capability_gain' => 0.5,
+            'frontier_cost' => 10.0,
+            'lower_tier_cost' => 1.0,
+        ]);
+        $this->assertStringContainsString('allow_escalation', $r['escalation_decision']);
+        $this->assertFalse($r['lower_tier_evidence']['meets_floor']);
+    }
+
+    public function test_high_impact_without_replayable_evidence_conditional(): void
+    {
+        $r = $this->policy()->economyEscalation([
+            'lower_tier_quality' => 0.40,
+            'quality_floor' => 0.70,
+            'task_impact' => 0.9,
+            'lower_tier_attempts' => 3,
+            'replayable_evidence' => [],
+            'expected_capability_gain' => 0.5,
+            'frontier_cost' => 10.0,
+            'lower_tier_cost' => 1.0,
+        ]);
+        $this->assertStringContainsString('conditional_escalation', $r['escalation_decision']);
+    }
+
+    public function test_low_impact_denies_escalation(): void
+    {
+        $r = $this->policy()->economyEscalation([
+            'lower_tier_quality' => 0.40,
+            'quality_floor' => 0.70,
+            'task_impact' => 0.3,
+            'lower_tier_attempts' => 1,
+            'replayable_evidence' => [],
+            'expected_capability_gain' => 0.1,
+            'frontier_cost' => 10.0,
+            'lower_tier_cost' => 1.0,
+        ]);
+        $this->assertStringContainsString('deny_escalation', $r['escalation_decision']);
+    }
 }

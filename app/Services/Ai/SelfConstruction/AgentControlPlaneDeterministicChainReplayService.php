@@ -220,6 +220,26 @@ final class AgentControlPlaneDeterministicChainReplayService
         $payload['deterministic_replay_hash'] = $this->stableHash($this->normalizeForDeterministicHash($payload));
         $payload['deterministic_hash_exclusions'] = self::DETERMINISTIC_HASH_EXCLUDED_FIELDS;
 
+        // Stage hashes for context, task, execution, proof, and learning stages
+        $stageHashes = [
+            'context'   => $this->stableHash((array) data_get($auditPayload, 'capability_surface', [])),
+            'task'      => $this->stableHash((array) data_get($auditPayload, 'readiness_surface', [])),
+            'execution' => $this->stableHash((array) data_get($auditPayload, 'invoker_surface', [])),
+            'proof'     => $proofBundle !== null ? $this->stableHash($proofBundle) : '',
+            'learning'  => $this->stableHash((array) data_get($auditPayload, 'cycle_integrity', [])),
+        ];
+        $payload['stage_hashes'] = $stageHashes;
+
+        // first_divergent_stage: null when all stages have valid hashes, otherwise the first stage with an empty hash
+        $firstDivergentStage = null;
+        foreach ($stageHashes as $stage => $hash) {
+            if ($hash === '') {
+                $firstDivergentStage = $stage;
+                break;
+            }
+        }
+        $payload['first_divergent_stage'] = $firstDivergentStage;
+
         return $payload;
     }
 

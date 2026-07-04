@@ -615,4 +615,71 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
         $this->assertSame(3, $metrics['input_trace_count']);
         $this->assertSame($result['lesson_count'], $metrics['output_lesson_count']);
     }
+
+    // AC: conflict_index includes all five isolation reasons
+    public function test_conflict_index_groups_by_kept_separate_reason(): void
+    {
+        $compactor = new AtlasExternalBrainDecisionLedgerCompactor();
+        $result = $compactor->compact(['traces' => [
+            ['trace_id' => 'c1', 'causes' => ['a'], 'outcome' => 'b', 'scope' => 'x', 'is_contradictory' => true],
+            ['trace_id' => 'c2', 'causes' => ['c'], 'outcome' => 'd', 'scope' => 'x', 'is_contradictory' => true],
+            ['trace_id' => 'u1', 'causes' => ['e'], 'outcome' => 'f', 'scope' => 'x', 'uncertainty' => 'high'],
+            ['trace_id' => 's1', 'causes' => ['g'], 'outcome' => 'h', 'scope' => 'x', 'is_stale' => true],
+            ['trace_id' => 'e1', 'causes' => ['i'], 'outcome' => 'j', 'scope' => 'x', 'is_expired' => true],
+            ['trace_id' => 'ir1', 'causes' => ['k'], 'outcome' => 'l', 'scope' => 'x', 'reversibility' => 'irreversible'],
+        ]]);
+
+        $this->assertIsArray($result['conflict_index']);
+        $this->assertSame(2, $result['conflict_index']['contradictory']);
+        $this->assertSame(1, $result['conflict_index']['high_uncertainty']);
+        $this->assertSame(1, $result['conflict_index']['stale']);
+        $this->assertSame(1, $result['conflict_index']['expired']);
+        $this->assertSame(1, $result['conflict_index']['irreversible']);
+    }
+
+    // AC: stale_or_expired_summary
+    public function test_stale_or_expired_summary(): void
+    {
+        $compactor = new AtlasExternalBrainDecisionLedgerCompactor();
+        $result = $compactor->compact(['traces' => [
+            ['trace_id' => 's1', 'causes' => ['a'], 'outcome' => 'b', 'scope' => 'x', 'is_stale' => true],
+            ['trace_id' => 's2', 'causes' => ['c'], 'outcome' => 'd', 'scope' => 'x', 'is_stale' => true],
+            ['trace_id' => 'e1', 'causes' => ['e'], 'outcome' => 'f', 'scope' => 'x', 'is_expired' => true],
+        ]]);
+
+        $summary = $result['stale_or_expired_summary'];
+        $this->assertSame(2, $summary['stale_count']);
+        $this->assertSame(1, $summary['expired_count']);
+        $this->assertSame(3, $summary['total_quarantined']);
+        $this->assertTrue($summary['needs_revalidation']);
+    }
+
+    // AC: stale_or_expired_summary empty when no stale or expired
+    public function test_stale_or_expired_summary_empty_when_clean(): void
+    {
+        $compactor = new AtlasExternalBrainDecisionLedgerCompactor();
+        $result = $compactor->compact(['traces' => [
+            ['trace_id' => 'c1', 'causes' => ['a'], 'outcome' => 'b', 'scope' => 'x', 'is_contradictory' => true],
+            ['trace_id' => 'u1', 'causes' => ['c'], 'outcome' => 'd', 'scope' => 'x', 'uncertainty' => 'high'],
+        ]]);
+
+        $summary = $result['stale_or_expired_summary'];
+        $this->assertSame(0, $summary['stale_count']);
+        $this->assertSame(0, $summary['expired_count']);
+        $this->assertSame(0, $summary['total_quarantined']);
+        $this->assertFalse($summary['needs_revalidation']);
+    }
+
+    // AC: conflict_index empty when nothing kept separate
+    public function test_conflict_index_empty_when_all_merge(): void
+    {
+        $compactor = new AtlasExternalBrainDecisionLedgerCompactor();
+        $result = $compactor->compact(['traces' => [
+            ['trace_id' => 't1', 'causes' => ['a'], 'outcome' => 'b', 'scope' => 'x'],
+            ['trace_id' => 't2', 'causes' => ['a'], 'outcome' => 'b', 'scope' => 'x'],
+            ['trace_id' => 't3', 'causes' => ['a'], 'outcome' => 'b', 'scope' => 'x'],
+        ]]);
+
+        $this->assertSame([], $result['conflict_index']);
+    }
 }

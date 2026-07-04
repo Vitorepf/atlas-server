@@ -85,8 +85,8 @@ class StrategicForgettingService
     {
         $metadata = is_array($entry->metadata) ? $entry->metadata : [];
         $confidence = $entry->confidence === null ? null : (float) $entry->confidence;
-        $recordedAt = $entry->recorded_at ? CarbonImmutable::parse($entry->recorded_at) : $now;
-        $lastUsedAt = $entry->last_used_at ? CarbonImmutable::parse($entry->last_used_at) : null;
+        $recordedAt = $entry->recorded_at ? $this->safeParse($entry->recorded_at, $now) : $now;
+        $lastUsedAt = $entry->last_used_at ? $this->safeParse($entry->last_used_at, null) : null;
         $ageDays = $recordedAt->diffInDays($now);
         $idleDays = $lastUsedAt ? $lastUsedAt->diffInDays($now) : $ageDays;
 
@@ -101,10 +101,10 @@ class StrategicForgettingService
         } elseif (! empty($entry->superseded_by_id)) {
             $policy = AtlasLongHorizonCanon::FORGETTING_POLICY_SUPERSEDE;
             $reason = 'superseded_by_newer_memory';
-        } elseif ($entry->stale_after !== null && CarbonImmutable::parse($entry->stale_after)->lessThan($now)) {
+        } elseif ($entry->stale_after !== null && $this->safeParse($entry->stale_after, $now)->lessThan($now)) {
             $policy = AtlasLongHorizonCanon::FORGETTING_POLICY_EXPIRE;
             $reason = 'stale_after_elapsed';
-        } elseif ($entry->valid_until !== null && CarbonImmutable::parse($entry->valid_until)->lessThan($now)) {
+        } elseif ($entry->valid_until !== null && $this->safeParse($entry->valid_until, $now)->lessThan($now)) {
             $policy = AtlasLongHorizonCanon::FORGETTING_POLICY_DEMOTE;
             $reason = 'temporal_validity_elapsed';
         } elseif ($confidence !== null && $confidence < 0.3 && $idleDays >= 90) {
@@ -136,6 +136,18 @@ class StrategicForgettingService
             'authority_level' => $entry->authority_level,
             'evidence_refs' => $this->evidenceRefs($entry),
         ];
+    }
+
+    private function safeParse(string|CarbonImmutable $value, ?CarbonImmutable $fallback): ?CarbonImmutable
+    {
+        if ($value instanceof CarbonImmutable) {
+            return $value;
+        }
+        try {
+            return CarbonImmutable::parse($value);
+        } catch (\Throwable) {
+            return $fallback;
+        }
     }
 
     private function readOnlyEffect(string $policy): string

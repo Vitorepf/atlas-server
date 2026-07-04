@@ -174,7 +174,13 @@ class VentureGrowthLadderService
 
         $uuid = (string) Str::uuid();
         $observedAt = isset($args['observed_at'])
-            ? Carbon::parse((string) $args['observed_at'])
+            ? (function () use ($args): \Carbon\Carbon {
+                try {
+                    return Carbon::parse((string) $args['observed_at']);
+                } catch (\Throwable $e) {
+                    return Carbon::now();
+                }
+            })()
             : Carbon::now();
 
         return AiVentureMetricObservation::query()->create([

@@ -256,4 +256,61 @@ final class AtlasMaestroWorkloadProjectionFactEmitter
 
         return self::RISK_HEALTHY;
     }
+
+    /**
+     * Non-vanity projection: separates actionable drain/quality signals from vanity volume metrics.
+     *
+     * Actionable facts: drain_rate, give_back_rate, starvation_horizon, quality_confidence.
+     * Vanity metrics: raw task count, queue depth — unless paired with outcome or risk context.
+     *
+     * @param  array{drain_rate?:float, give_back_rate?:float, starvation_horizon_hours?:float, quality_confidence?:float, raw_task_count?:int, queue_depth?:int, outcome_context?:bool, risk_context?:bool}  $input
+     * @return array{projection_facts:array<string,mixed>, actionable_fact_keys:list<string>, skipped_vanity_metrics:list<string>, freshness_status:string}
+     */
+    public function nonVanityProjection(array $input): array
+    {
+        $projectionFacts = [];
+        $actionableFactKeys = [];
+        $skippedVanityMetrics = [];
+
+        // Actionable facts — always included
+        $actionableKeys = ['drain_rate', 'give_back_rate', 'starvation_horizon_hours', 'quality_confidence'];
+        foreach ($actionableKeys as $key) {
+            if (array_key_exists($key, $input) && $input[$key] !== null) {
+                $projectionFacts[$key] = $input[$key];
+                $actionableFactKeys[] = $key;
+            }
+        }
+
+        // Vanity metrics — only included if paired with outcome or risk context
+        $vanityKeys = ['raw_task_count', 'queue_depth'];
+        $hasOutcomeContext = (bool) ($input['outcome_context'] ?? false);
+        $hasRiskContext = (bool) ($input['risk_context'] ?? false);
+
+        foreach ($vanityKeys as $key) {
+            if (array_key_exists($key, $input) && $input[$key] !== null) {
+                if ($hasOutcomeContext || $hasRiskContext) {
+                    $projectionFacts[$key] = $input[$key];
+                    $actionableFactKeys[] = $key;
+                } else {
+                    $skippedVanityMetrics[] = $key;
+                }
+            }
+        }
+
+        // Determine freshness status
+        if (count($actionableFactKeys) >= 3) {
+            $freshnessStatus = 'fresh';
+        } elseif (count($actionableFactKeys) >= 1) {
+            $freshnessStatus = 'partial';
+        } else {
+            $freshnessStatus = 'stale';
+        }
+
+        return [
+            'projection_facts' => $projectionFacts,
+            'actionable_fact_keys' => $actionableFactKeys,
+            'skipped_vanity_metrics' => $skippedVanityMetrics,
+            'freshness_status' => $freshnessStatus,
+        ];
+    }
 }

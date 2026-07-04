@@ -62,6 +62,9 @@ final class AtlasExternalBrainMuscleSkillFitRouter
     /** Small preference weight for a scope-tag match with above-neutral historical success. */
     private const SCOPE_MATCH_WEIGHT = 0.10;
 
+    /** Minimum sample count required before scope-tag history can increase fit_score. */
+    private const SCOPE_MIN_SAMPLE_COUNT = 3;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -180,7 +183,7 @@ final class AtlasExternalBrainMuscleSkillFitRouter
         foreach ($scopeTags as $scopeTag) {
             $scopeHistory = (array) ($candidateHistory[$scopeTag] ?? []);
             $scopeTotal = max(0, (int) ($scopeHistory['total'] ?? 0));
-            if ($scopeTotal === 0) {
+            if ($scopeTotal < self::SCOPE_MIN_SAMPLE_COUNT) {
                 continue;
             }
             $scopeSuccessRate = max(0, (int) ($scopeHistory['success'] ?? 0)) / $scopeTotal;
