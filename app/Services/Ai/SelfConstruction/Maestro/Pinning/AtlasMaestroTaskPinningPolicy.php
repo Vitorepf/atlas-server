@@ -108,4 +108,60 @@ final class AtlasMaestroTaskPinningPolicy
 
         return $base + ['decision' => self::REQUEST_ALLOW, 'reason' => self::REQUEST_REASON_APPROVED];
     }
+
+    /**
+     * Enriched pin evaluation: pin_allowed, pin_ttl_seconds, release_reason, safety_evidence_required.
+     *
+     * @param  array{reason_category?:string, ttl_seconds?:int, worker_fit?:float, safety_evidence?:list<string>}  $request
+     * @return array{pin_allowed:bool, pin_ttl_seconds:int, release_reason:string, safety_evidence_required:bool, decision:string, reason:string, reason_category:string, ttl_seconds:int}
+     */
+    public function evaluatePinWithContract(array $request): array
+    {
+        $base = $this->evaluatePinRequest($request);
+        $category = (string) ($request['reason_category'] ?? '');
+        $ttlSeconds = (int) ($request['ttl_seconds'] ?? 0);
+        $workerFit = (float) ($request['worker_fit'] ?? 0.0);
+        $safetyEvidence = (array) ($request['safety_evidence'] ?? []);
+
+        $pinAllowed = $base['decision'] === self::REQUEST_ALLOW;
+        $releaseReason = '';
+        $safetyEvidenceRequired = false;
+
+        // Determine release reason
+        if (! $pinAllowed) {
+            $releaseReason = $base['reason'];
+        }
+
+        // Safety evidence is required for capability_fit pins
+        if ($category === 'capability_fit') {
+            $safetyEvidenceRequired = true;
+            // Reject if no safety evidence provided for capability_fit
+            if ($pinAllowed && $safetyEvidence === []) {
+                $pinAllowed = false;
+                $releaseReason = 'capability_fit_requires_safety_evidence';
+            }
+            // Reject if worker fit drops below threshold
+            if ($pinAllowed && $workerFit < 0.5) {
+                $pinAllowed = false;
+                $releaseReason = 'worker_fit_below_threshold';
+            }
+        }
+
+        // Release pin when TTL is zero or negative
+        if ($pinAllowed && $ttlSeconds <= 0) {
+            $pinAllowed = false;
+            $releaseReason = 'ttl_expired_or_non_positive';
+        }
+
+        return [
+            'pin_allowed' => $pinAllowed,
+            'pin_ttl_seconds' => $ttlSeconds,
+            'release_reason' => $releaseReason,
+            'safety_evidence_required' => $safetyEvidenceRequired,
+            'decision' => $base['decision'],
+            'reason' => $base['reason'],
+            'reason_category' => $base['reason_category'],
+            'ttl_seconds' => $base['ttl_seconds'],
+        ];
+    }
 }
