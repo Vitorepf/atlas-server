@@ -72,6 +72,21 @@ final class AtlasSelfConstructionCircuitClusterDetector
 
             $overlapScore = $this->overlapScore($sharedInputs, $sharedOutputs, $proofOverlap, $consumerOverlap, $responsibilityOverlap, $testOverlap);
 
+            // behavior_fingerprint_hash: deterministic hash of shared evidence across
+            // all six dimensions. Empty when any dimension lacks overlap (divergent).
+            $fingerprintParts = array_filter([
+                implode(',', $sharedInputs),
+                implode(',', $sharedOutputs),
+                implode(',', $proofOverlap),
+                implode(',', $consumerOverlap),
+                implode(',', $responsibilityOverlap),
+                implode(',', $testOverlap),
+            ], static fn (string $s): bool => $s !== '');
+            $fingerprintShared = count($fingerprintParts) === 6;
+            $behaviorFingerprintHash = $fingerprintShared
+                ? substr(hash('sha256', implode('|', $fingerprintParts)), 0, 16)
+                : null;
+
             $falsePositiveRisks = [];
             if ($sharedInputs === [] && $sharedOutputs === []) {
                 $falsePositiveRisks[] = 'capability_label_matches_but_no_shared_contracts';
@@ -88,11 +103,14 @@ final class AtlasSelfConstructionCircuitClusterDetector
             if ($testOverlap === []) {
                 $falsePositiveRisks[] = 'no_test_overlap';
             }
+            if (! $fingerprintShared) {
+                $falsePositiveRisks[] = 'behavior_fingerprint_mismatch';
+            }
 
-            $mergeReady = $proofOverlap !== [] && $consumerOverlap !== [];
+            $mergeReady = $proofOverlap !== [] && $consumerOverlap !== [] && $fingerprintShared;
 
             // duplicate_confidence: behavior-signature based, never derived from name similarity —
-            // it requires proof+consumer evidence (merge_ready) AND a high overlap_score.
+            // it requires proof+consumer evidence (merge_ready) AND a full fingerprint match.
             $duplicateConfidence = match (true) {
                 $mergeReady && $overlapScore >= 0.80 => 'high',
                 $mergeReady && $overlapScore >= 0.50 => 'medium',
@@ -143,6 +161,7 @@ final class AtlasSelfConstructionCircuitClusterDetector
                 'false_positive_risks' => $falsePositiveRisks,
                 'keeper_candidate' => $keeperCandidate,
                 'retirement_candidates' => $retirementCandidates,
+                'behavior_fingerprint_hash' => $behaviorFingerprintHash,
             ];
         }
 

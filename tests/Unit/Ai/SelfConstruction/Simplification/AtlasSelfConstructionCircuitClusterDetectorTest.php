@@ -393,4 +393,176 @@ final class AtlasSelfConstructionCircuitClusterDetectorTest extends TestCase
         self::assertNull($result['clusters'][0]['keeper_candidate']);
         self::assertSame([], $result['clusters'][0]['retirement_candidates']);
     }
+
+    // ── AC2: divergent behavior fingerprint blocks merge_ready ───────────────
+
+    public function test_same_capability_divergent_fingerprint_reports_mismatch_and_not_merge_ready(): void
+    {
+        // Same capability_label but responsibility_tags and tests diverge → merge_ready=false
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'OrganA',
+                'capability_label' => 'task_admission',
+                'inputs' => ['packet'],
+                'outputs' => ['verdict'],
+                'proof_refs' => ['test_run_1'],
+                'consumers' => ['Caller'],
+                'responsibility_tags' => ['admits_packet'],
+                'tests' => ['AdmissionTest::test_admits'],
+            ],
+            [
+                'name' => 'OrganB',
+                'capability_label' => 'task_admission',
+                'inputs' => ['packet'],
+                'outputs' => ['verdict'],
+                'proof_refs' => ['test_run_1'],
+                'consumers' => ['Caller'],
+                'responsibility_tags' => ['validates_token'],  // diverges from OrganA
+                'tests' => ['ValidationTest::test_token'],       // diverges from OrganA
+            ],
+        ]);
+
+        $cluster = $result['clusters'][0];
+        self::assertContains('behavior_fingerprint_mismatch', $cluster['false_positive_risks']);
+        self::assertFalse($cluster['merge_ready']);
+        self::assertNull($cluster['behavior_fingerprint_hash']);
+    }
+
+    // ── AC3: matching fingerprint produces stable hash ───────────────────────
+
+    public function test_full_fingerprint_overlap_emits_stable_behavior_fingerprint_hash(): void
+    {
+        $input = [
+            [
+                'name' => 'OrganA',
+                'capability_label' => 'task_admission',
+                'inputs' => ['packet'],
+                'outputs' => ['verdict'],
+                'proof_refs' => ['test_run_1'],
+                'consumers' => ['TaskFabricCommand'],
+                'responsibility_tags' => ['admits_packet'],
+                'tests' => ['AdmissionTest::test_admits'],
+            ],
+            [
+                'name' => 'OrganB',
+                'capability_label' => 'task_admission',
+                'inputs' => ['packet'],
+                'outputs' => ['verdict'],
+                'proof_refs' => ['test_run_1'],
+                'consumers' => ['TaskFabricCommand'],
+                'responsibility_tags' => ['admits_packet'],
+                'tests' => ['AdmissionTest::test_admits'],
+            ],
+        ];
+
+        $first  = (new AtlasSelfConstructionCircuitClusterDetector)->detect($input);
+        $second = (new AtlasSelfConstructionCircuitClusterDetector)->detect($input);
+
+        $cluster = $first['clusters'][0];
+        self::assertArrayHasKey('behavior_fingerprint_hash', $cluster);
+        self::assertNotNull($cluster['behavior_fingerprint_hash']);
+        self::assertSame(
+            $first['clusters'][0]['behavior_fingerprint_hash'],
+            $second['clusters'][0]['behavior_fingerprint_hash'],
+        );
+    }
+
+    public function test_behavior_fingerprint_hash_16_hex_chars(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'OrganA',
+                'capability_label' => 'cap',
+                'inputs' => ['x'],
+                'outputs' => ['y'],
+                'proof_refs' => ['p'],
+                'consumers' => ['c'],
+                'responsibility_tags' => ['r'],
+                'tests' => ['t'],
+            ],
+            [
+                'name' => 'OrganB',
+                'capability_label' => 'cap',
+                'inputs' => ['x'],
+                'outputs' => ['y'],
+                'proof_refs' => ['p'],
+                'consumers' => ['c'],
+                'responsibility_tags' => ['r'],
+                'tests' => ['t'],
+            ],
+        ]);
+
+        $hash = $result['clusters'][0]['behavior_fingerprint_hash'];
+        self::assertIsString($hash);
+        self::assertSame(16, strlen($hash));
+        self::assertTrue(ctype_xdigit($hash));
+    }
+
+    // ── AC4: duplicate_confidence cannot be high without shared fingerprint ──
+
+    public function test_duplicate_confidence_low_when_fingerprint_not_shared_despite_high_overlap(): void
+    {
+        // All 6 dims have some overlap, but some have different values → overlap_score
+        // is 6/6=1.0 but the combined fingerprint is shared across all members.
+        // Actually if all 6 dims overlap (at least 1 element shared in each),
+        // fingerprint IS shared. To test confidence gating, I need high overlap_score
+        // BUT missing fingerprint (at least one dim has empty overlap).
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'OrganA',
+                'capability_label' => 'cap',
+                'inputs' => ['x'],  // shared
+                'outputs' => ['y'], // shared
+                'proof_refs' => ['p'], // shared
+                'consumers' => ['c'], // shared
+                // responsibility_tags and tests missing → fingerprint not shared
+            ],
+            [
+                'name' => 'OrganB',
+                'capability_label' => 'cap',
+                'inputs' => ['x'],
+                'outputs' => ['y'],
+                'proof_refs' => ['p'],
+                'consumers' => ['c'],
+            ],
+        ]);
+
+        $cluster = $result['clusters'][0];
+        // 4 of 6 dims overlap → overlap_score=0.6667
+        // merge_ready requires fingerprintShared → false
+        self::assertFalse($cluster['merge_ready']);
+        self::assertSame('low', $cluster['duplicate_confidence']);
+        self::assertNull($cluster['behavior_fingerprint_hash']);
+    }
+
+    public function test_duplicate_confidence_high_when_fingerprint_shared_and_high_overlap_score(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'OrganA',
+                'capability_label' => 'cap',
+                'inputs' => ['x'],
+                'outputs' => ['y'],
+                'proof_refs' => ['p'],
+                'consumers' => ['c'],
+                'responsibility_tags' => ['r'],
+                'tests' => ['t'],
+            ],
+            [
+                'name' => 'OrganB',
+                'capability_label' => 'cap',
+                'inputs' => ['x'],
+                'outputs' => ['y'],
+                'proof_refs' => ['p'],
+                'consumers' => ['c'],
+                'responsibility_tags' => ['r'],
+                'tests' => ['t'],
+            ],
+        ]);
+
+        $cluster = $result['clusters'][0];
+        self::assertTrue($cluster['merge_ready']);
+        self::assertSame('high', $cluster['duplicate_confidence']);
+        self::assertNotNull($cluster['behavior_fingerprint_hash']);
+    }
 }
