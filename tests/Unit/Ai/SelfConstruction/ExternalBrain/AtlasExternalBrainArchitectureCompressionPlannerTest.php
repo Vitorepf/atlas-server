@@ -298,6 +298,72 @@ final class AtlasExternalBrainArchitectureCompressionPlannerTest extends TestCas
 
     // ── Worker-floor protection: stale scaffold that feeds active workers ────
 
+    public function test_simplify_blocked_when_worker_floor_low_and_feeds_active_workers_without_replacement_path(): void
+    {
+        // High-line-count organ that feeds active workers, with worker_floor_low=true
+        // and no replacement claimable path → simplify must be blocked.
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('big_worker_feed', [
+                    'line_count'                 => 500,
+                    'test_coverage'              => true,
+                    'feeds_active_workers'       => true,
+                    'replacement_claimable_path' => false,
+                ]),
+            ],
+            'worker_floor_low' => true,
+            'growth_threshold' => 200,
+        ]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP, $candidate['action']);
+        $this->assertSame('worker_feed_capacity_protected', $candidate['reason']);
+        $this->assertFalse($candidate['worker_feed_preserved']);
+        $this->assertSame(0, $candidate['expected_line_delta']);
+    }
+
+    public function test_simplify_not_blocked_when_worker_floor_not_low(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('big_worker_feed', [
+                    'line_count'                 => 500,
+                    'test_coverage'              => true,
+                    'feeds_active_workers'       => true,
+                    'replacement_claimable_path' => false,
+                ]),
+            ],
+            'worker_floor_low' => false,
+            'growth_threshold' => 200,
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainArchitectureCompressionPlanner::ACTION_SIMPLIFY,
+            $result['candidates'][0]['action'],
+        );
+    }
+
+    public function test_simplify_not_blocked_when_replacement_path_exists(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('big_worker_feed', [
+                    'line_count'                 => 500,
+                    'test_coverage'              => true,
+                    'feeds_active_workers'       => true,
+                    'replacement_claimable_path' => true,
+                ]),
+            ],
+            'worker_floor_low' => true,
+            'growth_threshold' => 200,
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainArchitectureCompressionPlanner::ACTION_SIMPLIFY,
+            $result['candidates'][0]['action'],
+        );
+    }
+
     public function test_stale_scaffold_feeding_active_workers_is_kept_when_worker_floor_low_and_no_replacement_path(): void
     {
         $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([

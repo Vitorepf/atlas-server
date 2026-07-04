@@ -290,6 +290,30 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                         'retire_now'              => false,
                     ];
                 } elseif ($hasCoverage) {
+                    if ($workerFloorLow && $feedsActiveWorkers && ! $replacementClaimablePath) {
+                        // Worker-floor protection: simplifying this organ would reduce capacity
+                        // for active muscles while the worker floor is low and no replacement
+                        // path exists — block the simplify in favour of keep.
+                        $candidates[] = [
+                            'candidate_id'            => 'keep:'.$id.':worker_feed_capacity_protected',
+                            'action'                  => self::ACTION_KEEP,
+                            'impacted_files'          => $files,
+                            'expected_line_delta'     => 0,
+                            'risk_level'              => 'high',
+                            'evidence_floor'          => 'line_count:gte_'.$growthThreshold
+                                .' AND test_coverage:true'
+                                .' AND feeds_active_workers:true'
+                                .' AND worker_floor_low:true'
+                                .' AND replacement_claimable_path:false',
+                            'reason'                  => 'worker_feed_capacity_protected',
+                            'compression_score'       => $this->scoreCandidate(self::ACTION_KEEP, 0, 'high', $hasCoverage, $hasOwner),
+                            'expected_line_reduction' => 0,
+                            'preserved_contracts'     => $contracts,
+                            'required_tests'          => $requiredTests,
+                            'retire_now'              => false,
+                            'worker_feed_preserved'   => false,
+                        ];
+                    } else {
                     $simplifyDelta = -(int) round($lineCount * 0.15);
                     $candidates[]  = [
                         'candidate_id'            => 'simplify:'.$id,
@@ -304,6 +328,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                         'required_tests'          => $requiredTests,
                         'retire_now'              => false,
                     ];
+                    }
                 } else {
                     $candidates[] = [
                         'candidate_id'            => 'keep:'.$id.':high_lines_no_coverage',
