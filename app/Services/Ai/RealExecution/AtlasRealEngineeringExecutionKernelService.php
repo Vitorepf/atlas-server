@@ -12,6 +12,10 @@ use App\Models\AiRealExecutionRivalsBenchmark;
 use App\Models\AiRealExecutionTestRun;
 use App\Models\AiRealExecutionWorktree;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
+use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
+use App\Services\Ai\EngineeringKernel\CertVerdict;
+use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\DB;
@@ -166,10 +170,10 @@ class AtlasRealEngineeringExecutionKernelService
         $processOutput = $processStarted ? $process->getOutput() : '';
         $processErrorOutput = $processStarted ? $process->getErrorOutput() : '';
         $testRunId = 'aeretest_'.substr(RealExecutionHash::make([$goal->goal_id, $patch->patch_run_id, $status, $repair?->repair_attempt_id]), 0, 24);
+        // HONEST evidence: this path runs ONLY `php -l` (a lint), never a test suite. Do NOT label
+        // artisan suites it did not run — the sovereign AcceptanceGate refuses lint-as-suite claims.
         $selectedTests = [
             'php -l '.$lintTarget,
-            'php artisan test tests/Unit/Ai/RealExecution',
-            'php artisan test tests/Feature/Ai/AtlasRealEngineeringExecutionKernelTest.php',
         ];
         $exitCode = $status === 'passed' ? 0 : ($process->getExitCode() ?? 1);
         $evidence = ['patch:'.$patch->patch_hash];
@@ -197,8 +201,8 @@ class AtlasRealEngineeringExecutionKernelService
             'impact_reasoning' => $receipt['impact_reasoning'],
             'exit_code' => $exitCode,
             'output_excerpt' => $status === 'passed'
-                ? trim($processOutput ?: 'focused impact suite passed')
-                : trim($processErrorOutput ?: $processOutput ?: 'focused impact suite failed before repair'),
+                ? trim($processOutput ?: 'php -l lint clean (a lint, not a certifiable test suite)')
+                : trim($processErrorOutput ?: $processOutput ?: 'php -l lint failed before repair'),
             'evidence_refs' => $evidence,
             'receipt' => $receipt,
             'test_hash' => $receipt['hash'],
@@ -550,6 +554,11 @@ class AtlasRealEngineeringExecutionKernelService
             $this->check('rivals_false_claim_blocked', $latestGoal !== null && DatabaseTableAvailability::has('ai_real_execution_rivals_benchmarks') && AiRealExecutionRivalsBenchmark::query()->where('goal_record_id', $latestGoal->id)->where('false_claim_blocked', true)->exists()),
             $this->check('rivals_shadow_benchmark_recorded', $latestGoal !== null && $this->rivalsShadowBenchmarkRecorded($latestGoal)),
         ];
+        // SOVEREIGN GATE — the fake-green kill. The engineering green may NOT be emitted unless the
+        // sovereign AcceptanceGate promotes the recorded evidence. This path records only a `php -l`
+        // smoke, so the gate refuses it (false_claim_blocked): this stub can no longer certify green.
+        $sovereignVerdict = $this->sovereignEngineeringVerdict($latestGoal);
+        $checks[] = $this->check('sovereign_engineering_gate_promoted', $sovereignVerdict->promoted());
         if ($scope === 'full') {
             $checks[] = $this->check('external_rivals_benchmark_executed', $latestGoal !== null && $this->externalRivalsBenchmarkExecuted($latestGoal));
         }
@@ -592,6 +601,49 @@ class AtlasRealEngineeringExecutionKernelService
             'certification_hash' => $payload['hash'],
             'certified_at' => now(),
         ]);
+    }
+
+    /**
+     * Route the recorded engineering evidence through the sovereign AcceptanceGate. This path only
+     * ever records a `php -l` smoke, so the gate refuses it (false_claim_blocked) — which is exactly
+     * how the fake-green is killed: the certification can no longer emit an engineering green.
+     */
+    private function sovereignEngineeringVerdict(?AiAutonomousEngineeringGoal $goal): CertVerdict
+    {
+        $test = ($goal !== null && DatabaseTableAvailability::has('ai_real_execution_test_runs'))
+            ? $this->latestQuery(AiRealExecutionTestRun::query()->where('goal_record_id', $goal->id))->first()
+            : null;
+        $patch = ($goal !== null && DatabaseTableAvailability::has('ai_real_execution_patch_runs'))
+            ? $this->latestQuery(AiRealExecutionPatchRun::query()->where('goal_record_id', $goal->id))->first()
+            : null;
+
+        $selected = $test !== null ? array_values((array) $test->selected_tests) : [];
+        $changedFiles = $patch !== null ? array_values((array) $patch->changed_files) : [];
+
+        $bundle = AcceptanceBundle::fromArray([
+            'criteria_hash' => '',
+            'frozen_hash' => '',
+            'changed_files' => $changedFiles,
+            'changed_public_symbols' => [],
+            'execution' => [
+                'commands' => $selected,
+                'claimed_status' => ($test?->status === 'passed') ? 'passed' : 'failed',
+                'tests_run' => 0,            // a lint runs zero test cases
+                'assertions_executed' => 0,  // and zero assertions
+                'selected_tests' => $selected,
+                'artifacts' => $changedFiles,
+            ],
+            'mutation_report' => [],
+            'security_scan' => [],
+            'judges' => [],
+            'context_sufficiency' => 0,
+        ]);
+
+        // Surface-aware witness-set: a forge-promoted goal is witnessed as Forge, otherwise the
+        // autonomous loop's FrozenJudge witness. The invariants (the bar) are identical either way.
+        $trust = ($goal?->promotion_target === 'atlas_forge') ? TrustLevel::Forge : TrustLevel::Autonomos;
+
+        return app(AtlasDevGateAdapter::class)->certify($bundle, $trust);
     }
 
     /**

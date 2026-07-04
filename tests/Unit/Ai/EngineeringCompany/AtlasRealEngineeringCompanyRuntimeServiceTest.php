@@ -42,26 +42,22 @@ class AtlasRealEngineeringCompanyRuntimeServiceTest extends TestCase
     {
         $result = app(AtlasRealEngineeringCompanyRuntimeService::class)->run('execute smoke company runtime com equipe completa');
 
-        $this->assertSame('completed', $result['status']);
+        // Obra #1 cascade: the company can no longer certify itself green ON TOP of the fake-green
+        // real-execution smoke. The sovereign gate blocks the real-execution step, so the whole
+        // engagement is honestly blocked instead of theatre-green. The role machinery still runs.
+        $this->assertSame('blocked', $result['status']);
         $this->assertCount(9, $result['roles']);
-        $this->assertSame('completed', data_get($result, 'real_execution.status'));
-        $this->assertSame('passed', data_get($result, 'review.status'));
-        $this->assertSame('passed', data_get($result, 'qa_run.status'));
-        $this->assertSame('ready_for_internal_delivery', data_get($result, 'release_pack.status'));
+        $this->assertSame('blocked', data_get($result, 'real_execution.status'));
         $this->assertSame('recorded', data_get($result, 'benchmark.status'));
-        $this->assertSame('passed', data_get($result, 'certification.status'));
+        $this->assertSame('blocked', data_get($result, 'certification.status'));
+        // role task-packets still exist; the block is about real execution, not wiring
         $this->assertSame('passed', collect(data_get($result, 'certification.checks'))->firstWhere('id', 'all_roles_have_agent_control_plane_task_packets')['status'] ?? null);
-        $this->assertTrue((bool) data_get($result, 'certification.claim_policy.ready_to_claim_autonomous_software_company'));
+        $this->assertFalse((bool) data_get($result, 'certification.claim_policy.ready_to_claim_autonomous_software_company'));
         $this->assertFalse((bool) data_get($result, 'certification.claim_policy.ready_to_claim_external_superiority'));
-        $this->assertFalse((bool) data_get($result, 'certification.claim_policy.external_benchmark_executed'));
-        $this->assertFalse((bool) data_get($result, 'certification.claim_policy.rivals_provider_called'));
-        $this->assertTrue(AiEngineeringCompanyEngagement::query()->where('status', 'completed')->exists());
+        $this->assertTrue(AiEngineeringCompanyEngagement::query()->where('status', 'blocked')->exists());
         $this->assertSame(9, AiEngineeringCompanyRoleRun::query()->distinct('role_id')->count('role_id'));
-        $this->assertTrue(AiEngineeringCompanyReview::query()->where('status', 'passed')->exists());
-        $this->assertTrue(AiEngineeringCompanyQaRun::query()->where('status', 'passed')->exists());
-        $this->assertTrue(AiEngineeringCompanyReleasePack::query()->where('status', 'ready_for_internal_delivery')->exists());
         $this->assertTrue(AiEngineeringCompanyBenchmark::query()->where('status', 'recorded')->exists());
-        $this->assertTrue(AiEngineeringCompanyCertification::query()->where('status', 'passed')->exists());
+        $this->assertTrue(AiEngineeringCompanyCertification::query()->where('status', 'blocked')->exists());
     }
 
     public function test_independent_review_failure_blocks_company_delivery(): void
@@ -93,7 +89,8 @@ class AtlasRealEngineeringCompanyRuntimeServiceTest extends TestCase
     {
         $result = app(AtlasRealEngineeringCompanyRuntimeService::class)->run('refatore todo o subsistema enterprise em obra multi-ciclo pesada');
 
-        $this->assertSame('completed', $result['status']);
+        // forge promotion is preserved even though the engagement is honestly blocked by the gate
+        $this->assertSame('blocked', $result['status']);
         $this->assertSame('atlas_forge', data_get($result, 'real_execution.goal.promotion_target'));
         $this->assertSame('ready_for_forge', data_get($result, 'real_execution.forge_handoff.status'));
         $this->assertSame('ready_for_forge', data_get($result, 'release_pack.summary.forge_handoff'));

@@ -41,21 +41,24 @@ class AtlasRealEngineeringExecutionKernelServiceTest extends TestCase
     {
         $result = app(AtlasRealEngineeringExecutionKernelService::class)->run('implemente smoke real de engenharia com patch e teste');
 
-        $this->assertSame('completed', $result['status']);
+        // Obra #1 — the fake-green is dead: a `php -l` smoke is NOT a certifiable engineering green.
+        // The sovereign AcceptanceGate refuses the recorded lint-as-suite evidence, so the overall
+        // run is honestly blocked even though the sandbox worktree/patch/lint mechanics still ran.
+        $this->assertSame('blocked', $result['status']);
         $this->assertSame('ready', data_get($result, 'worktree.status'));
         $this->assertSame('sandbox_worktree', data_get($result, 'worktree.isolation_mode'));
         $this->assertFileExists(data_get($result, 'worktree.base_path').'/runtime/atlas_real_execution_smoke.php');
         $this->assertSame('applied', data_get($result, 'patch_run.status'));
         $this->assertSame('passed', data_get($result, 'patch_run.scope_guard.status'));
-        $this->assertSame('passed', data_get($result, 'test_run.status'));
-        $this->assertTrue(data_get($result, 'test_run.receipt.actual_gate_executed'));
+        // the lint itself ran and passed, but it is labelled honestly (only `php -l`, no claimed suite)
         $this->assertStringContainsString('php -l', data_get($result, 'test_run.selected_tests.0'));
+        $this->assertCount(1, (array) data_get($result, 'test_run.selected_tests'));
         $this->assertStringContainsString('No syntax errors', data_get($result, 'test_run.output_excerpt'));
-        $this->assertSame('ready_for_internal_use', data_get($result, 'delivery_pack.status'));
-        $this->assertSame('passed', data_get($result, 'certification.status'));
+        // the certification is BLOCKED, and the sovereign engineering gate is the blocker
+        $this->assertSame('blocked', data_get($result, 'certification.status'));
+        $this->assertContains('sovereign_engineering_gate_promoted', (array) data_get($result, 'certification.blockers'));
         $this->assertTrue(AiRealExecutionWorktree::query()->exists());
         $this->assertTrue(AiRealExecutionPatchRun::query()->exists());
-        $this->assertTrue(AiRealExecutionTestRun::query()->where('status', 'passed')->exists());
         $this->assertTrue(AiRealExecutionDeliveryPack::query()->exists());
     }
 
@@ -65,10 +68,12 @@ class AtlasRealEngineeringExecutionKernelServiceTest extends TestCase
             'test_status' => 'failed',
         ]);
 
-        $this->assertSame('completed', $result['status']);
+        // repair mechanics still run; the overall result is honestly blocked by the sovereign gate
+        $this->assertSame('blocked', $result['status']);
         $this->assertSame('repaired', data_get($result, 'repair_attempt.status'));
         $this->assertSame('focused_test_failure', data_get($result, 'repair_attempt.failure_class'));
         $this->assertSame('passed', data_get($result, 'test_run.status'));
+        $this->assertContains('sovereign_engineering_gate_promoted', (array) data_get($result, 'certification.blockers'));
         $this->assertTrue(AiRealExecutionTestRun::query()->where('status', 'failed')->exists());
         $this->assertTrue(AiRealExecutionTestRun::query()->where('status', 'passed')->exists());
         $this->assertTrue(AiRealExecutionRepairAttempt::query()->where('status', 'repaired')->exists());
@@ -168,10 +173,14 @@ class AtlasRealEngineeringExecutionKernelServiceTest extends TestCase
             'claim_allowed' => false,
         ]);
 
-        $this->assertSame('completed', $result['status']);
+        // The external-rivals axis is unlocked (benchmark executed), but the sovereign engineering
+        // gate still refuses the fake smoke evidence — so full certification is honestly blocked.
+        $this->assertSame('blocked', $result['status']);
         $this->assertSame('external_executed', data_get($result, 'rivals_benchmark.status'));
-        $this->assertSame('passed', data_get($result, 'certification.status'));
+        $this->assertSame('blocked', data_get($result, 'certification.status'));
         $this->assertSame('full', data_get($result, 'certification.scope'));
+        $this->assertContains('sovereign_engineering_gate_promoted', (array) data_get($result, 'certification.blockers'));
+        $this->assertNotContains('external_rivals_benchmark_executed', (array) data_get($result, 'certification.blockers'));
         $this->assertFalse(data_get($result, 'certification.claim_policy.ready_to_claim_100x_vs_claude_codex'));
     }
 
@@ -200,9 +209,12 @@ class AtlasRealEngineeringExecutionKernelServiceTest extends TestCase
             ],
         ]);
 
-        $this->assertSame('completed', $result['status']);
+        // native forge evidence pack is accepted (rivals axis), but the sovereign gate still blocks
+        // the engineering green from fake smoke evidence.
+        $this->assertSame('blocked', $result['status']);
         $this->assertSame('external_executed', data_get($result, 'rivals_benchmark.status'));
-        $this->assertSame('passed', data_get($result, 'certification.status'));
+        $this->assertSame('blocked', data_get($result, 'certification.status'));
+        $this->assertContains('sovereign_engineering_gate_promoted', (array) data_get($result, 'certification.blockers'));
     }
 
     public function test_certification_blocks_without_real_execution_evidence(): void

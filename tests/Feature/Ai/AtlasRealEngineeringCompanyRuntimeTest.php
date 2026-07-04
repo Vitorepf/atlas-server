@@ -49,8 +49,11 @@ class AtlasRealEngineeringCompanyRuntimeTest extends TestCase
         ]);
         $run = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
 
-        $this->assertSame(0, $runExit);
-        $this->assertSame('completed', $run['status']);
+        // Obra #1: the company can no longer certify green on top of the fake-green smoke; the
+        // sovereign gate blocks the real-execution step, so the engagement is honestly blocked and
+        // the command honestly exits non-zero.
+        $this->assertSame(1, $runExit);
+        $this->assertSame('blocked', $run['status']);
         $this->assertCount(9, $run['roles']);
         foreach ($run['roles'] as $role) {
             $this->assertSame('standard_agent_control_plane_task_packet', data_get($role, 'output.agent_runtime_mode'));
@@ -60,11 +63,10 @@ class AtlasRealEngineeringCompanyRuntimeTest extends TestCase
             $this->assertFalse((bool) data_get($role, 'output.agent_control_plane_task_packet.provider_call_allowed'));
             $this->assertFalse((bool) data_get($role, 'output.agent_control_plane_task_packet.token_spend_allowed'));
         }
-        $this->assertSame('completed', data_get($run, 'real_execution.status'));
-        $this->assertSame('ready_for_internal_delivery', data_get($run, 'release_pack.status'));
-        $this->assertSame('passed', data_get($run, 'certification.status'));
+        $this->assertSame('blocked', data_get($run, 'real_execution.status'));
+        $this->assertSame('blocked', data_get($run, 'certification.status'));
         $this->assertSame('passed', collect(data_get($run, 'certification.checks'))->firstWhere('id', 'all_roles_have_agent_control_plane_task_packets')['status'] ?? null);
-        $this->assertTrue((bool) data_get($run, 'certification.claim_policy.ready_to_claim_autonomous_software_company'));
+        $this->assertFalse((bool) data_get($run, 'certification.claim_policy.ready_to_claim_autonomous_software_company'));
         $this->assertFalse((bool) data_get($run, 'certification.claim_policy.ready_to_claim_external_superiority'));
         $this->assertFalse((bool) data_get($run, 'certification.claim_policy.external_benchmark_executed'));
         $this->assertFalse((bool) data_get($run, 'certification.claim_policy.rivals_provider_called'));
@@ -80,9 +82,8 @@ class AtlasRealEngineeringCompanyRuntimeTest extends TestCase
         $certifyExit = Artisan::call('atlas:ai:engineering-company', ['action' => 'certify', '--json' => true]);
         $certification = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
 
-        $this->assertSame(0, $certifyExit);
-        $this->assertSame('passed', $certification['status']);
-        $this->assertSame([], $certification['blockers']);
+        $this->assertSame('blocked', $certification['status']);
+        $this->assertNotEmpty($certification['blockers']);
     }
 
     public function test_runtime_persists_company_contracts(): void
@@ -93,7 +94,7 @@ class AtlasRealEngineeringCompanyRuntimeTest extends TestCase
             '--json' => true,
         ]);
 
-        $this->assertTrue(AiEngineeringCompanyEngagement::query()->where('schema_version', 'atlas.ai.engineering_company.engagement.v1')->where('status', 'completed')->exists());
+        $this->assertTrue(AiEngineeringCompanyEngagement::query()->where('schema_version', 'atlas.ai.engineering_company.engagement.v1')->where('status', 'blocked')->exists());
         $this->assertSame(9, AiEngineeringCompanyRoleRun::query()->where('schema_version', 'atlas.ai.engineering_company.role_run.v1')->distinct('role_id')->count('role_id'));
         $role = AiEngineeringCompanyRoleRun::query()->firstOrFail();
         $this->assertSame('standard_agent_control_plane_task_packet', data_get($role->output, 'agent_runtime_mode'));
