@@ -232,7 +232,18 @@ final class AtlasExternalBrainDecisionLedgerCompactor
 
     private function groupKey(array $sortedCauses, string $outcome, string $scope): string
     {
-        return hash('sha256', implode(',', $sortedCauses).'|'.$outcome.'|'.$scope);
+        $causesStr = implode(',', $sortedCauses);
+        $parts = $this->lengthPrefix($causesStr).'|'.$this->lengthPrefix($outcome).'|'.$this->lengthPrefix($scope);
+
+        return hash('sha256', $parts);
+    }
+
+    /**
+     * Length-prefix a value so a delimiter inside the value cannot collide with the field separator.
+     */
+    private function lengthPrefix(string $value): string
+    {
+        return strlen($value).':'.$value;
     }
 
     private function lesson(
