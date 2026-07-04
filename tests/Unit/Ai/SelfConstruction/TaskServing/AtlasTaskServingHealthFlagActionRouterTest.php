@@ -94,7 +94,7 @@ final class AtlasTaskServingHealthFlagActionRouterTest extends TestCase
         $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_OBSERVE_NOOP, $r['primary_action']);
     }
 
-    public function test_lease_leak_with_nonzero_recoverable_routes_to_reap_leases_not_observe(): void
+    public function test_lease_leak_with_nonzero_recoverable_routes_to_diagnose_lease_mismatch(): void
     {
         $r = $this->router()->route($this->snapshot([
             'servable_now' => 8,
@@ -103,8 +103,8 @@ final class AtlasTaskServingHealthFlagActionRouterTest extends TestCase
             'health_flags' => ['lease_leak_detected' => true],
         ]));
 
-        // recoverable_backlog wins priority — a real leak with real backlog is stronger than observe.
-        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_REAP_LEASES, $r['primary_action']);
+        // lease_leak with recoverable leases → diagnose_lease_mismatch, not catch-all reap.
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_DIAGNOSE_LEASE_MISMATCH, $r['primary_action']);
     }
 
     public function test_clean_servable_queue_routes_to_continue_work(): void
@@ -181,5 +181,93 @@ final class AtlasTaskServingHealthFlagActionRouterTest extends TestCase
         foreach (['Artisan::', 'exec(', 'shell_exec', 'Process::', 'Http::', 'DB::', '->update(', '->delete('] as $forbidden) {
             $this->assertStringNotContainsString($forbidden, $src, "router must not call {$forbidden}");
         }
+    }
+
+    // ── AC2: lease_leak_detected maps to diagnose_lease_mismatch ──
+
+    public function test_lease_leak_detected_maps_to_diagnose_lease_mismatch(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'leases_match_claimed' => false,
+            'recoverable' => ['total' => 1],
+            'health_flags' => ['lease_leak_detected' => true],
+        ]));
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_DIAGNOSE_LEASE_MISMATCH, $r['primary_action']);
+        $this->assertNotSame(AtlasTaskServingHealthFlagActionRouter::ACTION_TOP_UP_QUEUE_BEFORE_STARVATION, $r['primary_action']);
+    }
+
+    // ── AC3: dry_queue, serving_jammed, recoverable_backlog keep distinct actions ──
+
+    public function test_dry_queue_still_routes_to_replenish_or_repair(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'health_flags' => ['dry_queue' => true],
+        ]));
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_REPLENISH_OR_REPAIR, $r['primary_action']);
+    }
+
+    public function test_serving_jammed_still_routes_to_replenish_or_repair(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'health_flags' => ['serving_jammed' => true],
+        ]));
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_REPLENISH_OR_REPAIR, $r['primary_action']);
+    }
+
+    public function test_backlog_still_routes_to_reap_leases(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'recoverable' => ['total' => 5],
+        ]));
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_REAP_LEASES, $r['primary_action']);
+    }
+
+    // ── AC4: recommended_command_or_service and human_required ──
+
+    public function test_output_has_recommended_command_or_service(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'health_flags' => ['dry_queue' => true],
+        ]));
+
+        $this->assertArrayHasKey('recommended_command_or_service', $r);
+        $this->assertNotEmpty($r['recommended_command_or_service']);
+    }
+
+    public function test_output_has_human_required(): void
+    {
+        $clean = $this->router()->route($this->snapshot());
+        $this->assertArrayHasKey('human_required', $clean);
+        $this->assertIsBool($clean['human_required']);
+    }
+
+    public function test_human_required_false_for_atlas_native_actions(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'health_flags' => ['dry_queue' => true],
+        ]));
+        // replenish_or_repair is an Atlas-native action
+        $this->assertFalse($r['human_required']);
+    }
+
+    public function test_human_required_true_for_observe_noop(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'leases_match_claimed' => false,
+            'health_flags' => ['lease_leak_detected' => true],
+        ]));
+        $this->assertTrue($r['human_required']);
+    }
+
+    public function test_diagnose_lease_mismatch_has_recommended_command(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'leases_match_claimed' => false,
+            'recoverable' => ['total' => 2],
+            'health_flags' => ['lease_leak_detected' => true],
+        ]));
+
+        $this->assertStringContainsString('diagnose-lease-mismatch', $r['recommended_command_or_service']);
     }
 }
