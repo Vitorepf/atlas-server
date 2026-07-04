@@ -39,6 +39,9 @@ final class ReleaseDecisionReceiptLedgerAdapterTest extends TestCase
             'changed_files_hash' => 'files-hash-1',
             'project_lane' => ['project_id' => 'proj-1'],
             'decided_at' => '2026-07-01T00:00:00+00:00',
+            // required by the hardened ledger contract (codex-meta-proof-merge-governor-...-evidence)
+            'evidence_refs' => ['verification:ver-hash-1'],
+            'rollback_posture' => 'auto_revert_on_regression',
         ], $overrides);
     }
 
