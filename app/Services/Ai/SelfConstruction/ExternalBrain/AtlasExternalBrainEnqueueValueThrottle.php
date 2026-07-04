@@ -144,6 +144,11 @@ final class AtlasExternalBrainEnqueueValueThrottle
             in_array('low_value', $blockers, true) => 'wait_for_higher_value_candidates',
             in_array('theme_saturated', $blockers, true) => 'pivot_to_different_theme',
             in_array('unrelated_to_high_priority_gaps', $blockers, true) => 'realign_to_roadmap_coverage_gaps',
+            in_array('worker_throughput_insufficient', $blockers, true)
+                && $batchValueScore >= self::LOW_VALUE_THRESHOLD
+                && $noveltyScore >= self::SATURATION_NOVELTY_THRESHOLD
+                && $roadmapCoverageScore >= self::ROADMAP_COVERAGE_THRESHOLD
+                => 'reduce_batch_size_or_select_worker_safe_tasks',
             in_array('worker_throughput_insufficient', $blockers, true) => 'wait_for_worker_capacity_to_recover',
             in_array('padding_detected', $blockers, true) => 'remove_padding_and_resubmit_only_substantive_tasks',
             in_array('queue_saturated_low_leverage', $blockers, true) => 'prove_high_novelty_leverage_and_proof_demand_before_deep_queue_enqueue',

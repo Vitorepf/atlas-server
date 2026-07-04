@@ -85,13 +85,28 @@ final class AtlasExternalBrainEnqueueValueThrottleTest extends TestCase
         $this->assertSame('realign_to_roadmap_coverage_gaps', $result['pivot_recommendation']);
     }
 
-    public function test_low_worker_drain_confidence_blocks(): void
+    public function test_low_worker_drain_confidence_with_strong_quality_pivots_to_active_reduction(): void
     {
+        // When value, novelty and roadmap coverage are strong but worker capacity is low,
+        // the throttle must pivot to active batch reduction, not passive waiting.
         $result = $this->throttle->throttle($this->input(['worker_drain_confidence' => 0.1]));
 
         $this->assertFalse($result['allow_enqueue']);
         $this->assertContains('worker_throughput_insufficient', $result['blockers']);
-        $this->assertSame('wait_for_worker_capacity_to_recover', $result['pivot_recommendation']);
+        $this->assertSame('reduce_batch_size_or_select_worker_safe_tasks', $result['pivot_recommendation']);
+    }
+
+    public function test_low_worker_drain_with_low_quality_still_blocks_honestly(): void
+    {
+        // When worker throughput AND value are both weak, low_value blocks first.
+        $result = $this->throttle->throttle($this->input([
+            'worker_drain_confidence' => 0.1,
+            'batch_value_score'       => 0.3,
+        ]));
+
+        $this->assertFalse($result['allow_enqueue']);
+        $this->assertContains('low_value', $result['blockers']);
+        $this->assertSame('wait_for_higher_value_candidates', $result['pivot_recommendation']);
     }
 
     public function test_salvageable_batch_returns_trimmed_task_ids(): void
