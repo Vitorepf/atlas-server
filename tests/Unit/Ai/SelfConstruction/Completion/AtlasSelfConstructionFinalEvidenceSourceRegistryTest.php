@@ -925,4 +925,45 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
         }
         $this->assertTrue($found, 'expected source_missing_required_field blocker for '.$targetSource['id']);
     }
+
+    // ── trust_floor, replay_required, provider_safe_exposure, missing_source_reasons, allowed_final_sources ──
+
+    public function test_every_source_has_trust_floor_replay_required_and_provider_safe_exposure(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        foreach ($description['required_sources'] as $s) {
+            $this->assertArrayHasKey('trust_floor', $s, "{$s['id']} missing trust_floor");
+            $this->assertArrayHasKey('replay_required', $s, "{$s['id']} missing replay_required");
+            $this->assertArrayHasKey('provider_safe_exposure', $s, "{$s['id']} missing provider_safe_exposure");
+        }
+    }
+
+    public function test_blocking_sources_have_required_trust_floor(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        foreach ($description['required_sources'] as $s) {
+            if ($s['blocking']) {
+                $this->assertSame('required', $s['trust_floor'], "{$s['id']} blocking source must have trust_floor=required");
+            }
+        }
+    }
+
+    public function test_describe_output_has_allowed_final_sources_and_missing_source_reasons(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $this->assertArrayHasKey('allowed_final_sources', $description);
+        $this->assertArrayHasKey('missing_source_reasons', $description);
+        $this->assertIsArray($description['allowed_final_sources']);
+        $this->assertIsArray($description['missing_source_reasons']);
+    }
+
+    public function test_allowed_final_sources_matches_blocking_source_ids(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $this->assertSame($description['blocking_source_ids'], $description['allowed_final_sources']);
+    }
 }
