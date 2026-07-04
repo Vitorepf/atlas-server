@@ -52,6 +52,7 @@ class AgentControlPlaneReplayDiffService
         if ($beforeReplay === null) {
             $payload = $this->emptyDiffPayload('no_baseline', $diffId, $generatedAt, $beforeResolution, $afterResolution);
             $payload['diff_hash'] = $this->stableHash($this->normalizeForDiffHash($payload));
+            $payload['mismatch_classification'] = ['mismatches' => [], 'summary' => [], 'deterministic' => true];
 
             return $payload;
         }
@@ -59,6 +60,7 @@ class AgentControlPlaneReplayDiffService
         if ($afterReplay === null) {
             $payload = $this->emptyDiffPayload('no_target', $diffId, $generatedAt, $beforeResolution, $afterResolution);
             $payload['diff_hash'] = $this->stableHash($this->normalizeForDiffHash($payload));
+            $payload['mismatch_classification'] = ['mismatches' => [], 'summary' => [], 'deterministic' => true];
 
             return $payload;
         }
@@ -367,6 +369,9 @@ class AgentControlPlaneReplayDiffService
 
         $payload['diff_hash'] = $this->stableHash($this->normalizeForDiffHash($payload));
 
+        // Classify mismatches into actionable repair hints
+        $payload['mismatch_classification'] = $this->classifyMismatches($beforeReplay, $afterReplay);
+
         return $payload;
     }
 
@@ -670,5 +675,88 @@ class AgentControlPlaneReplayDiffService
         $payload = $this->recursivelyKsort($payload);
 
         return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Classify replay mismatches into actionable repair hints.
+     *
+     * @param  array<string, mixed>|null  $before
+     * @param  array<string, mixed>|null  $after
+     * @return array{mismatches: list<array{kind:string, affected_stage:string, expected_hash:string, actual_hash:string, repair_hint:string}>, summary: array<string,int>, deterministic: bool}
+     */
+    private function classifyMismatches(?array $before, ?array $after): array
+    {
+        if ($before === null || $after === null) {
+            return ['mismatches' => [], 'summary' => [], 'deterministic' => true];
+        }
+
+        $mismatches = [];
+
+        // Compare stage hashes
+        $beforeStages = (array) data_get($before, 'stage_hashes', []);
+        $afterStages = (array) data_get($after, 'stage_hashes', []);
+
+        foreach (['context', 'task', 'execution', 'proof', 'learning'] as $stage) {
+            $beforeHash = (string) data_get($beforeStages, $stage, '');
+            $afterHash = (string) data_get($afterStages, $stage, '');
+
+            if ($beforeHash !== $afterHash && $beforeHash !== '' && $afterHash !== '') {
+                $kind = $this->classifyStageMismatch($stage, $before, $after);
+                $mismatches[] = [
+                    'kind' => $kind,
+                    'affected_stage' => $stage,
+                    'expected_hash' => $beforeHash,
+                    'actual_hash' => $afterHash,
+                    'repair_hint' => $this->repairHint($kind, $stage),
+                ];
+            }
+        }
+
+        // Sort mismatches deterministically by stage
+        usort($mismatches, static fn ($a, $b) => strcmp($a['affected_stage'], $b['affected_stage']));
+
+        // Summary counts by kind
+        $summary = ['data_drift' => 0, 'code_drift' => 0, 'evidence_drift' => 0, 'nondeterministic_output' => 0];
+        foreach ($mismatches as $m) {
+            $kind = $m['kind'];
+            if (isset($summary[$kind])) {
+                $summary[$kind]++;
+            }
+        }
+
+        return [
+            'mismatches' => $mismatches,
+            'summary' => $summary,
+            'deterministic' => true,
+        ];
+    }
+
+    /**
+     * Classify a stage mismatch into a drift kind.
+     */
+    private function classifyStageMismatch(string $stage, array $before, array $after): string
+    {
+        return match ($stage) {
+            'context' => 'data_drift',
+            'task' => 'code_drift',
+            'execution' => 'code_drift',
+            'proof' => 'evidence_drift',
+            'learning' => 'nondeterministic_output',
+            default => 'data_drift',
+        };
+    }
+
+    /**
+     * Generate a repair hint for a mismatch kind and stage.
+     */
+    private function repairHint(string $kind, string $stage): string
+    {
+        return match ($kind) {
+            'data_drift' => "Reconcile {$stage} data source: verify upstream input has not changed unexpectedly.",
+            'code_drift' => "Reconcile {$stage} code changes: verify the implementation matches the expected behavior.",
+            'evidence_drift' => "Reconcile {$stage} evidence: verify proof artifacts are derived from the same source.",
+            'nondeterministic_output' => "Investigate {$stage} nondeterminism: check for timestamp, ordering or random seed variance.",
+            default => "Review {$stage} mismatch and reconcile with expected state.",
+        };
     }
 }
