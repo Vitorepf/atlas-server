@@ -30,6 +30,7 @@ final class AtlasExternalBrainProposalArenaTest extends TestCase
             'is_proxy'                  => false,
             'is_duplicate'              => false,
             'has_runnable_evidence_path' => true,
+            'evidence_refs'             => ['receipt:default-a', 'receipt:default-b'],
         ], $overrides);
     }
 
@@ -170,6 +171,73 @@ final class AtlasExternalBrainProposalArenaTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
         $this->assertNull($result['winner']);
+    }
+
+    // ── AC1: evidence quorum ─────────────────────────────────────────────────
+
+    public function test_no_evidence_refs_is_rejected_as_evidence_quorum(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('blind', ['evidence_refs' => []]),
+        ]]);
+
+        $reasons = array_column($result['rejected'], 'reason', 'proposal_id');
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_EVIDENCE_QUORUM, $reasons['blind']);
+    }
+
+    public function test_single_evidence_ref_is_rejected_as_evidence_quorum(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('single-src', ['evidence_refs' => ['receipt:a']]),
+        ]]);
+
+        $reasons = array_column($result['rejected'], 'reason', 'proposal_id');
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_EVIDENCE_QUORUM, $reasons['single-src']);
+    }
+
+    public function test_self_asserted_proposal_is_rejected_even_with_two_evidence_refs(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('self', [
+                'self_asserted'  => true,
+                'evidence_refs'  => ['receipt:a', 'receipt:b'],
+            ]),
+        ]]);
+
+        $reasons = array_column($result['rejected'], 'reason', 'proposal_id');
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_EVIDENCE_QUORUM, $reasons['self']);
+    }
+
+    public function test_two_evidence_refs_and_not_self_asserted_passes_quorum(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('p1', ['evidence_refs' => ['receipt:a', 'receipt:b']]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_WINNER_SELECTED, $result['verdict']);
+        $this->assertSame('p1', $result['winner']['proposal_id']);
+        $this->assertSame([], $result['rejected']);
+    }
+
+    public function test_high_scoring_proposal_rejected_when_self_asserted(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('top-scores', [
+                'leverage'           => 1.0,
+                'evidence_strength'  => 1.0,
+                'self_asserted'       => true,
+                'evidence_refs'       => ['receipt:a', 'receipt:b'],
+            ]),
+            $this->proposal('modest-but-real', [
+                'leverage'           => 0.5,
+                'evidence_strength'  => 0.5,
+                'evidence_refs'       => ['receipt:x', 'receipt:y'],
+            ]),
+        ]]);
+
+        $this->assertSame('modest-but-real', $result['winner']['proposal_id']);
+        $reasons = array_column($result['rejected'], 'reason', 'proposal_id');
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_EVIDENCE_QUORUM, $reasons['top-scores']);
     }
 
     // ── Anti-Goodhart risk reduces score (bad) more than queue pressure ──────

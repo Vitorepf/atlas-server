@@ -45,6 +45,7 @@ final class AtlasExternalBrainProposalArena
     public const DISQUALIFY_DUPLICATE          = 'duplicate';
     public const DISQUALIFY_UNIMPLEMENTABLE    = 'unimplementable';
     public const DISQUALIFY_NO_EVIDENCE_PATH   = 'no_runnable_evidence_path';
+    public const DISQUALIFY_EVIDENCE_QUORUM    = 'evidence_quorum';
     public const DISQUALIFY_TEMPLATE_FARM      = 'template_farm';
 
     private const IMPLEMENTABILITY_FLOOR    = 0.30;
@@ -146,12 +147,33 @@ final class AtlasExternalBrainProposalArena
         if (array_key_exists('has_runnable_evidence_path', $proposal) && ! (bool) $proposal['has_runnable_evidence_path']) {
             return self::DISQUALIFY_NO_EVIDENCE_PATH;
         }
+        if (! $this->hasEvidenceQuorum($proposal)) {
+            return self::DISQUALIFY_EVIDENCE_QUORUM;
+        }
         if ((float) ($proposal['template_similarity'] ?? 0.0) >= self::TEMPLATE_FARM_SIMILARITY
             && (int) ($proposal['repeated_pattern_count'] ?? 0) >= self::TEMPLATE_FARM_REPEAT) {
             return self::DISQUALIFY_TEMPLATE_FARM;
         }
 
         return null;
+    }
+
+    /**
+     * AC1: a proposal needs at least two independent evidence_refs and must not
+     * be self-asserted. Single-source or self-asserted proposals are rejected
+     * regardless of numeric score.
+     *
+     * @param  array<string,mixed>  $proposal
+     */
+    private function hasEvidenceQuorum(array $proposal): bool
+    {
+        if ((bool) ($proposal['self_asserted'] ?? false)) {
+            return false;
+        }
+
+        $evidenceRefs = (array) ($proposal['evidence_refs'] ?? []);
+
+        return count($evidenceRefs) >= 2;
     }
 
     private function computeScore(array $proposal): float
