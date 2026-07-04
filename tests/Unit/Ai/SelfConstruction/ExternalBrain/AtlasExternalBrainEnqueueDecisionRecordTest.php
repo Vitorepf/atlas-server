@@ -49,6 +49,7 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
                 'value_density' => 0.9,
                 'expected_compounding_effect' => 'reduces_give_back_risk',
             ],
+            'expected_proof_path' => 'unit_tests',
             'operator_visible_reason' => 'High-value Brain family fix',
         ]);
 
@@ -88,5 +89,78 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
         ]);
 
         $this->assertTrue($result['accepted']);
+    }
+
+    // ── why-this-task-now fields ──
+
+    public function test_enqueue_without_proof_path_is_refused(): void
+    {
+        $result = $this->gate->record([
+            'decision' => 'enqueue',
+            'validation_evidence' => [
+                'value_density' => 0.9,
+                'expected_compounding_effect' => 'reduces_give_back_risk',
+            ],
+        ]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('missing:expected_proof_path', $result['blockers']);
+    }
+
+    public function test_accepted_enqueue_includes_all_why_this_task_now_fields(): void
+    {
+        $result = $this->gate->record([
+            'decision' => 'enqueue',
+            'validation_evidence' => [
+                'value_density' => 0.9,
+                'expected_compounding_effect' => 'reduces_give_back_risk',
+            ],
+            'alternatives_considered' => ['task_a', 'task_b'],
+            'chosen_leverage_reason' => 'highest_compounding_effect',
+            'rejected_padding_risk' => 'low_value_docs_sync',
+            'expected_proof_path' => 'unit_tests_and_gate',
+            'duplicate_check_summary' => 'no_existing_match',
+        ]);
+
+        $this->assertTrue($result['accepted']);
+        $this->assertSame(['task_a', 'task_b'], $result['record']['alternatives_considered']);
+        $this->assertSame('highest_compounding_effect', $result['record']['chosen_leverage_reason']);
+        $this->assertSame('low_value_docs_sync', $result['record']['rejected_padding_risk']);
+        $this->assertSame('unit_tests_and_gate', $result['record']['expected_proof_path']);
+        $this->assertSame('no_existing_match', $result['record']['duplicate_check_summary']);
+        $this->assertFalse($result['record']['invalid']);
+    }
+
+    public function test_alternatives_without_leverage_reason_is_invalid(): void
+    {
+        $result = $this->gate->record([
+            'decision' => 'enqueue',
+            'validation_evidence' => [
+                'value_density' => 0.9,
+                'expected_compounding_effect' => 'reduces_give_back_risk',
+            ],
+            'alternatives_considered' => ['task_a'],
+            'chosen_leverage_reason' => '',
+            'expected_proof_path' => 'unit_tests',
+        ]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('missing:chosen_leverage_reason', $result['blockers']);
+    }
+
+    public function test_enqueue_with_proof_path_and_no_alternatives_is_valid(): void
+    {
+        $result = $this->gate->record([
+            'decision' => 'enqueue',
+            'validation_evidence' => [
+                'value_density' => 0.9,
+                'expected_compounding_effect' => 'reduces_give_back_risk',
+            ],
+            'expected_proof_path' => 'unit_tests',
+        ]);
+
+        $this->assertTrue($result['accepted']);
+        $this->assertFalse($result['record']['invalid']);
+        $this->assertSame([], $result['record']['alternatives_considered']);
     }
 }

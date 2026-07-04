@@ -78,6 +78,26 @@ final class AtlasExternalBrainEnqueueDecisionRecord
             $blockers[] = 'missing:expected_compounding_effect';
         }
 
+        // why-this-task-now fields
+        $alternativesConsidered = array_values(array_map('strval', (array) ($input['alternatives_considered'] ?? [])));
+        $chosenLeverageReason = (string) ($input['chosen_leverage_reason'] ?? '');
+        $rejectedPaddingRisk = (string) ($input['rejected_padding_risk'] ?? '');
+        $expectedProofPath = (string) ($input['expected_proof_path'] ?? '');
+        $duplicateCheckSummary = (string) ($input['duplicate_check_summary'] ?? '');
+
+        // expected_proof_path is mandatory for enqueue
+        if ($expectedProofPath === '') {
+            $blockers[] = 'missing:expected_proof_path';
+        }
+
+        // chosen_leverage_reason required when alternatives were considered
+        if ($alternativesConsidered !== [] && $chosenLeverageReason === '') {
+            $blockers[] = 'missing:chosen_leverage_reason';
+        }
+
+        // invalid flag: lack of proof path or cannot explain why task outranks alternatives
+        $invalid = $expectedProofPath === '' || ($alternativesConsidered !== [] && $chosenLeverageReason === '');
+
         if (count($blockers) > 0) {
             return $this->fail($blockers);
         }
@@ -90,6 +110,12 @@ final class AtlasExternalBrainEnqueueDecisionRecord
                 'value_density' => $valueDensity,
                 'expected_compounding_effect' => $compoundingEffect,
                 'operator_visible_reason' => $operatorReason ?? 'value_density=' . $valueDensity,
+                'alternatives_considered' => $alternativesConsidered,
+                'chosen_leverage_reason' => $chosenLeverageReason,
+                'rejected_padding_risk' => $rejectedPaddingRisk,
+                'expected_proof_path' => $expectedProofPath,
+                'duplicate_check_summary' => $duplicateCheckSummary,
+                'invalid' => $invalid,
             ],
             'blockers' => [],
         ];
