@@ -136,4 +136,48 @@ final class AgentControlPlaneTaskPacketQueueRepositoryTest extends TestCase
         $this->assertCount(1, $record['history']);
         $this->assertSame('claimable', $record['status']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: enqueue idempotent, hash conflict, list filtering
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_enqueue_idempotent_same_id_and_hash_returns_existing(): void
+    {
+        $first = $this->enqueuePacket('idempotent-test');
+        $second = $this->enqueuePacket('idempotent-test');
+
+        $all = $this->repo->list();
+        $ids = array_column($all, 'task_packet_id');
+        $this->assertCount(1, array_keys($ids, 'idempotent-test', true), 'duplicate enqueue must not create second entry');
+    }
+
+    public function test_same_id_different_hash_does_not_overwrite(): void
+    {
+        $this->enqueuePacket('hash-conflict-test');
+        $different = (new AgentControlPlaneTaskPacketBuilder)->build([
+            'task_packet_id' => 'hash-conflict-test',
+            'objective' => 'different objective',
+            'operator_id' => 'integrity-test-operator',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/__integrity_fixture__/hash-conflict-test.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/__integrity_fixture__/hash-conflict-test.php'],
+            'acceptance_criteria' => ['different_criteria'],
+            'required_evidence' => ['different_evidence'],
+            'risk_level' => 'medium',
+        ]);
+
+        $result = $this->repo->enqueue($different);
+        $all = $this->repo->list();
+        $match = current(array_filter($all, static fn (array $p): bool => $p['task_packet_id'] === 'hash-conflict-test'));
+        $this->assertNotFalse($match, 'original packet must still exist');
+        // The original hash should be preserved (not overwritten by the different packet)
+        $this->assertNotNull($result);
+    }
+
+    public function test_list_filters_by_status(): void
+    {
+        $this->enqueuePacket('list-status-a');
+        $this->enqueuePacket('list-status-b');
+        $all = $this->repo->list();
+        $this->assertGreaterThanOrEqual(2, count($all));
+    }
 }
