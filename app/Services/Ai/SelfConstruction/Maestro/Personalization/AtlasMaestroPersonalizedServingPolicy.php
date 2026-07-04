@@ -181,4 +181,75 @@ final class AtlasMaestroPersonalizedServingPolicy
             'defer_reason' => $deferReason,
         ];
     }
+
+    /**
+     * Enriched decision contract: selected_worker, preference_applied, preference_blocked_reason, safety_constraints_checked.
+     *
+     * @param  array<string,mixed>  $packet
+     * @param  array<string,mixed>  $workerContext
+     * @return array{selected_worker:string|null, preference_applied:bool, preference_blocked_reason:string, safety_constraints_checked:bool, advisory:bool, shape_match:float, reasons:list<string>, client_id:string, packet_id:string, deferred:bool, defer_reason:?string}
+     */
+    public function decideWithContract(string $clientId, array $packet, array $workerContext = []): array
+    {
+        $base = $this->decide($clientId, $packet, $workerContext);
+        $taskFamily = (string) ($packet['task_family'] ?? '');
+        $riskLevel = (string) ($packet['risk_level'] ?? '');
+        $skillScores = (array) ($workerContext['skill_scores'] ?? []);
+        $preferredFamilies = array_map('strval', (array) ($workerContext['preferred_families'] ?? []));
+        $familyPoisonRates = (array) ($workerContext['family_poison_rate'] ?? []);
+
+        // Check safety constraints
+        $safetyConstraintsChecked = true;
+
+        // Determine if preference was applied
+        $preferenceApplied = false;
+        $preferenceBlockedReason = '';
+
+        // Check if the worker has a preference for this task family
+        if ($taskFamily !== '' && in_array($taskFamily, $preferredFamilies, true)) {
+            $familyPoisonRate = (float) ($familyPoisonRates[$taskFamily] ?? 0.0);
+            if ($familyPoisonRate <= self::PREFERRED_FAMILY_POISON_CEILING) {
+                $preferenceApplied = true;
+            } else {
+                $preferenceBlockedReason = 'high_poison_history_for_preferred_family';
+            }
+        }
+
+        // Safety: high-risk tasks require proven capability — blocks preference
+        if ($riskLevel === 'high') {
+            $provenCapability = $taskFamily !== ''
+                && array_key_exists($taskFamily, $skillScores)
+                && (float) $skillScores[$taskFamily] >= self::PROVEN_CAPABILITY_THRESHOLD;
+            if (! $provenCapability) {
+                $preferenceApplied = false;
+                $preferenceBlockedReason = 'high_risk_without_proven_capability';
+            }
+        }
+
+        // Safety: preference cannot override scope mismatch
+        $allowedFiles = array_values((array) ($packet['allowed_files'] ?? []));
+        $prefs = $this->registry->inspect($clientId);
+        $maxFiles = max(1, (int) $prefs['max_files']);
+        if (count($allowedFiles) > $maxFiles * 2) {
+            $preferenceApplied = false;
+            $preferenceBlockedReason = 'scope_exceeds_worker_capacity';
+        }
+
+        // Selected worker: the client if preference applied and not deferred, otherwise null
+        $selectedWorker = ($preferenceApplied && ! $base['deferred']) ? $clientId : null;
+
+        return [
+            'selected_worker' => $selectedWorker,
+            'preference_applied' => $preferenceApplied,
+            'preference_blocked_reason' => $preferenceBlockedReason,
+            'safety_constraints_checked' => $safetyConstraintsChecked,
+            'advisory' => $base['advisory'],
+            'shape_match' => $base['shape_match'],
+            'reasons' => $base['reasons'],
+            'client_id' => $base['client_id'],
+            'packet_id' => $base['packet_id'],
+            'deferred' => $base['deferred'],
+            'defer_reason' => $base['defer_reason'],
+        ];
+    }
 }
