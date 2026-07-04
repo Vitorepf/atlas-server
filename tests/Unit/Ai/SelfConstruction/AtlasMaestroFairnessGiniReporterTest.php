@@ -235,4 +235,67 @@ final class AtlasMaestroFairnessGiniReporterTest extends TestCase
         $this->assertArrayHasKey('idle_worker_ratio', $report);
         $this->assertArrayHasKey('max_idle_worker_id', $report);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: contract — stable empty, histograms, no score, compound families
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_empty_input_returns_stable_zeros_not_nan(): void
+    {
+        $probe = $this->probe([]);
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => []))->report();
+
+        $this->assertSame(0.0, $report['gini_workers']);
+        $this->assertSame(0.0, $report['gini_task_classes']);
+        $this->assertSame([], $report['worker_share_histogram']);
+        $this->assertSame(0.0, $report['idle_worker_ratio']);
+        $this->assertSame([], $report['idle_worker_ids']);
+    }
+
+    public function test_output_includes_histograms_and_max_share_ids(): void
+    {
+        $probe = $this->probe([
+            ['client_id' => 'w1', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 10, 'median_lease_duration_seconds' => 0.0],
+            ['client_id' => 'w2', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 2, 'median_lease_duration_seconds' => 0.0],
+        ]);
+        $tasks = [['task_packet_id' => 'codex-meta-task-1', 'outcome' => 'success']];
+
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => $tasks))->report();
+
+        $this->assertArrayHasKey('worker_share_histogram', $report);
+        $this->assertArrayHasKey('max_worker_share_id', $report);
+        $this->assertArrayHasKey('max_task_class_share_id', $report);
+    }
+
+    public function test_compound_task_family_is_recognized(): void
+    {
+        $probe = $this->probe([]);
+        $tasks = [
+            ['task_packet_id' => 'codex-meta-task-1', 'outcome' => 'success'],
+            ['task_packet_id' => 'external-brain-task-2', 'outcome' => 'success'],
+            ['task_packet_id' => 'final-brain-task-3', 'outcome' => 'success'],
+        ];
+
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => $tasks))->report();
+
+        $this->assertArrayHasKey('gini_task_classes', $report);
+        // Compound families produce class keys in max_task_class_share_id.
+        $distinct = array_unique(array_map(
+            static fn (array $r): string => $r['task_packet_id'],
+            $tasks,
+        ));
+        $this->assertCount(3, $distinct);
+    }
+
+    public function test_never_emits_scalar_score_or_rank(): void
+    {
+        $probe = $this->probe([]);
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => []))->report();
+        $encoded = json_encode($report);
+
+        foreach (['"score"', '"rank"', '"recommendation"'] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $encoded,
+                "report must never contain {$forbidden}");
+        }
+    }
 }
