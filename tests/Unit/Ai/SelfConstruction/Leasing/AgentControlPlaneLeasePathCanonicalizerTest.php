@@ -129,4 +129,60 @@ final class AgentControlPlaneLeasePathCanonicalizerTest extends TestCase
 
         $this->assertFalse($this->canonicalizer->leaseEntryMatchesPruneFilters($entry, [''], [''], ['']));
     }
+
+    // ── canonicalizeAgainstSameDisk ──
+
+    public function test_same_serving_disk_canonicalizes_to_same_key(): void
+    {
+        $result = $this->canonicalizer->canonicalizeAgainstSameDisk(
+            '/var/atlas/leases/lease_001.json',
+            '/var/atlas/queue/task_001.json',
+        );
+
+        $this->assertTrue($result['same_disk']);
+        $this->assertNull($result['disk_mismatch']);
+        $this->assertNotEmpty($result['canonical_key']);
+    }
+
+    public function test_different_serving_disks_report_disk_mismatch(): void
+    {
+        $result = $this->canonicalizer->canonicalizeAgainstSameDisk(
+            '/var/atlas/leases/lease_001.json',
+            '/tmp/other/queue/task_001.json',
+        );
+
+        $this->assertFalse($result['same_disk']);
+        $this->assertNotNull($result['disk_mismatch']);
+        $this->assertStringContainsString('disk_mismatch', $result['disk_mismatch']);
+        $this->assertSame('', $result['canonical_key']);
+    }
+
+    public function test_equivalent_textual_paths_same_disk_canonicalize_to_same_key(): void
+    {
+        $result1 = $this->canonicalizer->canonicalizeAgainstSameDisk(
+            '/var/atlas/leases/lease_001.json',
+            '/var/atlas/queue/task_001.json',
+        );
+        $result2 = $this->canonicalizer->canonicalizeAgainstSameDisk(
+            '/var/atlas/leases/lease_002.json',
+            '/var/atlas/queue/task_002.json',
+        );
+
+        // Both have the same disk identity prefix in their canonical key
+        $this->assertStringStartsWith('/var/atlas:', $result1['canonical_key']);
+        $this->assertStringStartsWith('/var/atlas:', $result2['canonical_key']);
+    }
+
+    public function test_disk_mismatch_instead_of_lease_leak(): void
+    {
+        $result = $this->canonicalizer->canonicalizeAgainstSameDisk(
+            '/var/atlas/leases/lease_001.json',
+            '/opt/other/queue/task_001.json',
+        );
+
+        $this->assertFalse($result['same_disk']);
+        $this->assertStringContainsString('disk_mismatch', $result['disk_mismatch']);
+        // Must NOT contain "lease_leak"
+        $this->assertStringNotContainsString('lease_leak', $result['disk_mismatch'] ?? '');
+    }
 }
