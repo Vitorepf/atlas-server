@@ -105,6 +105,12 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
 
         $workerShapeLearning = $this->buildWorkerShapeLearning($events);
 
+        // AC2/AC3/AC4: policy_updates — convert give_back events into concrete Task Fabric
+        // policy changes. Repeated give_backs in the same family increase penalty without
+        // duplicating identical entries. Low-confidence (single event) give_backs are retained
+        // as observations and do not become hard policy.
+        $policyUpdates = $this->buildPolicyUpdates($events, $recommendations);
+
         return [
             'schema'                => self::SCHEMA,
             'recommendations'       => $recommendations,
@@ -112,6 +118,7 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
             'defect_patterns'       => $defectPatterns,
             'worker_shape_learning' => $workerShapeLearning,
             'chain_repair_hints'    => $this->buildChainRepairHints($recommendations, $workerShapeLearning),
+            'policy_updates'        => $policyUpdates,
         ];
     }
 
@@ -391,5 +398,89 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
         }
 
         return null;
+    }
+
+    /**
+     * Convert give_back events into concrete Task Fabric policy updates.
+     *
+     * @param  list<array<string,mixed>>  $events
+     * @param  list<array<string,mixed>>  $recommendations
+     * @return list<array<string,mixed>>
+     */
+    private function buildPolicyUpdates(array $events, array $recommendations): array
+    {
+        // Group events by family (derived from task_packet_id prefix before the last '-'.
+        $families = [];
+        foreach ($events as $ev) {
+            if (! is_array($ev)) {
+                continue;
+            }
+            $taskId = (string) ($ev['task_packet_id'] ?? '');
+            if ($taskId === '') {
+                continue;
+            }
+            $family = (string) ($ev['family'] ?? '');
+            if ($family === '') {
+                $firstDash = strpos($taskId, '-');
+                $family = $firstDash !== false ? substr($taskId, 0, $firstDash) : $taskId;
+            }
+            $class = $this->classify(
+                (string) ($ev['reason'] ?? ''),
+                is_array($ev['blocking_deficiencies'] ?? null) ? array_map('strval', $ev['blocking_deficiencies']) : [],
+            );
+            if (! isset($families[$family])) {
+                $families[$family] = ['event_count' => 0, 'failure_classes' => [], 'deficiencies' => []];
+            }
+            $families[$family]['event_count']++;
+            $families[$family]['failure_classes'][$class] = true;
+            $defs = is_array($ev['blocking_deficiencies'] ?? null) ? array_map('strval', $ev['blocking_deficiencies']) : [];
+            foreach ($defs as $d) {
+                $families[$family]['deficiencies'][$d] = true;
+            }
+        }
+
+        $updates = [];
+        foreach ($families as $family => $info) {
+            // AC4: single-event families are low-confidence observations, not hard policy.
+            if ($info['event_count'] < 2) {
+                continue;
+            }
+
+            $penaltyLevel = min(1.0, $info['event_count'] * 0.15);
+            $hasImplIssue = isset($info['failure_classes']['scope_repair_missing_impl']);
+            $hasContradiction = isset($info['failure_classes']['contradictory_acceptance']);
+            $hasCliClobber = isset($info['failure_classes']['cli_clobber_or_petreo']);
+
+            // Scope repair hint: if missing_impl is the dominant pattern.
+            $scopeRepairHint = $hasImplIssue
+                ? 'Add missing implementation file(s) to allowed_files before respecing packets in this family.'
+                : null;
+
+            // Routing signal: route away from this family if cli_clobber or contradictions dominate.
+            $routingSignal = ($hasCliClobber || $hasContradiction)
+                ? 'route_away_from_family'
+                : null;
+
+            // Exclusion rule: exclude from future batches if multiple cli_clobbers or very high penalty.
+            $exclusionRule = null;
+            if ($hasCliClobber && $penaltyLevel >= 0.45) {
+                $exclusionRule = 'exclude_from_future_batches';
+            }
+
+            $updates[] = [
+                'family'           => $family,
+                'event_count'      => $info['event_count'],
+                'family_penalty'   => round($penaltyLevel, 2),
+                'scope_repair_hint' => $scopeRepairHint,
+                'routing_signal'   => $routingSignal,
+                'exclusion_rule'   => $exclusionRule,
+                'failure_classes'  => array_keys($info['failure_classes']),
+            ];
+        }
+
+        // Sort deterministically.
+        usort($updates, static fn (array $a, array $b): int => strcmp($a['family'], $b['family']));
+
+        return $updates;
     }
 }
