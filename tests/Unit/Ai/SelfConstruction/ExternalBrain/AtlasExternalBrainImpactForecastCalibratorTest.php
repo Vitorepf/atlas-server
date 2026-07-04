@@ -390,6 +390,48 @@ final class AtlasExternalBrainImpactForecastCalibratorTest extends TestCase
         $this->assertSame(1, $cal['sample_size']);
     }
 
+    public function test_single_overperforming_outcome_keeps_hold_with_insufficient_evidence(): void
+    {
+        // AC2 (overperforming side): single observation where actual >> predicted — must hold, not chase.
+        $result = $this->calibrator()->calibrate(
+            [['task_family' => 'g', 'predicted_leverage' => 'low']],
+            [['task_family' => 'g', 'actual_outcome' => 'delivered', 'capability_delta' => 'high', 'downstream_unlocks' => 4]],
+        );
+
+        $cal = $result['calibrations'][0];
+        $this->assertSame('hold', $cal['next_ranking_hint']);
+        $this->assertSame(AtlasExternalBrainImpactForecastCalibrator::ADJUSTMENT_STATUS_INSUFFICIENT, $cal['adjustment_status']);
+        $this->assertSame(1, $cal['sample_size']);
+    }
+
+    public function test_confidence_band_shrinks_with_sample_size_and_stays_bounded(): void
+    {
+        // AC4: confidence_band shrinks as sample_size increases and remains bounded between 0 and 1.
+        $make = function (int $n): array {
+            $forecasts = array_fill(0, $n, ['task_family' => 'g', 'predicted_leverage' => 'medium']);
+            $outcomes  = array_fill(0, $n, ['task_family' => 'g', 'actual_outcome' => 'delivered', 'capability_delta' => 'medium']);
+
+            return $this->calibrator()->calibrate($forecasts, $outcomes)['calibrations'][0];
+        };
+
+        $one  = $make(1);
+        $four = $make(4);
+        $hundred = $make(100);
+
+        // Bounded [0, 1] for all sample sizes.
+        foreach ([$one, $four, $hundred] as $cal) {
+            $this->assertGreaterThan(0, $cal['confidence_band']);
+            $this->assertLessThanOrEqual(1, $cal['confidence_band']);
+        }
+
+        // Shrinks monotonically: 1/sqrt(n) → 1.0, 0.5, 0.1.
+        $this->assertEqualsWithDelta(1.0, $one['confidence_band'], 0.001);
+        $this->assertEqualsWithDelta(0.5, $four['confidence_band'], 0.001);
+        $this->assertEqualsWithDelta(0.1, $hundred['confidence_band'], 0.001);
+        $this->assertGreaterThan($four['confidence_band'], $one['confidence_band']);
+        $this->assertGreaterThan($hundred['confidence_band'], $four['confidence_band']);
+    }
+
     public function test_calibration_includes_sample_size_confidence_band_and_status(): void
     {
         $result = $this->calibrator()->calibrate(
