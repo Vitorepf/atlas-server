@@ -192,4 +192,77 @@ final class AtlasMaestroWorkloadProjectionFactEmitterTest extends TestCase
             ],
         ];
     }
+
+    // ── nonVanityProjection: projection_facts, actionable_fact_keys, skipped_vanity_metrics, freshness_status ──
+
+    public function test_non_vanity_projection_has_required_keys(): void
+    {
+        $emitter = new AtlasMaestroWorkloadProjectionFactEmitter();
+        $result = $emitter->nonVanityProjection([]);
+        $this->assertArrayHasKey('projection_facts', $result);
+        $this->assertArrayHasKey('actionable_fact_keys', $result);
+        $this->assertArrayHasKey('skipped_vanity_metrics', $result);
+        $this->assertArrayHasKey('freshness_status', $result);
+    }
+
+    public function test_actionable_facts_included_without_context(): void
+    {
+        $emitter = new AtlasMaestroWorkloadProjectionFactEmitter();
+        $result = $emitter->nonVanityProjection([
+            'drain_rate' => 5.0,
+            'give_back_rate' => 0.1,
+            'starvation_horizon_hours' => 2.0,
+            'quality_confidence' => 0.8,
+            'raw_task_count' => 100,
+        ]);
+        $this->assertArrayHasKey('drain_rate', $result['projection_facts']);
+        $this->assertArrayHasKey('give_back_rate', $result['projection_facts']);
+        $this->assertArrayHasKey('starvation_horizon_hours', $result['projection_facts']);
+        $this->assertArrayHasKey('quality_confidence', $result['projection_facts']);
+        $this->assertContains('raw_task_count', $result['skipped_vanity_metrics']);
+        $this->assertSame('fresh', $result['freshness_status']);
+    }
+
+    public function test_vanity_metrics_included_with_outcome_context(): void
+    {
+        $emitter = new AtlasMaestroWorkloadProjectionFactEmitter();
+        $result = $emitter->nonVanityProjection([
+            'drain_rate' => 5.0,
+            'raw_task_count' => 100,
+            'queue_depth' => 50,
+            'outcome_context' => true,
+        ]);
+        $this->assertArrayHasKey('raw_task_count', $result['projection_facts']);
+        $this->assertArrayHasKey('queue_depth', $result['projection_facts']);
+        $this->assertSame([], $result['skipped_vanity_metrics']);
+    }
+
+    public function test_vanity_metrics_included_with_risk_context(): void
+    {
+        $emitter = new AtlasMaestroWorkloadProjectionFactEmitter();
+        $result = $emitter->nonVanityProjection([
+            'drain_rate' => 5.0,
+            'raw_task_count' => 100,
+            'risk_context' => true,
+        ]);
+        $this->assertArrayHasKey('raw_task_count', $result['projection_facts']);
+    }
+
+    public function test_freshness_status_partial_with_few_actionable_facts(): void
+    {
+        $emitter = new AtlasMaestroWorkloadProjectionFactEmitter();
+        $result = $emitter->nonVanityProjection([
+            'drain_rate' => 5.0,
+        ]);
+        $this->assertSame('partial', $result['freshness_status']);
+    }
+
+    public function test_freshness_status_stale_with_no_actionable_facts(): void
+    {
+        $emitter = new AtlasMaestroWorkloadProjectionFactEmitter();
+        $result = $emitter->nonVanityProjection([
+            'raw_task_count' => 100,
+        ]);
+        $this->assertSame('stale', $result['freshness_status']);
+    }
 }
