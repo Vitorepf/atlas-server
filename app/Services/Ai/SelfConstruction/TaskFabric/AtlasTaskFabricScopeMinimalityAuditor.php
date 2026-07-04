@@ -67,6 +67,18 @@ final class AtlasTaskFabricScopeMinimalityAuditor
         // through for no reason, without ever removing the implementation/test pair itself.
         $dependencyEvidence = array_values(array_map('strval', (array) ($spec['dependency_evidence'] ?? [])));
 
+        // AC2: required collaborator files — when acceptance or objective references a concrete
+        // helper/caller file, allowed_files must include it or report a missing_collaborator_file.
+        $requiredCollaborators = array_values(array_map('strval', (array) ($spec['required_collaborator_files'] ?? [])));
+        foreach ($requiredCollaborators as $collaborator) {
+            if ($collaborator === '') {
+                continue;
+            }
+            if (! in_array($collaborator, $allowed, true)) {
+                $missingRequired[] = 'missing_collaborator_file:'.$collaborator;
+            }
+        }
+
         $unrelatedFiles = [];
         $objectiveSymbols = array_key_exists('objective_symbols', $spec)
             ? array_values(array_map('strval', (array) $spec['objective_symbols']))

@@ -217,4 +217,78 @@ final class AtlasTaskFabricScopeMinimalityAuditorTest extends TestCase
         $this->assertNotContains('app/Services/Unrelated.php', $r['unrelated_files']);
         $this->assertContains('app/Services/AlsoUnrelated.php', $r['unrelated_files']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: required_collaborator_files — missing from allowed_files
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_required_collaborator_missing_from_allowed_reports_missing_collaborator_file(): void
+    {
+        $r = $this->svc()->audit($this->cleanSpec([
+            'required_collaborator_files' => ['app/Services/Bar/BarCaller.php'],
+        ]));
+
+        $this->assertFalse($r['scope_ok']);
+        $this->assertContains(
+            'missing_collaborator_file:app/Services/Bar/BarCaller.php',
+            $r['missing_required_files'],
+        );
+    }
+
+    public function test_required_collaborator_present_in_allowed_not_flagged(): void
+    {
+        $r = $this->svc()->audit($this->cleanSpec([
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php', 'app/Services/Bar/BarCaller.php'],
+            'required_collaborator_files' => ['app/Services/Bar/BarCaller.php'],
+        ]));
+
+        $this->assertTrue($r['scope_ok']);
+        $this->assertNotContains(
+            'missing_collaborator_file:app/Services/Bar/BarCaller.php',
+            $r['missing_required_files'],
+        );
+    }
+
+    public function test_multiple_missing_collaborators_all_reported(): void
+    {
+        $r = $this->svc()->audit($this->cleanSpec([
+            'required_collaborator_files' => ['app/Services/Bar/BarCaller.php', 'app/Helpers/Helper.php'],
+        ]));
+
+        $this->assertContains(
+            'missing_collaborator_file:app/Services/Bar/BarCaller.php',
+            $r['missing_required_files'],
+        );
+        $this->assertContains(
+            'missing_collaborator_file:app/Helpers/Helper.php',
+            $r['missing_required_files'],
+        );
+    }
+
+    public function test_collaborator_check_coexists_with_existing_checks(): void
+    {
+        // AC3: existing checks (missing impl, missing test, overbroad, hidden self-target)
+        // must still fire when collaborator is also missing.
+        $r = $this->svc()->audit($this->cleanSpec([
+            'allowed_files' => [],
+            'required_collaborator_files' => ['app/Services/Collab.php'],
+        ]));
+
+        $this->assertFalse($r['scope_ok']);
+        $this->assertContains('implementation_file', $r['missing_required_files']);
+        $this->assertContains('test_file', $r['missing_required_files']);
+        $this->assertContains(
+            'missing_collaborator_file:app/Services/Collab.php',
+            $r['missing_required_files'],
+        );
+    }
+
+    public function test_no_required_collaborators_does_not_affect_existing_behavior(): void
+    {
+        // No required_collaborator_files → existing checks unchanged.
+        $r = $this->svc()->audit($this->cleanSpec());
+
+        $this->assertTrue($r['scope_ok']);
+        $this->assertSame([], $r['missing_required_files']);
+    }
 }
