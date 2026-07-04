@@ -338,4 +338,50 @@ final class AtlasSelfConstructionAutonomyDependencyAuditTest extends TestCase
         $this->assertSame([], $verdict['blockers']);
         $this->assertSame([], $verdict['remediation_hints']);
     }
+
+    // AC: provider_leak_floor entries grouped by role and phase
+    public function test_provider_leak_floor_grouped_by_role_and_phase(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'plan', 'kind' => 'steady_state', 'role' => 'operator'],
+            ['step_id' => 'execute', 'kind' => 'steady_state', 'role' => 'provider'],
+            ['step_id' => 'verify', 'kind' => 'steady_state', 'role' => 'operator'],
+        ]);
+
+        $this->assertArrayHasKey('provider_leak_floor', $verdict);
+        $this->assertArrayHasKey('operator', $verdict['provider_leak_floor']);
+        $this->assertArrayHasKey('provider', $verdict['provider_leak_floor']);
+        $this->assertCount(2, $verdict['provider_leak_floor']['operator']);
+        $this->assertCount(1, $verdict['provider_leak_floor']['provider']);
+    }
+
+    // AC: bootstrap and emergency non-atlas NOT in provider_leak_floor
+    public function test_bootstrap_emergency_not_in_provider_leak_floor(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'boot', 'kind' => 'bootstrap', 'role' => 'operator'],
+            ['step_id' => 'emerg', 'kind' => 'emergency', 'role' => 'human'],
+            ['step_id' => 'steady', 'kind' => 'steady_state', 'role' => 'atlas_native'],
+        ]);
+
+        $this->assertArrayHasKey('provider_leak_floor', $verdict);
+        $this->assertSame([], $verdict['provider_leak_floor']);
+    }
+
+    // AC: every provider_leak_floor blocker includes remediation hint
+    public function test_provider_leak_floor_has_remediation_hints(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'plan', 'kind' => 'steady_state', 'role' => 'human'],
+            ['step_id' => 'execute', 'kind' => 'steady_state', 'role' => 'external_worker'],
+        ]);
+
+        $this->assertArrayHasKey('provider_leak_floor', $verdict);
+        foreach ($verdict['provider_leak_floor'] as $role => $entries) {
+            foreach ($entries as $entry) {
+                $this->assertArrayHasKey('remediation', $entry);
+                $this->assertStringContainsString('atlas_native', $entry['remediation']);
+            }
+        }
+    }
 }

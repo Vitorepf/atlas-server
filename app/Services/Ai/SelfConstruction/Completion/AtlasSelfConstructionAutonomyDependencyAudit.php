@@ -68,6 +68,7 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
         $seenStepIds = [];
         $seenSteadyStatePhases = [];
         $remediationHints = [];
+        $providerLeakFloor = [];
         $requiredPhaseSet = array_flip($requiredSteadyStatePhases);
 
         foreach ($evidence as $row) {
@@ -107,6 +108,12 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
                     $blockers[] = $b;
                     $remediationHints[$b] = 'replace_non_atlas_role_with_atlas_native_capability_for_phase:'.$stepId;
                     $steadyStateDependencies[] = ['step_id' => $stepId, 'role' => $role];
+                    // Group by role for provider_leak_floor
+                    $providerLeakFloor[$role][] = [
+                        'step_id' => $stepId,
+                        'phase' => $stepId,
+                        'remediation' => 'replace_non_atlas_role_with_atlas_native_capability_for_phase:'.$stepId,
+                    ];
                 }
 
                 $isRequiredPhase = $stepId !== '' && isset($requiredPhaseSet[$stepId]);
@@ -174,6 +181,7 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
             'allowed_visibility'       => $allowedVisibility,
             'steady_state_dependencies' => $steadyStateDependencies,
             'remediation_hints'        => $remediationHints,
+            'provider_leak_floor'      => $providerLeakFloor,
         ];
     }
 }
