@@ -6,6 +6,15 @@ namespace Tests\Feature\Ai\Programming\AtlasDev;
 
 use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AtlasOpenBrainService;
+use App\Services\Ai\EngineeringKernel\Spec\AtlasSpecGateAdapter;
+use App\Services\Ai\EngineeringKernel\Spec\DivergenceStatus;
+use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
+use App\Services\Ai\EngineeringKernel\Spec\SpecAdversary;
+use App\Services\Ai\EngineeringKernel\Spec\SpecDraft;
+use App\Services\Ai\EngineeringKernel\Spec\SpecProvenance;
+use App\Services\Ai\EngineeringKernel\Spec\SpecSourceIndependence;
+use App\Services\Ai\EngineeringKernel\Spec\SpecVerdict;
+use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
 use App\Services\Ai\Programming\AtlasDev\Discovery\OpenBrainProjectionAdapter;
@@ -230,6 +239,94 @@ PHP,
 
         $this->assertSame(0, $never->calls, 'the orchestrator must not reach the provider in plan-only mode');
         Http::assertNothingSent();
+    }
+
+    // --- Obra #2 enforcement vivo: the spec-adversary gates the plan-time FREEZE ---
+
+    public function test_spec_adversary_structural_refusal_forces_the_plan_to_blocked(): void
+    {
+        $refusing = new class implements SpecAdversary
+        {
+            public function contest(SpecDraft $draft, IntentEnvelope $intent, TrustLevel $lane): SpecVerdict
+            {
+                return SpecVerdict::refuse(['verb_fidelity'], [], new SpecProvenance(
+                    'frozen', DivergenceStatus::NotRequired, SpecSourceIndependence::SelfComposedUnwitnessed, SpecProvenance::ORACLE_UNMEASURED,
+                ));
+            }
+        };
+
+        $result = $this->orchestratorWithSpecGate($refusing)->planOnly(
+            surfaceId: 'atlas_cli_dev',
+            workspace: $this->tmpWorkspace,
+            rawIntent: 'corrija o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php',
+        );
+
+        $this->assertSame(RoutingDecision::BLOCKED, $result->routing->kind);
+        $this->assertContains('spec_verb_fidelity', $result->routing->blockers);
+        $this->assertArrayHasKey('spec_adversary_verdict.json', $result->persistedArtifactPaths);
+    }
+
+    public function test_spec_adversary_oracle_hold_is_deferred_and_never_blocks_the_plan_at_plan_time(): void
+    {
+        // At plan time no test is authored yet, so a pure oracle_adequacy HOLD must NOT block —
+        // discrimination is discharged downstream by the sovereign mutation floor at certify.
+        $holding = new class implements SpecAdversary
+        {
+            public function contest(SpecDraft $draft, IntentEnvelope $intent, TrustLevel $lane): SpecVerdict
+            {
+                return SpecVerdict::hold(['oracle_adequacy'], [], new SpecProvenance(
+                    'frozen', DivergenceStatus::NotRequired, SpecSourceIndependence::SelfComposedUnwitnessed, SpecProvenance::ORACLE_UNMEASURED,
+                ));
+            }
+        };
+
+        $result = $this->orchestratorWithSpecGate($holding)->planOnly(
+            surfaceId: 'atlas_cli_dev',
+            workspace: $this->tmpWorkspace,
+            rawIntent: 'corrija o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php',
+        );
+
+        $this->assertNotSame(RoutingDecision::BLOCKED, $result->routing->kind);
+        $this->assertNotContains('spec_oracle_adequacy', $result->routing->blockers);
+    }
+
+    public function test_the_real_spec_adversary_does_not_over_block_a_healthy_write_plan(): void
+    {
+        $result = $this->orchestratorWithSpecGate(new AtlasSpecGateAdapter)->planOnly(
+            surfaceId: 'atlas_cli_dev',
+            workspace: $this->tmpWorkspace,
+            rawIntent: 'corrija o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php',
+        );
+
+        // the real composer produces behavioral criteria for a recognized write verb, so the
+        // structural invariants pass and the healthy plan is never blocked by the spec adversary.
+        $this->assertSame(RoutingDecision::ATLAS_DEV_FAST_PATH, $result->routing->kind, 'blockers: '.implode(',', $result->routing->blockers));
+        $this->assertSame([], array_values(array_filter(
+            $result->routing->blockers,
+            static fn (string $b): bool => str_starts_with($b, 'spec_'),
+        )));
+        $this->assertArrayHasKey('spec_adversary_verdict.json', $result->persistedArtifactPaths);
+    }
+
+    private function orchestratorWithSpecGate(SpecAdversary $gate): AtlasDevFastPathOrchestrator
+    {
+        return new AtlasDevFastPathOrchestrator(
+            intake: new IntakeNormalizer(new RunIdGenerator),
+            classifier: new TaskClassifier,
+            riskScorer: new RiskLevelScorer,
+            specComposer: new SpecComposer,
+            tierSelector: new DocContextTierSelector,
+            codeDiscovery: new CodeDiscoveryEngine,
+            openBrainAdapter: new OpenBrainProjectionAdapter($this->fakeOpenBrain),
+            promptBuilder: new ProviderPromptBuilder(
+                sectionsMapper: new PromptSectionsMapper,
+                renderer: new PromptRenderer,
+                qualityChecker: new PromptQualityChecker,
+            ),
+            routingEngine: new RoutingDecisionEngine,
+            receiptStorage: new ReceiptStorage($this->tmpStorage),
+            specGate: $gate,
+        );
     }
 
     private function orchestrator(): AtlasDevFastPathOrchestrator

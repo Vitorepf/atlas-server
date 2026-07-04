@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Services\Ai\AtlasOpenBrainService;
+use App\Services\Ai\EngineeringKernel\Spec\AtlasSpecGateAdapter;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
 use App\Services\Ai\Programming\AtlasDev\Discovery\OpenBrainProjectionAdapter;
@@ -69,6 +70,10 @@ final class AtlasDevServiceProvider extends ServiceProvider
                 routingEngine: new RoutingDecisionEngine,
                 receiptStorage: $app->make(ReceiptStorage::class),
                 failureCapsuleInjector: new DevFailureCapsulePromptInjector,
+                // Obra #2 enforcement vivo: the spec-adversary gates FREEZE. Default adapter =
+                // unmeasured oracle + self-composed witness (structural invariants enforce at plan
+                // time; discrimination is deferred to the certify-stage mutation floor).
+                specGate: new AtlasSpecGateAdapter,
             );
         });
 

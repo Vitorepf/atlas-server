@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
+use App\Services\Ai\EngineeringKernel\Spec\SpecAdversary;
+use App\Services\Ai\EngineeringKernel\Spec\SpecDraft;
+use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DevContextBudgetDistiller;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DevGreenRunExemplarRetriever;
@@ -69,6 +73,7 @@ class AtlasDevFastPathOrchestrator
         private readonly ?DevWorkcellDecomposer $workcellDecomposer = null,
         private readonly ?DevGreenRunExemplarRetriever $exemplarRetriever = null,
         private readonly ?DevWorkcellInstructionAssembler $instructionAssembler = null,
+        private readonly ?SpecAdversary $specGate = null,
     ) {}
 
     /**
@@ -158,6 +163,55 @@ class AtlasDevFastPathOrchestrator
             );
         }
 
+        // SPEC-ADVERSARY (Obra #2) — fidelity-OF-spec, provider-free, fail-closed. Before the
+        // composed criteria are frozen into a sendable prompt, the deterministic spec floor attacks
+        // them. A STRUCTURAL refusal (a recognized write verb with ZERO acceptance criteria, or an
+        // unwitnessed spec in the autonomous lane) forces BLOCKED. Two invariants are DEFERRED here,
+        // not skipped: oracle_adequacy (no test is authored yet at plan time — discrimination is
+        // discharged downstream by the sovereign floor's mutation_kill_ratio at certify) and
+        // ambiguity_resolved (surfaced to the operator via the clarification queue, not a hard block).
+        $specVerdictArtifact = null;
+        if ($this->specGate !== null && $routing->kind === RoutingDecision::ATLAS_DEV_FAST_PATH) {
+            $specVerdict = $this->specGate->contest(
+                new SpecDraft(
+                    intentText: $miniSpec->goal,
+                    acceptanceCriteria: $miniSpec->acceptanceCriteria,
+                    expectedFiles: $miniSpec->expectedFiles,
+                    forbiddenFiles: $miniSpec->forbiddenFiles,
+                    nonGoals: $miniSpec->nonGoals,
+                ),
+                new IntentEnvelope(
+                    rawGoal: $envelope->rawIntent,
+                    recognizedVerbs: $taskContract->intentVerbs,
+                ),
+                TrustLevel::Dev,
+            );
+            $structuralGaps = array_values(array_diff($specVerdict->gaps, ['oracle_adequacy', 'ambiguity_resolved']));
+            if ($structuralGaps !== []) {
+                $routing = new RoutingDecision(
+                    kind: RoutingDecision::BLOCKED,
+                    reasons: AtlasDevStringListNormalizer::uniqueTrimmedStrings(array_merge(
+                        $routing->reasons,
+                        ['spec_adversary:'.$specVerdict->status],
+                    )),
+                    blockers: AtlasDevStringListNormalizer::uniqueTrimmedStrings(array_merge(
+                        $routing->blockers,
+                        array_map(static fn (string $gap): string => 'spec_'.$gap, $structuralGaps),
+                    )),
+                    delegation: $routing->delegation,
+                );
+            }
+            try {
+                $specVerdictArtifact = $this->receiptStorage->writeAtomic(
+                    $envelope->runId,
+                    'spec_adversary_verdict.json',
+                    $specVerdict->toArray(),
+                );
+            } catch (Throwable) {
+                $specVerdictArtifact = null;
+            }
+        }
+
         $promptIsSendable = $routing->kind === RoutingDecision::ATLAS_DEV_FAST_PATH;
 
         // M5: Compounding failure memory — feed persisted AtlasDevFailureCapsule
@@ -227,6 +281,9 @@ class AtlasDevFastPathOrchestrator
 
         if ($persistedDistillation !== null) {
             $persisted['dev_context_budget_distillation'] = $persistedDistillation;
+        }
+        if ($specVerdictArtifact !== null) {
+            $persisted['spec_adversary_verdict.json'] = $specVerdictArtifact;
         }
 
         $result = new PlanOnlyResult(
