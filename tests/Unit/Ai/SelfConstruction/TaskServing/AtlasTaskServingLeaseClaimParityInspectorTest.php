@@ -239,4 +239,75 @@ final class AtlasTaskServingLeaseClaimParityInspectorTest extends TestCase
         $this->assertSame(0, $r['recoverable_leaks']['total']);
         $this->assertSame(0, $r['ghost_active_leases']['total']);
     }
+
+    // ── AC4: parity_ok, classification_detail, evidence_refs ─────────────────
+
+    public function test_output_includes_parity_ok(): void
+    {
+        $r = $this->svc()->inspect([], []);
+        $this->assertArrayHasKey('parity_ok', $r);
+        $this->assertTrue($r['parity_ok']);
+    }
+
+    public function test_clean_parity_classification_detail_is_parity_ok(): void
+    {
+        $r = $this->svc()->inspect([$this->lease('L1', 't1')], [$this->record('t1', 'claimed')]);
+
+        $this->assertArrayHasKey('classification_detail', $r);
+        $this->assertSame('parity_ok', $r['classification_detail']);
+    }
+
+    public function test_output_includes_evidence_refs(): void
+    {
+        $r = $this->svc()->inspect([$this->lease('L1', 't1')], [$this->record('t1', 'claimed')]);
+
+        $this->assertArrayHasKey('evidence_refs', $r);
+        $this->assertNotEmpty($r['evidence_refs']);
+    }
+
+    // ── AC2/AC3: lease_age → benign_in_flight vs recoverable_expired ────────
+
+    public function test_fresh_lease_without_claim_is_benign_in_flight(): void
+    {
+        // lease_age_seconds=60 (< 300) → benign in-flight
+        $r = $this->svc()->inspect(
+            [$this->lease('L1', 't1') + ['lease_age_seconds' => 60]],
+            [$this->record('t2', 'claimed')],
+        );
+
+        $this->assertFalse($r['clean_parity']);
+        $this->assertSame('benign_in_flight', $r['classification_detail']);
+        $this->assertContains('lease_without_claim:t1', $r['evidence_refs']);
+    }
+
+    public function test_old_lease_without_claim_is_recoverable_expired(): void
+    {
+        // lease_age_seconds=600 (> 300) → recoverable_expired
+        $r = $this->svc()->inspect(
+            [$this->lease('L1', 't1') + ['lease_age_seconds' => 600]],
+            [$this->record('t2', 'claimed')],
+        );
+
+        $this->assertSame('recoverable_expired', $r['classification_detail']);
+    }
+
+    public function test_terminal_with_active_lease_is_recoverable_expired(): void
+    {
+        $r = $this->svc()->inspect(
+            [$this->lease('L1', 't1')],
+            [$this->record('t1', 'completed')],
+        );
+
+        $this->assertSame('recoverable_expired', $r['classification_detail']);
+    }
+
+    public function test_claim_without_lease_is_leak_mismatch(): void
+    {
+        $r = $this->svc()->inspect(
+            [],
+            [$this->record('t1', 'claimed')],
+        );
+
+        $this->assertSame('leak_mismatch', $r['classification_detail']);
+    }
 }

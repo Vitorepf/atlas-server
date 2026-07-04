@@ -11,8 +11,12 @@ namespace App\Services\Ai\SelfConstruction\TaskServing;
  * operators and autonomous governors can trust before deciding whether to reap, repair, or ignore.
  *
  * Input shapes:
- *   $activeLeases: list<{lease_id:string, task_packet_id:string}>   — raw active lease envelope rows
+ *   $activeLeases: list<{lease_id:string, task_packet_id:string, lease_age_seconds?:int}>   — raw active lease envelope rows
  *   $records:      list<{task_packet_id:string, status:string}>     — raw claimed/terminal queue records
+
+ * Output fields: parity_ok (alias for clean_parity), evidence_refs,
+ * classification_detail (benign_in_flight/recoverable_orphan/recoverable_expired/leak_mismatch)
+ * using lease_age, task_status and recoverability evidence.
  *     status ∈ {claimed, served, in_progress} (claimed-like) or {released, completed, give_back, retired} (terminal)
  *
  * `active_leases` and `claimed_records` are the RAW row counts of the two inputs — a registry can
@@ -61,6 +65,9 @@ final class AtlasTaskServingLeaseClaimParityInspector
     /** @var list<string> */
     private const CLAIMED_STATUSES = ['claimed', 'served', 'in_progress'];
 
+    /** A lease aged ≤ this many seconds is considered benign in-flight (normal timing). */
+    private const BENIGN_IN_FLIGHT_MAX_AGE = 300;
+
     /**
      * @param  list<array<string,mixed>>  $activeLeases
      * @param  list<array<string,mixed>>  $records
@@ -70,6 +77,7 @@ final class AtlasTaskServingLeaseClaimParityInspector
     {
         $activeLeaseTaskIds = [];
         $leaseCountByTaskId = [];
+        $leaseAgeByTaskId = [];
         foreach ($activeLeases as $lease) {
             $taskId = (string) ($lease['task_packet_id'] ?? '');
             if ($taskId === '') {
@@ -77,6 +85,8 @@ final class AtlasTaskServingLeaseClaimParityInspector
             }
             $activeLeaseTaskIds[$taskId] = true;
             $leaseCountByTaskId[$taskId] = ($leaseCountByTaskId[$taskId] ?? 0) + 1;
+            $age = max(0, (int) ($lease['lease_age_seconds'] ?? 0));
+            $leaseAgeByTaskId[$taskId] = max($leaseAgeByTaskId[$taskId] ?? 0, $age);
         }
 
         // Duplicate active lease envelopes for the SAME task_packet_id, named explicitly instead
@@ -185,8 +195,37 @@ final class AtlasTaskServingLeaseClaimParityInspector
         $ghostActiveLeases = ['total' => count($leaseWithoutClaim), 'items' => $leaseWithoutClaim];
         $cleanParity = $classification === self::CLASSIFICATION_CLEAN_PARITY;
 
+        // classification_detail: maps the raw classification to AC-required vocabulary.
+        // Uses lease_age for benign_in_flight detection.
+        $classificationDetail = $cleanParity
+            ? 'parity_ok'
+            : match (true) {
+                $leaseWithoutClaim !== [] && max(array_map(fn (string $id): int => $leaseAgeByTaskId[$id] ?? 0, $leaseWithoutClaim)) <= self::BENIGN_IN_FLIGHT_MAX_AGE
+                    => 'benign_in_flight',
+                $terminalWithActiveLease !== [] || $leaseWithoutClaim !== [] => 'recoverable_expired',
+                $claimWithoutLease !== [] => 'leak_mismatch',
+                default => 'leak_mismatch',
+            };
+
+        // evidence_refs: the key evidence that drove the classification.
+        $evidenceRefs = [];
+        if ($matchedPairs !== []) {
+            $evidenceRefs[] = 'matched_pairs:'.count($matchedPairs);
+        }
+        if ($leaseWithoutClaim !== []) {
+            $evidenceRefs[] = 'lease_without_claim:'.implode(',', $leaseWithoutClaim);
+        }
+        if ($claimWithoutLease !== []) {
+            $evidenceRefs[] = 'claim_without_lease:'.implode(',', $claimWithoutLease);
+        }
+        if ($terminalWithActiveLease !== []) {
+            $evidenceRefs[] = 'terminal_with_active_lease:'.implode(',', $terminalWithActiveLease);
+        }
+
         return [
             'schema' => self::SCHEMA,
+            'parity_ok' => $cleanParity,
+            'clean_parity' => $cleanParity,
             'active_leases' => $activeLeaseCount,
             'claimed_records' => $claimedRecordCount,
             'matched_pairs' => $matchedPairs,
@@ -197,11 +236,12 @@ final class AtlasTaskServingLeaseClaimParityInspector
             'recoverable_candidates' => $recoverableCandidates,
             'recoverable_leaks' => $recoverableLeaks,
             'ghost_active_leases' => $ghostActiveLeases,
-            'clean_parity' => $cleanParity,
             'duplicate_task_packet_ids' => $duplicateTaskPacketIds,
             'duplicate_lease_counts' => $duplicateCounts,
             'severity' => $severity,
             'classification' => $classification,
+            'classification_detail' => $classificationDetail,
+            'evidence_refs' => $evidenceRefs,
             'recommended_next_action' => $action,
         ];
     }
