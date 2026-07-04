@@ -318,4 +318,74 @@ final class AtlasExternalBrainOutcomeBackpressurePolicyTest extends TestCase
             $this->policy()->evaluateOriginationPace($input),
         );
     }
+
+    // ── qualityBackpressure ──
+
+    public function test_quality_backpressure_active_when_valuable_targets_and_high_give_back(): void
+    {
+        $r = $this->policy()->qualityBackpressure([
+            'give_back_rate' => 0.4,
+            'valuable_targets_remaining' => true,
+        ]);
+        $this->assertSame('active', $r['quality_backpressure']);
+        $this->assertTrue($r['recommend_smaller_batch']);
+        $this->assertFalse($r['idle_waiting']);
+    }
+
+    public function test_idle_waiting_when_no_valuable_targets_and_queue_sufficient(): void
+    {
+        $r = $this->policy()->qualityBackpressure([
+            'valuable_targets_remaining' => false,
+            'queue_depth' => 5,
+        ]);
+        $this->assertTrue($r['idle_waiting']);
+        $this->assertFalse($r['recommend_smaller_batch']);
+        $this->assertFalse($r['recommend_better_batch']);
+    }
+
+    public function test_repair_escalation_when_poison_spike(): void
+    {
+        $r = $this->policy()->qualityBackpressure([
+            'recent_poison_count' => 3,
+            'valuable_targets_remaining' => true,
+        ]);
+        $this->assertTrue($r['repair_escalation']);
+        $this->assertSame('repair_escalation_triggered_by_quality_signals', $r['reason']);
+    }
+
+    public function test_repair_escalation_when_low_commit_yield(): void
+    {
+        $r = $this->policy()->qualityBackpressure([
+            'commit_yield' => 0.2,
+            'valuable_targets_remaining' => true,
+        ]);
+        $this->assertTrue($r['repair_escalation']);
+    }
+
+    public function test_recommend_better_batch_when_severe_quality_signals(): void
+    {
+        $r = $this->policy()->qualityBackpressure([
+            'give_back_rate' => 0.6,
+            'poison_rate' => 0.4,
+            'valuable_targets_remaining' => true,
+        ]);
+        $this->assertTrue($r['recommend_better_batch']);
+        $this->assertFalse($r['recommend_smaller_batch']);
+    }
+
+    public function test_no_backpressure_when_healthy_depth_and_valuable_targets(): void
+    {
+        $r = $this->policy()->qualityBackpressure([
+            'give_back_rate' => 0.1,
+            'poison_rate' => 0.0,
+            'commit_yield' => 0.9,
+            'valuable_targets_remaining' => true,
+            'queue_depth' => 5,
+        ]);
+        $this->assertSame('inactive', $r['quality_backpressure']);
+        $this->assertFalse($r['idle_waiting']);
+        $this->assertFalse($r['recommend_smaller_batch']);
+        $this->assertFalse($r['recommend_better_batch']);
+        $this->assertFalse($r['repair_escalation']);
+    }
 }
