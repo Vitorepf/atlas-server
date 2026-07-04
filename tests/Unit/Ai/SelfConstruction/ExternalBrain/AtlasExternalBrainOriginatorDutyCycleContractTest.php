@@ -200,4 +200,76 @@ final class AtlasExternalBrainOriginatorDutyCycleContractTest extends TestCase
 
         self::assertTrue($result['terminal']);
     }
+
+    // AC: output includes selected_mode, mode_reason, forbidden_actions
+    public function test_output_has_mode_fields(): void
+    {
+        $result = (new AtlasExternalBrainOriginatorDutyCycleContract)->evaluate([]);
+        self::assertArrayHasKey('selected_mode', $result);
+        self::assertArrayHasKey('mode_reason', $result);
+        self::assertArrayHasKey('forbidden_actions', $result);
+    }
+
+    // AC: selects create mode when healthy queue and sufficient value density
+    public function test_selects_create_mode_when_healthy(): void
+    {
+        $result = (new AtlasExternalBrainOriginatorDutyCycleContract)->evaluate([
+            'queue_health' => 'healthy',
+            'value_density' => 0.7,
+        ]);
+        self::assertSame('create', $result['selected_mode']);
+        self::assertSame([], $result['forbidden_actions']);
+    }
+
+    // AC: selects repair mode when low value density and degraded queue
+    public function test_selects_repair_mode_when_degraded(): void
+    {
+        $result = (new AtlasExternalBrainOriginatorDutyCycleContract)->evaluate([
+            'queue_health' => 'degraded',
+            'value_density' => 0.2,
+        ]);
+        self::assertSame('repair', $result['selected_mode']);
+        self::assertContains('create', $result['forbidden_actions']);
+    }
+
+    // AC: selects consolidate mode when comfortable queue
+    public function test_selects_consolidate_mode_when_comfortable(): void
+    {
+        $result = (new AtlasExternalBrainOriginatorDutyCycleContract)->evaluate([
+            'claimable_depth' => 8,
+            'active_workers' => 2,
+            'replenish_action' => 'wait',
+        ]);
+        self::assertSame('consolidate', $result['selected_mode']);
+    }
+
+    // AC: selects research mode when local surface exhausted
+    public function test_selects_research_mode_when_exhausted(): void
+    {
+        $result = (new AtlasExternalBrainOriginatorDutyCycleContract)->evaluate([
+            'local_surface_exhausted' => true,
+        ]);
+        self::assertSame('research', $result['selected_mode']);
+    }
+
+    // AC: selects pause mode on terminal conditions
+    public function test_selects_pause_mode_on_terminal(): void
+    {
+        $result = (new AtlasExternalBrainOriginatorDutyCycleContract)->evaluate([
+            'quota_complete' => true,
+        ]);
+        self::assertSame('pause', $result['selected_mode']);
+        self::assertSame(['create', 'repair', 'consolidate', 'research'], $result['forbidden_actions']);
+    }
+
+    // AC: rejects create mode when value density is low and repair evidence stronger
+    public function test_rejects_create_when_low_density_degraded(): void
+    {
+        $result = (new AtlasExternalBrainOriginatorDutyCycleContract)->evaluate([
+            'queue_health' => 'degraded',
+            'value_density' => 0.1,
+        ]);
+        self::assertNotSame('create', $result['selected_mode']);
+        self::assertContains('create', $result['forbidden_actions']);
+    }
 }
