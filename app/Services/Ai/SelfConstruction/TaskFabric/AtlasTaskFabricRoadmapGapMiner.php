@@ -112,14 +112,26 @@ final class AtlasTaskFabricRoadmapGapMiner
             $gap = sprintf('CURRENT: %s | TARGET: %s', $current === '' ? '(unspecified)' : $current, $target === '' ? '(unspecified)' : $target);
             $files = is_array($row['suggested_files'] ?? null) ? array_values(array_map('strval', $row['suggested_files'])) : [];
 
+            $gapId = sprintf('gap:%s:%s', preg_replace('/[^a-z0-9]+/', '-', strtolower($organ)), preg_replace('/[^a-z0-9]+/', '-', strtolower(substr($capability, 0, 64))));
+            $evidenceRefs = [$evidence];
+            if ($evidence !== '') {
+                $evidenceRefs[] = 'evidence_path:'.$evidence;
+            }
+            $nextTaskShape = $files !== [] ? 'implement_capability' : 'gather_evidence';
+            $confidence = round(min(1.0, $files !== [] ? 0.6 : 0.3), 2);
+
             $candidates[] = [
                 'schema_version' => self::SCHEMA,
+                'gap_id' => $gapId,
                 'organ' => $organ,
                 'capability' => $capability,
                 'capability_gap' => $gap,
                 'evidence_path' => $evidence,
+                'evidence_refs' => $evidenceRefs,
+                'next_task_shape' => $nextTaskShape,
                 'suggested_files' => $files,
                 'owner_scope' => 'atlas-native',
+                'confidence' => $confidence,
                 'tags' => ['organ:'.$organ, 'capability:'.$capability],
             ];
         }
@@ -217,12 +229,21 @@ final class AtlasTaskFabricRoadmapGapMiner
 
             $leverageScore = $organPriority + $lanePriority + $unblockValue + $freshnessValue;
 
+            $gapId = sprintf('gap:%s:%s', preg_replace('/[^a-z0-9]+/', '-', strtolower($organ)), preg_replace('/[^a-z0-9]+/', '-', strtolower(substr($capability, 0, 64))));
+            $evidenceRefs = ['evidence_path:'.$evidence];
+            $nextTaskShape = $files !== [] ? 'implement_capability' : 'gather_evidence';
+            $confidence = round(min(1.0, $files !== [] ? 0.6 : 0.3), 2);
+
             $candidate = array_merge([
                 'schema_version'  => self::SCHEMA,
+                'gap_id'          => $gapId,
                 'organ'           => $organ,
                 'capability'      => $capability,
                 'capability_gap'  => $gap,
                 'evidence_path'   => $evidence,
+                'evidence_refs'   => $evidenceRefs,
+                'next_task_shape' => $nextTaskShape,
+                'confidence'      => $confidence,
                 'suggested_files' => $files,
                 'owner_scope'     => 'atlas-native',
                 'leverage_score'  => $leverageScore,
@@ -460,12 +481,21 @@ final class AtlasTaskFabricRoadmapGapMiner
             $hasAcceptanceEvidence  = (bool) ($row['runnable_acceptance'] ?? false);
             $claimable = $hasImplementationScope && $hasAcceptanceEvidence;
 
+            $gapId = sprintf('gap:%s:%s', preg_replace('/[^a-z0-9]+/', '-', strtolower($organ)), preg_replace('/[^a-z0-9]+/', '-', strtolower(substr($capability, 0, 64))));
+            $evidenceRefs = ['evidence_path:'.$evidence];
+            $nextTaskShape = $files !== [] ? 'implement_capability' : 'gather_evidence';
+            $confidence = round(min(1.0, $files !== [] ? 0.6 : 0.3), 2);
+
             $candidate = array_merge([
                 'schema_version'   => self::SCHEMA,
+                'gap_id'           => $gapId,
                 'organ'            => $organ,
                 'capability'       => $capability,
                 'capability_gap'   => $gap,
                 'evidence_path'    => $evidence,
+                'evidence_refs'    => $evidenceRefs,
+                'next_task_shape'  => $nextTaskShape,
+                'confidence'       => $confidence,
                 'suggested_files'  => $files,
                 'owner_scope'      => 'atlas-native',
                 'leverage_score'   => $leverageScore,

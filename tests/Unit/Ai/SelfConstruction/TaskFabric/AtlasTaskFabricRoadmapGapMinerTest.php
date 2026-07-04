@@ -746,4 +746,87 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         $this->assertFalse(array_any($reasons, static fn (string $r): bool => str_starts_with($r, 'duplicate_bonus:')));
         $this->assertFalse(array_any($reasons, static fn (string $r): bool => str_starts_with($r, 'risk_reduction_bonus:')));
     }
+
+    // ── AC4: output includes gap_id, evidence_refs, next_task_shape, confidence ──
+
+    public function test_mine_output_has_ac4_fields(): void
+    {
+        $rows = [$this->row('Task Fabric', 'Add capability')];
+        $r = (new AtlasTaskFabricRoadmapGapMiner)->mine($rows);
+
+        $this->assertArrayHasKey('gap_id', $r[0]);
+        $this->assertArrayHasKey('evidence_refs', $r[0]);
+        $this->assertArrayHasKey('next_task_shape', $r[0]);
+        $this->assertArrayHasKey('confidence', $r[0]);
+        $this->assertNotEmpty($r[0]['gap_id']);
+        $this->assertNotEmpty($r[0]['evidence_refs']);
+        $this->assertNotEmpty($r[0]['next_task_shape']);
+        $this->assertGreaterThan(0.0, $r[0]['confidence']);
+    }
+
+    public function test_mine_by_lane_output_has_ac4_fields(): void
+    {
+        $rows = [$this->row('Task Fabric', 'Add capability', ['lane' => 'self-recovery'])];
+        $r = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane($rows);
+
+        $this->assertArrayHasKey('gap_id', $r[0]);
+        $this->assertArrayHasKey('evidence_refs', $r[0]);
+        $this->assertArrayHasKey('next_task_shape', $r[0]);
+        $this->assertArrayHasKey('confidence', $r[0]);
+    }
+
+    public function test_mine_ranked_output_has_ac4_fields(): void
+    {
+        $row = $this->row('Task Fabric', 'Add capability');
+        $r = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row]);
+
+        $this->assertArrayHasKey('gap_id', $r['candidates'][0]);
+        $this->assertArrayHasKey('evidence_refs', $r['candidates'][0]);
+        $this->assertArrayHasKey('next_task_shape', $r['candidates'][0]);
+        $this->assertArrayHasKey('confidence', $r['candidates'][0]);
+    }
+
+    public function test_gap_id_is_deterministic(): void
+    {
+        $rows = [$this->row('Task Fabric', 'Add capability')];
+        $miner = new AtlasTaskFabricRoadmapGapMiner;
+        $a = $miner->mine($rows);
+        $b = $miner->mine($rows);
+
+        $this->assertSame($a[0]['gap_id'], $b[0]['gap_id']);
+    }
+
+    public function test_next_task_shape_implement_when_files_present(): void
+    {
+        $rows = [$this->row('Task Fabric', 'Add capability', ['suggested_files' => ['app/Foo.php']])];
+        $r = (new AtlasTaskFabricRoadmapGapMiner)->mine($rows);
+
+        $this->assertSame('implement_capability', $r[0]['next_task_shape']);
+    }
+
+    public function test_next_task_shape_gather_when_no_files(): void
+    {
+        // Override suggested_files to empty to test the gather_evidence path
+        $rows = [$this->row('Task Fabric', 'Add capability', ['suggested_files' => []])];
+        $r = (new AtlasTaskFabricRoadmapGapMiner)->mine($rows);
+
+        $this->assertSame('gather_evidence', $r[0]['next_task_shape']);
+    }
+
+    public function test_confidence_higher_with_files(): void
+    {
+        $withFiles = (new AtlasTaskFabricRoadmapGapMiner)->mine([$this->row('Task Fabric', 'A', ['suggested_files' => ['app/Foo.php', 'app/Bar.php']])]);
+        $without = (new AtlasTaskFabricRoadmapGapMiner)->mine([$this->row('Task Fabric', 'B', ['suggested_files' => []])]);
+
+        $this->assertGreaterThan($without[0]['confidence'], $withFiles[0]['confidence']);
+    }
+
+    public function test_evidence_refs_includes_evidence_path(): void
+    {
+        $row = $this->row('Task Fabric', 'X');
+        $r = (new AtlasTaskFabricRoadmapGapMiner)->mine([$row]);
+        $expected = 'evidence_path:docs/Task Fabric_X.md';
+
+        $this->assertContains($expected, $r[0]['evidence_refs']);
+    }
 }
