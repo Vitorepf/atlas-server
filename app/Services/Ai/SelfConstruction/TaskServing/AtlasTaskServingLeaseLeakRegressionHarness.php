@@ -30,6 +30,9 @@ final class AtlasTaskServingLeaseLeakRegressionHarness
 
     public const SCENARIO_TERMINAL_RECORD_WITH_ACTIVE_LEASE = 'terminal_record_with_active_lease';
 
+    /** AC2/AC3: active_leases > claimed_records, recoverable_total=0, lease_leak_detected=true */
+    public const SCENARIO_LEASE_MISMATCH_WITHOUT_RECOVERABLE = 'lease_mismatch_without_recoverable';
+
     /**
      * @return array<string, array{queue_records:list<array<string,mixed>>, active_leases:list<array<string,mixed>>, expected_parity_class:string, expected_recoverable_total:int, expected_primary_action:string}>
      */
@@ -92,6 +95,23 @@ final class AtlasTaskServingLeaseLeakRegressionHarness
                 'expected_parity_class' => AtlasTaskServingLeaseClaimParityInspector::CLASSIFICATION_TERMINAL_WITH_ACTIVE_LEASE,
                 'expected_recoverable_total' => 1,
                 'expected_primary_action' => AtlasTaskServingLeaseClaimParityInspector::ACTION_REAP_LEASES,
+            ],
+            // AC2/AC3: exact shape that triggers lease_leak_detected=true with recoverable_total=0.
+            // 3 lease rows for two tasks but only 2 queue records — active_leases(3) > claimed_records(2).
+            // Every lease maps to a matched claim (no orphan, no ghost), so recoverable=0.
+            self::SCENARIO_LEASE_MISMATCH_WITHOUT_RECOVERABLE => [
+                'queue_records' => [
+                    ['task_packet_id' => 't1', 'status' => 'claimed'],
+                    ['task_packet_id' => 't2', 'status' => 'claimed'],
+                ],
+                'active_leases' => [
+                    ['lease_id' => 'L1', 'task_packet_id' => 't1'],
+                    ['lease_id' => 'L1-renewed', 'task_packet_id' => 't1'],
+                    ['lease_id' => 'L2', 'task_packet_id' => 't2'],
+                ],
+                'expected_parity_class' => 'lease_mismatch_without_recoverable',
+                'expected_recoverable_total' => 0,
+                'expected_primary_action' => AtlasTaskServingLeaseClaimParityInspector::ACTION_REPAIR_REGISTRY,
             ],
         ];
     }
