@@ -14,7 +14,7 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisorTest extends TestCase
         $result = (new AtlasExternalBrainTaskGraphLeafPruningAdvisor)->advise([
             'queue_pressure' => 'high',
             'tasks' => [
-                ['task_id' => 't1', 'evidence_value' => 0.2, 'maturity_gap_coverage' => 0.2, 'duplication_risk' => 0.5],
+                ['task_id' => 't1', 'evidence_value' => 0.2, 'maturity_gap_coverage' => 0.2, 'duplication_risk' => 0.5, 'merge_target_hint' => 'task-abc', 'safe_pruning_evidence' => ['no_active_consumers']],
             ],
         ]);
 
@@ -63,5 +63,75 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisorTest extends TestCase
         ]);
 
         $this->assertSame('retire_leaf', $result['recommendations'][0]['recommendation']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: merge_leaf requires merge_target_hint + safe_pruning_evidence
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_merge_leaf_without_merge_target_hint_downgrades_to_delay(): void
+    {
+        // High duplication, no merge_target_hint → must downgrade to delay_leaf
+        $result = (new AtlasExternalBrainTaskGraphLeafPruningAdvisor)->advise([
+            'tasks' => [
+                ['task_id' => 't1', 'duplication_risk' => 0.9, 'safe_pruning_evidence' => ['tested_elsewhere']],
+            ],
+        ]);
+
+        $this->assertSame('delay_leaf', $result['recommendations'][0]['recommendation']);
+        $this->assertContains('missing_merge_target_hint', $result['recommendations'][0]['retirement_blockers']);
+    }
+
+    public function test_merge_leaf_without_safe_pruning_evidence_downgrades_to_delay(): void
+    {
+        // High duplication, no safe_pruning_evidence → must downgrade to delay_leaf
+        $result = (new AtlasExternalBrainTaskGraphLeafPruningAdvisor)->advise([
+            'tasks' => [
+                ['task_id' => 't1', 'duplication_risk' => 0.9, 'merge_target_hint' => 'task-abc'],
+            ],
+        ]);
+
+        $this->assertSame('delay_leaf', $result['recommendations'][0]['recommendation']);
+        $this->assertContains('missing_safe_pruning_evidence', $result['recommendations'][0]['retirement_blockers']);
+    }
+
+    public function test_merge_leaf_downgraded_when_both_signals_missing(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphLeafPruningAdvisor)->advise([
+            'tasks' => [
+                ['task_id' => 't1', 'duplication_risk' => 0.9],
+            ],
+        ]);
+
+        $this->assertSame('delay_leaf', $result['recommendations'][0]['recommendation']);
+        $this->assertContains('missing_merge_target_hint', $result['recommendations'][0]['retirement_blockers']);
+        $this->assertContains('missing_safe_pruning_evidence', $result['recommendations'][0]['retirement_blockers']);
+    }
+
+    public function test_merge_leaf_with_both_signals_proceeds_as_merge(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphLeafPruningAdvisor)->advise([
+            'tasks' => [
+                ['task_id' => 't1', 'duplication_risk' => 0.9, 'merge_target_hint' => 'task-abc', 'safe_pruning_evidence' => ['covered_by_new_gate']],
+            ],
+        ]);
+
+        $this->assertSame('merge_leaf', $result['recommendations'][0]['recommendation']);
+        $this->assertSame('task-abc', $result['recommendations'][0]['merge_target_hint']);
+        $this->assertSame([], $result['recommendations'][0]['retirement_blockers']);
+    }
+
+    public function test_merge_leaf_downgraded_reason_indicates_missing_evidence(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphLeafPruningAdvisor)->advise([
+            'tasks' => [
+                ['task_id' => 't1', 'duplication_risk' => 0.9],
+            ],
+        ]);
+
+        $this->assertSame(
+            'high_duplication_but_missing_merge_target_or_pruning_evidence',
+            $result['recommendations'][0]['reason'],
+        );
     }
 }

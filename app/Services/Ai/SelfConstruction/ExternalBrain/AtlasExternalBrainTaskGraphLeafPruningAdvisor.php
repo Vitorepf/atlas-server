@@ -146,6 +146,24 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisor
                 $retirementBlockers[] = 'missing_safe_pruning_evidence';
             }
 
+            // merge_leaf additionally requires merge_target_hint + safe_pruning_evidence to
+            // proceed; without either, the leaf is delayed with named blockers so the
+            // originator knows what evidence is needed before merging can be recommended.
+            if ($recommendation === 'merge_leaf') {
+                $mergeBlockers = [];
+                if ($mergeTargetHint === '') {
+                    $mergeBlockers[] = 'missing_merge_target_hint';
+                }
+                if ($safePruningEvidence === []) {
+                    $mergeBlockers[] = 'missing_safe_pruning_evidence';
+                }
+                if ($mergeBlockers !== []) {
+                    $recommendation = 'delay_leaf';
+                    $reason = 'high_duplication_but_missing_merge_target_or_pruning_evidence';
+                    $retirementBlockers = $mergeBlockers;
+                }
+            }
+
             $preservesCapability = in_array($recommendation, ['keep_leaf', 'merge_leaf', 'delay_leaf'], true);
 
             $recommendations[] = [
