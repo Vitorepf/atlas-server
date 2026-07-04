@@ -227,4 +227,51 @@ final class AtlasSelfConstructionNativeReplenisherPreflight
             return null;
         }
     }
+
+    /**
+     * Health-aware admission: separates queue quality failures from health observability
+     * warnings. Blocks malformed, duplicate-target or low-value specs regardless of health.
+     * Emits health_warning for nonblocking lease mismatch when specs are otherwise valid.
+     *
+     * @param  array{
+     *   self_sufficient: bool,
+     *   blocking_deficiencies: list<string>,
+     *   health_warnings: list<string>,
+     *   duplicate_target: bool,
+     *   malformed: bool,
+     *   low_value: bool,
+     * }  $input
+     * @return array{enqueue_allowed:bool, blocking_deficiencies:list<string>, health_warnings:list<string>}
+     */
+    public function healthAwareAdmission(array $input): array
+    {
+        $selfSufficient = (bool) ($input['self_sufficient'] ?? false);
+        $blockingDeficiencies = is_array($input['blocking_deficiencies'] ?? null) ? $input['blocking_deficiencies'] : [];
+        $healthWarnings = is_array($input['health_warnings'] ?? null) ? $input['health_warnings'] : [];
+        $duplicateTarget = (bool) ($input['duplicate_target'] ?? false);
+        $malformed = (bool) ($input['malformed'] ?? false);
+        $lowValue = (bool) ($input['low_value'] ?? false);
+
+        // Hard blocks: malformed, duplicate-target, low-value, not self-sufficient
+        if ($malformed) {
+            $blockingDeficiencies[] = 'malformed_spec';
+        }
+        if ($duplicateTarget) {
+            $blockingDeficiencies[] = 'duplicate_target';
+        }
+        if ($lowValue) {
+            $blockingDeficiencies[] = 'low_value_spec';
+        }
+        if (!$selfSufficient) {
+            $blockingDeficiencies[] = 'not_self_sufficient';
+        }
+
+        $enqueueAllowed = $blockingDeficiencies === [];
+
+        return [
+            'enqueue_allowed' => $enqueueAllowed,
+            'blocking_deficiencies' => $blockingDeficiencies,
+            'health_warnings' => $healthWarnings,
+        ];
+    }
 }
