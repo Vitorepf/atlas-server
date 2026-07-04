@@ -370,4 +370,54 @@ final class AtlasTaskFabricAdmissionThresholdCalibratorTest extends TestCase
 
         $this->assertSame(json_encode($this->cal->calibrateAdaptive($input)), json_encode($this->cal->calibrateAdaptive($input)));
     }
+
+    // ── AC4: family_thresholds and evidence_refs ────────────────────────────
+
+    public function test_adaptive_output_includes_family_thresholds(): void
+    {
+        $r = $this->cal->calibrateAdaptive(['give_back_rate' => 0.3]);
+
+        $this->assertArrayHasKey('family_thresholds', $r);
+        $ft = $r['family_thresholds'];
+        $this->assertArrayHasKey('value_score', $ft);
+        $this->assertArrayHasKey('risk_score', $ft);
+        $this->assertArrayHasKey('duplicate_score', $ft);
+        $this->assertArrayHasKey('template_similarity', $ft);
+    }
+
+    public function test_adaptive_output_includes_evidence_refs(): void
+    {
+        $r = $this->cal->calibrateAdaptive(['give_back_rate' => 0.3]);
+
+        $this->assertArrayHasKey('evidence_refs', $r);
+        $this->assertContains('give_back_rate_elevated:0.3', $r['evidence_refs']);
+    }
+
+    public function test_adaptive_evidence_refs_empty_when_no_raise_condition(): void
+    {
+        $r = $this->cal->calibrateAdaptive([]);
+
+        $this->assertSame([], $r['evidence_refs']);
+    }
+
+    public function test_adaptive_evidence_refs_contains_all_raise_reasons(): void
+    {
+        $r = $this->cal->calibrateAdaptive([
+            'give_back_rate' => 0.3,
+            'poison_rate' => 0.15,
+            'weak_proof_rate' => 0.3,
+        ]);
+
+        $this->assertCount(3, $r['evidence_refs']);
+        $this->assertContains('give_back_rate_elevated:0.3', $r['evidence_refs']);
+        $this->assertContains('poison_rate_elevated:0.15', $r['evidence_refs']);
+        $this->assertContains('weak_proof_rate_elevated:0.3', $r['evidence_refs']);
+    }
+
+    public function test_adaptive_family_thresholds_match_threshold_deltas(): void
+    {
+        $r = $this->cal->calibrateAdaptive(['give_back_rate' => 0.3]);
+
+        $this->assertSame($r['threshold_deltas'], $r['family_thresholds']);
+    }
 }

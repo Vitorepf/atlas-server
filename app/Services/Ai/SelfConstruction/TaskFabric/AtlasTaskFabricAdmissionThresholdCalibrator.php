@@ -222,10 +222,17 @@ final class AtlasTaskFabricAdmissionThresholdCalibrator
                 'duplicate_score' => round(-$strictnessDelta, 4),
                 'template_similarity' => round(-$strictnessDelta, 4),
             ],
+            'family_thresholds' => [
+                'value_score' => round($strictnessDelta, 4),
+                'risk_score' => round(-$strictnessDelta, 4),
+                'duplicate_score' => round(-$strictnessDelta, 4),
+                'template_similarity' => round(-$strictnessDelta, 4),
+            ],
             'evidence_count' => $evidenceCount,
             'confidence' => $confidence,
             'raise_reasons' => $raiseReasons,
             'lower_eligible' => $lowerEligible,
+            'evidence_refs' => $raiseReasons,
         ];
     }
 }
