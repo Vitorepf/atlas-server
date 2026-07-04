@@ -67,6 +67,7 @@ final class AtlasExternalBrainProviderPoolIndependenceGate
         $scenarioResults = [];
         $requiredProviders = [];
         $missingFallbackCapabilities = [];
+        $missingFallbackProof = [];
         $tasks = [];
         $poolClassification = [];
 
@@ -82,7 +83,14 @@ final class AtlasExternalBrainProviderPoolIndependenceGate
             $isNative = (bool) ($claim['is_atlas_native'] ?? false);
             $replacementPath = trim((string) ($claim['replacement_path'] ?? ''));
             $sunsetCriteria = trim((string) ($claim['sunset_criteria'] ?? ''));
-            $hasExitPath = $hasFallback || $replacementPath !== '' || $sunsetCriteria !== '';
+            $fallbackProofRefs = (array) ($claim['fallback_proof_refs'] ?? []);
+            $hasConcreteFallbackProof = $hasFallback && $fallbackProofRefs !== [];
+            $hasExitPath = $hasConcreteFallbackProof || $replacementPath !== '' || $sunsetCriteria !== '';
+
+            // AC1: track providers that claim has_local_fallback without concrete proof refs.
+            if ($hasFallback && ! $hasConcreteFallbackProof) {
+                $missingFallbackProof[] = $provider;
+            }
 
             $autonomyPreserved = $isNative || ($hasExitPath && ! $required);
 
@@ -133,6 +141,7 @@ final class AtlasExternalBrainProviderPoolIndependenceGate
             'required_for_steady_state_providers' => $requiredProviders,
             'scenario_results' => $scenarioResults,
             'missing_fallback_capabilities' => $missingFallbackCapabilities,
+            'missing_fallback_proof' => array_values(array_unique($missingFallbackProof)),
             'minimal_next_tasks_needed_to_restore_independence' => array_values(array_unique($tasks)),
             'pool_classification' => $poolClassification,
         ];
