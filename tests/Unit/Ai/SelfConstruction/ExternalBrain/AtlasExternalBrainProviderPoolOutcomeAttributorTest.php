@@ -161,7 +161,115 @@ final class AtlasExternalBrainProviderPoolOutcomeAttributorTest extends TestCase
         $this->assertSame('avoid', $r['routing_recommendations'][0]['action']);
     }
 
-    // ── determinism ──────────────────────────────────────────────────────────
+    // ── AC4: routing_lessons and do_not_route_reasons in output ───────────────
+
+    public function test_routing_lessons_present_in_output(): void
+    {
+        $r = $this->svc()->attribute(['outcomes' => [
+            $this->outcome(),  // success → likely_cause → route_here, so routing_lessons populated
+        ]]);
+
+        $this->assertArrayHasKey('routing_lessons', $r);
+        // low confidence (n=1) → no lesson emitted, but key exists
+        $this->assertIsArray($r['routing_lessons']);
+    }
+
+    public function test_do_not_route_reasons_present_in_output(): void
+    {
+        $r = $this->svc()->attribute(['outcomes' => [
+            $this->outcome(),  // success, no poison → no do_not_route
+        ]]);
+
+        $this->assertArrayHasKey('do_not_route_reasons', $r);
+        $this->assertIsArray($r['do_not_route_reasons']);
+    }
+
+    public function test_do_not_route_emitted_when_poison_detected(): void
+    {
+        $r = $this->svc()->attribute(['outcomes' => [
+            $this->outcome(['result' => 'poison_detected']),
+        ]]);
+
+        $this->assertNotEmpty($r['do_not_route_reasons']);
+        $this->assertStringContainsString('poison_detected', $r['do_not_route_reasons'][0]);
+    }
+
+    public function test_confidence_present_in_every_group(): void
+    {
+        $r = $this->svc()->attribute(['outcomes' => [
+            $this->outcome(['task_family' => 'a']),
+            $this->outcome(['task_family' => 'b']),
+        ]]);
+
+        foreach ($r['groups'] as $group) {
+            $this->assertArrayHasKey('confidence', $group);
+            $this->assertContains($group['confidence'], ['low', 'medium', 'high']);
+        }
+    }
+
+    // ── AC3: model_id and task_family are separate grouping dimensions ────────
+
+    public function test_same_task_family_different_model_id_produce_separate_groups(): void
+    {
+        $r = $this->svc()->attribute(['outcomes' => [
+            $this->outcome(['model_id' => 'gpt-4', 'task_family' => 'gate-impl']),
+            $this->outcome(['model_id' => 'claude-3', 'task_family' => 'gate-impl']),
+        ]]);
+
+        $this->assertCount(2, $r['groups']);
+        $models = array_column($r['groups'], 'model_id');
+        $this->assertContains('gpt-4', $models);
+        $this->assertContains('claude-3', $models);
+    }
+
+    public function test_same_model_id_different_task_family_produce_separate_groups(): void
+    {
+        $r = $this->svc()->attribute(['outcomes' => [
+            $this->outcome(['model_id' => 'gpt-4', 'task_family' => 'gate-impl']),
+            $this->outcome(['model_id' => 'gpt-4', 'task_family' => 'refactor']),
+        ]]);
+
+        $this->assertCount(2, $r['groups']);
+        $families = array_column($r['groups'], 'task_family');
+        $this->assertContains('gate-impl', $families);
+        $this->assertContains('refactor', $families);
+    }
+
+    // ── AC2: verified_success=true overrides empty tests_reported/evidence_refs ─
+
+    public function test_verified_success_flag_allows_evidence_backed_without_refs(): void
+    {
+        $r = $this->svc()->attribute(['outcomes' => [
+            $this->outcome(['tests_reported' => [], 'evidence_refs' => [], 'verified_success' => true]),
+        ]]);
+
+        // verified_success=true → counted as success even without evidence_refs/tests_reported
+        $this->assertSame(1.0, $r['groups'][0]['success_rate']);
+    }
+
+    // ── AC4: do_not_route_reasons for low success rate with established causality
+
+    public function test_low_success_rate_emits_do_not_route_reason(): void
+    {
+        $outcomes = array_fill(0, 10, $this->outcome(['result' => 'give_back']));
+
+        $r = $this->svc()->attribute(['outcomes' => $outcomes]);
+
+        $this->assertNotEmpty($r['do_not_route_reasons']);
+        $this->assertStringContainsString('low_success_rate', $r['do_not_route_reasons'][0]);
+    }
+
+    // ── AC4: routing_lessons emitted for high-confidence high-success groups
+
+    public function test_routing_lesson_emitted_for_high_confidence_high_success(): void
+    {
+        $outcomes = array_fill(0, 10, $this->outcome());
+
+        $r = $this->svc()->attribute(['outcomes' => $outcomes]);
+
+        $this->assertNotEmpty($r['routing_lessons']);
+        $this->assertStringContainsString('prefer', $r['routing_lessons'][0]);
+    }
 
     public function test_attribute_is_deterministic(): void
     {
