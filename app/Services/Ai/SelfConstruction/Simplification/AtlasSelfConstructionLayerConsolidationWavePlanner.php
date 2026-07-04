@@ -56,8 +56,34 @@ final class AtlasSelfConstructionLayerConsolidationWavePlanner
 
             $readyIds = [];
             $blockedCandidates = [];
+            $hasCrossLayerBlockers = false;
             foreach ($group as $candidate) {
                 $id = (string) ($candidate['id'] ?? '');
+
+                // AC2: cross-layer boundary check — candidates whose consumer_layers include
+                // layers outside their own must be blocked unless proof_ready AND
+                // cross_layer_boundary_proof are both present.
+                $candidateLayers = array_values(array_map('strval', (array) ($candidate['consumer_layers'] ?? [])));
+                $crossesBoundary = $candidateLayers !== [] && array_filter($candidateLayers, static fn (string $cl): bool => $cl !== $layer) !== [];
+                $hasBoundaryProof = (bool) ($candidate['cross_layer_boundary_proof'] ?? false);
+
+                if ($crossesBoundary && (! (bool) ($candidate['proof_ready'] ?? false) || ! $hasBoundaryProof)) {
+                    $reasons = [];
+                    if (! (bool) ($candidate['proof_ready'] ?? false)) {
+                        $reasons[] = 'proof_not_ready';
+                    }
+                    if (! $hasBoundaryProof) {
+                        $reasons[] = 'cross_layer_boundary_blocker:'.$layer.'->'.implode(',', $candidateLayers);
+                    }
+                    $blockedCandidates[] = [
+                        'id' => $id,
+                        'reason' => implode(';', $reasons),
+                    ];
+                    $hasCrossLayerBlockers = $hasCrossLayerBlockers || ! $hasBoundaryProof;
+
+                    continue;
+                }
+
                 if ((bool) ($candidate['proof_ready'] ?? false)) {
                     $readyIds[] = ['id' => $id, 'risk' => (int) ($candidate['dependency_risk'] ?? 0)];
 
@@ -82,6 +108,7 @@ final class AtlasSelfConstructionLayerConsolidationWavePlanner
                     'layer' => $layer,
                     'candidate_ids' => $candidateIds,
                     'blocked_candidates' => $isLast ? $blockedCandidates : [],
+                    'has_cross_layer_boundary_blockers' => $isLast && $hasCrossLayerBlockers,
                     'next_required_proof' => $isLast && $blockedCandidates !== [] ? $blockedCandidates[0]['reason'] : null,
                 ];
                 $waves[] = $wave;

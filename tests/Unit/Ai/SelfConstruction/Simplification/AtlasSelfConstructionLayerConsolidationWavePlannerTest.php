@@ -148,4 +148,85 @@ final class AtlasSelfConstructionLayerConsolidationWavePlannerTest extends TestC
         $this->assertSame('wave_domain', $plan['waves'][0]['wave_id']);
         $this->assertSame(['a', 'b'], $plan['waves'][0]['candidate_ids']);
     }
+
+    // ── AC2: cross-layer boundary blocking ──
+
+    public function test_cross_layer_consumer_without_boundary_proof_is_blocked(): void
+    {
+        $plan = (new AtlasSelfConstructionLayerConsolidationWavePlanner)->plan([
+            ['id' => 'a', 'layer' => 'domain', 'dependency_risk' => 1, 'consumer_count' => 1, 'proof_ready' => true, 'consumer_layers' => ['application']],
+        ]);
+
+        $this->assertSame([], $plan['waves'][0]['candidate_ids']);
+        $blocked = $plan['waves'][0]['blocked_candidates'];
+        $this->assertCount(1, $blocked);
+        $this->assertStringContainsString('cross_layer_boundary_blocker', $blocked[0]['reason']);
+    }
+
+    public function test_cross_layer_consumer_with_proof_ready_and_boundary_proof_is_admitted(): void
+    {
+        $plan = (new AtlasSelfConstructionLayerConsolidationWavePlanner)->plan([
+            ['id' => 'a', 'layer' => 'domain', 'dependency_risk' => 1, 'consumer_count' => 1, 'proof_ready' => true, 'cross_layer_boundary_proof' => true, 'consumer_layers' => ['application']],
+        ]);
+
+        $this->assertSame(['a'], $plan['waves'][0]['candidate_ids']);
+        $this->assertSame([], $plan['waves'][0]['blocked_candidates']);
+    }
+
+    public function test_cross_layer_consumer_without_proof_ready_is_blocked_even_with_boundary_proof(): void
+    {
+        $plan = (new AtlasSelfConstructionLayerConsolidationWavePlanner)->plan([
+            ['id' => 'a', 'layer' => 'domain', 'dependency_risk' => 1, 'consumer_count' => 1, 'proof_ready' => false, 'cross_layer_boundary_proof' => true, 'consumer_layers' => ['application']],
+        ]);
+
+        $this->assertSame([], $plan['waves'][0]['candidate_ids']);
+        $this->assertCount(1, $plan['waves'][0]['blocked_candidates']);
+    }
+
+    public function test_same_layer_consumer_is_not_blocked(): void
+    {
+        $plan = (new AtlasSelfConstructionLayerConsolidationWavePlanner)->plan([
+            ['id' => 'a', 'layer' => 'domain', 'dependency_risk' => 1, 'consumer_count' => 1, 'proof_ready' => true, 'consumer_layers' => ['domain']],
+        ]);
+
+        $this->assertSame(['a'], $plan['waves'][0]['candidate_ids']);
+        $this->assertSame([], $plan['waves'][0]['blocked_candidates']);
+    }
+
+    public function test_no_consumer_layers_does_not_trigger_boundary_blocker(): void
+    {
+        $plan = (new AtlasSelfConstructionLayerConsolidationWavePlanner)->plan([
+            ['id' => 'a', 'layer' => 'domain', 'dependency_risk' => 1, 'consumer_count' => 1, 'proof_ready' => true],
+        ]);
+
+        $this->assertSame(['a'], $plan['waves'][0]['candidate_ids']);
+    }
+
+    public function test_has_cross_layer_boundary_blockers_flag_is_true_when_blocked(): void
+    {
+        $plan = (new AtlasSelfConstructionLayerConsolidationWavePlanner)->plan([
+            ['id' => 'a', 'layer' => 'domain', 'dependency_risk' => 1, 'consumer_count' => 1, 'proof_ready' => true, 'consumer_layers' => ['application']],
+        ]);
+
+        $this->assertTrue($plan['waves'][0]['has_cross_layer_boundary_blockers']);
+    }
+
+    public function test_has_cross_layer_boundary_blockers_flag_is_false_when_no_blockers(): void
+    {
+        $plan = (new AtlasSelfConstructionLayerConsolidationWavePlanner)->plan([
+            ['id' => 'a', 'layer' => 'domain', 'dependency_risk' => 1, 'consumer_count' => 1, 'proof_ready' => true],
+        ]);
+
+        $this->assertFalse($plan['waves'][0]['has_cross_layer_boundary_blockers']);
+    }
+
+    // ── AC3: purity — no filesystem, queue, provider, or database side effects ──
+
+    public function test_planner_is_pure_no_side_effects(): void
+    {
+        $src = (string) file_get_contents(\dirname(__DIR__, 5).'/app/Services/Ai/SelfConstruction/Simplification/AtlasSelfConstructionLayerConsolidationWavePlanner.php');
+        foreach (['file_put_contents(', 'exec(', 'shell_exec(', 'proc_open(', 'DB::', 'Model::', 'Queue::', 'Http::'] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $src, "Planner must not perform {$forbidden}");
+        }
+    }
 }
