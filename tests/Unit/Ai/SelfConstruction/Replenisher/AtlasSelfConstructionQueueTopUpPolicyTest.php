@@ -190,4 +190,73 @@ final class AtlasSelfConstructionQueueTopUpPolicyTest extends TestCase
         $this->assertSame([], $result['lane_balance']['lanes']);
         $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::DEFAULT_MIN_QUALITY_THRESHOLD, $result['minimum_quality_threshold']);
     }
+
+    // ── AC2/AC3/AC4: health-aware top-up, no_padding_reason, next_allowed_origination_mode ──
+
+    public function test_deep_queue_with_nonblocking_health_returns_wait_with_no_padding_reason(): void
+    {
+        $result = $this->policy->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 100,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 50,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 1],
+            'health' => false,
+        ]);
+
+        $this->assertSame('wait', $result['outcome']);
+        $this->assertSame(0, $result['new_packet_count']);
+        $this->assertStringContainsString('nonblocking_health_flag', $result['reasons'][0]);
+        $this->assertSame('nonblocking_health_flag', $result['no_padding_reason']);
+        $this->assertSame('on_demand', $result['next_allowed_origination_mode']);
+    }
+
+    public function test_low_high_value_claimable_depth_triggers_top_up(): void
+    {
+        $result = $this->policy->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 30,
+            'high_value_claimable_depth' => 5,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 50,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 1],
+            'low_water_mark' => 25,
+        ]);
+
+        // high_value_claimable=5 is <= lowWater/2=12.5, so highValueLow=true
+        $this->assertSame('allow', $result['outcome']);
+        $this->assertGreaterThan(0, $result['new_packet_count']);
+    }
+
+    public function test_output_includes_no_padding_reason_and_next_mode(): void
+    {
+        $result = $this->policy->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 10,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 50,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 1],
+            'low_water_mark' => 25,
+        ]);
+
+        $this->assertArrayHasKey('no_padding_reason', $result);
+        $this->assertArrayHasKey('next_allowed_origination_mode', $result);
+    }
+
+    public function test_nonblocking_health_only_affects_deep_queue_not_low_supply(): void
+    {
+        // health=false BUT claimable is below low_water — should still top up
+        $result = $this->policy->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 10,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 50,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 1],
+            'low_water_mark' => 25,
+            'health' => false,
+        ]);
+
+        $this->assertSame('allow', $result['outcome'],
+            'Nonblocking health must not block top-up when supply is genuinely low');
+    }
 }

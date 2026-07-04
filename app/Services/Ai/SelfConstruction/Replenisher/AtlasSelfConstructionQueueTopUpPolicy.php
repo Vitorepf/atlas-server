@@ -101,6 +101,10 @@ final class AtlasSelfConstructionQueueTopUpPolicy
         $topUpRequired = $targetWorkers > 0 && $netClaimable < $targetWorkers;
         $workerNeed = $targetWorkers > 0 ? max(0, $targetWorkers - $netClaimable) : 0;
 
+        // AC2/AC3: health and high-value signals for nonblocking-health-aware top-up decisions.
+        $health = (bool) ($facts['health'] ?? true);
+        $highValueClaimable = max(0, (int) ($facts['high_value_claimable_depth'] ?? 0));
+
         // Worker-floor hysteresis: replenish BEFORE the queue actually reaches
         // no_claimable_task. claimable_per_active_worker <= 2 or an explicit
         // replenish_soon recommendation are both leading indicators — wait for
@@ -156,6 +160,16 @@ final class AtlasSelfConstructionQueueTopUpPolicy
         $belowLowWater = $claimable < $lowWater;
         $queueLooksDeep = ! $belowLowWater && ! $topUpRequired && ! $belowEffectiveLowWater;
 
+        // AC2: deep queue with nonblocking health flag — don't pad, just explain why.
+        if ($queueLooksDeep && ! $health) {
+            return $this->envelope(self::OUTCOME_WAIT, 0, $topUpRequired, 0, ['wait:nonblocking_health_flag_deep_queue_no_padding'],
+                'nonblocking_health_flag', 'on_demand');
+        }
+
+        // AC3: genuinely low high-value supply or worker drain starvation triggers top-up
+        // even when the raw claimable_depth seems adequate.
+        $highValueLow = $highValueClaimable > 0 && $highValueClaimable <= $lowWater / 2;
+
         // High worker drain + high candidate quality: allow a small selective top-up even under
         // a deep queue, since the pool itself is shrinking fast enough to justify fresh supply.
         if ($workerDrainRate > self::WORKER_DRAIN_HIGH_THRESHOLD && $candidateQuality !== null && $candidateQuality >= $this->minQualityThreshold && $accepted > 0) {
@@ -171,6 +185,16 @@ final class AtlasSelfConstructionQueueTopUpPolicy
             return $this->envelope(self::OUTCOME_HOLD_OR_CONSOLIDATE, 0, $topUpRequired, 0, ['hold_or_consolidate:deep_queue_weak_candidate_quality:'.$candidateQuality]);
         }
 
+        // AC3: even a deep-looking queue needs top-up when high-value supply is critically low.
+        if ($queueLooksDeep && $highValueLow) {
+            $byBudget = intdiv($budgetRem, $perPacket);
+            $highValueNeed = min($highValueClaimable, $lowWater - $highValueClaimable);
+            $newCount = max(0, min($batchCap, $accepted, $byBudget, $highValueNeed));
+            if ($newCount > 0) {
+                return $this->envelope(self::OUTCOME_ALLOW, $newCount, $topUpRequired, $newCount, ['allow:high_value_supply_low:'.$newCount]);
+            }
+        }
+
         if ($queueLooksDeep) {
             return $this->envelope(self::OUTCOME_WAIT, 0, $topUpRequired, 0, ['wait:claimable_above_low_water_mark:'.$claimable.'>='.$lowWater]);
         }
@@ -179,10 +203,14 @@ final class AtlasSelfConstructionQueueTopUpPolicy
         }
 
         $byBudget = intdiv($budgetRem, $perPacket);
-        // Use the largest of the four needs (low-water gap, worker-count gap, stale-backlog gap, hysteresis gap).
+        // Use the largest of the needs (low-water gap, worker-count gap, stale-backlog gap,
+        // hysteresis gap, and high-value supply gap).
         $lowWaterNeed = $belowLowWater ? $lowWater - $claimable : 0;
         $staleBacklogNeed = $belowEffectiveLowWater ? $lowWater - $effectiveClaimable : 0;
-        $need = max($lowWaterNeed, $workerNeed, $staleBacklogNeed, $hysteresisNeed);
+        $highValueNeed = $highValueLow && $highValueClaimable < $lowWater
+            ? $lowWater - $highValueClaimable
+            : 0;
+        $need = max($lowWaterNeed, $workerNeed, $staleBacklogNeed, $hysteresisNeed, $highValueNeed);
         $newCount = max(0, min($batchCap, $accepted, $byBudget, $need));
 
         if ($newCount === 0) {
@@ -200,9 +228,9 @@ final class AtlasSelfConstructionQueueTopUpPolicy
 
     /**
      * @param  list<string>  $reasons
-     * @return array{schema:string, outcome:string, new_packet_count:int, top_up_required:bool, target_new_packets:int, reasons:list<string>}
+     * @return array{schema:string, outcome:string, new_packet_count:int, top_up_required:bool, target_new_packets:int, reasons:list<string>, no_padding_reason:?string, next_allowed_origination_mode:string}
      */
-    private function envelope(string $outcome, int $count, bool $topUpRequired, int $targetNewPackets, array $reasons): array
+    private function envelope(string $outcome, int $count, bool $topUpRequired, int $targetNewPackets, array $reasons, string $noPaddingReason = '', string $nextMode = 'immediate'): array
     {
         sort($reasons, SORT_STRING);
 
@@ -215,6 +243,8 @@ final class AtlasSelfConstructionQueueTopUpPolicy
             'reasons' => $reasons,
             'lane_balance' => $this->laneBalance,
             'minimum_quality_threshold' => $this->minQualityThreshold,
+            'no_padding_reason' => $noPaddingReason !== '' ? $noPaddingReason : null,
+            'next_allowed_origination_mode' => $nextMode,
         ];
     }
 
