@@ -67,6 +67,7 @@ final class AtlasExternalBrainPromptToPolicyExtractor
         'scope'    => ['task_shape_discipline', 'at_task_packet_validation',  'reject_if_scope_too_narrow', 'undersized_task_shape'],
         'wait'     => ['continuity_or_origination_discipline', 'at_continuity_check', 'reject_if_wait_used_as_progress', 'wait_as_progress'],
         'queue'    => ['continuity_or_origination_discipline', 'at_continuity_check', 'reject_if_wait_used_as_progress', 'wait_as_progress'],
+        'padding'  => ['continuity_or_origination_discipline', 'at_continuity_check', 'reject_if_padding_used_as_progress', 'padding_as_progress'],
     ];
 
     private const DEFAULT_DIMENSION = ['general_policy', 'implementation_notes', 'policy_backlog'];
