@@ -20,8 +20,10 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernorTest extends TestCase
     {
         $result = $this->governor()->govern([]);
 
-        foreach (['schema_version', 'coverage_by_gap', 'overcovered_gaps', 'undercovered_high_priority_gaps',
-                  'next_batch_should_target', 'candidate_batch_decisions', 'gap_candidates', 'stale_roadmap_gaps'] as $key) {
+        foreach (['schema_version', 'coverage_by_gap', 'overcovered_gaps', 'blocked_overfocus_batches',
+                  'undercovered_high_priority_gaps', 'next_batch_should_target', 'recommended_gap_order',
+                  'candidate_batch_decisions', 'worker_floor_low', 'worker_floor_action',
+                  'gap_candidates', 'stale_roadmap_gaps', 'mutates_queue'] as $key) {
             $this->assertArrayHasKey($key, $result, "Missing key: {$key}");
         }
         $this->assertSame(AtlasExternalBrainRoadmapCoverageGapGovernor::SCHEMA, $result['schema_version']);
@@ -182,6 +184,97 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernorTest extends TestCase
 
         $this->assertContains('gap-full-and-old', $result['overcovered_gaps']);
         $this->assertSame([], $result['stale_roadmap_gaps']);
+    }
+
+    // ── AC2: regression_repair also bypasses overfocus block ──
+
+    public function test_regression_repair_bypasses_overfocus_block(): void
+    {
+        $result = $this->governor()->govern([
+            'roadmap_gaps' => [['gap_id' => 'gap-r', 'priority' => 'high', 'target_coverage' => 1]],
+            'completed_capabilities' => [['gap_id' => 'gap-r']],
+            'candidate_batches' => [['gap_id' => 'gap-r', 'is_regression_repair' => true]],
+        ]);
+
+        $this->assertSame('allowed', $result['candidate_batch_decisions'][0]['decision']);
+        $this->assertTrue($result['candidate_batch_decisions'][0]['is_regression_repair']);
+    }
+
+    public function test_regression_repair_fallback_to_is_high_value_repair(): void
+    {
+        $result = $this->governor()->govern([
+            'roadmap_gaps' => [['gap_id' => 'gap-r', 'priority' => 'high', 'target_coverage' => 1]],
+            'completed_capabilities' => [['gap_id' => 'gap-r']],
+            'candidate_batches' => [['gap_id' => 'gap-r', 'is_high_value_repair' => true]],
+        ]);
+
+        $this->assertSame('allowed', $result['candidate_batch_decisions'][0]['decision']);
+        $this->assertTrue($result['candidate_batch_decisions'][0]['is_regression_repair']);
+    }
+
+    // ── AC4: blocked_overfocus_batches ──
+
+    public function test_blocked_overfocus_batches_contains_only_blocked_decisions(): void
+    {
+        $result = $this->governor()->govern([
+            'roadmap_gaps' => [
+                ['gap_id' => 'gap-full', 'priority' => 'high', 'target_coverage' => 1],
+                ['gap_id' => 'gap-under', 'priority' => 'high', 'target_coverage' => 3],
+            ],
+            'queued_tasks' => [['gap_id' => 'gap-full']],
+            'candidate_batches' => [
+                ['gap_id' => 'gap-full'],
+                ['gap_id' => 'gap-under'],
+            ],
+        ]);
+
+        $this->assertCount(1, $result['blocked_overfocus_batches']);
+        $this->assertSame('gap-full', $result['blocked_overfocus_batches'][0]['gap_id']);
+        $this->assertSame('blocked', $result['blocked_overfocus_batches'][0]['decision']);
+    }
+
+    // ── AC4: recommended_gap_order ──
+
+    public function test_recommended_gap_order_includes_coverage_gap_priority_and_worker_readiness(): void
+    {
+        $result = $this->governor()->govern([
+            'roadmap_gaps' => [
+                ['gap_id' => 'gap-top', 'priority' => 'high', 'target_coverage' => 5],
+                ['gap_id' => 'gap-second', 'priority' => 'high', 'target_coverage' => 3],
+            ],
+        ]);
+
+        $this->assertCount(2, $result['recommended_gap_order']);
+        $first = $result['recommended_gap_order'][0];
+        $this->assertArrayHasKey('gap_id', $first);
+        $this->assertArrayHasKey('coverage_gap', $first);
+        $this->assertArrayHasKey('priority', $first);
+        $this->assertArrayHasKey('worker_readiness', $first);
+    }
+
+    // ── AC4: worker_floor_action ──
+
+    public function test_worker_floor_action_normal_when_worker_floor_not_low(): void
+    {
+        $result = $this->governor()->govern([]);
+
+        $this->assertSame('normal_worker_floor_maintain_throughput', $result['worker_floor_action']);
+    }
+
+    public function test_worker_floor_action_route_to_replenishment_when_low_floor_with_replenishable_gaps(): void
+    {
+        $result = $this->governor()->govern([
+            'roadmap_gaps' => [[
+                'gap_id' => 'gap-replenish',
+                'priority' => 'high',
+                'target_coverage' => 3,
+                'allowed_files' => ['app/Services/Foo.php'],
+                'acceptance_criteria' => ['php artisan test tests/Unit/FooTest.php'],
+            ]],
+            'claimable_per_active_worker' => 1.0,
+        ]);
+
+        $this->assertSame('route_to_task_fabric_replenishment', $result['worker_floor_action']);
     }
 
     // ── Determinism ───────────────────────────────────────────────────────────

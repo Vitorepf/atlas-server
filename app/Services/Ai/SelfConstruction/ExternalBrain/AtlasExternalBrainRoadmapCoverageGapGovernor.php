@@ -178,28 +178,53 @@ final class AtlasExternalBrainRoadmapCoverageGapGovernor
             $gapId = (string) ($candidate['gap_id'] ?? '');
             $isPrerequisiteUnlock = (bool) ($candidate['is_prerequisite_unlock'] ?? false);
             $isHighValueRepair = (bool) ($candidate['is_high_value_repair'] ?? false);
+            $isRegressionRepair = (bool) ($candidate['is_regression_repair'] ?? $isHighValueRepair);
             $isOvercovered = in_array($gapId, $overcoveredGaps, true);
 
-            $blocked = $isOvercovered && ! $isPrerequisiteUnlock && ! $isHighValueRepair;
+            $blocked = $isOvercovered && ! $isPrerequisiteUnlock && ! $isRegressionRepair;
 
             $candidateBatchDecisions[] = [
                 'gap_id' => $gapId,
                 'is_overcovered' => $isOvercovered,
                 'is_prerequisite_unlock' => $isPrerequisiteUnlock,
                 'is_high_value_repair' => $isHighValueRepair,
+                'is_regression_repair' => $isRegressionRepair,
                 'decision' => $blocked ? 'blocked' : 'allowed',
                 'reason' => $blocked ? 'gap_already_overcovered' : ($isOvercovered ? 'exception_applies_prerequisite_or_repair' : 'gap_not_overcovered'),
             ];
         }
 
+        $blockedOverfocusBatches = array_values(array_filter(
+            $candidateBatchDecisions,
+            static fn (array $d): bool => $d['decision'] === 'blocked',
+        ));
+
+        // Rank uncovered high-priority gaps by coverage_gap desc, priority desc, worker_readiness.
+        $recommendedGapOrder = array_values(array_map(
+            static fn (string $gapId): array => [
+                'gap_id' => $gapId,
+                'coverage_gap' => $coverageByGap[$gapId]['coverage_gap'] ?? 0,
+                'priority' => $gapPriorities[$gapId] ?? 0.0,
+                'worker_readiness' => $workerFloorLow ? 'low' : 'normal',
+            ],
+            $undercoveredHighPriorityGaps,
+        ));
+
+        $workerFloorAction = $workerFloorLow
+            ? ($taskFabricReplenishmentActions !== [] ? 'route_to_task_fabric_replenishment' : 'low_worker_floor_no_replenishable_gaps')
+            : 'normal_worker_floor_maintain_throughput';
+
         return [
             'schema_version' => self::SCHEMA,
             'coverage_by_gap' => $coverageByGap,
             'overcovered_gaps' => array_values($overcoveredGaps),
+            'blocked_overfocus_batches' => $blockedOverfocusBatches,
             'undercovered_high_priority_gaps' => array_values($undercoveredHighPriorityGaps),
             'next_batch_should_target' => array_values($undercoveredHighPriorityGaps),
+            'recommended_gap_order' => $recommendedGapOrder,
             'candidate_batch_decisions' => $candidateBatchDecisions,
             'worker_floor_low' => $workerFloorLow,
+            'worker_floor_action' => $workerFloorAction,
             'claimable_per_active_worker' => $claimablePerActiveWorker,
             'task_fabric_replenishment_actions' => $taskFabricReplenishmentActions,
             'gap_candidates' => $gapCandidates,
