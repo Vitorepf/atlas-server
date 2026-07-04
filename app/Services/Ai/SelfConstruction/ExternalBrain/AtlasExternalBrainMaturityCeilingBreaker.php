@@ -184,10 +184,38 @@ final class AtlasExternalBrainMaturityCeilingBreaker
             default => 'not_at_ceiling',
         };
 
+        // next_leverage_moves: concrete moves across context, proof, task_fabric, model_amplifier, simplification
+        $nextLeverageMoves = $this->deriveNextLeverageMoves($recentTasks, $eligibleJumps, $rejectedJumps);
+
+        // plateau_claim_allowed: false when unexplored high-leverage surfaces remain
+        $plateauClaimAllowed = count($nextLeverageMoves) === 0 && ! $ceilingDetected;
+
+        // ceiling_type: categorize the ceiling
+        $ceilingType = match (true) {
+            $insufficientData => 'insufficient_data',
+            $stagnationCeiling && $saturationCeiling => 'stagnation_and_saturation',
+            $stagnationCeiling => 'stagnation',
+            $saturationCeiling => 'saturation',
+            default => 'none',
+        };
+
+        // evidence_refs: references to evidence supporting the analysis
+        $evidenceRefs = array_values(array_filter(array_map(
+            static fn (array $t): ?string => (string) ($t['evidence_ref'] ?? ''),
+            $recentTasks,
+        )));
+
+        // chosen_move: the best eligible jump
+        $chosenMove = $proposedJump;
+
+        // rejected_moves: rejected jumps with reasons
+        $rejectedMoves = $rejectedJumps;
+
         return [
             'schema_version'               => self::SCHEMA,
             'ceiling_detected'             => $ceilingDetected,
             'ceiling_status'               => $ceilingStatus,
+            'ceiling_type'                 => $ceilingType,
             'ceiling_evidence'             => [
                 'non_unlocking_task_count'  => $nonUnlockingCount,
                 'marginal_gain_average'     => $marginalGainAvg,
@@ -200,15 +228,106 @@ final class AtlasExternalBrainMaturityCeilingBreaker
                 'total_task_count'          => $totalCount,
                 'min_sample_size'           => self::MIN_SAMPLE_SIZE,
             ],
+            'evidence_refs'                => $evidenceRefs,
             'proposed_jump'                => $proposedJump,
+            'chosen_move'                  => $chosenMove,
             'prerequisites'                => $proposedJump['prerequisites'] ?? [],
             'proof_gates'                  => $proposedJump['proof_gates']   ?? [],
             'blast_radius_within_bounds'   => $proposedJump !== null ? ($proposedJump['blast_radius'] <= self::MAX_BLAST_RADIUS) : false,
             'risk_within_bounds'           => $proposedJump !== null ? ($proposedJump['risk_score']   <= self::MAX_RISK_SCORE)   : false,
             'rejected_incremental_tasks'   => $nonUnlockingTasks,
             'rejected_jumps'               => $rejectedJumps,
+            'rejected_moves'               => $rejectedMoves,
             'unlock_chain'                 => $unlockChain,
             'incremental_rejection_reason' => $incrementalRejectionReason,
+            'next_leverage_moves'          => $nextLeverageMoves,
+            'plateau_claim_allowed'        => $plateauClaimAllowed,
         ];
+    }
+
+    /**
+     * Derive next leverage moves across context, proof, task_fabric, model_amplifier, simplification.
+     *
+     * @param  array<array<string,mixed>>  $recentTasks
+     * @param  array<array<string,mixed>>  $eligibleJumps
+     * @param  array<array<string,mixed>>  $rejectedJumps
+     * @return array<string,mixed>
+     */
+    private function deriveNextLeverageMoves(array $recentTasks, array $eligibleJumps, array $rejectedJumps): array
+    {
+        $moves = [];
+
+        // context: if structural unlock rate is low, propose context expansion
+        $unlockCount = 0;
+        $totalCount = count($recentTasks);
+        foreach ($recentTasks as $task) {
+            if ((bool) ($task['unlocks_new_capability'] ?? false)) {
+                $unlockCount++;
+            }
+        }
+        $structuralUnlockRate = $totalCount > 0 ? $unlockCount / $totalCount : 1.0;
+
+        if ($structuralUnlockRate < 0.5) {
+            $moves['context'] = [
+                'move' => 'expand_context_window',
+                'reason' => 'structural_unlock_rate_below_threshold',
+                'expected_delta' => sprintf('unlock_rate_from_%.2f_to_%.2f', $structuralUnlockRate, min(1.0, $structuralUnlockRate + 0.3)),
+            ];
+        }
+
+        // proof: if rejected jumps cite missing proof gates, propose proof infrastructure
+        foreach ($rejectedJumps as $jump) {
+            if (in_array('no_proof_gates_defined', $jump['reasons'] ?? [], true)) {
+                $moves['proof'] = [
+                    'move' => 'build_proof_infrastructure',
+                    'reason' => 'rejected_jumps_lack_proof_gates',
+                    'expected_delta' => 'enable_proof_gated_capability_jumps',
+                ];
+                break;
+            }
+        }
+
+        // task_fabric: if repeated family rate is high, propose task fabric diversification
+        $familyCounts = [];
+        foreach ($recentTasks as $task) {
+            $family = (string) ($task['task_family'] ?? '');
+            if ($family !== '') {
+                $familyCounts[$family] = ($familyCounts[$family] ?? 0) + 1;
+            }
+        }
+        $familyTaskCount = array_sum($familyCounts);
+        if ($familyTaskCount > 0) {
+            $repeatedFamilyRate = max($familyCounts) / $familyTaskCount;
+            if ($repeatedFamilyRate > 0.5) {
+                $moves['task_fabric'] = [
+                    'move' => 'diversify_task_fabric',
+                    'reason' => 'high_repeated_family_rate',
+                    'expected_delta' => sprintf('reduce_family_concentration_from_%.2f', $repeatedFamilyRate),
+                ];
+            }
+        }
+
+        // model_amplifier: if eligible jumps exist, propose model amplifier
+        if (count($eligibleJumps) > 0) {
+            $moves['model_amplifier'] = [
+                'move' => 'deploy_model_amplifier',
+                'reason' => 'eligible_capability_jumps_available',
+                'expected_delta' => 'unlock_new_capability_surface',
+            ];
+        }
+
+        // simplification: if saturation score is high, propose simplification
+        if ($familyTaskCount > 0) {
+            $saturationScore = round(($repeatedFamilyRate + (1.0 - $structuralUnlockRate)) / 2.0, 4);
+            if ($saturationScore >= self::HIGH_SATURATION_THRESHOLD) {
+                $moves['simplification'] = [
+                    'move' => 'simplify_existing_complexity',
+                    'reason' => 'high_saturation_score',
+                    'expected_delta' => sprintf('reduce_saturation_from_%.2f', $saturationScore),
+                ];
+            }
+        }
+
+        return $moves;
     }
 }
