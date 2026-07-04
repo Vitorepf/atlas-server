@@ -335,4 +335,73 @@ final class AtlasMaestroWorkerFairnessAuditor
 
         return (float) ($weighted / ($n * $sum));
     }
+
+    /**
+     * Risk-adjusted fairness audit: accounts for reliability, give_back rate and active lease load.
+     *
+     * @param  list<array{client_id?:string, reliability?:float, give_back_rate?:float, active_leases?:int}>  $workerProfiles
+     * @return array{fairness_status:string, risk_adjusted_loads:array<string,float>, overloaded_workers:list<string>, rebalancing_hint:string}
+     */
+    public function riskAdjustedAudit(array $workerProfiles): array
+    {
+        $riskAdjustedLoads = [];
+        $overloadedWorkers = [];
+        $totalAdjustedLoad = 0.0;
+
+        foreach ($workerProfiles as $profile) {
+            $clientId = (string) ($profile['client_id'] ?? '');
+            if ($clientId === '') {
+                continue;
+            }
+
+            $reliability = (float) ($profile['reliability'] ?? 1.0);
+            $giveBackRate = (float) ($profile['give_back_rate'] ?? 0.0);
+            $activeLeases = (int) ($profile['active_leases'] ?? 0);
+
+            // Risk-adjusted load: active_leases adjusted by reliability penalty
+            // Unreliable workers (high give_back) get their load penalized — they're consuming
+            // capacity without delivering, so their effective load is higher than raw count.
+            $riskFactor = 1.0 + ($giveBackRate * 2.0); // 0.5 give_back → 2x risk factor
+            $adjustedLoad = round($activeLeases * $riskFactor / max(0.1, $reliability), 4);
+            $riskAdjustedLoads[$clientId] = $adjustedLoad;
+            $totalAdjustedLoad += $adjustedLoad;
+        }
+
+        // Determine overloaded workers: risk-adjusted load exceeds fleet average by 50%
+        $workerCount = count($riskAdjustedLoads);
+        $averageLoad = $workerCount > 0 ? $totalAdjustedLoad / $workerCount : 0.0;
+        $overloadThreshold = $averageLoad * 1.5;
+
+        foreach ($riskAdjustedLoads as $clientId => $load) {
+            if ($load > $overloadThreshold && $load > 0) {
+                $overloadedWorkers[] = $clientId;
+            }
+        }
+        sort($overloadedWorkers, SORT_STRING);
+
+        // Determine fairness status
+        if ($overloadedWorkers !== []) {
+            $fairnessStatus = 'unfair';
+        } elseif ($workerCount === 0) {
+            $fairnessStatus = 'no_data';
+        } else {
+            $fairnessStatus = 'fair';
+        }
+
+        // Generate rebalancing hint
+        if ($overloadedWorkers !== []) {
+            $rebalancingHint = 'reduce assignments for ' . implode(', ', $overloadedWorkers) . ' and redirect to under-loaded workers';
+        } elseif ($workerCount === 0) {
+            $rebalancingHint = 'no worker data available for risk-adjusted analysis';
+        } else {
+            $rebalancingHint = 'work distribution is balanced across risk-adjusted loads';
+        }
+
+        return [
+            'fairness_status' => $fairnessStatus,
+            'risk_adjusted_loads' => $riskAdjustedLoads,
+            'overloaded_workers' => $overloadedWorkers,
+            'rebalancing_hint' => $rebalancingHint,
+        ];
+    }
 }
