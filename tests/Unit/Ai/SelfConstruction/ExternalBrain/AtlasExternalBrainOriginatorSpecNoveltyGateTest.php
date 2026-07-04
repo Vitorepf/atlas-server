@@ -148,4 +148,66 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGateTest extends TestCase
         $this->assertTrue($row['safe_to_enqueue']);
         $this->assertNull($row['minimal_rewrite_suggestion']);
     }
+
+    // ── duplicate_family ──
+
+    public function test_duplicate_family_set_when_same_family_collides(): void
+    {
+        $result = $this->gate->evaluate([
+            'candidates' => [[
+                'class_name' => 'AtlasRenamedHealthService',
+                'task_family' => 'health_monitoring',
+                'objective' => 'Strengthen AtlasHealthService so it reports the configured disk health and blocking reason inside every snapshot.',
+                'acceptance' => ['snapshot includes disk health ok and reason fields'],
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasHealthService.php'],
+            ]],
+            'queued_targets' => [[
+                'class_name' => 'AtlasHealthService',
+                'task_family' => 'health_monitoring',
+                'objective' => 'Strengthen AtlasHealthService so it reports the configured disk health and blocking reason inside the snapshot.',
+                'acceptance' => ['snapshot includes disk health ok and reason fields'],
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasHealthService.php'],
+            ]],
+        ]);
+        $row = $result['results'][0];
+        $this->assertFalse($row['safe_to_enqueue']);
+        $this->assertSame('health_monitoring', $row['duplicate_family']);
+    }
+
+    public function test_duplicate_family_null_when_different_families(): void
+    {
+        $result = $this->gate->evaluate([
+            'candidates' => [[
+                'class_name' => 'AtlasRenamedHealthService',
+                'task_family' => 'health_monitoring',
+                'objective' => 'Strengthen AtlasHealthService so it reports the configured disk health and blocking reason inside every snapshot.',
+                'acceptance' => ['snapshot includes disk health ok and reason fields'],
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasHealthService.php'],
+            ]],
+            'queued_targets' => [[
+                'class_name' => 'AtlasHealthService',
+                'task_family' => 'network_monitoring',
+                'objective' => 'Strengthen AtlasHealthService so it reports the configured disk health and blocking reason inside the snapshot.',
+                'acceptance' => ['snapshot includes disk health ok and reason fields'],
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasHealthService.php'],
+            ]],
+        ]);
+        $row = $result['results'][0];
+        $this->assertFalse($row['safe_to_enqueue']);
+        $this->assertNull($row['duplicate_family']);
+    }
+
+    public function test_duplicate_family_null_when_novel(): void
+    {
+        $result = $this->gate->evaluate([
+            'candidates' => [[
+                'class_name' => 'AtlasBrandNewService',
+                'task_family' => 'brand_new',
+                'objective' => 'Implement a completely unrelated capability nobody has touched before.',
+            ]],
+        ]);
+        $row = $result['results'][0];
+        $this->assertTrue($row['safe_to_enqueue']);
+        $this->assertNull($row['duplicate_family']);
+    }
 }
