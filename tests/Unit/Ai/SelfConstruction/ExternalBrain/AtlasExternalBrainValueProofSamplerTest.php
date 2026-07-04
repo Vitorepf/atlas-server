@@ -19,12 +19,13 @@ final class AtlasExternalBrainValueProofSamplerTest extends TestCase
     private function record(array $overrides = []): array
     {
         return array_merge([
-            'task_packet_id'    => 'task-1',
-            'changed_files'     => ['app/Services/AtlasFoo.php', 'tests/Unit/AtlasFooTest.php'],
-            'tests'             => ['tests/Unit/AtlasFooTest.php'],
+            'task_packet_id'     => 'task-1',
+            'changed_files'      => ['app/Services/AtlasFoo.php', 'tests/Unit/AtlasFooTest.php'],
+            'tests'              => ['tests/Unit/AtlasFooTest.php'],
             'integration_status' => false,
-            'downstream_usage'  => [],
-            'behavior_evidence' => [],
+            'downstream_usage'   => [],
+            'behavior_evidence'  => [],
+            'tests_passed'       => true,
         ], $overrides);
     }
 
@@ -34,7 +35,7 @@ final class AtlasExternalBrainValueProofSamplerTest extends TestCase
     {
         $result = $this->sampler->sample($this->record());
 
-        foreach (['schema', 'task_packet_id', 'value_class', 'confidence', 'signals'] as $key) {
+        foreach (['schema', 'task_packet_id', 'value_class', 'confidence', 'signals', 'evidence_class', 'value_proven', 'missing_value_evidence'] as $key) {
             $this->assertArrayHasKey($key, $result, "Missing key: {$key}");
         }
         $this->assertSame(AtlasExternalBrainValueProofSampler::SCHEMA, $result['schema']);
@@ -454,5 +455,260 @@ final class AtlasExternalBrainValueProofSamplerTest extends TestCase
         $guidance = $result['family_guidance'][0];
         $this->assertFalse($guidance['lowered_future_priority']);
         $this->assertSame(0.0, $guidance['priority_adjustment']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NEW: AC2 — Green-only gate (value_proven / missing_value_evidence)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    public function test_value_proven_false_when_only_tests_passed_without_delta(): void
+    {
+        // Sample with only tests_passed but no delta evidence → value_proven must be false.
+        $result = $this->sampler->sample($this->record([
+            'tests_passed'       => true,
+            'tests'              => ['tests/Unit/AtlasFooTest.php'],
+            'integration_status' => false,
+            'downstream_usage'   => [],
+            'behavior_evidence'  => [],
+            'behavior_delta'     => [],
+            'autonomy_delta'     => [],
+        ]));
+
+        $this->assertFalse($result['value_proven'], 'Green tests alone must not prove value');
+    }
+
+    public function test_value_proven_false_when_only_tests_passed_without_any_delta_evidence(): void
+    {
+        // All delta fields empty → value_proven=false even with tests_passed=true.
+        $result = $this->sampler->sample($this->record([
+            'tests_passed'          => true,
+            'tests'                 => ['tests/Unit/AtlasFooTest.php'],
+            'behavior_delta'        => [],
+            'autonomy_delta'        => [],
+            'risk_reduction_delta'  => [],
+            'simplification_delta'  => [],
+            'learning_delta'        => [],
+        ]));
+
+        $this->assertFalse($result['value_proven'],
+            'value_proven must be false when all five delta fields are empty regardless of tests_passed');
+    }
+
+    public function test_value_proven_true_with_behavior_delta(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'behavior_delta' => ['behavior:added-command-handler'],
+        ]));
+
+        $this->assertTrue($result['value_proven'],
+            'behavior_delta alone must set value_proven=true');
+    }
+
+    public function test_value_proven_true_with_autonomy_delta(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'autonomy_delta' => ['autonomy:added-self-healing'],
+        ]));
+
+        $this->assertTrue($result['value_proven'],
+            'autonomy_delta alone must set value_proven=true');
+    }
+
+    public function test_value_proven_true_with_risk_reduction_delta(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'risk_reduction_delta' => ['risk:added-circuit-breaker'],
+        ]));
+
+        $this->assertTrue($result['value_proven'],
+            'risk_reduction_delta alone must set value_proven=true');
+    }
+
+    public function test_value_proven_true_with_simplification_delta(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'simplification_delta' => ['simplification:removed-complexity'],
+        ]));
+
+        $this->assertTrue($result['value_proven'],
+            'simplification_delta alone must set value_proven=true');
+    }
+
+    public function test_value_proven_true_with_learning_delta(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'learning_delta' => ['learning:extracted-pattern-x'],
+        ]));
+
+        $this->assertTrue($result['value_proven'],
+            'learning_delta alone must set value_proven=true');
+    }
+
+    public function test_value_proven_false_when_contradicted_even_with_delta(): void
+    {
+        // contradicting_evidence overrides delta evidence — value_proven must be false.
+        $result = $this->sampler->sample($this->record([
+            'behavior_delta'         => ['behavior:added-command-handler'],
+            'contradicting_evidence' => ['post_commit_regression_detected'],
+        ]));
+
+        $this->assertFalse($result['value_proven'],
+            'contradicting_evidence must override delta evidence making value_proven=false');
+    }
+
+    public function test_value_proven_emitted_on_every_sample_result(): void
+    {
+        $result = $this->sampler->sample($this->record());
+        $this->assertArrayHasKey('value_proven', $result);
+        $this->assertIsBool($result['value_proven']);
+    }
+
+    public function test_value_proven_emitted_across_all_classifications(): void
+    {
+        // real_capability with delta
+        $r1 = $this->sampler->sample($this->record([
+            'integration_status' => true,
+            'tests'              => ['tests/Unit/AtlasFooTest.php'],
+            'behavior_delta'     => ['behavior:added-feature'],
+        ]));
+        $this->assertTrue($r1['value_proven']);
+
+        // real_capability without delta
+        $r2 = $this->sampler->sample($this->record([
+            'integration_status' => true,
+            'tests'              => ['tests/Unit/AtlasFooTest.php'],
+        ]));
+        $this->assertFalse($r2['value_proven']);
+
+        // scaffolding without delta
+        $r3 = $this->sampler->sample($this->record([
+            'changed_files' => ['app/StubProvider.php'],
+            'tests'         => [],
+        ]));
+        $this->assertFalse($r3['value_proven']);
+
+        // observability without delta
+        $r4 = $this->sampler->sample($this->record([
+            'changed_files' => ['app/MetricCollector.php'],
+            'tests'         => [],
+        ]));
+        $this->assertFalse($r4['value_proven']);
+
+        // consolidation without delta
+        $r5 = $this->sampler->sample($this->record([
+            'changed_files' => ['app/Deduplicator.php'],
+            'tests'         => ['tests/Unit/DeduplicatorTest.php'],
+        ]));
+        $this->assertFalse($r5['value_proven']);
+    }
+
+    // ── missing_value_evidence (AC4) ─────────────────────────────────────────
+
+    public function test_missing_value_evidence_true_when_value_proven_false_and_some_evidence_exists(): void
+    {
+        // tests_passed=true, tests present, no delta → value_proven=false, missing_value_evidence=true
+        $result = $this->sampler->sample($this->record([
+            'tests_passed'       => true,
+            'tests'              => ['tests/Unit/AtlasFooTest.php'],
+            'integration_status' => false,
+            'downstream_usage'   => [],
+            'behavior_evidence'  => [],
+        ]));
+
+        $this->assertFalse($result['value_proven']);
+        $this->assertTrue($result['missing_value_evidence'],
+            'Should flag missing_value_evidence when tests_passed is true but no delta evidence');
+    }
+
+    public function test_missing_value_evidence_false_when_no_evidence_at_all(): void
+    {
+        // No evidence at all → also no "missing value evidence" because nothing exists to be narrow about.
+        $result = $this->sampler->sample($this->record([
+            'integration_status' => false,
+            'downstream_usage'   => [],
+            'tests'              => [],
+            'behavior_evidence'  => [],
+            'changed_files'      => [],
+            'tests_passed'       => false,
+        ]));
+
+        $this->assertFalse($result['value_proven']);
+        $this->assertFalse($result['missing_value_evidence'],
+            'No evidence at all should not flag missing_value_evidence');
+    }
+
+    public function test_missing_value_evidence_false_when_value_proven_true(): void
+    {
+        // Delta evidence present → value_proven=true, missing_value_evidence=false
+        $result = $this->sampler->sample($this->record([
+            'behavior_delta' => ['behavior:added-feature'],
+        ]));
+
+        $this->assertTrue($result['value_proven']);
+        $this->assertFalse($result['missing_value_evidence'],
+            'When value is proven, missing_value_evidence must be false');
+    }
+
+    public function test_missing_value_evidence_true_when_only_integration_signal_without_delta(): void
+    {
+        // Has integration_status but no delta → value_proven=false, missing_value_evidence=true
+        $result = $this->sampler->sample($this->record([
+            'integration_status' => true,
+            'tests'              => [],
+            'behavior_evidence'  => [],
+        ]));
+
+        $this->assertFalse($result['value_proven']);
+        $this->assertTrue($result['missing_value_evidence'],
+            'Integration signal without delta should flag missing_value_evidence');
+    }
+
+    public function test_missing_value_evidence_true_when_only_behavior_evidence_without_delta(): void
+    {
+        // Has behavior_evidence but no delta → value_proven=false, missing_value_evidence=true
+        $result = $this->sampler->sample($this->record([
+            'integration_status' => false,
+            'downstream_usage'   => [],
+            'tests'              => [],
+            'behavior_evidence'  => ['external_verification'],
+        ]));
+
+        $this->assertFalse($result['value_proven']);
+        $this->assertTrue($result['missing_value_evidence'],
+            'Behavior evidence without delta should flag missing_value_evidence');
+    }
+
+    public function test_missing_value_evidence_emitted_in_signals_when_true(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'tests_passed' => true,
+            'tests'        => ['tests/Unit/AtlasFooTest.php'],
+        ]));
+
+        $this->assertTrue($result['missing_value_evidence']);
+        $this->assertContains('missing_value_evidence', $result['signals'],
+            'signals list should contain missing_value_evidence when flag is true');
+    }
+
+    public function test_delta_evidence_present_signal_emitted(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'behavior_delta' => ['behavior:added-feature'],
+        ]));
+
+        $this->assertContains('delta_evidence_present', $result['signals'],
+            'signals list should contain delta_evidence_present when delta is present');
+    }
+
+    public function test_value_proven_emitted_in_batch_samples(): void
+    {
+        $result = $this->sampler->sampleBatch([
+            $this->record(['task_packet_id' => 'a', 'tests_passed' => true]),
+            $this->record(['task_packet_id' => 'b', 'behavior_delta' => ['behavior:added-feature']]),
+        ]);
+
+        $this->assertCount(2, $result['samples']);
+        $this->assertFalse($result['samples'][0]['value_proven'], 'Record with only tests_passed must have value_proven=false');
+        $this->assertTrue($result['samples'][1]['value_proven'], 'Record with behavior_delta must have value_proven=true');
     }
 }

@@ -36,6 +36,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   partial_value      — some integration or behavior signal exists but not enough to prove value
  *   missing_evidence   — no signal at all
  *
+ * value_proven (anti-green-only gate): green tests alone never count as value proof.
+ * The brain must sample behavior, autonomy, risk, simplification or learning deltas
+ * before crediting a task family as high value. value_proven is true only when at
+ * least one delta evidence field is present and the record is not contradicted.
+ * missing_value_evidence is emitted when proof is too narrow or self-reported
+ * (i.e. value_proven is false but some non-delta evidence exists).
+ *
  * Pure: no I/O, no side effects.
  */
 final class AtlasExternalBrainValueProofSampler
@@ -81,8 +88,15 @@ final class AtlasExternalBrainValueProofSampler
      *   integration_status?: bool,
      *   downstream_usage?: list<string>,
      *   behavior_evidence?: list<string>,
+     *   contradicting_evidence?: list<string>,
+     *   tests_passed?: bool,
+     *   behavior_delta?: list<string>,
+     *   autonomy_delta?: list<string>,
+     *   risk_reduction_delta?: list<string>,
+     *   simplification_delta?: list<string>,
+     *   learning_delta?: list<string>,
      * }  $record
-     * @return array{schema:string, task_packet_id:string, value_class:string, confidence:string, signals:list<string>}
+     * @return array{schema:string, task_packet_id:string, value_class:string, confidence:string, signals:list<string>, evidence_class:string, value_proven:bool, missing_value_evidence:bool}
      */
     public function sample(array $record): array
     {
@@ -95,9 +109,30 @@ final class AtlasExternalBrainValueProofSampler
         $contradictingEvidence = $this->normalize($record['contradicting_evidence'] ?? []);
         $contradicted     = $contradictingEvidence !== [];
 
+        // Delta evidence (AC2/AC3): green tests alone never count as value proof.
+        // The brain must sample behavior, autonomy, risk, simplification or learning
+        // deltas before crediting a task family as high value.
+        $behaviorDelta       = $this->normalize($record['behavior_delta'] ?? []);
+        $autonomyDelta       = $this->normalize($record['autonomy_delta'] ?? []);
+        $riskReductionDelta  = $this->normalize($record['risk_reduction_delta'] ?? []);
+        $simplificationDelta = $this->normalize($record['simplification_delta'] ?? []);
+        $learningDelta       = $this->normalize($record['learning_delta'] ?? []);
+
+        $hasDeltaEvidence = $behaviorDelta !== []
+            || $autonomyDelta !== []
+            || $riskReductionDelta !== []
+            || $simplificationDelta !== []
+            || $learningDelta !== [];
+
+        $testsPassed = (bool) ($record['tests_passed'] ?? false);
+
         $hasTests           = $tests !== [];
         $hasIntegration     = $integrated || $downstream !== [];
         $hasBehaviorProof   = $hasTests || $behaviorEvidence !== [];
+
+        $hasAnyEvidence       = $testsPassed || $hasTests || $hasIntegration || $behaviorEvidence !== [];
+        $valueProven          = $hasDeltaEvidence && !$contradicted;
+        $missingValueEvidence = !$valueProven && $hasAnyEvidence;
 
         $signals = [];
         if ($hasIntegration) {
@@ -109,6 +144,12 @@ final class AtlasExternalBrainValueProofSampler
         if ($behaviorEvidence !== []) {
             $signals[] = 'behavior_evidence:'.count($behaviorEvidence);
         }
+        if ($hasDeltaEvidence) {
+            $signals[] = 'delta_evidence_present';
+        }
+        if ($missingValueEvidence) {
+            $signals[] = 'missing_value_evidence';
+        }
 
         // ── Classification (first match wins) ────────────────────────────────
 
@@ -119,6 +160,7 @@ final class AtlasExternalBrainValueProofSampler
             return $this->result($id, self::CLASS_REAL_CAPABILITY,
                 count($signals) >= 3 ? self::CONFIDENCE_HIGH : self::CONFIDENCE_MEDIUM,
                 $signals, $hasIntegration, $hasBehaviorProof, $contradicted,
+                $valueProven, $missingValueEvidence,
             );
         }
 
@@ -133,6 +175,7 @@ final class AtlasExternalBrainValueProofSampler
                 return $this->result($id, self::CLASS_OBSERVABILITY,
                     $hasTests ? self::CONFIDENCE_MEDIUM : self::CONFIDENCE_LOW,
                     $signals, $hasIntegration, $hasBehaviorProof, $contradicted,
+                    $valueProven, $missingValueEvidence,
                 );
             }
 
@@ -143,6 +186,7 @@ final class AtlasExternalBrainValueProofSampler
                 return $this->result($id, self::CLASS_CONSOLIDATION,
                     $hasTests ? self::CONFIDENCE_MEDIUM : self::CONFIDENCE_LOW,
                     $signals, $hasIntegration, $hasBehaviorProof, $contradicted,
+                    $valueProven, $missingValueEvidence,
                 );
             }
 
@@ -150,7 +194,10 @@ final class AtlasExternalBrainValueProofSampler
             if ($this->allFilesMatchKeywords($implFiles, self::SCAFFOLDING_KEYWORDS)) {
                 $signals[] = 'file_pattern:scaffolding';
 
-                return $this->result($id, self::CLASS_SCAFFOLDING, self::CONFIDENCE_LOW, $signals, $hasIntegration, $hasBehaviorProof, $contradicted);
+                return $this->result($id, self::CLASS_SCAFFOLDING, self::CONFIDENCE_LOW,
+                    $signals, $hasIntegration, $hasBehaviorProof, $contradicted,
+                    $valueProven, $missingValueEvidence,
+                );
             }
         }
 
@@ -159,12 +206,18 @@ final class AtlasExternalBrainValueProofSampler
         if ($hasBehaviorProof && $changedFiles !== []) {
             $signals[] = 'has_tests_but_no_integration_evidence';
 
-            return $this->result($id, self::CLASS_UNKNOWN, self::CONFIDENCE_MEDIUM, $signals, $hasIntegration, $hasBehaviorProof, $contradicted);
+            return $this->result($id, self::CLASS_UNKNOWN, self::CONFIDENCE_MEDIUM,
+                $signals, $hasIntegration, $hasBehaviorProof, $contradicted,
+                $valueProven, $missingValueEvidence,
+            );
         }
 
         $signals[] = 'insufficient_evidence';
 
-        return $this->result($id, self::CLASS_UNKNOWN, self::CONFIDENCE_LOW, $signals, $hasIntegration, $hasBehaviorProof, $contradicted);
+        return $this->result($id, self::CLASS_UNKNOWN, self::CONFIDENCE_LOW,
+            $signals, $hasIntegration, $hasBehaviorProof, $contradicted,
+            $valueProven, $missingValueEvidence,
+        );
     }
 
     /**
@@ -239,7 +292,7 @@ final class AtlasExternalBrainValueProofSampler
             'risk_reduction'         => round($gbDelta,    4),
             'simplification'         => round($simplScore, 4),
             'autonomy_gain'          => round($autScore,   4),
-            'certification_strength' => round($certScore,  4),
+            'certification_strength' => round($certScore, 4),
             'capability_lift'        => round($capLiftScore, 4),
         ];
 
@@ -317,14 +370,18 @@ final class AtlasExternalBrainValueProofSampler
         bool $hasIntegration = false,
         bool $hasBehaviorProof = false,
         bool $contradicted = false,
+        bool $valueProven = false,
+        bool $missingValueEvidence = false,
     ): array {
         return [
-            'schema'         => self::SCHEMA,
-            'task_packet_id' => $id,
-            'value_class'    => $class,
-            'confidence'     => $confidence,
-            'signals'        => $signals,
-            'evidence_class' => $this->deriveEvidenceClass($class, $hasIntegration, $hasBehaviorProof, $contradicted),
+            'schema'                  => self::SCHEMA,
+            'task_packet_id'          => $id,
+            'value_class'             => $class,
+            'confidence'              => $confidence,
+            'signals'                 => $signals,
+            'evidence_class'          => $this->deriveEvidenceClass($class, $hasIntegration, $hasBehaviorProof, $contradicted),
+            'value_proven'            => $valueProven,
+            'missing_value_evidence'  => $missingValueEvidence,
         ];
     }
 
