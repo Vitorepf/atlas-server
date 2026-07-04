@@ -191,6 +191,17 @@ final class AtlasTaskQueueSelfHealingRespecPlanner
             ? $this->validateProposedRespec($packet, $allowedFiles, $acceptance, $target)
             : null;
 
+        // ── replacement_readiness: are the respec'd files directly claimable? ──
+        $replacementReadiness = null;
+        if ($respecRequired) {
+            $replacementReadiness = [
+                'has_impl'               => $hasImpl,
+                'has_test'               => $hasTest,
+                'has_runnable_command'   => $runnableCommand !== null,
+                'claimable_after_respec' => $hasImpl && $hasTest && $implementabilityAfter,
+            ];
+        }
+
         return [
             'schema'                  => self::SCHEMA,
             'respec_required'         => $respecRequired,
@@ -202,6 +213,7 @@ final class AtlasTaskQueueSelfHealingRespecPlanner
             'implementability_before' => $implementabilityBefore,
             'implementability_after'  => $implementabilityAfter,
             'residual_risk'           => $residualRisk,
+            'replacement_readiness'   => $replacementReadiness,
             'proposed_respec_validation' => $proposedValidation,
         ];
     }

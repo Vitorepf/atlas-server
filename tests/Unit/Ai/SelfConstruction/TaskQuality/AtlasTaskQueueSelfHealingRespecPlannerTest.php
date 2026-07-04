@@ -310,6 +310,59 @@ final class AtlasTaskQueueSelfHealingRespecPlannerTest extends TestCase
 
     // ── AC3: before/after implementability + residual risk ─────────────────────
 
+    public function test_replacement_readiness_included_when_respec_required(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo/AtlasFooService.php'],
+        ]));
+
+        $this->assertArrayHasKey('replacement_readiness', $result);
+        $rr = $result['replacement_readiness'];
+        $this->assertTrue($rr['has_impl']);
+        $this->assertFalse($rr['has_test']);
+        $this->assertTrue($rr['has_runnable_command']);
+        $this->assertFalse($rr['claimable_after_respec']); // missing test
+    }
+
+    public function test_replacement_readiness_null_when_no_respec(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket());
+        $this->assertNull($result['replacement_readiness']);
+    }
+
+    public function test_replacement_readiness_claimable_when_fully_repairable(): void
+    {
+        // missing_test_path with a simple add_test_file → fully repairable
+        $result = $this->planner()->plan($this->healthyPacket([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo/AtlasFooService.php'],
+        ]));
+
+        $this->assertTrue($result['implementability_after']);
+        // claimable: has_impl=true, add_test_file fixes has_test → after respec both present
+        $this->assertTrue($result['replacement_readiness']['has_impl']);
+        $this->assertFalse($result['replacement_readiness']['has_test']);
+        $this->assertTrue($result['replacement_readiness']['has_runnable_command']);
+        // claimable_after_respec is about the RESOLVED state: has_test is currently false,
+        // so the packet isn't claimable yet — respec must happen first.
+        $this->assertFalse($result['replacement_readiness']['claimable_after_respec']);
+    }
+
+    public function test_replacement_readiness_has_correct_booleans(): void
+    {
+        // Impl + test present but forbidden_target → still has impl & test but not claimable
+        $result = $this->planner()->plan($this->healthyPacket([
+            'target'            => 'AtlasFooService',
+            'forbidden_targets' => ['atlasfooservice'],
+        ]));
+
+        $rr = $result['replacement_readiness'];
+        $this->assertTrue($rr['has_impl']);
+        $this->assertTrue($rr['has_test']);
+        $this->assertTrue($rr['has_runnable_command']);
+        // forbidden_target means implementability_after=false → not claimable
+        $this->assertFalse($rr['claimable_after_respec']);
+    }
+
     public function test_healthy_packet_is_implementable_before_and_after_with_no_residual_risk(): void
     {
         $result = $this->planner()->plan($this->healthyPacket());
