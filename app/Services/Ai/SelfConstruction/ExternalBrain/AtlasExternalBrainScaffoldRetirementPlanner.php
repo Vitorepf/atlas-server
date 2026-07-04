@@ -91,6 +91,11 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
             : null;
         $requiredSections = array_values(array_map('strval', (array) ($scaffold['required_sections'] ?? [])));
         $replacementCoveredSections = array_values(array_map('strval', (array) ($scaffold['replacement_covered_sections'] ?? [])));
+        // AC2/AC3: safety proofs required before a retire/merge action is greenlit.
+        $behaviorParity        = (bool) ($scaffold['behavior_parity']         ?? false);
+        $replacementCoverage   = (bool) ($scaffold['replacement_coverage']    ?? false);
+        $rollbackPath          = (bool) ($scaffold['rollback_path']           ?? false);
+        $knowledgeSyncPlan     = (bool) ($scaffold['knowledge_sync_plan']     ?? false);
 
         $action = null;
         $reasons = [];
@@ -151,8 +156,35 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
             }
         }
 
+        // AC2/AC3: block retire/merge when required safety proofs are missing —
+        // retirement is only safe when behavior_parity, replacement_coverage,
+        // rollback_path and knowledge_sync_plan are all present.
+        if (in_array($action, [self::ACTION_RETIRE, self::ACTION_MERGE], true)) {
+            $missingProofs = [];
+            if (! $behaviorParity) {
+                $missingProofs[] = 'behavior_parity';
+            }
+            if (! $replacementCoverage) {
+                $missingProofs[] = 'replacement_coverage';
+            }
+            if (! $rollbackPath) {
+                $missingProofs[] = 'rollback_path';
+            }
+            if (! $knowledgeSyncPlan) {
+                $missingProofs[] = 'knowledge_sync_plan';
+            }
+            if ($missingProofs !== []) {
+                $reasons = ['retirement_blocked_missing_proofs:'.implode(',', $missingProofs)];
+                $keepRationale = sprintf(
+                    'missing safety proofs [%s]: refusing retirement preserves scaffold capability',
+                    implode(', ', $missingProofs),
+                );
+                $action = self::ACTION_KEEP;
+            }
+        }
+
         if ($action !== null) {
-            return $this->entry($id, $action, $reasons, $replacement, $keepRationale, $maintenanceCost, $lift, $failureRate, $rollbackCondition, $requiredSections, $replacementCoveredSections);
+            return $this->entry($id, $action, $reasons, $replacement, $keepRationale, $maintenanceCost, $lift, $failureRate, $rollbackCondition, $requiredSections, $replacementCoveredSections, $behaviorParity, $replacementCoverage, $rollbackPath, $knowledgeSyncPlan);
         }
 
         // KEEP — explain why removal would reduce quality
@@ -186,6 +218,10 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
         ?string $rollbackCondition = null,
         array $requiredSections = [],
         array $replacementCoveredSections = [],
+        bool $behaviorParity = false,
+        bool $replacementCoverage = false,
+        bool $rollbackPath = false,
+        bool $knowledgeSyncPlan = false,
     ): array {
         $complexityReductionWeight = match ($action) {
             self::ACTION_RETIRE => 1.0,
@@ -232,6 +268,37 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
             default => 'requires_manual_review_no_replacement',
         };
 
+        // AC2: retirement_ready only when all four safety proofs are present
+        // and the action is retire/merge (non-destructive actions never retired).
+        $retirementReady = in_array($action, [self::ACTION_RETIRE, self::ACTION_MERGE], true)
+            && $behaviorParity && $replacementCoverage && $rollbackPath && $knowledgeSyncPlan;
+
+        // AC4: preserved_capabilities — what the replacement continues to provide.
+        $preservedCapabilities = [];
+        if ($action === self::ACTION_KEEP) {
+            $preservedCapabilities[] = $id;
+        }
+        if ($replacement !== null) {
+            $preservedCapabilities[] = $replacement;
+        }
+
+        // AC4: rollback_steps — specific rollback instructions.
+        $rollbackSteps = [];
+        if ($resolvedRollbackCondition !== null) {
+            $rollbackSteps[] = $resolvedRollbackCondition;
+        }
+        if ($replacement !== null) {
+            $rollbackSteps[] = sprintf('fallback exists: %s', $replacement);
+        }
+        if ($rollbackSteps === []) {
+            $rollbackSteps[] = 'no automated rollback; manual inspection required';
+        }
+
+        // AC4: retirement_plan — summary of the retirement action for this scaffold.
+        $retirementPlan = $action !== self::ACTION_KEEP
+            ? sprintf('%s: %s via %s', $id, $action, $replacement ?? 'no replacement')
+            : null;
+
         return [
             'scaffold_id'                   => $id,
             'action'                        => $action,
@@ -244,6 +311,10 @@ final class AtlasExternalBrainScaffoldRetirementPlanner
             'quality_floor_preserved'       => $qualityFloorPreserved,
             'migration_notes'               => $migrationNotes,
             'worker_impact'                 => $workerImpact,
+            'retirement_ready'              => $retirementReady,
+            'retirement_plan'               => $retirementPlan,
+            'preserved_capabilities'        => $preservedCapabilities,
+            'rollback_steps'                => $rollbackSteps,
         ];
     }
 }

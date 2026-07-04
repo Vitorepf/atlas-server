@@ -25,6 +25,10 @@ final class AtlasExternalBrainScaffoldRetirementPlannerTest extends TestCase
             'overlap_score'             => 0.20,
             'recent_successful_outcomes' => 5,
             'replacement_candidate'     => null,
+            'behavior_parity'           => true,
+            'replacement_coverage'      => true,
+            'rollback_path'             => true,
+            'knowledge_sync_plan'       => true,
         ], $overrides);
     }
 
@@ -382,5 +386,143 @@ final class AtlasExternalBrainScaffoldRetirementPlannerTest extends TestCase
         $entry = $this->findEntry($result, 'no-fallback');
         $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_RETIRE, $entry['action']);
         $this->assertSame('requires_manual_review_no_replacement', $entry['worker_impact']);
+    }
+
+    // ── AC2: retirement_ready requires all four proofs ───────────────────────
+
+    public function test_retirement_ready_true_when_all_four_proofs_present(): void
+    {
+        $result = $this->plan($this->scaffold('safe-retire', [
+            'lift_score'         => 0.05,
+            'behavior_parity'    => true,
+            'replacement_coverage' => true,
+            'rollback_path'      => true,
+            'knowledge_sync_plan' => true,
+        ]));
+
+        $entry = $this->findEntry($result, 'safe-retire');
+        $this->assertTrue($entry['retirement_ready']);
+        $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_RETIRE, $entry['action']);
+    }
+
+    public function test_retirement_ready_false_when_one_proof_missing(): void
+    {
+        $result = $this->plan($this->scaffold('partial-proof', [
+            'lift_score'         => 0.05,
+            'behavior_parity'    => true,
+            'replacement_coverage' => true,
+            'rollback_path'      => true,
+            'knowledge_sync_plan' => false,  // missing knowledge sync
+        ]));
+
+        $entry = $this->findEntry($result, 'partial-proof');
+        $this->assertFalse($entry['retirement_ready']);
+    }
+
+    // ── AC3: retirement blocked when safety proofs missing ───────────────────
+
+    public function test_retirement_blocked_when_behavior_parity_missing(): void
+    {
+        $result = $this->plan($this->scaffold('no-behavior-parity', [
+            'lift_score'         => 0.05,
+            'behavior_parity'    => false,
+        ]));
+
+        $entry = $this->findEntry($result, 'no-behavior-parity');
+        $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_KEEP, $entry['action']);
+        $this->assertStringContainsString('behavior_parity', implode(' ', $entry['reasons']));
+    }
+
+    public function test_retirement_blocked_when_all_four_proofs_missing(): void
+    {
+        $result = $this->plan($this->scaffold('no-proofs-at-all', [
+            'lift_score'         => 0.05,
+            'behavior_parity'    => false,
+            'replacement_coverage' => false,
+            'rollback_path'      => false,
+            'knowledge_sync_plan' => false,
+        ]));
+
+        $entry = $this->findEntry($result, 'no-proofs-at-all');
+        $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_KEEP, $entry['action']);
+        $this->assertStringContainsString('behavior_parity', implode(' ', $entry['reasons']));
+        $this->assertStringContainsString('replacement_coverage', implode(' ', $entry['reasons']));
+        $this->assertStringContainsString('rollback_path', implode(' ', $entry['reasons']));
+        $this->assertStringContainsString('knowledge_sync_plan', implode(' ', $entry['reasons']));
+    }
+
+    // ── AC4: new output fields ────────────────────────────────────────────────
+
+    public function test_every_entry_has_retirement_ready_plan_preserved_capabilities_and_rollback_steps(): void
+    {
+        $result = $this->plan(
+            $this->scaffold('retire-me', ['lift_score' => 0.05, 'replacement_candidate' => 'v2']),
+            $this->scaffold('keep-me'),
+        );
+
+        foreach ($result['plan'] as $entry) {
+            $this->assertArrayHasKey('retirement_ready', $entry);
+            $this->assertArrayHasKey('retirement_plan', $entry);
+            $this->assertArrayHasKey('preserved_capabilities', $entry);
+            $this->assertArrayHasKey('rollback_steps', $entry);
+        }
+    }
+
+    public function test_retirement_plan_null_when_keeping(): void
+    {
+        $result = $this->plan($this->scaffold('safe'));
+
+        $entry = $this->findEntry($result, 'safe');
+        $this->assertNull($entry['retirement_plan']);
+    }
+
+    public function test_retirement_plan_not_null_when_retiring(): void
+    {
+        $result = $this->plan($this->scaffold('old', [
+            'lift_score'         => 0.05,
+            'replacement_candidate' => 'v2',
+        ]));
+
+        $entry = $this->findEntry($result, 'old');
+        $this->assertNotNull($entry['retirement_plan']);
+        $this->assertStringContainsString('retire', $entry['retirement_plan']);
+    }
+
+    public function test_preserved_capabilities_includes_replacement_when_present(): void
+    {
+        $result = $this->plan($this->scaffold('old', [
+            'lift_score'            => 0.05,
+            'replacement_candidate' => 'v2',
+        ]));
+
+        $entry = $this->findEntry($result, 'old');
+        $this->assertContains('v2', $entry['preserved_capabilities']);
+    }
+
+    public function test_rollback_steps_not_empty_when_retiring(): void
+    {
+        $result = $this->plan($this->scaffold('old', [
+            'lift_score'         => 0.05,
+            'replacement_candidate' => 'v2',
+        ]));
+
+        $entry = $this->findEntry($result, 'old');
+        $this->assertNotEmpty($entry['rollback_steps']);
+        $this->assertStringContainsString('v2', implode(' ', $entry['rollback_steps']));
+    }
+
+    // ── Determinism: output_hash for stability ───────────────────────────────
+
+    public function test_identical_input_yields_identical_output(): void
+    {
+        $input = ['scaffolds' => [
+            $this->scaffold('s1', ['lift_score' => 0.05, 'replacement_candidate' => 'v2']),
+            $this->scaffold('s2'),
+        ]];
+
+        $this->assertSame(
+            json_encode($this->planner->plan($input)),
+            json_encode($this->planner->plan($input)),
+        );
     }
 }
