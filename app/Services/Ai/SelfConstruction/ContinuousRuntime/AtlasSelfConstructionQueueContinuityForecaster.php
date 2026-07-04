@@ -44,7 +44,14 @@ final class AtlasSelfConstructionQueueContinuityForecaster
 
     public const CONTINUITY_STABLE = 'stable_continuity';
 
+    public const CONTINUITY_OK_WITH_WATCH = 'continuity_ok_with_watch';
+
+    public const CONTINUITY_RISK = 'continuity_risk';
+
     private const DEFAULT_SAFETY_WINDOW_HOURS = 2.0;
+
+    /** Threshold for claimable_per_active_worker above which a nonblocking health flag is ok_with_watch. */
+    private const CLAIMABLE_PER_WORKER_HIGH_THRESHOLD = 5.0;
 
     /** Above this give_back_rate (0..1), healthy supply is materially degraded — warn. */
     private const GIVE_BACK_RATE_WARNING_THRESHOLD = 0.3;
@@ -64,14 +71,16 @@ final class AtlasSelfConstructionQueueContinuityForecaster
         $throughputAge = max(0, (int) ($snapshot['throughput_data_age_seconds'] ?? 0));
         $replenishLatencySec = max(0, (int) ($snapshot['replenishment_latency_seconds'] ?? 0));
 
+        $health = (bool) ($snapshot['health'] ?? true);
+        $claimablePerActiveWorker = isset($snapshot['claimable_per_active_worker'])
+            ? (float) $snapshot['claimable_per_active_worker']
+            : null;
+
         $stale = $throughputAge > self::THROUGHPUT_STALE_SECONDS;
         $missing = $throughput <= 0.0;
 
         if ($stale || $missing) {
             $activeWorkerCount = max(0, (int) ($snapshot['active_worker_count'] ?? 0));
-            $claimablePerActiveWorker = isset($snapshot['claimable_per_active_worker'])
-                ? (float) $snapshot['claimable_per_active_worker']
-                : null;
             $nearWorkerFloor = $activeWorkerCount > 0 && $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= 2.0;
 
             return $this->failClosed(
@@ -79,6 +88,7 @@ final class AtlasSelfConstructionQueueContinuityForecaster
                 $claimable, $servable, $blocked,
                 $nearWorkerFloor, $activeWorkerCount, $claimablePerActiveWorker,
                 array_key_exists('active_worker_count', $snapshot),
+                $health,
             );
         }
 
@@ -125,6 +135,34 @@ final class AtlasSelfConstructionQueueContinuityForecaster
             ? 'high_give_back_rate_reduces_effective_healthy_supply'
             : null;
 
+        // AC2/AC3: health-adjusted continuity and drain confidence — separate model/worker health
+        // from queue-level drain problems. A false health flag alone is NOT a continuity failure.
+        $drainConfidence = $health ? 'high' : 'medium';
+        $healthAdjustment = $health ? 'no_adjustment' : (
+            $claimablePerActiveWorker !== null && $claimablePerActiveWorker > self::CLAIMABLE_PER_WORKER_HIGH_THRESHOLD
+                ? 'non_blocking_health_flag'
+                : 'health_flag_with_risk'
+        );
+        $nextRecheckWindow = match ($riskLevel) {
+            self::RISK_CRITICAL => 0.5,
+            self::RISK_HIGH => 1.0,
+            self::RISK_MEDIUM => 2.0,
+            default => 4.0,
+        };
+
+        if (! $health) {
+            $nextRecheckWindow = round($nextRecheckWindow / 2, 2);
+
+            $highClaimable = $claimablePerActiveWorker !== null && $claimablePerActiveWorker > self::CLAIMABLE_PER_WORKER_HIGH_THRESHOLD;
+            $anyRiskSignal = $servable <= 0 || $hoursUntilDry <= 1.0 || ($blocked > $servable * 2 && $servable > 0);
+
+            if ($highClaimable && ! $anyRiskSignal) {
+                $continuityStatus = self::CONTINUITY_OK_WITH_WATCH;
+            } elseif ($anyRiskSignal) {
+                $continuityStatus = self::CONTINUITY_RISK;
+            }
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'hours_until_dry' => round($hoursUntilDry, 2),
@@ -149,6 +187,9 @@ final class AtlasSelfConstructionQueueContinuityForecaster
                 'start_hours' => round(max(0.0, $replenishBy), 2),
                 'end_hours' => round($hoursUntilDry, 2),
             ],
+            'drain_confidence' => $drainConfidence,
+            'health_adjustment' => $healthAdjustment,
+            'next_recheck_window' => $nextRecheckWindow,
         ];
     }
 
@@ -184,6 +225,7 @@ final class AtlasSelfConstructionQueueContinuityForecaster
         int $activeWorkerCount = 0,
         ?float $claimablePerActiveWorker = null,
         bool $hasWorkerFloorSignal = false,
+        bool $health = true,
     ): array {
         $riskLevel = self::RISK_CRITICAL;
         $continuityStatus = self::CONTINUITY_STABLE;
@@ -221,6 +263,28 @@ final class AtlasSelfConstructionQueueContinuityForecaster
         if ($nearWorkerFloor || $hasWorkerFloorSignal) {
             $envelope['continuity_status'] = $continuityStatus;
         }
+
+        // Health-adjusted fields (AC2/AC3/AC4): in fail-closed mode, drain_confidence is always
+        // 'low' because no throughput data is available for a confident forecast.
+        $drainConfidence = 'low';
+        $healthAdjustment = $health ? 'no_adjustment' : (
+            $claimablePerActiveWorker !== null && $claimablePerActiveWorker > self::CLAIMABLE_PER_WORKER_HIGH_THRESHOLD
+                ? 'non_blocking_health_flag'
+                : 'health_flag_with_risk'
+        );
+        $nextRecheckWindow = 0.25;
+        if (! $health) {
+            $nextRecheckWindow = 0.125;
+            // Override continuity_status with health-adjusted values when worker-floor context exists
+            if ($nearWorkerFloor || $hasWorkerFloorSignal) {
+                $highClaimable = $claimablePerActiveWorker !== null && $claimablePerActiveWorker > self::CLAIMABLE_PER_WORKER_HIGH_THRESHOLD;
+                $envelope['continuity_status'] = $highClaimable ? self::CONTINUITY_OK_WITH_WATCH : self::CONTINUITY_RISK;
+            }
+        }
+
+        $envelope['drain_confidence'] = $drainConfidence;
+        $envelope['health_adjustment'] = $healthAdjustment;
+        $envelope['next_recheck_window'] = $nextRecheckWindow;
 
         return $envelope;
     }

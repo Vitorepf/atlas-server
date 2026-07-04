@@ -253,4 +253,120 @@ final class AtlasSelfConstructionQueueContinuityForecasterTest extends TestCase
         $this->assertStringContainsString('max(0.0, (float)', $source);
         $this->assertStringContainsString("safety_window_hours", $source);
     }
+
+    // ── AC2/AC3/AC4: health-adjusted continuity and drain confidence ──────────
+
+    public function test_health_omitted_defaults_to_high_confidence_and_no_adjustment(): void
+    {
+        $r = $this->svc()->forecast($this->snap());
+
+        $this->assertSame('high', $r['drain_confidence']);
+        $this->assertSame('no_adjustment', $r['health_adjustment']);
+        // snap: servable=20, throughput=5 → 4h → risk=high → recheck=1.0
+        $this->assertSame(1.0, $r['next_recheck_window']);
+    }
+
+    public function test_continuity_ok_with_watch_when_health_false_but_high_claimable_per_worker(): void
+    {
+        // health=false but plenty of tasks per worker (10 > 5 threshold) and no risk signals.
+        $r = $this->svc()->forecast($this->snap([
+            'health' => false,
+            'claimable_per_active_worker' => 10.0,
+        ]));
+
+        $this->assertSame(
+            AtlasSelfConstructionQueueContinuityForecaster::CONTINUITY_OK_WITH_WATCH,
+            $r['continuity_status'],
+        );
+        $this->assertSame('medium', $r['drain_confidence']);
+        $this->assertSame('non_blocking_health_flag', $r['health_adjustment']);
+        // snap: servable=20, throughput=5 → 4h → risk=high → recheck=1.0, halved to 0.5
+        $this->assertEqualsWithDelta(0.5, $r['next_recheck_window'], 0.01);
+    }
+
+    public function test_continuity_risk_when_health_false_and_dry_queue(): void
+    {
+        // health=false AND servable=0 → dry queue → continuity_risk
+        $r = $this->svc()->forecast($this->snap([
+            'health' => false,
+            'servable_depth' => 0,
+        ]));
+
+        $this->assertSame(
+            AtlasSelfConstructionQueueContinuityForecaster::CONTINUITY_RISK,
+            $r['continuity_status'],
+        );
+        $this->assertSame('health_flag_with_risk', $r['health_adjustment']);
+    }
+
+    public function test_continuity_risk_when_health_false_and_critical_hours(): void
+    {
+        // health=false AND hours_until_dry <= 1.0 → low supply → continuity_risk
+        $r = $this->svc()->forecast($this->snap([
+            'health' => false,
+            'servable_depth' => 4,
+            'throughput_per_hour' => 5.0,
+        ]));
+
+        $this->assertSame(
+            AtlasSelfConstructionQueueContinuityForecaster::CONTINUITY_RISK,
+            $r['continuity_status'],
+        );
+        $this->assertSame('health_flag_with_risk', $r['health_adjustment']);
+    }
+
+    public function test_continuity_risk_when_health_false_and_heavy_blockage(): void
+    {
+        // health=false AND blocked > 2× servable → jam signal → continuity_risk
+        $r = $this->svc()->forecast($this->snap([
+            'health' => false,
+            'servable_depth' => 5,
+            'blocked_count' => 50,
+        ]));
+
+        $this->assertSame(
+            AtlasSelfConstructionQueueContinuityForecaster::CONTINUITY_RISK,
+            $r['continuity_status'],
+        );
+    }
+
+    public function test_health_does_not_override_normal_continuity_when_true(): void
+    {
+        // health=true (default) must NOT change continuity_status from existing logic.
+        $r = $this->svc()->forecast($this->snap());
+
+        $this->assertSame(
+            AtlasSelfConstructionQueueContinuityForecaster::CONTINUITY_STABLE,
+            $r['continuity_status'],
+        );
+    }
+
+    public function test_drain_confidence_is_low_in_fail_closed_mode(): void
+    {
+        $r = $this->svc()->forecast($this->snap(['throughput_per_hour' => 0.0]));
+
+        $this->assertSame('low', $r['drain_confidence']);
+        $this->assertTrue($r['fail_closed']);
+    }
+
+    public function test_output_includes_health_adjusted_fields(): void
+    {
+        $r = $this->svc()->forecast($this->snap(['health' => false]));
+
+        $this->assertArrayHasKey('drain_confidence', $r);
+        $this->assertArrayHasKey('health_adjustment', $r);
+        $this->assertArrayHasKey('next_recheck_window', $r);
+    }
+
+    public function test_health_false_in_fail_closed_uses_low_confidence_and_halved_window(): void
+    {
+        $r = $this->svc()->forecast($this->snap([
+            'health' => false,
+            'throughput_per_hour' => 0.0,
+        ]));
+
+        $this->assertSame('low', $r['drain_confidence']);
+        $this->assertSame('health_flag_with_risk', $r['health_adjustment']);
+        $this->assertEqualsWithDelta(0.125, $r['next_recheck_window'], 0.001);
+    }
 }
