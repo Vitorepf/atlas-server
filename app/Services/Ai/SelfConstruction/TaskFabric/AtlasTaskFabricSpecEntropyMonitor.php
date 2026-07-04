@@ -102,6 +102,10 @@ final class AtlasTaskFabricSpecEntropyMonitor
             'repeated_shapes' => $repeatedShapes,
             'unique_behavior_verbs' => $uniqueBehaviorVerbs,
             'recommended_batch_size' => $recommendedBatchSize,
+            'objective_entropy' => round($objectiveRatio, 2),
+            'acceptance_entropy' => round($acceptanceRatio, 2),
+            'allowed_files_entropy' => round($familyRatio, 2),
+            'template_farm_alarm' => $verdict === self::VERDICT_LOW_ENTROPY && $repeatedShapes !== [],
         ];
     }
 

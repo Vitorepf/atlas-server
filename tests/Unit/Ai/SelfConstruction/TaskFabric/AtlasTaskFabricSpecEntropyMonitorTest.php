@@ -156,4 +156,70 @@ final class AtlasTaskFabricSpecEntropyMonitorTest extends TestCase
 
         $this->assertSame($monitor->monitor($batch), $monitor->monitor($batch));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: objective_entropy, acceptance_entropy, allowed_files_entropy, template_farm_alarm
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_output_includes_per_dimension_entropy_keys(): void
+    {
+        $result = $this->monitor()->monitor([
+            ['objective' => 'do something', 'allowed_files' => ['app/A.php'], 'acceptance_criteria' => ['test passes']],
+        ]);
+
+        $this->assertArrayHasKey('objective_entropy', $result);
+        $this->assertArrayHasKey('acceptance_entropy', $result);
+        $this->assertArrayHasKey('allowed_files_entropy', $result);
+        $this->assertArrayHasKey('template_farm_alarm', $result);
+    }
+
+    public function test_template_farm_alarm_fires_on_repeated_template_batch(): void
+    {
+        $batch = [];
+        foreach (['One', 'Two', 'Three'] as $name) {
+            $batch[] = [
+                'objective' => "Upgrade {$name}Gate so it validates input",
+                'allowed_files' => ["app/Services/Ai/SelfConstruction/{$name}Gate.php"],
+                'acceptance_criteria' => ["{$name}Gate exits 0"],
+            ];
+        }
+
+        $result = $this->monitor()->monitor($batch);
+
+        $this->assertTrue($result['template_farm_alarm'],
+            'repeated template batch must trigger template_farm_alarm');
+        $this->assertLessThan(0.5, $result['objective_entropy'],
+            'repeated objective skeletons must give low objective_entropy');
+    }
+
+    public function test_template_farm_alarm_does_not_fire_on_diverse_batch(): void
+    {
+        $result = $this->monitor()->monitor([
+            ['objective' => 'Rank candidates by autonomy unlock', 'allowed_files' => ['app/Ranker.php'], 'acceptance_criteria' => ['ranks by unlock']],
+            ['objective' => 'Detect circular dependencies in the task graph', 'allowed_files' => ['app/Detector.php'], 'acceptance_criteria' => ['circular deps detected']],
+        ]);
+
+        $this->assertFalse($result['template_farm_alarm'],
+            'diverse batch must not trigger template_farm_alarm');
+        $this->assertGreaterThanOrEqual(0.5, $result['objective_entropy']);
+        $this->assertGreaterThanOrEqual(0.5, $result['acceptance_entropy']);
+        $this->assertGreaterThanOrEqual(0.5, $result['allowed_files_entropy']);
+    }
+
+    public function test_entropy_scores_reflect_per_dimension_variance(): void
+    {
+        $batch = [
+            ['objective' => 'Rank candidates by autonomy unlock', 'allowed_files' => ['app/A.php'], 'acceptance_criteria' => ['ranks by unlock']],
+            ['objective' => 'Rank candidates by autonomy unlock', 'allowed_files' => ['app/B.php'], 'acceptance_criteria' => ['ranks by unlock']],
+        ];
+
+        $result = $this->monitor()->monitor($batch);
+
+        // Objectives are identical skeletons → low objective_entropy (at or below threshold)
+        $this->assertLessThanOrEqual(0.5, $result['objective_entropy']);
+        // Allowed files are different → high allowed_files_entropy (at or above threshold)
+        $this->assertGreaterThanOrEqual(0.5, $result['allowed_files_entropy']);
+        // Acceptance criteria identical → low acceptance_entropy (at or below threshold)
+        $this->assertLessThanOrEqual(0.5, $result['acceptance_entropy']);
+    }
 }
