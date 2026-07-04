@@ -44,6 +44,10 @@ final class AtlasSelfConstructionUnattendedRecoveryActionPlanner
 
     public const ACTION_DISCARD_DONE_TEMP_SPEC = 'discard_done_temp_spec';
 
+    public const ACTION_DIAGNOSE_LEASE_MISMATCH = 'diagnose_lease_mismatch';
+
+    public const ACTION_MONITOR_CLAIMABLE_DRAIN = 'monitor_claimable_drain';
+
     /**
      * @param  array<string,mixed>  $classification
      * @param  array<string,mixed>  $snapshot
@@ -95,6 +99,12 @@ final class AtlasSelfConstructionUnattendedRecoveryActionPlanner
                 case AtlasSelfConstructionUnattendedStallClassifier::MERGE_BLOCKED:
                     $actions[] = $this->action(self::ACTION_QUARANTINE_POISON_PACKET, 'merge governor is blocked — quarantine the offending packet.');
                     break;
+
+                case AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK:
+                    // Nonblocking mismatch: diagnose + monitor, but let workers keep draining safe tasks.
+                    $actions[] = $this->action(self::ACTION_DIAGNOSE_LEASE_MISMATCH, 'lease leak detected — run mismatch repair plan to diagnose and fix.');
+                    $actions[] = $this->action(self::ACTION_MONITOR_CLAIMABLE_DRAIN, 'workers can continue draining safe claimable tasks while mismatch is monitored.');
+                    break;
             }
         }
 
@@ -128,6 +138,19 @@ final class AtlasSelfConstructionUnattendedRecoveryActionPlanner
      */
     private function envelope(array $actions, array $blocked, string $classification, bool $emergency, array $snapshot): array
     {
+        // Determine safe_to_continue_workers and action_priority from classification.
+        $safeToContinue = ! $emergency;
+        $priority = match (true) {
+            $emergency => 'critical',
+            $classification === AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK => 'medium',
+            default => 'normal',
+        };
+        $recheckCommand = match ($classification) {
+            AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK => 'php artisan atlas:unattended:health --check-lease-parity',
+            AtlasSelfConstructionUnattendedStallClassifier::QUEUE_DRY, AtlasSelfConstructionUnattendedStallClassifier::REPLENISHER_BLOCKED => 'php artisan atlas:unattended:health --replenish',
+            default => null,
+        };
+
         return [
             'schema' => self::SCHEMA,
             'schema_version' => self::SCHEMA,
@@ -137,6 +160,9 @@ final class AtlasSelfConstructionUnattendedRecoveryActionPlanner
             'requires_emergency_override' => $emergency,
             'snapshot_hash' => (string) ($snapshot['snapshot_hash'] ?? ''),
             'plan_hash' => $this->planHash($actions, $blocked, $classification, $emergency),
+            'action_priority' => $priority,
+            'safe_to_continue_workers' => $safeToContinue,
+            'recheck_command' => $recheckCommand,
         ];
     }
 
