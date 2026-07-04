@@ -204,4 +204,64 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocatorTest extends Test
 
         $this->assertSame('repair', $result['next_lane_recommendation']);
     }
+
+    // ── AC2: budget_shares maps to the five portfolio categories ──────────────
+
+    public function test_budget_shares_includes_five_portfolio_categories(): void
+    {
+        $result = $this->allocator->allocate([]);
+
+        $this->assertArrayHasKey('budget_shares', $result);
+        $shares = $result['budget_shares'];
+        $this->assertArrayHasKey('proof', $shares);
+        $this->assertArrayHasKey('simplification', $shares);
+        $this->assertArrayHasKey('task_fabric', $shares);
+        $this->assertArrayHasKey('model_amplifier', $shares);
+        $this->assertArrayHasKey('autonomy_runtime', $shares);
+
+        // Budget shares should sum to ~100 (same as lane_percentages).
+        $this->assertEqualsWithDelta(100, array_sum($shares), 2);
+    }
+
+    // ── AC3: no single category consumes the whole wave ──────────────────────
+
+    public function test_no_single_category_consumes_whole_wave(): void
+    {
+        // With no evidence of distress, no single lane should capture >60%.
+        $result = $this->allocator->allocate([]);
+
+        foreach ($result['lane_percentages'] as $lane => $pct) {
+            $this->assertLessThanOrEqual(60, $pct, "Lane '{$lane}' must not exceed 60% in baseline allocation");
+        }
+    }
+
+    // ── AC4: output includes evidence_refs and rebalance_reason ──────────────
+
+    public function test_output_includes_evidence_refs_and_rebalance_reason(): void
+    {
+        $result = $this->allocator->allocate([]);
+
+        $this->assertArrayHasKey('evidence_refs', $result);
+        $this->assertIsArray($result['evidence_refs']);
+        $this->assertArrayHasKey('rebalance_reason', $result);
+        $this->assertIsString($result['rebalance_reason']);
+    }
+
+    public function test_evidence_refs_filled_when_shifts_occur(): void
+    {
+        $result = $this->allocator->allocate([
+            'give_back_rate' => 0.5,
+        ]);
+
+        $this->assertNotEmpty($result['evidence_refs']);
+        $this->assertContains('give_back_rate', $result['evidence_refs']);
+        $this->assertStringStartsWith('budget_rebalanced_from_baseline', $result['rebalance_reason']);
+    }
+
+    public function test_rebalance_reason_baseline_when_no_shifts(): void
+    {
+        $result = $this->allocator->allocate([]);
+
+        $this->assertSame('baseline_no_rebalance_needed', $result['rebalance_reason']);
+    }
 }
