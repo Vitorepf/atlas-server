@@ -252,7 +252,6 @@ final class AtlasSelfConstructionAutonomyDutyCyclePlannerTest extends TestCase
     public function test_duty_cycle_planner_output_schema(): void
     {
         $r = $this->dutyCycle();
-
         $this->assertSame(AtlasSelfConstructionAutonomyDutyCyclePlanner::SCHEMA, $r['schema']);
     }
 }
