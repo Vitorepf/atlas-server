@@ -94,9 +94,14 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
         }
 
         $usable = [];
+        $nonUsable = [];
         foreach ($tasks as $id => $task) {
             if (! in_array($task['status'], self::EXCLUDED_STATUSES, true) && $task['evidence_strength'] >= self::MIN_EVIDENCE_STRENGTH) {
                 $usable[$id] = true;
+            } else {
+                $nonUsable[$id] = in_array($task['status'], self::EXCLUDED_STATUSES, true)
+                    ? "status_{$task['status']}"
+                    : 'low_evidence';
             }
         }
 
@@ -241,6 +246,8 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
             'chain_unlock_count' => $chainUnlockCount,
             'critical_path_worker_safe' => $criticalPathWorkerSafe,
             'next_best_parallel_task_ids' => $nextBestParallelTaskIds,
+            'deferred_paths' => $this->buildDeferredPaths($usable, $nonUsable, $tasks, $effectiveScore),
+            'unblock_rationale' => $this->buildUnblockRationale($criticalPath, $tasks, $chainUnlockCount),
         ];
     }
 
@@ -347,5 +354,65 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
         }
 
         return array_values(array_unique(array_filter(array_map('strval', $value), static fn (string $s): bool => $s !== '')));
+    }
+
+    /**
+     * Build deferred_paths: non-usable tasks sorted by score descending,
+     * with the reason they were deferred.
+     *
+     * @param  array<string, true>  $usable
+     * @param  array<string, string>  $nonUsable  task_id => reason
+     * @param  array<string, array<string, mixed>>  $tasks
+     * @param  array<string, float>  $effectiveScore
+     * @return list<array{task_id:string,deferred_reason:string,score:float}>
+     */
+    private function buildDeferredPaths(
+        array $usable,
+        array $nonUsable,
+        array $tasks,
+        array $effectiveScore
+    ): array {
+        $deferred = [];
+        foreach ($nonUsable as $taskId => $reason) {
+            $deferred[] = [
+                'task_id' => $taskId,
+                'deferred_reason' => $reason,
+                'score' => round($effectiveScore[$taskId] ?? 0.0, 4),
+            ];
+        }
+
+        usort($deferred, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
+
+        return $deferred;
+    }
+
+    /**
+     * Build unblock_rationale: human-readable explanation of why the critical
+     * path was chosen, referencing downstream unblock count and autonomy gain.
+     *
+     * @param  list<string>  $criticalPath
+     * @param  array<string, array<string, mixed>>  $tasks
+     * @return string
+     */
+    private function buildUnblockRationale(array $criticalPath, array $tasks, int $chainUnlockCount): string
+    {
+        if ($criticalPath === []) {
+            return 'no_critical_path: no usable tasks available';
+        }
+
+        $anchor = $criticalPath[0];
+        $task = $tasks[$anchor] ?? [];
+        $downstreamUnblock = (int) ($task['downstream_unblock_count'] ?? 0);
+        $autonomyGain = (float) ($task['autonomy_gain'] ?? 0.0);
+
+        $parts = [];
+        $parts[] = 'critical_path anchored on '.$anchor;
+        $parts[] = 'unblocks '.$downstreamUnblock.' downstream tasks';
+        $parts[] = 'chain_unlock_count='.$chainUnlockCount;
+        if ($autonomyGain > 0) {
+            $parts[] = 'estimated_autonomy_gain='.round($autonomyGain, 3);
+        }
+
+        return implode('; ', $parts);
     }
 }

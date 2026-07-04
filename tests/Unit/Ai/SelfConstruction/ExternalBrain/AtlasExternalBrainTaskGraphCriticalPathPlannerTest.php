@@ -247,4 +247,55 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlannerTest extends TestCase
         $this->assertSame($a['chain_unlock_count'], $b['chain_unlock_count']);
         $this->assertSame(2, $a['chain_unlock_count']);
     }
+
+    // ── deferred_paths ──
+
+    public function test_deferred_paths_present_in_output(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'good', 'leverage_score' => 0.8, 'status' => 'queued'],
+                ['task_id' => 'blocked', 'leverage_score' => 0.5, 'status' => 'blocked'],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('deferred_paths', $r);
+        $this->assertCount(1, $r['deferred_paths']);
+        $this->assertSame('blocked', $r['deferred_paths'][0]['task_id']);
+        $this->assertSame('status_blocked', $r['deferred_paths'][0]['deferred_reason']);
+    }
+
+    public function test_deferred_paths_empty_when_all_usable(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'good', 'leverage_score' => 0.8, 'status' => 'queued'],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('deferred_paths', $r);
+        $this->assertCount(0, $r['deferred_paths']);
+    }
+
+    // ── unblock_rationale ──
+
+    public function test_unblock_rationale_present_in_output(): void
+    {
+        $r = $this->planner()->plan([
+            'tasks' => [
+                ['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued', 'downstream_unblock_count' => 3],
+                ['task_id' => 'dep', 'leverage_score' => 0.1, 'status' => 'queued', 'depends_on' => ['root']],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('unblock_rationale', $r);
+        $this->assertStringContainsString('root', $r['unblock_rationale']);
+        $this->assertStringContainsString('unblocks 3 downstream', $r['unblock_rationale']);
+    }
+
+    public function test_unblock_rationale_empty_when_no_critical_path(): void
+    {
+        $r = $this->planner()->plan(['tasks' => []]);
+        $this->assertStringContainsString('no_critical_path', $r['unblock_rationale']);
+    }
 }
