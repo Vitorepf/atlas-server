@@ -64,7 +64,7 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
             if (! $row['is_stale'] || $row['retire_reason'] !== null) {
                 continue;
             }
-            $key = $row['theme'].'::'.$row['target'];
+            $key = json_encode([$row['theme'], $row['target']], JSON_THROW_ON_ERROR);
             $staleGroupCounts[$key] = ($staleGroupCounts[$key] ?? 0) + 1;
         }
 
@@ -86,7 +86,7 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
                 continue;
             }
 
-            $groupKey = $row['theme'].'::'.$row['target'];
+            $groupKey = json_encode([$row['theme'], $row['target']], JSON_THROW_ON_ERROR);
             if (($staleGroupCounts[$groupKey] ?? 0) > 1) {
                 $consolidateCandidates[] = [
                     'task_id' => $row['task_id'],
