@@ -355,8 +355,46 @@ final class AtlasMaestroLeaseLifetimeHistogramTest extends TestCase
         $this->assertNotContains('l-healthy', $reapIds);
     }
 
-    /**
-     * @return array<string,mixed>
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: contract — histogram keys, hotspots, default repo
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_histogram_includes_required_keys(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $repo = new class([$this->leaseHeldFor($now, 60)]) {
+            public function __construct(private readonly array $leases) {}
+            public function activeLeases(): array { return $this->leases; }
+        };
+
+        $h = (new AtlasMaestroLeaseLifetimeHistogram($repo, static fn (): DateTimeImmutable => $now))->histogram();
+
+        foreach (['total_active', 'bins', 'oldest_seconds', 'p50_seconds', 'p95_seconds', 'suspected_stuck_count', 'near_expiry_count', 'expired_count', 'worker_hotspots'] as $k) {
+            $this->assertArrayHasKey($k, $h);
+        }
+    }
+
+    public function test_worker_hotspots_sorted_by_count_desc_worker_id_asc(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $ts = $now->getTimestamp();
+        $repo = new class([
+            ['acquired_at_unix' => $ts - 10, 'client_id' => 'beta'],
+            ['acquired_at_unix' => $ts - 10, 'client_id' => 'beta'],
+            ['acquired_at_unix' => $ts - 10, 'client_id' => 'alpha'],
+            ['acquired_at_unix' => $ts - 10, 'client_id' => 'alpha'],
+            ['acquired_at_unix' => $ts - 10, 'client_id' => 'alpha'],
+        ]) {
+            public function __construct(private readonly array $leases) {}
+            public function activeLeases(): array { return $this->leases; }
+        };
+
+        $h = (new AtlasMaestroLeaseLifetimeHistogram($repo, static fn (): DateTimeImmutable => $now))->histogram();
+        $ids = array_column($h['worker_hotspots'], 'worker_id');
+        $this->assertSame(['alpha', 'beta'], $ids);
+    }
+
+    /** @return array<string,mixed>
      */
     private function leaseHeldFor(DateTimeImmutable $now, int $seconds): array
     {
