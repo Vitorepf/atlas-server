@@ -42,13 +42,14 @@ class AgentControlPlaneLeaseRegistryShaper
      *
      * @param  array<string, mixed>  $registry  The lease registry
      * @param  array<string, mixed>  $claimedTasks  Claimed task records keyed by task_packet_id
-     * @return array{classifications:array<string,string>,leak_diagnosis:list<string>,claimed_mismatches:list<string>,safe_compaction_actions:list<string>,compactable_count:int}
+     * @return array{classifications:array<string,string>,leak_diagnosis:list<string>,leak_diagnostics:list<array{lease_id:string,task_packet_id:string,mismatch_type:string,safe_recovery_hint:string}>,claimed_mismatches:list<string>,safe_compaction_actions:list<string>,compactable_count:int}
      */
     public function diagnoseAndCompact(array $registry, array $claimedTasks): array
     {
         $entries = (array) ($registry['entries'] ?? []);
         $classifications = [];
         $leakDiagnosis = [];
+        $leakDiagnostics = [];
         $claimedMismatches = [];
         $safeCompactionActions = [];
 
@@ -74,6 +75,16 @@ class AgentControlPlaneLeaseRegistryShaper
                     $taskPacketId,
                     $leaseStatus,
                 );
+
+                $mismatchType = $this->determineMismatchType($entry, $claimedTasks);
+                $safeRecoveryHint = $this->safeRecoveryHint($classification, $mismatchType, $leaseId, $taskPacketId);
+
+                $leakDiagnostics[] = [
+                    'lease_id' => $leaseId,
+                    'task_packet_id' => $taskPacketId,
+                    'mismatch_type' => $mismatchType,
+                    'safe_recovery_hint' => $safeRecoveryHint,
+                ];
             }
 
             // Claimed mismatch: lease references a task that exists in claimed records but with different agent
@@ -102,10 +113,66 @@ class AgentControlPlaneLeaseRegistryShaper
         return [
             'classifications' => $classifications,
             'leak_diagnosis' => $leakDiagnosis,
+            'leak_diagnostics' => $leakDiagnostics,
             'claimed_mismatches' => $claimedMismatches,
             'safe_compaction_actions' => $safeCompactionActions,
             'compactable_count' => $compactableCount,
         ];
+    }
+
+    /**
+     * Determine the specific mismatch type for a leaked entry.
+     */
+    private function determineMismatchType(array $entry, array $claimedTasks): string
+    {
+        $taskPacketId = (string) ($entry['task_packet_id'] ?? '');
+        $leaseStatus = (string) ($entry['lease_status'] ?? '');
+        $expiresAtUnix = (int) ($entry['expires_at_unix'] ?? 0);
+        $now = time();
+
+        // Active worker lease with no claimed record — most likely a real leak
+        if ($leaseStatus === self::LEASE_STATUS_ACTIVE && $taskPacketId !== '') {
+            return 'active_worker_no_claimed_record';
+        }
+
+        // Expired lease with no claimed record — stale leak
+        if ($expiresAtUnix > 0 && $now > $expiresAtUnix) {
+            return 'stale_expired_no_claimed_record';
+        }
+
+        // Orphan-like: no task_packet_id
+        if ($taskPacketId === '') {
+            return 'orphan_no_task_reference';
+        }
+
+        return 'unknown_mismatch';
+    }
+
+    /**
+     * Generate a safe recovery hint for a classification/mismatch combination.
+     */
+    private function safeRecoveryHint(string $classification, string $mismatchType, string $leaseId, string $taskPacketId): string
+    {
+        return match ($mismatchType) {
+            'active_worker_no_claimed_record' => sprintf(
+                'verify_worker_still_active_for_lease=%s task=%s then_recreate_claimed_record_or_release_lease',
+                $leaseId,
+                $taskPacketId,
+            ),
+            'stale_expired_no_claimed_record' => sprintf(
+                'safe_to_compact_expired_lease=%s no_active_worker_holds_it',
+                $leaseId,
+            ),
+            'orphan_no_task_reference' => sprintf(
+                'safe_to_remove_orphan_lease=%s no_task_reference_to_recover',
+                $leaseId,
+            ),
+            default => sprintf(
+                'manual_review_required_for_lease=%s classification=%s',
+                $leaseId,
+                $classification,
+            ),
+        };
     }
 
     /**

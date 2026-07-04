@@ -349,4 +349,49 @@ final class AgentControlPlaneLeaseRegistryShaperTest extends TestCase
         $this->assertStringNotContainsString('L-live', $result['safe_compaction_actions'][0]);
         $this->assertStringNotContainsString('L-leaked', $result['safe_compaction_actions'][0]);
     }
+
+    public function test_leak_diagnostics_has_structured_entries(): void
+    {
+        $registry = ['entries' => [
+            ['lease_id' => 'L1', 'task_packet_id' => 'T1', 'lease_status' => 'active', 'expires_at_unix' => time() + 3600],
+        ]];
+        $claimedTasks = [];
+
+        $result = $this->shaper->diagnoseAndCompact($registry, $claimedTasks);
+
+        $this->assertCount(1, $result['leak_diagnostics']);
+        $diag = $result['leak_diagnostics'][0];
+        $this->assertSame('L1', $diag['lease_id']);
+        $this->assertSame('T1', $diag['task_packet_id']);
+        $this->assertSame('active_worker_no_claimed_record', $diag['mismatch_type']);
+        $this->assertStringContainsString('verify_worker_still_active', $diag['safe_recovery_hint']);
+    }
+
+    public function test_leak_diagnostics_distinguishes_active_from_stale(): void
+    {
+        $registry = ['entries' => [
+            ['lease_id' => 'L-active', 'task_packet_id' => 'T1', 'lease_status' => 'active', 'expires_at_unix' => time() + 3600],
+            ['lease_id' => 'L-stale', 'task_packet_id' => 'T2', 'lease_status' => 'released', 'expires_at_unix' => time() - 3600],
+        ]];
+        $claimedTasks = [];
+
+        $result = $this->shaper->diagnoseAndCompact($registry, $claimedTasks);
+
+        // Only the active leaked entry produces a leak_diagnostic
+        $this->assertCount(1, $result['leak_diagnostics']);
+        $this->assertSame('L-active', $result['leak_diagnostics'][0]['lease_id']);
+        $this->assertSame('active_worker_no_claimed_record', $result['leak_diagnostics'][0]['mismatch_type']);
+    }
+
+    public function test_leak_diagnostics_empty_when_no_leaks(): void
+    {
+        $registry = ['entries' => [
+            ['lease_id' => 'L1', 'task_packet_id' => 'T1', 'lease_status' => 'active', 'expires_at_unix' => time() + 3600],
+        ]];
+        $claimedTasks = ['T1' => ['agent_id' => 'A1']];
+
+        $result = $this->shaper->diagnoseAndCompact($registry, $claimedTasks);
+
+        $this->assertSame([], $result['leak_diagnostics']);
+    }
 }
