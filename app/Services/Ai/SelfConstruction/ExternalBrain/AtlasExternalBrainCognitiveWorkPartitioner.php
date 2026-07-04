@@ -114,9 +114,43 @@ final class AtlasExternalBrainCognitiveWorkPartitioner
             ];
         }
 
+        // Build escalation points and phase plan
+        $escalationPoints = [];
+        $phasePlan = [];
+        $modelTierHint = 'small';
+
+        foreach ($assignments as $assignment) {
+            $phasePlan[] = [
+                'phase_id' => $assignment['phase_id'],
+                'tier' => $assignment['tier'],
+                'budget_tokens' => $assignment['budget_tokens'],
+            ];
+
+            if ($assignment['tier'] === self::TIER_FRONTIER) {
+                $escalationPoints[] = [
+                    'phase_id' => $assignment['phase_id'],
+                    'reason' => implode(', ', $assignment['reason_codes']),
+                    'escalation_target' => 'frontier_model',
+                ];
+                $modelTierHint = 'frontier';
+            } elseif ($assignment['tier'] === self::TIER_MID && $modelTierHint !== 'frontier') {
+                $escalationPoints[] = [
+                    'phase_id' => $assignment['phase_id'],
+                    'reason' => implode(', ', $assignment['reason_codes']),
+                    'escalation_target' => 'scaffolded_small_model',
+                ];
+                if ($modelTierHint !== 'frontier') {
+                    $modelTierHint = 'scaffolded_small_model';
+                }
+            }
+        }
+
         return [
             'schema' => self::SCHEMA,
             'assignments' => $assignments,
+            'phase_plan' => $phasePlan,
+            'model_tier_hint' => $modelTierHint,
+            'escalation_points' => $escalationPoints,
         ];
     }
 }

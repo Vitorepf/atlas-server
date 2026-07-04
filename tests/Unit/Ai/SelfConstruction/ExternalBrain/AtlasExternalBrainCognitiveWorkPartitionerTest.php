@@ -84,4 +84,61 @@ final class AtlasExternalBrainCognitiveWorkPartitionerTest extends TestCase
         $this->assertSame('mid', $a['tier']);
         $this->assertSame('small', $a['fallback_plan']['downgrade_tier']);
     }
+
+    // AC: output includes phase_plan, model_tier_hint, escalation_points
+    public function test_output_has_new_fields(): void
+    {
+        $result = $this->partitioner->partition([
+            ['phase_id' => 'p1', 'phase_type' => 'extraction', 'evidence_sufficient' => true],
+        ]);
+        $this->assertArrayHasKey('phase_plan', $result);
+        $this->assertArrayHasKey('model_tier_hint', $result);
+        $this->assertArrayHasKey('escalation_points', $result);
+    }
+
+    // AC: small model gets extraction/verification when blast radius is low
+    public function test_small_model_gets_extraction_and_verification(): void
+    {
+        $result = $this->partitioner->partition([
+            ['phase_id' => 'ext', 'phase_type' => 'extraction', 'evidence_sufficient' => true, 'blast_radius' => 'low'],
+            ['phase_id' => 'ver', 'phase_type' => 'verification', 'evidence_sufficient' => true, 'blast_radius' => 'low'],
+        ]);
+        $this->assertSame('small', $result['assignments'][0]['tier']);
+        $this->assertSame('small', $result['assignments'][1]['tier']);
+        $this->assertSame('small', $result['model_tier_hint']);
+    }
+
+    // AC: escalates ambiguous synthesis to scaffolded or frontier with explicit reason
+    public function test_escalates_ambiguous_synthesis_to_frontier(): void
+    {
+        $result = $this->partitioner->partition([
+            ['phase_id' => 'synth', 'phase_type' => 'frontier', 'ambiguity_level' => 0.8, 'conflicting_evidence' => true],
+        ]);
+        $this->assertSame('frontier', $result['assignments'][0]['tier']);
+        $this->assertSame('frontier', $result['model_tier_hint']);
+        $this->assertCount(1, $result['escalation_points']);
+        $this->assertSame('frontier_model', $result['escalation_points'][0]['escalation_target']);
+    }
+
+    // AC: escalation_points populated for mid tier
+    public function test_escalation_points_for_mid_tier(): void
+    {
+        $result = $this->partitioner->partition([
+            ['phase_id' => 'p1', 'phase_type' => 'extraction', 'evidence_sufficient' => false],
+        ]);
+        $this->assertCount(1, $result['escalation_points']);
+        $this->assertSame('scaffolded_small_model', $result['escalation_points'][0]['escalation_target']);
+    }
+
+    // AC: phase_plan mirrors assignments
+    public function test_phase_plan_mirrors_assignments(): void
+    {
+        $result = $this->partitioner->partition([
+            ['phase_id' => 'a', 'phase_type' => 'extraction', 'evidence_sufficient' => true],
+            ['phase_id' => 'b', 'phase_type' => 'verification', 'evidence_sufficient' => true],
+        ]);
+        $this->assertCount(2, $result['phase_plan']);
+        $this->assertSame('a', $result['phase_plan'][0]['phase_id']);
+        $this->assertSame('b', $result['phase_plan'][1]['phase_id']);
+    }
 }
