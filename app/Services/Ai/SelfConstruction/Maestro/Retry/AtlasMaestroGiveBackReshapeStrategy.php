@@ -51,6 +51,8 @@ final class AtlasMaestroGiveBackReshapeStrategy
                 'no_anchor_evidence',
                 'root_cause:'.self::ROOT_CAUSE_WEAK_ACCEPTANCE,
                 'min_missing_evidence:missing_symbol_traces_with_anchor_file',
+                'acceptance_criteria_repair:strengthen_acceptance_criteria_to_be_verifiable_without_symbol_traces',
+                'required_evidence_repair:add_tests_or_gates_result_or_equivalent_proof_gate',
             ], 'none', true);
         }
 
@@ -120,6 +122,8 @@ final class AtlasMaestroGiveBackReshapeStrategy
                 'impl_test_pair_incomplete',
                 'root_cause:'.($scopeMissing ? self::ROOT_CAUSE_SCOPE_MISSING : self::ROOT_CAUSE_WEAK_ACCEPTANCE),
                 'min_missing_evidence:impl_and_test_file_pair_for_anchor',
+                'acceptance_criteria_repair:ensure_acceptance_criteria_reference_both_impl_and_test_files',
+                'required_evidence_repair:require_impl_and_test_pair_in_allowed_files_before_reenqueue',
             ], 'none', true);
         }
 

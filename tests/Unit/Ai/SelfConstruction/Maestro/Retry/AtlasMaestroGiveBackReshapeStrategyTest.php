@@ -261,4 +261,59 @@ final class AtlasMaestroGiveBackReshapeStrategyTest extends TestCase
         $this->assertNotContains('root_cause:contradiction', $payload['rationale']);
         $this->assertNotContains('root_cause:duplicate_capability', $payload['rationale']);
     }
+
+    // ── acceptance_criteria_repair and required_evidence_repair hints ──
+
+    public function test_weak_acceptance_adds_acceptance_criteria_repair_hint(): void
+    {
+        $proposal = (new AtlasMaestroGiveBackReshapeStrategy)->propose([
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $payload = $proposal->toArray();
+        $this->assertContains('acceptance_criteria_repair:strengthen_acceptance_criteria_to_be_verifiable_without_symbol_traces', $payload['rationale']);
+        $this->assertContains('required_evidence_repair:add_tests_or_gates_result_or_equivalent_proof_gate', $payload['rationale']);
+    }
+
+    public function test_impl_test_pair_incomplete_adds_repair_hints(): void
+    {
+        $proposal = (new AtlasMaestroGiveBackReshapeStrategy)->propose([
+            'allowed_files' => ['app/Foo.php'],
+            'missing_symbol_traces' => [['anchor_file' => 'app/Foo.php']],
+        ]);
+
+        $payload = $proposal->toArray();
+        $this->assertContains('acceptance_criteria_repair:ensure_acceptance_criteria_reference_both_impl_and_test_files', $payload['rationale']);
+        $this->assertContains('required_evidence_repair:require_impl_and_test_pair_in_allowed_files_before_reenqueue', $payload['rationale']);
+    }
+
+    public function test_strong_anchor_reshape_has_high_confidence_allowed_files(): void
+    {
+        $proposal = (new AtlasMaestroGiveBackReshapeStrategy)->propose([
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/Maestro/Retry/Foo.php',
+                'tests/Unit/Ai/SelfConstruction/Maestro/Retry/FooTest.php',
+            ],
+            'missing_symbol_traces' => [['anchor_file' => 'app/Services/Ai/SelfConstruction/Maestro/Retry/Foo.php']],
+        ]);
+
+        $payload = $proposal->toArray();
+        $this->assertFalse($payload['empty']);
+        $this->assertSame('high', $payload['confidence']);
+        $this->assertNotEmpty($payload['allowed_files']);
+    }
+
+    public function test_forbidden_anchor_does_not_emit_proof_repair_hints(): void
+    {
+        $proposal = (new AtlasMaestroGiveBackReshapeStrategy)->propose([
+            'allowed_files' => ['app/Brain/Core.php'],
+            'forbidden_hits' => ['app/Brain/Core.php'],
+            'missing_symbol_traces' => [['anchor_file' => 'app/Brain/Core.php']],
+        ]);
+
+        $payload = $proposal->toArray();
+        $this->assertTrue($payload['empty']);
+        $this->assertNotContains('acceptance_criteria_repair:', $payload['rationale']);
+        $this->assertNotContains('required_evidence_repair:', $payload['rationale']);
+    }
 }
