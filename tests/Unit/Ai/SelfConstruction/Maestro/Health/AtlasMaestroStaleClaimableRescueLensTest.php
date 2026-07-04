@@ -125,6 +125,32 @@ final class AtlasMaestroStaleClaimableRescueLensTest extends TestCase
         $this->assertStringContainsString('hard_refactor_class', $r['likely_cause']);
     }
 
+    public function test_avoided_family_rescue_actions_include_route_and_respec(): void
+    {
+        $r = $this->svc()->diagnose([
+            'claimable_depth' => 5,
+            'oldest_age_p95_seconds' => 100,
+            'avoided_family_signals' => ['hard_refactor_class'],
+        ]);
+
+        $this->assertContains('route_to_capable_workers', $r['rescue_actions']);
+        $this->assertContains('respec_avoided_families', $r['rescue_actions']);
+    }
+
+    public function test_avoided_family_diagnosed_before_low_worker_consumption(): void
+    {
+        // Even with zero active workers, avoided_family_signals should win over low_worker_consumption
+        $r = $this->svc()->diagnose([
+            'claimable_depth' => 5,
+            'oldest_age_p95_seconds' => 100,
+            'active_workers' => 0,
+            'avoided_family_signals' => ['hard_refactor_class'],
+        ]);
+
+        $this->assertSame(AtlasMaestroStaleClaimableRescueLens::DIAGNOSIS_TASK_FAMILY_AVOIDANCE, $r['diagnosis']);
+        $this->assertNotSame(AtlasMaestroStaleClaimableRescueLens::DIAGNOSIS_LOW_WORKER_CONSUMPTION, $r['diagnosis']);
+    }
+
     // ── near-expiry lease pressure ───────────────────────────────────────────────
 
     public function test_near_expiry_lease_count_produces_lease_pressure_diagnosis(): void
