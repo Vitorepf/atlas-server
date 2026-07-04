@@ -102,7 +102,7 @@ final class AtlasSelfConstructionQueueContinuityForecaster
         // above — a queue can look fine on hours_until_dry while still about to run dry per-worker.
         $activeLeases = max(0, (int) ($snapshot['active_leases'] ?? 0));
         $completedDryRunPerHourPerLease = max(0.0, (float) ($snapshot['completed_dry_run_per_hour_per_lease'] ?? 0.0));
-        $safetyWindowHours = (float) ($snapshot['safety_window_hours'] ?? self::DEFAULT_SAFETY_WINDOW_HOURS);
+        $safetyWindowHours = max(0.0, (float) ($snapshot['safety_window_hours'] ?? self::DEFAULT_SAFETY_WINDOW_HOURS));
         $drainRatePerHour = $activeLeases * $completedDryRunPerHourPerLease;
         $timeToNoClaimableHours = $drainRatePerHour > 0.0 ? $claimable / $drainRatePerHour : null;
         $continuityStatus = ($timeToNoClaimableHours !== null && $timeToNoClaimableHours < $safetyWindowHours)
