@@ -160,4 +160,196 @@ final class AtlasSelfConstructionSimplificationDocDriftDetectorTest extends Test
         $this->assertStringContainsString('AtlasOldOrgan', $action);
         $this->assertStringContainsString('AtlasNewOrgan', $action);
     }
+
+    // ── AC1: retired organ without replacement → missing_replacement_proof ──
+
+    public function test_retired_organ_without_replacement_has_missing_replacement_proof(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasLostOrgan', 'replacement' => ''],
+            ],
+            'references' => [
+                ['file' => 'docs/guide.md', 'symbol' => 'AtlasLostOrgan'],
+            ],
+        ]);
+
+        $this->assertFalse($result['docs_synced']);
+        $ref = $result['stale_refs'][0];
+        $this->assertTrue($ref['required_update']);
+        $this->assertTrue($ref['missing_replacement_proof']);
+        $this->assertSame('retired_without_replacement_proof', $ref['reason']);
+        $this->assertStringContainsString('no replacement', $ref['recommended_sync_action']);
+    }
+
+    // ── AC2: historical reference has required_update=false and historical_reference reason ──
+
+    public function test_intentional_historical_note_has_historical_reference_reason(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasOldOrgan', 'replacement' => 'AtlasNewOrgan'],
+            ],
+            'references' => [
+                ['file' => 'CHANGELOG.md', 'symbol' => 'AtlasOldOrgan', 'intentional_historical_note' => true],
+            ],
+        ]);
+
+        $ref = $result['stale_refs'][0];
+        $this->assertFalse($ref['required_update']);
+        $this->assertSame('historical_reference', $ref['reason']);
+        $this->assertFalse($ref['missing_replacement_proof']);
+        $this->assertTrue($result['docs_synced']);
+    }
+
+    public function test_retired_with_replacement_has_correct_reason_and_no_missing_proof(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasOldOrgan', 'replacement' => 'AtlasNewOrgan'],
+            ],
+            'references' => [
+                ['file' => 'docs/x.md', 'symbol' => 'AtlasOldOrgan'],
+            ],
+        ]);
+
+        $ref = $result['stale_refs'][0];
+        $this->assertFalse($ref['missing_replacement_proof']);
+        $this->assertSame('retired_with_replacement', $ref['reason']);
+    }
+
+    public function test_behavior_shifted_organ_has_behavior_shifted_reason(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'behavior_shifted_organs' => [
+                ['name' => 'AtlasShiftedOrgan', 'note' => 'behavior changed'],
+            ],
+            'references' => [
+                ['file' => 'docs/x.md', 'symbol' => 'AtlasShiftedOrgan'],
+            ],
+        ]);
+
+        $ref = $result['stale_refs'][0];
+        $this->assertSame('behavior_shifted', $ref['reason']);
+        $this->assertFalse($ref['missing_replacement_proof']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: live guidance to retired organ without replacement
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_live_guidance_without_replacement_proof_sets_docs_synced_false_and_emits_required_update_and_missing_proof(): void
+    {
+        // A live guidance reference (not marked historical) to a retired organ
+        // with no replacement must make docs_synced=false and emit required_update
+        // plus missing_replacement_proof.
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasLostOrgan', 'replacement' => ''],
+            ],
+            'references' => [
+                ['file' => 'docs/guide.md', 'symbol' => 'AtlasLostOrgan'],
+            ],
+        ]);
+
+        $this->assertFalse($result['docs_synced'],
+            'Live guidance to retired organ without replacement must make docs_synced=false');
+        $ref = $result['stale_refs'][0];
+        $this->assertTrue($ref['required_update'], 'must emit required_update');
+        $this->assertTrue($ref['missing_replacement_proof'], 'must emit missing_replacement_proof');
+        $this->assertSame('retired_without_replacement_proof', $ref['reason']);
+    }
+
+    public function test_live_guidance_with_replacement_does_not_show_missing_proof(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasLostOrgan', 'replacement' => 'AtlasReplacementOrgan'],
+            ],
+            'references' => [
+                ['file' => 'docs/guide.md', 'symbol' => 'AtlasLostOrgan'],
+            ],
+        ]);
+
+        $ref = $result['stale_refs'][0];
+        $this->assertFalse($ref['missing_replacement_proof'],
+            'A retired organ with a replacement must not have missing_replacement_proof');
+        $this->assertTrue($ref['required_update']);
+        $this->assertFalse($result['docs_synced']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC3: historical references distinguished from live guidance
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_historical_reference_does_not_fail_docs_synced_even_without_replacement(): void
+    {
+        // A historical reference to a retired organ with no replacement must
+        // NOT fail docs_synced. The reference must remain visible but with
+        // required_update=false and reason=historical_reference.
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasLostOrgan', 'replacement' => ''],
+            ],
+            'references' => [
+                ['file' => 'CHANGELOG.md', 'symbol' => 'AtlasLostOrgan', 'intentional_historical_note' => true],
+            ],
+        ]);
+
+        $this->assertTrue($result['docs_synced'],
+            'Historical reference must not fail docs_synced even without replacement proof');
+        $this->assertCount(1, $result['stale_refs'], 'Historical reference must remain visible');
+        $ref = $result['stale_refs'][0];
+        $this->assertFalse($ref['required_update'], 'Historical reference must have required_update=false');
+        $this->assertSame('historical_reference', $ref['reason']);
+        $this->assertSame('historical', $ref['severity']);
+    }
+
+    public function test_mixed_live_and_historical_references_in_same_call(): void
+    {
+        // When a detect call has both live and historical references, only the
+        // live ones should trigger docs_synced=false.
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasOldOrgan', 'replacement' => 'AtlasNewOrgan'],
+            ],
+            'references' => [
+                ['file' => 'docs/guide.md', 'symbol' => 'AtlasOldOrgan'],
+                ['file' => 'CHANGELOG.md', 'symbol' => 'AtlasOldOrgan', 'intentional_historical_note' => true],
+            ],
+        ]);
+
+        // The historical reference must not prevent docs_synced=false when live guide is stale
+        $this->assertFalse($result['docs_synced']);
+        $this->assertCount(2, $result['stale_refs']);
+
+        $live = $result['stale_refs'][0];
+        $historical = $result['stale_refs'][1];
+
+        $this->assertTrue($live['required_update'], 'Live reference must have required_update=true');
+        $this->assertFalse($historical['required_update'], 'Historical reference must have required_update=false');
+        $this->assertSame('historical_reference', $historical['reason']);
+        $this->assertSame('retired_with_replacement', $live['reason']);
+    }
+
+    public function test_historical_reference_without_replacement_still_shows_missing_proof_fact(): void
+    {
+        // `missing_replacement_proof` is a data fact about the retired organ,
+        // not an action flag. Even historical references to organs without
+        // replacement will indicate missing replacement proof.
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasLostOrgan', 'replacement' => ''],
+            ],
+            'references' => [
+                ['file' => 'CHANGELOG.md', 'symbol' => 'AtlasLostOrgan', 'intentional_historical_note' => true],
+            ],
+        ]);
+
+        $ref = $result['stale_refs'][0];
+        $this->assertTrue($ref['missing_replacement_proof'],
+            'missing_replacement_proof is a data fact: even historical references reflect it');
+        $this->assertFalse($ref['required_update'], 'but required_update must be false for historical notes');
+        $this->assertTrue($result['docs_synced'], 'historical references must not block docs_synced');
+    }
 }

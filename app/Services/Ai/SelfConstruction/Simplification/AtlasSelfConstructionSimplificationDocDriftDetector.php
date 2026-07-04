@@ -87,9 +87,11 @@ final class AtlasSelfConstructionSimplificationDocDriftDetector
                 'file' => $file,
                 'symbol' => $symbol,
                 'replacement' => $replacement,
+                'missing_replacement_proof' => $isRetired && $replacement === '',
                 'severity' => $severity,
                 'required_update' => ! $isHistorical,
                 'drift_kind' => $driftKind,
+                'reason' => $this->staleReason($isHistorical, $isRetired, $replacement),
                 'recommended_sync_action' => $this->recommendedSyncAction($isHistorical, $driftKind, $file, $symbol, $replacement, $note),
             ];
         }
@@ -119,11 +121,30 @@ final class AtlasSelfConstructionSimplificationDocDriftDetector
         }
 
         if ($driftKind === 'retired') {
+            if ($replacement === '') {
+                return "Update {$file}: symbol {$symbol} is retired with no replacement — remove or replace the reference.";
+            }
+
             return "Update {$file}: replace {$symbol} with {$replacement}.";
         }
 
         $suffix = $note !== '' ? " ({$note})" : '';
 
         return "Update {$file}: re-verify {$symbol}'s documented behavior — it has shifted{$suffix}.";
+    }
+
+    private function staleReason(bool $isHistorical, bool $isRetired, string $replacement): string
+    {
+        if ($isHistorical) {
+            return 'historical_reference';
+        }
+        if ($isRetired && $replacement === '') {
+            return 'retired_without_replacement_proof';
+        }
+        if ($isRetired) {
+            return 'retired_with_replacement';
+        }
+
+        return 'behavior_shifted';
     }
 }
