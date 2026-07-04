@@ -42,6 +42,7 @@ final class AtlasExternalBrainOriginatorStopConditionGate
     public const VERDICT_ESCALATE_AMBITION = 'escalate_ambition';
     public const VERDICT_PREMATURE_STOP    = 'premature_stop';
     public const VERDICT_REDUCE_SCOPE      = 'reduce_scope';
+    public const VERDICT_CONTINUE_ORIGINATING = 'continue_originating';
 
     public const REASON_QUALITY_TARGET          = 'quality_target_reached';
     public const REASON_EXHAUSTED               = 'exhausted_with_evidence';
@@ -208,6 +209,17 @@ final class AtlasExternalBrainOriginatorStopConditionGate
             );
         }
 
+        // 6b. continue_originating — supply is sufficient but high-leverage unqueued targets exist
+        // The gate must NOT stop or wait just because the queue is currently sufficient.
+        $supplySufficient = (bool) ($input['supply_sufficient'] ?? false);
+        $highLeverageUnqueuedTargets = (int) ($input['high_leverage_unqueued_targets'] ?? 0);
+        if ($supplySufficient && $highLeverageUnqueuedTargets > 0) {
+            return $this->result(self::VERDICT_CONTINUE_ORIGINATING, null,
+                ["supply_sufficient:true", "high_leverage_unqueued_targets:{$highLeverageUnqueuedTargets}"],
+                ["supply_sufficient:true", "high_leverage_unqueued_targets:{$highLeverageUnqueuedTargets}"],
+            );
+        }
+
         // 7. continue_search — modes or surfaces still available
         if ($remainingModes > 0 || $openSurfaces > 0 || $firstPassOnly) {
             $blocking = [];
@@ -277,6 +289,7 @@ final class AtlasExternalBrainOriginatorStopConditionGate
             self::VERDICT_CONTINUE_SEARCH   => 'continue_searching_remaining_modes_or_surfaces',
             self::VERDICT_ESCALATE_AMBITION => 'originate_a_new_breakthrough_capability_or_cite_missing_evidence',
             self::VERDICT_PREMATURE_STOP    => 'cite_evidence_before_stopping',
+            self::VERDICT_CONTINUE_ORIGINATING => 'continue_originating_high_leverage_targets',
             default                         => 'continue_normal_operation',
         };
 
