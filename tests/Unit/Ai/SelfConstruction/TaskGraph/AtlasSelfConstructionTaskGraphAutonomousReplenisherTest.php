@@ -93,6 +93,32 @@ class AtlasSelfConstructionTaskGraphAutonomousReplenisherTest extends TestCase
         $this->assertFalse($result['worker_feed_thin']);
     }
 
+    // ── AC4: priority_reason exposed in run() output ─────────────────────────
+
+    public function test_run_output_includes_priority_reason_when_feed_thin(): void
+    {
+        $result = (new AtlasSelfConstructionTaskGraphAutonomousReplenisher)->run(
+            ['status' => 'incomplete'],
+            [$this->validDraft('a-1')],
+            ['claimable_per_active_worker' => 1.0],
+        );
+
+        $this->assertArrayHasKey('priority_reason', $result);
+        $this->assertSame('worker_feed_thin:prioritizing_unlocked_high_value_follow_ups', $result['priority_reason']);
+    }
+
+    public function test_run_output_includes_priority_reason_when_comfortable(): void
+    {
+        $result = (new AtlasSelfConstructionTaskGraphAutonomousReplenisher)->run(
+            ['status' => 'incomplete'],
+            [$this->validDraft('a-1')],
+            ['claimable_per_active_worker' => 10.0],
+        );
+
+        $this->assertArrayHasKey('priority_reason', $result);
+        $this->assertSame('worker_feed_comfortable:standard_value_dependency_ordering', $result['priority_reason']);
+    }
+
     public function test_default_dry_run_plans_but_applies_nothing(): void
     {
         $called = 0;

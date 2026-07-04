@@ -109,6 +109,11 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
         $workerFeedFloorRatio = (float) ($queueFacts['worker_feed_floor_ratio'] ?? self::DEFAULT_WORKER_FEED_FLOOR_RATIO);
         $workerFeedThin = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= $workerFeedFloorRatio;
 
+        // AC4: expose the priority reason so the control plane can explain the replenishment.
+        $priorityReason = $workerFeedThin
+            ? 'worker_feed_thin:prioritizing_unlocked_high_value_follow_ups'
+            : 'worker_feed_comfortable:standard_value_dependency_ordering';
+
         return [
             'schema' => self::SCHEMA,
             'schema_version' => self::SCHEMA,
@@ -118,6 +123,7 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
             'withheld_count' => count($withheld),
             'duplicate_count' => count($duplicates),
             'worker_feed_thin' => $workerFeedThin,
+            'priority_reason' => $priorityReason,
             'max_applied' => $maxApplied,
             'enqueue_results' => $enqueueResults,
             'plan' => [
