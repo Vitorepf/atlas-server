@@ -194,6 +194,9 @@ final class AtlasTaskFabricBatchValueDiversityGate
             'blockers'       => $blockers,
             'repair_hints'   => $repairHints,
             'diversity_facts' => $diversityFacts,
+            'diversity_score' => round(max(0.0, 1.0 - count($blockers) * 0.25), 2),
+            'rejected_reasons' => $blockers,
+            'recommended_rebalance' => $blockers === [] ? null : $this->rebalanceFor($blockers[0]),
         ];
     }
 
@@ -278,5 +281,18 @@ final class AtlasTaskFabricBatchValueDiversityGate
         }
 
         return 'other';
+    }
+
+    private function rebalanceFor(string $blocker): string
+    {
+        return match ($blocker) {
+            'objective_fingerprint_concentration' => 'Diversify objectives across specs so no single fingerprint dominates.',
+            'acceptance_shape_concentration' => 'Vary acceptance criteria wording and structure across specs.',
+            'one_file_concentration' => 'Add multi-file specs that cross module boundaries.',
+            'insufficient_dimension_diversity' => 'Add specs from other value dimensions.',
+            'template_farm_concentration' => 'Replace boilerplate specs with genuinely varied content.',
+            'template_width_not_value_diversity' => 'Replace renamed-wrapper specs with distinct mechanism types.',
+            default => 'Review batch composition and ensure each spec delivers distinct leverage.',
+        };
     }
 }

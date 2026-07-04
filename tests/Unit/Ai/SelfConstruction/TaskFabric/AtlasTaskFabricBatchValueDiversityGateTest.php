@@ -259,4 +259,77 @@ final class AtlasTaskFabricBatchValueDiversityGateTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $src, "gate must NOT contain {$forbidden}");
         }
     }
+
+    // ── AC4: diversity_score, rejected_reasons, recommended_rebalance ─────────
+
+    public function test_output_includes_diversity_score(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Implement service class for alpha'),
+            $this->spec('Implement service class for beta'),
+        ]);
+        $this->assertArrayHasKey('diversity_score', $r);
+        $this->assertIsFloat($r['diversity_score']);
+        $this->assertLessThan(1.0, $r['diversity_score']); // blocked → score < 1.0
+    }
+
+    public function test_diversity_score_is_1_for_passing_batch(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Fix queue jam in replenisher', ['Queue drains'], ['app/A.php', 'tests/ATest.php']),
+            $this->spec('Verify gate proof chain end to end', ['Test passes'], ['app/B.php', 'tests/BTest.php']),
+        ]);
+        $this->assertSame(1.0, $r['diversity_score']);
+    }
+
+    public function test_output_includes_rejected_reasons(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Implement service class for alpha'),
+            $this->spec('Implement service class for beta'),
+            $this->spec('Implement service class for gamma'),
+        ]);
+        $this->assertArrayHasKey('rejected_reasons', $r);
+        $this->assertSame($r['blockers'], $r['rejected_reasons']);
+    }
+
+    public function test_rejected_reasons_empty_when_batch_passes(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Fix queue jam in replenisher', ['Queue drains'], ['app/A.php', 'tests/ATest.php']),
+            $this->spec('Verify gate proof chain end to end', ['Test passes'], ['app/B.php', 'tests/BTest.php']),
+        ]);
+        $this->assertSame([], $r['rejected_reasons']);
+    }
+
+    public function test_output_includes_recommended_rebalance(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Implement service class for alpha'),
+            $this->spec('Implement service class for beta'),
+            $this->spec('Implement service class for gamma'),
+        ]);
+        $this->assertArrayHasKey('recommended_rebalance', $r);
+        $this->assertNotNull($r['recommended_rebalance']);
+        $this->assertStringContainsString('fingerprint', $r['recommended_rebalance']);
+    }
+
+    public function test_recommended_rebalance_null_when_batch_passes(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Fix queue jam in replenisher', ['Queue drains'], ['app/A.php', 'tests/ATest.php']),
+            $this->spec('Verify gate proof chain end to end', ['Test passes'], ['app/B.php', 'tests/BTest.php']),
+        ]);
+        $this->assertNull($r['recommended_rebalance']);
+    }
+
+    public function test_output_is_deterministic(): void
+    {
+        $specs = [
+            $this->spec('Implement service class for alpha'),
+            $this->spec('Implement service class for beta'),
+        ];
+        $gate = new AtlasTaskFabricBatchValueDiversityGate;
+        $this->assertSame(json_encode($gate->evaluate($specs)), json_encode($gate->evaluate($specs)));
+    }
 }
