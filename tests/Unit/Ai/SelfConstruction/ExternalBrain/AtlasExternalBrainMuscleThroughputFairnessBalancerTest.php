@@ -145,4 +145,26 @@ final class AtlasExternalBrainMuscleThroughputFairnessBalancerTest extends TestC
         $adjustmentCodes = array_column($r['fairness_adjustments'], 'adjustment');
         $this->assertNotContains('throttled_low_value_family', $adjustmentCodes);
     }
+
+    // ── low_risk_only for unproven/high-give-back muscles ──
+
+    public function test_unproven_muscle_is_marked_low_risk_only(): void
+    {
+        $r = $this->svc()->balance([
+            'muscles' => [
+                ['muscle_id' => 'unproven', 'throughput_per_hour' => 10.0, 'reliability_score' => 0.5, 'give_back_rate' => 0.4],
+            ],
+        ]);
+        $this->assertSame('low_risk_only', $r['next_task_family_preferences']['unproven']);
+    }
+
+    public function test_proven_muscle_is_marked_high_risk_eligible(): void
+    {
+        $r = $this->svc()->balance([
+            'muscles' => [
+                ['muscle_id' => 'proven', 'throughput_per_hour' => 10.0, 'reliability_score' => 0.8, 'give_back_rate' => 0.1],
+            ],
+        ]);
+        $this->assertSame('high_risk_eligible', $r['next_task_family_preferences']['proven']);
+    }
 }
