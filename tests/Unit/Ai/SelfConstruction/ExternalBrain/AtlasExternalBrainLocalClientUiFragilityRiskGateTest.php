@@ -151,4 +151,43 @@ final class AtlasExternalBrainLocalClientUiFragilityRiskGateTest extends TestCas
         $this->assertTrue($result['safe_for_24_7']);
         $this->assertSame('no_risk_detected', $result['recommendation']);
     }
+
+    // ── required_adapter_work ──
+
+    public function test_required_adapter_work_empty_when_no_risks(): void
+    {
+        $result = $this->gate->evaluate([]);
+        $this->assertSame([], $result['required_adapter_work']);
+    }
+
+    public function test_required_adapter_work_maps_ui_only(): void
+    {
+        $result = $this->gate->evaluate(['ui_only' => true]);
+        $this->assertCount(1, $result['required_adapter_work']);
+        $this->assertSame('replace_ui_automation_with_headless_api_or_cli', $result['required_adapter_work'][0]);
+    }
+
+    public function test_required_adapter_work_maps_multiple_risks(): void
+    {
+        $result = $this->gate->evaluate([
+            'ui_only' => true,
+            'cannot_stream_stdout' => true,
+            'cannot_set_workspace' => true,
+        ]);
+        $this->assertCount(3, $result['required_adapter_work']);
+        $this->assertContains('replace_ui_automation_with_headless_api_or_cli', $result['required_adapter_work']);
+        $this->assertContains('implement_stdout_streaming_or_file_based_output_for_headless_invocation', $result['required_adapter_work']);
+        $this->assertContains('add_workspace_path_configuration_for_headless_invocation', $result['required_adapter_work']);
+    }
+
+    public function test_required_adapter_work_maps_cost_and_timeout(): void
+    {
+        $result = $this->gate->evaluate([
+            'cannot_bound_cost' => true,
+            'cannot_enforce_timeout' => true,
+        ]);
+        $this->assertCount(2, $result['required_adapter_work']);
+        $this->assertContains('implement_cost_bound_guard_or_pre_flight_cost_estimate', $result['required_adapter_work']);
+        $this->assertContains('implement_timeout_enforcement_or_external_process_monitor', $result['required_adapter_work']);
+    }
 }
