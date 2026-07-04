@@ -455,4 +455,69 @@ final class AtlasTaskFabricTemplateFarmSimilarityGateTest extends TestCase
         $this->assertGreaterThanOrEqual(2, $r['corroborating_signal_families']);
         $this->assertTrue($r['blocking']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: noun-substituted objectives, identical proof, repeated verb, same shape → blocked
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_noun_substituted_identical_proof_same_shape_blocked(): void
+    {
+        $r = $this->svc()->assess([
+            $this->packet('Upgrade AlphaGate so it validates input.', ['./vendor/bin/phpunit tests/Gates/AlphaGateTest.php exits 0', 'the gate must validate incoming data'], ['app/Gates/AlphaGate.php']),
+            $this->packet('Upgrade BetaGate so it validates input.', ['./vendor/bin/phpunit tests/Gates/BetaGateTest.php exits 0', 'the gate must validate incoming data'], ['app/Gates/BetaGate.php']),
+        ]);
+
+        $this->assertTrue($r['blocking'],
+            'noun-substituted batches with identical proof, repeated verb, same shape must block');
+    }
+
+    public function test_same_allowed_files_shape_and_proof_path_blocked(): void
+    {
+        $r = $this->svc()->assess([
+            // Objectives similar enough via stem analysis to trigger blocking alongside matching shape+proof.
+            $this->packet('Build Alpha widget service.', ['./vendor/bin/phpunit tests/Unit/AlphaTest.php exits 0', 'the service must validate and reject bad input'], ['app/Services/Alpha.php', 'tests/Unit/AlphaTest.php']),
+            $this->packet('Build Beta widget service.', ['./vendor/bin/phpunit tests/Unit/BetaTest.php exits 0', 'the service must validate and reject bad input'], ['app/Services/Beta.php', 'tests/Unit/BetaTest.php']),
+        ]);
+
+        $this->assertTrue($r['blocking'],
+            'identical allowed_files shape + identical proof path + same must-verb must block');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC3: coherent macro-batch with distinct proof paths and shapes → not blocked
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_coherent_macro_batch_distinct_proof_and_shape_not_blocked(): void
+    {
+        $r = $this->svc()->assess([
+            $this->packet(
+                'Rank candidates by autonomy unlock value and reject proxy-only signals.',
+                ['high autonomy_unlock ranks first', 'proxy-only candidates are rejected', './vendor/bin/phpunit tests/Unit/RankerTest.php exits 0'],
+                ['app/Services/Ai/StrategyCouncil/Ranker.php', 'tests/Unit/Services/Ai/StrategyCouncil/RankerTest.php'],
+            ),
+            $this->packet(
+                'Order task chain by unlock score, skipping blocked gates.',
+                ['steps ordered by unlock score', 'blocked gates skipped with reason', './vendor/bin/phpunit tests/Unit/SequencerTest.php exits 0'],
+                ['app/Services/Ai/TaskGraph/Sequencer.php', 'tests/Unit/Services/Ai/TaskGraph/SequencerTest.php'],
+            ),
+        ]);
+
+        $this->assertFalse($r['blocking'],
+            'coherent macro-batch with distinct proof paths and shapes must not be blocked');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: output contract — repeated_proof_commands, repeated_acceptance_verbs, repeated_allowed_files_shapes
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_output_includes_shape_fingerprinting_keys(): void
+    {
+        $r = $this->svc()->assess([
+            $this->packet('Do A.', ['./vendor/bin/phpunit tests/ATest.php exits 0', 'the system must validate input'], ['app/A.php']),
+        ]);
+
+        $this->assertArrayHasKey('repeated_proof_paths', $r);
+        $this->assertArrayHasKey('repeated_acceptance_verbs', $r);
+        $this->assertArrayHasKey('repeated_allowed_files_shapes', $r);
+    }
 }
