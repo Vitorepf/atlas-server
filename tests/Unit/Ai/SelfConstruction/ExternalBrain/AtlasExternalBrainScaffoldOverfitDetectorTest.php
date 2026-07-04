@@ -448,4 +448,107 @@ final class AtlasExternalBrainScaffoldOverfitDetectorTest extends TestCase
         $suspect = $result['suspect_scaffolds'][0];
         $this->assertSame(AtlasExternalBrainScaffoldOverfitDetector::CATEGORY_TEMPLATE_FARM, $suspect['overfit_category']);
     }
+
+    // ── AC2: hidden proxy regression detection ──
+
+    public function test_hidden_proxy_regression_detected_with_schema_only_high_gate_non_positive_deltas(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'gate_pass_rate'            => 0.90, // ≥ 0.80
+            'schema_change_only'        => true,
+            'evidence_quality_delta'    => 0.0,
+            'replay_accuracy_delta'     => 0.0,
+            'escalation_quality_delta'  => 0.0,
+        ]));
+
+        $this->assertTrue($result['hidden_proxy_regression']);
+        $suspect = $result['suspect_scaffolds'][0];
+        $this->assertTrue($suspect['hidden_proxy_regression']);
+        $this->assertContains('hidden_proxy_regression', $suspect['reasons']);
+    }
+
+    public function test_hidden_proxy_regression_detected_with_gate_keyword_stuffing_high_gate_non_positive_deltas(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'gate_pass_rate'            => 0.85, // ≥ 0.80
+            'gate_keyword_density'      => 0.70, // > 0.60
+            'evidence_quality_delta'    => 0.0,
+            'replay_accuracy_delta'     => 0.0,
+            'escalation_quality_delta'  => 0.0,
+        ]));
+
+        $this->assertTrue($result['hidden_proxy_regression']);
+        $suspect = $result['suspect_scaffolds'][0];
+        $this->assertTrue($suspect['hidden_proxy_regression']);
+        $this->assertContains('hidden_proxy_regression', $suspect['reasons']);
+    }
+
+    public function test_hidden_proxy_regression_not_detected_with_positive_evidence_delta(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'gate_pass_rate'            => 0.90,
+            'schema_change_only'        => true,
+            'evidence_quality_delta'    => 0.15, // positive → no hidden proxy
+            'replay_accuracy_delta'     => 0.0,
+            'escalation_quality_delta'  => 0.0,
+        ]));
+
+        $this->assertFalse($result['hidden_proxy_regression']);
+    }
+
+    // ── AC3: hidden proxy regression escalates single suspect to reset_scaffold ──
+
+    public function test_hidden_proxy_regression_single_suspect_recommends_reset_scaffold_not_monitor(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'gate_pass_rate'            => 0.90,
+            'schema_change_only'        => true,
+            'evidence_quality_delta'    => 0.0,
+            'replay_accuracy_delta'     => 0.0,
+            'escalation_quality_delta'  => 0.0,
+        ]));
+
+        // Single suspect + hidden proxy regression → reset_scaffold, not monitor.
+        $this->assertCount(1, $result['suspect_scaffolds']);
+        $this->assertSame('reset_scaffold', $result['recommended_action']);
+    }
+
+    public function test_hidden_proxy_regression_repair_hint_is_present(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'gate_pass_rate'            => 0.90,
+            'schema_change_only'        => true,
+            'evidence_quality_delta'    => 0.0,
+            'replay_accuracy_delta'     => 0.0,
+            'escalation_quality_delta'  => 0.0,
+        ]));
+
+        $this->assertContains('remove_proxy_optimizations_and_add_genuine_capability_proof', $result['repair_hints']);
+    }
+
+    public function test_hidden_proxy_regression_increases_risk_score(): void
+    {
+        $noProxy = $this->detect($this->metric('v1', [
+            'gate_pass_rate'      => 0.90,
+            'commit_success_rate' => 0.50,
+        ]));
+
+        $withProxy = $this->detect($this->metric('v1', [
+            'gate_pass_rate'            => 0.90,
+            'schema_change_only'        => true,
+            'evidence_quality_delta'    => 0.0,
+            'replay_accuracy_delta'     => 0.0,
+            'escalation_quality_delta'  => 0.0,
+        ]));
+
+        // Both are single-suspect, but hidden proxy regression adds 0.20 to risk.
+        $this->assertGreaterThan($noProxy['risk_score'], $withProxy['risk_score']);
+    }
+
+    public function test_output_has_hidden_proxy_regression_key(): void
+    {
+        $result = $this->detector->detect([]);
+        $this->assertArrayHasKey('hidden_proxy_regression', $result);
+        $this->assertFalse($result['hidden_proxy_regression']);
+    }
 }

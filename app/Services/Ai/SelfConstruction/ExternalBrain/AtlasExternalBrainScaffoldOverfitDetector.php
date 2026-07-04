@@ -70,6 +70,7 @@ final class AtlasExternalBrainScaffoldOverfitDetector
         $anyTemplateFarm           = false;
         $anyGateStuffing           = false;
         $anySchemaOnly             = false;
+        $anyHiddenProxyRegression  = false;
 
         foreach ($metrics as $m) {
             $id              = (string)  ($m['variant_id']              ?? 'unknown');
@@ -136,8 +137,15 @@ final class AtlasExternalBrainScaffoldOverfitDetector
                 && $evidenceQualityDelta   <= 0.0
                 && $replayAccuracyDelta    <= 0.0
                 && $escalationQualityDelta <= 0.0;
+            // G: hidden proxy regression — high gate pass rate achieved through schema-only reformatting
+            // or gate-keyword stuffing without actual quality improvement, creating a false sense of progress.
+            $hiddenProxyRegression = $gateRate >= self::HIGH_GATE_THRESHOLD
+                && ($schemaOnly || $gateKeywordDensity > self::GATE_KEYWORD_DENSITY_THRESHOLD)
+                && $evidenceQualityDelta   <= 0.0
+                && $replayAccuracyDelta    <= 0.0
+                && $escalationQualityDelta <= 0.0;
 
-            if ($gateHighWithDecline || $heldoutOverfit || $templateFarm || $gateStuffing || $schemaOnly || $narrowFixtureHack) {
+            if ($gateHighWithDecline || $heldoutOverfit || $templateFarm || $gateStuffing || $schemaOnly || $narrowFixtureHack || $hiddenProxyRegression) {
                 $reasons = [];
                 if ($gateHighWithDecline) {
                     $reasons[] = 'high_gate_low_real_quality';
@@ -157,6 +165,9 @@ final class AtlasExternalBrainScaffoldOverfitDetector
                 if ($narrowFixtureHack) {
                     $reasons[] = 'narrow_fixture_overfit';
                 }
+                if ($hiddenProxyRegression) {
+                    $reasons[] = 'hidden_proxy_regression';
+                }
                 // AC2/AC3: a single canonical category, priority-ordered — template farming and
                 // fixture hacking are the most dangerous (they actively teach the wrong behavior),
                 // so they outrank a plain gate-wording match.
@@ -173,6 +184,7 @@ final class AtlasExternalBrainScaffoldOverfitDetector
                     'gate_pass_rate'            => $gateRate,
                     'heldout_gap'               => $heldoutGap,
                     'template_repetition_score' => $templateRepetition,
+                    'hidden_proxy_regression'   => $hiddenProxyRegression,
                     'declining_metrics'         => $decliningMetrics,
                     'reasons'                   => $reasons,
                     'overfit_category'          => $overfitCategory,
@@ -189,33 +201,37 @@ final class AtlasExternalBrainScaffoldOverfitDetector
                 if ($schemaOnly) {
                     $anySchemaOnly = true;
                 }
+                if ($hiddenProxyRegression) {
+                    $anyHiddenProxyRegression = true;
+                }
             }
         }
 
         $suspectCount      = count($suspectScaffolds);
-        $recommendedAction = $this->recommendAction($anyTemplateFarm, $suspectCount, $anyHeldoutOverfit);
+        $recommendedAction = $this->recommendAction($anyTemplateFarm, $suspectCount, $anyHeldoutOverfit, $anyHiddenProxyRegression);
 
         return [
             'schema_version'            => self::SCHEMA,
             'overfit_detected'          => $suspectCount > 0,
+            'hidden_proxy_regression'   => $anyHiddenProxyRegression,
             'suspect_scaffolds'         => $suspectScaffolds,
             'evidence_trend'            => $evidenceTrend,
             'heldout_gap'               => $anyHeldoutOverfit,
             'template_shape_repetition' => $anyTemplateFarm,
             'benchmark_to_heldout_gap'  => $benchmarkToHeldoutGap,
             'recommended_action'        => $recommendedAction,
-            'risk_score'                => $this->computeRiskScore($suspectCount, $anyTemplateFarm, $anyGateStuffing, $anySchemaOnly),
+            'risk_score'                => $this->computeRiskScore($suspectCount, $anyTemplateFarm, $anyGateStuffing, $anySchemaOnly, $anyHiddenProxyRegression),
             'blocking_reason'           => $this->blockingReason($recommendedAction),
             'repair_hints'              => $this->buildRepairHints($suspectScaffolds),
         ];
     }
 
-    private function recommendAction(bool $templateFarm, int $suspectCount, bool $heldoutOnly): string
+    private function recommendAction(bool $templateFarm, int $suspectCount, bool $heldoutOnly, bool $hiddenProxyRegression): string
     {
         if ($templateFarm) {
             return 'retire_template';
         }
-        if ($suspectCount >= 2) {
+        if ($suspectCount >= 2 || $hiddenProxyRegression) {
             return 'reset_scaffold';
         }
         if ($heldoutOnly) {
@@ -227,12 +243,13 @@ final class AtlasExternalBrainScaffoldOverfitDetector
         return 'none';
     }
 
-    private function computeRiskScore(int $suspects, bool $template, bool $gateStuffing, bool $schemaOnly): float
+    private function computeRiskScore(int $suspects, bool $template, bool $gateStuffing, bool $schemaOnly, bool $hiddenProxy): float
     {
         $score = min(1.0, $suspects * 0.25);
-        if ($template)     { $score = min(1.0, $score + 0.25); }
+        if ($template)   { $score = min(1.0, $score + 0.25); }
         if ($gateStuffing) { $score = min(1.0, $score + 0.15); }
-        if ($schemaOnly)   { $score = min(1.0, $score + 0.10); }
+        if ($schemaOnly) { $score = min(1.0, $score + 0.10); }
+        if ($hiddenProxy) { $score = min(1.0, $score + 0.20); }
         return round($score, 2);
     }
 
@@ -251,12 +268,13 @@ final class AtlasExternalBrainScaffoldOverfitDetector
     private function buildRepairHints(array $suspects): array
     {
         $map = [
-            'template_shape_repetition'   => 'retire_template_and_introduce_novel_signal_patterns',
-            'gate_keyword_stuffing'        => 'remove_gate_keyword_saturation_and_add_concrete_capability_proof',
-            'schema_only_scaffold'         => 'add_evidence_quality_or_replay_accuracy_improvement_not_schema_only',
-            'high_gate_low_real_quality'   => 'raise_real_quality_signals_before_relying_on_gate_pass_rate',
-            'heldout_gap_exceeds_threshold' => 'expand_heldout_evaluation_set_to_close_benchmark_heldout_gap',
-            'narrow_fixture_overfit'       => 'generalize_scaffold_beyond_specific_fixture_shapes_and_values',
+            'template_shape_repetition'    => 'retire_template_and_introduce_novel_signal_patterns',
+            'gate_keyword_stuffing'         => 'remove_gate_keyword_saturation_and_add_concrete_capability_proof',
+            'schema_only_scaffold'          => 'add_evidence_quality_or_replay_accuracy_improvement_not_schema_only',
+            'high_gate_low_real_quality'    => 'raise_real_quality_signals_before_relying_on_gate_pass_rate',
+            'heldout_gap_exceeds_threshold'  => 'expand_heldout_evaluation_set_to_close_benchmark_heldout_gap',
+            'narrow_fixture_overfit'         => 'generalize_scaffold_beyond_specific_fixture_shapes_and_values',
+            'hidden_proxy_regression'        => 'remove_proxy_optimizations_and_add_genuine_capability_proof',
         ];
 
         $hints = [];
