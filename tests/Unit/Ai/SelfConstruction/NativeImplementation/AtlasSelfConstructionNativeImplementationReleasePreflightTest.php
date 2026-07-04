@@ -229,4 +229,109 @@ final class AtlasSelfConstructionNativeImplementationReleasePreflightTest extend
         $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_NEEDS_MORE_EVIDENCE, $verdict['decision']);
         $this->assertContains('missing_evidence_kinds:phpunit', $verdict['blockers']);
     }
+
+    // ── releasePreflight: release_ready, blocking_gates, evidence_refs, next_unblock_action ──
+
+    public function test_all_gates_pass_release_ready(): void
+    {
+        $r = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->releasePreflight([
+            'task_quality' => 0.9,
+            'proof_freshness' => 0.8,
+            'scope_isolation' => true,
+            'rollback_readiness' => true,
+            'knowledge_sync_readiness' => true,
+            'evidence_refs' => ['phpunit:t1', 'rollback_plan:r1'],
+        ]);
+        $this->assertTrue($r['release_ready']);
+        $this->assertSame([], $r['blocking_gates']);
+        $this->assertSame('proceed_with_release', $r['next_unblock_action']);
+    }
+
+    public function test_low_task_quality_blocks_release(): void
+    {
+        $r = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->releasePreflight([
+            'task_quality' => 0.3,
+            'proof_freshness' => 0.8,
+            'scope_isolation' => true,
+            'rollback_readiness' => true,
+            'knowledge_sync_readiness' => true,
+            'evidence_refs' => ['phpunit:t1'],
+        ]);
+        $this->assertFalse($r['release_ready']);
+        $this->assertStringContainsString('task_quality=', $r['blocking_gates'][0]);
+        $this->assertSame('address_blocking_gates', $r['next_unblock_action']);
+    }
+
+    public function test_missing_scope_isolation_blocks_release(): void
+    {
+        $r = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->releasePreflight([
+            'task_quality' => 0.9,
+            'proof_freshness' => 0.8,
+            'scope_isolation' => false,
+            'rollback_readiness' => true,
+            'knowledge_sync_readiness' => true,
+            'evidence_refs' => ['phpunit:t1'],
+        ]);
+        $this->assertFalse($r['release_ready']);
+        $this->assertContains('scope_isolation_not_verified', $r['blocking_gates']);
+        $this->assertSame('verify_scope_isolation', $r['next_unblock_action']);
+    }
+
+    public function test_missing_rollback_readiness_blocks_release(): void
+    {
+        $r = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->releasePreflight([
+            'task_quality' => 0.9,
+            'proof_freshness' => 0.8,
+            'scope_isolation' => true,
+            'rollback_readiness' => false,
+            'knowledge_sync_readiness' => true,
+            'evidence_refs' => ['phpunit:t1'],
+        ]);
+        $this->assertFalse($r['release_ready']);
+        $this->assertContains('rollback_readiness_missing', $r['blocking_gates']);
+        $this->assertSame('prepare_rollback_plan', $r['next_unblock_action']);
+    }
+
+    public function test_missing_knowledge_sync_blocks_release(): void
+    {
+        $r = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->releasePreflight([
+            'task_quality' => 0.9,
+            'proof_freshness' => 0.8,
+            'scope_isolation' => true,
+            'rollback_readiness' => true,
+            'knowledge_sync_readiness' => false,
+            'evidence_refs' => ['phpunit:t1'],
+        ]);
+        $this->assertFalse($r['release_ready']);
+        $this->assertContains('knowledge_sync_readiness_missing', $r['blocking_gates']);
+        $this->assertSame('sync_knowledge_base', $r['next_unblock_action']);
+    }
+
+    public function test_empty_evidence_refs_blocks_release(): void
+    {
+        $r = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->releasePreflight([
+            'task_quality' => 0.9,
+            'proof_freshness' => 0.8,
+            'scope_isolation' => true,
+            'rollback_readiness' => true,
+            'knowledge_sync_readiness' => true,
+            'evidence_refs' => [],
+        ]);
+        $this->assertFalse($r['release_ready']);
+        $this->assertContains('no_provider_safe_evidence_refs', $r['blocking_gates']);
+    }
+
+    public function test_evidence_refs_passed_through(): void
+    {
+        $refs = ['phpunit:t1', 'rollback_plan:r1', 'bounded_rollback:b1'];
+        $r = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->releasePreflight([
+            'task_quality' => 0.9,
+            'proof_freshness' => 0.8,
+            'scope_isolation' => true,
+            'rollback_readiness' => true,
+            'knowledge_sync_readiness' => true,
+            'evidence_refs' => $refs,
+        ]);
+        $this->assertSame($refs, $r['evidence_refs']);
+    }
 }
