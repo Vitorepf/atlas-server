@@ -117,10 +117,29 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
             (self::ACTION_ORDER[$a['action_type']] ?? 99) <=> (self::ACTION_ORDER[$b['action_type']] ?? 99)
         );
 
+        $dependencyOrder = array_map(
+            static fn (array $spec): string => $spec['action_type'].':'.$spec['organ'],
+            $taskSpecs,
+        );
+
+        $allGates = [];
+        foreach ($taskSpecs as $spec) {
+            foreach ($spec['behavior_preservation_gates'] as $gate) {
+                $key = (string) ($gate['description'] ?? '');
+                if ($key !== '') {
+                    $allGates[$key] = true;
+                }
+            }
+        }
+        $behavGates = array_keys($allGates);
+        sort($behavGates);
+
         return [
-            'schema'     => self::SCHEMA,
-            'task_specs' => $taskSpecs,
-            'refused'    => $refused,
+            'schema'                => self::SCHEMA,
+            'task_specs'            => $taskSpecs,
+            'refused'               => $refused,
+            'dependency_order'      => $dependencyOrder,
+            'behavior_preservation_gates' => $behavGates,
         ];
     }
 

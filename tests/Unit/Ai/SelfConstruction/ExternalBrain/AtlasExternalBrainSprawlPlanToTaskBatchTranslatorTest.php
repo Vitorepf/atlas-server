@@ -447,4 +447,57 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslatorTest extends TestCa
 
         $this->assertStringContainsString('3/3', $result['task_specs'][0]['proof_floor']);
     }
+
+    // ── AC4: top-level output fields ──────────────────────────────────────────
+
+    public function test_output_includes_dependency_order_and_behavior_preservation_gates(): void
+    {
+        $result = $this->translator()->translate(['actions' => [$this->validAction()]]);
+
+        $this->assertArrayHasKey('dependency_order', $result);
+        $this->assertArrayHasKey('behavior_preservation_gates', $result);
+    }
+
+    public function test_dependency_order_reflects_sorted_action_order(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['type' => 'retire',   'organ' => 'OrgR']),
+            $this->validAction(['type' => 'simplify', 'organ' => 'OrgS']),
+            $this->validAction(['type' => 'merge',    'organ' => 'OrgM', 'replacement_owner' => 'OrgX']),
+        ]]);
+
+        $this->assertSame([
+            'merge:OrgM',
+            'simplify:OrgS',
+            'retire:OrgR',
+        ], $result['dependency_order']);
+    }
+
+    public function test_behavior_preservation_gates_collects_all_unique_gates(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['behavior_preservation_tests' => ['gate_a', 'gate_b']]),
+            $this->validAction(['behavior_preservation_tests' => ['gate_b', 'gate_c']]),
+        ]]);
+
+        $this->assertContains('gate_a', $result['behavior_preservation_gates']);
+        $this->assertContains('gate_b', $result['behavior_preservation_gates']);
+        $this->assertContains('gate_c', $result['behavior_preservation_gates']);
+    }
+
+    public function test_behavior_preservation_gates_empty_when_no_task_specs(): void
+    {
+        $result = $this->translator()->translate(['actions' => []]);
+
+        $this->assertSame([], $result['behavior_preservation_gates']);
+    }
+
+    public function test_behavior_preservation_gates_sorted_alphabetically(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['behavior_preservation_tests' => ['z_gate', 'a_gate']]),
+        ]]);
+
+        $this->assertSame(['a_gate', 'z_gate'], $result['behavior_preservation_gates']);
+    }
 }
