@@ -41,6 +41,14 @@ final readonly class AcceptanceBundle
         public array $judges,
         public int $contextSufficiency,
         public array $nonFunctional = [],
+        /**
+         * The RAW acceptance-criteria list the frozen_hash must bind to. When present, the floor
+         * recomputes the hash from it (proof-of-binding); when absent (legacy), the floor falls back
+         * to the weaker hash-equality check.
+         *
+         * @var array<int,array<string,mixed>>
+         */
+        public array $criteria = [],
     ) {}
 
     /**
@@ -59,6 +67,7 @@ final readonly class AcceptanceBundle
             judges: array_values((array) ($data['judges'] ?? [])),
             contextSufficiency: (int) ($data['context_sufficiency'] ?? 0),
             nonFunctional: (array) ($data['non_functional'] ?? []),
+            criteria: array_values((array) ($data['criteria'] ?? [])),
         );
     }
 }

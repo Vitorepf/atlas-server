@@ -251,10 +251,22 @@ final class SovereignHonestyFloor implements AcceptanceGate
         if ($bundle->criteriaHash === '' || $bundle->frozenHash === '') {
             return $this->fail('criteria_or_frozen_hash_missing');
         }
+        if ($bundle->criteriaHash !== $bundle->frozenHash) {
+            return $this->fail('criteria_drift:certified_suite_differs_from_frozen');
+        }
 
-        return $bundle->criteriaHash === $bundle->frozenHash
-            ? $this->pass('certified_suite_is_the_frozen_suite')
-            : $this->fail('criteria_drift:certified_suite_differs_from_frozen');
+        // PROOF OF BINDING: when the raw criteria are carried, the hash must be RECOMPUTED from them —
+        // otherwise any two identical strings would pass this invariant (the hole Obra #2 found).
+        if ($bundle->criteria !== []) {
+            $recomputed = CriteriaCanonicalizer::hash($bundle->criteria);
+
+            return hash_equals($recomputed, $bundle->frozenHash)
+                ? $this->pass('frozen_hash_provably_binds_the_certified_criteria')
+                : $this->fail('frozen_hash_not_bound_to_criteria');
+        }
+
+        // ponytail: legacy weak path (hash-equality only). Fully closes once every caller carries raw criteria.
+        return $this->pass('certified_suite_is_the_frozen_suite');
     }
 
     /**
