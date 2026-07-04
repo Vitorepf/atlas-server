@@ -17,6 +17,10 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  *   unclaimable — test-only scope OR forbidden file collision detected; includes a
  *                 repair_action (readd_allowed_impl | split_operator_task | cancel_poison).
  *
+ * Output includes repaired_allowed_files (the proposed new allowed_files after repair),
+ * repair_confidence (how confident the repair is) and unsafe_reason when repair is not
+ * worker-safe.
+ *
  * Pure: no I/O, no side effects.
  */
 final class AtlasTaskFabricScopeRepairAdvisor
@@ -48,38 +52,64 @@ final class AtlasTaskFabricScopeRepairAdvisor
 
         // Test-only scope: no impl files remain but objective references an impl class.
         if ($implFiles === [] && $testFiles !== []) {
+            $repairAction = $this->pickRepairAction($packet, $objective);
+            $proposedImpl = $repairAction === self::REPAIR_READD_IMPL
+                ? $this->guessImplFromObjective($objective)
+                : null;
+            $repaired = $proposedImpl !== null
+                ? array_values(array_unique(array_merge($allowed, [$proposedImpl])))
+                : $allowed;
+
             return [
-                'schema'          => self::SCHEMA,
-                'status'          => self::STATUS_UNCLAIMABLE,
-                'reason'          => self::REASON_IMPLEMENTATION_SCOPE_REMOVED,
-                'repair_action'   => $this->pickRepairAction($packet, $objective),
-                'scope_preserved' => false,
-                'impl_file_count' => 0,
-                'test_file_count' => count($testFiles),
+                'schema'                 => self::SCHEMA,
+                'status'                 => self::STATUS_UNCLAIMABLE,
+                'reason'                 => self::REASON_IMPLEMENTATION_SCOPE_REMOVED,
+                'repair_action'          => $repairAction,
+                'scope_preserved'        => false,
+                'impl_file_count'        => 0,
+                'test_file_count'        => count($testFiles),
+                'repaired_allowed_files' => $repaired,
+                'repair_confidence'      => match ($repairAction) {
+                    self::REPAIR_READD_IMPL     => 0.9,
+                    self::REPAIR_SPLIT_OPERATOR => 0.5,
+                    default                     => 0.1,
+                },
+                'unsafe_reason'           => $repairAction === self::REPAIR_CANCEL_POISON
+                    ? 'No concrete impl target or operator context — packet cannot be repaired without human scoping'
+                    : null,
             ];
         }
 
         // Forbidden file collision in allowed scope.
         if ($forbidden !== [] && array_intersect($allowed, $forbidden) !== []) {
+            $repairAction = $this->pickRepairAction($packet, $objective);
+            // Remove forbidden files from the repair proposal.
+            $repaired = array_values(array_diff($allowed, $forbidden));
+
             return [
-                'schema'          => self::SCHEMA,
-                'status'          => self::STATUS_UNCLAIMABLE,
-                'reason'          => self::REASON_FORBIDDEN_FILE_IN_SCOPE,
-                'repair_action'   => $this->pickRepairAction($packet, $objective),
-                'scope_preserved' => false,
-                'impl_file_count' => count($implFiles),
-                'test_file_count' => count($testFiles),
+                'schema'                 => self::SCHEMA,
+                'status'                 => self::STATUS_UNCLAIMABLE,
+                'reason'                 => self::REASON_FORBIDDEN_FILE_IN_SCOPE,
+                'repair_action'          => $repairAction,
+                'scope_preserved'        => false,
+                'impl_file_count'        => count($implFiles),
+                'test_file_count'        => count($testFiles),
+                'repaired_allowed_files' => $repaired,
+                'repair_confidence'      => 0.8,
+                'unsafe_reason'          => null,
             ];
         }
 
         // Happy path.
         return [
-            'schema'          => self::SCHEMA,
-            'status'          => self::STATUS_CLAIMABLE,
-            'allowed_files'   => $allowed,
-            'scope_preserved' => true,
-            'impl_file_count' => count($implFiles),
-            'test_file_count' => count($testFiles),
+            'schema'                 => self::SCHEMA,
+            'status'                 => self::STATUS_CLAIMABLE,
+            'scope_preserved'        => true,
+            'impl_file_count'        => count($implFiles),
+            'test_file_count'        => count($testFiles),
+            'repaired_allowed_files' => $allowed,
+            'repair_confidence'      => 1.0,
+            'unsafe_reason'          => null,
         ];
     }
 
@@ -118,6 +148,22 @@ final class AtlasTaskFabricScopeRepairAdvisor
         }
         // Mentions a studly class name that suggests a concrete file target.
         return (bool) preg_match('/\bAtlas[A-Z][A-Za-z]+/', $objective);
+    }
+
+    /**
+     * Derive a plausible impl file path from the objective text, using the
+     * recognized class name.
+     */
+    private function guessImplFromObjective(string $objective): ?string
+    {
+        if (preg_match('/\b(?:Implement|Create|Add|Build|Extend|Write)\s+([A-Z][A-Za-z]+)/', $objective, $m)) {
+            return 'app/Services/' . $m[1] . '.php';
+        }
+        if (preg_match('/\b(Atlas[A-Z][A-Za-z]+)/', $objective, $m)) {
+            return 'app/Services/' . $m[1] . '.php';
+        }
+
+        return null;
     }
 
     /** @param  mixed  $raw */
