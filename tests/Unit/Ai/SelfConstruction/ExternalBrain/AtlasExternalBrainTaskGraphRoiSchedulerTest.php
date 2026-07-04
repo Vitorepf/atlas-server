@@ -741,4 +741,78 @@ final class AtlasExternalBrainTaskGraphRoiSchedulerTest extends TestCase
 
         $this->assertSame(['included' => [], 'deferred' => [], 'blocked' => []], $r['next_batch_recommendation']);
     }
+
+    // ── chosen_chain, deferred_chains, roi_rationale ──
+
+    public function test_output_has_chosen_chain_deferred_chains_and_roi_rationale(): void
+    {
+        $r = $this->scheduler->schedule([$this->task('t1')]);
+        $this->assertArrayHasKey('chosen_chain', $r);
+        $this->assertArrayHasKey('deferred_chains', $r);
+        $this->assertArrayHasKey('roi_rationale', $r);
+    }
+
+    public function test_chosen_chain_follows_critical_path(): void
+    {
+        $tasks = [
+            $this->task('root'),
+            $this->task('mid', ['depends_on' => ['root']]),
+            $this->task('leaf', ['depends_on' => ['mid']]),
+        ];
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertCount(3, $r['chosen_chain']);
+        $this->assertSame('root', $r['chosen_chain'][0]['task_id']);
+        $this->assertSame(0, $r['chosen_chain'][0]['chain_position']);
+        $this->assertSame('leaf', $r['chosen_chain'][2]['task_id']);
+        $this->assertSame(2, $r['chosen_chain'][2]['chain_position']);
+    }
+
+    public function test_chosen_chain_empty_for_empty_schedule(): void
+    {
+        $r = $this->scheduler->schedule([]);
+        $this->assertSame([], $r['chosen_chain']);
+    }
+
+    public function test_deferred_chains_lists_non_critical_tasks(): void
+    {
+        $tasks = [
+            $this->task('root'),
+            $this->task('child', ['depends_on' => ['root']]),
+            $this->task('side', ['depends_on' => ['root']]),
+        ];
+        $r = $this->scheduler->schedule($tasks);
+
+        foreach ($r['deferred_chains'] as $dc) {
+            $this->assertArrayHasKey('chain_id', $dc);
+            $this->assertArrayHasKey('tasks', $dc);
+            $this->assertArrayHasKey('deferred_reason', $dc);
+        }
+    }
+
+    public function test_deferred_chains_empty_for_empty_schedule(): void
+    {
+        $r = $this->scheduler->schedule([]);
+        $this->assertSame([], $r['deferred_chains']);
+    }
+
+    public function test_roi_rationale_has_entry_for_every_task(): void
+    {
+        $tasks = [$this->task('t1'), $this->task('t2')];
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertCount(2, $r['roi_rationale']);
+        foreach ($r['roi_rationale'] as $entry) {
+            $this->assertArrayHasKey('task_id', $entry);
+            $this->assertArrayHasKey('roi_score', $entry);
+            $this->assertArrayHasKey('rationale', $entry);
+            $this->assertNotEmpty($entry['rationale']);
+        }
+    }
+
+    public function test_roi_rationale_empty_for_empty_schedule(): void
+    {
+        $r = $this->scheduler->schedule([]);
+        $this->assertSame([], $r['roi_rationale']);
+    }
 }

@@ -108,6 +108,9 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
                 'delayed_poison_family_tasks'  => [],
                 'wave_candidate_reasons'       => [],
                 'next_batch_recommendation'    => ['included' => [], 'deferred' => [], 'blocked' => []],
+                'chosen_chain'                 => [],
+                'deferred_chains'              => [],
+                'roi_rationale'                => [],
             ];
         }
 
@@ -177,6 +180,9 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
             'delayed_poison_family_tasks'  => array_values(array_unique($delayedPoisonFamilyTasks)),
             'wave_candidate_reasons'       => $waveCandidateReasons,
             'next_batch_recommendation'    => $nextBatchRecommendation,
+            'chosen_chain'                 => $this->computeChosenChain($criticalPath, $taskMap, $riskAdjustedRoi),
+            'deferred_chains'              => $this->computeDeferredChains($waves, $criticalPath),
+            'roi_rationale'                => $this->computeRoiRationale($taskMap, $riskAdjustedRoi),
         ];
     }
 
@@ -558,5 +564,96 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
             ],
             $warnings,
         ];
+    }
+
+    /**
+     * @param  list<string>  $criticalPath
+     * @param  array<string, array<string, mixed>>  $taskMap
+     * @param  array<string, float>  $riskAdjustedRoi
+     * @return list<array{task_id:string, roi_score:float, chain_position:int}>
+     */
+    private function computeChosenChain(array $criticalPath, array $taskMap, array $riskAdjustedRoi): array
+    {
+        $chain = [];
+        foreach ($criticalPath as $i => $taskId) {
+            $chain[] = [
+                'task_id' => $taskId,
+                'roi_score' => $riskAdjustedRoi[$taskId] ?? 0.0,
+                'chain_position' => $i,
+            ];
+        }
+        return $chain;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $waves
+     * @param  list<string>  $criticalPath
+     * @return list<array{chain_id:string, tasks:list<string>, deferred_reason:string}>
+     */
+    private function computeDeferredChains(array $waves, array $criticalPath): array
+    {
+        $criticalSet = array_flip($criticalPath);
+        $deferred = [];
+        foreach ($waves as $wave) {
+            if ($wave['wave_index'] === 0) {
+                continue;
+            }
+            foreach ($wave['tasks'] as $taskId) {
+                if (!isset($criticalSet[$taskId])) {
+                    $deferred[] = [
+                        'chain_id' => 'non_critical_' . $taskId,
+                        'tasks' => [$taskId],
+                        'deferred_reason' => 'lower_chain_roi_than_chosen_chain',
+                    ];
+                }
+            }
+        }
+        return $deferred;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $taskMap
+     * @param  array<string, float>  $riskAdjustedRoi
+     * @return list<array{task_id:string, roi_score:float, rationale:string}>
+     */
+    private function computeRoiRationale(array $taskMap, array $riskAdjustedRoi): array
+    {
+        $rationale = [];
+        foreach ($riskAdjustedRoi as $taskId => $score) {
+            $task = $taskMap[$taskId] ?? [];
+            $family = (string) ($task['family'] ?? '');
+            $unblockCount = (int) ($task['unblock_count'] ?? 0);
+            $riskReduction = (float) ($task['risk_reduction'] ?? 0.0);
+            $autonomyGain = (float) ($task['autonomy_gain'] ?? 0.0);
+            $simplificationGain = (float) ($task['simplification_gain'] ?? 0.0);
+            $evidenceCost = (float) ($task['evidence_cost'] ?? 0.0);
+
+            $parts = [];
+            if ($unblockCount > 0) {
+                $parts[] = "unblocks {$unblockCount} downstream tasks";
+            }
+            if ($riskReduction > 0) {
+                $parts[] = "risk_reduction={$riskReduction}";
+            }
+            if ($autonomyGain > 0) {
+                $parts[] = "autonomy_gain={$autonomyGain}";
+            }
+            if ($simplificationGain > 0) {
+                $parts[] = "simplification_gain={$simplificationGain}";
+            }
+            if ($evidenceCost > 0) {
+                $parts[] = "evidence_cost={$evidenceCost}";
+            }
+            if ($family !== '') {
+                $parts[] = "family={$family}";
+            }
+
+            $rationale[] = [
+                'task_id' => $taskId,
+                'roi_score' => $score,
+                'rationale' => $parts !== [] ? implode('; ', $parts) : 'no_compound_roi_signals',
+            ];
+        }
+        return $rationale;
     }
 }
