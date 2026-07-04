@@ -177,16 +177,27 @@ final class AtlasExternalBrainSmallModelRunbookCompiler
                 'mandatory_artifact' => 'escalation_decision',
                 'stop_if_missing' => [],
             ],
+            // AC2: research_deepening — a required step before final_enqueue_readiness
+            // that forces non-frontier models to explore alternate surfaces, retry design
+            // paths, and produce explicit exhaustion_evidence before stopping with no
+            // candidates. Prevents first-pass-low-yield silent exits.
+            [
+                'step_id' => 'research_deepening',
+                'order' => 9,
+                'instruction' => 'Before making the final batch decision, run a research deepening pass: (1) name at least two alternate_surfaces or design paths you did NOT try in the first pass; (2) record which design paths were retried and why they were blocked (design_path_retry_log); (3) if no candidates survived, produce exhaustion_evidence listing every surface explored, every path blocked, and why no further recovery is possible. Only after exhaustion_evidence is recorded may you proceed to the final batch gate.',
+                'mandatory_artifact' => 'exhaustion_evidence',
+                'stop_if_missing' => ['no_candidates_passed_gates_requires_exhaustion_evidence'],
+            ],
             [
                 'step_id' => 'final_enqueue_readiness',
-                'order' => 9,
+                'order' => 10,
                 'instruction' => 'For each candidate: (a) write a runnable acceptance criterion (must contain phpunit, artisan, or vendor/bin); (b) confirm allowed_files does not exceed the per-task limit. Produce the final_batch list. Only candidates passing both gates may be enqueued. If nothing survives, emit stop: no_candidates_passed_gates_do_not_pad_with_weak_work — never pad the batch with weak/borderline candidates just to produce output.',
                 'mandatory_artifact' => 'final_batch',
                 'stop_if_missing' => ['no_candidates_passed_gates_do_not_pad_with_weak_work'],
             ],
             [
                 'step_id' => 'final_batch_self_audit',
-                'order' => 10,
+                'order' => 11,
                 'instruction' => 'Before enqueue, self-audit the assembled final_batch as a whole: confirm no two candidates target the same file, none reintroduces a proxy/cleanup pattern eliminated in critique, and every candidate still carries its design_path_selection and evidence_replay references. Record the audit outcome.',
                 'mandatory_artifact' => 'final_batch_self_audit_log',
                 'stop_if_missing' => [],

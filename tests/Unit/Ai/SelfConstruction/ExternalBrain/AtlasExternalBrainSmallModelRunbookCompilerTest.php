@@ -57,11 +57,11 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
 
     // ── runbook_steps ─────────────────────────────────────────────────────────
 
-    public function test_ten_steps_emitted(): void
+    public function test_eleven_steps_emitted(): void
     {
         $result = $this->compiler()->compile([]);
 
-        $this->assertCount(10, $result['runbook_steps']);
+        $this->assertCount(11, $result['runbook_steps']);
     }
 
     public function test_steps_ordered_sequentially(): void
@@ -69,7 +69,7 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
         $result = $this->compiler()->compile([]);
 
         $orders = array_column($result['runbook_steps'], 'order');
-        $this->assertSame([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], $orders);
+        $this->assertSame([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], $orders);
     }
 
     public function test_steps_have_required_fields(): void
@@ -98,6 +98,7 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
             'anti_proxy_repair',
             'evidence_replay',
             'escalate',
+            'research_deepening',
             'final_enqueue_readiness',
             'final_batch_self_audit',
         ], $stepIds);
@@ -110,7 +111,8 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
 
         foreach ([
             'read_state', 'dedup', 'propose', 'design_path_selection', 'critique',
-            'anti_proxy_repair', 'evidence_replay', 'escalate', 'final_batch_self_audit',
+            'anti_proxy_repair', 'evidence_replay', 'escalate', 'research_deepening',
+            'final_batch_self_audit',
         ] as $required) {
             $this->assertContains($required, $stepIds);
         }
@@ -125,7 +127,7 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
         $expected = [
             'evidence_list', 'dedup_proof', 'candidate_list', 'design_path_selection_log',
             'critique_report', 'repair_log', 'grep_evidence', 'escalation_decision',
-            'final_batch', 'final_batch_self_audit_log',
+            'exhaustion_evidence', 'final_batch', 'final_batch_self_audit_log',
         ];
         $this->assertSame($expected, $result['mandatory_artifacts']);
     }
@@ -335,6 +337,45 @@ final class AtlasExternalBrainSmallModelRunbookCompilerTest extends TestCase
             $this->assertArrayHasKey('description', $trigger);
             $this->assertNotEmpty($trigger['description']);
         }
+    }
+
+    // ── AC2: research_deepening step before final_enqueue_readiness ───────────
+
+    public function test_research_deepening_comes_before_final_enqueue_readiness(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $stepIds = array_column($result['runbook_steps'], 'step_id');
+
+        $deepeningPos = array_search('research_deepening', $stepIds, true);
+        $finalPos     = array_search('final_enqueue_readiness', $stepIds, true);
+
+        $this->assertNotFalse($deepeningPos, 'research_deepening step must exist');
+        $this->assertLessThan($finalPos, $deepeningPos, 'research_deepening must come before final_enqueue_readiness');
+    }
+
+    public function test_research_deepening_has_exhaustion_evidence_artifact(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $step = current(array_filter(
+            $result['runbook_steps'],
+            static fn (array $s): bool => $s['step_id'] === 'research_deepening',
+        ));
+
+        $this->assertSame('exhaustion_evidence', $step['mandatory_artifact']);
+    }
+
+    // ── AC3: exhaustion_evidence required before no-candidate stop ────────────
+
+    public function test_research_deepening_stop_condition_requires_exhaustion_evidence(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $this->assertArrayHasKey('research_deepening', $result['stop_conditions']);
+        $this->assertContains(
+            'no_candidates_passed_gates_requires_exhaustion_evidence',
+            $result['stop_conditions']['research_deepening'],
+        );
     }
 
     // ── AC4: provider-independence ───────────────────────────────────────────
