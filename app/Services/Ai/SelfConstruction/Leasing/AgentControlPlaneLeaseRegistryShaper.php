@@ -31,6 +31,124 @@ class AgentControlPlaneLeaseRegistryShaper
 
     public const LEASE_STATUS_ACTIVE = 'active';
 
+    public const CLASSIFICATION_LIVE = 'live';
+    public const CLASSIFICATION_STALE = 'stale';
+    public const CLASSIFICATION_ORPHANED = 'orphaned';
+    public const CLASSIFICATION_LEAKED = 'leaked';
+    public const CLASSIFICATION_COMPACTABLE = 'compactable';
+
+    /**
+     * Classify registry entries and produce leak diagnosis + safe compaction actions.
+     *
+     * @param  array<string, mixed>  $registry  The lease registry
+     * @param  array<string, mixed>  $claimedTasks  Claimed task records keyed by task_packet_id
+     * @return array{classifications:array<string,string>,leak_diagnosis:list<string>,claimed_mismatches:list<string>,safe_compaction_actions:list<string>,compactable_count:int}
+     */
+    public function diagnoseAndCompact(array $registry, array $claimedTasks): array
+    {
+        $entries = (array) ($registry['entries'] ?? []);
+        $classifications = [];
+        $leakDiagnosis = [];
+        $claimedMismatches = [];
+        $safeCompactionActions = [];
+
+        foreach ($entries as $idx => $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            $leaseId = (string) ($entry['lease_id'] ?? '');
+            $taskPacketId = (string) ($entry['task_packet_id'] ?? '');
+            $leaseStatus = (string) ($entry['lease_status'] ?? '');
+            $expiresAtUnix = (int) ($entry['expires_at_unix'] ?? 0);
+            $now = time();
+
+            $classification = $this->classifyEntry($entry, $claimedTasks, $now);
+            $classifications[$leaseId] = $classification;
+
+            // Leaked: lease is active but no matching claimed task record
+            if ($classification === self::CLASSIFICATION_LEAKED) {
+                $leakDiagnosis[] = sprintf(
+                    'leaked:lease_id=%s task_packet_id=%s lease_status=%s no_claimed_task_record',
+                    $leaseId,
+                    $taskPacketId,
+                    $leaseStatus,
+                );
+            }
+
+            // Claimed mismatch: lease references a task that exists in claimed records but with different agent
+            if ($classification === self::CLASSIFICATION_STALE) {
+                $claimedMismatches[] = sprintf(
+                    'claimed_mismatch:lease_id=%s task_packet_id=%s lease_expired_at=%d now=%d',
+                    $leaseId,
+                    $taskPacketId,
+                    $expiresAtUnix,
+                    $now,
+                );
+            }
+
+            // Safe compaction: only compact stale, orphaned or compactable entries — never live or leaked
+            if (in_array($classification, [self::CLASSIFICATION_STALE, self::CLASSIFICATION_ORPHANED, self::CLASSIFICATION_COMPACTABLE], true)) {
+                $safeCompactionActions[] = sprintf(
+                    'compact:lease_id=%s classification=%s reason=safe_to_remove_not_live_or_ambiguous',
+                    $leaseId,
+                    $classification,
+                );
+            }
+        }
+
+        $compactableCount = count(array_filter($classifications, static fn (string $c): bool => in_array($c, [self::CLASSIFICATION_STALE, self::CLASSIFICATION_ORPHANED, self::CLASSIFICATION_COMPACTABLE], true)));
+
+        return [
+            'classifications' => $classifications,
+            'leak_diagnosis' => $leakDiagnosis,
+            'claimed_mismatches' => $claimedMismatches,
+            'safe_compaction_actions' => $safeCompactionActions,
+            'compactable_count' => $compactableCount,
+        ];
+    }
+
+    /**
+     * Classify a single registry entry.
+     *
+     * @param  array<string, mixed>  $entry
+     * @param  array<string, mixed>  $claimedTasks
+     */
+    private function classifyEntry(array $entry, array $claimedTasks, int $now): string
+    {
+        $taskPacketId = (string) ($entry['task_packet_id'] ?? '');
+        $leaseStatus = (string) ($entry['lease_status'] ?? '');
+        $expiresAtUnix = (int) ($entry['expires_at_unix'] ?? 0);
+
+        // Orphaned: no task_packet_id — cannot be matched to any claimed task
+        if ($taskPacketId === '') {
+            return self::CLASSIFICATION_ORPHANED;
+        }
+
+        // Live: active lease with valid claimed task record
+        if ($leaseStatus === self::LEASE_STATUS_ACTIVE && isset($claimedTasks[$taskPacketId])) {
+            return self::CLASSIFICATION_LIVE;
+        }
+
+        // Leaked: active lease but no matching claimed task record
+        if ($leaseStatus === self::LEASE_STATUS_ACTIVE && ! isset($claimedTasks[$taskPacketId])) {
+            return self::CLASSIFICATION_LEAKED;
+        }
+
+        // Stale: expired lease (past expires_at_unix)
+        if ($expiresAtUnix > 0 && $now > $expiresAtUnix) {
+            return self::CLASSIFICATION_STALE;
+        }
+
+        // Orphaned: no matching claimed task and not active
+        if (! isset($claimedTasks[$taskPacketId])) {
+            return self::CLASSIFICATION_ORPHANED;
+        }
+
+        // Compactable: non-active, non-expired entries that can be safely compacted
+        return self::CLASSIFICATION_COMPACTABLE;
+    }
+
     /**
      * @param  array<string, mixed>  $lease
      * @return array<string, mixed>

@@ -263,4 +263,90 @@ final class AgentControlPlaneLeaseRegistryShaperTest extends TestCase
         $this->assertCount(1_000, $out['entries']);
         $this->assertArrayNotHasKey('compacted', $out);
     }
+
+    // ── diagnoseAndCompact ──
+
+    public function test_live_lease_classification(): void
+    {
+        $registry = ['entries' => [
+            ['lease_id' => 'L1', 'task_packet_id' => 'T1', 'lease_status' => 'active', 'expires_at_unix' => time() + 3600],
+        ]];
+        $claimedTasks = ['T1' => ['agent_id' => 'A1']];
+
+        $result = $this->shaper->diagnoseAndCompact($registry, $claimedTasks);
+
+        $this->assertSame('live', $result['classifications']['L1']);
+        $this->assertSame([], $result['leak_diagnosis']);
+        $this->assertSame([], $result['safe_compaction_actions']);
+        $this->assertSame(0, $result['compactable_count']);
+    }
+
+    public function test_stale_lease_classification(): void
+    {
+        $registry = ['entries' => [
+            ['lease_id' => 'L1', 'task_packet_id' => 'T1', 'lease_status' => 'released', 'expires_at_unix' => time() - 3600],
+        ]];
+        $claimedTasks = ['T1' => ['agent_id' => 'A1']];
+
+        $result = $this->shaper->diagnoseAndCompact($registry, $claimedTasks);
+
+        $this->assertSame('stale', $result['classifications']['L1']);
+        $this->assertCount(1, $result['claimed_mismatches']);
+        $this->assertCount(1, $result['safe_compaction_actions']);
+        $this->assertSame(1, $result['compactable_count']);
+    }
+
+    public function test_leaked_lease_mismatch(): void
+    {
+        $registry = ['entries' => [
+            ['lease_id' => 'L1', 'task_packet_id' => 'T1', 'lease_status' => 'active', 'expires_at_unix' => time() + 3600],
+        ]];
+        // No matching claimed task — leaked!
+        $claimedTasks = [];
+
+        $result = $this->shaper->diagnoseAndCompact($registry, $claimedTasks);
+
+        $this->assertSame('leaked', $result['classifications']['L1']);
+        $this->assertCount(1, $result['leak_diagnosis']);
+        $this->assertStringContainsString('leaked', $result['leak_diagnosis'][0]);
+        // Leaked entries are NOT compacted (ambiguous — could be a real active lease)
+        $this->assertSame([], $result['safe_compaction_actions']);
+        $this->assertSame(0, $result['compactable_count']);
+    }
+
+    public function test_orphaned_entry_classification(): void
+    {
+        $registry = ['entries' => [
+            ['lease_id' => 'L1', 'task_packet_id' => '', 'lease_status' => 'released', 'expires_at_unix' => time() - 3600],
+        ]];
+        $claimedTasks = [];
+
+        $result = $this->shaper->diagnoseAndCompact($registry, $claimedTasks);
+
+        $this->assertSame('orphaned', $result['classifications']['L1']);
+        $this->assertCount(1, $result['safe_compaction_actions']);
+        $this->assertSame(1, $result['compactable_count']);
+    }
+
+    public function test_ambiguous_no_op_compaction(): void
+    {
+        // Live and leaked entries must NOT be compacted
+        $registry = ['entries' => [
+            ['lease_id' => 'L-live', 'task_packet_id' => 'T1', 'lease_status' => 'active', 'expires_at_unix' => time() + 3600],
+            ['lease_id' => 'L-leaked', 'task_packet_id' => 'T2', 'lease_status' => 'active', 'expires_at_unix' => time() + 3600],
+            ['lease_id' => 'L-stale', 'task_packet_id' => 'T3', 'lease_status' => 'released', 'expires_at_unix' => time() - 3600],
+        ]];
+        $claimedTasks = ['T1' => ['agent_id' => 'A1']];
+
+        $result = $this->shaper->diagnoseAndCompact($registry, $claimedTasks);
+
+        $this->assertSame('live', $result['classifications']['L-live']);
+        $this->assertSame('leaked', $result['classifications']['L-leaked']);
+        $this->assertSame('stale', $result['classifications']['L-stale']);
+        // Only stale is compactable
+        $this->assertCount(1, $result['safe_compaction_actions']);
+        $this->assertStringContainsString('L-stale', $result['safe_compaction_actions'][0]);
+        $this->assertStringNotContainsString('L-live', $result['safe_compaction_actions'][0]);
+        $this->assertStringNotContainsString('L-leaked', $result['safe_compaction_actions'][0]);
+    }
 }
