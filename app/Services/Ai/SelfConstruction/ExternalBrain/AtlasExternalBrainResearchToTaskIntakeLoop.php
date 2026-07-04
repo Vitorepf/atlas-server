@@ -66,6 +66,40 @@ final class AtlasExternalBrainResearchToTaskIntakeLoop
         $allowedFiles = (array) ($candidate['allowed_files'] ?? []);
         $runnableAcceptance = (string) ($candidate['runnable_acceptance'] ?? '');
         $antiGoodhartRisks = (array) ($candidate['anti_goodhart_risks'] ?? []);
+        $testPath = (string) ($candidate['test_path'] ?? '');
+
+        // AC2: allowed_files_closure — prove the intent is packet-ready.
+        $hasImpl = false;
+        $hasTest = false;
+        foreach ($allowedFiles as $file) {
+            $file = (string) $file;
+            if (str_ends_with($file, 'Test.php')) {
+                $hasTest = true;
+            } else {
+                $hasImpl = true;
+            }
+        }
+        // Also flag test present when test_path was provided outside allowed_files.
+        if ($testPath !== '') {
+            $hasTest = true;
+        }
+
+        $targetCovered = $targetPath === '' || $this->isCoveredByAllowedFiles($targetPath, $allowedFiles);
+        $runnableAcceptancePresent = $runnableAcceptance !== '';
+
+        $closureGapReasons = [];
+        if (! $hasImpl) {
+            $closureGapReasons[] = 'missing_implementation_in_allowed_files';
+        }
+        if (! $hasTest) {
+            $closureGapReasons[] = 'missing_test_in_allowed_files_or_test_path';
+        }
+        if (! $targetCovered) {
+            $closureGapReasons[] = 'target_not_covered_by_allowed_files';
+        }
+        if (! $runnableAcceptancePresent) {
+            $closureGapReasons[] = 'missing_runnable_acceptance';
+        }
 
         return [
             'task_packet_id' => 'research-intake-'.substr(hash('sha256', $targetPath.'|'.($candidate['source'] ?? '')), 0, 16),
@@ -78,7 +112,33 @@ final class AtlasExternalBrainResearchToTaskIntakeLoop
             'source_type' => (string) ($candidate['source_type'] ?? ''),
             'source_evidence' => $this->providerSafeText((string) ($candidate['source_evidence'] ?? '')),
             'task_family' => (string) ($candidate['task_family'] ?? ''),
+            'allowed_files_closure' => [
+                'implementation_present'      => $hasImpl,
+                'test_present'                => $hasTest,
+                'target_covered'              => $targetCovered,
+                'runnable_acceptance_present' => $runnableAcceptancePresent,
+            ],
+            'closure_gap_reason' => $closureGapReasons !== [] ? implode('; ', $closureGapReasons) : null,
         ];
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function isCoveredByAllowedFiles(string $targetPath, array $allowedFiles): bool
+    {
+        $normalised = str_replace('\\', '/', $targetPath);
+        $dirname = dirname($normalised);
+
+        foreach ($allowedFiles as $file) {
+            $f = str_replace('\\', '/', (string) $file);
+            // Direct match or the target directory is a prefix of the allowed file.
+            if ($f === $normalised || str_starts_with($f, $dirname)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
