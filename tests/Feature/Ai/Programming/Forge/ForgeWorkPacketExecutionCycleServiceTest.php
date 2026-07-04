@@ -167,6 +167,27 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         $this->assertSame(64, strlen((string) $sovereign['receipt_ref']));
     }
 
+    public function test_complete_enforce_mode_blocks_a_completion_the_sovereign_floor_refuses(): void
+    {
+        // opt-in enforce: thin Forge-execution evidence does not meet the non-overridable sovereign
+        // bar, so the completion is blocked instead of certify-completed. (Default stays observe.)
+        config()->set('atlas.engineering_kernel.forge_execution_gate_enforcing', true);
+
+        [$intake, $packet, $state] = $this->bootstrap();
+        $plan = $this->cycles->planExecution($packet);
+        $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
+
+        $cycle = $this->cycles->complete($cycle, [
+            ['kind' => 'work_packet_receipts', 'ref' => 'wpr://1'],
+            ['kind' => 'verification_receipt', 'ref' => 'vr://1'],
+            ['kind' => 'simulation_log', 'ref' => 'sim://1'],
+        ], $this->passingGate(), $state);
+
+        $this->assertSame(ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED, $cycle->status);
+        $this->assertSame(ForgeWorkPacketExecutionCycleCanon::OUTCOME_BLOCKED, $cycle->outcome_status);
+        $this->assertSame('sovereign_engineering_gate_not_promoted', $cycle->failure_reason);
+    }
+
     public function test_complete_refuses_when_evidence_refs_is_empty(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();

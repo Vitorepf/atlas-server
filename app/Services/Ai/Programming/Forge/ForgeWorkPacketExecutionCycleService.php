@@ -340,6 +340,16 @@ class ForgeWorkPacketExecutionCycleService
             throw ForgeWorkPacketExecutionCycleException::completionWithoutPassedGate($cycle->uuid);
         }
 
+        $enforcing = $this->forgeExecutionGateEnforcing();
+        $sovereign = $this->sovereignGateVerdict($cycle, $gateResult, $enforcing);
+        if ($enforcing && ($sovereign['promoted'] ?? false) !== true) {
+            // ENFORCE-mode (opt-in via config): a completion the sovereign floor refuses does NOT
+            // certify-complete. Default is OBSERVE-mode (records the verdict, never blocks) so the
+            // documented safe_simulation dry-run — advancing the workflow without real evidence —
+            // stays functional. Flip on once the executor emits real sovereign evidence.
+            return $this->block($cycle, 'sovereign_engineering_gate_not_promoted', $state);
+        }
+
         $cycle->evidence_refs = $cleanEvidence;
         $cycle->gate_result = $gateResult;
         $cycle->outcome_status = ForgeWorkPacketExecutionCycleCanon::OUTCOME_SUCCESS;
@@ -352,7 +362,7 @@ class ForgeWorkPacketExecutionCycleService
             $this->computeNextActionAfterSuccess($cycle, $state),
             [
                 'outcome_memory' => $outcomeMemory,
-                'sovereign_engineering_gate' => $this->sovereignObserveVerdict($cycle, $gateResult),
+                'sovereign_engineering_gate' => $sovereign,
             ],
         );
         $cycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($cycle));
@@ -376,18 +386,17 @@ class ForgeWorkPacketExecutionCycleService
     }
 
     /**
-     * Obra #2/#3 — OBSERVE-mode sovereign gate over a completed Forge cycle. The sovereign floor
-     * evaluates the cycle's evidence and seals a provenance verdict, but does NOT block: this cycle
-     * library has no live executor emitting full sovereign evidence yet (real test counts, mutation
-     * kill-ratio, dual-family judges, security scan), so blocking would break a working library
-     * instead of killing a fake-green. The honest verdict is recorded (promoted=false on thin
-     * evidence) — flip to enforcing once the executor emits real evidence.
-     * See [[loop-governance-spine-observe-mode]].
+     * Obra #2/#3 — the sovereign gate over a completed Forge cycle. The floor evaluates the cycle's
+     * evidence and seals a provenance verdict. OBSERVE-mode (default) records it and never blocks, so
+     * the documented safe_simulation dry-run stays functional; ENFORCE-mode (opt-in via config
+     * atlas.engineering_kernel.forge_execution_gate_enforcing) lets the caller refuse a completion
+     * the floor won't promote. The enforce path exists and is tested; observe is the safe default
+     * until the executor emits real sovereign evidence. See [[loop-governance-spine-observe-mode]].
      *
      * @param  array<string,mixed>  $gateResult
      * @return array<string,mixed>
      */
-    private function sovereignObserveVerdict(AiForgeWorkPacketExecutionCycle $cycle, array $gateResult): array
+    private function sovereignGateVerdict(AiForgeWorkPacketExecutionCycle $cycle, array $gateResult, bool $enforcing): array
     {
         $artifacts = array_values(array_map('strval', (array) ($cycle->execution_plan['expected_artifacts'] ?? [])));
         $verdict = $this->devGate->certify(
@@ -406,12 +415,24 @@ class ForgeWorkPacketExecutionCycleService
         );
 
         return [
-            'mode' => 'observe',
+            'mode' => $enforcing ? 'enforce' : 'observe',
             'promoted' => $verdict->promoted(),
             'blockers' => $verdict->blockers,
             'receipt_ref' => $verdict->receiptRef,
-            'note' => 'sovereign floor connected in observe-mode; flips to enforcing once the Forge executor emits real evidence',
+            'note' => $enforcing
+                ? 'sovereign floor ENFORCING over Forge execution'
+                : 'sovereign floor connected in observe-mode; flips to enforcing via config once the executor emits real evidence',
         ];
+    }
+
+    /** Opt-in: enforce the sovereign floor on Forge cycle completion. Fail-safe to observe-mode. */
+    private function forgeExecutionGateEnforcing(): bool
+    {
+        try {
+            return (bool) config('atlas.engineering_kernel.forge_execution_gate_enforcing', false);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
