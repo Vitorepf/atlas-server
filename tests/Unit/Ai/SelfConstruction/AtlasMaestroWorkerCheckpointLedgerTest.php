@@ -154,4 +154,30 @@ final class AtlasMaestroWorkerCheckpointLedgerTest extends TestCase
         $resume = $ledger->resumeFrom('M');
         $this->assertNotNull($resume);
     }
+
+    // ── AC3: corrupted JSON lines are skipped, latest returns last valid ─────
+
+    public function test_latest_with_corrupted_json_lines_returns_last_valid(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record('C', 'good-1', 'h1');
+        $ledger->record('C', 'good-2', 'h2');
+
+        // Inject corrupted lines manually
+        $path = $ledger->path('C');
+        $handle = fopen($path, 'ab');
+        fwrite($handle, "not-json-at-all\n");
+        fwrite($handle, "{broken\n");
+        fwrite($handle, "null\n");
+        fclose($handle);
+
+        $ledger->record('C', 'good-3', 'h3'); // valid line after corruption
+
+        $latest = $ledger->latest('C');
+
+        $this->assertNotNull($latest, 'latest must return a checkpoint even with corrupted lines');
+        $this->assertSame('good-3', $latest['task_packet_id']);
+        $this->assertArrayHasKey('sequence', $latest);
+        $this->assertSame('C', $latest['client_id']);
+    }
 }
