@@ -517,4 +517,68 @@ final class AtlasExternalBrainModelAmplifierOperatingLoopTest extends TestCase
 
         $this->assertSame('exploratory', $r['selected_scaffold_id']);
     }
+
+    // ── promotionCourt: held-out replay evidence and negative outcome checks ──
+
+    public function test_missing_held_out_replay_refs_blocks_promotion(): void
+    {
+        $r = $this->svc()->promotionCourt([
+            'lift_score' => 0.25,
+            'held_out_replay_refs' => [],
+        ]);
+        $this->assertFalse($r['promotion_allowed']);
+        $this->assertSame('keep_testing', $r['decision']);
+        $this->assertContains('missing_held_out_replay_refs', $r['block_reasons']);
+    }
+
+    public function test_weak_green_outcome_blocks_promotion_and_routes_to_repair(): void
+    {
+        $r = $this->svc()->promotionCourt([
+            'lift_score' => 0.25,
+            'held_out_replay_refs' => ['replay-1'],
+            'recent_outcomes' => ['weak_green'],
+        ]);
+        $this->assertFalse($r['promotion_allowed']);
+        $this->assertSame('repair_scaffold', $r['decision']);
+        $this->assertSame('repair_scaffold', $r['route']);
+        $this->assertContains('negative_outcome:weak_green', $r['block_reasons']);
+    }
+
+    public function test_give_back_outcome_blocks_promotion(): void
+    {
+        $r = $this->svc()->promotionCourt([
+            'lift_score' => 0.25,
+            'held_out_replay_refs' => ['replay-1'],
+            'recent_outcomes' => ['give_back'],
+        ]);
+        $this->assertFalse($r['promotion_allowed']);
+        $this->assertSame('repair_scaffold', $r['decision']);
+        $this->assertContains('negative_outcome:give_back', $r['block_reasons']);
+    }
+
+    public function test_proxy_leak_outcome_blocks_promotion(): void
+    {
+        $r = $this->svc()->promotionCourt([
+            'lift_score' => 0.25,
+            'held_out_replay_refs' => ['replay-1'],
+            'recent_outcomes' => ['proxy_leak'],
+        ]);
+        $this->assertFalse($r['promotion_allowed']);
+        $this->assertSame('repair_scaffold', $r['decision']);
+        $this->assertContains('negative_outcome:proxy_leak', $r['block_reasons']);
+    }
+
+    public function test_verified_lift_with_held_out_replay_and_no_blockers_promotes(): void
+    {
+        $r = $this->svc()->promotionCourt([
+            'lift_score' => 0.25,
+            'held_out_replay_refs' => ['replay-1', 'replay-2'],
+            'recent_outcomes' => [],
+        ]);
+        $this->assertTrue($r['promotion_allowed']);
+        $this->assertSame('promote', $r['decision']);
+        $this->assertSame('promote_scaffold', $r['route']);
+        $this->assertFalse($r['frontier_required']);
+        $this->assertSame([], $r['block_reasons']);
+    }
 }
