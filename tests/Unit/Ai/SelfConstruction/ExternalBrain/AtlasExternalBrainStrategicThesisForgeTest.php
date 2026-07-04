@@ -24,7 +24,7 @@ final class AtlasExternalBrainStrategicThesisForgeTest extends TestCase
             'capability_delta' => 'atlas_can_detect_interface_implementation_drift_at_ci_time_instead_of_never',
             'acceptance_path' => 'php artisan atlas:ci:contract-check exits 1 when drift exists and 0 when clean',
             'opportunities' => [
-                ['description' => 'Wiring gap: AtlasFoo implements IFoo but IFoo changed 3 weeks ago'],
+                ['description' => 'Wiring gap: AtlasFoo implements IFoo but IFoo changed 3 weeks ago', 'evidence' => 'ci_gate:php_artisan_contract_check'],
             ],
             'urgency' => 'high',
             'risk' => 'medium',
@@ -201,9 +201,9 @@ final class AtlasExternalBrainStrategicThesisForgeTest extends TestCase
     {
         $r = $this->forge->forge([$this->validCluster([
             'opportunities' => [
-                ['description' => 'opp-1'],
-                ['description' => 'opp-2'],
-                ['description' => 'opp-3'],
+                ['description' => 'opp-1', 'evidence' => 'ref:1'],
+                ['description' => 'opp-2', 'evidence' => 'ref:2'],
+                ['description' => 'opp-3', 'evidence' => 'ref:3'],
             ],
         ])]);
 
@@ -367,5 +367,77 @@ final class AtlasExternalBrainStrategicThesisForgeTest extends TestCase
 
         $shapeOrder = array_column($r['theses'][0]['task_chain']['steps'], 'shape');
         $this->assertSame(['implement_capability', 'verify_acceptance', 'wire_to_consumers'], $shapeOrder);
+    }
+
+    // ── AC2: missing evidence_refs → missing_evidence_chain rejection ──
+
+    public function test_rejects_cluster_with_no_evidence_refs_as_missing_evidence_chain(): void
+    {
+        $r = $this->forge->forge([[
+            'cluster_id' => 'no-evidence',
+            'theme' => 'speculative_theme',
+            'capability_delta' => 'atlas_will_do_something_new',
+            'acceptance_path' => 'php artisan atlas:check exits 0',
+            'opportunities' => [
+                ['description' => 'An opportunity without evidence refs'],
+            ],
+        ]]);
+
+        $this->assertSame([], $r['theses']);
+        $this->assertCount(1, $r['rejected']);
+        $this->assertStringContainsString('missing_evidence_chain', $r['rejected'][0]['reason']);
+        $this->assertSame('no-evidence', $r['rejected'][0]['cluster_id']);
+    }
+
+    public function test_accepted_cluster_has_evidence_chain(): void
+    {
+        $r = $this->forge->forge([$this->validCluster()]);
+
+        $thesis = $r['theses'][0];
+        $this->assertArrayHasKey('evidence_chain', $thesis);
+        $chain = $thesis['evidence_chain'];
+        $this->assertArrayHasKey('entries', $chain);
+        $this->assertNotEmpty($chain['entries']);
+    }
+
+    public function test_evidence_chain_entries_connect_evidence_ref_to_task_shape_and_proof_required(): void
+    {
+        $r = $this->forge->forge([$this->validCluster()]);
+
+        $entry = $r['theses'][0]['evidence_chain']['entries'][0];
+        $this->assertArrayHasKey('evidence_ref', $entry);
+        $this->assertArrayHasKey('task_shape', $entry);
+        $this->assertArrayHasKey('proof_required', $entry);
+        $this->assertNotEmpty($entry['evidence_ref']);
+        $this->assertNotEmpty($entry['task_shape']);
+        $this->assertNotEmpty($entry['proof_required']);
+    }
+
+    public function test_evidence_chain_has_entries_for_each_evidence_ref_and_each_task_shape(): void
+    {
+        $r = $this->forge->forge([$this->validCluster([
+            'opportunities' => [
+                ['description' => 'opp-1', 'evidence' => 'ref:a'],
+                ['description' => 'opp-2', 'evidence' => 'ref:b'],
+            ],
+        ])]);
+
+        // 2 evidence_refs × 3 task shapes = 6 entries
+        $entries = $r['theses'][0]['evidence_chain']['entries'];
+        $this->assertCount(6, $entries);
+
+        $refsInChain = array_unique(array_column($entries, 'evidence_ref'));
+        sort($refsInChain);
+        $this->assertSame(['ref:a', 'ref:b'], $refsInChain);
+    }
+
+    public function test_evidence_chain_proof_required_matches_task_chain_proof_required(): void
+    {
+        $r = $this->forge->forge([$this->validCluster()]);
+
+        $chainEntry = $r['theses'][0]['evidence_chain']['entries'][0];
+        $stepEntry = $r['theses'][0]['task_chain']['steps'][0];
+
+        $this->assertSame($stepEntry['proof_required'], $chainEntry['proof_required']);
     }
 }

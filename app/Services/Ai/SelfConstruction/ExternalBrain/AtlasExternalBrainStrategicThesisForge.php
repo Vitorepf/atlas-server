@@ -132,6 +132,14 @@ final class AtlasExternalBrainStrategicThesisForge
                 ? array_values($cluster['task_shapes'])
                 : $this->taskShapes($theme, $capabilityDelta);
 
+            // REJECTION: no evidence_refs; attractive strategy text without an evidence chain
+            // cannot be converted into implementable Atlas tasks.
+            $evidenceRefs = $this->evidenceRefs($opportunities);
+            if ($evidenceRefs === []) {
+                $rejected[] = ['cluster_id' => $clusterId, 'reason' => 'missing_evidence_chain:no_evidence_refs_provided'];
+                continue;
+            }
+
             // REJECTION: task_shapes cannot form a coherent implementation-plus-test chain.
             $coherence = $this->checkTaskChainCoherence($taskShapes);
             if (! $coherence['coherent']) {
@@ -140,6 +148,7 @@ final class AtlasExternalBrainStrategicThesisForge
             }
 
             $chain = $this->buildTaskChain($taskShapes);
+            $evidenceChain = $this->buildEvidenceChain($evidenceRefs, $chain);
 
             $theses[] = [
                 'thesis_id'             => 'thesis:'.$clusterId,
@@ -150,7 +159,8 @@ final class AtlasExternalBrainStrategicThesisForge
                 'capability_delta'      => $capabilityDelta,
                 'acceptance_path'       => $acceptancePath,
                 'evidence_demand'       => $this->evidenceDemand($acceptancePath, $opportunities),
-                'evidence_refs'         => $this->evidenceRefs($opportunities),
+                'evidence_refs'         => $evidenceRefs,
+                'evidence_chain'        => $evidenceChain,
                 'dependencies'          => $dependencies,
                 'expected_compound_lift' => $this->expectedCompoundLift($opportunities, $urgency, $risk),
                 'risk'                  => $risk,
@@ -287,6 +297,24 @@ final class AtlasExternalBrainStrategicThesisForge
         }
 
         return ['steps' => $steps];
+    }
+
+    /** @return array{entries:list<array{evidence_ref:string, task_shape:string, proof_required:string}>} */
+    private function buildEvidenceChain(array $evidenceRefs, array $chain): array
+    {
+        $entries = [];
+        $steps = $chain['steps'] ?? [];
+        foreach ($evidenceRefs as $ref) {
+            foreach ($steps as $step) {
+                $entries[] = [
+                    'evidence_ref'    => $ref,
+                    'task_shape'      => (string) ($step['shape'] ?? ''),
+                    'proof_required'  => (string) ($step['proof_required'] ?? ''),
+                ];
+            }
+        }
+
+        return ['entries' => $entries];
     }
 
     /** @param list<array<string,mixed>> $opportunities @return list<string> */
