@@ -122,6 +122,71 @@ final class AtlasMaestroReplenishUrgencyClassifier
     }
 
     /**
+     * Health-aware urgency classification with explicit drivers and ignored non-blocking flags.
+     *
+     * Returns urgency based on high-value supply, worker drain and queue quality, not a blanket
+     * health=false signal from non-blocking lease mismatch.
+     *
+     * @return array{urgency:string, drivers:list<string>, ignored_nonblocking_flags:list<string>, schema:string, next_action:string, reasons:list<string>, inputs:array<string,int|float|null>}
+     */
+    public function classifyWithDrivers(): array
+    {
+        $base = $this->classify();
+        $reasons = (array) ($base['reasons'] ?? []);
+
+        // Classify reasons into urgency drivers
+        $drivers = [];
+        $ignoredNonblockingFlags = [];
+
+        // High-urgency drivers
+        $highDrivers = [
+            'queue_dry',
+            'seconds_until_dry_below_threshold_high',
+            'low_claimable_depth_with_active_worker_pressure',
+            'high_stuck_lease_threat',
+            'claimable_depth_near_one_per_active_worker',
+            'give_back_pressure_above_threshold',
+            'prepare_blocked_pressure_above_threshold',
+        ];
+
+        // Mid-urgency drivers
+        $midDrivers = [
+            'seconds_until_dry_below_threshold_mid',
+            'p95_claimable_age_above_threshold_stale',
+            'suspected_stuck_leases_threaten_throughput',
+            'poison_pressure_detected',
+        ];
+
+        // Non-blocking flags that should not drive urgency alone
+        $nonblockingFlags = [
+            'no_replenish_pressure',
+        ];
+
+        foreach ($reasons as $reason) {
+            if (in_array($reason, $highDrivers, true)) {
+                $drivers[] = $reason;
+            } elseif (in_array($reason, $midDrivers, true)) {
+                $drivers[] = $reason;
+            } elseif (in_array($reason, $nonblockingFlags, true)) {
+                $ignoredNonblockingFlags[] = $reason;
+            } else {
+                // Unknown reasons are treated as drivers
+                $drivers[] = $reason;
+            }
+        }
+
+        return [
+            'urgency' => $base['urgency'],
+            'drivers' => $drivers,
+            'ignored_nonblocking_flags' => $ignoredNonblockingFlags,
+            'schema' => $base['schema'],
+            'next_action' => $base['next_action'],
+            'reasons' => $base['reasons'],
+            'inputs' => $base['inputs'],
+        ];
+    }
+
+    /**
      * Determine the recommended next action from the collected reasons and facts.
      *
      * Priority: drain_poison → unblock → originate → monitor.
