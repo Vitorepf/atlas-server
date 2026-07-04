@@ -181,6 +181,27 @@ final class AtlasExternalBrainPathStarvationUnblockPlanner
                 default => ['unblock', 'starved_lane_with_sufficient_value_and_no_blockers'],
             };
 
+            $nextTaskShape = match ($recommendation) {
+                'unblock' => 'unblock_lane_'.$laneId,
+                'defer_with_reason' => 'resolve_dependencies_for_'.$laneId,
+                'retire_lane' => 'retire_lane_'.$laneId,
+                default => 'investigate_'.$laneId,
+            };
+
+            $requiredEvidence = match ($recommendation) {
+                'unblock' => ['lane_value_proof', 'no_blocker_confirmed'],
+                'defer_with_reason' => ['dependency_resolved', 'evidence_coverage_met'],
+                'retire_lane' => ['low_value_confirmed'],
+                default => ['lane_assessment'],
+            };
+
+            $expectedUnlock = match ($recommendation) {
+                'unblock' => 'lane_'.$laneId.'_becomes_claimable',
+                'defer_with_reason' => 'lane_'.$laneId.'_unblocked_after_dependencies',
+                'retire_lane' => 'lane_'.$laneId.'_removed_from_rotation',
+                default => 'lane_'.$laneId.'_status_clarified',
+            };
+
             $recommendations[] = [
                 'lane_id' => $laneId,
                 'starved' => true,
@@ -191,6 +212,9 @@ final class AtlasExternalBrainPathStarvationUnblockPlanner
                 'evidence_coverage' => $evidenceCoverage,
                 'recommendation' => $recommendation,
                 'reason' => $reason,
+                'next_task_shape' => $nextTaskShape,
+                'required_evidence' => $requiredEvidence,
+                'expected_unlock' => $expectedUnlock,
             ];
         }
 

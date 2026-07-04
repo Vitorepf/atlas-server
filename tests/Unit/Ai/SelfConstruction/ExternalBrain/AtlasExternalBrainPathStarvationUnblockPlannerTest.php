@@ -311,4 +311,39 @@ final class AtlasExternalBrainPathStarvationUnblockPlannerTest extends TestCase
         $rec = $this->recFor($result, 'a');
         $this->assertSame('unblock', $rec['recommendation']);
     }
+
+    // ── next_task_shape, required_evidence, expected_unlock ──
+
+    public function test_unblock_recommendation_has_next_task_shape_and_evidence(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('high-leverage', ['value_potential' => 0.9, 'evidence_coverage' => 0.9]),
+        ]]);
+        $rec = $this->recFor($result, 'high-leverage');
+        $this->assertStringContainsString('unblock_lane', $rec['next_task_shape']);
+        $this->assertContains('lane_value_proof', $rec['required_evidence']);
+        $this->assertStringContainsString('becomes_claimable', $rec['expected_unlock']);
+    }
+
+    public function test_defer_recommendation_has_dependency_evidence(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('blocked', ['value_potential' => 0.7, 'blocked_dependencies' => ['missing_x']]),
+        ]]);
+        $rec = $this->recFor($result, 'blocked');
+        $this->assertStringContainsString('resolve_dependencies', $rec['next_task_shape']);
+        $this->assertContains('dependency_resolved', $rec['required_evidence']);
+        $this->assertStringContainsString('unblocked_after_dependencies', $rec['expected_unlock']);
+    }
+
+    public function test_retire_recommendation_has_retire_shape(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('low-value', ['value_potential' => 0.1]),
+        ]]);
+        $rec = $this->recFor($result, 'low-value');
+        $this->assertStringContainsString('retire_lane', $rec['next_task_shape']);
+        $this->assertContains('low_value_confirmed', $rec['required_evidence']);
+        $this->assertStringContainsString('removed_from_rotation', $rec['expected_unlock']);
+    }
 }
