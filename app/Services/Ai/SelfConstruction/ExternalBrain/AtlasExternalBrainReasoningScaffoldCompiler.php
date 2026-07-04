@@ -138,9 +138,21 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
             'required_artifacts' => ['remaining_unexplored_surfaces'],
             'stop_conditions'    => [],
         ],
+        // AC2: value_density — forces smaller models to produce an explicit artifact that
+        // compares each candidate's structural leverage against worker cost BEFORE final
+        // selection, preventing shallow volume farming where many low-value tasks are
+        // proposed without cost awareness.
+        [
+            'section_id'         => 'value_density',
+            'order'              => 13,
+            'required'           => true,
+            'prompt_template'    => 'For each remaining candidate, compute value_density = estimated_autonomous_impact / estimated_worker_minutes. Compare each candidate\'s structural leverage (how much future capability it unlocks) against its worker cost. Discard any candidate whose value_density falls below the viable threshold — these are shallow volume and must not be farmed just to fill a batch. Record the density score and the decision for every candidate.',
+            'required_artifacts' => ['value_density_artifact'],
+            'stop_conditions'    => ['all_candidates_below_viable_density'],
+        ],
         [
             'section_id'       => 'final_batch_selection',
-            'order'            => 13,
+            'order'            => 14,
             'required'         => true,
             'prompt_template'  => 'Select the top-N candidates from the ranked list that fit within the worker fleet capacity. Return their task specifications. No new candidates may be introduced at this stage.',
             'required_artifacts' => ['final_batch'],
@@ -149,7 +161,7 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
         // AC2 new: mandatory final self-audit — the last checkpoint before the batch ships.
         [
             'section_id'         => 'self_audit',
-            'order'              => 14,
+            'order'              => 15,
             'required'           => true,
             'prompt_template'    => 'Audit the final batch against yourself: for each selected candidate, confirm it is genuine leverage (not a renamed/proxy variant of existing work), confirm you did not stop early because the queue merely LOOKED comfortable, and confirm every required artifact above was actually produced, not assumed. Record any self-audit failure explicitly.',
             'required_artifacts' => ['self_audit_report'],

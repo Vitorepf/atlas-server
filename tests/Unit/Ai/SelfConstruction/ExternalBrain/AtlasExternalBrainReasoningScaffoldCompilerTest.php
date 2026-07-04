@@ -43,7 +43,7 @@ final class AtlasExternalBrainReasoningScaffoldCompilerTest extends TestCase
         $this->assertNull($result['rejection_reason']);
     }
 
-    public function test_all_seven_sections_emitted_in_order(): void
+    public function test_all_sections_emitted_in_order(): void
     {
         $result = $this->compiler()->compile([]);
 
@@ -54,7 +54,7 @@ final class AtlasExternalBrainReasoningScaffoldCompilerTest extends TestCase
             'adversarial_critique', 'implementability_check',
             'leverage_ranking', 'impact_ranking',
             'ambition_recovery', 'second_pass_surface_expansion',
-            'final_batch_selection', 'self_audit',
+            'value_density', 'final_batch_selection', 'self_audit',
         ];
 
         $actualIds = array_column($result['scaffold_sections'], 'section_id');
@@ -102,6 +102,9 @@ final class AtlasExternalBrainReasoningScaffoldCompilerTest extends TestCase
         foreach ($expectedArtifacts as $section => $artifacts) {
             $this->assertSame($artifacts, $result['required_artifacts'][$section]);
         }
+
+        // Verify the new value_density section has its artifact.
+        $this->assertSame(['value_density_artifact'], $result['required_artifacts']['value_density']);
     }
 
     // ── stop_conditions ───────────────────────────────────────────────────────
@@ -402,6 +405,36 @@ final class AtlasExternalBrainReasoningScaffoldCompilerTest extends TestCase
 
         $this->assertFalse($result['is_valid']);
         $this->assertSame('stop_because_queue_comfortable_not_allowed', $result['rejection_reason']);
+    }
+
+    // ── AC2: mandatory value_density section before final_batch_selection ──────
+
+    public function test_value_density_comes_before_final_batch_selection(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $ids = array_column($result['scaffold_sections'], 'section_id');
+
+        $densityPos = array_search('value_density', $ids, true);
+        $finalPos   = array_search('final_batch_selection', $ids, true);
+
+        $this->assertNotFalse($densityPos, 'value_density section must exist');
+        $this->assertLessThan($finalPos, $densityPos, 'value_density must come before final_batch_selection');
+    }
+
+    public function test_value_density_has_required_artifact_and_stop_condition(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $this->assertSame(['value_density_artifact'], $result['required_artifacts']['value_density']);
+        $this->assertContains('all_candidates_below_viable_density', $result['stop_conditions']['value_density']);
+    }
+
+    public function test_value_density_cannot_be_skipped(): void
+    {
+        $result = $this->compiler()->compile(['skip_sections' => ['value_density']]);
+
+        $this->assertFalse($result['is_valid']);
+        $this->assertSame('must_not_skip_required_section:value_density', $result['rejection_reason']);
     }
 
     // ── AC4: provider-independence ─────────────────────────────────────────────
