@@ -114,6 +114,32 @@ class AtlasAutonomyLadderRuntimeServiceTest extends TestCase
         $this->assertFalse($service->comparatorSatisfied('>=', 0.5, 0.9));
     }
 
+    public function test_zero_trigger_does_not_spuriously_demote(): void
+    {
+        $result = $this->service()->evaluateDemote('L2', [], 0);
+
+        $this->assertFalse($result['demote']);
+        $this->assertSame('invalid_trigger_floor', $result['reason']);
+    }
+
+    public function test_insufficient_tail_does_not_demote(): void
+    {
+        $breach = ['green_pair_obras' => 10, 'regression_catch_rate' => 0.5];
+
+        $result = $this->service()->evaluateDemote('L2', [$breach], 2);
+
+        $this->assertFalse($result['demote']);
+    }
+
+    public function test_valid_two_cycle_breach_still_demotes(): void
+    {
+        $breach = ['green_pair_obras' => 10, 'regression_catch_rate' => 0.5];
+
+        $result = $this->service()->evaluateDemote('L2', [$breach, $breach], 2);
+
+        $this->assertTrue($result['demote']);
+    }
+
     private function service(): AtlasAutonomyLadderRuntimeService
     {
         return new AtlasAutonomyLadderRuntimeService;
