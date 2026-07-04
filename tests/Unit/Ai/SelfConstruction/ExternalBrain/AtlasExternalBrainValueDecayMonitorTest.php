@@ -364,6 +364,172 @@ final class AtlasExternalBrainValueDecayMonitorTest extends TestCase
         $this->assertSame('blocked_dependency_requires_rethink', $r['recommendations'][0]['reason']);
     }
 
+    // ── AC2: value_decay computation ──────────────────────────────────────────
+
+    public function test_value_decay_computed_from_age_family_impact_autonomy(): void
+    {
+        // high age, high repeated family, low impact, low autonomy → high decay
+        $r = $this->monitor()->monitor([
+            'tasks' => [$this->task([
+                'queued_at_days_ago'   => 60,
+                'repeated_family_count' => 5,
+                'impact_evidence'       => 0.1,
+                'autonomy_gain'         => 0.1,
+            ])],
+            'max_age_days' => 30,
+        ]);
+
+        $entry = $r['per_task'][0];
+        $this->assertArrayHasKey('value_decay', $entry);
+        $this->assertGreaterThan(0.5, $entry['value_decay']);
+        $this->assertLessThanOrEqual(1.0, $entry['value_decay']);
+    }
+
+    public function test_value_decay_low_when_all_factors_healthy(): void
+    {
+        // low age, low repeated family, high impact, high autonomy → low decay
+        $r = $this->monitor()->monitor(['tasks' => [$this->task([
+            'repeated_family_count' => 1,
+            'impact_evidence'       => 0.9,
+            'autonomy_gain'         => 0.9,
+        ])]]);
+
+        $entry = $r['per_task'][0];
+        $this->assertLessThan(0.3, $entry['value_decay']);
+    }
+
+    // ── AC3: fresh autonomy/unblock evidence prevents age-only demotion ───────
+
+    public function test_fresh_unblock_evidence_prevents_age_only_retire(): void
+    {
+        // old, no value proof, but has fresh_unblock_evidence → must keep, not retire
+        $r = $this->monitor()->monitor([
+            'tasks' => [$this->task([
+                'queued_at_days_ago'   => 60,
+                'has_value_proof'      => false,
+                'fresh_unblock_evidence' => true,
+            ])],
+            'max_age_days' => 30,
+        ]);
+
+        $this->assertSame('keep', $r['recommendations'][0]['recommendation']);
+        $this->assertSame('fresh_autonomy_or_unblock_evidence', $r['recommendations'][0]['reason']);
+        $this->assertContains('t1', $r['keep_tasks']);
+    }
+
+    public function test_high_autonomy_gain_prevents_age_only_retire(): void
+    {
+        $r = $this->monitor()->monitor([
+            'tasks' => [$this->task([
+                'queued_at_days_ago'   => 60,
+                'has_value_proof'      => false,
+                'autonomy_gain'        => 0.8,
+            ])],
+            'max_age_days' => 30,
+        ]);
+
+        $this->assertSame('keep', $r['recommendations'][0]['recommendation']);
+        $this->assertSame('fresh_autonomy_or_unblock_evidence', $r['recommendations'][0]['reason']);
+    }
+
+    // ── AC4: demote recommendation for stale backlog ──────────────────────────
+
+    public function test_demote_recommended_for_repeated_low_impact_family(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [$this->task([
+            'repeated_family_count' => 3,
+            'impact_evidence'       => 0.1,
+            'autonomy_gain'         => 0.1,
+        ])]]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertSame('demote', $rec['recommendation']);
+        $this->assertSame('repeated_low_impact_family_demotion', $rec['reason']);
+        $this->assertSame('demote', $r['per_task'][0]['recommended_action']);
+        $this->assertSame('decaying', $r['per_task'][0]['value_status']);
+    }
+
+    public function test_demote_skipped_when_impact_evidence_sufficient(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [$this->task([
+            'repeated_family_count' => 3,
+            'impact_evidence'       => 0.9,   // high impact overrides
+        ])]]);
+
+        $this->assertNotSame('demote', $r['recommendations'][0]['recommendation']);
+    }
+
+    public function test_refresh_or_keep_for_stale_evidence_without_other_signals(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [$this->task([
+            'stale_evidence_age'    => 20,
+            'give_back_count'       => 0,     // no give_back → refresh_or_keep, not refresh
+        ])]]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertSame('refresh_or_keep', $rec['recommendation']);
+        $this->assertSame('stale_evidence_refresh_or_keep', $rec['reason']);
+        $this->assertSame('refresh_or_keep', $r['per_task'][0]['recommended_action']);
+        $this->assertSame('stale', $r['per_task'][0]['value_status']);
+    }
+
+    // ── AC4: evidence_refs in recommendations ──────────────────────────────────
+
+    public function test_evidence_refs_present_in_recommendation(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [$this->task([
+            'repeated_family_count' => 3,
+            'impact_evidence'       => 0.1,
+            'autonomy_gain'         => 0.1,
+        ])]]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertArrayHasKey('evidence_refs', $rec);
+        $this->assertNotEmpty($rec['evidence_refs']);
+        $this->assertContains('repeated_family_count', $rec['evidence_refs']);
+        $this->assertContains('impact_evidence', $rec['evidence_refs']);
+        $this->assertContains('autonomy_gain', $rec['evidence_refs']);
+    }
+
+    // ── AC4: demote and refresh_or_keep in monitor_summary ────────────────────
+
+    public function test_monitor_summary_includes_demote_and_refresh_or_keep(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task(['id' => 'a']),                                                                // keep
+            $this->task(['id' => 'b', 'repeated_family_count' => 3, 'impact_evidence' => 0.1, 'autonomy_gain' => 0.1]),  // demote
+            $this->task(['id' => 'c', 'stale_evidence_age' => 20, 'give_back_count' => 0]),          // refresh_or_keep
+        ]]);
+
+        $s = $r['monitor_summary'];
+        $this->assertArrayHasKey('demote', $s);
+        $this->assertArrayHasKey('refresh_or_keep', $s);
+        $this->assertSame(1, $s['demote']);
+        $this->assertSame(1, $s['refresh_or_keep']);
+    }
+
+    public function test_value_decay_bounded_between_zero_and_one(): void
+    {
+        $allZero = $this->monitor()->monitor(['tasks' => [$this->task([
+            'queued_at_days_ago'   => 0,
+            'repeated_family_count' => 0,
+            'impact_evidence'       => 1.0,
+            'autonomy_gain'         => 1.0,
+        ])]]);
+        $this->assertGreaterThanOrEqual(0.0, $allZero['per_task'][0]['value_decay']);
+
+        $allMax = $this->monitor()->monitor([
+            'tasks' => [$this->task([
+                'queued_at_days_ago'   => 999,
+                'repeated_family_count' => 100,
+                'impact_evidence'       => 0.0,
+                'autonomy_gain'         => 0.0,
+            ])],
+            'max_age_days' => 1,
+        ]);
+        $this->assertLessThanOrEqual(1.0, $allMax['per_task'][0]['value_decay']);
+    }
+
     // ── superseded_target / duplicate_family_saturation outrank load-bearing keep ─
 
     public function test_superseded_target_retires_even_with_high_blocking_count_and_fresh_proof(): void

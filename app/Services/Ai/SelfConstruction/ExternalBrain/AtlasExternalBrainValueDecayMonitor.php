@@ -10,34 +10,35 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * Input facts:
  *   tasks             — list of {id, queued_at_days_ago, prerequisites_changed,
- *                        landscape_shifted, has_value_proof, blocking_count?}.
+ *                        landscape_shifted, has_value_proof, blocking_count?,
+ *                        repeated_family_count?, impact_evidence?, autonomy_gain?,
+ *                        fresh_unblock_evidence?}.
  *   max_age_days      — maximum queue age before age-decay triggers (default 30).
  *   stale_age_days    — age threshold where context-shift is worrying (default 14).
  *   min_blocking_keep — blocking_count >= this value forces 'keep' (default 3).
  *
  * AC2 — Recommendations (ONLY recommendations, never direct cancellation):
  *   Priority (first match wins):
- *   1. keep          — blocking_count >= min_blocking_keep (task is load-bearing).
- *   2. retire        — queued_at_days_ago > max_age_days AND !has_value_proof.
- *   3. retire        — prerequisites_changed AND landscape_shifted AND !has_value_proof.
- *   4. respec        — prerequisites_changed OR landscape_shifted.
- *   5. keep          — default (stable, proven, uncontested).
+ *   1. retire        — superseded_target or duplicate_family_saturation (hard signals).
+ *   2. keep/refresh/consolidate — blocking_count >= min_blocking_keep (load-bearing).
+ *   3. demote        — repeated_family_count >= threshold AND low impact_evidence AND low autonomy_gain.
+ *   4. retire        — queued_at_days_ago > max_age_days AND !has_value_proof (unless fresh evidence).
+ *   5. refresh/consolidate — stale_evidence + repeated_give_back.
+ *   6. respec        — both context shifts + no proof BUT still valuable.
+ *   7. retire        — both context shifts + no proof.
+ *   8. respec        — changed scope but capability still valuable.
+ *   9. respec        — blocked dependency.
+ *   10. respec       — single context shift.
+ *   11. demote       — stale backlog (age > stale_age AND low impact AND low autonomy).
+ *   12. refresh_or_keep — stale evidence without other negative signals.
+ *   13. keep         — fresh autonomy/unblock evidence (AC3: not demoted solely for age).
+ *   14. keep         — default (stable, proven, uncontested).
  *
  * decay_signals per task: list of detected signals (age_decay, prerequisite_drift,
- *   landscape_drift, no_value_proof).
+ *   landscape_drift, no_value_proof, repeated_low_impact_family, fresh_autonomy_evidence).
  *
- * AC4 outputs: recommendations, retire_candidates, respec_candidates, keep_tasks,
- *   monitor_summary, per_task, batch_decay_summary.
- *
- * Muscle-outcome decay signals (NEW):
- *   - superseded_target → retire (highest priority after load-bearing).
- *   - duplicate_family_saturation → retire, unless muscle_success_rate shows the family is
- *     still succeeding, in which case consolidate (merge redundant tasks instead of destroying
- *     a proven capability).
- *   - stale_evidence + repeated_give_back → refresh (or consolidate when muscle_success_rate is also low),
- *     never retain.
- *   per_task entries surface value_status (fresh|stale|decaying|expired), decay_score [0..1],
- *   reasons (the decay_signals), and recommended_action (retain|refresh|consolidate|retire).
+ * AC4 outputs: recommendations (with evidence_refs), retire_candidates, respec_candidates,
+ *   keep_tasks, monitor_summary, per_task (with value_decay), batch_decay_summary.
  *
  * Pure, deterministic, no providers, no I/O.
  */
@@ -53,6 +54,9 @@ final class AtlasExternalBrainValueDecayMonitor
     private const GIVE_BACK_THRESHOLD        = 3;
     private const DUPLICATE_FAMILY_THRESHOLD = 5;
     private const LOW_SUCCESS_THRESHOLD      = 0.3;
+    private const DEMOTE_FAMILY_REPEAT_THRESHOLD = 3;
+    private const STRONG_AUTONOMY_THRESHOLD  = 0.7;
+    private const LOW_IMPACT_THRESHOLD       = 0.3;
 
     /**
      * @param  array<string,mixed>  $facts
@@ -70,7 +74,7 @@ final class AtlasExternalBrainValueDecayMonitor
         $respecCandidates  = [];
         $keepTasks         = [];
         $perTask           = [];
-        $actionCounts      = ['retain' => 0, 'refresh' => 0, 'consolidate' => 0, 'retire' => 0];
+        $actionCounts      = ['retain' => 0, 'refresh' => 0, 'consolidate' => 0, 'retire' => 0, 'demote' => 0, 'refresh_or_keep' => 0];
 
         foreach ($rawTasks as $raw) {
             $id                   = (string) ($raw['id']                       ?? '');
@@ -89,6 +93,11 @@ final class AtlasExternalBrainValueDecayMonitor
             $giveBackCount        = max(0,   (int)   ($raw['give_back_count']       ?? 0));
             $muscleSuccessRate    = isset($raw['muscle_success_rate']) ? max(0.0, min(1.0, (float) $raw['muscle_success_rate'])) : null;
             $freshValueProof      = (bool)   ($raw['fresh_value_proof']            ?? false);
+            // AC2: new input fields for value_decay computation.
+            $repeatedFamilyCount  = max(0,   (int)   ($raw['repeated_family_count'] ?? 0));
+            $impactEvidence       = isset($raw['impact_evidence']) ? max(0.0, min(1.0, (float) $raw['impact_evidence'])) : 0.5;
+            $autonomyGain         = isset($raw['autonomy_gain']) ? max(0.0, min(1.0, (float) $raw['autonomy_gain'])) : 0.5;
+            $freshUnblockEvidence = (bool)   ($raw['fresh_unblock_evidence']        ?? false);
 
             // Collect active decay signals.
             $decaySignals = [];
@@ -128,6 +137,19 @@ final class AtlasExternalBrainValueDecayMonitor
             if ($muscleSuccessRate !== null && $muscleSuccessRate < self::LOW_SUCCESS_THRESHOLD) {
                 $decaySignals[] = 'low_muscle_success';
             }
+            if ($repeatedFamilyCount >= self::DEMOTE_FAMILY_REPEAT_THRESHOLD && $impactEvidence < self::LOW_IMPACT_THRESHOLD) {
+                $decaySignals[] = 'repeated_low_impact_family';
+            }
+            if ($freshUnblockEvidence || $autonomyGain >= self::STRONG_AUTONOMY_THRESHOLD) {
+                $decaySignals[] = 'fresh_autonomy_evidence';
+            }
+
+            // AC2: compute value_decay from age, repeated_family_count, impact_evidence, autonomy_gain.
+            $ageComponent      = min(1.0, $ageDays / max(1, $maxAge));
+            $familyComponent   = min(1.0, $repeatedFamilyCount / max(1, self::DEMOTE_FAMILY_REPEAT_THRESHOLD));
+            $impactComponent   = 1.0 - $impactEvidence;
+            $autonomyComponent = 1.0 - $autonomyGain;
+            $valueDecay        = round(min(1.0, $ageComponent * 0.3 + $familyComponent * 0.3 + $impactComponent * 0.2 + $autonomyComponent * 0.2), 2);
 
             // AC2: recommendation (never cancel, only recommend).
             [$rec, $reason] = $this->recommend(
@@ -136,16 +158,20 @@ final class AtlasExternalBrainValueDecayMonitor
                 $currentValueScore, $changedAllowedFiles, $blockedDependency,
                 $supersededTarget, $duplicateFamilyCount, $staleEvidenceAge, $staleAge,
                 $giveBackCount, $muscleSuccessRate, $freshValueProof,
+                $repeatedFamilyCount, $impactEvidence, $autonomyGain, $freshUnblockEvidence,
             );
 
+            $evidenceRefs = $this->evidenceRefsFor($reason, $decaySignals);
+
             $recommendations[] = [
-                'task_id'      => $id,
+                'task_id'        => $id,
                 'recommendation' => $rec,
-                'decay_signals' => $decaySignals,
-                'reason'       => $reason,
+                'decay_signals'  => $decaySignals,
+                'reason'         => $reason,
+                'evidence_refs'  => $evidenceRefs,
             ];
 
-            // 'respec', 'refresh' and 'consolidate' are all "needs change" buckets.
+            // 'respec', 'refresh', 'consolidate', 'demote', 'refresh_or_keep' are all "needs change" buckets.
             match ($rec) {
                 'retire' => $retireCandidates[] = $id,
                 'keep'   => $keepTasks[]        = $id,
@@ -153,24 +179,27 @@ final class AtlasExternalBrainValueDecayMonitor
             };
 
             $recommendedAction = match ($rec) {
-                'retire'      => 'retire',
-                'refresh'     => 'refresh',
-                'consolidate' => 'consolidate',
-                'respec'      => 'refresh',
-                default       => 'retain',
+                'retire'          => 'retire',
+                'refresh'         => 'refresh',
+                'consolidate'     => 'consolidate',
+                'respec'          => 'refresh',
+                'demote'          => 'demote',
+                'refresh_or_keep' => 'refresh_or_keep',
+                default           => 'retain',
             };
             $actionCounts[$recommendedAction]++;
 
             $valueStatus = match (true) {
                 $rec === 'retire'           => 'expired',
-                in_array($rec, ['respec', 'refresh', 'consolidate'], true) => 'decaying',
+                in_array($rec, ['respec', 'refresh', 'consolidate', 'demote'], true) => 'decaying',
+                $rec === 'refresh_or_keep'  => 'stale',
                 $decaySignals !== []        => 'stale',
                 default                     => 'fresh',
             };
 
             $nextEvidenceNeeded = $this->nextEvidenceNeeded($rec, $reason);
 
-            // AC1/AC2: refresh/consolidate/respec are never safe to act on until their evidence
+            // AC1/AC2: refresh/consolidate/respec/demote/refresh_or_keep are never safe to act on until their evidence
             // gap is closed. retire is safe only for a non-load-bearing task with no fresh proof
             // and no blocking dependency — retiring a load-bearing or blocked task outright would
             // silently strip capability instead of repairing it.
@@ -181,17 +210,20 @@ final class AtlasExternalBrainValueDecayMonitor
             };
 
             $valueRecoveryPath = match ($rec) {
-                'refresh' => 'refresh_evidence',
-                'consolidate' => 'consolidate_family',
-                'respec' => 'respec_scope',
-                'retire' => 'retire_cleanly',
-                default => null,
+                'refresh'         => 'refresh_evidence',
+                'consolidate'     => 'consolidate_family',
+                'respec'          => 'respec_scope',
+                'retire'          => 'retire_cleanly',
+                'demote'          => 'demote_to_lower_priority',
+                'refresh_or_keep' => 'refresh_evidence_or_keep',
+                default           => null,
             };
 
             $perTask[] = [
                 'task_id'              => $id,
                 'value_status'         => $valueStatus,
                 'decay_score'          => round(min(1.0, count($decaySignals) * 0.15), 2),
+                'value_decay'          => $valueDecay,
                 'reasons'              => $decaySignals,
                 'recommended_action'   => $recommendedAction,
                 'next_evidence_needed' => $nextEvidenceNeeded,
@@ -207,10 +239,12 @@ final class AtlasExternalBrainValueDecayMonitor
             'respec_candidates' => $respecCandidates,
             'keep_tasks'        => $keepTasks,
             'monitor_summary'   => [
-                'total'  => count($rawTasks),
-                'retire' => count($retireCandidates),
-                'respec' => count($respecCandidates),
-                'keep'   => count($keepTasks),
+                'total'           => count($rawTasks),
+                'retire'          => count($retireCandidates),
+                'respec'          => count($respecCandidates),
+                'keep'            => count($keepTasks),
+                'demote'          => $actionCounts['demote'],
+                'refresh_or_keep' => $actionCounts['refresh_or_keep'],
             ],
             'per_task'             => $perTask,
             'batch_decay_summary'  => array_merge(['total' => count($rawTasks)], $actionCounts),
@@ -220,7 +254,7 @@ final class AtlasExternalBrainValueDecayMonitor
     /**
      * Certain decisions (retire, keep) need no further evidence — the decay
      * signals already justify them. Uncertain "needs rethink" decisions
-     * (respec/refresh/consolidate) name the exact evidence that would resolve
+     * (respec/refresh/consolidate/demote/refresh_or_keep) name the exact evidence that would resolve
      * the uncertainty, so the next task authored against this recommendation
      * is targeted instead of another blind respec.
      */
@@ -228,6 +262,8 @@ final class AtlasExternalBrainValueDecayMonitor
     {
         return match ($recommendation) {
             'retire', 'keep' => null,
+            'demote' => 'fresh_impact_evidence_or_autonomy_gain',
+            'refresh_or_keep' => 'refreshed_evidence_ref',
             'consolidate' => $reason === 'high_blocking_count_stale_proof_low_muscle_success'
                 ? 'fresh_value_proof_for_load_bearing_task_after_family_consolidation'
                 : 'muscle_success_rate_after_family_consolidation',
@@ -241,6 +277,24 @@ final class AtlasExternalBrainValueDecayMonitor
                 default => 'updated_prerequisite_and_landscape_state',
             },
             default => null,
+        };
+    }
+
+    /**
+     * Returns the evidence field references that informed a specific recommendation,
+     * so downstream consumers can trace WHY a demote/keep/refresh_or_keep was emitted.
+     *
+     * @param  list<string>  $decaySignals
+     * @return list<string>
+     */
+    private function evidenceRefsFor(string $reason, array $decaySignals): array
+    {
+        return match ($reason) {
+            'repeated_low_impact_family_demotion' => ['repeated_family_count', 'impact_evidence', 'autonomy_gain'],
+            'stale_backlog_demotion'              => ['age_decay', 'impact_evidence', 'autonomy_gain'],
+            'fresh_autonomy_or_unblock_evidence'  => ['fresh_unblock_evidence', 'autonomy_gain'],
+            'stale_evidence_refresh_or_keep'      => ['stale_evidence'],
+            default                                => $decaySignals,
         };
     }
 
@@ -258,6 +312,10 @@ final class AtlasExternalBrainValueDecayMonitor
         int   $giveBackCount = 0,
         ?float $muscleSuccessRate = null,
         bool  $freshValueProof = false,
+        int   $repeatedFamilyCount = 0,
+        float $impactEvidence = 0.5,
+        float $autonomyGain = 0.5,
+        bool  $freshUnblockEvidence = false,
     ): array {
         // Priority 1: superseded target or duplicate-family saturation — retire ahead of every
         // other check, including load-bearing keep; isolated per task, never affects unrelated
@@ -287,8 +345,18 @@ final class AtlasExternalBrainValueDecayMonitor
             return ['refresh', 'high_blocking_count_stale_or_missing_value_proof'];
         }
 
-        // Priority 2: age-decayed with no value proof.
-        if ($ageDays > $maxAge && ! $hasValueProof) {
+        // AC2/AC4: Repeated low-impact family without strong evidence → demote.
+        if ($repeatedFamilyCount >= self::DEMOTE_FAMILY_REPEAT_THRESHOLD
+            && $impactEvidence < self::LOW_IMPACT_THRESHOLD
+            && $autonomyGain < self::STRONG_AUTONOMY_THRESHOLD) {
+            return ['demote', 'repeated_low_impact_family_demotion'];
+        }
+
+        // AC3: Fresh autonomy/unblock evidence prevents age-only retire.
+        $hasFreshEvidence = $freshUnblockEvidence || $autonomyGain >= self::STRONG_AUTONOMY_THRESHOLD;
+
+        // Priority 2: age-decayed with no value proof (unless fresh evidence overrides).
+        if ($ageDays > $maxAge && ! $hasValueProof && ! $hasFreshEvidence) {
             return ['retire', 'age_decay_no_value_proof'];
         }
 
@@ -326,6 +394,24 @@ final class AtlasExternalBrainValueDecayMonitor
         // Priority 4: context shifted — task needs rethinking.
         if ($prereqChanged || $landscapeShifted) {
             return ['respec', 'context_shift_requires_rethink'];
+        }
+
+        // AC2/AC4: Stale backlog without autonomy/impact evidence → demote (unless fresh unblock evidence).
+        if ($ageDays > $staleAge && $impactEvidence < self::LOW_IMPACT_THRESHOLD
+            && $autonomyGain < self::STRONG_AUTONOMY_THRESHOLD && ! $freshUnblockEvidence) {
+            return ['demote', 'stale_backlog_demotion'];
+        }
+
+        // AC4: Stale evidence without other negative signals → refresh_or_keep.
+        if ($staleEvidenceAge > $staleAge) {
+            return ['refresh_or_keep', 'stale_evidence_refresh_or_keep'];
+        }
+
+        // AC3: Fresh autonomy/unblock evidence — if we reached here without matching any
+        // age-based or context-shift rule, the task is kept because fresh evidence shows
+        // it still advances autonomy or unblocks downstream work.
+        if ($hasFreshEvidence) {
+            return ['keep', 'fresh_autonomy_or_unblock_evidence'];
         }
 
         // Priority 5: default — keep as-is.
