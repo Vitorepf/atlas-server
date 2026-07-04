@@ -277,12 +277,27 @@ final class AtlasMaestroGiveBackPatternMiner
      */
     private function shapeKey(array $row): string
     {
-        return implode('|', [
+        $parts = [
             'task_class:'.$this->text($row['task_class'] ?? 'unknown'),
             'allowed_files:'.$this->allowedFilesBucket($row),
             'scope:'.$this->scopePrefix($row),
             'evidence:'.$this->evidenceKind($row),
-        ]);
+        ];
+
+        return $this->collisionSafeImplode($parts);
+    }
+
+    /**
+     * Build a collision-safe key from parts.
+     * Each part is length-prefixed so a '|' inside a part cannot collide with the delimiter.
+     *
+     * @param  list<string>  $parts
+     */
+    private function collisionSafeImplode(array $parts): string
+    {
+        $prefixed = array_map(static fn (string $p): string => strlen($p).':'.$p, $parts);
+
+        return implode('|', $prefixed);
     }
 
     /**
