@@ -89,11 +89,21 @@ final class AtlasExternalBrainProviderPoolCapabilityContract
 
             $sdkAvailable = (bool) ($pool['sdk_available'] ?? false);
             $headlessAvailable = (bool) ($pool['headless_available'] ?? false);
-            $hasHeadlessSdkProof = $sdkAvailable && $headlessAvailable;
+            $smokeTestRefs = (array) ($pool['smoke_test_refs'] ?? []);
+            $hasSmokeTestProof = $smokeTestRefs !== [];
+            $hasHeadlessSdkProof = $sdkAvailable && $headlessAvailable && $hasSmokeTestProof;
 
             $supportsPatchGeneration = (bool) ($pool['supports_patch_generation'] ?? false);
             $supportsTaskOrigination = (bool) ($pool['supports_task_origination'] ?? false);
             $supportsLongRunningGoal = (bool) ($pool['supports_long_running_goal'] ?? false);
+
+            // AC3: classify capability level — muscle_only (patch generation without long-running
+            // goals) vs brain_ready (both patch generation and long-running goals available).
+            $capabilityLevel = match (true) {
+                $supportsPatchGeneration && $supportsLongRunningGoal => 'brain_ready',
+                $supportsPatchGeneration => 'muscle_only',
+                default => null,
+            };
 
             $capabilityAxes = array_values(array_filter([
                 $supportsPatchGeneration ? 'patch_generation' : null,
@@ -110,8 +120,11 @@ final class AtlasExternalBrainProviderPoolCapabilityContract
             };
 
             $proofRequirement = $hasHeadlessSdkProof
-                ? 'proven: sdk_available and headless_available both verified'
-                : 'requires sdk_available=true AND headless_available=true to reach production_ready';
+                ? 'proven: sdk_available and headless_available and smoke_test_refs all verified'
+                : match (true) {
+                    ! $hasSmokeTestProof => 'requires smoke_test_refs (runnable smoke test evidence) to reach production_ready',
+                    default => 'requires sdk_available=true AND headless_available=true to reach production_ready',
+                };
 
             $matrix[] = [
                 'provider_id' => $providerId,
@@ -119,6 +132,7 @@ final class AtlasExternalBrainProviderPoolCapabilityContract
                 'cost_tier' => $costTier,
                 'sdk_available' => $sdkAvailable,
                 'headless_available' => $headlessAvailable,
+                'smoke_test_refs' => $smokeTestRefs,
                 'supports_patch_generation' => $supportsPatchGeneration,
                 'supports_task_origination' => $supportsTaskOrigination,
                 'supports_long_running_goal' => $supportsLongRunningGoal,
@@ -127,6 +141,7 @@ final class AtlasExternalBrainProviderPoolCapabilityContract
                 'atlas_required' => false,
                 'fallback_required' => true,
                 'integration_status' => $integrationStatus,
+                'capability_level' => $capabilityLevel,
                 'capability_axes' => $capabilityAxes,
                 'proof_requirement' => $proofRequirement,
                 'fallback_strategy' => "native_atlas_fallback_required:{$providerId}",
