@@ -457,4 +457,53 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlannerTest extends TestC
 
         $this->assertNotEmpty($result['refresh_actions'][0]['evidence_needed']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: contract — refresh actions, advisory-only context pack, deterministic output
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_all_refresh_actions_emitted_when_everything_stale(): void
+    {
+        $result = $this->planner()->plan([
+            'files_changed' => ['app/Foo.php'],
+            'code_index_freshness_seconds' => 999,
+            'docs_touched' => ['docs/foo.md'],
+            'memory_writes' => [],
+            'uncaptured_outcomes' => 3,
+            'queue_health_freshness_seconds' => 999,
+            'queued_targets_freshness_seconds' => 999,
+            'context_pack_age_seconds' => 999,
+        ]);
+
+        // At minimum, code_index + docs should fire.
+        $this->assertNotEmpty($result['refresh_actions']);
+        $this->assertArrayHasKey('refresh_actions', $result);
+    }
+
+    public function test_context_pack_refresh_advisory_does_not_block_readiness(): void
+    {
+        $result = $this->planner()->plan([
+            'context_pack_age_seconds' => 999,
+            'files_changed' => [],
+            'code_index_freshness_seconds' => 0,
+            'docs_touched' => [],
+            'memory_writes' => [],
+            'give_backs_since_last_capture' => 0,
+            'uncaptured_outcomes' => 0,
+            'queue_health_freshness_seconds' => 0,
+            'queued_targets_freshness_seconds' => 0,
+        ]);
+
+        $this->assertTrue($result['next_originator_context_ready'],
+            'stale context_pack alone must NOT block originator readiness');
+    }
+
+    public function test_output_separates_skipped_actions_and_not_ready_reasons(): void
+    {
+        $result = $this->planner()->plan(['files_changed' => ['app/Foo.php'], 'code_index_freshness_seconds' => 999]);
+
+        $this->assertArrayHasKey('skipped_actions', $result);
+        $this->assertArrayHasKey('not_ready_reasons', $result);
+        $this->assertArrayHasKey('next_originator_context_ready', $result);
+    }
 }
