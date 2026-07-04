@@ -166,7 +166,7 @@ final class AtlasMaestroProviderRecommendationReceiptLedger
 
     private function computeFactHash(string $taskClass, string $provider, int $sampleSize, float $successRate, string $reason): string
     {
-        return hash('sha256', $taskClass.'|'.$provider.'|'.$sampleSize.'|'.$successRate.'|'.$reason);
+        return hash('sha256', $this->field($taskClass).'|'.$this->field($provider).'|'.$this->field((string) $sampleSize).'|'.$this->field((string) $successRate).'|'.$this->field($reason));
     }
 
     private function computeChainHash(string $prevChainHash, string $receiptId, string $factHash): string
@@ -186,9 +186,18 @@ final class AtlasMaestroProviderRecommendationReceiptLedger
 
     private function receiptId(string $taskClass, string $provider, int $sampleSize, float $successRate, string $requestedAt): string
     {
-        $canonical = $taskClass.'|'.$provider.'|'.$sampleSize.'|'.$successRate.'|'.$requestedAt;
+        $canonical = $this->field($taskClass).'|'.$this->field($provider).'|'.$this->field((string) $sampleSize).'|'.$this->field((string) $successRate).'|'.$this->field($requestedAt);
 
         return hash('sha256', $canonical);
+    }
+
+    /**
+     * Length-prefix a field so a '|' inside the value cannot collide with the delimiter.
+     * Format: "LENGTH:VALUE" where LENGTH is the byte length of VALUE.
+     */
+    private function field(string $value): string
+    {
+        return strlen($value).':'.$value;
     }
 
     private function isAlreadyRecorded(string $receiptId): bool
