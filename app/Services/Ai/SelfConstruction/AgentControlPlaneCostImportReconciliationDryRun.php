@@ -38,7 +38,7 @@ final class AgentControlPlaneCostImportReconciliationDryRun
         $duplicateObservedRefs = [];
         foreach ($observedCounts as $key => $count) {
             if ($count > 1) {
-                [$taskPacketId, $runId] = explode('|', $key, 2);
+                [$taskPacketId, $runId] = $this->decodeRefKey($key);
                 $duplicateObservedRefs[] = [
                     'task_packet_id' => $taskPacketId,
                     'run_id' => $runId,
@@ -61,7 +61,7 @@ final class AgentControlPlaneCostImportReconciliationDryRun
         $missing = [];
         foreach ($expectedKeys as $key => $_) {
             if (! isset($observedCounts[$key])) {
-                [$taskPacketId, $runId] = explode('|', $key, 2);
+                [$taskPacketId, $runId] = $this->decodeRefKey($key);
                 $missing[] = [
                     'task_packet_id' => $taskPacketId,
                     'run_id' => $runId,
@@ -73,7 +73,7 @@ final class AgentControlPlaneCostImportReconciliationDryRun
         $unexpected = [];
         foreach ($observedCounts as $key => $_) {
             if (! isset($expectedKeys[$key])) {
-                [$taskPacketId, $runId] = explode('|', $key, 2);
+                [$taskPacketId, $runId] = $this->decodeRefKey($key);
                 $unexpected[] = [
                     'task_packet_id' => $taskPacketId,
                     'run_id' => $runId,
@@ -117,7 +117,20 @@ final class AgentControlPlaneCostImportReconciliationDryRun
 
     private function refKey(array $value): string
     {
-        return trim((string) ($value['task_packet_id'] ?? '')).'|'.trim((string) ($value['run_id'] ?? ''));
+        return json_encode([
+            trim((string) ($value['task_packet_id'] ?? '')),
+            trim((string) ($value['run_id'] ?? '')),
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @param  string  $key  JSON-encoded ref key
+     * @return array{string, string}
+     */
+    private function decodeRefKey(string $key): array
+    {
+        $parts = json_decode($key, true);
+        return [(string) ($parts[0] ?? ''), (string) ($parts[1] ?? '')];
     }
 
     private function stableHash(array $payload): string
