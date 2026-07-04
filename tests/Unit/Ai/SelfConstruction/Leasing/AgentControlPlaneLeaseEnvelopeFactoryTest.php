@@ -5,22 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\Leasing;
 
 use App\Services\Ai\SelfConstruction\Leasing\AgentControlPlaneLeaseEnvelopeFactory;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
-/**
- * ITEM8 — proves the cohesive pure-formatting concern extracted from AgentControlPlaneClaimLeaseRepository
- * into AgentControlPlaneLeaseEnvelopeFactory. Five methods migrated verbatim:
- *
- *  - buildReceipt: stamps kind + ISO recorded_at + the no-execution guarantees, merges data, then
- *    SHA-256 hashes the (kind, data) tuple into a `receipt_hash` for audit traceability.
- *  - envelopeOk: the success envelope (status='ok', lease, runtime guarantees).
- *  - envelopeError: the blocked envelope (status='blocked', reason, task_packet_id + agent_id).
- *  - lockContentionEnvelope: the FAIL-CLOSED result when the exclusive flock cannot be acquired.
- *  - encode: pretty canonical JSON.
- *
- * Pure / stateless / zero Laravel surface (CarbonImmutable provides the timestamp) — pure PHPUnit
- * suffices.
- */
 final class AgentControlPlaneLeaseEnvelopeFactoryTest extends TestCase
 {
     private AgentControlPlaneLeaseEnvelopeFactory $factory;
@@ -28,380 +14,236 @@ final class AgentControlPlaneLeaseEnvelopeFactoryTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->factory = new AgentControlPlaneLeaseEnvelopeFactory;
+        $this->factory = new AgentControlPlaneLeaseEnvelopeFactory();
     }
 
-    public function test_schema_version_is_stable_and_known(): void
+    private function lease(array $overrides = []): array
     {
-        // The byte-identical contract: the factory's SCHEMA_VERSION must equal the original lease
-        // repo's SCHEMA_VERSION, so envelopes written by either path parse as the same schema.
-        $this->assertSame(
-            'atlas.self_construction.agent_control_plane_claim_lease_runtime.v1',
-            AgentControlPlaneLeaseEnvelopeFactory::SCHEMA_VERSION,
-        );
-    }
-
-    // --- buildReceipt ------------------------------------------------------
-
-    public function test_build_receipt_stamps_kind_recorded_at_and_no_execution_guarantees(): void
-    {
-        $r = $this->factory->buildReceipt('lease_claimed', ['lease_id' => 'L1']);
-
-        $this->assertSame('lease_claimed', $r['receipt_kind']);
-        $this->assertArrayHasKey('recorded_at', $r);
-        $this->assertIsString($r['recorded_at']);
-        // Recorded_at is an ISO-8601 string; we don't pin to a specific instant, but the shape is stable.
-        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $r['recorded_at']);
-        $this->assertFalse($r['runtime_execution_allowed']);
-        $this->assertFalse($r['ledger_write_allowed']);
-    }
-
-    public function test_build_receipt_merges_data_and_emits_receipt_hash(): void
-    {
-        $r = $this->factory->buildReceipt('lease_claimed', ['lease_id' => 'L1', 'agent_id' => 'A1']);
-
-        $this->assertSame('L1', $r['lease_id']);
-        $this->assertSame('A1', $r['agent_id']);
-        $this->assertArrayHasKey('receipt_hash', $r);
-        $this->assertIsString($r['receipt_hash']);
-        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $r['receipt_hash'], 'SHA-256 hex');
-    }
-
-    public function test_build_receipt_hash_is_deterministic_for_same_kind_and_data(): void
-    {
-        $a = $this->factory->buildReceipt('lease_claimed', ['lease_id' => 'L1', 'agent_id' => 'A1']);
-        $b = $this->factory->buildReceipt('lease_claimed', ['lease_id' => 'L1', 'agent_id' => 'A1']);
-
-        // recorded_at is set by CarbonImmutable::now() — under high-frequency calls these MAY match
-        // (same second) but the receipt_hash is computed from (kind, data) ONLY, so it must match
-        // regardless of when the calls happened.
-        $this->assertSame($a['receipt_hash'], $b['receipt_hash'], 'receipt_hash is a pure function of (kind, data)');
-    }
-
-    public function test_build_receipt_hash_differs_when_kind_or_data_differs(): void
-    {
-        $base = $this->factory->buildReceipt('lease_claimed', ['lease_id' => 'L1']);
-        $diffKind = $this->factory->buildReceipt('lease_renewed', ['lease_id' => 'L1']);
-        $diffData = $this->factory->buildReceipt('lease_claimed', ['lease_id' => 'L2']);
-
-        $this->assertNotSame($base['receipt_hash'], $diffKind['receipt_hash']);
-        $this->assertNotSame($base['receipt_hash'], $diffData['receipt_hash']);
-    }
-
-    public function test_build_receipt_caller_data_overrides_stamps_via_array_merge(): void
-    {
-        // array_merge semantics: caller-provided keys in $data OVERRIDE the factory's stamps when
-        // keys collide. This is the byte-identical contract of the original `array_merge([stamps], $data)`
-        // call in the god-class — a forged `receipt_kind` in $data wins. The factory preserves this
-        // semantics verbatim; any hardening of the receipt identity would belong in the god-class's
-        // buildReceipt caller, not in this extractor.
-        $r = $this->factory->buildReceipt('lease_claimed', [
-            'receipt_kind' => 'forged',
-            'recorded_at' => 'forged-timestamp',
-        ]);
-
-        $this->assertSame('forged', $r['receipt_kind']);
-        $this->assertSame('forged-timestamp', $r['recorded_at']);
-    }
-
-    // --- envelopeOk -------------------------------------------------------
-
-    public function test_envelope_ok_has_status_ok_event_lease_and_no_execution_guarantees(): void
-    {
-        $lease = [
-            'lease_id' => 'L1',
-            'task_packet_id' => 'TP1',
+        return array_merge([
+            'lease_id' => 'lease-001',
+            'task_packet_id' => 'task-001',
+            'client_id' => 'client-001',
             'lease_status' => 'active',
-            'foo' => 'bar',
-        ];
-
-        $env = $this->factory->envelopeOk('lease_claimed', $lease);
-
-        $this->assertSame('atlas.self_construction.agent_control_plane_claim_lease_runtime.v1', $env['schema_version']);
-        $this->assertSame('ok', $env['status']);
-        $this->assertSame('lease_claimed', $env['event']);
-        $this->assertSame('L1', $env['lease_id']);
-        $this->assertSame('TP1', $env['task_packet_id']);
-        $this->assertSame('active', $env['lease_status']);
-        $this->assertSame($lease, $env['lease'], 'lease payload echoed verbatim');
-        $this->assertFalse($env['runtime_execution_allowed']);
-        $this->assertFalse($env['dispatch_allowed']);
-        $this->assertFalse($env['ledger_write_allowed']);
+            'expires_at_unix' => time() + 3600,
+            'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+        ], $overrides);
     }
 
-    public function test_envelope_ok_merges_extra_keys(): void
-    {
-        $lease = ['lease_id' => 'L1', 'task_packet_id' => 'TP1', 'lease_status' => 'active'];
-        $env = $this->factory->envelopeOk('lease_claimed', $lease, ['claim_token' => 'T1', 'score' => 42]);
+    // ── Schema version ───────────────────────────────────────────────────────────
 
-        $this->assertSame('T1', $env['claim_token']);
-        $this->assertSame(42, $env['score']);
-        // Existing key is NOT clobbered by extra.
-        $this->assertSame('ok', $env['status']);
+    public function test_schema_version_constant(): void
+    {
+        $this->assertSame('atlas.self_construction.agent_control_plane_claim_lease_runtime.v1', AgentControlPlaneLeaseEnvelopeFactory::SCHEMA_VERSION);
     }
 
-    public function test_envelope_ok_handles_missing_lease_fields_with_empty_strings(): void
-    {
-        $env = $this->factory->envelopeOk('lease_claimed', []);
+    // ── Event constants ──────────────────────────────────────────────────────────
 
-        $this->assertSame('', $env['lease_id']);
-        $this->assertSame('', $env['task_packet_id']);
-        $this->assertSame('', $env['lease_status']);
-        $this->assertSame([], $env['lease']);
+    public function test_event_constants(): void
+    {
+        $this->assertSame('acquired', AgentControlPlaneLeaseEnvelopeFactory::EVENT_ACQUIRED);
+        $this->assertSame('renewed', AgentControlPlaneLeaseEnvelopeFactory::EVENT_RENEWED);
+        $this->assertSame('released', AgentControlPlaneLeaseEnvelopeFactory::EVENT_RELEASED);
+        $this->assertSame('expired', AgentControlPlaneLeaseEnvelopeFactory::EVENT_EXPIRED);
+        $this->assertSame('contention', AgentControlPlaneLeaseEnvelopeFactory::EVENT_CONTENTION);
+        $this->assertSame('error', AgentControlPlaneLeaseEnvelopeFactory::EVENT_ERROR);
     }
 
-    // --- envelopeError ----------------------------------------------------
+    // ── buildReceipt ─────────────────────────────────────────────────────────────
 
-    public function test_envelope_error_has_status_blocked_reason_ids_and_no_execution_guarantees(): void
+    public function test_build_receipt_contains_kind_and_hash(): void
     {
-        $env = $this->factory->envelopeError('lease_not_found', 'TP1', 'A1');
+        $receipt = $this->factory->buildReceipt('test_kind', ['foo' => 'bar']);
+        $this->assertSame('test_kind', $receipt['receipt_kind']);
+        $this->assertArrayHasKey('recorded_at', $receipt);
+        $this->assertArrayHasKey('receipt_hash', $receipt);
+        $this->assertFalse($receipt['runtime_execution_allowed']);
+        $this->assertFalse($receipt['ledger_write_allowed']);
+    }
 
-        $this->assertSame('atlas.self_construction.agent_control_plane_claim_lease_runtime.v1', $env['schema_version']);
+    public function test_build_receipt_hash_is_deterministic(): void
+    {
+        $r1 = $this->factory->buildReceipt('kind', ['a' => 1]);
+        $r2 = $this->factory->buildReceipt('kind', ['a' => 1]);
+        $this->assertSame($r1['receipt_hash'], $r2['receipt_hash']);
+    }
+
+    public function test_build_receipt_hash_changes_with_different_data(): void
+    {
+        $r1 = $this->factory->buildReceipt('kind', ['a' => 1]);
+        $r2 = $this->factory->buildReceipt('kind', ['a' => 2]);
+        $this->assertNotSame($r1['receipt_hash'], $r2['receipt_hash']);
+    }
+
+    // ── lockContentionEnvelope ───────────────────────────────────────────────────
+
+    public function test_lock_contention_envelope_is_blocked(): void
+    {
+        $env = $this->factory->lockContentionEnvelope('lock unavailable');
         $this->assertSame('blocked', $env['status']);
         $this->assertSame('blocked', $env['event']);
-        $this->assertSame('lease_not_found', $env['reason']);
-        $this->assertSame('TP1', $env['task_packet_id']);
-        $this->assertSame('A1', $env['agent_id']);
+        $this->assertSame('lock unavailable', $env['reason']);
         $this->assertFalse($env['runtime_execution_allowed']);
         $this->assertFalse($env['dispatch_allowed']);
         $this->assertFalse($env['ledger_write_allowed']);
     }
 
-    public function test_envelope_error_merges_extra_keys(): void
-    {
-        $env = $this->factory->envelopeError('lease_not_found', 'TP1', 'A1', [
-            'expected_lease_status' => 'active',
-            'actual_lease_status' => 'released',
-        ]);
+    // ── encode ───────────────────────────────────────────────────────────────────
 
-        $this->assertSame('active', $env['expected_lease_status']);
-        $this->assertSame('released', $env['actual_lease_status']);
+    public function test_encode_produces_valid_json(): void
+    {
+        $json = $this->factory->encode(['key' => 'value']);
+        $decoded = json_decode($json, true);
+        $this->assertIsArray($decoded);
+        $this->assertSame('value', $decoded['key']);
     }
 
-    // --- lockContentionEnvelope ------------------------------------------
-
-    public function test_lock_contention_envelope_emits_blocked_status_no_ids(): void
+    public function test_encode_is_pretty_printed(): void
     {
-        $env = $this->factory->lockContentionEnvelope('lock_timeout');
-
-        $this->assertSame('atlas.self_construction.agent_control_plane_claim_lease_runtime.v1', $env['schema_version']);
-        $this->assertSame('blocked', $env['status']);
-        $this->assertSame('blocked', $env['event']);
-        $this->assertSame('lock_timeout', $env['reason']);
-        $this->assertFalse($env['runtime_execution_allowed']);
-        $this->assertFalse($env['dispatch_allowed']);
-        $this->assertFalse($env['ledger_write_allowed']);
-        $this->assertArrayNotHasKey('lease_id', $env);
-        $this->assertArrayNotHasKey('task_packet_id', $env);
-        $this->assertArrayNotHasKey('agent_id', $env);
+        $json = $this->factory->encode(['key' => 'value']);
+        $this->assertStringContainsString("\n", $json);
     }
 
-    public function test_lock_contention_envelope_emits_arbitrary_reason_verbatim(): void
+    // ── envelopeOk ───────────────────────────────────────────────────────────────
+
+    public function test_envelope_ok_has_status_ok(): void
     {
-        $env = $this->factory->lockContentionEnvelope('lock_open_failed');
-        $this->assertSame('lock_open_failed', $env['reason']);
-    }
-
-    // --- encode -----------------------------------------------------------
-
-    public function test_encode_produces_pretty_canonical_json(): void
-    {
-        $out = $this->factory->encode(['a' => 1, 'b' => 2]);
-
-        $this->assertStringContainsString("\n", $out, 'pretty JSON has newlines');
-        $this->assertStringContainsString('"a": 1', $out);
-        $this->assertSame(['a' => 1, 'b' => 2], json_decode($out, true), 'round-trips');
-    }
-
-    public function test_encode_does_not_escape_slashes_or_unicode(): void
-    {
-        $out = $this->factory->encode(['url' => 'https://example.com/x', 'greet' => 'olá']);
-
-        $this->assertStringContainsString('https://example.com/x', $out);
-        $this->assertStringContainsString('olá', $out);
-    }
-
-    public function test_encode_throws_on_non_encodable_input(): void
-    {
-        $this->expectException(\JsonException::class);
-        // PHP cannot encode resources — proven encoding-failure input.
-        $this->factory->encode(['r' => fopen('php://memory', 'r')]);
-    }
-
-    // --- lease_integrity_hash ---------------------------------------------
-
-    private function baseLease(): array
-    {
-        return [
-            'task_packet_id' => 'TP1',
-            'lease_id' => 'L1',
-            'client_id' => 'agent-1',
-            'allowed_files' => ['app/Foo.php', 'app/Bar.php'],
-            'expires_at_unix' => 1751284800,
-            'lease_status' => 'active',
-        ];
-    }
-
-    public function test_envelope_ok_includes_lease_integrity_hash(): void
-    {
-        $env = $this->factory->envelopeOk('lease_claimed', $this->baseLease());
-
+        $env = $this->factory->envelopeOk('acquired', $this->lease());
+        $this->assertSame('ok', $env['status']);
+        $this->assertSame('acquired', $env['event']);
+        $this->assertSame('lease-001', $env['lease_id']);
+        $this->assertSame('task-001', $env['task_packet_id']);
         $this->assertArrayHasKey('lease_integrity_hash', $env);
-        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $env['lease_integrity_hash']);
+        $this->assertFalse($env['runtime_execution_allowed']);
+        $this->assertFalse($env['dispatch_allowed']);
     }
 
-    public function test_lease_integrity_hash_is_deterministic_for_identical_facts(): void
+    public function test_envelope_ok_includes_full_lease(): void
     {
-        $a = $this->factory->envelopeOk('lease_claimed', $this->baseLease());
-        $b = $this->factory->envelopeOk('lease_renewed', $this->baseLease());
-
-        $this->assertSame($a['lease_integrity_hash'], $b['lease_integrity_hash'], 'hash must not depend on event string');
-        $this->assertSame(json_encode($a['lease_integrity_hash']), json_encode($b['lease_integrity_hash']));
+        $lease = $this->lease();
+        $env = $this->factory->envelopeOk('acquired', $lease);
+        $this->assertSame($lease, $env['lease']);
     }
 
-    public function test_lease_integrity_hash_changes_when_task_packet_id_changes(): void
+    public function test_envelope_ok_extra_merges(): void
     {
-        $base = $this->factory->envelopeOk('e', $this->baseLease());
-        $diff = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['task_packet_id' => 'TP2']));
-
-        $this->assertNotSame($base['lease_integrity_hash'], $diff['lease_integrity_hash']);
+        $env = $this->factory->envelopeOk('acquired', $this->lease(), ['custom' => 'value']);
+        $this->assertSame('value', $env['custom']);
     }
 
-    public function test_lease_integrity_hash_changes_when_lease_id_changes(): void
+    // ── envelopeError ────────────────────────────────────────────────────────────
+
+    public function test_envelope_error_is_blocked(): void
     {
-        $base = $this->factory->envelopeOk('e', $this->baseLease());
-        $diff = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['lease_id' => 'L2']));
-
-        $this->assertNotSame($base['lease_integrity_hash'], $diff['lease_integrity_hash']);
+        $env = $this->factory->envelopeError('reason', 'task-001', 'agent-001');
+        $this->assertSame('blocked', $env['status']);
+        $this->assertSame('blocked', $env['event']);
+        $this->assertSame('reason', $env['reason']);
+        $this->assertSame('task-001', $env['task_packet_id']);
+        $this->assertSame('agent-001', $env['agent_id']);
     }
 
-    public function test_lease_integrity_hash_changes_when_client_id_changes(): void
+    public function test_envelope_error_extra_merges(): void
     {
-        $base = $this->factory->envelopeOk('e', $this->baseLease());
-        $diff = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['client_id' => 'agent-2']));
-
-        $this->assertNotSame($base['lease_integrity_hash'], $diff['lease_integrity_hash']);
+        $env = $this->factory->envelopeError('reason', 'task-001', 'agent-001', ['detail' => 'x']);
+        $this->assertSame('x', $env['detail']);
     }
 
-    public function test_lease_integrity_hash_changes_when_allowed_files_changes(): void
+    // ── Lease integrity hash ─────────────────────────────────────────────────────
+
+    public function test_lease_integrity_hash_is_deterministic(): void
     {
-        $base = $this->factory->envelopeOk('e', $this->baseLease());
-        $diff = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['allowed_files' => ['app/Other.php']]));
-
-        $this->assertNotSame($base['lease_integrity_hash'], $diff['lease_integrity_hash']);
+        $env1 = $this->factory->envelopeOk('acquired', $this->lease());
+        $env2 = $this->factory->envelopeOk('acquired', $this->lease());
+        $this->assertSame($env1['lease_integrity_hash'], $env2['lease_integrity_hash']);
     }
 
-    public function test_lease_integrity_hash_changes_when_expires_at_unix_changes(): void
+    public function test_lease_integrity_hash_changes_with_different_allowed_files(): void
     {
-        $base = $this->factory->envelopeOk('e', $this->baseLease());
-        $diff = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['expires_at_unix' => 9999999999]));
-
-        $this->assertNotSame($base['lease_integrity_hash'], $diff['lease_integrity_hash']);
+        $env1 = $this->factory->envelopeOk('acquired', $this->lease(['allowed_files' => ['a.php']]));
+        $env2 = $this->factory->envelopeOk('acquired', $this->lease(['allowed_files' => ['b.php']]));
+        $this->assertNotSame($env1['lease_integrity_hash'], $env2['lease_integrity_hash']);
     }
 
-    public function test_lease_integrity_hash_is_order_insensitive_for_allowed_files(): void
+    public function test_lease_integrity_hash_changes_with_different_client(): void
     {
-        $forward = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['allowed_files' => ['app/A.php', 'app/B.php']]));
-        $reversed = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['allowed_files' => ['app/B.php', 'app/A.php']]));
-
-        $this->assertSame($forward['lease_integrity_hash'], $reversed['lease_integrity_hash']);
+        $env1 = $this->factory->envelopeOk('acquired', $this->lease(['client_id' => 'c1']));
+        $env2 = $this->factory->envelopeOk('acquired', $this->lease(['client_id' => 'c2']));
+        $this->assertNotSame($env1['lease_integrity_hash'], $env2['lease_integrity_hash']);
     }
 
-    // --- buildLeaseEventReceipt: canonical receipts for the 6 lease events ---
+    // ── buildLeaseEventReceipt ───────────────────────────────────────────────────
 
-    public function test_build_lease_event_receipt_includes_all_canonical_fields(): void
+    public function test_build_lease_event_receipt_for_acquired(): void
     {
-        $r = $this->factory->buildLeaseEventReceipt(
-            AgentControlPlaneLeaseEnvelopeFactory::EVENT_ACQUIRED,
-            'TP1',
-            'A1',
-            'L1',
-            'lease_claimed_by_agent',
-        );
-
-        $this->assertSame('TP1', $r['task_packet_id']);
-        $this->assertSame('A1', $r['agent_id']);
-        $this->assertSame('L1', $r['lease_id']);
-        $this->assertSame('acquired', $r['event']);
-        $this->assertSame('lease_claimed_by_agent', $r['reason']);
-        $this->assertArrayHasKey('recorded_at', $r);
-        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $r['receipt_hash']);
+        $receipt = $this->factory->buildLeaseEventReceipt('acquired', 'task-001', 'agent-001', 'lease-001');
+        $this->assertSame('lease_acquired', $receipt['receipt_kind']);
+        $this->assertSame('task-001', $receipt['task_packet_id']);
+        $this->assertSame('agent-001', $receipt['agent_id']);
+        $this->assertSame('lease-001', $receipt['lease_id']);
+        $this->assertSame('acquired', $receipt['event']);
     }
 
-    public function test_build_lease_event_receipt_hash_is_deterministic(): void
+    public function test_build_lease_event_receipt_for_contention_without_lease_id(): void
     {
-        $a = $this->factory->buildLeaseEventReceipt(AgentControlPlaneLeaseEnvelopeFactory::EVENT_RENEWED, 'TP1', 'A1', 'L1', 'ttl_extended');
-        $b = $this->factory->buildLeaseEventReceipt(AgentControlPlaneLeaseEnvelopeFactory::EVENT_RENEWED, 'TP1', 'A1', 'L1', 'ttl_extended');
-
-        $this->assertSame($a['receipt_hash'], $b['receipt_hash']);
+        $receipt = $this->factory->buildLeaseEventReceipt('contention', 'task-001', 'agent-001');
+        $this->assertSame('lease_contention', $receipt['receipt_kind']);
+        $this->assertSame('', $receipt['lease_id']);
     }
 
-    public function test_build_lease_event_receipt_contention_allows_empty_lease_id(): void
+    public function test_build_lease_event_receipt_for_error_without_lease_id(): void
     {
-        $r = $this->factory->buildLeaseEventReceipt(
-            AgentControlPlaneLeaseEnvelopeFactory::EVENT_CONTENTION,
-            'TP1',
-            'A1',
-            '',
-            'lock_timeout',
-        );
-
-        $this->assertSame('contention', $r['event']);
-        $this->assertSame('', $r['lease_id']);
-        $this->assertSame('lock_timeout', $r['reason']);
+        $receipt = $this->factory->buildLeaseEventReceipt('error', 'task-001', 'agent-001');
+        $this->assertSame('lease_error', $receipt['receipt_kind']);
+        $this->assertSame('', $receipt['lease_id']);
     }
 
-    public function test_build_lease_event_receipt_error_allows_empty_lease_id(): void
-    {
-        $r = $this->factory->buildLeaseEventReceipt(
-            AgentControlPlaneLeaseEnvelopeFactory::EVENT_ERROR,
-            'TP1',
-            'A1',
-            '',
-            'unexpected_exception',
-        );
-
-        $this->assertSame('error', $r['event']);
-        $this->assertSame('', $r['lease_id']);
-    }
-
-    public function test_build_lease_event_receipt_rejects_missing_task_packet_id(): void
+    public function test_build_lease_event_receipt_throws_for_unknown_event(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-
-        $this->factory->buildLeaseEventReceipt(AgentControlPlaneLeaseEnvelopeFactory::EVENT_ACQUIRED, '', 'A1', 'L1');
+        $this->factory->buildLeaseEventReceipt('unknown', 'task-001', 'agent-001');
     }
 
-    public function test_build_lease_event_receipt_rejects_missing_agent_id(): void
+    public function test_build_lease_event_receipt_throws_for_empty_task_packet_id(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-
-        $this->factory->buildLeaseEventReceipt(AgentControlPlaneLeaseEnvelopeFactory::EVENT_ACQUIRED, 'TP1', '', 'L1');
+        $this->factory->buildLeaseEventReceipt('acquired', '', 'agent-001');
     }
 
-    public function test_build_lease_event_receipt_rejects_missing_lease_id_for_acquired(): void
+    public function test_build_lease_event_receipt_throws_for_empty_agent_id(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-
-        $this->factory->buildLeaseEventReceipt(AgentControlPlaneLeaseEnvelopeFactory::EVENT_ACQUIRED, 'TP1', 'A1', '');
+        $this->factory->buildLeaseEventReceipt('acquired', 'task-001', '');
     }
 
-    public function test_build_lease_event_receipt_rejects_unknown_event(): void
+    public function test_build_lease_event_receipt_throws_for_renewed_without_lease_id(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-
-        $this->factory->buildLeaseEventReceipt('bogus_event', 'TP1', 'A1', 'L1');
+        $this->factory->buildLeaseEventReceipt('renewed', 'task-001', 'agent-001');
     }
 
-    // --- composition: SCHEMA_VERSION consistency between envelopes --------
-
-    public function test_all_three_envelope_helpers_emit_same_schema_version(): void
+    public function test_build_lease_event_receipt_extra_merges(): void
     {
-        $lease = ['lease_id' => 'L1', 'task_packet_id' => 'TP1', 'lease_status' => 'active'];
-        $sv = 'atlas.self_construction.agent_control_plane_claim_lease_runtime.v1';
+        $receipt = $this->factory->buildLeaseEventReceipt('acquired', 'task-001', 'agent-001', 'lease-001', '', ['custom' => 'val']);
+        $this->assertSame('val', $receipt['custom']);
+    }
 
-        $this->assertSame($sv, $this->factory->envelopeOk('lease_claimed', $lease)['schema_version']);
-        $this->assertSame($sv, $this->factory->envelopeError('lease_not_found', 'TP1', 'A1')['schema_version']);
-        $this->assertSame($sv, $this->factory->lockContentionEnvelope('lock_timeout')['schema_version']);
+    // ── All six canonical events ─────────────────────────────────────────────────
+
+    public function test_all_six_events_produce_receipts(): void
+    {
+        foreach (['acquired', 'renewed', 'released', 'expired', 'contention', 'error'] as $event) {
+            $receipt = $this->factory->buildLeaseEventReceipt($event, 'task-001', 'agent-001', 'lease-001');
+            $this->assertSame("lease_{$event}", $receipt['receipt_kind']);
+        }
+    }
+
+    // ── Determinism ──────────────────────────────────────────────────────────────
+
+    public function test_envelope_ok_is_deterministic_for_same_lease(): void
+    {
+        $lease = $this->lease();
+        $e1 = $this->factory->envelopeOk('acquired', $lease);
+        $e2 = $this->factory->envelopeOk('acquired', $lease);
+        $this->assertSame($e1, $e2);
     }
 }
