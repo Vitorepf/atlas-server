@@ -330,6 +330,8 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrix
                 'fail_closed_combinations' => $failClosed,
                 'preferred_tier'           => $preferredTier,
                 'routing_basis'            => 'family_worker_success_rate',
+                'insufficient_sample'      => ($familyMatrix[$fam]['total'] ?? 0) < $routingMinRows,
+                'verified_impact'          => ($familyMatrix[$fam]['total'] ?? 0) >= $routingMinRows,
             ];
         }
 

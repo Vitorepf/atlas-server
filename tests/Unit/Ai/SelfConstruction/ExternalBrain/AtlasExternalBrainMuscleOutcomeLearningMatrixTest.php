@@ -569,4 +569,31 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrixTest extends TestCase
 
         $this->assertSame('poison_prone', $r['family_matrix']['refactor']['signal']);
     }
+
+    // ── insufficient_sample, verified_impact ──
+
+    public function test_insufficient_sample_is_true_for_low_sample_family(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['task_family' => 'add_feature', 'outcome' => 'success']),
+            ],
+            'routing_min_rows' => 2,
+        ]);
+        $this->assertTrue($r['routing_recommendations']['add_feature']['insufficient_sample']);
+        $this->assertFalse($r['routing_recommendations']['add_feature']['verified_impact']);
+    }
+
+    public function test_verified_impact_is_true_for_sufficient_sample_family(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['task_family' => 'refactor', 'outcome' => 'success']),
+                $this->row(['task_family' => 'refactor', 'outcome' => 'success']),
+            ],
+            'routing_min_rows' => 2,
+        ]);
+        $this->assertFalse($r['routing_recommendations']['refactor']['insufficient_sample']);
+        $this->assertTrue($r['routing_recommendations']['refactor']['verified_impact']);
+    }
 }
