@@ -795,4 +795,25 @@ final class AtlasExternalBrainMuscleReadinessContractTest extends TestCase
         $this->assertContains('clear_give_back_path', $r['blocking_deficiencies']);
         $this->assertGreaterThan(0.0, $r['give_back_risk_score']);
     }
+
+    // ── worker_contract_summary ──
+
+    public function test_worker_contract_summary_present_when_ready(): void
+    {
+        $r = $this->contract->check($this->readySpec());
+        $this->assertArrayHasKey('worker_contract_summary', $r);
+        $this->assertNotNull($r['worker_contract_summary']);
+        $this->assertArrayHasKey('objective', $r['worker_contract_summary']);
+        $this->assertArrayHasKey('allowed_files', $r['worker_contract_summary']);
+        $this->assertArrayHasKey('required_evidence', $r['worker_contract_summary']);
+        $this->assertArrayHasKey('give_back_condition', $r['worker_contract_summary']);
+        $this->assertArrayHasKey('risk_level', $r['worker_contract_summary']);
+        $this->assertArrayHasKey('task_family', $r['worker_contract_summary']);
+    }
+
+    public function test_worker_contract_summary_null_when_not_ready(): void
+    {
+        $r = $this->contract->check($this->readySpec(['allowed_files' => []]));
+        $this->assertNull($r['worker_contract_summary']);
+    }
 }

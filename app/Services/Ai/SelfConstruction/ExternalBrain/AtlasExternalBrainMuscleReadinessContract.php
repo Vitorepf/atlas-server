@@ -121,6 +121,9 @@ final class AtlasExternalBrainMuscleReadinessContract
             'checks'                => $result['checks'],
             'repair_hints'          => $result['repair_hints'],
             'worker_readiness'      => $this->assessWorkerReadiness($spec),
+            'worker_contract_summary' => $result['ready']
+                ? $this->buildWorkerContractSummary($spec, $allowedFiles)
+                : null,
         ];
     }
 
@@ -636,6 +639,25 @@ final class AtlasExternalBrainMuscleReadinessContract
             'passed' => $reasons === [],
             'reason' => $reasons === [] ? '' : implode('; ', $reasons),
             'hints'  => $hints,
+        ];
+    }
+
+    /**
+     * Build a concise worker contract summary for ready candidates.
+     *
+     * @param  array<string, mixed>  $spec
+     * @param  list<string>  $allowedFiles
+     * @return array{objective:string, allowed_files:list<string>, required_evidence:list<string>, give_back_condition:string, risk_level:string, task_family:string}|null
+     */
+    private function buildWorkerContractSummary(array $spec, array $allowedFiles): ?array
+    {
+        return [
+            'objective'         => (string) ($spec['objective'] ?? ''),
+            'allowed_files'     => $allowedFiles,
+            'required_evidence' => is_array($spec['required_evidence'] ?? null) ? $spec['required_evidence'] : [],
+            'give_back_condition' => (string) ($spec['give_back_condition'] ?? ''),
+            'risk_level'        => (string) ($spec['risk_level'] ?? 'low'),
+            'task_family'       => (string) ($spec['task_family'] ?? ''),
         ];
     }
 }
