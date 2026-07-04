@@ -137,4 +137,51 @@ class AtlasMaestroPriorityFactSnapshotterTest extends TestCase
 
         self::assertSame(json_encode($a), json_encode($b));
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: contract tests — disabled, output keys, no score/rank
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_master_switch_off_returns_disabled_and_does_not_write(): void
+    {
+        Config::set('atlas.loop.master_enabled', false);
+        $packets = [['task_packet_id' => 'x', 'tags' => ['a'], 'depends_on' => []]];
+        $before = $this->rowCount();
+        $verdict = $this->snapshotter($packets)->snapshot();
+
+        self::assertTrue($verdict['disabled']);
+        self::assertSame('master_switch_off', $verdict['reason']);
+        self::assertSame($before, $this->rowCount(), 'no rows written when master switch is off');
+    }
+
+    public function test_snapshot_output_includes_all_required_facts(): void
+    {
+        $packets = [
+            ['task_packet_id' => 'pkt-A', 'tags' => ['refactor', 'db'], 'depends_on' => []],
+            ['task_packet_id' => 'pkt-B', 'tags' => ['refactor'], 'depends_on' => ['pkt-A']],
+        ];
+        $leases = [['started_at_ms' => 1000, 'completed_at_ms' => 1500, 'worker_id' => 'w1']];
+        $inFlight = [['started_at_ms' => 3000, 'worker_id' => 'w2']];
+
+        $facts = $this->snapshotter($packets, $leases, $inFlight)->snapshot()['facts'];
+
+        $this->assertArrayHasKey('queue_depth_by_tag', $facts);
+        $this->assertArrayHasKey('task_family_backlog', $facts);
+        $this->assertArrayHasKey('worker_idle_prediction_ms', $facts);
+        $this->assertArrayHasKey('dependency_criticality_by_task_id', $facts);
+        $this->assertSame(['db' => 1, 'refactor' => 2], $facts['queue_depth_by_tag']);
+        $this->assertSame(['pkt' => 2], $facts['task_family_backlog']);
+    }
+
+    public function test_no_score_or_rank_ever_emitted(): void
+    {
+        $packets = [['task_packet_id' => 'p', 'tags' => ['t'], 'depends_on' => []]];
+        $verdict = $this->snapshotter($packets)->snapshot();
+        $encoded = json_encode($verdict);
+
+        foreach (['"score"', '"rank"', '"priority_score"', '"weight"]'] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $encoded,
+                "snapshot must never contain {$forbidden}");
+        }
+    }
 }
