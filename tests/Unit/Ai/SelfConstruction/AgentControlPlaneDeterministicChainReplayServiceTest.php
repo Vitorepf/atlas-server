@@ -70,6 +70,29 @@ final class AgentControlPlaneDeterministicChainReplayServiceTest extends TestCas
         $this->assertNotSame($first['deterministic_replay_hash'], $second['deterministic_replay_hash']);
     }
 
+    // ── stage_hashes, first_divergent_stage ──
+
+    public function test_output_has_stage_hashes_and_first_divergent_stage(): void
+    {
+        $replay = $this->newService()->replay();
+        $this->assertArrayHasKey('stage_hashes', $replay);
+        $this->assertArrayHasKey('first_divergent_stage', $replay);
+    }
+
+    public function test_stage_hashes_contains_all_five_stages(): void
+    {
+        $replay = $this->newService()->replay();
+        foreach (['context', 'task', 'execution', 'proof', 'learning'] as $stage) {
+            $this->assertArrayHasKey($stage, $replay['stage_hashes']);
+        }
+    }
+
+    public function test_first_divergent_stage_is_null_when_all_stages_valid(): void
+    {
+        $replay = $this->newService()->replay();
+        $this->assertNull($replay['first_divergent_stage']);
+    }
+
     private function newService(): AgentControlPlaneDeterministicChainReplayService
     {
         $audit = new AgentControlPlaneChainIntegrityAuditService($this->readiness());
