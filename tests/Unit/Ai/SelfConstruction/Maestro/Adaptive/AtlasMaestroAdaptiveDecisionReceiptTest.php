@@ -174,6 +174,41 @@ final class AtlasMaestroAdaptiveDecisionReceiptTest extends TestCase
         $this->assertArrayHasKey('record_hash', $safe);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: invalid decision_kind normalization, deterministic hash, append-only
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_invalid_decision_kind_normalizes_to_route_abstain(): void
+    {
+        $store = $this->store();
+        $payload = $this->payload('invalid_kind_xyz');
+        $row = $store->record($payload);
+
+        $this->assertSame(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_ABSTAIN, $row['decision_kind']);
+    }
+
+    public function test_receipts_are_ordered_and_filterable_by_packet(): void
+    {
+        $store = $this->store();
+        $store->record($this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_SELECTED, chosenWorker: 'w1'));
+        $store->record($this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_SELECTED, chosenWorker: 'w2'));
+
+        $rows = $store->receipts('packet-1');
+        $this->assertCount(2, $rows);
+        $this->assertSame(1, $rows[0]['decision_id']);
+        $this->assertSame(2, $rows[1]['decision_id']);
+    }
+
+    public function test_receipts_since_filters_by_decision_id(): void
+    {
+        $store = $this->store();
+        $store->record($this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_SELECTED, chosenWorker: 'w1'));
+        $store->record($this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_SELECTED, chosenWorker: 'w2'));
+        $store->record($this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_SELECTED, chosenWorker: 'w3'));
+
+        $this->assertCount(2, $store->receiptsSince(1));
+    }
+
     private function store(): AtlasMaestroAdaptiveDecisionReceipt
     {
         return new AtlasMaestroAdaptiveDecisionReceipt($this->path);
