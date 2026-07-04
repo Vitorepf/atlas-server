@@ -54,13 +54,32 @@ final class AtlasTaskFabricSemanticDuplicateIndex
             $eFamily = (string) ($entry['target_family'] ?? '');
             $eIntent = $this->normalizeKey((string) ($entry['acceptance_intent'] ?? ''));
 
-            // Same capability key + same target family → semantic duplicate
-            if ($cCap !== '' && $cCap === $eCap && $cFamily === $eFamily) {
+            // AC2: class-name variants in the same family with overlapping allowed_files — flag
+            // unless unlock_chains or evidence_floor prove complementarity.
+            if ($cCap !== '' && $cCap === $eCap && $cFamily === $eFamily && $cFamily !== '') {
+                // Check complementarity: distinct unlock_chains or evidence_floor → complementary, not duplicate.
+                $cUnlockChains = (string) ($candidate['unlock_chains'] ?? '');
+                $eUnlockChains = (string) ($entry['unlock_chains'] ?? '');
+                if ($cUnlockChains !== '' && $eUnlockChains !== '' && $cUnlockChains !== $eUnlockChains) {
+                    continue; // complementary unlock chains — not duplicate
+                }
+                $cEvidenceFloor = (string) ($candidate['evidence_floor'] ?? '');
+                $eEvidenceFloor = (string) ($entry['evidence_floor'] ?? '');
+                if ($cEvidenceFloor !== '' && $eEvidenceFloor !== '' && $cEvidenceFloor !== $eEvidenceFloor) {
+                    continue; // complementary evidence floors — not duplicate
+                }
+                // Overlapping allowed_files strengthens the duplicate signal.
+                $cFiles = $this->normalizeFiles($candidate['allowed_files'] ?? []);
+                $eFiles = $this->normalizeFiles($entry['allowed_files'] ?? []);
+                $filesOverlap = array_intersect($cFiles, $eFiles) !== [];
+
                 return $this->envelope(
                     self::DUPLICATE_SEMANTIC,
                     (string) ($entry['task_packet_id'] ?? ''),
                     $eFamily,
-                    ['matched:capability_key+target_family:'.$cCap]
+                    $filesOverlap
+                        ? ['matched:capability_key+target_family+overlapping_files:'.$cCap]
+                        : ['matched:capability_key+target_family:'.$cCap],
                 );
             }
 
