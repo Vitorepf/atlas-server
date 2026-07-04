@@ -161,4 +161,67 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditorTest extends Te
         $this->assertFalse($result['mutates_queue']);
         $this->assertSame(0, $result['edge_count']);
     }
+
+    // ── AC2: rescope_patch on stale/dangling edges ─────────────────────────
+
+    public function test_dangling_stale_edge_includes_rescope_patch_with_remove(): void
+    {
+        $result = $this->auditor()->audit([
+            'edges' => [['task_id' => 'a', 'depends_on_task_id' => 'ghost']],
+            'statuses' => [],
+        ]);
+
+        $this->assertArrayHasKey('rescope_patch', $result['stale_edges'][0]);
+        $this->assertArrayHasKey('remove_depends_on', $result['stale_edges'][0]['rescope_patch']);
+        $this->assertSame('ghost', $result['stale_edges'][0]['rescope_patch']['remove_depends_on']);
+    }
+
+    // ── AC3: rescope_patch on superseded edges with replace ───────────────
+
+    public function test_superseded_edge_includes_rescope_patch_with_replace(): void
+    {
+        $result = $this->auditor()->audit([
+            'edges' => [['task_id' => 'a', 'depends_on_task_id' => 'b']],
+            'statuses' => ['b' => 'queued'],
+            'superseded_targets' => ['b' => 'b-replacement'],
+        ]);
+
+        $this->assertArrayHasKey('rescope_patch', $result['superseded_dependents'][0]);
+        $patch = $result['superseded_dependents'][0]['rescope_patch'];
+        $this->assertArrayHasKey('replace_depends_on', $patch);
+        $this->assertArrayHasKey('replacement_id', $patch);
+        $this->assertSame('b', $patch['replace_depends_on']);
+        $this->assertSame('b-replacement', $patch['replacement_id']);
+    }
+
+    // ── AC4: completed with delivered evidence never emits rescope_patch ──
+
+    public function test_satisfied_dependency_never_emits_rescope_patch(): void
+    {
+        $result = $this->auditor()->audit([
+            'edges' => [['task_id' => 'a', 'depends_on_task_id' => 'b']],
+            'statuses' => ['b' => 'completed'],
+            'completion_outcomes' => ['b' => ['outcome' => 'delivered', 'capability_evidence_present' => true]],
+        ]);
+
+        $this->assertSame([], $result['broken_dependencies']);
+        $this->assertSame([], $result['stale_edges']);
+        $this->assertSame([], $result['superseded_dependents']);
+    }
+
+    public function test_quarantined_and_cancelled_also_have_rescope_patch(): void
+    {
+        $result = $this->auditor()->audit([
+            'edges' => [
+                ['task_id' => 'a', 'depends_on_task_id' => 'x'],
+                ['task_id' => 'b', 'depends_on_task_id' => 'y'],
+            ],
+            'statuses' => ['x' => 'cancelled', 'y' => 'quarantined'],
+        ]);
+
+        foreach ($result['broken_dependencies'] as $edge) {
+            $this->assertArrayHasKey('rescope_patch', $edge);
+            $this->assertArrayHasKey('remove_depends_on', $edge['rescope_patch']);
+        }
+    }
 }

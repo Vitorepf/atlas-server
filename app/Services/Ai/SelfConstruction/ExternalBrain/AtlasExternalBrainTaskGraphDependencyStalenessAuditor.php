@@ -83,6 +83,7 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
                 $staleEdges[] = $edgeRow + [
                     'reason' => 'dependency_status_unknown_dangling_reference',
                     'rescope_plan' => "repoint or drop {$taskId}'s dependency on {$dependsOn}: no known status for a dangling reference",
+                    'rescope_patch' => ['remove_depends_on' => $dependsOn],
                 ];
                 $repairOrRetireRecommendations[] = [
                     'task_id' => $taskId,
@@ -96,7 +97,7 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
 
             if ($supersededBy !== '') {
                 $rescopePlan = "repoint {$taskId}'s dependency from {$dependsOn} to its replacement {$supersededBy}";
-                $supersededDependents[] = $edgeRow + ['superseded_by' => $supersededBy, 'reason' => 'formally_superseded', 'rescope_plan' => $rescopePlan];
+                $supersededDependents[] = $edgeRow + ['superseded_by' => $supersededBy, 'reason' => 'formally_superseded', 'rescope_plan' => $rescopePlan, 'rescope_patch' => ['replace_depends_on' => $dependsOn, 'replacement_id' => $supersededBy]];
                 $repairOrRetireRecommendations[] = [
                     'task_id' => $taskId,
                     'action' => 'repair',
@@ -113,7 +114,7 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
             $implementedBy = trim((string) ($capabilityAlreadyImplemented[$dependsOn] ?? ''));
             if ($implementedBy !== '') {
                 $rescopePlan = "repoint {$taskId}'s dependency from {$dependsOn} to {$implementedBy}, which already implements the capability it was waiting on";
-                $supersededDependents[] = $edgeRow + ['superseded_by' => $implementedBy, 'reason' => 'capability_already_implemented_elsewhere', 'rescope_plan' => $rescopePlan];
+                $supersededDependents[] = $edgeRow + ['superseded_by' => $implementedBy, 'reason' => 'capability_already_implemented_elsewhere', 'rescope_plan' => $rescopePlan, 'rescope_patch' => ['replace_depends_on' => $dependsOn, 'replacement_id' => $implementedBy]];
                 $repairOrRetireRecommendations[] = [
                     'task_id' => $taskId,
                     'action' => 'repair',
@@ -129,7 +130,7 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
                 $rescopePlan = $status === 'quarantined'
                     ? "rescope {$taskId} to drop or replace its quarantined dependency {$dependsOn} pending review"
                     : "retire {$taskId}: its dependency {$dependsOn} is cancelled and will never complete";
-                $brokenDependencies[] = $edgeRow + ['reason' => $reason, 'rescope_plan' => $rescopePlan];
+                $brokenDependencies[] = $edgeRow + ['reason' => $reason, 'rescope_plan' => $rescopePlan, 'rescope_patch' => ['remove_depends_on' => $dependsOn]];
                 $repairOrRetireRecommendations[] = [
                     'task_id' => $taskId,
                     'action' => $status === 'quarantined' ? 'rescope' : 'retire',
@@ -146,7 +147,7 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
                     $satisfiedDependencies[] = $edgeRow;
                 } else {
                     $rescopePlan = "rescope {$taskId}: dependency {$dependsOn} claims completed but lacks delivered capability evidence — request proof or reopen";
-                    $brokenDependencies[] = $edgeRow + ['reason' => 'completed_without_delivered_capability_evidence', 'rescope_plan' => $rescopePlan];
+                    $brokenDependencies[] = $edgeRow + ['reason' => 'completed_without_delivered_capability_evidence', 'rescope_plan' => $rescopePlan, 'rescope_patch' => ['remove_depends_on' => $dependsOn]];
                     $repairOrRetireRecommendations[] = [
                         'task_id' => $taskId,
                         'action' => 'repair',
@@ -164,7 +165,7 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
             $ageDays = max(0, (int) ($dependencyAgeDays[$dependsOn] ?? 0));
             if ($ageDays > self::STALE_DEPENDENCY_AGE_DAYS) {
                 $rescopePlan = "resequence {$taskId}: dependency {$dependsOn} has been waiting {$ageDays} days — verify it is still required, or drop/replace it";
-                $staleEdges[] = $edgeRow + ['reason' => 'stale_dependency', 'age_days' => $ageDays, 'rescope_plan' => $rescopePlan];
+                $staleEdges[] = $edgeRow + ['reason' => 'stale_dependency', 'age_days' => $ageDays, 'rescope_plan' => $rescopePlan, 'rescope_patch' => ['remove_depends_on' => $dependsOn]];
                 $repairOrRetireRecommendations[] = [
                     'task_id' => $taskId,
                     'action' => 'resequence',
