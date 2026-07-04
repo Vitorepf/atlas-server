@@ -176,6 +176,25 @@ final class AtlasExternalBrainScopeFamilyWaveGrouper
             ];
         }
 
+        // Family load: per-family wave distribution — tracks whether a file family is
+        // over-concentrated in any single wave.
+        $familyLoad = [];
+        foreach ($tasks as $id => $task) {
+            foreach ($task['allowed_files'] as $file) {
+                if (! isset($familyLoad[$file])) {
+                    $familyLoad[$file] = ['file' => $file, 'wave_distribution' => []];
+                }
+                $waveIdx = $waveIndexOf[$id] ?? 0;
+                $familyLoad[$file]['wave_distribution'][$waveIdx] = ($familyLoad[$file]['wave_distribution'][$waveIdx] ?? 0) + 1;
+            }
+        }
+        // Sort keys in each wave_distribution for deterministic output.
+        foreach ($familyLoad as &$entry) {
+            ksort($entry['wave_distribution'], SORT_NUMERIC);
+        }
+        unset($entry);
+        usort($familyLoad, static fn (array $a, array $b): int => strcmp($a['file'], $b['file']));
+
         return [
             'schema'                          => self::SCHEMA,
             'compatible_groups'               => array_values($compatibleGroups),
@@ -183,6 +202,7 @@ final class AtlasExternalBrainScopeFamilyWaveGrouper
             'recommended_parallelism'         => max(1, $largestGroupSize),
             'tasks_that_should_run_serially'  => $tasksThatShouldRunSerially,
             'task_placements'                 => $taskPlacements,
+            'family_load'                     => $familyLoad,
         ];
     }
 
