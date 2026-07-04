@@ -117,4 +117,53 @@ final class AtlasMaestroAssignmentReceiptLedgerTest extends TestCase
             'wall_clock_iso8601' => '2026-06-24T12:00:00+00:00',
         ];
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: contract — outcome validation, idempotent, canonicalPayload
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_valid_outcomes_accepted(): void
+    {
+        $ledger = $this->ledger();
+        foreach (['assigned', 'succeeded', 'failed_over', 'abandoned'] as $valid) {
+            $hash = $ledger->record($this->receipt('p-'.$valid, outcome: $valid));
+            $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $hash,
+                "outcome '{$valid}' must produce a valid hash");
+        }
+        $this->assertCount(4, $ledger->recent(10));
+    }
+
+    public function test_unknown_outcome_throws_and_does_not_write(): void
+    {
+        $this->expectException(\DomainException::class);
+        $this->ledger()->record($this->receipt('p-bad', outcome: 'unknown_status'));
+        $this->assertFileDoesNotExist($this->path, 'no ledger file must be created on failure');
+    }
+
+    public function test_canonical_payload_includes_all_required_fields(): void
+    {
+        $ledger = $this->ledger();
+        $hash = $ledger->record($this->receipt('p1', outcome: 'succeeded'));
+        $row = $ledger->recent(1)[0];
+
+        $this->assertArrayHasKey('task_packet_id', $row);
+        $this->assertArrayHasKey('packet_class', $row);
+        $this->assertArrayHasKey('reason_code', $row);
+        $this->assertArrayHasKey('fallback_chain', $row);
+        $this->assertArrayHasKey('fallback_used', $row);
+        $this->assertArrayHasKey('wall_clock_iso8601', $row);
+        $this->assertArrayHasKey('receipt_hash', $row);
+        $this->assertArrayHasKey('previous_hash', $row);
+        $this->assertArrayHasKey('outcome', $row);
+    }
+
+    public function test_verify_chain_true_for_untampered_chain(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record($this->receipt('p1'));
+        $ledger->record($this->receipt('p2', outcome: 'succeeded'));
+        $ledger->record($this->receipt('p3', outcome: 'failed_over'));
+
+        $this->assertTrue($ledger->verifyChain());
+    }
 }
