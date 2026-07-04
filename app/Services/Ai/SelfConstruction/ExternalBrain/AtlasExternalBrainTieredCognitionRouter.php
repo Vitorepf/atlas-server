@@ -220,4 +220,64 @@ final class AtlasExternalBrainTieredCognitionRouter
 
         return "assigned_$tier: sufficient_for_task";
     }
+
+    /**
+     * Task fit routing: selects tiers using task_risk, novelty, evidence_need and scaffold_available.
+     * Small tier for low-risk scaffolded tasks; frontier tier only for high-novelty or high-risk
+     * tasks with strong expected leverage.
+     *
+     * @param  array{
+     *   task_risk: float,
+     *   novelty: float,
+     *   evidence_need: float,
+     *   scaffold_available: bool,
+     *   expected_leverage: float,
+     * }  $input
+     * @return array{selected_tier:string, fallback_tier:string, routing_reason:string}
+     */
+    public function taskFitRouting(array $input): array
+    {
+        $taskRisk = (float) ($input['task_risk'] ?? 0.0);
+        $novelty = (float) ($input['novelty'] ?? 0.0);
+        $evidenceNeed = (float) ($input['evidence_need'] ?? 0.0);
+        $scaffoldAvailable = (bool) ($input['scaffold_available'] ?? false);
+        $expectedLeverage = (float) ($input['expected_leverage'] ?? 0.0);
+
+        $highRisk = $taskRisk >= 0.7;
+        $highNovelty = $novelty >= 0.7;
+        $highEvidenceNeed = $evidenceNeed >= 0.7;
+        $strongLeverage = $expectedLeverage >= 0.8;
+
+        // Frontier: high novelty or high risk with strong leverage
+        if (($highNovelty || $highRisk) && $strongLeverage) {
+            $selectedTier = 'frontier';
+            $fallbackTier = $scaffoldAvailable ? 'scaffolded_small' : 'small';
+            $routingReason = sprintf(
+                'frontier_selected: task_risk=%.2f novelty=%.2f expected_leverage=%.2f',
+                $taskRisk, $novelty, $expectedLeverage,
+            );
+        } elseif ($scaffoldAvailable && !$highRisk && !$highNovelty) {
+            // Small tier for low-risk scaffolded tasks
+            $selectedTier = 'small';
+            $fallbackTier = 'scaffolded_small';
+            $routingReason = sprintf(
+                'small_tier_selected: low_risk=%.2f low_novelty=%.2f scaffold_available',
+                $taskRisk, $novelty,
+            );
+        } else {
+            // Default: scaffolded small
+            $selectedTier = 'scaffolded_small';
+            $fallbackTier = 'small';
+            $routingReason = sprintf(
+                'scaffolded_small_selected: task_risk=%.2f novelty=%.2f evidence_need=%.2f',
+                $taskRisk, $novelty, $evidenceNeed,
+            );
+        }
+
+        return [
+            'selected_tier' => $selectedTier,
+            'fallback_tier' => $fallbackTier,
+            'routing_reason' => $routingReason,
+        ];
+    }
 }

@@ -424,4 +424,61 @@ final class AtlasExternalBrainTieredCognitionRouterTest extends TestCase
         $b = $this->router()->route($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── taskFitRouting: selected_tier, fallback_tier, routing_reason ──
+
+    public function test_low_risk_scaffolded_task_selects_small_tier(): void
+    {
+        $r = $this->router()->taskFitRouting([
+            'task_risk' => 0.2,
+            'novelty' => 0.3,
+            'evidence_need' => 0.4,
+            'scaffold_available' => true,
+            'expected_leverage' => 0.5,
+        ]);
+        $this->assertSame('small', $r['selected_tier']);
+        $this->assertSame('scaffolded_small', $r['fallback_tier']);
+        $this->assertStringContainsString('small_tier_selected', $r['routing_reason']);
+    }
+
+    public function test_high_novelty_with_strong_leverage_selects_frontier(): void
+    {
+        $r = $this->router()->taskFitRouting([
+            'task_risk' => 0.5,
+            'novelty' => 0.9,
+            'evidence_need' => 0.8,
+            'scaffold_available' => true,
+            'expected_leverage' => 0.9,
+        ]);
+        $this->assertSame('frontier', $r['selected_tier']);
+        $this->assertSame('scaffolded_small', $r['fallback_tier']);
+        $this->assertStringContainsString('frontier_selected', $r['routing_reason']);
+    }
+
+    public function test_high_risk_with_strong_leverage_selects_frontier(): void
+    {
+        $r = $this->router()->taskFitRouting([
+            'task_risk' => 0.9,
+            'novelty' => 0.3,
+            'evidence_need' => 0.5,
+            'scaffold_available' => false,
+            'expected_leverage' => 0.85,
+        ]);
+        $this->assertSame('frontier', $r['selected_tier']);
+        $this->assertSame('small', $r['fallback_tier']);
+    }
+
+    public function test_default_selects_scaffolded_small(): void
+    {
+        $r = $this->router()->taskFitRouting([
+            'task_risk' => 0.5,
+            'novelty' => 0.5,
+            'evidence_need' => 0.5,
+            'scaffold_available' => false,
+            'expected_leverage' => 0.5,
+        ]);
+        $this->assertSame('scaffolded_small', $r['selected_tier']);
+        $this->assertSame('small', $r['fallback_tier']);
+        $this->assertStringContainsString('scaffolded_small_selected', $r['routing_reason']);
+    }
 }
