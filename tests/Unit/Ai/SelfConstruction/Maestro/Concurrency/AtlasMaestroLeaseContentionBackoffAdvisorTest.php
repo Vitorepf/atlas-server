@@ -159,4 +159,108 @@ final class AtlasMaestroLeaseContentionBackoffAdvisorTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $src, "advisor must not perform {$forbidden}");
         }
     }
+
+    // ── backoff_seconds, jitter_band, fairness_reason ──
+
+    public function test_output_includes_backoff_seconds_jitter_band_fairness_reason(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'active_leases' => 10,
+            'servable_now' => 5,
+            'recent_commit_failures' => 3,
+        ]));
+
+        $this->assertArrayHasKey('backoff_seconds', $result);
+        $this->assertArrayHasKey('jitter_band', $result);
+        $this->assertArrayHasKey('fairness_reason', $result);
+    }
+
+    public function test_backoff_seconds_zero_when_no_contention(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'active_leases' => 2,
+            'servable_now' => 10,
+        ]));
+
+        $this->assertSame(0, $result['backoff_seconds']);
+        $this->assertSame(0, $result['jitter_band']);
+        $this->assertSame('', $result['fairness_reason']);
+    }
+
+    public function test_backoff_seconds_positive_when_contention(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'active_leases' => 10,
+            'servable_now' => 5,
+            'recent_commit_failures' => 3,
+        ]));
+
+        $this->assertGreaterThan(0, $result['backoff_seconds']);
+        $this->assertGreaterThan(0, $result['jitter_band']);
+    }
+
+    public function test_fairness_reason_empty_below_starvation_threshold(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'active_leases' => 10,
+            'servable_now' => 5,
+            'recent_commit_failures' => 3,
+            'consecutive_contention_rounds' => 2,
+            'worker_class' => 'hermes-muscle-3',
+            'total_active_workers' => 5,
+        ]));
+
+        $this->assertSame('', $result['fairness_reason']);
+    }
+
+    public function test_fairness_reason_present_at_starvation_threshold(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'active_leases' => 10,
+            'servable_now' => 5,
+            'recent_commit_failures' => 3,
+            'consecutive_contention_rounds' => 3,
+            'worker_class' => 'hermes-muscle-3',
+            'total_active_workers' => 5,
+        ]));
+
+        $this->assertStringContainsString('starvation_prevention', $result['fairness_reason']);
+        $this->assertStringContainsString('hermes-muscle-3', $result['fairness_reason']);
+    }
+
+    public function test_backoff_seconds_scales_with_consecutive_contention(): void
+    {
+        $low = $this->advisor()->advise($this->facts([
+            'active_leases' => 10,
+            'servable_now' => 5,
+            'recent_commit_failures' => 3,
+            'consecutive_contention_rounds' => 1,
+        ]));
+        $high = $this->advisor()->advise($this->facts([
+            'active_leases' => 10,
+            'servable_now' => 5,
+            'recent_commit_failures' => 3,
+            'consecutive_contention_rounds' => 5,
+        ]));
+
+        $this->assertGreaterThan($low['backoff_seconds'], $high['backoff_seconds']);
+    }
+
+    public function test_jitter_band_scales_with_consecutive_contention(): void
+    {
+        $low = $this->advisor()->advise($this->facts([
+            'active_leases' => 10,
+            'servable_now' => 5,
+            'recent_commit_failures' => 3,
+            'consecutive_contention_rounds' => 0,
+        ]));
+        $high = $this->advisor()->advise($this->facts([
+            'active_leases' => 10,
+            'servable_now' => 5,
+            'recent_commit_failures' => 3,
+            'consecutive_contention_rounds' => 4,
+        ]));
+
+        $this->assertGreaterThan($low['jitter_band'], $high['jitter_band']);
+    }
 }
