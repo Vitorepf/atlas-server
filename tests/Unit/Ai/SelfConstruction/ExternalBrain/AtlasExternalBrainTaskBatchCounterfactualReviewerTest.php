@@ -344,4 +344,68 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewerTest extends TestCa
         $this->assertSame(AtlasExternalBrainTaskBatchCounterfactualReviewer::DECISION_SHRINK, $r['decision']);
         $this->assertSame('proposed', $r['selected_batch']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: opportunity_cost_breakdown + recommended_batch_delta
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_opportunity_cost_breakdown_has_expected_fields(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+        $r = $reviewer->review([], []);
+
+        $this->assertArrayHasKey('opportunity_cost_breakdown', $r);
+        $breakdown = $r['opportunity_cost_breakdown'];
+        $this->assertArrayHasKey('score_gap', $breakdown);
+        $this->assertArrayHasKey('chain_value_gap', $breakdown);
+        $this->assertArrayHasKey('high_leverage_gap', $breakdown);
+    }
+
+    public function test_recommended_batch_delta_present_on_all_decisions(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+
+        // keep
+        $keep = $reviewer->review([['objective' => 'X', 'type' => 'feature', 'leverage' => 'high']]);
+        $this->assertArrayHasKey('recommended_batch_delta', $keep);
+
+        // shrink
+        $shrink = $reviewer->review([
+            ['objective' => 'A', 'type' => 'bug_fix', 'leverage' => 'high', 'allowed_files' => ['app/X.php']],
+            ['objective' => 'A', 'type' => 'bug_fix', 'leverage' => 'high', 'allowed_files' => ['app/X.php']],
+            ['objective' => 'A', 'type' => 'bug_fix', 'leverage' => 'high', 'allowed_files' => ['app/X.php']],
+        ]);
+        $this->assertArrayHasKey('recommended_batch_delta', $shrink);
+        $this->assertNotEmpty($shrink['recommended_batch_delta']);
+
+        // replace
+        $replace = $reviewer->review(
+            [['objective' => 'Low value A', 'type' => 'template', 'leverage' => 'low']],
+            [['objective' => 'High value B', 'type' => 'architecture', 'leverage' => 'high']],
+        );
+        $this->assertArrayHasKey('recommended_batch_delta', $replace);
+        $this->assertContains('adopt_counterfactual_batch_instead', $replace['recommended_batch_delta']);
+    }
+
+    public function test_opportunity_cost_breakdown_reflects_score_gap(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+        $proposed = [['objective' => 'Low A', 'type' => 'template', 'leverage' => 'low']];
+        $counter  = [['objective' => 'High B', 'type' => 'architecture', 'leverage' => 'high']];
+
+        $r = $reviewer->review($proposed, $counter);
+
+        // counterfactual should score higher → score_gap > 0
+        $this->assertGreaterThan(0.0, $r['opportunity_cost_breakdown']['score_gap']);
+    }
+
+    public function test_opportunity_cost_breakdown_zero_when_batches_equal(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+        $r = $reviewer->review([], []);
+
+        $this->assertSame(0.0, $r['opportunity_cost_breakdown']['score_gap']);
+        $this->assertSame(0.0, $r['opportunity_cost_breakdown']['chain_value_gap']);
+        $this->assertSame(0, $r['opportunity_cost_breakdown']['high_leverage_gap']);
+    }
 }
