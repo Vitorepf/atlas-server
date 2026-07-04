@@ -370,4 +370,54 @@ final class AtlasExternalBrainModelQualitySloLedgerTest extends TestCase
         $this->assertSame('green', $r['slo_rows'][0]['status']);
         $this->assertNull($r['slo_rows'][0]['enforcement_action']);
     }
+
+    // ── workerTierGuardrail: slo_status, breached_metrics, routing_guardrail, remediation_hint ──
+
+    public function test_all_slos_met_is_green(): void
+    {
+        $r = $this->svc()->workerTierGuardrail([
+            'model_tier' => 'small',
+            'worker_class' => 'v1',
+            'task_family' => 'refactor',
+            'evidence_quality' => 0.9,
+            'give_back_rate' => 0.05,
+            'verified_impact' => 0.8,
+        ]);
+        $this->assertSame('green', $r['slo_status']);
+        $this->assertSame([], $r['breached_metrics']);
+        $this->assertStringContainsString('all SLOs met', $r['routing_guardrail']);
+        $this->assertSame('no_action_required', $r['remediation_hint']);
+    }
+
+    public function test_evidence_quality_breach(): void
+    {
+        $r = $this->svc()->workerTierGuardrail([
+            'model_tier' => 'small',
+            'worker_class' => 'v1',
+            'task_family' => 'refactor',
+            'evidence_quality' => 0.4,
+            'give_back_rate' => 0.05,
+            'verified_impact' => 0.8,
+        ]);
+        $this->assertSame('breach', $r['slo_status']);
+        $this->assertCount(1, $r['breached_metrics']);
+        $this->assertStringContainsString('evidence_quality', $r['breached_metrics'][0]);
+        $this->assertStringContainsString('extra_validation', $r['routing_guardrail']);
+    }
+
+    public function test_all_three_breaches_triggers_downgrade(): void
+    {
+        $r = $this->svc()->workerTierGuardrail([
+            'model_tier' => 'frontier',
+            'worker_class' => 'v2',
+            'task_family' => 'extraction',
+            'evidence_quality' => 0.2,
+            'give_back_rate' => 0.5,
+            'verified_impact' => 0.1,
+        ]);
+        $this->assertSame('breach', $r['slo_status']);
+        $this->assertCount(3, $r['breached_metrics']);
+        $this->assertStringContainsString('downgrade_tier', $r['routing_guardrail']);
+        $this->assertSame('downgrade_tier_and_recalibrate_scaffold', $r['remediation_hint']);
+    }
 }
