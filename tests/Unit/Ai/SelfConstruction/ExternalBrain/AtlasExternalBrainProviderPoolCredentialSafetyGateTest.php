@@ -136,4 +136,101 @@ final class AtlasExternalBrainProviderPoolCredentialSafetyGateTest extends TestC
             json_encode($this->gate()->assess($input)),
         );
     }
+
+    // ── AC2: explicit blocker tests (raw_secret already tested via descriptor) ──
+
+    public function test_paid_api_key_required_blocker_when_not_entitled(): void
+    {
+        $result = $this->gate()->assess($this->safeFacts([
+            'subscription_entitlement_observed' => false,
+        ]));
+
+        $this->assertContains('paid_api_key_required', $result['blockers']);
+        $this->assertFalse($result['safe_to_probe']);
+    }
+
+    public function test_unredacted_secret_reference_blocker_when_not_redacted(): void
+    {
+        $result = $this->gate()->assess($this->safeFacts([
+            'redaction_status' => false,
+        ]));
+
+        $this->assertContains('unredacted_secret_reference', $result['blockers']);
+        $this->assertFalse($result['safe_to_probe']);
+    }
+
+    public function test_user_home_global_secret_required_blocker_when_not_environment_scoped(): void
+    {
+        $result = $this->gate()->assess($this->safeFacts([
+            'environment_scope' => false,
+        ]));
+
+        $this->assertContains('user_home_global_secret_required', $result['blockers']);
+        $this->assertFalse($result['safe_to_probe']);
+    }
+
+    public function test_missing_rotation_plan_blocker_when_not_attested(): void
+    {
+        $result = $this->gate()->assess($this->safeFacts([
+            'operator_attested_entitlement' => false,
+        ]));
+
+        $this->assertContains('missing_rotation_plan', $result['blockers']);
+        $this->assertFalse($result['safe_to_probe']);
+    }
+
+    // ── AC2: each blocker is independent — removing one doesn't drop others ──
+
+    public function test_multiple_blockers_all_reported(): void
+    {
+        $result = $this->gate()->assess([]);
+
+        $this->assertContains('paid_api_key_required', $result['blockers']);
+        $this->assertContains('unredacted_secret_reference', $result['blockers']);
+        $this->assertContains('user_home_global_secret_required', $result['blockers']);
+        $this->assertContains('missing_rotation_plan', $result['blockers']);
+        $this->assertContains('provider_required_for_steady_state', $result['blockers']);
+        $this->assertCount(5, $result['blockers']);
+        $this->assertFalse($result['safe_to_probe']);
+    }
+
+    // ── AC4: output shape ─────────────────────────────────────────────────────
+
+    public function test_output_includes_safe_to_probe_blockers_facts_and_provider_call_allowed(): void
+    {
+        $result = $this->gate()->assess($this->safeFacts());
+
+        $this->assertArrayHasKey('safe_to_probe', $result);
+        $this->assertArrayHasKey('blockers', $result);
+        $this->assertArrayHasKey('facts', $result);
+        $this->assertArrayHasKey('provider_call_allowed', $result);
+
+        // provider_call_allowed must always be false — the gate never calls a provider.
+        $this->assertFalse($result['provider_call_allowed']);
+    }
+
+    public function test_facts_reflect_input_booleans(): void
+    {
+        $result = $this->gate()->assess($this->safeFacts());
+
+        $this->assertTrue($result['facts']['local_client_logged_in']);
+        $this->assertTrue($result['facts']['subscription_entitlement_observed']);
+        $this->assertFalse($result['facts']['credential_value_present']);
+        $this->assertTrue($result['facts']['redaction_status']);
+        $this->assertTrue($result['facts']['environment_scope']);
+        $this->assertTrue($result['facts']['operator_attested_entitlement']);
+    }
+
+    // ── AC3: never allows provider calls from credential assessment ──────────
+
+    public function test_provider_call_allowed_is_always_false_regardless_of_input(): void
+    {
+        $allBlocked = $this->gate()->assess([]);
+        $allSafe    = $this->gate()->assess($this->safeFacts());
+        $mixed      = $this->gate()->assess($this->safeFacts(['credential_value_present' => true]));
+
+        $this->assertFalse($allBlocked['provider_call_allowed']);
+        $this->assertFalse($allSafe['provider_call_allowed']);
+        $this->assertFalse($mixed['provider_call_allowed']);
+    }
 }

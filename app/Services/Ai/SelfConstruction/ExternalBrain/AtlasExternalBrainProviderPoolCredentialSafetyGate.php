@@ -105,8 +105,9 @@ final class AtlasExternalBrainProviderPoolCredentialSafetyGate
         }
 
         $fallbackAvailable = $facts['local_client_logged_in'] && $facts['environment_scope'];
-        $safeToProbe = ! $facts['credential_value_present'] && $facts['redaction_status'] && $fallbackAvailable
-            && $redactedDiagnostics === [] && ! $billingRequired;
+        // safe_to_probe requires zero blockers — every blocker independently
+        // gates probing.
+        $safeToProbe = $blockers === [];
 
         return [
             'schema' => self::SCHEMA,
