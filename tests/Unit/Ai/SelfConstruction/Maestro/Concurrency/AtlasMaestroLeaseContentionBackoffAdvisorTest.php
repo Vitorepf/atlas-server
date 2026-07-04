@@ -263,4 +263,86 @@ final class AtlasMaestroLeaseContentionBackoffAdvisorTest extends TestCase
 
         $this->assertGreaterThan($low['jitter_band'], $high['jitter_band']);
     }
+
+    // ── per_client_contention and client_worker_deltas ──
+
+    public function test_output_has_client_worker_deltas(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'servable_now' => 10,
+            'active_leases' => 2,
+            'per_client_contention' => [
+                ['client_id' => 'muscle-1', 'commit_failures' => 0],
+                ['client_id' => 'muscle-2', 'commit_failures' => 0],
+            ],
+        ]));
+        $this->assertArrayHasKey('client_worker_deltas', $result);
+        $this->assertCount(2, $result['client_worker_deltas']);
+    }
+
+    public function test_per_client_contention_backs_off_only_noisy_client(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'servable_now' => 10,
+            'active_leases' => 2,
+            'per_client_contention' => [
+                ['client_id' => 'muscle-1', 'commit_failures' => 0],
+                ['client_id' => 'muscle-2', 'commit_failures' => 3],
+            ],
+        ]));
+
+        $deltas = $result['client_worker_deltas'];
+        $this->assertCount(2, $deltas);
+        $this->assertSame('muscle-1', $deltas[0]['client_id']);
+        $this->assertSame(1, $deltas[0]['worker_delta']);
+        $this->assertSame('muscle-2', $deltas[1]['client_id']);
+        $this->assertSame(-1, $deltas[1]['worker_delta']);
+        $this->assertSame('per_client_contention_backoff', $deltas[1]['reason']);
+    }
+
+    public function test_global_contention_produces_global_backoff(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'servable_now' => 5,
+            'active_leases' => 2,
+            'recent_commit_failures' => 3,
+            'per_client_contention' => [
+                ['client_id' => 'muscle-1', 'commit_failures' => 0],
+                ['client_id' => 'muscle-2', 'commit_failures' => 0],
+            ],
+        ]));
+
+        $deltas = $result['client_worker_deltas'];
+        $this->assertCount(2, $deltas);
+        $this->assertSame(-1, $deltas[0]['worker_delta']);
+        $this->assertSame(-1, $deltas[1]['worker_delta']);
+        $this->assertSame('global_contention_backoff', $deltas[0]['reason']);
+    }
+
+    public function test_client_worker_deltas_has_deterministic_client_ids(): void
+    {
+        $facts = $this->facts([
+            'servable_now' => 10,
+            'active_leases' => 2,
+            'per_client_contention' => [
+                ['client_id' => 'muscle-a', 'commit_failures' => 0],
+                ['client_id' => 'muscle-b', 'commit_failures' => 0],
+            ],
+        ]);
+        $a = $this->advisor()->advise($facts);
+        $b = $this->advisor()->advise($facts);
+        $this->assertSame(
+            json_encode($a['client_worker_deltas']),
+            json_encode($b['client_worker_deltas']),
+        );
+    }
+
+    public function test_empty_per_client_contention_yields_empty_deltas(): void
+    {
+        $result = $this->advisor()->advise($this->facts([
+            'servable_now' => 10,
+            'active_leases' => 2,
+        ]));
+        $this->assertSame([], $result['client_worker_deltas']);
+    }
 }

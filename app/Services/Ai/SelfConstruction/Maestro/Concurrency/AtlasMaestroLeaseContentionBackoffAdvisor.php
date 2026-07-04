@@ -58,6 +58,7 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
         $consecutiveContentionRounds = (int) ($facts['consecutive_contention_rounds'] ?? 0);
         $workerClass = (string) ($facts['worker_class'] ?? 'default');
         $totalActiveWorkers = (int) ($facts['total_active_workers'] ?? 1);
+        $perClientContention = (array) ($facts['per_client_contention'] ?? []);
 
         $reasonCodes = [];
         $qualityGateReasonCodes = [];
@@ -81,6 +82,9 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
             $reasonCodes[] = 'contention:index_lock_retries='.$recentIndexLockRetries;
             $hasContention = true;
         }
+
+        // Compute per-client worker deltas
+        $clientWorkerDeltas = $this->computeClientWorkerDeltas($perClientContention, $hasContention, $servableNow, $activeLeases);
 
         $isSaturated = $servableNow <= $activeLeases;
 
@@ -107,6 +111,7 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
                 $backoffSeconds,
                 $jitterBand,
                 $fairnessReason,
+                $clientWorkerDeltas,
             );
         }
 
@@ -117,17 +122,73 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
             if ($qualityBreached) {
                 $reasonCodes[] = 'headroom:servable_now_exceeds_active_leases='.$headroom;
 
-                return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes, $qualityGateReasonCodes, 0, 0, '');
+                return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes, $qualityGateReasonCodes, 0, 0, '', $clientWorkerDeltas);
             }
 
             $reasonCodes[] = 'headroom:servable_now_exceeds_active_leases='.$headroom;
 
-            return $this->result(self::DECISION_SPAWN_MORE, min($headroom, self::SPAWN_BURST_CAP), 0, $reasonCodes, $qualityGateReasonCodes, 0, 0, '');
+            return $this->result(self::DECISION_SPAWN_MORE, min($headroom, self::SPAWN_BURST_CAP), 0, $reasonCodes, $qualityGateReasonCodes, 0, 0, '', $clientWorkerDeltas);
         }
 
         $reasonCodes[] = 'stable:no_strong_signal';
 
-        return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes, $qualityGateReasonCodes, 0, 0, '');
+        return $this->result(self::DECISION_HOLD_CURRENT, 0, 60, $reasonCodes, $qualityGateReasonCodes, 0, 0, '', $clientWorkerDeltas);
+    }
+
+    /**
+     * Compute per-client worker deltas from per-client contention data.
+     *
+     * @param  list<array<string, mixed>>  $perClientContention
+     * @return list<array<string, mixed>>
+     */
+    private function computeClientWorkerDeltas(array $perClientContention, bool $hasGlobalContention, int $servableNow, int $activeLeases): array
+    {
+        if ($perClientContention === []) {
+            return [];
+        }
+
+        $deltas = [];
+        $headroom = $servableNow - $activeLeases;
+
+        foreach ($perClientContention as $client) {
+            $clientId = (string) ($client['client_id'] ?? $client['worker_id'] ?? 'unknown');
+            $clientCommitFailures = (int) ($client['commit_failures'] ?? 0);
+            $clientIndexLockRetries = (int) ($client['index_lock_retries'] ?? 0);
+            $clientHasContention = $clientCommitFailures >= self::COMMIT_FAILURE_THRESHOLD
+                || $clientIndexLockRetries >= self::INDEX_LOCK_RETRY_THRESHOLD;
+
+            if ($hasGlobalContention) {
+                // Global contention — all clients back off
+                $deltas[] = [
+                    'client_id' => $clientId,
+                    'worker_delta' => -1,
+                    'reason' => 'global_contention_backoff',
+                ];
+            } elseif ($clientHasContention) {
+                // Per-client contention — only this client backs off
+                $deltas[] = [
+                    'client_id' => $clientId,
+                    'worker_delta' => -1,
+                    'reason' => 'per_client_contention_backoff',
+                ];
+            } elseif ($headroom >= self::SPAWN_HEADROOM_THRESHOLD) {
+                // Healthy client with headroom — spawn more
+                $deltas[] = [
+                    'client_id' => $clientId,
+                    'worker_delta' => 1,
+                    'reason' => 'headroom_spawn',
+                ];
+            } else {
+                // No signal — hold current
+                $deltas[] = [
+                    'client_id' => $clientId,
+                    'worker_delta' => 0,
+                    'reason' => 'hold_current',
+                ];
+            }
+        }
+
+        return $deltas;
     }
 
     /**
@@ -144,6 +205,7 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
         int $backoffSeconds = 0,
         int $jitterBand = 0,
         string $fairnessReason = '',
+        array $clientWorkerDeltas = [],
     ): array {
         return [
             'schema' => self::SCHEMA,
@@ -155,6 +217,7 @@ final class AtlasMaestroLeaseContentionBackoffAdvisor
             'backoff_seconds' => $backoffSeconds,
             'jitter_band' => $jitterBand,
             'fairness_reason' => $fairnessReason,
+            'client_worker_deltas' => $clientWorkerDeltas,
         ];
     }
 
