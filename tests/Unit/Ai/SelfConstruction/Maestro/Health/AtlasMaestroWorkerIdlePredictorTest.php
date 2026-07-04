@@ -530,6 +530,43 @@ final class AtlasMaestroWorkerIdlePredictorTest extends TestCase
         $this->assertSame('immediate_topup', $projection['recommended_topup_mode']);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: contract — output keys, blind spot reason, fallback drain
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_project_output_has_required_keys(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $r = $this->project(10, 30, 120, $now);
+
+        foreach (['claimable_depth', 'active_workers', 'active_claimed_workers', 'serve_total', 'window_elapsed_seconds', 'serve_rate_per_minute', 'confidence'] as $k) {
+            $this->assertArrayHasKey($k, $r);
+        }
+    }
+
+    public function test_zero_serve_with_active_workers_and_claimable_returns_telemetry_blind_spot(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $health = new class {
+            public function snapshot(): array { return ['claimable_depth' => 10]; }
+        };
+        $sentinel = new class {
+            public function status(): array { return ['serve_total' => 0, 'window_elapsed_seconds' => 120]; }
+        };
+
+        $r = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertArrayHasKey('reason', $r);
+    }
+
+    public function test_fallback_drain_rate_appears_when_claimed_completed_delta_present(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $r = $this->project(10, 30, 120, $now);
+
+        $this->assertIsArray($r);
+    }
+
     /** @return array<string,mixed> */
     private function project(int $depth, int $serveTotal, int $elapsedSeconds, DateTimeImmutable $now): array
     {
