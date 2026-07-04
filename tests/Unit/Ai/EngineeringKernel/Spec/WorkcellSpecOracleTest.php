@@ -44,7 +44,7 @@ final class WorkcellSpecOracleTest extends TestCase
 
     private function draft(array $criteria): SpecDraft
     {
-        return SpecDraft::fromArray(['intent_text' => 'adicionar validação de e-mail', 'acceptance_criteria' => $criteria]);
+        return SpecDraft::fromArray(['intent_text' => 'adicionar validação em EmailValidator.php', 'acceptance_criteria' => $criteria]);
     }
 
     // --- the oracle interpretation ---
@@ -86,8 +86,8 @@ final class WorkcellSpecOracleTest extends TestCase
         $adapter = new AtlasSpecGateAdapter(new WorkcellSpecOracle($this->executor(['ran' => true, 'red_ids' => ['ac_behavior_add']])));
 
         $verdict = $adapter->contestDevSpec([
-            'spec' => ['intent_text' => 'adicionar validação de e-mail', 'acceptance_criteria' => self::GOOD_AC],
-            'intent' => ['raw_goal' => 'adicionar validação de e-mail', 'recognized_verbs' => ['adicionar']],
+            'spec' => ['intent_text' => 'adicionar validação em EmailValidator.php', 'acceptance_criteria' => self::GOOD_AC],
+            'intent' => ['raw_goal' => 'adicionar validação em EmailValidator.php', 'recognized_verbs' => ['adicionar']],
         ], TrustLevel::Dev);
 
         self::assertSame(SpecVerdict::FREEZE, $verdict->status, 'gaps: '.implode(',', $verdict->gaps));
@@ -98,8 +98,8 @@ final class WorkcellSpecOracleTest extends TestCase
         $adapter = new AtlasSpecGateAdapter(new WorkcellSpecOracle($this->executor(['ran' => true, 'red_ids' => []])));
 
         $verdict = $adapter->contestDevSpec([
-            'spec' => ['intent_text' => 'adicionar validação de e-mail', 'acceptance_criteria' => self::GOOD_AC],
-            'intent' => ['raw_goal' => 'adicionar validação de e-mail', 'recognized_verbs' => ['adicionar']],
+            'spec' => ['intent_text' => 'adicionar validação em EmailValidator.php', 'acceptance_criteria' => self::GOOD_AC],
+            'intent' => ['raw_goal' => 'adicionar validação em EmailValidator.php', 'recognized_verbs' => ['adicionar']],
         ], TrustLevel::Dev);
 
         self::assertSame(SpecVerdict::REFUSE, $verdict->status);
@@ -111,8 +111,8 @@ final class WorkcellSpecOracleTest extends TestCase
         $adapter = new AtlasSpecGateAdapter(new WorkcellSpecOracle($this->executor(['ran' => true, 'red_ids' => ['ac_behavior_add']])));
 
         $verdict = $adapter->contestDevSpec([
-            'spec' => ['intent_text' => 'adicionar validação de e-mail', 'acceptance_criteria' => self::GOOD_AC],
-            'intent' => ['raw_goal' => 'adicionar validação de e-mail', 'recognized_verbs' => ['adicionar']],
+            'spec' => ['intent_text' => 'adicionar validação em EmailValidator.php', 'acceptance_criteria' => self::GOOD_AC],
+            'intent' => ['raw_goal' => 'adicionar validação em EmailValidator.php', 'recognized_verbs' => ['adicionar']],
         ], TrustLevel::Autonomos);
 
         self::assertSame(SpecVerdict::HOLD, $verdict->status, 'no independent witness in the autonomous lane yet');

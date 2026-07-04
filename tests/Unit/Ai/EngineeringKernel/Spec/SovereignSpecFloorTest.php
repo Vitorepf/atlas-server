@@ -53,7 +53,7 @@ final class SovereignSpecFloorTest extends TestCase
     private function draft(array $criteria): SpecDraft
     {
         return SpecDraft::fromArray([
-            'intent_text' => 'adicionar validação de e-mail',
+            'intent_text' => 'adicionar validação em EmailValidator.php',
             'acceptance_criteria' => $criteria,
         ]);
     }
@@ -64,7 +64,7 @@ final class SovereignSpecFloorTest extends TestCase
 
     private function intent(): IntentEnvelope
     {
-        return IntentEnvelope::fromArray(['raw_goal' => 'adicionar validação de e-mail', 'recognized_verbs' => ['adicionar']]);
+        return IntentEnvelope::fromArray(['raw_goal' => 'adicionar validação em EmailValidator.php', 'recognized_verbs' => ['adicionar']]);
     }
 
     public function test_a_discriminating_witnessed_spec_freezes(): void

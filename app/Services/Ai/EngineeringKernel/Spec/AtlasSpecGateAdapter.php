@@ -22,6 +22,7 @@ final class AtlasSpecGateAdapter implements SpecAdversary
         SpecOracle $oracle,
         ?WitnessResolver $witnessResolver = null,
         int $configMinDiscriminating = 0,
+        private readonly ?ClarificationSink $clarificationSink = null,
     ) {
         $this->floor = new SovereignSpecFloor(
             $oracle,
@@ -42,10 +43,22 @@ final class AtlasSpecGateAdapter implements SpecAdversary
      */
     public function contestDevSpec(array $evidence, TrustLevel $lane = TrustLevel::Dev): SpecVerdict
     {
-        return $this->contest(
+        $intent = IntentEnvelope::fromArray((array) ($evidence['intent'] ?? []));
+        $verdict = $this->contest(
             SpecDraft::fromArray((array) ($evidence['spec'] ?? $evidence)),
-            IntentEnvelope::fromArray((array) ($evidence['intent'] ?? [])),
+            $intent,
             $lane,
         );
+
+        // Ship the producer: when the spec HOLDS on unresolved ambiguity, route the findings to the
+        // operator clarification queue (side effect kept out of the pure floor / interface path).
+        if ($verdict->status === SpecVerdict::HOLD
+            && in_array('ambiguity_resolved', $verdict->gaps, true)
+            && $this->clarificationSink !== null
+            && $verdict->provenance->ambiguityFindings !== []) {
+            $this->clarificationSink->enqueue($verdict->provenance->ambiguityFindings, $intent);
+        }
+
+        return $verdict;
     }
 }

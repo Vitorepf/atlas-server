@@ -29,6 +29,11 @@ final class SpecAmbiguityProducer
     {
         $findings = [];
 
+        // zero-anchor vagueness: no path/*.php, no CamelCase symbol, no ::/-> member, no quoted id
+        if (! self::hasConcreteAnchor($intent->rawGoal) && ! self::hasConcreteAnchor($draft->intentText)) {
+            $findings[] = 'goal_has_no_concrete_anchor';
+        }
+
         foreach ($intent->recognizedVerbs as $verb) {
             $verb = (string) $verb;
             if ($verb === '') {
@@ -59,5 +64,11 @@ final class SpecAmbiguityProducer
         $quoted = preg_quote($needle, '/');
 
         return (bool) preg_match('/(?<![\p{L}\p{N}_])'.$quoted.'(?![\p{L}\p{N}_])/iu', $haystack);
+    }
+
+    /** Concrete anchor: a file path, a CamelCase symbol, a ::/-> member ref, or a quoted identifier. */
+    private static function hasConcreteAnchor(string $text): bool
+    {
+        return (bool) preg_match('/\S+\.\w{1,5}\b|[A-Z][a-z]+[A-Z]\w*|::|->|`[^`]+`|"[^"]+"|\'[^\']+\'/u', $text);
     }
 }
