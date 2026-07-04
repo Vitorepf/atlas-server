@@ -161,12 +161,31 @@ final class AtlasExternalBrainDecisionLedgerCompactor
         $keptSeparateCount = count($standalone);
         $outputLessonCount = count($lessons);
 
+        // Build conflict_index: count of kept-separate lessons grouped by reason
+        $conflictIndex = [];
+        foreach ($standalone as $lesson) {
+            $reason = $lesson['kept_separate_reason'] ?? 'unknown';
+            $conflictIndex[$reason] = ($conflictIndex[$reason] ?? 0) + 1;
+        }
+
+        // Build stale_or_expired_summary
+        $staleCount = $conflictIndex[self::SEPARATE_REASON_STALE] ?? 0;
+        $expiredCount = $conflictIndex[self::SEPARATE_REASON_EXPIRED] ?? 0;
+        $staleOrExpiredSummary = [
+            'stale_count'    => $staleCount,
+            'expired_count'  => $expiredCount,
+            'total_quarantined' => $staleCount + $expiredCount,
+            'needs_revalidation' => ($staleCount + $expiredCount) > 0,
+        ];
+
         return [
             'schema'             => self::SCHEMA,
             'lessons'            => $lessons,
             'lesson_count'       => $outputLessonCount,
             'compacted_from'     => $total,
             'compaction_savings' => max(0, $total - $outputLessonCount),
+            'conflict_index'     => $conflictIndex,
+            'stale_or_expired_summary' => $staleOrExpiredSummary,
             'compaction_metrics' => [
                 'input_trace_count'          => $total,
                 'output_lesson_count'        => $outputLessonCount,
