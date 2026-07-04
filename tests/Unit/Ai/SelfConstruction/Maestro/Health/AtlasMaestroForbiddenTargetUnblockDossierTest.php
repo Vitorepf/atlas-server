@@ -289,4 +289,82 @@ final class AtlasMaestroForbiddenTargetUnblockDossierTest extends TestCase
         $b = $this->dossier()->buildGroup($packets);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── verdict, safe_alternative_files, operator_only_reason, requeue_allowed ──
+
+    public function test_output_has_verdict_safe_alternative_files_operator_only_reason_requeue_allowed(): void
+    {
+        $r = $this->dossier()->build([
+            'task_id' => 't1',
+            'forbidden_paths' => ['app/Foo.php'],
+            'allowed_paths' => ['app/Services/Proxy/FooProxy.php'],
+        ]);
+        $this->assertArrayHasKey('verdict', $r);
+        $this->assertArrayHasKey('safe_alternative_files', $r);
+        $this->assertArrayHasKey('operator_only_reason', $r);
+        $this->assertArrayHasKey('requeue_allowed', $r);
+    }
+
+    public function test_verdict_safe_alternative_when_allowed_paths_exist(): void
+    {
+        $r = $this->dossier()->build([
+            'task_id' => 't1',
+            'forbidden_paths' => ['app/Foo.php'],
+            'allowed_paths' => ['app/Services/Proxy/FooProxy.php'],
+        ]);
+        $this->assertSame('safe_alternative', $r['verdict']);
+        $this->assertSame(['app/Services/Proxy/FooProxy.php'], $r['safe_alternative_files']);
+    }
+
+    public function test_verdict_wrapper_path_when_no_allowed_paths(): void
+    {
+        $r = $this->dossier()->build([
+            'task_id' => 't1',
+            'forbidden_paths' => ['app/Foo.php'],
+        ]);
+        $this->assertSame('wrapper_path', $r['verdict']);
+        $this->assertSame([], $r['safe_alternative_files']);
+    }
+
+    public function test_verdict_operator_only_retirement_for_self_target(): void
+    {
+        $r = $this->dossier()->build([
+            'task_id' => 't1',
+            'forbidden_paths' => ['app/Brain/Core.php'],
+            'failure_reason' => 'forbidden_self_target',
+        ]);
+        $this->assertSame('operator_only_retirement', $r['verdict']);
+        $this->assertNotNull($r['operator_only_reason']);
+        $this->assertFalse($r['requeue_allowed']);
+    }
+
+    public function test_operator_only_reason_for_core_system_target(): void
+    {
+        $r = $this->dossier()->build([
+            'task_id' => 't1',
+            'forbidden_paths' => ['app/Gateway/Router.php'],
+        ]);
+        $this->assertSame('operator_only_retirement', $r['verdict']);
+        $this->assertSame('core_system_target_requires_operator_review', $r['operator_only_reason']);
+    }
+
+    public function test_requeue_allowed_true_when_safe_alternative_exists(): void
+    {
+        $r = $this->dossier()->build([
+            'task_id' => 't1',
+            'forbidden_paths' => ['app/Foo.php'],
+            'allowed_paths' => ['app/Services/Proxy/FooProxy.php'],
+        ]);
+        $this->assertTrue($r['requeue_allowed']);
+    }
+
+    public function test_operator_only_reason_null_when_not_operator_only(): void
+    {
+        $r = $this->dossier()->build([
+            'task_id' => 't1',
+            'forbidden_paths' => ['app/Foo.php'],
+            'allowed_paths' => ['app/Services/Proxy/FooProxy.php'],
+        ]);
+        $this->assertNull($r['operator_only_reason']);
+    }
 }
