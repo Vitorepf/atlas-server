@@ -56,8 +56,46 @@ final class AtlasTaskFabricTaskLineageCompiler
                 'unlocks'        => array_values(array_map('strval', (array) ($s['unlocks'] ?? []))),
                 'exploratory'    => (bool) ($s['exploratory'] ?? false),
                 'evidence_floor' => (string) ($s['evidence_floor'] ?? ''),
+                'originating_signal' => (string) ($s['originating_signal'] ?? ''),
+                'task_spec_ref'      => (string) ($s['task_spec_ref'] ?? ''),
+                'muscle_outcome_ref' => (string) ($s['muscle_outcome_ref'] ?? ''),
+                'proof_ref'          => (string) ($s['proof_ref'] ?? ''),
+                'learning_update_ref' => (string) ($s['learning_update_ref'] ?? ''),
             ];
         }
+
+        // Lineage completeness: lineage_incomplete when any stage is missing.
+        $incompleteCount = 0;
+        $lineageEntries = [];
+        foreach ($byId as $id => $node) {
+            $stages = [
+                'originating_signal' => $node['originating_signal'],
+                'task_spec_ref'      => $node['task_spec_ref'],
+                'muscle_outcome_ref' => $node['muscle_outcome_ref'],
+                'proof_ref'          => $node['proof_ref'],
+                'learning_update_ref' => $node['learning_update_ref'],
+            ];
+            $present = [];
+            $missing = [];
+            foreach ($stages as $stage => $val) {
+                if ($val !== '') {
+                    $present[] = $stage;
+                } else {
+                    $missing[] = $stage;
+                }
+            }
+            $lineageEntries[] = [
+                'task_id'  => $id,
+                'present'  => $present,
+                'missing'  => $missing,
+                'refs'     => array_filter($stages, static fn (string $v): bool => $v !== ''),
+            ];
+            if ($missing !== []) {
+                $incompleteCount++;
+            }
+        }
+        $lineageIncomplete = $incompleteCount > 0;
+        usort($lineageEntries, static fn (array $a, array $b): int => strcmp($a['task_id'], $b['task_id']));
 
         // Capability → provider task ids.
         $capabilityProviders = [];  // cap => list<task_id>
@@ -159,6 +197,8 @@ final class AtlasTaskFabricTaskLineageCompiler
             'missing_prerequisites'    => $missingPrereqs,
             'terminal_stop_conditions' => $terminalConditions,
             'blockers'                 => $blockers,
+            'lineage_incomplete'       => $lineageIncomplete,
+            'lineage_entries'          => $lineageEntries,
         ];
     }
 

@@ -267,13 +267,86 @@ final class AtlasTaskFabricTaskLineageCompilerTest extends TestCase
     public function test_identical_input_produces_identical_output(): void
     {
         $specs = [
-            ['id' => 'b', 'capabilities' => ['cap_b'], 'dependencies' => ['cap_a'], 'unlocks' => []],
-            ['id' => 'a', 'capabilities' => ['cap_a'], 'dependencies' => [], 'unlocks' => []],
+            ['id' => 'a', 'capabilities' => ['x'], 'dependencies' => [], 'unlocks' => ['y']],
+            ['id' => 'b', 'capabilities' => ['y'], 'dependencies' => ['x'], 'unlocks' => []],
         ];
+        $this->assertSame(
+            json_encode((new AtlasTaskFabricTaskLineageCompiler)->compile($specs)),
+            json_encode((new AtlasTaskFabricTaskLineageCompiler)->compile($specs)),
+        );
+    }
 
-        $r1 = $this->compiler()->compile($specs);
-        $r2 = $this->compiler()->compile($specs);
+    // ── AC2/AC3: lineage completeness with refs and incomplete flag ──────────
 
-        $this->assertSame($r1, $r2);
+    public function test_output_includes_lineage_incomplete_lineage_entries(): void
+    {
+        $result = (new AtlasTaskFabricTaskLineageCompiler)->compile([]);
+
+        $this->assertArrayHasKey('lineage_incomplete', $result);
+        $this->assertArrayHasKey('lineage_entries', $result);
+        $this->assertFalse($result['lineage_incomplete']);
+        $this->assertSame([], $result['lineage_entries']);
+    }
+
+    public function test_complete_lineage_with_all_refs_is_not_incomplete(): void
+    {
+        $result = (new AtlasTaskFabricTaskLineageCompiler)->compile([
+            [
+                'id' => 'task-a',
+                'capabilities' => ['x'],
+                'dependencies' => [],
+                'originating_signal' => 'brain:urgency_lens',
+                'task_spec_ref' => 'spec:abc123',
+                'muscle_outcome_ref' => 'muscle:def456',
+                'proof_ref' => 'proof:ghi789',
+                'learning_update_ref' => 'learning:jkl012',
+            ],
+        ]);
+
+        $this->assertFalse($result['lineage_incomplete']);
+        $this->assertCount(1, $result['lineage_entries']);
+        $entry = $result['lineage_entries'][0];
+        $this->assertSame('task-a', $entry['task_id']);
+        $this->assertContains('originating_signal', $entry['present']);
+        $this->assertContains('task_spec_ref', $entry['present']);
+        $this->assertContains('muscle_outcome_ref', $entry['present']);
+        $this->assertContains('proof_ref', $entry['present']);
+        $this->assertContains('learning_update_ref', $entry['present']);
+        $this->assertSame([], $entry['missing']);
+    }
+
+    public function test_missing_refs_marks_lineage_incomplete(): void
+    {
+        $result = (new AtlasTaskFabricTaskLineageCompiler)->compile([
+            [
+                'id' => 'task-b',
+                'capabilities' => ['x'],
+                'dependencies' => [],
+                'originating_signal' => 'brain:signal',
+                // no other refs → incomplete
+            ],
+        ]);
+
+        $this->assertTrue($result['lineage_incomplete']);
+    }
+
+    public function test_lineage_entries_are_stable_and_provider_safe(): void
+    {
+        $result = (new AtlasTaskFabricTaskLineageCompiler)->compile([
+            [
+                'id' => 'task-safe',
+                'capabilities' => ['x'],
+                'dependencies' => [],
+                'originating_signal' => 'brain:signal',
+                'task_spec_ref' => 'spec:hash123',
+            ],
+        ]);
+
+        // Refs use hashes and spec IDs, not raw prompts
+        $entry = $result['lineage_entries'][0];
+        foreach ($entry['refs'] as $ref) {
+            $this->assertStringNotContainsString('system prompt', $ref);
+            $this->assertStringNotContainsString('user prompt', $ref);
+        }
     }
 }
