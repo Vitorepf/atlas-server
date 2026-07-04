@@ -128,6 +128,7 @@ final class AtlasTaskQueuePreServeSelfHealingGate
         'unblock_before_serve' => 'reshape_first',
         'quarantine_poison_before_serve' => 'quarantine_first',
         'replenish_stale_claimables_before_serve' => 'replenish_first',
+        'rescue_stale_claimable_before_serve' => 'replenish_first',
         'top_up_before_serve_starvation' => 'replenish_first',
         'serve_clean' => 'serve',
     ];
@@ -142,6 +143,7 @@ final class AtlasTaskQueuePreServeSelfHealingGate
         'unblock_before_serve' => ['resolve the blocking scope/dependency issue on blocked packets before resuming serve'],
         'quarantine_poison_before_serve' => ['quarantine packets flagged as poison before resuming serve'],
         'replenish_stale_claimables_before_serve' => ['originate fresh claimable tasks; stale claimables are not real supply'],
+        'rescue_stale_claimable_before_serve' => ['rescue or reprioritize stale claimable packets before serving fresh workers'],
         'top_up_before_serve_starvation' => ['originate more claimable tasks before active workers starve'],
         'serve_clean' => ['serve normally; queue health is within all floors'],
     ];
@@ -177,6 +179,7 @@ final class AtlasTaskQueuePreServeSelfHealingGate
         $claimablePerActiveWorker = $facts['claimable_per_active_worker'] ?? null;
         $poisonRatio = (float) ($facts['poison_ratio'] ?? 0.0);
         $staleClaimableRatio = (float) ($facts['stale_claimable_ratio'] ?? 0.0);
+        $staleClaimableCount = max(0, (int) ($facts['stale_claimable_count'] ?? 0));
         $sufficientDepth = is_array($facts['sufficient_depth'] ?? null) ? $facts['sufficient_depth'] : [];
         $sufficientDepthConfirmedFresh = (bool) ($sufficientDepth['value'] ?? false) && (bool) ($sufficientDepth['fresh'] ?? false);
 
@@ -194,6 +197,10 @@ final class AtlasTaskQueuePreServeSelfHealingGate
 
         if ($collisionCount > 0) {
             return $this->queueHealthResult('resolve_collisions_before_serve', ['packet_id_collisions_present:'.$collisionCount]);
+        }
+
+        if ($staleClaimableCount > 0) {
+            return $this->queueHealthResult('rescue_stale_claimable_before_serve', ['stale_claimable_count:'.$staleClaimableCount]);
         }
 
         if ($staleClaimableRatio >= self::STALE_CLAIMABLE_RATIO_FLOOR) {
@@ -218,6 +225,7 @@ final class AtlasTaskQueuePreServeSelfHealingGate
         'top_up_before_serve_starvation',
         'quarantine_poison_before_serve',
         'replenish_stale_claimables_before_serve',
+        'rescue_stale_claimable_before_serve',
     ];
 
     /**

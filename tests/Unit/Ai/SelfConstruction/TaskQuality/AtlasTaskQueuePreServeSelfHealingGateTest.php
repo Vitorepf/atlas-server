@@ -339,4 +339,83 @@ final class AtlasTaskQueuePreServeSelfHealingGateTest extends TestCase
             $this->assertFalse($r['mutates_queue_state']);
         }
     }
+
+    // ── AC2: stale_claimable_count > 0 returns rescue_stale_claimable_before_serve ──
+
+    public function test_stale_claimable_count_positive_returns_rescue_stale_claimable_before_serve(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['stale_claimable_count' => 3]);
+
+        $this->assertSame('rescue_stale_claimable_before_serve', $r['recommendation']);
+        $this->assertSame('replenish_first', $r['queue_action']);
+    }
+
+    public function test_rescue_stale_claimable_sets_proof_required_and_reason_naming_count(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['stale_claimable_count' => 5]);
+
+        $this->assertTrue($r['proof_required']);
+        $this->assertContains('stale_claimable_count:5', $r['reasons']);
+    }
+
+    // ── AC3: higher-priority corruption still outranks stale-claimable rescue ──
+
+    public function test_malformed_still_outranks_stale_claimable_count(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth([
+            'malformed_count' => 2,
+            'stale_claimable_count' => 3,
+        ]);
+
+        $this->assertSame('repair_malformed_before_serve', $r['recommendation']);
+    }
+
+    public function test_poison_ratio_still_outranks_stale_claimable_count(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth([
+            'poison_ratio' => 0.5,
+            'stale_claimable_count' => 2,
+        ]);
+
+        $this->assertSame('quarantine_poison_before_serve', $r['recommendation']);
+    }
+
+    public function test_blocked_count_still_outranks_stale_claimable_count(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth([
+            'blocked_count' => 1,
+            'stale_claimable_count' => 4,
+        ]);
+
+        $this->assertSame('unblock_before_serve', $r['recommendation']);
+    }
+
+    public function test_collisions_still_outrank_stale_claimable_count(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth([
+            'collision_count' => 1,
+            'stale_claimable_count' => 2,
+        ]);
+
+        $this->assertSame('resolve_collisions_before_serve', $r['recommendation']);
+    }
+
+    // ── AC4: stale_claimable rescue includes action_plan ──
+
+    public function test_rescue_stale_claimable_has_action_plan(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['stale_claimable_count' => 1]);
+
+        $this->assertNotEmpty($r['action_plan']);
+        $this->assertFalse($r['mutates_queue_state']);
+    }
+
+    // ── Clean queue still returns serve_clean when stale_claimable_count is 0 ──
+
+    public function test_stale_claimable_count_zero_does_not_trigger_rescue(): void
+    {
+        $r = $this->gate()->evaluateQueueHealth(['stale_claimable_count' => 0]);
+
+        $this->assertSame('serve_clean', $r['recommendation']);
+    }
 }
