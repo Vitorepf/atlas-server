@@ -272,12 +272,32 @@ final class AtlasExternalBrainSimulationTwinPlanProbe
             $riskReasons[] = sprintf('low_value_density_count=%d', $lowValueDensityCount);
         }
 
+        // AC3: top-level recommended_outcome — most conservative per-candidate outcome
+        // dominates (reject > defer > split > repair > enqueue).
+        $outcomePriority = [
+            self::OUTCOME_ENQUEUE => 0,
+            self::OUTCOME_REPAIR  => 1,
+            self::OUTCOME_SPLIT   => 2,
+            self::OUTCOME_DEFER   => 3,
+            self::OUTCOME_REJECT  => 4,
+        ];
+        $recommendedOutcome = self::OUTCOME_ENQUEUE;
+        $highestPriority     = 0;
+        foreach ($perCandidatePredictions as $pred) {
+            $p = $outcomePriority[$pred['predicted_outcome']] ?? 0;
+            if ($p > $highestPriority) {
+                $highestPriority     = $p;
+                $recommendedOutcome = $pred['predicted_outcome'];
+            }
+        }
+
         return [
-            'schema'      => self::SCHEMA,
-            'verdict'     => $riskFlags === [] ? self::VERDICT_ACCEPTABLE : self::VERDICT_RISKY,
-            'risk_flags'  => $riskFlags,
-            'risk_reasons' => $riskReasons,
-            'simulation_summary' => [
+            'schema'                   => self::SCHEMA,
+            'verdict'                  => $riskFlags === [] ? self::VERDICT_ACCEPTABLE : self::VERDICT_RISKY,
+            'risk_flags'               => $riskFlags,
+            'risk_reasons'             => $riskReasons,
+            'recommended_outcome'      => $recommendedOutcome,
+            'simulation_summary'       => [
                 'batch_size'                       => $batchSize,
                 'forbidden_target_count'           => $forbiddenCount,
                 'write_set_collision_count'        => $writeSetCollision ? 1 : 0,

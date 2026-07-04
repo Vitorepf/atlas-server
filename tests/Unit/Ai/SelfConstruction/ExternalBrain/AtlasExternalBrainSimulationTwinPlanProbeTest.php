@@ -41,9 +41,65 @@ final class AtlasExternalBrainSimulationTwinPlanProbeTest extends TestCase
     {
         $result = $this->probe()->probe(['batch' => []]);
 
-        foreach (['schema', 'verdict', 'risk_flags', 'risk_reasons', 'simulation_summary'] as $k) {
+        foreach (['schema', 'verdict', 'risk_flags', 'risk_reasons', 'recommended_outcome', 'simulation_summary'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
+    }
+
+    // ── recommended_outcome ──────────────────────────────────────────────────
+
+    public function test_recommended_outcome_enqueue_when_batch_healthy(): void
+    {
+        $result = $this->probe()->probe(['batch' => [['packet_id' => 'p0']]]);
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_ENQUEUE, $result['recommended_outcome']);
+    }
+
+    public function test_recommended_outcome_reject_when_duplicate_target(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'target_path' => 'app/Foo.php'],
+            ['packet_id' => 'p1', 'target_path' => 'app/Foo.php'],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_REJECT, $result['recommended_outcome']);
+    }
+
+    public function test_recommended_outcome_defer_when_contradiction_risk(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'contradiction_risk_score' => 0.75],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_DEFER, $result['recommended_outcome']);
+    }
+
+    public function test_recommended_outcome_repair_when_missing_impl_only(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'has_implementation_file' => false],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_REPAIR, $result['recommended_outcome']);
+    }
+
+    public function test_recommended_outcome_split_when_low_value_density(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'value_density' => 0.05],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_SPLIT, $result['recommended_outcome']);
+    }
+
+    public function test_recommended_outcome_most_conservative_wins(): void
+    {
+        // repair + reject → reject is more conservative
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'target_path' => 'app/Foo.php', 'has_implementation_file' => false],
+            ['packet_id' => 'p1', 'target_path' => 'app/Foo.php'],  // duplicate target
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_REJECT, $result['recommended_outcome']);
     }
 
     public function test_simulation_summary_has_required_fields(): void
