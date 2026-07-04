@@ -303,6 +303,34 @@ class ForgeObraCertificationServiceTest extends TestCase
     /**
      * @return array<string,mixed>
      */
+    public function test_heavy_obra_spec_adversary_blocks_a_write_verb_sdd_with_no_acceptance_criteria(): void
+    {
+        // Obra #2 enforcement vivo: a recognized write verb with zero acceptance criteria cannot
+        // discriminate anything — the sovereign spec-adversary refuses it (verb_fidelity).
+        $spec = $this->canonicalSpec();
+        $spec['scope'] = 'Adicionar fallback governado ao provider router';
+        $spec['acceptance_criteria'] = [];
+
+        $intake = $this->intakeService()->intakeFromPrompt(
+            'Adicionar fallback governado ao provider router com sdd',
+            [
+                'workspace_slug' => 'atlas-server',
+                'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
+                'risk_band' => ForgeIntakeCanon::RISK_BAND_HIGH,
+                'recommended_forge_mode' => EscalationPacket::RECOMMENDED_FORGE_MODE_SDD_INTAKE,
+                'sdd_spec' => $spec,
+            ],
+        );
+
+        $cert = app(ForgeObraCertificationService::class)->certify($intake);
+
+        $this->assertNotSame(ForgeObraCertificationService::STATUS_PASSED, $cert['status']);
+        $blockerGates = array_column($cert['blockers'], 'gate_id');
+        $this->assertContains('spec_adversary', $blockerGates, 'the sovereign spec-adversary must fire on a write verb with no acceptance criteria');
+        $specBlocker = collect($cert['blockers'])->firstWhere('gate_id', 'spec_adversary');
+        $this->assertContains('spec_verb_fidelity', $specBlocker['reasons']);
+    }
+
     private function canonicalSpec(): array
     {
         return [

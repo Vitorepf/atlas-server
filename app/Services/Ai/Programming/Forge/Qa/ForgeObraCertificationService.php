@@ -6,7 +6,13 @@ namespace App\Services\Ai\Programming\Forge\Qa;
 
 use App\Models\AiForgeIntake;
 use App\Models\AiForgeMilestone;
+use App\Services\Ai\EngineeringKernel\Spec\AtlasSpecGateAdapter;
+use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
+use App\Services\Ai\EngineeringKernel\Spec\SpecAdversary;
+use App\Services\Ai\EngineeringKernel\Spec\SpecDraft;
+use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Programming\AtlasDev\Pipeline\IntentActionExtractor;
 use App\Services\Ai\Programming\Forge\ForgeIntakeCanon;
 
 /**
@@ -37,9 +43,20 @@ final class ForgeObraCertificationService
 
     public const STATUS_BLOCKED = 'blocked';
 
+    private readonly SpecAdversary $specGate;
+
+    private readonly IntentActionExtractor $verbExtractor;
+
     public function __construct(
         private readonly ForgeQaGateRunner $qaRunner,
-    ) {}
+        ?SpecAdversary $specGate = null,
+        ?IntentActionExtractor $verbExtractor = null,
+    ) {
+        // Default to the real fail-closed sovereign spec floor so live runs enforce without a binding;
+        // tests may inject a fake SpecAdversary.
+        $this->specGate = $specGate ?? new AtlasSpecGateAdapter;
+        $this->verbExtractor = $verbExtractor ?? new IntentActionExtractor;
+    }
 
     /**
      * @return array<string,mixed>
@@ -75,6 +92,11 @@ final class ForgeObraCertificationService
             $blockers = $this->mergeBlocker($blockers, $milestoneBlocker);
         }
 
+        // Obra #2 enforcement vivo — the sovereign spec-adversary contests the heavy Obra's SDD.
+        if (($specBlocker = $this->contestSddSpec($intake, $isHeavy)) !== null) {
+            $blockers = $this->mergeBlocker($blockers, $specBlocker);
+        }
+
         $checks = $this->summarizeChecks($qa['gate_runs']);
 
         $status = $this->resolveStatus($intake, $isHeavy, $overall, $blockers);
@@ -102,6 +124,62 @@ final class ForgeObraCertificationService
         $payload['certification_hash'] = MissionCanonicalHash::sha256($hashPayload);
 
         return $payload;
+    }
+
+    /**
+     * Obra #2 enforcement vivo — the sovereign spec-adversary contests a heavy Obra's SDD spec.
+     * A STRUCTURAL gap (a recognized write verb with no acceptance criteria) becomes a certification
+     * blocker; oracle_adequacy and ambiguity are DEFERRED at intake (no test authored yet; ambiguity
+     * is the QA gate's concern), matching the AtlasDev freeze wiring. Provider-free, fail-closed.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function contestSddSpec(AiForgeIntake $intake, bool $isHeavy): ?array
+    {
+        if (! $isHeavy) {
+            return null; // only heavy Obras carry a full SDD to contest
+        }
+        $sdd = is_array($intake->sdd_spec) ? $intake->sdd_spec : [];
+        $scope = trim((string) ($sdd['scope'] ?? $sdd['problem_statement'] ?? ''));
+        if ($scope === '') {
+            return null; // a missing SDD is already blocked by the QA gate; nothing to contest here
+        }
+
+        $acceptanceCriteria = [];
+        foreach (array_values(array_filter(
+            (array) ($sdd['acceptance_criteria'] ?? []),
+            static fn ($v): bool => is_string($v) && trim($v) !== '',
+        )) as $i => $text) {
+            $acceptanceCriteria[] = ['id' => 'sdd_ac_'.$i, 'description' => (string) $text, 'verification' => 'test', 'is_backstop' => false];
+        }
+
+        $verdict = $this->specGate->contest(
+            new SpecDraft(
+                intentText: $scope,
+                acceptanceCriteria: $acceptanceCriteria,
+                nonGoals: array_values(array_map('strval', (array) ($sdd['non_goals'] ?? []))),
+            ),
+            new IntentEnvelope(
+                rawGoal: (string) ($sdd['problem_statement'] ?? $scope),
+                recognizedVerbs: $this->verbExtractor->extract($scope),
+            ),
+            TrustLevel::Forge,
+        );
+
+        $structuralGaps = array_values(array_diff($verdict->gaps, ['oracle_adequacy', 'ambiguity_resolved']));
+        if ($structuralGaps === []) {
+            return null;
+        }
+
+        return [
+            'schema_version' => 'atlas.forge.qa_blocker.v1',
+            'gate_id' => 'spec_adversary',
+            'kind' => 'missing_evidence',
+            'severity' => 'critical',
+            'reasons' => array_map(static fn (string $gap): string => 'spec_'.$gap, $structuralGaps),
+            'remediation' => 'Strengthen the SDD: a recognized write verb requires behavioral acceptance criteria before the Obra can certify.',
+            'next_action' => 'revise_sdd_spec',
+        ];
     }
 
     /**
