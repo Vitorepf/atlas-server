@@ -149,6 +149,11 @@ final class AgentValidationGateResultRepository
     public function digest(): array
     {
         $items = [];
+        $failedGateCount = 0;
+        $staleEvidenceCount = 0;
+        $proxyEvidenceCount = 0;
+        $latestPassingResultId = null;
+
         foreach ($this->order as $id) {
             $rs = $this->store[$id];
             $items[] = [
@@ -159,6 +164,30 @@ final class AgentValidationGateResultRepository
                 'evaluation_hash' => $rs['evaluation_hash'] ?? null,
                 'storage_revision' => $rs['storage_revision'] ?? null,
             ];
+
+            // Count failed gates
+            $gates = (array) ($rs['gates'] ?? []);
+            foreach ($gates as $gate) {
+                if (is_array($gate) && (string) ($gate['status'] ?? '') === 'failed') {
+                    $failedGateCount++;
+                }
+            }
+
+            // Count stale evidence
+            $evidence = (array) ($rs['evidence'] ?? []);
+            foreach ($evidence as $ev) {
+                if (is_array($ev) && (bool) ($ev['stale'] ?? false)) {
+                    $staleEvidenceCount++;
+                }
+                if (is_array($ev) && (bool) ($ev['proxy'] ?? false)) {
+                    $proxyEvidenceCount++;
+                }
+            }
+
+            // Track latest passing result
+            if ((string) ($rs['overall_status'] ?? '') === 'passed') {
+                $latestPassingResultId = $id;
+            }
         }
 
         return [
@@ -168,6 +197,10 @@ final class AgentValidationGateResultRepository
             'order' => $this->order,
             'items' => $items,
             'digest_hash' => hash('sha256', (string) json_encode($items)),
+            'failed_gate_count' => $failedGateCount,
+            'stale_evidence_count' => $staleEvidenceCount,
+            'proxy_evidence_count' => $proxyEvidenceCount,
+            'latest_passing_result_id' => $latestPassingResultId,
             'runtime_safety' => [
                 'runtime_safety_all_false' => true,
                 'execution_allowed' => false,
