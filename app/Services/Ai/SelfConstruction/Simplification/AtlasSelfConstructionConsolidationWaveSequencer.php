@@ -104,24 +104,79 @@ final class AtlasSelfConstructionConsolidationWaveSequencer
             usort($ready, fn (array $a, array $b): int => $this->comparePriority($a, $b));
             $next = $ready[0];
 
+            // AC2/AC3: group non-overlapping proof-ready candidates into the same wave as a
+            // parallel-safe lane. A candidate qualifies if it is proof_ready and its allowed_files
+            // do not collide with any other candidate already grouped in this wave.
+            $waveTasks = [$next['id']];
+            foreach ($ready as $other) {
+                if ($other['id'] === $next['id'] || ! $other['proof_ready']) {
+                    continue;
+                }
+                $hasCollision = false;
+                foreach ($waveTasks as $placedId) {
+                    if (in_array($other['id'], $collisions[$placedId] ?? [], true)) {
+                        $hasCollision = true;
+                        break;
+                    }
+                }
+                if (! $hasCollision) {
+                    $waveTasks[] = $other['id'];
+                }
+            }
+
+            // Collect all collision risks for this wave across all its tasks.
+            $waveCollisions = [];
+            foreach ($waveTasks as $tid) {
+                foreach ($collisions[$tid] ?? [] as $otherId) {
+                    if (! in_array($otherId, $waveTasks, true) && ! in_array($otherId, $waveCollisions, true)) {
+                        $waveCollisions[] = $otherId;
+                    }
+                }
+            }
+
+            // The wave is a parallel-safe lane when it has more than one task and all are proof_ready.
+            $isParallelSafe = count($waveTasks) > 1;
+
             $whyNow = $this->whyNow($next);
+            $allProofReady = array_reduce(
+                $waveTasks,
+                fn (bool $carry, string $tid): bool => $carry && ($candidates[$tid]['proof_ready'] ?? false),
+                true,
+            );
+            $proofReqs = [];
+            foreach ($waveTasks as $tid) {
+                if (! ($candidates[$tid]['proof_ready'] ?? false)) {
+                    $proofReqs[] = $candidates[$tid]['missing_proof'] ?? 'proof_not_ready';
+                }
+            }
             $waves[] = [
-                'task_ids' => [$next['id']],
+                'task_ids' => $waveTasks,
                 'prerequisites' => $next['prerequisites'],
-                'collision_risks' => $collisions[$next['id']] ?? [],
-                'proof_requirements' => $next['proof_ready'] ? [] : [$next['missing_proof']],
+                'collision_risks' => $waveCollisions,
+                'proof_requirements' => $proofReqs,
                 'why_now' => $whyNow,
-                'status' => $next['proof_ready'] ? self::STATUS_READY : self::STATUS_BLOCKED_UNTIL_PROVEN,
+                'status' => $allProofReady ? self::STATUS_READY : self::STATUS_BLOCKED_UNTIL_PROVEN,
                 'blast_radius' => $next['risk'],
                 'wave_kind' => $next['wave_kind'],
+                'parallel_safe_lane' => $isParallelSafe,
+                'lane_size' => count($waveTasks),
             ];
 
             $placed[$next['id']] = true;
             unset($remaining[$next['id']]);
 
+            // Mark all grouped tasks as placed.
+            foreach ($waveTasks as $wt) {
+                if ($wt !== $next['id']) {
+                    $placed[$wt] = true;
+                    unset($remaining[$wt]);
+                }
+            }
+
             $nextUnlocks = [];
             foreach ($remaining as $rid => $rc) {
-                if (in_array($next['id'], $rc['prerequisites'], true) && $this->prerequisitesSatisfied($rc, $candidates, $placed)) {
+                $anyPrereqPlaced = count(array_intersect($rc['prerequisites'], array_keys($placed))) > 0;
+                if ($anyPrereqPlaced && $this->prerequisitesSatisfied($rc, $candidates, $placed)) {
                     $nextUnlocks[] = $rid;
                 }
             }

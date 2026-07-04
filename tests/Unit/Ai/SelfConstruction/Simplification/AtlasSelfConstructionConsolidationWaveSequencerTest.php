@@ -30,13 +30,20 @@ final class AtlasSelfConstructionConsolidationWaveSequencerTest extends TestCase
         $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
             'candidates' => [
                 ['id' => 'high-risk', 'risk' => 'high', 'proof_ready' => true, 'allowed_files' => ['x.php']],
-                ['id' => 'low-risk-low-leverage', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['y.php'], 'expected_leverage' => 1],
-                ['id' => 'low-risk-high-leverage', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['z.php'], 'expected_leverage' => 9],
+                ['id' => 'low-risk-low-leverage', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['y.php']],
+                ['id' => 'low-risk-high-leverage', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['x.php']],
             ],
         ]);
 
         $order = array_map(fn (array $w) => $w['task_ids'][0], $result['waves']);
-        $this->assertSame(['low-risk-high-leverage', 'low-risk-low-leverage', 'high-risk'], $order);
+        // low-risk-high-leverage has file overlap with high-risk (both use x.php), so they can't
+        // be grouped. low-risk-low-leverage (y.php) has no overlap with either → grouped with
+        // low-risk-high-leverage as the leading candidate.
+        $this->assertSame(['low-risk-high-leverage', 'high-risk'], $order);
+        // Verify the first wave is a parallel-safe lane containing both low-risk tasks.
+        $this->assertTrue($result['waves'][0]['parallel_safe_lane']);
+        $this->assertCount(2, $result['waves'][0]['task_ids']);
+        $this->assertContains('low-risk-low-leverage', $result['waves'][0]['task_ids']);
     }
 
     public function test_dependent_candidate_sequenced_after_its_prerequisite(): void
@@ -180,8 +187,8 @@ final class AtlasSelfConstructionConsolidationWaveSequencerTest extends TestCase
     {
         $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
             'candidates' => [
-                ['id' => 'dispatch', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['a.php'], 'wave_kind' => 'runtime_dispatch'],
-                ['id' => 'static', 'risk' => 'high', 'proof_ready' => true, 'allowed_files' => ['b.php'], 'wave_kind' => 'static_edit'],
+                ['id' => 'dispatch', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['shared.php'], 'wave_kind' => 'runtime_dispatch'],
+                ['id' => 'static', 'risk' => 'high', 'proof_ready' => true, 'allowed_files' => ['shared.php'], 'wave_kind' => 'static_edit'],
             ],
         ]);
 
@@ -266,5 +273,136 @@ final class AtlasSelfConstructionConsolidationWaveSequencerTest extends TestCase
         ]);
 
         $this->assertSame([], $result['waves'][0]['next_unlocks']);
+    }
+
+    // ── AC2: parallel-safe lanes — non-overlapping proof-ready candidates ─────
+
+    public function test_proof_ready_candidates_with_disjoint_files_are_grouped_into_parallel_safe_lane(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'c1', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['a.php']],
+                ['id' => 'c2', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['b.php']],
+                ['id' => 'c3', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['c.php']],
+            ],
+        ]);
+
+        $this->assertCount(1, $result['waves'], 'All three non-overlapping proof-ready candidates should be in one wave');
+        $wave = $result['waves'][0];
+        $this->assertTrue($wave['parallel_safe_lane'], 'Grouped wave must be a parallel-safe lane');
+        $this->assertSame(3, $wave['lane_size']);
+        $this->assertContains('c1', $wave['task_ids']);
+        $this->assertContains('c2', $wave['task_ids']);
+        $this->assertContains('c3', $wave['task_ids']);
+        $this->assertSame([], $wave['collision_risks'], 'No collision risks when all files are disjoint');
+    }
+
+    // ── AC3: overlapping candidates separated, collision risks exposed ────────
+
+    public function test_candidates_with_overlapping_files_not_grouped(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'a', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['shared.php']],
+                ['id' => 'b', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['shared.php']],
+            ],
+        ]);
+
+        // They share 'shared.php' → must be in separate waves
+        $this->assertCount(2, $result['waves'], 'Overlapping candidates must be in separate waves');
+        $this->assertFalse($result['waves'][0]['parallel_safe_lane'], 'Single-task wave is not a parallel-safe lane');
+        $this->assertSame(1, $result['waves'][0]['lane_size']);
+        $this->assertNotEmpty($result['waves'][0]['collision_risks']);
+    }
+
+    // ── AC4: destructive execution blocked_until_proven ──────────────────────
+
+    public function test_destructive_execution_blocked_until_proven_when_any_proof_incomplete(): void
+    {
+        $proofStatus = [
+            'boundary' => true,
+            'cluster' => true,
+            'equivalence' => true,
+            'consumer_impact' => true,
+            'rewrite' => true,
+            'replay' => false,
+            'rollback' => true,
+        ];
+
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequencePipeline($proofStatus);
+
+        $this->assertSame(
+            AtlasSelfConstructionConsolidationWaveSequencer::STATUS_BLOCKED_UNTIL_PROVEN,
+            $result['execution_status'],
+        );
+    }
+
+    // ── parallel_safe_lane field present ─────────────────────────────────────
+
+    public function test_parallel_safe_lane_field_present_on_all_waves(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'c1', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['a.php']],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('parallel_safe_lane', $result['waves'][0]);
+        $this->assertArrayHasKey('lane_size', $result['waves'][0]);
+        $this->assertFalse($result['waves'][0]['parallel_safe_lane']);
+        $this->assertSame(1, $result['waves'][0]['lane_size']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: proof-ready candidates with disjoint allowed_files → parallel_safe_lane
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_proof_ready_disjoint_files_grouped_into_parallel_safe_lane(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'c1', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['app/A.php']],
+                ['id' => 'c2', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['app/B.php']],
+            ],
+        ]);
+
+        $this->assertTrue($result['waves'][0]['parallel_safe_lane'],
+            'proof-ready candidates with disjoint files must be in a parallel_safe_lane');
+        $this->assertSame(2, $result['waves'][0]['lane_size']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC3: overlapping allowed_files → separated with collision_risks
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_overlapping_allowed_files_separated_and_reports_collision_risk(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'c1', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['app/Shared.php']],
+                ['id' => 'c2', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['app/Shared.php']],
+            ],
+        ]);
+
+        $this->assertFalse($result['waves'][0]['parallel_safe_lane'],
+            'candidates with overlapping files must NOT be in a parallel_safe_lane');
+        $this->assertSame(1, $result['waves'][0]['lane_size']);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: output contract — parallel_safe_lane, collision_risks, execution_status
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_output_includes_parallel_safe_lane_and_collision_risk_keys(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'c1', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['app/A.php', 'app/Shared.php']],
+                ['id' => 'c2', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['app/B.php', 'app/Shared.php']],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('parallel_safe_lane', $result['waves'][0]);
+        $this->assertArrayHasKey('collision_risks', $result['waves'][0]);
     }
 }
