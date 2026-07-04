@@ -115,11 +115,11 @@ final class AtlasArchitectureCouncilBoundaryMap
                     $risks[] = 'boundary_risk:undeclared_organ:'.$to;
                 }
 
-                $key = $from.'|'.$to.'|'.$action;
-                if (isset(self::FORBIDDEN_EDGES[$key])) {
-                    if (! isset($seenForbidden[$key])) {
-                        $seenForbidden[$key] = true;
-                        $reason = self::FORBIDDEN_EDGES[$key];
+                $legacyKey = $from.'|'.$to.'|'.$action;
+                if (isset(self::FORBIDDEN_EDGES[$legacyKey])) {
+                    if (! isset($seenForbidden[$legacyKey])) {
+                        $seenForbidden[$legacyKey] = true;
+                        $reason = self::FORBIDDEN_EDGES[$legacyKey];
                         $offendingArtifactOrPath = $action;
                         foreach (self::SHARED_ARTIFACTS as $artifact) {
                             if (str_contains($action, $artifact)) {
@@ -140,8 +140,9 @@ final class AtlasArchitectureCouncilBoundaryMap
 
                     continue;
                 }
-                if (! isset($seenAllowed[$key])) {
-                    $seenAllowed[$key] = true;
+                $dedupKey = $this->edgeKey($from, $to, $action);
+                if (! isset($seenAllowed[$dedupKey])) {
+                    $seenAllowed[$dedupKey] = true;
                     $allowed[] = compact('from', 'to', 'action');
                 }
             }
@@ -284,5 +285,14 @@ final class AtlasArchitectureCouncilBoundaryMap
             'responsibility_overlaps' => $responsibilityOverlaps,
             'has_responsibility_overlaps' => $responsibilityOverlaps !== [],
         ];
+    }
+
+    /**
+     * Build a collision-safe edge key.
+     * Each field is length-prefixed so a '|' inside from/to/action cannot collide with the delimiter.
+     */
+    private function edgeKey(string $from, string $to, string $action): string
+    {
+        return strlen($from).':'.$from.'|'.strlen($to).':'.$to.'|'.strlen($action).':'.$action;
     }
 }
