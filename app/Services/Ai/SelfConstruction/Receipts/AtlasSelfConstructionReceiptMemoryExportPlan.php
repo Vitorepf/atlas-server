@@ -153,7 +153,15 @@ final class AtlasSelfConstructionReceiptMemoryExportPlan
             if ($this->payloadHasSecret($rawPayload)) {
                 if ($redactable) {
                     $exportId = substr(hash('sha256', $kind.'|'.$id), 0, 12);
-                    $exports[] = ['export_id' => $exportId, 'source_id' => $id, 'kind' => $kind, 'fact_summary' => $summary, 'redacted' => true];
+                    $exports[] = [
+                        'export_id' => $exportId,
+                        'source_id' => $id,
+                        'kind' => $kind,
+                        'fact_summary' => $summary,
+                        'redacted' => true,
+                        'provider_safe_delta' => (string) ($c['provider_safe_delta'] ?? ''),
+                        'source_hash' => (string) ($c['source_hash'] ?? ''),
+                    ];
                     $decisions[] = ['source_id' => $id, 'decision' => self::DECISION_REDACT, 'reason' => 'redacted:secret_in_raw_payload_stripped'];
 
                     continue;
@@ -170,7 +178,15 @@ final class AtlasSelfConstructionReceiptMemoryExportPlan
             }
 
             $exportId = substr(hash('sha256', $kind.'|'.$id), 0, 12);
-            $exports[] = ['export_id' => $exportId, 'source_id' => $id, 'kind' => $kind, 'fact_summary' => $summary, 'redacted' => false];
+            $exports[] = [
+                'export_id' => $exportId,
+                'source_id' => $id,
+                'kind' => $kind,
+                'fact_summary' => $summary,
+                'redacted' => false,
+                'provider_safe_delta' => (string) ($c['provider_safe_delta'] ?? ''),
+                'source_hash' => (string) ($c['source_hash'] ?? ''),
+            ];
             $decisions[] = ['source_id' => $id, 'decision' => self::DECISION_EXPORT, 'reason' => 'exported:durable_high_value_provider_safe'];
         }
 
