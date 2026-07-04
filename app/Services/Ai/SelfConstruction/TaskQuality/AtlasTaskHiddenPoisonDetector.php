@@ -51,6 +51,8 @@ final class AtlasTaskHiddenPoisonDetector
 
     public const PATTERN_SCHEMA_ONLY_ACCEPTANCE = 'acceptance_schema_only_no_behavior';
 
+    public const PATTERN_WEAK_RUNNABLE_ACCEPTANCE = 'weak_runnable_acceptance_no_behavior';
+
     public const PATTERN_REPEATED_FAILED_RESPEC_FAMILY = 'repeated_failed_respec_family_retirement_recommended';
 
     private const BLOCKED_FAMILY_STATUSES = ['blocked', 'quarantined'];
@@ -116,6 +118,7 @@ final class AtlasTaskHiddenPoisonDetector
         self::PATTERN_CONTRADICTORY_ACCEPTANCE => self::SEVERITY_HIGH,
         self::PATTERN_TEST_ONLY_ALLOWED_FILES => self::SEVERITY_HIGH,
         self::PATTERN_SCHEMA_ONLY_ACCEPTANCE => self::SEVERITY_MEDIUM,
+        self::PATTERN_WEAK_RUNNABLE_ACCEPTANCE => self::SEVERITY_MEDIUM,
         self::PATTERN_DUPLICATE_CANONICAL_SYMBOL => self::SEVERITY_MEDIUM,
         self::PATTERN_REMOVED_TARGET => self::SEVERITY_MEDIUM,
         self::PATTERN_AMBIGUOUS_INSTRUCTION => self::SEVERITY_LOW,
@@ -129,6 +132,7 @@ final class AtlasTaskHiddenPoisonDetector
         self::PATTERN_CONTRADICTORY_ACCEPTANCE => self::ACTION_QUARANTINE,
         self::PATTERN_TEST_ONLY_ALLOWED_FILES => self::ACTION_RESHAPE,
         self::PATTERN_SCHEMA_ONLY_ACCEPTANCE => self::ACTION_RESHAPE,
+        self::PATTERN_WEAK_RUNNABLE_ACCEPTANCE => self::ACTION_RESHAPE,
         self::PATTERN_DUPLICATE_CANONICAL_SYMBOL => self::ACTION_RESHAPE,
         self::PATTERN_REMOVED_TARGET => self::ACTION_RESHAPE,
         self::PATTERN_AMBIGUOUS_INSTRUCTION => self::ACTION_RESHAPE,
@@ -305,6 +309,17 @@ final class AtlasTaskHiddenPoisonDetector
             ];
         }
 
+        // AC2/AC3: weak runnable acceptance — criteria contain a runnable command with exits 0
+        // but no behavior assertion, failure mode, or value proof. This is different from
+        // schema_only (which checks for generic schema/exit keywords); it specifically catches
+        // the case where the entire acceptance is a runnable gate command without behavioral value.
+        if ($acceptance !== [] && $this->hasWeakRunnableAcceptance($acceptance)) {
+            $found[] = [
+                'pattern_id' => self::PATTERN_WEAK_RUNNABLE_ACCEPTANCE,
+                'evidence' => ['acceptance_criteria' => $acceptance],
+            ];
+        }
+
         $familyStatus = strtolower(trim((string) ($quality['family_status'] ?? '')));
         $failedRespecCount = max(0, (int) ($quality['failed_respec_count'] ?? 0));
         $giveBackCount = max(0, (int) ($quality['give_back_count'] ?? 0));
@@ -440,5 +455,29 @@ final class AtlasTaskHiddenPoisonDetector
         }
 
         return true;
+    }
+
+    /** @param list<mixed> $criteria */
+    private function hasWeakRunnableAcceptance(array $criteria): bool
+    {
+        $runnablePattern = '/\b(php\s+|\.\/vendor\/bin\/phpunit|artisan\s+|npm\s+|yarn\s+|\.\/bin\/)\s*.*\b(exits?\s+0|exit\s+code\s+0)\b/i';
+        $behaviorPattern = '/\b(assert|verify|ensure|must\s+return|must\s+contain|must\s+output|must\s+produce|must\s+be|must\s+match|equals\s+|matches\s+|produces\s+|validates?\s+|confirms?\s+|checks?\s+|failure\s+mode|value\s+proof|behavior\s+is)\b/i';
+
+        $hasRunnable = false;
+        $hasBehavior = false;
+
+        foreach ($criteria as $criterion) {
+            $text = (string) $criterion;
+            if (preg_match($runnablePattern, $text)) {
+                $hasRunnable = true;
+            }
+            if (preg_match($behaviorPattern, $text)) {
+                $hasBehavior = true;
+            }
+        }
+
+        // Weak runnable acceptance: has a runnable+exits-0 command but NO behavior assertion,
+        // failure mode, or value proof across any criterion.
+        return $hasRunnable && ! $hasBehavior;
     }
 }

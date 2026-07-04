@@ -336,4 +336,155 @@ final class AtlasTaskHiddenPoisonDetectorTest extends TestCase
 
         $this->assertNull($verdict['safe_explanation']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: weak_runnable_acceptance_no_behavior
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_acceptance_with_only_runnable_command_and_exits_zero_is_weak_runnable(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Implement the foo service according to spec.',
+            'acceptance_criteria' => ['Running php artisan test --filter=Foo exits 0.'],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(
+            AtlasTaskHiddenPoisonDetector::PATTERN_WEAK_RUNNABLE_ACCEPTANCE,
+            $found,
+            'acceptance with only runnable command + exits 0 must be flagged as weak_runnable',
+        );
+    }
+
+    public function test_acceptance_with_runnable_command_and_behavior_assertion_not_weak_runnable(): void
+    {
+        // AC3: runnable command + behavior assertion → not flagged.
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Implement the foo service according to spec.',
+            'acceptance_criteria' => [
+                'Running php artisan test --filter=Foo exits 0.',
+                'The output must contain the correct computed value for each input.',
+            ],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertNotContains(
+            AtlasTaskHiddenPoisonDetector::PATTERN_WEAK_RUNNABLE_ACCEPTANCE,
+            $found,
+            'acceptance with runnable command + behavior assertion must NOT be flagged',
+        );
+    }
+
+    public function test_acceptance_with_runnable_command_and_failure_mode_not_weak_runnable(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Implement the foo service according to spec.',
+            'acceptance_criteria' => [
+                'Running ./vendor/bin/phpunit tests/FooTest.php exits 0.',
+                'The primary failure mode is a non-zero exit from the gate binary.',
+            ],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertNotContains(
+            AtlasTaskHiddenPoisonDetector::PATTERN_WEAK_RUNNABLE_ACCEPTANCE,
+            $found,
+            'acceptance with runnable command + failure mode must NOT be flagged',
+        );
+    }
+
+    public function test_acceptance_with_runnable_command_and_value_proof_not_weak_runnable(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Implement the foo service.',
+            'acceptance_criteria' => [
+                'Running php artisan test --filter=Foo exits 0.',
+                'The value proof must match the expected ROI from the design brief.',
+            ],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertNotContains(
+            AtlasTaskHiddenPoisonDetector::PATTERN_WEAK_RUNNABLE_ACCEPTANCE,
+            $found,
+            'acceptance with runnable command + value proof must NOT be flagged',
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: weak_runnable coexists with schema_only and test_only
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_weak_runnable_coexists_with_schema_only(): void
+    {
+        // Both patterns can fire on the same packet without hiding each other.
+        // The acceptance "Running php artisan test --filter=Foo exits 0."
+        // matches BOTH schema_only (has "exits 0") and weak_runnable (has runnable command, no behavior).
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Harden the thing.',
+            'acceptance_criteria' => ['Running php artisan test --filter=Foo exits 0.'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_SCHEMA_ONLY_ACCEPTANCE, $found,
+            'schema_only pattern must still fire');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_WEAK_RUNNABLE_ACCEPTANCE, $found,
+            'weak_runnable pattern must still fire alongside schema_only');
+    }
+
+    public function test_weak_runnable_coexists_with_test_only(): void
+    {
+        // A test-only packet with only runnable acceptance triggers BOTH patterns.
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Harden the thing.',
+            'acceptance_criteria' => ['Running php artisan test --filter=Foo exits 0.'],
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_TEST_ONLY_ALLOWED_FILES, $found,
+            'test_only must be flagged alongside weak_runnable');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_WEAK_RUNNABLE_ACCEPTANCE, $found,
+            'weak_runnable must be flagged alongside test_only');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Extra: weak_runnable does not fire for non-runnable acceptance
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_acceptance_without_runnable_command_not_weak(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service that does X.',
+            'acceptance_criteria' => ['The service must output a JSON response for valid input.'],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertNotContains(
+            AtlasTaskHiddenPoisonDetector::PATTERN_WEAK_RUNNABLE_ACCEPTANCE,
+            $found,
+            'acceptance without runnable command must not be flagged',
+        );
+    }
+
+    public function test_empty_acceptance_not_weak_runnable(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service.',
+            'acceptance_criteria' => [],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertNotContains(
+            AtlasTaskHiddenPoisonDetector::PATTERN_WEAK_RUNNABLE_ACCEPTANCE,
+            $found,
+            'empty acceptance must not be flagged',
+        );
+    }
 }
