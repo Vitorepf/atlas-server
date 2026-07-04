@@ -338,4 +338,101 @@ final class AtlasExternalBrainRedundancyCollapseAdvisorTest extends TestCase
 
         $this->assertSame([], $r['redundancy_clusters']);
     }
+
+    // ── AC4: output shape — target_primary, retire_candidates, parity_risk ──
+
+    public function test_candidate_includes_target_primary(): void
+    {
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, [], ['cache_response']),
+        ]);
+
+        $c = $r['collapse_candidates'][0];
+        $this->assertArrayHasKey('target_primary', $c);
+        $this->assertSame('A', $c['target_primary']);
+    }
+
+    public function test_candidate_includes_retire_candidates(): void
+    {
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, [], ['cache_response']),
+        ]);
+
+        $c = $r['collapse_candidates'][0];
+        $this->assertArrayHasKey('retire_candidates', $c);
+        $this->assertSame(['B'], $c['retire_candidates']);
+    }
+
+    public function test_candidate_includes_parity_risk(): void
+    {
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, [], ['route_request']),
+        ]);
+
+        $c = $r['collapse_candidates'][0];
+        $this->assertArrayHasKey('parity_risk', $c);
+        $this->assertNotEmpty($c['parity_risk']);
+    }
+
+    public function test_parity_risk_low_when_no_deleted_responsibilities(): void
+    {
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, [], ['route_request']),
+        ]);
+
+        $this->assertSame('low', $r['collapse_candidates'][0]['parity_risk']);
+    }
+
+    public function test_parity_risk_high_when_behavior_gap_in_owner(): void
+    {
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, [], ['route_request', 'unique_behavior']),
+        ]);
+
+        $this->assertSame('high', $r['collapse_candidates'][0]['parity_risk']);
+    }
+
+    // ── AC2: merge_candidates at top level ──
+
+    public function test_top_level_includes_merge_candidates(): void
+    {
+        // Candidate with deletion_blockers → recommendation=merge → goes into merge_candidates
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, [], ['route_request', 'unique_behavior']),
+        ]);
+
+        $this->assertArrayHasKey('merge_candidates', $r);
+        $this->assertNotEmpty($r['merge_candidates']);
+    }
+
+    public function test_merge_candidates_only_includes_merge_recommendation(): void
+    {
+        // Two candidates: one with blockers (merge), one without (retire)
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, ['excl'], ['route_request']),
+            $this->organ('C', ['decide_routing', 'decide_dispatch'], 2.0, ['excl'], ['route_request', 'unique']),
+        ]);
+
+        foreach ($r['merge_candidates'] as $mc) {
+            $this->assertSame('merge', $mc['recommendation']);
+        }
+    }
+
+    public function test_merge_candidates_empty_when_all_candidates_retire(): void
+    {
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, [], ['route_request']),
+        ]);
+
+        $this->assertArrayHasKey('merge_candidates', $r);
+        $this->assertSame([], $r['merge_candidates']);
+    }
 }

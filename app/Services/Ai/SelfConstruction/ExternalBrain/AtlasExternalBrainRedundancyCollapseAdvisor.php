@@ -50,6 +50,10 @@ final class AtlasExternalBrainRedundancyCollapseAdvisor
         return [
             'schema_version' => self::SCHEMA,
             'collapse_candidates' => $candidates,
+            'merge_candidates' => array_values(array_filter(
+                $candidates,
+                static fn (array $c): bool => ($c['recommendation'] ?? '') === 'merge',
+            )),
             'refused_collapses' => $refused,
             'candidate_count' => count($candidates),
             'redundancy_clusters' => $this->findRedundancyClusters($organMaps),
@@ -301,13 +305,16 @@ final class AtlasExternalBrainRedundancyCollapseAdvisor
         return ['collapse_safe' => true, 'candidate' => [
             'canonical_owner'          => $ownerId,
             'canonical_owner_reason'   => 'higher_evidence_strength',
+            'target_primary'           => $ownerId,
             'absorbed_organs'          => [$absorbedId],
+            'retire_candidates'        => [$absorbedId],
             'recommendation'           => $recommendation,
             'shared_decisions'         => $sharedDecisions,
             'preserved_behaviors'      => $preserved,
             'deleted_responsibilities' => $deletedResponsibilities,
             'migration_notes'          => "Route all {$absorbedId} callers to {$ownerId}",
             'risk_level'               => $this->riskLevel(count($deletedResponsibilities), count($absorbedExclusiveConsumers)),
+            'parity_risk'              => $this->parityRisk($deletedResponsibilities, $deletionBlockers),
             'required_tests'           => $requiredTests,
             'required_behavior_tests'  => $requiredTests,
             'deletion_blockers'        => $deletionBlockers,
@@ -325,5 +332,18 @@ final class AtlasExternalBrainRedundancyCollapseAdvisor
         }
 
         return 'low';
+    }
+
+    /**
+     * @param  list<string>  $deletedResponsibilities
+     * @param  list<string>  $deletionBlockers
+     */
+    private function parityRisk(array $deletedResponsibilities, array $deletionBlockers): string
+    {
+        if ($deletedResponsibilities === []) {
+            return 'low';
+        }
+
+        return in_array('behavior_gap_in_owner', $deletionBlockers, true) ? 'high' : 'medium';
     }
 }
