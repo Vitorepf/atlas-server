@@ -499,4 +499,55 @@ final class AtlasExternalBrainImpactBacktestHarnessTest extends TestCase
 
         $this->assertSame([], $r['impact_weight_suggestions']);
     }
+
+    // AC: calibration_update with overestimate, underestimate, calibrated counts
+    public function test_calibration_update_has_counts(): void
+    {
+        $r = $this->svc()->backtest(['scored_tasks' => [
+            ['task_id' => 't1', 'predicted_leverage' => 9.0, 'actual_leverage' => 1.0, 'actual_outcome' => 'overestimate_case'],
+            ['task_id' => 't2', 'predicted_leverage' => 1.0, 'actual_leverage' => 9.0, 'actual_outcome' => 'underestimate_case'],
+            ['task_id' => 't3', 'predicted_leverage' => 5.0, 'actual_leverage' => 5.0, 'actual_outcome' => 'calibrated_case'],
+        ]]);
+
+        $update = $r['calibration_update'];
+        $this->assertArrayHasKey('overestimate_count', $update);
+        $this->assertArrayHasKey('underestimate_count', $update);
+        $this->assertArrayHasKey('calibrated_count', $update);
+        $this->assertArrayHasKey('calibration_score', $update);
+        $this->assertArrayHasKey('calibration_error', $update);
+        $this->assertSame(1, $update['overestimate_count']);
+        $this->assertSame(1, $update['underestimate_count']);
+        $this->assertSame(1, $update['calibrated_count']);
+    }
+
+    // AC: task_family_adjustment for future ranking
+    public function test_task_family_adjustment_present(): void
+    {
+        $r = $this->svc()->backtest(['scored_tasks' => [
+            ['task_id' => 't1', 'predicted_leverage' => 8.0, 'actual_leverage' => 2.0, 'actual_outcome' => 'give_back', 'task_family' => 'refactor'],
+            ['task_id' => 't2', 'predicted_leverage' => 5.0, 'actual_leverage' => 5.0, 'actual_outcome' => 'commit_success', 'task_family' => 'testing'],
+        ]]);
+
+        $adjustments = $r['task_family_adjustment'];
+        $this->assertCount(2, $adjustments);
+        foreach ($adjustments as $adj) {
+            $this->assertArrayHasKey('task_family', $adj);
+            $this->assertArrayHasKey('correction_direction', $adj);
+            $this->assertArrayHasKey('average_error', $adj);
+            $this->assertArrayHasKey('sample_count', $adj);
+        }
+    }
+
+    // AC: calibration_update empty when no tasks
+    public function test_calibration_update_empty_when_no_tasks(): void
+    {
+        $r = $this->svc()->backtest([]);
+
+        $this->assertSame(0, $r['calibration_update']['overestimate_count']);
+        $this->assertSame(0, $r['calibration_update']['underestimate_count']);
+        $this->assertSame(0, $r['calibration_update']['calibrated_count']);
+        $this->assertNull($r['calibration_update']['calibration_score']);
+        $this->assertNull($r['calibration_update']['calibration_error']);
+        $this->assertSame([], $r['task_family_adjustment']);
+    }
 }

@@ -70,6 +70,14 @@ final class AtlasExternalBrainImpactBacktestHarness
                 'runtime_evidence_calibration' => [],
                 'originator_pattern_penalties' => [],
                 'impact_weight_suggestions' => [],
+                'calibration_update' => [
+                    'overestimate_count' => 0,
+                    'underestimate_count' => 0,
+                    'calibrated_count' => 0,
+                    'calibration_score' => null,
+                    'calibration_error' => null,
+                ],
+                'task_family_adjustment' => [],
             ];
         }
 
@@ -309,6 +317,21 @@ final class AtlasExternalBrainImpactBacktestHarness
             'runtime_evidence_calibration' => $runtimeEvidenceCalibration,
             'originator_pattern_penalties' => $originatorPatternPenalties,
             'impact_weight_suggestions' => $impactWeightSuggestions,
+            'calibration_update' => [
+                'overestimate_count' => count(array_filter($calibrationBuckets, static fn (array $b): bool => $b['calibration_status'] === 'overclaimed')),
+                'underestimate_count' => count(array_filter($calibrationBuckets, static fn (array $b): bool => $b['calibration_status'] === 'underclaimed')),
+                'calibrated_count' => count(array_filter($calibrationBuckets, static fn (array $b): bool => $b['calibration_status'] === 'well_calibrated')),
+                'calibration_score' => $calibrationScore,
+                'calibration_error' => round($absDeltaSum / $totalTasks, 4),
+            ],
+            'task_family_adjustment' => array_map(static function (array $fc) {
+                return [
+                    'task_family' => $fc['task_family'],
+                    'correction_direction' => $fc['correction_direction'],
+                    'average_error' => $fc['average_error'],
+                    'sample_count' => $fc['sample_count'],
+                ];
+            }, $familyCalibration),
         ];
     }
 
