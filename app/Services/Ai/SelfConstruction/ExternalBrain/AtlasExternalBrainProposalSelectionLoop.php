@@ -76,12 +76,38 @@ final class AtlasExternalBrainProposalSelectionLoop
             ];
         }
 
+        // AC1: group rejected proposals by disqualification class.
+        $rejectedByClass = [];
+        foreach ($arenaResult['rejected'] as $r) {
+            $class = $r['reason'] === 'outscored_by_winner' ? 'outscored' : $r['reason'];
+            $rejectedByClass[$class][] = $r['proposal_id'];
+        }
+
+        // AC2: derive next-batch avoid patterns from rejection reasons.
+        $nextBatchAvoidPatterns = [];
+        foreach ($arenaResult['rejected'] as $r) {
+            $pattern = match ($r['reason']) {
+                AtlasExternalBrainProposalArena::DISQUALIFY_PROXY            => 'avoid_proxy_heavy_proposals',
+                AtlasExternalBrainProposalArena::DISQUALIFY_DUPLICATE        => 'avoid_duplicate_proposals',
+                AtlasExternalBrainProposalArena::DISQUALIFY_UNIMPLEMENTABLE  => 'raise_implementability_floor',
+                AtlasExternalBrainProposalArena::DISQUALIFY_NO_EVIDENCE_PATH => 'require_runnable_evidence_path',
+                AtlasExternalBrainProposalArena::DISQUALIFY_EVIDENCE_QUORUM  => 'ensure_independent_evidence_quorum',
+                AtlasExternalBrainProposalArena::DISQUALIFY_TEMPLATE_FARM    => 'avoid_template_farm_patterns',
+                default                                                     => null,
+            };
+            if ($pattern !== null) {
+                $nextBatchAvoidPatterns[$pattern] = true;
+            }
+        }
+
         return [
             'schema' => self::SCHEMA,
             'verdict' => $arenaResult['verdict'],
             'winner' => $arenaResult['winner'],
             'rejected' => $arenaResult['rejected'],
             'rejected_dossier' => $rejectedDossier,
+            'rejected_by_class' => $rejectedByClass,
+            'next_batch_avoid_patterns' => array_keys($nextBatchAvoidPatterns),
             'escalation_dossier' => $escalationDossier,
             'arena_hash' => $arenaResult['arena_hash'],
             'batch' => $batch,

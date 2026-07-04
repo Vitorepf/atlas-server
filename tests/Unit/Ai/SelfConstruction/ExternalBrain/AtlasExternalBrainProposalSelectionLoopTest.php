@@ -30,6 +30,7 @@ final class AtlasExternalBrainProposalSelectionLoopTest extends TestCase
             'required_evidence' => ['tests_or_gates_result'],
             'value_mechanism' => 'reduces duplication',
             'category' => 'bug_fix',
+            'evidence_refs' => ['receipt:a', 'receipt:b'],
         ];
     }
 
@@ -50,6 +51,13 @@ final class AtlasExternalBrainProposalSelectionLoopTest extends TestCase
         $this->assertContains(AtlasExternalBrainProposalSelectionLoop::ESCALATION_RESEARCH_TO_TASK, $result['escalation_dossier']['actions']);
         $this->assertContains(AtlasExternalBrainProposalSelectionLoop::ESCALATION_SIMPLIFICATION_FIRST, $result['escalation_dossier']['actions']);
         $this->assertContains(AtlasExternalBrainProposalSelectionLoop::ESCALATION_SECOND_PASS_CANDIDATE_SEARCH, $result['escalation_dossier']['actions']);
+        // AC1: rejected_by_class groups the duplicate rejection.
+        $this->assertArrayHasKey('rejected_by_class', $result);
+        $this->assertArrayHasKey('duplicate', $result['rejected_by_class']);
+        $this->assertContains('bad', $result['rejected_by_class']['duplicate']);
+        // AC2: next_batch_avoid_patterns includes duplicate avoidance.
+        $this->assertArrayHasKey('next_batch_avoid_patterns', $result);
+        $this->assertContains('avoid_duplicate_proposals', $result['next_batch_avoid_patterns']);
     }
 
     public function test_winner_selected_result_has_no_escalation_dossier(): void
@@ -63,6 +71,13 @@ final class AtlasExternalBrainProposalSelectionLoopTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_WINNER_SELECTED, $result['verdict']);
         $this->assertNull($result['escalation_dossier']);
+        // AC1: outscored class appears in rejected_by_class.
+        $this->assertArrayHasKey('rejected_by_class', $result);
+        $this->assertArrayHasKey('outscored', $result['rejected_by_class']);
+        $this->assertContains('low', $result['rejected_by_class']['outscored']);
+        // AC2: outscored proposals produce no avoid pattern (the issue is score, not disqualification).
+        $this->assertArrayHasKey('next_batch_avoid_patterns', $result);
+        $this->assertSame([], $result['next_batch_avoid_patterns']);
     }
 
     public function test_rejected_reasons_are_preserved_verbatim_in_rejected_dossier(): void
