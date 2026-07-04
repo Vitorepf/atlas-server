@@ -107,9 +107,16 @@ final class AtlasTaskBlockedPacketFamilyClassifierTest extends TestCase
     {
         $r = $this->classify([]);
 
-        foreach (['schema_version', 'task_packet_id', 'family', 'recommended_action', 'repairability', 'rationale', 'required_respec_fields', 'confidence'] as $key) {
+        foreach (['schema_version', 'task_packet_id', 'family', 'recommended_action',
+            'repairability', 'rationale', 'required_respec_fields', 'confidence',
+            'repair_family', 'root_cause', 'repair_route', 'worker_safe', 'non_worker_reason',
+        ] as $key) {
             $this->assertArrayHasKey($key, $r, "missing key: {$key}");
         }
+        // Aliases match their canonical equivalents.
+        $this->assertSame($r['family'], $r['repair_family']);
+        $this->assertSame($r['rationale'], $r['root_cause']);
+        $this->assertSame($r['recommended_action'], $r['repair_route']);
     }
 
     public function test_classify_batch_returns_list(): void
@@ -132,5 +139,47 @@ final class AtlasTaskBlockedPacketFamilyClassifierTest extends TestCase
         $packet['task_packet_id'] = $packet['task_packet_id'] ?? 'test-packet';
 
         return (new AtlasTaskBlockedPacketFamilyClassifier)->classifyOne($packet);
+    }
+
+    // ── AC3: worker_safe marks operator-only interventions ──────────────────
+
+    public function test_unknown_family_is_not_worker_safe_with_manual_review_reason(): void
+    {
+        $r = $this->classify([]);
+
+        $this->assertFalse($r['worker_safe']);
+        $this->assertSame('manual_review_required', $r['non_worker_reason']);
+    }
+
+    public function test_forbidden_target_family_is_not_worker_safe(): void
+    {
+        $r = $this->classify(['blocking_deficiencies' => ['forbidden_self_target']]);
+
+        $this->assertFalse($r['worker_safe']);
+        $this->assertSame('forbidden_target_cannot_be_fixed_by_file_edits', $r['non_worker_reason']);
+    }
+
+    public function test_contradictory_acceptance_is_not_worker_safe(): void
+    {
+        $r = $this->classify(['blocking_deficiencies' => ['contradictory_acceptance']]);
+
+        $this->assertFalse($r['worker_safe']);
+        $this->assertSame('contradictory_acceptance_needs_rewrite', $r['non_worker_reason']);
+    }
+
+    public function test_schema_mismatch_is_worker_safe(): void
+    {
+        $r = $this->classify(['blocking_deficiencies' => ['schema mismatch']]);
+
+        $this->assertTrue($r['worker_safe']);
+        $this->assertNull($r['non_worker_reason']);
+    }
+
+    public function test_duplicate_already_done_is_worker_safe(): void
+    {
+        $r = $this->classify(['quality_facts' => ['already_done' => true]]);
+
+        $this->assertTrue($r['worker_safe']);
+        $this->assertNull($r['non_worker_reason']);
     }
 }

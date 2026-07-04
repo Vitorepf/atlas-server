@@ -277,19 +277,47 @@ final class AtlasTaskBlockedPacketFamilyClassifier
 
     /**
      * @param  list<string>  $requiredRespecFields
-     * @return array{schema_version:string, task_packet_id:string, family:string, recommended_action:string, repairability:string, rationale:string, required_respec_fields:list<string>, confidence:string}
+     * @return array{schema_version:string, task_packet_id:string, family:string, recommended_action:string, repairability:string, rationale:string, required_respec_fields:list<string>, confidence:string, repair_family:string, root_cause:string, repair_route:string, worker_safe:bool, non_worker_reason:?string}
      */
     private function record(string $id, string $family, string $action, string $repairability, string $rationale, array $requiredRespecFields, string $confidence): array
     {
+        $isWorkerSafe = match (true) {
+            $action === 'manual_review' => false,
+            $repairability === 'conditional' || $repairability === 'unknown' => false,
+            in_array($family, [
+                self::FAMILY_FORBIDDEN_TARGET,
+                self::FAMILY_CONTRADICTORY_ACCEPTANCE,
+                self::FAMILY_FORBIDDEN_TARGET_SUSPECT,
+            ], true) => false,
+            $repairability === 'unrepairable' && $action === 'retire' => true, // retire is a safe autonomous op for non-sensitive families
+            default => true,
+        };
+        $nonWorkerReason = $isWorkerSafe
+            ? null
+            : match ($family) {
+                self::FAMILY_UNKNOWN => 'manual_review_required',
+                self::FAMILY_FORBIDDEN_TARGET => 'forbidden_target_cannot_be_fixed_by_file_edits',
+                self::FAMILY_CONTRADICTORY_ACCEPTANCE => 'contradictory_acceptance_needs_rewrite',
+                self::FAMILY_DORMANT_CLI_ARM_PROXY => 'dormant_cli_arm_needs_operator_wiring',
+                self::FAMILY_FORBIDDEN_TARGET_SUSPECT => 'forbidden_axis_needs_human_confirmation',
+                self::FAMILY_CODEX_META_AUTOPOIETIC_CONSTITUTION => 'autopoietic_constitution_requires_human_review',
+                default => 'manual_intervention_required',
+            };
+
         return [
             'schema_version' => self::SCHEMA,
             'task_packet_id' => $id,
             'family' => $family,
+            'repair_family' => $family,
             'recommended_action' => $action,
+            'repair_route' => $action,
             'repairability' => $repairability,
             'rationale' => $rationale,
+            'root_cause' => $rationale,
             'required_respec_fields' => array_values($requiredRespecFields),
             'confidence' => $confidence,
+            'worker_safe' => $isWorkerSafe,
+            'non_worker_reason' => $nonWorkerReason,
         ];
     }
 }
