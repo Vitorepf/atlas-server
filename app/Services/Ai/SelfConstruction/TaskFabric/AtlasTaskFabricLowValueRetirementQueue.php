@@ -58,6 +58,18 @@ final class AtlasTaskFabricLowValueRetirementQueue
     /** leverage_score AT/ABOVE this protects an otherwise-low-value candidate as genuinely useful (keep). */
     private const LEVERAGE_KEEP_THRESHOLD         = 0.70;
 
+    /** @var array<string,int> retirement_reason → priority (higher = more urgent) */
+    private const RETIREMENT_PRIORITY = [
+        'duplicate'              => 5,
+        'stale'                  => 4,
+        'stale_without_commit'   => 4,
+        'high_proxy_risk'        => 5,
+        'high_template_similarity' => 4,
+        'repeated_give_back'     => 3,
+        'over_quarantined'       => 3,
+        'low_value'              => 1,
+    ];
+
     public const DECISION_RETIRE                  = 'retire';
     public const DECISION_KEEP                     = 'keep';
     public const DECISION_MERGE                    = 'merge';
@@ -126,8 +138,12 @@ final class AtlasTaskFabricLowValueRetirementQueue
                 $replacementOrRespec = $this->replacementOrRespec($c);
                 $retired[] = array_merge($entry, [
                     'retirement_reason'     => $reason,
+                    'evidence_ref'          => $reason,
+                    'affected_capability'   => $this->capabilityFrom($c),
+                    'safe_next_action'      => $replacementOrRespec['action'] === 'replace' ? 'replace_with_replacement' : 'investigate_and_respec',
                     'replacement_or_respec' => $replacementOrRespec,
                     'decision'              => $replacementOrRespec['action'] === 'replace' ? self::DECISION_MERGE : self::DECISION_RETIRE,
+                    'retirement_priority'   => self::RETIREMENT_PRIORITY[$reason] ?? 1,
                 ]);
                 continue;
             }
@@ -190,5 +206,17 @@ final class AtlasTaskFabricLowValueRetirementQueue
             'action'                   => $replacementId !== null ? 'replace' : 'respec_required',
             'replacement_candidate_id' => $replacementId,
         ];
+    }
+
+    private function capabilityFrom(array $c): string
+    {
+        $cap = (string) ($c['capability'] ?? '');
+        if ($cap !== '') {
+            return $cap;
+        }
+        $id = (string) ($c['id'] ?? '');
+        $parts = explode('-', $id, 2);
+
+        return $parts[0] !== '' ? $parts[0] : 'unknown';
     }
 }

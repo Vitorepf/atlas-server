@@ -416,4 +416,69 @@ final class AtlasTaskFabricLowValueRetirementQueueTest extends TestCase
         $this->assertCount(1, $r['ineligible']);
         $this->assertSame(AtlasTaskFabricLowValueRetirementQueue::DECISION_KEEP, $r['ineligible'][0]['decision']);
     }
+
+    // ── AC3: retirement_priority, evidence_ref, affected_capability, safe_next_action ────
+
+    public function test_retired_entry_includes_retirement_priority(): void
+    {
+        $spec = ['id' => 't1', 'value_estimate' => 0.05];
+        $r = $this->queue()->evaluate(['candidates' => [$spec]]);
+
+        $this->assertArrayHasKey('retirement_priority', $r['retired'][0]);
+        $this->assertIsInt($r['retired'][0]['retirement_priority']);
+    }
+
+    public function test_duplicate_has_highest_priority(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [
+            ['id' => 'dup-task', 'value_estimate' => 0.9, 'is_duplicate' => true],
+            ['id' => 'low-val', 'value_estimate' => 0.05],
+        ]]);
+
+        $dup = $r['retired'][0]['id'] === 'dup-task' ? $r['retired'][0] : $r['retired'][1];
+        $low = $r['retired'][0]['id'] === 'low-val' ? $r['retired'][0] : $r['retired'][1];
+        $this->assertGreaterThan($low['retirement_priority'], $dup['retirement_priority']);
+    }
+
+    public function test_retired_entry_includes_evidence_ref(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [$this->spec('t1', 0.05)]]);
+
+        $this->assertArrayHasKey('evidence_ref', $r['retired'][0]);
+        $this->assertSame('low_value', $r['retired'][0]['evidence_ref']);
+    }
+
+    public function test_retired_entry_includes_affected_capability(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [['id' => 't1', 'value_estimate' => 0.05, 'capability' => 'task_fabric']]]);
+
+        $this->assertArrayHasKey('affected_capability', $r['retired'][0]);
+        $this->assertSame('task_fabric', $r['retired'][0]['affected_capability']);
+    }
+
+    public function test_affected_capability_falls_back_to_id_prefix(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [$this->spec('queue-retire', 0.05)]]);
+
+        $this->assertSame('queue', $r['retired'][0]['affected_capability']);
+    }
+
+    public function test_retired_entry_includes_safe_next_action(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [$this->spec('t1', 0.05)]]);
+
+        $this->assertArrayHasKey('safe_next_action', $r['retired'][0]);
+        $this->assertSame('investigate_and_respec', $r['retired'][0]['safe_next_action']);
+    }
+
+    public function test_retired_with_replacement_safe_next_action_is_replace(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id' => 't1',
+            'value_estimate' => 0.05,
+            'replacement_candidate' => 'task-better-v2',
+        ]]]);
+
+        $this->assertSame('replace_with_replacement', $r['retired'][0]['safe_next_action']);
+    }
 }
