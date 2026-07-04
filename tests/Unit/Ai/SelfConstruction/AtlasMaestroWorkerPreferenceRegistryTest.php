@@ -164,4 +164,65 @@ class AtlasMaestroWorkerPreferenceRegistryTest extends TestCase
         self::assertSame(AtlasMaestroWorkerPreferenceRegistry::DEFAULT_PROFILE['max_loc'], $r['max_loc']);
         self::assertSame(AtlasMaestroWorkerPreferenceRegistry::DEFAULT_PROFILE['tier'], $r['tier']);
     }
+
+    // ── outcomeCalibratedProfile: worker_preferences, decayed_preferences, confidence, evidence_refs ──
+
+    public function test_outcome_calibrated_profile_has_required_keys(): void
+    {
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([]);
+        $result = $registry->outcomeCalibratedProfile('unknown', []);
+        $this->assertArrayHasKey('worker_preferences', $result);
+        $this->assertArrayHasKey('decayed_preferences', $result);
+        $this->assertArrayHasKey('confidence', $result);
+        $this->assertArrayHasKey('evidence_refs', $result);
+    }
+
+    public function test_verified_successes_increase_preference(): void
+    {
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([]);
+        $outcomes = [
+            ['outcome' => 'success', 'evidence' => ['tests_or_gates_result']],
+            ['outcome' => 'success', 'evidence' => ['implementation_notes']],
+        ];
+        $result = $registry->outcomeCalibratedProfile('unknown', $outcomes);
+        $this->assertGreaterThan(0, $result['confidence']);
+        $this->assertContains('tests_or_gates_result', $result['evidence_refs']);
+        $this->assertContains('implementation_notes', $result['evidence_refs']);
+        $this->assertNotSame('decayed', $result['decayed_preferences']['tier']);
+    }
+
+    public function test_success_without_evidence_not_counted_as_verified(): void
+    {
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([]);
+        $outcomes = [
+            ['outcome' => 'success'], // no evidence
+        ];
+        $result = $registry->outcomeCalibratedProfile('unknown', $outcomes);
+        $this->assertSame(0.0, $result['confidence']);
+        $this->assertSame([], $result['evidence_refs']);
+    }
+
+    public function test_give_back_decays_preference(): void
+    {
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([]);
+        $outcomes = [
+            ['outcome' => 'give_back'],
+            ['outcome' => 'give_back'],
+        ];
+        $result = $registry->outcomeCalibratedProfile('unknown', $outcomes);
+        $this->assertGreaterThan(0, $result['confidence']);
+        $this->assertSame('decayed', $result['decayed_preferences']['tier']);
+    }
+
+    public function test_poison_outcome_decays_preference(): void
+    {
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([]);
+        $outcomes = [
+            ['outcome' => 'success', 'evidence' => ['tests_or_gates_result']],
+            ['outcome' => 'poison'],
+        ];
+        $result = $registry->outcomeCalibratedProfile('unknown', $outcomes);
+        // Poison decay (-1.5) outweighs success (+1.0), so net negative
+        $this->assertSame('decayed', $result['decayed_preferences']['tier']);
+    }
 }
