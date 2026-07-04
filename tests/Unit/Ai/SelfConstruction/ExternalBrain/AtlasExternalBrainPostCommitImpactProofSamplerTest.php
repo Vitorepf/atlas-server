@@ -330,4 +330,56 @@ final class AtlasExternalBrainPostCommitImpactProofSamplerTest extends TestCase
             $this->assertNotEmpty($result['label_reason']);
         }
     }
+
+    // ── impact_verified, overclaim_risk, proof_refs, learning_signal ──
+
+    public function test_output_has_impact_verified_overclaim_risk_proof_refs_and_learning_signal(): void
+    {
+        $result = $this->sampler->sample($this->base());
+        $this->assertArrayHasKey('impact_verified', $result);
+        $this->assertArrayHasKey('overclaim_risk', $result);
+        $this->assertArrayHasKey('proof_refs', $result);
+        $this->assertArrayHasKey('learning_signal', $result);
+    }
+
+    public function test_impact_verified_is_true_when_behavior_delta_backs_claim(): void
+    {
+        $result = $this->sampler->sample($this->base());
+        $this->assertTrue($result['impact_verified']);
+    }
+
+    public function test_impact_verified_is_false_when_no_behavior_delta(): void
+    {
+        $result = $this->sampler->sample($this->base(['observed_behavior_delta' => '']));
+        $this->assertFalse($result['impact_verified']);
+    }
+
+    public function test_overclaim_risk_is_critical_when_delta_without_impl_or_tests(): void
+    {
+        $result = $this->sampler->sample([
+            'promised_capability_delta' => 'adds X',
+            'observed_impl_files' => [],
+            'observed_test_files' => [],
+        ]);
+        $this->assertSame('critical', $result['overclaim_risk']);
+    }
+
+    public function test_overclaim_risk_is_low_for_high_impact(): void
+    {
+        $result = $this->sampler->sample($this->base());
+        $this->assertSame('low', $result['overclaim_risk']);
+    }
+
+    public function test_proof_refs_includes_impl_and_test_refs(): void
+    {
+        $result = $this->sampler->sample($this->base());
+        $this->assertContains('impl:app/Services/Ai/AtlasFoo.php', $result['proof_refs']);
+        $this->assertContains('test:tests/Unit/Ai/AtlasFooTest.php', $result['proof_refs']);
+    }
+
+    public function test_learning_signal_equals_ranking_signal_capped(): void
+    {
+        $result = $this->sampler->sample($this->base());
+        $this->assertSame($result['ranking_signal_capped'], $result['learning_signal']);
+    }
 }
