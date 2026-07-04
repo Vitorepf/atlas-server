@@ -25,6 +25,10 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
 
     public const ACTION_CONSOLIDATION_REFILL = 'consolidation_refill';
 
+    public const ACTION_CREATE_HIGH_VALUE_BATCH = 'create_high_value_batch';
+
+    public const ACTION_WAIT = 'wait';
+
     /**
      * @param  array{
      *   claimable_depth?:int,
@@ -33,11 +37,17 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
      *   research_path_available?:bool,
      *   simplification_path_available?:bool,
      *   task_quality_erosion?:float,
+     *   fresh_non_duplicate_candidates?:int,
+     *   duplicate_candidates?:int,
+     *   malformed_candidates?:int,
+     *   low_value_candidates?:int,
+     *   candidates_exhausted?:bool,
      * }  $facts
      * @return array{
      *   schema:string,
      *   action:string,
      *   reasons:list<string>,
+     *   padding_throttle_explanation:string,
      * }
      */
     public function evaluate(array $facts): array
@@ -49,14 +59,40 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
         $simplificationPath = (bool) ($facts['simplification_path_available'] ?? false);
         $qualityErosion = max(0.0, min(1.0, (float) ($facts['task_quality_erosion'] ?? 0.0)));
 
+        $freshCandidates = max(0, (int) ($facts['fresh_non_duplicate_candidates'] ?? 0));
+        $duplicateCandidates = max(0, (int) ($facts['duplicate_candidates'] ?? 0));
+        $malformedCandidates = max(0, (int) ($facts['malformed_candidates'] ?? 0));
+        $lowValueCandidates = max(0, (int) ($facts['low_value_candidates'] ?? 0));
+        $candidatesExhausted = (bool) ($facts['candidates_exhausted'] ?? false);
+
         $isSaturated = $claimable >= $threshold;
 
-        // True stop: no paths remain at all.
+        // Fresh non-duplicate high-leverage candidates exist → create_high_value_batch
+        // regardless of queue depth or path exhaustion. Queue depth never blocks valuable origination.
+        if ($freshCandidates > 0) {
+            return $this->envelope(self::ACTION_CREATE_HIGH_VALUE_BATCH, [
+                'fresh_non_duplicate_candidates:' . $freshCandidates,
+                'queue_depth:' . $claimable,
+                'high_value_frontier:' . $highValueFrontier,
+                'queue_depth_never_blocks_valuable_origination',
+            ]);
+        }
+
+        // True stop: no paths remain at all AND no fresh candidates.
         if ($highValueFrontier === 0 && ! $researchPath && ! $simplificationPath) {
             return $this->envelope(self::ACTION_STOP, [
                 'stop: no high-value frontier',
                 'stop: no research path',
                 'stop: no simplification path',
+            ]);
+        }
+
+        // All remaining candidates are duplicate, malformed, low-value or exhausted → wait
+        if ($candidatesExhausted || ($freshCandidates === 0 && ($duplicateCandidates > 0 || $malformedCandidates > 0 || $lowValueCandidates > 0))) {
+            return $this->envelope(self::ACTION_WAIT, [
+                'candidates_exhausted_or_low_quality',
+                'duplicate:' . $duplicateCandidates . ' malformed:' . $malformedCandidates . ' low_value:' . $lowValueCandidates,
+                'wait_for_better_candidates_not_queue_depth',
             ]);
         }
 
@@ -93,6 +129,22 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
             'schema' => self::SCHEMA,
             'action' => $action,
             'reasons' => $reasons,
+            'padding_throttle_explanation' => $this->buildPaddingThrottleExplanation($action),
         ];
+    }
+
+    /**
+     * Explain the difference between throttling padding and blocking valuable origination.
+     */
+    private function buildPaddingThrottleExplanation(string $action): string
+    {
+        return match ($action) {
+            self::ACTION_CREATE_HIGH_VALUE_BATCH => 'queue_depth_never_blocks_valuable_origination: fresh non-duplicate structural leverage takes priority over saturation',
+            self::ACTION_WAIT => 'wait_is_candidate_quality_gate_not_queue_depth: candidates are duplicate/malformed/low-value/exhausted, not blocked by queue depth',
+            self::ACTION_STOP => 'stop_only_when_all_paths_exhausted: no frontier, no research, no simplification',
+            self::ACTION_CONSOLIDATION_REFILL => 'consolidation_over_padding: quality erosion detected, prefer consolidation to maintain signal-to-noise',
+            self::ACTION_CONTINUE_SELECTIVE => 'continue_with_higher_selectivity: saturated queue shifts to higher bar but does not stop origination',
+            default => 'unknown_action',
+        };
     }
 }
