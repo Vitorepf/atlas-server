@@ -571,4 +571,90 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
         $this->assertNotFalse($proofPos);
         $this->assertLessThan($scorePos, $proofPos, 'proof_weight must lead the explanation before score_advantage');
     }
+
+    // ── cost_adjusted_score ──
+
+    public function test_score_output_has_cost_adjusted_score(): void
+    {
+        $result = $this->scorer()->score([
+            'label' => 'cheap_task',
+            'capability_unlock' => 0.5,
+            'estimated_worker_minutes' => 30,
+            'simplification_savings_lines' => 50,
+        ]);
+
+        $this->assertArrayHasKey('cost_adjusted_score', $result);
+        $this->assertIsFloat($result['cost_adjusted_score']);
+    }
+
+    public function test_cost_adjusted_score_penalizes_expensive_tasks(): void
+    {
+        $cheap = $this->scorer()->score([
+            'label' => 'cheap',
+            'capability_unlock' => 0.5,
+            'estimated_worker_minutes' => 15,
+        ]);
+        $expensive = $this->scorer()->score([
+            'label' => 'expensive',
+            'capability_unlock' => 0.5,
+            'estimated_worker_minutes' => 120,
+        ]);
+
+        // Same final_score, but cheap has higher cost_adjusted_score
+        $this->assertSame($cheap['final_score'], $expensive['final_score']);
+        $this->assertGreaterThan($expensive['cost_adjusted_score'], $cheap['cost_adjusted_score']);
+    }
+
+    public function test_simplification_savings_boosts_cost_adjusted_score(): void
+    {
+        $noSavings = $this->scorer()->score([
+            'label' => 'no_savings',
+            'capability_unlock' => 0.5,
+            'estimated_worker_minutes' => 30,
+        ]);
+        $withSavings = $this->scorer()->score([
+            'label' => 'with_savings',
+            'capability_unlock' => 0.5,
+            'estimated_worker_minutes' => 30,
+            'simplification_savings_lines' => 200,
+        ]);
+
+        // Same final_score, but with_savings has higher cost_adjusted_score
+        $this->assertSame($noSavings['final_score'], $withSavings['final_score']);
+        $this->assertGreaterThan($noSavings['cost_adjusted_score'], $withSavings['cost_adjusted_score']);
+    }
+
+    public function test_rank_prefers_lower_raw_score_when_cost_adjusted_payoff_is_higher(): void
+    {
+        $ranked = $this->scorer()->rank([
+            // High raw score but expensive
+            [
+                'label' => 'flashy',
+                'capability_unlock' => 0.9,
+                'estimated_worker_minutes' => 180,
+            ],
+            // Lower raw score but cheap with simplification savings
+            [
+                'label' => 'cheap_compound',
+                'capability_unlock' => 0.6,
+                'estimated_worker_minutes' => 15,
+                'simplification_savings_lines' => 300,
+            ],
+        ]);
+
+        // cheap_compound should rank first due to better cost-adjusted payoff
+        $this->assertSame('cheap_compound', $ranked[0]['label']);
+        $this->assertSame('flashy', $ranked[1]['label']);
+    }
+
+    public function test_cost_adjusted_score_zero_when_no_cost_and_no_savings(): void
+    {
+        $result = $this->scorer()->score([
+            'label' => 'baseline',
+            'capability_unlock' => 0.5,
+        ]);
+
+        // With 0 minutes and 0 savings, cost_adjusted_score equals final_score
+        $this->assertSame($result['final_score'], $result['cost_adjusted_score']);
+    }
 }

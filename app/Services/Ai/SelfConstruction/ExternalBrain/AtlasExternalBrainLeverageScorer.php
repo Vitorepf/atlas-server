@@ -144,18 +144,44 @@ final class AtlasExternalBrainLeverageScorer
 
         $penalty = min(1.0, $penalty);
 
+        // Cost-adjusted score: final_score adjusted for estimated worker cost and simplification savings.
+        // A cheaper task with compounding simplification savings can outrank a flashy high-score task.
+        $estimatedWorkerMinutes = max(0, (float) ($opportunity['estimated_worker_minutes'] ?? 0));
+        $simplificationSavingsLines = max(0, (int) ($opportunity['simplification_savings_lines'] ?? 0));
+        $costAdjustedScore = $this->computeCostAdjustedScore(
+            $weightedSum * (1.0 - $penalty),
+            $estimatedWorkerMinutes,
+            $simplificationSavingsLines,
+        );
+
         return [
             'schema'              => self::SCHEMA,
             'label'               => $label,
             'weighted_sum'        => round($weightedSum, 4),
             'penalty'             => round($penalty, 4),
             'final_score'         => round($weightedSum * (1.0 - $penalty), 4),
+            'cost_adjusted_score' => round($costAdjustedScore, 4),
             'proof_weight'        => round($proofWeight, 4),
             'dimension_scores'    => $dimensionScores,
             'triggered_penalties' => $triggeredPenalties,
             'compound_impact'     => $compoundImpact,
             'why_this_beats_next' => null,
         ];
+    }
+
+    /**
+     * Compute cost-adjusted score: final_score penalized by cost, boosted by simplification savings.
+     *
+     * Formula: final_score / (1 + cost_factor) * (1 + simplification_factor)
+     * where cost_factor = estimated_worker_minutes / 60 (normalized to hours)
+     * and simplification_factor = simplification_savings_lines / 100 (normalized to 100-line blocks)
+     */
+    private function computeCostAdjustedScore(float $finalScore, float $estimatedWorkerMinutes, int $simplificationSavingsLines): float
+    {
+        $costFactor = $estimatedWorkerMinutes / 60.0;
+        $simplificationFactor = $simplificationSavingsLines / 100.0;
+
+        return ($finalScore / (1.0 + $costFactor)) * (1.0 + $simplificationFactor);
     }
 
     /**
@@ -168,7 +194,7 @@ final class AtlasExternalBrainLeverageScorer
     public function rank(array $opportunities): array
     {
         $scored = array_map(fn (array $opp): array => $this->score($opp), $opportunities);
-        usort($scored, static fn (array $a, array $b): int => $b['final_score'] <=> $a['final_score']);
+        usort($scored, static fn (array $a, array $b): int => $b['cost_adjusted_score'] <=> $a['cost_adjusted_score']);
         $scored = array_values($scored);
 
         foreach ($scored as $i => $item) {
