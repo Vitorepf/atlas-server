@@ -84,6 +84,7 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
         $researchItems = $this->researchItems((array) ($facts['research_gaps'] ?? []));
 
         if ($buildItems === [] && $simplifyItems === [] && $researchItems === []) {
+            $capacityAssumptions = $this->capacityAssumptions($facts);
             return [
                 'schema_version' => self::SCHEMA,
                 'status' => self::STATUS_INSUFFICIENT_INPUT,
@@ -96,6 +97,7 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
                 ],
                 'steady_state_priorities' => self::STEADY_STATE_PRIORITIES,
                 'critical_path_categories' => [self::CATEGORY_BUILD, self::CATEGORY_SIMPLIFY, self::CATEGORY_RESEARCH],
+                'capacity_assumptions' => $capacityAssumptions,
             ];
         }
 
@@ -118,6 +120,7 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
             'category_allocation' => $allocation,
             'steady_state_priorities' => self::STEADY_STATE_PRIORITIES,
             'critical_path_categories' => [self::CATEGORY_BUILD, self::CATEGORY_SIMPLIFY, self::CATEGORY_RESEARCH],
+            'capacity_assumptions' => $this->capacityAssumptions($facts),
         ];
     }
 
@@ -389,6 +392,27 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
         return [
             'decision' => $decision,
             'reasons' => $reasons,
+        ];
+    }
+
+    /**
+     * Extract capacity assumptions from facts for transparency.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array{tasks_per_day:int, give_back_rate:float, effective_tasks_per_day:int, days_per_wave:int, wave_count:int}
+     */
+    private function capacityAssumptions(array $facts): array
+    {
+        $tasksPerDay = max(1, (int) ($facts['worker_capacity']['tasks_per_day'] ?? self::DEFAULT_TASKS_PER_DAY));
+        $giveBackRate = max(0.0, min(1.0, (float) ($facts['queue_yield']['give_back_rate'] ?? 0.0)));
+        $effectiveTasksPerDay = max(1, (int) round($tasksPerDay * (1 - $giveBackRate)));
+
+        return [
+            'tasks_per_day' => $tasksPerDay,
+            'give_back_rate' => $giveBackRate,
+            'effective_tasks_per_day' => $effectiveTasksPerDay,
+            'days_per_wave' => self::DAYS_PER_WAVE,
+            'wave_count' => self::WAVE_COUNT,
         ];
     }
 }
