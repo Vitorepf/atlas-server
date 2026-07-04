@@ -29,7 +29,7 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
         $items = [[
             'draft' => $this->draft(),
             'field_recovery' => [
-                'allowed_files' => ['app/Services/Ai/Foo.php'],
+                'allowed_files' => ['app/Services/Ai/Foo.php', 'tests/Unit/Ai/Foo/FooTest.php'],
                 'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test FooTest exits 0'],
                 'required_evidence' => ['tests_or_gates_result'],
                 'trust' => 'trusted',
@@ -129,7 +129,7 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
         $items = [[
             'draft' => $this->draft(['task_packet_id' => 'tp-source-1']),
             'field_recovery' => [
-                'allowed_files' => ['app/Foo.php'],
+                'allowed_files' => ['app/Foo.php', 'tests/Unit/Foo/FooTest.php'],
                 'acceptance_criteria' => ['criteria'],
                 'required_evidence' => ['tests_or_gates_result'],
                 'trust' => 'trusted',
@@ -149,7 +149,7 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
         $items = [[
             'draft' => $this->draft(['task_packet_id' => 'tp-source-2']),
             'field_recovery' => [
-                'allowed_files' => ['app/Foo.php'],
+                'allowed_files' => ['app/Foo.php', 'tests/Unit/Foo/FooTest.php'],
                 'acceptance_criteria' => ['criteria'],
                 'required_evidence' => ['tests_or_gates_result'],
                 'trust' => 'trusted',
@@ -177,7 +177,7 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
             [
                 'draft' => $this->draft(['task_packet_id' => 'tp-burn-1']),
                 'field_recovery' => [
-                    'allowed_files' => ['app/Foo.php'],
+                    'allowed_files' => ['app/Foo.php', 'tests/Unit/Foo/FooTest.php'],
                     'acceptance_criteria' => ['criteria'],
                     'required_evidence' => ['tests_or_gates_result'],
                     'trust' => 'trusted',
@@ -276,7 +276,7 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
             'draft' => $this->draft(),
             'field_recovery' => [
                 'objective' => 'Harden the forbidden-target guard for blocked packets.',
-                'allowed_files' => ['app/Foo.php'],
+                'allowed_files' => ['app/Foo.php', 'tests/Unit/Foo/FooTest.php'],
                 'acceptance_criteria' => ['criteria'],
                 'required_evidence' => ['tests_or_gates_result'],
                 'trust' => 'trusted',
@@ -296,7 +296,7 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
         $items = [[
             'draft' => $this->draft(),
             'field_recovery' => [
-                'allowed_files' => ['app/Foo.php'],
+                'allowed_files' => ['app/Foo.php', 'tests/Unit/Foo/FooTest.php'],
                 'acceptance_criteria' => ['criteria'],
                 'required_evidence' => ['tests_or_gates_result'],
                 'trust' => 'trusted',
@@ -416,7 +416,7 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
         $items = [[
             'draft' => $this->draft(),
             'field_recovery' => [
-                'allowed_files' => ['app/Services/Ai/Foo.php'],
+                'allowed_files' => ['app/Services/Ai/Foo.php', 'tests/Unit/Ai/Foo/FooTest.php'],
                 'acceptance_criteria' => ['criteria'],
                 'required_evidence' => ['tests_or_gates_result'],
                 'trust' => 'trusted',
@@ -465,5 +465,134 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
         $completed = $this->completer()->complete($items)['completed_drafts'][0];
 
         $this->assertSame([], $completed['missing_fact_blockers']);
+    }
+
+    // ── AC2: scope validation — implementation + test both required in allowed_files ──
+
+    public function test_only_implementation_file_without_test_file_is_refused_with_repair_hint(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['app/Services/Ai/Foo.php'],
+                'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test FooTest exits 0'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertFalse($completed['can_submit']);
+        $this->assertTrue($completed['has_implementation_scope']);
+        $this->assertFalse($completed['has_test_scope']);
+        $this->assertContains('missing_test_scope', $completed['refusal_reasons']);
+        $this->assertContains(
+            'Add at least one focused test file (e.g. tests/...) to allowed_files',
+            $completed['repair_hints'],
+        );
+    }
+
+    public function test_only_test_file_without_implementation_file_is_refused_with_repair_hint(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['tests/Unit/Ai/Foo/FooTest.php'],
+                'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test FooTest exits 0'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertFalse($completed['can_submit']);
+        $this->assertFalse($completed['has_implementation_scope']);
+        $this->assertTrue($completed['has_test_scope']);
+        $this->assertContains('missing_implementation_scope', $completed['refusal_reasons']);
+        $this->assertContains(
+            'Add at least one implementation file (e.g. app/...) to allowed_files',
+            $completed['repair_hints'],
+        );
+    }
+
+    public function test_neither_impl_nor_test_in_allowed_files_is_refused_with_both_repair_hints(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['config/app.php', 'routes/web.php'],
+                'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test FooTest exits 0'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertFalse($completed['can_submit']);
+        $this->assertFalse($completed['has_implementation_scope']);
+        $this->assertFalse($completed['has_test_scope']);
+        $this->assertContains('missing_implementation_scope', $completed['refusal_reasons']);
+        $this->assertContains('missing_test_scope', $completed['refusal_reasons']);
+        $this->assertContains(
+            'Add at least one implementation file (e.g. app/...) to allowed_files',
+            $completed['repair_hints'],
+        );
+        $this->assertContains(
+            'Add at least one focused test file (e.g. tests/...) to allowed_files',
+            $completed['repair_hints'],
+        );
+    }
+
+    // ── AC4: repair_hints are empty for submittable drafts ──
+
+    public function test_repair_hints_empty_for_submittable_draft(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['app/Services/Ai/Foo.php', 'tests/Unit/Ai/Foo/FooTest.php'],
+                'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test FooTest exits 0'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertTrue($completed['can_submit']);
+        $this->assertSame([], $completed['repair_hints']);
+    }
+
+    // ── AC4: multiple refusal reasons aggregate all repair_hints ──
+
+    public function test_repair_hints_aggregate_all_blockers_for_complex_failure(): void
+    {
+        $items = [[
+            'draft' => $this->draft(['is_test_only' => true]),
+            'field_recovery' => [
+                'allowed_files' => ['app/Services/Ai/Brain/AtlasBrainCore.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+                'forbidden_targets' => ['app/Services/Ai/Brain/AtlasBrainCore.php'],
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+
+        $this->assertFalse($completed['can_submit']);
+        // Should have repair hints for: missing test scope + forbidden target + is_test_only
+        $hints = $completed['repair_hints'];
+        $this->assertContains('Add at least one focused test file (e.g. tests/...) to allowed_files', $hints);
+        $this->assertContains('Remove forbidden target: app/Services/Ai/Brain/AtlasBrainCore.php', $hints);
+        $this->assertContains('Remove test-only flag — replacement must include implementation scope', $hints);
     }
 }

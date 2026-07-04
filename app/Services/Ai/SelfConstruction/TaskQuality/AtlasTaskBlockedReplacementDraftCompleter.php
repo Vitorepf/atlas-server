@@ -34,6 +34,12 @@ final class AtlasTaskBlockedReplacementDraftCompleter
 
     private const CONFIDENCE_THRESHOLD = 0.75;
 
+    /** @var non-empty-string */
+    private const IMPLEMENTATION_PREFIX = 'app/';
+
+    /** @var non-empty-string */
+    private const TEST_PREFIX = 'tests/';
+
     /** @var list<string> */
     private const FORBIDDEN_TARGET_KEYWORDS = ['Brain', 'Gateway', 'Harness', 'Core', 'Immune'];
 
@@ -142,12 +148,52 @@ final class AtlasTaskBlockedReplacementDraftCompleter
             $refusalReasons[] = 'forbidden_target_replacement_refused:'.$target;
         }
 
+        $allowedFilesList = (array) ($merged['allowed_files'] ?? []);
+        $hasImpl = $this->hasPrefix($allowedFilesList, self::IMPLEMENTATION_PREFIX);
+        $hasTest = $this->hasPrefix($allowedFilesList, self::TEST_PREFIX);
+        if (! $hasImpl) {
+            $refusalReasons[] = 'missing_implementation_scope';
+        }
+        if (! $hasTest) {
+            $refusalReasons[] = 'missing_test_scope';
+        }
+
         $canSubmit = $missingFields === []
             && $trust === self::TRUST_TRUSTED
             && $confidence >= self::CONFIDENCE_THRESHOLD
             && $forbiddenTargets === []
             && ! (bool) ($draft['is_test_only'] ?? $fieldRecovery['is_test_only'] ?? false)
-            && ! (bool) ($draft['requires_human'] ?? $fieldRecovery['requires_human'] ?? false);
+            && ! (bool) ($draft['requires_human'] ?? $fieldRecovery['requires_human'] ?? false)
+            && $hasImpl
+            && $hasTest;
+
+        $repairHints = [];
+        if (! $canSubmit) {
+            if ($missingFields !== []) {
+                $repairHints[] = 'Provide missing required fields: '.implode(', ', $missingFields);
+            }
+            if (! $hasImpl) {
+                $repairHints[] = 'Add at least one implementation file (e.g. app/...) to allowed_files';
+            }
+            if (! $hasTest) {
+                $repairHints[] = 'Add at least one focused test file (e.g. tests/...) to allowed_files';
+            }
+            foreach ($forbiddenTargets as $ft) {
+                $repairHints[] = 'Remove forbidden target: '.$ft;
+            }
+            if ((bool) ($draft['is_test_only'] ?? $fieldRecovery['is_test_only'] ?? false)) {
+                $repairHints[] = 'Remove test-only flag — replacement must include implementation scope';
+            }
+            if ((bool) ($draft['requires_human'] ?? $fieldRecovery['requires_human'] ?? false)) {
+                $repairHints[] = 'Remove human-dependent flag — replacement must be worker-safe';
+            }
+            if ($trust !== self::TRUST_TRUSTED) {
+                $repairHints[] = 'Strengthen field-recovery evidence to trusted';
+            }
+            if ($confidence < self::CONFIDENCE_THRESHOLD) {
+                $repairHints[] = 'Raise field-recovery confidence above threshold (≥ '.self::CONFIDENCE_THRESHOLD.')';
+            }
+        }
 
         return [
             'task_packet_id' => $sourceId,
@@ -156,8 +202,11 @@ final class AtlasTaskBlockedReplacementDraftCompleter
             'missing_fields' => $missingFields,
             'missing_fact_blockers' => array_map(static fn (string $f): string => 'missing_fact:'.$f, $missingFields),
             'refusal_reasons' => $refusalReasons,
+            'repair_hints' => $repairHints,
+            'has_implementation_scope' => $hasImpl,
+            'has_test_scope' => $hasTest,
             'objective' => $merged['objective'] ?? '',
-            'allowed_files' => $merged['allowed_files'] ?? [],
+            'allowed_files' => $allowedFilesList,
             'acceptance_criteria' => $merged['acceptance_criteria'] ?? [],
             'required_evidence' => $merged['required_evidence'] ?? [],
         ];
@@ -206,5 +255,20 @@ final class AtlasTaskBlockedReplacementDraftCompleter
         $fingerprint = substr(hash('sha256', $sourceId.'|'.json_encode($merged, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 12);
 
         return $sourceId.'-replacement-'.$fingerprint;
+    }
+
+    /**
+     * @param  list<string>  $paths
+     * @param  non-empty-string  $prefix
+     */
+    private function hasPrefix(array $paths, string $prefix): bool
+    {
+        foreach ($paths as $path) {
+            if (str_starts_with((string) $path, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
