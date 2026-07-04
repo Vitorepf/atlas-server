@@ -337,4 +337,75 @@ final class AtlasTaskFabricDependencyGraphCompactorTest extends TestCase
         $this->assertFalse($r['cycle_detected']);
         $this->assertSame([], $r['dependency_layers']);
     }
+
+    // ── AC2: chain compaction for overlapping prerequisites ───────────────────
+
+    public function test_single_prerequisite_no_chain_compaction(): void
+    {
+        // A→B, A→C: A has two outgoing edges but each is a unique chain — no compaction needed.
+        $r = $this->compactor()->compact([
+            'nodes' => [
+                ['id' => 'A', 'capability_family' => 'fam', 'allowed_files' => ['src/A.php']],
+                ['id' => 'B', 'capability_family' => 'fam', 'allowed_files' => ['src/B.php']],
+                ['id' => 'C', 'capability_family' => 'fam', 'allowed_files' => ['src/C.php']],
+            ],
+            'edges' => [$this->edge('A', 'B'), $this->edge('A', 'C')],
+        ]);
+
+        $this->assertNotEmpty($r['chain_compaction_groups']);
+        $group = $r['chain_compaction_groups'][0];
+        $this->assertSame('A', $group['shared_prerequisite']);
+        $this->assertSame(2, $group['count']);
+        $this->assertContains('B', $group['member_ids']);
+        $this->assertContains('C', $group['member_ids']);
+    }
+
+    public function test_chain_compaction_blocked_by_mismatched_capability_family(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [
+                ['id' => 'A', 'capability_family' => 'fam1', 'allowed_files' => ['src/A.php']],
+                ['id' => 'B', 'capability_family' => 'fam1', 'allowed_files' => ['src/B.php']],
+                ['id' => 'C', 'capability_family' => 'fam2', 'allowed_files' => ['src/C.php']],
+            ],
+            'edges' => [$this->edge('A', 'B'), $this->edge('A', 'C')],
+        ]);
+
+        $this->assertNotEmpty($r['preserved_blockers']);
+        $this->assertStringContainsString('unsafe_to_compact', implode(' ', $r['preserved_blockers']));
+        $this->assertNotEmpty($r['unsafe_to_compact']);
+    }
+
+    // ── AC4: preserved_blockers and counts ───────────────────────────────────
+
+    public function test_output_includes_preserved_blockers_and_counts(): void
+    {
+        $r = $this->compactor()->compact([
+            'nodes' => [
+                ['id' => 'A', 'capability_family' => 'f', 'allowed_files' => ['src/A.php']],
+                ['id' => 'B', 'capability_family' => 'f', 'allowed_files' => ['src/B.php']],
+            ],
+            'edges' => [$this->edge('A', 'B')],
+        ]);
+
+        $this->assertArrayHasKey('preserved_blockers', $r);
+        $this->assertArrayHasKey('unsafe_to_compact', $r);
+        $this->assertArrayHasKey('chain_compaction_groups', $r);
+        $this->assertArrayHasKey('compacted_node_count', $r);
+    }
+
+    public function test_no_chain_compaction_for_linear_chain(): void
+    {
+        // A→B, B→C: each node has one outgoing edge (no overlapping chains).
+        $r = $this->compactor()->compact([
+            'nodes' => [
+                ['id' => 'A', 'capability_family' => 'f', 'allowed_files' => ['src/A.php']],
+                ['id' => 'B', 'capability_family' => 'f', 'allowed_files' => ['src/B.php']],
+                ['id' => 'C', 'capability_family' => 'f', 'allowed_files' => ['src/C.php']],
+            ],
+            'edges' => [$this->edge('A', 'B'), $this->edge('B', 'C')],
+        ]);
+
+        $this->assertSame([], $r['chain_compaction_groups']);
+    }
 }

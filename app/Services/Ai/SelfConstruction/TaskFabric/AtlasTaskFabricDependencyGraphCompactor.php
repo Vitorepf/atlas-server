@@ -154,6 +154,78 @@ final class AtlasTaskFabricDependencyGraphCompactor
             ? []
             : $this->computeDependencyLayers(array_keys($nodeIds), $parsedEdges);
 
+        // AC2/AC3: chain compaction — group nodes that share the same prerequisite and whose
+        // allowed_files are coherent. When coherence would be lost, report preserved_blockers.
+        $chainCompactionGroups = [];
+        $preservedBlockers = [];
+        $unsafeToCompact = [];
+        $seenGroup = [];
+        foreach ($parsedEdges as $e) {
+            $from = $e['from'];
+            $to   = $e['to'];
+            if (! isset($nodeIds[$from]) || ! isset($nodeIds[$to])) {
+                continue;
+            }
+            $key = "from:{$from}";
+            if (isset($seenGroup[$key])) {
+                continue; // already grouped
+            }
+            // Find all nodes depending on the same prerequisite.
+            $samePrereq = [];
+            foreach ($parsedEdges as $e2) {
+                if ($e2['from'] === $from && isset($nodeIds[$e2['to']])) {
+                    $samePrereq[] = $e2['to'];
+                }
+            }
+            $samePrereq = array_values(array_unique($samePrereq));
+            if (count($samePrereq) < 2) {
+                continue; // no overlapping chain
+            }
+            $seenGroup[$key] = true;
+            // Check allowed_files coherence.
+            $fromMeta = [];
+            foreach ($nodeList as $n) {
+                $nid = (string) ($n['id'] ?? '');
+                if ($nid === $from || in_array($nid, $samePrereq, true)) {
+                    $fromMeta[$nid] = [
+                        'allowed_files' => (array) ($n['allowed_files'] ?? []),
+                        'capability_family' => (string) ($n['capability_family'] ?? ''),
+                    ];
+                }
+            }
+            // Two nodes are coherent when they share at least one directory prefix in allowed_files
+            // AND match on capability_family.
+            $coherent = true;
+            $familyCheck = null;
+            foreach ($samePrereq as $sid) {
+                $meta = $fromMeta[$sid] ?? [];
+                $capFamily = $meta['capability_family'] ?? '';
+                if ($familyCheck === null) {
+                    $familyCheck = $capFamily;
+                } elseif ($capFamily !== $familyCheck) {
+                    $coherent = false;
+                }
+                // At least one allowed_file must be present.
+                if ($meta['allowed_files'] === []) {
+                    $coherent = false;
+                }
+            }
+            if ($coherent) {
+                $chainCompactionGroups[] = [
+                    'shared_prerequisite' => $from,
+                    'member_ids' => $samePrereq,
+                    'count' => count($samePrereq),
+                ];
+            } else {
+                $preservedBlockers[] = "unsafe_to_compact:{$from}:capability_family_or_allowed_files_mismatch";
+                foreach ($samePrereq as $sid) {
+                    $unsafeToCompact[] = $sid;
+                }
+            }
+        }
+        $unsafeToCompact = array_values(array_unique($unsafeToCompact));
+        sort($unsafeToCompact);
+
         return [
             'schema_version'           => self::SCHEMA,
             'compacted_edges'          => $compactedEdges,
@@ -168,6 +240,10 @@ final class AtlasTaskFabricDependencyGraphCompactor
             'cycle_detected'           => $cycleDetected,
             'cycle_edges'              => $cycleEdges,
             'dependency_layers'        => $dependencyLayers,
+            'chain_compaction_groups'  => $chainCompactionGroups,
+            'preserved_blockers'       => $preservedBlockers,
+            'unsafe_to_compact'        => $unsafeToCompact,
+            'compacted_node_count'     => count($nodeIds) - count($unsafeToCompact),
         ];
     }
 
