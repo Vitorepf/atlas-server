@@ -58,6 +58,19 @@ final class AtlasTaskFabricArchitectureContractCompiler
         $dependencyHints = is_array($contract['dependency_hints'] ?? null)
             ? array_values(array_filter(array_map('strval', $contract['dependency_hints']), static fn ($s) => $s !== ''))
             : [];
+        $boundary = trim((string) ($contract['boundary'] ?? ''));
+        $cohesionTarget = is_array($contract['cohesion_target'] ?? null)
+            ? array_values(array_filter(array_map('strval', $contract['cohesion_target'])))
+            : [];
+        $forbiddenCoupling = is_array($contract['forbidden_coupling'] ?? null)
+            ? array_values(array_filter(array_map('strval', $contract['forbidden_coupling'])))
+            : [];
+        $behaviorParity = is_array($contract['behavior_parity'] ?? null)
+            ? array_values(array_filter(array_map('strval', $contract['behavior_parity'])))
+            : [];
+        $deletionSafety = is_array($contract['deletion_safety'] ?? null)
+            ? array_values(array_filter(array_map('strval', $contract['deletion_safety'])))
+            : [];
 
         if ($contractId === '') {
             throw new RuntimeException('contract_compiler: missing-field:contract_id');
@@ -92,7 +105,7 @@ final class AtlasTaskFabricArchitectureContractCompiler
 
         if ($impls === []) {
             // Tests-only contract — emit a single draft covering all the test files.
-            return [$this->draft($contractId, 'tests-only', $contractId.'-tests', $candidates, $candidates, $acceptanceSeed, $evidenceSeed, $riskClass, $ownerScope, $capabilityGap, $dependencyHints)];
+            return [$this->draft($contractId, 'tests-only', $contractId.'-tests', $candidates, $candidates, $acceptanceSeed, $evidenceSeed, $riskClass, $ownerScope, $capabilityGap, $dependencyHints, $boundary, $cohesionTarget, $forbiddenCoupling, $behaviorParity, $deletionSafety)];
         }
 
         $drafts = [];
@@ -100,7 +113,7 @@ final class AtlasTaskFabricArchitectureContractCompiler
             $matchingTest = $this->matchingTestFor($impl, $tests);
             $allowed = $matchingTest === null ? [$impl] : [$impl, $matchingTest];
             $draftId = $contractId.'-p'.($i + 1);
-            $drafts[] = $this->draft($contractId, $impl, $draftId, $allowed, [$impl], $acceptanceSeed, $evidenceSeed, $riskClass, $ownerScope, $capabilityGap, $dependencyHints);
+            $drafts[] = $this->draft($contractId, $impl, $draftId, $allowed, [$impl], $acceptanceSeed, $evidenceSeed, $riskClass, $ownerScope, $capabilityGap, $dependencyHints, $boundary, $cohesionTarget, $forbiddenCoupling, $behaviorParity, $deletionSafety);
         }
 
         return $drafts;
@@ -112,9 +125,13 @@ final class AtlasTaskFabricArchitectureContractCompiler
      * @param  list<string>  $acceptance
      * @param  list<string>  $evidence
      * @param  list<string>  $dependencyHints
+     * @param  list<string>  $cohesionTarget
+     * @param  list<string>  $forbiddenCoupling
+     * @param  list<string>  $behaviorParity
+     * @param  list<string>  $deletionSafety
      * @return array<string,mixed>
      */
-    private function draft(string $contractId, string $implLabel, string $id, array $allowedFiles, array $scopeIn, array $acceptance, array $evidence, string $riskClass, string $ownerScope, string $gap, array $dependencyHints): array
+    private function draft(string $contractId, string $implLabel, string $id, array $allowedFiles, array $scopeIn, array $acceptance, array $evidence, string $riskClass, string $ownerScope, string $gap, array $dependencyHints, string $boundary, array $cohesionTarget, array $forbiddenCoupling, array $behaviorParity, array $deletionSafety): array
     {
         $objective = sprintf('Atlas-native implementation for %s (contract %s, owner_scope=%s): %s', $implLabel, $contractId, $ownerScope, $gap);
         $rollbackHint = 'revert_commit:'.$contractId.':'.$id;
@@ -127,6 +144,29 @@ final class AtlasTaskFabricArchitectureContractCompiler
         $evidenceFloor = ['min_refs' => $minRefs, 'required_kinds' => $evidence, 'forbidden_kinds' => self::ANTI_PROXY_KINDS];
         $antiProxyClauses = array_map(static fn ($k) => 'forbidden_evidence_kind:'.$k, self::ANTI_PROXY_KINDS);
 
+        // AC3: refactor tasks (high/critical risk) must carry behavior_parity and deletion_safety.
+        $isRefactor = in_array($riskClass, ['high', 'critical'], true);
+        $hasBehaviorParity = $behaviorParity !== [];
+        $hasDeletionSafety = $deletionSafety !== [];
+        $contractIncomplete = $isRefactor && (! $hasBehaviorParity || ! $hasDeletionSafety);
+        $contractIncompleteReasons = [];
+        if ($contractIncomplete) {
+            if (! $hasBehaviorParity) {
+                $contractIncompleteReasons[] = 'missing_behavior_parity';
+            }
+            if (! $hasDeletionSafety) {
+                $contractIncompleteReasons[] = 'missing_deletion_safety';
+            }
+        }
+
+        $muscleContractSummary = sprintf(
+            'boundary=%s | risk=%s | rollback=%s | contract_incomplete=%s',
+            $boundary ?: 'none',
+            $riskClass,
+            $rollbackHint,
+            $contractIncomplete ? 'yes:'.implode(',', $contractIncompleteReasons) : 'no',
+        );
+
         $draft = [
             'id' => $id,
             'contract_id' => $contractId,
@@ -137,6 +177,14 @@ final class AtlasTaskFabricArchitectureContractCompiler
             'required_evidence' => $evidence,
             'rollback_hint' => $rollbackHint,
             'risk_class' => $riskClass,
+            'boundary' => $boundary,
+            'cohesion_target' => $cohesionTarget,
+            'forbidden_coupling' => $forbiddenCoupling,
+            'behavior_parity' => $behaviorParity,
+            'deletion_safety' => $deletionSafety,
+            'contract_incomplete' => $contractIncomplete,
+            'contract_incomplete_reasons' => $contractIncompleteReasons,
+            'muscle_contract_summary' => $muscleContractSummary,
             'task_constraints' => $taskConstraints,
             'dependency_hints' => $dependencyHints,
             'evidence_floor' => $evidenceFloor,
@@ -150,6 +198,12 @@ final class AtlasTaskFabricArchitectureContractCompiler
             'acceptance_criteria' => $acceptance,
             'required_evidence' => $evidence,
             'risk_class' => $riskClass,
+            'boundary' => $boundary,
+            'cohesion_target' => $cohesionTarget,
+            'forbidden_coupling' => $forbiddenCoupling,
+            'behavior_parity' => $behaviorParity,
+            'deletion_safety' => $deletionSafety,
+            'contract_incomplete' => $contractIncomplete,
             'task_constraints' => $taskConstraints,
             'dependency_hints' => $dependencyHints,
             'anti_proxy_clauses' => $antiProxyClauses,

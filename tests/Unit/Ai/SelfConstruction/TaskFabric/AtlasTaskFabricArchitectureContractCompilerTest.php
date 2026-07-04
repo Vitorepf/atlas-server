@@ -182,4 +182,105 @@ final class AtlasTaskFabricArchitectureContractCompilerTest extends TestCase
 
         $this->assertSame([], $draft['dependency_hints']);
     }
+
+    // ── AC2: architecture contract fields ──
+
+    public function test_draft_includes_architecture_contract_fields(): void
+    {
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($this->validContract())[0];
+
+        $this->assertArrayHasKey('boundary', $draft);
+        $this->assertArrayHasKey('cohesion_target', $draft);
+        $this->assertArrayHasKey('forbidden_coupling', $draft);
+        $this->assertArrayHasKey('behavior_parity', $draft);
+        $this->assertArrayHasKey('deletion_safety', $draft);
+    }
+
+    public function test_architecture_contract_fields_pass_through_from_input(): void
+    {
+        $c = $this->validContract();
+        $c['boundary'] = 'domain/billing';
+        $c['cohesion_target'] = ['BillingService'];
+        $c['forbidden_coupling'] = ['PaymentGateway', 'NotificationService'];
+        $c['behavior_parity'] = ['replay_tests_pass', 'output_identical'];
+        $c['deletion_safety'] = ['no_downstream_calls_to_removed_interface'];
+
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($c)[0];
+
+        $this->assertSame('domain/billing', $draft['boundary']);
+        $this->assertSame(['BillingService'], $draft['cohesion_target']);
+        $this->assertContains('PaymentGateway', $draft['forbidden_coupling']);
+        $this->assertContains('output_identical', $draft['behavior_parity']);
+        $this->assertContains('no_downstream_calls_to_removed_interface', $draft['deletion_safety']);
+    }
+
+    // ── AC3: contract_incomplete for refactor tasks ──
+
+    public function test_high_risk_without_behavior_parity_is_contract_incomplete(): void
+    {
+        $c = $this->validContract();
+        $c['risk_class'] = 'high';
+        $c['deletion_safety'] = ['rollback_verified'];
+
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($c)[0];
+
+        $this->assertTrue($draft['contract_incomplete']);
+        $this->assertContains('missing_behavior_parity', $draft['contract_incomplete_reasons']);
+    }
+
+    public function test_high_risk_without_deletion_safety_is_contract_incomplete(): void
+    {
+        $c = $this->validContract();
+        $c['risk_class'] = 'high';
+        $c['behavior_parity'] = ['replay_matches'];
+
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($c)[0];
+
+        $this->assertTrue($draft['contract_incomplete']);
+        $this->assertContains('missing_deletion_safety', $draft['contract_incomplete_reasons']);
+    }
+
+    public function test_high_risk_with_both_behavior_parity_and_deletion_safety_is_complete(): void
+    {
+        $c = $this->validContract();
+        $c['risk_class'] = 'high';
+        $c['behavior_parity'] = ['replay_matches'];
+        $c['deletion_safety'] = ['rollback_verified'];
+
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($c)[0];
+
+        $this->assertFalse($draft['contract_incomplete']);
+        $this->assertSame([], $draft['contract_incomplete_reasons']);
+    }
+
+    public function test_standard_risk_without_behavior_parity_is_not_incomplete(): void
+    {
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($this->validContract())[0];
+
+        $this->assertFalse($draft['contract_incomplete']);
+    }
+
+    // ── AC4: muscle_contract_summary ──
+
+    public function test_draft_has_muscle_contract_summary(): void
+    {
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($this->validContract())[0];
+
+        $this->assertArrayHasKey('muscle_contract_summary', $draft);
+        $this->assertNotEmpty($draft['muscle_contract_summary']);
+        $this->assertStringContainsString('boundary=', $draft['muscle_contract_summary']);
+        $this->assertStringContainsString('risk=', $draft['muscle_contract_summary']);
+        $this->assertStringContainsString('rollback=', $draft['muscle_contract_summary']);
+        $this->assertStringContainsString('contract_incomplete=', $draft['muscle_contract_summary']);
+    }
+
+    public function test_contract_incomplete_reflected_in_summary(): void
+    {
+        $c = $this->validContract();
+        $c['risk_class'] = 'high';
+
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($c)[0];
+
+        $this->assertStringContainsString('contract_incomplete=yes', $draft['muscle_contract_summary']);
+    }
 }
