@@ -197,4 +197,69 @@ final class AtlasProjectLaneQueueNamespacePolicy
             'repair_hints' => $hints,
         ];
     }
+
+    /**
+     * Queue namespace isolation: assigns deterministic namespace keys by project lane,
+     * rejects cross-lane target collisions, and reports stale_namespace_state.
+     *
+     * @param  array{
+     *   project_id: string,
+     *   lane_namespace: string,
+     *   queued_targets: list<string>,
+     *   target_project: string,
+     *   target_lane: string,
+     *   namespace_age_seconds: int,
+     *   max_namespace_age_seconds: int,
+     * }  $input
+     * @return array{namespace_key:string, isolation_ok:bool, collision_reasons:list<string>, repair_hint:string}
+     */
+    public function queueNamespaceIsolation(array $input): array
+    {
+        $projectId = (string) ($input['project_id'] ?? '');
+        $laneNs = (string) ($input['lane_namespace'] ?? '');
+        $queuedTargets = is_array($input['queued_targets'] ?? null) ? $input['queued_targets'] : [];
+        $targetProject = (string) ($input['target_project'] ?? '');
+        $targetLane = (string) ($input['target_lane'] ?? '');
+        $namespaceAge = (int) ($input['namespace_age_seconds'] ?? 0);
+        $maxNamespaceAge = (int) ($input['max_namespace_age_seconds'] ?? 3600);
+
+        $namespaceKey = sprintf('%s:%s', $projectId, $laneNs);
+        $collisionReasons = [];
+
+        // Cross-lane target collision check
+        if ($targetProject !== '' && $targetProject !== $projectId) {
+            $collisionReasons[] = sprintf('target_project_mismatch: queued=%s expected=%s', $targetProject, $projectId);
+        }
+        if ($targetLane !== '' && $targetLane !== $laneNs) {
+            $collisionReasons[] = sprintf('target_lane_mismatch: queued=%s expected=%s', $targetLane, $laneNs);
+        }
+
+        // Stale namespace state check
+        if ($namespaceAge > $maxNamespaceAge) {
+            $collisionReasons[] = sprintf('stale_namespace_state: age=%ds exceeds max=%ds', $namespaceAge, $maxNamespaceAge);
+        }
+
+        // Queued targets belonging to a different project
+        foreach ($queuedTargets as $target) {
+            $targetParts = explode(':', $target, 2);
+            if (count($targetParts) === 2 && $targetParts[0] !== $projectId) {
+                $collisionReasons[] = sprintf('queued_target_cross_project: %s', $target);
+            }
+        }
+
+        $isolationOk = $collisionReasons === [];
+
+        $repairHint = match (true) {
+            $isolationOk => 'no_action_required',
+            count($collisionReasons) >= 2 => 'purge_cross_project_targets_and_rebuild_namespace',
+            default => 'fix_namespace_collision_and_revalidate',
+        };
+
+        return [
+            'namespace_key' => $namespaceKey,
+            'isolation_ok' => $isolationOk,
+            'collision_reasons' => $collisionReasons,
+            'repair_hint' => $repairHint,
+        ];
+    }
 }
