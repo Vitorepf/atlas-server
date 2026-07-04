@@ -84,4 +84,76 @@ final class AtlasExternalBrainOutputContractNormalizerTest extends TestCase
 
         $this->assertSame('research_note', $result['type']);
     }
+
+    // ── task_packet_id, decision_rationale, invalid, redaction ──
+
+    public function test_task_packet_id_included_in_normalized_payload(): void
+    {
+        $result = $this->normalizer->normalize([
+            'task_packet_id' => 'task-123',
+            'objective' => 'Implement Foo',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['test passes'],
+            'required_evidence' => ['test_result'],
+        ]);
+        $this->assertSame('task-123', $result['payload']['task_packet_id']);
+    }
+
+    public function test_decision_rationale_included_in_normalized_payload(): void
+    {
+        $result = $this->normalizer->normalize([
+            'objective' => 'Implement Foo',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['test passes'],
+            'required_evidence' => ['test_result'],
+            'decision_rationale' => 'high_leverage_gap_identified',
+        ]);
+        $this->assertSame('high_leverage_gap_identified', $result['payload']['decision_rationale']);
+    }
+
+    public function test_invalid_flag_set_when_required_fields_missing(): void
+    {
+        $result = $this->normalizer->normalize([
+            'objective' => 'Implement Foo',
+            'allowed_files' => [],
+            'acceptance_criteria' => ['test passes'],
+            'required_evidence' => ['test_result'],
+        ]);
+        $this->assertTrue($result['payload']['invalid']);
+    }
+
+    public function test_invalid_flag_false_when_all_fields_present(): void
+    {
+        $result = $this->normalizer->normalize([
+            'objective' => 'Implement Foo',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['test passes'],
+            'required_evidence' => ['test_result'],
+        ]);
+        $this->assertFalse($result['payload']['invalid']);
+    }
+
+    public function test_raw_prompt_is_redacted(): void
+    {
+        $result = $this->normalizer->normalize([
+            'objective' => 'Implement Foo',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['test passes'],
+            'required_evidence' => ['test_result'],
+            'raw_prompt' => 'secret prompt content here',
+        ]);
+        $this->assertSame('[REDACTED_PROVIDER_SAFE_REF]', $result['payload']['raw_prompt']);
+    }
+
+    public function test_provider_trace_is_redacted(): void
+    {
+        $result = $this->normalizer->normalize([
+            'objective' => 'Implement Foo',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['test passes'],
+            'required_evidence' => ['test_result'],
+            'provider_trace' => 'internal trace data',
+        ]);
+        $this->assertSame('[REDACTED_PROVIDER_SAFE_REF]', $result['payload']['provider_trace']);
+    }
 }
