@@ -27,10 +27,11 @@ final class AtlasTaskBlockedRespecPlanRegressionHarnessTest extends TestCase
             AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_CONTRADICTORY_ACCEPTANCE_SUSPECT,
             AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_DUPLICATE_ALREADY_DONE_SUSPECT,
             AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_TEST_ONLY_MISSING_IMPLEMENTATION_SUSPECT,
+            AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_SCHEMA_MISMATCH_SUSPECT,
         ] as $name) {
             $this->assertArrayHasKey($name, $fixtures, "missing fixture: {$name}");
         }
-        $this->assertCount(6, $fixtures);
+        $this->assertCount(7, $fixtures);
     }
 
     public function test_fixture_lookup_by_name_matches_the_full_list(): void
@@ -160,6 +161,27 @@ final class AtlasTaskBlockedRespecPlanRegressionHarnessTest extends TestCase
         $this->assertStringStartsWith('tests/', $allowedFiles[0]);
     }
 
+    // ── AC1: schema-mismatch poison case ────────────────────────────────────
+
+    public function test_schema_mismatch_suspect_fixture_exists(): void
+    {
+        $fixtures = $this->svc()->fixtures();
+        $this->assertArrayHasKey(
+            AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_SCHEMA_MISMATCH_SUSPECT,
+            $fixtures,
+        );
+    }
+
+    public function test_schema_mismatch_suspect_fixture_can_never_submit(): void
+    {
+        $fixture = $this->svc()->fixture(AtlasTaskBlockedRespecPlanRegressionHarness::FIXTURE_SCHEMA_MISMATCH_SUSPECT);
+
+        $this->assertSame('schema_mismatch', $fixture['expected_likely_family']);
+        $this->assertFalse($fixture['expected_can_submit']);
+        $this->assertSame(AtlasTaskBlockedRespecPlanRegressionHarness::ACTION_GIVE_BACK_OR_RESPEC, $fixture['expected_safe_next_action']);
+        $this->assertNotEmpty($fixture['anti_regression_reason']);
+    }
+
     // ── AC3: every fixture carries an anti_regression_reason and a repair action ──
 
     public function test_every_fixture_has_anti_regression_reason(): void
@@ -251,6 +273,25 @@ final class AtlasTaskBlockedRespecPlanRegressionHarnessTest extends TestCase
         $result = $this->svc()->certifyRespecPlanSafe([]);
 
         $this->assertFalse($result['safe']);
-        $this->assertCount(6, $result['regressed_fixtures']);
+        $this->assertCount(7, $result['regressed_fixtures']);
+    }
+
+    // ── AC3: output includes replayed_cases, failed_cases and enqueue_allowed ──
+
+    public function test_certify_output_has_ac3_fields(): void
+    {
+        $result = $this->svc()->certifyRespecPlanSafe([]);
+
+        $this->assertArrayHasKey('replayed_cases', $result);
+        $this->assertArrayHasKey('failed_cases', $result);
+        $this->assertArrayHasKey('enqueue_allowed', $result);
+        $this->assertSame(7, $result['replayed_cases']);
+        $this->assertSame(7, $result['failed_cases']);
+        $this->assertFalse($result['enqueue_allowed']);
+
+        $passResult = $this->svc()->certifyRespecPlanSafe($this->matchingObservations());
+        $this->assertSame(7, $passResult['replayed_cases']);
+        $this->assertSame(0, $passResult['failed_cases']);
+        $this->assertTrue($passResult['enqueue_allowed']);
     }
 }

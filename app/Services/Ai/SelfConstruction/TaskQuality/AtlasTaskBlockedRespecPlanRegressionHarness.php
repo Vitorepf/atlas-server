@@ -33,6 +33,8 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
 
     public const FIXTURE_TEST_ONLY_MISSING_IMPLEMENTATION_SUSPECT = 'test_only_missing_implementation_suspect';
 
+    public const FIXTURE_SCHEMA_MISMATCH_SUSPECT = 'schema_mismatch_suspect';
+
     public const ACTION_GIVE_BACK_OR_RESPEC = 'give_back_or_respec';
 
     public const ACTION_RESUBMIT_WITH_RECOVERED_FIELDS = 'resubmit_with_recovered_fields';
@@ -124,6 +126,19 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
                 'expected_can_submit' => false,
                 'expected_safe_next_action' => self::ACTION_GIVE_BACK_OR_RESPEC,
                 'anti_regression_reason' => 'a packet whose allowed_files contains only a test file, with no implementation file to make it pass, can never be served as-is — a regression here means the planner would resubmit a scope no worker can actually complete.',
+            ],
+            self::FIXTURE_SCHEMA_MISMATCH_SUSPECT => [
+                'source_packet' => [
+                    'objective' => 'Refactor app/Services/Ai/Foo/AtlasFoo.php so it validates input faster.',
+                    'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php', 'tests/Unit/Ai/Foo/AtlasFooTest.php'],
+                    'acceptance_criteria' => ['AtlasFooTest passes'],
+                    'metadata' => ['schema_version_drift' => 'current=v2 expected=v3'],
+                ],
+                'expected_likely_family' => 'schema_mismatch',
+                'expected_recoverable_fields' => ['acceptance_criteria', 'required_evidence'],
+                'expected_can_submit' => false,
+                'expected_safe_next_action' => self::ACTION_GIVE_BACK_OR_RESPEC,
+                'anti_regression_reason' => 'a packet whose schema version drifts from the expected version must not be served — a regression here means the planner would serve a task whose contract shape does not match what the runtime expects.',
             ],
         ];
     }
@@ -289,6 +304,9 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
             'safe' => $regressed === [],
             'regressed_fixtures' => $regressed,
             'evaluation' => $evaluation,
+            'replayed_cases' => count($evaluation),
+            'failed_cases' => count($regressed),
+            'enqueue_allowed' => $regressed === [],
         ];
     }
 }
