@@ -224,4 +224,68 @@ final class AtlasMaestroWorkerBehaviorLedger
 
         return $this->stats;
     }
+
+    /**
+     * Evidence-weighted worker profile: discounts success without runnable proof.
+     *
+     * Success rows without `tests_or_gates_result` or `implementation_notes` evidence
+     * are down-weighted (counted as 0.5 instead of 1.0).
+     *
+     * @return array{worker_reliability:float, family_fit:float, evidence_weighted_success_rate:float, routing_notes:list<string>}
+     */
+    public function evidenceWeightedProfile(string $clientId, string $family): array
+    {
+        $this->ensureHydrated();
+        $key = json_encode([$clientId, $family], JSON_THROW_ON_ERROR);
+        $row = $this->stats[$key] ?? null;
+
+        $routingNotes = [];
+
+        if ($row === null) {
+            $routingNotes[] = 'unseen_worker_conservative_defaults';
+            return [
+                'worker_reliability' => 0.0,
+                'family_fit' => 0.0,
+                'evidence_weighted_success_rate' => 0.0,
+                'routing_notes' => $routingNotes,
+            ];
+        }
+
+        $total = $row['success'] + $row['give_back'] + $row['weak_green'];
+        $total = max(1, $total);
+
+        // Evidence-weighted success: weak_green outcomes are down-weighted to 0.5
+        // because they represent self-reported success without runnable proof
+        $evidenceWeightedSuccess = $row['success'] * 1.0 + $row['weak_green'] * 0.5;
+        $evidenceWeightedSuccessRate = round($evidenceWeightedSuccess / $total, 4);
+
+        // Worker reliability: 1 - give_back_rate, penalized by weak_green ratio
+        $giveBackRate = $row['give_back'] / $total;
+        $weakGreenRatio = $row['weak_green'] / $total;
+        $workerReliability = round(max(0.0, 1.0 - $giveBackRate - ($weakGreenRatio * 0.3)), 4);
+
+        // Family fit: evidence-weighted success rate adjusted by give_back penalty
+        $familyFit = round(max(0.0, $evidenceWeightedSuccessRate - ($giveBackRate * 0.5)), 4);
+
+        // Generate routing notes
+        if ($giveBackRate > 0.5) {
+            $routingNotes[] = 'high_give_back_rate_exceeds_threshold';
+        }
+        if ($weakGreenRatio > 0.3) {
+            $routingNotes[] = 'excessive_weak_green_outcomes_lack_runnable_proof';
+        }
+        if ($evidenceWeightedSuccessRate < 0.3 && $total >= 3) {
+            $routingNotes[] = 'low_evidence_weighted_success_rate';
+        }
+        if ($row['weak_green'] > 0) {
+            $routingNotes[] = 'discounted_weak_green_outcomes_without_tests_or_gates_result';
+        }
+
+        return [
+            'worker_reliability' => $workerReliability,
+            'family_fit' => $familyFit,
+            'evidence_weighted_success_rate' => $evidenceWeightedSuccessRate,
+            'routing_notes' => $routingNotes,
+        ];
+    }
 }
