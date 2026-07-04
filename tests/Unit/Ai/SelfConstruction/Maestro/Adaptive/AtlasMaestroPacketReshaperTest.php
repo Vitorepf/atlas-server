@@ -467,4 +467,77 @@ final class AtlasMaestroPacketReshaperTest extends TestCase
         ])['proposals'][0];
         $this->assertSame($retired['original_hash'], $retired['reshaped_hash']);
     }
+
+    // ── reshaped_packet_delta, repair_reason, blocked_retry_reason, required_evidence_delta ──
+
+    public function test_proposal_has_required_contract_fields(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, [
+            ['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Foo.php']],
+        ]);
+        $p = $result['proposals'][0];
+        $this->assertArrayHasKey('reshaped_packet_delta', $p);
+        $this->assertArrayHasKey('repair_reason', $p);
+        $this->assertArrayHasKey('blocked_retry_reason', $p);
+        $this->assertArrayHasKey('required_evidence_delta', $p);
+    }
+
+    public function test_repair_reason_set_for_repair_action(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, [
+            ['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Foo.php'], 'reason' => 'impl_file_missing'],
+        ]);
+        $p = $result['proposals'][0];
+        $this->assertSame('repair', $p['action']);
+        $this->assertNotEmpty($p['repair_reason']);
+        $this->assertSame('', $p['blocked_retry_reason']);
+    }
+
+    public function test_blocked_retry_reason_set_for_operator_only(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, [
+            ['type' => 'contradictory_acceptance', 'reason' => 'acceptance_conflict'],
+        ]);
+        $p = $result['proposals'][0];
+        $this->assertSame('retire', $p['action']);
+        $this->assertSame('', $p['repair_reason']);
+        $this->assertSame('', $p['blocked_retry_reason']);
+    }
+
+    public function test_blocked_retry_reason_set_for_blind_retry_refusal(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, [
+            ['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Foo.php'], 'unchanged_since_last_attempt' => true],
+        ]);
+        $p = $result['proposals'][0];
+        $this->assertSame('operator_only', $p['action']);
+        $this->assertNotEmpty($p['blocked_retry_reason']);
+    }
+
+    public function test_reshaped_packet_delta_shows_changed_fields(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, [
+            ['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Foo.php']],
+        ]);
+        $p = $result['proposals'][0];
+        $this->assertNotEmpty($p['reshaped_packet_delta']);
+        $this->assertArrayHasKey('allowed_files', $p['reshaped_packet_delta']);
+    }
+
+    public function test_required_evidence_delta_shows_added_evidence(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $packet['required_evidence'] = ['tests_or_gates_result'];
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, [
+            ['type' => 'duplicate_or_noop'],
+        ]);
+        $p = $result['proposals'][0];
+        $this->assertNotEmpty($p['required_evidence_delta']);
+        $this->assertContains('implementation_notes', $p['required_evidence_delta']['added']);
+    }
 }

@@ -84,6 +84,16 @@ final class AtlasMaestroPacketReshaper
             $proposal['original_hash'] = $originalHash;
             $proposal['reshaped_hash'] = isset($proposal['respec']) ? $this->hash($proposal['respec']) : $originalHash;
 
+            // Enriched contract fields
+            $proposal['reshaped_packet_delta'] = isset($proposal['respec'])
+                ? $this->computeDelta($packet, $proposal['respec'])
+                : [];
+            $proposal['repair_reason'] = $proposal['action'] === 'repair' ? $rootCause : '';
+            $proposal['blocked_retry_reason'] = $proposal['action'] === 'operator_only' ? $rootCause : '';
+            $proposal['required_evidence_delta'] = isset($proposal['respec'])
+                ? $this->computeEvidenceDelta($packet, $proposal['respec'])
+                : [];
+
             $proposals[] = $proposal;
         }
 
@@ -382,5 +392,47 @@ final class AtlasMaestroPacketReshaper
         ksort($packet);
 
         return hash('sha256', json_encode($packet, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * Compute structural delta between original and reshaped packet.
+     *
+     * @param  array<string,mixed>  $original
+     * @param  array<string,mixed>  $reshaped
+     * @return array<string, mixed>
+     */
+    private function computeDelta(array $original, array $reshaped): array
+    {
+        $delta = [];
+        foreach ($reshaped as $key => $value) {
+            if (! array_key_exists($key, $original) || $original[$key] !== $value) {
+                $delta[$key] = $value;
+            }
+        }
+        foreach ($original as $key => $value) {
+            if (! array_key_exists($key, $reshaped)) {
+                $delta[$key] = null;
+            }
+        }
+
+        return $delta;
+    }
+
+    /**
+     * Compute required_evidence delta between original and reshaped packet.
+     *
+     * @param  array<string,mixed>  $original
+     * @param  array<string,mixed>  $reshaped
+     * @return array{added:list<string>, removed:list<string>}
+     */
+    private function computeEvidenceDelta(array $original, array $reshaped): array
+    {
+        $originalEvidence = array_values(array_filter((array) ($original['required_evidence'] ?? []), 'is_string'));
+        $reshapedEvidence = array_values(array_filter((array) ($reshaped['required_evidence'] ?? []), 'is_string'));
+
+        $added = array_values(array_diff($reshapedEvidence, $originalEvidence));
+        $removed = array_values(array_diff($originalEvidence, $reshapedEvidence));
+
+        return ['added' => $added, 'removed' => $removed];
     }
 }
