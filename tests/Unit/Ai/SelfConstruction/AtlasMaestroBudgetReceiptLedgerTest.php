@@ -119,4 +119,26 @@ class AtlasMaestroBudgetReceiptLedgerTest extends TestCase
 
         self::assertCount(2, $ledger->all());
     }
+
+    // ── AC4: corrupted/missing ledger doesn't break queries ─────────────────
+
+    public function test_missing_ledger_returns_empty(): void
+    {
+        $ledger = new AtlasMaestroBudgetReceiptLedger('/tmp/nonexistent/ledger.jsonl');
+
+        self::assertSame([], $ledger->all());
+        self::assertSame([], $ledger->receiptsForTask('any'));
+        self::assertSame([], $ledger->receiptsForCycle('any'));
+    }
+
+    public function test_corrupted_json_lines_are_skipped(): void
+    {
+        file_put_contents($this->ledgerPath, "valid-json\n{broken\n");
+        $ledger = new AtlasMaestroBudgetReceiptLedger($this->ledgerPath);
+
+        $ledger->append('pk-clean', 'cycle-A', $this->decision(), '2026-06-25T00:00:00Z');
+
+        self::assertCount(1, $ledger->all());
+        self::assertSame('pk-clean', $ledger->all()[0]['task_packet_id']);
+    }
 }
