@@ -172,11 +172,12 @@ final class AtlasSelfConstructionSafeDeletionPlannerTest extends TestCase
         $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion([
             'candidate_id' => 'OldOrgan',
             'replacement_owner' => 'NewOrgan',
+            'allowed_files' => ['app/Services/Old.php'],
             'rollback_path' => 'git revert <merge_commit_sha>',
         ]);
 
         $this->assertSame('blocked', $plan['action']);
-        $this->assertContains('guard_test_missing', $plan['risk_reasons']);
+        $this->assertContains('replay_gate_missing', $plan['risk_reasons']);
     }
 
     public function test_zero_reference_candidate_without_rollback_path_is_blocked(): void
@@ -184,6 +185,7 @@ final class AtlasSelfConstructionSafeDeletionPlannerTest extends TestCase
         $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion([
             'candidate_id' => 'OldOrgan',
             'replacement_owner' => 'NewOrgan',
+            'allowed_files' => ['app/Services/Old.php'],
             'required_tests' => ['tests/Unit/OldTest.php'],
         ]);
 
@@ -258,4 +260,38 @@ final class AtlasSelfConstructionSafeDeletionPlannerTest extends TestCase
 
         $this->assertSame($planner->planWrapperRetirement($input)['plan_hash'], $planner->planWrapperRetirement($input)['plan_hash']);
     }
+
+    // ── AC2: replacement_owner alone is not enough; no allowed_files blocks ──
+
+    public function test_replacement_owner_not_enough_allowed_files_missing_blocks_with_deletion_scope_missing(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion([
+            'candidate_id' => 'OldOrgan',
+            'replacement_owner' => 'NewOrgan',
+            'required_tests' => ['tests/Unit/OldTest.php'],
+            'rollback_path' => 'git revert <merge_commit_sha>',
+        ]);
+
+        $this->assertSame('blocked', $plan['action']);
+        $this->assertContains('deletion_scope_missing', $plan['risk_reasons']);
+    }
+
+    // ── AC3: no required_tests blocks with replay_gate_missing ──
+
+    public function test_no_required_tests_blocks_with_replay_gate_missing(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion([
+            'candidate_id' => 'OldOrgan',
+            'replacement_owner' => 'NewOrgan',
+            'allowed_files' => ['app/Services/Old.php'],
+            'rollback_path' => 'git revert <merge_commit_sha>',
+        ]);
+
+        $this->assertSame('blocked', $plan['action']);
+        $this->assertContains('replay_gate_missing', $plan['risk_reasons']);
+    }
+
+    // ── AC4: real dead candidate with allowed_files + required_tests + no consumers emits safe_delete ──
+    // Already covered by test_dead_replacement_covered_candidate_emits_full_executable_deletion_plan
+    // (replay_gates present, rollback_receipt_required=true, action=safe_delete)
 }

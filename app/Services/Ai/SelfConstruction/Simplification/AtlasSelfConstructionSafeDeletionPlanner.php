@@ -103,8 +103,11 @@ final class AtlasSelfConstructionSafeDeletionPlanner
         if ($reasons === [] && $replacementOwner === '') {
             $reasons[] = 'replacement_owner_missing';
         }
+        if ($reasons === [] && $allowedFiles === []) {
+            $reasons[] = 'deletion_scope_missing';
+        }
         if ($reasons === [] && $requiredTests === []) {
-            $reasons[] = 'guard_test_missing';
+            $reasons[] = 'replay_gate_missing';
         }
         if ($reasons === [] && $rollbackPath === '') {
             $reasons[] = 'rollback_path_missing';
