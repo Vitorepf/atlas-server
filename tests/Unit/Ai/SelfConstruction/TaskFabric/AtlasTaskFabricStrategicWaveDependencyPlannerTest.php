@@ -187,4 +187,99 @@ final class AtlasTaskFabricStrategicWaveDependencyPlannerTest extends TestCase
         $this->assertSame([], $r['blocked_edges']);
         $this->assertSame([], $r['recommended_reorderings']);
     }
+
+    // ── AC2: new task types ──
+
+    public function test_foundation_repair_goes_to_wave_0(): void
+    {
+        $r = $this->plan([$this->task('T1', 'foundation_repair')]);
+
+        $this->assertContains('T1', $this->taskIdsInWave($r, 0));
+    }
+
+    public function test_proof_gate_goes_to_wave_2(): void
+    {
+        $r = $this->plan([$this->task('T1', 'proof_gate')]);
+
+        $this->assertContains('T1', $this->taskIdsInWave($r, 2));
+    }
+
+    public function test_consolidation_goes_to_wave_3(): void
+    {
+        $r = $this->plan([$this->task('T1', 'consolidation')]);
+
+        $this->assertContains('T1', $this->taskIdsInWave($r, 3));
+    }
+
+    public function test_feature_expansion_goes_to_wave_4(): void
+    {
+        $r = $this->plan([$this->task('T1', 'feature_expansion')]);
+
+        $this->assertContains('T1', $this->taskIdsInWave($r, 4));
+    }
+
+    public function test_all_new_types_ordered_correctly(): void
+    {
+        $r = $this->plan([
+            $this->task('feature', 'feature_expansion'),
+            $this->task('repair', 'foundation_repair'),
+            $this->task('gate', 'proof_gate'),
+            $this->task('consolidate', 'consolidation'),
+        ]);
+
+        $nums = $this->waveNumbers($r);
+        // foundation_repair(0), proof_gate(2), consolidation(3), feature_expansion(4)
+        $this->assertSame([0, 2, 3, 4], $nums);
+        $this->assertContains('repair', $this->taskIdsInWave($r, 0));
+        $this->assertContains('gate', $this->taskIdsInWave($r, 2));
+        $this->assertContains('consolidate', $this->taskIdsInWave($r, 3));
+        $this->assertContains('feature', $this->taskIdsInWave($r, 4));
+    }
+
+    // ── AC3: impossible ordering flagged when downstream lacks implementable prerequisite ──
+
+    public function test_missing_capability_reported_as_blocked_edge(): void
+    {
+        $r = $this->plan([$this->task('downstream', 'feature_expansion', ['required-cap'])]);
+
+        $this->assertNotEmpty($r['blocked_edges']);
+        $edge = $r['blocked_edges'][0];
+        $this->assertSame('downstream', $edge['task_id']);
+        $this->assertSame('required-cap', $edge['missing_capability']);
+        $this->assertSame('capability_not_implemented_or_queued', $edge['reason']);
+    }
+
+    // ── AC4: output field aliases ──
+
+    public function test_output_has_ordered_waves(): void
+    {
+        $r = $this->plan([$this->task('T1', 'foundation')]);
+
+        $this->assertArrayHasKey('ordered_waves', $r);
+        $this->assertSame($r['waves'], $r['ordered_waves']);
+    }
+
+    public function test_output_has_dependency_edges(): void
+    {
+        $r = $this->plan([$this->task('T1', 'integration', ['cap-a'])], ['cap-a']);
+
+        $this->assertArrayHasKey('dependency_edges', $r);
+        $this->assertSame($r['depends_on_edges'], $r['dependency_edges']);
+    }
+
+    public function test_output_has_unlock_rationale(): void
+    {
+        $r = $this->plan([$this->task('T1', 'foundation')]);
+
+        $this->assertArrayHasKey('unlock_rationale', $r);
+        $this->assertNotEmpty($r['unlock_rationale']);
+        $this->assertStringContainsString('foundation_repair_before_feature_expansion', $r['unlock_rationale']);
+    }
+
+    public function test_unlock_rationale_mentions_blocked_edges_when_present(): void
+    {
+        $r = $this->plan([$this->task('T1', 'integration', ['missing-cap'])]);
+
+        $this->assertStringContainsString('impossible_ordering_flagged', $r['unlock_rationale']);
+    }
 }

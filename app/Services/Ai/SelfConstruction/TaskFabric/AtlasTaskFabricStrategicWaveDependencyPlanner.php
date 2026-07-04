@@ -28,9 +28,13 @@ final class AtlasTaskFabricStrategicWaveDependencyPlanner
 
     private const WAVE_ORDER = [
         'foundation' => 0,
+        'foundation_repair' => 0,
         'integration' => 1,
         'verification' => 2,
+        'proof_gate' => 2,
         'simplification' => 3,
+        'consolidation' => 3,
+        'feature_expansion' => 4,
     ];
 
     /**
@@ -98,12 +102,25 @@ final class AtlasTaskFabricStrategicWaveDependencyPlanner
             $waves[] = ['wave' => $num, 'tasks' => $waveTasks];
         }
 
+        // Build unlock_rationale: explain the ordering in human-readable form.
+        $rationaleParts = [];
+        if ($waves !== []) {
+            $rationaleParts[] = 'tasks_ordered_by_wave:foundation_repair_before_feature_expansion';
+            $hasMissingCaps = count($blockedEdges) > 0;
+            if ($hasMissingCaps) {
+                $rationaleParts[] = 'impossible_ordering_flagged:'.count($blockedEdges).'_blocked_edges';
+            }
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'waves' => $waves,
+            'ordered_waves' => $waves,
             'depends_on_edges' => $dependsOnEdges,
+            'dependency_edges' => $dependsOnEdges,
             'blocked_edges' => $blockedEdges,
             'recommended_reorderings' => $recommendedReorderings,
+            'unlock_rationale' => implode('; ', $rationaleParts),
         ];
     }
 }
