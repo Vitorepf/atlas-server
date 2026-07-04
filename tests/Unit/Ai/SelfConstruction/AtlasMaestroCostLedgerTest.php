@@ -146,4 +146,40 @@ class AtlasMaestroCostLedgerTest extends TestCase
         self::assertArrayNotHasKey('raw_payload', $row);
         self::assertArrayNotHasKey('authorization', $row);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: endurance — malformed, idempotent, query contract
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_non_numeric_cost_is_rejected(): void
+    {
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+
+        $this->assertNull($ledger->append($this->fact(['cost_cents' => 'not-a-number'])));
+        $this->assertFileDoesNotExist($this->ledgerPath);
+    }
+
+    public function test_idempotent_repeat_does_not_append_new_line(): void
+    {
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+        $ledger->append($this->fact());
+        $linesAfterFirst = count(array_filter(explode("\n", (string) file_get_contents($this->ledgerPath))));
+
+        $ledger->append($this->fact());
+        $linesAfterSecond = count(array_filter(explode("\n", (string) file_get_contents($this->ledgerPath))));
+
+        $this->assertSame(1, $linesAfterFirst);
+        $this->assertSame($linesAfterFirst, $linesAfterSecond, 'duplicate must not append second line');
+    }
+
+    public function test_invalid_json_ignored_in_query(): void
+    {
+        file_put_contents($this->ledgerPath, "garbage line\n", FILE_APPEND);
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+        $ledger->append($this->fact(['task_packet_id' => 'pk-x']));
+
+        $all = $ledger->all();
+        $this->assertCount(1, $all, 'invalid JSON in ledger must be silently ignored');
+        $this->assertSame('pk-x', $all[0]['task_packet_id']);
+    }
 }
