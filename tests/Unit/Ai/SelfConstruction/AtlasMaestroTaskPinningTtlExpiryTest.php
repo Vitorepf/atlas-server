@@ -161,4 +161,44 @@ final class AtlasMaestroTaskPinningTtlExpiryTest extends TestCase
 
         return $rows;
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: contract — TTL bounds, sweep receipts sorted, switch-off no-op
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_min_ttl_one_second_accepted(): void
+    {
+        [$reg, $ttl] = $this->build('2026-06-25T05:00:00Z');
+        $row = $ttl->pinWithTtl('PKT-MIN', 'w', 'r', 1);
+        $this->assertNotNull($row, 'TTL=1 must be accepted');
+    }
+
+    public function test_max_ttl_accepted(): void
+    {
+        [$reg, $ttl] = $this->build('2026-06-25T05:00:00Z');
+        $row = $ttl->pinWithTtl('PKT-MAX', 'w', 'r', 31_536_000);
+        $this->assertNotNull($row, 'TTL=31536000 must be accepted (1 year)');
+        $this->assertArrayHasKey('worker_id', $row);
+    }
+
+    public function test_sweep_receipts_are_deterministic_and_ordered(): void
+    {
+        [$reg, $ttl, $advance] = $this->build('2026-06-25T05:00:00Z');
+        $ttl->pinWithTtl('z-pkt', 'w', 'r', 60);
+        $ttl->pinWithTtl('a-pkt', 'w', 'r', 60);
+        $advance('2026-06-25T05:02:00Z');
+
+        $receipts = $ttl->sweep();
+        $this->assertCount(2, $receipts);
+        $this->assertSame('a-pkt', $receipts[0]['packet_id']);
+        $this->assertSame('z-pkt', $receipts[1]['packet_id']);
+    }
+
+    public function test_lazy_expiry_does_not_mutate_when_switch_off(): void
+    {
+        [$reg, $ttl] = $this->build('2026-06-25T05:00:00Z', switchOn: false);
+        $ttl->pinWithTtl('PKT', 'w', 'r', 60);
+        $this->assertNull($ttl->effectivePinFor('PKT'));
+        $this->assertNull($ttl->lastLazyExpiryReceipt());
+    }
 }
