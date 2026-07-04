@@ -381,4 +381,62 @@ final class AtlasTaskFabricAcceptanceConflictDetectorTest extends TestCase
             $this->assertArrayHasKey('repair_hint', $c);
         }
     }
+
+    // ── AC2: same behavior, different condition — not mutually_exclusive ─────
+
+    public function test_accept_when_valid_and_reject_when_invalid_not_mutually_exclusive(): void
+    {
+        $result = $this->detector()->detect($this->cleanSpec([
+            'acceptance_criteria' => [
+                'must accept input when valid',
+                'must reject input when invalid',
+            ],
+        ]));
+
+        $mutuallyExclusive = array_values(array_filter(
+            $result['conflicts'],
+            static fn (array $c): bool => $c['kind'] === 'mutually_exclusive_behavior',
+        ));
+
+        $this->assertEmpty($mutuallyExclusive, 'Different conditions must not trigger mutually_exclusive_behavior');
+    }
+
+    // ── AC3: same behavior, same condition — mutually_exclusive ──────────────
+
+    public function test_accept_when_valid_and_must_not_accept_when_valid_is_blocking(): void
+    {
+        $result = $this->detector()->detect($this->cleanSpec([
+            'acceptance_criteria' => [
+                'must accept input when valid',
+                'must not accept input when valid',
+            ],
+        ]));
+
+        $mutuallyExclusive = array_values(array_filter(
+            $result['conflicts'],
+            static fn (array $c): bool => $c['kind'] === 'mutually_exclusive_behavior',
+        ));
+
+        $this->assertNotEmpty($mutuallyExclusive, 'Same condition must trigger mutually_exclusive_behavior');
+    }
+
+    // ── AC4: conflict details include behavior and condition fingerprints ────
+
+    public function test_conflict_details_include_behavior_and_condition_fingerprints(): void
+    {
+        $result = $this->detector()->detect($this->cleanSpec([
+            'acceptance_criteria' => [
+                'must accept input when valid',
+                'must not accept input when valid',
+            ],
+        ]));
+
+        $this->assertNotEmpty($result['conflicts']);
+        foreach ($result['conflicts'] as $conflict) {
+            $this->assertArrayHasKey('behavior_fingerprint', $conflict);
+            $this->assertArrayHasKey('condition_fingerprint', $conflict);
+            $this->assertNotEmpty($conflict['behavior_fingerprint']);
+            $this->assertNotEmpty($conflict['condition_fingerprint']);
+        }
+    }
 }

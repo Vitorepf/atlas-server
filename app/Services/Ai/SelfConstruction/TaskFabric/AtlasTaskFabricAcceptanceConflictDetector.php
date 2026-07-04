@@ -139,6 +139,8 @@ final class AtlasTaskFabricAcceptanceConflictDetector
                     $conflicts[] = [
                         'kind'   => self::KIND_CONTRADICTORY_ACCEPTANCE,
                         'detail' => sprintf('"%s" blocks the same fixture condition that "%s" allows', $block, $allow),
+                        'behavior_fingerprint' => $fp,
+                        'condition_fingerprint' => $fp,
                         '_criteria_texts' => [$block, $allow],
                     ];
                 }
@@ -207,6 +209,8 @@ final class AtlasTaskFabricAcceptanceConflictDetector
                     $conflicts[] = [
                         'kind'   => self::KIND_MUTUALLY_EXCLUSIVE,
                         'detail' => sprintf('"%s" contradicts "%s"', $pos, $neg),
+                        'behavior_fingerprint' => $fp,
+                        'condition_fingerprint' => $fp,
                         '_criteria_texts' => [$pos, $neg],
                     ];
                 }
@@ -218,7 +222,7 @@ final class AtlasTaskFabricAcceptanceConflictDetector
     {
         static $stopWords = ['the', 'and', 'or', 'for', 'with', 'when', 'that', 'this', 'its',
             'are', 'was', 'has', 'have', 'been', 'will', 'can', 'may', 'from', 'into',
-            'given', 'then', 'also', 'only', 'both', 'any', 'all', 'not'];
+            'given', 'then', 'also', 'only', 'both', 'any', 'all', 'not', 'must', 'should', 'does'];
 
         $text  = preg_replace('/[^a-z0-9\s]/', ' ', $text) ?? $text;
         $words = explode(' ', $text);
