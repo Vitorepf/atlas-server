@@ -168,4 +168,49 @@ final class AtlasSelfConstructionAutonomySoakPlanCompilerTest extends TestCase
         $b = $this->compiler()->compile($snap);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // AC: compiled plans include explicit soak windows
+    public function test_soak_windows_include_all_five_windows(): void
+    {
+        $result = $this->compiler()->compile($this->healthySnapshot());
+        $this->assertArrayHasKey('soak_windows', $result);
+        $windows = array_column($result['soak_windows'], 'window');
+        $this->assertContains('worker_feed_continuity', $windows);
+        $this->assertContains('queue_drain_pressure', $windows);
+        $this->assertContains('give_back_rate', $windows);
+        $this->assertContains('lease_recovery', $windows);
+        $this->assertContains('knowledge_sync', $windows);
+    }
+
+    // AC: each soak window carries runnable verification command
+    public function test_each_soak_window_has_verification_command(): void
+    {
+        $result = $this->compiler()->compile($this->healthySnapshot());
+        foreach ($result['soak_windows'] as $window) {
+            $this->assertArrayHasKey('verification_command', $window);
+            $this->assertNotEmpty($window['verification_command']);
+        }
+    }
+
+    // AC: human-dependent plan steps are blocked in soak windows
+    public function test_soak_windows_blocked_by_human_dependency(): void
+    {
+        $snap = $this->healthySnapshot();
+        $snap['criteria_overrides'] = [
+            ['name' => 'requires_human_approval', 'passing' => true],
+        ];
+        $result = $this->compiler()->compile($snap);
+        foreach ($result['soak_windows'] as $window) {
+            $this->assertNotEmpty($window['blocked_by']);
+        }
+    }
+
+    // AC: healthy soak windows have no blockers
+    public function test_healthy_soak_windows_have_no_blockers(): void
+    {
+        $result = $this->compiler()->compile($this->healthySnapshot());
+        foreach ($result['soak_windows'] as $window) {
+            $this->assertSame([], $window['blocked_by']);
+        }
+    }
 }
