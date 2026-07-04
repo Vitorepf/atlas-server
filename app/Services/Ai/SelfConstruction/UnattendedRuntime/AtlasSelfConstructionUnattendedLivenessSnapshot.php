@@ -76,6 +76,40 @@ final class AtlasSelfConstructionUnattendedLivenessSnapshot
         $status = $this->classify($factsOut, $missingSources);
         $snapshotHash = $this->snapshotHash($status, $factsOut, $missingSources);
 
+        // AC2/AC3: supply-side health signals — even when the snapshot is 'degraded',
+        // the unattended runtime can continue safely if claimable supply is high and
+        // there's no recoverable backlog.
+        $claimableDepth = $queue['claimable_count'];
+        $recoverableTotal = 0;
+        foreach ($activeLeases as $lease) {
+            if ((bool) ($lease['recoverable'] ?? false)) {
+                $recoverableTotal++;
+            }
+        }
+        $servableNow = $status === self::STATUS_HEALTHY
+            || ($claimableDepth > 0 && $recoverableTotal === 0);
+        $partialHealthSupplyOk = $status !== self::STATUS_HEALTHY
+            && $claimableDepth >= 3
+            && $claimableDepth >= $recoverableTotal
+            && $recoverableTotal === 0;
+        $servingJammed = ($queue['safety_stop'] || $queue['malformed_count'] > 0)
+            && $claimableDepth > 0;
+        $dryQueue = $claimableDepth === 0;
+        $recoverableBacklog = $recoverableTotal > 0;
+        $unsafeContinuation = $servingJammed || $dryQueue || $recoverableBacklog;
+
+        // next_watch_item: the highest-risk signal to watch next.
+        $nextWatchItem = match (true) {
+            $missingSources !== [] => 'missing_sources',
+            $servingJammed => 'serving_jammed',
+            $recoverableBacklog => 'recoverable_backlog',
+            $dryQueue => 'dry_queue',
+            $status !== self::STATUS_HEALTHY && $partialHealthSupplyOk => 'supply_ok',
+            (bool) $heartbeat['is_stale'] => 'stale_heartbeat',
+            ! $worker['ready'] => 'worker_not_ready',
+            default => 'none',
+        };
+
         return [
             'schema' => self::SCHEMA,
             'schema_version' => self::SCHEMA,
@@ -83,6 +117,12 @@ final class AtlasSelfConstructionUnattendedLivenessSnapshot
             'facts' => $factsOut,
             'missing_sources' => $missingSources,
             'snapshot_hash' => $snapshotHash,
+            'claimable_depth' => $claimableDepth,
+            'recoverable_total' => $recoverableTotal,
+            'servable_now' => $servableNow,
+            'partial_health_supply_ok' => $partialHealthSupplyOk,
+            'unsafe_continuation' => $unsafeContinuation,
+            'next_watch_item' => $nextWatchItem,
         ];
     }
 
@@ -237,6 +277,9 @@ final class AtlasSelfConstructionUnattendedLivenessSnapshot
             return self::STATUS_DEGRADED;
         }
         if ((int) $facts['queue']['malformed_count'] > 0) {
+            return self::STATUS_DEGRADED;
+        }
+        if ((int) $facts['queue']['claimable_count'] === 0) {
             return self::STATUS_DEGRADED;
         }
 

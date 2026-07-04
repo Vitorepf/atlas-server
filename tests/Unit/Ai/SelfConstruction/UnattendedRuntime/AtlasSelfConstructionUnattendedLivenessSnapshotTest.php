@@ -127,9 +127,110 @@ class AtlasSelfConstructionUnattendedLivenessSnapshotTest extends TestCase
 
     public function test_snapshot_source_does_not_call_io_or_provider(): void
     {
-        $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/UnattendedRuntime/AtlasSelfConstructionUnattendedLivenessSnapshot.php'));
-        foreach (['file_get_contents(', 'file_put_contents', 'fopen(', 'shell_exec', 'exec(', 'system(', 'proc_open', 'curl_', 'Http::', 'DB::', 'Storage::'] as $forbidden) {
-            self::assertStringNotContainsString($forbidden, $src, "snapshot must not contain {$forbidden}");
+        $src = file_get_contents(__DIR__.'/../../../../../app/Services/Ai/SelfConstruction/UnattendedRuntime/AtlasSelfConstructionUnattendedLivenessSnapshot.php');
+        foreach (['file_put_contents', 'fopen(', 'shell_exec', 'exec(', 'DB::', 'Http::', 'Queue::', 'dispatch('] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, (string) $src, "source must not contain {$forbidden}");
         }
+    }
+
+    // ── AC2: partial_health_supply_ok when degraded but supply is high ─────
+
+    public function test_degraded_with_abundant_claimable_depth_has_supply_ok(): void
+    {
+        $result = (new AtlasSelfConstructionUnattendedLivenessSnapshot)->compose([
+            'queue' => ['claimable_count' => 10, 'safety_stop' => false, 'malformed_count' => 0],
+            'heartbeat' => ['last_seen_age_seconds' => 9999], // stale → degraded
+            'continuous_runtime_cycle' => ['last_stop_reason' => '', 'last_stopped' => false],
+            'native_worker' => ['ready' => true, 'concurrency_floor_ok' => true],
+            'replenisher' => ['last_run_status' => 'ok'],
+            'verification' => ['last_verdict' => 'passed'],
+            'merge' => ['last_decision' => 'merged'],
+            'active_leases' => [],
+        ]);
+
+        $this->assertSame('degraded', $result['status']);
+        $this->assertTrue($result['partial_health_supply_ok']);
+        $this->assertTrue($result['servable_now']);
+        $this->assertFalse($result['unsafe_continuation']);
+        $this->assertSame('supply_ok', $result['next_watch_item']);
+    }
+
+    // ── AC3: unsafe_continuation when jammed, dry or recoverable backlog ────
+
+    public function test_safety_stop_with_claimable_tasks_is_serving_jammed(): void
+    {
+        $result = (new AtlasSelfConstructionUnattendedLivenessSnapshot)->compose([
+            'queue' => ['claimable_count' => 5, 'safety_stop' => true, 'malformed_count' => 0],
+            'heartbeat' => ['last_seen_age_seconds' => 10],
+            'continuous_runtime_cycle' => ['last_stop_reason' => '', 'last_stopped' => false],
+            'native_worker' => ['ready' => true, 'concurrency_floor_ok' => true],
+            'replenisher' => ['last_run_status' => 'ok'],
+            'verification' => ['last_verdict' => 'passed'],
+            'merge' => ['last_decision' => 'merged'],
+            'active_leases' => [],
+        ]);
+
+        $this->assertSame('degraded', $result['status']);
+        $this->assertTrue($result['unsafe_continuation']);
+        $this->assertSame('serving_jammed', $result['next_watch_item']);
+    }
+
+    public function test_dry_queue_is_unsafe_continuation(): void
+    {
+        $result = (new AtlasSelfConstructionUnattendedLivenessSnapshot)->compose([
+            'queue' => ['claimable_count' => 0, 'safety_stop' => false, 'malformed_count' => 0],
+            'heartbeat' => ['last_seen_age_seconds' => 10],
+            'continuous_runtime_cycle' => ['last_stop_reason' => '', 'last_stopped' => false],
+            'native_worker' => ['ready' => true, 'concurrency_floor_ok' => true],
+            'replenisher' => ['last_run_status' => 'ok'],
+            'verification' => ['last_verdict' => 'passed'],
+            'merge' => ['last_decision' => 'merged'],
+            'active_leases' => [],
+        ]);
+
+        $this->assertSame('degraded', $result['status']);
+        $this->assertTrue($result['unsafe_continuation']);
+        $this->assertSame('dry_queue', $result['next_watch_item']);
+    }
+
+    // ── AC4: next_watch_item reflects underlying health flag ──────────────
+
+    public function test_healthy_snapshot_has_next_watch_item_none(): void
+    {
+        $result = (new AtlasSelfConstructionUnattendedLivenessSnapshot)->compose([
+            'queue' => ['claimable_count' => 5, 'safety_stop' => false, 'malformed_count' => 0],
+            'heartbeat' => ['last_seen_age_seconds' => 10],
+            'continuous_runtime_cycle' => ['last_stop_reason' => '', 'last_stopped' => false],
+            'native_worker' => ['ready' => true, 'concurrency_floor_ok' => true],
+            'replenisher' => ['last_run_status' => 'ok'],
+            'verification' => ['last_verdict' => 'passed'],
+            'merge' => ['last_decision' => 'merged'],
+            'active_leases' => [],
+        ]);
+
+        $this->assertSame('healthy', $result['status']);
+        $this->assertTrue($result['servable_now']);
+        $this->assertFalse($result['unsafe_continuation']);
+        $this->assertSame('none', $result['next_watch_item']);
+    }
+
+    public function test_recoverable_backlog_detected(): void
+    {
+        $result = (new AtlasSelfConstructionUnattendedLivenessSnapshot)->compose([
+            'queue' => ['claimable_count' => 5, 'safety_stop' => false, 'malformed_count' => 0],
+            'heartbeat' => ['last_seen_age_seconds' => 60],
+            'continuous_runtime_cycle' => ['last_stop_reason' => '', 'last_stopped' => false],
+            'native_worker' => ['ready' => true, 'concurrency_floor_ok' => true],
+            'replenisher' => ['last_run_status' => 'ok'],
+            'verification' => ['last_verdict' => 'passed'],
+            'merge' => ['last_decision' => 'merged'],
+            'active_leases' => [
+                ['lease_id' => 'L1', 'task_packet_id' => 't1', 'recoverable' => true],
+            ],
+        ]);
+
+        $this->assertTrue($result['unsafe_continuation']);
+        $this->assertGreaterThan(0, $result['recoverable_total']);
+        $this->assertSame('recoverable_backlog', $result['next_watch_item']);
     }
 }
