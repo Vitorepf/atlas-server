@@ -255,4 +255,60 @@ final class AtlasExternalBrainMemoryWritebackContract
     {
         return $normalized['type'].'||'.strtolower(trim((string) $normalized['fact']));
     }
+
+    /**
+     * Provider-safe summary of validation results: exposes accepted_memory, secret_rejection,
+     * duplicate_rejection, vague_lesson_rejection, and missing_evidence_rejection counts.
+     *
+     * @param  list<array<string,mixed>>  $proposals
+     * @return array{accepted_memory:list<array<string,mixed>>, secret_rejection:int, duplicate_rejection:int, vague_lesson_rejection:int, missing_evidence_rejection:int, future_actionability:bool}
+     */
+    public function providerSafeSummary(array $proposals): array
+    {
+        $validation = $this->validate($proposals);
+        $secretRejection = 0;
+        $duplicateRejection = 0;
+        $vagueLessonRejection = 0;
+        $missingEvidenceRejection = 0;
+
+        foreach ($validation['rejected'] as $rejection) {
+            $reason = (string) ($rejection['reason'] ?? '');
+            switch ($reason) {
+                case 'not_provider_safe':
+                case 'raw_prompt_detected':
+                case 'provider_details_detected':
+                    $secretRejection++;
+                    break;
+                case 'duplicate_low_value':
+                    $duplicateRejection++;
+                    break;
+                case 'vague_unactionable':
+                    $vagueLessonRejection++;
+                    break;
+                case 'missing_required_fields':
+                case 'speculative_claim':
+                    $missingEvidenceRejection++;
+                    break;
+            }
+        }
+
+        // Future actionability: at least one accepted memory with proven or observed evidence
+        $futureActionability = false;
+        foreach ($validation['accepted'] as $memory) {
+            $strength = (string) ($memory['evidence_strength'] ?? '');
+            if ($strength === self::EVIDENCE_PROVEN || $strength === self::EVIDENCE_OBSERVED) {
+                $futureActionability = true;
+                break;
+            }
+        }
+
+        return [
+            'accepted_memory' => $validation['accepted'],
+            'secret_rejection' => $secretRejection,
+            'duplicate_rejection' => $duplicateRejection,
+            'vague_lesson_rejection' => $vagueLessonRejection,
+            'missing_evidence_rejection' => $missingEvidenceRejection,
+            'future_actionability' => $futureActionability,
+        ];
+    }
 }
