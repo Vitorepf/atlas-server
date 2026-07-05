@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierPromotionGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierTelemetryAggregator;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCompressionCadencePlanningRunner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainModelEscalationEconomyPolicy;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainValueGateBacktestReplay;
 use Illuminate\Console\Command;
@@ -38,6 +39,7 @@ final class AtlasExternalBrainAmplifierEconomicsCommand extends Command
         AtlasExternalBrainModelEscalationEconomyPolicy $escalationPolicy,
         AtlasExternalBrainAmplifierPromotionGate $promotionGate,
         AtlasExternalBrainValueGateBacktestReplay $backtestReplay,
+        AtlasExternalBrainCompressionCadencePlanningRunner $compressionRunner,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -57,11 +59,13 @@ final class AtlasExternalBrainAmplifierEconomicsCommand extends Command
         $escalationInput = is_array($decoded['escalation'] ?? null) ? $decoded['escalation'] : [];
         $promotionInput = is_array($decoded['promotion'] ?? null) ? $decoded['promotion'] : [];
         $replayInput = is_array($decoded['replay'] ?? null) ? $decoded['replay'] : [];
+        $compressionInput = is_array($decoded['compression'] ?? null) ? $decoded['compression'] : [];
 
         $telemetry = $telemetryAggregator->aggregate($telemetryInput);
         $escalation = $escalationPolicy->decide($escalationInput);
         $promotion = $promotionGate->evaluate($promotionInput);
         $replay = $backtestReplay->replay($replayInput);
+        $compressionPlan = $compressionRunner->plan($compressionInput);
 
         $rollbackCandidate = $telemetry['status'] === AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE;
         $safeToExpandAutonomy = ! $rollbackCandidate
@@ -74,6 +78,7 @@ final class AtlasExternalBrainAmplifierEconomicsCommand extends Command
             'escalation_decision' => $escalation,
             'promotion_gate' => $promotion,
             'backtest_replay' => $replay,
+            'compression_plan' => $compressionPlan,
             'rollback_candidate' => $rollbackCandidate,
             'safe_to_expand_autonomy_footprint' => $safeToExpandAutonomy,
         ];
