@@ -357,4 +357,105 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouterTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainAmplifierOutcomeReplayRouter::ACTION_ESCALATION_POLICY_UPDATE, $r['routed_updates'][0]['action']);
     }
+
+    // ── AC: weak_green routes to negative learning only ──────────────────────
+
+    public function test_weak_green_routes_to_rollback_and_benchmark_only(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'weak_green')]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertContains('rollback_signal', $sinks);
+        $this->assertContains('heldout_benchmark_update', $sinks);
+        $this->assertNotContains('scaffold_selection', $sinks);
+        $this->assertNotContains('model_tier_routing', $sinks);
+        $this->assertNotContains('scaffold_variant_learning', $sinks);
+        $this->assertNotContains('promotion_gates', $sinks);
+    }
+
+    public function test_weak_green_never_eligible_for_promotion(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'weak_green', capabilityDelta: 0.5, heldoutPassed: true)]);
+
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertFalse($candidate['eligible_for_promotion']);
+        $this->assertContains('sink_excludes_scaffold_selection', $candidate['promotion_blockers']);
+    }
+
+    public function test_weak_green_routes_to_rejection_rule(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'weak_green')]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierOutcomeReplayRouter::ACTION_REJECTION_RULE, $r['routed_updates'][0]['action']);
+    }
+
+    // ── AC: give_back with repeated_root_cause feeds promotion_gates and regression_cases but not model_tier_routing ─
+
+    public function test_give_back_with_repeated_root_cause_feeds_regression_cases(): void
+    {
+        $outcome = $this->outcome('o1', 'give_back');
+        $outcome['repeated_root_cause'] = true;
+
+        $r = $this->route([$outcome]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertContains('promotion_gates', $sinks);
+        $this->assertContains('regression_cases', $sinks);
+        $this->assertNotContains('model_tier_routing', $sinks);
+    }
+
+    public function test_give_back_without_repeated_root_cause_does_not_feed_regression_cases(): void
+    {
+        $outcome = $this->outcome('o1', 'give_back');
+        // repeated_root_cause not set
+
+        $r = $this->route([$outcome]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertContains('promotion_gates', $sinks);
+        $this->assertNotContains('regression_cases', $sinks);
+        $this->assertNotContains('model_tier_routing', $sinks);
+    }
+
+    public function test_give_back_with_repeated_root_cause_appears_in_regression_candidates(): void
+    {
+        $outcome = $this->outcome('o1', 'give_back');
+        $outcome['repeated_root_cause'] = true;
+
+        $r = $this->route([$outcome]);
+
+        $this->assertCount(1, $r['regression_case_candidates']);
+        $this->assertSame('o1', $r['regression_case_candidates'][0]['outcome_id']);
+    }
+
+    public function test_give_back_with_repeated_root_cause_not_eligible_for_promotion(): void
+    {
+        $outcome = $this->outcome('o1', 'give_back');
+        $outcome['repeated_root_cause'] = true;
+
+        $r = $this->route([$outcome]);
+
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertFalse($candidate['eligible_for_promotion']);
+    }
+
+    // ── AC: positive high_value requires capability_delta, heldout_passed, proxy_detected=false ─
+
+    public function test_high_value_with_proxy_detected_blocks_promotion(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'high_value', capabilityDelta: 0.5, proxyDetected: true, heldoutPassed: true)]);
+
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertFalse($candidate['eligible_for_promotion']);
+        $this->assertContains('proxy_detected', $candidate['promotion_blockers']);
+    }
+
+    public function test_high_value_without_capability_delta_blocks_promotion(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'high_value', capabilityDelta: 0.0, heldoutPassed: true)]);
+
+        $candidate = $r['learning_promotion_candidates'][0];
+        $this->assertFalse($candidate['eligible_for_promotion']);
+        $this->assertContains('capability_delta_not_positive', $candidate['promotion_blockers']);
+    }
 }

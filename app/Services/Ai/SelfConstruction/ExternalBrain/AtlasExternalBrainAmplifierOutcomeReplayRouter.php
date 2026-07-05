@@ -12,12 +12,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * Sink routing table (original amplifier sinks):
  *   commit_success → scaffold_selection, model_tier_routing
- *   give_back      → scaffold_selection, promotion_gates
+ *   give_back      → scaffold_selection, promotion_gates (+ regression_cases when repeated_root_cause)
  *   poison         → promotion_gates, regression_cases
  *   weak_evidence  → regression_cases
+ *   weak_green     → rollback_signal, heldout_benchmark_update (negative learning only)
  *   high_value     → scaffold_selection, model_tier_routing, promotion_gates
  *
- * Learning-loop sinks (AC: proxy/no-delta must NOT feed positive learning):
+ * Learning-loop sinks (AC: proxy/no-delta/weak_green must NOT feed positive learning):
  *   proxy_success       → rollback_signal, heldout_benchmark_update
  *   no_capability_delta → rollback_signal, heldout_benchmark_update
  *   heldout_failure     → heldout_benchmark_update, frontier_escalation_signal
@@ -50,8 +51,9 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
         'give_back'           => ['scaffold_selection', 'promotion_gates'],
         'poison'              => ['promotion_gates', 'regression_cases'],
         'weak_evidence'       => ['regression_cases'],
+        'weak_green'          => ['rollback_signal', 'heldout_benchmark_update'],
         'high_value'          => ['scaffold_selection', 'model_tier_routing', 'promotion_gates'],
-        // learning-loop sinks — proxy/no-delta must NOT feed positive learning
+        // learning-loop sinks — proxy/no-delta/weak_green must NOT feed positive learning
         'proxy_success'       => ['rollback_signal', 'heldout_benchmark_update'],
         'no_capability_delta' => ['rollback_signal', 'heldout_benchmark_update'],
         'heldout_failure'     => ['heldout_benchmark_update', 'frontier_escalation_signal'],
@@ -93,6 +95,13 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
             }
 
             $sinks = self::SINK_MAP[$type];
+
+            // give_back with repeated_root_cause feeds promotion_gates and
+            // regression_cases but NOT model_tier_routing — a recurring failure
+            // root cause is a regression signal, not a routing signal.
+            if ($type === 'give_back' && ! empty($outcome['repeated_root_cause'])) {
+                $sinks = ['scaffold_selection', 'promotion_gates', 'regression_cases'];
+            }
 
             // learning_promotion_candidates: positive amplifier learning (scaffold promotion) must
             // clear ALL five gates — sink eligibility, real capability delta, no proxy, held-out
@@ -176,7 +185,7 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
         }
 
         return match ($type) {
-            'poison', 'proxy_success', 'no_capability_delta' => self::ACTION_REJECTION_RULE,
+            'poison', 'proxy_success', 'no_capability_delta', 'weak_green' => self::ACTION_REJECTION_RULE,
             'heldout_failure', 'frontier_candidate' => self::ACTION_ESCALATION_POLICY_UPDATE,
             default => $eligibleForPromotion ? self::ACTION_SCAFFOLD_PATCH : self::ACTION_REPLAY_CASE,
         };
