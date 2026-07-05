@@ -226,4 +226,258 @@ final class AtlasTaskFabricAgeAwareAdmissionPenaltyTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC: required_refresh_action always present ──────────────────────────
+
+    public function test_output_has_required_refresh_action_key(): void
+    {
+        $r = $this->gate()->evaluate($this->batch(), $this->queueFacts());
+
+        $this->assertArrayHasKey('required_refresh_action', $r);
+        $this->assertIsString($r['required_refresh_action']);
+    }
+
+    public function test_required_refresh_action_is_none_for_clean_admit(): void
+    {
+        $r = $this->gate()->evaluate($this->batch(), $this->queueFacts());
+
+        $this->assertSame('none', $r['required_refresh_action']);
+    }
+
+    public function test_required_refresh_action_is_none_when_repairs_stale_backlog(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['repairs_queue_health' => true]),
+            $this->deepStale(),
+        );
+
+        $this->assertSame('none', $r['required_refresh_action']);
+    }
+
+    // ── AC: stale context penalizes ─────────────────────────────────────────
+
+    public function test_stale_context_penalizes_batch(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0, 'context_age_hours' => 72.0]),
+            $this->queueFacts(),
+        );
+
+        $this->assertGreaterThan(0.0, $r['penalty_score']);
+        $found = false;
+        foreach ($r['reasons'] as $reason) {
+            if (str_contains($reason, 'stale_context')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'expected stale_context reason');
+        $this->assertSame('refresh_context_before_admission', $r['required_refresh_action']);
+    }
+
+    public function test_old_queued_siblings_penalizes_batch(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0, 'queued_sibling_count' => 10]),
+            $this->queueFacts(),
+        );
+
+        $this->assertGreaterThan(0.0, $r['penalty_score']);
+        $found = false;
+        foreach ($r['reasons'] as $reason) {
+            if (str_contains($reason, 'old_queued_siblings')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'expected old_queued_siblings reason');
+        $this->assertSame('drain_or_consolidate_queued_siblings', $r['required_refresh_action']);
+    }
+
+    public function test_repeated_requeues_penalizes_batch(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0, 'requeue_count' => 5]),
+            $this->queueFacts(),
+        );
+
+        $this->assertGreaterThan(0.0, $r['penalty_score']);
+        $found = false;
+        foreach ($r['reasons'] as $reason) {
+            if (str_contains($reason, 'repeated_requeues')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'expected repeated_requeues reason');
+        $this->assertSame('resolve_root_cause_of_repeated_requeues', $r['required_refresh_action']);
+    }
+
+    public function test_stale_evidence_penalizes_batch(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0, 'evidence_age_hours' => 96.0]),
+            $this->queueFacts(),
+        );
+
+        $this->assertGreaterThan(0.0, $r['penalty_score']);
+        $found = false;
+        foreach ($r['reasons'] as $reason) {
+            if (str_contains($reason, 'stale_evidence')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'expected stale_evidence reason');
+        $this->assertSame('refresh_evidence_before_admission', $r['required_refresh_action']);
+    }
+
+    public function test_low_claimable_per_worker_during_deep_stale_names_saturation(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0]),
+            $this->deepStale(['worker_consumption' => ['active_workers' => 1]]), // 60/1 = 60
+        );
+
+        $found = false;
+        foreach ($r['reasons'] as $reason) {
+            if (str_contains($reason, 'claimable_per_active_worker')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'expected claimable_per_active_worker reason');
+        $this->assertSame('add_workers_or_reduce_backlog_depth', $r['required_refresh_action']);
+    }
+
+    // ── AC: revalidation bypass — old but revalidated candidates not penalized ──
+
+    public function test_freshly_revalidated_high_leverage_candidate_not_penalized_for_age(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch([
+                'leverage_score' => 9.0,
+                'context_age_hours' => 100.0,
+                'evidence_age_hours' => 100.0,
+                'queued_sibling_count' => 10,
+                'requeue_count' => 5,
+                'freshly_revalidated' => true,
+                'has_current_proof' => true,
+                'has_collision' => false,
+            ]),
+            $this->queueFacts(),
+        );
+
+        // age factors bypassed → no penalty, clean admit
+        $this->assertSame(AtlasTaskFabricAgeAwareAdmissionPenalty::DECISION_ADMIT, $r['decision']);
+        $this->assertSame(0.0, $r['penalty_score']);
+        $this->assertSame('none', $r['required_refresh_action']);
+    }
+
+    public function test_revalidation_bypass_requires_current_proof(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch([
+                'leverage_score' => 9.0,
+                'context_age_hours' => 100.0,
+                'freshly_revalidated' => true,
+                'has_current_proof' => false,  // missing proof → bypass does NOT apply
+                'has_collision' => false,
+            ]),
+            $this->queueFacts(),
+        );
+
+        // no current proof → bypass does not apply → age penalty remains
+        $this->assertGreaterThan(0.0, $r['penalty_score']);
+        $this->assertNotSame('none', $r['required_refresh_action']);
+    }
+
+    public function test_revalidation_bypass_requires_no_collision(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch([
+                'leverage_score' => 9.0,
+                'context_age_hours' => 100.0,
+                'freshly_revalidated' => true,
+                'has_current_proof' => true,
+                'has_collision' => true,  // collision → bypass does NOT apply
+            ]),
+            $this->queueFacts(),
+        );
+
+        $this->assertGreaterThan(0.0, $r['penalty_score']);
+        $this->assertNotSame('none', $r['required_refresh_action']);
+    }
+
+    public function test_revalidation_bypass_does_not_suppress_saturation(): void
+    {
+        // Even with revalidation bypass, deep+stale backlog + saturation still applies
+        $r = $this->gate()->evaluate(
+            $this->batch([
+                'leverage_score' => 9.0,
+                'context_age_hours' => 100.0,
+                'freshly_revalidated' => true,
+                'has_current_proof' => true,
+                'has_collision' => false,
+            ]),
+            $this->deepStale(['worker_consumption' => ['active_workers' => 3]]), // 60/3 = 20 >= threshold
+        );
+
+        // Saturation reason present, penalty applied, refresh action is worker capacity
+        $this->assertSame(AtlasTaskFabricAgeAwareAdmissionPenalty::DECISION_ADMIT_WITH_PENALTY, $r['decision']);
+        $found = false;
+        foreach ($r['reasons'] as $reason) {
+            if (str_contains($reason, 'claimable_per_active_worker')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'saturation should survive revalidation bypass');
+        $this->assertSame('add_workers_or_reduce_backlog_depth', $r['required_refresh_action']);
+    }
+
+    // ── AC: age factors without deep+stale backlog still carry penalty ──────
+
+    public function test_stale_context_alone_admits_with_penalty(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0, 'context_age_hours' => 72.0]),
+            $this->queueFacts(), // not deep+stale
+        );
+
+        $this->assertSame(AtlasTaskFabricAgeAwareAdmissionPenalty::DECISION_ADMIT_WITH_PENALTY, $r['decision']);
+        $this->assertGreaterThan(0.0, $r['penalty_score']);
+    }
+
+    public function test_age_factors_do_not_change_decision_leverage_thresholds(): void
+    {
+        // Age factors don't push a high-leverage batch below admit_with_penalty
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0, 'context_age_hours' => 72.0, 'requeue_count' => 5]),
+            $this->deepStale(),
+        );
+
+        $this->assertSame(AtlasTaskFabricAgeAwareAdmissionPenalty::DECISION_ADMIT_WITH_PENALTY, $r['decision']);
+    }
+
+    // ── AC: threshold boundaries ─────────────────────────────────────────────
+
+    public function test_context_age_at_threshold_does_not_trigger_stale_context(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0, 'context_age_hours' => 48.0]), // == threshold, not >
+            $this->queueFacts(),
+        );
+
+        $this->assertSame(0.0, $r['penalty_score']);
+        foreach ($r['reasons'] as $reason) {
+            $this->assertStringNotContainsString('stale_context', $reason);
+        }
+    }
+
+    public function test_zero_requeues_does_not_trigger_repeated_requeues(): void
+    {
+        $r = $this->gate()->evaluate(
+            $this->batch(['leverage_score' => 9.0, 'requeue_count' => 0]),
+            $this->queueFacts(),
+        );
+
+        foreach ($r['reasons'] as $reason) {
+            $this->assertStringNotContainsString('repeated_requeues', $reason);
+        }
+    }
 }
