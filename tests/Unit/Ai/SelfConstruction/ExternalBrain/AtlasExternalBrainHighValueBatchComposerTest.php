@@ -557,4 +557,42 @@ final class AtlasExternalBrainHighValueBatchComposerTest extends TestCase
 
         $this->assertFalse($result['strategic_diversity']['diversity_floor_failed']);
     }
+
+    // ── AC3: at least 3 distinct wave families when enough candidates exist ──
+
+    public function test_admitted_batch_includes_at_least_three_distinct_wave_families(): void
+    {
+        $opps = [
+            $this->valid('task-1', ['category' => 'architecture_unlock', 'value_mechanism' => 'fixes_recurring_bug:task-1']),
+            $this->valid('task-2', ['category' => 'bug_fix', 'value_mechanism' => 'fixes_recurring_bug:task-2']),
+            $this->valid('task-3', ['category' => 'task_quality_repair', 'value_mechanism' => 'fixes_recurring_bug:task-3']),
+            $this->valid('task-4', ['category' => 'docs_sync', 'value_mechanism' => 'fixes_recurring_bug:task-4']),
+        ];
+
+        $result = $this->composer()->compose($opps);
+
+        $this->assertNotEmpty($result['emitted']);
+        $waveFamilies = array_unique(array_column($result['emitted'], 'dependency_wave'));
+        $this->assertGreaterThanOrEqual(3, count($waveFamilies), 'Should have at least 3 distinct wave families');
+    }
+
+    // ── AC4: every admitted item carries value_mechanism and concrete_evidence_path ──
+
+    public function test_every_admitted_item_carries_value_mechanism_and_concrete_evidence_path(): void
+    {
+        $opps = [
+            $this->valid('task-1', ['value_mechanism' => 'fixes_recurring_bug:task-1']),
+            $this->valid('task-2', ['value_mechanism' => 'fixes_recurring_bug:task-2']),
+        ];
+
+        $result = $this->composer()->compose($opps);
+
+        $this->assertNotEmpty($result['emitted']);
+        foreach ($result['emitted'] as $packet) {
+            $this->assertArrayHasKey('value_mechanism', $packet, 'Missing value_mechanism');
+            $this->assertNotEmpty($packet['value_mechanism']);
+            $this->assertArrayHasKey('concrete_evidence_path', $packet, 'Missing concrete_evidence_path');
+            $this->assertNotEmpty($packet['concrete_evidence_path']);
+        }
+    }
 }

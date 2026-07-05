@@ -343,15 +343,18 @@ final class AtlasExternalBrainHighValueBatchComposer
     {
         $cat  = (string) ($opp['category'] ?? '');
         $wave = self::WAVE_MAP[$cat] ?? 2;
+        $allowedFiles = $this->allowedFiles($opp);
+        $concreteEvidencePath = $allowedFiles !== [] ? $allowedFiles[0] : '';
 
         return [
             'task_packet_id'     => (string) ($opp['label'] ?? ''),
             'objective'          => (string) ($opp['objective'] ?? ''),
             'category'           => $cat,
-            'allowed_files'      => $this->allowedFiles($opp),
+            'allowed_files'      => $allowedFiles,
             'acceptance_criteria' => $this->listField($opp, 'acceptance_criteria'),
             'required_evidence'  => $this->listField($opp, 'required_evidence'),
             'value_mechanism'    => (string) ($opp['value_mechanism'] ?? ''),
+            'concrete_evidence_path' => $concreteEvidencePath,
             'final_score'        => (float) ($opp['final_score'] ?? 0.0),
             'dependency_wave'    => $wave,
             'grouped_from'       => (array) ($opp['grouped_from'] ?? []),
