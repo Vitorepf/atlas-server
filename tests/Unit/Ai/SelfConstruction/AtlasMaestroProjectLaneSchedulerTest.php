@@ -9,9 +9,18 @@ use Tests\TestCase;
 
 final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 {
+    /**
+     * @param  array<string,mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private function safeCaps(array $extra = []): array
+    {
+        return array_merge(['verified' => true, 'namespace_safe' => true], $extra);
+    }
+
     public function test_plan_envelope_carries_default_topology_and_schema(): void
     {
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['atlas-dev' => 2], ['atlas-dev' => []]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['atlas-dev' => 2], ['atlas-dev' => $this->safeCaps()]);
 
         $this->assertSame(AtlasMaestroProjectLaneScheduler::SCHEMA, $plan['schema_version']);
         $this->assertSame('shared_local_main_with_scope_lock', $plan['topology']);
@@ -23,7 +32,10 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_zero_demand_lane_is_denied_with_no_demand(): void
     {
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(5, ['empty' => 0, 'busy' => 2], ['empty' => [], 'busy' => []]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(5, ['empty' => 0, 'busy' => 2], [
+            'empty' => $this->safeCaps(),
+            'busy' => $this->safeCaps(),
+        ]);
 
         $this->assertSame('empty', $plan['denied_lanes'][0]['lane_id']);
         $this->assertSame(AtlasMaestroProjectLaneScheduler::REASON_NO_DEMAND, $plan['denied_lanes'][0]['reason']);
@@ -33,7 +45,7 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_critical_lane_is_capped_at_one_worker(): void
     {
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['critical' => 5], ['critical' => ['critical' => true]]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['critical' => 5], ['critical' => $this->safeCaps(['critical' => true])]);
 
         $this->assertSame(1, $plan['allocations'][0]['workers']);
         $this->assertTrue($plan['allocations'][0]['critical']);
@@ -42,8 +54,10 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_tight_budget_reduces_largest_lane_deterministically(): void
     {
-        // total demand 4+3 = 7; budget 4 ⇒ trim 3 from the largest. Largest is alpha (4 → 1).
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(4, ['alpha' => 4, 'beta' => 3], ['alpha' => [], 'beta' => []]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(4, ['alpha' => 4, 'beta' => 3], [
+            'alpha' => $this->safeCaps(),
+            'beta' => $this->safeCaps(),
+        ]);
 
         $byLane = [];
         foreach ($plan['allocations'] as $row) {
@@ -61,7 +75,11 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
     {
         $scheduler = new AtlasMaestroProjectLaneScheduler;
         $demand = ['b' => 3, 'a' => 2, 'c' => 1];
-        $caps = ['a' => ['cap' => 1], 'b' => ['critical' => true], 'c' => []];
+        $caps = [
+            'a' => $this->safeCaps(['cap' => 1]),
+            'b' => $this->safeCaps(['critical' => true]),
+            'c' => $this->safeCaps(),
+        ];
 
         $a = $scheduler->plan(5, $demand, $caps);
         $b = $scheduler->plan(5, $demand, $caps);
@@ -71,8 +89,11 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_starvation_floor_keeps_one_worker_per_lane_when_budget_equals_lane_count(): void
     {
-        // budget=3 = 3 positive-demand lanes; every lane must get exactly 1 after reduction.
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(3, ['a' => 5, 'b' => 4, 'c' => 3], ['a' => [], 'b' => [], 'c' => []]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(3, ['a' => 5, 'b' => 4, 'c' => 3], [
+            'a' => $this->safeCaps(),
+            'b' => $this->safeCaps(),
+            'c' => $this->safeCaps(),
+        ]);
 
         $this->assertCount(3, $plan['allocations'], 'all three lanes must be allocated');
         $this->assertSame(0, $plan['unallocated_budget']);
@@ -84,8 +105,11 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_budget_starvation_denies_excess_lanes_deterministically(): void
     {
-        // budget=1, 3 positive-demand lanes → 2 must be denied with budget_starved; smallest demand denied first.
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(1, ['a' => 3, 'b' => 2, 'c' => 1], ['a' => [], 'b' => [], 'c' => []]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(1, ['a' => 3, 'b' => 2, 'c' => 1], [
+            'a' => $this->safeCaps(),
+            'b' => $this->safeCaps(),
+            'c' => $this->safeCaps(),
+        ]);
 
         $this->assertCount(1, $plan['allocations'], 'only one lane survives the budget');
         $this->assertSame('a', $plan['allocations'][0]['lane_id'], 'largest-demand lane keeps the budget');
@@ -104,7 +128,10 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_unallocated_budget_when_demand_below_budget(): void
     {
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['a' => 2, 'b' => 1], ['a' => [], 'b' => []]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['a' => 2, 'b' => 1], [
+            'a' => $this->safeCaps(),
+            'b' => $this->safeCaps(),
+        ]);
 
         $this->assertSame(7, $plan['unallocated_budget']);
     }
@@ -122,7 +149,7 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_namespace_unsafe_lane_is_denied_regardless_of_demand(): void
     {
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['unsafe' => 5], ['unsafe' => ['namespace_safe' => false]]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['unsafe' => 5], ['unsafe' => ['verified' => true, 'namespace_safe' => false]]);
 
         $this->assertSame([], $plan['allocations']);
         $this->assertSame('unsafe', $plan['denied_lanes'][0]['lane_id']);
@@ -137,22 +164,25 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
         $this->assertSame('ok', $plan['allocations'][0]['lane_id']);
     }
 
-    public function test_verification_and_namespace_safety_default_true_when_absent(): void
+    public function test_verification_and_namespace_safety_default_false_when_absent(): void
     {
+        // After the fail-closed fix, a lane with no verified/namespace_safe keys
+        // defaults both to false and is denied — matching AC2 which says a lane
+        // lacking verification is refused outright.
         $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['legacy' => 2], ['legacy' => []]);
 
-        $this->assertCount(1, $plan['allocations']);
-        $this->assertSame([], $plan['denied_lanes']);
+        $this->assertSame([], $plan['allocations']);
+        $this->assertNotEmpty($plan['denied_lanes']);
+        $this->assertSame('legacy', $plan['denied_lanes'][0]['lane_id']);
     }
 
     // ── AC1: urgency/value protect high-priority lanes from reduction ─────────
 
     public function test_low_urgency_lane_is_reduced_before_high_urgency_lane(): void
     {
-        // Equal demand and workers so size alone would tie; urgency must decide.
         $plan = (new AtlasMaestroProjectLaneScheduler)->plan(3, ['urgent' => 2, 'routine' => 2], [
-            'urgent' => ['urgency' => 10],
-            'routine' => ['urgency' => 0],
+            'urgent' => $this->safeCaps(['urgency' => 10]),
+            'routine' => $this->safeCaps(['urgency' => 0]),
         ]);
 
         $byLane = array_column($plan['allocations'], 'workers', 'lane_id');
@@ -162,10 +192,9 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_isolation_risk_lane_is_reduced_before_urgency_is_considered(): void
     {
-        // 'risky' has higher urgency but isolation_risk=true, so it must still be reduced first.
         $plan = (new AtlasMaestroProjectLaneScheduler)->plan(3, ['risky' => 2, 'safe' => 2], [
-            'risky' => ['urgency' => 10, 'isolation_risk' => true],
-            'safe' => ['urgency' => 0],
+            'risky' => $this->safeCaps(['urgency' => 10, 'isolation_risk' => true]),
+            'safe' => $this->safeCaps(['urgency' => 0]),
         ]);
 
         $byLane = array_column($plan['allocations'], 'workers', 'lane_id');
@@ -175,10 +204,9 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_starvation_denial_protects_high_urgency_lane_over_low_urgency_lane(): void
     {
-        // budget=1, two equal-demand lanes; low-urgency lane denied first.
         $plan = (new AtlasMaestroProjectLaneScheduler)->plan(1, ['critical-work' => 2, 'routine-work' => 2], [
-            'critical-work' => ['urgency' => 5],
-            'routine-work' => ['urgency' => 0],
+            'critical-work' => $this->safeCaps(['urgency' => 5]),
+            'routine-work' => $this->safeCaps(['urgency' => 0]),
         ]);
 
         $this->assertCount(1, $plan['allocations']);
@@ -190,8 +218,8 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
     public function test_starvation_denial_protects_old_waiting_lane_when_urgency_and_value_tie(): void
     {
         $plan = (new AtlasMaestroProjectLaneScheduler)->plan(1, ['old-lane' => 2, 'new-lane' => 2], [
-            'old-lane' => ['age_seconds' => 100000],
-            'new-lane' => ['age_seconds' => 10],
+            'old-lane' => $this->safeCaps(['age_seconds' => 100000]),
+            'new-lane' => $this->safeCaps(['age_seconds' => 10]),
         ]);
 
         $this->assertCount(1, $plan['allocations']);
@@ -200,10 +228,10 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_urgency_value_isolation_risk_absent_preserves_prior_behavior(): void
     {
-        // Same fixture and same assertions as test_tight_budget_reduces_largest_lane_deterministically
-        // — with no urgency/value/isolation_risk facts supplied, the reduction outcome must remain
-        // deterministic and fair (sums to budget, no lane starved to zero).
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(4, ['alpha' => 4, 'beta' => 3], ['alpha' => [], 'beta' => []]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(4, ['alpha' => 4, 'beta' => 3], [
+            'alpha' => $this->safeCaps(),
+            'beta' => $this->safeCaps(),
+        ]);
         $byLane = array_column($plan['allocations'], 'workers', 'lane_id');
 
         $this->assertSame(4, array_sum($byLane));
@@ -215,7 +243,10 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_fairness_rationale_present_and_explains_reduction(): void
     {
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(4, ['alpha' => 4, 'beta' => 3], ['alpha' => [], 'beta' => []]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(4, ['alpha' => 4, 'beta' => 3], [
+            'alpha' => $this->safeCaps(),
+            'beta' => $this->safeCaps(),
+        ]);
 
         $this->assertArrayHasKey('fairness_rationale', $plan);
         $this->assertNotEmpty($plan['fairness_rationale']);
@@ -233,7 +264,7 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
 
     public function test_fairness_rationale_empty_when_all_demand_fits_budget(): void
     {
-        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['a' => 2], ['a' => []]);
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['a' => 2], ['a' => $this->safeCaps()]);
 
         $this->assertSame([], $plan['fairness_rationale']);
     }

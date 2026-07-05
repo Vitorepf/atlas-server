@@ -63,8 +63,8 @@ final class AtlasMaestroProjectLaneScheduler
 
             // AC2: a lane lacking verification or namespace safety is refused outright — no
             // amount of demand or urgency grants it worker budget.
-            $verified = (bool) ($cap['verified'] ?? true);
-            $namespaceSafe = (bool) ($cap['namespace_safe'] ?? true);
+            $verified = (bool) ($cap['verified'] ?? false);
+            $namespaceSafe = (bool) ($cap['namespace_safe'] ?? false);
             if (! $verified) {
                 $deniedLanes[] = ['lane_id' => $laneId, 'reason' => self::REASON_UNVERIFIED_LANE];
                 $fairnessRationale[] = "{$laneId}: denied — lane lacks verification, never eligible for worker budget";
