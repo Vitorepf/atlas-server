@@ -121,6 +121,32 @@ final class AtlasSelfConstructionSimplificationRegressionReplayPlan
 
         $notReadyReasons = array_values(array_unique($notReadyReasons));
 
+        // AC: critical path probes for callers, public commands, config bindings and failure cases.
+        $callerPaths = array_values(array_unique(array_map('strval', (array) ($input['caller_paths'] ?? []))));
+        $configBindings = array_values(array_unique(array_map('strval', (array) ($input['config_bindings'] ?? []))));
+        $failureCases = array_values(array_unique(array_map('strval', (array) ($input['failure_cases'] ?? []))));
+
+        $callerProbes = array_map(
+            static fn (string $caller): string => "caller_probe:{$caller}",
+            $callerPaths,
+        );
+        $commandProbes = $commandReplayChecks;
+        $configProbes = array_map(
+            static fn (string $config): string => "config_probe:{$config}",
+            $configBindings,
+        );
+        $failureProbes = array_map(
+            static fn (string $failure): string => "failure_probe:{$failure}",
+            $failureCases,
+        );
+
+        $criticalPathProbes = array_values(array_filter(array_merge(
+            $callerProbes,
+            $commandProbes,
+            $configProbes,
+            $failureProbes,
+        )));
+
         return [
             'schema' => self::SCHEMA,
             'ready' => $notReadyReasons === [],
@@ -129,6 +155,11 @@ final class AtlasSelfConstructionSimplificationRegressionReplayPlan
             'replay_checks' => $replayChecks,
             'acceptance_gates' => $acceptanceGates,
             'not_ready_reasons' => $notReadyReasons,
+            'critical_path_probes' => $criticalPathProbes,
+            'caller_probe' => $callerProbes,
+            'command_probe' => $commandProbes,
+            'config_probe' => $configProbes,
+            'failure_probe' => $failureProbes,
         ];
     }
 }

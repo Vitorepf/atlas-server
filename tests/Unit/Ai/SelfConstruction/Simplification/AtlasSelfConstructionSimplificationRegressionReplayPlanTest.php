@@ -251,4 +251,112 @@ final class AtlasSelfConstructionSimplificationRegressionReplayPlanTest extends 
         $this->assertContains('replay_public_command:atlas:some:command', $result['pre_checks']);
         $this->assertContains('replay_public_command:atlas:some:command', $result['replay_checks']);
     }
+
+    // ── AC: replay plans include caller_probe, command_probe, config_probe and failure_probe when those surfaces are touched ──
+
+    public function test_replay_plan_includes_caller_probe_when_callers_touched(): void
+    {
+        $result = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'tests_covering_targets' => ['tests/Unit/OrganATest.php'],
+            'behavior_equivalence_proven' => true,
+            'rollback_plan_present' => true,
+            'caller_paths' => ['app/Services/CallerA.php', 'app/Services/CallerB.php'],
+        ]);
+
+        $this->assertContains('caller_probe:app/Services/CallerA.php', $result['caller_probe']);
+        $this->assertContains('caller_probe:app/Services/CallerB.php', $result['caller_probe']);
+    }
+
+    public function test_replay_plan_includes_command_probe_when_commands_touched(): void
+    {
+        $result = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'tests_covering_targets' => ['tests/Unit/OrganATest.php'],
+            'behavior_equivalence_proven' => true,
+            'rollback_plan_present' => true,
+            'public_command_consumers' => ['atlas:cmd:one'],
+        ]);
+
+        $this->assertContains('replay_public_command:atlas:cmd:one', $result['command_probe']);
+    }
+
+    public function test_replay_plan_includes_config_probe_when_config_touched(): void
+    {
+        $result = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'tests_covering_targets' => ['tests/Unit/OrganATest.php'],
+            'behavior_equivalence_proven' => true,
+            'rollback_plan_present' => true,
+            'config_bindings' => ['config/atlas.php', 'config/services.php'],
+        ]);
+
+        $this->assertContains('config_probe:config/atlas.php', $result['config_probe']);
+        $this->assertContains('config_probe:config/services.php', $result['config_probe']);
+    }
+
+    public function test_replay_plan_includes_failure_probe_when_failure_cases_touched(): void
+    {
+        $result = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'tests_covering_targets' => ['tests/Unit/OrganATest.php'],
+            'behavior_equivalence_proven' => true,
+            'rollback_plan_present' => true,
+            'failure_cases' => ['timeout_under_load', 'corrupt_input'],
+        ]);
+
+        $this->assertContains('failure_probe:timeout_under_load', $result['failure_probe']);
+        $this->assertContains('failure_probe:corrupt_input', $result['failure_probe']);
+    }
+
+    // ── AC: candidates with no executable replay commands are blocked ──
+
+    public function test_candidate_with_no_executable_replay_commands_is_blocked(): void
+    {
+        $result = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'tests_covering_targets' => [],
+            'behavior_equivalence_proven' => false,
+            'rollback_plan_present' => false,
+        ]);
+
+        $this->assertFalse($result['ready']);
+        $this->assertNotEmpty($result['not_ready_reasons']);
+    }
+
+    // ── AC: replay commands are deterministic and provider-safe ──
+
+    public function test_replay_commands_are_deterministic(): void
+    {
+        $input = [
+            'target_organs' => ['OrganA'],
+            'tests_covering_targets' => ['tests/Unit/OrganATest.php'],
+            'behavior_equivalence_proven' => true,
+            'rollback_plan_present' => true,
+            'caller_paths' => ['app/Services/CallerA.php'],
+            'config_bindings' => ['config/atlas.php'],
+            'failure_cases' => ['timeout'],
+        ];
+
+        $a = $this->planner()->compile($input);
+        $b = $this->planner()->compile($input);
+
+        $this->assertSame($a['critical_path_probes'], $b['critical_path_probes']);
+    }
+
+    public function test_replay_commands_are_provider_safe(): void
+    {
+        $result = $this->planner()->compile([
+            'target_organs' => ['OrganA'],
+            'tests_covering_targets' => ['tests/Unit/OrganATest.php'],
+            'behavior_equivalence_proven' => true,
+            'rollback_plan_present' => true,
+            'caller_paths' => ['app/Services/CallerA.php'],
+        ]);
+
+        $json = (string) json_encode($result);
+        $this->assertStringNotContainsString('raw_prompt', $json);
+        $this->assertStringNotContainsString('provider_trace', $json);
+        $this->assertStringNotContainsString('api_key', $json);
+    }
 }
