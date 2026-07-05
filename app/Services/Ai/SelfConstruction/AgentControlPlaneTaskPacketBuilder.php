@@ -323,6 +323,19 @@ final class AgentControlPlaneTaskPacketBuilder
             ),
         ];
 
+        $hardValueContract = null;
+        if ($requireHardValueContract) {
+            $hardValueContract = [
+                'required' => true,
+                'blocking_reasons' => $this->hardValueContractBlockingReasons($allowed, $acceptance, $requiredEvidence, $input),
+                'has_implementation_file' => $this->hasImplementationFile($allowed),
+                'has_test_file' => $this->hasTestFile($allowed),
+                'has_runnable_proof' => $this->hasRunnableProof($acceptance, $requiredEvidence),
+                'has_required_evidence' => $requiredEvidence !== [],
+            ];
+            $hardValueContract['satisfied'] = $hardValueContract['blocking_reasons'] === [];
+        }
+
         $packet = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -343,6 +356,7 @@ final class AgentControlPlaneTaskPacketBuilder
             'acceptance_criteria' => $acceptance,
             'acceptance_hash' => $acceptanceHash,
             'evidence_requirements' => $evidenceRequirements,
+            'hard_value_contract' => $hardValueContract,
             'risk_classification' => [
                 'risk_level' => $riskLevel,
                 'risk_axis_hits' => count($axisHits),
@@ -417,34 +431,32 @@ final class AgentControlPlaneTaskPacketBuilder
     ): array {
         $reasons = [];
 
-        $isTestPath = static fn (string $path): bool => str_contains(strtolower($path), '/tests/')
-            || str_ends_with(strtolower($path), 'test.php');
-
-        $hasImplementationFile = false;
-        $hasTestFile = false;
-        foreach ($allowed as $path) {
-            if ($isTestPath($path)) {
-                $hasTestFile = true;
-            } else {
-                $hasImplementationFile = true;
-            }
-        }
+        $hasImplementationFile = $this->hasImplementationFile($allowed);
+        $hasTestFile = $this->hasTestFile($allowed);
 
         if (! $hasImplementationFile) {
             $reasons[] = 'missing_implementation_file';
         }
 
-        $hasRunnableProofMention = false;
-        foreach (array_merge($acceptance, $requiredEvidence) as $text) {
-            foreach (self::RUNNABLE_PROOF_MARKERS as $marker) {
-                if (str_contains(strtolower($text), $marker)) {
-                    $hasRunnableProofMention = true;
-                    break 2;
+        $hasRunnableProof = $this->hasRunnableProof($acceptance, $requiredEvidence);
+        if (! $hasTestFile && ! $hasRunnableProof) {
+            $reasons[] = 'missing_runnable_test_file';
+        }
+
+        // AC: runnable acceptance must name the concrete test path or filter, not a generic suite command.
+        if ($hasRunnableProof) {
+            $hasConcreteProof = false;
+            foreach (array_merge($acceptance, $requiredEvidence) as $text) {
+                $lower = strtolower($text);
+                // Check for concrete test path or filter (not just "php artisan test" alone)
+                if (str_contains($lower, 'tests/') || str_contains($lower, '--filter=')) {
+                    $hasConcreteProof = true;
+                    break;
                 }
             }
-        }
-        if (! $hasTestFile && ! $hasRunnableProofMention) {
-            $reasons[] = 'missing_runnable_test_file';
+            if (! $hasConcreteProof && ! $hasTestFile) {
+                $reasons[] = 'runnable_proof_not_concrete';
+            }
         }
 
         if ($requiredEvidence === []) {
@@ -457,6 +469,47 @@ final class AgentControlPlaneTaskPacketBuilder
         }
 
         return $reasons;
+    }
+
+    private function hasImplementationFile(array $allowed): bool
+    {
+        $isTestPath = static fn (string $path): bool => str_contains(strtolower($path), '/tests/')
+            || str_ends_with(strtolower($path), 'test.php');
+
+        foreach ($allowed as $path) {
+            if (! $isTestPath($path)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasTestFile(array $allowed): bool
+    {
+        $isTestPath = static fn (string $path): bool => str_contains(strtolower($path), '/tests/')
+            || str_ends_with(strtolower($path), 'test.php');
+
+        foreach ($allowed as $path) {
+            if ($isTestPath($path)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasRunnableProof(array $acceptance, array $requiredEvidence): bool
+    {
+        foreach (array_merge($acceptance, $requiredEvidence) as $text) {
+            foreach (self::RUNNABLE_PROOF_MARKERS as $marker) {
+                if (str_contains(strtolower($text), $marker)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
