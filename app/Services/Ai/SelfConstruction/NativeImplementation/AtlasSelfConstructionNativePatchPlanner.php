@@ -139,6 +139,18 @@ final class AtlasSelfConstructionNativePatchPlanner
         $context = is_array($packet['context'] ?? null) ? array_map('strval', $packet['context']) : [];
         $testFiles = is_array($packet['test_files'] ?? null) ? array_values(array_map('strval', $packet['test_files'])) : [];
 
+        // Synthesize a test file when the objective or required_evidence
+        // indicates test generation is required and no test file exists yet.
+        $testGenRequired = preg_match('/test|Test/', $objective) === 1
+            && in_array('tests_or_gates_result', $requiredEvidence, true)
+            && $testFiles === [];
+        if ($testGenRequired) {
+            $inferredPath = $this->inferTestPath($implementationTarget, $allowed);
+            if ($inferredPath !== null) {
+                $testFiles[] = $inferredPath;
+            }
+        }
+
         // minimal_template_reason: explain why the selected template beats the next candidate.
         $minimalTemplateReason = null;
         if (count($matches) > 1) {
@@ -172,7 +184,7 @@ final class AtlasSelfConstructionNativePatchPlanner
         return [
             'schema' => self::SCHEMA,
             'plan_id' => $planId,
-            'target_files' => $scope !== [] ? $scope : $allowed,
+            'target_files' => $this->mergeTargetFiles($scope !== [] ? $scope : $allowed, $testFiles),
             'template_ids' => $templateIds,
             'variables' => $variables,
             'required_imports' => $requiredImports,
@@ -180,6 +192,48 @@ final class AtlasSelfConstructionNativePatchPlanner
             'risk_notes' => $riskNotes,
             'minimal_template_reason' => $minimalTemplateReason,
         ];
+    }
+
+    /**
+     * Infer the test file path from an implementation target and allowed scope.
+     *
+     * Converts app/Models/Foo.php → tests/Unit/Models/FooTest.php.
+     * Only returns a path when the test file does not already exist in allowed.
+     *
+     * @param  list<string>  $allowed
+     */
+    private function inferTestPath(string $implementationTarget, array $allowed): ?string
+    {
+        if ($implementationTarget === '' || ! str_starts_with($implementationTarget, 'app/')) {
+            return null;
+        }
+        // app/Path/To/Class.php → tests/Unit/Path/To/ClassTest.php
+        $relative = substr($implementationTarget, 4); // remove 'app/'
+        if (! str_ends_with($relative, '.php')) {
+            return null;
+        }
+        $base = substr($relative, 0, -4); // remove '.php'
+        $inferred = 'tests/Unit/'.$base.'Test.php';
+
+        // Don't infer a test that's already in the allowed set.
+        if (in_array($inferred, $allowed, true)) {
+            return null;
+        }
+
+        return $inferred;
+    }
+
+    /**
+     * @param  list<string>  $targetFiles
+     * @param  list<string>  $testFiles
+     * @return list<string>
+     */
+    private function mergeTargetFiles(array $targetFiles, array $testFiles): array
+    {
+        $merged = array_values(array_unique(array_merge($targetFiles, $testFiles)));
+        sort($merged, SORT_STRING);
+
+        return $merged;
     }
 
     /**
