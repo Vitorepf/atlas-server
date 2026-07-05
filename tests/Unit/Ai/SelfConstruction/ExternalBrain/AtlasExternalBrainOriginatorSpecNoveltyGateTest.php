@@ -210,4 +210,21 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGateTest extends TestCase
         $this->assertTrue($row['safe_to_enqueue']);
         $this->assertNull($row['duplicate_family']);
     }
+
+    public function test_case_variant_class_name_collision_is_detected(): void
+    {
+        $result = $this->gate->evaluate([
+            'candidates' => [[
+                'class_name' => 'app\\Foo\\Bar',
+                'objective' => 'Implement a health service to report disk status and blocking reason.',
+                'acceptance' => ['snapshot includes disk health ok and reason fields'],
+                'allowed_files' => ['app/Services/Foo/Bar.php'],
+            ]],
+            'existing_class_names' => ['App\\Foo\\Bar'],
+        ]);
+        $row = $result['results'][0];
+
+        $this->assertFalse($row['safe_to_enqueue'], 'case-variant class name must be flagged as collision');
+        $this->assertContains('class_name_collision', array_column($row['duplicate_evidence'], 'reason'));
+    }
 }

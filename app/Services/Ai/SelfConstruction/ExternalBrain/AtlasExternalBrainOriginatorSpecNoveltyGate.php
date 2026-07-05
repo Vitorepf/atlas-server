@@ -90,7 +90,7 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGate
     private function evaluateOne(array $candidate, array $pool, array $existingClassNames): array
     {
         $className = (string) ($candidate['class_name'] ?? '');
-        $classNameCollision = $className !== '' && in_array($className, $existingClassNames, true);
+        $classNameCollision = $className !== '' && $this->matchesExistingClass($className, $existingClassNames);
 
         $bestMatch = null;
         $bestSimilarity = 0.0;
@@ -276,5 +276,22 @@ final class AtlasExternalBrainOriginatorSpecNoveltyGate
         $union = count(array_unique(array_merge($a, $b)));
 
         return $union > 0 ? $intersection / $union : 0.0;
+    }
+
+    /**
+     * PHP class names are case-insensitive — match ignoring letter case.
+     *
+     * @param  list<string>  $existingClassNames
+     */
+    private function matchesExistingClass(string $className, array $existingClassNames): bool
+    {
+        $lower = strtolower($className);
+        foreach ($existingClassNames as $existing) {
+            if (strtolower((string) $existing) === $lower) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
