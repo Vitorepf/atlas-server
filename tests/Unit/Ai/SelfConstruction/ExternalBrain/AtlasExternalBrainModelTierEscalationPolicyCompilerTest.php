@@ -177,4 +177,63 @@ final class AtlasExternalBrainModelTierEscalationPolicyCompilerTest extends Test
 
         $this->assertNotSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
     }
+
+    // ── AC: low-risk deterministic tasks with strong historical success route to small-with-scaffold with non-empty scaffold requirements ──
+
+    public function test_low_risk_strong_historical_success_routes_to_small_with_scaffold_with_requirements(): void
+    {
+        $result = $this->compiler()->compile($this->task([
+            'risk_level' => 'low',
+            'historical_success_rate' => 0.85,
+            'ambiguity' => 'low',
+            'blast_radius' => 'low',
+            'give_back_count' => 0,
+            'acceptance_strength' => 'strong',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_SMALL_WITH_SCAFFOLD, $result['selected_tier']);
+        $this->assertNotEmpty($result['scaffold_requirements']);
+        $this->assertContains('concrete_examples', $result['scaffold_requirements']);
+    }
+
+    // ── AC: weak acceptance with low implementation risk routes to improve-spec rather than frontier-review ──
+
+    public function test_weak_acceptance_low_risk_routes_to_improve_spec_not_frontier(): void
+    {
+        $result = $this->compiler()->compile($this->task([
+            'acceptance_strength' => 'weak',
+            'implementation_risk' => 'low',
+            'ambiguity' => 'high',
+            'blast_radius' => 'high',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_IMPROVE_SPEC, $result['selected_tier']);
+        $this->assertNotSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
+    }
+
+    // ── AC: high ambiguity, high blast radius, or repeated give_back routes to frontier-review with cost_guardrail ──
+
+    public function test_high_ambiguity_routes_to_frontier_with_cost_guardrail(): void
+    {
+        $result = $this->compiler()->compile($this->task(['ambiguity' => 'high']));
+
+        $this->assertSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
+        $this->assertNotEmpty($result['cost_guardrail']);
+    }
+
+    public function test_high_blast_radius_routes_to_frontier_with_cost_guardrail(): void
+    {
+        $result = $this->compiler()->compile($this->task(['blast_radius' => 'high']));
+
+        $this->assertSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
+        $this->assertNotEmpty($result['cost_guardrail']);
+    }
+
+    public function test_repeated_give_back_routes_to_frontier_with_cost_guardrail(): void
+    {
+        $result = $this->compiler()->compile($this->task(['give_back_count' => 3]));
+
+        $this->assertSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
+        $this->assertNotEmpty($result['cost_guardrail']);
+    }
 }
