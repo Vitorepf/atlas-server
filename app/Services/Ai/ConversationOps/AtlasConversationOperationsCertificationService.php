@@ -30,7 +30,6 @@ final class AtlasConversationOperationsCertificationService
      */
     public function certify(): array
     {
-        $now = CarbonImmutable::now();
         $checks = [
             $this->canonicalDoc(),
             $this->runtimeHealthSmoke(),
@@ -45,13 +44,7 @@ final class AtlasConversationOperationsCertificationService
             $this->noExternalExecutionPolicy(),
         ];
 
-        $payload = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $this->status($checks),
-            'generated_at' => $now->toJSON(),
-            'summary' => $this->summary($checks),
-            'checks' => $checks,
-            'blockers' => array_values(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) === 'fail')),
+        $payload = $this->stateCertificationPayload(self::SCHEMA_VERSION, $checks, [
             'claim_policy' => [
                 'benchmark_not_run' => true,
                 'rivals_compared' => false,
@@ -64,7 +57,7 @@ final class AtlasConversationOperationsCertificationService
                 'does_not_cover' => 'optional operator UX, external subagent scheduler implementation, provider/rivals execution.',
             ],
             'writes' => false,
-        ];
+        ]);
         $payload['certification_hash'] = $this->hash($payload);
 
         return $payload;

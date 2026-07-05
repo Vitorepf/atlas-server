@@ -44,7 +44,6 @@ final class AtlasContextIntelligenceCertificationService
      */
     public function certify(): array
     {
-        $now = CarbonImmutable::now();
         $checks = [
             $this->canonicalDoc(),
             $this->runtimeSmoke(),
@@ -61,13 +60,7 @@ final class AtlasContextIntelligenceCertificationService
             $this->noExternalExecutionPolicy(),
         ];
 
-        $payload = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $this->status($checks),
-            'generated_at' => $now->toJSON(),
-            'summary' => $this->summary($checks),
-            'checks' => $checks,
-            'blockers' => array_values(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) === 'fail')),
+        $payload = $this->stateCertificationPayload(self::SCHEMA_VERSION, $checks, [
             'claim_policy' => [
                 'benchmark_not_run' => true,
                 'rivals_compared' => false,
@@ -80,7 +73,7 @@ final class AtlasContextIntelligenceCertificationService
                 'does_not_cover' => 'external benchmark/rivals, live provider execution, optional operator UX beyond the certified default runtime.',
             ],
             'writes' => false,
-        ];
+        ]);
         $payload['certification_hash'] = ContextIntelligencePayloadHash::forPayload($payload, 'certification_hash');
 
         return $payload;
