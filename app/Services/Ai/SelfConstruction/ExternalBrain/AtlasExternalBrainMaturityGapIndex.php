@@ -115,10 +115,33 @@ final class AtlasExternalBrainMaturityGapIndex
         usort($gaps, static fn (array $a, array $b): int =>
             [$b['leverage'], $b['proof_gap']] <=> [$a['leverage'], $a['proof_gap']]);
 
+        // Flatten blocker_dimensions and evidence_gaps for top-level access.
+        $blockerDimensions = [];
+        $evidenceGaps = [];
+        $nextTaskChainCandidates = [];
+        foreach ($gaps as $gap) {
+            $blockerDimensions[] = $gap['dimension'];
+            foreach ($gap['missing_evidence'] as $sig) {
+                $evidenceGaps[] = $sig;
+            }
+            // Next task chain candidates ordered by leverage (impact) desc.
+            $nextTaskChainCandidates[] = [
+                'dimension' => $gap['dimension'],
+                'leverage' => $gap['leverage'],
+                'task_family' => $gap['next_best_task_family'],
+                'missing_proof_type' => $gap['missing_proof_type'],
+                'readiness_tier' => $gap['readiness_tier'],
+                'why' => $gap['next_chain_step']['why_this_unblocks_autonomy'],
+            ];
+        }
+
         return [
-            'schema'               => self::SCHEMA,
-            'gaps'                 => $gaps,
-            'complete_dimensions'  => $complete,
+            'schema'                    => self::SCHEMA,
+            'gaps'                      => $gaps,
+            'complete_dimensions'       => $complete,
+            'blocker_dimensions'        => array_values(array_unique($blockerDimensions)),
+            'evidence_gaps'             => array_values(array_unique($evidenceGaps)),
+            'next_task_chain_candidates' => $nextTaskChainCandidates,
         ];
     }
 

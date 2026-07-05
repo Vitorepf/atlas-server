@@ -475,4 +475,110 @@ final class AtlasExternalBrainMaturityGapIndexTest extends TestCase
         $queueOnlyGap = array_values(array_filter($result['gaps'], static fn (array $g): bool => $g['dimension'] === 'queue_only'))[0];
         $this->assertSame('queue_without_proof', $queueOnlyGap['blocker_class']);
     }
+
+    // ── AC: gap output includes blocker_dimensions and evidence_gaps for scores below 95 percent ──
+
+    public function test_output_includes_blocker_dimensions(): void
+    {
+        $rubric = [
+            $this->dim('dim_a', 0.9, ['sig_a']),
+            $this->dim('dim_b', 0.7, ['sig_b']),
+        ];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $this->assertArrayHasKey('blocker_dimensions', $r);
+        $this->assertContains('dim_a', $r['blocker_dimensions']);
+        $this->assertContains('dim_b', $r['blocker_dimensions']);
+    }
+
+    public function test_output_includes_evidence_gaps(): void
+    {
+        $rubric = [
+            $this->dim('dim_a', 0.9, ['sig_a', 'sig_b']),
+        ];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $this->assertArrayHasKey('evidence_gaps', $r);
+        $this->assertContains('sig_a', $r['evidence_gaps']);
+        $this->assertContains('sig_b', $r['evidence_gaps']);
+    }
+
+    public function test_blocker_dimensions_empty_when_all_complete(): void
+    {
+        $rubric = [
+            $this->dim('dim_a', 0.9, ['sig_a']),
+        ];
+        $r = $this->index->compute($rubric, ['proven_evidence' => ['sig_a']]);
+
+        $this->assertSame([], $r['blocker_dimensions']);
+        $this->assertSame([], $r['evidence_gaps']);
+    }
+
+    // ── AC: next_task_chain_candidates ordered by maturity impact and implementability ──
+
+    public function test_next_task_chain_candidates_ordered_by_leverage_desc(): void
+    {
+        $rubric = [
+            $this->dim('low', 0.3, ['sig_low']),
+            $this->dim('high', 0.9, ['sig_high']),
+            $this->dim('mid', 0.6, ['sig_mid']),
+        ];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $this->assertArrayHasKey('next_task_chain_candidates', $r);
+        $candidates = $r['next_task_chain_candidates'];
+        $this->assertCount(3, $candidates);
+        $this->assertSame('high', $candidates[0]['dimension']);
+        $this->assertSame('mid', $candidates[1]['dimension']);
+        $this->assertSame('low', $candidates[2]['dimension']);
+    }
+
+    public function test_next_task_chain_candidates_include_task_family_and_proof_type(): void
+    {
+        $rubric = [$this->dim('dim', 0.8, ['cert_signal'], 'cert_family')];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $candidate = $r['next_task_chain_candidates'][0];
+        $this->assertArrayHasKey('task_family', $candidate);
+        $this->assertArrayHasKey('missing_proof_type', $candidate);
+        $this->assertArrayHasKey('readiness_tier', $candidate);
+        $this->assertArrayHasKey('why', $candidate);
+    }
+
+    public function test_next_task_chain_candidates_empty_when_all_complete(): void
+    {
+        $rubric = [$this->dim('dim', 0.9, ['sig'])];
+        $r = $this->index->compute($rubric, ['proven_evidence' => ['sig']]);
+
+        $this->assertSame([], $r['next_task_chain_candidates']);
+    }
+
+    // ── AC: flat high score without evidence coverage does not mark maturity_ready=true ──
+
+    public function test_high_leverage_without_evidence_does_not_mark_ready(): void
+    {
+        $rubric = [
+            $this->dim('critical', 0.95, ['sig_critical']),
+        ];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        // No proven evidence → gap remains, not ready
+        $this->assertNotEmpty($r['gaps']);
+        $this->assertNotEmpty($r['blocker_dimensions']);
+        $this->assertSame([], $r['complete_dimensions']);
+    }
+
+    public function test_all_complete_with_evidence_has_no_blockers(): void
+    {
+        $rubric = [
+            $this->dim('dim_a', 0.9, ['sig_a']),
+            $this->dim('dim_b', 0.8, ['sig_b']),
+        ];
+        $r = $this->index->compute($rubric, ['proven_evidence' => ['sig_a', 'sig_b']]);
+
+        $this->assertSame([], $r['blocker_dimensions']);
+        $this->assertSame([], $r['evidence_gaps']);
+        $this->assertSame([], $r['next_task_chain_candidates']);
+        $this->assertCount(2, $r['complete_dimensions']);
+    }
 }
