@@ -86,4 +86,120 @@ final class AtlasExternalBrainBacklogAgingValueMonitorTest extends TestCase
         $this->assertEmpty($actions['stale_needs_research']);
         $this->assertSame(1, $result['useful_depth_after_decay']);
     }
+
+    // ── AC2: classifies stale items using age, leverage, evidence, give_back_risk ──
+
+    public function test_high_leverage_old_unblocker_is_promoted(): void
+    {
+        $result = $this->monitor()->evaluate($this->facts([
+            ['task_id' => 'unblocker', 'enqueued_at' => '2026-05-01T00:00:00Z', 'priority' => 'high',
+             'leverage_score' => 0.9, 'evidence_strength' => 0.7],
+        ]));
+
+        $row = $result['task_rows'][0];
+        $this->assertSame(AtlasExternalBrainBacklogAgingValueMonitor::ACTION_PROMOTE, $row['aging_action']);
+    }
+
+    public function test_very_stale_low_evidence_low_leverage_is_retired(): void
+    {
+        $result = $this->monitor()->evaluate($this->facts([
+            ['task_id' => 'dead-weight', 'enqueued_at' => '2026-04-01T00:00:00Z', 'priority' => 'low',
+             'leverage_score' => 0.1, 'evidence_strength' => 0.1, 'give_back_risk' => 0.6],
+        ]));
+
+        $row = $result['task_rows'][0];
+        $this->assertSame(AtlasExternalBrainBacklogAgingValueMonitor::ACTION_RETIRE, $row['aging_action']);
+    }
+
+    public function test_stale_low_evidence_low_leverage_high_impl_risk_is_respec(): void
+    {
+        $result = $this->monitor()->evaluate($this->facts([
+            ['task_id' => 'risky', 'enqueued_at' => '2026-06-01T00:00:00Z', 'priority' => 'medium',
+             'leverage_score' => 0.1, 'evidence_strength' => 0.1, 'implementation_risk' => 0.8],
+        ]));
+
+        $row = $result['task_rows'][0];
+        $this->assertSame(AtlasExternalBrainBacklogAgingValueMonitor::ACTION_RESPEC, $row['aging_action']);
+    }
+
+    public function test_stale_with_value_proof_is_kept(): void
+    {
+        $result = $this->monitor()->evaluate($this->facts([
+            ['task_id' => 'proven', 'enqueued_at' => '2026-06-01T00:00:00Z', 'priority' => 'high',
+             'has_value_proof' => true],
+        ]));
+
+        $row = $result['task_rows'][0];
+        $this->assertSame(AtlasExternalBrainBacklogAgingValueMonitor::ACTION_KEEP, $row['aging_action']);
+    }
+
+    // ── AC3: high-age low-evidence low-leverage → retire/respec; old high-leverage → promote ──
+
+    public function test_old_high_leverage_promoted_not_discarded(): void
+    {
+        $result = $this->monitor()->evaluate($this->facts([
+            ['task_id' => 'old-unblocker', 'enqueued_at' => '2026-04-01T00:00:00Z', 'priority' => 'medium',
+             'leverage_score' => 0.8, 'evidence_strength' => 0.6],
+        ]));
+
+        $row = $result['task_rows'][0];
+        $this->assertSame(AtlasExternalBrainBacklogAgingValueMonitor::ACTION_PROMOTE, $row['aging_action']);
+    }
+
+    public function test_old_low_leverage_low_evidence_not_promoted(): void
+    {
+        $result = $this->monitor()->evaluate($this->facts([
+            ['task_id' => 'old-low-value', 'enqueued_at' => '2026-04-01T00:00:00Z', 'priority' => 'low',
+             'leverage_score' => 0.1, 'evidence_strength' => 0.1, 'give_back_risk' => 0.3],
+        ]));
+
+        $row = $result['task_rows'][0];
+        $this->assertNotSame(AtlasExternalBrainBacklogAgingValueMonitor::ACTION_PROMOTE, $row['aging_action']);
+        $this->assertSame(AtlasExternalBrainBacklogAgingValueMonitor::ACTION_RETIRE, $row['aging_action']);
+    }
+
+    // ── AC4: deterministic and never recommends action from age alone ──────────
+
+    public function test_monitor_is_deterministic(): void
+    {
+        $tasks = [
+            ['task_id' => 't1', 'enqueued_at' => '2026-06-01T00:00:00Z', 'priority' => 'high',
+             'leverage_score' => 0.5, 'evidence_strength' => 0.5],
+            ['task_id' => 't2', 'enqueued_at' => '2026-05-01T00:00:00Z', 'priority' => 'low',
+             'leverage_score' => 0.1, 'evidence_strength' => 0.1, 'give_back_risk' => 0.6],
+        ];
+
+        $a = $this->monitor()->evaluate($this->facts($tasks));
+        $b = $this->monitor()->evaluate($this->facts($tasks));
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
+
+    public function test_never_recommends_action_from_age_alone(): void
+    {
+        // Two tasks with same age but different leverage/evidence → different actions.
+        $result = $this->monitor()->evaluate($this->facts([
+            ['task_id' => 'high-leverage', 'enqueued_at' => '2026-05-01T00:00:00Z', 'priority' => 'medium',
+             'leverage_score' => 0.9, 'evidence_strength' => 0.7],
+            ['task_id' => 'low-leverage', 'enqueued_at' => '2026-05-01T00:00:00Z', 'priority' => 'low',
+             'leverage_score' => 0.1, 'evidence_strength' => 0.1, 'give_back_risk' => 0.6],
+        ]));
+
+        $actions = array_column($result['task_rows'], 'aging_action');
+        $this->assertNotSame($actions[0], $actions[1], 'Tasks with same age but different value signals must get different actions');
+    }
+
+    public function test_task_rows_include_leverage_evidence_giveback_fields(): void
+    {
+        $result = $this->monitor()->evaluate($this->facts([
+            ['task_id' => 't1', 'enqueued_at' => '2026-06-01T00:00:00Z', 'priority' => 'high',
+             'leverage_score' => 0.7, 'evidence_strength' => 0.6, 'give_back_risk' => 0.2, 'implementation_risk' => 0.3],
+        ]));
+
+        $row = $result['task_rows'][0];
+        $this->assertSame(0.7, $row['leverage_score']);
+        $this->assertSame(0.6, $row['evidence_strength']);
+        $this->assertSame(0.2, $row['give_back_risk']);
+        $this->assertSame(0.3, $row['implementation_risk']);
+    }
 }

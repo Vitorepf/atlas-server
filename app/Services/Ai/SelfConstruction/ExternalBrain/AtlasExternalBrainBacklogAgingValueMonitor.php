@@ -35,6 +35,8 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
     public const ACTION_REFRESH = 'refresh';
     public const ACTION_CONSOLIDATE = 'consolidate';
     public const ACTION_RETIRE = 'retire';
+    public const ACTION_RESPEC = 'respec';
+    public const ACTION_PROMOTE = 'promote';
 
     /** Beyond this age, stale-and-unproven backlog is retired rather than merely refreshed. */
     private const VERY_STALE_THRESHOLD_DAYS = 45.0;
@@ -146,6 +148,10 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
                     'evidence_needed' => $row['evidence_needed'],
                     'reason' => $row['aging_reason'],
                     'value_score' => $row['value_score'],
+                    'leverage_score' => $row['leverage_score'],
+                    'evidence_strength' => $row['evidence_strength'],
+                    'give_back_risk' => $row['give_back_risk'],
+                    'implementation_risk' => $row['implementation_risk'],
                 ],
                 $rows,
             ),
@@ -188,6 +194,12 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
         $acceptanceEvidenceStale = (bool) ($task['acceptance_evidence_stale'] ?? false);
         $hasValueProof = (bool) ($task['has_value_proof'] ?? false) || ($downstreamUnlockCount > 0 && $valueProofFresh);
 
+        // AC2/AC3: value-aware classification inputs.
+        $leverageScore = max(0.0, min(1.0, (float) ($task['leverage_score'] ?? 0.0)));
+        $evidenceStrength = max(0.0, min(1.0, (float) ($task['evidence_strength'] ?? ($hasValueProof ? 0.8 : 0.0))));
+        $giveBackRisk = max(0.0, min(1.0, (float) ($task['give_back_risk'] ?? 0.0)));
+        $implementationRisk = max(0.0, min(1.0, (float) ($task['implementation_risk'] ?? 0.0)));
+
         $retireReason = match (true) {
             $supersededBy !== '' => 'superseded_by_newer_task',
             $implementationStatus === 'done' => 'already_implemented',
@@ -198,9 +210,27 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
         // downstream-unlock-with-fresh-proof always wins, stale-acceptance-with-no-proof is
         // routed to refresh (or retire once very old), otherwise stale defers to the existing
         // duplicate/revalidate routing below.
+        //
+        // AC2/AC3: value-aware classification — age alone never determines the action.
+        // High-age + low-evidence + low-leverage → retire or respec.
+        // Old but high-leverage unblocker → promote rather than discarded.
         [$agingAction, $evidenceNeeded, $agingReason] = match (true) {
             $retireReason !== null => [self::ACTION_RETIRE, [], $retireReason],
             ! $isStale => [self::ACTION_KEEP, [], 'fresh_or_not_yet_stale'],
+            // High-leverage unblocker: promote even if old — it unblocks other work.
+            $leverageScore >= 0.7 && $evidenceStrength >= 0.5 => [self::ACTION_PROMOTE, [], 'high_leverage_unblocker'],
+            // Stale + low evidence + low leverage + high give_back_risk → retire.
+            $isVeryStale && $evidenceStrength < 0.3 && $leverageScore < 0.3 && $giveBackRisk >= 0.5 => [
+                self::ACTION_RETIRE, ['fresh_value_proof', 'leverage_evidence'], 'very_stale_low_evidence_low_leverage_high_giveback_risk',
+            ],
+            // Very stale + low evidence + low leverage → retire.
+            $isVeryStale && $evidenceStrength < 0.3 && $leverageScore < 0.3 => [
+                self::ACTION_RETIRE, ['fresh_value_proof', 'downstream_unlock_evidence'], 'very_stale_low_evidence_low_leverage',
+            ],
+            // Stale + low evidence + low leverage + high implementation risk → respec (rethink the approach).
+            $evidenceStrength < 0.3 && $leverageScore < 0.3 && $implementationRisk >= 0.7 => [
+                self::ACTION_RESPEC, ['revised_spec', 'feasibility_evidence'], 'stale_low_evidence_low_leverage_high_impl_risk',
+            ],
             $hasValueProof => [self::ACTION_KEEP, [], 'downstream_unlock_with_fresh_value_proof'],
             $acceptanceEvidenceStale && ! $hasValueProof && $isVeryStale => [
                 self::ACTION_RETIRE, ['fresh_value_proof', 'downstream_unlock_evidence'], 'stale_acceptance_evidence_no_value_proof_very_old',
@@ -233,6 +263,10 @@ final class AtlasExternalBrainBacklogAgingValueMonitor
             'value_proof_fresh' => $valueProofFresh,
             'is_proxy' => (bool) ($task['is_proxy'] ?? false),
             'has_value_proof' => $hasValueProof,
+            'leverage_score' => $leverageScore,
+            'evidence_strength' => $evidenceStrength,
+            'give_back_risk' => $giveBackRisk,
+            'implementation_risk' => $implementationRisk,
             'aging_action' => $agingAction,
             'evidence_needed' => $evidenceNeeded,
             'aging_reason' => $agingReason,
