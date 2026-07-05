@@ -304,4 +304,142 @@ final class AtlasExternalBrainAmplifierRegressionCaseMinerTest extends TestCase
 
         $this->assertSame('amplifier_run_log_excerpt_42', $result['promoted_cases'][0]['sample_evidence']);
     }
+
+    // ── AC2: input_shape, failure_mode, expected_repair, task_family ──────────
+
+    public function test_promoted_case_has_input_shape(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'shape', 'reject_overfit', '', 'critical');
+        $failure['input_shape'] = 'task_objective+allowed_files+prior_evidence';
+
+        $result = $this->mine([$failure]);
+
+        $this->assertSame('task_objective+allowed_files+prior_evidence', $result['promoted_cases'][0]['input_shape']);
+    }
+
+    public function test_promoted_case_input_shape_defaults_to_trigger_shape(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'my_trigger', 'reject_overfit', '', 'critical');
+
+        $result = $this->mine([$failure]);
+
+        $this->assertSame('my_trigger', $result['promoted_cases'][0]['input_shape']);
+    }
+
+    public function test_promoted_case_has_expected_repair(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'shape', 'reject_overfit', '', 'critical');
+        $failure['expected_repair'] = 'add_canary_test_for_overfit_shape';
+
+        $result = $this->mine([$failure]);
+
+        $this->assertSame('add_canary_test_for_overfit_shape', $result['promoted_cases'][0]['expected_repair']);
+    }
+
+    public function test_promoted_case_expected_repair_defaults_to_expected_rejection(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'shape', 'reject_overfit', '', 'critical');
+
+        $result = $this->mine([$failure]);
+
+        $this->assertSame('reject_overfit', $result['promoted_cases'][0]['expected_repair']);
+    }
+
+    public function test_promoted_case_has_task_family(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'shape', 'reject_overfit', '', 'critical');
+        $failure['task_family'] = 'task_fabric:amplifier';
+
+        $result = $this->mine([$failure]);
+
+        $this->assertSame('task_fabric:amplifier', $result['promoted_cases'][0]['task_family']);
+    }
+
+    // ── AC3: occurrence_count on deduped cases ────────────────────────────────
+
+    public function test_deduped_case_has_occurrence_count(): void
+    {
+        $r = $this->mine([
+            $this->failure('f1', 'template_farm', 'clone_shape'),
+            $this->failure('f2', 'template_farm', 'clone_shape'),
+            $this->failure('f3', 'template_farm', 'clone_shape'),
+        ]);
+
+        $this->assertCount(1, $r['promoted_cases']);
+        $this->assertSame(3, $r['promoted_cases'][0]['occurrence_count']);
+    }
+
+    public function test_singleton_severe_case_has_occurrence_count_one(): void
+    {
+        $r = $this->mine([
+            $this->failure('f1', 'false_green', 'ci_bypass', severity: 'critical'),
+        ]);
+
+        $this->assertSame(1, $r['promoted_cases'][0]['occurrence_count']);
+    }
+
+    public function test_dedup_does_not_produce_template_farm_cases(): void
+    {
+        $r = $this->mine([
+            $this->failure('f1', 'template_farm', 'clone_shape'),
+            $this->failure('f2', 'template_farm', 'clone_shape'),
+            $this->failure('f3', 'template_farm', 'clone_shape'),
+        ]);
+
+        $this->assertCount(1, $r['promoted_cases']);
+        $this->assertSame(3, $r['promoted_cases'][0]['occurrence_count']);
+        $this->assertNotSame('template_farm', $r['promoted_cases'][0]['failure_type'] . '_farm');
+    }
+
+    // ── AC4: non_replayable cases with reason and required_missing_evidence ──
+
+    public function test_non_replayable_case_has_reason_and_required_missing_evidence(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'shape', 'reject_overfit', '', 'critical');
+        // No sample_evidence provided → should be non_replayable
+
+        $result = $this->mine([$failure]);
+
+        $case = $result['promoted_cases'][0];
+        $this->assertTrue($case['non_replayable']);
+        $this->assertSame('missing_required_evidence', $case['non_replayable_reason']);
+        $this->assertContains('sample_evidence', $case['required_missing_evidence']);
+    }
+
+    public function test_replayable_case_is_not_non_replayable(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'shape', 'reject_overfit', '', 'critical');
+        $failure['sample_evidence'] = 'evidence_42';
+
+        $result = $this->mine([$failure]);
+
+        $case = $result['promoted_cases'][0];
+        $this->assertFalse($case['non_replayable']);
+        $this->assertNull($case['non_replayable_reason']);
+        $this->assertSame([], $case['required_missing_evidence']);
+    }
+
+    public function test_non_replayable_case_missing_trigger_shape(): void
+    {
+        $failure = $this->failure('f1', 'overfit', '', 'reject_overfit', '', 'critical');
+        $failure['sample_evidence'] = 'evidence_42';
+
+        $result = $this->mine([$failure]);
+
+        $case = $result['promoted_cases'][0];
+        $this->assertTrue($case['non_replayable']);
+        $this->assertContains('trigger_shape', $case['required_missing_evidence']);
+    }
+
+    public function test_non_replayable_case_missing_both_evidence_types(): void
+    {
+        $failure = $this->failure('f1', 'overfit', '', 'reject_overfit', '', 'critical');
+
+        $result = $this->mine([$failure]);
+
+        $case = $result['promoted_cases'][0];
+        $this->assertTrue($case['non_replayable']);
+        $this->assertContains('sample_evidence', $case['required_missing_evidence']);
+        $this->assertContains('trigger_shape', $case['required_missing_evidence']);
+    }
 }

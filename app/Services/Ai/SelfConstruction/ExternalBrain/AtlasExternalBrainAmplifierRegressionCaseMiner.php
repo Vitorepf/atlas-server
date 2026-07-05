@@ -102,13 +102,35 @@ final class AtlasExternalBrainAmplifierRegressionCaseMiner
             }
             $promotedKeys[$key] = true;
 
+            $inputShape       = (string) ($f['input_shape']       ?? $trigger);
+            $expectedRepair   = (string) ($f['expected_repair']   ?? $expectedRejection);
+            $occurrenceCount  = $keyCounts[$key] ?? 1;
+
+            // AC4: a case is non_replayable when it lacks the evidence needed
+            // to turn it into a runnable regression test. The reason and the
+            // list of required-but-missing evidence are recorded so the caller
+            // can act on it without guessing.
+            $requiredMissingEvidence = [];
+            if ($sampleEvidence === '') {
+                $requiredMissingEvidence[] = 'sample_evidence';
+            }
+            if ($trigger === '') {
+                $requiredMissingEvidence[] = 'trigger_shape';
+            }
+            $isNonReplayable = $requiredMissingEvidence !== [];
+            $nonReplayableReason = $isNonReplayable
+                ? 'missing_required_evidence'
+                : null;
+
             $promotedCases[] = [
                 'failure_id'         => $id,
                 'failure_type'       => $type,
                 'failure_mode'       => $type,
                 'trigger_shape'      => $trigger,
+                'input_shape'        => $inputShape,
                 'task_family'        => $taskFamily,
                 'expected_rejection' => $expectedRejection,
+                'expected_repair'    => $expectedRepair,
                 'expected_guard'     => $expectedRejection,
                 'heldout_reason'     => $heldoutReason !== ''
                     ? $heldoutReason
@@ -116,6 +138,10 @@ final class AtlasExternalBrainAmplifierRegressionCaseMiner
                 'sample_evidence'    => $sampleEvidence,
                 'is_reproducible'    => $isReproducible,
                 'required_replay'    => true,
+                'occurrence_count'   => $occurrenceCount,
+                'non_replayable'     => $isNonReplayable,
+                'non_replayable_reason'         => $nonReplayableReason,
+                'required_missing_evidence'     => $requiredMissingEvidence,
             ];
         }
 
