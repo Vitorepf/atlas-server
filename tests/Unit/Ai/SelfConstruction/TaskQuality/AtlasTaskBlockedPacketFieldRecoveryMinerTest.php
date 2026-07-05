@@ -337,4 +337,17 @@ final class AtlasTaskBlockedPacketFieldRecoveryMinerTest extends TestCase
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
     }
+
+    public function test_forbidden_directory_hint_catches_file_under_it_via_prefix_aware_match(): void
+    {
+        $r = $this->svc()->recover([
+            'objective' => 'Implement app/Services/Ai/AutonomousEvolution/Constitution/Bylaw.php so it validates input.',
+            'metadata' => [
+                'forbidden_or_property_gated' => ['app/Services/Ai/AutonomousEvolution/'],
+            ],
+        ]);
+
+        $this->assertContains('target_forbidden_or_property_gated_without_evidence', $r['refusal_reasons']);
+        $this->assertSame([], $r['recovered_fields']['allowed_files']);
+    }
 }

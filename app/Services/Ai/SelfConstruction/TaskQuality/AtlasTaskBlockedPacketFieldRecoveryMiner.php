@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\TaskQuality;
 
+use App\Services\Ai\SelfConstruction\WriteSetOverlap;
+
 /**
  * Pure miner. Recovers missing draft fields from blocked packet content when it is SAFE to do
  * so — never invents fields when the source content is ambiguous, points at a forbidden/property-
@@ -472,7 +474,7 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
             return $recoveredAllowed;
         }
 
-        if (array_values(array_intersect($recoveredAllowed, $forbiddenHints)) !== []) {
+        if (WriteSetOverlap::collidingPaths($recoveredAllowed, $forbiddenHints) !== []) {
             $refusalReasons[] = 'target_forbidden_or_property_gated_without_evidence';
 
             return [];
