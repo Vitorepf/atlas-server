@@ -226,4 +226,18 @@ final class AtlasMaestroOrphanCallerVerifierTest extends TestCase
         $this->assertSame('ambiguous', $out['classification']);
         $this->assertSame('needs_review', $out['safe_action']);
     }
+
+    public function test_traversal_file_read_in_read_enclosing_returns_empty(): void
+    {
+        $out = $this->verifier()->verify([
+            'orphan_target' => 'App\\Services\\AtlasTaskClaimInspector',
+            'callers' => ['app/Services/SomeCaller.php::someMethod'],
+            'insertion_site' => [
+                'file' => '../../etc/passwd',
+                'line' => 10,
+            ],
+        ]);
+
+        $this->assertSame('', $out['observed_sibling'] ?? '');
+    }
 }

@@ -138,8 +138,11 @@ final class AtlasMaestroOrphanCallerVerifier
 
     private function readEnclosing(string $relFile, int $line): string
     {
+        if ($relFile === '' || str_contains($relFile, '..') || $line < 1) {
+            return '';
+        }
         $abs = base_path().'/'.ltrim($relFile, '/');
-        if ($relFile === '' || ! is_file($abs) || $line < 1) {
+        if (! is_file($abs)) {
             return '';
         }
         $lines = @file($abs, FILE_IGNORE_NEW_LINES) ?: [];
