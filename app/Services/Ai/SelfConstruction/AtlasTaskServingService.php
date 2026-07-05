@@ -419,6 +419,36 @@ final class AtlasTaskServingService
                 ]);
             }
 
+            // DEDUP/REUSO (F0 limpeza 05/07) — a esteira é o PRODUTOR da duplicação medida (38% dos
+            // clones do núcleo nascem em SelfConstruction). Entrega que declara símbolo homônimo de um
+            // já existente re-implementa em vez de reusar: enforce (default) recusa ANTES do commit,
+            // mantendo a lease para o worker reusar o símbolo existente. Blocos clonados de irmãos são
+            // observação no receipt (nunca bloqueiam). Fail-open em erro interno, como os gates acima.
+            $dedupMode = (string) config('atlas_task_governance.dedup_reuse_mode', 'enforce');
+            if ($dedupMode !== 'off' && $stageProductionFiles !== []) {
+                $dedup = null;
+                try {
+                    $dedup = (new TaskQuality\AtlasTaskDuplicateReuseGate)->evaluate(array_values(array_map('strval', (array) $scope['allowed_files'])));
+                    $this->orchestrator->appendReportReceipt($taskPacketId, [
+                        'receipt_kind' => 'duplicate_reuse_gate',
+                        'mode' => $dedupMode,
+                        'verdict' => $dedup,
+                    ]);
+                } catch (Throwable) {
+                    // Fail-open: gate/receipt nunca derruba um report por infra.
+                }
+                if ($dedupMode === 'enforce' && $dedup !== null && ($dedup['passed'] ?? true) !== true) {
+                    return $this->reportEnvelope('commit_failed', $clientId, [
+                        'outcome' => 'success',
+                        'lease_closed' => false,
+                        'task_packet_id' => $taskPacketId,
+                        'lease_id' => $leaseId,
+                        'reason' => 'duplicate_reuse_refused',
+                        'dedup' => $dedup,
+                    ]);
+                }
+            }
+
             $commit = $this->committer->commitScope((array) $scope['allowed_files'], $taskPacketId, $clientId, (string) $scope['objective']);
 
             if (($commit['committed'] ?? false) !== true) {

@@ -44,6 +44,15 @@ return [
     // improves the delivery and re-reports.
     'refactor_proof_mode' => 'observe',
 
+    // F0 da limpeza 05/07 — off|observe|enforce. Gates AtlasTaskDuplicateReuseGate no commit
+    // path do serving report: entrega que DECLARA class/interface/trait/enum homônima de uma
+    // já declarada por outro arquivo (app/ + tests/) re-implementa em vez de reusar e é
+    // recusada, mantendo a lease. ENFORCE por default (diferente dos gates vizinhos) porque o
+    // sinal é preciso — 14 basenames duplicados em 7.3k arquivos, e um deles quebrou o load da
+    // suíte inteira em 05/07 ("Cannot redeclare class"). Blocos clonados de irmãos do mesmo
+    // diretório são SEMPRE só observação no receipt, em qualquer modo.
+    'dedup_reuse_mode' => 'enforce',
+
     // When true, the packet builder BLOCKS a heavy refactor (refactor-shaped objective over
     // 3+ allowed_files) that arrives without a complete refactor_design_spec (problem, real
     // callers, proposed abstraction, rejected alternative, risk, expected measurable delta).
