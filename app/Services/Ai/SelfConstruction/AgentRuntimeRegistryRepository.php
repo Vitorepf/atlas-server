@@ -25,6 +25,8 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  */
 final class AgentRuntimeRegistryRepository
 {
+    use AgentRuntimeRegistryStorageConcerns;
+
     use HashesPayloadCanonically;
     use EncodesPayloadAsPrettyJson;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_registry.v1';
@@ -603,21 +605,6 @@ final class AgentRuntimeRegistryRepository
         ];
     }
 
-    public function isAvailable(): bool
-    {
-        try {
-            $disk = $this->disk();
-            $probe = self::STORAGE_PREFIX.'/.health';
-            $disk->put($probe, '');
-            $exists = $disk->exists($probe);
-            $disk->delete($probe);
-
-            return $exists;
-        } catch (Throwable) {
-            return false;
-        }
-    }
-
     /**
      * @return array<string, bool>
      */
@@ -667,11 +654,6 @@ final class AgentRuntimeRegistryRepository
         return ['metadata' => $clean, 'redacted_fields' => $redactedFields];
     }
 
-    private function isValidAgentId(string $agentId): bool
-    {
-        return $agentId !== '' && (bool) preg_match('/^[A-Za-z0-9][A-Za-z0-9._\-]{1,127}$/', $agentId);
-    }
-
     /**
      * @param  array<int, mixed>  $capabilities
      * @return list<string>
@@ -685,26 +667,6 @@ final class AgentRuntimeRegistryRepository
                 continue;
             }
             $normalized[strtolower($value)] = true;
-        }
-        $keys = array_keys($normalized);
-        sort($keys);
-
-        return array_values($keys);
-    }
-
-    /**
-     * @param  array<int, mixed>  $values
-     * @return list<string>
-     */
-    private function normalizeStringList(array $values): array
-    {
-        $normalized = [];
-        foreach ($values as $value) {
-            $clean = trim((string) $value);
-            if ($clean === '') {
-                continue;
-            }
-            $normalized[$clean] = true;
         }
         $keys = array_keys($normalized);
         sort($keys);
@@ -737,41 +699,6 @@ final class AgentRuntimeRegistryRepository
         ];
 
         return $this->stableHash($signature);
-    }
-
-    /**
-     * @template T
-     *
-     * @param  callable(): T  $callback
-     * @return T
-     */
-    private function withLock(callable $callback): mixed
-    {
-        $disk = $this->disk();
-        $start = microtime(true);
-        $lockToken = (string) Str::uuid();
-
-        while (true) {
-            if (! $disk->exists(self::LOCK_PATH)) {
-                $disk->put(self::LOCK_PATH, $lockToken);
-                $current = (string) $disk->get(self::LOCK_PATH);
-                if ($current === $lockToken) {
-                    break;
-                }
-            }
-            if ((microtime(true) - $start) > 4.0) {
-                break;
-            }
-            usleep(50_000);
-        }
-
-        try {
-            return $callback();
-        } finally {
-            if ($disk->exists(self::LOCK_PATH)) {
-                $disk->delete(self::LOCK_PATH);
-            }
-        }
     }
 
     /**
@@ -934,13 +861,6 @@ final class AgentRuntimeRegistryRepository
         return $registry;
     }
 
-    private function agentPath(string $agentId): string
-    {
-        $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $agentId) ?? $agentId;
-
-        return self::STORAGE_PREFIX.'/agent_'.$safe.'.json';
-    }
-
     /**
      * @param  array<string, mixed>  $record
      * @param  array<string, mixed>  $extra
@@ -964,31 +884,4 @@ final class AgentRuntimeRegistryRepository
         ], $extra);
     }
 
-    /**
-     * @param  array<string, mixed>  $extra
-     * @return array<string, mixed>
-     */
-    private function envelopeError(string $reason, string $agentId, array $extra = []): array
-    {
-        return array_merge([
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => 'blocked',
-            'event' => 'blocked',
-            'agent_id' => $agentId,
-            'reason' => $reason,
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'provider_call_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'ledger_write_allowed' => false,
-        ], $extra);
-    }
-
-
-
-    private function disk(): Filesystem
-    {
-        return Storage::disk($this->disk ?? self::DEFAULT_DISK);
-    }
 }

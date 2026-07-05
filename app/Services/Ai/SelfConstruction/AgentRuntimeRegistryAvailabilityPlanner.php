@@ -31,6 +31,8 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  */
 final class AgentRuntimeRegistryAvailabilityPlanner
 {
+    use AgentRuntimeRegistryStorageConcerns;
+
     use HashesPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_registry_availability_plan.v1';
 
@@ -354,26 +356,6 @@ final class AgentRuntimeRegistryAvailabilityPlanner
         }
 
         return 'unavailable';
-    }
-
-    /**
-     * @param  array<int, mixed>  $values
-     * @return list<string>
-     */
-    private function normalizeStringList(array $values): array
-    {
-        $normalized = [];
-        foreach ($values as $value) {
-            $clean = trim((string) $value);
-            if ($clean === '') {
-                continue;
-            }
-            $normalized[$clean] = true;
-        }
-        $keys = array_keys($normalized);
-        sort($keys);
-
-        return array_values($keys);
     }
 
 }

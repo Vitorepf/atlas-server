@@ -39,6 +39,8 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  */
 final class AgentRuntimeRegistryQuarantineRepository
 {
+    use AgentRuntimeRegistryStorageConcerns;
+
     use HashesPayloadCanonically;
     use EncodesPayloadAsPrettyJson;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_registry_quarantine.v1';
@@ -382,21 +384,6 @@ final class AgentRuntimeRegistryQuarantineRepository
         return array_values(array_filter($ids, static fn (string $v): bool => $v !== ''));
     }
 
-    public function isAvailable(): bool
-    {
-        try {
-            $disk = $this->disk();
-            $probe = self::STORAGE_PREFIX.'/.health';
-            $disk->put($probe, '');
-            $exists = $disk->exists($probe);
-            $disk->delete($probe);
-
-            return $exists;
-        } catch (Throwable) {
-            return false;
-        }
-    }
-
     /**
      * @return array<string, bool>
      */
@@ -410,11 +397,6 @@ final class AgentRuntimeRegistryQuarantineRepository
             'self_programming_allowed' => false,
             'ledger_write_allowed' => false,
         ];
-    }
-
-    private function isValidAgentId(string $agentId): bool
-    {
-        return $agentId !== '' && (bool) preg_match('/^[A-Za-z0-9][A-Za-z0-9._\-]{1,127}$/', $agentId);
     }
 
     /**
@@ -524,48 +506,6 @@ final class AgentRuntimeRegistryQuarantineRepository
         return array_values($decoded);
     }
 
-    private function agentPath(string $agentId): string
-    {
-        $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $agentId) ?? $agentId;
-
-        return self::STORAGE_PREFIX.'/agent_'.$safe.'.json';
-    }
-
-    /**
-     * @template T
-     *
-     * @param  callable(): T  $callback
-     * @return T
-     */
-    private function withLock(callable $callback): mixed
-    {
-        $disk = $this->disk();
-        $start = microtime(true);
-        $lockToken = (string) Str::uuid();
-
-        while (true) {
-            if (! $disk->exists(self::LOCK_PATH)) {
-                $disk->put(self::LOCK_PATH, $lockToken);
-                $current = (string) $disk->get(self::LOCK_PATH);
-                if ($current === $lockToken) {
-                    break;
-                }
-            }
-            if ((microtime(true) - $start) > 4.0) {
-                break;
-            }
-            usleep(50_000);
-        }
-
-        try {
-            return $callback();
-        } finally {
-            if ($disk->exists(self::LOCK_PATH)) {
-                $disk->delete(self::LOCK_PATH);
-            }
-        }
-    }
-
     /**
      * @param  array<string, mixed>  $record
      * @return array<string, mixed>
@@ -587,31 +527,4 @@ final class AgentRuntimeRegistryQuarantineRepository
         ];
     }
 
-    /**
-     * @param  array<string, mixed>  $extra
-     * @return array<string, mixed>
-     */
-    private function envelopeError(string $reason, string $agentId, array $extra = []): array
-    {
-        return array_merge([
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => 'blocked',
-            'event' => 'blocked',
-            'agent_id' => $agentId,
-            'reason' => $reason,
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'provider_call_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'ledger_write_allowed' => false,
-        ], $extra);
-    }
-
-
-
-    private function disk(): Filesystem
-    {
-        return Storage::disk($this->disk ?? self::DEFAULT_DISK);
-    }
 }

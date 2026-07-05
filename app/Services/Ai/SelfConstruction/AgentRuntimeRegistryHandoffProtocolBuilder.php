@@ -26,6 +26,8 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  */
 final class AgentRuntimeRegistryHandoffProtocolBuilder
 {
+    use AgentRuntimeRegistryStorageConcerns;
+
     use HashesPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_registry_handoff_protocol.v1';
 
@@ -219,26 +221,6 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
             'ledger_write_allowed' => false,
             'handoff_execution_allowed' => false,
         ];
-    }
-
-    /**
-     * @param  array<int, mixed>  $values
-     * @return list<string>
-     */
-    private function normalizeStringList(array $values): array
-    {
-        $normalized = [];
-        foreach ($values as $value) {
-            $clean = trim((string) $value);
-            if ($clean === '') {
-                continue;
-            }
-            $normalized[$clean] = true;
-        }
-        $keys = array_keys($normalized);
-        sort($keys);
-
-        return array_values($keys);
     }
 
 }
