@@ -21,6 +21,8 @@ use RuntimeException;
  */
 final class AtlasLoopIntentAmbiguityResolutionLedger
 {
+    use \App\Services\Ai\Support\ReadsJsonlLedgerEntries;
+
     public const SCHEMA = 'atlas.loop.intent_ambiguity_resolution.v1';
 
     /** @var callable(string $questionHash): bool */
@@ -140,34 +142,6 @@ final class AtlasLoopIntentAmbiguityResolutionLedger
         }
 
         return true;
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readAll(): array
-    {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $rows = [];
-        $handle = @fopen($this->ledgerPath, 'r');
-        if ($handle === false) {
-            return [];
-        }
-        while (($line = fgets($handle)) !== false) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-        fclose($handle);
-
-        return $rows;
     }
 
     /**

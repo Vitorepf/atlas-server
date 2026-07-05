@@ -12,6 +12,8 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Cost;
  */
 final class AtlasMaestroBudgetReceiptLedger
 {
+    use \App\Services\Ai\Support\ReadsJsonlLedgerEntries;
+
     public const SCHEMA = 'atlas.maestro.budget_receipt.v1';
 
     public function __construct(private readonly string $ledgerPath)
@@ -101,34 +103,6 @@ final class AtlasMaestroBudgetReceiptLedger
         $rows = array_values(array_filter($rows, $predicate));
 
         return $rows; // append-order preserved.
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readAll(): array
-    {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $rows = [];
-        $handle = @fopen($this->ledgerPath, 'r');
-        if ($handle === false) {
-            return [];
-        }
-        while (($line = fgets($handle)) !== false) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-        fclose($handle);
-
-        return $rows;
     }
 
     /**
