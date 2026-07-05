@@ -160,14 +160,27 @@ class AgentControlPlaneCompletionAuditReader
             if (! is_array($record)) {
                 continue;
             }
-            if ((string) ($record['outcome'] ?? '') !== 'give_back') {
-                continue;
+
+            // Group give_back reasons (only from give_back outcomes).
+            if ((string) ($record['outcome'] ?? '') === 'give_back') {
+                $reason = (string) ($record['give_back_reason'] ?? $record['reason'] ?? 'unknown');
+                if (! isset($groups[$reason])) {
+                    $groups[$reason] = ['count' => 0, 'exemplar_packet_id' => (string) ($record['task_packet_id'] ?? ''), 'kind' => 'give_back'];
+                }
+                $groups[$reason]['count']++;
             }
-            $reason = (string) ($record['give_back_reason'] ?? $record['reason'] ?? 'unknown');
-            if (! isset($groups[$reason])) {
-                $groups[$reason] = ['count' => 0, 'exemplar_packet_id' => (string) ($record['task_packet_id'] ?? '')];
+
+            // Group failed criteria (from any record — a failed criterion is poison regardless of outcome).
+            foreach ((array) ($record['failed_criteria'] ?? []) as $criterion) {
+                $criterion = (string) $criterion;
+                if ($criterion === '') {
+                    continue;
+                }
+                if (! isset($groups[$criterion])) {
+                    $groups[$criterion] = ['count' => 0, 'exemplar_packet_id' => (string) ($record['task_packet_id'] ?? ''), 'kind' => 'failed_criterion'];
+                }
+                $groups[$criterion]['count']++;
             }
-            $groups[$reason]['count']++;
         }
 
         $families = [];
@@ -179,7 +192,7 @@ class AgentControlPlaneCompletionAuditReader
                 'reason' => $reason,
                 'count' => $data['count'],
                 'exemplar_packet_id' => $data['exemplar_packet_id'],
-                'repair_hint' => $this->repairHintFor($reason),
+                'repair_hint' => $this->repairHintFor($reason, $data['kind'] ?? 'give_back'),
             ];
         }
 
@@ -188,8 +201,16 @@ class AgentControlPlaneCompletionAuditReader
         return ['poison_families' => array_values($families)];
     }
 
-    private function repairHintFor(string $reason): string
+    private function repairHintFor(string $reason, string $kind = 'give_back'): string
     {
+        if ($kind === 'failed_criterion') {
+            if ($this->completionAuditCriterionRequiresOperator($reason)) {
+                return 'operator_handoff_required_for_criterion';
+            }
+
+            return 'repair_failed_criterion_before_replenishing';
+        }
+
         if (str_contains($reason, 'test_only')) {
             return 'remove_or_rewire_test_only_survivors';
         }
@@ -207,17 +228,23 @@ class AgentControlPlaneCompletionAuditReader
     private const DEFAULT_CLAIMABLE_PER_WORKER_THRESHOLD = 3.0;
 
     /**
-     * Reads recent completed_dry_run velocity against claimable depth and emits a structured
-     * replenishment hint when completions are draining the queue faster than it is being refilled
-     * — i.e. recent completions happened (completed_dry_run_delta > 0) while claimable_per_active_worker
-     * has fallen to/below the threshold. Pure: never claims a packet, never writes anything.
+     * Reads recent completion velocity, failed criteria, and operator-only blockers to
+     * emit a structured replenishment decision when completions are draining the queue
+     * faster than it is being refilled.
+     *
+     * Decision matrix:
+     *  - No drain (delta ≤ 0 or claimable_per_active_worker above threshold)  → hold
+     *  - Draining + no failed criteria                                        → create
+     *  - Draining + failed criteria + ANY operator-only blocker present        → operator_handoff
+     *  - Draining + failed criteria + NO operator-only blockers                → repair_first
      *
      * @param  array<string, mixed>  $facts
      *         completed_dry_run_count          : int    current completed_dry_run count
      *         completed_dry_run_count_previous : int    prior completed_dry_run count
-     *         completed_dry_run_delta          : int    optional explicit delta (overrides the above subtraction)
-     *         claimable_per_active_worker       : float current claimable packets per active worker
-     *         claimable_per_active_worker_threshold : float optional override of the drain threshold
+     *         completed_dry_run_delta          : int    optional explicit delta (overrides subtraction)
+     *         claimable_per_active_worker       : float  current claimable packets per active worker
+     *         claimable_per_active_worker_threshold : float optional override of drain threshold
+     *         failed_criteria                   : list<string> optional list of recent failed criteria
      * @return array<string, mixed>
      */
     public function completionVelocityReplenishHint(array $facts): array
@@ -232,14 +259,60 @@ class AgentControlPlaneCompletionAuditReader
         $draining = $delta > 0 && $claimablePerActiveWorker <= $threshold;
 
         if (! $draining) {
-            return ['completion_velocity_replenish' => false];
+            return [
+                'completion_velocity_replenish' => false,
+                'action' => 'hold',
+            ];
+        }
+
+        // Examine failed criteria to distinguish repair_first from operator_handoff.
+        $failedCriteria = array_values(array_filter(
+            array_map('strval', (array) ($facts['failed_criteria'] ?? [])),
+            static fn (string $c): bool => $c !== '',
+        ));
+
+        $hasFailedCriteria = $failedCriteria !== [];
+
+        if (! $hasFailedCriteria) {
+            return [
+                'completion_velocity_replenish' => true,
+                'action' => 'create',
+                'completed_dry_run_delta' => $delta,
+                'claimable_per_active_worker' => $claimablePerActiveWorker,
+                'claimable_per_active_worker_threshold' => $threshold,
+            ];
+        }
+
+        // At least one failed criterion is present — check for operator-only blockers.
+        $hasOperatorBlocker = false;
+        foreach ($failedCriteria as $criterion) {
+            if ($this->completionAuditCriterionRequiresOperator($criterion)) {
+                $hasOperatorBlocker = true;
+                break;
+            }
+        }
+
+        if ($hasOperatorBlocker) {
+            return [
+                'completion_velocity_replenish' => true,
+                'action' => 'operator_handoff',
+                'completed_dry_run_delta' => $delta,
+                'claimable_per_active_worker' => $claimablePerActiveWorker,
+                'claimable_per_active_worker_threshold' => $threshold,
+                'operator_only_blockers' => array_values(array_filter(
+                    $failedCriteria,
+                    fn (string $c): bool => $this->completionAuditCriterionRequiresOperator($c),
+                )),
+            ];
         }
 
         return [
             'completion_velocity_replenish' => true,
+            'action' => 'repair_first',
             'completed_dry_run_delta' => $delta,
             'claimable_per_active_worker' => $claimablePerActiveWorker,
             'claimable_per_active_worker_threshold' => $threshold,
+            'failed_criteria' => $failedCriteria,
         ];
     }
 

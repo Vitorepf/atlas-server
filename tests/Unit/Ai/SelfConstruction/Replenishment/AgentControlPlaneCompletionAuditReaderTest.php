@@ -353,4 +353,126 @@ final class AgentControlPlaneCompletionAuditReaderTest extends TestCase
             AgentControlPlaneCompletionAuditReader::OPERATOR_ONLY_CRITERIA,
         );
     }
+
+    // --- poisonFamilies with failed_criteria -------------------------
+
+    public function test_poison_families_group_repeated_failed_criteria_into_family_records(): void
+    {
+        $records = [
+            ['outcome' => 'give_back', 'give_back_reason' => 'unrelated_reason', 'task_packet_id' => 'p1'],
+            ['failed_criteria' => ['criterion_a'], 'task_packet_id' => 'p2'],
+            ['failed_criteria' => ['criterion_a'], 'task_packet_id' => 'p3'],
+        ];
+
+        $result = $this->reader->poisonFamilies($records, 2);
+
+        $families = $result['poison_families'];
+        $criterionFamily = null;
+        foreach ($families as $f) {
+            if ($f['reason'] === 'criterion_a') {
+                $criterionFamily = $f;
+                break;
+            }
+        }
+
+        $this->assertNotNull($criterionFamily, 'failed criterion should form a poison family');
+        $this->assertSame(2, $criterionFamily['count']);
+        $this->assertSame('repair_failed_criterion_before_replenishing', $criterionFamily['repair_hint']);
+    }
+
+    public function test_poison_families_failed_criterion_with_operator_only_blocker_emits_operator_handoff_hint(): void
+    {
+        $records = [
+            ['failed_criteria' => ['runtime_gap_matrix_all_runtime_y'], 'task_packet_id' => 'p1'],
+            ['failed_criteria' => ['runtime_gap_matrix_all_runtime_y'], 'task_packet_id' => 'p2'],
+        ];
+
+        $result = $this->reader->poisonFamilies($records, 2);
+
+        $this->assertCount(1, $result['poison_families']);
+        $this->assertSame(
+            'operator_handoff_required_for_criterion',
+            $result['poison_families'][0]['repair_hint'],
+        );
+    }
+
+    public function test_poison_families_single_failed_criterion_below_threshold_not_reported(): void
+    {
+        $records = [
+            ['failed_criteria' => ['lone_criterion'], 'task_packet_id' => 'p1'],
+        ];
+
+        $result = $this->reader->poisonFamilies($records, 2);
+
+        $this->assertSame([], $result['poison_families']);
+    }
+
+    // --- completionVelocityReplenishHint action field ----------------
+
+    public function test_completion_velocity_replenish_hint_emits_create_when_draining_without_failed_criteria(): void
+    {
+        $hint = $this->reader->completionVelocityReplenishHint([
+            'completed_dry_run_count' => 10,
+            'completed_dry_run_count_previous' => 5,
+            'claimable_per_active_worker' => 1.0,
+        ]);
+
+        $this->assertTrue($hint['completion_velocity_replenish']);
+        $this->assertSame('create', $hint['action']);
+        $this->assertSame(5, $hint['completed_dry_run_delta']);
+    }
+
+    public function test_completion_velocity_replenish_hint_emits_hold_when_no_delta(): void
+    {
+        $hint = $this->reader->completionVelocityReplenishHint([
+            'completed_dry_run_count' => 5,
+            'completed_dry_run_count_previous' => 5,
+            'claimable_per_active_worker' => 1.0,
+        ]);
+
+        $this->assertFalse($hint['completion_velocity_replenish']);
+        $this->assertSame('hold', $hint['action']);
+    }
+
+    public function test_completion_velocity_replenish_hint_emits_hold_when_above_threshold(): void
+    {
+        $hint = $this->reader->completionVelocityReplenishHint([
+            'completed_dry_run_count' => 10,
+            'completed_dry_run_count_previous' => 5,
+            'claimable_per_active_worker' => 10.0,
+        ]);
+
+        $this->assertFalse($hint['completion_velocity_replenish']);
+        $this->assertSame('hold', $hint['action']);
+    }
+
+    public function test_completion_velocity_replenish_hint_emits_repair_first_when_draining_with_failed_criteria(): void
+    {
+        $hint = $this->reader->completionVelocityReplenishHint([
+            'completed_dry_run_count' => 10,
+            'completed_dry_run_count_previous' => 5,
+            'claimable_per_active_worker' => 1.0,
+            'failed_criteria' => ['some_technical_criterion'],
+        ]);
+
+        $this->assertTrue($hint['completion_velocity_replenish']);
+        $this->assertSame('repair_first', $hint['action']);
+        $this->assertArrayHasKey('failed_criteria', $hint);
+        $this->assertSame(['some_technical_criterion'], $hint['failed_criteria']);
+    }
+
+    public function test_completion_velocity_replenish_hint_emits_operator_handoff_when_draining_with_operator_only_blocker(): void
+    {
+        $hint = $this->reader->completionVelocityReplenishHint([
+            'completed_dry_run_count' => 10,
+            'completed_dry_run_count_previous' => 5,
+            'claimable_per_active_worker' => 1.0,
+            'failed_criteria' => ['runtime_gap_matrix_all_runtime_y', 'some_technical_criterion'],
+        ]);
+
+        $this->assertTrue($hint['completion_velocity_replenish']);
+        $this->assertSame('operator_handoff', $hint['action']);
+        $this->assertArrayHasKey('operator_only_blockers', $hint);
+        $this->assertContains('runtime_gap_matrix_all_runtime_y', $hint['operator_only_blockers']);
+    }
 }
