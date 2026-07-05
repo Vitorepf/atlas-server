@@ -188,8 +188,8 @@ Se silenciar > 5 min, `silent_alarm=true` aparece no state. UI e CLI mostram. Op
 
 - `tests/Unit/Ai/Patamar4/AtlasSchedulerHealthServiceTest.php`
 - `tests/Feature/Console/AtlasSchedulerHeartbeatCommandTest.php`
-- `tests/Feature/Console/AtlasSchedulerStatusCommandTest.php`
-- `tests/Feature/Console/AtlasSchedulerInstallLaunchdCommandTest.php`
+- `tests/Feature/Console/AtlasSchedulerStatusCommandTest.php` (planejado — nunca criado até 2026-07-05; ver Próximas Ações)
+- `tests/Feature/Console/AtlasSchedulerInstallLaunchdCommandTest.php` (planejado — nunca criado até 2026-07-05; ver Próximas Ações)
 - `tests/Feature/Http/AtlasPatamar4StateControllerTest.php` — assert `scheduler` field.
 
 ## 8. Cross-references

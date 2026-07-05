@@ -27,10 +27,9 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - app/Services/Ai/Context/AtlasTokenEconomyRuntimeService.php
   - app/Services/Ai/Context/LocalPrereasoningPolicy.php
-  - app/Services/Ai/Context/LocalPrereasoningEligibilityClassifier.php
   - app/Console/Commands/AtlasTokenEconomyRuntimeCommand.php
   - tests/Feature/Ai/Context/TokenEconomyRuntimeTest.php
-  - tests/Unit/Services/Ai/Context/LocalPrereasoningEligibilityClassifierTest.php
+  - tests/Unit/Ai/AtlasTokenEconomyRuntimeServiceTest.php
 doc_schema: atlas_canonical_module_doc.v1
 macro_layer: true
 product_name: Atlas Token Economy Runtime
@@ -68,16 +67,14 @@ evidence:
 evidence_refs:
   - symbol: AtlasTokenEconomyRuntimeService
   - symbol: LocalPrereasoningPolicy
-  - symbol: LocalPrereasoningEligibilityClassifier
   - command: atlas:context:token-economy
   - test: AtlasTokenEconomyRuntimeServiceTest
-  - test: LocalPrereasoningEligibilityClassifierTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:token-economy --json"
   - "php artisan atlas:context:token-economy --input='{\"provider\":\"gpt\",\"risk_level\":\"low\"}' --json"
   - "php artisan test tests/Feature/Ai/Context/TokenEconomyRuntimeTest.php"
-  - "php artisan test tests/Unit/Services/Ai/Context/LocalPrereasoningEligibilityClassifierTest.php"
+  - "php artisan test tests/Unit/Ai/AtlasTokenEconomyRuntimeServiceTest.php"
 requires_evidence: true
 risk_level: high
 line_limit: 520
@@ -164,9 +161,12 @@ Sub-blocos cobertos pelo runtime read-only:
   triggers provider-safe.
 
 `LocalPrereasoningPolicy` e o unico dono das regras de ALPR. O runtime ATER usa
-essa politica para montar o receipt `atlas.token_economy.local_prereasoning.v1`,
-enquanto `LocalPrereasoningEligibilityClassifier` expoe o schema de elegibilidade
-para testes e governanca sem repetir a regra.
+essa politica para montar o receipt `atlas.token_economy.local_prereasoning.v1`.
+`LocalPrereasoningEligibilityClassifier` e seu teste unitario foram retirados em
+2026-06-09 (commit 0c39c8cbd9); o identificador do schema passou a viver na
+constante `LOCAL_PREREASONING_SCHEMA` do `AtlasTokenEconomyRuntimeService`, com
+cobertura viva em `tests/Unit/Ai/AtlasTokenEconomyRuntimeServiceTest.php` e
+`tests/Feature/Ai/Context/TokenEconomyRuntimeTest.php`.
 
 ## Dependencias
 

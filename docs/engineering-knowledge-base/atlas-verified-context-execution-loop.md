@@ -33,7 +33,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-quality-preserving-efficiency-system.md
   - docs/engineering-knowledge-base/atlas-context-cache-compiler-runtime.md
   - docs/engineering-knowledge-base/atlas-local-verification-engine.md
-  - docs/engineering-knowledge-base/atlas-aemor-runtime.md
+  - docs/engineering-knowledge-base/atlas-execution-memory-outcome-runtime.md
   - app/Services/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopService.php
   - app/Console/Commands/AtlasVerifiedContextExecutionLoopCommand.php
   - tests/Feature/Ai/VerifiedContextExecution/AtlasVerifiedContextExecutionLoopServiceTest.php
@@ -69,7 +69,7 @@ depends_on:
   - atlas-quality-preserving-efficiency-system
   - atlas-context-cache-compiler-runtime
   - atlas-local-verification-engine
-  - atlas-aemor-runtime
+  - atlas-execution-memory-outcome-runtime
 flows_to:
   - atlas-dev
   - atlas-forge

@@ -32,7 +32,6 @@ related_paths:
   - app/Services/Ai/Programming/ProgrammingRetrievalExecutor.php
   - app/Services/Ai/Programming/ProgrammingRivalsReadinessService.php
   - app/Services/Ai/Programming/ProgrammingProfessionalCompletionAuditService.php
-  - app/Console/Commands/AtlasProgrammingRivalsReadinessCommand.php
   - app/Console/Commands/AtlasProgrammingCompletionAuditCommand.php
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
@@ -71,10 +70,9 @@ evidence:
   - docs/engineering-knowledge-base/domains/programming-professional-completion-audit.md
 evidence_refs:
   - symbol: ProgrammingRetrievalPlanner
-  - command: atlas:programming:rivals-readiness
+  - command: atlas:programming:completion-audit
 required_tests:
   - "php artisan atlas:programming:completion-audit --json"
-  - "php artisan atlas:programming:rivals-readiness --json"
   - "php artisan test tests/Unit/Ai/Programming/ProgrammingEnterpriseRuntimeTest.php"
 next_actions:
   - Executar Rivals-Programming real com aceite de custo quando o operador aprovar.
@@ -122,7 +120,7 @@ Contrato de status:
 1. Ler spec profissional e plano enterprise.
 2. Mapear requisito para artefato concreto.
 3. Validar comandos locais.
-4. Consultar `atlas:programming:rivals-readiness`.
+4. Consultar `atlas:programming:rivals-readiness` (CLI dedicado retirado em 2026-07-02, commit f9aa666bfe; readiness agora via `atlas:programming:completion-audit`).
 5. Bloquear conclusao total quando Rivals real estiver ausente, invalido ou sem casos comparaveis.
 
 ## Regras para IA
@@ -222,6 +220,14 @@ php artisan atlas:engineering:knowledge docs-health --json
 php artisan atlas:ai:architecture-validate --json
 php artisan atlas:engineering:quality-scan --workspace=<atlas-server> --profile=auto --changed-only --timeout=300 --json
 ```
+
+Nota (2026-07-05): `AtlasProgrammingRivalsReadinessCommand.php` e o comando
+`atlas:programming:rivals-readiness` foram retirados em 2026-07-02 (commit
+f9aa666bfe); as entradas correspondentes sairam de `related_paths`,
+`required_tests` e `evidence_refs` nesta data. `ProgrammingRivalsReadinessService`
+segue vivo e e consumido por `atlas:programming:completion-audit`, que passa a
+ser o comando canonico de leitura de readiness. Mencoes ao comando antigo nas
+secoes de evidencia abaixo sao registro historico das baterias ja executadas.
 
 Evidencia local mais recente:
 

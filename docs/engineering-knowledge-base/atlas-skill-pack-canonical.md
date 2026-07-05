@@ -24,8 +24,8 @@ decisions:
 maintenance:
   - Atualize ao adicionar campo, mudar promotion gate.
 related_paths:
-  - app/Services/Ai/AiSkillStoreService.php
-  - docs/engineering-knowledge-base/atlas-ai-skills.md
+  - app/Services/Ai/AiSkillStore.php
+  - docs/engineering-knowledge-base/atlas-ai-skill-system.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-skill-pack-canonical
 graph_title: Atlas Skill Pack Canonical
@@ -93,7 +93,7 @@ Schema canonico de Skill Pack local-first do Atlas.
 
 ## Papel no Atlas
 
-`AiSkillStoreService.php` (32 KB) tem skills implementadas mas sem contrato formal. Este doc fornece.
+`AiSkillStore.php` (32 KB) tem skills implementadas mas sem contrato formal. Este doc fornece.
 
 ## Onde Se Encaixa
 
