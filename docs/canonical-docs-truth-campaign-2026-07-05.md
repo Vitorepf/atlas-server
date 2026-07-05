@@ -71,5 +71,16 @@ Claims específicos por doc (linha a linha, com evidência) estão no output da 
 ## Governança pré-início
 `php artisan atlas:ai:session-bootstrap --task="documentacao canonica verdadeira" --json`; `atlas_memory_recall` sobre governança de docs e vetos antes da F1; ler `atlas-ai-knowledge-governance-system.md` (o contrato que esta campanha executa).
 
-## Follow-ups (preencher durante a campanha)
-_(vazio no início)_
+## Follow-ups (preenchido durante a campanha, 05/07 ~17h-18h)
+
+1. **Código (fora da campanha docs-only):** `L7L10QueueConsumer::consume()` IGNORA `status=` das rows e contaria rows gated como ready_slices — chip de task aberto (filtro de status + teste wiper-safe). Até lá, a fila l7-l10 não deve ser apontada para o consumer.
+2. **Correções a números MEUS, feitas pelos verificadores:** ledger de certifiers = **66** (2/35/10/19), não 80 (número pré-deleção que esta spec cita na tabela congelada da auditoria — manter lá como registro histórico da auditoria); farm AP aposentada = **~156k deleções provadas** (7c07b1bc82), não 158k.
+3. **Correção honesta de commit:** a mensagem de `ae66078304` alega "auditoria errou 'ready'" — FALSO; o rebaixamento foi feito por um editor concorrente ENTRE a auditoria (16:39) e o meu grep (~17:10). Corrigido em `07b475a57b`.
+4. **Editor concorrente (batch "atualizar docs canonicas stale apos limpeza bruta nucleo AAEOS", 17:01-17:14):** protocolo verify-then-absorb aplicado — 7 edições absorvidas c/ complementos, 2 REJEITADAS por claims falsos (ownership-map: data/campanha erradas; spec-adversary-obra: rebaixava Obra #2 ENTREGUE para planned — corrigida para runtime_available). `atlas-rivals2-rebuild-map-v1.md` ficou NÃO-COMMITADO por esta equipe (Criação≠Medição) — decisão do operador.
+5. **S141 re-aberta:** `WorkspaceReadinessScoreCalculator` não existe em app/ apesar da row constar consumida — candidata a seed da esteira.
+6. **Meta-4 ampliada:** o censo F0 só via paths QUEBRADOS; a prova global achou 108 colisões (rows ready com classe JÁ existente) em 6 backlogs fora do censo — todas rebaixadas com prova; re-scan global = 0.
+
+## Ledger F4/F5 (atribuição de todo hit remanescente do re-censo)
+- Re-censo final: 85 docs com hits brutos → **0 resíduos não justificados no escopo Criação**. Atribuição: 15 editados+anotados (anotação datada preserva o identificador — hit permanece POR DESIGN), 10 auditados-corrigidos (l7-l10 e loop-evolution mantêm 63 refs cada como rows spec gated por DECISAO-1), 8 intencionais (handoffs congelados, contratos de arquivos futuros, fixtures fora do repo — justificativa 1-linha no output do workflow F4), 21 prospectivos (paths/namespaces planejados por design do doc — censo era falso-positivo), 5 archive (histórico por definição), **25 docs da esteira de Medição** (`atlas-forge-rivals-*` — VETADOS para a equipe Criação; staleness pertence à outra esteira), 1 não-commitado (rivals2-rebuild-map, idem).
+- `required_tests` quebrados fora de Medição: 1 doc (`atlas-code-provider-arena-ui-v1.md` — 2 refs de teste deletados em bf449d6fd3, ANOTADOS no corpo com data+hash; frontmatter mantém como registro do plano original da UI de arena, doc inteiro é da família de Medição-adjacente).
+- Metas: rows ready falsas = **0 global (provado)**; 9 docs stale da auditoria corrigidos e commitados; re-leitura adversarial de amostra (3 docs) executada; sync dos read-models ao final.
