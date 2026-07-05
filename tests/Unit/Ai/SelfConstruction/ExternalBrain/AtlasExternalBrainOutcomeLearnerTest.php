@@ -828,4 +828,87 @@ final class AtlasExternalBrainOutcomeLearnerTest extends TestCase
 
         $this->assertEmpty(array_intersect($r['promoted'], $r['demoted']));
     }
+
+    // ── AC: poison and proxy outcomes reduce pattern score more than low-impact delivered outcomes increase it ──
+
+    public function test_poison_reduces_score_more_than_low_impact_delivered_increases(): void
+    {
+        $rPoison = $this->learner->learn([[
+            'task_packet_id' => 't1', 'pattern_family' => 'fam', 'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_POISON,
+        ]]);
+        $rLowDelivered = $this->learner->learn([[
+            'task_packet_id' => 't2', 'pattern_family' => 'fam', 'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_DELIVERED, 'impact' => AtlasExternalBrainOutcomeLearner::IMPACT_LOW,
+        ]]);
+
+        $poisonDelta = $rPoison['priority_adjustments'][0]['delta'];
+        $lowDelta = $rLowDelivered['priority_adjustments'][0]['delta'];
+
+        $this->assertLessThan($lowDelta, $poisonDelta, 'poison must reduce score more than low-impact delivered increases it');
+    }
+
+    public function test_proxy_reduces_score_more_than_low_impact_delivered_increases(): void
+    {
+        $rProxy = $this->learner->learn([[
+            'task_packet_id' => 't1', 'pattern_family' => 'fam', 'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_PROXY,
+        ]]);
+        $rLowDelivered = $this->learner->learn([[
+            'task_packet_id' => 't2', 'pattern_family' => 'fam', 'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_DELIVERED, 'impact' => AtlasExternalBrainOutcomeLearner::IMPACT_LOW,
+        ]]);
+
+        $proxyDelta = $rProxy['priority_adjustments'][0]['delta'];
+        $lowDelta = $rLowDelivered['priority_adjustments'][0]['delta'];
+
+        $this->assertLessThan($lowDelta, $proxyDelta, 'proxy must reduce score more than low-impact delivered increases it');
+    }
+
+    // ── AC: repeated give_back on the same family compounds negative learning and emits avoid_family guidance ──
+
+    public function test_repeated_give_back_compounds_negative_learning(): void
+    {
+        $r1 = $this->learner->learn([[
+            'task_packet_id' => 't1', 'pattern_family' => 'fam', 'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_GIVE_BACK, 'give_back_count' => 1,
+        ]]);
+        $r3 = $this->learner->learn([[
+            'task_packet_id' => 't1', 'pattern_family' => 'fam', 'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_GIVE_BACK, 'give_back_count' => 3,
+        ]]);
+
+        $delta1 = $r1['priority_adjustments'][0]['delta'];
+        $delta3 = $r3['priority_adjustments'][0]['delta'];
+
+        $this->assertLessThan($delta1, $delta3, 'repeated give_back must compound negative learning');
+    }
+
+    public function test_repeated_give_back_emits_avoid_family_guidance(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'bad_family', 'give_back_count' => 3],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'bad_family', 'give_back_count' => 3],
+        ]);
+
+        $rec = $this->findByKey($r['recommendations'], 'task_family', 'bad_family');
+        $this->assertSame('avoid', $rec['action']);
+    }
+
+    // ── AC: high-impact delivered outcomes still produce positive learning only when evidence is concrete ──
+
+    public function test_high_impact_delivered_with_value_proof_produces_positive_learning(): void
+    {
+        $r = $this->learner->learn([[
+            'task_packet_id' => 't1', 'pattern_family' => 'fam', 'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_DELIVERED, 'impact' => AtlasExternalBrainOutcomeLearner::IMPACT_HIGH, 'value_proof' => true,
+        ]]);
+
+        $this->assertGreaterThan(0, $r['priority_adjustments'][0]['delta']);
+        $this->assertContains('fam', $r['promoted']);
+    }
+
+    public function test_high_impact_delivered_without_value_proof_does_not_promote_alone(): void
+    {
+        $r = $this->learner->learn([[
+            'task_packet_id' => 't1', 'pattern_family' => 'fam', 'outcome' => AtlasExternalBrainOutcomeLearner::OUTCOME_DELIVERED, 'impact' => AtlasExternalBrainOutcomeLearner::IMPACT_HIGH,
+        ]]);
+
+        // Delta is still positive but confidence is low → not promoted
+        $this->assertGreaterThan(0, $r['priority_adjustments'][0]['delta']);
+        $this->assertNotContains('fam', $r['promoted']);
+    }
 }
