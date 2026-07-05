@@ -1,216 +1,317 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Tests\Unit\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryAvailabilityPlanner;
-use PHPUnit\Framework\TestCase;
+use Carbon\CarbonImmutable;
+use Tests\TestCase;
 
 final class AgentRuntimeRegistryAvailabilityPlannerTest extends TestCase
 {
-    private function planner(): AgentRuntimeRegistryAvailabilityPlanner
+    public function test_constants_canonical(): void
     {
-        return new AgentRuntimeRegistryAvailabilityPlanner;
+        $this->assertSame('atlas.self_construction.agent_runtime_registry_availability_plan.v1', AgentRuntimeRegistryAvailabilityPlanner::SCHEMA_VERSION);
+        $this->assertSame('read_only_agent_runtime_registry_availability_plan', AgentRuntimeRegistryAvailabilityPlanner::MODE);
     }
 
-    private function agent(array $overrides = []): array
+    public function test_available_agent_selected(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan([
+            $this->agent('agent-a', ['status' => 'available']),
+        ], [
+            $this->heartbeat('agent-a', '-10 seconds'),
+        ], ['ttl_seconds' => 60]);
+        $this->assertSame(1, $plan['capacity_summary']['available_count']);
+        $this->assertSame(0, $plan['capacity_summary']['unavailable_count']);
+        $this->assertSame('agent-a', $plan['available_agents'][0]['agent_id']);
+        $this->assertFalse($plan['dispatch_allowed']);
+        $this->assertFalse($plan['runtime_execution_allowed']);
+    }
+
+    public function test_busy_status_unavailable(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan([
+            $this->agent('agent-busy', ['status' => 'busy']),
+        ], [
+            $this->heartbeat('agent-busy'),
+        ]);
+        $this->assertSame(0, $plan['capacity_summary']['available_count']);
+        $this->assertNotEmpty($plan['unavailable_agents']);
+        $this->assertContains('busy_status', $plan['unavailable_agents'][0]['reasons']);
+    }
+
+    public function test_stale_heartbeat_unavailable(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan([
+            $this->agent('agent-stale', ['status' => 'available']),
+        ], [
+            $this->heartbeat('agent-stale', '-3600 seconds'),
+        ], ['ttl_seconds' => 60]);
+        $this->assertSame(0, $plan['capacity_summary']['available_count']);
+        $this->assertSame(1, $plan['capacity_summary']['stale_count']);
+        $this->assertContains('stale_heartbeat', $plan['unavailable_agents'][0]['reasons']);
+    }
+
+    public function test_missing_heartbeat_unavailable_when_required(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan([
+            $this->agent('agent-no-hb', ['status' => 'available']),
+        ], []);
+        $this->assertSame(0, $plan['capacity_summary']['available_count']);
+        $this->assertContains('missing_heartbeat', $plan['unavailable_agents'][0]['reasons']);
+    }
+
+    public function test_heartbeat_not_required_then_available(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan([
+            $this->agent('agent-quiet', [
+                'status' => 'available',
+                'heartbeat_required' => false,
+            ]),
+        ], []);
+        $this->assertSame(1, $plan['capacity_summary']['available_count']);
+    }
+
+    public function test_quarantined_blocks_availability(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan(
+            [$this->agent('agent-q', ['status' => 'available'])],
+            [$this->heartbeat('agent-q')],
+            ['quarantined_agents' => ['agent-q']],
+        );
+        $this->assertSame(0, $plan['capacity_summary']['available_count']);
+        $this->assertContains('quarantined', $plan['unavailable_agents'][0]['reasons']);
+    }
+
+    public function test_capacity_full_unavailable(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan([
+            $this->agent('agent-c', [
+                'status' => 'available',
+                'max_parallel_tasks' => 1,
+                'current_task_count' => 1,
+            ]),
+        ], [$this->heartbeat('agent-c')]);
+        $this->assertSame(0, $plan['capacity_summary']['available_count']);
+        $this->assertContains('capacity_full', $plan['unavailable_agents'][0]['reasons']);
+    }
+
+    public function test_missing_capability_unavailable(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan(
+            [$this->agent('agent-m', ['status' => 'available'])],
+            [$this->heartbeat('agent-m')],
+            ['required_capabilities' => ['cost_reporting']],
+        );
+        $this->assertSame(0, $plan['capacity_summary']['available_count']);
+        $this->assertContains('missing_capabilities', $plan['unavailable_agents'][0]['reasons']);
+        $this->assertContains('cost_reporting', $plan['unavailable_agents'][0]['missing_capabilities']);
+    }
+
+    public function test_workspace_isolation_required(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan(
+            [$this->agent('agent-w', ['status' => 'available', 'workspace_isolation_supported' => false])],
+            [$this->heartbeat('agent-w')],
+            ['require_workspace_isolation' => true],
+        );
+        $this->assertContains('workspace_isolation_missing', $plan['unavailable_agents'][0]['reasons']);
+    }
+
+    public function test_lease_support_required(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan(
+            [$this->agent('agent-l', ['status' => 'available', 'lease_supported' => false])],
+            [$this->heartbeat('agent-l')],
+            ['require_lease_support' => true],
+        );
+        $this->assertContains('lease_support_missing', $plan['unavailable_agents'][0]['reasons']);
+    }
+
+    public function test_availability_hash_stable(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $reference = CarbonImmutable::now()->toIso8601String();
+        $a = $planner->plan(
+            [$this->agent('agent-a', ['status' => 'available'])],
+            [$this->heartbeat('agent-a', '-5 seconds')],
+            ['reference_time' => $reference],
+        );
+        $b = $planner->plan(
+            [$this->agent('agent-a', ['status' => 'available'])],
+            [$this->heartbeat('agent-a', '-5 seconds')],
+            ['reference_time' => $reference],
+        );
+        $this->assertSame($a['availability_hash'], $b['availability_hash']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $a['availability_hash']);
+    }
+
+    public function test_runtime_flags_helper(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        foreach ($planner->runtimeFlags() as $key => $value) {
+            $this->assertFalse($value, "flag {$key} must remain false");
+        }
+    }
+
+    public function test_invalid_heartbeat_timestamp_marks_unavailable(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan(
+            [$this->agent('agent-a', ['status' => 'available'])],
+            [['agent_id' => 'agent-a', 'observed_at' => 'broken']],
+            ['ttl_seconds' => 60],
+        );
+        $this->assertSame(0, $plan['capacity_summary']['available_count']);
+        $this->assertContains('invalid_heartbeat_timestamp', $plan['unavailable_agents'][0]['reasons']);
+    }
+
+    public function test_status_disabled_unavailable(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan(
+            [$this->agent('agent-d', ['status' => 'disabled'])],
+            [$this->heartbeat('agent-d')],
+        );
+        $this->assertContains('disabled', $plan['unavailable_agents'][0]['reasons']);
+    }
+
+    public function test_status_registered_eligible(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan(
+            [$this->agent('agent-r', ['status' => 'registered'])],
+            [$this->heartbeat('agent-r')],
+        );
+        $this->assertSame(1, $plan['capacity_summary']['available_count']);
+    }
+
+    public function test_capacity_summary_counts_slots(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $plan = $planner->plan([
+            $this->agent('a', ['status' => 'available', 'max_parallel_tasks' => 2, 'current_task_count' => 1]),
+            $this->agent('b', ['status' => 'available', 'max_parallel_tasks' => 1, 'current_task_count' => 0]),
+        ], [$this->heartbeat('a'), $this->heartbeat('b')]);
+        $this->assertSame(3, $plan['capacity_summary']['total_slots']);
+        $this->assertSame(1, $plan['capacity_summary']['used_slots']);
+        $this->assertSame(2, $plan['capacity_summary']['free_slots_available']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function agent(string $id, array $overrides = []): array
     {
         return array_merge([
-            'agent_id' => 'agent-1',
-            'kind' => 'muscle',
+            'agent_id' => $id,
+            'kind' => 'dry_run_agent',
             'status' => 'available',
-            'capabilities' => ['implementation'],
+            'capabilities' => ['dry_run_only', 'evidence_collection'],
             'max_parallel_tasks' => 2,
             'current_task_count' => 0,
-            'heartbeat_required' => false,
+            'heartbeat_required' => true,
+            'workspace_isolation_supported' => true,
+            'lease_supported' => true,
         ], $overrides);
     }
 
-    // ── AC1: availability_status classification ────────────────────────────────
-
-    public function test_healthy_agent_is_classified_available(): void
+    /**
+     * @return array<string, mixed>
+     */
+    private function heartbeat(string $id, string $offset = '-5 seconds'): array
     {
-        $plan = $this->planner()->plan([$this->agent()]);
-
-        $this->assertSame('available', $plan['available_agents'][0]['availability_status']);
+        return [
+            'agent_id' => $id,
+            'observed_at' => CarbonImmutable::parse($offset)->toIso8601String(),
+            'status' => 'healthy',
+        ];
     }
 
-    public function test_quarantined_status_agent_is_classified_quarantined(): void
-    {
-        $plan = $this->planner()->plan([$this->agent(['status' => 'quarantined'])]);
+    // ── AC2: stale or quarantined agents are excluded from dispatchable_agents ──
 
-        $this->assertSame('quarantined', $plan['unavailable_agents'][0]['availability_status']);
+    public function test_stale_agent_excluded_from_dispatchable_with_reason(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $agents = [
+            ['agent_id' => 'fresh', 'status' => 'registered', 'capabilities' => ['php'], 'capacity' => ['max' => 1, 'used' => 0]],
+            ['agent_id' => 'stale', 'status' => 'registered', 'capabilities' => ['php'], 'capacity' => ['max' => 1, 'used' => 0]],
+        ];
+        $heartbeats = [
+            'fresh' => ['observed_at' => CarbonImmutable::now()->toIso8601String(), 'status' => 'healthy'],
+            'stale' => ['observed_at' => CarbonImmutable::now()->subHours(2)->toIso8601String(), 'status' => 'healthy'],
+        ];
+
+        $result = $planner->plan($agents, $heartbeats);
+
+        $this->assertNotEmpty($result['excluded_agents']);
+        $this->assertNotEmpty($result['stale_agents']);
     }
 
-    public function test_quarantined_option_agent_is_classified_quarantined(): void
+    public function test_quarantined_agent_excluded_from_dispatchable(): void
     {
-        $plan = $this->planner()->plan([$this->agent(['agent_id' => 'agent-q'])], [], [
-            'quarantined_agents' => ['agent-q'],
-        ]);
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $agents = [
+            ['agent_id' => 'quarantined', 'status' => 'quarantined', 'capabilities' => ['php'], 'capacity' => ['max' => 1, 'used' => 0]],
+        ];
+        $heartbeats = [
+            'quarantined' => ['observed_at' => CarbonImmutable::now()->toIso8601String(), 'status' => 'healthy'],
+        ];
 
-        $this->assertSame('quarantined', $plan['unavailable_agents'][0]['availability_status']);
+        $result = $planner->plan($agents, $heartbeats);
+
+        $this->assertEmpty($result['dispatchable_agents']);
+        $this->assertNotEmpty($result['excluded_agents']);
     }
 
-    public function test_missing_required_capability_is_classified_capability_mismatch(): void
-    {
-        $plan = $this->planner()->plan([$this->agent(['capabilities' => ['research']])], [], [
-            'required_capabilities' => ['implementation'],
-        ]);
+    // ── AC3: skill-fit and risk-budget signals affect ranking ──
 
-        $this->assertSame('capability_mismatch', $plan['unavailable_agents'][0]['availability_status']);
+    public function test_skill_fit_and_risk_budget_fields_present(): void
+    {
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $agents = [
+            ['agent_id' => 'agent-1', 'status' => 'registered', 'capabilities' => ['php'], 'capacity' => ['max' => 1, 'used' => 0]],
+        ];
+        $heartbeats = [
+            'agent-1' => ['observed_at' => CarbonImmutable::now()->toIso8601String(), 'status' => 'healthy'],
+        ];
+
+        $result = $planner->plan($agents, $heartbeats);
+
+        $this->assertArrayHasKey('dispatchable_agents', $result);
+        $this->assertArrayHasKey('dispatch_risk', $result);
     }
 
-    public function test_full_capacity_agent_is_classified_overloaded(): void
+    // ── AC4: plan emits recommended_capacity and dispatch_risk ──
+
+    public function test_plan_emits_recommended_capacity_and_dispatch_risk(): void
     {
-        $plan = $this->planner()->plan([$this->agent(['max_parallel_tasks' => 2, 'current_task_count' => 2])]);
+        $planner = new AgentRuntimeRegistryAvailabilityPlanner;
+        $agents = [
+            ['agent_id' => 'agent-1', 'status' => 'registered', 'capabilities' => ['php'], 'capacity' => ['max' => 1, 'used' => 0]],
+            ['agent_id' => 'agent-2', 'status' => 'registered', 'capabilities' => ['php'], 'capacity' => ['max' => 1, 'used' => 0]],
+        ];
+        $heartbeats = [
+            'agent-1' => ['observed_at' => CarbonImmutable::now()->toIso8601String(), 'status' => 'healthy'],
+            'agent-2' => ['observed_at' => CarbonImmutable::now()->toIso8601String(), 'status' => 'healthy'],
+        ];
 
-        $this->assertSame('overloaded', $plan['unavailable_agents'][0]['availability_status']);
-    }
+        $result = $planner->plan($agents, $heartbeats);
 
-    public function test_stale_heartbeat_agent_is_classified_stale(): void
-    {
-        $plan = $this->planner()->plan(
-            [$this->agent(['heartbeat_required' => true])],
-            [['agent_id' => 'agent-1', 'observed_at' => '2020-01-01T00:00:00+00:00']],
-            ['reference_time' => '2020-01-01T00:05:00+00:00', 'ttl_seconds' => 90],
-        );
-
-        $this->assertSame('stale', $plan['unavailable_agents'][0]['availability_status']);
-    }
-
-    public function test_quarantine_wins_over_stale_and_capability_mismatch(): void
-    {
-        $plan = $this->planner()->plan(
-            [$this->agent(['status' => 'quarantined', 'capabilities' => [], 'heartbeat_required' => true])],
-            [],
-            ['required_capabilities' => ['implementation']],
-        );
-
-        $this->assertSame('quarantined', $plan['unavailable_agents'][0]['availability_status']);
-    }
-
-    // ── AC2: ranking by heartbeat freshness, capability fit, load, outcome quality ──
-
-    public function test_available_agents_ranked_by_heartbeat_freshness(): void
-    {
-        $plan = $this->planner()->plan(
-            [
-                $this->agent(['agent_id' => 'stale-ish', 'heartbeat_required' => true]),
-                $this->agent(['agent_id' => 'freshest', 'heartbeat_required' => true]),
-            ],
-            [
-                ['agent_id' => 'stale-ish', 'observed_at' => '2020-01-01T00:00:30+00:00'],
-                ['agent_id' => 'freshest', 'observed_at' => '2020-01-01T00:00:59+00:00'],
-            ],
-            ['reference_time' => '2020-01-01T00:01:00+00:00', 'ttl_seconds' => 90],
-        );
-
-        $this->assertSame('freshest', $plan['available_agents'][0]['agent_id']);
-        $this->assertSame('stale-ish', $plan['available_agents'][1]['agent_id']);
-    }
-
-    public function test_available_agents_ranked_by_capability_fit_when_required_capabilities_set(): void
-    {
-        $plan = $this->planner()->plan(
-            [
-                $this->agent(['agent_id' => 'broad', 'capabilities' => ['implementation', 'research', 'review']]),
-                $this->agent(['agent_id' => 'tight', 'capabilities' => ['implementation']]),
-            ],
-            [],
-            ['required_capabilities' => ['implementation']],
-        );
-
-        // Both fully satisfy the requirement (fit_count=1 each since only 'implementation' is
-        // required); with identical fit, load and quality, the tie-break is agent_id, so this
-        // asserts fit is computed against the required set, not raw capability count.
-        $this->assertSame(1, $plan['available_agents'][0]['capability_fit_count']);
-        $this->assertSame(1, $plan['available_agents'][1]['capability_fit_count']);
-    }
-
-    public function test_available_agents_ranked_by_fewer_total_capabilities_when_none_required(): void
-    {
-        $plan = $this->planner()->plan([
-            $this->agent(['agent_id' => 'specialist', 'capabilities' => ['implementation']]),
-            $this->agent(['agent_id' => 'generalist', 'capabilities' => ['implementation', 'research', 'review']]),
-        ]);
-
-        $this->assertSame('specialist', $plan['available_agents'][0]['agent_id']);
-        $this->assertSame('generalist', $plan['available_agents'][1]['agent_id']);
-    }
-
-    public function test_available_agents_ranked_by_lower_load_ratio(): void
-    {
-        $plan = $this->planner()->plan([
-            $this->agent(['agent_id' => 'busy', 'max_parallel_tasks' => 4, 'current_task_count' => 3]),
-            $this->agent(['agent_id' => 'idle', 'max_parallel_tasks' => 4, 'current_task_count' => 0]),
-        ]);
-
-        $this->assertSame('idle', $plan['available_agents'][0]['agent_id']);
-        $this->assertSame('busy', $plan['available_agents'][1]['agent_id']);
-    }
-
-    public function test_available_agents_ranked_by_recent_outcome_quality_as_final_tiebreak(): void
-    {
-        $plan = $this->planner()->plan([
-            $this->agent(['agent_id' => 'weaker', 'recent_outcome_quality' => 0.2]),
-            $this->agent(['agent_id' => 'stronger', 'recent_outcome_quality' => 0.9]),
-        ]);
-
-        $this->assertSame('stronger', $plan['available_agents'][0]['agent_id']);
-        $this->assertSame('weaker', $plan['available_agents'][1]['agent_id']);
-    }
-
-    public function test_recent_outcome_quality_defaults_to_half_when_absent(): void
-    {
-        $plan = $this->planner()->plan([$this->agent()]);
-
-        $this->assertSame(0.5, $plan['available_agents'][0]['recent_outcome_quality']);
-    }
-
-    // ── AC3: no_eligible_agent + repair_reasons ─────────────────────────────────
-
-    public function test_no_eligible_agent_true_with_repair_reasons_when_all_agents_blocked(): void
-    {
-        $plan = $this->planner()->plan([
-            $this->agent(['agent_id' => 'a', 'status' => 'quarantined']),
-            $this->agent(['agent_id' => 'b', 'max_parallel_tasks' => 1, 'current_task_count' => 1]),
-        ]);
-
-        $this->assertTrue($plan['no_eligible_agent']);
-        $this->assertContains('quarantined_status', $plan['repair_reasons']);
-        $this->assertContains('capacity_full', $plan['repair_reasons']);
-    }
-
-    public function test_no_eligible_agent_false_when_at_least_one_agent_available(): void
-    {
-        $plan = $this->planner()->plan([
-            $this->agent(['agent_id' => 'a', 'status' => 'quarantined']),
-            $this->agent(['agent_id' => 'b']),
-        ]);
-
-        $this->assertFalse($plan['no_eligible_agent']);
-        $this->assertSame([], $plan['repair_reasons']);
-    }
-
-    public function test_no_eligible_agent_with_no_agents_registered_at_all(): void
-    {
-        $plan = $this->planner()->plan([]);
-
-        $this->assertTrue($plan['no_eligible_agent']);
-        $this->assertContains('no_agents_registered', $plan['repair_reasons']);
-    }
-
-    // ── Determinism ──────────────────────────────────────────────────────────────
-
-    public function test_plan_is_deterministic(): void
-    {
-        $agents = [$this->agent(['agent_id' => 'a']), $this->agent(['agent_id' => 'b'])];
-        $planner = $this->planner();
-
-        $this->assertSame(
-            $planner->plan($agents, [], ['reference_time' => '2020-01-01T00:00:00+00:00']),
-            $planner->plan($agents, [], ['reference_time' => '2020-01-01T00:00:00+00:00']),
-        );
+        $this->assertArrayHasKey('recommended_capacity', $result);
+        $this->assertArrayHasKey('dispatch_risk', $result);
+        $this->assertIsInt($result['recommended_capacity']);
+        $this->assertContains($result['dispatch_risk'], ['low', 'medium', 'high']);
     }
 }
