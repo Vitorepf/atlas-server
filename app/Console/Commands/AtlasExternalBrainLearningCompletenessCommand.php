@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierOutcomeReplayRouter;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainClosedLoopLearningCompletenessVerifier;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCompoundingOutcomeRouter;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLearningRetentionRunner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainWorkerFeedbackInbox;
 use Illuminate\Console\Command;
 
@@ -58,6 +59,7 @@ final class AtlasExternalBrainLearningCompletenessCommand extends Command
         $cycles = is_array($decoded['cycles'] ?? null) ? $decoded['cycles'] : [];
         $workerNotes = is_array($decoded['worker_notes'] ?? null) ? $decoded['worker_notes'] : [];
         $outcomes = is_array($decoded['outcomes'] ?? null) ? $decoded['outcomes'] : [];
+        $learningRecords = is_array($decoded['learning_records'] ?? null) ? $decoded['learning_records'] : [];
 
         $completeness = $completenessVerifier->verify(['cycles' => $cycles]);
         $feedback = $feedbackInbox->ingest($workerNotes);
@@ -75,12 +77,17 @@ final class AtlasExternalBrainLearningCompletenessCommand extends Command
         // pass over scaffold/model-tier sinks), so it is called once with the full list.
         $amplifierOutcomeRoutes = $amplifierOutcomeRouter->route(['task_outcomes' => $outcomes]);
 
+        $retention = (new AtlasExternalBrainLearningRetentionRunner)->run([
+            'lessons' => $learningRecords,
+        ]);
+
         $payload = [
             'schema' => self::SCHEMA,
             'cycle_completeness' => $completeness,
             'worker_feedback' => $feedback,
             'compounding_routes' => $compoundingRoutes,
             'amplifier_outcome_routes' => $amplifierOutcomeRoutes,
+            'learning_retention' => $retention,
             'complete' => $completeness['complete'],
             'missing_links' => $completeness['missing_links'],
             'next_repair_task_hint' => $completeness['next_repair_task_hint'],
