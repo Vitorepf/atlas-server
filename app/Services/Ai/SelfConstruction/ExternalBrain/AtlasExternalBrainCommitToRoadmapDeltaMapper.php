@@ -96,7 +96,7 @@ final class AtlasExternalBrainCommitToRoadmapDeltaMapper
             $capabilityFamily = trim((string) ($commit['capability_family'] ?? '')) ?: 'unclassified';
 
             $nonTestFiles = array_values(array_diff($touchedFiles, $testFiles));
-            $isTestOnly   = $touchedFiles !== [] && $nonTestFiles === [];
+            $isTestOnly   = $nonTestFiles === [];
 
             $beforeRank = self::MATURITY_ORDER[$before] ?? 0;
             $afterRank  = self::MATURITY_ORDER[$afterClaimed] ?? $beforeRank;
