@@ -226,4 +226,94 @@ final class AtlasProjectLaneCrossProjectLeakDetectorTest extends TestCase
         $this->assertFalse($r['passed'], 'traversal path must be detected as a leak');
         $this->assertContains('allowed_files_escape_lane', $r['blockers']);
     }
+
+    // ── AC: cross-project queue namespace, write-root and evidence leaks are detected with kind and fact ──
+
+    public function test_queue_namespace_leak_detected_with_kind_and_fact(): void
+    {
+        $lanes = [
+            'a' => ['project_id' => 'a', 'namespace' => 'ns-a', 'allowed_scope_roots' => ['/a'],
+                    'queue_namespace' => 'shared-q'],
+            'b' => ['project_id' => 'b', 'namespace' => 'ns-b', 'allowed_scope_roots' => ['/b'],
+                    'queue_namespace' => 'shared-q'],
+        ];
+
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($lanes, []);
+
+        $this->assertFalse($r['passed']);
+        $leak = array_filter($r['leaks'], fn ($l) => $l['kind'] === 'queue_namespace_shared');
+        $this->assertNotEmpty($leak);
+        $firstLeak = array_values($leak)[0];
+        $this->assertArrayHasKey('kind', $firstLeak);
+        $this->assertArrayHasKey('fact', $firstLeak);
+        $this->assertSame('queue_namespace_shared', $firstLeak['kind']);
+    }
+
+    public function test_write_root_leak_detected_with_kind_and_fact(): void
+    {
+        $inspected = [
+            'packets' => [
+                ['project_id' => 'lane-a', 'task_packet_id' => 'lane.lane-a.aaaaaaaa.main:p1',
+                 'allowed_files' => ['/repo/lane-b/app/secret.php']],
+            ],
+        ];
+
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($this->lanes(), $inspected);
+
+        $this->assertFalse($r['passed']);
+        $leak = array_filter($r['leaks'], fn ($l) => $l['kind'] === 'allowed_files_escape_lane');
+        $this->assertNotEmpty($leak);
+        $firstLeak = array_values($leak)[0];
+        $this->assertArrayHasKey('kind', $firstLeak);
+        $this->assertArrayHasKey('fact', $firstLeak);
+        $this->assertSame('/repo/lane-b/app/secret.php', $firstLeak['fact']['path']);
+    }
+
+    public function test_evidence_leak_detected_with_kind_and_fact(): void
+    {
+        $lanes = [
+            'a' => ['project_id' => 'a', 'namespace' => 'ns-a', 'allowed_scope_roots' => ['/a'],
+                    'evidence_ledger_path' => '/shared/ledger'],
+            'b' => ['project_id' => 'b', 'namespace' => 'ns-b', 'allowed_scope_roots' => ['/b'],
+                    'evidence_ledger_path' => '/shared/ledger'],
+        ];
+
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($lanes, []);
+
+        $this->assertFalse($r['passed']);
+        $leak = array_filter($r['leaks'], fn ($l) => $l['kind'] === 'evidence_ledger_path_shared');
+        $this->assertNotEmpty($leak);
+        $firstLeak = array_values($leak)[0];
+        $this->assertArrayHasKey('kind', $firstLeak);
+        $this->assertArrayHasKey('fact', $firstLeak);
+    }
+
+    // ── AC: samples are capped at MAX_SAMPLES but still report aggregate leak counts ──
+
+    public function test_samples_capped_at_max_samples_with_aggregate_count(): void
+    {
+        $packets = [];
+        for ($i = 0; $i < 200; $i++) {
+            $packets[] = ['project_id' => 'phantom', 'task_packet_id' => 'x'.$i, 'allowed_files' => []];
+        }
+
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($this->lanes(), ['packets' => $packets]);
+
+        $this->assertLessThanOrEqual(AtlasProjectLaneCrossProjectLeakDetector::MAX_SAMPLES, count($r['leaks']));
+        $this->assertSame(200, $r['proof_summary']['leak_count']);
+    }
+
+    // ── AC: no-leak inputs return leak_detected=false ──
+
+    public function test_no_leak_inputs_return_leak_detected_false(): void
+    {
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($this->lanes(), [
+            'packets' => [
+                ['project_id' => 'lane-a', 'task_packet_id' => 'lane.lane-a.aaaaaaaa.main:p1', 'allowed_files' => ['/repo/lane-a/app/foo.php']],
+            ],
+        ]);
+
+        $this->assertTrue($r['passed']);
+        $this->assertSame('clean', $r['status']);
+    }
 }
