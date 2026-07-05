@@ -421,4 +421,41 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifierTest extends
 
         $this->assertTrue($result['complete']);
     }
+
+    // ── AC4: cycle receipts expose missing_links and decision_chain ──────────
+
+    public function test_cycle_receipt_exposes_decision_chain(): void
+    {
+        $result = $this->verifier->verify($this->input($this->completeCycle()));
+
+        $this->assertArrayHasKey('decision_chain', $result['cycle_receipts'][0]);
+        $this->assertIsArray($result['cycle_receipts'][0]['decision_chain']);
+        $this->assertArrayHasKey('outcome_type', $result['cycle_receipts'][0]['decision_chain']);
+        $this->assertArrayHasKey('learning_pattern_family', $result['cycle_receipts'][0]['decision_chain']);
+        $this->assertArrayHasKey('constraint_influences', $result['cycle_receipts'][0]['decision_chain']);
+    }
+
+    public function test_cycle_receipt_exposes_missing_links_when_incomplete(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['next_batch_constraint' => null])
+        ));
+
+        $this->assertArrayHasKey('missing_links', $result['cycle_receipts'][0]);
+        $this->assertNotEmpty($result['cycle_receipts'][0]['missing_links']);
+        $this->assertContains(
+            AtlasExternalBrainClosedLoopLearningCompletenessVerifier::LINK_NEXT_BATCH_CONSTRAINT,
+            $result['cycle_receipts'][0]['missing_links'],
+        );
+    }
+
+    public function test_next_repair_task_hint_is_concrete_when_constraint_missing(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['next_batch_constraint' => null])
+        ));
+
+        $this->assertNotNull($result['next_repair_task_hint']);
+        $this->assertSame('derive_next_batch_constraint_from_learning_update', $result['next_repair_task_hint']);
+    }
 }
