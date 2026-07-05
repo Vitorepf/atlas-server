@@ -31,7 +31,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Extended input (all optional):
  *   quality_metrics — {
  *     baseline:   {valid_seed_rate, accepted_by_gate_rate, later_green_rate, give_back_rate, proxy_rate, average_cost},
- *     scaffolded: {same keys},
+ *     scaffolded: {same keys, plus success_rate, evidence_quality, average_latency, impact_score},
+ *     frontier:   {success_rate, evidence_quality, average_cost, average_latency, give_back_rate, impact_score, proxy_rate},
  *     sample_count: int,
  *   }
  *
@@ -39,6 +40,21 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   baseline_vs_scaffolded — {verdict, trial_passes, lift, cost_delta, proxy_rate_delta, give_back_delta}
  *     verdict: lift | no_lift | cheaper_but_worse | low_sample | no_data
  *     trial_passes: false when cheaper_but_worse or low_sample
+ *
+ *   scaffolded_vs_frontier — compares small-model scaffolded runs against
+ *   frontier runs on success, evidence_quality, cost, latency, give_back_rate
+ *   and impact_score. Declares small_model_ready when scaffolded output
+ *   reaches the quality floor without hidden proxy or poison signals.
+ *   Declares frontier_preferred when the frontier advantage exceeds
+ *   cost-adjusted thresholds.
+ *     verdict: frontier_preferred | small_model_ready | parity | low_sample | no_data
+ *     trial_passes: true when small_model_ready and not frontier_preferred
+ *     small_model_ready: bool
+ *     frontier_preferred: bool
+ *     success_delta, evidence_quality_delta, cost_delta, latency_delta,
+ *       give_back_delta, impact_delta — scaffolded minus frontier
+ *     frontier_advantage — avg frontier edge on success/evidence/impact
+ *     cost_adjusted_threshold — bar raised by cost ratio
  *
  * Pure, no providers, no I/O.
  */
@@ -53,6 +69,16 @@ final class AtlasExternalBrainAmplifierEndToEndTrial
     private const MIN_QUALITY_LIFT          = 0.05;
     private const PROXY_WORSE_THRESHOLD     = 0.05;
     private const GIVE_BACK_WORSE_THRESHOLD = 0.05;
+
+    // scaffolded_vs_frontier thresholds.
+    private const FRONTIER_MIN_ADVANTAGE      = 0.05;  // avg edge on success/evidence/impact
+    private const FRONTIER_COST_RATIO_FLOOR   = 0.50;  // scaffolded must be at most half the frontier cost to offset
+    private const FRONTIER_LATENCY_WORSE      = 0.10;  // scaffolded latency worse by >0.10 of frontier
+    private const FRONTIER_GIVE_BACK_WORSE    = 0.05;  // scaffolded give_back worse by >0.05
+    private const FRONTIER_PROXY_POISON       = 0.05;  // scaffolded proxy_rate above this is a poison signal
+    private const SMALL_MODEL_SUCCESS_FLOOR   = 0.75;  // scaffolded success_rate floor for small_model_ready
+    private const SMALL_MODEL_EVIDENCE_FLOOR = 0.70;  // scaffolded evidence_quality floor
+    private const SMALL_MODEL_IMPACT_FLOOR    = 0.60;  // scaffolded impact_score floor
 
     /**
      * @param  array<string,mixed>  $facts
@@ -129,6 +155,11 @@ final class AtlasExternalBrainAmplifierEndToEndTrial
                 is_array($qm['scaffolded'] ?? null) ? $qm['scaffolded'] : [],
                 (int) ($qm['sample_count'] ?? 0),
             ),
+            'scaffolded_vs_frontier' => $this->computeScaffoldedVsFrontier(
+                is_array($qm['scaffolded'] ?? null) ? $qm['scaffolded'] : [],
+                is_array($qm['frontier']   ?? null) ? $qm['frontier']   : [],
+                (int) ($qm['sample_count'] ?? 0),
+            ),
         ];
     }
 
@@ -185,6 +216,139 @@ final class AtlasExternalBrainAmplifierEndToEndTrial
         $verdict = $compositeScore >= self::MIN_QUALITY_LIFT ? 'lift' : 'no_lift';
 
         return array_merge($result, ['verdict' => $verdict, 'trial_passes' => $verdict === 'lift']);
+    }
+
+    /**
+     * Compare small-model scaffolded runs against frontier runs on success,
+     * evidence_quality, cost, latency, give_back_rate and impact_score.
+     *
+     * @param  array<string,mixed>  $scaffolded
+     * @param  array<string,mixed>  $frontier
+     * @return array<string,mixed>
+     */
+    private function computeScaffoldedVsFrontier(array $scaffolded, array $frontier, int $sampleCount): array
+    {
+        if ($scaffolded === [] || $frontier === []) {
+            return [
+                'verdict'             => 'no_data',
+                'trial_passes'        => false,
+                'small_model_ready'   => false,
+                'frontier_preferred' => false,
+            ];
+        }
+
+        if ($sampleCount > 0 && $sampleCount < self::MIN_SAMPLE_COUNT) {
+            return [
+                'verdict'             => 'low_sample',
+                'trial_passes'        => false,
+                'small_model_ready'   => false,
+                'frontier_preferred' => false,
+                'sample_count'        => $sampleCount,
+            ];
+        }
+
+        // Deltas: scaffolded minus frontier. Positive on success/evidence/impact
+        // means scaffolded is better; positive on cost/latency/give_back means
+        // scaffolded is worse.
+        $successDelta   = $this->delta($scaffolded, $frontier, 'success_rate');
+        $evidenceDelta  = $this->delta($scaffolded, $frontier, 'evidence_quality');
+        $impactDelta    = $this->delta($scaffolded, $frontier, 'impact_score');
+        $costDelta      = $this->delta($scaffolded, $frontier, 'average_cost');
+        $latencyDelta   = $this->delta($scaffolded, $frontier, 'average_latency');
+        $giveBackDelta  = $this->delta($scaffolded, $frontier, 'give_back_rate');
+
+        // Frontier advantage: average of how much frontier beats scaffolded on
+        // the three positive dimensions (success, evidence, impact).
+        $frontierAdvantage = 0.0;
+        $advComponents      = 0;
+        foreach ([$successDelta, $evidenceDelta, $impactDelta] as $d) {
+            if ($d !== null) {
+                $frontierAdvantage += -$d; // negative delta = frontier better
+                $advComponents++;
+            }
+        }
+        $frontierAdvantage = $advComponents > 0 ? $frontierAdvantage / $advComponents : 0.0;
+
+        // Cost-adjusted threshold: if scaffolded is meaningfully cheaper, the
+        // frontier advantage bar rises proportionally (frontier must be better
+        // by more to justify the extra cost).
+        $costRatio = null;
+        if (isset($scaffolded['average_cost'], $frontier['average_cost'])) {
+            $frontCost = (float) $frontier['average_cost'];
+            if ($frontCost > 0.0) {
+                $costRatio = (float) $scaffolded['average_cost'] / $frontCost;
+            }
+        }
+        $costAdjustedThreshold = self::FRONTIER_MIN_ADVANTAGE;
+        if ($costRatio !== null && $costRatio < self::FRONTIER_COST_RATIO_FLOOR) {
+            // Scaffolded is much cheaper — raise the bar for frontier.
+            $costAdjustedThreshold = self::FRONTIER_MIN_ADVANTAGE + (self::FRONTIER_COST_RATIO_FLOOR - $costRatio);
+        }
+
+        // Poison signals on scaffolded: proxy_rate above threshold.
+        $scaffoldedProxy = isset($scaffolded['proxy_rate']) ? (float) $scaffolded['proxy_rate'] : 0.0;
+        $proxyPoison    = $scaffoldedProxy > self::FRONTIER_PROXY_POISON;
+
+        // small_model_ready: scaffolded meets quality floors on success,
+        // evidence and impact, AND no proxy poison signal.
+        $scaffSuccess   = isset($scaffolded['success_rate'])    ? (float) $scaffolded['success_rate']    : 0.0;
+        $scaffEvidence  = isset($scaffolded['evidence_quality']) ? (float) $scaffolded['evidence_quality'] : 0.0;
+        $scaffImpact    = isset($scaffolded['impact_score'])     ? (float) $scaffolded['impact_score']     : 0.0;
+
+        $smallModelReady = ! $proxyPoison
+            && $scaffSuccess   >= self::SMALL_MODEL_SUCCESS_FLOOR
+            && $scaffEvidence   >= self::SMALL_MODEL_EVIDENCE_FLOOR
+            && $scaffImpact     >= self::SMALL_MODEL_IMPACT_FLOOR;
+
+        // frontier_preferred: frontier advantage exceeds cost-adjusted
+        // threshold, OR scaffolded has unacceptable cost/latency/give_back
+        // worsening relative to frontier.
+        $latencyWorse   = $latencyDelta  !== null && $latencyDelta  > self::FRONTIER_LATENCY_WORSE;
+        $giveBackWorse  = $giveBackDelta !== null && $giveBackDelta > self::FRONTIER_GIVE_BACK_WORSE;
+
+        $frontierPreferred = $frontierAdvantage > $costAdjustedThreshold
+            || ($latencyWorse && $giveBackWorse);
+
+        // Verdict priority:
+        //   frontier_preferred — frontier advantage exceeds cost-adjusted bar.
+        //   small_model_ready  — scaffolded meets floors, no poison, frontier
+        //                        not clearly better.
+        //   parity             — neither clearly better.
+        if ($frontierPreferred) {
+            $verdict = 'frontier_preferred';
+        } elseif ($smallModelReady) {
+            $verdict = 'small_model_ready';
+        } else {
+            $verdict = 'parity';
+        }
+
+        return [
+            'verdict'                 => $verdict,
+            'trial_passes'            => $smallModelReady && ! $frontierPreferred,
+            'small_model_ready'       => $smallModelReady,
+            'frontier_preferred'      => $frontierPreferred,
+            'success_delta'           => $successDelta   !== null ? round($successDelta, 4)   : null,
+            'evidence_quality_delta'  => $evidenceDelta  !== null ? round($evidenceDelta, 4)  : null,
+            'cost_delta'              => $costDelta      !== null ? round($costDelta, 4)      : null,
+            'latency_delta'           => $latencyDelta   !== null ? round($latencyDelta, 4)   : null,
+            'give_back_delta'         => $giveBackDelta  !== null ? round($giveBackDelta, 4)  : null,
+            'impact_delta'            => $impactDelta    !== null ? round($impactDelta, 4)    : null,
+            'frontier_advantage'      => round($frontierAdvantage, 4),
+            'cost_adjusted_threshold' => round($costAdjustedThreshold, 4),
+        ];
+    }
+
+    /**
+     * Compute scaffolded minus frontier for a given metric key.
+     * Returns null if either side is missing.
+     */
+    private function delta(array $scaffolded, array $frontier, string $key): ?float
+    {
+        if (! isset($scaffolded[$key], $frontier[$key])) {
+            return null;
+        }
+
+        return (float) $scaffolded[$key] - (float) $frontier[$key];
     }
 
     private function avg(array $scores): float

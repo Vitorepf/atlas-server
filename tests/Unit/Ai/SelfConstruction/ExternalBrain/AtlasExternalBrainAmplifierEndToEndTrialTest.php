@@ -245,4 +245,188 @@ final class AtlasExternalBrainAmplifierEndToEndTrialTest extends TestCase
         $b = $this->trial()->run($facts);
         $this->assertSame(json_encode($a['baseline_vs_scaffolded']), json_encode($b['baseline_vs_scaffolded']));
     }
+
+    // ── scaffolded_vs_frontier ───────────────────────────────────────────────
+
+    private function svf(array $scaffolded, array $frontier, int $sampleCount = 0): array
+    {
+        return ['quality_metrics' => [
+            'baseline'     => $this->healthyBaseline(),
+            'scaffolded'   => $scaffolded,
+            'frontier'     => $frontier,
+            'sample_count' => $sampleCount,
+        ]];
+    }
+
+    private function strongScaffolded(): array
+    {
+        return [
+            'success_rate'      => 0.85,
+            'evidence_quality'  => 0.80,
+            'impact_score'      => 0.70,
+            'average_cost'      => 0.30,
+            'average_latency'   => 0.40,
+            'give_back_rate'    => 0.10,
+            'proxy_rate'        => 0.02,
+        ];
+    }
+
+    private function strongFrontier(): array
+    {
+        return [
+            'success_rate'      => 0.88,
+            'evidence_quality'  => 0.82,
+            'impact_score'      => 0.72,
+            'average_cost'      => 1.00,
+            'average_latency'   => 0.50,
+            'give_back_rate'    => 0.08,
+            'proxy_rate'        => 0.01,
+        ];
+    }
+
+    public function test_scaffolded_vs_frontier_key_present_when_no_frontier(): void
+    {
+        $r = $this->trial()->run([]);
+        $this->assertArrayHasKey('scaffolded_vs_frontier', $r);
+        $this->assertSame('no_data', $r['scaffolded_vs_frontier']['verdict']);
+        $this->assertFalse($r['scaffolded_vs_frontier']['trial_passes']);
+        $this->assertFalse($r['scaffolded_vs_frontier']['small_model_ready']);
+        $this->assertFalse($r['scaffolded_vs_frontier']['frontier_preferred']);
+    }
+
+    public function test_small_model_ready_when_scaffolded_meets_floors_and_no_poison(): void
+    {
+        // Scaffolded meets all floors, frontier only marginally better,
+        // scaffolded much cheaper → small_model_ready.
+        $r = $this->trial()->run($this->svf($this->strongScaffolded(), $this->strongFrontier(), sampleCount: 20));
+        $svf = $r['scaffolded_vs_frontier'];
+        $this->assertTrue($svf['small_model_ready']);
+        $this->assertFalse($svf['frontier_preferred']);
+        $this->assertSame('small_model_ready', $svf['verdict']);
+        $this->assertTrue($svf['trial_passes']);
+    }
+
+    public function test_frontier_preferred_when_frontier_advantage_exceeds_threshold(): void
+    {
+        // Frontier much better on success/evidence/impact, and scaffolded
+        // cost not cheap enough to raise the bar (ratio > 0.50 floor).
+        $scaffolded = array_merge($this->strongScaffolded(), ['average_cost' => 0.60]);
+        $frontier = array_merge($this->strongFrontier(), [
+            'success_rate'     => 0.98,
+            'evidence_quality' => 0.95,
+            'impact_score'     => 0.90,
+        ]);
+        $r = $this->trial()->run($this->svf($scaffolded, $frontier, sampleCount: 20));
+        $svf = $r['scaffolded_vs_frontier'];
+        $this->assertTrue($svf['frontier_preferred']);
+        $this->assertSame('frontier_preferred', $svf['verdict']);
+        $this->assertFalse($svf['trial_passes']);
+    }
+
+    public function test_proxy_poison_blocks_small_model_ready(): void
+    {
+        // Scaffolded has proxy_rate above 0.05 → poison signal.
+        $scaffolded = array_merge($this->strongScaffolded(), ['proxy_rate' => 0.10]);
+        $r = $this->trial()->run($this->svf($scaffolded, $this->strongFrontier(), sampleCount: 20));
+        $svf = $r['scaffolded_vs_frontier'];
+        $this->assertFalse($svf['small_model_ready']);
+    }
+
+    public function test_scaffolded_below_success_floor_blocks_small_model_ready(): void
+    {
+        $scaffolded = array_merge($this->strongScaffolded(), ['success_rate' => 0.60]);
+        $r = $this->trial()->run($this->svf($scaffolded, $this->strongFrontier(), sampleCount: 20));
+        $this->assertFalse($r['scaffolded_vs_frontier']['small_model_ready']);
+    }
+
+    public function test_scaffolded_below_evidence_floor_blocks_small_model_ready(): void
+    {
+        $scaffolded = array_merge($this->strongScaffolded(), ['evidence_quality' => 0.50]);
+        $r = $this->trial()->run($this->svf($scaffolded, $this->strongFrontier(), sampleCount: 20));
+        $this->assertFalse($r['scaffolded_vs_frontier']['small_model_ready']);
+    }
+
+    public function test_scaffolded_below_impact_floor_blocks_small_model_ready(): void
+    {
+        $scaffolded = array_merge($this->strongScaffolded(), ['impact_score' => 0.40]);
+        $r = $this->trial()->run($this->svf($scaffolded, $this->strongFrontier(), sampleCount: 20));
+        $this->assertFalse($r['scaffolded_vs_frontier']['small_model_ready']);
+    }
+
+    public function test_frontier_preferred_when_scaffolded_latency_and_give_back_worse(): void
+    {
+        // Scaffolded meets floors but latency and give_back much worse than frontier.
+        $scaffolded = array_merge($this->strongScaffolded(), [
+            'average_latency' => 0.80,  // frontier 0.50 → delta 0.30 > 0.10
+            'give_back_rate'  => 0.20,  // frontier 0.08 → delta 0.12 > 0.05
+        ]);
+        $r = $this->trial()->run($this->svf($scaffolded, $this->strongFrontier(), sampleCount: 20));
+        $svf = $r['scaffolded_vs_frontier'];
+        $this->assertTrue($svf['frontier_preferred']);
+    }
+
+    public function test_cost_adjusted_threshold_raises_when_scaffolded_much_cheaper(): void
+    {
+        // Scaffolded is 0.10 cost vs frontier 1.00 → ratio 0.10 < 0.50 floor.
+        // Threshold should rise above the default 0.05.
+        $scaffolded = array_merge($this->strongScaffolded(), ['average_cost' => 0.10]);
+        $r = $this->trial()->run($this->svf($scaffolded, $this->strongFrontier(), sampleCount: 20));
+        $svf = $r['scaffolded_vs_frontier'];
+        $this->assertGreaterThan(0.05, $svf['cost_adjusted_threshold']);
+    }
+
+    public function test_low_sample_verdict_for_scaffolded_vs_frontier(): void
+    {
+        $r = $this->trial()->run($this->svf($this->strongScaffolded(), $this->strongFrontier(), sampleCount: 5));
+        $svf = $r['scaffolded_vs_frontier'];
+        $this->assertSame('low_sample', $svf['verdict']);
+        $this->assertFalse($svf['trial_passes']);
+    }
+
+    public function test_sufficient_sample_does_not_trigger_low_sample_for_svfrontier(): void
+    {
+        $r = $this->trial()->run($this->svf($this->strongScaffolded(), $this->strongFrontier(), sampleCount: 10));
+        $this->assertNotSame('low_sample', $r['scaffolded_vs_frontier']['verdict']);
+    }
+
+    public function test_svfrontier_deltas_computed_correctly(): void
+    {
+        $r = $this->trial()->run($this->svf($this->strongScaffolded(), $this->strongFrontier(), sampleCount: 20));
+        $svf = $r['scaffolded_vs_frontier'];
+        // success: 0.85 - 0.88 = -0.03
+        $this->assertEqualsWithDelta(-0.03, $svf['success_delta'], 0.001);
+        // cost: 0.30 - 1.00 = -0.70 (scaffolded cheaper)
+        $this->assertEqualsWithDelta(-0.70, $svf['cost_delta'], 0.001);
+        // latency: 0.40 - 0.50 = -0.10 (scaffolded faster)
+        $this->assertEqualsWithDelta(-0.10, $svf['latency_delta'], 0.001);
+    }
+
+    public function test_svfrontier_parity_when_neither_clearly_better(): void
+    {
+        // Scaffolded below floors (so not small_model_ready) but frontier
+        // advantage tiny (so not frontier_preferred).
+        $scaffolded = array_merge($this->strongScaffolded(), [
+            'success_rate'     => 0.50,
+            'evidence_quality' => 0.50,
+            'impact_score'     => 0.40,
+        ]);
+        $frontier = array_merge($this->strongFrontier(), [
+            'success_rate'     => 0.52,
+            'evidence_quality' => 0.51,
+            'impact_score'     => 0.42,
+        ]);
+        $r = $this->trial()->run($this->svf($scaffolded, $frontier, sampleCount: 20));
+        $svf = $r['scaffolded_vs_frontier'];
+        $this->assertFalse($svf['small_model_ready']);
+        $this->assertFalse($svf['frontier_preferred']);
+        $this->assertSame('parity', $svf['verdict']);
+    }
+
+    public function test_svfrontier_is_deterministic(): void
+    {
+        $facts = $this->svf($this->strongScaffolded(), $this->strongFrontier(), sampleCount: 20);
+        $a = $this->trial()->run($facts);
+        $b = $this->trial()->run($facts);
+        $this->assertSame(json_encode($a['scaffolded_vs_frontier']), json_encode($b['scaffolded_vs_frontier']));
+    }
 }
