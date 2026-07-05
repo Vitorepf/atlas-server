@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\TaskQuality;
 
+use App\Services\Ai\SelfConstruction\WriteSetOverlap;
+
 /**
  * Pure, deterministic explainer for blocked queue packets that {@see AtlasTaskBlockedPacketFamilyClassifier}
  * left as `family=unknown`. Instead of an opaque "manual review required" bucket, this inspects the raw
@@ -115,9 +117,9 @@ final class AtlasTaskBlockedUnknownFamilyExplainer
         $missingSignals = [];
 
         // ── forbidden_target ──────────────────────────────────────────────────
-        $hitForbidden = $forbiddenTargets !== [] && array_intersect($allowedFiles, $forbiddenTargets) !== [];
+        $hitForbidden = $forbiddenTargets !== [] && WriteSetOverlap::collidingPaths($allowedFiles, $forbiddenTargets) !== [];
         $hitPropertyGatedNoReceipt = $propertyGatedTargets !== []
-            && array_intersect($allowedFiles, $propertyGatedTargets) !== []
+            && WriteSetOverlap::collidingPaths($allowedFiles, $propertyGatedTargets) !== []
             && ! in_array('constitution_gate_receipt', $requiredEvidence, true);
         if ($hitForbidden || $hitPropertyGatedNoReceipt) {
             $missingSignals[] = $hitForbidden ? 'allowed_files_hit_forbidden_self_target' : 'property_gated_target_missing_constitution_receipt';

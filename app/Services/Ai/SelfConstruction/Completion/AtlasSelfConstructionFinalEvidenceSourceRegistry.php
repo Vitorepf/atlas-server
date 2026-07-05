@@ -130,7 +130,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
             // Freshness-window check: only when caller supplies a reference timestamp.
             if ($nowUnix > 0 && isset($source['freshness_window_seconds'])) {
                 $generatedAt = (int) ($obs['generated_at_unix'] ?? 0);
-                if ($generatedAt > 0 && ($nowUnix - $generatedAt) > (int) $source['freshness_window_seconds']) {
+                if ($generatedAt <= 0 || ($nowUnix - $generatedAt) > (int) $source['freshness_window_seconds']) {
                     $blockers[] = 'source_stale_timestamp:'.$id;
                 }
             }
