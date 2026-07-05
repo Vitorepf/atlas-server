@@ -585,4 +585,94 @@ final class AtlasSelfConstructionFinalAutonomyVerdictTest extends TestCase
         $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
         $this->assertSame([], $verdict['blockers']);
     }
+
+    // ── AC: stale worker feed evidence prevents verdict=complete ──
+
+    public function test_stale_worker_feed_evidence_prevents_complete_verdict(): void
+    {
+        [$audit, $transition, $readiness] = $this->readyArgs();
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            $audit, $transition, $readiness, [], [], [],
+            ['age_seconds' => 9999, 'claimable_per_active_worker' => 10.0, 'worker_feed_floor' => 2.0],
+            $this->freshSoak(),
+        );
+
+        $this->assertNotSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertContains('worker_feed_evidence:stale', $verdict['blockers']);
+    }
+
+    // ── AC: stale or missing soak evidence prevents verdict=complete ──
+
+    public function test_missing_soak_evidence_prevents_complete_verdict(): void
+    {
+        [$audit, $transition, $readiness] = $this->readyArgs();
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose($audit, $transition, $readiness);
+
+        $this->assertNotSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertContains('soak_evidence:missing_soak_evidence', $verdict['blockers']);
+    }
+
+    public function test_stale_soak_evidence_prevents_complete_verdict(): void
+    {
+        [$audit, $transition, $readiness] = $this->readyArgs();
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            $audit, $transition, $readiness,
+            soakEvidence: ['status' => 'pass', 'age_seconds' => 999999, 'soak_run_hash' => 'abc'],
+        );
+
+        $this->assertNotSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertContains('soak_evidence:stale_soak_evidence', $verdict['blockers']);
+    }
+
+    // ── AC: verdict=complete requires all required capability lanes and no unsafe regression ──
+
+    public function test_complete_requires_all_capability_lanes(): void
+    {
+        $lanes = $this->allTrue();
+        $lanes['self_recovery'] = false;
+
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $lanes,
+            soakEvidence: $this->freshSoak(),
+        );
+
+        $this->assertNotSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertContains('missing_capability_lane:self_recovery', $verdict['blockers']);
+    }
+
+    public function test_complete_prevented_by_unsafe_regression_facts(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $this->allTrue(),
+            $this->allEvidence(),
+            ['status' => 'fail'],
+            soakEvidence: $this->freshSoak(),
+        );
+
+        $this->assertNotSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertContains('regression_not_passed:fail', $verdict['blockers']);
+    }
+
+    public function test_complete_with_all_lanes_regression_pass_and_fresh_evidence(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $this->allTrue(),
+            $this->allEvidence(),
+            ['status' => 'pass'],
+            ['age_seconds' => 60, 'claimable_per_active_worker' => 10.0, 'worker_feed_floor' => 2.0],
+            $this->freshSoak(),
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertSame([], $verdict['blockers']);
+    }
 }
