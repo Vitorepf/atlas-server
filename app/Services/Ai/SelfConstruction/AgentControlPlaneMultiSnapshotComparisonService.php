@@ -228,6 +228,49 @@ final class AgentControlPlaneMultiSnapshotComparisonService
             'runtime_write_allowed' => false,
         ];
 
+        // AC2/AC3: regression_signals — explicit signals for queue depth collapse,
+        // blocked backlog growth, worker throughput drop and proof coverage loss.
+        $regressionSignals = [];
+        foreach ($regressionWindows as $window) {
+            $kind = (string) ($window['kind'] ?? '');
+            $regressionSignals[] = [
+                'signal' => $kind,
+                'from_index' => $window['from_index'] ?? null,
+                'to_index' => $window['to_index'] ?? null,
+                'severity' => 'regression',
+            ];
+        }
+        // Also check for improvement signals separately.
+        $improvementSignals = [];
+        foreach ($improvementWindows as $window) {
+            $kind = (string) ($window['kind'] ?? '');
+            $improvementSignals[] = [
+                'signal' => $kind,
+                'from_index' => $window['from_index'] ?? null,
+                'to_index' => $window['to_index'] ?? null,
+                'severity' => 'improvement',
+            ];
+        }
+
+        $payload['regression_signals'] = $regressionSignals;
+        $payload['improvement_signals'] = $improvementSignals;
+
+        // AC4: recommended_next_action based on trend status.
+        $recommendedNextAction = match ($trendStatus) {
+            'no_snapshots', 'single_point' => 'collect_more_evidence',
+            'regression_detected' => 'investigate_regression',
+            'improving' => 'continue',
+            default => 'continue',
+        };
+        // If any regression signal is critical, recommend pause_release.
+        foreach ($regressionSignals as $signal) {
+            if (in_array($signal['signal'], ['runtime_safety_dropped', 'coverage_decrease'], true)) {
+                $recommendedNextAction = 'pause_release';
+                break;
+            }
+        }
+        $payload['recommended_next_action'] = $recommendedNextAction;
+
         $payload['trend_hash'] = $this->stableHash($this->normalizeForTrendHash($payload));
 
         return $payload;
