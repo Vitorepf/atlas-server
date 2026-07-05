@@ -82,6 +82,8 @@ final class AtlasProjectLaneGovernanceDossier
             'schema_version' => self::SCHEMA,
             'project_id' => $projectId,
             'state' => $state,
+            'dossier_ready' => $blockers === [],
+            'provider_safe' => true,
             'mandatory_sections' => self::MANDATORY_SECTIONS,
             'sections' => $normalizedSections,
             'blockers' => $blockers,

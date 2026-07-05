@@ -162,4 +162,56 @@ final class AtlasProjectLaneGovernanceDossierTest extends TestCase
         $this->assertSame([], $dossier['sections']['rollback_policy']);
         $this->assertContains('missing_section:rollback_policy', $dossier['blockers']);
     }
+
+    // ── AC: missing mandatory sections produce dossier_ready=false with section blockers ──
+
+    public function test_missing_mandatory_sections_produce_dossier_ready_false_with_blockers(): void
+    {
+        $sections = $this->happySections();
+        unset($sections['isolation'], $sections['verification_court']);
+
+        $dossier = (new AtlasProjectLaneGovernanceDossier)->export('p', $sections, $this->readyAutonomy());
+
+        $this->assertFalse($dossier['dossier_ready']);
+        $this->assertContains('missing_section:isolation', $dossier['blockers']);
+        $this->assertContains('missing_section:verification_court', $dossier['blockers']);
+    }
+
+    // ── AC: forbidden evidence fields are redacted from exported sections ──
+
+    public function test_forbidden_evidence_fields_redacted_from_all_sections(): void
+    {
+        $sections = $this->happySections();
+        $sections['admission']['raw_prompt'] = 'secret';
+        $sections['namespace']['provider_trace'] = 'trace';
+        $sections['isolation']['operator_approval_receipt'] = 'receipt';
+        $sections['verification_court']['human_approval'] = 'approved';
+
+        $dossier = (new AtlasProjectLaneGovernanceDossier)->export('p', $sections, $this->readyAutonomy());
+
+        $this->assertArrayNotHasKey('raw_prompt', $dossier['sections']['admission']);
+        $this->assertArrayNotHasKey('provider_trace', $dossier['sections']['namespace']);
+        $this->assertArrayNotHasKey('operator_approval_receipt', $dossier['sections']['isolation']);
+        $this->assertArrayNotHasKey('human_approval', $dossier['sections']['verification_court']);
+    }
+
+    // ── AC: ready dossiers include autonomy_readiness and provider_safe=true ──
+
+    public function test_ready_dossier_includes_autonomy_readiness_and_provider_safe(): void
+    {
+        $dossier = (new AtlasProjectLaneGovernanceDossier)->export('p', $this->happySections(), $this->readyAutonomy());
+
+        $this->assertTrue($dossier['dossier_ready']);
+        $this->assertTrue($dossier['provider_safe']);
+        $this->assertArrayHasKey('autonomy_readiness', $dossier['sections']);
+        $this->assertSame('ready', $dossier['sections']['autonomy_readiness']['state']);
+    }
+
+    public function test_blocked_autonomy_makes_dossier_not_ready(): void
+    {
+        $dossier = (new AtlasProjectLaneGovernanceDossier)->export('p', $this->happySections(), $this->blockedAutonomy());
+
+        $this->assertFalse($dossier['dossier_ready']);
+        $this->assertTrue($dossier['provider_safe']);
+    }
 }
