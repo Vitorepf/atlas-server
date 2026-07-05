@@ -214,6 +214,9 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
         $valueDensityScore = $claimableCount > 0
             ? array_sum($densities) / $claimableCount
             : 0.0;
+        $medianDensity     = $claimableCount > 0
+            ? self::median($densities)
+            : 0.0;
 
         // Aggregate risk: max of mean scores for the three trigger signals.
         $aggregateRisk = 0.0;
@@ -226,7 +229,7 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
         }
 
         $isHighRisk  = $aggregateRisk >= $riskCeiling;
-        $needsFeeding = $claimableCount < $depthFloor || $valueDensityScore < $valueDensityFloor;
+        $needsFeeding = $claimableCount < $depthFloor || $medianDensity < $valueDensityFloor;
 
         // Top-N by density (descending, tie-break by packet_id ASC).
         usort($packets, static fn (array $a, array $b): int =>
@@ -245,15 +248,15 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
         // is NEVER sufficient to drain — value_density must also clear the floor, otherwise a
         // deep queue of low-value/high-risk packets would misread as "enough work, stop feeding".
         $hasEnoughDepth = $claimableCount >= $oversatLimit || $claimableCount >= $depthFloor;
-        if ($hasEnoughDepth && $valueDensityScore >= $valueDensityFloor) {
+        if ($hasEnoughDepth && $medianDensity >= $valueDensityFloor) {
             $action = self::ACTION_DRAIN_FIRST;
-            $decisionExplanation = "depth {$claimableCount} clears floor AND value_density {$valueDensityScore} clears floor {$valueDensityFloor} — real high-value work queued, safe to drain.";
+            $decisionExplanation = "depth {$claimableCount} clears floor AND median_density {$medianDensity} clears floor {$valueDensityFloor} — real high-value work queued, safe to drain.";
         } elseif ($needsFeeding && $isHighRisk) {
             $action = self::ACTION_SELF_HEAL_OR_RESPEC;
             $decisionExplanation = "queue needs feeding but aggregate_risk_score {$aggregateRisk} >= risk_trigger_ceiling {$riskCeiling} — self-heal/respec before feeding blind.";
         } elseif ($needsFeeding) {
             $action = self::ACTION_FEED_QUEUE;
-            $decisionExplanation = "depth {$claimableCount} below floor {$depthFloor} or value_density {$valueDensityScore} below floor {$valueDensityFloor}, and risk is acceptable — feed more high-value work.";
+            $decisionExplanation = "depth {$claimableCount} below floor {$depthFloor} or median_density {$medianDensity} below floor {$valueDensityFloor}, and risk is acceptable — feed more high-value work.";
         } else {
             $action = self::ACTION_PRIORITIZE_TOP;
             $decisionExplanation = 'depth and value_density both adequate — optimising selection within the existing queue rather than stopping on depth alone.';
@@ -265,6 +268,7 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
             'schema'                  => self::SCHEMA,
             'action'                  => $action,
             'value_density_score'     => round($valueDensityScore, 6),
+            'median_value_density'    => round($medianDensity, 6),
             'aggregate_risk_score'    => round($aggregateRisk, 6),
             'top_packet_classes'      => $topPacketClasses,
             'low_value_tail'          => $lowValueTail,
@@ -272,5 +276,24 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
             'stop_allowed'            => $stopAllowed,
             'decision_explanation'    => $decisionExplanation,
         ];
+    }
+
+    /**
+     * Compute the median of a list of numeric values.
+     *
+     * @param  list<float>  $values
+     */
+    private static function median(array $values): float
+    {
+        $count = count($values);
+        if ($count === 0) {
+            return 0.0;
+        }
+        sort($values, SORT_NUMERIC);
+        $mid = intdiv($count, 2);
+
+        return $count % 2 === 1
+            ? $values[$mid]
+            : ($values[$mid - 1] + $values[$mid]) / 2.0;
     }
 }
