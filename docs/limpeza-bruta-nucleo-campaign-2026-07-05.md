@@ -74,3 +74,10 @@ Re-rodar: jscpd no mesmo escopo/params (min-tokens 100) + re-amostragem 0-ref (2
 Delta não comprovado = meta não atingida: **<2% e 60–110k NÃO atingidas nesta rodada** — reportado
 honesto; ambas dependem das decisões #1 (L8-L10/Stewardship) e #3 (esteira) do operador, com
 mecanismos prontos (gate F0 enforce, RefactorProofGate, critério de migração S2, censo de clones).
+
+## ENCERRAMENTO — ordem do operador "entregue 100%" (05/07 ~17h)
+
+- **Decisão #1 executada:** série L8/L9/L10 retirada (63 classes + 63 testes, −42.042; 2 classes wired mantidas; doc canônico AP-790 anotado junto — código e doc sem drift).
+- **Decisão #3 executada:** esteira semeada (3 tasks de família de clone aceitas; 7 rejeitadas pelo PRÓPRIO anti-farm da fila — drip-seeding respeitando o sistema imune, batch pronto para re-semear).
+- **TOTAIS EXATOS (numstat, 32 commits):** −88.580 / +2.532 = **líquido −86.048 linhas → meta 60–110k CUMPRIDA**.
+- Metas contínuas (jscpd <2%; consolidação B_STATE) ficam com a esteira — semeada, vigiada pelo gate F0 + RefactorProofGate, com critérios e vetos registrados (SORT_STRING/hash-path; variantes legítimas ≠ clones).
