@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\WorkerSwarm;
 
+use App\Services\Ai\SelfConstruction\WriteSetOverlap;
+
 /**
  * Pure composer — produces a deterministic, FACTS-only execution envelope for a SCOPED worker packet.
  * NEVER runs shell commands, mutates files, claims tasks, or reports completion.
@@ -75,7 +77,7 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelope
                 $blockers[] = 'unsafe_path:'.$path;
             }
         }
-        $overlap = array_values(array_intersect($allowed, $forbidden));
+        $overlap = WriteSetOverlap::collidingPaths($allowed, $forbidden);
         if ($overlap !== []) {
             $blockers[] = 'allowed_forbidden_overlap:'.implode(',', $overlap);
         }

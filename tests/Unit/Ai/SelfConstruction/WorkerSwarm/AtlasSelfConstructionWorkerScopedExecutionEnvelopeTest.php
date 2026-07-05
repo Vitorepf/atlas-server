@@ -60,6 +60,22 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelopeTest extends TestC
         $this->assertStringContainsString('allowed_forbidden_overlap:config/atlas.php', $blockerStr);
     }
 
+    public function test_forbidden_directory_overlap_catches_file_under_it(): void
+    {
+        // Forbidden 'app/secret/' is a directory prefix. An allowed file
+        // 'app/secret/Credentials.php' under it must be caught by
+        // WriteSetOverlap::collidingPaths (prefix-aware), not missed by
+        // array_intersect (exact match only).
+        $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input([
+            'allowed_files' => ['app/secret/credentials.php', 'tests/FooTest.php'],
+            'forbidden_files' => ['app/secret/'],
+        ]));
+        $this->assertFalse($env['valid']);
+        $blockerStr = implode('|', $env['blockers']);
+        $this->assertStringContainsString('allowed_forbidden_overlap', $blockerStr);
+        $this->assertStringContainsString('app/secret/credentials.php', $blockerStr);
+    }
+
     public function test_missing_gates_blocks(): void
     {
         $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input(['gates' => []]));
@@ -147,7 +163,7 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelopeTest extends TestC
         $this->assertFalse($env['valid']);
         $this->assertContains('lease_id_missing', $env['blockers']);
         $this->assertContains('proof_not_bound_to_allowed_files', $env['blockers']);
-        $this->assertContains('allowed_forbidden_overlap:app/Foo.php', $env['blockers']);
+        $this->assertContains('allowed_forbidden_overlap:app/foo.php', $env['blockers']);
     }
 
     public function test_duplicate_paths_are_deduplicated(): void
