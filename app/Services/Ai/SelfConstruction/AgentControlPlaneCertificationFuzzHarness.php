@@ -49,6 +49,8 @@ final class AgentControlPlaneCertificationFuzzHarness
         'contradictory_acceptance',
         'stale_evidence',
         'impossible_worker_requirements',
+        'scope_drift',
+        'negated_requirements',
     ];
 
     private const STALE_EVIDENCE_CEILING_SECONDS = 86400;
@@ -61,6 +63,8 @@ final class AgentControlPlaneCertificationFuzzHarness
         'contradictory_acceptance' => 'AtlasExternalBrainSpecRegressionHarness',
         'stale_evidence' => 'AgentControlPlaneChainIntegrityAuditService',
         'impossible_worker_requirements' => 'AgentDispatchPlannerEligibilityEvaluator',
+        'scope_drift' => 'AgentControlPlaneScopeLockRuntimeValidator',
+        'negated_requirements' => 'AtlasExternalBrainSpecRegressionHarness',
     ];
 
     public function __construct(
@@ -87,6 +91,8 @@ final class AgentControlPlaneCertificationFuzzHarness
             $this->taskPacketCase('contradictory_acceptance', $this->contradictoryAcceptancePacket()),
             $this->taskPacketCase('stale_evidence', $this->staleEvidencePacket()),
             $this->taskPacketCase('impossible_worker_requirements', $this->impossibleWorkerRequirementsPacket()),
+            $this->taskPacketCase('scope_drift', $this->scopeDriftPacket()),
+            $this->taskPacketCase('negated_requirements', $this->negatedRequirementsPacket()),
             $this->taskPacketCase('valid_control', $this->validControlPacket()),
         ];
 
@@ -101,8 +107,10 @@ final class AgentControlPlaneCertificationFuzzHarness
             'execution_allowed' => false,
             'dispatch_allowed' => false,
             'ledger_write_allowed' => false,
+            'certification_ready' => $allPassed,
             'invariant_cases' => $cases,
             'failing_cases' => $failingCases,
+            'surviving_mutations' => $failingCases,
             'all_invariants_held' => $allPassed,
         ];
 
@@ -124,6 +132,7 @@ final class AgentControlPlaneCertificationFuzzHarness
             'suggested_gate' => self::SUGGESTED_GATE_BY_INVARIANT[$invariantName] ?? null,
             'decision' => $decision,
             'passed' => $passed,
+            'killed' => $invariantName === 'valid_control' ? false : $passed,
         ];
     }
 
@@ -158,6 +167,19 @@ final class AgentControlPlaneCertificationFuzzHarness
         $requiresLiveProvider = (bool) ($packet['requires_live_provider'] ?? false);
         if ($dryRunOnly && $requiresLiveProvider) {
             return 'reject';
+        }
+
+        $allowedFiles = (array) ($packet['allowed_files'] ?? []);
+        $scopeIn = (array) ($packet['scope_in'] ?? []);
+        if ($scopeIn !== [] && count(array_intersect($allowedFiles, $scopeIn)) !== count($allowedFiles)) {
+            return 'reject';
+        }
+
+        $negatedRequirements = (array) ($packet['negated_requirements'] ?? []);
+        foreach ($negatedRequirements as $negated) {
+            if (is_string($negated) && $negated !== '' && $this->hasNegationMarker(strtolower($negated))) {
+                return 'reject';
+            }
         }
 
         return 'accept';
@@ -248,11 +270,31 @@ final class AgentControlPlaneCertificationFuzzHarness
     }
 
     /** @return array<string, mixed> */
+    private function scopeDriftPacket(): array
+    {
+        $packet = $this->validControlPacket();
+        $packet['scope_in'] = ['app/Services/Foo.php'];
+        $packet['allowed_files'] = ['app/Services/Foo.php', 'app/Services/Bar.php'];
+
+        return $packet;
+    }
+
+    /** @return array<string, mixed> */
+    private function negatedRequirementsPacket(): array
+    {
+        $packet = $this->validControlPacket();
+        $packet['negated_requirements'] = ['must never call external provider'];
+
+        return $packet;
+    }
+
+    /** @return array<string, mixed> */
     private function validControlPacket(): array
     {
         return [
             'task_packet_id' => 'fuzz-control-packet',
             'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'scope_in' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
             'acceptance_criteria' => ['./vendor/bin/phpunit exits 0'],
             'evidence_age_seconds' => 60,
             'dry_run_only' => false,
