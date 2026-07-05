@@ -99,6 +99,19 @@ class AgentProviderAdapterExecutionGuard
             'block_reason' => $primaryReason,
             'block_reasons' => $blockReasons,
             'required_repair_hint' => $primaryReason !== null ? self::REPAIR_HINTS[$primaryReason] : null,
+            'provider_contract' => $blockReasons === [] ? [
+                'provider' => (string) ($input['provider'] ?? ''),
+                'adapter' => (string) ($input['adapter'] ?? ''),
+                'task_family' => $taskFamily,
+            ] : null,
+            'fallback_policy' => [
+                'fallback_available' => $fallbackAvailable,
+                'fallback_adapter' => $fallbackAvailable ? (string) ($input['fallback_adapter'] ?? 'default') : null,
+            ],
+            'evidence_freshness' => [
+                'evidence_policy_satisfied' => $evidencePolicySatisfied,
+                'evidence_age_seconds' => (int) ($input['evidence_age_seconds'] ?? 0),
+            ],
         ];
     }
 
