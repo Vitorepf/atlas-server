@@ -145,4 +145,22 @@ final class AtlasSelfConstructionNativePostApplyVerifierTest extends TestCase
         $this->assertSame('passed', $verdict['verdict']);
         $this->assertSame([], $verdict['blockers']);
     }
+
+    public function test_empty_expected_gates_forces_rollback(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativePostApplyVerifier)->verify([
+            'task_packet_id' => 'pkt-empty-gates',
+            'expected_gates' => [],
+            'apply_receipts' => [
+                ['path' => 'app/Foo.php', 'post_hash' => 'h1'],
+            ],
+            'changed_files' => [
+                ['path' => 'app/Foo.php', 'post_hash' => 'h1'],
+            ],
+            'gate_results' => [],
+        ]);
+
+        $this->assertSame('rollback_required', $verdict['verdict']);
+        $this->assertContains('no_expected_gates_to_verify', $verdict['blockers']);
+    }
 }

@@ -142,7 +142,10 @@ final class AtlasSelfConstructionNativePostApplyVerifier
         }
 
         $verdict = self::VERDICT_PASSED;
-        if ($missingGates !== [] || $changedFileMismatch || $outsideScope || $forbiddenTouched || $evidenceMismatch) {
+        if ($expected === []) {
+            $verdict = self::VERDICT_ROLLBACK;
+            $blockers[] = 'no_expected_gates_to_verify';
+        } elseif ($missingGates !== [] || $changedFileMismatch || $outsideScope || $forbiddenTouched || $evidenceMismatch) {
             $verdict = self::VERDICT_ROLLBACK;
         } elseif ($failedGates !== []) {
             $verdict = self::VERDICT_FAILED;
