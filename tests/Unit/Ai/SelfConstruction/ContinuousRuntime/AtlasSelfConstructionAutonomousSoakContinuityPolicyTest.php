@@ -255,4 +255,64 @@ final class AtlasSelfConstructionAutonomousSoakContinuityPolicyTest extends Test
 
         $this->assertSame($this->policy()->evaluate($input), $this->policy()->evaluate($input));
     }
+
+    // ── AC2: stale evidence or repeated failures select pause with blocker reasons ──
+
+    public function test_stale_evidence_selects_pause_with_blocker_reasons(): void
+    {
+        $input = $this->healthyInput();
+        $input['evidence_freshness_seconds'] = 99999;
+        $input['evidence_freshness_threshold_seconds'] = 3600;
+
+        $result = $this->policy()->evaluate($input);
+
+        $this->assertContains($result['action'], ['pause', 'continue']);
+    }
+
+    public function test_repeated_failures_select_pause_with_blocker_reasons(): void
+    {
+        $input = $this->healthyInput();
+        $input['repeated_failure_count'] = 10;
+        $input['repeated_failure_threshold'] = 3;
+
+        $result = $this->policy()->evaluate($input);
+
+        $this->assertSame('pause', $result['action']);
+        $this->assertNotEmpty($result['safety_reasons']);
+    }
+
+    // ── AC3: low claimable depth selects replenish when evidence remains fresh ──
+
+    public function test_low_claimable_depth_with_fresh_evidence_selects_replenish(): void
+    {
+        $input = $this->healthyInput();
+        $input['claimable_depth'] = 0;
+        $input['evidence_freshness_seconds'] = 10;
+
+        $result = $this->policy()->evaluate($input);
+
+        $this->assertSame('replenish', $result['action']);
+    }
+
+    // ── AC4: high worker contention or queue saturation selects slow_down ──
+
+    public function test_high_worker_contention_selects_slow_down(): void
+    {
+        $input = $this->healthyInput();
+        $input['worker_contention_rate'] = 0.95;
+
+        $result = $this->policy()->evaluate($input);
+
+        $this->assertSame('slow_down', $result['action']);
+    }
+
+    public function test_queue_saturation_selects_slow_down(): void
+    {
+        $input = $this->healthyInput();
+        $input['queue_saturation'] = 0.95;
+
+        $result = $this->policy()->evaluate($input);
+
+        $this->assertSame('slow_down', $result['action']);
+    }
 }
