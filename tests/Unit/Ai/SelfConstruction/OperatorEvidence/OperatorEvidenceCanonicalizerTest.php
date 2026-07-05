@@ -163,4 +163,180 @@ class OperatorEvidenceCanonicalizerTest extends TestCase
             OperatorEvidenceCanonicalizer::canonicalize($input),
         );
     }
+
+    // ── deeper secret removal ───────────────────────────────────────────────
+
+    public function test_canonicalize_removes_nested_secret_keys(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize([
+            'nested' => [
+                'raw_secret' => 'sk-abc',
+                'inner_data' => 42,
+            ],
+            'safe' => true,
+        ]);
+        self::assertArrayNotHasKey('raw_secret', $result['nested']);
+        self::assertSame(42, $result['nested']['inner_data']);
+    }
+
+    public function test_canonicalize_removes_auth_token_deeply_nested(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize([
+            'evidence' => [
+                'trace' => [
+                    'auth_token' => 'tok-123',
+                    'payload' => 'hello',
+                ],
+            ],
+        ]);
+        self::assertArrayNotHasKey('auth_token', $result['evidence']['trace']);
+        self::assertSame('hello', $result['evidence']['trace']['payload']);
+    }
+
+    public function test_canonicalize_removes_many_secret_key_variants(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize([
+            'csp_nonce' => 'abc123',
+            '_token' => 'csrf-xxx',
+            'auth_token' => 'tok-abc',
+            'bearer' => 'Bearer xxx',
+            'password' => 'hunter2',
+            'api_key' => 'key-123',
+            'api_secret' => 'sec-456',
+            'access_key' => 'AKIAIOSFODNN7EXAMPLE',
+            'private_key' => '---BEGIN PRIVATE KEY---',
+            'session_id' => 'sess-abc',
+            'keep_me' => 1,
+        ]);
+        self::assertArrayNotHasKey('csp_nonce', $result);
+        self::assertArrayNotHasKey('_token', $result);
+        self::assertArrayNotHasKey('auth_token', $result);
+        self::assertArrayNotHasKey('bearer', $result);
+        self::assertArrayNotHasKey('password', $result);
+        self::assertArrayNotHasKey('api_key', $result);
+        self::assertArrayNotHasKey('api_secret', $result);
+        self::assertArrayNotHasKey('access_key', $result);
+        self::assertArrayNotHasKey('private_key', $result);
+        self::assertArrayNotHasKey('session_id', $result);
+        self::assertSame(1, $result['keep_me']);
+    }
+
+    // ── secret value redaction ──────────────────────────────────────────────
+
+    public function test_canonicalize_redacts_sk_prefix_secret_value(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize([
+            'key' => 'sk-proj-1234567890abcdef1234567890abcdef',
+            'safe' => 'hello',
+        ]);
+        self::assertSame('[REDACTED]', $result['key']);
+        self::assertSame('hello', $result['safe']);
+    }
+
+    public function test_canonicalize_redacts_long_base64_value(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize([
+            'payload' => str_repeat('ABCDEFGH', 10),
+        ]);
+        self::assertSame('[REDACTED]', $result['payload']);
+    }
+
+    public function test_canonicalize_redacts_bearer_token_value(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize([
+            'token' => 'bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0',
+        ]);
+        self::assertSame('[REDACTED]', $result['token']);
+    }
+
+    public function test_canonicalize_redacts_private_key_value(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize([
+            'key' => "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA...",
+        ]);
+        self::assertSame('[REDACTED]', $result['key']);
+    }
+
+    public function test_canonicalize_redacts_nested_secret_values(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize([
+            'container' => [
+                'inner' => [
+                    'creds' => 'sk-abc-def-ghi-jkl-mno',
+                ],
+            ],
+        ]);
+        self::assertSame('[REDACTED]', $result['container']['inner']['creds']);
+    }
+
+    public function test_canonicalize_preserves_non_secret_values(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize([
+            'name' => 'Alice',
+            'count' => 42,
+            'items' => ['a', 'b'],
+        ]);
+        self::assertSame('Alice', $result['name']);
+        self::assertSame(42, $result['count']);
+        self::assertSame(['a', 'b'], $result['items']);
+    }
+
+    // ── hash stability with new volatile keys ───────────────────────────────
+
+    public function test_stable_hash_strips_csp_nonce_and_token(): void
+    {
+        $withExtra = ['receipt_id' => 'rx-1', 'csp_nonce' => 'abc', '_token' => 'def', 'timestamp' => 123];
+        $withoutExtra = ['receipt_id' => 'rx-1'];
+        self::assertSame(
+            OperatorEvidenceCanonicalizer::stableHash($withExtra),
+            OperatorEvidenceCanonicalizer::stableHash($withoutExtra),
+        );
+    }
+
+    public function test_stable_hash_strips_updated_at_expires_at_timestamp_nonce(): void
+    {
+        $withMeta = ['schema' => 'v1', 'updated_at' => 'now', 'expires_at' => 'later', 'nonce' => 'rnd'];
+        $withoutMeta = ['schema' => 'v1'];
+        self::assertSame(
+            OperatorEvidenceCanonicalizer::stableHash($withMeta),
+            OperatorEvidenceCanonicalizer::stableHash($withoutMeta),
+        );
+    }
+
+    // ── hash CHANGES on proof-bearing fields ────────────────────────────────
+
+    public function test_stable_hash_changes_when_receipt_id_changes(): void
+    {
+        $a = OperatorEvidenceCanonicalizer::stableHash(['receipt_id' => 'rx-1', 'result' => 'pass']);
+        $b = OperatorEvidenceCanonicalizer::stableHash(['receipt_id' => 'rx-2', 'result' => 'pass']);
+        self::assertNotSame($a, $b);
+    }
+
+    public function test_stable_hash_changes_when_gate_outcome_changes(): void
+    {
+        $a = OperatorEvidenceCanonicalizer::stableHash(['gate' => 'self_test', 'outcome' => 'passed']);
+        $b = OperatorEvidenceCanonicalizer::stableHash(['gate' => 'self_test', 'outcome' => 'failed']);
+        self::assertNotSame($a, $b);
+    }
+
+    public function test_stable_hash_changes_when_evidence_ref_changes(): void
+    {
+        $a = OperatorEvidenceCanonicalizer::stableHash(['evidence_ref' => ['kind' => 'log', 'path' => '/tmp/a.log']]);
+        $b = OperatorEvidenceCanonicalizer::stableHash(['evidence_ref' => ['kind' => 'log', 'path' => '/tmp/b.log']]);
+        self::assertNotSame($a, $b);
+    }
+
+    public function test_stable_hash_changes_when_schema_changes(): void
+    {
+        $a = OperatorEvidenceCanonicalizer::stableHash(['schema' => 'atlas.v1', 'data' => 'x']);
+        $b = OperatorEvidenceCanonicalizer::stableHash(['schema' => 'atlas.v2', 'data' => 'x']);
+        self::assertNotSame($a, $b);
+    }
+
+    public function test_stable_hash_changes_when_command_result_changes(): void
+    {
+        $a = OperatorEvidenceCanonicalizer::stableHash(['command' => 'test', 'result' => ['exit_code' => 0]]);
+        $b = OperatorEvidenceCanonicalizer::stableHash(['command' => 'test', 'result' => ['exit_code' => 1]]);
+        self::assertNotSame($a, $b);
+    }
 }
