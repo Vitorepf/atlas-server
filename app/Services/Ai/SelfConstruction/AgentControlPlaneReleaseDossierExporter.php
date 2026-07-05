@@ -185,7 +185,7 @@ final class AgentControlPlaneReleaseDossierExporter
 
         $readyCount = count(array_filter($entries, static fn (array $e): bool => $e['ready_for_dossier']));
 
-        return [
+        $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
             'entries' => $entries,
@@ -201,6 +201,10 @@ final class AgentControlPlaneReleaseDossierExporter
             'self_programming_allowed' => false,
             'ledger_write_allowed' => false,
         ];
+
+        $payload['export_hash'] = $this->stableHash($this->normalizeForExportHash($payload));
+
+        return $payload;
     }
 
     /**
