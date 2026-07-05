@@ -300,6 +300,191 @@ class ReadinessTerminalLoopProofResolverTest extends TestCase
         self::assertSame([], $audit['blockers']);
     }
 
+    // ── Five-proof resolve() ──────────────────────────────────────────────────────
+
+    public function test_all_five_proofs_ready_returns_ready_true(): void
+    {
+        $facts = [
+            'launch_proof' => ['status' => 'passed', 'hash' => str_repeat('a', 64)],
+            'replenishment_proof' => ['status' => 'passed', 'hash' => str_repeat('b', 64)],
+            'evidence_proof' => ['status' => 'passed', 'hash' => str_repeat('c', 64)],
+            'lane_isolation_proof' => ['status' => 'passed', 'hash' => str_repeat('d', 64)],
+            'cycle_supervisor_proof' => ['status' => 'passed', 'hash' => str_repeat('e', 64)],
+        ];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts);
+
+        self::assertTrue($result['ready']);
+        self::assertSame([], $result['blockers']);
+        self::assertSame('', $result['next_proof_action']);
+    }
+
+    public function test_all_five_proofs_ready_with_freshness_policy(): void
+    {
+        $facts = [
+            'launch_proof' => ['status' => 'passed', 'hash' => str_repeat('a', 64), 'generated_at' => time() - 10],
+            'replenishment_proof' => ['status' => 'passed', 'hash' => str_repeat('b', 64), 'generated_at' => time() - 20],
+            'evidence_proof' => ['status' => 'passed', 'hash' => str_repeat('c', 64), 'generated_at' => time() - 30],
+            'lane_isolation_proof' => ['status' => 'passed', 'hash' => str_repeat('d', 64), 'generated_at' => time() - 40],
+            'cycle_supervisor_proof' => ['status' => 'passed', 'hash' => str_repeat('e', 64), 'generated_at' => time() - 50],
+        ];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts, ['max_age_seconds' => 3600]);
+
+        self::assertTrue($result['ready']);
+    }
+
+    public function test_proof_refs_contains_all_five_keys_with_correct_states(): void
+    {
+        $facts = [
+            'launch_proof' => ['status' => 'passed', 'hash' => str_repeat('a', 64)],
+            'evidence_proof' => ['status' => 'blocked', 'hash' => str_repeat('c', 64)],
+        ];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts);
+
+        self::assertSame('ready', $result['proof_refs']['launch_proof']);
+        self::assertSame('missing', $result['proof_refs']['replenishment_proof']);
+        self::assertSame('contradictory', $result['proof_refs']['evidence_proof']);
+        self::assertSame('missing', $result['proof_refs']['lane_isolation_proof']);
+        self::assertSame('missing', $result['proof_refs']['cycle_supervisor_proof']);
+        self::assertFalse($result['ready']);
+    }
+
+    public function test_all_missing_proofs_reports_blockers_and_first_action(): void
+    {
+        $result = ReadinessTerminalLoopProofResolver::resolve([]);
+
+        self::assertFalse($result['ready']);
+        self::assertCount(5, $result['blockers']);
+        self::assertContains('missing_launch_proof', $result['blockers']);
+        self::assertContains('missing_cycle_supervisor_proof', $result['blockers']);
+        self::assertSame('provide_launch_proof', $result['next_proof_action']);
+    }
+
+    public function test_stale_proof_triggers_stale_state_and_action(): void
+    {
+        $facts = [
+            'launch_proof' => ['status' => 'passed', 'hash' => str_repeat('a', 64), 'generated_at' => time() - 7200],
+            'replenishment_proof' => ['status' => 'passed', 'hash' => str_repeat('b', 64)],
+            'evidence_proof' => ['status' => 'passed', 'hash' => str_repeat('c', 64)],
+            'lane_isolation_proof' => ['status' => 'passed', 'hash' => str_repeat('d', 64)],
+            'cycle_supervisor_proof' => ['status' => 'passed', 'hash' => str_repeat('e', 64)],
+        ];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts, ['max_age_seconds' => 3600]);
+
+        self::assertFalse($result['ready']);
+        self::assertSame('stale', $result['proof_refs']['launch_proof']);
+        self::assertContains('launch_proof_stale', $result['blockers']);
+        self::assertSame('refresh_launch_proof', $result['next_proof_action']);
+    }
+
+    public function test_contradictory_blocked_proof_returns_correct_state(): void
+    {
+        $facts = ['launch_proof' => ['status' => 'blocked', 'hash' => str_repeat('a', 64)]];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts);
+
+        self::assertSame('contradictory', $result['proof_refs']['launch_proof']);
+        self::assertContains('launch_proof_status_blocked', $result['blockers']);
+        self::assertSame('investigate_launch_proof_blocked', $result['next_proof_action']);
+    }
+
+    public function test_contradictory_passed_but_empty_hash(): void
+    {
+        $facts = ['replenishment_proof' => ['status' => 'passed', 'hash' => '']];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts);
+
+        self::assertSame('contradictory', $result['proof_refs']['replenishment_proof']);
+        self::assertContains('replenishment_proof_hash_invalid_or_empty', $result['blockers']);
+    }
+
+    public function test_contradictory_malformed_fact_missing_status(): void
+    {
+        $facts = ['evidence_proof' => ['hash' => str_repeat('c', 64)]];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts);
+
+        self::assertSame('contradictory', $result['proof_refs']['evidence_proof']);
+        self::assertContains('evidence_proof_missing_status', $result['blockers']);
+    }
+
+    public function test_ready_requires_sha256_hash_first_action_skips_ready(): void
+    {
+        $facts = [
+            'launch_proof' => ['status' => 'passed', 'hash' => str_repeat('a', 64)],
+            'replenishment_proof' => ['status' => 'passed', 'hash' => 'not-a-valid-sha256-hash'],
+        ];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts);
+
+        // replenishment is first failing — next_proof_action points at it
+        self::assertSame('contradictory', $result['proof_refs']['replenishment_proof']);
+        self::assertContains('replenishment_proof_hash_invalid_or_empty', $result['blockers']);
+        self::assertSame('investigate_replenishment_proof_hash_inconsistency', $result['next_proof_action']);
+    }
+
+    public function test_null_fact_treated_as_missing(): void
+    {
+        $facts = [
+            'launch_proof' => null,
+            'replenishment_proof' => ['status' => 'passed', 'hash' => str_repeat('b', 64)],
+            'evidence_proof' => ['status' => 'passed', 'hash' => str_repeat('c', 64)],
+            'lane_isolation_proof' => ['status' => 'passed', 'hash' => str_repeat('d', 64)],
+            'cycle_supervisor_proof' => ['status' => 'passed', 'hash' => str_repeat('e', 64)],
+        ];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts);
+
+        self::assertFalse($result['ready']);
+        self::assertSame('missing', $result['proof_refs']['launch_proof']);
+        self::assertContains('missing_launch_proof', $result['blockers']);
+    }
+
+    public function test_empty_array_fact_treated_as_missing(): void
+    {
+        $facts = ['launch_proof' => []];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts);
+
+        self::assertSame('missing', $result['proof_refs']['launch_proof']);
+        self::assertContains('missing_launch_proof', $result['blockers']);
+    }
+
+    public function test_stale_priority_over_missing_first_action(): void
+    {
+        $facts = [
+            'launch_proof' => ['status' => 'passed', 'hash' => str_repeat('a', 64)],
+            'replenishment_proof' => ['status' => 'passed', 'hash' => str_repeat('b', 64), 'generated_at' => time() - 7200],
+            'evidence_proof' => ['status' => 'passed', 'hash' => str_repeat('c', 64)],
+            'lane_isolation_proof' => ['status' => 'passed', 'hash' => str_repeat('d', 64)],
+            'cycle_supervisor_proof' => null,
+        ];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts, ['max_age_seconds' => 3600]);
+
+        // launch is ready, replenishment is stale — that gets the first action
+        self::assertSame('refresh_replenishment_proof', $result['next_proof_action']);
+    }
+
+    public function test_contradictory_priority_over_stale_first_action(): void
+    {
+        $facts = [
+            'launch_proof' => ['status' => 'passed', 'hash' => str_repeat('a', 64)],
+            'replenishment_proof' => ['status' => 'blocked', 'hash' => str_repeat('b', 64), 'generated_at' => time() - 7200],
+            'evidence_proof' => ['status' => 'passed', 'hash' => str_repeat('c', 64)],
+            'lane_isolation_proof' => ['status' => 'passed', 'hash' => str_repeat('d', 64)],
+            'cycle_supervisor_proof' => ['status' => 'passed', 'hash' => str_repeat('e', 64)],
+        ];
+
+        $result = ReadinessTerminalLoopProofResolver::resolve($facts, ['max_age_seconds' => 3600]);
+
+        // replenishment is blocked — first non-ready in order
+        self::assertSame('investigate_replenishment_proof_blocked', $result['next_proof_action']);
+    }
+
     public function test_with_payload_does_not_overwrite_when_canonical_payload_empty(): void
     {
         $canonicalPath = 'atlas/self-construction/operator-submissions/test-empty-proof.json';

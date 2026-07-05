@@ -174,4 +174,124 @@ final class ReadinessTerminalLoopProofResolver
 
         return $options;
     }
+
+    /**
+     * Resolve all five required terminal-loop proofs into a single readiness
+     * verdict. Each proof fact is classified as ready, missing, stale, or
+     * contradictory.
+     *
+     * ready:         the fact exists, status=passed, evidence hash is a valid
+     *                sha256, and (when max_age_seconds is in policy) the
+     *                generated_at timestamp is within the freshness window.
+     * missing:       the fact is absent (null) or an empty array.
+     * stale:         the fact would be ready except generated_at is older than
+     *                max_age_seconds.
+     * contradictory: the fact exists but status is not 'passed', or status is
+     *                'passed' without a valid sha256 evidence hash — the proof
+     *                claims readiness but cannot be trusted.
+     *
+     * @param  array<string, array<string, mixed>|null>  $proofFacts  proof_type_key => {status?, hash?, generated_at?} | null
+     * @param  array{max_age_seconds?: int}  $policy
+     * @return array{proof_refs: array<string,string>, blockers: list<string>, ready: bool, next_proof_action: string}
+     */
+    public static function resolve(array $proofFacts, array $policy = []): array
+    {
+        $requiredProofTypes = ['launch', 'replenishment', 'evidence', 'lane_isolation', 'cycle_supervisor'];
+        $proofRefs = [];
+        $blockers = [];
+        $nextAction = '';
+        $actionSet = false;
+
+        foreach ($requiredProofTypes as $type) {
+            $key = $type.'_proof';
+            $fact = $proofFacts[$key] ?? null;
+            $state = self::resolveSingleProof($type, is_array($fact) ? $fact : null, $policy);
+            $proofRefs[$key] = $state['state'];
+
+            foreach ($state['blockers'] as $blocker) {
+                $blockers[] = $blocker;
+            }
+            if (! $actionSet && $state['next_proof_action'] !== '') {
+                $nextAction = $state['next_proof_action'];
+                $actionSet = true;
+            }
+        }
+
+        return [
+            'proof_refs' => $proofRefs,
+            'blockers' => $blockers,
+            'ready' => $blockers === [],
+            'next_proof_action' => $nextAction,
+        ];
+    }
+
+    /**
+     * Classify a single proof fact into ready, missing, stale, or contradictory.
+     *
+     * @param  string  $type  bare type name (e.g. 'launch')
+     * @param  array{status?: string, hash?: string, generated_at?: mixed}|null  $fact
+     * @param  array{max_age_seconds?: int}  $policy
+     * @return array{state: string, blockers: list<string>, next_proof_action: string}
+     */
+    private static function resolveSingleProof(string $type, ?array $fact, array $policy): array
+    {
+        if ($fact === null || $fact === []) {
+            return [
+                'state' => 'missing',
+                'blockers' => ["missing_{$type}_proof"],
+                'next_proof_action' => "provide_{$type}_proof",
+            ];
+        }
+
+        $status = (string) ($fact['status'] ?? '');
+        $hash = (string) ($fact['hash'] ?? '');
+        $generatedAt = $fact['generated_at'] ?? null;
+
+        // Contradictory: status is a non-'passed' value (blocked, failed, etc.)
+        if ($status !== '' && $status !== 'passed') {
+            return [
+                'state' => 'contradictory',
+                'blockers' => ["{$type}_proof_status_{$status}"],
+                'next_proof_action' => "investigate_{$type}_proof_{$status}",
+            ];
+        }
+
+        // Contradictory: status is 'passed' but evidence hash missing or invalid
+        if ($status === 'passed' && ! preg_match('/^[a-f0-9]{64}$/', $hash)) {
+            return [
+                'state' => 'contradictory',
+                'blockers' => ["{$type}_proof_hash_invalid_or_empty"],
+                'next_proof_action' => "investigate_{$type}_proof_hash_inconsistency",
+            ];
+        }
+
+        // Contradictory: no status at all (fact exists but malformed)
+        if ($status === '') {
+            return [
+                'state' => 'contradictory',
+                'blockers' => ["{$type}_proof_missing_status"],
+                'next_proof_action' => "investigate_{$type}_proof_malformed",
+            ];
+        }
+
+        // Stale: generated_at is older than max_age_seconds
+        $maxAgeSeconds = array_key_exists('max_age_seconds', $policy) ? (int) $policy['max_age_seconds'] : null;
+        if ($maxAgeSeconds !== null && $generatedAt !== null) {
+            $timestamp = is_numeric($generatedAt) ? (int) $generatedAt : strtotime((string) $generatedAt);
+            if ($timestamp !== false && (time() - $timestamp) > $maxAgeSeconds) {
+                return [
+                    'state' => 'stale',
+                    'blockers' => ["{$type}_proof_stale"],
+                    'next_proof_action' => "refresh_{$type}_proof",
+                ];
+            }
+        }
+
+        // Ready: status=passed, valid hash, (optional) fresh
+        return [
+            'state' => 'ready',
+            'blockers' => [],
+            'next_proof_action' => '',
+        ];
+    }
 }
