@@ -138,7 +138,7 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         if (! (bool) $adapted['ok']) {
             $blockedActions[] = ['action' => 'adapt', 'reason' => (string) $adapted['reason']];
 
-            return $this->envelope(self::STATUS_ADAPTER_REFUSED, false, '', (string) ($claim['lease_id'] ?? ''), '', $plannedSteps, $appliedSteps, $blockedActions);
+            return $this->envelope(self::STATUS_ADAPTER_REFUSED, false, '', (string) ($claim['lease_id'] ?? ''), '', $plannedSteps, $appliedSteps, $blockedActions, '', [], self::OUTCOME_CLASS_GIVE_BACK);
         }
         $appliedSteps[] = 'adapt';
         $normalized = (array) $adapted['normalized_packet'];

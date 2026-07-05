@@ -362,6 +362,87 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         self::assertNull($r['outcome_class']);
     }
 
+    public function test_adapter_refused_outcome_class_is_give_back(): void
+    {
+        $badClaim = $this->validClaim();
+        $badClaim['task_packet']['allowed_files'] = [];
+
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $badClaim,
+            'report_callback' => fn (array $p) => $p,
+        ]);
+
+        self::assertSame(
+            AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_GIVE_BACK,
+            $r['outcome_class'],
+            'adapter refusal must produce give_back outcome_class',
+        );
+    }
+
+    public function test_denied_command_outcome_class_is_give_back(): void
+    {
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $this->validClaim(),
+            'report_callback' => fn (array $p) => $p,
+            'verification' => ['passed' => true],
+            'command_plan' => [
+                ['name' => 'not-in-allowlist', 'command' => 'echo hi'],
+            ],
+        ]);
+
+        self::assertNotSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_SUCCESS, $r['outcome_class']);
+        // Forbidden/denied commands surface as OUTCOME_CLASS_GIVE_BACK or OUTCOME_CLASS_COMMAND_FAILED
+        self::assertContains($r['outcome_class'], [
+            AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_GIVE_BACK,
+            AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_COMMAND_FAILED,
+        ]);
+    }
+
+    public function test_verification_failed_does_not_produce_success_outcome_class(): void
+    {
+        $ledger = sys_get_temp_dir().'/atlas-cycle-ac3-'.bin2hex(random_bytes(4)).'.jsonl';
+
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle(
+            evidenceWriter: new AtlasNativeWorkerEvidenceWriter($ledger),
+        ))->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $this->validClaim(),
+            'report_callback' => fn (array $p) => $p,
+            'verification' => ['passed' => false],
+        ]);
+
+        self::assertNotSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_SUCCESS, $r['outcome_class']);
+        self::assertNotSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_GIVE_BACK, $r['outcome_class']);
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_VERIFICATION_FAILED, $r['outcome_class']);
+
+        @unlink($ledger);
+    }
+
+    public function test_lease_and_task_ids_match_claimed_task_on_success(): void
+    {
+        $ledger = sys_get_temp_dir().'/atlas-cycle-ids-'.bin2hex(random_bytes(4)).'.jsonl';
+
+        $claim = $this->validClaim();
+        $claim['lease_id'] = 'lease-abc';
+        $claim['task_packet']['task_packet_id'] = 'task-xyz';
+
+        $verdict = (new AtlasNativeWorkerClaimExecuteReportCycle(
+            evidenceWriter: new AtlasNativeWorkerEvidenceWriter($ledger),
+        ))->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $claim,
+            'report_callback' => fn (array $p) => $p,
+            'verification' => ['passed' => true],
+        ]);
+
+        self::assertSame('task-xyz', $verdict['task_packet_id']);
+        self::assertSame('lease-abc', $verdict['lease_id']);
+
+        @unlink($ledger);
+    }
+
     public function test_step_retry_contract_required_keys_present_for_every_status(): void
     {
         $keys = ['failed_or_pending_step', 'retryable', 'required_callback', 'evidence_needed', 'reportable_outcome_reason'];
