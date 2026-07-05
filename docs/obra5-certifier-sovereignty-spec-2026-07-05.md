@@ -55,9 +55,11 @@ monta `AcceptanceBundle` da evidência que o certifier JÁ tem (nada fabricado; 
 o floor waiva ou recusa por invariante nomeado) e chama `certify()` com o TrustLevel da superfície.
 No certifier: passo final `sovereignVerdict()` — se o gate REFUSE, o veredito local vira
 blocked/failed com blocker `sovereign_floor:<invariante>` (only-adds). Config por certifier
-`atlas.engineering_kernel.certifier_gate_mode` = off|observe|enforce, **default enforce** (o
-veredito só aperta; regressão de comportamento é impossível por construção — pass continua
-dependendo do local).
+`atlas.engineering_kernel.certifier_gate_mode` = off|observe|enforce, **default observe**
+(CORREÇÃO pós-leitura do floor: context_sufficiency tem piso duro 80 e judge_diversity exige
+≥2 famílias, sem waiver — enforce por default bloquearia entrega legítima cuja esteira ainda
+não treda essa evidência, violando AC-1.2. Observe grava o veredito soberano no envelope como
+raio-X do gap; enforce liga quando a esteira tredar — mesma postura do automerge na Obra #4).
 **AC-1.1:** entrega com evidência falsa (tests_run=0 + claim pass) que o certifier local aceitaria → BLOCKED pelo floor (teste por juiz).
 **AC-1.2:** entrega legítima verde → veredito local INALTERADO byte a byte (teste por juiz).
 **AC-1.3:** modo observe grava o veredito soberano no receipt sem alterar o local.

@@ -119,6 +119,38 @@ final class AtlasObraCertificationService
             'status' => $certified ? 'certified' : 'needs_review',
         ];
 
+        // OBRA #5 S1 — segunda opinião do piso soberano (only-adds: REFUSE em enforce só
+        // APERTA o veredito local, nunca afrouxa). Default observe: o veredito soberano vai
+        // no envelope como raio-X do gap de evidência (judges/context ainda não tredados
+        // pela esteira da obra); enforce liga via config quando a evidência chegar — mesma
+        // postura do automerge na Obra #4. Fail-closed SÓ em enforce; observe nunca derruba.
+        $gateMode = (string) config('atlas.engineering_kernel.obra_certifier_gate_mode', 'observe');
+        if ($gateMode !== 'off') {
+            try {
+                $verdict = app(\App\Services\Ai\EngineeringKernel\Adapters\AtlasObraGateAdapter::class)
+                    ->certifyObraDelivery($envelope);
+                $envelope['sovereign_verdict'] = [
+                    'mode' => $gateMode,
+                    'promoted' => $verdict->promoted(),
+                    'blockers' => $verdict->blockers,
+                    'receipt_ref' => $verdict->receiptRef,
+                ];
+                if ($gateMode === 'enforce' && ! $verdict->promoted() && $certified) {
+                    $envelope['certified'] = false;
+                    $envelope['disposition'] = self::DISPOSITION_INTEGRATION_FAILED;
+                    $envelope['reason'] = 'sovereign_floor:'.implode(',', $verdict->blockers);
+                    $envelope['status'] = 'needs_review';
+                }
+            } catch (\Throwable $e) {
+                $envelope['sovereign_verdict'] = ['mode' => $gateMode, 'error' => mb_substr($e->getMessage(), 0, 160)];
+                if ($gateMode === 'enforce' && $certified) {
+                    $envelope['certified'] = false;
+                    $envelope['reason'] = 'sovereign_gate_error';
+                    $envelope['status'] = 'needs_review';
+                }
+            }
+        }
+
         $envelope['receipt_hash'] = $this->receiptHash($envelope);
 
         return $envelope;
