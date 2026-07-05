@@ -184,6 +184,7 @@ final class AgentMergeReviewRollbackVerifier
     }
 
     public const DECISION_ROLLBACK_READY      = 'rollback_ready';
+    public const DECISION_AUTONOMOUS_SAFE     = 'autonomous_safe';
     public const DECISION_REQUIRE_MANUAL_PLAN = 'require_manual_plan';
     public const DECISION_REJECT_MERGE        = 'reject_merge';
 
@@ -195,17 +196,23 @@ final class AgentMergeReviewRollbackVerifier
      * generated artifacts and the verify() evidence — never depends on human
      * approval in steady state; decisions are derived purely from evidence.
      *
+     * Returns autonomous_safe only when rollback evidence covers every changed
+     * file and risky operation. Detects stale proof (evidence older than the
+     * changed files) and includes blockers when evidence is incomplete or stale.
+     *
      * @param  array<string, mixed>  $packet
-     * @param  array<string, mixed>  $promotionDryRun  may include recovery_evidence list
-     * @return array{schema_version:string, decision:string, rollback_reason:string, required_recovery_evidence:list<string>}
+     * @param  array<string, mixed>  $promotionDryRun  may include recovery_evidence list, proof_generated_at
+     * @return array{schema_version:string, decision:string, rollback_reason:string, required_recovery_evidence:list<string>, blockers:list<string>}
      */
     public function classifyRollbackReadiness(array $packet, array $promotionDryRun): array
     {
         $verification = $this->verify($packet, $promotionDryRun);
         $unverifiedCount = $verification['verification']['unverified_step_count'];
+        $coverage = (float) ($verification['verification']['rollback_coverage_ratio'] ?? 0.0);
 
         $files = (array) data_get($packet, 'packet.files', []);
         $providedEvidence = (array) ($promotionDryRun['recovery_evidence'] ?? []);
+        $blockers = [];
 
         $hasMigrationRisk = false;
         $hasGeneratedArtifact = false;
@@ -220,6 +227,24 @@ final class AgentMergeReviewRollbackVerifier
             }
         }
 
+        // Stale proof detection: if proof_generated_at is set, compare to the
+        // latest change timestamp in the packet.
+        $proofGeneratedAt = (string) ($promotionDryRun['proof_generated_at'] ?? '');
+        $latestChangeAt = '';
+        foreach ($files as $file) {
+            $changedAt = (string) ($file['changed_at'] ?? '');
+            if ($changedAt > $latestChangeAt) {
+                $latestChangeAt = $changedAt;
+            }
+        }
+        $proofStale = false;
+        if ($proofGeneratedAt !== '' && $latestChangeAt !== '') {
+            $proofStale = $proofGeneratedAt < $latestChangeAt;
+        }
+        if ($proofStale) {
+            $blockers[] = 'stale_proof:rollback_evidence_older_than_latest_file_change';
+        }
+
         $requiredEvidence = [];
         if ($hasMigrationRisk) {
             $requiredEvidence[] = 'db_backup_snapshot_ref';
@@ -230,40 +255,80 @@ final class AgentMergeReviewRollbackVerifier
 
         $missingEvidence = array_values(array_diff($requiredEvidence, $providedEvidence));
 
+        if ($proofStale) {
+            $blockers[] = 'stale_proof';
+        }
+
+        // Stale proof blocks autonomous merge — require manual plan.
+        if ($proofStale && $unverifiedCount === 0 && $missingEvidence === [] && $coverage >= 0.999) {
+            return [
+                'schema_version'              => self::SCHEMA_VERSION,
+                'decision'                    => self::DECISION_REQUIRE_MANUAL_PLAN,
+                'rollback_reason'             => 'rollback evidence is stale relative to the latest file change',
+                'required_recovery_evidence'  => $requiredEvidence,
+                'blockers'                    => $blockers,
+            ];
+        }
+
         // Unrollbackable steps + migration/schema risk together: too dangerous to
         // proceed autonomously — reject outright rather than hope a manual plan helps.
         if ($unverifiedCount > 0 && $hasMigrationRisk) {
+            $blockers[] = 'unverifiable_step_with_migration_risk';
+            $blockers[] = 'missing_recovery_evidence';
+
             return [
                 'schema_version'              => self::SCHEMA_VERSION,
                 'decision'                    => self::DECISION_REJECT_MERGE,
                 'rollback_reason'             => 'unverifiable rollback steps combined with migration/schema risk make this change unsafe to merge autonomously',
                 'required_recovery_evidence'  => $requiredEvidence,
+                'blockers'                    => $blockers,
             ];
         }
 
         if ($unverifiedCount > 0) {
+            $blockers[] = 'unverified_rollback_steps';
+
             return [
                 'schema_version'              => self::SCHEMA_VERSION,
                 'decision'                    => self::DECISION_REQUIRE_MANUAL_PLAN,
                 'rollback_reason'             => sprintf('%d rollback step(s) could not be verified against the packet', $unverifiedCount),
                 'required_recovery_evidence'  => $requiredEvidence,
+                'blockers'                    => $blockers,
             ];
         }
 
         if ($missingEvidence !== []) {
+            $blockers[] = 'missing_recovery_evidence';
+
             return [
                 'schema_version'              => self::SCHEMA_VERSION,
                 'decision'                    => self::DECISION_REQUIRE_MANUAL_PLAN,
                 'rollback_reason'             => 'migration/schema risk or generated artifacts present without the required recovery evidence',
                 'required_recovery_evidence'  => $requiredEvidence,
+                'blockers'                    => $blockers,
+            ];
+        }
+
+        // Autonomous-safe: all steps verified, no missing evidence, no stale proof,
+        // and rollback coverage covers every changed file.
+        if ($coverage < 0.999) {
+            $blockers[] = 'incomplete_rollback_coverage';
+
+            return [
+                'schema_version'              => self::SCHEMA_VERSION,
+                'decision'                    => self::DECISION_REQUIRE_MANUAL_PLAN,
+                'rollback_reason'             => 'rollback coverage does not cover every changed file',
+                'required_recovery_evidence'  => $requiredEvidence,
+                'blockers'                    => $blockers,
             ];
         }
 
         return [
             'schema_version'              => self::SCHEMA_VERSION,
-            'decision'                    => self::DECISION_ROLLBACK_READY,
-            'rollback_reason'             => 'all rollback steps verified and required recovery evidence is present',
+            'decision'                    => self::DECISION_AUTONOMOUS_SAFE,
+            'rollback_reason'             => 'rollback evidence covers every changed file and risky operation; no stale proof detected',
             'required_recovery_evidence'  => $requiredEvidence,
+            'blockers'                    => $blockers,
         ];
     }
 
