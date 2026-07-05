@@ -112,4 +112,50 @@ final class AtlasRetrievalCostLatencyGovernorServiceTest extends TestCase
         $this->assertFalse($result['claims']['required_source_removed_silently']);
         $this->assertSame('blocked', $result['degraded_mode']['status']);
     }
+
+    // ── AC2: quality_floor=1.5 is bounded to 1.0 ──
+
+    public function test_quality_floor_above_one_bounded_to_one(): void
+    {
+        $result = $this->service->govern([
+            'risk' => 'low',
+            'quality_floor' => 1.5,
+        ]);
+
+        $this->assertSame(1.0, $result['budget_policy']['quality_floor']);
+        $this->assertSame(1.0, $result['receipt']['quality_floor']);
+    }
+
+    // ── AC3: quality_floor=-0.2 is bounded to 0.0 ──
+
+    public function test_quality_floor_below_zero_bounded_to_zero(): void
+    {
+        $result = $this->service->govern([
+            'risk' => 'low',
+            'quality_floor' => -0.2,
+        ]);
+
+        $this->assertSame(0.0, $result['budget_policy']['quality_floor']);
+        $this->assertSame(0.0, $result['receipt']['quality_floor']);
+    }
+
+    // ── AC4: default floors stay unchanged when quality_floor is omitted ──
+
+    public function test_default_low_floor_unchanged_when_omitted(): void
+    {
+        $result = $this->service->govern(['risk' => 'low']);
+        $this->assertSame(0.76, $result['budget_policy']['quality_floor']);
+    }
+
+    public function test_default_medium_floor_unchanged_when_omitted(): void
+    {
+        $result = $this->service->govern(['risk' => 'medium']);
+        $this->assertSame(0.84, $result['budget_policy']['quality_floor']);
+    }
+
+    public function test_default_high_floor_unchanged_when_omitted(): void
+    {
+        $result = $this->service->govern(['risk' => 'high']);
+        $this->assertSame(0.92, $result['budget_policy']['quality_floor']);
+    }
 }

@@ -99,7 +99,7 @@ final class AtlasRetrievalCostLatencyGovernorService
             'budget_ms' => max(100, (int) ($input['budget_ms'] ?? $defaults['budget_ms'])),
             'budget_cost_units' => max(1, (int) ($input['budget_cost_units'] ?? $defaults['budget_cost_units'])),
             'max_refs' => max(1, (int) ($input['policy_max_refs'] ?? $defaults['max_refs'])),
-            'quality_floor' => (float) ($input['quality_floor'] ?? $defaults['quality_floor']),
+            'quality_floor' => self::boundQualityFloor((float) ($input['quality_floor'] ?? $defaults['quality_floor'])),
             'cache_allowed' => $risk !== 'high' && $risk !== 'irreversible',
             'degraded_mode_requires_receipt' => true,
             'required_source_trim_policy' => 'block_not_trim',
@@ -281,5 +281,15 @@ final class AtlasRetrievalCostLatencyGovernorService
     private function risk(string $risk): string
     {
         return in_array($risk, ['low', 'medium', 'high', 'irreversible'], true) ? $risk : 'low';
+    }
+
+    /**
+     * Bound caller-supplied quality_floor to the valid probability range 0.0..1.0.
+     * Prevents impossible floors (e.g. 1.5) and meaningless negative floors
+     * from distorting ACOP context gating.
+     */
+    private static function boundQualityFloor(float $floor): float
+    {
+        return round(max(0.0, min(1.0, $floor)), 4);
     }
 }
