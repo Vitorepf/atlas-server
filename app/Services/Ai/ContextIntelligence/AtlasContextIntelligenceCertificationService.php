@@ -12,6 +12,8 @@ use Throwable;
 
 final class AtlasContextIntelligenceCertificationService
 {
+    use \App\Services\Ai\Support\CertificationScaffoldHelpers;
+
     public const SCHEMA_VERSION = 'atlas.context_intelligence.certification.v1';
 
     public const STATUS_PASSED = 'passed';
@@ -466,63 +468,6 @@ final class AtlasContextIntelligenceCertificationService
             ['benchmark_not_run' => true, 'rivals_compared' => false, 'provider_calls_made' => false],
             'N/A',
         );
-    }
-
-    /**
-     * @param  array<string,mixed>  $evidence
-     * @return array<string,mixed>
-     */
-    private function check(string $id, bool $ok, string $summary, array $evidence, string $remediation): array
-    {
-        return [
-            'id' => $id,
-            'status' => $ok ? 'pass' : 'fail',
-            'severity' => 'critical',
-            'summary' => $summary,
-            'evidence' => $evidence,
-            'remediation' => $ok ? null : $remediation,
-        ];
-    }
-
-    /**
-     * @param  list<array<string,mixed>>  $checks
-     */
-    private function status(array $checks): string
-    {
-        return collect($checks)->contains(fn (array $check): bool => ($check['status'] ?? null) === 'fail')
-            ? self::STATUS_BLOCKED
-            : self::STATUS_PASSED;
-    }
-
-    /**
-     * @param  list<array<string,mixed>>  $checks
-     * @return array<string,int>
-     */
-    private function summary(array $checks): array
-    {
-        return [
-            'total' => count($checks),
-            'pass' => count(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) === 'pass')),
-            'fail' => count(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) === 'fail')),
-        ];
-    }
-
-    private function read(string $path): ?string
-    {
-        if (! File::exists($path)) {
-            return null;
-        }
-
-        $contents = File::get($path);
-
-        return is_string($contents) ? $contents : null;
-    }
-
-    private function relative(string $path): string
-    {
-        $base = rtrim(base_path(), DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
-
-        return str_starts_with($path, $base) ? substr($path, strlen($base)) : $path;
     }
 
 }
