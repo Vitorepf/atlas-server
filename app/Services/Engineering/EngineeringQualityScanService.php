@@ -112,6 +112,19 @@ class EngineeringQualityScanService
             ? 'failed'
             : 'passed';
 
+        // Gate-ready security verdict from the findings.
+        $secretTools = ['gitleaks'];
+        $sastTools = ['semgrep'];
+        $cveTools = ['osv_scanner', 'trivy', 'grype'];
+        $securityFindings = array_values(array_filter($findings, static fn (array $f): bool => ($f['category'] ?? '') === 'security' && ! empty($f['blocks_resolved'])));
+        $securityVerdict = [
+            'has_blocking_findings' => $securityFindings !== [],
+            'secrets_count' => count(array_filter($securityFindings, static fn (array $f): bool => in_array($f['tool'] ?? '', $secretTools, true))),
+            'sast_count' => count(array_filter($securityFindings, static fn (array $f): bool => in_array($f['tool'] ?? '', $sastTools, true))),
+            'cve_count' => count(array_filter($securityFindings, static fn (array $f): bool => in_array($f['tool'] ?? '', $cveTools, true))),
+            'tools_with_blocking' => array_values(array_unique(array_map(static fn (array $f): string => (string) ($f['tool'] ?? ''), $securityFindings))),
+        ];
+
         $payload = [
             'status' => $status,
             'profile' => $profile,
@@ -128,6 +141,7 @@ class EngineeringQualityScanService
             'tools' => $tools,
             'findings' => $findings,
             'recommendations' => $recommendations,
+            'security_verdict' => $securityVerdict,
             'cost_posture' => 'free_local_or_project_local',
             'paid_tool_required' => false,
             'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
