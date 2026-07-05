@@ -182,6 +182,33 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
         $this->assertTrue((bool) data_get($capability->safety_policy, 'operator_review_required'));
     }
 
+    public function test_distill_blocks_succeeded_outcome_without_tests_passed_metric(): void
+    {
+        $runtime = app(AtlasAemorRuntimeService::class);
+        $episode = $runtime->openEpisode(['objective' => 'test gate', 'evidence_refs' => ['e1']]);
+        $outcome = $runtime->closeOutcome([
+            'episode_id' => $episode['episode_id'],
+            'status' => 'succeeded',
+            'summary' => 'Completed without running tests.',
+            'metrics' => ['attribution_reviewed' => true], // tests_passed intentionally omitted
+            'evidence_refs' => ['outcome:no-tests'],
+        ]);
+
+        $distill = $runtime->distill([
+            'episode_id' => $episode['episode_id'],
+            'outcome_id' => $outcome['outcome_id'],
+            'claim' => 'Completed without running tests.',
+            'evidence_refs' => ['outcome:no-tests'],
+        ]);
+
+        $this->assertSame('blocked', $distill['status']);
+        $this->assertContains('success_without_test_or_gate_evidence', data_get($distill, 'promotion_gate.blockers', []));
+        $this->assertNull(data_get($distill, 'memory_candidate_id'));
+        $this->assertNull(data_get($distill, 'memory_delta_id'));
+        $this->assertDatabaseCount('atlas_aemor_memory_candidates', 0);
+        $this->assertDatabaseCount('ai_memory_deltas', 0);
+    }
+
     public function test_replay_manifest_reconstructs_episode_hashes(): void
     {
         $runtime = app(AtlasAemorRuntimeService::class);
