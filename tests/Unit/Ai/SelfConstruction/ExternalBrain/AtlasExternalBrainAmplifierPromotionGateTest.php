@@ -36,6 +36,9 @@ final class AtlasExternalBrainAmplifierPromotionGateTest extends TestCase
             // Held-out diversity gates
             'heldout_task_families'         => ['bugfix', 'refactor', 'test_authoring'],
             'recent_muscle_outcome_windows'  => ['2026-06-24..2026-06-30'],
+            // Shadow baseline-beat gates
+            'success_rate'                  => 0.90,
+            'impact_score'                  => 0.80,
         ];
     }
 
@@ -457,5 +460,120 @@ final class AtlasExternalBrainAmplifierPromotionGateTest extends TestCase
         $b = $this->svc()->evaluate($input);
 
         $this->assertSame(json_encode($a), json_encode($b));
+    }
+
+    // ── success_rate gates ──────────────────────────────────────────────────
+
+    public function test_promotion_blocked_when_success_rate_below_threshold(): void
+    {
+        $r = $this->evaluate(['success_rate' => 0.80]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('success_rate_below_threshold', $r['blocking_reasons']);
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+    }
+
+    public function test_promotion_allowed_when_success_rate_at_threshold(): void
+    {
+        $r = $this->evaluate(['success_rate' => 0.85]);
+
+        $this->assertNotContains('success_rate_below_threshold', $r['blocking_reasons']);
+    }
+
+    public function test_promotion_blocked_when_impact_score_below_threshold(): void
+    {
+        $r = $this->evaluate(['impact_score' => 0.60]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('impact_score_below_threshold', $r['blocking_reasons']);
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+    }
+
+    public function test_promotion_allowed_when_impact_score_at_threshold(): void
+    {
+        $r = $this->evaluate(['impact_score' => 0.70]);
+
+        $this->assertNotContains('impact_score_below_threshold', $r['blocking_reasons']);
+    }
+
+    public function test_high_success_and_impact_with_everything_else_passing_promotes(): void
+    {
+        $r = $this->evaluate(['success_rate' => 1.0, 'impact_score' => 1.0]);
+
+        $this->assertTrue($r['promote']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+        $this->assertSame([], $r['reasons']);
+    }
+
+    // ── next_action field ────────────────────────────────────────────────────
+
+    public function test_next_action_is_promote_default_when_all_gates_pass(): void
+    {
+        $r = $this->evaluate();
+
+        $this->assertSame('promote_default', $r['next_action']);
+    }
+
+    public function test_next_action_is_retry_when_shadow_more(): void
+    {
+        $r = $this->evaluate(['sample_count' => 5]);
+
+        $this->assertSame('retry', $r['next_action']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_SHADOW_MORE, $r['decision']);
+    }
+
+    public function test_next_action_is_rollback_when_proxy_leak_above_ceiling(): void
+    {
+        $r = $this->evaluate(['proxy_leak_rate' => 0.50]);
+
+        $this->assertSame('rollback', $r['next_action']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+    }
+
+    public function test_next_action_is_rollback_when_poison_increased(): void
+    {
+        $r = $this->evaluate(['poison_delta' => 0.01]);
+
+        $this->assertSame('rollback', $r['next_action']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+    }
+
+    public function test_next_action_present_in_output(): void
+    {
+        $r = $this->svc()->evaluate([]);
+
+        $this->assertArrayHasKey('next_action', $r);
+    }
+
+    public function test_success_rate_below_threshold_appears_in_reasons_and_missing_evidence(): void
+    {
+        $r = $this->evaluate(['success_rate' => 0.50]);
+
+        $this->assertContains('success_rate_below_threshold', $r['reasons']);
+        $reasonsStr = implode(' ', $r['missing_evidence']);
+        $this->assertStringContainsString('success_rate', $reasonsStr);
+    }
+
+    public function test_impact_score_below_threshold_appears_in_reasons_and_missing_evidence(): void
+    {
+        $r = $this->evaluate(['impact_score' => 0.40]);
+
+        $this->assertContains('impact_score_below_threshold', $r['reasons']);
+        $reasonsStr = implode(' ', $r['missing_evidence']);
+        $this->assertStringContainsString('impact_score', $reasonsStr);
+    }
+
+    public function test_high_throughput_with_worsened_give_back_blocks_even_with_perfect_success_rate(): void
+    {
+        // Even if success_rate and impact_score are perfect, worsened give_back must block
+        $r = $this->evaluate([
+            'success_rate'    => 1.0,
+            'impact_score'    => 1.0,
+            'give_back_delta' => 0.06, // above MAX_GIVE_BACK_DELTA
+        ]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('give_back_risk_increased', $r['blocking_reasons']);
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
     }
 }

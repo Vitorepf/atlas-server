@@ -6,7 +6,7 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
  * Pure promotion gate: a scaffold/model-amplifier variant can move from shadow
- * to live task origination only when all six conditions are met.
+ * to live task origination only when all conditions are met.
  *
  * Blocking conditions (any one → promote=false):
  *   1. shadow_runs < MIN_SHADOW_RUNS          — sample too small
@@ -15,10 +15,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   4. give_back_delta > MAX_GIVE_BACK_DELTA  — give_back rate worsened
  *   5. poison_delta > MAX_POISON_DELTA        — any increase in poison
  *   6. slo_passed=false OR replay_court_passed=false OR scaffold_compliance=false
+ *   7. success_rate < MIN_SUCCESS_RATE        — shadow trials fail too often
+ *   8. impact_score < MIN_IMPACT_SCORE        — impact not proven
  *
  * required_more_shadow_runs: max(0, MIN_SHADOW_RUNS − shadow_runs).
  * live_rollout_constraints: emitted only when gate passes; includes canary
  *   requirement and daily SLO recheck.
+ * next_action: computed from the decision — promote_default, retry, or rollback.
  */
 final class AtlasExternalBrainAmplifierPromotionGate
 {
@@ -48,6 +51,11 @@ final class AtlasExternalBrainAmplifierPromotionGate
     // up as autonomy lift.
     public const MIN_HELDOUT_TASK_FAMILIES = 3;
 
+    // Shadow baseline beat thresholds — a scaffold/prompt/model-tier becomes default
+    // only when shadow trials beat the baseline on these metrics.
+    public const MIN_SUCCESS_RATE = 0.85;
+    public const MIN_IMPACT_SCORE = 0.70;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -75,6 +83,10 @@ final class AtlasExternalBrainAmplifierPromotionGate
             (array) ($input['heldout_task_families'] ?? [])
         )));
         $recentMuscleOutcomeWindows = array_values((array) ($input['recent_muscle_outcome_windows'] ?? []));
+
+        // Shadow baseline-beat inputs.
+        $successRate = max(0.0, min(1.0, (float) ($input['success_rate'] ?? 0.0)));
+        $impactScore = max(0.0, min(1.0, (float) ($input['impact_score'] ?? 0.0)));
 
         $blockingReasons  = [];
         $missingEvidence  = [];
@@ -120,6 +132,16 @@ final class AtlasExternalBrainAmplifierPromotionGate
             $missingEvidence[] = 'at_least_one_recent_muscle_outcome_window';
         }
 
+        // ── Baseline beat gates (success_rate and impact_score) ──────────────
+        if ($successRate < self::MIN_SUCCESS_RATE) {
+            $blockingReasons[] = 'success_rate_below_threshold';
+            $missingEvidence[] = 'success_rate_evidence_above_'.str_replace('.', '_', (string) self::MIN_SUCCESS_RATE);
+        }
+        if ($impactScore < self::MIN_IMPACT_SCORE) {
+            $blockingReasons[] = 'impact_score_below_threshold';
+            $missingEvidence[] = 'impact_score_evidence_above_'.str_replace('.', '_', (string) self::MIN_IMPACT_SCORE);
+        }
+
         // ── Legacy conditions ────────────────────────────────────────────────
         if ($shadowRuns < self::MIN_SHADOW_RUNS) {
             $blockingReasons[] = 'sample_too_small';
@@ -151,6 +173,12 @@ final class AtlasExternalBrainAmplifierPromotionGate
             default               => self::DECISION_SHADOW_MORE,
         };
 
+        $nextAction = match ($decision) {
+            self::DECISION_PROMOTE     => 'promote_default',
+            self::DECISION_ROLLBACK    => 'rollback',
+            self::DECISION_SHADOW_MORE => 'retry',
+        };
+
         $reasons = array_values(array_merge($rollbackTriggers, $blockingReasons));
         $requiredMoreShadowRuns = max(0, self::MIN_SHADOW_RUNS - $shadowRuns);
 
@@ -161,6 +189,7 @@ final class AtlasExternalBrainAmplifierPromotionGate
         return [
             'schema_version'            => self::SCHEMA,
             'decision'                  => $decision,
+            'next_action'               => $nextAction,
             'promote'                   => $promote,
             'reasons'                   => $reasons,
             'missing_evidence'          => array_values(array_unique($missingEvidence)),
