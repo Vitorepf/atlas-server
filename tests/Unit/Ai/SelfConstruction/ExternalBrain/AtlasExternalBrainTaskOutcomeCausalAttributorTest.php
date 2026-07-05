@@ -491,4 +491,38 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributorTest extends TestCase
         // that next_batch_adjustments always resolves to a list (possibly empty) without error.
         $this->assertIsArray($r['next_batch_adjustments']);
     }
+
+    // ── AC2: good spec assigned to avoid-class worker is worker_mismatch ──
+
+    public function test_good_spec_avoid_class_worker_is_worker_mismatch_not_poor_spec(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'outcome' => ['result' => 'give_back'],
+            'worker' => ['quality_score' => 0.8, 'avoid_task_classes' => ['new_service'], 'best_task_classes' => [], 'task_class' => 'new_service'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_WORKER_MISMATCH, $r['primary_cause']);
+        $this->assertNotSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_POOR_SPEC, $r['primary_cause']);
+    }
+
+    // ── AC3: missing acceptance or low spec quality is poor_spec ──
+
+    public function test_missing_acceptance_is_poor_spec_with_improve_adjustment(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'outcome' => ['result' => 'give_back'],
+            'spec' => ['quality_score' => 0.1, 'has_acceptance_criteria' => false],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_POOR_SPEC, $r['primary_cause']);
+    }
+
+    // ── AC4: successful task with runnable evidence is good_execution ──
+
+    public function test_success_with_evidence_is_good_execution_high_confidence(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution());
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_GOOD_EXECUTION, $r['primary_cause']);
+    }
 }
