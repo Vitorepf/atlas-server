@@ -13,6 +13,7 @@ namespace App\Services\Ai\SelfConstruction\NativeImplementation;
  *   - namespace_mismatch           ⇒ template: fix_namespace_declaration
  *   - assertion_mismatch           ⇒ template: align_assertion_or_implementation
  *   - import_error                 ⇒ template: add_missing_use_statement
+ *   - test_file_not_found           ⇒ template: create_test_file_skeleton
  *
  * Anything else returns `needs_external_capability` — the loop NEVER guesses.
  *
@@ -37,6 +38,8 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
 
     public const TEMPLATE_FIX_TYPE_MISMATCH = 'align_declared_type';
 
+    public const TEMPLATE_CREATE_TEST_FILE = 'create_test_file_skeleton';
+
     public const RESPONSE_NEEDS_EXTERNAL = 'needs_external_capability';
 
     public const RESPONSE_GIVE_BACK_REQUIRED = 'give_back_required';
@@ -49,6 +52,7 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
         'syntax_error' => self::TEMPLATE_FIX_SYNTAX,
         'missing_method' => self::TEMPLATE_STUB_METHOD,
         'type_mismatch' => self::TEMPLATE_FIX_TYPE_MISMATCH,
+        'test_file_not_found' => self::TEMPLATE_CREATE_TEST_FILE,
     ];
 
     /**
@@ -171,6 +175,7 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
             'syntax_error' => 'fix syntax near '.(string) ($fact['location'] ?? '?'),
             'missing_method' => 'stub method '.(string) ($fact['method_name'] ?? '?').' on '.(string) ($fact['class_name'] ?? '?'),
             'type_mismatch' => 'expected type '.(string) ($fact['expected_type'] ?? '?').' got '.(string) ($fact['actual_type'] ?? '?'),
+            'test_file_not_found' => 'create test file '.(string) ($fact['target_path'] ?? '?').' from class '.(string) ($fact['class_name'] ?? '?'),
             default => '',
         };
     }
