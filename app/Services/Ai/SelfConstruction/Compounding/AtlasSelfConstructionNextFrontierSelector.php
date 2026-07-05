@@ -49,13 +49,22 @@ final class AtlasSelfConstructionNextFrontierSelector
      * @param  list<string>  $missingOrganCoverage
      * @param  list<array<string,mixed>>  $giveBackLessons {class, repeat_count}
      * @param  list<array<string,mixed>>  $simplificationOpportunities {organ, opportunity_id, high_value?}
+     * @param  string  $velocityRecommendation  '' | 'scale_up' | 'reduce_churn_before_scaling'
      * @return array<string,mixed>
      */
-    public function select(array $leverageDelta, array $unresolvedBlockers, array $missingOrganCoverage, array $giveBackLessons, array $simplificationOpportunities = []): array
+    public function select(array $leverageDelta, array $unresolvedBlockers, array $missingOrganCoverage, array $giveBackLessons, array $simplificationOpportunities = [], string $velocityRecommendation = ''): array
     {
         $frontier = [];
         $deltas = (array) ($leverageDelta['deltas'] ?? []);
         $capabilityDelta = (int) ($deltas['capability_coverage'] ?? 0);
+
+        // When the velocity tracker recommends reducing churn before scaling,
+        // lesson_consolidation (churn reduction) outranks blocker_removal and
+        // coverage_completion (scaling frontiers).
+        $reduceChurnFirst = $velocityRecommendation === 'reduce_churn_before_scaling';
+        $lessonPriority = $reduceChurnFirst ? 1 : 3;
+        $blockerPriority = $reduceChurnFirst ? 2 : 1;
+        $coveragePriority = $reduceChurnFirst ? 3 : 2;
 
         foreach ($unresolvedBlockers as $b) {
             if (! is_array($b)) {
@@ -73,7 +82,7 @@ final class AtlasSelfConstructionNextFrontierSelector
                 'required_gates' => ['verification_court', 'merge_governor'],
                 'required_evidence' => ['blocker_removed_test_green', 'no_regression_test_green'],
                 'next_packet_lane' => 'self_construction_blocker_removal',
-                'priority_class' => 1,
+                'priority_class' => $blockerPriority,
             ];
             $row['chain_frontier_proof'] = $this->chainFrontierProof($row, ['blocker_id' => $blockerId]);
             $frontier[] = $row;
@@ -87,7 +96,7 @@ final class AtlasSelfConstructionNextFrontierSelector
                 'required_gates' => ['organ_contract_gate'],
                 'required_evidence' => ['organ_implementation_surface_present', 'organ_test_evidence_requirement_present'],
                 'next_packet_lane' => 'self_construction_coverage',
-                'priority_class' => 2,
+                'priority_class' => $coveragePriority,
             ];
             $row['chain_frontier_proof'] = $this->chainFrontierProof($row);
             $frontier[] = $row;
@@ -107,7 +116,7 @@ final class AtlasSelfConstructionNextFrontierSelector
                 'required_gates' => ['lesson_candidate_gate'],
                 'required_evidence' => ['packet_template_update_lesson_tag'],
                 'next_packet_lane' => 'self_construction_lesson_consolidation',
-                'priority_class' => 3,
+                'priority_class' => $lessonPriority,
             ];
             $row['chain_frontier_proof'] = $this->chainFrontierProof($row, ['lesson_class' => $class, 'repeat_count' => (int) $g['repeat_count']]);
             $frontier[] = $row;

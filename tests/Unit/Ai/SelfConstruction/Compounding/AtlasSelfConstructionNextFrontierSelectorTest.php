@@ -297,6 +297,56 @@ final class AtlasSelfConstructionNextFrontierSelectorTest extends TestCase
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
     }
 
+    public function test_lesson_consolidation_outranks_blocker_when_velocity_recommends_reduce_churn(): void
+    {
+        // Two competing signals: a blocker (normally priority 1) and a give_back
+        // lesson with repeat_count >= 2 (normally priority 3).
+        // With velocityRecommendation=reduce_churn_before_scaling, lesson flips to
+        // priority 1 and blocker drops to priority 2.
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            ['deltas' => ['capability_coverage' => 2]],
+            [['organ' => 'verification_court', 'blocker_id' => 'flaky_test']],
+            [],
+            [['class' => 'scope_gap', 'repeat_count' => 3]],
+            [],
+            'reduce_churn_before_scaling',
+        );
+
+        $this->assertSame(
+            AtlasSelfConstructionNextFrontierSelector::KIND_LESSON_CONSOLIDATION,
+            $verdict['frontier'][0]['kind'],
+            'lesson_consolidation must outrank blocker_removal when churn reduction is recommended',
+        );
+        $this->assertSame(
+            AtlasSelfConstructionNextFrontierSelector::KIND_BLOCKER_REMOVAL,
+            $verdict['frontier'][1]['kind'],
+        );
+    }
+
+    public function test_blocker_outranks_lesson_when_velocity_recommends_scale_up(): void
+    {
+        // With scale_up recommendation, the default ordering is preserved:
+        // blocker (priority 1) before lesson_consolidation (priority 3).
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            ['deltas' => ['capability_coverage' => 2]],
+            [['organ' => 'verification_court', 'blocker_id' => 'flaky_test']],
+            [],
+            [['class' => 'scope_gap', 'repeat_count' => 3]],
+            [],
+            'scale_up',
+        );
+
+        $this->assertSame(
+            AtlasSelfConstructionNextFrontierSelector::KIND_BLOCKER_REMOVAL,
+            $verdict['frontier'][0]['kind'],
+            'blocker_removal must outrank lesson_consolidation when scaling is recommended',
+        );
+        $this->assertSame(
+            AtlasSelfConstructionNextFrontierSelector::KIND_LESSON_CONSOLIDATION,
+            $verdict['frontier'][1]['kind'],
+        );
+    }
+
     public function test_no_signals_recommended_frontier_is_null_with_zero_counts(): void
     {
         $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select([], [], [], []);
