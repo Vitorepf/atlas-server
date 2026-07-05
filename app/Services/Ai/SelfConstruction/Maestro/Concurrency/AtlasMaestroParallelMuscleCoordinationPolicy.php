@@ -83,7 +83,18 @@ final class AtlasMaestroParallelMuscleCoordinationPolicy
             array_map('floatval', (array) ($signals['worker_quality_scores'] ?? [])),
             static fn (float $s): bool => $s >= 0.0,
         ));
-        $avgQuality = $qualityScores !== [] ? array_sum($qualityScores) / count($qualityScores) : null;
+        $medianQuality = match (true) {
+            $qualityScores === [] => null,
+            count($qualityScores) === 1 => $qualityScores[0],
+            default => (function () use ($qualityScores): float {
+                $sorted = $qualityScores;
+                sort($sorted, SORT_NUMERIC);
+                $n = count($sorted);
+                $mid = intdiv($n, 2);
+
+                return $n % 2 === 1 ? $sorted[$mid] : ($sorted[$mid - 1] + $sorted[$mid]) / 2.0;
+            })(),
+        };
 
         $base = max(self::MIN_PARALLELISM, min($servableCount, self::MAX_PARALLELISM));
 
@@ -96,7 +107,7 @@ final class AtlasMaestroParallelMuscleCoordinationPolicy
         if ($lockContention > self::LOCK_CONTENTION_THRESHOLD) {
             $throttleReasons[] = 'commit_lock_contention';
         }
-        if ($avgQuality !== null && $avgQuality < self::AVG_QUALITY_MINIMUM) {
+        if ($medianQuality !== null && $medianQuality < self::AVG_QUALITY_MINIMUM) {
             $throttleReasons[] = 'quality_risk';
         }
         if ($conflictFreeRatio < self::DISJOINT_SCOPE_LOW_THRESHOLD && $activeLeases > 1) {
@@ -120,7 +131,7 @@ final class AtlasMaestroParallelMuscleCoordinationPolicy
         if ($conflictFreeRatio >= self::DISJOINT_SCOPE_HIGH_THRESHOLD) {
             $addWorkerReasons[] = 'disjoint_scopes_available';
         }
-        if ($avgQuality !== null && $avgQuality >= self::QUALITY_HIGH_THRESHOLD) {
+        if ($medianQuality !== null && $medianQuality >= self::QUALITY_HIGH_THRESHOLD) {
             $addWorkerReasons[] = 'workers_demonstrate_quality';
         }
 
@@ -141,7 +152,7 @@ final class AtlasMaestroParallelMuscleCoordinationPolicy
                 'lock_contention'          => $lockContention,
                 'give_back_rate'           => $giveBackRate,
                 'poison_pressure'          => $poisonPressure,
-                'avg_quality'              => $avgQuality,
+                'median_quality'          => $medianQuality,
             ],
         ];
     }
