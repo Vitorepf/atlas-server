@@ -161,8 +161,8 @@ final class AtlasSelfConstructionWorkerAssignmentMatcher
     private function inAnyPrefix(string $path, array $prefixes): bool
     {
         foreach ($prefixes as $p) {
-            $p = (string) $p;
-            if ($p !== '' && (str_starts_with($path, $p))) {
+            $p = rtrim((string) $p, '/');
+            if ($p !== '' && ($path === $p || str_starts_with($path, $p.'/'))) {
                 return true;
             }
         }
