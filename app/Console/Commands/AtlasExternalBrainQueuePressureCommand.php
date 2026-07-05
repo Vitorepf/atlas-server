@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAdaptiveBatchSizeGovernor;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmbitionBudgetGovernor;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainQueuePressureGovernor;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskGraphQualityRunner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainWorkerDrainRateForecaster;
 use Illuminate\Console\Command;
 
@@ -50,6 +51,7 @@ final class AtlasExternalBrainQueuePressureCommand extends Command
         {--structural-leverage=0 : Structural leverage score 0..1}
         {--backlog-pressure=0 : Backlog pressure ratio 0..1}
         {--ambition-budget-total=100 : Total ambition budget for this cycle}
+        {--quality-runner-input= : JSON-encoded input for TaskGraphQualityRunner (task pruning, attribution, mutation test, counterfactual review)}
         {--json : Emit JSON output (always on)}';
 
     /** @var string */
@@ -109,12 +111,23 @@ final class AtlasExternalBrainQueuePressureCommand extends Command
             $recommendedBatchSize = 2;
         }
 
+        // Task-graph quality runner (optional, invoked only when --quality-runner-input is given)
+        $qualityRunner = null;
+        $qualityRunnerInput = (string) $this->option('quality-runner-input');
+        if ($qualityRunnerInput !== '') {
+            $decoded = json_decode($qualityRunnerInput, true);
+            if (is_array($decoded)) {
+                $qualityRunner = (new AtlasExternalBrainTaskGraphQualityRunner)->run($decoded);
+            }
+        }
+
         $payload = [
             'schema' => self::SCHEMA,
             'drain_forecast' => $drainForecast,
             'adaptive_batch' => $adaptiveBatch,
             'worker_floor' => $workerFloor,
             'ambition_budget' => $ambitionBudget,
+            'quality_runner' => $qualityRunner,
             // Worker-floor pressure and the drain-informed adaptive batch both feed the final
             // recommendation; a starvation signal from either organ wins over a habitual batch.
             'recommended_batch_size' => $recommendedBatchSize,
