@@ -103,24 +103,27 @@ final class AtlasMaestroWorkerQualityScorecardTest extends TestCase
     public function test_best_task_class_when_success_rate_above_threshold(): void
     {
         $cls = 'impl_class';
-        $events = array_fill(0, 8, $this->event('w1', 'success', ['task_class' => $cls]));
+        // Need Wilson lower bound >= 0.75. At n=32 with 30 successes (94%):
+        // Wilson LB ≈ 0.798 > 0.75 ✓
+        $events = array_fill(0, 30, $this->event('w1', 'success', ['task_class' => $cls]));
         $events[] = $this->event('w1', 'failed_gate', ['task_class' => $cls]);
         $events[] = $this->event('w1', 'failed_gate', ['task_class' => $cls]);
 
         $worker = $this->scorecard->score(['events' => $events])['workers'][0];
-        // 8/10 = 80% success → best
+        // 30/32 = 93.75% success → best (Wilson LB ~0.80 > 0.75)
         $this->assertContains($cls, $worker['best_task_classes']);
     }
 
     public function test_avoid_task_class_when_failure_rate_above_threshold(): void
     {
         $cls = 'hard_class';
-        $events = [
-            $this->event('w1', 'give_back', ['task_class' => $cls]),
-            $this->event('w1', 'give_back', ['task_class' => $cls]),
-            $this->event('w1', 'success',   ['task_class' => $cls]),
-        ];
-        // 2/3 fail → avoid
+        // Need failure Wilson lower bound >= 0.50. At n=15 with 12 failures (80%):
+        // Wilson LB ≈ 0.548 > 0.50 ✓
+        $events = array_fill(0, 12, $this->event('w1', 'give_back', ['task_class' => $cls]));
+        for ($i = 0; $i < 3; $i++) {
+            $events[] = $this->event('w1', 'success', ['task_class' => $cls]);
+        }
+        // 12/15 fail → avoid (Wilson LB ~0.55 > 0.50)
         $worker = $this->scorecard->score(['events' => $events])['workers'][0];
         $this->assertContains($cls, $worker['avoid_task_classes']);
     }
@@ -205,12 +208,12 @@ final class AtlasMaestroWorkerQualityScorecardTest extends TestCase
     public function test_repeated_malformed_routes_affected_class_to_avoid(): void
     {
         $cls = 'malformed_class';
-        $events = [
-            $this->event('w1', 'malformed', ['task_class' => $cls]),
-            $this->event('w1', 'malformed', ['task_class' => $cls]),
-            $this->event('w1', 'malformed', ['task_class' => $cls]),
-            $this->event('w1', 'success',   ['task_class' => $cls]),
-        ];
+        // Need failure Wilson LB >= 0.50. At n=15 with 12 failures (80%):
+        // Wilson LB ≈ 0.548 > 0.50 ✓
+        $events = array_fill(0, 12, $this->event('w1', 'malformed', ['task_class' => $cls]));
+        for ($i = 0; $i < 3; $i++) {
+            $events[] = $this->event('w1', 'success', ['task_class' => $cls]);
+        }
 
         $worker = $this->scorecard->score(['events' => $events])['workers'][0];
 
@@ -236,22 +239,22 @@ final class AtlasMaestroWorkerQualityScorecardTest extends TestCase
     public function test_best_avoid_classes_depend_on_outcomes_not_client_id(): void
     {
         $cls = 'neutral_class';
-        $events = [
-            $this->event('zzz_provider', 'success', ['task_class' => $cls]),
-            $this->event('zzz_provider', 'success', ['task_class' => $cls]),
-            $this->event('zzz_provider', 'success', ['task_class' => $cls]),
-            $this->event('zzz_provider', 'success', ['task_class' => $cls]),
-            $this->event('aaa_provider', 'give_back', ['task_class' => $cls]),
-            $this->event('aaa_provider', 'give_back', ['task_class' => $cls]),
-            $this->event('aaa_provider', 'success',   ['task_class' => $cls]),
-        ];
+        // zzz_provider: 30/30 success → best (Wilson LB ~0.91 > 0.75)
+        $events = array_fill(0, 30, $this->event('zzz_provider', 'success', ['task_class' => $cls]));
+        // aaa_provider: 12 fails / 15 = 80% → avoid (Wilson LB ~0.55 > 0.50)
+        for ($i = 0; $i < 12; $i++) {
+            $events[] = $this->event('aaa_provider', 'give_back', ['task_class' => $cls]);
+        }
+        for ($i = 0; $i < 3; $i++) {
+            $events[] = $this->event('aaa_provider', 'success', ['task_class' => $cls]);
+        }
 
         $worker = $this->scorecard->score(['events' => $events]);
         $byClient = array_column($worker['workers'], null, 'client_id');
 
-        // zzz_provider: 4/4 success → best, despite alphabetically last.
+        // zzz_provider: 30/30 success → best, despite alphabetically last.
         $this->assertContains($cls, $byClient['zzz_provider']['best_task_classes']);
-        // aaa_provider: 2/3 fail → avoid, despite alphabetically first.
+        // aaa_provider: 12/15 fail → avoid, despite alphabetically first.
         $this->assertContains($cls, $byClient['aaa_provider']['avoid_task_classes']);
     }
 

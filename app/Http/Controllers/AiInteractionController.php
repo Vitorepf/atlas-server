@@ -283,6 +283,12 @@ class AiInteractionController extends Controller
         }
 
         $delivery = $runtime->plan([
+            // Interactive app chat defers the heavy AUCRI cognitive-context
+            // evaluation (ACMF → privacy → observability → retrieval benchmark
+            // arena, ~30s) so the request enqueues immediately; the cheap
+            // routing / delivery-plan is still produced inline. Without this the
+            // planner ran ~35s synchronously and surfaced as "kernel offline".
+            'defer_cognitive_context_evaluation' => $this->isInteractiveAppRequest($data),
             'human_request' => $this->stringValue($data['input_text'] ?? null)
                 ?? $this->stringValue($payload['prompt'] ?? null),
             'workspace' => $this->stringValue($payload['workspace'] ?? null)
@@ -306,6 +312,27 @@ class AiInteractionController extends Controller
         $data['payload'] = $payload;
 
         return $data;
+    }
+
+    /**
+     * True when this is an INTERACTIVE app chat request (desktop / mobile).
+     * Such requests must enqueue immediately and defer every heavy synchronous
+     * planner — each walks the workspace ~35s and together blow past the
+     * request budget, surfacing to the operator as "kernel offline · could not
+     * reach atlas-server". The surface list is the single source of truth on
+     * {@see AtlasHyperflowEntryService::INTERACTIVE_APP_SURFACES}, shared with
+     * the Hyperflow AWEOS / persistent-context deferral so it can never drift.
+     *
+     * @param  array<string,mixed>  $data
+     */
+    private function isInteractiveAppRequest(array $data): bool
+    {
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        $surfaceId = $this->stringValue($payload['surface_id'] ?? null)
+            ?? $this->stringValue($payload['app_surface'] ?? null);
+
+        return in_array($surfaceId, AtlasHyperflowEntryService::INTERACTIVE_APP_SURFACES, true)
+            && ($this->stringValue($data['source_type'] ?? null) ?? '') === 'app';
     }
 
     /**
@@ -371,6 +398,10 @@ class AiInteractionController extends Controller
         }
 
         $input = [
+            // See applyProductDeliveryRuntime: interactive app chat defers the
+            // heavy AUCRI cognitive-context evaluation (~30s) but keeps the
+            // cheap routing/contract inline so the request enqueues fast.
+            'defer_cognitive_context_evaluation' => $this->isInteractiveAppRequest($data),
             'human_request' => $this->stringValue($data['input_text'] ?? null)
                 ?? $this->stringValue($payload['prompt'] ?? null),
             'workspace' => $this->stringValue($payload['workspace'] ?? null)

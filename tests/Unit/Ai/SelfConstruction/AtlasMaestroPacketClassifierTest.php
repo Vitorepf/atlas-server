@@ -171,4 +171,51 @@ final class AtlasMaestroPacketClassifierTest extends TestCase
     {
         return new AtlasMaestroPacketClassifier;
     }
+
+    // ── classifyWithContract: complexity_tier, risk_tier, required_provider_capabilities, classification_evidence ──
+
+    public function test_classify_with_contract_has_required_keys(): void
+    {
+        $result = $this->classifier()->classifyWithContract($this->packet(['app/Foo.php'], 'fix bug'));
+        $this->assertArrayHasKey('task_family', $result);
+        $this->assertArrayHasKey('complexity_tier', $result);
+        $this->assertArrayHasKey('risk_tier', $result);
+        $this->assertArrayHasKey('required_provider_capabilities', $result);
+        $this->assertArrayHasKey('classification_evidence', $result);
+    }
+
+    public function test_architecture_task_is_high_complexity(): void
+    {
+        $result = $this->classifier()->classifyWithContract($this->packet(['app/Foo.php'], 'redesign architecture for Foo'));
+        $this->assertSame('high', $result['complexity_tier']);
+    }
+
+    public function test_forbidden_hint_marks_high_risk(): void
+    {
+        $result = $this->classifier()->classifyWithContract($this->packet(['app/Foo.php'], 'fix forbidden scope issue'));
+        $this->assertSame('high', $result['risk_tier']);
+    }
+
+    public function test_broad_write_set_marks_high_risk(): void
+    {
+        $packet = $this->packet([
+            'app/Services/A/Foo.php', 'app/Services/B/Bar.php', 'app/Services/C/Baz.php',
+            'app/Http/A/One.php', 'app/Console/B/Two.php',
+        ], 'broad refactor');
+        $result = $this->classifier()->classifyWithContract($packet);
+        $this->assertSame('high', $result['risk_tier']);
+    }
+
+    public function test_classification_evidence_includes_signals(): void
+    {
+        $result = $this->classifier()->classifyWithContract($this->packet(['app/Foo.php'], 'fix bug'));
+        $this->assertNotEmpty($result['classification_evidence']);
+        $this->assertContains('task_family:grind', $result['classification_evidence']);
+    }
+
+    public function test_required_provider_capabilities_includes_code_edit(): void
+    {
+        $result = $this->classifier()->classifyWithContract($this->packet(['app/Foo.php'], 'fix bug'));
+        $this->assertContains('code_edit', $result['required_provider_capabilities']);
+    }
 }

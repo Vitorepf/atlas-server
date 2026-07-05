@@ -67,6 +67,22 @@ class AiGatewayService
 
     private const INVOCATION_PROVIDERS = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'];
 
+    /**
+     * Providers Atlas Decide (auto mode) may land on because a worker is actually
+     * DRAINING their queue. The desktop kernel only spawns workers for
+     * hermes_cli + codex_cli (see atlas-desktop kernel_manager
+     * PRIMARY_AI_WORKER_PROVIDERS; minimax is listed there but its worker was not
+     * running). It never runs a claude_cli or gemini_cli worker, yet claude was
+     * auto-eligible (allow_auto), so an auto-routed chat enqueued to a queue
+     * nobody consumes and the desktop gave up at 120s ("Atlas não respondeu").
+     * Operator directive (03/07): Hermes is the default executive — any auto pick
+     * outside this live set is redirected to config('atlas.ai.default_provider').
+     * An EXPLICIT provider choice (model/mode dropdown) still bypasses this.
+     *
+     * @var list<string>
+     */
+    private const AUTO_LIVE_WORKER_PROVIDERS = ['hermes_cli', 'codex_cli'];
+
     private const TRANSACTION_ATTEMPTS = 5;
 
     public function __construct(
@@ -2230,6 +2246,15 @@ PROMPT;
         }
 
         $candidate = $this->decide->operationalDecision($options)->selectedProvider();
+
+        // Auto mode must never land on a provider with no running worker (that is
+        // exactly what stranded chats and surfaced as "Atlas não respondeu em
+        // 120s"). Redirect any auto pick outside the live-worker set to the
+        // default executive (Hermes). Explicit provider choices returned above are
+        // untouched, so the operator can still force claude_cli/codex_cli/etc.
+        if (! in_array($candidate, self::AUTO_LIVE_WORKER_PROVIDERS, true)) {
+            $candidate = (string) config('atlas.ai.default_provider', 'hermes_cli');
+        }
 
         return $this->providerAllowedForInvocation($candidate, $options, explicitProvider: false);
     }

@@ -1126,11 +1126,16 @@ class AtlasCliDevCommand extends Command
             return app(FairClaudePolicy::class)->runtimeOverride($modelSelection, $modelOverride);
         }
 
+        $enabledProviders = ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'gemini_cli'];
+        if ($provider === 'codex_cli') {
+            array_unshift($enabledProviders, 'codex_cli');
+        }
+
         $override = [
             'default_provider' => $provider,
-            'enabled_providers' => ['hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'],
+            'enabled_providers' => $enabledProviders,
             'disabled_providers' => [],
-            'fallback_order' => array_values(array_unique([$provider, 'hermes_cli', 'minimax_m27_cli', 'claude_cli', 'codex_cli', 'gemini_cli'])),
+            'fallback_order' => array_values(array_unique(array_merge([$provider], $enabledProviders))),
             'allow_council' => false,
             'allow_multistage_graph' => false,
         ];

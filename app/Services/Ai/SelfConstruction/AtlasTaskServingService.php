@@ -528,6 +528,28 @@ final class AtlasTaskServingService
             // Refusal is audible on the give_back reason below.
         }
 
+        if ($outcome === 'give_back' && $this->giveBackMeansAlreadySatisfied($payload)) {
+            $result = $this->orchestrator->quarantineClaimed(
+                $taskPacketId,
+                $leaseId,
+                $clientId,
+                ['already_satisfied_noop'],
+                'already_satisfied_noop',
+                'task_quarantined_already_satisfied_noop',
+            );
+
+            return $this->reportEnvelope('reported', $clientId, [
+                'outcome' => $outcome,
+                'lease_released' => true,
+                'quarantined' => true,
+                'already_satisfied' => true,
+                'give_back_count' => 0,
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'result' => $result,
+            ]);
+        }
+
         // failed / give_back => anti-loop release: another worker can retry, but NEVER the same worker that just
         // gave it back, and a task given back MAX times is quarantined (never cycles forever).
         $result = $this->orchestrator->reportGiveBack($taskPacketId, $leaseId, $clientId, 'client_reported_'.$outcome);
@@ -638,6 +660,65 @@ final class AtlasTaskServingService
         $nowMs = (int) round(microtime(true) * 1000);
 
         return intdiv(max(0, $nowMs - $ms), 1000);
+    }
+
+    /**
+     * A worker that proves "this task is already green / duplicate / no-op" is not asking for a retry. Releasing
+     * that packet burns every other muscle until MAX_GIVE_BACKS. Only explicit reason/evidence triggers this.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function giveBackMeansAlreadySatisfied(array $payload): bool
+    {
+        $evidence = (array) ($payload['evidence'] ?? []);
+        foreach ([
+            'already_satisfied',
+            'already_implemented',
+            'no_patch_needed',
+            'noop',
+            'no_op',
+            'nothing_to_commit_in_scope',
+            'tests_already_green',
+            'duplicate',
+        ] as $flag) {
+            if ((bool) data_get($payload, $flag, false) || (bool) data_get($evidence, $flag, false)) {
+                return true;
+            }
+        }
+
+        $parts = [
+            (string) ($payload['reason'] ?? ''),
+            (string) ($evidence['reason'] ?? ''),
+            (string) ($evidence['give_back_reason'] ?? ''),
+            (string) ($evidence['diagnosis'] ?? ''),
+            (string) ($evidence['worker_notes'] ?? ''),
+            (string) ($evidence['root_cause'] ?? ''),
+        ];
+        $haystack = strtolower(implode(' ', array_filter($parts, static fn (string $part): bool => trim($part) !== '')));
+
+        foreach ([
+            'already_satisfied',
+            'already satisfied',
+            'already_implemented',
+            'already implemented',
+            'already green',
+            'tests already green',
+            'no_patch_needed',
+            'no patch needed',
+            'nothing_to_commit',
+            'nothing to commit',
+            'no-op',
+            'noop',
+            'duplicate/no-op',
+            'pre-existing',
+            'preexisting',
+        ] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Whitelist filters to a neutral set so a client can never inject an engine-typed/platform field. */

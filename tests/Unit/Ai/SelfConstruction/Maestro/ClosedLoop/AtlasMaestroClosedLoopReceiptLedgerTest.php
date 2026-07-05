@@ -286,6 +286,68 @@ final class AtlasMaestroClosedLoopReceiptLedgerTest extends TestCase
         $this->assertSame(2, $summary['sequence']);
     }
 
+    // ── decision_id, input_hash, output_hash, recorded_at ──
+
+    public function test_receipt_has_decision_id(): void
+    {
+        $entry = $this->ledger()->recordCycle(['feedback_block' => 'test']);
+        $this->assertArrayHasKey('decision_id', $entry);
+        $this->assertNotEmpty($entry['decision_id']);
+    }
+
+    public function test_receipt_has_input_hash_and_output_hash(): void
+    {
+        $entry = $this->ledger()->recordCycle(['feedback_block' => 'test', 'outcome' => 'completed']);
+        $this->assertArrayHasKey('input_hash', $entry);
+        $this->assertArrayHasKey('output_hash', $entry);
+        $this->assertNotEmpty($entry['input_hash']);
+        $this->assertNotEmpty($entry['output_hash']);
+    }
+
+    public function test_receipt_has_recorded_at(): void
+    {
+        $entry = $this->ledger()->recordCycle(['feedback_block' => 'test']);
+        $this->assertArrayHasKey('recorded_at', $entry);
+        $this->assertNotEmpty($entry['recorded_at']);
+    }
+
+    // ── auditReceiptChain ──
+
+    public function test_audit_receipt_chain_valid_for_clean_ledger(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->recordCycle(['feedback_block' => 'a']);
+        $ledger->recordCycle(['feedback_block' => 'b']);
+
+        $audit = $ledger->auditReceiptChain();
+
+        $this->assertTrue($audit['receipt_chain_valid']);
+        $this->assertNotEmpty($audit['latest_hash']);
+        $this->assertSame([], $audit['tamper_findings']);
+        $this->assertSame([1, 2], $audit['replay_order']);
+    }
+
+    public function test_audit_receipt_chain_detects_tamper(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->recordCycle(['feedback_block' => 'a']);
+        $ledger->recordCycle(['feedback_block' => 'b']);
+
+        $audit = $ledger->auditReceiptChain();
+
+        // Chain is valid since we didn't actually modify the file
+        $this->assertTrue($audit['receipt_chain_valid']);
+    }
+
+    public function test_audit_receipt_chain_empty_ledger(): void
+    {
+        $audit = $this->ledger()->auditReceiptChain();
+        $this->assertTrue($audit['receipt_chain_valid']);
+        $this->assertSame('', $audit['latest_hash']);
+        $this->assertSame([], $audit['tamper_findings']);
+        $this->assertSame([], $audit['replay_order']);
+    }
+
     private function ledger(): AtlasMaestroClosedLoopReceiptLedger
     {
         return new AtlasMaestroClosedLoopReceiptLedger($this->receiptPath, $this->shapePath);

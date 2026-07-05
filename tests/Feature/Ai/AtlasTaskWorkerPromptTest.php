@@ -22,6 +22,8 @@ final class AtlasTaskWorkerPromptTest extends TestCase
         $this->assertStringContainsString('atlas:task next --client="codex-7"', $out, 'the pull command is ready to run');
         $this->assertStringContainsString('--outcome=success --commit', $out, 'the resolve/commit step is present');
         $this->assertStringContainsString('outcome=give_back', $out, 'the give-back path is present');
+        $this->assertStringContainsString('--reason="<reason>"', $out, 'give-back reports must carry a reason');
+        $this->assertStringContainsString('--reason=already_satisfied', $out, 'already-green/no-op tasks must be retired instead of recycled');
         $this->assertStringContainsString('ONLY', $out, 'the allowed_files-only rule is present');
         $this->assertStringContainsString('NEVER `git add -A`', $out, 'the no-broad-git rule is present (shared main safety)');
         $this->assertStringContainsString('QUALITY BOOST', $out, 'the prompt uses spare budget for duplicate/root-cause guardrails');

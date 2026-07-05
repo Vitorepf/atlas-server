@@ -149,6 +149,23 @@ class AtlasCliDevCommandTest extends TestCase
         $this->assertContains('--model=gpt-5.5', $payload['chat_command']);
     }
 
+    public function test_hermes_plan_never_defaults_or_falls_back_to_codex_or_gpt(): void
+    {
+        $command = new AtlasCliDevCommand();
+        $method = new ReflectionMethod($command, 'aiPolicyOverride');
+        $method->setAccessible(true);
+
+        $override = $method->invoke($command, 'hermes_cli');
+
+        $this->assertSame('hermes_cli', data_get($override, 'default_provider'));
+        $this->assertNotContains('codex_cli', data_get($override, 'enabled_providers'));
+        $this->assertNotContains('codex_cli', data_get($override, 'fallback_order'));
+        $this->assertSame('qwen3.6-27b', config('atlas.ai.providers.hermes_cli.model'));
+        $this->assertSame('qwen3.6-27b', config('atlas.ai.providers.hermes_cli.model_identity'));
+        $this->assertSame('verboo', config('atlas.ai.providers.hermes_cli.provider'));
+        $this->assertArrayNotHasKey('hermes_gpt_5_5_codex', config('atlas_rivals.models'));
+    }
+
     public function test_operator_mode_promotes_dev_command_to_explicit_danger_runtime(): void
     {
         $exitCode = Artisan::call('atlas:cli:dev', [

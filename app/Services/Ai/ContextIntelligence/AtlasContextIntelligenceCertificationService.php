@@ -18,11 +18,24 @@ final class AtlasContextIntelligenceCertificationService
 
     public const STATUS_BLOCKED = 'blocked';
 
+    /** @var array<string,mixed>|null Override runtime payload for testing. */
+    private ?array $testRuntimePayload = null;
+
     public function __construct(
         private readonly AtlasContextIntelligenceService $runtime,
         private readonly AtlasTeosFinalCertificationService $teosFinal,
         private readonly DevForgeRobustFlowCertificationService $devForge,
     ) {}
+
+    /**
+     * Inject a pre-built runtime payload for testing (bypasses real assess() call).
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    public function injectTestRuntimePayload(array $payload): void
+    {
+        $this->testRuntimePayload = $payload;
+    }
 
     /**
      * @return array<string,mixed>
@@ -98,7 +111,7 @@ final class AtlasContextIntelligenceCertificationService
     private function runtimeSmoke(): array
     {
         try {
-            $payload = $this->runtime->assess([
+            $payload = $this->testRuntimePayload ?? $this->runtime->assess([
                 'prompt' => 'implemente um ajuste pequeno com evidencia',
                 'task_type' => 'programming',
                 'domain' => 'programming',
@@ -110,20 +123,54 @@ final class AtlasContextIntelligenceCertificationService
             return $this->check('runtime_smoke', false, 'ACIE runtime smoke threw: '.$exception->getMessage(), [], 'Fix AtlasContextIntelligenceService::assess.');
         }
 
+        $hashIntegrity = $this->verifyHashIntegrity($payload);
+
         $ok = in_array($payload['status'] ?? null, [
             AtlasContextIntelligenceService::STATUS_READY,
             AtlasContextIntelligenceService::STATUS_DEGRADED,
         ], true)
             && isset($payload['context_certification_hash'])
-            && ($payload['claim_policy']['provider_calls_made'] ?? true) === false;
+            && ($payload['claim_policy']['provider_calls_made'] ?? true) === false
+            && ($hashIntegrity['status'] ?? 'fail') === 'pass';
+
+        $evidence = [
+            'context_certification_hash' => $payload['context_certification_hash'] ?? null,
+            'hash_integrity' => $hashIntegrity,
+        ];
 
         return $this->check(
             'runtime_smoke',
             $ok,
             'ACIE runtime smoke status: '.(string) ($payload['status'] ?? 'unknown'),
-            ['context_certification_hash' => $payload['context_certification_hash'] ?? null],
+            $evidence,
             'Make ACIE runtime emit stable hash and no-provider claim policy.',
         );
+    }
+
+    /**
+     * Verify the context_certification_hash on a runtime payload by stripping the
+     * hash field, recomputing via ContextIntelligencePayloadHash::forPayload(),
+     * and comparing stored vs recomputed.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array{status:string, stored_hash?:string, recomputed_hash?:string, reason?:string}
+     */
+    private function verifyHashIntegrity(array $payload): array
+    {
+        if (! isset($payload['context_certification_hash'])) {
+            return ['status' => 'fail', 'reason' => 'context_certification_hash_missing'];
+        }
+
+        $storedHash = (string) $payload['context_certification_hash'];
+        $bodyForHash = $payload;
+        $recomputedHash = ContextIntelligencePayloadHash::forPayload($bodyForHash, 'context_certification_hash');
+        $pass = $storedHash === $recomputedHash;
+
+        return [
+            'status' => $pass ? 'pass' : 'fail',
+            'stored_hash' => $storedHash,
+            'recomputed_hash' => $recomputedHash,
+        ];
     }
 
     /**

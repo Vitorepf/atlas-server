@@ -129,4 +129,86 @@ final class AtlasTaskFabricScopeRepairAdvisorTest extends TestCase
         self::assertFalse($testOnly['scope_preserved']);
         self::assertFalse($forbiddenCollision['scope_preserved']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: repaired_allowed_files, repair_confidence, unsafe_reason
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_claimable_has_full_repair_confidence_and_empty_unsafe_reason(): void
+    {
+        $result = $this->advisor->advise([
+            'objective' => 'Implement AtlasFoo to handle bar',
+            'allowed_files' => [
+                'app/Services/AtlasFoo.php',
+                'tests/Unit/AtlasFooTest.php',
+            ],
+        ]);
+
+        $this->assertArrayHasKey('repaired_allowed_files', $result);
+        $this->assertArrayHasKey('repair_confidence', $result);
+        $this->assertArrayHasKey('unsafe_reason', $result);
+        $this->assertSame(1.0, $result['repair_confidence']);
+        $this->assertNull($result['unsafe_reason']);
+        $this->assertSame(['app/Services/AtlasFoo.php', 'tests/Unit/AtlasFooTest.php'], $result['repaired_allowed_files']);
+    }
+
+    public function test_readd_impl_repair_proposes_repaired_allowed_files(): void
+    {
+        $result = $this->advisor->advise([
+            'objective' => 'Implement AtlasFooBarService to do something useful',
+            'allowed_files' => ['tests/Unit/AtlasFooBarServiceTest.php'],
+        ]);
+
+        $this->assertSame(AtlasTaskFabricScopeRepairAdvisor::REPAIR_READD_IMPL, $result['repair_action']);
+        $this->assertArrayHasKey('repaired_allowed_files', $result);
+        $this->assertContains('app/Services/AtlasFooBarService.php', $result['repaired_allowed_files'],
+            'repaired_allowed_files must propose adding the impl file');
+        $this->assertGreaterThan(0.5, $result['repair_confidence']);
+        $this->assertNull($result['unsafe_reason']);
+    }
+
+    public function test_cancel_poison_has_unsafe_reason_and_low_confidence(): void
+    {
+        $result = $this->advisor->advise([
+            'objective' => 'do some unspecified work',
+            'allowed_files' => ['tests/Unit/SomeTest.php'],
+            'requires_operator' => false,
+        ]);
+
+        $this->assertSame(AtlasTaskFabricScopeRepairAdvisor::REPAIR_CANCEL_POISON, $result['repair_action']);
+        $this->assertLessThan(0.5, $result['repair_confidence'],
+            'cancel_poison must have low repair_confidence');
+        $this->assertNotNull($result['unsafe_reason'],
+            'cancel_poison must have unsafe_reason');
+    }
+
+    public function test_forbidden_file_repair_removes_forbidden_from_allowed(): void
+    {
+        $result = $this->advisor->advise([
+            'objective' => 'Implement AtlasFoo',
+            'allowed_files' => ['app/Services/AtlasFoo.php', 'tests/Unit/AtlasFooTest.php'],
+            'forbidden_files' => ['app/Services/AtlasFoo.php'],
+        ]);
+
+        $this->assertArrayHasKey('repaired_allowed_files', $result);
+        $this->assertNotContains('app/Services/AtlasFoo.php', $result['repaired_allowed_files'],
+            'forbidden file must be removed from repaired_allowed_files');
+        $this->assertNull($result['unsafe_reason'],
+            'forbidden file repair must not be unsafe');
+        $this->assertGreaterThan(0.5, $result['repair_confidence']);
+    }
+
+    public function test_split_operator_has_medium_confidence(): void
+    {
+        $result = $this->advisor->advise([
+            'objective' => 'some task without recognizable class name',
+            'allowed_files' => ['tests/Unit/SomeTest.php'],
+            'requires_operator' => true,
+        ]);
+
+        $this->assertSame(AtlasTaskFabricScopeRepairAdvisor::REPAIR_SPLIT_OPERATOR, $result['repair_action']);
+        $this->assertGreaterThanOrEqual(0.5, $result['repair_confidence']);
+        $this->assertLessThan(0.9, $result['repair_confidence']);
+        $this->assertNull($result['unsafe_reason']);
+    }
 }

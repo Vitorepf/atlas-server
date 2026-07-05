@@ -1509,21 +1509,29 @@ final class AgentControlPlaneTaskQueueOrchestrator
      * @param  list<string>  $deficiencies
      * @return array<string, mixed>
      */
-    public function quarantineClaimed(string $taskPacketId, string $leaseId, string $agentId, array $deficiencies = []): array
+    public function quarantineClaimed(
+        string $taskPacketId,
+        string $leaseId,
+        string $agentId,
+        array $deficiencies = [],
+        string $reason = 'packet_not_self_sufficient',
+        string $receiptKind = 'packet_quarantined_not_self_sufficient',
+    ): array
     {
         // Release the lease (registry only) so no active lease lingers; the queue record stays `claimed`.
-        $this->leases->release($leaseId, $agentId, ['reason' => 'packet_not_self_sufficient']);
+        $this->leases->release($leaseId, $agentId, ['reason' => $reason]);
 
         $transition = $this->queue->updateStatus($taskPacketId, 'blocked', [
             'lease_id' => $leaseId,
             'agent_id' => $agentId,
-            'reason' => 'packet_not_self_sufficient',
+            'reason' => $reason,
             'blocking_deficiencies' => array_values($deficiencies),
         ]);
         $this->queue->appendReceipt($taskPacketId, [
-            'receipt_kind' => 'packet_quarantined_not_self_sufficient',
+            'receipt_kind' => $receiptKind,
             'lease_id' => $leaseId,
             'agent_id' => $agentId,
+            'reason' => $reason,
             'blocking_deficiencies' => array_values($deficiencies),
         ]);
 

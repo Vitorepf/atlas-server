@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityMapDriftDetector;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainMaturityGapIndex;
+use App\Services\Ai\SelfConstruction\MultiAgentLoopCertification\AtlasMultiAgentLoopCertificationRunner;
 use Illuminate\Console\Command;
 
 /**
@@ -17,7 +18,7 @@ use Illuminate\Console\Command;
  * Never enqueues, mutates evidence, calls providers, or runs git — read-only reporting only.
  *
  * Input: a single JSON file (--input=PATH) with keys:
- *   { rubric:list, control_plane_snapshot:{...}, map_entries:list, queued_areas:list, outcomes?:list }
+ *   { rubric:list, control_plane_snapshot:{...}, map_entries:list, queued_areas:list, outcomes?:list, multi_agent_loop_proof?:{...} }
  * Missing/absent sections default to empty and simply produce no gaps/findings for that side.
  */
 final class AtlasExternalBrainMaturityGapCommand extends Command
@@ -32,6 +33,7 @@ final class AtlasExternalBrainMaturityGapCommand extends Command
     public function handle(
         AtlasExternalBrainMaturityGapIndex $maturityGapIndex,
         AtlasExternalBrainCapabilityMapDriftDetector $driftDetector,
+        ?AtlasMultiAgentLoopCertificationRunner $certificationRunner = null,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -60,6 +62,14 @@ final class AtlasExternalBrainMaturityGapCommand extends Command
             'outcomes' => $outcomes,
         ]);
 
+        $certificationVerdict = null;
+        if ($certificationRunner !== null) {
+            $multiAgentProof = is_array($decoded['multi_agent_loop_proof'] ?? null)
+                ? $decoded['multi_agent_loop_proof']
+                : ['proof_payload' => $controlPlaneSnapshot];
+            $certificationVerdict = $certificationRunner->run($multiAgentProof);
+        }
+
         $payload = [
             'status' => 'ok',
             'blockers' => $gapReport['gaps'],
@@ -67,6 +77,7 @@ final class AtlasExternalBrainMaturityGapCommand extends Command
             'domain_map_drift' => $driftReport['findings'],
             'has_drift' => $driftReport['has_drift'],
             'total_drift_findings' => $driftReport['total_findings'],
+            'multi_agent_loop_certification' => $certificationVerdict,
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));

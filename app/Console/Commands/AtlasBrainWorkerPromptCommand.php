@@ -11,13 +11,14 @@ use Illuminate\Support\Str;
 /**
  * EXTERNAL BRAIN · the single-prompt DECIDER worker. Prints ONE ready-to-paste prompt that turns any AI
  * session into the brain's decide-loop: pull an originated spec, comprehend it, document it, write the specs to
- * a temp JSON file, dry-run the seed gates, then seed for real — looping until the scope is dry or disabled.
+ * a temp JSON file, dry-run the seed gates, then seed for real. `dry`/`disabled` are pivot signals for an
+ * external session, not reasons for the model to self-stop.
  *
  * Provider-agnostic (plain NL + `php artisan atlas:brain:*` shell calls; the opaque --client is forwarded).
  * Pure string printer — no loop, no I/O, no provider call. The char count goes to STDERR (paste limit 4000).
  *
- * author≠judge is hard-stated in the prompt: the worker NEVER edits app/, NEVER commits, NEVER merges. And
- * 'disabled' PRINTS + STOPS (the brain switch is operator-only — the worker NEVER turns it back on).
+ * author≠judge is hard-stated in the prompt: the worker NEVER edits app/, NEVER commits, NEVER merges, and
+ * NEVER turns the brain switch on. A disabled switch blocks enqueue only; the external brain keeps scouting.
  */
 final class AtlasBrainWorkerPromptCommand extends Command
 {
@@ -28,7 +29,7 @@ final class AtlasBrainWorkerPromptCommand extends Command
         {--scope=autonomous : the scope slug the brain evolves}
         {--mode=originate : prompt mode — originate (the pasted model IS the brain, default) or drive (Atlas-internal originator)}
         {--baseline-seeded= : seeded count at quota start; default is current actor seeded count}
-        {--target-seeds=0 : valid real-enqueued seed quota; 0 means until dry/disabled}';
+        {--target-seeds=0 : valid real-enqueued seed quota; 0 means open-ended until explicit operator/session limit}';
 
     /** @var string */
     protected $description = 'Print a ready-to-paste prompt that turns any AI session into the external-brain decide-loop (author≠judge).';
@@ -85,8 +86,8 @@ final class AtlasBrainWorkerPromptCommand extends Command
         }
 
         $extra = $targetSeeds > 0
-            ? "\nSPARE-BUDGET: dry vein=>pivot design-paths; Hermes/refused/no_proposal=>ORIGINATE+SEED; no final; Obra/prod/pipeline valid; no self-contained dry; no wrappers; seed distinct levers. No self-stop."
-            : "\nSPARE-BUDGET: before authoring run queued-targets+contract-gaps; reject stale/queued targets; prefer bug/gate/live/simplify/frontier levers; require caller proof, before/after delta, and why-this-now; no wrappers. If vein dries pivot design-paths/repos/papers. Quality bar: prove real caller, real failing/risky behavior, implementability, smallest allowed_files, exact runnable test, and downstream unlock; avoid shallow CLI, template farm, doc-only unless docs are product contract. Rotate DomainMap/LeverageRanker/OutcomeLearning/QueueSelfHealing/TaskGraph/ModelAmplifier/Simplification. Every seed must teach muscles something useful. Scoring: one concrete root cause, one measurable delta, one worker-safe scope, one non-proxy proof, one compounding effect. If the first idea is shallow, discard it and search a harder vein. Prefer one excellent seed over five weak ones, but never stop while Atlas says not dry. Strong seeds only.";
+            ? "\nSPARE-BUDGET: dry vein=>pivot design-paths; disabled=>offline-spec/retry, never self-enable; Hermes/refused/no_proposal=>ORIGINATE+SEED; no final; Obra/prod/pipeline valid; no self-contained dry; no wrappers; seed distinct levers. No self-stop. Rank by compounding unlock, before/after proof, worker-safe scope, failure memory, and downstream autonomy. Queue comfort irrelevant; quota_met only stop."
+            : "\nSPARE-BUDGET: before authoring run queued-targets+contract-gaps; reject stale/queued targets; prefer bug/gate/live/simplify/frontier levers; require caller proof, before/after delta, and why-this-now; no wrappers. If vein dries pivot design-paths/repos/papers; if disabled, harden offline specs and retry later without self-enabling. Quality bar: prove real caller, real failing/risky behavior, implementability, smallest allowed_files, exact runnable test, and downstream unlock; avoid shallow CLI, template farm, doc-only unless docs are product contract. Rotate DomainMap/LeverageRanker/OutcomeLearning/QueueSelfHealing/TaskGraph/ModelAmplifier/Simplification. Every seed must teach muscles something useful. Scoring: one concrete root cause, one measurable delta, one worker-safe scope, one non-proxy proof, one compounding effect. If the first idea is shallow, discard it and search a harder vein. Dry means this vein ended, not ambition. Strong seeds only. Queue comfort is not progress; pivot until the seed is useful, runnable, and compounding. New pivots: perf harness, security hardening, research-to-task, deletion-first refactor, model amplifier, docs-as-contract, live-run repair. Prefer tasks that close loops, not isolated organs.";
         $room = 3948 - mb_strlen($prompt);
 
         return $room > 0 ? $prompt.mb_substr($extra, 0, $room) : $prompt;
@@ -103,19 +104,19 @@ final class AtlasBrainWorkerPromptCommand extends Command
         $loopLine = $targetSeeds > 0 ? 'Preflight.' : 'Go to 1.';
 
         return <<<PROMPT
-{$firstAction}You are the **Atlas external-brain DECIDER** (id **{$client}**; run with `{$php}`). BRAIN, not muscle: ORIGINATE + DOCUMENT the next evolution for **{$scope}**. STOP is Atlas dry/disabled, never yours.
+{$firstAction}You are the **Atlas external-brain DECIDER** (id **{$client}**; run with `{$php}`). BRAIN, not muscle: ORIGINATE + DOCUMENT the next evolution for **{$scope}**. `dry`/`disabled` are pivot signals, not your stop.
 
 {$quota}
 AUTHOR ≠ JUDGE — HARD RULES (breaking any voids the run):
 - NEVER edit app/. NEVER `git commit`, push, merge, or touch the serving queue by hand.
 - Write ONLY docs/ + done-set. `atlas:brain:seed` is the enqueue gate.
-- NEVER turn the brain switch on. On `disabled`, PRINT + STOP — switch is operator-only.
+- NEVER turn the brain switch on. On `disabled`, do NOT self-enable; keep scouting/offline-specing, real enqueue waits for the operator.
 
 THE LOOP:
 1. PULL: `{$php} artisan atlas:brain:next {$scopeArg} --scope-signals --actor={$clientArg} --json`
    - `served` → read packet.specs.packets[0]. Journal is already written.
-   - `dry` → the scope is genuinely exhausted (the dry-probe decided, not you). Print "scope dry — N cycles" and STOP.
-   - `disabled` → the brain master switch is OFF. Print "brain disabled — operator must flip ATLAS_BRAIN_MASTER_ENABLED" and STOP. Do NOT try to enable it.
+   - `dry` → this vein is exhausted. Pivot to design paths, research, simplification, performance, safety, or frontier levers; do NOT final.
+   - `disabled` → the brain master switch is OFF. Do NOT enable it. Continue offline/scout/spec-hardening; real enqueue waits for ATLAS_BRAIN_MASTER_ENABLED.
    - `refused` / `abstain` / `already_done` / `forbidden_target` / `prepare_blocked` → a non-origination cycle was recorded for you. Go back to 1 (the dry-probe converges over these). Never fake work.
 2. COMPREHEND: objective concrete, target real, acceptance runnable. Do NOT implement.
 3. DOCUMENT: optionally append one how/why line to docs/loop-evolution-journal/{$scope}.md — docs only.
@@ -125,10 +126,10 @@ THE LOOP:
    - inspect counts.blocked; if blocked, read results[].stage/reasons. A blocked spec is NOT seeded — go back to 1 (do not force it).
 6. SEED FOR REAL (only if dry-run was clean): `{$php} artisan atlas:brain:seed --specs={$tempSpecsArg} --scope={$scopeArg} --actor={$clientArg} --require-actor --cleanup-specs --json`
    - `enqueued` → if quota exists, VALID_SEEDS += counts.credited (not counts.enqueued). Workers pick it up via `atlas:task next`. {$loopLine}
-   - `dry_run` with reason `brain_switch_off` → the brain switch is OFF; STOP as in step 1 `disabled`.
-7. Repeat from 1 UNTIL `atlas:brain:next` returns `dry` or `disabled`.
+   - `dry_run` with reason `brain_switch_off` → preserve the spec, continue offline/scout/spec-hardening, and retry later; do NOT self-enable.
+7. Repeat from 1. Stop only on explicit operator/session limit or quota_met.
 
-NEVER: invent a target, edit a pétreo/forbidden file, seed a blocked spec, or self-enable the switch. If `atlas:brain:next` errors repeatedly (the brain SYSTEM is broken, not one cycle), print the error and STOP — do NOT patch app/ to "fix" it.
+NEVER: invent a target, edit a pétreo/forbidden file, seed a blocked spec, or self-enable the switch. If `atlas:brain:next` errors repeatedly (the brain SYSTEM is broken, not one cycle), report the error and continue only with offline spec/research; do NOT patch app/ to "fix" it.
 
 {$startLine}
 PROMPT;
@@ -144,8 +145,8 @@ PROMPT;
         $startLine = $targetSeeds > 0 ? 'Start: QUOTA PREFLIGHT, then step1.' : 'Start step 1.';
         $loopLine = $targetSeeds > 0 ? 'Preflight.' : 'Go to 1.';
         $altitude = $targetSeeds > 0
-            ? "RULES: never edit app/; no commit/merge/queue. ONLY docs/. Seed via `atlas:brain:seed`. `disabled`=>STOP; switch operator-only. No proxy/dup; STOP only `disabled`/`dry`.\nAMBITION: max-leverage; rotate. LOW/sufficient_depth/healthy queue NEVER stop/wait/no-task. Full queue=>use skills: codebase-design,improve-codebase-architecture,domain-modeling,diagnosing-bugs,tdd,code-review,teach,grilling,prototype,to-prd,grill-with-docs. refused/no_proposal=>ORIGINATE+SEED. dry/disabled stop; else change path."
-            : "HARD CONSTRAINTS:\n- NEVER edit app/; no commit/merge/queue. Write ONLY docs/. Queue via `atlas:brain:seed`.\n- NEVER turn the brain switch on; ATLAS_BRAIN_MASTER_ENABLED operator-only.\n- NO proxy/faxina/duplicate. STOP only on an ATLAS signal: `disabled` or `dry`.\nAMBITION:\n- ROTATE the self-improvement portfolio; seek the most exponential lift.\n- LOW/sufficient_depth/healthy queue NEVER stop, wait, or \"no task created\". Full queue=>use skills: codebase-design,improve-codebase-architecture,domain-modeling,diagnosing-bugs,tdd,code-review,teach,grilling,prototype,to-prd,grill-with-docs.\n- refused/no_proposal=>ORIGINATE+SEED; no final. Obra/prod/pipeline valid; no self-contained dry.\n- A refusal/blocked path is NOT a stop; change path.";
+            ? "RULES: no app/; no commit/merge/queue; docs only. Seed via `atlas:brain:seed`. `disabled`=>offline/retry, never self-enable. `dry`=>pivot. No proxy/dup; stop only quota_met/operator/session.\nAMBITION: max-leverage; rotate. LOW/sufficient_depth/healthy queue NEVER stop/wait/no-task. Full queue=>use skills: codebase-design,improve-codebase-architecture,domain-modeling,diagnosing-bugs,tdd,code-review,teach,grilling,prototype,to-prd,grill-with-docs. refused/no_proposal/dry/disabled=>ORIGINATE+SEED or harden offline; no final."
+            : "HARD CONSTRAINTS:\n- NEVER edit app/; no commit/merge/queue. Write ONLY docs/. Queue via `atlas:brain:seed`.\n- NEVER turn the brain switch on; ATLAS_BRAIN_MASTER_ENABLED operator-only. If disabled, session continues offline.\n- NO proxy/faxina/duplicate. Stop only on explicit operator/session limit; `disabled` and `dry` are pivot signals, not final answers.\nAMBITION:\n- ROTATE the self-improvement portfolio; seek the most exponential lift.\n- LOW/sufficient_depth/healthy queue NEVER stop, wait, or \"no task created\". Full queue=>use skills: codebase-design,improve-codebase-architecture,domain-modeling,diagnosing-bugs,tdd,code-review,teach,grilling,prototype,to-prd,grill-with-docs.\n- refused/no_proposal/dry/disabled=>ORIGINATE+SEED or harden offline; no final. Obra/prod/pipeline valid; no self-contained dry.\n- A refusal/blocked/dry path is NOT a stop; change path.";
 
         return <<<PROMPT
 {$firstAction}Atlas BRAIN {$scope} {$client}. author≠judge.
@@ -154,23 +155,22 @@ PROMPT;
 {$altitude}
 
 1. PULL: `{$php} artisan atlas:brain:next {$scopeArg} --scope-signals --actor={$clientArg} --json`
-   - `disabled`=>print "brain disabled"; STOP. `dry`=>print "scope dry"; STOP. `served`=>use packet.specs.packets[0].
-   - `refused`/`abstain`/`already_done`/`prepare_blocked`/`forbidden_target`=>ORIGINATE; do not stop/final/fake.
-   - `scope_signals`? use `leverage_brief.action_hint` + `recommended_draft`.
-2. ORIGINATE: read real files+journal; pick ONE max-leverage evolution.
-3. AUTHOR self-sufficient spec:
-   - objective ≥40 chars names real FQCN/`.php`/`php artisan`; allowed_files real; runnable acceptance (`php artisan test --filter=<OneTest>`); scope_in/evidence/deps/wave/risk≤medium.
-   - CREDIT fields REQUIRED: problem, expected_delta, value, duplicate_key=`surface|root_cause|delta`, freshness_check, anti_proxy. Test-only=>contract(target+risk+3 cases). Existing files=>modifies_existing_files+delta.
-4. WRITE the spec to a temp file (NOT under storage/app/atlas/task-serving or storage/ledgers):
+   - `disabled`=>OFF; do NOT self-enable; offline/spec-harden; seed waits. `dry`=>vein dry; pivot. `served`=>use packet.specs.packets[0].
+   - `refused`/`abstain`/`already_done`/`prepare_blocked`/`forbidden_target`=>ORIGINATE; no stop/final/fake.
+   - `scope_signals`=>use action_hint+recommended_draft.
+2. ORIGINATE: read files+journal; pick ONE max-leverage.
+3. SPEC: objective≥40 real FQCN/`.php`/`php artisan`; allowed_files real; runnable acceptance (`php artisan test --filter=<OneTest>`); evidence/deps/wave/risk≤medium.
+   CREDIT fields REQUIRED: problem, expected_delta, value, duplicate_key, freshness_check, anti_proxy. Test-only=>target+risk+3 cases. Existing=>modifies_existing_files+delta.
+4. WRITE temp JSON (NOT under storage/app/atlas/task-serving or storage/ledgers):
    `printf '%s' '{"packets":[<spec>]}' > {$tempSpecsArg}`
 5. GATE (zero enqueue): `{$php} artisan atlas:brain:seed --specs={$tempSpecsArg} --scope={$scopeArg} --actor={$clientArg} --require-actor --dry-run --json`
-   - blocked(proxy/vague/acceptance_not_runnable/forbidden_target/harness_gated)=>FIX+re-run; never force.
+   - blocked=>FIX+re-run; never force.
 6. SEED real (only after clean dry-run): `{$php} artisan atlas:brain:seed --specs={$tempSpecsArg} --scope={$scopeArg} --actor={$clientArg} --require-actor --cleanup-specs --json`
-   - `enqueued` → VALID_SEEDS+=counts.credited; muscle uses `atlas:task next`. {$loopLine}
-   - `brain_enabled:false`=>switch OFF; operator flips ATLAS_BRAIN_MASTER_ENABLED; STOP.
-7. DOCUMENT: append objective + why to the journal. {$loopLine}
+   - `enqueued`=>VALID_SEEDS+=counts.credited. {$loopLine}
+   - `brain_enabled:false`=>OFF; do NOT self-enable; preserve spec, harden offline, pivot/retry.
+7. DOC objective+why. {$loopLine}
 
-Never proxy; under quota search until Atlas dry. {$startLine}
+Never proxy; under quota search until quota_met; dry/disabled pivot, never self-stop. {$startLine}
 PROMPT;
     }
 

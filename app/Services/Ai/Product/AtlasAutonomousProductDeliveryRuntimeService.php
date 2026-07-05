@@ -82,6 +82,9 @@ class AtlasAutonomousProductDeliveryRuntimeService
         ]);
 
         $assisted = $this->assistedExecution->buildEnvelope([
+            // Propagate the interactive-chat deferral so the shared assisted
+            // quality envelope skips its ~30s AUCRI cognitive-context chain.
+            'defer_cognitive_context_evaluation' => (bool) ($input['defer_cognitive_context_evaluation'] ?? false),
             'human_request' => $request,
             'workspace' => $workspace,
             'surface_id' => $this->string($input['surface_id'] ?? null) ?? 'atlas_ai',

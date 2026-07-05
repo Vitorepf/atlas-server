@@ -302,6 +302,23 @@ class AtlasAiAssistedExecutionQualityService
      */
     private function contextMemoryPlan(string $request, array $contract, array $doctrine, array $input): array
     {
+        // Interactive app chat defers the AUCRI cognitive-context evaluation:
+        // cognitiveMemory()->plan() drives ACMF → privacy trust → context
+        // observability → the retrieval benchmark arena, which runs a golden
+        // case suite (~30s on this machine) on EVERY message. That is telemetry
+        // the interactive request does not need inline — the worker rebuilds it
+        // off the queued trace. Skipping it here is what takes the chat send
+        // from ~60s (twice through this path) back under the bridge timeout.
+        if ((bool) ($input['defer_cognitive_context_evaluation'] ?? false)) {
+            return [
+                'schema_version' => AtlasCognitiveMemoryFabricService::SCHEMA_VERSION,
+                'status' => 'deferred',
+                'mode' => 'deferred_interactive_request',
+                'deferred_reason' => 'interactive_request_defers_aucri_cognitive_context_evaluation',
+                'raw_text_exposed' => false,
+            ];
+        }
+
         $items = [
             ['kind' => 'decision', 'ref' => 'assisted://aedpds/doctrine', 'tokens' => 800, 'bytes' => 1024 * 1024, 'heat' => 1.0, 'must_keep' => true],
             ['kind' => 'constraint', 'ref' => 'assisted://dev/context-gate', 'tokens' => 650, 'bytes' => 1024 * 1024, 'heat' => 0.98, 'must_keep' => true],

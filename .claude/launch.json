@@ -2,16 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "atlas-mockup-static",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "/Users/vitorepf/develop/Atlas/atlas-server/public"],
-      "port": 8765
-    },
-    {
-      "name": "blackink-front",
+      "name": "atlas-desktop-vite",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "/Users/vitorepf/develop/blackink/nivor-front-end", "run", "start"],
-      "port": 8080
+      "runtimeArgs": ["run", "dev", "--workspace=@atlas/desktop", "--prefix", "/Users/vitorepf/develop/Atlas/atlas-desktop"],
+      "port": 5173
     }
   ]
 }

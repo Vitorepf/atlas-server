@@ -260,4 +260,23 @@ final class AgentControlPlaneTerminalLoopHealthDigestPresenceProbe
             'blockers' => $blockers,
         ];
     }
+
+    /**
+     * Quick presence probe for the terminal-loop health digest within an
+     * arbitrary proof payload. Checks whether the key exists and contains
+     * a non-empty array value.
+     *
+     * @param  array<string, mixed>  $proof
+     * @return array{present:bool, digest_present:bool}
+     */
+    public static function probe(array $proof): array
+    {
+        $digest = $proof['terminal_loop_health_digest'] ?? null;
+        $present = is_array($digest) && $digest !== [];
+
+        return [
+            'present' => $present,
+            'digest_present' => $present,
+        ];
+    }
 }

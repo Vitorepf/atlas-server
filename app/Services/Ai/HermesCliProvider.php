@@ -680,7 +680,7 @@ class HermesCliProvider implements AiProvider
         $mode = $this->permissionModeForJob($job);
 
         foreach ([
-            '--provider' => data_get($job->payload, 'hermes.provider') ?: ($provider['provider'] ?? null),
+            '--provider' => $this->safeHermesProvider(data_get($job->payload, 'hermes.provider') ?: ($provider['provider'] ?? null)),
             '--toolsets' => data_get($job->payload, 'hermes.toolsets') ?: ($provider['toolsets'] ?? null),
             '--skills' => data_get($job->payload, 'hermes.skills') ?: ($provider['skills'] ?? null),
         ] as $flag => $value) {
@@ -848,13 +848,53 @@ class HermesCliProvider implements AiProvider
     {
         $source = data_get($job->payload, 'model_identity_source') ?? data_get($job->metadata, 'model_identity_source');
         if (in_array($source, ['provider_default_identity', 'configured_model_identity'], true)) {
-            return null;
+            return $this->safeHermesModel(null, $provider);
         }
 
         $model = $job->model ?: ($provider['model'] ?? null);
-        $model = $this->cleanString($model);
+        $model = $this->safeHermesModel($this->cleanString($model), $provider);
 
         return $model === null || str_ends_with($model, '_default') ? null : $model;
+    }
+
+    /**
+     * Hermes is the runtime; Codex/GPT must never be its hidden sub-model.
+     *
+     * @param  array<string,mixed>  $provider
+     */
+    private function safeHermesModel(?string $model, array $provider): ?string
+    {
+        if ($model !== null && ! str_ends_with($model, '_default') && ! $this->isForbiddenHermesModel($model)) {
+            return $model;
+        }
+
+        foreach ([$provider['model'] ?? null, $provider['model_identity'] ?? null, 'qwen3.6-27b'] as $candidate) {
+            $candidate = $this->cleanString($candidate);
+            if ($candidate !== null && ! str_ends_with($candidate, '_default') && ! $this->isForbiddenHermesModel($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function safeHermesProvider(mixed $provider): mixed
+    {
+        $provider = $this->cleanString($provider);
+        if ($provider === null) {
+            return null;
+        }
+
+        return $this->isForbiddenHermesModel($provider) || in_array($provider, ['openai', 'openai_codex', 'codex'], true)
+            ? 'verboo'
+            : $provider;
+    }
+
+    private function isForbiddenHermesModel(string $model): bool
+    {
+        $model = strtolower($model);
+
+        return str_contains($model, 'codex') || str_contains($model, 'gpt');
     }
 
     private function memoryPolicy(AiJob $job, array $provider): string

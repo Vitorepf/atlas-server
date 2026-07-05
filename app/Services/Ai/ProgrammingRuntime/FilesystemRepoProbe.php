@@ -3,8 +3,10 @@
 namespace App\Services\Ai\ProgrammingRuntime;
 
 use FilesystemIterator;
+use RecursiveCallbackFilterIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use SplFileInfo;
 
 /**
  * Default probe: reads real files under `base_path()`. Recursively walks
@@ -13,6 +15,41 @@ use RecursiveIteratorIterator;
  */
 class FilesystemRepoProbe implements RepoProbe
 {
+    /**
+     * Directories that NEVER hold Atlas source the probes look for, PRUNED from
+     * traversal (not just filtered from results). Without this the recursive
+     * walk descended into and file_get_contents()'d every file under vendor/,
+     * node_modules/, storage/ (~400k) and tools/ (~207k rivals benchmarks) —
+     * ~20-30s per call. Running on the synchronous chat path (Hyperflow entry),
+     * that blew past the desktop bridge timeout and surfaced as
+     * "kernel offline · could not reach atlas-server" (03/07). Pruning at the
+     * iterator level is the fix: excludeRelativePaths only skips MATCHES, it
+     * never stopped the descent.
+     */
+    private const HARD_PRUNE_DIRS = [
+        'vendor', 'node_modules', '.git', 'storage', 'target', 'dist',
+        '.next', '.turbo', '.idea', '.vscode', 'tools', 'bootstrap',
+        'runtimes', 'public',
+    ];
+
+    /** Backstop: a pathological tree can never hang the walk past this many files. */
+    private const MAX_FILES_SCANNED = 25000;
+
+    /**
+     * Per-instance content cache keyed by "root|ext" → [relative => contents].
+     * The readiness services scan the SAME directory (e.g. `app`, ~7800 .php)
+     * 6+ times with different needles on the synchronous chat path — without
+     * this each needle re-walked and re-read every file (~20-30s total → bridge
+     * timeout). Now the first scan of a (dir, glob) reads once; every later
+     * needle searches the in-memory map. Bounded by MAX_FILES_SCANNED and a byte
+     * budget so a huge tree can never blow memory.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private array $contentCache = [];
+
+    private const CACHE_BYTE_BUDGET = 96 * 1024 * 1024;
+
     public function __construct(private readonly ?string $basePathOverride = null) {}
 
     public function fileExists(string $relativePath): bool
@@ -54,23 +91,8 @@ class FilesystemRepoProbe implements RepoProbe
 
         $extension = $this->extensionFromGlob($glob);
         $matches = [];
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($absoluteRoot, FilesystemIterator::SKIP_DOTS),
-        );
-
-        foreach ($iterator as $file) {
-            if (! $file->isFile()) {
-                continue;
-            }
-            if ($extension !== null && strtolower((string) $file->getExtension()) !== $extension) {
-                continue;
-            }
-            $relative = $this->relative($file->getPathname());
+        foreach ($this->cachedContents($absoluteRoot, $extension) as $relative => $contents) {
             if ($this->isExcluded($relative, $excludeRelativePaths)) {
-                continue;
-            }
-            $contents = file_get_contents($file->getPathname());
-            if ($contents === false) {
                 continue;
             }
             if (str_contains($contents, $needle)) {
@@ -81,6 +103,61 @@ class FilesystemRepoProbe implements RepoProbe
         ksort($matches);
 
         return array_keys($matches);
+    }
+
+    /**
+     * Walk + read ONCE per (root, extension), pruning heavy/never-source
+     * directories at the iterator level (a callback returning false for a
+     * directory stops the descent entirely — the old code descended into
+     * vendor/storage/tools/… and only filtered matches, which is why it hung).
+     * The map is cached and reused by every later needle search of the same
+     * directory, so the readiness services' 6+ same-directory scans read each
+     * file once instead of once-per-needle.
+     *
+     * @return array<string, string>
+     */
+    private function cachedContents(string $absoluteRoot, ?string $extension): array
+    {
+        $key = $absoluteRoot.'|'.($extension ?? '*');
+        if (isset($this->contentCache[$key])) {
+            return $this->contentCache[$key];
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveCallbackFilterIterator(
+                new RecursiveDirectoryIterator($absoluteRoot, FilesystemIterator::SKIP_DOTS),
+                static function (SplFileInfo $current): bool {
+                    if ($current->isDir()) {
+                        return ! in_array($current->getFilename(), self::HARD_PRUNE_DIRS, true);
+                    }
+
+                    return true;
+                },
+            ),
+        );
+
+        $map = [];
+        $bytes = 0;
+        $scanned = 0;
+        foreach ($iterator as $file) {
+            if (++$scanned > self::MAX_FILES_SCANNED || $bytes >= self::CACHE_BYTE_BUDGET) {
+                break;
+            }
+            if (! $file->isFile()) {
+                continue;
+            }
+            if ($extension !== null && strtolower((string) $file->getExtension()) !== $extension) {
+                continue;
+            }
+            $contents = @file_get_contents($file->getPathname());
+            if ($contents === false) {
+                continue;
+            }
+            $bytes += strlen($contents);
+            $map[$this->relative($file->getPathname())] = $contents;
+        }
+
+        return $this->contentCache[$key] = $map;
     }
 
     private function absolute(string $relativePath): string

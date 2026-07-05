@@ -530,6 +530,6 @@ final class AtlasExternalBrainValueDensityQueueOptimizerTest extends TestCase
         }
 
         // Never justifies drain_first by depth alone — density must always be cited too.
-        $this->assertStringContainsString('value_density', $drain['decision_explanation']);
+        $this->assertStringContainsString('median_density', $drain['decision_explanation']);
     }
 }

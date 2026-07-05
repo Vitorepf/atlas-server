@@ -197,6 +197,7 @@ final class AtlasExternalBrainControlPlaneSnapshot
             'learning_freshness'       => $learningFreshness,
             'blocked_debt'             => $blockedDebt,
             'next_originator_action'    => $nextOriginatorAction,
+            'compression_wave'         => $inputs['compression_wave'] ?? null,
         ];
     }
 

@@ -42,8 +42,9 @@ final class AtlasBrainWorkerPromptAltitudeTest extends TestCase
         self::assertStringContainsString('NEVER turn the brain switch on', $out);
         self::assertStringContainsString('NO proxy/faxina', $out);
         self::assertStringContainsString('author≠judge', $out);
-        // and the explicit "stop only on an Atlas signal" rule (never self-declared dry)
-        self::assertStringContainsString('STOP only on an ATLAS signal', $out);
+        // and the external-brain rule: dry/disabled are pivot signals, not session-ending excuses.
+        self::assertStringContainsString('disabled` and `dry` are pivot signals', $out);
+        self::assertStringContainsString('Stop only on explicit operator/session limit', $out);
     }
 
     public function test_ambition_block_mandates_portfolio_rotation_and_no_self_stop(): void
@@ -53,6 +54,7 @@ final class AtlasBrainWorkerPromptAltitudeTest extends TestCase
         self::assertStringContainsString('ROTATE the self-improvement portfolio', $out);
         self::assertStringContainsString('most exponential lift', $out);
         self::assertStringContainsString('NOT a stop', $out);
+        self::assertStringContainsString('dry/disabled=>ORIGINATE+SEED or harden offline', $out);
     }
 
     public function test_sufficient_queue_depth_is_never_a_brain_stop_reason(): void
@@ -86,7 +88,7 @@ final class AtlasBrainWorkerPromptAltitudeTest extends TestCase
         self::assertStringContainsString('code-review', $out);
         self::assertStringContainsString('grill-with-docs', $out);
         self::assertStringContainsString('to-prd', $out);
-        self::assertStringContainsString('under quota search until Atlas dry', $out);
+        self::assertStringContainsString('under quota search until quota_met', $out);
         self::assertLessThan(4000, mb_strlen(trim($out)));
     }
 

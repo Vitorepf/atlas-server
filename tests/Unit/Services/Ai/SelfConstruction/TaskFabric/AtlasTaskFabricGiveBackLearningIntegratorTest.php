@@ -165,4 +165,124 @@ final class AtlasTaskFabricGiveBackLearningIntegratorTest extends TestCase
             self::assertStringNotContainsString($forbiddenKey, $encoded, "output must never carry a scalar {$forbiddenKey}");
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2/AC3/AC4: policy_updates — family_penalty, scope_repair_hint, routing_signal, exclusion_rule
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_output_includes_policy_updates_key(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([]);
+
+        $this->assertArrayHasKey('policy_updates', $r,
+            'output must always include policy_updates key');
+    }
+
+    public function test_repeated_give_backs_in_same_family_produce_policy_update(): void
+    {
+        // First dash before 'fam-x' gives family='fam'
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'fam-x-1', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+            ['task_packet_id' => 'fam-x-2', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+        ]);
+
+        $this->assertNotEmpty($r['policy_updates']);
+        $famX = current(array_filter($r['policy_updates'], static fn (array $u): bool => $u['family'] === 'fam'));
+        $this->assertNotNull($famX, 'policy_updates must include fam');
+        $this->assertSame(2, $famX['event_count']);
+        $this->assertGreaterThan(0.0, $famX['family_penalty']);
+    }
+
+    public function test_policy_update_contains_scope_repair_hint_when_missing_impl(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'fam-a-1', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+            ['task_packet_id' => 'fam-a-2', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+        ]);
+
+        $update = current(array_filter($r['policy_updates'], static fn (array $u): bool => $u['family'] === 'fam'));
+        $this->assertNotNull($update['scope_repair_hint'],
+            'scope_repair_hint must be present when missing_impl is the failure class');
+    }
+
+    public function test_policy_update_contains_routing_signal_when_cli_clobber(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'fam-b-1', 'reason' => 'cli_clobber', 'blocking_deficiencies' => ['cli_clobber']],
+            ['task_packet_id' => 'fam-b-2', 'reason' => 'cli_clobber', 'blocking_deficiencies' => ['cli_clobber']],
+        ]);
+
+        $update = current(array_filter($r['policy_updates'], static fn (array $u): bool => $u['family'] === 'fam'));
+        $this->assertSame('route_away_from_family', $update['routing_signal']);
+    }
+
+    public function test_policy_update_contains_exclusion_rule_when_cli_clobber_and_high_penalty(): void
+    {
+        // 4 events in the same family → penalty = 4 * 0.15 = 0.60 >= 0.45 → exclusion
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'fam-c-1', 'reason' => 'cli_clobber', 'blocking_deficiencies' => ['cli_clobber']],
+            ['task_packet_id' => 'fam-c-2', 'reason' => 'cli_clobber', 'blocking_deficiencies' => ['cli_clobber']],
+            ['task_packet_id' => 'fam-c-3', 'reason' => 'cli_clobber', 'blocking_deficiencies' => ['cli_clobber']],
+            ['task_packet_id' => 'fam-c-4', 'reason' => 'cli_clobber', 'blocking_deficiencies' => ['cli_clobber']],
+        ]);
+
+        $update = current(array_filter($r['policy_updates'], static fn (array $u): bool => $u['family'] === 'fam'));
+        $this->assertSame('exclude_from_future_batches', $update['exclusion_rule']);
+    }
+
+    public function test_single_give_back_does_not_become_hard_policy(): void
+    {
+        // AC4: low-confidence (single event) → no policy update.
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'single-1', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+        ]);
+
+        $singleUpdate = current(array_filter($r['policy_updates'], static fn (array $u): bool => $u['family'] === 'single'));
+        $this->assertFalse($singleUpdate,
+            'single-event family must not produce a policy update (low-confidence observation)');
+    }
+
+    public function test_repeated_give_backs_increase_penalty_without_duplicate_entries(): void
+    {
+        // 3 events → one policy update with event_count=3, not three separate entries.
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'fam-d-1', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+            ['task_packet_id' => 'fam-d-2', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+            ['task_packet_id' => 'fam-d-3', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+        ]);
+
+        $famUpdates = array_values(array_filter($r['policy_updates'], static fn (array $u): bool => $u['family'] === 'fam'));
+        $this->assertCount(1, $famUpdates, 'repeated give_backs must not duplicate policy entries');
+        $this->assertSame(3, $famUpdates[0]['event_count']);
+    }
+
+    public function test_policy_updates_use_explicit_family_field_when_provided(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-a', 'family' => 'my_family', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+            ['task_packet_id' => 'pkt-b', 'family' => 'my_family', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+        ]);
+
+        $this->assertNotEmpty($r['policy_updates']);
+        $this->assertSame('my_family', $r['policy_updates'][0]['family']);
+    }
+
+    public function test_policy_updates_deterministically_sorted(): void
+    {
+        $input = [
+            ['task_packet_id' => 'zzz-1', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+            ['task_packet_id' => 'zzz-2', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+            ['task_packet_id' => 'aaa-1', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+            ['task_packet_id' => 'aaa-2', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+        ];
+        $ig = new AtlasTaskFabricGiveBackLearningIntegrator;
+        $a = $ig->integrate($input);
+        $b = $ig->integrate($input);
+
+        self::assertSame(
+            json_encode($a['policy_updates']),
+            json_encode($b['policy_updates']),
+            'policy_updates must be deterministic',
+        );
+    }
 }

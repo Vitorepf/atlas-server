@@ -85,6 +85,23 @@ class AtlasHyperflowEntryService
         'automation',
     ];
 
+    /**
+     * Surfaces whose chat is INTERACTIVE (desktop + mobile app). They must
+     * enqueue immediately and DEFER the heavy synchronous bootstrap — AWEOS's
+     * full workspace walk (~45s) and the persistent-context build (~13s) — to
+     * the worker, which rebuilds it off the queued trace. A surface missing
+     * from this list runs the heavy path inline and blows past the desktop
+     * bridge timeout, surfacing to the operator as
+     * "kernel offline · could not reach atlas-server". This drift has bitten
+     * twice: `atlas_app` (mobile) was omitted once, then `atlas_code` — the
+     * surface the desktop bridge actually sends (see atlas-desktop
+     * bridge.ts atlasCodeForgePayload → surface_id: 'atlas_code'). One shared
+     * list, not two copies that silently diverge.
+     *
+     * @var list<string>
+     */
+    public const INTERACTIVE_APP_SURFACES = ['atlas_desktop_ai', 'atlas_app', 'atlas_code'];
+
     public function __construct(
         private readonly IntentKernelService $intentKernel,
         private readonly DomainRouterService $domainRouter,
@@ -356,7 +373,7 @@ class AtlasHyperflowEntryService
         // the real AWEOS execution is rebuilt off the queued trace, not inline.
         $surfaceId = $this->stringValue(data_get($payload, 'surface_id'))
             ?? $this->stringValue(data_get($payload, 'app_surface'));
-        $isInteractiveAppRequest = in_array($surfaceId, ['atlas_desktop_ai', 'atlas_app'], true)
+        $isInteractiveAppRequest = in_array($surfaceId, self::INTERACTIVE_APP_SURFACES, true)
             && ($this->stringValue($data['source_type'] ?? null) ?? '') === 'app';
         $explicitAutonomousWorkExecution = (bool) data_get($payload, 'enable_autonomous_work_execution_runtime', false);
         if ($isInteractiveAppRequest && ! $explicitAutonomousWorkExecution) {
@@ -837,7 +854,7 @@ class AtlasHyperflowEntryService
         // persistent-context bootstrap so the request can enqueue immediately;
         // the worker rebuilds it off the queued trace. mobile (atlas_app) was
         // previously omitted, leaving its chat ~12s slower than desktop.
-        $isInteractiveAppRequest = in_array($surfaceId, ['atlas_desktop_ai', 'atlas_app'], true)
+        $isInteractiveAppRequest = in_array($surfaceId, self::INTERACTIVE_APP_SURFACES, true)
             && ($this->stringValue($data['source_type'] ?? null) ?? '') === 'app';
         $explicitPersistentContext = (bool) data_get($payload, 'enable_persistent_context_runtime', false);
         if ($isInteractiveAppRequest && ! $explicitPersistentContext) {

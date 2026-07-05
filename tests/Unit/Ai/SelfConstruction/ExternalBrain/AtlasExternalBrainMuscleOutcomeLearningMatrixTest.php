@@ -84,16 +84,25 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrixTest extends TestCase
 
     public function test_high_success_signal_when_above_threshold(): void
     {
+        // Need Wilson LB >= 0.80. Use large sample (40/50 = 80%, Wilson LB ~0.68 < 0.80).
+        // Need even larger: 400/500 (80%, Wilson LB ~0.76 < 0.80 still).
+        // At 80% with Wilson LB >= 0.80, need n large enough:
+        // For p=0.80, z=1.96, thresholds n by trial: at n=500, Wilson LB ~0.76.
+        // At 1000: (800+1.9/2000 - 1.96*sqrt((0.8*0.2+3.84/4e6)/1000))/(1+3.84/1000)
+        // p=0.8, n=1000: z2/2n = 3.84/2000 = 0.00192, center = 0.80192
+        // se^2 = (0.8*0.2 + 3.84/4000000)/1000 = (0.16+0.00000096)/1000 = 0.00016000096
+        // se = 0.01265, z*se = 0.02479
+        // num = 0.80192-0.02479 = 0.77713, denom = 1.00384
+        // Wilson LB = 0.77713/1.00384 ≈ 0.774. Still < 0.80.
+        // For p=0.90, n=200: LB ≈ 0.855 > 0.80. Let me use that.
         $r = $this->matrix()->analyze([
-            'outcome_rows'      => [
-                $this->row(['outcome' => 'success']),
-                $this->row(['outcome' => 'success']),
-                $this->row(['outcome' => 'success']),
-                $this->row(['outcome' => 'success']),
-                $this->row(['outcome' => 'failure']),
-            ],
+            'outcome_rows' => array_merge(
+                array_fill(0, 180, $this->row(['task_family' => 'refactor', 'outcome' => 'success'])),
+                array_fill(0, 20, $this->row(['task_family' => 'refactor', 'outcome' => 'failure'])),
+            ),
             'success_threshold' => 0.80,
         ]);
+        // 180/200 = 90%. Wilson LB ~0.855 > 0.80 → high_success.
         $this->assertSame('high_success', $r['family_matrix']['refactor']['signal']);
         $this->assertContains('refactor', $r['supply_families']);
     }
@@ -367,19 +376,16 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrixTest extends TestCase
 
     public function test_high_success_worker_family_pair_appears_in_preferred_workers(): void
     {
+        // 10/10 = 100%. Wilson LB ~0.722 > 0.70 → preferred.
         $r = $this->matrix()->analyze([
-            'outcome_rows' => [
-                $this->row(['worker_id' => 'w1', 'outcome' => 'success']),
-                $this->row(['worker_id' => 'w1', 'outcome' => 'success']),
-                $this->row(['worker_id' => 'w1', 'outcome' => 'success']),
-            ],
+            'outcome_rows' => array_fill(0, 10, $this->row(['worker_id' => 'w1', 'outcome' => 'success'])),
             'routing_prefer_floor' => 0.70,
             'routing_min_rows'     => 2,
         ]);
 
         $pref = $r['routing_recommendations']['refactor']['preferred_workers'] ?? [];
         $ids  = array_column($pref, 'worker_id');
-        $this->assertContains('w1', $ids, 'w1 with 100% success must appear in preferred_workers');
+        $this->assertContains('w1', $ids, 'w1 with 10/10 success must appear in preferred_workers');
         $this->assertSame('prefer', $pref[array_search('w1', $ids)]['routing']);
     }
 
@@ -436,35 +442,39 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrixTest extends TestCase
 
     public function test_three_family_routing_scenario_covers_all_routing_categories(): void
     {
-        // add_feature: w1=3×success → prefer; w2=2×failure → avoid
-        // bugfix: w3=3×success → prefer; model frontier has high success
-        // refactor: w4=3×poison → fail_closed; w1=3×success → prefer
-        $rows = [
-            // add_feature
-            ['task_family' => 'add_feature', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
-            ['task_family' => 'add_feature', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
-            ['task_family' => 'add_feature', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
-            ['task_family' => 'add_feature', 'worker_id' => 'w2', 'model_tier' => 'small', 'outcome' => 'failure'],
-            ['task_family' => 'add_feature', 'worker_id' => 'w2', 'model_tier' => 'small', 'outcome' => 'failure'],
-            // bugfix
-            ['task_family' => 'bugfix', 'worker_id' => 'w3', 'model_tier' => 'frontier', 'outcome' => 'success'],
-            ['task_family' => 'bugfix', 'worker_id' => 'w3', 'model_tier' => 'frontier', 'outcome' => 'success'],
-            ['task_family' => 'bugfix', 'worker_id' => 'w3', 'model_tier' => 'frontier', 'outcome' => 'success'],
-            // refactor
-            ['task_family' => 'refactor', 'worker_id' => 'w4', 'model_tier' => 'small', 'outcome' => 'poison'],
-            ['task_family' => 'refactor', 'worker_id' => 'w4', 'model_tier' => 'small', 'outcome' => 'poison'],
-            ['task_family' => 'refactor', 'worker_id' => 'w4', 'model_tier' => 'small', 'outcome' => 'success'],
-            ['task_family' => 'refactor', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
-            ['task_family' => 'refactor', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
-            ['task_family' => 'refactor', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
-        ];
+        // Larger samples so Wilson LB passes thresholds:
+        // add_feature w1: 10 successes (Wilson LB ~0.72 > 0.70 → prefer)
+        // add_feature w2: 5 failures out of 5 (raw failure rate 1.0, but Wilson LB ~0.57)
+        //   Actually w2 avoid check uses success_rate < 0.40. With 0/5 = 0.00 < 0.40 → avoid.
+        // bugfix w3: 10 successes (Wilson LB ~0.72 > 0.70 → prefer)
+        // refactor w4: 3 poison out of 4 (rate 0.75 >= 0.20 → fail_closed)
+        // refactor w1: 10 successes (Wilson LB ~0.72 > 0.70 → prefer)
+        $rows = [];
+        // add_feature
+        for ($i = 0; $i < 10; $i++) {
+            $rows[] = ['task_family' => 'add_feature', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'];
+        }
+        for ($i = 0; $i < 5; $i++) {
+            $rows[] = ['task_family' => 'add_feature', 'worker_id' => 'w2', 'model_tier' => 'small', 'outcome' => 'failure'];
+        }
+        // bugfix
+        for ($i = 0; $i < 10; $i++) {
+            $rows[] = ['task_family' => 'bugfix', 'worker_id' => 'w3', 'model_tier' => 'frontier', 'outcome' => 'success'];
+        }
+        // refactor
+        for ($i = 0; $i < 10; $i++) {
+            $rows[] = ['task_family' => 'refactor', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'];
+        }
+        $rows[] = ['task_family' => 'refactor', 'worker_id' => 'w4', 'model_tier' => 'small', 'outcome' => 'poison'];
+        $rows[] = ['task_family' => 'refactor', 'worker_id' => 'w4', 'model_tier' => 'small', 'outcome' => 'poison'];
+        $rows[] = ['task_family' => 'refactor', 'worker_id' => 'w4', 'model_tier' => 'small', 'outcome' => 'success'];
 
         $r = $this->matrix()->analyze([
-            'outcome_rows'    => $rows,
-            'poison_threshold' => 0.20,
-            'routing_prefer_floor'  => 0.70,
-            'routing_avoid_ceiling' => 0.40,
-            'routing_min_rows'      => 2,
+            'outcome_rows'          => $rows,
+            'poison_threshold'       => 0.20,
+            'routing_prefer_floor'   => 0.70,
+            'routing_avoid_ceiling'  => 0.40,
+            'routing_min_rows'       => 2,
         ]);
 
         // Three distinct families covered.
@@ -520,16 +530,21 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrixTest extends TestCase
 
     public function test_worker_preferred_for_one_family_and_avoided_for_another(): void
     {
+        // w1: 10/10 success in add_feature → preferred (Wilson LB ~0.72 > 0.70)
+        // w1: 0/5 success in refactor → avoid (rate 0.00 < 0.40)
+        $rows = [];
+        for ($i = 0; $i < 10; $i++) {
+            $rows[] = ['task_family' => 'add_feature', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'];
+        }
+        for ($i = 0; $i < 5; $i++) {
+            $rows[] = ['task_family' => 'refactor', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'failure'];
+        }
+
         $r = $this->matrix()->analyze([
-            'outcome_rows' => [
-                $this->row(['task_family' => 'add_feature', 'worker_id' => 'w1', 'outcome' => 'success']),
-                $this->row(['task_family' => 'add_feature', 'worker_id' => 'w1', 'outcome' => 'success']),
-                $this->row(['task_family' => 'refactor',    'worker_id' => 'w1', 'outcome' => 'failure']),
-                $this->row(['task_family' => 'refactor',    'worker_id' => 'w1', 'outcome' => 'failure']),
-            ],
-            'routing_prefer_floor' => 0.70,
+            'outcome_rows'          => $rows,
+            'routing_prefer_floor'  => 0.70,
             'routing_avoid_ceiling' => 0.40,
-            'routing_min_rows'     => 2,
+            'routing_min_rows'      => 2,
         ]);
 
         $addFeaturePreferred = array_column($r['routing_recommendations']['add_feature']['preferred_workers'], 'worker_id');

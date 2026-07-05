@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorB
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorSpecNoveltyGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorStopOrPivotAdvisor;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOriginatorThemeSaturationMeter;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPostCommitNoGapRunner;
 use Illuminate\Console\Command;
 
 /**
@@ -81,6 +82,16 @@ final class AtlasExternalBrainOriginatorStopPivotCommand extends Command
             }
         }
 
+        // Post-commit no-gap verdict: composes wave resequencer, compression auditor,
+        // originator gate, and end-to-end proof into one gap-free assessment.
+        $noGapRunner = new AtlasExternalBrainPostCommitNoGapRunner;
+        $postCommitNoGap = $noGapRunner->run([
+            'resequence_facts'    => is_array($facts['resequence_facts'] ?? null) ? $facts['resequence_facts'] : [],
+            'compression_facts'   => is_array($facts['compression_facts'] ?? null) ? $facts['compression_facts'] : [],
+            'originator_proposal' => is_array($facts['originator_proposal'] ?? null) ? $facts['originator_proposal'] : [],
+            'proof_facts'         => is_array($facts['proof_facts'] ?? null) ? $facts['proof_facts'] : [],
+        ]);
+
         $payload = [
             'schema' => self::SCHEMA,
             'next_action' => $verdict['next_action'],
@@ -90,6 +101,7 @@ final class AtlasExternalBrainOriginatorStopPivotCommand extends Command
             'batch_value' => $batchValue,
             'candidate_novelty' => $candidateNovelty,
             'autonomy_claim_audits' => $autonomyClaimAudits,
+            'post_commit_no_gap' => $postCommitNoGap,
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));

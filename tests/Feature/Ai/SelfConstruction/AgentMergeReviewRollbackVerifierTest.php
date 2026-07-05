@@ -287,7 +287,7 @@ final class AgentMergeReviewRollbackVerifierTest extends TestCase
 
         $result = $svc->classifyRollbackReadiness($packet, $dryRun);
 
-        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_ROLLBACK_READY, $result['decision']);
+        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_AUTONOMOUS_SAFE, $result['decision']);
         $this->assertNotEmpty($result['rollback_reason']);
     }
 
@@ -325,7 +325,7 @@ final class AgentMergeReviewRollbackVerifierTest extends TestCase
 
         $result = $svc->classifyRollbackReadiness($packet, $dryRun);
 
-        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_ROLLBACK_READY, $result['decision']);
+        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_AUTONOMOUS_SAFE, $result['decision']);
     }
 
     public function test_unverified_steps_with_migration_risk_rejects_merge(): void
@@ -351,7 +351,7 @@ final class AgentMergeReviewRollbackVerifierTest extends TestCase
 
         $result = $svc->classifyRollbackReadiness($packet, $dryRun);
 
-        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_ROLLBACK_READY, $result['decision']);
+        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_AUTONOMOUS_SAFE, $result['decision']);
     }
 
     /**

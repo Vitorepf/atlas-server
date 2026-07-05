@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\ContextIntelligence;
 
 use App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceCertificationService;
+use App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceService;
+use App\Services\Ai\ContextIntelligence\ContextIntelligencePayloadHash;
 use App\Services\Ai\LongHorizon\AtlasTeosFinalCertificationService;
 use Illuminate\Support\Facades\Artisan;
 use Mockery;
@@ -88,5 +90,103 @@ final class AtlasContextIntelligenceCertificationServiceTest extends TestCase
             'warnings' => $warnings,
         ]);
         $this->instance(AtlasTeosFinalCertificationService::class, $mock);
+    }
+
+    /**
+     * Build a basic runtime payload with a correctly computed context_certification_hash.
+     *
+     * @param  array<string,mixed>  $overrides
+     * @return array<string,mixed>
+     */
+    private function buildValidRuntimePayload(array $overrides = []): array
+    {
+        $body = array_merge([
+            'status' => AtlasContextIntelligenceService::STATUS_READY,
+            'schema_version' => 'atlas.context_intelligence.runtime.v1',
+            'claim_policy' => ['provider_calls_made' => false],
+        ], $overrides);
+
+        // If no hash override, compute the real hash.
+        if (! array_key_exists('context_certification_hash', $overrides)) {
+            $body['context_certification_hash'] = ContextIntelligencePayloadHash::forPayload($body, 'context_certification_hash');
+        }
+
+        return $body;
+    }
+
+    // ── AC: hash integrity — PASS (untampered payload) ────────────────────────
+
+    public function test_hash_integrity_pass_untampered_payload(): void
+    {
+        $this->bindTeosFinal(AtlasTeosFinalCertificationService::STATUS_READY);
+        $service = app(AtlasContextIntelligenceCertificationService::class);
+        $service->injectTestRuntimePayload($this->buildValidRuntimePayload());
+
+        $payload = $service->certify();
+
+        $this->assertSame('passed', $payload['status']);
+        $check = collect($payload['checks'])->firstWhere('id', 'runtime_smoke');
+        $this->assertNotNull($check);
+        $this->assertSame('pass', $check['status']);
+        $this->assertArrayHasKey('hash_integrity', $check['evidence']);
+        $this->assertSame('pass', $check['evidence']['hash_integrity']['status']);
+        $this->assertArrayHasKey('stored_hash', $check['evidence']['hash_integrity']);
+        $this->assertArrayHasKey('recomputed_hash', $check['evidence']['hash_integrity']);
+        $this->assertSame(
+            $check['evidence']['hash_integrity']['stored_hash'],
+            $check['evidence']['hash_integrity']['recomputed_hash'],
+            'stored and recomputed hash must match for an untampered payload',
+        );
+    }
+
+    // ── AC: hash integrity — FAIL (fake/stale hash) ───────────────────────────
+
+    public function test_hash_integrity_fail_fake_hash(): void
+    {
+        $this->bindTeosFinal(AtlasTeosFinalCertificationService::STATUS_READY);
+        $service = app(AtlasContextIntelligenceCertificationService::class);
+        $service->injectTestRuntimePayload(
+            $this->buildValidRuntimePayload(['context_certification_hash' => 'sha256:fake']),
+        );
+
+        $payload = $service->certify();
+
+        $this->assertSame('blocked', $payload['status']);
+        $check = collect($payload['checks'])->firstWhere('id', 'runtime_smoke');
+        $this->assertNotNull($check);
+        $this->assertSame('fail', $check['status']);
+        $this->assertSame('fail', $check['evidence']['hash_integrity']['status']);
+        $this->assertSame('sha256:fake', $check['evidence']['hash_integrity']['stored_hash']);
+        $this->assertNotSame(
+            $check['evidence']['hash_integrity']['stored_hash'],
+            $check['evidence']['hash_integrity']['recomputed_hash'],
+            'fake hash must not match the recomputed hash',
+        );
+    }
+
+    // ── AC: hash integrity — FAIL (body mutated after hashing) ────────────────
+
+    public function test_hash_integrity_fail_body_mutated_after_hash(): void
+    {
+        // Build the body, hash it, then flip a field to simulate tampering.
+        $body = $this->buildValidRuntimePayload();
+        $body['flag'] = 'tampered_after_hash';
+
+        $this->bindTeosFinal(AtlasTeosFinalCertificationService::STATUS_READY);
+        $service = app(AtlasContextIntelligenceCertificationService::class);
+        $service->injectTestRuntimePayload($body);
+
+        $payload = $service->certify();
+
+        $this->assertSame('blocked', $payload['status']);
+        $check = collect($payload['checks'])->firstWhere('id', 'runtime_smoke');
+        $this->assertNotNull($check);
+        $this->assertSame('fail', $check['status']);
+        $this->assertSame('fail', $check['evidence']['hash_integrity']['status']);
+        $this->assertNotSame(
+            $check['evidence']['hash_integrity']['stored_hash'],
+            $check['evidence']['hash_integrity']['recomputed_hash'],
+            'mutated body must cause hash mismatch',
+        );
     }
 }

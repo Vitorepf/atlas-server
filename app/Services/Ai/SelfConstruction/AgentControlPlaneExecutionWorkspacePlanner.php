@@ -45,7 +45,11 @@ final class AgentControlPlaneExecutionWorkspacePlanner
         $writeSet = $this->normalizeList((array) data_get($taskPacket, 'normalized_scope.allowed_files', $options['write_set'] ?? []));
         $readSet = $this->normalizeList((array) data_get($taskPacket, 'normalized_scope.scope_in', $options['read_set'] ?? []));
         $workspacePolicy = (string) ($taskPacket['workspace_policy'] ?? $options['workspace_policy'] ?? 'isolated_worktree_required');
-        $workspaceId = 'workspace-'.substr(hash('sha256', $taskPacketId.'|'.$workspacePolicy.'|'.implode('|', $writeSet)), 0, 16);
+        $workspaceId = 'workspace-'.substr(hash('sha256', json_encode([
+            'task_packet_id' => $taskPacketId,
+            'workspace_policy' => $workspacePolicy,
+            'write_set' => $writeSet,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 16);
         $blockingReasons = [];
 
         if ($writeSet === []) {

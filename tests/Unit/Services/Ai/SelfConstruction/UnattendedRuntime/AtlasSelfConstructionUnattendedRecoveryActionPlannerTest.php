@@ -209,4 +209,85 @@ final class AtlasSelfConstructionUnattendedRecoveryActionPlannerTest extends Tes
         self::assertSame([], $plan['blocked_actions']);
         self::assertFalse($plan['requires_emergency_override']);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: lease_leak — diagnose_lease_mismatch + monitor_claimable_drain
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_lease_leak_emits_diagnose_and_monitor(): void
+    {
+        $plan = $this->planner()->plan($this->classification(AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK));
+
+        $actions = array_column($plan['actions'], 'action');
+        $this->assertContains(
+            AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_DIAGNOSE_LEASE_MISMATCH,
+            $actions,
+            'lease_leak must emit diagnose_lease_mismatch',
+        );
+        $this->assertContains(
+            AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_MONITOR_CLAIMABLE_DRAIN,
+            $actions,
+            'lease_leak must emit monitor_claimable_drain',
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC3: lease_leak does NOT emit stop_all_workers
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_lease_leak_does_not_emit_safety_stop(): void
+    {
+        $plan = $this->planner()->plan($this->classification(AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK));
+
+        $actions = array_column($plan['actions'], 'action');
+        $this->assertNotContains(
+            AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_SAFETY_STOP,
+            $actions,
+            'lease_leak must not emit safety_stop for a nonblocking mismatch',
+        );
+        $this->assertFalse($plan['requires_emergency_override'],
+            'lease_leak must not require emergency override');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: output keys — action_priority, safe_to_continue_workers, recheck_command
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_output_includes_new_keys(): void
+    {
+        $plan = $this->planner()->plan($this->classification(AtlasSelfConstructionUnattendedStallClassifier::HEARTBEAT_STALE));
+
+        $this->assertArrayHasKey('action_priority', $plan);
+        $this->assertArrayHasKey('safe_to_continue_workers', $plan);
+        $this->assertArrayHasKey('recheck_command', $plan);
+    }
+
+    public function test_lease_leak_has_medium_priority_and_safe_to_continue_workers(): void
+    {
+        $plan = $this->planner()->plan($this->classification(AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK));
+
+        $this->assertSame('medium', $plan['action_priority'],
+            'lease_leak must have medium action_priority');
+        $this->assertTrue($plan['safe_to_continue_workers'],
+            'lease_leak must allow workers to continue draining safe tasks');
+    }
+
+    public function test_unsafe_stop_has_critical_priority_and_not_safe_to_continue(): void
+    {
+        $plan = $this->planner()->plan($this->classification(AtlasSelfConstructionUnattendedStallClassifier::UNSAFE_STOP));
+
+        $this->assertSame('critical', $plan['action_priority'],
+            'unsafe_stop must have critical action_priority');
+        $this->assertFalse($plan['safe_to_continue_workers'],
+            'unsafe_stop must NOT allow workers to continue');
+    }
+
+    public function test_lease_leak_has_recheck_command(): void
+    {
+        $plan = $this->planner()->plan($this->classification(AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK));
+
+        $this->assertNotNull($plan['recheck_command'],
+            'lease_leak must include recheck_command');
+        $this->assertStringContainsString('lease-parity', $plan['recheck_command']);
+    }
 }

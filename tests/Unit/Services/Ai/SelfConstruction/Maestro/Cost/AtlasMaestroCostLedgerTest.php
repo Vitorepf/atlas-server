@@ -129,4 +129,58 @@ final class AtlasMaestroCostLedgerTest extends TestCase
             json_encode($ledger->all()),
         );
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC2: append() rejects non-numeric cost/tokens and rejects sensitive fields
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_non_numeric_cost_cents_is_rejected(): void
+    {
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+
+        $this->assertNull($ledger->append($this->fact(['cost_cents' => 'not-a-number'])));
+        $this->assertFileDoesNotExist($this->ledgerPath);
+    }
+
+    public function test_non_numeric_tokens_in_is_rejected(): void
+    {
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+
+        $this->assertNull($ledger->append($this->fact(['tokens_in' => 'non-numeric'])));
+        $this->assertFileDoesNotExist($this->ledgerPath);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC3: append() is idempotent by cost_hash — repeated same fact returns
+    // existing record without duplicating JSONL line
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_idempotent_append_returns_existing_row_on_repeat(): void
+    {
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+        $first = $ledger->append($this->fact());
+
+        $repeat = $ledger->append($this->fact());
+
+        $this->assertSame($first['cost_hash'], $repeat['cost_hash']);
+        $this->assertSame($first['recorded_at'], $repeat['recorded_at']);
+        $lines = array_filter(explode("\n", (string) file_get_contents($this->ledgerPath)));
+        $this->assertCount(1, $lines, 'duplicate cost_hash must not append a second line');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // AC4: query methods ignore invalid JSON lines and return ordered records
+    // ═══════════════════════════════════════════════════════════════════════
+
+    public function test_query_methods_ignore_invalid_json_lines(): void
+    {
+        // Write a line of garbage before ledger operations.
+        file_put_contents($this->ledgerPath, "this is not json\n", FILE_APPEND);
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+        $ledger->append($this->fact(['task_packet_id' => 'pk-x', 'cycle_id' => 'cycle-x']));
+
+        $byCycle = $ledger->queryForCycle('cycle-x');
+        $this->assertCount(1, $byCycle, 'invalid JSON lines must be silently skipped');
+        $this->assertSame('pk-x', $byCycle[0]['task_packet_id']);
+    }
 }

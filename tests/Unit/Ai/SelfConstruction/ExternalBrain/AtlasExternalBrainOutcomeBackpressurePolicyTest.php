@@ -56,7 +56,14 @@ final class AtlasExternalBrainOutcomeBackpressurePolicyTest extends TestCase
 
     public function test_high_success_rate_recommends_promote(): void
     {
-        $r = $this->evaluate($this->outcomes('success', 'success', 'success', 'success'));
+        $r = $this->evaluate($this->outcomes(
+            'success', 'success', 'success', 'success', 'success',
+            'success', 'success', 'success', 'success', 'success',
+            'success', 'success', 'success', 'success', 'success',
+            'success', 'success', 'success', 'success', 'success',
+            'success', 'success', 'success', 'success', 'success',
+            'success', 'success', 'success', 'success', 'success',
+        ));
 
         $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::RECOMMENDATION_PROMOTE, $r['recommendation']);
         $this->assertGreaterThanOrEqual(0.75, $r['confidence_score']);
@@ -156,11 +163,15 @@ final class AtlasExternalBrainOutcomeBackpressurePolicyTest extends TestCase
 
     public function test_custom_promote_threshold_respected(): void
     {
-        // 2 success / 3 total = 0.67 — below default 0.75 but above custom 0.60
+        // 13 success / 15 total — Wilson LB ≈ 0.62, above custom threshold 0.60
         $r = $this->evaluate(
-            $this->outcomes('success', 'success', 'give_back'),
+            $this->outcomes(
+                'success', 'success', 'success', 'success', 'success',
+                'success', 'success', 'success', 'success', 'success',
+                'success', 'success', 'success', 'give_back', 'give_back',
+            ),
             'f',
-            ['promote_threshold' => 0.60, 'respec_threshold' => 0.50], // raise respec thresh so no respec
+            ['promote_threshold' => 0.60, 'respec_threshold' => 0.50],
         );
 
         $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::RECOMMENDATION_PROMOTE, $r['recommendation']);

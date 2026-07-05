@@ -40,6 +40,7 @@ final class DevWorkcellInstructionAssembler
         $blocks['allowed_files'] = $this->renderAllowedFiles($workcell);
         $blocks['design_path'] = $this->renderDesignPath($spec);
         $blocks['acceptance_criteria'] = $this->renderAcceptanceCriteria($workcell);
+        $blocks['rubric'] = $this->renderRubric($workcell);
         foreach ($this->renderDistilledContext($distilledContext) as $label => $text) {
             $blocks['context:'.$label] = $text;
         }
@@ -129,6 +130,15 @@ final class DevWorkcellInstructionAssembler
         }
 
         return $lines === [] ? '' : "ACCEPTANCE CRITERIA\n".implode("\n", $lines);
+    }
+
+    /** @param  array<string,mixed>  $workcell */
+    private function renderRubric(array $workcell): string
+    {
+        $renderer = new DevInstructionQualityRubricRenderer();
+        $result = $renderer->render($workcell);
+
+        return $result['rubric_text'];
     }
 
     /**

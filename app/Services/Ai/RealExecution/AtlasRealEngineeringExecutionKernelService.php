@@ -117,21 +117,49 @@ class AtlasRealEngineeringExecutionKernelService
     public function executePatch(AiAutonomousEngineeringGoal $goal, AiRealExecutionWorktree $worktree, array $autonomous): AiRealExecutionPatchRun
     {
         $patchRunId = 'aerepatch_'.substr(RealExecutionHash::make([$goal->goal_id, $worktree->worktree_id]), 0, 24);
-        $changedFiles = ['runtime/atlas_real_execution_smoke.php'];
-        $absolute = $worktree->base_path.'/'.$changedFiles[0];
-        $content = "<?php\n\nreturn [\n    'goal_id' => '{$goal->goal_id}',\n    'status' => 'patched',\n    'kernel' => 'atlas_real_engineering_execution_kernel',\n];\n";
-        File::put($absolute, $content);
+
+        // Extract diff and changed_files from the autonomous execution plan.
+        // When present, apply the real autonomous diff; otherwise fall back to
+        // the fixed smoke stub (backward compatibility for existing callers).
+        $executionPlan = data_get($autonomous, 'execution_plan', []);
+        $rawDiff = data_get($executionPlan, 'diff', '');
+        $changedFiles = data_get($executionPlan, 'changed_files', []);
+
+        if ($rawDiff !== '' && $rawDiff !== [] && $changedFiles !== []) {
+            // Apply the real autonomous diff — write each changed file's new
+            // content into the isolated worktree.
+            $files = is_string($rawDiff) ? json_decode($rawDiff, true) : $rawDiff;
+            $files = is_array($files) ? $files : [];
+
+            foreach ($changedFiles as $relPath) {
+                $content = $files[$relPath] ?? '';
+                $absolute = $worktree->base_path.'/'.$relPath;
+                $directory = dirname($absolute);
+                if (! is_dir($directory)) {
+                    @mkdir($directory, 0775, true);
+                }
+                File::put($absolute, $content);
+            }
+            $diffSummary = $rawDiff;
+        } else {
+            // Legacy fallback: fixed smoke stub.
+            $changedFiles = ['runtime/atlas_real_execution_smoke.php'];
+            $absolute = $worktree->base_path.'/'.$changedFiles[0];
+            $content = "<?php\n\nreturn [\n    'goal_id' => '{$goal->goal_id}',\n    'status' => 'patched',\n    'kernel' => 'atlas_real_engineering_execution_kernel',\n];\n";
+            File::put($absolute, $content);
+            $diffSummary = "--- /dev/null\n+++ {$changedFiles[0]}\n+return kernel smoke payload for {$goal->goal_id}";
+        }
+
         $scopeGuard = [
             'status' => 'passed',
             'allowed_paths' => $worktree->allowed_paths,
             'forbidden_paths' => $worktree->forbidden_paths,
             'changed_files_inside_allowed_paths' => true,
         ];
-        $diffSummary = "--- /dev/null\n+++ {$changedFiles[0]}\n+return kernel smoke payload for {$goal->goal_id}";
         $evidence = [
             'worktree:'.$worktree->receipt_hash,
             'autonomous_plan:'.data_get($autonomous, 'execution_plan.plan_hash'),
-            'changed_file:'.$changedFiles[0],
+            'changed_file:'.($changedFiles[0] ?? 'unknown'),
         ];
         $receipt = [
             'schema_version' => self::PATCH_SCHEMA,

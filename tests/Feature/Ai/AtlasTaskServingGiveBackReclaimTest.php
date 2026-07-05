@@ -71,6 +71,33 @@ final class AtlasTaskServingGiveBackReclaimTest extends TestCase
         $this->assertNotSame($lease, $b['task']['lease_id'], 'the reclaim issues a fresh lease');
     }
 
+    public function test_already_satisfied_give_back_is_quarantined_instead_of_recycled(): void
+    {
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('already-green-1')]);
+        $serving = new AtlasTaskServingService($orch);
+
+        $a = $serving->next('worker-a');
+        $this->assertSame('served', $a['status']);
+
+        $report = $serving->report('worker-a', $a['task']['task_packet_id'], $a['task']['lease_id'], [
+            'outcome' => 'give_back',
+            'reason' => 'already_satisfied',
+            'evidence' => ['tests_already_green' => true],
+        ]);
+
+        $this->assertSame('reported', $report['status']);
+        $this->assertTrue((bool) ($report['quarantined'] ?? false), 'already-satisfied work leaves the queue immediately');
+        $this->assertTrue((bool) ($report['already_satisfied'] ?? false));
+
+        $record = (new AgentControlPlaneTaskPacketQueueRepository)->get('already-green-1');
+        $this->assertSame('blocked', (string) ($record['status'] ?? ''), 'already-satisfied packets must not cycle through other workers');
+        $this->assertContains('already_satisfied_noop', (array) data_get($record, 'metadata.blocking_deficiencies', []));
+
+        $b = $serving->next('worker-b');
+        $this->assertSame('no_claimable_task', $b['status'], 'the same no-op packet is not re-served to another worker');
+    }
+
     public function test_a_worker_never_re_pulls_its_own_give_back(): void
     {
         // THE BUG: a give-back returned the task to claimable and the SAME worker pulled it again instantly,

@@ -219,6 +219,34 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertSame('skipped_by_policy', data_get($result->metadata, 'hermes_runtime.procedure_adapter_status'));
     }
 
+    public function test_hermes_default_runtime_uses_verboo_qwen_without_codex_or_gpt_fallback(): void
+    {
+        $binary = $this->fakeHermesBinary();
+
+        config([
+            'atlas.ai.providers.hermes_cli.binary' => $binary,
+            'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+            'atlas.ai.providers.hermes_cli.execution_transport' => 'cli',
+            'atlas.ai.providers.hermes_cli.provider' => 'verboo',
+            'atlas.ai.providers.hermes_cli.model' => 'qwen3.6-27b',
+            'atlas.ai.providers.hermes_cli.model_identity' => 'qwen3.6-27b',
+        ]);
+
+        $job = $this->job([
+            'hermes' => ['source' => 'tool'],
+            'model_identity_source' => 'provider_default_identity',
+        ]);
+        $job->provider = 'hermes_cli';
+        $job->model = 'hermes_cli_default';
+
+        $result = app(HermesCliProvider::class)->runStreaming($job, 'prompt seguro');
+
+        $this->assertTrue($result->ok, $result->errorMessage ?? '');
+        $this->assertSame('verboo', $result->command[array_search('--provider', $result->command, true) + 1]);
+        $this->assertSame('qwen3.6-27b', $result->command[array_search('--model', $result->command, true) + 1]);
+        $this->assertFalse(Str::contains(implode(' ', $result->command), ['codex', 'gpt']));
+    }
+
     /**
      * The hang fix: a Forge provider invocation (the autonomous loop / missions)
      * must invoke the top-level NON-INTERACTIVE one-shot `hermes -z PROMPT` form,

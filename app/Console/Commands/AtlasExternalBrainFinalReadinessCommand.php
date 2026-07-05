@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainClosedLoopSafetyGateRunner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFinal95GapBurnDownScheduler;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFinalCertificationGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFinalityEvidenceBundle;
@@ -46,6 +47,7 @@ final class AtlasExternalBrainFinalReadinessCommand extends Command
         AtlasExternalBrainFinal95GapBurnDownScheduler $burnDownScheduler,
         AtlasExternalBrainFinalCertificationGate $certificationGate,
         AtlasExternalBrainFinalityEvidenceBundle $evidenceBundle,
+        ?AtlasExternalBrainClosedLoopSafetyGateRunner $closedLoopSafetyGate = null,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -65,11 +67,14 @@ final class AtlasExternalBrainFinalReadinessCommand extends Command
         $gaps = is_array($decoded['gaps'] ?? null) ? $decoded['gaps'] : [];
         $certificationEvidence = is_array($decoded['certification_evidence'] ?? null) ? $decoded['certification_evidence'] : [];
         $finalityEvidence = is_array($decoded['finality_evidence'] ?? null) ? $decoded['finality_evidence'] : [];
+        $closedLoopSafetyInput = is_array($decoded['closed_loop_safety'] ?? null) ? $decoded['closed_loop_safety'] : [];
 
         $map = $readinessMap->map($areaEvidence);
         $burnDown = $burnDownScheduler->schedule($gaps);
         $certification = $certificationGate->certify($certificationEvidence);
         $finality = $evidenceBundle->assemble($finalityEvidence);
+
+        $closedLoopSafety = $closedLoopSafetyGate?->run($closedLoopSafetyInput);
 
         $mapReady = $map['overall_status'] === AtlasExternalBrainFinalReadinessMap::OVERALL_FINAL_READY;
         $gapsClear = $burnDown['total_gaps'] === 0;
@@ -134,6 +139,7 @@ final class AtlasExternalBrainFinalReadinessCommand extends Command
                 'missing_categories' => $finality['missing_categories'],
                 'next_highest_leverage_gap' => $finality['next_highest_leverage_gap'],
             ],
+            'closed_loop_safety' => $closedLoopSafety,
             'blocker_ranked_closure_steps' => $closureSteps,
         ];
 

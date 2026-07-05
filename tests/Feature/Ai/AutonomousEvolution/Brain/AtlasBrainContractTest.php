@@ -16,7 +16,8 @@ use Tests\TestCase;
 /**
  * FROZEN cross-command contract for the EXTERNAL BRAIN. Pins the shared vocabulary the three thin commands +
  * the worker-prompt MUST agree on: the status words, the four FATAL advisory flags, and the worker-prompt's
- * author≠judge invariants (< 4000 chars, NO self-reenable command, PRINT+STOP on disabled). Provider-free.
+ * author≠judge invariants (< 4000 chars, NO self-reenable command, no external self-stop on disabled/dry).
+ * Provider-free.
  */
 final class AtlasBrainContractTest extends TestCase
 {
@@ -232,15 +233,18 @@ final class AtlasBrainContractTest extends TestCase
         self::assertStringNotContainsString('--specs=/tmp/brain-claude brain 2 quota 100.json', $prompt);
     }
 
-    // author≠judge: the prompt PRINTS + STOPS on disabled and NEVER self-enables (no 'serving on' style command).
-    public function test_worker_prompt_stops_on_disabled_and_never_self_reenables(): void
+    // author≠judge: disabled never self-enables, but it also must not stop the external brain session.
+    public function test_worker_prompt_pivots_on_disabled_and_never_self_reenables(): void
     {
         $prompt = $this->workerPrompt();
 
-        // It must instruct PRINT + STOP on disabled, and name the operator-only flag.
+        // It must name the operator-only flag, keep the session alive, and never flip the switch itself.
         self::assertStringContainsString('disabled', $prompt);
-        self::assertStringContainsString('STOP', $prompt);
+        self::assertStringContainsString('session continues offline', $prompt);
+        self::assertStringContainsString('do NOT self-enable', $prompt);
         self::assertStringContainsString(AtlasBrainMasterSwitch::KEY, $prompt);
+        self::assertStringNotContainsString('disabled`=>print "brain disabled"; STOP', $prompt);
+        self::assertStringNotContainsString('STOP only on an ATLAS signal', $prompt);
 
         // It must NEVER contain a self-reenable command (the muscle's 'atlas:task:serving on' foot-gun) nor any
         // command that flips the brain switch on.

@@ -123,4 +123,103 @@ final class AtlasTaskFabricConsolidationFirstGateTest extends TestCase
             $this->gate()->evaluate($batch, $debt),
         );
     }
+
+    // ── AC2: proxy scaffolds and evidence floor block net-new ────────────────
+
+    public function test_proxy_scaffolds_trigger_consolidation(): void
+    {
+        $result = $this->gate()->evaluate(
+            [$this->task('api', 0.8)],
+            ['api' => array_merge($this->cleanDebt(), ['proxy_scaffold_count' => 2])],
+        );
+
+        self::assertSame(
+            AtlasTaskFabricConsolidationFirstGate::VERDICT_CONSOLIDATE_FIRST,
+            $result['verdict'],
+        );
+        self::assertStringContainsString('proxy_scaffolds', implode(' ', $result['consolidation_triggers']));
+    }
+
+    public function test_below_evidence_floor_triggers_conservative_check(): void
+    {
+        $result = $this->gate()->evaluate(
+            [$this->task('core', 0.8)],
+            ['core' => array_merge($this->cleanDebt(), ['evidence_strength' => 0.3])],
+            ['evidence_floor' => 0.5],
+        );
+
+        self::assertSame(
+            AtlasTaskFabricConsolidationFirstGate::VERDICT_CONSOLIDATE_FIRST,
+            $result['verdict'],
+        );
+        self::assertStringContainsString('below_evidence_floor', implode(' ', $result['consolidation_triggers']));
+    }
+
+    // ── AC3: critical unblock + cleanup follow-through overrides ─────────────
+
+    public function test_critical_capability_unblock_with_cleanup_link_admits_despite_triggers(): void
+    {
+        $result = $this->gate()->evaluate(
+            [[
+                'id' => 'critical-task',
+                'area' => 'core',
+                'capability_score' => 0.9,
+                'unblocks_critical_capability' => true,
+                'cleanup_follow_through_link' => 'task-fabric://refactor/cleanup/core',
+            ]],
+            ['core' => array_merge($this->cleanDebt(), ['duplicate_organs' => 3])],
+        );
+
+        self::assertSame(
+            AtlasTaskFabricConsolidationFirstGate::VERDICT_ACCEPT,
+            $result['verdict'],
+        );
+        self::assertStringContainsString('cleanup_follow_through', implode(' ', $result['reasons']));
+    }
+
+    public function test_critical_unblock_without_cleanup_link_still_consolidates(): void
+    {
+        $result = $this->gate()->evaluate(
+            [[
+                'id' => 'critical-task',
+                'area' => 'core',
+                'capability_score' => 0.9,
+                'unblocks_critical_capability' => true,
+            ]],
+            ['core' => array_merge($this->cleanDebt(), ['duplicate_organs' => 3])],
+        );
+
+        self::assertSame(
+            AtlasTaskFabricConsolidationFirstGate::VERDICT_CONSOLIDATE_FIRST,
+            $result['verdict'],
+        );
+    }
+
+    // ── AC4: consolidation_first_recommendation in rejected output ──────────
+
+    public function test_consolidation_first_recommendation_present_on_rejection(): void
+    {
+        $result = $this->gate()->evaluate(
+            [$this->task('core', 0.8)],
+            ['core' => array_merge($this->cleanDebt(), ['duplicate_organs' => 2, 'orphaned_integrations' => 1])],
+        );
+
+        self::assertArrayHasKey('consolidation_first_recommendation', $result);
+        $rec = $result['consolidation_first_recommendation'];
+        self::assertArrayHasKey('target_family', $rec);
+        self::assertArrayHasKey('deletion_candidate_count', $rec);
+        self::assertArrayHasKey('next_refactor_task_shape', $rec);
+        self::assertSame('core', $rec['target_family']);
+        self::assertGreaterThan(0, $rec['deletion_candidate_count']);
+    }
+
+    public function test_consolidation_first_recommendation_absent_on_accept(): void
+    {
+        $result = $this->gate()->evaluate(
+            [$this->task('memory', 0.75)],
+            ['memory' => $this->cleanDebt()],
+        );
+
+        self::assertArrayNotHasKey('consolidation_first_recommendation', $result);
+    }
 }

@@ -183,4 +183,163 @@ class TaskQueueRegistryIndexStoreTest extends TestCase
 
         self::assertCount(1, $result['entries']);
     }
+
+    // --- registerInRegistry deduplication ----------------------------
+
+    public function test_register_in_registry_does_not_duplicate_equivalent_records(): void
+    {
+        $store = $this->store();
+        $record = [
+            'task_packet_id' => 'tp1',
+            'task_packet_hash' => 'hash_a',
+            'enqueued_at' => '2026-01-01',
+            'updated_at' => '2026-01-01',
+            'status' => 'queued',
+            'priority' => 5,
+            'tags' => ['tag1'],
+        ];
+
+        $store->registerInRegistry($record);
+        $store->registerInRegistry($record);
+
+        $registry = $store->loadRegistry();
+        self::assertCount(1, $registry['entries']);
+        self::assertSame('tp1', $registry['entries'][0]['task_packet_id']);
+        self::assertSame('hash_a', $registry['entries'][0]['task_packet_hash']);
+    }
+
+    public function test_register_in_registry_updates_in_place_when_packet_id_and_hash_match(): void
+    {
+        $store = $this->store();
+
+        $store->registerInRegistry([
+            'task_packet_id' => 'tp1',
+            'task_packet_hash' => 'hash_a',
+            'enqueued_at' => '2026-01-01',
+            'updated_at' => '2026-01-01',
+            'status' => 'queued',
+            'priority' => 5,
+            'tags' => [],
+        ]);
+
+        // Same packet_id + same hash → update in place, not duplicate.
+        $store->registerInRegistry([
+            'task_packet_id' => 'tp1',
+            'task_packet_hash' => 'hash_a',
+            'enqueued_at' => '2026-01-01',
+            'updated_at' => '2026-01-02',
+            'status' => 'claimed',
+            'priority' => 10,
+            'tags' => ['new_tag'],
+        ]);
+
+        $registry = $store->loadRegistry();
+        self::assertCount(1, $registry['entries']);
+        self::assertSame('claimed', $registry['entries'][0]['status']);
+        self::assertSame('2026-01-02', $registry['entries'][0]['updated_at']);
+        self::assertSame(10, $registry['entries'][0]['priority']);
+        self::assertSame(['new_tag'], $registry['entries'][0]['tags']);
+    }
+
+    public function test_register_in_registry_appends_when_packet_id_same_but_hash_differs(): void
+    {
+        $store = $this->store();
+
+        $store->registerInRegistry([
+            'task_packet_id' => 'tp1',
+            'task_packet_hash' => 'hash_a',
+            'enqueued_at' => '2026-01-01',
+            'updated_at' => '2026-01-01',
+            'status' => 'queued',
+            'priority' => 0,
+            'tags' => [],
+        ]);
+
+        // Same packet_id but different hash → new entry (packet was revised).
+        $store->registerInRegistry([
+            'task_packet_id' => 'tp1',
+            'task_packet_hash' => 'hash_b',
+            'enqueued_at' => '2026-01-01',
+            'updated_at' => '2026-01-02',
+            'status' => 'queued',
+            'priority' => 0,
+            'tags' => [],
+        ]);
+
+        $registry = $store->loadRegistry();
+        self::assertCount(2, $registry['entries']);
+        self::assertSame('hash_a', $registry['entries'][0]['task_packet_hash']);
+        self::assertSame('hash_b', $registry['entries'][1]['task_packet_hash']);
+    }
+
+    // --- updateRegistryEntry preserves unrelated entries --------------
+
+    public function test_update_registry_entry_preserves_unrelated_entries(): void
+    {
+        $store = $this->store();
+
+        $store->registerInRegistry([
+            'task_packet_id' => 'tp1',
+            'task_packet_hash' => 'h1',
+            'enqueued_at' => '2026-01-01',
+            'updated_at' => '2026-01-01',
+            'status' => 'queued',
+            'priority' => 1,
+            'tags' => [],
+        ]);
+
+        $store->registerInRegistry([
+            'task_packet_id' => 'tp2',
+            'task_packet_hash' => 'h2',
+            'enqueued_at' => '2026-01-01',
+            'updated_at' => '2026-01-01',
+            'status' => 'queued',
+            'priority' => 2,
+            'tags' => [],
+        ]);
+
+        $store->updateRegistryEntry('tp1', [
+            'task_packet_hash' => 'h1',
+            'enqueued_at' => '2026-01-01',
+            'updated_at' => '2026-01-03',
+            'status' => 'claimed',
+            'priority' => 1,
+            'tags' => [],
+        ]);
+
+        $registry = $store->loadRegistry();
+        self::assertCount(2, $registry['entries']);
+
+        // tp1 was updated
+        $tp1 = $registry['entries'][0];
+        self::assertSame('tp1', $tp1['task_packet_id']);
+        self::assertSame('claimed', $tp1['status']);
+        self::assertSame('2026-01-03', $tp1['updated_at']);
+
+        // tp2 was preserved unchanged
+        $tp2 = $registry['entries'][1];
+        self::assertSame('tp2', $tp2['task_packet_id']);
+        self::assertSame('queued', $tp2['status']);
+        self::assertSame('2026-01-01', $tp2['updated_at']);
+        self::assertSame(2, $tp2['priority']);
+    }
+
+    // --- capRegistry determinism -------------------------------------
+
+    public function test_cap_registry_is_deterministic(): void
+    {
+        $store = $this->store();
+        $entries = [
+            ['status' => 'queued', 'id' => 1],
+            ['status' => 'completed_dry_run', 'id' => 2],
+            ['status' => 'completed_dry_run', 'id' => 3],
+            ['status' => 'claimable', 'id' => 4],
+            ['status' => 'completed_dry_run', 'id' => 5],
+        ];
+
+        $a = $store->capRegistry(['entries' => $entries], 3);
+        $b = $store->capRegistry(['entries' => $entries], 3);
+
+        self::assertSame($a, $b);
+    }
 }

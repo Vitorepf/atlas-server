@@ -33,6 +33,7 @@ class AtlasTaskCommand extends Command
         {--task= : task_packet_id (report)}
         {--lease= : lease_id (report)}
         {--outcome=success : success|failed|give_back (report)}
+        {--reason= : one-line report reason; use already_satisfied for duplicate/no-op give_back}
         {--commit : SHARED-MAIN resolve — commit the task allowed_files as your own commit (report success)}
         {--evidence= : JSON evidence, or - to read STDIN (report)}
         {--tag=* : optional queue tag filter (next)}
@@ -52,13 +53,19 @@ class AtlasTaskCommand extends Command
         $client = (string) ($this->option('client') ?? '');
 
         try {
+            $evidence = $this->evidence();
+            $reason = trim((string) ($this->option('reason') ?? ''));
+            if ($reason !== '') {
+                $evidence['reason'] = $reason;
+            }
+
             $result = match ($action) {
                 'next' => $this->nextWithDiskSelfHeal($serving, $client, ['tags' => array_values((array) $this->option('tag'))]),
                 'report' => $serving->report(
                     $client,
                     (string) ($this->option('task') ?? ''),
                     (string) ($this->option('lease') ?? ''),
-                    ['outcome' => (string) $this->option('outcome'), 'commit' => (bool) $this->option('commit'), 'evidence' => $this->evidence()],
+                    ['outcome' => (string) $this->option('outcome'), 'commit' => (bool) $this->option('commit'), 'reason' => $reason, 'evidence' => $evidence],
                 ),
                 'maestro:behaviors' => $this->maestroBehaviors(),
                 'maestro:reshape' => $this->maestroReshape(),

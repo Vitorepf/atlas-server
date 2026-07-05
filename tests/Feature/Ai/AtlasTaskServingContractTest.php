@@ -167,6 +167,33 @@ final class AtlasTaskServingContractTest extends TestCase
         $this->assertStringContainsString('"client_id": "cli-client"', $out);
     }
 
+    public function test_artisan_report_reason_retires_already_satisfied_task(): void
+    {
+        $this->orchestrator()->prepareAndEnqueue(['task_packet' => $this->input('cli-already-green')]);
+
+        Artisan::call('atlas:task', ['action' => 'next', '--client' => 'cli-client', '--json' => true]);
+        $served = json_decode(Artisan::output(), true);
+        $this->assertSame('served', (string) ($served['status'] ?? ''));
+
+        $exit = Artisan::call('atlas:task', [
+            'action' => 'report',
+            '--client' => 'cli-client',
+            '--task' => 'cli-already-green',
+            '--lease' => (string) data_get($served, 'task.lease_id'),
+            '--outcome' => 'give_back',
+            '--reason' => 'already_satisfied',
+            '--json' => true,
+        ]);
+        $reported = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue((bool) ($reported['already_satisfied'] ?? false));
+        $this->assertTrue((bool) ($reported['quarantined'] ?? false));
+
+        $record = (new AgentControlPlaneTaskPacketQueueRepository)->get('cli-already-green');
+        $this->assertSame('blocked', (string) ($record['status'] ?? ''), 'CLI already_satisfied reason must stop the no-op recycle loop');
+    }
+
     public function test_next_self_heals_a_collapsed_index_when_claimable_files_exist_on_disk(): void
     {
         // REGRESSION (2026-06-26): a god-class split (split-acp-queue-repo-3) moved the registry-index path, so

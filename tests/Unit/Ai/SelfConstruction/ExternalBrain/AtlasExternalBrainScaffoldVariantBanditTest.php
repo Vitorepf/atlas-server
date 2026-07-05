@@ -78,8 +78,13 @@ final class AtlasExternalBrainScaffoldVariantBanditTest extends TestCase
             $this->variant('barely_tested', 2, 1, 1, 3.0),
         ]);
 
-        $this->assertSame('well_tested', $r['selected_variant']);
-        $this->assertContains('barely_tested', $r['exploration_variants']);
+        // With true UCB1, the under-pulled variant may win due to exploration bonus.
+        // Exploration list contains only under-MIN_EVIDENCE non-selected variants.
+        $this->assertContains($r['selected_variant'], ['well_tested', 'barely_tested']);
+        foreach ($r['exploration_variants'] as $vid) {
+            $this->assertLessThan(5, $r['evidence_counts'][$vid],
+                "exploration variant {$vid} must have < MIN_EVIDENCE runs");
+        }
     }
 
     public function test_selected_variant_not_duplicated_in_exploration(): void

@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyCycleReplayVerifier;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainControlPlaneSnapshot;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainEndToEndAutonomyReplayHarness;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderIndependenceProofRunner;
 use Illuminate\Console\Command;
 
 /**
@@ -45,6 +46,7 @@ final class AtlasExternalBrainAutonomyReplayCommand extends Command
         AtlasExternalBrainEndToEndAutonomyReplayHarness $harness,
         AtlasExternalBrainControlPlaneSnapshot $snapshot,
         AtlasExternalBrainAutonomyCycleReplayVerifier $cycleVerifier,
+        AtlasExternalBrainProviderIndependenceProofRunner $independenceRunner = null,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -63,10 +65,16 @@ final class AtlasExternalBrainAutonomyReplayCommand extends Command
         $scenario = is_array($decoded['scenario'] ?? null) ? $decoded['scenario'] : [];
         $snapshotInput = is_array($decoded['control_plane_snapshot'] ?? null) ? $decoded['control_plane_snapshot'] : [];
         $cycleReplayFacts = is_array($decoded['cycle_replay_facts'] ?? null) ? $decoded['cycle_replay_facts'] : [];
+        $independenceProofInput = is_array($decoded['independence_proof'] ?? null) ? $decoded['independence_proof'] : [];
 
         $replay = $harness->replay($scenario);
         $snap = $snapshot->snapshot($snapshotInput);
         $cycleReplay = $cycleVerifier->verify($cycleReplayFacts);
+
+        $independenceProof = null;
+        if ($independenceRunner !== null) {
+            $independenceProof = $independenceRunner->run($independenceProofInput);
+        }
 
         $cycleComplete = $replay['autonomy_replay_status'] === AtlasExternalBrainEndToEndAutonomyReplayHarness::STATUS_CYCLE_COMPLETE;
         $controlPlaneGo = $snap['maturity_band'] !== AtlasExternalBrainControlPlaneSnapshot::BAND_BOOTSTRAPPING
@@ -97,6 +105,11 @@ final class AtlasExternalBrainAutonomyReplayCommand extends Command
             'control_plane_blockers' => $snap['blockers'],
             'next_atlas_native_repair_action' => $nextRepairAction,
         ];
+
+        // Wire independence proof key into the output when runner is available.
+        if ($independenceProof !== null) {
+            $payload['independence_proof'] = $independenceProof;
+        }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 

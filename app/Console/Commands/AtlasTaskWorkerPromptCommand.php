@@ -35,8 +35,8 @@ class AtlasTaskWorkerPromptCommand extends Command
         $php = (string) $this->option('php');
 
         $onEmpty = (bool) $this->option('stop-on-empty')
-            ? 'queue truly drained: print "queue drained — resolved N this session" and stop. Do NOT invent work.'
-            : 'wait 60s, retry step 1 — tasks replenish; never stop until the operator does.';
+            ? 'queue has truly drained: print "queue drained — resolved N this session" and stop. Do NOT invent work.'
+            : 'wait 60s and go back to step 1 — tasks replenish; never stop until operator stops you.';
 
         $prompt = $this->prompt($client, $php, $onEmpty);
         $this->line($prompt);
@@ -66,15 +66,15 @@ THE LOOP:
    `{$php} artisan atlas:task report --client="{$client}" --task="<task_packet_id>" --lease="<lease_id>" --outcome=success --commit --json`
    - `resolved` → go to 1.
    - `commit_failed` → the lease is still yours; read `reason`, fix, retry 4. (`server_verification_failed` = your change failed lint/boot/its own test — fix it. `nothing_to_commit_in_scope` = you edited nothing.)
-5. TRULY IMPOSSIBLE task (self-contradictory acceptance, or needs a forbidden/pétreo file)? Hand it back with a one-line diagnosis, then go to 1 — never fake a green, never stop:
-   `{$php} artisan atlas:task report --client="{$client}" --task="<task_packet_id>" --lease="<lease_id>" --outcome=give_back --json`
+5. GIVE_BACK only when honest; never plain give_back. Duplicate/already-green/no-op ⇒ `--reason=already_satisfied`; impossible scope/contradiction ⇒ one-line reason. Then go to 1:
+   `{$php} artisan atlas:task report --client="{$client}" --task="<task_packet_id>" --lease="<lease_id>" --outcome=give_back --reason="<reason>" --json`
 
 QUALITY BOOST:
-- Before editing, grep the named class/symbol (no-match = build it, not failure). If it already exists, give_back as duplicate/no-op.
+- Grep named class/symbol with `|| true` (non-fatal discovery). Missing = build it. Exists/already green ⇒ give_back with `--reason=already_satisfied`.
 - Skill triggers: `diagnosing-bugs` broken/slow/flaky; `tdd` behavior/regression; `code-review` before resolve; `codebase-design`/`improve-codebase-architecture` seams/refactor; `domain-modeling` fuzzy terms. Atlas allowed_files/acceptance wins.
 - Read allowed_files plus direct callers before patching. Fix the shared root cause once with the smallest diff. No new deps, broad refactors, formatting churn, or architecture for later.
-- Preserve other workers' WIP. If acceptance needs a file outside allowed_files, give_back naming that exact file instead of hacking around scope.
-- No-gap task: confirm downstream_consumer/proof_gate name a REAL consumer; give_back as detached if it's a lone detector/report or unprovable in allowed_files.
+- Preserve other workers' WIP. If acceptance needs a file outside allowed_files, give_back naming that exact file.
+- No-gap task: downstream_consumer/proof_gate must be REAL; give_back detached lone detector/report/unprovable work.
 
 NEVER STOP:
 - A hard or failing task is NOT a reason to stop. Fix it, or give_back with a reason, and move to the next.

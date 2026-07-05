@@ -60,7 +60,7 @@ final class AtlasSelfConstructionCompoundingOutcomeProjection
                     ? self::OUTCOME_FAILED
                     : self::OUTCOME_LEARNING);
 
-            $key = $organ.'|'.$taskClass.'|'.$cycleId.'|'.$evidenceHash;
+            $key = json_encode([$organ, $taskClass, $cycleId, $evidenceHash], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             $bucketed[$key] ??= [
                 'key' => $key,
                 'organ' => $organ,

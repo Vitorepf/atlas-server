@@ -24,6 +24,7 @@ final class AtlasExternalBrainProposalSelectionLoopTest extends TestCase
             'required_evidence' => ['tests_or_gates_result'],
             'value_mechanism' => 'reduces duplication',
             'category' => 'bug_fix',
+            'evidence_refs' => ['receipt:a', 'receipt:b'],
         ];
     }
 
