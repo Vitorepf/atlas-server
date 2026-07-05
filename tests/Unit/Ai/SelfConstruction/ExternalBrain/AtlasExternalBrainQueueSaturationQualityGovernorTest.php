@@ -354,4 +354,58 @@ final class AtlasExternalBrainQueueSaturationQualityGovernorTest extends TestCas
             'more active muscles at the same queue depth must widen remaining serving capacity',
         );
     }
+
+    // ── AC: deep queue plus low evidence density returns quality_review_or_pause, not create_high_value_batch ──
+
+    public function test_deep_queue_plus_low_evidence_density_returns_quality_review_not_create(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts([
+            'servable_depth' => 50,
+            'active_workers' => 2,
+            'target_diversity' => 0.9,
+            'leverage_evidence_density' => 0.10,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_QUALITY_REVIEW_OR_PAUSE, $r['decision']);
+        $this->assertNotSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_CREATE_HIGH_VALUE_BATCH, $r['decision']);
+    }
+
+    // ── AC: malformed, give_back or collision pressure returns repair_specs_before_creation ──
+
+    public function test_malformed_pressure_returns_repair_specs_before_creation(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts(['malformed_rate' => 0.20]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_REPAIR_SPECS_BEFORE_CREATION, $r['decision']);
+    }
+
+    public function test_give_back_pressure_returns_repair_specs_before_creation(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts(['give_back_rate' => 0.30]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_REPAIR_SPECS_BEFORE_CREATION, $r['decision']);
+    }
+
+    public function test_collision_pressure_returns_repair_specs_before_creation(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts(['collision_risk' => 0.40]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_REPAIR_SPECS_BEFORE_CREATION, $r['decision']);
+    }
+
+    // ── AC: high diversity and high evidence density can still create a capped high-value batch ──
+
+    public function test_high_diversity_and_high_evidence_density_creates_capped_high_value_batch(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts([
+            'servable_depth' => 2,
+            'active_workers' => 3,
+            'target_diversity' => 0.9,
+            'leverage_evidence_density' => 0.90,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_CREATE_HIGH_VALUE_BATCH, $r['decision']);
+        $this->assertGreaterThan(0, $r['max_new_tasks']);
+        $this->assertLessThanOrEqual(10, $r['max_new_tasks']);
+    }
 }
