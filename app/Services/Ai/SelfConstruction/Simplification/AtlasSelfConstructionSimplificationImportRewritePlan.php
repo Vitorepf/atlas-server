@@ -153,6 +153,30 @@ final class AtlasSelfConstructionSimplificationImportRewritePlan
             'blockers' => $blockers,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 32);
 
+        // AC2: reverse_mapping for every changed symbol
+        $reverseMapping = [
+            $replacementSymbol => $targetSymbol,
+        ];
+
+        // AC2: risk-bound batches — cap batch size by risk level
+        $riskBound = (int) ($input['risk_bound_batch_size'] ?? 10);
+        $batches = array_chunk($steps, max(1, $riskBound));
+
+        // AC3: config string rewrites require explicit behavior_parity_command
+        $hasConfigRewrite = false;
+        foreach ($steps as $step) {
+            if (($step['reason'] ?? '') === self::REASON_CONFIG_STRING_REWRITE) {
+                $hasConfigRewrite = true;
+                break;
+            }
+        }
+        $behaviorParityCommand = trim((string) ($input['behavior_parity_command'] ?? ''));
+        if ($hasConfigRewrite && $behaviorParityCommand === '') {
+            $blockers[] = 'missing_behavior_parity_command';
+            $blockers = array_values(array_unique($blockers));
+            sort($blockers, SORT_STRING);
+        }
+
         return [
             'schema' => self::SCHEMA,
             'old_fqcn' => $targetSymbol,
@@ -164,6 +188,10 @@ final class AtlasSelfConstructionSimplificationImportRewritePlan
             'touched_files' => $touchedFiles,
             'test_targets' => $testTargets,
             'plan_hash' => $planHash,
+            'reverse_mapping' => $reverseMapping,
+            'risk_bound_batches' => $batches,
+            'risk_bound_batch_size' => $riskBound,
+            'behavior_parity_command' => $behaviorParityCommand !== '' ? $behaviorParityCommand : null,
         ];
     }
 

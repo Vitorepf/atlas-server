@@ -45,6 +45,7 @@ final class AtlasSelfConstructionSimplificationImportRewritePlanTest extends Tes
             'config_string_occurrences' => [
                 ['file' => 'config/services.php', 'before' => 'App\\Old\\OldClass::class', 'after' => 'App\\New\\NewClass::class'],
             ],
+            'behavior_parity_command' => 'php artisan test',
         ]);
 
         $this->assertFalse($result['unsafe']);
@@ -180,5 +181,86 @@ final class AtlasSelfConstructionSimplificationImportRewritePlanTest extends Tes
         ]);
 
         $this->assertNotSame($a['plan_hash'], $b['plan_hash']);
+    }
+
+    // ── AC2: rewrite batches are capped by risk and include reverse_mapping ──
+
+    public function test_reverse_mapping_present_for_changed_symbol(): void
+    {
+        $plan = new AtlasSelfConstructionSimplificationImportRewritePlan;
+        $result = $plan->plan([
+            'target_symbol' => 'App\\OldClass',
+            'replacement_symbol' => 'App\\NewClass',
+            'consumers' => [['file' => 'app/Services/Foo.php']],
+            'allowed_files' => ['app/Services/Foo.php'],
+        ]);
+
+        $this->assertArrayHasKey('reverse_mapping', $result);
+        $this->assertSame('App\\OldClass', $result['reverse_mapping']['App\\NewClass']);
+    }
+
+    public function test_risk_bound_batches_present(): void
+    {
+        $plan = new AtlasSelfConstructionSimplificationImportRewritePlan;
+        $result = $plan->plan([
+            'target_symbol' => 'App\\OldClass',
+            'replacement_symbol' => 'App\\NewClass',
+            'consumers' => [['file' => 'app/Services/Foo.php']],
+            'allowed_files' => ['app/Services/Foo.php'],
+            'risk_bound_batch_size' => 5,
+        ]);
+
+        $this->assertArrayHasKey('risk_bound_batches', $result);
+        $this->assertIsArray($result['risk_bound_batches']);
+    }
+
+    // ── AC3: config string rewrites require behavior_parity_command ──
+
+    public function test_config_string_rewrite_without_parity_command_blocked(): void
+    {
+        $plan = new AtlasSelfConstructionSimplificationImportRewritePlan;
+        $result = $plan->plan([
+            'target_symbol' => 'App\\OldClass',
+            'replacement_symbol' => 'App\\NewClass',
+            'config_string_occurrences' => [
+                ['file' => 'config/app.php', 'before' => 'App\\OldClass', 'after' => 'App\\NewClass'],
+            ],
+            'allowed_files' => ['config/app.php'],
+        ]);
+
+        $this->assertContains('missing_behavior_parity_command', $result['blockers']);
+    }
+
+    public function test_config_string_rewrite_with_parity_command_safe(): void
+    {
+        $plan = new AtlasSelfConstructionSimplificationImportRewritePlan;
+        $result = $plan->plan([
+            'target_symbol' => 'App\\OldClass',
+            'replacement_symbol' => 'App\\NewClass',
+            'config_string_occurrences' => [
+                ['file' => 'config/app.php', 'before' => 'App\\OldClass', 'after' => 'App\\NewClass'],
+            ],
+            'allowed_files' => ['config/app.php'],
+            'behavior_parity_command' => 'php artisan test',
+        ]);
+
+        $this->assertNotContains('missing_behavior_parity_command', $result['blockers']);
+        $this->assertSame('php artisan test', $result['behavior_parity_command']);
+    }
+
+    // ── AC4: ambiguous or missing target mappings are blocked with stable blocker codes ──
+
+    public function test_missing_target_symbol_blocked(): void
+    {
+        $plan = new AtlasSelfConstructionSimplificationImportRewritePlan;
+        $result = $plan->plan([
+            'target_symbol' => '',
+            'replacement_symbol' => 'App\\NewClass',
+            'consumers' => [],
+            'allowed_files' => [],
+        ]);
+
+        $this->assertTrue($result['unsafe']);
+        $this->assertContains('missing_target_or_replacement_symbol', $result['blockers']);
     }
 }
