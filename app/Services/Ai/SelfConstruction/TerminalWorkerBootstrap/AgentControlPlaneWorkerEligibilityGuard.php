@@ -53,9 +53,151 @@ class AgentControlPlaneWorkerEligibilityGuard
         'completion_real_allowed',
     ];
 
+    /**
+     * Risk-tier ordering: higher index = higher risk.
+     */
+    private const RISK_TIERS = ['low', 'medium', 'high'];
+
     public function __construct(
         private readonly AgentControlPlaneTaskPacketQueueRepository $queue,
     ) {}
+
+    /**
+     * Validate a worker profile against a specific packet, returning a deterministic
+     * eligibility verdict with matched_tags, missing_tags, blockers, and next_unblock_action.
+     *
+     * @param  array<string, mixed>  $workerProfile
+     *         tags              : list<string>  worker capability tags
+     *         allowed_scope     : list<string>  file paths the worker can edit
+     *         can_run_tests     : bool          whether worker can run test gates
+     *         can_report_evidence: bool          whether worker can produce evidence
+     *         risk_tolerance    : string        max risk level the worker accepts
+     * @param  array<string, mixed>  $packet
+     * @return array<string, mixed>
+     *         eligible            : bool
+     *         blockers            : list<string>  human-readable reasons
+     *         matched_tags        : list<string>  intersection of packet.queue_tags and worker.tags
+     *         missing_tags        : list<string>  packet.queue_tags not in worker.tags
+     *         next_unblock_action : string        one of: none, add_tags, grant_scope, enable_gates, accept_risk
+     */
+    public function workerEligibilityGuardForPacket(array $workerProfile, array $packet): array
+    {
+        $blockers = [];
+        $nextUnblockAction = 'none';
+
+        // Normalize inputs
+        $workerTags = array_values(array_filter(
+            array_map('strval', (array) ($workerProfile['tags'] ?? [])),
+            static fn (string $t): bool => $t !== '',
+        ));
+        $workerScope = array_values(array_filter(
+            array_map('strval', (array) ($workerProfile['allowed_scope'] ?? [])),
+            static fn (string $p): bool => $p !== '',
+        ));
+        $canRunTests = (bool) ($workerProfile['can_run_tests'] ?? false);
+        $canReportEvidence = (bool) ($workerProfile['can_report_evidence'] ?? false);
+        $riskTolerance = (string) ($workerProfile['risk_tolerance'] ?? 'low');
+
+        $packetTags = array_values(array_filter(
+            array_map('strval', (array) data_get($packet, 'queue_tags', data_get($packet, 'tags', []))),
+            static fn (string $t): bool => $t !== '',
+        ));
+        $allowedFiles = array_values(array_filter(
+            array_map('strval', (array) data_get($packet, 'normalized_scope.allowed_files', data_get($packet, 'allowed_files', []))),
+            static fn (string $p): bool => $p !== '',
+        ));
+        $packetRiskLevel = (string) data_get($packet, 'risk_classification.risk_level', data_get($packet, 'risk_level', 'low'));
+        $acceptanceCriteria = (array) data_get($packet, 'acceptance_criteria', []);
+        $requiredEvidence = (array) data_get($packet, 'evidence_requirements.required', data_get($packet, 'required_evidence', []));
+
+        // ── Tag matching ────────────────────────────────────────────────
+        $workerTagSet = array_flip($workerTags);
+        $matchedTags = array_values(array_filter(
+            $packetTags,
+            static fn (string $t): bool => isset($workerTagSet[$t]),
+        ));
+        $missingTags = array_values(array_filter(
+            $packetTags,
+            static fn (string $t): bool => ! isset($workerTagSet[$t]),
+        ));
+        if ($missingTags !== []) {
+            $blockers[] = 'worker_missing_required_queue_tags: '.implode(', ', $missingTags);
+            $nextUnblockAction = 'add_tags';
+        }
+
+        // ── Scope matching ───────────────────────────────────────────────
+        if ($allowedFiles !== [] && $workerScope !== []) {
+            $outOfScope = [];
+            foreach ($allowedFiles as $p) {
+                $inScope = false;
+                foreach ($workerScope as $scopePrefix) {
+                    $scopePrefix = rtrim($scopePrefix, '/');
+                    // Support prefix matching: scope prefix `app/Services` matches `app/Services/Foo.php`
+                    if ($p === $scopePrefix || str_starts_with($p, $scopePrefix.'/')) {
+                        $inScope = true;
+                        break;
+                    }
+                }
+                if (! $inScope) {
+                    $outOfScope[] = $p;
+                }
+            }
+            if ($outOfScope !== []) {
+                $blockers[] = 'packet_allowed_files_outside_worker_scope: '.implode(', ', $outOfScope);
+                if ($nextUnblockAction === 'none') {
+                    $nextUnblockAction = 'grant_scope';
+                }
+            }
+        }
+
+        // ── Test gate capability ─────────────────────────────────────────
+        if ($acceptanceCriteria !== []) {
+            $hasTestGate = false;
+            foreach ($acceptanceCriteria as $ac) {
+                $acLower = strtolower((string) $ac);
+                if (str_contains($acLower, 'phpunit') || str_contains($acLower, 'artisan test') || str_contains($acLower, 'pest')) {
+                    $hasTestGate = true;
+                    break;
+                }
+            }
+            if ($hasTestGate && ! $canRunTests) {
+                $blockers[] = 'packet_requires_test_gate_but_worker_cannot_run_tests';
+                if ($nextUnblockAction === 'none' || $nextUnblockAction === 'add_tags') {
+                    $nextUnblockAction = 'enable_gates';
+                }
+            }
+        }
+
+        // ── Evidence reporting capability ────────────────────────────────
+        if ($requiredEvidence !== [] && ! $canReportEvidence) {
+            $blockers[] = 'packet_requires_evidence_reporting_but_worker_cannot_report_evidence';
+            if ($nextUnblockAction === 'none' || $nextUnblockAction === 'add_tags') {
+                $nextUnblockAction = 'enable_gates';
+            }
+        }
+
+        // ── Risk tolerance ───────────────────────────────────────────────
+        $workerTierIndex = array_search($riskTolerance, self::RISK_TIERS, true);
+        $packetTierIndex = array_search($packetRiskLevel, self::RISK_TIERS, true);
+        if ($workerTierIndex !== false && $packetTierIndex !== false && $packetTierIndex > $workerTierIndex) {
+            $blockers[] = "packet_risk_level_{$packetRiskLevel}_exceeds_worker_tolerance_{$riskTolerance}";
+            if ($nextUnblockAction === 'none') {
+                $nextUnblockAction = 'accept_risk';
+            }
+        }
+
+        $eligible = $blockers === [];
+
+        return [
+            'eligible' => $eligible,
+            'blockers' => $blockers,
+            'matched_tags' => $matchedTags,
+            'missing_tags' => $missingTags,
+            'next_unblock_action' => $nextUnblockAction,
+            'worker_tags' => $workerTags,
+            'packet_tags' => $packetTags,
+        ];
+    }
 
     /**
      * @param  list<string>  $queueTags
