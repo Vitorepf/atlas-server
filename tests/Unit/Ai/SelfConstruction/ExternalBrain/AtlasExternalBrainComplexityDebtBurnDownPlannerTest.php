@@ -812,4 +812,132 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::PREFERRED_CONSOLIDATE_OR_DELETE, $r['preferred_action']);
     }
+
+    // ── AC: low-usage high-maintenance candidates prefer delete, merge or consolidate ──
+
+    public function test_low_usage_high_maintenance_prefers_delete_when_similar_organs(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'             => 'LH1',
+            'similar_organs'       => ['twin'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.05,
+            'maintenance_cost'     => 0.90,
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_DELETE, $r['ranked_candidates'][0]['recommended_action']);
+    }
+
+    public function test_low_usage_high_maintenance_prefers_merge_when_same_decision_surface(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'                        => 'LH2',
+            'similar_organs'                  => [],
+            'usage_evidence_count'            => 0,
+            'compounding_value'               => 0.05,
+            'maintenance_cost'                => 0.90,
+            'covers_same_decision_surface_as' => ['overlap'],
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MERGE, $r['ranked_candidates'][0]['recommended_action']);
+    }
+
+    public function test_low_usage_high_maintenance_prefers_consolidate_when_similar_and_evidence(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'             => 'LH3',
+            'similar_organs'       => ['twin'],
+            'usage_evidence_count' => 3,
+            'compounding_value'    => 0.50,
+            'maintenance_cost'     => 0.90,
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_CONSOLIDATE, $r['ranked_candidates'][0]['recommended_action']);
+    }
+
+    // ── AC: adding capability selected only with concrete compounding evidence and low maintenance risk ──
+
+    public function test_add_new_capability_when_high_compounding_low_maintenance_no_overlap(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'             => 'ADD1',
+            'similar_organs'       => [],
+            'usage_evidence_count' => 10,
+            'compounding_value'    => 0.90,
+            'maintenance_cost'     => 0.20,
+            'covers_same_decision_surface_as' => [],
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::PREFERRED_ADD_NEW_CAPABILITY, $r['preferred_action']);
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_KEEP, $r['ranked_candidates'][0]['recommended_action']);
+    }
+
+    public function test_add_new_capability_not_selected_when_maintenance_risk_high(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'             => 'ADD2',
+            'similar_organs'       => [],
+            'usage_evidence_count' => 10,
+            'compounding_value'    => 0.90,
+            'maintenance_cost'     => 0.90,  // high maintenance risk
+            'covers_same_decision_surface_as' => [],
+        ]]]);
+
+        // High maintenance → simplify, not keep; but no overlap → still add_new_capability preferred.
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_SIMPLIFY, $r['ranked_candidates'][0]['recommended_action']);
+    }
+
+    // ── AC: migrate_or_prove_first emitted when evidence insufficient for safe deletion ──
+
+    public function test_migrate_or_prove_first_when_active_consumers_block_deletion(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'             => 'MIG1',
+            'similar_organs'       => ['twin'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.05,
+            'maintenance_cost'     => 0.90,
+            'has_active_consumers' => true,
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MIGRATE_OR_PROVE_FIRST, $r['ranked_candidates'][0]['recommended_action']);
+    }
+
+    public function test_migrate_or_prove_first_when_missing_replacement_proof(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'             => 'MIG2',
+            'similar_organs'       => ['twin'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.05,
+            'maintenance_cost'     => 0.90,
+            'has_replacement_proof' => false,
+            'has_behavior_preservation_evidence' => true,
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MIGRATE_OR_PROVE_FIRST, $r['ranked_candidates'][0]['recommended_action']);
+    }
+
+    public function test_migrate_or_prove_first_when_missing_behavior_preservation(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'             => 'MIG3',
+            'similar_organs'       => ['twin'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.05,
+            'maintenance_cost'     => 0.90,
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => false,
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MIGRATE_OR_PROVE_FIRST, $r['ranked_candidates'][0]['recommended_action']);
+    }
 }
