@@ -114,8 +114,11 @@ final class AtlasTaskDuplicateReuseGate
     public function evaluateLogicReuse(array $changedFiles, ?string $repoRoot = null): array
     {
         $repoRoot = rtrim($repoRoot ?? base_path(), '/');
+        // Canonicaliza para a forma 'app/...' (o scan de disco produz sempre 'app/...'); sem isto um
+        // path './app/X.php' ou '/app/X.php' fura a auto-exclusão e o arquivo bate contra a própria
+        // cópia no disco = falso-positivo (achado do verify adversarial da Obra #6 V0).
         $phpChanged = array_values(array_filter(
-            array_map('strval', $changedFiles),
+            array_map(fn (string $f): string => ltrim($f, './'), array_map('strval', $changedFiles)),
             static fn (string $f): bool => str_ends_with($f, '.php')
                 && ! (str_starts_with($f, 'tests/') || str_contains($f, '/tests/') || str_ends_with($f, 'Test.php')),
         ));
@@ -136,8 +139,11 @@ final class AtlasTaskDuplicateReuseGate
             $lines = $this->normalizedLines((string) file_get_contents($abs));
             $limit = count($lines) - self::LOGIC_REUSE_MIN_LINES;
             for ($i = 0; $i <= $limit; $i++) {
-                $h = md5(implode("\n", array_slice($lines, $i, self::LOGIC_REUSE_MIN_LINES)), true);
-                $wanted[$h] ??= $file;
+                $window = array_slice($lines, $i, self::LOGIC_REUSE_MIN_LINES);
+                if ($this->isStructuralWindow($window)) {
+                    continue; // repetição estrutural (array de config, arms de match, tabela) ≠ lógica copiada
+                }
+                $wanted[md5(implode("\n", $window), true)] ??= $file;
             }
         }
         if ($wanted === []) {
@@ -252,6 +258,32 @@ final class AtlasTaskDuplicateReuseGate
         }
 
         return $best;
+    }
+
+    /**
+     * Uma janela é REPETIÇÃO ESTRUTURAL (não lógica copiada) quando >= 80% das linhas são entradas
+     * de `chave => valor` (array de config, arms de match, tabela de constantes) ou fechamentos de
+     * bloco. 30 getters/arms/rows idênticos entre dois arquivos do mesmo domínio são inerentes, não
+     * cópia — bloqueá-los é falso-positivo (achado do verify adversarial da Obra #6 V0). Getters de
+     * uma linha com `return $this->x;` NÃO são pegos por este filtro (têm statement real) — teto
+     * conhecido de baixa prevalência no lane SelfConstruction, absorvido pelo modo observe.
+     *
+     * @param  list<string>  $window
+     */
+    private function isStructuralWindow(array $window): bool
+    {
+        if ($window === []) {
+            return false;
+        }
+        $rows = 0;
+        foreach ($window as $line) {
+            if (str_contains($line, '=>')
+                || preg_match('/^(case\s|default:|\][;,]?$|\)[;,]?$|\}[;,]?$|\[$)/', $line) === 1) {
+                $rows++;
+            }
+        }
+
+        return $rows >= (int) ceil(count($window) * 0.8);
     }
 
     /** @return list<string> */

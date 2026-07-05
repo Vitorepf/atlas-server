@@ -77,6 +77,48 @@ final class AtlasTaskAdmissionGateV2Test extends TestCase
         $this->assertSame(1, $verdict['examined']);
     }
 
+    public function test_logic_reuse_normalizes_dot_slash_path_no_self_match(): void
+    {
+        // FURO do verify adversarial: './app/...' furava a auto-exclusão e o arquivo batia consigo mesmo.
+        $body = $this->bodyOf30();
+        $this->put('app/New/Solo.php', "<?php\nnamespace App\\New;\nclass Solo {\n    public function compute(array \$input, int \$carry): array {\n$body\n        return \$acc;\n    }\n}\n");
+
+        $verdict = (new AtlasTaskDuplicateReuseGate)->evaluateLogicReuse(['./app/New/Solo.php'], $this->root);
+
+        $this->assertTrue($verdict['passed'], "'./app/...' não pode casar contra a própria cópia no disco");
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_logic_reuse_ignores_structural_config_and_match_repetition(): void
+    {
+        // FURO do verify adversarial: 30+ linhas de 'chave => valor' idênticas = repetição estrutural,
+        // não lógica copiada. Dois mapas de config sobre o mesmo domínio NÃO devem bloquear.
+        $rows = [];
+        for ($i = 1; $i <= 34; $i++) {
+            $rows[] = "        'permission_$i' => ['read', 'write', 'level_$i'],";
+        }
+        $block = implode("\n", $rows);
+        $this->put('app/Existing/PermsA.php', "<?php\nnamespace App\\Existing;\nclass PermsA {\n    public function map(): array {\n        return [\n$block\n        ];\n    }\n}\n");
+        $this->put('app/New/PermsB.php', "<?php\nnamespace App\\New;\nclass PermsB {\n    public function table(): array {\n        return [\n$block\n        ];\n    }\n}\n");
+
+        $verdict = (new AtlasTaskDuplicateReuseGate)->evaluateLogicReuse(['app/New/PermsB.php'], $this->root);
+
+        $this->assertTrue($verdict['passed'], 'repetição estrutural de array de config não é clone de lógica');
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_logic_reuse_still_blocks_real_copied_statements(): void
+    {
+        // controle: o filtro estrutural NÃO pode deixar passar lógica real copiada (statements).
+        $body = $this->bodyOf30();
+        $this->put('app/Existing/RealLogic.php', "<?php\nnamespace App\\Existing;\nclass RealLogic {\n    public function run(array \$input, int \$carry): array {\n$body\n        return \$acc;\n    }\n}\n");
+        $this->put('app/New/CopiedLogic.php', "<?php\nnamespace App\\New;\nclass CopiedLogic {\n    public function exec(array \$input, int \$carry): array {\n$body\n        return \$acc;\n    }\n}\n");
+
+        $verdict = (new AtlasTaskDuplicateReuseGate)->evaluateLogicReuse(['app/New/CopiedLogic.php'], $this->root);
+
+        $this->assertFalse($verdict['passed'], 'lógica real copiada (statements) continua bloqueada');
+    }
+
     public function test_logic_reuse_ignores_short_shared_snippets(): void
     {
         // 5 linhas iguais (boilerplate curto) NÃO é clone — abaixo do piso de 30.

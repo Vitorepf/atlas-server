@@ -15,6 +15,15 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  *
  * Determinístico, zero LLM, fail-open (Throwable -> passed=true). `$today` é injetável para teste
  * wiper-safe (nenhum date() no caminho testado).
+ *
+ * Tetos conhecidos (verify adversarial da Obra #6 V0; aceitáveis porque o modo default é observe e a
+ * direção do erro é sempre CONSERVADORA — sub-bloqueia, nunca sobre-bloqueia, preservando o AC "zero
+ * falso-positivo"): (a) o caller é detectado por palavra-inteira, então menção do símbolo em comentário/
+ * string/nome-de-parâmetro conta como wiring (deixa passar organ 0-ref) — evita falso-positivo ao custo
+ * de raros falsos-negativos; (b) event listener auto-descoberto e impl ligada só por binding de
+ * interface sem referência textual ao nome escapam do check de caller — prevalência ~0 no lane
+ * SelfConstruction (0 listeners), Console Command já tem exceção explícita. Fechar isto exigiria
+ * AST/container-resolution, complexidade que o modo observe não justifica hoje.
  */
 final class AtlasTaskWiringAdmissionGate
 {
@@ -36,8 +45,10 @@ final class AtlasTaskWiringAdmissionGate
         $observations = [];
         $examined = 0;
 
+        // Canonicaliza para 'app/...' — sem isto um path './app/X.php' fura a auto-exclusão do
+        // hasCaller e a classe vira caller de si mesma (falso-negativo do verify adversarial V0).
         $phpChanged = array_values(array_filter(
-            array_map('strval', $changedFiles),
+            array_map(fn (string $f): string => ltrim($f, './'), array_map('strval', $changedFiles)),
             static fn (string $f): bool => str_ends_with($f, '.php')
                 && ! (str_starts_with($f, 'tests/') || str_contains($f, '/tests/') || str_ends_with($f, 'Test.php')),
         ));
