@@ -576,4 +576,107 @@ final class AtlasExternalBrainAmplifierPromotionGateTest extends TestCase
         $this->assertContains('give_back_risk_increased', $r['blocking_reasons']);
         $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
     }
+
+    // ── AC: strong lift is not enough when heldout_pass_rate or green_commit_rate below floor ──
+
+    public function test_strong_lift_not_enough_when_heldout_pass_rate_below_floor(): void
+    {
+        $r = $this->evaluate([
+            'sustained_lift_ratio' => 0.95,
+            'heldout_pass_rate'    => 0.50,
+        ]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('heldout_pass_rate_below_floor', $r['blocking_reasons']);
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+    }
+
+    public function test_strong_lift_not_enough_when_green_commit_rate_below_floor(): void
+    {
+        $r = $this->evaluate([
+            'sustained_lift_ratio' => 0.95,
+            'green_commit_rate'    => 0.50,
+        ]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('green_commit_rate_below_floor', $r['blocking_reasons']);
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+    }
+
+    // ── AC: proxy_leak regression (delta > 0) returns rollback ──────────────
+
+    public function test_proxy_leak_delta_above_zero_returns_rollback(): void
+    {
+        $r = $this->evaluate(['proxy_leak_delta' => 0.01]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+        $this->assertFalse($r['promote']);
+        $this->assertContains('proxy_leak_regression_detected', $r['rollback_triggers']);
+    }
+
+    public function test_proxy_leak_delta_zero_does_not_trigger_rollback(): void
+    {
+        $r = $this->evaluate(['proxy_leak_delta' => 0.0]);
+
+        $this->assertNotContains('proxy_leak_regression_detected', $r['rollback_triggers']);
+    }
+
+    public function test_proxy_leak_delta_negative_is_fine(): void
+    {
+        $r = $this->evaluate(['proxy_leak_delta' => -0.05]);
+
+        $this->assertNotContains('proxy_leak_regression_detected', $r['rollback_triggers']);
+    }
+
+    public function test_proxy_leak_regression_never_promotes_even_with_perfect_everything(): void
+    {
+        $r = $this->evaluate([
+            'proxy_leak_delta'      => 0.001,
+            'heldout_pass_rate'    => 1.0,
+            'green_commit_rate'    => 1.0,
+            'success_rate'         => 1.0,
+            'impact_score'         => 1.0,
+            'sustained_lift_ratio' => 0.95,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+    }
+
+    // ── AC: promotion requires sample_count, quality_lift and give_back_delta within thresholds ──
+
+    public function test_promotion_blocked_when_give_back_delta_above_max(): void
+    {
+        $r = $this->evaluate(['give_back_delta' => 0.10]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('give_back_risk_increased', $r['blocking_reasons']);
+    }
+
+    public function test_promotion_blocked_when_quality_lift_delta_below_floor(): void
+    {
+        $r = $this->evaluate(['quality_lift_delta' => 0.01]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('quality_lift_delta_below_floor', $r['blocking_reasons']);
+    }
+
+    public function test_promotion_blocked_when_sample_count_below_min(): void
+    {
+        $r = $this->evaluate(['sample_count' => 49]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('sample_count_insufficient', $r['blocking_reasons']);
+    }
+
+    public function test_promotion_passes_when_all_thresholds_met(): void
+    {
+        $r = $this->evaluate([
+            'sample_count'         => 50,
+            'quality_lift_delta'   => 0.05,
+            'give_back_delta'      => 0.05,
+        ]);
+
+        $this->assertTrue($r['promote']);
+    }
 }

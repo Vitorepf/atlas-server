@@ -43,6 +43,7 @@ final class AtlasExternalBrainAmplifierPromotionGate
     public const MIN_HELDOUT_PASS_RATE  = 0.80;
     public const MIN_GREEN_COMMIT_RATE  = 0.90;
     public const MAX_PROXY_LEAK_RATE    = 0.10;
+    public const MAX_PROXY_LEAK_DELTA   = 0.0;
     public const MIN_SAMPLE_COUNT       = 50;
     public const MIN_QUALITY_LIFT_DELTA = 0.05;
 
@@ -76,6 +77,7 @@ final class AtlasExternalBrainAmplifierPromotionGate
         $heldoutPassRate  = max(0.0, min(1.0, (float) ($input['heldout_pass_rate']  ?? 0.0)));
         $greenCommitRate  = max(0.0, min(1.0, (float) ($input['green_commit_rate']  ?? 0.0)));
         $proxyLeakRate    = max(0.0, min(1.0, (float) ($input['proxy_leak_rate']    ?? 0.0)));
+        $proxyLeakDelta   = (float) ($input['proxy_leak_delta']   ?? 0.0);
         $sampleCount      = max(0, (int) ($input['sample_count']                    ?? 0));
         $qualityLiftDelta = (float) ($input['quality_lift_delta']                   ?? 0.0);
         $heldoutTaskFamilies = array_values(array_unique(array_map(
@@ -96,6 +98,10 @@ final class AtlasExternalBrainAmplifierPromotionGate
         if ($proxyLeakRate > self::MAX_PROXY_LEAK_RATE) {
             $rollbackTriggers[] = 'proxy_leak_ceiling_breached';
             $missingEvidence[]  = 'proxy_audit_showing_leak_rate_below_ceiling';
+        }
+        if ($proxyLeakDelta > self::MAX_PROXY_LEAK_DELTA) {
+            $rollbackTriggers[] = 'proxy_leak_regression_detected';
+            $missingEvidence[]  = 'proxy_leak_delta_showing_no_regression';
         }
         if ($qualityLiftDelta < 0.0) {
             $rollbackTriggers[] = 'quality_regression_detected';
