@@ -2,11 +2,12 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-use Illuminate\Support\Arr;
 use InvalidArgumentException;
 
 final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateInvoker
 {
+    use NormalizesPostStartGateInput;
+
     /**
      * @var list<string>
      */
@@ -276,39 +277,4 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartS
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
-    private function normalize(array $input): array
-    {
-        foreach (self::FORBIDDEN_TRUE_FLAGS as $flag) {
-            if (Arr::has($input, $flag) && (bool) $input[$flag] === true) {
-                throw new InvalidArgumentException('forbidden_true_flag_'.$flag);
-            }
-        }
-
-        $required = array_merge(self::IDENTIFIER_FIELDS, self::HASH_FIELDS);
-
-        foreach ($required as $field) {
-            if (! Arr::has($input, $field) || $input[$field] === null || $input[$field] === '') {
-                throw new InvalidArgumentException('missing_'.$field);
-            }
-        }
-
-        $hashes = [];
-        foreach (self::HASH_FIELDS as $field) {
-            $hashes[$field] = strtolower(trim((string) $input[$field]));
-
-            if (preg_match('/^[a-f0-9]{64}$/', $hashes[$field]) !== 1) {
-                throw new InvalidArgumentException('invalid_'.$field);
-            }
-        }
-
-        $normalized = [];
-        foreach (self::IDENTIFIER_FIELDS as $field) {
-            $normalized[$field] = (string) $input[$field];
-        }
-        foreach (self::HASH_FIELDS as $field) {
-            $normalized[$field] = $hashes[$field];
-        }
-
-        return $normalized;
-    }
 }
