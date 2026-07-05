@@ -77,6 +77,7 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
     public function __construct(
         private readonly ?AtlasSelfConstructionAtlasNativeEvidenceVerifier $evidenceVerifier = null,
         private readonly ?AtlasSelfConstructionHumanDependencyRegressionGate $dependencyGate = null,
+        private readonly ?AtlasSelfConstructionMaturityEvidenceAuditor $maturityAuditor = null,
     ) {}
 
     /**
@@ -95,6 +96,16 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
 
         $evidence = $evidenceVerifier->verify($evidenceFacts);
         $dependency = $dependencyGate->check($dependencyFacts);
+
+        $maturityAuditor = $this->maturityAuditor ?? new AtlasSelfConstructionMaturityEvidenceAuditor();
+        $maturityClaims = is_array($facts['maturity_claims'] ?? null) ? $facts['maturity_claims'] : [];
+        $overallClaimedMaturity = max(0.0, min(1.0, (float) ($facts['overall_claimed_maturity'] ?? 0.0)));
+        $maturityAudit = $maturityAuditor->audit([
+            'overall_claimed_maturity' => $overallClaimedMaturity,
+            'maturity_claims' => $maturityClaims,
+        ]);
+        $maturityRefused = (bool) ($maturityAudit['high_score_refused'] ?? false);
+        $maturityRefusalReasons = is_array($maturityAudit['refusal_reasons'] ?? null) ? $maturityAudit['refusal_reasons'] : [];
 
         $sourceCoverage = $this->sourceCoverage($evidence);
 
@@ -190,6 +201,26 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
             $nextActions[] = 'collect_independent_evidence_quorum';
         }
 
+        // Maturity claim audit: a high self-asserted maturity (>0.70) with any critical
+        // dimension having only intent/missing/contradicted evidence must refuse finalization.
+        if ($maturityRefused) {
+            foreach ($maturityRefusalReasons as $reason) {
+                $blockers[] = 'maturity_refusal:'.$reason;
+            }
+            // Check if any refusal reason involves contradicted evidence → BLOCKED.
+            $hasContradictedRefusal = false;
+            foreach ($maturityRefusalReasons as $reason) {
+                if (str_contains($reason, 'contradicted')) {
+                    $hasContradictedRefusal = true;
+                }
+            }
+            if ($hasContradictedRefusal) {
+                $autonomyContractBlocked = true;
+            } else {
+                $holdRequested = true;
+            }
+        }
+
         $finalState = self::FINAL_READY;
         if ($blockers !== []) {
             // If only refreshable-style blockers (none from ledger blocking keys, none dependency contract),
@@ -232,6 +263,12 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
                 'required' => self::MIN_EVIDENCE_QUORUM,
                 'confirmed' => $quorumConfirmed,
                 'met' => $quorumMet,
+            ],
+            'maturity_audit' => [
+                'overall_claimed_maturity' => $overallClaimedMaturity,
+                'overall_audited_maturity' => (float) ($maturityAudit['overall_audited_maturity'] ?? 0.0),
+                'high_score_refused' => $maturityRefused,
+                'refusal_reasons' => $maturityRefusalReasons,
             ],
             'next_atlas_actions' => array_values(array_unique($nextActions)),
         ];

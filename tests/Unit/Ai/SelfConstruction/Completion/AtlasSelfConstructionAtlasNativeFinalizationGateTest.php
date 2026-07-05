@@ -428,4 +428,89 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
             ],
         ];
     }
+
+    private function highClaimFacts(array $maturityClaims = []): array
+    {
+        $facts = $this->readyFacts();
+        $facts['overall_claimed_maturity'] = 0.95;
+        $facts['maturity_claims'] = $maturityClaims !== [] ? $maturityClaims : [
+            [
+                'dimension' => 'code_review_coverage',
+                'claimed_score' => 0.95,
+                'critical' => true,
+                'evidence_refs' => ['intent:code_review_process_adopted', 'doc:code_review_guidelines'],
+            ],
+            [
+                'dimension' => 'runtime_stability',
+                'claimed_score' => 0.90,
+                'critical' => true,
+                'evidence_refs' => ['runtime:soak_hours_verified', 'live_run:24h_no_crash'],
+            ],
+        ];
+
+        return $facts;
+    }
+
+    // ── AC: maturity audit — high score refused on intent-only critical dimension ──
+
+    public function test_high_maturity_claim_with_intent_only_critical_dimension_yields_hold(): void
+    {
+        $facts = $this->highClaimFacts();
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        $this->assertNotSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_READY, $verdict['final_state']);
+        $this->assertTrue(in_array($verdict['final_state'], [
+            AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_HOLD,
+            AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED,
+        ], true));
+        $this->assertNotEmpty($verdict['blockers']);
+        $hasMaturityRefusal = false;
+        foreach ($verdict['blockers'] as $blocker) {
+            if (str_starts_with($blocker, 'maturity_refusal:')) {
+                $hasMaturityRefusal = true;
+            }
+        }
+        $this->assertTrue($hasMaturityRefusal, 'blockers must include maturity_refusal');
+        $this->assertTrue($verdict['maturity_audit']['high_score_refused']);
+    }
+
+    public function test_high_maturity_claim_with_contradicted_critical_dimension_yields_blocked(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['overall_claimed_maturity'] = 0.85;
+        $facts['maturity_claims'] = [
+            [
+                'dimension' => 'regression_immunity',
+                'claimed_score' => 0.80,
+                'critical' => true,
+                'evidence_refs' => ['contradicts:regression_found_in_latest_deploy'],
+            ],
+        ];
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        $this->assertNotEmpty($verdict['blockers']);
+        $hasMaturityRefusal = false;
+        foreach ($verdict['blockers'] as $blocker) {
+            if (str_starts_with($blocker, 'maturity_refusal:')) {
+                $hasMaturityRefusal = true;
+            }
+        }
+        $this->assertTrue($hasMaturityRefusal);
+    }
+
+    // ── AC: regression guard — clean fixture still returns FINAL_READY ──────────
+
+    public function test_clean_ready_facts_still_yields_final_ready_with_maturity_audit_present(): void
+    {
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($this->readyFacts());
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_READY, $verdict['final_state']);
+        $this->assertTrue($verdict['passed']);
+        $this->assertArrayHasKey('maturity_audit', $verdict);
+        $this->assertFalse($verdict['maturity_audit']['high_score_refused']);
+        $this->assertSame([], $verdict['maturity_audit']['refusal_reasons']);
+    }
 }
