@@ -2,13 +2,13 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-
-
 use App\Services\Ai\SelfConstruction\ReadinessHash;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionHumanCompletionReceiptDraftService
 {
+    use IsPlaceholderValueShared;
+
     public const SCHEMA_VERSION = 'atlas.self_construction.human_completion_receipt_draft.v1';
 
     public const MODE = 'read_only_human_completion_receipt_draft';
@@ -184,40 +184,6 @@ final class AtlasSelfConstructionHumanCompletionReceiptDraftService
             'codex-autosigned',
             'atlas',
         ], true) || $this->isPlaceholderValue($normalized);
-    }
-
-    private function isPlaceholderValue(string $value): bool
-    {
-        $normalized = strtolower(trim($value));
-        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
-            return true;
-        }
-
-        foreach ([
-            'seu_nome',
-            'seu nome',
-            'operador',
-            'motivo real',
-            'pelo menos 32 caracteres',
-            'substitua',
-            'placeholder',
-            'todo',
-            'synthetic',
-            'fixture-only',
-            'fixture_only',
-            'test_only',
-            'test-only',
-            'fake',
-            'simulated',
-            'mock-',
-            'dummy',
-        ] as $fragment) {
-            if (str_contains($normalized, $fragment)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /** @param array<string, mixed> $value */

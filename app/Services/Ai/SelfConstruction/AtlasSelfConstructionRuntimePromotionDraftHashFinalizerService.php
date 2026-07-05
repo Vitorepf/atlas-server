@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
@@ -23,6 +22,8 @@ use Illuminate\Support\Facades\Storage;
  */
 final class AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService
 {
+    use IsPlaceholderValueShared;
+
     use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
 
     public const SCHEMA_VERSION = 'atlas.self_construction.runtime_promotion_draft_hash_finalizer.v1';
@@ -355,40 +356,6 @@ final class AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService
             'codex-autosigned',
             'atlas',
         ], true) || $this->isPlaceholderValue($normalized);
-    }
-
-    private function isPlaceholderValue(string $value): bool
-    {
-        $normalized = strtolower(trim($value));
-        if ($normalized === '' || str_starts_with($normalized, '<') || str_starts_with($normalized, '__')) {
-            return true;
-        }
-
-        foreach ([
-            'seu_nome',
-            'seu nome',
-            'operador',
-            'motivo real',
-            'pelo menos 32 caracteres',
-            'substitua',
-            'placeholder',
-            'todo',
-            'synthetic',
-            'fixture-only',
-            'fixture_only',
-            'test_only',
-            'test-only',
-            'fake',
-            'simulated',
-            'mock-',
-            'dummy',
-        ] as $fragment) {
-            if (str_contains($normalized, $fragment)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function storageFileHash(string $path): string
