@@ -515,4 +515,78 @@ final class AtlasExternalBrainResearchSourceTrustRankerTest extends TestCase
         $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::USE_ADOPT_DIRECTLY, $r['use_decision']);
         $this->assertContains('source_url_missing', $r['penalties']);
     }
+
+    // ── AC: primary_documentation and repo_local_evidence rank above blog, social or model_claim sources ──
+
+    public function test_primary_documentation_ranks_above_model_claim(): void
+    {
+        $primary = $this->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+            'grounding' => 'repo_verified',
+        ]);
+        $modelClaim = $this->rank([
+            'source_type' => 'model_claim',
+            'source_date' => '2026-06-30',
+        ]);
+
+        $this->assertGreaterThan($modelClaim['trust_score'], $primary['trust_score']);
+    }
+
+    public function test_repo_local_evidence_ranks_above_blog(): void
+    {
+        $repo = $this->rank([
+            'source_type' => 'repo_local_evidence',
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+        ]);
+        $blog = $this->rank([
+            'source_type' => 'blog',
+            'source_date' => '2026-06-30',
+        ]);
+
+        $this->assertGreaterThan($blog['trust_score'], $repo['trust_score']);
+    }
+
+    // ── AC: low-trust sources produce review_first or reject, never adopt_as_task directly ──
+
+    public function test_blog_source_never_adopt_as_task(): void
+    {
+        $r = $this->rank([
+            'source_type' => 'blog',
+            'source_date' => '2026-06-30',
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::TASK_ADMISSION_ADOPT, $r['task_admission_decision']);
+    }
+
+    public function test_generic_summary_source_never_adopt_as_task(): void
+    {
+        $r = $this->rank([
+            'source_type' => 'generic_summary',
+            'source_date' => '2026-06-30',
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::TASK_ADMISSION_ADOPT, $r['task_admission_decision']);
+    }
+
+    // ── AC: source rankings include task_admission and adoption_classification ──
+
+    public function test_source_ranking_includes_task_admission(): void
+    {
+        $r = $this->rank(['source_type' => 'blog', 'source_date' => '2026-06-30']);
+
+        $this->assertArrayHasKey('task_admission_decision', $r);
+        $this->assertContains($r['task_admission_decision'], ['adopt_as_task', 'review_first', 'reject']);
+    }
+
+    public function test_source_ranking_includes_adoption_classification(): void
+    {
+        $r = $this->rank(['source_type' => 'blog', 'source_date' => '2026-06-30']);
+
+        $this->assertArrayHasKey('adoption_classification', $r);
+        $this->assertContains($r['adoption_classification'], ['adopt_or_adapt', 'downgrade_or_reject']);
+    }
 }
