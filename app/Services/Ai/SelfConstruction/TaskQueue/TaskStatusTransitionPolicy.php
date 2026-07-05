@@ -16,11 +16,12 @@ final class TaskStatusTransitionPolicy
     public const ALLOWED_STATUS_TRANSITIONS = [
         'queued' => ['claimable', 'blocked', 'cancelled'],
         'claimable' => ['claimed', 'blocked', 'cancelled'],
-        'claimed' => ['lease_expired', 'released', 'completed_dry_run', 'blocked'],
+        'claimed' => ['lease_expired', 'released', 'completed_dry_run', 'blocked', 'resolved'],
         'lease_expired' => ['claimable', 'released', 'cancelled'],
         'released' => ['claimable', 'cancelled'],
         'blocked' => ['claimable', 'cancelled'],
-        'completed_dry_run' => [],
+        'completed_dry_run' => ['resolved'],
+        'resolved' => [],
         'cancelled' => [],
     ];
 
@@ -39,24 +40,30 @@ final class TaskStatusTransitionPolicy
      */
     public static function validateTransitionMetadata(string $next, array $metadata): array
     {
-        if ($next !== 'claimed') {
+        if ($next !== 'claimed' && $next !== 'resolved') {
             return [];
         }
 
         $missing = [];
-        foreach (['lease_id', 'agent_id'] as $field) {
+        $requiredFields = $next === 'claimed'
+            ? ['lease_id', 'agent_id']
+            : ['lease_id', 'agent_id', 'task_packet_id'];
+        foreach ($requiredFields as $field) {
             if ((string) ($metadata[$field] ?? '') === '') {
                 $missing[] = $field;
             }
         }
 
-        return $missing === []
-            ? []
-            : [
-                'missing_metadata' => $missing,
-                'claim_transition_requires_lease_id' => true,
-                'claim_transition_requires_agent_id' => true,
-            ];
+        if ($missing === []) {
+            return [];
+        }
+
+        return [
+            'missing_metadata' => $missing,
+            'claim_transition_requires_lease_id' => true,
+            'claim_transition_requires_agent_id' => true,
+            'resolved_requires_matching_lease' => $next === 'resolved',
+        ];
     }
 
     public static function transitionPolicyHash(): string
@@ -105,9 +112,32 @@ final class TaskStatusTransitionPolicy
             return ['allowed' => true];
         }
         if (self::ALLOWED_STATUS_TRANSITIONS[$previous] === []) {
-            return ['allowed' => false, 'reason' => 'terminal_status_cannot_transition'];
+            // True terminal — no outgoing edges at all.
+            return ['allowed' => false, 'reason' => 'terminal_status_resurrection_blocked:'.$previous];
+        }
+        // Nearly-terminal statuses (completed_dry_run has only → resolved). Any other
+        // outgoing transition is a resurrection attempt.
+        if (in_array($previous, ['completed_dry_run', 'resolved', 'cancelled'], true)
+            && ! in_array($next, self::ALLOWED_STATUS_TRANSITIONS[$previous], true)
+        ) {
+            return ['allowed' => false, 'reason' => 'terminal_status_resurrection_blocked:'.$previous];
+        }
+        // Specific dangerous transitions with actionable reasons.
+        if ($previous === 'blocked' && $next === 'claimed') {
+            return ['allowed' => false, 'reason' => 'blocked_must_return_to_claimable_before_claim'];
+        }
+        if ($previous === 'queued' && $next === 'claimed') {
+            return ['allowed' => false, 'reason' => 'queued_must_become_claimable_before_claim'];
         }
         if (! in_array($next, self::ALLOWED_STATUS_TRANSITIONS[$previous], true)) {
+            // More specific reason for skip-claim transitions.
+            if ($next === 'claimed' && ! in_array('claimed', self::ALLOWED_STATUS_TRANSITIONS[$previous], true)) {
+                return ['allowed' => false, 'reason' => 'claim_requires_intermediate_claimable_state'];
+            }
+            if ($next === 'resolved' && $previous !== 'claimed' && $previous !== 'completed_dry_run') {
+                return ['allowed' => false, 'reason' => 'resolved_requires_active_lease_or_completion'];
+            }
+
             return ['allowed' => false, 'reason' => 'transition_not_allowed'];
         }
 
