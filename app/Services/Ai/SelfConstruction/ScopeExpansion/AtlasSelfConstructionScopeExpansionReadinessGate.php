@@ -122,6 +122,20 @@ final class AtlasSelfConstructionScopeExpansionReadinessGate
         $evidenceRefs = array_values((array) ($facts['evidence_refs'] ?? []));
         sort($evidenceRefs, SORT_STRING);
 
+        $refreshActions = [];
+        foreach ($holdReasons as $reason) {
+            $key = str_replace('optional_freshness_missing:', '', $reason);
+            $refreshActions[] = "refresh_{$key}_before_expansion";
+        }
+
+        $expansionScope = [
+            'candidate_id' => (string) ($candidate['id'] ?? ''),
+            'candidate_label' => (string) ($candidate['label'] ?? ''),
+            'target_project_id' => (string) ($candidate['target_project_id'] ?? $facts['current_project_id'] ?? ''),
+            'current_project_id' => (string) ($facts['current_project_id'] ?? ''),
+            'is_cross_project' => $targetProjectId !== '' && $targetProjectId !== $currentProjectId,
+        ];
+
         $envelope = [
             'schema_version' => self::SCHEMA,
             'status' => $status,
@@ -131,6 +145,8 @@ final class AtlasSelfConstructionScopeExpansionReadinessGate
             'hold_reasons' => $holdReasons,
             'warnings' => $warnings,
             'evidence_refs' => $evidenceRefs,
+            'refresh_actions' => $refreshActions,
+            'expansion_scope' => $expansionScope,
         ];
         $envelope['readiness_hash'] = $this->hash($envelope);
 

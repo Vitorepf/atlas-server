@@ -460,4 +460,78 @@ final class AtlasSelfConstructionScopeExpansionReadinessGateTest extends TestCas
         $this->assertTrue($result['ready']);
         $this->assertEmpty($result['blockers']);
     }
+
+    // ── AC: missing autonomy proof, worker capacity, rollback or knowledge sync blocks expansion readiness ──
+
+    public function test_missing_autonomy_proof_blocks_expansion(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['autonomy_allows_expansion']);
+
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $facts);
+
+        $this->assertSame('blocked', $verdict['status']);
+        $this->assertContains('missing_mandatory_fact:autonomy_allows_expansion', $verdict['blockers']);
+    }
+
+    public function test_missing_worker_capacity_blocks_expansion(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['worker_capacity_available']);
+
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $facts);
+
+        $this->assertSame('hold', $verdict['status']);
+        $this->assertContains('optional_freshness_missing:worker_capacity_available', $verdict['hold_reasons']);
+    }
+
+    public function test_missing_rollback_blocks_expansion(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['rollback_gate_ready']);
+
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $facts);
+
+        $this->assertSame('blocked', $verdict['status']);
+        $this->assertContains('missing_mandatory_fact:rollback_gate_ready', $verdict['blockers']);
+    }
+
+    public function test_missing_knowledge_sync_blocks_expansion(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['knowledge_sync_current']);
+
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $facts);
+
+        $this->assertSame('hold', $verdict['status']);
+        $this->assertContains('optional_freshness_missing:knowledge_sync_current', $verdict['hold_reasons']);
+    }
+
+    // ── AC: stale evidence produces status=hold with refresh actions ──
+
+    public function test_stale_evidence_produces_hold_with_refresh_actions(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['docs_health'], $facts['knowledge_sync_current']);
+
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $facts);
+
+        $this->assertSame('hold', $verdict['status']);
+        $this->assertNotEmpty($verdict['refresh_actions']);
+        $this->assertContains('refresh_docs_health_before_expansion', $verdict['refresh_actions']);
+        $this->assertContains('refresh_knowledge_sync_current_before_expansion', $verdict['refresh_actions']);
+    }
+
+    // ── AC: fresh complete evidence returns status=ready and expansion_scope summary ──
+
+    public function test_fresh_complete_evidence_returns_ready_with_expansion_scope(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $this->readyFacts());
+
+        $this->assertSame('ready', $verdict['status']);
+        $this->assertTrue($verdict['ready']);
+        $this->assertArrayHasKey('expansion_scope', $verdict);
+        $this->assertSame('cand-1', $verdict['expansion_scope']['candidate_id']);
+        $this->assertSame('expand authoring layer', $verdict['expansion_scope']['candidate_label']);
+    }
 }
