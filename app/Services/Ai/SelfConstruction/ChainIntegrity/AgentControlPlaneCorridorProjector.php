@@ -14,6 +14,85 @@ namespace App\Services\Ai\SelfConstruction\ChainIntegrity;
 final class AgentControlPlaneCorridorProjector
 {
     /**
+     * Unified corridor projection — emits ordered corridor slices with required proof,
+     * identifies missing/complete/blocked slices, and computes the next safe action
+     * that never skips a missing required slice.
+     *
+     * @param  list<array<string, mixed>>  $sliceReports
+     * @param  list<string>  $requiredSliceKeys  ordered corridor slice keys
+     * @return array<string, mixed>
+     */
+    public static function projectCorridor(array $sliceReports, array $requiredSliceKeys): array
+    {
+        $reportsByKey = [];
+        foreach ($sliceReports as $report) {
+            $reportsByKey[(string) ($report['slice_key'] ?? '')] = $report;
+        }
+
+        $requiredSlices = [];
+        $missing = [];
+        $complete = [];
+        $blocked = [];
+        $currentPosition = '';
+        $nextSafeAction = 'corridor_complete_all_proofs_present';
+
+        foreach ($requiredSliceKeys as $index => $sliceKey) {
+            $report = $reportsByKey[$sliceKey] ?? null;
+            $ok = $report !== null && ($report['ok'] ?? false) === true;
+            $proofs = $report !== null
+                ? array_keys(array_filter((array) ($report['checks'] ?? []), static fn ($v): bool => $v === true))
+                : [];
+
+            $requiredSlices[] = [
+                'order' => $index + 1,
+                'slice_key' => $sliceKey,
+                'status' => $ok ? 'complete' : ($report !== null ? 'blocked' : 'missing'),
+                'present' => $report !== null,
+                'all_proofs_ok' => $ok,
+                'required_proofs' => [
+                    'contract_method_exists',
+                    'preflight_method_exists',
+                    'implementation_packet_method_exists',
+                    'status_method_exists',
+                    'invoker_class_exists',
+                    'invoker_prepare_method_exists',
+                ],
+                'observed_proofs' => $proofs,
+            ];
+
+            if ($report === null) {
+                $missing[] = $sliceKey;
+            } elseif ($ok) {
+                $complete[] = $sliceKey;
+            } else {
+                $blocked[] = $sliceKey;
+            }
+
+            if (! $ok && $currentPosition === '') {
+                $currentPosition = $sliceKey;
+                $nextSafeAction = $report === null
+                    ? 'implement_missing_slice:'.$sliceKey
+                    : 'repair_blocked_slice_proofs:'.$sliceKey;
+            }
+        }
+
+        $corridorComplete = $missing === [] && $blocked === [];
+
+        return [
+            'required_slices' => $requiredSlices,
+            'current_position' => $currentPosition,
+            'missing_links' => $missing,
+            'complete_slices' => $complete,
+            'blocked_slices' => $blocked,
+            'missing_count' => count($missing),
+            'complete_count' => count($complete),
+            'blocked_count' => count($blocked),
+            'corridor_complete' => $corridorComplete,
+            'next_safe_action' => $corridorComplete ? 'corridor_complete_all_proofs_present' : $nextSafeAction,
+        ];
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $sliceReports
      * @return array<string, mixed>
      */
