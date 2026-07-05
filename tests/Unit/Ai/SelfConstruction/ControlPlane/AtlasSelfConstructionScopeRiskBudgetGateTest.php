@@ -47,6 +47,17 @@ final class AtlasSelfConstructionScopeRiskBudgetGateTest extends TestCase
         $this->assertContains('scope_outside_lane:/etc/passwd', $r['blockers']);
     }
 
+    public function test_traversal_path_outside_lane_yields_blocker(): void
+    {
+        // A path with '..' that textually starts with a lane root but escapes via traversal
+        // must be flagged as outside the lane (the old str_starts_with prefix match accepted it).
+        $f = $this->safeFacts();
+        $f['requested_scope'] = ['src/Atlas/../Test/Subversive.php'];
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('scope_outside_lane:src/Atlas/../Test/Subversive.php', $r['blockers']);
+    }
+
     public function test_forbidden_organ_touched_yields_blocker(): void
     {
         $f = $this->safeFacts();
