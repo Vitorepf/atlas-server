@@ -212,4 +212,18 @@ final class AtlasProjectLaneCrossProjectLeakDetectorTest extends TestCase
         $this->assertLessThanOrEqual(AtlasProjectLaneCrossProjectLeakDetector::MAX_SAMPLES, count($r['leaks']));
         $this->assertSame(200, $r['proof_summary']['leak_count']);
     }
+
+    public function test_traversal_path_inside_lane_is_caught_as_escape(): void
+    {
+        $inspected = [
+            'packets' => [
+                ['project_id' => 'lane-a', 'task_packet_id' => 'lane.lane-a.aaaaaaaa.main:p1',
+                 'allowed_files' => ['/repo/lane-a/../lane-b/app/secret.php']],
+            ],
+        ];
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($this->lanes(), $inspected);
+
+        $this->assertFalse($r['passed'], 'traversal path must be detected as a leak');
+        $this->assertContains('allowed_files_escape_lane', $r['blockers']);
+    }
 }

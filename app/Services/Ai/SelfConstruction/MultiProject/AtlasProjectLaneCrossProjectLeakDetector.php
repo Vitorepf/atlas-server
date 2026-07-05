@@ -164,6 +164,11 @@ final class AtlasProjectLaneCrossProjectLeakDetector
      */
     private function insideLane(string $path, array $laneRoots): bool
     {
+        // A path with '..' traversal can never be confirmed inside a lane —
+        // it may textually start with a root but resolve into a sibling lane.
+        if (str_contains($path, '..')) {
+            return false;
+        }
         if ($laneRoots === []) {
             return false;
         }

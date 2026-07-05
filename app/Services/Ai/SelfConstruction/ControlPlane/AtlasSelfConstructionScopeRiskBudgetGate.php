@@ -270,6 +270,14 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
      */
     private function insideAnyRoot(string $path, array $laneRoots): bool
     {
+        // Refuse path traversal: '..' in a requested scope path is never inside a lane root.
+        // A path like 'laneRoot/../otherLane/x.php' strips the leading component via '..' and
+        // textually starts with 'laneRoot/' — the old str_starts_with check would accept it,
+        // allowing a requested scope to escape the project lane. Reject all such paths.
+        if (str_contains($path, '..')) {
+            return false;
+        }
+
         foreach ($laneRoots as $root) {
             $root = rtrim($root, '/');
             if ($root !== '' && (str_starts_with($path, $root.'/') || $path === $root)) {
