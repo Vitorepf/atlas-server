@@ -13,6 +13,142 @@ namespace App\Services\Ai\SelfConstruction\MultiAgentLoopCertification;
 final class AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates
 {
     /**
+     * Structured safety evaluation — runs all blocking + warning predicates against
+     * a snapshot and returns a list of predicate results with id, observed/expected
+     * values, severity, and next repair action.
+     *
+     * @param  array<string, mixed>  $snapshot
+     * @return array{predicates:list<array<string,mixed>>, continuation_allowed:bool, blocker_count:int, warning_count:int}
+     */
+    public static function evaluateSafety(array $snapshot): array
+    {
+        $queueState = is_array($snapshot['queue_state'] ?? null) ? $snapshot['queue_state'] : [];
+        $leaseState = is_array($snapshot['lease_state'] ?? null) ? $snapshot['lease_state'] : [];
+        $cycleEvidence = is_array($snapshot['cycle_evidence'] ?? null) ? $snapshot['cycle_evidence'] : [];
+        $packets = is_array($snapshot['packets'] ?? null) ? $snapshot['packets'] : [];
+
+        $predicates = [];
+
+        // BLOCKER: recoverable backlog
+        $recoverableDepth = (int) ($queueState['recoverable_depth'] ?? 0);
+        $predicates[] = [
+            'id' => 'no_recoverable_backlog',
+            'observed' => $recoverableDepth,
+            'expected' => 0,
+            'severity' => $recoverableDepth > 0 ? 'blocker' : 'pass',
+            'next_repair_action' => $recoverableDepth > 0 ? 'drain_or_repair_recoverable_backlog' : 'none',
+        ];
+
+        // BLOCKER: malformed packets
+        $malformedCount = self::countMalformedPackets($packets);
+        $predicates[] = [
+            'id' => 'no_malformed_packets',
+            'observed' => $malformedCount,
+            'expected' => 0,
+            'severity' => $malformedCount > 0 ? 'blocker' : 'pass',
+            'next_repair_action' => $malformedCount > 0 ? 'repair_or_quarantine_malformed_packets' : 'none',
+        ];
+
+        // BLOCKER: target collisions
+        $writeSets = is_array($snapshot['write_sets'] ?? null) ? $snapshot['write_sets'] : [];
+        $collisionCount = self::writeSetCollisionCount($writeSets);
+        $predicates[] = [
+            'id' => 'no_target_collisions',
+            'observed' => $collisionCount,
+            'expected' => 0,
+            'severity' => $collisionCount > 0 ? 'blocker' : 'pass',
+            'next_repair_action' => $collisionCount > 0 ? 'isolate_colliding_write_sets_into_disjoint_lanes' : 'none',
+        ];
+
+        // BLOCKER: lease mismatch
+        $expectedLeaseId = (string) ($leaseState['expected_lease_id'] ?? '');
+        $observedLeaseId = (string) ($leaseState['observed_lease_id'] ?? '');
+        $leaseMismatch = $expectedLeaseId !== '' && $observedLeaseId !== '' && $expectedLeaseId !== $observedLeaseId;
+        $predicates[] = [
+            'id' => 'lease_matches_expected',
+            'observed' => $observedLeaseId,
+            'expected' => $expectedLeaseId,
+            'severity' => $leaseMismatch ? 'blocker' : 'pass',
+            'next_repair_action' => $leaseMismatch ? 'rebind_lease_or_reject_stale_claim' : 'none',
+        ];
+
+        // BLOCKER: cross-lane claim
+        $claimedLane = (string) ($leaseState['claimed_lane'] ?? '');
+        $allowedLane = (string) ($leaseState['allowed_lane'] ?? '');
+        $crossLane = $claimedLane !== '' && $allowedLane !== '' && $claimedLane !== $allowedLane;
+        $predicates[] = [
+            'id' => 'no_cross_lane_claim',
+            'observed' => $claimedLane,
+            'expected' => $allowedLane,
+            'severity' => $crossLane ? 'blocker' : 'pass',
+            'next_repair_action' => $crossLane ? 'release_cross_lane_claim_and_rebind_to_correct_lane' : 'none',
+        ];
+
+        // BLOCKER: missing proof receipt
+        $proofReceiptPresent = (bool) ($snapshot['proof_receipt_present'] ?? false);
+        $predicates[] = [
+            'id' => 'proof_receipt_present',
+            'observed' => $proofReceiptPresent,
+            'expected' => true,
+            'severity' => ! $proofReceiptPresent ? 'blocker' : 'pass',
+            'next_repair_action' => ! $proofReceiptPresent ? 'capture_proof_receipt_before_continuation' : 'none',
+        ];
+
+        // WARNING: worker pool degraded (not a blocker, but an alert)
+        $activeWorkers = (int) ($queueState['active_workers'] ?? 0);
+        $requiredWorkers = (int) ($queueState['required_workers'] ?? 0);
+        $workerDegraded = $requiredWorkers > 0 && $activeWorkers < $requiredWorkers;
+        $predicates[] = [
+            'id' => 'worker_pool_adequate',
+            'observed' => $activeWorkers,
+            'expected' => $requiredWorkers,
+            'severity' => $workerDegraded ? 'warning' : 'pass',
+            'next_repair_action' => $workerDegraded ? 'scale_up_worker_pool_or_reduce_parallelism' : 'none',
+        ];
+
+        // WARNING: stale queue age
+        $queueAgeHours = (float) ($queueState['queue_age_hours'] ?? 0.0);
+        $staleThreshold = 24.0;
+        $queueStale = $queueAgeHours > $staleThreshold;
+        $predicates[] = [
+            'id' => 'queue_age_fresh',
+            'observed' => $queueAgeHours,
+            'expected' => '<= '.$staleThreshold,
+            'severity' => $queueStale ? 'warning' : 'pass',
+            'next_repair_action' => $queueStale ? 'refresh_queue_context_before_next_cycle' : 'none',
+        ];
+
+        $blockerCount = count(array_filter($predicates, static fn (array $p): bool => $p['severity'] === 'blocker'));
+        $warningCount = count(array_filter($predicates, static fn (array $p): bool => $p['severity'] === 'warning'));
+        $continuationAllowed = $blockerCount === 0;
+
+        return [
+            'predicates' => $predicates,
+            'continuation_allowed' => $continuationAllowed,
+            'blocker_count' => $blockerCount,
+            'warning_count' => $warningCount,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $packets
+     */
+    private static function countMalformedPackets(array $packets): int
+    {
+        $count = 0;
+        foreach ($packets as $packet) {
+            $taskPacketId = (string) ($packet['task_packet_id'] ?? '');
+            $allowedFiles = (array) ($packet['allowed_files'] ?? []);
+            $objective = (string) ($packet['objective'] ?? '');
+            if ($taskPacketId === '' || $allowedFiles === [] || $objective === '') {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
      * @return list<string>
      */
     public static function flattenStrings(mixed $value): array
