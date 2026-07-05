@@ -300,4 +300,173 @@ class AtlasNativeWorkerOutcomeMapperTest extends TestCase
 
         self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_FAILED, $verdict['report_outcome']);
     }
+
+    // ── AC: envelope hash integrity ───────────────────────────────────────────
+
+    public function test_success_requires_envelope_hash_match_when_provided(): void
+    {
+        $envelope = $this->envelope(['allowed_files' => ['app/Foo.php']]);
+        $expectedHash = $this->computeEnvelopeHash($envelope);
+
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $envelope,
+            $this->execution(['envelope_hash' => $expectedHash]),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_SUCCESS, $verdict['report_outcome']);
+    }
+
+    public function test_envelope_hash_mismatch_blocks_success(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(['allowed_files' => ['app/Foo.php']]),
+            $this->execution(['envelope_hash' => 'env_wrong_hash_value']),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_FAILED, $verdict['report_outcome']);
+        self::assertSame('envelope_hash_mismatch', $verdict['report_reason']);
+        self::assertContains('envelope_hash_mismatch', $verdict['blocking_deficiencies']);
+    }
+
+    public function test_envelope_hash_from_verification_also_blocks_success(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(['allowed_files' => ['app/Foo.php']]),
+            $this->execution(),
+            $this->verification(['envelope_hash' => 'env_wrong_hash_value']),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_FAILED, $verdict['report_outcome']);
+        self::assertSame('envelope_hash_mismatch', $verdict['report_reason']);
+    }
+
+    public function test_missing_envelope_hash_does_not_block_success(): void
+    {
+        // Legacy callers that don't provide envelope_hash are unaffected
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_SUCCESS, $verdict['report_outcome']);
+    }
+
+    // ── AC: give_back for missing allowed_files ───────────────────────────────
+
+    public function test_missing_allowed_files_with_changed_files_maps_to_give_back(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),  // no allowed_files declared
+            $this->execution(['changed_files' => ['app/Foo.php']]),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_GIVE_BACK, $verdict['report_outcome']);
+        self::assertContains('missing_allowed_files', $verdict['blocking_deficiencies']);
+    }
+
+    public function test_empty_allowed_files_array_with_changed_files_maps_to_give_back(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(['allowed_files' => []]),
+            $this->execution(['changed_files' => ['app/Foo.php']]),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_GIVE_BACK, $verdict['report_outcome']);
+    }
+
+    // ── AC: give_back for unsafe command plan ─────────────────────────────────
+
+    public function test_unsafe_command_plan_maps_to_give_back(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(['unsafe_command_plan' => true]),
+            $this->execution(),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_GIVE_BACK, $verdict['report_outcome']);
+        self::assertContains('unsafe_command_plan', $verdict['blocking_deficiencies']);
+    }
+
+    public function test_unsafe_command_plan_in_execution_maps_to_give_back(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(['unsafe_command_plan' => true]),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_GIVE_BACK, $verdict['report_outcome']);
+    }
+
+    // ── AC: stale lease maps to retryable ─────────────────────────────────────
+
+    public function test_stale_lease_in_execution_maps_to_retryable_failure(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(['lease_expired' => true]),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_RETRYABLE_FAILURE, $verdict['report_outcome']);
+        self::assertSame('stale_lease', $verdict['report_reason']);
+    }
+
+    public function test_stale_lease_in_verification_maps_to_retryable_failure(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(),
+            $this->verification(['lease_expired' => true]),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_RETRYABLE_FAILURE, $verdict['report_outcome']);
+        self::assertSame('stale_lease', $verdict['report_reason']);
+    }
+
+    // ── AC: transient command failure maps to retryable ───────────────────────
+
+    public function test_transient_command_failure_maps_to_retryable_failure(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(['command_status' => 'transient_error']),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_RETRYABLE_FAILURE, $verdict['report_outcome']);
+        self::assertSame('transient_command_failure', $verdict['report_reason']);
+    }
+
+    // ── AC: failed verification precedence ────────────────────────────────────
+
+    public function test_failed_verification_maps_to_failed_not_retryable_when_no_class(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(),
+            $this->verification(['passed' => false, 'blockers' => ['test_failed']]),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_FAILED, $verdict['report_outcome']);
+        self::assertSame('verification_failed', $verdict['report_reason']);
+    }
+
+    private function computeEnvelopeHash(array $envelope): string
+    {
+        $identity = [
+            'task_packet_id' => (string) ($envelope['task_packet_id'] ?? ''),
+            'allowed_files' => array_values(array_map('strval', (array) ($envelope['allowed_files'] ?? []))),
+            'required_evidence' => array_values(array_map('strval', (array) ($envelope['required_evidence'] ?? []))),
+        ];
+        $canonical = json_encode($identity, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return 'env_'.substr(hash('sha256', (string) $canonical), 0, 32);
+    }
 }

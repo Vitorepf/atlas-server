@@ -12,11 +12,15 @@ namespace App\Services\Ai\SelfConstruction\NativeWorker;
  * Decision precedence:
  *   1. give_back when the envelope encodes an IMPOSSIBLE task (impossible_scope, missing
  *      implementation path, acceptance contradiction, dependency_missing, forbidden_file_required,
- *      non_atlas_native_dependency).
- *   2. failed when verification.passed is false OR command/patch results are red OR required
+ *      non_atlas_native_dependency, unsafe_command_plan, missing_allowed_files).
+ *   2. poison_failure when execution touched files outside allowed_files (scope violation).
+ *   3. failed when envelope hash mismatch (execution ran against a different/stale task).
+ *   4. retryable_failure for stale lease or transient command failure.
+ *   5. failed when verification.passed is false OR command/patch results are red OR required
  *      evidence is incomplete.
- *   3. success only when verification.passed is true AND every required evidence ref is present
- *      AND every command/patch result is green AND no unresolved blockers remain.
+ *   6. success only when verification.passed is true AND every required evidence ref is present
+ *      AND every command/patch result is green AND envelope hash matches AND no unresolved
+ *      blockers remain.
  */
 final class AtlasNativeWorkerOutcomeMapper
 {
@@ -53,6 +57,8 @@ final class AtlasNativeWorkerOutcomeMapper
         'dependency_missing',
         'forbidden_file_required',
         'non_atlas_native_dependency',
+        'unsafe_command_plan',
+        'missing_allowed_files',
     ];
 
     /**
@@ -63,6 +69,11 @@ final class AtlasNativeWorkerOutcomeMapper
      */
     public function map(array $envelope, array $execution, array $verification): array
     {
+        // Detect missing allowed_files: execution reports changed_files but envelope has no scope.
+        if (array_key_exists('changed_files', $execution) && empty($envelope['allowed_files'] ?? null)) {
+            $envelope['missing_allowed_files'] = true;
+        }
+
         $giveBackReasons = $this->collectGiveBackReasons($envelope, $execution);
         if ($giveBackReasons !== []) {
             $isNoClaimableTaskIncident = in_array('queue_starvation:no_claimable_task', $giveBackReasons, true);
@@ -102,6 +113,48 @@ final class AtlasNativeWorkerOutcomeMapper
             }
         }
 
+        // ENVELOPE HASH INTEGRITY — if execution or verification provides an expected envelope
+        // hash, it must match the canonical hash of the envelope's identity fields. A mismatch
+        // means the execution ran against a different or stale task identity — never success.
+        $expectedHash = (string) ($execution['envelope_hash'] ?? $verification['envelope_hash'] ?? '');
+        if ($expectedHash !== '' && ! $this->envelopeHashMatches($envelope, $expectedHash)) {
+            return $this->emit(
+                self::OUTCOME_FAILED,
+                'envelope_hash_mismatch',
+                ['envelope_hash_mismatch'],
+                $envelope,
+                $execution,
+                $verification,
+            );
+        }
+
+        // STALE LEASE — opt-in via execution/verification `lease_expired`. A stale lease is a
+        // transient condition worth retrying, not a permanent failure.
+        $leaseExpired = (bool) ($execution['lease_expired'] ?? $verification['lease_expired'] ?? false);
+        if ($leaseExpired) {
+            return $this->emit(
+                self::OUTCOME_RETRYABLE_FAILURE,
+                'stale_lease',
+                ['stale_lease'],
+                $envelope,
+                $execution,
+                $verification,
+            );
+        }
+
+        // TRANSIENT COMMAND FAILURE — if command_status signals a transient error, retry.
+        $commandStatus = array_key_exists('command_status', $execution) ? (string) $execution['command_status'] : null;
+        if ($commandStatus === 'transient_error') {
+            return $this->emit(
+                self::OUTCOME_RETRYABLE_FAILURE,
+                'transient_command_failure',
+                ['transient_command_failure'],
+                $envelope,
+                $execution,
+                $verification,
+            );
+        }
+
         $verificationPassed = (bool) ($verification['passed'] ?? false);
         $executionGreen = $this->executionIsGreen($execution);
         $evidenceComplete = $this->evidenceComplete($envelope, $execution, $verification);
@@ -136,6 +189,25 @@ final class AtlasNativeWorkerOutcomeMapper
         }
 
         return $this->emit(self::OUTCOME_SUCCESS, 'all_green', [], $envelope, $execution, $verification);
+    }
+
+    /**
+     * Compute a canonical hash from the envelope's identity fields and compare against
+     * the expected hash provided by execution or verification.
+     *
+     * @param  array<string,mixed>  $envelope
+     */
+    private function envelopeHashMatches(array $envelope, string $expectedHash): bool
+    {
+        $identity = [
+            'task_packet_id' => (string) ($envelope['task_packet_id'] ?? ''),
+            'allowed_files' => array_values(array_map('strval', (array) ($envelope['allowed_files'] ?? []))),
+            'required_evidence' => array_values(array_map('strval', (array) ($envelope['required_evidence'] ?? []))),
+        ];
+        $canonical = json_encode($identity, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $computed = 'env_'.substr(hash('sha256', (string) $canonical), 0, 32);
+
+        return hash_equals($computed, $expectedHash);
     }
 
     /**
