@@ -11,6 +11,14 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * gaps sharing the same `unblocker_id` collapse into ONE task node that both chains point to,
  * so a shared unblocker is never duplicated across gaps.
  *
+ * Each task node exposes `unlocks` — the task_ids that this task directly unblocks (the reverse
+ * of dependency_ids). Orphan tasks (no dependents and no dependencies) or contradictory
+ * dependencies (a task whose dependency is not in the chain) are marked `not_ready` instead
+ * of emitting a fake coherent chain.
+ *
+ * Chain value scoring: each chain gets a `chain_value_score` (0.0–1.0) reflecting how many
+ * blockers are ordered, non-orphan, and have concrete allowed_files_hint.
+ *
  * Input shape:
  *   { gaps: list<{ gap_id:string, blockers: list<{
  *       type: 'missing_context'|'weak_gate'|'no_runtime_integration',
@@ -133,10 +141,14 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompiler
         }
         unset($node);
 
+        // Post-processing: unlocks, not_ready, chain_value_score.
+        $chain = $this->computeUnlocksAndReadiness($chain);
+
         return [
             'schema' => self::SCHEMA,
             'chain' => $chain,
             'gap_chains' => $gapChains,
+            'chain_value_score' => $this->computeChainValueScore($chain),
         ];
     }
 
@@ -164,5 +176,86 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompiler
             // implementable task — never let a muscle treat it as ready-to-claim.
             'not_muscle_ready' => $allowedFilesHint === [],
         ];
+    }
+
+    /**
+     * Compute unlocks (reverse dependencies), detect orphans and contradictory
+     * dependencies, and mark affected nodes as not_ready.
+     *
+     * @param  list<array<string,mixed>>  $chain
+     * @return list<array<string,mixed>>
+     */
+    private function computeUnlocksAndReadiness(array $chain): array
+    {
+        $taskIds = [];
+        foreach ($chain as $node) {
+            $taskIds[$node['task_id']] = true;
+        }
+
+        // Build unlocks: for each task, which tasks depend on it?
+        $unlocks = [];
+        foreach ($chain as $node) {
+            $unlocks[$node['task_id']] = [];
+        }
+        foreach ($chain as $node) {
+            foreach (($node['dependency_ids'] ?? []) as $depId) {
+                if (isset($unlocks[$depId])) {
+                    $unlocks[$depId][] = $node['task_id'];
+                }
+            }
+        }
+
+        foreach ($chain as &$node) {
+            $node['unlocks'] = array_values(array_unique($unlocks[$node['task_id']] ?? []));
+
+            $hasDeps      = ! empty($node['dependency_ids']);
+            $hasUnlocks   = ! empty($node['unlocks']);
+            $depsInChain  = true;
+            foreach (($node['dependency_ids'] ?? []) as $depId) {
+                if (! isset($taskIds[$depId])) {
+                    $depsInChain = false;
+                    break;
+                }
+            }
+
+            // Orphan: no dependencies and no dependents (isolated task).
+            $isOrphan = ! $hasDeps && ! $hasUnlocks;
+            // Contradictory: a dependency references a task_id not in the chain.
+            $isContradictory = ! $depsInChain;
+
+            $node['not_ready'] = $isOrphan || $isContradictory;
+            if ($isOrphan) {
+                $node['not_ready_reason'] = 'orphan_task';
+            } elseif ($isContradictory) {
+                $node['not_ready_reason'] = 'contradictory_dependency';
+            } else {
+                $node['not_ready_reason'] = null;
+            }
+        }
+        unset($node);
+
+        return $chain;
+    }
+
+    /**
+     * Chain value score: fraction of nodes that are ready (not orphan, not
+     * contradictory) and have concrete allowed_files_hint.
+     *
+     * @param  list<array<string,mixed>>  $chain
+     */
+    private function computeChainValueScore(array $chain): float
+    {
+        if ($chain === []) {
+            return 0.0;
+        }
+
+        $ready = 0;
+        foreach ($chain as $node) {
+            if (empty($node['not_ready']) && ! empty($node['allowed_files_hint'])) {
+                $ready++;
+            }
+        }
+
+        return round($ready / count($chain), 4);
     }
 }

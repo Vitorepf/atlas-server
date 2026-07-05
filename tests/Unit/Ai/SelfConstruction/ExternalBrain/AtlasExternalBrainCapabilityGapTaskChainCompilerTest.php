@@ -381,4 +381,141 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompilerTest extends TestCas
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC: unlocks exposes what each task unlocks next ──────────────────────
+
+    public function test_unlocks_field_exposes_what_each_task_unlocks_next(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context', 'allowed_files_hint' => ['app/A.php']],
+                    ['type' => 'weak_gate', 'allowed_files_hint' => ['app/B.php']],
+                    ['type' => 'no_runtime_integration', 'allowed_files_hint' => ['app/C.php']],
+                ]],
+            ],
+        ]);
+
+        $context = $result['chain'][0];
+        $weakGate = $result['chain'][1];
+        $runtime = $result['chain'][2];
+
+        // context unlocks weak_gate
+        $this->assertSame([$weakGate['task_id']], $context['unlocks']);
+        // weak_gate unlocks runtime
+        $this->assertSame([$runtime['task_id']], $weakGate['unlocks']);
+        // runtime unlocks nothing
+        $this->assertSame([], $runtime['unlocks']);
+    }
+
+    // ── AC: orphan tasks marked not_ready ───────────────────────────────────
+
+    public function test_single_isolated_task_marked_not_ready_as_orphan(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context', 'allowed_files_hint' => ['app/A.php']],
+                ]],
+            ],
+        ]);
+
+        $node = $result['chain'][0];
+        $this->assertTrue($node['not_ready']);
+        $this->assertSame('orphan_task', $node['not_ready_reason']);
+    }
+
+    public function test_multi_task_chain_not_marked_orphan(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context', 'allowed_files_hint' => ['app/A.php']],
+                    ['type' => 'weak_gate', 'allowed_files_hint' => ['app/B.php']],
+                ]],
+            ],
+        ]);
+
+        $this->assertFalse($result['chain'][0]['not_ready']);
+        $this->assertFalse($result['chain'][1]['not_ready']);
+    }
+
+    // ── AC: chain_value_score ────────────────────────────────────────────────
+
+    public function test_chain_value_score_is_zero_for_empty_chain(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([]);
+
+        $this->assertSame(0.0, $result['chain_value_score']);
+    }
+
+    public function test_chain_value_score_is_one_when_all_ready_with_files(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context', 'allowed_files_hint' => ['app/A.php']],
+                    ['type' => 'weak_gate', 'allowed_files_hint' => ['app/B.php']],
+                    ['type' => 'no_runtime_integration', 'allowed_files_hint' => ['app/C.php']],
+                ]],
+            ],
+        ]);
+
+        $this->assertSame(1.0, $result['chain_value_score']);
+    }
+
+    public function test_chain_value_score_below_one_when_orphan_present(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context', 'allowed_files_hint' => ['app/A.php']],
+                ]],
+            ],
+        ]);
+
+        $this->assertLessThan(1.0, $result['chain_value_score']);
+    }
+
+    public function test_chain_value_score_below_one_when_no_allowed_files(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context'],
+                    ['type' => 'weak_gate'],
+                ]],
+            ],
+        ]);
+
+        $this->assertLessThan(1.0, $result['chain_value_score']);
+    }
+
+    // ── AC: tests cover at least three capability gaps ───────────────────────
+
+    public function test_three_gaps_compile_into_ordered_chains(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context', 'allowed_files_hint' => ['app/A.php']],
+                    ['type' => 'weak_gate', 'allowed_files_hint' => ['app/B.php']],
+                ]],
+                ['gap_id' => 'gap-b', 'blockers' => [
+                    ['type' => 'missing_context', 'allowed_files_hint' => ['app/C.php']],
+                    ['type' => 'no_runtime_integration', 'allowed_files_hint' => ['app/D.php']],
+                ]],
+                ['gap_id' => 'gap-c', 'blockers' => [
+                    ['type' => 'weak_gate', 'allowed_files_hint' => ['app/E.php']],
+                    ['type' => 'no_runtime_integration', 'allowed_files_hint' => ['app/F.php']],
+                ]],
+            ],
+        ]);
+
+        $this->assertCount(3, $result['gap_chains']);
+        $this->assertArrayHasKey('gap-a', $result['gap_chains']);
+        $this->assertArrayHasKey('gap-b', $result['gap_chains']);
+        $this->assertArrayHasKey('gap-c', $result['gap_chains']);
+        $this->assertGreaterThan(0.0, $result['chain_value_score']);
+    }
 }
