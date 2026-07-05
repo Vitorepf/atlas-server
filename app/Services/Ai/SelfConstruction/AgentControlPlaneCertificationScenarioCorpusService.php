@@ -208,6 +208,24 @@ final class AgentControlPlaneCertificationScenarioCorpusService
 
         $status = $alignedMissed === 0 && $unmatched === 0 ? 'passed' : ($alignedMissed > 0 ? 'failed' : 'warning');
 
+        // Coverage: every canonical category and severity must have at least one
+        // runnable scenario before the corpus can be certified ready.
+        $categoryCoverage = [];
+        foreach (self::CATEGORIES as $category) {
+            $categoryCoverage[$category] = false;
+        }
+        $severityCoverage = [];
+        foreach (self::SEVERITIES as $severity) {
+            $severityCoverage[$severity] = false;
+        }
+        foreach ($scenarios as $scenario) {
+            $categoryCoverage[(string) $scenario['category']] = true;
+            $severityCoverage[(string) $scenario['severity']] = true;
+        }
+        $allCategoriesCovered = ! in_array(false, $categoryCoverage, true);
+        $allSeveritiesCovered = ! in_array(false, $severityCoverage, true);
+        $corpusReady = $status === 'passed' && $allCategoriesCovered && $allSeveritiesCovered;
+
         $payload = [
             'schema_version' => 'atlas.self_construction.agent_control_plane_certification_scenario_corpus_run.v1',
             'mode' => 'read_only_agent_control_plane_certification_scenario_corpus_run',
@@ -229,6 +247,11 @@ final class AgentControlPlaneCertificationScenarioCorpusService
             'unmatched_count' => $unmatched,
             'alignment_rate' => $alignmentRate,
             'all_expected_detected' => $alignedMissed === 0 && $unmatched === 0,
+            'category_coverage' => $categoryCoverage,
+            'severity_coverage' => $severityCoverage,
+            'all_categories_covered' => $allCategoriesCovered,
+            'all_severities_covered' => $allSeveritiesCovered,
+            'corpus_ready' => $corpusReady,
             'report' => $report,
             'human_summary' => sprintf('Scenario corpus run: %d aligned, %d misaligned, %d unmatched.', $alignedDetected, $alignedMissed, $unmatched),
         ];
