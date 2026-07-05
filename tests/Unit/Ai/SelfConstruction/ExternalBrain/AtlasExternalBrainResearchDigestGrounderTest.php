@@ -665,4 +665,116 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         $ids = array_column($result['task_candidates'], 'idea_id');
         $this->assertSame(['aaa-idea', 'zzz-idea'], $ids);
     }
+
+    // ── AC2: hype-only research is rejected even when it names a popular architecture ──
+
+    public function test_hype_only_research_rejected_even_with_popular_architecture(): void
+    {
+        $result = $this->grounder->ground([
+            'research_ideas' => [
+                [
+                    'idea_id' => 'hype-1',
+                    'summary' => 'Use microservices architecture for everything',
+                    'is_hype' => true,
+                    'local_symbols' => ['App\\Services\\Foo'],
+                    'owner_files' => ['app/Services/Foo.php'],
+                    'runnable_evidence_path' => 'php artisan test',
+                    'atlas_capability_gap' => 'missing microservices support',
+                    'compounding_impact' => 'high',
+                ],
+            ],
+        ]);
+
+        $this->assertNotEmpty($result['rejected']);
+        $this->assertSame(0, $result['promoted_count']);
+    }
+
+    // ── AC3: missing local symbol, owner file or runnable evidence path produces hold ──
+
+    public function test_missing_local_symbol_produces_hold(): void
+    {
+        $result = $this->grounder->ground([
+            'research_ideas' => [
+                [
+                    'idea_id' => 'no-sym',
+                    'summary' => 'Great idea',
+                    'local_symbols' => [],
+                    'owner_files' => ['app/Foo.php'],
+                    'allowed_files_candidate' => ['app/Foo.php'],
+                    'runnable_evidence_path' => 'php artisan test',
+                    'atlas_capability_gap' => 'missing feature',
+                    'compounding_impact' => 'high',
+                ],
+            ],
+        ]);
+
+        $this->assertNotEmpty($result['held_for_research']);
+    }
+
+    public function test_missing_owner_file_produces_hold(): void
+    {
+        $result = $this->grounder->ground([
+            'research_ideas' => [
+                [
+                    'idea_id' => 'no-owner',
+                    'summary' => 'Great idea',
+                    'local_symbols' => ['App\\Foo'],
+                    'owner_files' => [],
+                    'has_local_owner' => false,
+                    'allowed_files_candidate' => ['app/Foo.php'],
+                    'runnable_evidence_path' => 'php artisan test',
+                    'atlas_capability_gap' => 'missing feature',
+                    'compounding_impact' => 'high',
+                ],
+            ],
+        ]);
+
+        $this->assertNotEmpty($result['held_for_research']);
+    }
+
+    public function test_missing_runnable_evidence_produces_hold(): void
+    {
+        $result = $this->grounder->ground([
+            'research_ideas' => [
+                [
+                    'idea_id' => 'no-evidence',
+                    'summary' => 'Great idea',
+                    'local_symbols' => ['App\\Foo'],
+                    'owner_files' => ['app/Foo.php'],
+                    'allowed_files_candidate' => ['app/Foo.php'],
+                    'runnable_evidence_path' => '',
+                    'atlas_capability_gap' => 'missing feature',
+                    'compounding_impact' => 'high',
+                ],
+            ],
+        ]);
+
+        $this->assertNotEmpty($result['held_for_research']);
+    }
+
+    // ── AC4: accepted digests produce allowed_files candidates and concrete capability_delta ──
+
+    public function test_accepted_digests_produce_allowed_files_and_capability_delta(): void
+    {
+        $result = $this->grounder->ground([
+            'research_ideas' => [
+                [
+                    'idea_id' => 'accepted-1',
+                    'summary' => 'Add new feature',
+                    'local_symbols' => ['App\\Services\\Foo'],
+                    'owner_files' => ['app/Services/Foo.php'],
+                    'allowed_files_candidate' => ['app/Services/Foo.php'],
+                    'runnable_evidence_path' => 'php artisan test',
+                    'atlas_capability_gap' => 'missing feature X',
+                    'leverage_hint' => 'high leverage',
+                    'compounding_impact_signals' => ['reusable'],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(1, $result['promoted_count']);
+        $candidate = $result['task_candidates'][0];
+        $this->assertNotEmpty($candidate['allowed_files_candidate']);
+        $this->assertNotEmpty($candidate['atlas_capability_gap']);
+    }
 }
