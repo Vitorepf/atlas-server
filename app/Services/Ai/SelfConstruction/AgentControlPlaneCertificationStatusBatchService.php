@@ -145,7 +145,7 @@ final class AgentControlPlaneCertificationStatusBatchService
         }
 
         $checked = count($statuses);
-        $batchStatus = $failed === 0 ? 'passed' : 'failed';
+        $batchStatus = $checked === 0 ? 'no_checks_selected' : ($failed === 0 ? 'passed' : 'failed');
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,

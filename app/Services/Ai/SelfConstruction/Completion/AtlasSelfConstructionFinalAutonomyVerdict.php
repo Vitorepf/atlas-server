@@ -261,6 +261,13 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             return 'failed_soak_evidence';
         }
 
+        // A genuine soak run always produces a deterministic soak_run_hash (see
+        // AtlasSelfConstructionRuntimeSoakRunner::soakRunHash). A 'pass' without
+        // a real hash is a hollow self-report — fail-closed.
+        if (empty($evidence['soak_run_hash'])) {
+            return 'soak_evidence_missing_run_hash';
+        }
+
         return null;
     }
 

@@ -164,4 +164,19 @@ final class AgentControlPlaneCertificationStatusBatchServiceTest extends TestCas
         $this->assertArrayHasKey('batch_hash', $result);
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $result['batch_hash']);
     }
+
+    public function test_zero_checks_yields_no_checks_selected_not_passed(): void
+    {
+        // A batch that processes ZERO projections (e.g. only_keys set to a
+        // non-existent key) must not report 'passed' — it must report a
+        // fail-closed status.
+        $result = $this->service()->run([
+            'only_keys' => ['non_existent_key_xyz'],
+        ]);
+
+        $this->assertNotSame('passed', $result['status']);
+        $this->assertSame('no_checks_selected', $result['status']);
+        $this->assertSame(0, $result['checked_count']);
+        $this->assertSame([], $result['statuses']);
+    }
 }
