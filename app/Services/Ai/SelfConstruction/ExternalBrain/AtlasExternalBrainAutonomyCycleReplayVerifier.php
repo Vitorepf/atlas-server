@@ -37,7 +37,7 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifier
     ];
 
     /** Stages whose identity (task_packet_id / correlation_id) must all agree. */
-    private const CORRELATED_STAGES = ['packet_emitted', 'muscle_outcome', 'gates_judged', 'outcome_learning'];
+    private const CORRELATED_STAGES = ['lever_chosen', 'packet_emitted', 'muscle_outcome', 'gates_judged', 'outcome_learning', 'next_decision'];
 
     /**
      * @param  list<array<string, mixed>>  $facts

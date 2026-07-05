@@ -15,12 +15,12 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifierTest extends TestCase
     private function completeStream(string $nextLever = 'increase_depth', string $taskPacketId = 'tp-cycle-1'): array
     {
         return [
-            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'widen_breadth'],
+            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'widen_breadth', 'task_packet_id' => $taskPacketId],
             ['stage' => 'packet_emitted', 'sequence' => 2, 'task_packet_id' => $taskPacketId],
             ['stage' => 'muscle_outcome', 'sequence' => 3, 'outcome' => 'success', 'task_packet_id' => $taskPacketId],
             ['stage' => 'gates_judged', 'sequence' => 4, 'task_packet_id' => $taskPacketId, 'gate_verdict' => 'pass'],
             ['stage' => 'outcome_learning', 'sequence' => 5, 'task_packet_id' => $taskPacketId, 'outcome_learning_ref' => 'learn-1'],
-            ['stage' => 'next_decision', 'sequence' => 6, 'lever' => $nextLever],
+            ['stage' => 'next_decision', 'sequence' => 6, 'lever' => $nextLever, 'task_packet_id' => $taskPacketId],
         ];
     }
 
@@ -39,11 +39,11 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifierTest extends TestCase
     public function test_next_decision_before_outcome_learning_does_not_count_as_changed(): void
     {
         $facts = [
-            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'widen_breadth'],
+            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'widen_breadth', 'task_packet_id' => 'tp-1'],
             ['stage' => 'packet_emitted', 'sequence' => 2, 'task_packet_id' => 'tp-1'],
             ['stage' => 'muscle_outcome', 'sequence' => 3, 'task_packet_id' => 'tp-1'],
             // next_decision arrives BEFORE outcome_learning — premature, must not count.
-            ['stage' => 'next_decision', 'sequence' => 4, 'lever' => 'increase_depth'],
+            ['stage' => 'next_decision', 'sequence' => 4, 'lever' => 'increase_depth', 'task_packet_id' => 'tp-1'],
             ['stage' => 'gates_judged', 'sequence' => 5, 'task_packet_id' => 'tp-1', 'gate_verdict' => 'pass'],
             ['stage' => 'outcome_learning', 'sequence' => 6, 'task_packet_id' => 'tp-1', 'outcome_learning_ref' => 'learn-1'],
         ];
@@ -123,14 +123,14 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifierTest extends TestCase
     public function test_out_of_order_facts_are_reported_as_ordering_violations(): void
     {
         $facts = [
-            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'widen_breadth'],
+            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'widen_breadth', 'task_packet_id' => 'tp-1'],
             // gates_judged arrives (sequence 2) BEFORE muscle_outcome (sequence 5) even though
             // muscle_outcome must precede gates_judged in the required cycle order.
-            ['stage' => 'packet_emitted', 'sequence' => 2],
-            ['stage' => 'gates_judged', 'sequence' => 3],
-            ['stage' => 'muscle_outcome', 'sequence' => 4, 'outcome' => 'success'],
-            ['stage' => 'outcome_learning', 'sequence' => 5],
-            ['stage' => 'next_decision', 'sequence' => 6, 'lever' => 'increase_depth'],
+            ['stage' => 'packet_emitted', 'sequence' => 2, 'task_packet_id' => 'tp-1'],
+            ['stage' => 'gates_judged', 'sequence' => 3, 'task_packet_id' => 'tp-1', 'gate_verdict' => 'pass'],
+            ['stage' => 'muscle_outcome', 'sequence' => 4, 'outcome' => 'success', 'task_packet_id' => 'tp-1'],
+            ['stage' => 'outcome_learning', 'sequence' => 5, 'task_packet_id' => 'tp-1', 'outcome_learning_ref' => 'learn-1'],
+            ['stage' => 'next_decision', 'sequence' => 6, 'lever' => 'increase_depth', 'task_packet_id' => 'tp-1'],
         ];
 
         $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
@@ -228,12 +228,12 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifierTest extends TestCase
     public function test_correlation_id_alias_is_accepted_in_place_of_task_packet_id(): void
     {
         $facts = [
-            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'widen_breadth'],
+            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'widen_breadth', 'correlation_id' => 'corr-1'],
             ['stage' => 'packet_emitted', 'sequence' => 2, 'correlation_id' => 'corr-1'],
             ['stage' => 'muscle_outcome', 'sequence' => 3, 'outcome' => 'success', 'correlation_id' => 'corr-1'],
             ['stage' => 'gates_judged', 'sequence' => 4, 'correlation_id' => 'corr-1', 'gate_verdict' => 'pass'],
             ['stage' => 'outcome_learning', 'sequence' => 5, 'correlation_id' => 'corr-1', 'outcome_learning_ref' => 'learn-1'],
-            ['stage' => 'next_decision', 'sequence' => 6, 'lever' => 'increase_depth'],
+            ['stage' => 'next_decision', 'sequence' => 6, 'lever' => 'increase_depth', 'correlation_id' => 'corr-1'],
         ];
 
         $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
@@ -274,5 +274,101 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifierTest extends TestCase
         $this->assertFalse($result['cycle_complete']);
         $codes = array_column($result['causality_violations'], 'code');
         $this->assertContains('missing_outcome_learning_ref', $codes);
+    }
+
+    // ── AC: every required stage shares a coherent correlation id ────────────
+
+    public function test_mismatched_correlation_id_on_lever_chosen_is_causality_violation(): void
+    {
+        $facts = $this->completeStream();
+        foreach ($facts as &$fact) {
+            if ($fact['stage'] === 'lever_chosen') {
+                $fact['task_packet_id'] = 'tp-DIFFERENT';
+            }
+        }
+        unset($fact);
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertFalse($result['cycle_complete']);
+        $codes = array_column($result['causality_violations'], 'code');
+        $this->assertContains('correlation_mismatch', $codes);
+    }
+
+    public function test_mismatched_correlation_id_on_next_decision_is_causality_violation(): void
+    {
+        $facts = $this->completeStream();
+        foreach ($facts as &$fact) {
+            if ($fact['stage'] === 'next_decision') {
+                $fact['task_packet_id'] = 'tp-DIFFERENT';
+            }
+        }
+        unset($fact);
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertFalse($result['cycle_complete']);
+        $codes = array_column($result['causality_violations'], 'code');
+        $this->assertContains('correlation_mismatch', $codes);
+    }
+
+    public function test_all_stages_sharing_one_correlation_id_completes_cycle(): void
+    {
+        $facts = $this->completeStream();
+        // Add correlation_id to lever_chosen and next_decision too
+        foreach ($facts as &$fact) {
+            $fact['task_packet_id'] = 'tp-cycle-1';
+        }
+        unset($fact);
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertTrue($result['cycle_complete']);
+        $this->assertSame('tp-cycle-1', $result['correlation_id']);
+        $this->assertSame([], $result['causality_violations']);
+    }
+
+    // ── AC: next_decision is causally downstream of outcome_learning ─────────
+
+    public function test_next_decision_causally_downstream_of_outcome_learning_completes(): void
+    {
+        $facts = $this->completeStream();
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertTrue($result['cycle_complete']);
+        $this->assertTrue($result['decision_changed']);
+    }
+
+    public function test_next_decision_with_same_sequence_as_outcome_learning_does_not_count(): void
+    {
+        $facts = $this->completeStream();
+        foreach ($facts as &$fact) {
+            if ($fact['stage'] === 'next_decision') {
+                $fact['sequence'] = 5; // same as outcome_learning
+            }
+        }
+        unset($fact);
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertFalse($result['decision_changed']);
+        $this->assertFalse($result['cycle_complete']);
+    }
+
+    public function test_mismatched_correlation_ids_lower_replay_confidence(): void
+    {
+        $facts = $this->completeStream();
+        foreach ($facts as &$fact) {
+            if ($fact['stage'] === 'gates_judged') {
+                $fact['task_packet_id'] = 'different-id';
+            }
+        }
+        unset($fact);
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+        $complete = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($this->completeStream());
+
+        $this->assertLessThan($complete['replay_score'], $result['replay_score']);
+        $this->assertNotEmpty($result['causality_violations']);
     }
 }
