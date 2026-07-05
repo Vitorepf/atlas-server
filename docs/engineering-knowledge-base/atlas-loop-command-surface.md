@@ -420,11 +420,17 @@ surface.
 | Tone / single truth | `atlas-app/components/loop/loopTone.ts` |
 | Presentational vocabulary | `atlas-app/components/loop/*` |
 
-**Tests (all green).** Backend: 42 tests / 333 assertions across
+**Tests (all green).** Backend: 58 tests / 414 assertions (re-run 2026-07-05) across
+`tests/Feature/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandLiveCyclesTest.php`,
+`tests/Feature/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandOperatorDecisionTest.php`,
+`tests/Feature/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandRunControlTest.php`,
+`tests/Feature/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandAreasStartRunTest.php`,
+`tests/Feature/Ai/SoftwareCompanyStewardship/LoopCommandSurfaceTest.php`.
+(Nota 2026-07-05: os paths antes listados aqui —
 `tests/Feature/AreaFocusLoopCommandControllerTest.php`,
 `tests/Feature/Ai/SoftwareCompany/AreaFocusLoopCommandControllerTest.php`,
-`tests/Feature/Ai/SoftwareCompany/AreaFocusLoopCommandRunControlTest.php`,
-`tests/Feature/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandOperatorDecisionTest.php`,
-`tests/Feature/Ai/SoftwareCompanyStewardship/LoopCommandSurfaceTest.php`. Mobile: the
+`tests/Feature/Ai/SoftwareCompany/AreaFocusLoopCommandRunControlTest.php` — nunca
+existiram no git; os testes reais nasceram em 2026-05-30, commits 54f26ea90b e
+1ab6de29e2, já em `tests/Feature/Ai/SoftwareCompanyStewardship/`.) Mobile: the
 Loop screen, client, hooks, and tone are covered by strict `tsc --noEmit` (clean) and
 the `test:front` battery (green).

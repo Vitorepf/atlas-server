@@ -29,7 +29,6 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-ai-router-runtime-enterprise-upgrade.md
   - app/Services/Ai/Router/AtlasAiHyperflowCertificationService.php
-  - app/Services/Ai/Router/AtlasAiHyperflowRivalsBatteryService.php
   - tests/Feature/Ai/AtlasAiHyperflowCertificationApiTest.php
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
@@ -185,6 +184,10 @@ Ready criteria canonicos:
 - Hyperflow rivals battery
 - External provider evidence receipt
 - Canonical docs health
+
+Nota (2026-07-05): o servico dedicado `AtlasAiHyperflowRivalsBatteryService`
+foi retirado em 2026-07-02 (commit `f9aa666bfe`) e saiu de `related_paths`;
+os checks de certificacao seguem em `AtlasAiHyperflowCertificationService`.
 
 ## Evidencias
 

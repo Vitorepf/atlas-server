@@ -270,7 +270,7 @@ Cada bridge e um servico thin em `app/Services/Ai/Programming/Kernel/`:
 
 | # | Bridge | Path sugerido | Papel |
 | --- | --- | --- | --- |
-| 1 | ProgrammingDomainManifestSeeder | `database/seeders/Ai/ProgrammingDomainManifestSeeder.php` | Carrega `atlas.ai.domain_manifest.v1` em `ai_domain_manifests` com charter, departments (dev/repair/review/qa/security/database/visual/forge), capabilities `programming.*`, `policy_profile=programming.default`, `maturity_stage=specialist` |
+| 1 | ProgrammingDomainManifestSeeder | `app/Services/Ai/Programming/Kernel/ProgrammingDomainManifestSeeder.php` (implementado em 2026-05-18, commit aa253d759f; path sugerido original era `database/seeders/Ai/`) | Carrega `atlas.ai.domain_manifest.v1` em `ai_domain_manifests` com charter, departments (dev/repair/review/qa/security/database/visual/forge), capabilities `programming.*`, `policy_profile=programming.default`, `maturity_stage=specialist` |
 | 2 | ProgrammingDomainRuntimeAdapter | `app/Services/Ai/Programming/Kernel/ProgrammingDomainRuntimeAdapter.php` | Implementa interface `DomainRuntime` Meta 2 sobre `AtlasProgrammingOrchestrator`: `canHandle`, `plan`, `execute`, `validate`, `certify`, `handoff`, `describeCapabilities` |
 | 3 | AtlasDevMissionAdapter | `app/Services/Ai/Programming/Kernel/AtlasDevMissionAdapter.php` | Traduz `WorkOrder` em `ProgrammingExecutionRequest` para `programming.dev`. Propaga `mission_id`, `objective_id`, `work_order_id`, `task_contract_hash`, `risk_level`, `autonomy_level` ate `AtlasDevRuntimeService` |
 | 4 | AtlasForgeHandoffAdapter | `app/Services/Ai/Programming/Kernel/AtlasForgeHandoffAdapter.php` | Cobre `programming.forge`. Recebe escalacao Dual-Core, emite `DomainHandoff` Meta 2 com `context_pack` + `evidence_refs`, dispara Forge, acompanha resposta |
@@ -278,7 +278,7 @@ Cada bridge e um servico thin em `app/Services/Ai/Programming/Kernel/`:
 | 6 | ProgrammingPolicyBridge | `app/Services/Ai/Programming/Kernel/ProgrammingPolicyBridge.php` | Antes de provider call, repo clone, npm install, git push, deploy ou secret access, chama `SafetyDecisionService::decide` e respeita `allow|require_approval|sandbox_required|blocked` |
 | 7 | ProgrammingToolBridge | `app/Services/Ai/Programming/Kernel/ProgrammingToolBridge.php` | Liga decisao de ferramenta (lints/SAST/scanners/builders) ao Tool Economy. Enquanto Tool Registry nao existir, registra `tool.decision.v1` advisory e gateia via Policy |
 | 8 | ProgrammingControlPlaneProjection | `app/Services/Ai/Programming/Kernel/ProgrammingControlPlaneProjection.php` | Projecta para Control Plane: open work_orders, blocked, certification_pass_rate, dev_to_forge_escalations, evidence_pack_count, policy_block_count |
-| 9 | AtlasAiProgrammingDomainCommand | `app/Console/Commands/AtlasAiProgrammingDomainCommand.php` | Comando `atlas:ai:programming-domain` com acoes `readiness`, `seed-manifest`, `smoke`, `control-plane`. Espelha padrao das outras metas |
+| 9 | AtlasAiProgrammingDomainCommand | `app/Console/Commands/AtlasAiProgrammingAdapterCommand.php` (implementado em 2026-05-18, commit aa253d759f, como `AtlasAiProgrammingAdapterCommand`, comando `atlas:ai:programming-adapter` com acoes `readiness`, `smoke`, `control-plane`) | Comando `atlas:ai:programming-domain` com acoes `readiness`, `seed-manifest`, `smoke`, `control-plane`. Espelha padrao das outras metas |
 
 ## Atlas Dev: Flow Dentro Do Programming Domain
 
@@ -334,9 +334,10 @@ Dev/Forge nao consomem `mission_id`, `work_order_id`, `safety_decision_id`,
 ## Arquivos Tocados E Intocaveis
 
 A tocar (novos): `app/Services/Ai/Programming/Kernel/*.php` (9 bridges),
-`database/seeders/Ai/ProgrammingDomainManifestSeeder.php`,
-`app/Console/Commands/AtlasAiProgrammingDomainCommand.php`,
+`app/Services/Ai/Programming/Kernel/ProgrammingDomainManifestSeeder.php`,
+`app/Console/Commands/AtlasAiProgrammingAdapterCommand.php`,
 `tests/Feature/Ai/Programming/Kernel/*.php`.
+(Paths reais da implementacao de 2026-05-18, commit aa253d759f; o plano original sugeria seeder em `database/seeders/Ai/` e comando `AtlasAiProgrammingDomainCommand`.)
 
 Costura minima (uma linha cada, sob review): aceitar `mission_id`,
 `objective_id`, `work_order_id` em `AtlasProgrammingOrchestrator` /

@@ -63,7 +63,7 @@ evidence_refs:
   - command: atlas:plan-execution:run
   - test: AutonomousEvolutionSessionServiceTest
 required_tests:
-  - "php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LanguageQualityGateServiceTest.php"
+  - "php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/CycleLanguageQualityGateServiceTest.php"
   - "php artisan test --testsuite=Unit,Feature --filter=AreaFocusLoop"
   - "php artisan atlas:engineering:knowledge docs-health --json"
 next_actions:
@@ -194,7 +194,7 @@ Receipt schema: `atlas.software_company_stewardship.language_quality_gate_receip
 - Larastan instalado e version-correct; PHPStan single-file level 5 = 1.5s; dir 98 arquivos level 6 cold 15s / warm 1.7s; workers default crasham a 128M (fake "severe errors") corrigido por `--memory-limit=512M`; baseline suprime per-file/per-message identifier-keyed, erro NOVO no mesmo arquivo nao casa e bloqueia. Fonte: runs medidos no repo real.
 - Infection 0.33.2 runtime require sem pin de PHPUnit; resolve clean contra a stack; sem coverage driver hoje (`php -m` sem Xdebug/PCOV); `base_ref` default `main` (`StewardshipMergeQueueService.php:80`); Process seam L505-513; vocabulario gate `AreaFocusGateEvaluatorService.php:37,45-51`.
 - Loop hoje verifica so com `php artisan test <file>` + `git diff --check` (`ownerValidationCommands` ~L2984-3008); Pint NAO e invocado no loop.
-- Required tests: `php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/LanguageQualityGateServiceTest.php` e regressao `--filter=AreaFocusLoop` (1125 verdes byte-identicos com `enforcement=off`).
+- Required tests: `php artisan test tests/Unit/Ai/SoftwareCompanyStewardship/AreaFocusLoop/CycleLanguageQualityGateServiceTest.php` (o servico foi entregue como `CycleLanguageQualityGateService`; o nome planejado `LanguageQualityGateServiceTest` nunca existiu) e regressao `--filter=AreaFocusLoop` (1125 verdes byte-identicos com `enforcement=off`).
 
 ## Riscos
 
