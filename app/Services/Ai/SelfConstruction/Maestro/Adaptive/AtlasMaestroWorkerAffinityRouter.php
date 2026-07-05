@@ -45,6 +45,13 @@ final class AtlasMaestroWorkerAffinityRouter
     private const GIVE_BACK_AVOIDANCE_THRESHOLD = 0.65;
     private const POISON_AVOIDANCE_THRESHOLD    = 0.30;
 
+    /**
+     * Workers whose weak_green_rate (weak_green / total_events) exceeds this threshold
+     * are demoted — their greens are mostly self-reported without runnable proof,
+     * ranking them below workers with genuine proven success.
+     */
+    private const WEAK_GREEN_DEMOTION_THRESHOLD = 0.50;
+
     public function __construct(private readonly ?AtlasMaestroWorkerBehaviorLedger $ledger = null)
     {
     }
@@ -68,6 +75,7 @@ final class AtlasMaestroWorkerAffinityRouter
             [$success, $giveBack] = $this->rawCounts($facts);
             $served   = (int) ($facts['served']         ?? 0);
             $gateRej  = (int) ($facts['gate_rejected']  ?? 0);
+            $weakGreenRate = (float) ($facts['weak_green_rate'] ?? 0.0);
 
             if ($success < $minSuccess) {
                 continue;
@@ -75,8 +83,10 @@ final class AtlasMaestroWorkerAffinityRouter
 
             $giveBackRate = $giveBack / max(1, $success + $giveBack);
             $poisonRate   = $gateRej  / max(1, $served);
+            $weakGreenDemoted = $weakGreenRate >= self::WEAK_GREEN_DEMOTION_THRESHOLD;
             $demoted      = $giveBackRate >= self::GIVE_BACK_DEMOTION_THRESHOLD
-                || $poisonRate >= self::POISON_AVOIDANCE_THRESHOLD;
+                || $poisonRate >= self::POISON_AVOIDANCE_THRESHOLD
+                || $weakGreenDemoted;
 
             $candidates[] = [
                 'client_id'       => $worker,
@@ -84,6 +94,7 @@ final class AtlasMaestroWorkerAffinityRouter
                 'give_back_count' => $giveBack,
                 'give_back_rate'  => $giveBackRate,
                 'poison_rate'     => $poisonRate,
+                'weak_green_rate' => $weakGreenRate,
                 'demoted'         => $demoted,
             ];
         }
@@ -123,7 +134,12 @@ final class AtlasMaestroWorkerAffinityRouter
             'negative_outcome_evidence' => $winner['demoted'] ? [
                 'give_back_rate' => round($winner['give_back_rate'], 4),
                 'poison_rate'    => round($winner['poison_rate'],    4),
-                'reason'         => 'high_task_family_give_back_or_poison',
+                'weak_green_rate' => round($winner['weak_green_rate'], 4),
+                'reason'         => match (true) {
+                    $winner['weak_green_rate'] >= self::WEAK_GREEN_DEMOTION_THRESHOLD => 'high_weak_green_rate',
+                    $winner['poison_rate'] >= self::POISON_AVOIDANCE_THRESHOLD => 'high_poison_rate',
+                    default => 'high_give_back_rate',
+                },
             ] : null,
             'demoted_workers' => array_column(array_filter($candidates, static fn (array $c): bool => $c['demoted']), 'client_id'),
         ];

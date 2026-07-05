@@ -42,6 +42,19 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
         }
     }
 
+    private function seedWeakGreenWorker(string $client, string $class, int $success, int $weakGreen, int $giveBack = 0): void
+    {
+        for ($i = 0; $i < $success; $i++) {
+            $this->ledger->record(['client_id' => $client, 'task_family' => $class, 'outcome' => 'success']);
+        }
+        for ($i = 0; $i < $weakGreen; $i++) {
+            $this->ledger->record(['client_id' => $client, 'task_family' => $class, 'outcome' => 'weak_green']);
+        }
+        for ($i = 0; $i < $giveBack; $i++) {
+            $this->ledger->record(['client_id' => $client, 'task_family' => $class, 'outcome' => 'give_back']);
+        }
+    }
+
     private function router(): AtlasMaestroWorkerAffinityRouter
     {
         return new AtlasMaestroWorkerAffinityRouter($this->ledger);
@@ -509,5 +522,50 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
         $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTE_AVOIDED, $out['status']);
         $this->assertSame('negative_outcome_evidence_family', $out['avoid_reasons']['claude-1']);
         $this->assertSame('negative_outcome_evidence_family', $out['avoid_reasons']['codex-1']);
+    }
+
+    // ── AC: weak-green-rate demotion (anti-Goodhart) ─────────────────────────
+
+    public function test_weak_green_demoted_worker_loses_to_clean_worker(): void
+    {
+        // wB: success=5, weak_green=6 → rate=6/11≈0.545 > 0.50 → demoted
+        // wA: success=5, weak_green=0 → rate=0 → clean
+        $this->seedWeakGreenWorker('wB', 'wiring', 5, 6);
+        $this->seedWeakGreenWorker('wA', 'wiring', 5, 0);
+
+        $out = $this->router()->route('wiring', ['wA', 'wB']);
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('wA', $out['worker'], 'clean worker must beat weak-green-heavy worker with equal success');
+        $this->assertSame(['wA', 'wB'], $out['ordered']);
+        $this->assertContains('wB', $out['demoted_workers']);
+        $this->assertNull($out['negative_outcome_evidence'], 'clean winner has no negative outcome evidence');
+    }
+
+    public function test_weak_green_clean_worker_negative_outcome_evidence_null(): void
+    {
+        // A clean worker with zero weak_green has no negative outcome evidence.
+        $this->seedWeakGreenWorker('wA', 'wiring', 5, 0);
+
+        $out = $this->router()->route('wiring', ['wA']);
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertNull($out['negative_outcome_evidence']);
+    }
+
+    public function test_weak_green_all_demoted_routes_to_least_negative(): void
+    {
+        // Both demoted by weak_green: wB has higher weak_green_count (worse).
+        // wA: success=4, weak_green=5 → rate=5/9≈0.556 > 0.50 → demoted
+        // wB: success=4, weak_green=8 → rate=8/12≈0.667 > 0.50 → demoted
+        // When all demoted, route to highest success (both 4) → tie-break by client_id → wA.
+        $this->seedWeakGreenWorker('wB', 'wiring', 4, 8);
+        $this->seedWeakGreenWorker('wA', 'wiring', 4, 5);
+
+        $out = $this->router()->route('wiring', ['wA', 'wB']);
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('wA', $out['worker']);
+        $this->assertStringContainsString('all_candidates_have_negative_outcome_evidence', $out['routing_explanation']);
     }
 }
