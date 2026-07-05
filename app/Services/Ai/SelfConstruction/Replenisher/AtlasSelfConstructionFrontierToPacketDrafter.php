@@ -69,7 +69,7 @@ final class AtlasSelfConstructionFrontierToPacketDrafter
             if ($capabilityGap === '') {
                 throw new RuntimeException('drafter refuses: weak_frontier_missing_capability_gap:'.$id);
             }
-            $testPaths = array_values(array_filter($allowed, static fn (string $p): bool => str_starts_with($p, 'tests/') || str_contains($p, '/Tests/')));
+            $testPaths = array_values(array_filter($allowed, static fn (string $p): bool => str_starts_with($p, 'tests/') || (str_contains($p, '/Tests/') && str_ends_with($p, 'Test.php'))));
             if ($testPaths === []) {
                 throw new RuntimeException('drafter refuses: missing_test_path:'.$id);
             }
@@ -91,7 +91,7 @@ final class AtlasSelfConstructionFrontierToPacketDrafter
 
             $packets[] = [
                 'objective' => sprintf('Atlas-native delivery for frontier %s (%s)', $id, $capabilityGap),
-                'scope_in' => array_values(array_filter($allowed, static fn (string $p): bool => ! (str_starts_with($p, 'tests/') || str_contains($p, '/Tests/')))),
+                'scope_in' => array_values(array_filter($allowed, static fn (string $p): bool => ! (str_starts_with($p, 'tests/') || (str_contains($p, '/Tests/') && str_ends_with($p, 'Test.php'))))),
                 'allowed_files' => $allowed,
                 'test_paths' => $testPaths,
                 'acceptance_criteria' => $acceptance,

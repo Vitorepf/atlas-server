@@ -112,6 +112,26 @@ final class AtlasSelfConstructionFrontierToPacketDrafterTest extends TestCase
         ]);
     }
 
+    public function test_non_test_file_under_tests_subdirectory_throws(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/missing_test_path/');
+        (new AtlasSelfConstructionFrontierToPacketDrafter)->draft([
+            $this->frontier('f-subd', ['allowed_file_candidates' => ['app/Contracts/Tests/Registry.php', 'app/Demo/Foo.php']]),
+        ]);
+    }
+
+    public function test_real_embedded_test_file_passes_gate(): void
+    {
+        $packets = (new AtlasSelfConstructionFrontierToPacketDrafter)->draft([
+            $this->frontier('f-emb', ['allowed_file_candidates' => ['app/Domain/Tests/FooTest.php', 'app/Demo/Foo.php']]),
+        ]);
+
+        $this->assertCount(1, $packets);
+        $this->assertSame(['app/Domain/Tests/FooTest.php'], $packets[0]['test_paths']);
+        $this->assertSame(['app/Demo/Foo.php'], $packets[0]['scope_in']);
+    }
+
     // ── AC: weak frontier (no capability_gap) is rejected ───────────────────────
 
     public function test_weak_frontier_with_empty_capability_gap_throws(): void
