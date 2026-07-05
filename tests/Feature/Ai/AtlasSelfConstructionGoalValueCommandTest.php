@@ -69,7 +69,7 @@ final class AtlasSelfConstructionGoalValueCommandTest extends TestCase
     public function test_decide_promotes_when_real_leverage_and_green_verification(): void
     {
         $path = $this->fixture([
-            'leverage_verdict' => ['real_leverage' => true, 'proxy_only' => false, 'blockers' => []],
+            'leverage_verdict' => ['real_leverage' => true, 'proxy_only' => false, 'blockers' => [], 'compounding_metric' => 'capability_lift'],
             'anti_proxy_verdict' => ['blocked' => false, 'blocked_proxy_categories' => []],
             'verification' => ['passed' => true, 'color' => 'green', 'evidence' => ['phpunit:exit_0']],
         ]);
@@ -168,4 +168,51 @@ final class AtlasSelfConstructionGoalValueCommandTest extends TestCase
         $this->assertNotEmpty($decoded['reason']);
     }
 
+    // ── AC: decide composes candidate and promotes when green + evidence + compounding ──
+
+    public function test_decide_composed_candidate_promotes_with_green_evidence_and_compounding(): void
+    {
+        $path = $this->fixture([
+            'leverage_verdict' => ['real_leverage' => true, 'proxy_only' => false, 'blockers' => []],
+            'anti_proxy_verdict' => ['blocked' => false, 'blocked_proxy_categories' => [], 'autonomy_unlock' => true],
+            'verification' => ['passed' => true, 'color' => 'green', 'evidence' => ['phpunit:exit_0']],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'decide', '--facts' => $path, '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionGoalValueCommand::EXIT_OK, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertSame('promote', $decoded['decision']);
+        $this->assertContains('verified_green', $decoded['reasons']);
+        $this->assertContains('has_implementation_evidence', $decoded['reasons']);
+        $this->assertContains('autonomy_unlock', $decoded['reasons']);
+    }
+
+    public function test_decide_returns_revise_when_verification_not_green(): void
+    {
+        $path = $this->fixture([
+            'leverage_verdict' => ['real_leverage' => true],
+            'anti_proxy_verdict' => ['blocked' => false],
+            'verification' => ['color' => 'red'],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'decide', '--facts' => $path, '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionGoalValueCommand::EXIT_OK, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertSame('revise', $decoded['decision']);
+        $this->assertStringStartsWith('verification_not_green', $decoded['reasons'][0]);
+    }
+
+    public function test_decide_returns_defer_when_green_but_no_compounding_signal(): void
+    {
+        $path = $this->fixture([
+            'leverage_verdict' => ['real_leverage' => true],
+            'anti_proxy_verdict' => ['blocked' => false],
+            'verification' => ['color' => 'green'],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'decide', '--facts' => $path, '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionGoalValueCommand::EXIT_OK, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertSame('defer', $decoded['decision']);
+    }
 }

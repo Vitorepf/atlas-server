@@ -47,11 +47,13 @@ final class AtlasSelfConstructionGoalValueCommand extends Command
             'contract' => $contract->evaluate((array) ($facts['dimension_evidence'] ?? [])),
             'anti-proxy' => $gate->evaluate((array) ($facts['signals'] ?? []), (array) ($facts['real_levers'] ?? [])),
             'evidence' => ['echo' => $facts],
-            'decide' => $policy->decide(
-                (array) ($facts['leverage_verdict'] ?? []),
-                (array) ($facts['anti_proxy_verdict'] ?? []),
-                (array) ($facts['verification'] ?? []),
-            ),
+            'decide' => $policy->decide([
+                'verification_status' => (string) ($facts['verification']['color'] ?? ''),
+                'has_implementation_evidence' => (bool) ($facts['leverage_verdict']['real_leverage'] ?? false),
+                'compounding_metric' => $facts['leverage_verdict']['compounding_metric'] ?? null,
+                'autonomy_unlock' => (bool) ($facts['anti_proxy_verdict']['autonomy_unlock'] ?? false),
+                'downstream_consumer_evidence' => (bool) ($facts['anti_proxy_verdict']['downstream_consumer_evidence'] ?? false),
+            ]),
             'outcome-evidence' => $evaluator->evaluate($facts),
             default => null,
         };
