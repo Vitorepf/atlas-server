@@ -59,6 +59,12 @@ final class AgentControlPlaneCostEventNormalizer
             if ($amount < 0) {
                 $violations[] = $this->violation('negative_cost_amount', $index, 'Cost event amount must not be negative.');
             }
+            // AC: a present but non-numeric amount_minor ('abc', true, []) is a malformed event —
+            // blocking the batch instead of silently normalizing to 0. Absent/null amount_minor
+            // still legitimately normalizes to 0 with no violation.
+            if (array_key_exists('amount_minor', $event) && $event['amount_minor'] !== null && ! $this->isValidNumeric($event['amount_minor'])) {
+                $violations[] = $this->violation('malformed_amount', $index, 'Cost event amount_minor is present but not a valid numeric value.');
+            }
             if ((bool) ($event['token_spend_claimed'] ?? false)) {
                 $violations[] = $this->violation('token_spend_claimed', $index, 'Certification cannot accept token spend claims.');
             }
@@ -114,6 +120,11 @@ final class AgentControlPlaneCostEventNormalizer
         }
 
         return 0;
+    }
+
+    private function isValidNumeric(mixed $value): bool
+    {
+        return is_int($value) || is_float($value) || (is_string($value) && is_numeric($value));
     }
 
     private function scalarString(mixed $value): string

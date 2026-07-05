@@ -53,10 +53,17 @@ final class AtlasExternalBrainGapClosureSnapshot
         foreach ($rawSections as $section) {
             $name  = (string) ($section['name'] ?? 'unknown');
             $ready = (bool) ($section['ready'] ?? false);
+            $reasons = array_values((array) ($section['reasons'] ?? []));
+            // Contradiction guard: a section reporting ready=true with non-empty reasons
+            // is coerced to not-ready — honest-ready requires ready===true AND reasons===[].
+            if ($ready && $reasons !== []) {
+                $ready = false;
+                array_unshift($reasons, 'ready_true_but_reasons_present');
+            }
             $spineSections[] = [
                 'name'    => $name,
                 'ready'   => $ready,
-                'reasons' => array_values((array) ($section['reasons'] ?? [])),
+                'reasons' => $reasons,
             ];
             if (! $ready) {
                 $allSectionsReady = false;

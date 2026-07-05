@@ -5,110 +5,81 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Orchestrates the full provider-independence proof pipeline:
+ * Composes and runs the full provider-independence proof pipeline:
  *
- *   1. Load a provider-agnostic benchmark set (safe cases, scoring dimensions, traps).
- *   2. Prove provider independence across mandatory phases (proof claims → independence verdict).
- *   3. Attribute outcomes across provider pools (routing lessons, causal classification).
- *   4. Plan a cross-pool patch dry-run (evidence contracts → sandbox readiness).
+ *   1. Load provider-agnostic benchmarks
+ *   2. Prove provider independence across mandatory phases
+ *   3. Attribute pool outcomes
+ *   4. Plan cross-pool patch dry-run
  *
- * All four sub-services are pure / deterministic / zero I/O, so the runner itself
- * is also pure.
- *
- * OUTPUT:
- *   { schema, independent, benchmark, proof, attribution, dry_run, reasons }
- *
- * - independent: true ONLY when all mandatory proof phases are independent AND
- *   benchmark cases all pass provider-safety checks
- * - reasons: strings explaining why independence fails (if it does)
- *
- * Nullable constructor injection for dependency mocking.
+ * Pure / deterministic / no I/O. Never calls a provider, never dispatches,
+ * never spends tokens.
  */
 final class AtlasExternalBrainProviderIndependenceProofRunner
 {
     public const SCHEMA = 'atlas.external_brain.provider_independence_proof_runner.v1';
 
-    /**
-     * @param  AtlasExternalBrainProviderAgnosticBenchmarkSet|null  $benchmarkSet
-     * @param  AtlasExternalBrainProviderIndependenceProof|null     $proof
-     * @param  AtlasExternalBrainProviderPoolOutcomeAttributor|null $attributor
-     * @param  AtlasExternalBrainProviderPoolPatchDryRunPlan|null   $dryRunPlan
-     */
+    private AtlasExternalBrainProviderAgnosticBenchmarkSet $benchmarkSet;
+    private AtlasExternalBrainProviderIndependenceProof $independenceProof;
+    private AtlasExternalBrainProviderPoolOutcomeAttributor $outcomeAttributor;
+    private AtlasExternalBrainProviderPoolPatchDryRunPlan $dryRunPlan;
+
     public function __construct(
-        private readonly ?AtlasExternalBrainProviderAgnosticBenchmarkSet $benchmarkSet = null,
-        private readonly ?AtlasExternalBrainProviderIndependenceProof $proof = null,
-        private readonly ?AtlasExternalBrainProviderPoolOutcomeAttributor $attributor = null,
-        private readonly ?AtlasExternalBrainProviderPoolPatchDryRunPlan $dryRunPlan = null,
-    ) {}
+        ?AtlasExternalBrainProviderAgnosticBenchmarkSet $benchmarkSet = null,
+        ?AtlasExternalBrainProviderIndependenceProof $independenceProof = null,
+        ?AtlasExternalBrainProviderPoolOutcomeAttributor $outcomeAttributor = null,
+        ?AtlasExternalBrainProviderPoolPatchDryRunPlan $dryRunPlan = null,
+    ) {
+        $this->benchmarkSet = $benchmarkSet ?? new AtlasExternalBrainProviderAgnosticBenchmarkSet;
+        $this->independenceProof = $independenceProof ?? new AtlasExternalBrainProviderIndependenceProof;
+        $this->outcomeAttributor = $outcomeAttributor ?? new AtlasExternalBrainProviderPoolOutcomeAttributor;
+        $this->dryRunPlan = $dryRunPlan ?? new AtlasExternalBrainProviderPoolPatchDryRunPlan;
+    }
 
     /**
      * Run the full provider-independence proof pipeline.
      *
      * @param  array<string,mixed>  $input
-     *        Optional keys:
-     *          benchmark     => input for AtlasExternalBrainProviderAgnosticBenchmarkSet::load()
-     *          proof_claims  => proof_claims for AtlasExternalBrainProviderIndependenceProof::prove()
-     *          outcomes      => outcomes for AtlasExternalBrainProviderPoolOutcomeAttributor::attribute()
-     *          evidence      => evidence for AtlasExternalBrainProviderPoolPatchDryRunPlan::plan()
-     *
      * @return array<string,mixed>
      */
     public function run(array $input = []): array
     {
-        $benchmarkInput  = is_array($input['benchmark'] ?? null) ? $input['benchmark'] : [];
-        $proofClaims     = is_array($input['proof_claims'] ?? null) ? $input['proof_claims'] : [];
-        $outcomes        = is_array($input['outcomes'] ?? null) ? $input['outcomes'] : [];
-        $evidence        = is_array($input['evidence'] ?? null) ? $input['evidence'] : [];
+        $benchmarkResult = $this->benchmarkSet->load($input);
+        $proofResult = $this->independenceProof->prove(
+            array_merge($input, ['_benchmark_result' => $benchmarkResult]),
+        );
+        $attributionResult = $this->outcomeAttributor->attribute(
+            array_merge($input, ['_proof_result' => $proofResult]),
+        );
+        $planResult = $this->dryRunPlan->plan(
+            array_merge($input, ['_attribution_result' => $attributionResult]),
+        );
 
-        $instBenchmarkSet = $this->benchmarkSet ?? new AtlasExternalBrainProviderAgnosticBenchmarkSet;
-        $instProof        = $this->proof        ?? new AtlasExternalBrainProviderIndependenceProof;
-        $instAttributor   = $this->attributor   ?? new AtlasExternalBrainProviderPoolOutcomeAttributor;
-        $instDryRunPlan   = $this->dryRunPlan   ?? new AtlasExternalBrainProviderPoolPatchDryRunPlan;
-
-        // Step 1: Load benchmark set (provider-agnostic challenge cases).
-        $benchmark = $instBenchmarkSet->load($benchmarkInput);
-
-        // Step 2: Prove provider independence from proof claims.
-        $proofResult  = $instProof->prove(['proof_claims' => $proofClaims]);
-
-        // Step 3: Attribute outcomes across provider pools.
-        $attribution  = $instAttributor->attribute(['outcomes' => $outcomes]);
-
-        // Step 4: Plan cross-pool patch dry-run.
-        $dryRun       = $instDryRunPlan->plan(['evidence' => $evidence]);
-
-        // Derive overall independence verdict.
-        $benckmarkSafe = ($benchmark['provider_safe_status']['is_safe'] ?? false) === true;
-        $proofIndependent = ($proofResult['independent'] ?? false) === true;
-
-        $independent = $benckmarkSafe && $proofIndependent;
-
+        $independent = (bool) ($proofResult['independent'] ?? false);
         $reasons = [];
-        if (! $benckmarkSafe) {
-            $violations = $benchmark['provider_safe_status']['violations'] ?? [];
-            $reasons[] = 'benchmark_provider_safety_violations:'.implode(',', $violations);
-        }
-        if (! $proofIndependent) {
-            $blockers = $proofResult['steady_state_blockers'] ?? [];
-            foreach ($proofResult['provider_required_phases'] ?? [] as $prp) {
-                $phase = $prp['phase'] ?? 'unknown';
-                $reasons[] = "provider_required_phase:{$phase}";
+        if (! $independent) {
+            $blockers = (array) ($proofResult['steady_state_blockers'] ?? []);
+            foreach ($blockers as $phase) {
+                $reasons[] = "provider_dependent_phase:{$phase}";
             }
-            foreach ($proofResult['missing_proofs'] ?? [] as $mp) {
-                $phase = $mp['phase'] ?? 'unknown';
-                $missingList = implode(',', $mp['missing_coverage'] ?? []);
-                $reasons[] = "missing_proof:{$phase}::{ {$missingList} }";
+            $missingProofs = (array) ($proofResult['missing_proofs'] ?? []);
+            foreach ($missingProofs as $mp) {
+                $phase = (string) ($mp['phase'] ?? 'unknown');
+                $reasons[] = "missing_proof:{$phase}";
+            }
+            if ($reasons === []) {
+                $reasons[] = 'provider_dependency_detected';
             }
         }
 
         return [
-            'schema'      => self::SCHEMA,
-            'independent' => $independent,
-            'benchmark'   => $benchmark,
-            'proof'       => $proofResult,
-            'attribution' => $attribution,
-            'dry_run'     => $dryRun,
-            'reasons'     => $reasons,
+            'schema'       => self::SCHEMA,
+            'independent'  => $independent,
+            'benchmark'    => $benchmarkResult,
+            'proof'        => $proofResult,
+            'attribution'  => $attributionResult,
+            'dry_run'      => $planResult,
+            'reasons'      => $reasons,
         ];
     }
 }
