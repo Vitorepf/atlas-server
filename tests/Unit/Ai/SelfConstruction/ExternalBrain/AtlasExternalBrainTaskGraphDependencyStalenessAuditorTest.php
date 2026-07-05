@@ -162,4 +162,50 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditorTest extends Te
         $this->assertCount(1, $result['satisfied_dependencies']);
         $this->assertSame('a', $result['satisfied_dependencies'][0]['task_id']);
     }
+
+    // ── AC: duplicate stale edges for the same task/dependency yield one blocked_by value and one resequence_actions row ──
+
+    public function test_duplicate_stale_edges_deduplicated(): void
+    {
+        $result = $this->auditor()->audit([
+            'edges' => [
+                ['task_id' => 'a', 'depends_on_task_id' => 'ghost'],
+                ['task_id' => 'a', 'depends_on_task_id' => 'ghost'], // duplicate
+            ],
+            'statuses' => [],
+        ]);
+
+        // One resequence_actions row for task 'a'.
+        $this->assertCount(1, $result['resequence_actions']);
+        $this->assertSame('a', $result['resequence_actions'][0]['task_id']);
+
+        // One blocked_by value (deduplicated).
+        $this->assertCount(1, $result['resequence_actions'][0]['blocked_by']);
+        $this->assertSame(['ghost'], $result['resequence_actions'][0]['blocked_by']);
+
+        // dependency_blockers also deduplicated.
+        $this->assertCount(1, $result['dependency_blockers']['a']);
+    }
+
+    // ── AC: distinct stale dependencies for the same task remain represented in deterministic sorted order ──
+
+    public function test_distinct_stale_dependencies_remain_represented_sorted(): void
+    {
+        $result = $this->auditor()->audit([
+            'edges' => [
+                ['task_id' => 'a', 'depends_on_task_id' => 'z-ghost'],
+                ['task_id' => 'a', 'depends_on_task_id' => 'b-ghost'],
+                ['task_id' => 'a', 'depends_on_task_id' => 'm-ghost'],
+            ],
+            'statuses' => [],
+        ]);
+
+        // One resequence_actions row for task 'a'.
+        $this->assertCount(1, $result['resequence_actions']);
+
+        // Three distinct blocked_by values, sorted.
+        $blockedBy = $result['resequence_actions'][0]['blocked_by'];
+        $this->assertCount(3, $blockedBy);
+        $this->assertSame(['b-ghost', 'm-ghost', 'z-ghost'], $blockedBy);
+    }
 }

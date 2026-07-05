@@ -188,14 +188,22 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
 
         // AC4: a concrete resequencing plan for the task graph — one entry per flagged task,
         // naming exactly which dependency blocks it and what to do about it.
+        // AC: deduplicate dependency_blockers and resequence_actions so repeated stale edges
+        // for the same task/dependency produce deterministic, de-duplicated output.
         $resequenceActions = [];
         foreach (array_keys($staleTaskIds) as $taskId) {
+            $blockers = array_values(array_unique($dependencyBlockers[$taskId] ?? []));
+            sort($blockers, SORT_STRING);
+            $dependencyBlockers[$taskId] = $blockers;
             $resequenceActions[] = [
                 'task_id' => $taskId,
                 'action' => $recommendedChainAction[$taskId] ?? 'rescope',
-                'blocked_by' => $dependencyBlockers[$taskId] ?? [],
+                'blocked_by' => $blockers,
             ];
         }
+
+        // Sort resequence_actions deterministically by task_id.
+        usort($resequenceActions, static fn (array $a, array $b): int => strcmp($a['task_id'], $b['task_id']));
 
         return [
             'schema_version' => self::SCHEMA,
