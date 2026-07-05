@@ -83,17 +83,20 @@ class MultivariateBattlePlan
             'html' => $out['html'],
             'bridge' => $out['bridge'],
             'flagged' => $hollow['hollowness'] >= 50,    // flag thin/hollow variants
+            'structural_flaws' => (array) ($out['after']['structural_flaws'] ?? []),
+            'decision_flaws' => (array) ($out['after']['decision_flaws'] ?? []),
         ];
     }
 
     /**
-     * Pick the variant with the highest score among those that pass the hollowness gate.
+     * Pick the variant with the highest score among those that pass the hollowness gate
+     * AND have no structural flaws (reveal/CTA leaks that would lose the sale).
      *
      * @param  array<int,array<string,mixed>>  $variants
      */
     private function recommend(array $variants): ?array
     {
-        $safe = array_filter($variants, fn ($v) => empty($v['flagged']));
+        $safe = array_filter($variants, fn ($v) => empty($v['flagged']) && empty($v['structural_flaws']));
         if ($safe === []) {
             return null;
         }

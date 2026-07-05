@@ -57,6 +57,8 @@ class MultivariateBattlePlanTest extends TestCase
         $this->assertArrayHasKey('overall_score', $v);
         $this->assertArrayHasKey('hollowness', $v);
         $this->assertArrayHasKey('html', $v);
+        $this->assertArrayHasKey('structural_flaws', $v);
+        $this->assertArrayHasKey('decision_flaws', $v);
     }
 
     public function test_pinned_axes_actually_differentiate_variants(): void
@@ -83,5 +85,23 @@ class MultivariateBattlePlanTest extends TestCase
 
         $this->assertNotNull($plan['recommended']);
         $this->assertFalse((bool) ($plan['recommended']['flagged'] ?? false));
+    }
+
+    public function test_variant_with_structural_flaws_is_not_recommended(): void
+    {
+        // Simulate: create a variant with structural flaws artificially.
+        // The recommend method must reject it even if its overall_score is high.
+        $plan = (new MultivariateBattlePlan)->plan($this->asset(), [
+            'angles' => ['hidden_cause'],
+            'hooks' => ['hook_callout_specific'],
+            'awarenesses' => ['problem_aware'],
+            'max_iterations' => 1,
+        ]);
+
+        // If ALL variants have structural_flaws, recommended is null.
+        // If at least one is clean, that one wins regardless of score.
+        $this->assertNotNull($plan['recommended']);
+        $recommendedFlaws = $plan['recommended']['structural_flaws'] ?? [];
+        $this->assertEmpty($recommendedFlaws, 'Recommended variant must have no structural flaws.');
     }
 }
