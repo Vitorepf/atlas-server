@@ -129,7 +129,7 @@ final class AtlasProjectLaneVerificationPolicy
         $boundaryViolations = [];
         if ($projectRoot !== '') {
             foreach ($scopePaths as $p) {
-                if (! str_starts_with($p, $projectRoot)) {
+                if ($p !== $projectRoot && ! str_starts_with($p, $projectRoot.'/')) {
                     $boundaryViolations[] = $p;
                     $blockers[] = 'project_boundary_violation:'.$p;
                 }
