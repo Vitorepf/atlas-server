@@ -92,6 +92,26 @@ Conclusão honesta: o problema de clone do núcleo é resolvido por CONSTRUÇÃO
 **V3 — PROVA DE IMPOSSIBILIDADE (a spec permite "OU prova de que o gerador não comporta, com números").**
 Investigado: **NÃO existe gerador** para `app/Services/Ai/Aaeos/Generated/`. Prova: zero writers (`file_put_contents`/`File::put`/stub-render) apontando para esse diretório em todo app/; os 309 arquivos têm docblock em PROSA escrita à mão; os comandos os IMPORTAM como input (`use ...\Generated\...Service`), não os emitem; git = commits "save" humanos, não bulk-regeneração. **"Generated/" é nome enganoso** — são 309 doc-runtime services hand-authored (média ~430 linhas, um por doc canônico). Portanto a meta "−15k via regeneração" é **inexecutável — não há template a abstrair**. Isto CORRIGE uma crença falsa herdada (a regra "dedup no gerador, nunca editar à mão" assumia um gerador que nunca existiu). Duplicação interna ENTRE os 309 = **4.679 linhas (3,52% de 133k)** — modesta; seria extração manual V2-style entre serviços distintos, sujeita à mesma honestidade variante-vs-clone; não move régua e não vale o risco de conflatar doc-runtimes distintos. Ressalva conservadora: não descarto um gerador FORA do repo (script externo) — por segurança não liberei edição à mão do diretório, só registrei que nenhum writer in-repo existe.
 
+**V4 — MAPA MEDIDO + achado que refuta "sprawl removível" (0-ref 12%→5% NÃO é alvo de consolidação).**
+Censo determinístico (padrão wiring-gate: caller em app/routes/config/db, Console Command wired): das **301
+micro-classes** puras de decisão (`Scorer|Classifier|Detector|Evaluator|Decider|Verdict|Validator|...`),
+**99 são 0-ref (32,9%)**. Triagem crítica: **98 têm teste pareado** = slices pending-wiring dos leap-backlogs
+(cognitive-plane/deep-cores/final-convergence — as mesmas rows S126-S291 que a campanha de docs consertou):
+lógica pura testada esperando wiring no runtime, **NÃO dead-code**. Só **1 sem teste** (`VentureSuccessEvaluator`),
+e mesmo essa é peça de um cluster de feature inteiro unwired (`VentureFoundry/Success/`: 2 evaluators + 1 gate,
+todos 0-ref) — retirar quebraria a feature quando ligada. Conclusão: os 33% de 0-ref são **backlog de WIRING**
+(feature semântica, fora do escopo de uma obra de CONSOLIDAÇÃO), não sprawl removível; retirar destruiria
+capability testada que os leap-backlogs rastreiam. Nenhum retire executado (preflight de todos leva a
+"pending-wiring", não "morto"). O freio contra NOVO organ unwired é o V0 (shipado, `@unwired-until` + blocker).
+
+**SÍNTESE das frentes V1-V4 (achado transversal, medido):** a premissa da Obra #6 — "há muita lógica removível/
+duplicada/morta no núcleo" — é **largamente refutada por medição**. O núcleo não está inchado de duplicação
+ou dead-code; é lógica distinta legítima: V1 = auditores distintos por área (não clones), V2 = família hot
+auto-consolidante + generated + vetado, V3 = doc-runtimes hand-authored (sem gerador), V4 = capability testada
+pending-wiring (não morta). O ÚNICO ganho estrutural grande e correto foi o **V0**: consertar o PRODUTOR para
+não entrar MAIS sprawl/duplicação/unwired — shipado e verificado adversarialmente. Forçar consolidação em
+V1-V5 seria Goodhart contra um codebase majoritariamente legítimo.
+
 ## Follow-ups
 - Enforce do `admission_v2_mode` (hoje observe) é decisão do operador — flip quando a janela de dados
   mostrar sinal limpo. O replay já provou 6 organs unwired reais entrando pela esteira.
