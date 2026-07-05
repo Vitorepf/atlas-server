@@ -73,7 +73,7 @@ Claims específicos por doc (linha a linha, com evidência) estão no output da 
 
 ## Follow-ups (preenchido durante a campanha, 05/07 ~17h-18h)
 
-1. **Código (fora da campanha docs-only):** `L7L10QueueConsumer::consume()` IGNORA `status=` das rows e contaria rows gated como ready_slices — chip de task aberto (filtro de status + teste wiper-safe). Até lá, a fila l7-l10 não deve ser apontada para o consumer.
+1. ~~**Código (fora da campanha docs-only):** `L7L10QueueConsumer::consume()` IGNORA `status=` das rows~~ **RESOLVIDO 05/07 ~18h:** chip executado pelo operador em sessão worktree; filtro de status espelhando o decomposer + gated_slices + 7 testes verdes; mergeado na main (ca750ad394).
 2. **Correções a números MEUS, feitas pelos verificadores:** ledger de certifiers = **66** (2/35/10/19), não 80 (número pré-deleção que esta spec cita na tabela congelada da auditoria — manter lá como registro histórico da auditoria); farm AP aposentada = **~156k deleções provadas** (7c07b1bc82), não 158k.
 3. **Correção honesta de commit:** a mensagem de `ae66078304` alega "auditoria errou 'ready'" — FALSO; o rebaixamento foi feito por um editor concorrente ENTRE a auditoria (16:39) e o meu grep (~17:10). Corrigido em `07b475a57b`.
 4. **Editor concorrente (batch "atualizar docs canonicas stale apos limpeza bruta nucleo AAEOS", 17:01-17:14):** protocolo verify-then-absorb aplicado — 7 edições absorvidas c/ complementos, 2 REJEITADAS por claims falsos (ownership-map: data/campanha erradas; spec-adversary-obra: rebaixava Obra #2 ENTREGUE para planned — corrigida para runtime_available). `atlas-rivals2-rebuild-map-v1.md` ficou NÃO-COMMITADO por esta equipe (Criação≠Medição) — decisão do operador.
