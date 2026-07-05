@@ -65,6 +65,11 @@ final class AtlasTaskServingStack
         if ($disk === 'local') {
             return ['ok' => false, 'disk' => $disk, 'reason' => 'serving_disk_default_local_forbidden'];
         }
+        // AC: a disk name must be a single safe path segment — no '/', '\\', or '..'
+        // that could escape storage/app/atlas/task-serving/ into an unintended root.
+        if (str_contains($disk, '/') || str_contains($disk, '\\') || str_contains($disk, '..')) {
+            return ['ok' => false, 'disk' => $disk, 'reason' => 'serving_disk_name_unsafe'];
+        }
 
         return ['ok' => true, 'disk' => $disk, 'reason' => 'dedicated_disk_configured'];
     }

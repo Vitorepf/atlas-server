@@ -16,7 +16,11 @@ final class ReadinessJsonInput
 
         if (str_starts_with($raw, '@')) {
             $path = substr($raw, 1);
-            $absolutePath = str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : base_path($path);
+            // Confinement: refuse absolute paths and traversal — stay inside repo.
+            if (str_starts_with($path, DIRECTORY_SEPARATOR) || str_starts_with($path, '..') || str_contains($path, DIRECTORY_SEPARATOR.'..') || str_contains($path, '..'.DIRECTORY_SEPARATOR)) {
+                return [];
+            }
+            $absolutePath = base_path($path);
             if (! is_file($absolutePath)) {
                 return [];
             }
