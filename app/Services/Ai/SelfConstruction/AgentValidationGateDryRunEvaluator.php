@@ -140,6 +140,42 @@ final class AgentValidationGateDryRunEvaluator
         $overall = $this->classifyOverall($counts, $aborted, count($orderedRuns));
         $resultSetId = $this->resultSetId($results, $planHash);
 
+        // AC enrichment: per-gate blockers, warnings, required_inputs, safe_to_execute.
+        $blockers = [];
+        $warnings = [];
+        $requiredInputs = [];
+        foreach ($results as $r) {
+            $gateId = (string) ($r['gate_id'] ?? '');
+            $requiredInputs[] = [
+                'gate_id' => $gateId,
+                'expected_artifact' => $r['expected_artifact'] ?? 'unspecified',
+                'required' => ($r['blocking'] ?? false) === true,
+            ];
+            if (($r['is_failure'] ?? false) || ($r['is_unknown'] ?? false)) {
+                $blockers[] = [
+                    'gate_id' => $gateId,
+                    'reason' => $r['observed_reason'] ?? 'unknown',
+                    'detail' => $r['detail'] ?? [],
+                ];
+            }
+            if (($r['is_warn'] ?? false) || $this->gateHasDestructiveSignal($r)) {
+                $warnings[] = [
+                    'gate_id' => $gateId,
+                    'reason' => $r['is_warn'] ? 'gate_emitted_warning' : 'destructive_signal_detected',
+                ];
+            }
+        }
+
+        // Detect destructive operations in the plan (commands, broad writes, provider-only checks).
+        $destructiveDetected = $this->planHasDestructiveOperations($plan);
+        if ($destructiveDetected !== []) {
+            foreach ($destructiveDetected as $d) {
+                $blockers[] = $d;
+            }
+        }
+
+        $safeToExecute = $blockers === [] && $overall !== 'failed';
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -168,6 +204,10 @@ final class AgentValidationGateDryRunEvaluator
             'skipped_gate_ids' => $this->idsByStatus($results, 'skip'),
             'unknown_gate_ids' => $this->idsByStatus($results, 'unknown'),
             'pass_gate_ids' => $this->idsByStatus($results, 'pass'),
+            'blockers' => $blockers,
+            'warnings' => $warnings,
+            'required_inputs' => $requiredInputs,
+            'safe_to_execute' => $safeToExecute,
             'evaluation_hash' => $this->hashOf($results, $planHash),
             'runtime_safety' => [
                 'runtime_safety_all_false' => true,
@@ -180,6 +220,74 @@ final class AgentValidationGateDryRunEvaluator
                 'runtime_write_allowed' => false,
             ],
         ];
+    }
+
+    /**
+     * Detect destructive signals in a gate result (command references, broad write patterns).
+     *
+     * @param  array<string, mixed>  $result
+     */
+    private function gateHasDestructiveSignal(array $result): bool
+    {
+        $detail = is_array($result['detail'] ?? null) ? $result['detail'] : [];
+        $json = strtolower((string) json_encode($detail));
+        if ($json === '') {
+            return false;
+        }
+
+        return preg_match('/(git\s+reset|git\s+push.*--force|rm\s+-rf|chmod\s+777|format|drop\s+table|truncate)/', $json) === 1;
+    }
+
+    /**
+     * Detect destructive operations in the plan itself.
+     *
+     * @param  array<string, mixed>  $plan
+     * @return list<array<string, mixed>>
+     */
+    private function planHasDestructiveOperations(array $plan): array
+    {
+        $blockers = [];
+        $orderedRuns = (array) ($plan['ordered_runs'] ?? []);
+        foreach ($orderedRuns as $run) {
+            $gateId = (string) ($run['gate_id'] ?? '');
+            $commands = is_array($run['commands'] ?? null) ? $run['commands'] : [];
+            $writeScope = is_array($run['write_scope'] ?? null) ? $run['write_scope'] : [];
+            $gateType = (string) ($run['gate_type'] ?? '');
+
+            foreach ($commands as $cmd) {
+                $lower = strtolower((string) $cmd);
+                if (preg_match('/(git\s+reset|git\s+push.*--force|rm\s+-rf\s|format\s|drop\s+table|truncate)/', $lower)) {
+                    $blockers[] = [
+                        'gate_id' => $gateId,
+                        'reason' => 'destructive_command_detected',
+                        'detail' => ['command' => $cmd],
+                    ];
+                }
+            }
+
+            // Broad file write: '*' or top-level directory
+            foreach ($writeScope as $path) {
+                $normalized = trim(str_replace('\\', '/', trim((string) $path)), '/');
+                if ($normalized === '*' || $normalized === '**' || $normalized === '') {
+                    $blockers[] = [
+                        'gate_id' => $gateId,
+                        'reason' => 'broad_file_write_detected',
+                        'detail' => ['path' => $path],
+                    ];
+                }
+            }
+
+            // Provider-only check: gate that can only be validated by a provider call
+            if ($gateType === 'provider_only') {
+                $blockers[] = [
+                    'gate_id' => $gateId,
+                    'reason' => 'provider_only_check_not_dry_runnable',
+                    'detail' => ['gate_type' => $gateType],
+                ];
+            }
+        }
+
+        return $blockers;
     }
 
     private function normalizeStatus(string $raw): string
