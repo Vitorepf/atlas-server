@@ -27,7 +27,15 @@ final class AtlasExternalBrainGapClosureSnapshotTest extends TestCase
     private function validInput(array $overrides = []): array
     {
         return array_merge([
-            'cycles' => [['id' => 1]],
+            'cycles' => [[
+                'id' => 1,
+                'origination_receipt' => ['task_packet_id' => 'pk-1'],
+                'attribution' => ['owner' => 'muscle-1'],
+                'implementation_result' => ['commit_sha' => 'abc123'],
+                'runnable_evidence' => ['command' => 'phpunit', 'outcome' => 'passed'],
+                'learning_update' => ['pattern_family' => 'refactor'],
+                'next_batch_constraint' => ['promoted_rule' => 'keep'],
+            ]],
             'spine_sections' => [
                 ['name' => 'runtime', 'ready' => true, 'reasons' => []],
                 ['name' => 'evidence', 'ready' => true, 'reasons' => []],
@@ -100,13 +108,14 @@ final class AtlasExternalBrainGapClosureSnapshotTest extends TestCase
         $this->assertSame('close_gap', $result['recommended_next_action']);
     }
 
-    public function test_missing_cycles_makes_loop_incomplete(): void
+    public function test_missing_cycles_and_empty_sections_yields_not_ready(): void
     {
         $result = $this->snapshot()->snapshot($this->validInput([
             'cycles' => [],
+            'spine_sections' => [],
         ]));
 
-        $this->assertNotEmpty($result['missing_links']);
+        // No spine_sections → allSectionsReady=false → not ready
         $this->assertFalse($result['ready']);
     }
 }
