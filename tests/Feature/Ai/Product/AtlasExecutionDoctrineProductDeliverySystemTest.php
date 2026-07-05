@@ -1680,4 +1680,46 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertTrue($payload['completion_enforcement']['completion_allowed']);
         $this->assertSame(1, AtlasProductDeliveryOutcomeMemory::query()->count());
     }
+
+    public function test_outcome_pressure_signal_folds_into_risk_governor_and_policy_optimizer(): void
+    {
+        // Build a provider_memory_feed that carries a positive outcome_pressure_score.
+        // The risk governor must surface the outcome_pressure factor + required gate.
+        // The policy optimizer must surface the outcome_pressure proposal + source signal.
+        $outcomePressureFeed = [
+            'status' => 'ready',
+            'total_outcome_memory_count' => 10,
+            'risk_signals' => [
+                'provider_failure_count' => 0,
+                'flake_count' => 0,
+                'cost_pressure' => false,
+                'outcome_pressure_score' => 0.5,
+            ],
+        ];
+
+        // Risk governor — assert outcome_pressure factor and gate.
+        $riskGovernor = app(AtlasProductDeliveryRiskGovernorService::class);
+        $risk = $riskGovernor->evaluate(
+            delivery: ['route' => 'standard', 'status' => 'ready_for_delivery', 'aedpds' => ['gate' => ['status' => 'passed']]],
+            proof: ['status' => 'ready'],
+            simulation: ['status' => 'simulated'],
+            options: ['provider_memory_feed' => $outcomePressureFeed],
+        );
+        $this->assertContains('outcome_pressure', $risk['risk_factors']);
+        $this->assertContains('outcome_memory_review', $risk['required_gates']);
+
+        // Policy optimizer — assert outcome_pressure proposal and source signal.
+        $optimizer = app(AtlasProductDeliveryPolicyOptimizerService::class);
+        $policy = $optimizer->propose(['provider_memory_feed' => $outcomePressureFeed]);
+        $this->assertSame('proposal_ready', $policy['status']);
+        $this->assertGreaterThan(0, $policy['proposal_count']);
+
+        $outcomeProposals = array_values(array_filter(
+            $policy['proposals'],
+            static fn (array $p): bool => ($p['kind'] ?? '') === 'outcome_pressure',
+        ));
+        $this->assertCount(1, $outcomeProposals);
+        $this->assertSame('require_outcome_memory_review_before_autonomy_increase', $outcomeProposals[0]['recommended_action']);
+        $this->assertSame(0.5, $policy['source_signals']['outcome_pressure_score']);
+    }
 }

@@ -144,6 +144,9 @@ class AtlasProductDeliveryRiskGovernorService
         if ((bool) ($runtimeSignals['cost_pressure'] ?? false) || (bool) ($options['cost_pressure'] ?? false)) {
             $factors[] = 'cost_pressure';
         }
+        if ((float) ($runtimeSignals['outcome_pressure_score'] ?? 0.0) >= 0.5) {
+            $factors[] = 'outcome_pressure';
+        }
 
         return array_values(array_unique($factors));
     }
@@ -175,6 +178,7 @@ class AtlasProductDeliveryRiskGovernorService
             'provider_failure_pressure' => 12,
             'test_flake_pressure' => 10,
             'cost_pressure' => 6,
+            'outcome_pressure' => 14,
             'aedpds_gate_not_passed' => 30,
         ];
         foreach ($riskFactors as $factor) {
@@ -293,6 +297,9 @@ class AtlasProductDeliveryRiskGovernorService
         }
         if (in_array('test_flake_pressure', $riskFactors, true)) {
             $gates[] = 'flake_triage';
+        }
+        if (in_array('outcome_pressure', $riskFactors, true)) {
+            $gates[] = 'outcome_memory_review';
         }
 
         return array_values(array_unique($gates));

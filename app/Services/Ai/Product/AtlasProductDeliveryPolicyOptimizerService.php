@@ -44,6 +44,7 @@ class AtlasProductDeliveryPolicyOptimizerService
                 'provider_failure_count' => (int) data_get($providerMemory, 'risk_signals.provider_failure_count', 0),
                 'flake_count' => (int) data_get($providerMemory, 'risk_signals.flake_count', 0),
                 'cost_pressure' => (bool) data_get($providerMemory, 'risk_signals.cost_pressure', false),
+                'outcome_pressure_score' => (float) data_get($providerMemory, 'risk_signals.outcome_pressure_score', 0.0),
             ],
             'policy_change_contract' => [
                 'auto_apply_allowed' => false,
@@ -119,6 +120,16 @@ class AtlasProductDeliveryPolicyOptimizerService
                 evidence: ['provider_memory.cost_pressure'],
                 action: 'require_cost_budget_review_before_expensive_provider_path',
                 risk: 'low',
+            );
+        }
+        if ((float) data_get($providerMemory, 'risk_signals.outcome_pressure_score', 0.0) > 0.0) {
+            $proposals[] = $this->proposal(
+                id: 'outcome_pressure_review_gate',
+                kind: 'outcome_pressure',
+                reason: 'Outcome pressure score indicates elevated delivery risk from recent outcomes.',
+                evidence: ['provider_memory.outcome_pressure_score'],
+                action: 'require_outcome_memory_review_before_autonomy_increase',
+                risk: 'medium',
             );
         }
 
