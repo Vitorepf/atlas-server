@@ -53,6 +53,30 @@ final class AtlasMaestroWorkerQualityScorecard
         'high_giveback_rate',
     ];
 
+    /**
+     * Wilson score lower bound (95% confidence, z=1.96).
+     * The lower bound of the Binomial proportion confidence interval.
+     * Only promotes/avoids a task class when the evidence is statistically confident.
+     *
+     * Reference: Wilson, E.B. (1927). "Probable inference, the law of succession, and statistical inference".
+     * Journal of the American Statistical Association, 22(158), 209-212.
+     *
+     * Formula: (p + z²/2n - z * sqrt(p*(1-p)/n + z²/(4n²))) / (1 + z²/n)
+     */
+    private static function wilsonLowerBound(float $successes, float $total, float $z = 1.96): float
+    {
+        if ($total <= 0) {
+            return 0.0;
+        }
+        $p = $successes / $total;
+        $z2 = $z * $z;
+        $denom = 1.0 + $z2 / $total;
+        $center = $p + $z2 / (2.0 * $total);
+        $se = sqrt(($p * (1.0 - $p) + $z2 / (4.0 * $total)) / $total);
+
+        return ($center - $z * $se) / $denom;
+    }
+
     private const GIVE_BACK_HIGH_RATE_THRESHOLD = 0.25;
     private const BEST_CLASS_SUCCESS_RATE       = 0.75; // >= this → best
     private const AVOID_CLASS_FAILURE_RATE      = 0.50; // >= this → avoid
@@ -210,6 +234,9 @@ final class AtlasMaestroWorkerQualityScorecard
         $evidenceQuality = $successAttempts > 0 ? round($successWithEvid / $successAttempts, 4) : 1.0;
 
         // ── Task class routing + task_family_fit (per-class success rate) ─────
+        // Best/avoid decisions use the Wilson score lower bound (z=1.96, 95%) so
+        // small-sample classes (e.g. 2/2) are NOT promoted until the evidence is
+        // statistically confident, while task_family_fit still reports the raw rate.
         $bestClasses  = [];
         $avoidClasses = [];
         $taskFamilyFit = [];
@@ -221,10 +248,12 @@ final class AtlasMaestroWorkerQualityScorecard
             $sr = $cc['success'] / $clsTotal;
             $fr = $cc['fail'] / $clsTotal;
             $taskFamilyFit[$cls] = round($sr, 4);
-            if ($sr >= self::BEST_CLASS_SUCCESS_RATE) {
+            $successLowerBound = self::wilsonLowerBound($cc['success'], $clsTotal);
+            if ($successLowerBound >= self::BEST_CLASS_SUCCESS_RATE) {
                 $bestClasses[] = $cls;
             }
-            if ($fr >= self::AVOID_CLASS_FAILURE_RATE) {
+            $failureLowerBound = self::wilsonLowerBound($cc['fail'], $clsTotal);
+            if ($failureLowerBound >= self::AVOID_CLASS_FAILURE_RATE) {
                 $avoidClasses[] = $cls;
             }
         }
