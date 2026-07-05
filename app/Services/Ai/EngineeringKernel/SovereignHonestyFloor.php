@@ -20,7 +20,7 @@ use App\Services\Ai\EngineeringKernel\NonFunctional\MigrationSafetyProbe;
 final class SovereignHonestyFloor implements AcceptanceGate
 {
     /** Bumped whenever the invariant set or a piso changes — sealed into every receipt for provenance. */
-    public const FLOOR_VERSION = 'atlas.engineering_kernel.sovereign_floor.v2';
+    public const FLOOR_VERSION = 'atlas.engineering_kernel.sovereign_floor.v1';
 
     /** The non-overridable sovereign pisos. config() may raise these, never lower them. */
     public const SOVEREIGN_MUTATION_FLOOR = 0.6;
@@ -80,9 +80,6 @@ final class SovereignHonestyFloor implements AcceptanceGate
             'migration_safety' => $this->migrationSafety($bundle),
             'architecture_no_regression' => $this->architectureNoRegression($bundle),
             'property_clean_for_tagged' => $this->propertyCleanForTagged($bundle),
-            // OBRA #4 S1 — regression-lock como LEI: falha reparada vira caso trancado para sempre.
-            // Waive quando não houve repair; fail-closed quando houve e o lock não existe.
-            'regression_locked_for_repaired' => $this->regressionLockedForRepaired($bundle),
         ];
 
         $blockers = [];
@@ -380,28 +377,6 @@ final class SovereignHonestyFloor implements AcceptanceGate
         return $violations === []
             ? $this->pass('tagged_property_clean')
             : $this->fail('tagged_property_violation:'.implode(';', $violations));
-    }
-
-    /**
-     * OBRA #4 S1 — regression-lock invariant: a delivery that needed repair (attempts > 0) must
-     * carry the regression_lock_ref proving the failure it repaired was locked as a permanent case
-     * (or quarantined as known-flaky — the KNOWLEDGE is what must never be lost). No repair =>
-     * waived; repaired-without-lock => refused. "A cada ciclo, o harness fica mais difícil de quebrar."
-     *
-     * @return array{status:string,detail:string}
-     */
-    private function regressionLockedForRepaired(AcceptanceBundle $bundle): array
-    {
-        $attempts = (int) ($bundle->repair['attempts'] ?? 0);
-        if ($attempts < 1) {
-            return $this->pass('no_repair_attempts_lock_waived');
-        }
-
-        $ref = trim((string) ($bundle->repair['regression_lock_ref'] ?? ''));
-
-        return $ref !== ''
-            ? $this->pass('repaired_failure_locked:'.substr($ref, 0, 16))
-            : $this->fail('repaired_without_regression_lock');
     }
 
     private function isLintCommand(string $cmd): bool

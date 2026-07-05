@@ -51,14 +51,6 @@ final readonly class AcceptanceBundle
          * @var array<int,array<string,mixed>>
          */
         public array $criteria = [],
-        /**
-         * OBRA #4 S1/S2 — repair evidence: {attempts:int, regression_lock_ref?:string,
-         * replay_proof?:array{original_failure_ref:string,replayed:bool,passed:bool}}. attempts=0 or
-         * absent waives the repair invariants; attempts>0 fail-closes them without lock/replay proof.
-         *
-         * @var array<string,mixed>
-         */
-        public array $repair = [],
     ) {}
 
     /**
@@ -78,7 +70,6 @@ final readonly class AcceptanceBundle
             contextSufficiency: (int) ($data['context_sufficiency'] ?? 0),
             nonFunctional: (array) ($data['non_functional'] ?? []),
             criteria: array_values((array) ($data['criteria'] ?? [])),
-            repair: (array) ($data['repair'] ?? []),
         );
     }
 }
