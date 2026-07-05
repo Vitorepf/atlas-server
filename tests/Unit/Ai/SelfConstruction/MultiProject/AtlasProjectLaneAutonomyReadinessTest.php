@@ -219,4 +219,84 @@ final class AtlasProjectLaneAutonomyReadinessTest extends TestCase
         $this->assertContains('rerun_verification_commands', $actions);
         $this->assertCount(1, array_filter($actions, static fn ($a) => $a === 'rerun_verification_commands'));
     }
+
+    // ── AC2: cross-project leakage or missing owner scope returns state=blocked ──
+
+    public function test_cross_project_leakage_returns_blocked(): void
+    {
+        $result = (new AtlasProjectLaneAutonomyReadiness)->compose('project-a', [
+            'admission' => ['admitted' => true],
+            'isolation' => ['passed' => false, 'leaked' => ['project-b/file.php']],
+            'verification_court' => ['passed' => true],
+            'release_governor' => ['passed' => true],
+            'receipt_policy' => ['passed' => true],
+            'rollback' => ['conformant' => true],
+            'runtime_soak' => ['passed' => true],
+            'freshness' => ['conformant' => true],
+            'knowledge_sync' => ['ready' => true],
+        ]);
+
+        $this->assertSame('blocked', $result['state']);
+        $this->assertContains('isolation_leak', $result['blockers']);
+    }
+
+    public function test_missing_owner_scope_returns_blocked(): void
+    {
+        $result = (new AtlasProjectLaneAutonomyReadiness)->compose('project-a', [
+            'admission' => ['admitted' => false, 'blocking_reasons' => ['missing_owner_scope']],
+            'isolation' => ['passed' => true],
+            'verification_court' => ['passed' => true],
+            'release_governor' => ['passed' => true],
+            'receipt_policy' => ['passed' => true],
+            'rollback' => ['conformant' => true],
+            'runtime_soak' => ['passed' => true],
+            'freshness' => ['conformant' => true],
+            'knowledge_sync' => ['ready' => true],
+        ]);
+
+        $this->assertSame('blocked', $result['state']);
+        $this->assertContains('admission_failed', $result['blockers']);
+    }
+
+    // ── AC3: missing sync readiness returns state=hold with sync action ──
+
+    public function test_missing_sync_readiness_returns_hold_with_sync_action(): void
+    {
+        $result = (new AtlasProjectLaneAutonomyReadiness)->compose('project-a', [
+            'admission' => ['admitted' => true],
+            'isolation' => ['passed' => true],
+            'verification_court' => ['passed' => true],
+            'release_governor' => ['passed' => true],
+            'receipt_policy' => ['passed' => true],
+            'rollback' => ['conformant' => true],
+            'runtime_soak' => ['passed' => true],
+            'freshness' => ['conformant' => true],
+            'knowledge_sync' => ['ready' => false, 'hold' => true],
+        ]);
+
+        $this->assertSame('hold', $result['state']);
+        $this->assertContains('run_atlas_engineering_knowledge_sync', $result['next_atlas_actions']);
+    }
+
+    // ── AC4: isolated fresh evidence and owner scope return state=ready ──
+
+    public function test_isolated_fresh_evidence_and_owner_scope_returns_ready(): void
+    {
+        $result = (new AtlasProjectLaneAutonomyReadiness)->compose('project-a', [
+            'admission' => ['admitted' => true],
+            'isolation' => ['passed' => true],
+            'verification_court' => ['passed' => true],
+            'release_governor' => ['passed' => true],
+            'receipt_policy' => ['passed' => true],
+            'rollback' => ['conformant' => true],
+            'runtime_soak' => ['passed' => true],
+            'freshness' => ['conformant' => true],
+            'knowledge_sync' => ['ready' => true],
+        ]);
+
+        $this->assertSame('ready', $result['state']);
+        $this->assertTrue($result['ready']);
+        $this->assertEmpty($result['blockers']);
+        $this->assertEmpty($result['holds']);
+    }
 }
