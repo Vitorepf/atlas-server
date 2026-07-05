@@ -170,6 +170,22 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
             $uniqueBlockers !== [] ? implode(',', $uniqueBlockers) : 'none',
         );
 
+        // AC: proof contract covering task state, allowed_files, evidence requirements
+        // and rollback expectations before another worker resumes.
+        $allowedFilesHash = hash('sha256', (string) json_encode($allowedFiles, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $proofContract = [
+            'task_state' => [
+                'task_packet_id' => $taskPacketId,
+                'task_packet_hash' => $taskPacketHash,
+                'lease_id' => $leaseId,
+                'risk_level' => $risk,
+                'continuation_summary_hash' => $continuationHash,
+            ],
+            'allowed_files_hash' => $allowedFilesHash,
+            'required_evidence' => $evidenceRefs,
+            'rollback_expectation' => $rollbackInstructions,
+        ];
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -196,6 +212,7 @@ final class AgentRuntimeRegistryHandoffProtocolBuilder
             'warnings' => array_values(array_unique($warnings)),
             'rollback_instructions' => $rollbackInstructions,
             'give_back_instructions' => $giveBackInstructions,
+            'proof_contract' => $proofContract,
             'handoff_hash' => $this->stableHash($hashPayload),
             'handoff_execution_allowed' => false,
             'runtime_execution_allowed' => false,

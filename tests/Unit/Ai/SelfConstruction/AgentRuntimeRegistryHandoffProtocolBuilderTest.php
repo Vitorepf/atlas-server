@@ -258,4 +258,77 @@ final class AgentRuntimeRegistryHandoffProtocolBuilderTest extends TestCase
 
         $this->assertSame($a['handoff_hash'], $b['handoff_hash']);
     }
+
+    // ── AC: handoff output includes proof_contract with task_state, allowed_files_hash, required_evidence and rollback_expectation ──
+
+    public function test_handoff_includes_proof_contract(): void
+    {
+        $plan = $this->svc()->build(
+            $this->fromAgent(),
+            $this->toAgent(),
+            $this->task(),
+            ['continuation_summary_hash' => str_repeat('a', 64)],
+        );
+
+        $this->assertArrayHasKey('proof_contract', $plan);
+        $contract = $plan['proof_contract'];
+
+        $this->assertArrayHasKey('task_state', $contract);
+        $this->assertArrayHasKey('allowed_files_hash', $contract);
+        $this->assertArrayHasKey('required_evidence', $contract);
+        $this->assertArrayHasKey('rollback_expectation', $contract);
+
+        $this->assertSame('tp-1', $contract['task_state']['task_packet_id']);
+        $this->assertNotEmpty($contract['allowed_files_hash']);
+        $this->assertSame(['ev/path/1.md'], $contract['required_evidence']);
+        $this->assertNotEmpty($contract['rollback_expectation']);
+    }
+
+    // ── AC: handoff is blocked when source worker lacks concrete progress or evidence state ──
+
+    public function test_handoff_blocked_when_source_lacks_evidence(): void
+    {
+        $task = $this->task(['evidence_refs' => []]);
+
+        $plan = $this->svc()->build(
+            $this->fromAgent(),
+            $this->toAgent(),
+            $task,
+            ['continuation_summary_hash' => str_repeat('a', 64)],
+        );
+
+        $this->assertSame('blocked', $plan['status']);
+        $this->assertContains('missing_evidence_refs', $plan['blockers']);
+    }
+
+    public function test_handoff_blocked_when_source_lacks_continuation_summary(): void
+    {
+        $plan = $this->svc()->build(
+            $this->fromAgent(),
+            $this->toAgent(),
+            $this->task(),
+        );
+
+        $this->assertSame('blocked', $plan['status']);
+        $this->assertContains('missing_continuation_summary', $plan['blockers']);
+    }
+
+    // ── AC: provider-safe summaries exclude raw prompts, traces and secret-like metadata ──
+
+    public function test_handoff_output_excludes_raw_prompts_and_traces(): void
+    {
+        $plan = $this->svc()->build(
+            $this->fromAgent(),
+            $this->toAgent(),
+            $this->task(),
+            ['continuation_summary_hash' => str_repeat('a', 64)],
+        );
+
+        $json = (string) json_encode($plan);
+
+        $this->assertStringNotContainsString('raw_prompt', $json);
+        $this->assertStringNotContainsString('provider_trace', $json);
+        $this->assertStringNotContainsString('secret', $json);
+        $this->assertStringNotContainsString('api_key', $json);
+    }
 }
