@@ -64,5 +64,27 @@ Re-rodar todas as medições do baseline com os mesmos parâmetros; publicar tab
 ## Governança pré-início
 `php artisan atlas:ai:session-bootstrap --task="obra 6 consolidacao estrutural" --json`; recall de memória sobre vetos (eng-kernel-unification-map, SORT_STRING, organs-unwired) antes da V0; place-feature para o gate v2.
 
-## Follow-ups (preencher durante a obra)
-_(vazio no início)_
+## Progresso e achados (preenchido durante a obra, 05/07 ~18h)
+
+**V0 — ENTREGUE (`059efab25e` + ajuste `e8f3a0e999`).** Gate de admissão v2: reuse-first de lógica
+(`evaluateLogicReuse`, janela de 30 linhas) + wired-or-tagged (`AtlasTaskWiringAdmissionGate`,
+`@unwired-until`), observe default. Verificação adversarial (3 lentes) deu V0_PRECISA_AJUSTE com 2
+furos REAIS que foram consertados: (1) path `./` furava a auto-exclusão → falso-positivo/negativo;
+(2) repetição estrutural (array/match/tabela) era tratada como clone. Re-verificado: 14 testes verdes,
+4 casos do adversário corrigidos, replay 20+19 packets = 0 falso-positivo. Tetos residuais documentados.
+
+**V1 — ACHADO HONESTO que refuta a régua (medido, não declarado).** Os 35 B_STATE somam 17.413 LOC
+(média 498). Medição: só 3 usam o trait; **7** têm helpers locais byte-idênticos ao trait (~120 linhas
+recuperáveis, hash-safe); 18 têm montagem de payload própria cuja ORDEM alimenta o `certification_hash`
+(migrar viola o veto de hash — NÃO tocar). **Os 17.413 linhas são ~98% lógica de check ESPECÍFICA por
+área** (cada certifier lê seus docs e verifica sua realidade) — trabalho genuíno, não duplicação. A meta
+"−30% LOC" e "35 → <20 classes" repousa no MESMO erro de categoria que a spec da Obra #5 já flagou
+(auditor de estado ≠ juiz clonado). Ação: migrados os 7 helper-carriers para o trait (dedup real,
+fonte única do rollup); o resto fica como está — reduzir seria Goodhart. Delta real medido no commit.
+
+## Follow-ups
+- Enforce do `admission_v2_mode` (hoje observe) é decisão do operador — flip quando a janela de dados
+  mostrar sinal limpo. O replay já provou 6 organs unwired reais entrando pela esteira.
+- V1: as 18 certifiers com payload-assembly próprio poderiam usar `stateCertificationPayload` SE a ordem
+  de chaves for provada idêntica por-área (snapshot de hash antes/depois) — deixado para quem tiver o
+  orçamento de provar hash-safe uma a uma; ganho ~180 linhas, risco de hash não vale sem a prova.
