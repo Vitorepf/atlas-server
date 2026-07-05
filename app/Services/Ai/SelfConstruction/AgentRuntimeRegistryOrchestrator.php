@@ -144,10 +144,17 @@ final class AgentRuntimeRegistryOrchestrator
             'warnings' => $warnings,
         ];
 
+        $dispatchReadiness = $blockers === [] ? 'ready' : 'blocked';
+        $selectionReason = $blockers === []
+            ? 'fresh_matching_agent_selected'
+            : implode(',', array_unique($blockers));
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'event' => 'assignment_plan',
             'status' => $status,
+            'dispatch_readiness' => $dispatchReadiness,
+            'selection_reason' => $selectionReason,
             'planned_at' => $now,
             'registry_summary' => $this->registry->registry()['status_counts'] ?? [],
             'availability_summary' => $availabilityPlan['capacity_summary'] ?? [],
@@ -239,10 +246,19 @@ final class AgentRuntimeRegistryOrchestrator
             'blockers' => $blockers,
         ];
 
+        $registryCount = (int) ($registrySummary['total_count'] ?? 0);
+        $heartbeatCount = (int) ($heartbeatSummary['fresh_count'] ?? 0) + (int) ($heartbeatSummary['stale_count'] ?? 0);
+        $quarantinedCount = count($quarantineActive);
+        $dispatchableCount = max(0, $heartbeatCount - $quarantinedCount);
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
             'status' => $blockers === [] ? 'available' : 'degraded',
+            'registry_count' => $registryCount,
+            'heartbeat_count' => $heartbeatCount,
+            'quarantined_count' => $quarantinedCount,
+            'dispatchable_count' => $dispatchableCount,
             'registry_summary' => [
                 'total_agents' => (int) ($registrySummary['total_count'] ?? 0),
                 'status_counts' => (array) ($registrySummary['status_counts'] ?? []),

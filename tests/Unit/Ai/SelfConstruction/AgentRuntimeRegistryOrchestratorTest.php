@@ -236,4 +236,87 @@ final class AgentRuntimeRegistryOrchestratorTest extends TestCase
         $this->assertSame('blocked', $plan['status']);
         $this->assertNull($plan['selected_agent']);
     }
+
+    // ── AC: planAssignment returns dispatch_readiness=blocked when all matching agents are stale, quarantined or unsupported ──
+
+    public function test_dispatch_readiness_blocked_when_all_agents_quarantined(): void
+    {
+        $orch = new AgentRuntimeRegistryOrchestrator;
+        $orch->registerAndHeartbeat(
+            $this->agentPayload('agent-a'),
+            ['status' => 'healthy', 'observed_at' => CarbonImmutable::now()->toIso8601String()],
+        );
+        (new AgentRuntimeRegistryQuarantineRepository)->quarantine('agent-a', [
+            'code' => 'operator_disabled',
+            'declared_by' => 'operator-1',
+        ]);
+
+        $plan = $orch->planAssignment(['task_packet_id' => 'tp', 'required_capabilities' => ['code_edit'], 'dry_run_only' => true]);
+
+        $this->assertSame('blocked', $plan['dispatch_readiness']);
+    }
+
+    public function test_dispatch_readiness_blocked_when_all_agents_stale(): void
+    {
+        $orch = new AgentRuntimeRegistryOrchestrator;
+        $orch->registerAndHeartbeat(
+            $this->agentPayload('stale-agent'),
+            ['status' => 'healthy', 'observed_at' => '2020-01-01T00:00:00+00:00'],
+        );
+
+        $plan = $orch->planAssignment(
+            ['task_packet_id' => 'tp', 'required_capabilities' => ['code_edit'], 'dry_run_only' => true],
+            ['ttl_seconds' => 90, 'reference_time' => '2020-01-01T01:00:00+00:00'],
+        );
+
+        $this->assertSame('blocked', $plan['dispatch_readiness']);
+    }
+
+    // ── AC: a fresh matching agent produces dispatch_readiness=ready with selected_agent and selection_reason ──
+
+    public function test_dispatch_readiness_ready_with_fresh_matching_agent(): void
+    {
+        $orch = new AgentRuntimeRegistryOrchestrator;
+        $orch->registerAndHeartbeat(
+            $this->agentPayload('agent-a'),
+            ['status' => 'healthy', 'observed_at' => CarbonImmutable::now()->toIso8601String()],
+        );
+
+        $plan = $orch->planAssignment(['task_packet_id' => 'tp', 'required_capabilities' => ['code_edit'], 'dry_run_only' => true]);
+
+        $this->assertSame('ready', $plan['dispatch_readiness']);
+        $this->assertNotNull($plan['selected_agent']);
+        $this->assertNotEmpty($plan['selection_reason']);
+    }
+
+    // ── AC: health summarizes registry_count, heartbeat_count, quarantined_count and dispatchable_count ──
+
+    public function test_health_includes_registry_heartbeat_quarantined_dispatchable_counts(): void
+    {
+        $orch = new AgentRuntimeRegistryOrchestrator;
+        $orch->registerAndHeartbeat(
+            $this->agentPayload('agent-a'),
+            ['status' => 'healthy', 'observed_at' => CarbonImmutable::now()->toIso8601String()],
+        );
+        $orch->registerAndHeartbeat(
+            $this->agentPayload('agent-b'),
+            ['status' => 'healthy', 'observed_at' => CarbonImmutable::now()->toIso8601String()],
+        );
+        (new AgentRuntimeRegistryQuarantineRepository)->quarantine('agent-b', [
+            'code' => 'operator_disabled',
+            'declared_by' => 'operator-1',
+        ]);
+
+        $health = $orch->health();
+
+        $this->assertArrayHasKey('registry_count', $health);
+        $this->assertArrayHasKey('heartbeat_count', $health);
+        $this->assertArrayHasKey('quarantined_count', $health);
+        $this->assertArrayHasKey('dispatchable_count', $health);
+
+        $this->assertSame(2, $health['registry_count']);
+        $this->assertSame(2, $health['heartbeat_count']);
+        $this->assertSame(1, $health['quarantined_count']);
+        $this->assertSame(1, $health['dispatchable_count']);
+    }
 }
