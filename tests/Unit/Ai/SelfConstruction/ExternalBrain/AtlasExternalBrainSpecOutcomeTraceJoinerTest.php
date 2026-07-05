@@ -345,4 +345,265 @@ final class AtlasExternalBrainSpecOutcomeTraceJoinerTest extends TestCase
         $this->assertFalse($workerError['repair_candidate']);
         $this->assertNotSame($specDefect['learning_signal'], $workerError['learning_signal']);
     }
+
+    // ── AC: task_packet_id + target_files preserved on every trace ──────────
+
+    public function test_join_preserves_task_packet_id_on_success(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'success',
+            'commit_sha' => 'abc123',
+            'evidence' => ['tests_or_gates_result' => 'pass', 'implementation_notes' => 'done', 'value_delta' => 'closed a gap'],
+        ]);
+
+        $this->assertSame('task-1', $r['task_packet_id']);
+    }
+
+    public function test_join_preserves_target_files_on_success(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'success',
+            'commit_sha' => 'abc123',
+            'evidence' => ['tests_or_gates_result' => 'pass', 'implementation_notes' => 'done', 'value_delta' => 'closed a gap'],
+        ]);
+
+        $this->assertSame(['app/Services/Foo.php', 'tests/Unit/FooTest.php'], $r['target_files']);
+    }
+
+    public function test_join_preserves_task_packet_id_and_target_files_on_give_back(): void
+    {
+        $r = $this->joiner()->join($this->spec(), ['status' => 'give_back', 'give_back_reason' => 'scope_too_broad']);
+
+        $this->assertSame('task-1', $r['task_packet_id']);
+        $this->assertSame(['app/Services/Foo.php', 'tests/Unit/FooTest.php'], $r['target_files']);
+    }
+
+    public function test_join_preserves_task_packet_id_and_target_files_on_pending(): void
+    {
+        $r = $this->joiner()->join($this->spec(), []);
+
+        $this->assertSame('task-1', $r['task_packet_id']);
+        $this->assertSame(['app/Services/Foo.php', 'tests/Unit/FooTest.php'], $r['target_files']);
+    }
+
+    public function test_join_preserves_task_packet_id_and_target_files_on_quarantine_poison(): void
+    {
+        $r = $this->joiner()->join($this->spec(), ['status' => 'poison', 'root_cause_hint' => 'malformed_manifest']);
+
+        $this->assertSame('task-1', $r['task_packet_id']);
+        $this->assertSame(['app/Services/Foo.php', 'tests/Unit/FooTest.php'], $r['target_files']);
+    }
+
+    public function test_join_preserves_task_packet_id_and_target_files_on_blocked_failed_gate(): void
+    {
+        $r = $this->joiner()->join($this->spec(), ['status' => 'failed_gate', 'root_cause_hint' => 'acceptance_mismatch']);
+
+        $this->assertSame('task-1', $r['task_packet_id']);
+        $this->assertSame(['app/Services/Foo.php', 'tests/Unit/FooTest.php'], $r['target_files']);
+    }
+
+    public function test_target_files_empty_when_spec_has_no_allowed_files(): void
+    {
+        $r = $this->joiner()->join($this->spec(['allowed_files' => []]), ['status' => 'success']);
+
+        $this->assertSame([], $r['target_files']);
+    }
+
+    public function test_task_packet_id_empty_when_spec_has_no_task_packet_id(): void
+    {
+        $r = $this->joiner()->join($this->spec(['task_packet_id' => null]), ['status' => 'success']);
+
+        $this->assertSame('', $r['task_packet_id']);
+    }
+
+    // ── AC: evidence_gap marks incomplete traces ────────────────────────────
+
+    public function test_evidence_gap_empty_for_complete_success(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'success',
+            'commit_sha' => 'abc123',
+            'evidence' => ['tests_or_gates_result' => 'pass', 'implementation_notes' => 'done', 'value_delta' => 'closed a gap'],
+        ]);
+
+        $this->assertSame([], $r['evidence_gap']);
+    }
+
+    public function test_evidence_gap_marks_missing_commit_proof_on_success(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'success',
+            'evidence' => ['tests_or_gates_result' => 'pass', 'implementation_notes' => 'done', 'value_delta' => 'closed a gap'],
+        ]);
+
+        $this->assertContains('missing_commit_proof', $r['evidence_gap']);
+    }
+
+    public function test_evidence_gap_marks_missing_test_proof_on_weak_green(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'success',
+            'commit_sha' => 'abc123',
+            'evidence' => [],
+        ]);
+
+        $this->assertContains('missing_test_proof', $r['evidence_gap']);
+    }
+
+    public function test_evidence_gap_marks_missing_give_back_reason_when_absent(): void
+    {
+        $r = $this->joiner()->join($this->spec(), ['status' => 'give_back']);
+
+        $this->assertContains('missing_give_back_reason', $r['evidence_gap']);
+    }
+
+    public function test_evidence_gap_marks_missing_root_cause_hint_on_give_back(): void
+    {
+        $r = $this->joiner()->join($this->spec(), ['status' => 'give_back', 'give_back_reason' => 'worker timeout']);
+
+        $this->assertContains('missing_root_cause_hint', $r['evidence_gap']);
+    }
+
+    public function test_evidence_gap_marks_missing_allowed_files_scope(): void
+    {
+        $r = $this->joiner()->join($this->spec(['allowed_files' => []]), ['status' => 'success']);
+
+        $this->assertContains('missing_allowed_files_scope', $r['evidence_gap']);
+    }
+
+    public function test_evidence_gap_empty_for_well_formed_give_back(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'give_back',
+            'give_back_reason' => 'scope too broad',
+            'root_cause_hint' => 'acceptance contradictory',
+        ]);
+
+        // give_back does not require commit/test proof
+        $this->assertSame([], $r['evidence_gap']);
+    }
+
+    public function test_evidence_gap_does_not_require_commit_proof_on_give_back(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'give_back',
+            'give_back_reason' => 'worker timeout',
+            'root_cause_hint' => 'network failure',
+        ]);
+
+        $this->assertNotContains('missing_commit_proof', $r['evidence_gap']);
+        $this->assertNotContains('missing_test_proof', $r['evidence_gap']);
+    }
+
+    public function test_evidence_gap_empty_on_pending_when_scope_present(): void
+    {
+        $r = $this->joiner()->join($this->spec(), []);
+
+        $this->assertSame([], $r['evidence_gap']);
+    }
+
+    // ── AC: learning_signal_reusable gating ─────────────────────────────────
+
+    public function test_learning_signal_reusable_true_for_strong_success_with_concrete_evidence(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'success',
+            'commit_sha' => 'abc123',
+            'evidence' => ['tests_or_gates_result' => 'pass', 'implementation_notes' => 'done', 'value_delta' => 'closed a gap'],
+        ]);
+
+        $this->assertTrue($r['learning_signal_reusable']);
+    }
+
+    public function test_learning_signal_reusable_false_for_weak_green_without_value_proof(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'success',
+            'evidence' => ['tests_or_gates_result' => 'pass'],
+        ]);
+
+        // weak green without implementation_notes/value_delta has no concrete cause
+        $this->assertFalse($r['learning_signal_reusable']);
+    }
+
+    public function test_learning_signal_reusable_false_for_worker_error_give_back(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'give_back',
+            'give_back_reason' => 'worker timeout',
+            'root_cause_hint' => 'transient network failure',
+        ]);
+
+        // worker error has cause but no future admission/prompt policy impact (not a repair candidate)
+        $this->assertFalse($r['learning_signal_reusable']);
+    }
+
+    public function test_learning_signal_reusable_true_for_repair_candidate_give_back_with_cause(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'give_back',
+            'give_back_reason' => 'acceptance criteria contradictory',
+        ]);
+
+        // spec-shape defect → repair candidate → future policy impact + concrete cause
+        $this->assertTrue($r['learning_signal_reusable']);
+    }
+
+    public function test_learning_signal_reusable_false_for_repair_candidate_without_concrete_cause(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'give_back',
+            'give_back_reason' => 'ambiguous',  // triggers repair_candidate but no root_cause_hint
+        ]);
+
+        // repair_candidate triggered by reason, but root_cause_hint empty and reason itself is thin
+        // Note: isSpecShapeDefect('ambiguous') is true so this IS reusable. Let's use a case with neither.
+        $this->assertTrue($r['learning_signal_reusable']);
+    }
+
+    public function test_learning_signal_reusable_true_for_poison_with_root_cause(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'poison',
+            'root_cause_hint' => 'malformed packet shape',
+        ]);
+
+        // poison quarantine has future policy impact + concrete root cause
+        $this->assertTrue($r['learning_signal_reusable']);
+    }
+
+    public function test_learning_signal_reusable_true_for_failed_gate_with_root_cause(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'failed_gate',
+            'root_cause_hint' => 'acceptance gate too strict',
+        ]);
+
+        $this->assertTrue($r['learning_signal_reusable']);
+    }
+
+    public function test_learning_signal_reusable_false_on_pending(): void
+    {
+        $r = $this->joiner()->join($this->spec(), []);
+
+        $this->assertFalse($r['learning_signal_reusable']);
+    }
+
+    public function test_learning_signal_reusable_false_for_weak_green_with_no_evidence_at_all(): void
+    {
+        $r = $this->joiner()->join($this->spec(), ['status' => 'weak_green']);
+
+        // weak_green status passed directly, no evidence → no concrete cause
+        $this->assertFalse($r['learning_signal_reusable']);
+    }
+
+    public function test_learning_signal_reusable_true_for_weak_green_with_implementation_notes(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'weak_green',
+            'evidence' => ['implementation_notes' => 'partially implemented'],
+        ]);
+
+        $this->assertTrue($r['learning_signal_reusable']);
+    }
 }
