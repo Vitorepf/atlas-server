@@ -459,4 +459,112 @@ final class AtlasExternalBrainEvidenceIntakeMapTest extends TestCase
         }
         $this->fail("Stream '{$id}' not found");
     }
+
+    // ── AC: chat_memory and raw_provider_prompt streams are rejected before fusion ──
+
+    public function test_chat_memory_rejected_before_fusion_with_rejected_reason(): void
+    {
+        $r = $this->map->validate('chat_memory', ['data' => 'secret']);
+
+        $this->assertTrue($r['rejected']);
+        $this->assertFalse($r['usable_for_origination']);
+        $this->assertSame('rejected', $r['trust_tier']);
+    }
+
+    public function test_raw_provider_prompt_rejected_before_fusion_with_rejected_reason(): void
+    {
+        $r = $this->map->validate('raw_provider_prompt', ['prompt' => 'secret']);
+
+        $this->assertTrue($r['rejected']);
+        $this->assertFalse($r['usable_for_origination']);
+        $this->assertSame('rejected', $r['trust_tier']);
+    }
+
+    // ── AC: queue_health, code_facts and muscle_outcomes require fresh timestamps ──
+
+    public function test_queue_health_requires_fresh_timestamp_for_origination(): void
+    {
+        $now = 1751290000;
+        $fresh = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => $now - 60,
+        ], $now);
+
+        $this->assertTrue($fresh['usable_for_origination']);
+        $this->assertSame('fresh', $fresh['freshness_status']);
+    }
+
+    public function test_code_facts_requires_fresh_timestamp_for_origination(): void
+    {
+        $now = 1751290000;
+        $fresh = $this->map->validate('code_facts', [
+            'workspace' => 'atlas', 'symbol_count' => 100, 'orphan_count' => 5,
+            'indexed_at_unix' => $now - 1800,
+        ], $now);
+
+        $this->assertTrue($fresh['usable_for_origination']);
+    }
+
+    public function test_muscle_outcomes_requires_fresh_timestamp_for_origination(): void
+    {
+        $now = 1751290000;
+        $fresh = $this->map->validate('muscle_outcomes', [
+            'task_packet_id' => 't1', 'outcome' => 'success', 'worker_id' => 'w1',
+            'reported_at_unix' => $now - 60,
+        ], $now);
+
+        $this->assertTrue($fresh['usable_for_origination']);
+    }
+
+    // ── AC: fused sources include trust_tier and rejected_reason without raw prompt data ──
+
+    public function test_fused_sources_include_trust_tier(): void
+    {
+        $now = 1751290000;
+        $v1 = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => $now - 60,
+        ], $now);
+
+        $this->assertArrayHasKey('trust_tier', $v1);
+        $this->assertSame('verified', $v1['trust_tier']);
+    }
+
+    public function test_rejected_stream_includes_rejected_flag(): void
+    {
+        $r = $this->map->validate('chat_memory', ['data' => 'secret']);
+
+        $this->assertArrayHasKey('rejected', $r);
+        $this->assertTrue($r['rejected']);
+    }
+
+    public function test_validate_output_does_not_include_raw_prompt_data(): void
+    {
+        $r = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => 1751290000,
+            'raw_prompt' => 'secret prompt data',
+            'provider_trace' => 'secret trace',
+        ]);
+
+        $this->assertArrayNotHasKey('raw_prompt', $r);
+        $this->assertArrayNotHasKey('provider_trace', $r);
+        $this->assertArrayNotHasKey('prompt', $r);
+    }
+
+    public function test_fuse_sources_output_does_not_include_raw_prompt_data(): void
+    {
+        $now = 1751290000;
+        $v1 = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => $now - 60,
+            'raw_prompt' => 'secret',
+        ], $now);
+        $v2 = $this->map->validate('runtime_receipts', [
+            'event_type' => 'cert', 'subject_id' => 't1',
+            'recorded_at_unix' => $now - 60, 'payload_hash' => 'abc',
+            'provider_trace' => 'secret',
+        ], $now);
+
+        $fusion = $this->map->fuseSources([$v1, $v2]);
+
+        $this->assertArrayNotHasKey('raw_prompt', $fusion);
+        $this->assertArrayNotHasKey('provider_trace', $fusion);
+    }
 }
