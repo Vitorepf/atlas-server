@@ -492,4 +492,50 @@ final class AtlasExternalBrainSpecImpactTraceTest extends TestCase
 
         $this->assertSame([], $result['repair_recommendations']);
     }
+
+    // ── AC2: fully populated trace is verifiable with no unverifiable_reasons ──
+
+    public function test_fully_populated_trace_verifiable_no_unverifiable_reasons(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput());
+
+        $this->assertTrue($result['verifiable']);
+        $this->assertEmpty($result['unverifiable_reasons']);
+    }
+
+    // ── AC3: evidence refs are preserved in output ──
+
+    public function test_evidence_refs_preserved(): void
+    {
+        $input = $this->fullInput();
+        $input['evidence_refs'] = ['ref-1', 'ref-2', 'ref-3'];
+
+        $result = $this->tracer()->trace($input);
+
+        $this->assertSame(['ref-1', 'ref-2', 'ref-3'], $result['evidence_refs']);
+    }
+
+    // ── AC4: missing impact dimensions or evidence refs make trace unverifiable ──
+
+    public function test_missing_evidence_refs_makes_unverifiable(): void
+    {
+        $input = $this->fullInput();
+        $input['evidence_refs'] = [];
+
+        $result = $this->tracer()->trace($input);
+
+        $this->assertFalse($result['verifiable']);
+        $this->assertNotEmpty($result['unverifiable_reasons']);
+    }
+
+    public function test_missing_capability_delta_makes_unverifiable(): void
+    {
+        $input = $this->fullInput();
+        $input['capability_delta'] = '';
+
+        $result = $this->tracer()->trace($input);
+
+        $this->assertFalse($result['verifiable']);
+        $this->assertNotEmpty($result['unverifiable_reasons']);
+    }
 }
