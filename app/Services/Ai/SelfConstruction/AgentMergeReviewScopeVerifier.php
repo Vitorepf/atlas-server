@@ -76,6 +76,12 @@ final class AgentMergeReviewScopeVerifier
             if ($path === '') {
                 continue;
             }
+            // Normalize path: backslash → '/', strip leading './', collapse '//'.
+            $path = str_replace('\\', '/', $path);
+            if (str_starts_with($path, './')) {
+                $path = substr($path, 2);
+            }
+            $path = (string) preg_replace('#/{2,}#', '/', $path);
 
             if ($this->matchesAny($path, $forbidden) || $this->matchesAny($path, $scopeOut)) {
                 $forbiddenViolations[] = [
