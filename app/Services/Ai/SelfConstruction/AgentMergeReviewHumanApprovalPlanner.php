@@ -63,26 +63,35 @@ final class AgentMergeReviewHumanApprovalPlanner
             ];
         }
         $verification = (array) ($scopeVerification['verification'] ?? []);
-        if ((int) ($verification['forbidden_violation_count'] ?? 0) > 0) {
+        // Fail-closed: absent or empty scope verification is never treated as verified-clean.
+        if ($verification === []) {
             $blockingConditions[] = [
-                'name' => 'forbidden_violation_present',
+                'name' => 'scope_verification_missing',
                 'kind' => 'scope_blocker',
                 'must_clear_before_approval' => true,
             ];
-        }
-        if ((int) ($verification['cross_axis_violation_count'] ?? 0) > 0) {
-            $blockingConditions[] = [
-                'name' => 'cross_axis_violation_present',
-                'kind' => 'scope_blocker',
-                'must_clear_before_approval' => true,
-            ];
-        }
-        if ((int) ($verification['unsafe_path_violation_count'] ?? 0) > 0) {
-            $blockingConditions[] = [
-                'name' => 'unsafe_path_present',
-                'kind' => 'scope_blocker',
-                'must_clear_before_approval' => true,
-            ];
+        } else {
+            if ((int) ($verification['forbidden_violation_count'] ?? 0) > 0) {
+                $blockingConditions[] = [
+                    'name' => 'forbidden_violation_present',
+                    'kind' => 'scope_blocker',
+                    'must_clear_before_approval' => true,
+                ];
+            }
+            if ((int) ($verification['cross_axis_violation_count'] ?? 0) > 0) {
+                $blockingConditions[] = [
+                    'name' => 'cross_axis_violation_present',
+                    'kind' => 'scope_blocker',
+                    'must_clear_before_approval' => true,
+                ];
+            }
+            if ((int) ($verification['unsafe_path_violation_count'] ?? 0) > 0) {
+                $blockingConditions[] = [
+                    'name' => 'unsafe_path_present',
+                    'kind' => 'scope_blocker',
+                    'must_clear_before_approval' => true,
+                ];
+            }
         }
         $blockingConditions = $this->dedupRows($blockingConditions, ['name']);
 
