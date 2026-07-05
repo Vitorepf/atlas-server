@@ -33,7 +33,9 @@ final class AtlasLoopHeavyWorkSelector
      * @param  list<array<string,mixed>>  $candidates  each: {candidateId, kind, class?, node_count?,
      *     evidence:{refactor_leverage?, cyclomatic_total?, failure_evidence?, blast_radius?}}
      * @param  array<string,mixed>  $context  {class_stats:array<string,{successes,failures}>,
-     *     risk_tolerance?:float}
+     *     risk_tolerance?:float, capability_factor?:float,
+     *     adaptive_floor_enabled?:bool  — default false, when true and capability_factor is
+     *     high the panel value floor is relaxed to surface wider candidate shapes}
      * @return array{schema_version:string, pick:?array<string,mixed>, ranked:list<array<string,mixed>>,
      *               strategy:string}
      */
@@ -44,10 +46,34 @@ final class AtlasLoopHeavyWorkSelector
         $trust = $this->trust ?? new AtlasLoopTrustLadder();
         $classStats = is_array($context['class_stats'] ?? null) ? (array) $context['class_stats'] : [];
 
+        // AC4: adaptive panel floor — behind a config flag (defaulting off), a high capability_factor
+        // derives a relaxed value floor so the panel surfaces broader shapes instead of only the
+        // highest-value candidate, compounding proven safety into wider exploration.
+        $adaptiveFloorEnabled = (bool) ($context['adaptive_floor_enabled'] ?? false);
+        $capability = (float) ($context['capability_factor'] ?? 0.0);
+        $relaxedFloor = $adaptiveFloorEnabled && $capability >= 0.5;
+
         // 1. PANEL value (deterministic, ungameable) per candidate, keyed by id.
+        $panelResult = $panel->decide($candidates);
         $valueById = [];
-        foreach (($panel->decide($candidates)['ranked'] ?? []) as $row) {
+        foreach (($panelResult['ranked'] ?? []) as $row) {
             $valueById[(string) $row['candidateId']] = (float) ($row['risk_adjusted_score'] ?? 0.0);
+        }
+
+        // When the adaptive floor is active, include under-evidenced candidates (excluded by the
+        // panel's QUORUM) with a baseline score — at high capability the loop should explore
+        // broader shapes, not ignore candidates that lack complete evidence.
+        if ($relaxedFloor) {
+            $includedFromExcluded = 0;
+            foreach (($panelResult['excluded'] ?? []) as $excluded) {
+                $exId = (string) ($excluded['candidateId'] ?? '');
+                if ($exId !== '' && ! array_key_exists($exId, $valueById)) {
+                    // Assign a baseline score lower than any real scored candidate so ambitious
+                    // under-evidenced candidates can still surface if their leap magnitude warrants it.
+                    $valueById[$exId] = 1.0;
+                    $includedFromExcluded++;
+                }
+            }
         }
 
         // 2. AMBITION inputs: magnitude = panel value · scope; P(land) = Bayesian class acceptance.
