@@ -185,6 +185,8 @@ app/Services/Ai/Programming/AtlasDev/Schemas/Validators/MiniProgrammingSpecValid
 app/Services/Ai/Programming/AtlasDev/Schemas/Validators/LightTaskContractValidator.php
 ```
 
+> Nota (2026-07-05): a camada `Schemas/Validators/` planejada nesta secao (PRs 0.2 a 0.5) nunca foi criada — o historico git nao registra nenhum add/delete nesse diretorio, e a interface `SchemaValidator` nao existe no codigo. Os DTOs e components foram criados nos paths planejados em `app/Services/Ai/Programming/AtlasDev/Schemas/`, e a validacao de invariants ficou embutida nos proprios schemas (contrato `Schemas/Contracts/AtlasDevSchemaContract.php`) e nos gates (ex.: `app/Services/Ai/Programming/AtlasDev/Gate/ScopeGuard.php`). O plano abaixo permanece como registro do desenho original.
+
 Validator interface:
 
 ```php

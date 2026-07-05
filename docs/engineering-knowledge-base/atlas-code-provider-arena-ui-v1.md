@@ -31,11 +31,11 @@ maintenance:
   - Schema `atlas.code.provider_arena_snapshot.v1` é additive-only: novas chaves OK, renomes não.
   - Schema `atlas.forge.rivals.provider_arena_run.v1` (run envelope) é governado pelo Provider Arena Core e não muda aqui.
 related_paths:
-  - app/Http/Controllers/AtlasCodeProviderArenaController.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasCodeProviderArenaSnapshotService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php
-  - app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php
-  - routes/api.php
+  - app/Http/Controllers/AtlasCodeProviderArenaController.php (retirado em 2026-07-02, commit f9aa666bfe)
+  - app/Services/Ai/Programming/ForgeRivals/AtlasCodeProviderArenaSnapshotService.php (retirado em 2026-07-02, commit f9aa666bfe)
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsArenaRunService.php (retirado em 2026-07-02, commit f9aa666bfe)
+  - app/Services/Ai/Programming/ForgeRivals/Arms/AtlasForgeRivalsArmRegistryService.php (retirado em 2026-07-02, commit f9aa666bfe)
+  - routes/api.php (rotas provider-arena retiradas em 2026-07-02, commit bf449d6fd3)
   - ../../../atlas-desktop/apps/desktop/src/surfaces/code/panels/ProviderArenaPanel.tsx
   - ../../../atlas-desktop/apps/desktop/src/surfaces/code/panels/rightRailRegistry.tsx
   - ../../../atlas-desktop/apps/desktop/src/lib/bridge.ts
@@ -43,7 +43,7 @@ related_paths:
   - ../../../atlas-desktop/packages/atlas-domain/src/index.ts
   - ../../../atlas-desktop/crates/atlas-bridge/src/client.rs
   - ../../../atlas-desktop/crates/atlas-tauri/src/commands_bridge.rs
-  - tests/Feature/Ai/Programming/AtlasCodeProviderArenaControllerTest.php
+  - tests/Feature/Ai/Programming/AtlasCodeProviderArenaControllerTest.php (retirado em 2026-07-02, commit bf449d6fd3)
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-code-provider-arena-ui-v1
@@ -83,13 +83,13 @@ governs:
   - atlas_code_provider_arena_ui_v1
 evidence:
   - docs/engineering-knowledge-base/atlas-code-provider-arena-ui-v1.md
-  - tests/Feature/Ai/Programming/AtlasCodeProviderArenaControllerTest.php
+  - tests/Feature/Ai/Programming/AtlasCodeProviderArenaControllerTest.php (retirado em 2026-07-02, commit bf449d6fd3)
 evidence_refs:
-  - test: AtlasCodeProviderArenaControllerTest
-  - symbol: AtlasCodeProviderArenaController
+  - test: AtlasCodeProviderArenaControllerTest (retirado em 2026-07-02, commit bf449d6fd3)
+  - symbol: AtlasCodeProviderArenaController (retirado em 2026-07-02, commit f9aa666bfe)
 required_tests:
-  - tests/Feature/Ai/Programming/AtlasCodeProviderArenaControllerTest.php
-  - tests/Feature/Ai/Programming/AtlasForgeRivalsProviderArenaCoreTest.php
+  - tests/Feature/Ai/Programming/AtlasCodeProviderArenaControllerTest.php (retirado em 2026-07-02, commit bf449d6fd3)
+  - tests/Feature/Ai/Programming/AtlasForgeRivalsProviderArenaCoreTest.php (retirado em 2026-07-02, commit bf449d6fd3)
 requires_evidence: true
 risk_level: medium
 next_actions:
@@ -101,6 +101,7 @@ next_actions:
 > Schema snapshot: `atlas.code.provider_arena_snapshot.v1`
 > Schema run envelope: `atlas.forge.rivals.provider_arena_run.v1`
 > Status: implementado · 2026-05-15
+> Atualização 2026-07-05: o lado PHP desta cabine (controller, snapshot service, run service, registry de arms) foi retirado do repo em 2026-07-02 (commit f9aa666bfe); os feature tests e as rotas `provider-arena` de `routes/api.php` saíram no commit bf449d6fd3 (2026-07-02). Não há equivalente vivo dos tests desta UI. Este doc permanece como registro canônico da v1.
 
 ## Por que esta meta existe
 

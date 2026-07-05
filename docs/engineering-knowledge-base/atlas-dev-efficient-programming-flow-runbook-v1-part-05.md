@@ -295,7 +295,7 @@ DoD do PR 2.3:
 - [x] Cenario "intent_clarity_level=blocking OU discovery.confidence=blocking_ambiguity" -> `routing_decision = blocked` com pergunta de esclarecimento (delegado a Atlas Conversation/Explain quando Atlas AI Router ativar).
 - [x] Cenario "command_intent=explain OU debug OU research vindo do Atlas AI Router" -> `routing_decision = delegate_to_other_flow` retornando flow sugerido; Atlas Dev nao processa fora de desenvolvimento em workspace.
 - [x] Todos os artefatos persistidos.
-- [x] Feature test `tests/Feature/AtlasDev/EndToEndPlanOnlyTest.php` cobrindo 6 cenarios.
+- [x] Feature test `tests/Feature/Ai/Programming/AtlasDev/EndToEndPlanOnlyTest.php` cobrindo 6 cenarios.
 
 #### PR 2.4 — CLI parity via `atlas:cli:dev --efficient`
 
@@ -334,7 +334,7 @@ DoD do PR 2.4:
 
 ### 9.3 DoD Operacional Da Fatia 2
 
-- `composer test --filter=AtlasDev/Pipeline` + `tests/Feature/AtlasDev/EndToEndPlanOnlyTest.php` verdes.
+- `composer test --filter=AtlasDev/Pipeline` + `tests/Feature/Ai/Programming/AtlasDev/EndToEndPlanOnlyTest.php` verdes.
 - Comando `atlas:cli:dev --efficient` rodando em workspace real (`atlas-server`) produz artefatos validos.
 - Artefatos persistidos em `storage/atlas-dev/receipts/<run_id>/`.
 - Telemetria emitida com `completion_state = no_patch_needed` (plan-only nao escreve).

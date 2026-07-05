@@ -55,7 +55,7 @@ evidence:
   - docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-runbook-v1.md
 evidence_refs:
   - symbol: CompletionStateGate
-  - command: atlas:dev:run
+  - command: atlas:dev:debug:smoke
   - test: CompletionStateGateTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
@@ -312,7 +312,7 @@ DoD do PR 3.4:
 Arquivos:
 
 ```text
-app/Services/Ai/Programming/AtlasDev/Pipeline/ReceiptComposer.php
+app/Services/Ai/Programming/AtlasDev/Gate/ReceiptComposer.php
 ```
 
 `AtlasDevFastPathOrchestrator` ganha metodo:
@@ -352,7 +352,7 @@ Algoritmo (extends planOnly):
 
 DoD do PR 3.5:
 
-- [x] Feature test `tests/Feature/AtlasDev/EndToEndOneCallTest.php` com gateway mock retorna `completion_state = passed`.
+- [x] Feature test `tests/Feature/Ai/Programming/AtlasDev/EndToEndOneCallTest.php` com gateway mock retorna `completion_state = passed`.
 - [x] Cenario com diff fora de escopo retorna `completion_state = failed`.
 - [x] Cenario "no_patch_needed" suportado.
 - [x] Receipt persistido com todos os hashes e refs validos.
@@ -381,6 +381,8 @@ DoD do PR 3.6:
 - [x] `php artisan atlas:dev:run "corrija teste X"` executa one-call + receipt.
 - [x] Flag `--plan-only` desvia para planOnly().
 - [x] Sem flag, executa patch.
+
+> Nota (2026-07-05): `app/Console/Commands/AtlasDevRunCommand.php` e a assinatura `atlas:dev:run` nunca foram criados sob esse nome (sem registro no histórico git). O equivalente vivo do one-call com receipt é `atlas:dev:debug:smoke` (`app/Console/Commands/AtlasDevSmokeCommand.php`, plan-only por padrão, execução real com `--execute --yes`); a execução de run aceito é `atlas:dev:run-worker`. A referência de evidência `command` no frontmatter foi apontada para `atlas:dev:debug:smoke` nesta data.
 
 ### 10.3 DoD Operacional Da Fatia 3
 
