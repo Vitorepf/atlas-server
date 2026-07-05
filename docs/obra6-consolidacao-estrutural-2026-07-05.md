@@ -112,6 +112,14 @@ pending-wiring (não morta). O ÚNICO ganho estrutural grande e correto foi o **
 não entrar MAIS sprawl/duplicação/unwired — shipado e verificado adversarialmente. Forçar consolidação em
 V1-V5 seria Goodhart contra um codebase majoritariamente legítimo.
 
+**V5 — JÁ ENTREGUE pela limpeza-bruta (medido).** As 3 famílias de política que a spec pediu já existem
+e são consumidas: `MemoryQualityStatusPolicy` (2 consumidores), `CompactionLossPolicy` (1), `Context/
+LocalPrereasoningPolicy` (1). jscpd da camada cognitiva inteira (Memory/Context/Aucri/Cognitive/Cognition/
+SelfImprovement/OpenBrain) = só **3 pares de clone ≥25 linhas**, todos coincidência cross-domain
+(SelfImprovement~trading, Forge~trust-ledger, test-helpers), NÃO famílias de política — consolidá-los
+conflataria domínios distintos (Goodhart). Nada novo a consolidar. Veto SORT_STRING respeitado: zero
+convergência de sort feita nesta obra.
+
 ## Follow-ups
 - Enforce do `admission_v2_mode` (hoje observe) é decisão do operador — flip quando a janela de dados
   mostrar sinal limpo. O replay já provou 6 organs unwired reais entrando pela esteira.
