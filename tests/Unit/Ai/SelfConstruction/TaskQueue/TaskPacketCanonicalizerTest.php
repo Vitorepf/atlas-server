@@ -144,4 +144,159 @@ final class TaskPacketCanonicalizerTest extends TestCase
     {
         $this->assertFalse($this->canon->contractMatchesDefault(['a' => 2], ['a' => 1]));
     }
+
+    // ── AC: unordered list sorting ───────────────────────────────────────────
+
+    public function test_normalize_sorts_allowed_files_regardless_of_order(): void
+    {
+        $a = ['objective' => 'do X', 'allowed_files' => ['app/B.php', 'app/A.php']];
+        $b = ['objective' => 'do X', 'allowed_files' => ['app/A.php', 'app/B.php']];
+
+        $this->assertSame(
+            $this->canon->stableHash($this->canon->normalizePacketForHash($a)),
+            $this->canon->stableHash($this->canon->normalizePacketForHash($b)),
+            'allowed_files is a set — order must not affect the hash',
+        );
+    }
+
+    public function test_normalize_sorts_required_evidence_regardless_of_order(): void
+    {
+        $a = ['objective' => 'do X', 'required_evidence' => ['impl_notes', 'tests']];
+        $b = ['objective' => 'do X', 'required_evidence' => ['tests', 'impl_notes']];
+
+        $this->assertSame(
+            $this->canon->stableHash($this->canon->normalizePacketForHash($a)),
+            $this->canon->stableHash($this->canon->normalizePacketForHash($b)),
+        );
+    }
+
+    public function test_normalize_preserves_acceptance_criteria_order(): void
+    {
+        // acceptance_criteria is ORDERED — different order means different task.
+        $a = ['objective' => 'do X', 'acceptance_criteria' => ['first', 'second']];
+        $b = ['objective' => 'do X', 'acceptance_criteria' => ['second', 'first']];
+
+        $this->assertNotSame(
+            $this->canon->stableHash($this->canon->normalizePacketForHash($a)),
+            $this->canon->stableHash($this->canon->normalizePacketForHash($b)),
+            'acceptance_criteria order is semantic — must affect the hash',
+        );
+    }
+
+    public function test_normalize_preserves_dependency_order(): void
+    {
+        // depends_on is ORDERED — the dependency chain matters.
+        $a = ['objective' => 'do X', 'depends_on' => ['dep-A', 'dep-B']];
+        $b = ['objective' => 'do X', 'depends_on' => ['dep-B', 'dep-A']];
+
+        $this->assertNotSame(
+            $this->canon->stableHash($this->canon->normalizePacketForHash($a)),
+            $this->canon->stableHash($this->canon->normalizePacketForHash($b)),
+            'depends_on order is semantic — must affect the hash',
+        );
+    }
+
+    // ── AC: extended volatile field stripping ────────────────────────────────
+
+    public function test_normalize_strips_extended_volatile_fields(): void
+    {
+        $volatileFields = [
+            'created_at', 'updated_at', 'resolved_at', 'lease_id', 'process_id',
+            'pid', 'worker_id', 'session_id', 'attempt_count', 'retry_count',
+            'sequence', 'run_id', 'trace_id', 'request_id', 'correlation_id',
+        ];
+        foreach ($volatileFields as $field) {
+            $normalized = $this->canon->normalizePacketForHash([$field => 'volatile-value', 'kept' => 'v']);
+            $this->assertArrayNotHasKey($field, $normalized, "normalizePacketForHash must strip {$field}");
+        }
+    }
+
+    public function test_hash_stable_across_all_volatile_fields(): void
+    {
+        $base = ['objective' => 'do X', 'allowed_files' => ['app/Foo.php']];
+        $withVolatile = array_merge($base, [
+            'task_packet_id' => 'tp-1',
+            'generated_at' => 'T1',
+            'lease_id' => 'L1',
+            'pid' => 12345,
+            'attempt_count' => 3,
+            'trace_id' => 'tr-1',
+            'created_at' => 'T2',
+            'worker_id' => 'w-1',
+        ]);
+
+        $this->assertSame(
+            $this->canon->stableHash($this->canon->normalizePacketForHash($base)),
+            $this->canon->stableHash($this->canon->normalizePacketForHash($withVolatile)),
+        );
+    }
+
+    // ── AC: stableHash changes on task-shaping field changes ─────────────────
+
+    public function test_hash_changes_when_required_evidence_changes(): void
+    {
+        $base = ['objective' => 'do X', 'required_evidence' => ['tests']];
+        $changed = ['objective' => 'do X', 'required_evidence' => ['tests', 'impl_notes']];
+
+        $this->assertNotSame(
+            $this->canon->stableHash($this->canon->normalizePacketForHash($base)),
+            $this->canon->stableHash($this->canon->normalizePacketForHash($changed)),
+        );
+    }
+
+    public function test_hash_changes_when_dependencies_change(): void
+    {
+        $base = ['objective' => 'do X', 'depends_on' => []];
+        $changed = ['objective' => 'do X', 'depends_on' => ['dep-1']];
+
+        $this->assertNotSame(
+            $this->canon->stableHash($this->canon->normalizePacketForHash($base)),
+            $this->canon->stableHash($this->canon->normalizePacketForHash($changed)),
+        );
+    }
+
+    public function test_hash_changes_when_scope_in_changes(): void
+    {
+        $base = ['objective' => 'do X', 'scope_in' => ['app/Foo.php']];
+        $changed = ['objective' => 'do X', 'scope_in' => ['app/Foo.php', 'app/Bar.php']];
+
+        $this->assertNotSame(
+            $this->canon->stableHash($this->canon->normalizePacketForHash($base)),
+            $this->canon->stableHash($this->canon->normalizePacketForHash($changed)),
+        );
+    }
+
+    // ── AC: contractMatchesDefault distinguishes boilerplate from meaningful ─
+
+    public function test_contract_matches_default_distinguishes_meaningful_change(): void
+    {
+        $default = ['risk_level' => 'low', 'auto_commit' => true];
+        $meaningful = ['risk_level' => 'high', 'auto_commit' => true]; // risk changed
+
+        $this->assertFalse($this->canon->contractMatchesDefault($meaningful, $default));
+    }
+
+    public function test_contract_matches_default_accepts_boilerplate_with_extras(): void
+    {
+        $default = ['risk_level' => 'low', 'auto_commit' => true];
+        $boilerplate = ['risk_level' => 'low', 'auto_commit' => true, 'operator_note' => 'extra'];
+
+        $this->assertTrue($this->canon->contractMatchesDefault($boilerplate, $default));
+    }
+
+    public function test_contract_matches_default_rejects_partial_match(): void
+    {
+        $default = ['a' => 1, 'b' => 2, 'c' => 3];
+        $partial = ['a' => 1, 'b' => 2]; // missing c
+
+        $this->assertFalse($this->canon->contractMatchesDefault($partial, $default));
+    }
+
+    public function test_contract_matches_default_false_when_nested_array_differs(): void
+    {
+        $default = ['config' => ['x' => 1]];
+        $current = ['config' => ['x' => 2]];
+
+        $this->assertFalse($this->canon->contractMatchesDefault($current, $default));
+    }
 }

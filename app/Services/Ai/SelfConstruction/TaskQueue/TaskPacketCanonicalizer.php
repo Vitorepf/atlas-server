@@ -27,6 +27,50 @@ class TaskPacketCanonicalizer
     private const JSON_FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 
     /**
+     * Volatile / identity fields that must NEVER participate in the packet hash.
+     * Stripped before canonicalization so two packets with identical task-shaping
+     * fields but different runtime metadata produce the same dedup hash.
+     */
+    private const VOLATILE_FIELDS = [
+        'task_packet_id',
+        'generated_at',
+        'created_at',
+        'updated_at',
+        'resolved_at',
+        'task_packet_hash',
+        'human_summary',
+        'lease_id',
+        'process_id',
+        'pid',
+        'worker_id',
+        'session_id',
+        'attempt_count',
+        'retry_count',
+        'sequence',
+        'run_id',
+        'trace_id',
+        'request_id',
+        'correlation_id',
+    ];
+
+    /**
+     * List-typed packet fields that are semantically UNORDERED (sets, not sequences).
+     * Sorting these before hashing lets two packets with the same set of files but
+     * different declaration order dedup correctly.
+     *
+     * IMPORTANT: acceptance_criteria and depends_on are intentionally NOT here —
+     * their order carries semantic meaning (precedence, dependency chain).
+     */
+    private const UNORDERED_LIST_FIELDS = [
+        'allowed_files',
+        'required_evidence',
+        'forbidden_files',
+        'scope_in',
+        'tags',
+        'labels',
+    ];
+
+    /**
      * @param  array<string, mixed>  $current
      * @param  array<string, mixed>  $default
      */
@@ -42,15 +86,28 @@ class TaskPacketCanonicalizer
     }
 
     /**
-     * Mirror of AgentControlPlaneTaskPacketBuilder::normalizeForHash: strip volatile/identity fields
-     * then deep-ksort so the resulting JSON is bit-identical to what the builder hashes.
+     * Mirror of AgentControlPlaneTaskPacketBuilder::normalizeForHash: strip volatile/identity fields,
+     * sort semantically unordered lists, then deep-ksort so the resulting JSON is bit-identical to
+     * what the builder hashes for the same packet.
      *
      * @param  array<string, mixed>  $packet
      * @return array<string, mixed>
      */
     public function normalizePacketForHash(array $packet): array
     {
-        unset($packet['task_packet_id'], $packet['generated_at'], $packet['task_packet_hash'], $packet['human_summary']);
+        foreach (self::VOLATILE_FIELDS as $field) {
+            unset($packet[$field]);
+        }
+
+        // Sort semantically unordered list fields (allowed_files, required_evidence, etc.)
+        // so set-equal packets dedup regardless of declaration order.
+        foreach (self::UNORDERED_LIST_FIELDS as $field) {
+            if (isset($packet[$field]) && is_array($packet[$field]) && array_is_list($packet[$field])) {
+                $values = array_map('strval', $packet[$field]);
+                sort($values);
+                $packet[$field] = $values;
+            }
+        }
 
         return $this->recursivelyKsort($packet);
     }
