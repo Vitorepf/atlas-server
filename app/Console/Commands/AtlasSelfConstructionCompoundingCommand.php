@@ -61,6 +61,8 @@ final class AtlasSelfConstructionCompoundingCommand extends Command
                 array_key_exists('give_back_lessons', $facts)
                     ? (array) $facts['give_back_lessons']
                     : $this->resolveGiveBackLessons($facts),
+                [],
+                $this->resolveFrontierVelocityRecommendation($velocity, $facts),
             ),
             default => null,
         };
@@ -148,5 +150,28 @@ final class AtlasSelfConstructionCompoundingCommand extends Command
         $extracted = $extractor->extract(['outcomes' => $rawOutcomes]);
 
         return $consolidator->consolidate($extracted);
+    }
+
+    /**
+     * Run the velocity tracker on cycle_facts and return the aggregate recommendation.
+     * Returns 'reduce_churn_before_scaling' if any row recommends it, otherwise ''.
+     */
+    private function resolveFrontierVelocityRecommendation(
+        AtlasSelfConstructionCompoundingVelocityTracker $velocity,
+        array $facts,
+    ): string {
+        $cycleFacts = (array) ($facts['cycle_facts'] ?? []);
+        if ($cycleFacts === []) {
+            return '';
+        }
+
+        $velocityResult = $velocity->track($cycleFacts);
+        foreach ((array) ($velocityResult['rows'] ?? []) as $row) {
+            if (($row['recommendation'] ?? '') === 'reduce_churn_before_scaling') {
+                return 'reduce_churn_before_scaling';
+            }
+        }
+
+        return '';
     }
 }

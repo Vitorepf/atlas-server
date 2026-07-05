@@ -534,6 +534,19 @@ final class AtlasAemorRuntimeService
             $blockers[] = 'outcome_blocked';
         }
 
+        // Anti-false-learning invariants: a succeeded outcome must carry
+        // proof it was verified (tests_passed) and reviewed (attribution_reviewed)
+        // or the promotion gate blocks — no durable memory without real evidence.
+        if ($outcome->status === 'succeeded') {
+            $metrics = is_array($outcome->metrics) ? $outcome->metrics : [];
+            if (empty($metrics['tests_passed'])) {
+                $blockers[] = 'success_without_test_or_gate_evidence';
+            }
+            if (empty($metrics['attribution_reviewed'])) {
+                $blockers[] = 'unreviewed_alternative_explanations';
+            }
+        }
+
         return [
             'schema_version' => 'atlas.aemor.memory_promotion_receipt.v1',
             'status' => $blockers === [] ? 'pass' : 'blocked',

@@ -101,7 +101,7 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
             'episode_id' => $episode['episode_id'],
             'status' => 'succeeded',
             'summary' => 'YouTube ingestion improved after preserving canonical URL attachments.',
-            'metrics' => ['tests_passed' => true],
+            'metrics' => ['tests_passed' => true, 'attribution_reviewed' => true],
             'evidence_refs' => ['test:youtube-ingestion-green'],
         ]);
 
@@ -187,7 +187,7 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
         $runtime = app(AtlasAemorRuntimeService::class);
         $episode = $runtime->openEpisode(['objective' => 'test replay', 'evidence_refs' => ['e1']]);
         $runtime->observe(['episode_id' => $episode['episode_id'], 'payload' => ['stage' => 'one'], 'evidence_refs' => ['event:e1']]);
-        $runtime->closeOutcome(['episode_id' => $episode['episode_id'], 'status' => 'succeeded', 'summary' => 'done', 'metrics' => ['tests_passed' => true], 'evidence_refs' => ['outcome:e1']]);
+        $runtime->closeOutcome(['episode_id' => $episode['episode_id'], 'status' => 'succeeded', 'summary' => 'done', 'metrics' => ['tests_passed' => true, 'attribution_reviewed' => true], 'evidence_refs' => ['outcome:e1']]);
 
         $replay = $runtime->replayManifest((string) $episode['episode_id']);
 
