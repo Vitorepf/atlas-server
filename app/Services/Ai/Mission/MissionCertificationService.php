@@ -9,6 +9,7 @@ use App\Models\AiMissionEvidenceRef;
 use App\Models\AiObjective;
 use App\Models\AiWorkOrder;
 use App\Services\Ai\Mission\Support\MissionSuccessCriteriaNormalizer;
+use App\Services\Ai\Mission\Support\MissionPromptTokenizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -527,6 +528,7 @@ class MissionCertificationService
                 'definition_of_done.criteria is empty; cannot map evidence coverage.',
                 remediation: 'Populate criteria first; this check depends on dod_has_criteria.',
                 detail: 'criteria_count=0',
+                coverage: ['covered_criteria_count' => 0, 'uncovered_criteria' => $criteria->all()],
             );
         }
 
@@ -538,28 +540,145 @@ class MissionCertificationService
                 "{$criteriaCount} DoD criterion(s) without any evidence_ref attached.",
                 remediation: 'Attach at least one evidence_ref per DoD criterion (or run cycle until evidence_count >= criteria_count).',
                 detail: "criteria_count={$criteriaCount} evidence_count=0",
+                coverage: ['covered_criteria_count' => 0, 'uncovered_criteria' => $criteria->all()],
             );
         }
 
-        if ($evidenceCount >= $criteriaCount) {
+        // Deterministic per-criterion token-overlap matcher: map each DoD
+        // criterion to the evidence_ref whose payload text overlaps it. This
+        // replaces the old pure-cardinality check (evidence_count >=
+        // criteria_count) that N unrelated receipts could falsely satisfy.
+        $coverage = $this->mapDodCriteriaToEvidence($criteria, $evidence);
+        $coveredCount = $coverage['covered_criteria_count'];
+        $uncovered = $coverage['uncovered_criteria'];
+
+        if ($coveredCount === $criteriaCount) {
             return $this->result(
                 self::CHECK_DOD_CRITERIA_COVERED_BY_EVIDENCE,
                 self::CHECK_STATUS_PASSED,
                 self::SEVERITY_HIGH,
-                "DoD coverage adequate: evidence_count={$evidenceCount} >= criteria_count={$criteriaCount}.",
-                detail: "criteria_count={$criteriaCount} evidence_count={$evidenceCount}",
+                "DoD coverage adequate: {$coveredCount}/{$criteriaCount} criteria mapped to evidence by token overlap.",
+                detail: "criteria_count={$criteriaCount} evidence_count={$evidenceCount} covered_criteria_count={$coveredCount}",
+                coverage: $coverage,
             );
         }
 
-        // Partial coverage -> warn (does not block certification but is auditable).
+        if ($coveredCount > 0) {
+            return $this->result(
+                self::CHECK_DOD_CRITERIA_COVERED_BY_EVIDENCE,
+                self::CHECK_STATUS_WARN,
+                self::SEVERITY_MEDIUM,
+                "Partial DoD coverage: {$coveredCount}/{$criteriaCount} criteria mapped to evidence by token overlap.",
+                remediation: 'Attach an evidence_ref whose payload text overlaps each remaining DoD criterion.',
+                detail: "criteria_count={$criteriaCount} evidence_count={$evidenceCount} covered_criteria_count={$coveredCount} uncovered_count=".count($uncovered),
+                coverage: $coverage,
+            );
+        }
+
         return $this->result(
             self::CHECK_DOD_CRITERIA_COVERED_BY_EVIDENCE,
             self::CHECK_STATUS_WARN,
             self::SEVERITY_MEDIUM,
-            "Partial DoD coverage: evidence_count={$evidenceCount} < criteria_count={$criteriaCount}.",
-            remediation: 'Attach an evidence_ref for each remaining DoD criterion to remove this warning.',
-            detail: "criteria_count={$criteriaCount} evidence_count={$evidenceCount}",
+            "No DoD criteria mapped to evidence by token overlap: 0/{$criteriaCount}.",
+            remediation: 'Attach evidence_refs whose payload text overlaps the DoD criteria.',
+            detail: "criteria_count={$criteriaCount} evidence_count={$evidenceCount} covered_criteria_count=0",
+            coverage: $coverage,
         );
+    }
+
+    /**
+     * Deterministic per-criterion token-overlap matcher.
+     *
+     * For each DoD criterion, tokenize its text into semantic words. For each
+     * evidence_ref, tokenize its evidence_ref string (the payload text). A
+     * criterion is "covered" when at least one evidence_ref shares at least one
+     * semantic word with it. The first matching evidence_ref (in created_at
+     * order) wins the mapping.
+     *
+     * @param  Collection<int,string>  $criteria
+     * @param  Collection<int,AiMissionEvidenceRef>  $evidence
+     * @return array{covered_criteria_count: int, uncovered_criteria: list<string>, criterion_evidence_map: array<int, array{criterion: string, evidence_ref_id: int, evidence_ref_index: int}>}
+     */
+    private function mapDodCriteriaToEvidence(Collection $criteria, Collection $evidence): array
+    {
+        $evidenceTokens = [];
+        $evidenceItems = $evidence->values();
+        foreach ($evidenceItems as $index => $ref) {
+            $text = (string) ($ref->evidence_ref ?? '');
+            $evidenceTokens[$index] = self::semanticTokens($text);
+        }
+
+        $covered = 0;
+        $uncovered = [];
+        $map = [];
+
+        foreach ($criteria->values() as $criterionIndex => $criterion) {
+            $criterionText = (string) $criterion;
+            $criterionTokens = self::semanticTokens($criterionText);
+
+            $matched = false;
+            foreach ($evidenceTokens as $evidenceIndex => $tokens) {
+                if (self::tokensOverlap($criterionTokens, $tokens)) {
+                    $matched = true;
+                    $ref = $evidenceItems[$evidenceIndex];
+                    $map[] = [
+                        'criterion' => $criterionText,
+                        'criterion_index' => $criterionIndex,
+                        'evidence_ref_id' => (int) $ref->id,
+                        'evidence_ref_index' => $evidenceIndex,
+                    ];
+                    break;
+                }
+            }
+
+            if ($matched) {
+                $covered++;
+            } else {
+                $uncovered[] = $criterionText;
+            }
+        }
+
+        return [
+            'covered_criteria_count' => $covered,
+            'uncovered_criteria' => $uncovered,
+            'criterion_evidence_map' => $map,
+        ];
+    }
+
+    /**
+     * Tokenize text into lower-case semantic words using the mission tokenizer.
+     *
+     * @return list<string>
+     */
+    private static function semanticTokens(string $text): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        return MissionPromptTokenizer::semanticWords($text);
+    }
+
+    /**
+     * Return true when the two token sets share at least one token.
+     *
+     * @param  list<string>  $a
+     * @param  list<string>  $b
+     */
+    private static function tokensOverlap(array $a, array $b): bool
+    {
+        if ($a === [] || $b === []) {
+            return false;
+        }
+
+        $flipped = array_flip($a);
+        foreach ($b as $token) {
+            if (isset($flipped[$token])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -703,8 +822,9 @@ class MissionCertificationService
         array $evidenceRefs = [],
         ?string $remediation = null,
         ?string $detail = null,
+        array $coverage = [],
     ): array {
-        return [
+        $result = [
             'id' => $requirement,
             'requirement' => $requirement,
             'status' => $status,
@@ -717,6 +837,12 @@ class MissionCertificationService
             )),
             'detail' => $detail ?? $message,
         ];
+
+        if ($coverage !== []) {
+            $result['coverage'] = $coverage;
+        }
+
+        return $result;
     }
 
     /**
