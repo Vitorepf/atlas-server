@@ -162,6 +162,59 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         return AppendOnlyJsonlStore::read($this->proposalsLogPath());
     }
 
+    /**
+     * Scan PHP files under rootDir counting references to a schema string.
+     *
+     * @param  string  $schema   the schema to search for (e.g. 'atlas.acmf.schema_proposal.v1')
+     * @param  string|null  $rootDir  default app/; injectable for tests
+     * @return array{schema:string,reference_count:int,files_matching:list<string>,files_scanned:int,threshold:int,pressure_detected:bool,scan_hash:string}
+     */
+    public function detectExtensionPressure(string $schema, ?string $rootDir = null): array
+    {
+        $rootDir ??= defined('base_path') && function_exists('base_path') ? base_path('app') : __DIR__.'/../../../..';
+        $rootDir = rtrim((string) realpath($rootDir), '/\\').DIRECTORY_SEPARATOR;
+
+        $threshold = self::EXTENSION_PRESSURE_THRESHOLD;
+
+        $matched = [];
+        $scanned = 0;
+
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($rootDir, \RecursiveDirectoryIterator::SKIP_DOTS),
+        );
+
+        foreach ($it as $splFileInfo) {
+            /** @var \SplFileInfo $splFileInfo */
+            if ($splFileInfo->getExtension() !== 'php') {
+                continue;
+            }
+            $realPath = $splFileInfo->getRealPath();
+            if ($realPath === false) {
+                continue;
+            }
+            $scanned++;
+            $contents = @file_get_contents($realPath);
+            if ($contents !== false && str_contains($contents, $schema)) {
+                $relative = str_replace($rootDir, '', $realPath);
+                $matched[] = $relative;
+            }
+        }
+
+        sort($matched, SORT_STRING);
+        $referenceCount = count($matched);
+        $scanHash = hash('sha256', implode("\n", $matched));
+
+        return [
+            'schema' => $schema,
+            'reference_count' => $referenceCount,
+            'files_matching' => $matched,
+            'files_scanned' => $scanned,
+            'threshold' => $threshold,
+            'pressure_detected' => $referenceCount > $threshold,
+            'scan_hash' => $scanHash,
+        ];
+    }
+
     // ---------- internals ----------
 
     private function bumpVersion(string $schema): string
