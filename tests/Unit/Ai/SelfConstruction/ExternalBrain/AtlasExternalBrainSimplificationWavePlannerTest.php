@@ -435,4 +435,62 @@ final class AtlasExternalBrainSimplificationWavePlannerTest extends TestCase
         );
         $this->assertNotSame('prioritize_simplification_over_new_feature', $rNoEligible['stop_go_decision']['decision']);
     }
+
+    // ── AC: high-risk or hard-rollback candidates are deferred when worker capacity is low ──
+
+    public function test_high_risk_candidate_deferred_when_capacity_low(): void
+    {
+        $r = $this->planner()->plan(
+            [$this->candidate('high-risk', ['dependency_risk' => 'high'])],
+            ['wave_capacity' => 1, 'queue_pressure' => 'low', 'claimable_per_active_worker' => 1.0],
+        );
+
+        $deferredIds = array_column($r['deferred'], 'candidate_id');
+        $this->assertContains('high-risk', $deferredIds);
+    }
+
+    public function test_hard_rollback_candidate_deferred_when_capacity_low(): void
+    {
+        $r = $this->planner()->plan(
+            [$this->candidate('hard-rollback', ['rollback_ease' => 'hard'])],
+            ['wave_capacity' => 1, 'queue_pressure' => 'low', 'claimable_per_active_worker' => 1.0],
+        );
+
+        $deferredIds = array_column($r['deferred'], 'candidate_id');
+        $this->assertContains('hard-rollback', $deferredIds);
+    }
+
+    // ── AC: low-risk high-ROI candidates are ordered first within capacity ──
+
+    public function test_low_risk_high_roi_candidates_ordered_first(): void
+    {
+        $r = $this->planner()->plan([
+            $this->candidate('high-risk-low-roi', ['dependency_risk' => 'high', 'line_reduction' => 10]),
+            $this->candidate('low-risk-high-roi', ['dependency_risk' => 'low', 'line_reduction' => 100]),
+        ]);
+
+        $this->assertSame('low-risk-high-roi', $r['waves'][0][0]);
+    }
+
+    // ── AC: every wave emits rollback_bound, worker_capacity_used and deferred_reason ──
+
+    public function test_output_includes_rollback_bound_and_worker_capacity_used(): void
+    {
+        $r = $this->planner()->plan([$this->candidate('a')]);
+
+        $this->assertArrayHasKey('rollback_bound', $r);
+        $this->assertArrayHasKey('worker_capacity_used', $r);
+        $this->assertTrue($r['rollback_bound']);
+        $this->assertSame(1, $r['worker_capacity_used']);
+    }
+
+    public function test_deferred_candidates_include_deferred_reason(): void
+    {
+        $r = $this->planner()->plan([
+            $this->candidate('missing-coverage', ['has_behavior_coverage' => false]),
+        ]);
+
+        $this->assertArrayHasKey('deferred_reason', $r['deferred'][0]);
+        $this->assertSame('missing_required_prework', $r['deferred'][0]['deferred_reason']);
+    }
 }

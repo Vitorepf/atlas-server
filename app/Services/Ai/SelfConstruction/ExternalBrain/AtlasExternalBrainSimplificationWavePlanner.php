@@ -105,7 +105,28 @@ final class AtlasExternalBrainSimplificationWavePlanner
             }
 
             if ($missing !== []) {
-                $deferred[] = ['candidate_id' => $id, 'required_prework' => $missing];
+                $deferred[] = [
+                    'candidate_id' => $id,
+                    'required_prework' => $missing,
+                    'deferred_reason' => 'missing_required_prework',
+                ];
+
+                continue;
+            }
+
+            // AC: high-risk or hard-rollback candidates are deferred when worker capacity is low.
+            $riskLevel = (string) ($c['dependency_risk'] ?? 'high');
+            $rollbackEase = (string) ($c['rollback_ease'] ?? 'hard');
+            $isHighRisk = $riskLevel === 'high';
+            $isHardRollback = $rollbackEase === 'hard';
+            $lowCapacity = $effectiveCapacity <= 1;
+
+            if (($isHighRisk || $isHardRollback) && $lowCapacity) {
+                $deferred[] = [
+                    'candidate_id' => $id,
+                    'required_prework' => ['wait_for_worker_capacity'],
+                    'deferred_reason' => 'high_risk_or_hard_rollback_with_low_capacity',
+                ];
 
                 continue;
             }
@@ -174,10 +195,15 @@ final class AtlasExternalBrainSimplificationWavePlanner
 
         $complexityDebtHigh = (bool) ($capacityFacts['complexity_debt_high'] ?? false);
 
+        $workerCapacityUsed = count($eligible);
+        $rollbackBound = $workerCapacityUsed <= $effectiveCapacity;
+
         return [
             'schema' => self::SCHEMA,
             'waves' => $waves,
             'deferred' => $deferred,
+            'rollback_bound' => $rollbackBound,
+            'worker_capacity_used' => $workerCapacityUsed,
             'capacity_allocation' => [
                 'base_wave_capacity' => $baseCapacity,
                 'effective_wave_capacity' => $effectiveCapacity,
