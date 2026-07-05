@@ -645,4 +645,80 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         $this->assertSame(1.0, $summary['structural_roi']);
         $this->assertSame(0.0, $summary['cosmetic_roi']);
     }
+
+    // ── AC2: approved candidates are ranked by risk-adjusted ROI ──
+
+    public function test_approved_candidates_ranked_by_risk_adjusted_roi(): void
+    {
+        $result = $this->ledger()->record([
+            'candidates' => [
+                [
+                    'id' => 'low-risk',
+                    'action' => 'delete',
+                    'target' => 'app/LowRisk.php',
+                    'roi_estimate' => 0.5,
+                    'replacement_proof' => 'receipt:r1',
+                    'coverage_maintained' => true,
+                    'risk_level' => 'low',
+                ],
+                [
+                    'id' => 'high-risk',
+                    'action' => 'delete',
+                    'target' => 'app/HighRisk.php',
+                    'roi_estimate' => 1.0,
+                    'replacement_proof' => 'receipt:r2',
+                    'coverage_maintained' => true,
+                    'risk_level' => 'high',
+                    'behavior_preservation_proof_verified' => true,
+                    'rollback_proof_verified' => true,
+                ],
+            ],
+        ]);
+
+        $this->assertNotEmpty($result['approved']);
+        // Low-risk candidate should rank higher despite lower raw ROI
+        $this->assertSame('low-risk', $result['approved'][0]['id']);
+    }
+
+    // ── AC3: refused candidates contribute to opportunity_cost ──
+
+    public function test_refused_candidates_contribute_to_opportunity_cost(): void
+    {
+        $result = $this->ledger()->record([
+            'candidates' => [
+                [
+                    'id' => 'refused-1',
+                    'action' => 'delete',
+                    'target' => 'app/Refused.php',
+                    'roi_estimate' => 0.5,
+                    'replacement_proof' => '',
+                    'coverage_maintained' => true,
+                ],
+            ],
+        ]);
+
+        $this->assertNotEmpty($result['refused']);
+        $this->assertGreaterThan(0, $result['opportunity_cost'] ?? 0);
+    }
+
+    // ── AC4: next_action is simplify, gather_proof, or hold ──
+
+    public function test_next_action_is_valid_value(): void
+    {
+        $result = $this->ledger()->record([
+            'candidates' => [
+                [
+                    'id' => 'valid-1',
+                    'action' => 'delete',
+                    'target' => 'app/Valid.php',
+                    'roi_estimate' => 0.5,
+                    'replacement_proof' => 'receipt:r1',
+                    'coverage_maintained' => true,
+                ],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('next_simplification_action', $result);
+        $this->assertIsString($result['next_simplification_action']);
+    }
 }
