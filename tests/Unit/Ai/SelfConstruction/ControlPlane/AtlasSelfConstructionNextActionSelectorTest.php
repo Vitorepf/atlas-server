@@ -432,4 +432,89 @@ final class AtlasSelfConstructionNextActionSelectorTest extends TestCase
 
         $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_HOLD_POSITION, $verdict['action']);
     }
+
+    // ── AC: queue repair blockers select repair_queue before create_task_packets ──
+
+    public function test_queue_repair_selects_repair_queue_before_create_task_packets(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['malformed_count'] = 2;
+        $queue['backlog_acceptance_items'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_QUEUE, $verdict['action']);
+        $this->assertNotSame(AtlasSelfConstructionNextActionSelector::ACTION_CREATE_TASK_PACKETS, $verdict['action']);
+    }
+
+    // ── AC: organ repair, verification and knowledge sync blockers outrank task creation ──
+
+    public function test_organ_repair_outranks_task_creation(): void
+    {
+        $organs = $this->readyOrgans();
+        $organs['missing_organs'] = ['native_worker'];
+        $queue = $this->emptyQueue();
+        $queue['backlog_acceptance_items'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($organs, $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_ORGANS, $verdict['action']);
+    }
+
+    public function test_verification_outranks_task_creation(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['open_verifications'] = 2;
+        $queue['backlog_acceptance_items'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_VERIFY_CANDIDATES, $verdict['action']);
+    }
+
+    public function test_knowledge_sync_outranks_task_creation(): void
+    {
+        $organs = $this->readyOrgans();
+        $organs['degraded_organs'] = [['organ' => 'knowledge_sync']];
+        $queue = $this->emptyQueue();
+        $queue['backlog_acceptance_items'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($organs, $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_RUN_KNOWLEDGE_SYNC, $verdict['action']);
+    }
+
+    // ── AC: structural_origination is selected only when blockers are clear and high-leverage candidates exist ──
+
+    public function test_structural_origination_selected_when_blockers_clear_and_high_value_gaps_exist(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['high_value_gap_count'] = 3;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_STRUCTURAL_ORIGINATION, $verdict['action']);
+    }
+
+    public function test_structural_origination_not_selected_when_blockers_present(): void
+    {
+        $organs = $this->readyOrgans();
+        $organs['missing_organs'] = ['native_worker'];
+        $queue = $this->emptyQueue();
+        $queue['high_value_gap_count'] = 3;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($organs, $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertNotSame(AtlasSelfConstructionNextActionSelector::ACTION_STRUCTURAL_ORIGINATION, $verdict['action']);
+    }
+
+    public function test_structural_origination_not_selected_when_no_high_value_gaps(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['high_value_gap_count'] = 0;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+
+        $this->assertNotSame(AtlasSelfConstructionNextActionSelector::ACTION_STRUCTURAL_ORIGINATION, $verdict['action']);
+    }
 }
