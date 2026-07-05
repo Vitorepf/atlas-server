@@ -396,7 +396,7 @@ final class AtlasExternalBrainAmplifierTelemetryAggregatorTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
         $this->assertSame('blocking', $result['signal_rollup']['cost']);
-        $this->assertNotEmpty(array_filter($result['blocking_reasons'], fn ($r) => str_contains($r, 'avg_cost')));
+        $this->assertNotEmpty(array_filter($result['blocking_reasons'], fn ($r) => str_contains($r, 'median_cost')));
     }
 
     public function test_high_muscle_outcome_bad_rate_forces_rollback_from_runs(): void
