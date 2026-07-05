@@ -244,7 +244,7 @@ final class AtlasTaskQueueSelfHealingRespecPlanner
         foreach ($newFiles as $file) {
             $inScope = false;
             foreach ($originalDirs as $dir) {
-                if ($dir !== '.' && str_starts_with($file, $dir)) {
+                if ($dir !== '.' && ($file === $dir || str_starts_with($file, $dir.'/'))) {
                     $inScope = true;
                     break;
                 }
