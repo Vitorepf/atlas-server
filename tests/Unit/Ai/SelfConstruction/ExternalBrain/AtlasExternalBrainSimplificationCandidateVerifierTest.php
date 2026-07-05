@@ -281,4 +281,71 @@ final class AtlasExternalBrainSimplificationCandidateVerifierTest extends TestCa
         $this->assertSame(['app/Foo.php'], $result['consumer_paths']);
         $this->assertSame(['php artisan test --filter=FooEquivalence'], $result['behavior_equivalence_commands']);
     }
+
+    // ── AC: merge candidates without worker continuity safety evidence are blocked ──
+
+    public function test_merge_without_worker_continuity_safety_blocked(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'kind' => 'merge',
+            'preserved_behavior_tests' => ['tests/Unit/FooTest.php'],
+            'touches_queue_serving_organ' => true,
+        ]));
+
+        $this->assertFalse($result['approved']);
+        $this->assertContains('missing_worker_continuity_safety_evidence', $result['blockers']);
+    }
+
+    // ── AC: deletion candidates require live-shadow equivalence and rollback evidence ──
+
+    public function test_deletion_high_risk_without_live_shadow_blocked(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'kind' => 'deletion',
+            'high_risk' => true,
+        ]));
+
+        $this->assertFalse($result['approved']);
+        $this->assertContains('missing_live_shadow_equivalence_evidence', $result['blockers']);
+    }
+
+    public function test_deletion_without_rollback_notes_blocked(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'kind' => 'deletion',
+            'rollback_notes' => '',
+        ]));
+
+        $this->assertFalse($result['approved']);
+        $this->assertContains('missing_rollback_notes', $result['blockers']);
+    }
+
+    // ── AC: verified candidates include recommendation=proceed and provider-safe proof_summary ──
+
+    public function test_verified_candidate_includes_recommendation_proceed(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate());
+
+        $this->assertTrue($result['approved']);
+        $this->assertSame('proceed', $result['recommendation']);
+    }
+
+    public function test_verified_candidate_includes_provider_safe_proof_summary(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate());
+
+        $this->assertArrayHasKey('proof_summary', $result);
+        $this->assertTrue($result['proof_summary']['provider_safe']);
+        $this->assertTrue($result['proof_summary']['approved']);
+    }
+
+    public function test_blocked_candidate_has_recommendation_blocked(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'behavior_coverage' => false,
+        ]));
+
+        $this->assertFalse($result['approved']);
+        $this->assertSame('blocked', $result['recommendation']);
+    }
 }

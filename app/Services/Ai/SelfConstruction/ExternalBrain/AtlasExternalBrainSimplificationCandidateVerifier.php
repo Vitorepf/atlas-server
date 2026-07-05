@@ -145,10 +145,25 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
             default => 'unmigrated_consumers',
         };
 
+        $recommendation = $approved ? 'proceed' : 'blocked';
+        $proofSummary = [
+            'candidate_id' => $candidateId,
+            'kind' => $kind,
+            'approved' => $approved,
+            'blocker_count' => count($blockers),
+            'behavior_proof_status' => $behaviorProofStatus,
+            'consumer_migration_status' => $consumerMigrationStatus,
+            'worker_continuity_safe' => $touchesQueueServingOrgan ? $workerContinuitySafe : null,
+            'live_shadow_equivalence_evidence_present' => $highRisk ? $hasLiveShadowEvidence : null,
+            'provider_safe' => true,
+        ];
+
         return [
             'schema' => self::SCHEMA,
             'candidate_id' => $candidateId,
             'approved' => $approved,
+            'recommendation' => $recommendation,
+            'proof_summary' => $proofSummary,
             'net_reduction_score' => $netReductionScore,
             'blockers' => $blockers,
             'required_tests' => array_values(array_unique($requiredTests)),
