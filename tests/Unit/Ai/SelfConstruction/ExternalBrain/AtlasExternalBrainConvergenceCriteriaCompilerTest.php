@@ -80,4 +80,28 @@ final class AtlasExternalBrainConvergenceCriteriaCompilerTest extends TestCase
         $this->assertNotContains('autonomy', $result['unproven']);
         $this->assertContains('queue_quality', $result['unproven']);
     }
+
+    public function test_blank_receipt_treated_as_absent_and_unproven(): void
+    {
+        $result = $this->compiler->compile([
+            'autonomy' => ['maturity_claim' => 'level_3', 'evidence_receipt' => '   '],
+        ]);
+
+        $this->assertFalse($result['all_proven']);
+        $this->assertFalse($result['groups']['autonomy']['proven']);
+        $this->assertNull($result['groups']['autonomy']['receipt'], 'blank receipt must be null');
+        $this->assertContains('autonomy', $result['unproven']);
+    }
+
+    public function test_empty_claim_treated_as_not_declared_and_unproven(): void
+    {
+        $result = $this->compiler->compile([
+            'autonomy' => ['maturity_claim' => '', 'evidence_receipt' => 'receipt.json'],
+        ]);
+
+        $this->assertFalse($result['all_proven']);
+        $this->assertFalse($result['groups']['autonomy']['proven']);
+        $this->assertSame('not_declared', $result['groups']['autonomy']['claim']);
+        $this->assertContains('autonomy', $result['unproven']);
+    }
 }

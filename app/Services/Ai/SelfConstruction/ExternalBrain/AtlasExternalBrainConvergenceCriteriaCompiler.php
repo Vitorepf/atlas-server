@@ -41,17 +41,17 @@ final class AtlasExternalBrainConvergenceCriteriaCompiler
 
         foreach (self::CRITERIA_GROUPS as $group) {
             $entry = $dimensions[$group] ?? [];
-            $claim = (string) ($entry['maturity_claim'] ?? 'not_declared');
+            $claim = trim((string) ($entry['maturity_claim'] ?? ''));
             $receipt = $entry['evidence_receipt'] ?? null;
-            $hasReceipt = is_string($receipt) && $receipt !== '';
+            $hasReceipt = is_string($receipt) && trim($receipt) !== '';
 
-            $proven = $hasReceipt && $claim !== 'not_declared';
+            $proven = $hasReceipt && $claim !== '';
 
             $groups[$group] = [
                 'required' => true,
                 'proven' => $proven,
                 'proof_field' => $group . '.evidence_receipt',
-                'claim' => $claim,
+                'claim' => $claim !== '' ? (string) ($entry['maturity_claim'] ?? '') : 'not_declared',
                 'receipt' => $hasReceipt ? $receipt : null,
             ];
 
