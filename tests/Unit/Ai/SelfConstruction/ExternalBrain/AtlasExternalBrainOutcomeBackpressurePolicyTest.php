@@ -399,4 +399,65 @@ final class AtlasExternalBrainOutcomeBackpressurePolicyTest extends TestCase
         $this->assertFalse($r['recommend_better_batch']);
         $this->assertFalse($r['repair_escalation']);
     }
+
+    // ── AC: high success rate still recommends promote with safe_to_promote true ──
+
+    public function test_high_success_rate_recommends_promote_with_safe_to_promote_true(): void
+    {
+        $r = $this->evaluate($this->outcomes(
+            'success', 'success', 'success', 'success', 'success',
+            'success', 'success', 'success', 'success', 'success',
+            'success', 'success', 'success', 'success', 'success',
+            'success', 'success', 'success', 'success', 'success',
+            'success', 'success', 'success', 'success', 'success',
+            'success', 'success', 'success', 'success', 'success',
+        ));
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::RECOMMENDATION_PROMOTE, $r['recommendation']);
+        $this->assertTrue($r['safe_to_promote']);
+    }
+
+    // ── AC: worker starvation facts trigger escalation even when raw claimable depth is nonzero ──
+
+    public function test_worker_starvation_triggers_escalation_with_nonzero_claimable_depth(): void
+    {
+        $r = $this->policy()->evaluateWorkerStarvationEscalation([
+            'recent_outcomes' => [['outcome' => 'no_claimable_task']],
+            'claimable_per_active_worker' => 1.0,
+            'historical_success_rate' => 0.95,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::ESCALATION_REPLENISH_OR_REPAIR, $r['decision']);
+    }
+
+    public function test_worker_starvation_below_floor_triggers_escalation(): void
+    {
+        $r = $this->policy()->evaluateWorkerStarvationEscalation([
+            'claimable_per_active_worker' => 1.5,
+            'claimable_per_worker_floor' => 2.0,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::ESCALATION_REPLENISH_OR_REPAIR, $r['decision']);
+    }
+
+    public function test_worker_starvation_does_not_trigger_when_healthy(): void
+    {
+        $r = $this->policy()->evaluateWorkerStarvationEscalation([
+            'recent_outcomes' => [['outcome' => 'success']],
+            'claimable_per_active_worker' => 5.0,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::ESCALATION_WAIT_OBSERVE, $r['decision']);
+    }
+
+    // ── AC: empty history remains continue rather than fake confidence ──
+
+    public function test_empty_history_remains_continue_not_fake_confidence(): void
+    {
+        $r = $this->evaluate([]);
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::RECOMMENDATION_CONTINUE, $r['recommendation']);
+        $this->assertSame(0.0, $r['confidence_score']);
+        $this->assertTrue($r['safe_to_promote']);
+    }
 }
