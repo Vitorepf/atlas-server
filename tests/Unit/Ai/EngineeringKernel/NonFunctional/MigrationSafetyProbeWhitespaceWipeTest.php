@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\EngineeringKernel;
+namespace Tests\Unit\Ai\EngineeringKernel\NonFunctional;
 
 use App\Services\Ai\EngineeringKernel\NonFunctional\MigrationSafetyProbe;
 use PHPUnit\Framework\TestCase;
