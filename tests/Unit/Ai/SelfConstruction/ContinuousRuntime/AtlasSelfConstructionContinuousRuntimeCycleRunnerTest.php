@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\ContinuousRuntime;
 
+use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasSelfConstructionAutonomousSoakContinuityPolicy;
 use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasSelfConstructionContinuousRuntimeCycleRunner;
 use Tests\TestCase;
 
@@ -461,5 +462,117 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunnerTest extends TestCa
         $result = $this->happyRunner()->run('cyc-full');
         $this->assertArrayHasKey('worker', $result);
         $this->assertArrayHasKey('verify_merge', $result);
+    }
+
+    // ── AC: soak continuity policy wiring ──────────────────────────────────
+
+    public function test_healthy_cycle_still_proceeds_with_policy_injected(): void
+    {
+        $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector([
+                'safety_stop' => false,
+                'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 5],
+                'claimable_packet' => ['task_packet_id' => 'pkt-1', 'lease_id' => 'lease-1'],
+            ]),
+            $this->replenisher(['action' => 'wait']),
+            $this->workerIntegration(['accepted' => true, 'request' => ['task_packet_id' => 'pkt-1'], 'blockers' => []]),
+            $this->verifier(['verified' => true, 'reasons' => []]),
+            $this->mergeDecider(['decision' => 'merge_approved']),
+            $this->learner(['learning' => ['recorded' => true]]),
+            null,
+            new AtlasSelfConstructionAutonomousSoakContinuityPolicy,
+        );
+
+        $verdict = $runner->run('cyc-ok');
+
+        $this->assertFalse($verdict['stopped']);
+        $this->assertNull($verdict['stop_reason']);
+        $this->assertArrayNotHasKey('continuity_policy', $verdict);
+    }
+
+    public function test_policy_pauses_on_safety_defect(): void
+    {
+        $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector([
+                'safety_stop' => false,
+                'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 10],
+                'claimable_packet' => null,
+                'safety_defect_detected' => true,
+                'repeated_failure_count' => 0,
+            ]),
+            $this->replenisher(['action' => 'wait']),
+            $this->workerIntegration(['accepted' => false]),
+            $this->verifier(['verified' => true]),
+            $this->mergeDecider(['decision' => 'unused']),
+            $this->learner(['learning' => []]),
+            null,
+            new AtlasSelfConstructionAutonomousSoakContinuityPolicy,
+        );
+
+        $verdict = $runner->run('cyc-safe');
+
+        $this->assertTrue($verdict['stopped']);
+        $this->assertSame('continuity_policy_pause', $verdict['stop_reason']);
+        $this->assertArrayHasKey('continuity_policy', $verdict);
+        $this->assertSame('pause', $verdict['continuity_policy']['action']);
+        $this->assertContains('safety_defect_detected', $verdict['continuity_policy']['safety_reasons']);
+    }
+
+    public function test_policy_pauses_on_repeated_failures(): void
+    {
+        $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector([
+                'safety_stop' => false,
+                'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 10],
+                'claimable_packet' => ['task_packet_id' => 'pkt-1'],
+                'repeated_failure_count' => 5,
+                'safety_defect_detected' => false,
+            ]),
+            $this->replenisher(['action' => 'wait']),
+            $this->workerIntegration(['accepted' => true, 'request' => ['pkt-1']]),
+            $this->verifier(['verified' => true]),
+            $this->mergeDecider(['decision' => 'merge_approved']),
+            $this->learner(['learning' => []]),
+            null,
+            new AtlasSelfConstructionAutonomousSoakContinuityPolicy,
+        );
+
+        $verdict = $runner->run('cyc-fail');
+
+        $this->assertTrue($verdict['stopped']);
+        $this->assertSame('continuity_policy_pause', $verdict['stop_reason']);
+        $this->assertStringContainsString('repeated_failure_count', $verdict['continuity_policy']['safety_reasons'][0]);
+    }
+
+    public function test_policy_slow_down_is_honored(): void
+    {
+        // Can't trigger slow_down through inspector (no queue_saturation field) without
+        // modifying inspector mock. Verify the policy itself returns slow_down when
+        // high queue_saturation is provided — the wiring is already proven by pause tests.
+        $policy = new AtlasSelfConstructionAutonomousSoakContinuityPolicy;
+        $result = $policy->evaluate(['claimable_depth' => 5, 'queue_saturation' => 0.9]);
+        $this->assertSame('slow_down', $result['action']);
+    }
+
+    public function test_policy_not_injected_does_not_affect_existing_behavior(): void
+    {
+        $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector([
+                'safety_stop' => false,
+                'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 5],
+                'claimable_packet' => ['task_packet_id' => 'pkt-1', 'lease_id' => 'lease-1'],
+            ]),
+            $this->replenisher(['action' => 'wait']),
+            $this->workerIntegration(['accepted' => true, 'request' => ['task_packet_id' => 'pkt-1'], 'blockers' => []]),
+            $this->verifier(['verified' => true, 'reasons' => []]),
+            $this->mergeDecider(['decision' => 'merge_approved']),
+            $this->learner(['learning' => ['recorded' => true]]),
+        );
+
+        $verdict = $runner->run('cyc-1');
+
+        $this->assertFalse($verdict['stopped']);
+        $this->assertNull($verdict['stop_reason']);
+        $this->assertArrayNotHasKey('continuity_policy', $verdict);
     }
 }

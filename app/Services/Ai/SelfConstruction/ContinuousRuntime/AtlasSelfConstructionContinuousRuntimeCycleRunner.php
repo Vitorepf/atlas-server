@@ -50,6 +50,7 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
         private object $mergeDecider,
         private object $learner,
         private ?object $unattendedSupervisor = null,
+        private ?AtlasSelfConstructionAutonomousSoakContinuityPolicy $soakContinuityPolicy = null,
     ) {}
 
     /**
@@ -63,6 +64,12 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
         $supervisorResult = $this->runUnattendedSupervisor($health);
         $queueHealth = is_array($health['queue_health'] ?? null) ? $health['queue_health'] : [];
         $actionChoice = $this->chooseAction($health, $queueHealth);
+
+        // Evaluate soak continuity policy — may short-circuit the cycle.
+        $policyResult = $this->evaluateContinuityPolicy($health, $queueHealth);
+        if ($policyResult !== null) {
+            return $policyResult;
+        }
 
         if ((bool) ($health['safety_stop'] ?? false)) {
             return $this->stop($cycleId, self::STOP_SAFETY, [
@@ -159,6 +166,57 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
             'action_choice' => $actionChoice,
             'cycle_receipt_hash' => $receiptHash,
         ];
+    }
+
+    /**
+     * Evaluate the soak continuity policy and return a short-circuit result if
+     * the policy says pause or slow_down. Returns null when the policy is not
+     * injected or says continue/replenish.
+     *
+     * @param  array<string,mixed>  $health
+     * @param  array<string,mixed>  $queueHealth
+     * @return array<string,mixed>|null
+     */
+    private function evaluateContinuityPolicy(array $health, array $queueHealth): ?array
+    {
+        if ($this->soakContinuityPolicy === null) {
+            return null;
+        }
+
+        $claimableDepth = max(0, (int) ($queueHealth['claimable_depth'] ?? 0));
+        $malformedCount = (int) ($queueHealth['malformed_count'] ?? 0);
+        $safetyDefectDetected = (bool) ($health['safety_defect_detected'] ?? false);
+        $repeatedFailureCount = max(0, (int) ($health['repeated_failure_count'] ?? 0));
+
+        $input = [
+            'claimable_depth' => $claimableDepth,
+            'safety_defect_detected' => $safetyDefectDetected,
+            'repeated_failure_count' => $repeatedFailureCount,
+            'malformed_count' => $malformedCount,
+        ];
+
+        $policy = $this->soakContinuityPolicy->evaluate($input);
+
+        $action = (string) ($policy['action'] ?? 'continue');
+
+        if ($action === AtlasSelfConstructionAutonomousSoakContinuityPolicy::ACTION_PAUSE
+            || $action === AtlasSelfConstructionAutonomousSoakContinuityPolicy::ACTION_SLOW_DOWN
+        ) {
+            $cycleId = ''; // not used in pause/slow-down short-circuit
+            $safetyReasons = (array) ($policy['safety_reasons'] ?? []);
+
+            return [
+                'schema_version' => self::SCHEMA,
+                'cycle_id' => $cycleId,
+                'stopped' => true,
+                'stop_reason' => 'continuity_policy_'.$action,
+                'continuity_policy' => $policy,
+                'action_choice' => ['action' => $action, 'reason' => 'continuity_policy_override', 'required_evidence' => []],
+                'cycle_receipt_hash' => '',
+            ];
+        }
+
+        return null;
     }
 
     /**
