@@ -879,6 +879,7 @@ final class AtlasLoopAutoMergeService
                 'judges' => (array) ($threaded['judges'] ?? []),
                 'context_sufficiency' => (int) ($threaded['context_sufficiency'] ?? 0),
                 'non_functional' => (array) ($threaded['non_functional'] ?? []),
+                'repair' => (array) ($threaded['repair'] ?? []),
             ]);
 
             return [
