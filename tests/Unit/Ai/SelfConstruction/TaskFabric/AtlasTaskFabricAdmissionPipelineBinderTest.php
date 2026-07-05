@@ -294,4 +294,44 @@ final class AtlasTaskFabricAdmissionPipelineBinderTest extends TestCase
 
         $this->assertSame([], $r['next_originator_actions']);
     }
+
+    // ── scope minimality ──────────────────────────────────────────────────────
+
+    public function test_bare_directory_in_allowed_files_is_rejected_with_scope_not_minimal(): void
+    {
+        $c = array_merge($this->good('TaskBareDir'), [
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/ExternalBrain/',
+                'tests/Unit/Ai/SelfConstruction/ExternalBrain/TaskBareDirTest.php',
+            ],
+        ]);
+        $r = $this->filter([$c]);
+
+        $this->assertCount(0, $r['admitted']);
+        $this->assertCount(1, $r['rejected']);
+        $this->assertContains('scope_not_minimal', $r['rejected'][0]['gate_reasons']);
+        $this->assertArrayHasKey('scope_not_minimal', $r['rejected'][0]['respec_action_plan']);
+    }
+
+    public function test_missing_test_file_is_rejected_with_scope_not_minimal(): void
+    {
+        $c = array_merge($this->good('TaskNoTest'), [
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/ExternalBrain/TaskNoTest.php',
+            ],
+        ]);
+        $r = $this->filter([$c]);
+
+        $this->assertCount(0, $r['admitted']);
+        $this->assertCount(1, $r['rejected']);
+        $this->assertContains('scope_not_minimal', $r['rejected'][0]['gate_reasons']);
+    }
+
+    public function test_minimal_valid_scope_is_still_admitted(): void
+    {
+        $r = $this->filter([$this->good('TaskMinimal')]);
+
+        $this->assertCount(1, $r['admitted']);
+        $this->assertSame([], $r['rejected']);
+    }
 }

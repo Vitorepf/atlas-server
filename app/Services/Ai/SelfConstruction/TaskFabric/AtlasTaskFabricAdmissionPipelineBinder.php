@@ -48,6 +48,8 @@ final class AtlasTaskFabricAdmissionPipelineBinder
 
     public const REASON_COMPOUND_IMPACT_LOW = 'compound_impact_low';
 
+    public const REASON_SCOPE_NOT_MINIMAL = 'scope_not_minimal';
+
     /** compound_impact_score at/above this clears the impact bar on its own. */
     public const COMPOUND_IMPACT_THRESHOLD = 0.30;
 
@@ -56,7 +58,12 @@ final class AtlasTaskFabricAdmissionPipelineBinder
         self::REASON_SEMANTIC_DUPLICATE => 'merge_into_the_existing_target_or_pick_a_genuinely_new_target',
         self::REASON_TEMPLATE_FARM => 'diversify_objective_acceptance_and_evidence_shape_away_from_the_repeated_template',
         self::REASON_COMPOUND_IMPACT_LOW => 'add_at_least_one_measurable_compound_impact_signal_before_resubmitting',
+        self::REASON_SCOPE_NOT_MINIMAL => 'narrow_allowed_files_to_specific_implementation_and_test_paths_with_no_bare_directories_or_wildcards',
     ];
+
+    public function __construct(
+        private readonly AtlasTaskFabricScopeMinimalityAuditor $scopeAuditor = new AtlasTaskFabricScopeMinimalityAuditor,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $input  candidates + optional shared_facts
@@ -137,6 +144,14 @@ final class AtlasTaskFabricAdmissionPipelineBinder
         $impact = (float) ($merged['compound_impact_score'] ?? 0.0);
         if ($impact < self::COMPOUND_IMPACT_THRESHOLD) {
             $reasons[] = self::REASON_COMPOUND_IMPACT_LOW;
+        }
+
+        $scopeAudit = $this->scopeAuditor->audit([
+            'allowed_files' => $merged['allowed_files'] ?? [],
+            'forbidden_files' => $merged['forbidden_files'] ?? [],
+        ]);
+        if (! ($scopeAudit['scope_ok'] ?? true)) {
+            $reasons[] = self::REASON_SCOPE_NOT_MINIMAL;
         }
 
         return $reasons;
