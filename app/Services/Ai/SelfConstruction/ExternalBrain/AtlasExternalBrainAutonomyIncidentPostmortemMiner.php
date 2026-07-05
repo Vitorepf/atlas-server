@@ -38,7 +38,7 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMiner
 
     /**
      * @param  array<string,mixed>  $incident
-     * @return array{schema:string, incident_type:string, root_cause:string, detection_signal:string, wasted_token_risk:int, prevention_guard:list<string>, recommended_task_family:string, serving_impact:string, task_quality_impact:string}
+     * @return array{schema:string, incident_type:string, root_cause:string, detection_signal:string, wasted_token_risk:int, prevention_guard:list<string>, recommended_task_family:string, serving_impact:string, task_quality_impact:string, recurrence_risk:string, next_policy_update:string, impacted_capability:string, prevention_task:string|null, confidence:string, evidence_refs:list<string>, insufficient_evidence:bool}
      */
     public function mine(array $incident): array
     {
@@ -48,6 +48,30 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMiner
         $facts = $this->factsForType($incidentType);
 
         $wastedTokenRisk = $tokensSpent ?? (self::DEFAULT_WASTED_TOKENS[$incidentType] ?? 100);
+
+        // Evidence refs from the incident — required for a proven prevention task.
+        $evidenceRefs = is_array($incident['evidence_refs'] ?? null)
+            ? array_values(array_filter(array_map('strval', $incident['evidence_refs']), static fn (string $r): bool => $r !== ''))
+            : [];
+
+        // Impacted capability from the incident or derived from type.
+        $impactedCapability = trim((string) ($incident['impacted_capability'] ?? ''));
+        if ($impactedCapability === '') {
+            $impactedCapability = $facts['recommended_task_family'];
+        }
+
+        // Confidence: high when evidence refs present, low otherwise.
+        $confidence = $evidenceRefs !== [] ? 'high' : 'low';
+
+        // Insufficient evidence: vague narrative or missing evidence refs.
+        $hasVagueNarrative = isset($incident['narrative']) && ! isset($incident['evidence_refs']);
+        $insufficientEvidence = $evidenceRefs === [] || $hasVagueNarrative;
+
+        // Prevention task: only emitted when evidence is sufficient.
+        $preventionTask = null;
+        if (! $insufficientEvidence) {
+            $preventionTask = $facts['recommended_task_family'].':'.$incidentType;
+        }
 
         return [
             'schema' => self::SCHEMA,
@@ -61,6 +85,11 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMiner
             'task_quality_impact' => $facts['task_quality_impact'],
             'recurrence_risk' => $facts['recurrence_risk'],
             'next_policy_update' => $facts['next_policy_update'],
+            'impacted_capability' => $impactedCapability,
+            'prevention_task' => $preventionTask,
+            'confidence' => $confidence,
+            'evidence_refs' => $evidenceRefs,
+            'insufficient_evidence' => $insufficientEvidence,
         ];
     }
 

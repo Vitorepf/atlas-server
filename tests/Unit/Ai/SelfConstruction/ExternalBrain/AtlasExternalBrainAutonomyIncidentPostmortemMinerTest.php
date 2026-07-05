@@ -186,4 +186,98 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMinerTest extends TestCa
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
     }
+
+    // ── AC: incident with evidence refs returns root_cause, impacted_capability, prevention_task, confidence, evidence_refs ──
+
+    public function test_incident_with_evidence_refs_returns_structured_prevention_fields(): void
+    {
+        $r = $this->svc()->mine([
+            'incident_type' => 'poison_reserve',
+            'evidence_refs' => ['ledger:event-123', 'give_back:packet-456'],
+            'impacted_capability' => 'poison_quarantine',
+        ]);
+
+        $this->assertNotEmpty($r['root_cause']);
+        $this->assertSame('poison_quarantine', $r['impacted_capability']);
+        $this->assertNotNull($r['prevention_task']);
+        $this->assertSame('high', $r['confidence']);
+        $this->assertSame(['ledger:event-123', 'give_back:packet-456'], $r['evidence_refs']);
+        $this->assertFalse($r['insufficient_evidence']);
+    }
+
+    // ── AC: vague narrative or missing evidence marks insufficient_evidence and does not emit prevention_task ──
+
+    public function test_vague_narrative_without_evidence_marks_insufficient(): void
+    {
+        $r = $this->svc()->mine([
+            'incident_type' => 'poison_reserve',
+            'narrative' => 'something went wrong with the queue',
+        ]);
+
+        $this->assertTrue($r['insufficient_evidence']);
+        $this->assertNull($r['prevention_task']);
+        $this->assertSame('low', $r['confidence']);
+        $this->assertSame([], $r['evidence_refs']);
+    }
+
+    public function test_missing_evidence_refs_marks_insufficient(): void
+    {
+        $r = $this->svc()->mine([
+            'incident_type' => 'malformed_batch',
+        ]);
+
+        $this->assertTrue($r['insufficient_evidence']);
+        $this->assertNull($r['prevention_task']);
+    }
+
+    public function test_empty_evidence_refs_marks_insufficient(): void
+    {
+        $r = $this->svc()->mine([
+            'incident_type' => 'quota_farming',
+            'evidence_refs' => [],
+        ]);
+
+        $this->assertTrue($r['insufficient_evidence']);
+        $this->assertNull($r['prevention_task']);
+    }
+
+    // ── AC: token-waste incident and queue-poison incident prove prevention ──
+
+    public function test_token_waste_incident_produces_prevention_task_with_evidence(): void
+    {
+        $r = $this->svc()->mine([
+            'incident_type' => 'quota_farming',
+            'tokens_spent' => 5000,
+            'evidence_refs' => ['task_volume_spike:2026-07-05', 'leverage_gap:batch-789'],
+        ]);
+
+        $this->assertFalse($r['insufficient_evidence']);
+        $this->assertNotNull($r['prevention_task']);
+        $this->assertSame('high', $r['confidence']);
+        $this->assertStringContainsString('quota_farming', $r['prevention_task']);
+        $this->assertGreaterThan(0, $r['wasted_token_risk']);
+    }
+
+    public function test_queue_poison_incident_produces_prevention_task_with_evidence(): void
+    {
+        $r = $this->svc()->mine([
+            'incident_type' => 'poison_reserve',
+            'evidence_refs' => ['give_back:packet-abc:3x', 'quarantine_bypass:worker-5'],
+        ]);
+
+        $this->assertFalse($r['insufficient_evidence']);
+        $this->assertNotNull($r['prevention_task']);
+        $this->assertSame('high', $r['confidence']);
+        $this->assertStringContainsString('poison_reserve', $r['prevention_task']);
+    }
+
+    public function test_impacted_capability_defaults_to_recommended_task_family(): void
+    {
+        $r = $this->svc()->mine([
+            'incident_type' => 'malformed_batch',
+            'evidence_refs' => ['schema_fail:packet-1'],
+        ]);
+
+        $this->assertSame('schema_validation_hardening', $r['impacted_capability']);
+    }
 }
