@@ -22,10 +22,12 @@ final class CertifierClassificationLedger
     public const A_DELIVERY = [
         \App\Services\Ai\Obra\AtlasObraCertificationService::class,
         \App\Services\Ai\Programming\Forge\Qa\ForgeObraCertificationService::class,
-        \App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionCertificationService::class,
     ];
 
     public const B_STATE = [
+        // Reclassificado 05/07: certify() sem argumentos rodando smokes do runtime AVER
+        // = auditor de ESTADO, nao juiz de entrega (a 1a classificacao errou; leitura direta corrigiu).
+        \App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionCertificationService::class,
         \App\Services\Ai\Aemor\AtlasAemorCertificationService::class,
         \App\Services\Ai\AgenticWorkcell\AtlasAgenticWorkcellCertificationService::class,
         \App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionCertificationService::class,

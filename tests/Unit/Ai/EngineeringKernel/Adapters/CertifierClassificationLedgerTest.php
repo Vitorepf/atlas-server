@@ -71,7 +71,7 @@ final class CertifierClassificationLedgerTest extends TestCase
             'FQCN repetido entre categorias do ledger.',
         );
 
-        $this->assertCount(3, CertifierClassificationLedger::A_DELIVERY,
+        $this->assertCount(2, CertifierClassificationLedger::A_DELIVERY,
             'Juiz de entrega novo? Ele PRECISA de adapter do gate soberano (padrão S1) antes de entrar aqui.');
     }
 }

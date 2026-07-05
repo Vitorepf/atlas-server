@@ -117,6 +117,50 @@ final class ForgeObraCertificationService
             'evidence_refs' => $evidenceRefs,
         ];
 
+        // OBRA #5 S1-b — segunda opinião do piso soberano via o adapter Forge JÁ existente
+        // (only-adds: REFUSE em enforce só transforma passed→blocked, nunca o contrário).
+        // Default observe: veredito soberano no payload como raio-X do gap de evidência.
+        // Entra ANTES do certification_hash — o veredito é determinístico para o mesmo
+        // intake/QA, então o hash continua replay-estável e passa a cobrir a opinião do juiz.
+        $gateMode = (string) config('atlas.engineering_kernel.forge_obra_certifier_gate_mode', 'observe');
+        if ($gateMode !== 'off') {
+            try {
+                $verdict = app(\App\Services\Ai\EngineeringKernel\Adapters\AtlasForgeGateAdapter::class)
+                    ->certifyForgeDelivery([
+                        'criteria_hash' => (string) $intake->intake_hash,
+                        'frozen_hash' => (string) $intake->intake_hash,
+                        'execution' => [
+                            'claimed_status' => $status === self::STATUS_PASSED ? 'passed' : 'failed',
+                            // nada fabricado: contagens que o QA runner não expõe ficam 0 —
+                            // o floor mostra exatamente o que falta tredar.
+                        ],
+                    ]);
+                $payload['sovereign_verdict'] = [
+                    'mode' => $gateMode,
+                    'promoted' => $verdict->promoted(),
+                    'blockers' => $verdict->blockers,
+                    'receipt_ref' => $verdict->receiptRef,
+                ];
+                if ($gateMode === 'enforce' && ! $verdict->promoted() && $payload['status'] === self::STATUS_PASSED) {
+                    $payload['status'] = self::STATUS_BLOCKED;
+                    $payload['blockers'][] = [
+                        'schema_version' => 'atlas.forge.qa_blocker.v1',
+                        'gate_id' => 'sovereign_floor',
+                        'kind' => 'missing_evidence',
+                        'severity' => 'critical',
+                        'reasons' => array_map(static fn (string $b): string => 'sovereign_floor:'.$b, $verdict->blockers),
+                        'remediation' => 'Thread real execution/judge/context evidence so the sovereign floor can promote the Obra.',
+                        'next_action' => 'thread_sovereign_evidence',
+                    ];
+                }
+            } catch (\Throwable $e) {
+                $payload['sovereign_verdict'] = ['mode' => $gateMode, 'error' => mb_substr($e->getMessage(), 0, 160)];
+                if ($gateMode === 'enforce' && $payload['status'] === self::STATUS_PASSED) {
+                    $payload['status'] = self::STATUS_BLOCKED; // fail-closed, nunca fail-open
+                }
+            }
+        }
+
         $hashPayload = $payload;
         // Drop volatile timestamp before hashing so the same intake/QA state
         // produces a deterministic cert hash on every replay.
