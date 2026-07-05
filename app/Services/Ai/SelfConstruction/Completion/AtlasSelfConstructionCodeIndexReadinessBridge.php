@@ -129,7 +129,20 @@ final class AtlasSelfConstructionCodeIndexReadinessBridge
             'schema_version' => self::SCHEMA,
             'status' => $status,
             'passed' => $passed,
+            'final_autonomy_ready' => $passed,
             'blockers' => $blockers,
+            'repairs' => $repairs,
+            'repair_actions' => $repairs,
+            'evidence_refs' => [
+                'code_index_status' => $codeStatus,
+                'schema_drift_passed' => is_array($schemaDrift) ? (bool) ($schemaDrift['passed'] ?? false) : null,
+                'automatic_gate_status' => is_array($automaticGate) ? (string) ($automaticGate['status'] ?? '') : null,
+                'readiness_status' => $readinessStatus,
+                'readiness_blockers' => count($readinessFindings) > 0 ? 'blocked' : 'clear',
+                'workspace_bound' => $workspaceId !== '' && ($indexWorkspaceId === '' || $indexWorkspaceId === $workspaceId),
+                'indexed_at_present' => $indexedAtUnix !== null && $indexedAtUnix !== '',
+                'code_hash_represented' => $changedCodeHash === '' || $changedCodeHash === $lastChangedCodeHash,
+            ],
             'code_index_facts' => [
                 'code_status' => $codeStatus,
                 'indexed_symbols' => $indexCount,
@@ -140,7 +153,6 @@ final class AtlasSelfConstructionCodeIndexReadinessBridge
                 'schema_drift_status' => is_array($schemaDrift) ? (string) ($schemaDrift['status'] ?? '') : null,
                 'schema_drift_passed' => is_array($schemaDrift) ? (bool) ($schemaDrift['passed'] ?? false) : null,
             ],
-            'repair_actions' => $repairs,
             'proof_summary' => sprintf(
                 'status=%s blockers=%d repairs=%d',
                 $status,

@@ -155,6 +155,156 @@ class AtlasSelfConstructionCodeIndexReadinessBridgeTest extends TestCase
         self::assertSame([], $verdict['blockers']);
     }
 
+    // ── Acceptance criterion 4: output structure ────────────────────────
+
+    public function test_output_contains_final_autonomy_ready(): void
+    {
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($this->readyFacts());
+
+        self::assertArrayHasKey('final_autonomy_ready', $verdict);
+        self::assertTrue($verdict['final_autonomy_ready']);
+        self::assertSame($verdict['passed'], $verdict['final_autonomy_ready']);
+    }
+
+    public function test_output_contains_evidence_refs(): void
+    {
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($this->readyFacts());
+
+        self::assertArrayHasKey('evidence_refs', $verdict);
+        self::assertIsArray($verdict['evidence_refs']);
+        self::assertArrayHasKey('code_index_status', $verdict['evidence_refs']);
+        self::assertArrayHasKey('schema_drift_passed', $verdict['evidence_refs']);
+        self::assertArrayHasKey('automatic_gate_status', $verdict['evidence_refs']);
+        self::assertArrayHasKey('readiness_status', $verdict['evidence_refs']);
+        self::assertArrayHasKey('readiness_blockers', $verdict['evidence_refs']);
+        self::assertArrayHasKey('workspace_bound', $verdict['evidence_refs']);
+        self::assertArrayHasKey('indexed_at_present', $verdict['evidence_refs']);
+        self::assertArrayHasKey('code_hash_represented', $verdict['evidence_refs']);
+    }
+
+    public function test_evidence_refs_deterministic(): void
+    {
+        $facts = $this->readyFacts();
+
+        $v1 = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+        $v2 = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertSame($v1['evidence_refs'], $v2['evidence_refs']);
+    }
+
+    public function test_evidence_refs_reflects_blocked_state(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['schema_drift']);
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertNull($verdict['evidence_refs']['schema_drift_passed']);
+        self::assertFalse($verdict['final_autonomy_ready']);
+        self::assertSame('blocked', $verdict['status']);
+    }
+
+    public function test_evidence_refs_reflects_stale_index(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['code_status']['is_stale'] = true;
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertFalse($verdict['final_autonomy_ready']);
+        self::assertSame('hold', $verdict['status']);
+    }
+
+    public function test_repairs_and_repair_actions_are_synced(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['schema_drift']);
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertArrayHasKey('repairs', $verdict);
+        self::assertArrayHasKey('repair_actions', $verdict);
+        self::assertSame($verdict['repairs'], $verdict['repair_actions']);
+        self::assertContains('supply_schema_drift_audit_facts', $verdict['repairs']);
+    }
+
+    // ── Coverage gaps: edge cases ───────────────────────────────────────
+
+    public function test_blocked_when_automatic_gate_status_not_ready(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['automatic_gate'] = ['status' => 'failed'];
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertSame(AtlasSelfConstructionCodeIndexReadinessBridge::STATUS_BLOCKED, $verdict['status']);
+        self::assertContains('automatic_gate_not_ready:failed', $verdict['blockers']);
+    }
+
+    public function test_blocked_when_code_status_not_ready(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['code_status']['status'] = 'indexing';
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertSame(AtlasSelfConstructionCodeIndexReadinessBridge::STATUS_BLOCKED, $verdict['status']);
+        self::assertContains('code_status_not_ready:indexing', $verdict['blockers']);
+    }
+
+    public function test_blocked_when_readiness_status_is_failing(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['readiness']['status'] = 'failed';
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertSame(AtlasSelfConstructionCodeIndexReadinessBridge::STATUS_BLOCKED, $verdict['status']);
+        self::assertContains('readiness_not_ready:failed', $verdict['blockers']);
+    }
+
+    public function test_not_blocked_when_readiness_status_is_watch(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['readiness']['status'] = 'watch';
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        // watch is acceptable — not a blocker
+        self::assertSame(AtlasSelfConstructionCodeIndexReadinessBridge::STATUS_READY, $verdict['status']);
+        self::assertTrue($verdict['passed']);
+    }
+
+    public function test_code_status_in_code_index_facts(): void
+    {
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($this->readyFacts());
+
+        self::assertArrayHasKey('code_status', $verdict['code_index_facts']);
+        self::assertSame('ready', $verdict['code_index_facts']['code_status']);
+    }
+
+    public function test_proof_summary_format(): void
+    {
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($this->readyFacts());
+
+        self::assertMatchesRegularExpression(
+            '/^status=ready blockers=\d+ repairs=\d+$/',
+            $verdict['proof_summary'],
+        );
+    }
+
+    public function test_blocked_when_empty_changed_code_hash_does_not_match(): void
+    {
+        // Empty changed_code_hash should not produce a mismatch blocker
+        $facts = $this->readyFacts();
+        $facts['changed_code_hash'] = '';
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        // Empty changed_code_hash means "no change detected" — skip hash check
+        self::assertNotContains('changed_code_hash_not_represented', $verdict['blockers']);
+    }
+
     /**
      * @return array<string,mixed>
      */
