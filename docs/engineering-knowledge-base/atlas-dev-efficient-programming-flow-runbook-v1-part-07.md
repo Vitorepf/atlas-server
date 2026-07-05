@@ -304,7 +304,7 @@ while ($attempt < $maxAttempts && $completionState === 'failed') {
 
 DoD do PR 4.3:
 
-- [x] Feature test `tests/Feature/AtlasDev/EndToEndRepairTest.php` cobre:
+- [x] Feature test `tests/Feature/Ai/Programming/AtlasDev/EndToEndRepairDecisionTest.php` (path real desde 2026-05-16, commit bac4285232; o path planejado `tests/Feature/AtlasDev/EndToEndRepairTest.php` nunca existiu no repo) cobre:
   - cenario "first attempt fail, repair pass";
   - cenario "two fails same signature -> escalate";
   - cenario "first pass without repair".

@@ -87,10 +87,10 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-canonical-cleanup-inventory.md
   - app/Services/Engineering/EngineeringDocumentationHealthService.php
-  - app/Services/Ai/Programming/AtlasForge/
+  - app/Services/Ai/AtlasForge/
   - app/Services/Ai/Programming/AtlasDev/
   - app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php
-  - app/Services/Ai/Programming/AtlasCode/DevToForgePromotionService.php
+  - app/Services/AtlasCode/DevToForgePromotionService.php
 evidence_refs:
   - symbol: EngineeringDocumentationHealthService
   - command: atlas:engineering:knowledge
@@ -290,7 +290,7 @@ comparar shape do contrato/v1 com canon vigente.
 | Doc | Hipotese | Cross-check necessario |
 |---|---|---|
 | `atlas-ai-router-flow-routing-contract-v1.md` | superseded por Meta 6 RouterRuntime | Shape v1 vs `FlowRouterService`+`DomainRouterService`+`RuntimeDispatchService` |
-| `atlas-code-scor-1-implementation-contract.md` | visao futura OU superseded | Cross-check com `app/Services/Ai/Programming/AtlasCode/` |
+| `atlas-code-scor-1-implementation-contract.md` | visao futura OU superseded | Cross-check com `app/Services/AtlasCode/` |
 | `atlas-ai-voice-realtime-surface.md` | ambiguo | Verificar `app/Services/Ai/Voice/` |
 | `atlas-code-long-session-programming-cockpit.md` | absorvido por Atlas Code Obra Command Center | Cross-check `AtlasCodeObraCommandCenterService` |
 | `atlas-desktop-code-surface.md` | superseded ou complementar ao Atlas Desktop Design System | `atlas-desktop/docs/architecture/0007-*` |
@@ -345,7 +345,7 @@ NUNCA deve marcar como `deprecated` nem apagar referencia:
 4. **`atlas-next-patamar-operating-systems.md`** — meta-tese de patamares.
 5. **`atlas-ai-thesis-multiplier-channel.md`** — canal estrategico.
 6. **`atlas-resolver-corpus.md`** — corpus de resolvers.
-7. **Stubs de Driver** em `app/Services/Ai/Programming/Drivers/` — sao
+7. **Stubs de Driver** em `app/Services/Ai/Provider/Drivers/` — sao
    contratos planted para futuros providers; deletar quebra schema.
 8. **AtlasVault** (sync, cartografia, doc canonica em
    `atlas-server/docs/atlas-vault-cartografia.md`) — memoria humana

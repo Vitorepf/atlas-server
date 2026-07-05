@@ -10,7 +10,7 @@ priority: 40
 summary: Snapshot historico READ-ONLY de auditoria Dev ↔ Forge. Preservado para contexto, mas superseded pelo runtime dual-core atual: route_decision.v1 e escalation_packet.v1 existem em codigo/testes e este relatorio nao governa status atual.
 superseded_by:
   - docs/engineering-knowledge-base/atlas-dual-core-engineering-system.md
-  - docs/engineering-knowledge-base/atlas-programming-runtime-final-certification.md
+  - app/Services/Ai/ProgrammingRuntime/ProgrammingRuntimeReadinessService.php
   - app/Services/Ai/DualCore/DualCoreRouteDecisionService.php
   - app/Services/Ai/Programming/AtlasDev/Schemas/EscalationPacket.php
 tags:
@@ -129,6 +129,13 @@ superseded: `atlas.dual_core.route_decision.v1` existe em
 fluxos atuais de handoff/promotion. Quando houver conflito, prevalecem
 `atlas-dual-core-engineering-system.md`, codigo, migrations, testes,
 Programming Runtime readiness/certification, ACRUI e Evidence Ledger.
+
+Nota 2026-07-05 (varredura mecanica de links): o frontmatter `superseded_by`
+apontava para `docs/engineering-knowledge-base/atlas-programming-runtime-final-certification.md`,
+doc que nunca existiu no historico do git; a entrada foi trocada pelo
+equivalente vivo `app/Services/Ai/ProgrammingRuntime/ProgrammingRuntimeReadinessService.php`
+(backing de `php artisan atlas:programming:runtime-readiness`, ja citado em
+`next_actions`).
 
 ## Resumo
 **Veredicto curto:** os dois núcleos **existem como sistemas técnicos completos

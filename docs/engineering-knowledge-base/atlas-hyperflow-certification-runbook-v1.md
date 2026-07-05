@@ -28,8 +28,8 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-hyperflow-completion-audit-v1.md
   - app/Console/Commands/AtlasAiHyperflowCommand.php
-  - app/Http/Controllers/AtlasAiHyperflowRivalsBatteryController.php
-  - app/Services/Ai/Router/AtlasAiHyperflowRivalsBatteryService.php
+  - app/Http/Controllers/AtlasAiHyperflowCertificationController.php
+  - app/Services/Ai/Router/AtlasAiHyperflowCertificationService.php
   - tests/Feature/Ai/AtlasAiHyperflowCertificationApiTest.php
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-hyperflow-certification-runbook-v1
@@ -64,14 +64,14 @@ unlocks:
   - hyperflow_final_certification
 governs:
   - AtlasAiHyperflowCommand
-  - AtlasAiHyperflowRivalsBatteryController
-  - AtlasAiHyperflowRivalsBatteryService
+  - AtlasAiHyperflowCertificationController
+  - AtlasAiHyperflowCertificationService
 evidence:
   - php artisan atlas:ai:hyperflow certify --json
   - GET /ai/hyperflow/certification
 evidence_refs:
   - command: atlas:ai:hyperflow
-  - symbol: AtlasAiHyperflowRivalsBatteryController
+  - symbol: AtlasAiHyperflowCertificationController
   - test: AtlasAiHyperflowCertificationApiTest
 required_tests:
   - tests/Feature/Ai/AtlasAiHyperflowCertificationApiTest.php
@@ -122,6 +122,16 @@ prepare -> run -> template/export -> import -> certify
 - Sempre exigir baselines `claude_code` e `codex`/`codex_cli`.
 
 ## Escopo de Implementacao
+
+Nota (2026-07-05): a superficie dedicada de battery (controller e service
+proprios, 145+1985 linhas) foi retirada em 2026-07-02 (commit f9aa666bfe) e o
+CLI foi reduzido a acao unica `certify` em 2026-07-02 (commit bf449d6fd3). A
+superficie viva e `AtlasAiHyperflowCertificationController` +
+`AtlasAiHyperflowCertificationService` (`GET /ai/hyperflow/certification` e
+`php artisan atlas:ai:hyperflow certify --json`), coberta por
+`tests/Feature/Ai/AtlasAiHyperflowCertificationApiTest.php`. Os endpoints e
+subcomandos de battery listados abaixo permanecem como registro historico do
+contrato v1 e nao existem mais no runtime.
 
 API canonica:
 

@@ -236,7 +236,7 @@ Cada adapter mapeia payload da surface -> `runAtlasDevEfficient()` E formata o r
 DoD do PR 5.4b:
 
 - [x] Adapters CLI/App/API implementados.
-- [x] Feature test `tests/Feature/AtlasDev/EndToEndSurfaceTest.php` cobre Desktop first + 3 surfaces de paridade.
+- [x] Feature test `tests/Feature/Ai/Programming/AtlasDev/Http/PlanRunSurfaceParityTest.php` cobre Desktop first + 3 surfaces de paridade (path planejado `tests/Feature/AtlasDev/EndToEndSurfaceTest.php` nunca foi criado; equivalente vivo verificado em 2026-07-05).
 
 #### PR 5.5 — Doc Atualizacao + Cert
 
