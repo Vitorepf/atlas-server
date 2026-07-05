@@ -131,7 +131,7 @@ final class AtlasProjectLaneRegistry
         if (is_array($record['allowed_scope_roots'] ?? null)) {
             $scopeRoots = array_filter(
                 array_map('strval', $record['allowed_scope_roots']),
-                static fn (string $p): bool => $p !== '' && str_starts_with($p, $repoRoot),
+                static fn (string $p): bool => $p !== '' && ($p === $repoRoot || str_starts_with($p, $repoRoot.'/')),
             );
             $scopeRoots = array_values(array_unique($scopeRoots));
             sort($scopeRoots, SORT_STRING);
