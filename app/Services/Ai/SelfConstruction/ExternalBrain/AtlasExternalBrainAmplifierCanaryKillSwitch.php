@@ -56,6 +56,7 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
     private const PROXY_LEAK_CEILING      = 0.15;
     private const FAILURE_STREAK_LIMIT    = 3;
     private const FALSE_GREEN_CEILING     = 0.15;
+    private const POISON_RATE_CEILING     = 0.20;
 
     /**
      * @param  array{
@@ -70,8 +71,14 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
      *   held_out_failure_streak?: int,
      *   regression_spike?: bool,
      *   has_mandatory_telemetry?: bool,
+     *   poison_rate?: float,
+     *   evidence_quality?: float,
+     *   route_id?: string,
+     *   baseline_value?: float,
+     *   canary_value?: float,
+     *   safe_previous_route?: string,
      * }  $input
-     * @return array{schema:string, action:string, breached_thresholds:list<string>, rollback_scope:string|null, sample_size:int, next_safe_variant:string, kill_switch_active:bool, kill_reason:string|null, recovery_condition:string, safe_mode_policy:string}
+     * @return array{schema:string, action:string, breached_thresholds:list<string>, rollback_scope:string|null, sample_size:int, next_safe_variant:string, kill_switch_active:bool, kill_reason:string|null, recovery_condition:string, safe_mode_policy:string, route_id:string, failed_metric:string|null, baseline_value:float|null, canary_value:float|null, safe_previous_route:string}
      */
     public function evaluate(array $input): array
     {
@@ -92,6 +99,14 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
             : true;
         $wasPreviouslyRolledBack = (bool) ($input['was_previously_rolled_back'] ?? false);
         $falseGreenRate       = max(0.0, min(1.0, (float) ($input['false_green_rate'] ?? 0.0)));
+
+        // New AC4 fields: poison rate, evidence quality, identity.
+        $poisonRate           = max(0.0, min(1.0, (float) ($input['poison_rate'] ?? 0.0)));
+        $evidenceQuality      = max(0.0, min(1.0, (float) ($input['evidence_quality'] ?? 1.0)));
+        $routeId              = trim((string) ($input['route_id'] ?? ''));
+        $baselineValue        = isset($input['baseline_value']) ? (float) $input['baseline_value'] : null;
+        $canaryValue          = isset($input['canary_value']) ? (float) $input['canary_value'] : null;
+        $safePreviousRoute    = trim((string) ($input['safe_previous_route'] ?? 'baseline'));
 
         // AC3: a failure streak explained by temporary quota exhaustion is NOT capability
         // degradation — rolling back the amplifier for it would be a false signal. Every other
@@ -115,6 +130,12 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
         }
         if ($regressionSpike) {
             $killTriggers[] = ['reason' => 'regression_spike', 'recovery' => 'regression_absent_for_10_tasks', 'policy' => 'disable_amplifier_immediately'];
+        }
+        if ($poisonRate > self::POISON_RATE_CEILING) {
+            $killTriggers[] = ['reason' => 'poison_rate_ceiling_breach', 'recovery' => 'poison_rate_below_ceiling_for_2_cycles', 'policy' => 'disable_amplifier_immediately'];
+        }
+        if ($evidenceQuality < 0.5) {
+            $killTriggers[] = ['reason' => 'evidence_quality_regression', 'recovery' => 'evidence_quality_above_0_5_for_10_samples', 'policy' => 'disable_amplifier_immediately'];
         }
         if (! $hasMandatoryTelemetry) {
             $killTriggers[] = ['reason' => 'missing_mandatory_telemetry', 'recovery' => 'all_mandatory_telemetry_present', 'policy' => 'block_canary_until_telemetry_restored'];
@@ -158,108 +179,175 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
 
         // Kill switch overrides action to rollback immediately.
         if ($killSwitchActive || $breached !== []) {
-            return [
-                'schema'                 => self::SCHEMA,
-                'action'                 => self::ACTION_ROLLBACK,
-                'severity'               => $killSwitchActive ? self::SEVERITY_CRITICAL : self::SEVERITY_HIGH,
-                'breached_thresholds'    => $breached,
-                'rollback_scope'         => 'canary_only',
-                'sample_size'            => $sampleSize,
-                'next_safe_variant'      => 'baseline',
-                'kill_switch_active'     => $killSwitchActive,
-                'kill_reason'            => $killReason,
-                'recovery_condition'     => $recoveryCondition,
-                'safe_mode_policy'       => $safeModePolicy,
-                'recovery_window_status' => self::RECOVERY_WINDOW_IN_PROGRESS,
-            ];
+            return $this->result(
+                action: self::ACTION_ROLLBACK,
+                severity: $killSwitchActive ? self::SEVERITY_CRITICAL : self::SEVERITY_HIGH,
+                breached: $breached,
+                rollbackScope: 'canary_only',
+                sampleSize: $sampleSize,
+                nextSafeVariant: 'baseline',
+                killSwitchActive: $killSwitchActive,
+                killReason: $killReason,
+                recoveryCondition: $recoveryCondition,
+                safeModePolicy: $safeModePolicy,
+                recoveryWindow: self::RECOVERY_WINDOW_IN_PROGRESS,
+                routeId: $routeId,
+                failedMetric: $killReason,
+                baselineValue: $baselineValue,
+                canaryValue: $canaryValue,
+                safePreviousRoute: $safePreviousRoute,
+            );
         }
 
         // AC3: the failure streak looked like capability degradation but is fully explained by
         // temporary quota exhaustion — a safe fallback (pause, don't roll back) since the model
         // itself was never actually exercised enough to prove or disprove anything.
         if ($failureStreakExplainedByQuota) {
-            return [
-                'schema'                 => self::SCHEMA,
-                'action'                 => self::ACTION_PAUSE_FOR_QUOTA,
-                'severity'               => self::SEVERITY_LOW,
-                'breached_thresholds'    => [],
-                'rollback_scope'         => null,
-                'sample_size'            => $sampleSize,
-                'next_safe_variant'      => 'current_canary',
-                'kill_switch_active'     => false,
-                'kill_reason'            => 'temporary_quota_failure',
-                'recovery_condition'     => 'quota_restored_and_failure_streak_clears',
-                'safe_mode_policy'       => 'pause_sampling_until_quota_restored',
-                'recovery_window_status' => self::RECOVERY_WINDOW_NOT_APPLICABLE,
-            ];
+            return $this->result(
+                action: self::ACTION_PAUSE_FOR_QUOTA,
+                severity: self::SEVERITY_LOW,
+                breached: [],
+                rollbackScope: null,
+                sampleSize: $sampleSize,
+                nextSafeVariant: 'current_canary',
+                killSwitchActive: false,
+                killReason: 'temporary_quota_failure',
+                recoveryCondition: 'quota_restored_and_failure_streak_clears',
+                safeModePolicy: 'pause_sampling_until_quota_restored',
+                recoveryWindow: self::RECOVERY_WINDOW_NOT_APPLICABLE,
+                routeId: $routeId,
+                failedMetric: null,
+                baselineValue: $baselineValue,
+                canaryValue: $canaryValue,
+                safePreviousRoute: $safePreviousRoute,
+            );
         }
 
         // Recovering FROM a previous rollback: normal-size samples are never enough on
         // their own — require the larger recovery sample before trusting a clean read.
         if ($wasPreviouslyRolledBack) {
             if ($sampleSize < self::RECOVERY_MIN_SAMPLE_SIZE) {
-                return [
-                    'schema'                 => self::SCHEMA,
-                    'action'                 => self::ACTION_WAIT_FOR_SAMPLE,
-                    'severity'               => self::SEVERITY_NONE,
-                    'breached_thresholds'    => [],
-                    'rollback_scope'         => null,
-                    'sample_size'            => $sampleSize,
-                    'next_safe_variant'      => 'current_canary',
-                    'kill_switch_active'     => false,
-                    'kill_reason'            => null,
-                    'recovery_condition'     => 'no_recovery_needed',
-                    'safe_mode_policy'       => 'normal_operation',
-                    'recovery_window_status' => self::RECOVERY_WINDOW_IN_PROGRESS,
-                ];
+                return $this->result(
+                    action: self::ACTION_WAIT_FOR_SAMPLE,
+                    severity: self::SEVERITY_NONE,
+                    breached: [],
+                    rollbackScope: null,
+                    sampleSize: $sampleSize,
+                    nextSafeVariant: 'current_canary',
+                    killSwitchActive: false,
+                    killReason: null,
+                    recoveryCondition: 'no_recovery_needed',
+                    safeModePolicy: 'normal_operation',
+                    recoveryWindow: self::RECOVERY_WINDOW_IN_PROGRESS,
+                    routeId: $routeId,
+                    failedMetric: null,
+                    baselineValue: $baselineValue,
+                    canaryValue: $canaryValue,
+                    safePreviousRoute: $safePreviousRoute,
+                );
             }
 
-            return [
-                'schema'                 => self::SCHEMA,
-                'action'                 => self::ACTION_CONTINUE,
-                'severity'               => self::SEVERITY_NONE,
-                'breached_thresholds'    => [],
-                'rollback_scope'         => null,
-                'sample_size'            => $sampleSize,
-                'next_safe_variant'      => 'current_canary',
-                'kill_switch_active'     => false,
-                'kill_reason'            => null,
-                'recovery_condition'     => 'no_recovery_needed',
-                'safe_mode_policy'       => 'normal_operation',
-                'recovery_window_status' => self::RECOVERY_WINDOW_RECOVERED,
-            ];
+            return $this->result(
+                action: self::ACTION_CONTINUE,
+                severity: self::SEVERITY_NONE,
+                breached: [],
+                rollbackScope: null,
+                sampleSize: $sampleSize,
+                nextSafeVariant: 'current_canary',
+                killSwitchActive: false,
+                killReason: null,
+                recoveryCondition: 'no_recovery_needed',
+                safeModePolicy: 'normal_operation',
+                recoveryWindow: self::RECOVERY_WINDOW_RECOVERED,
+                routeId: $routeId,
+                failedMetric: null,
+                baselineValue: $baselineValue,
+                canaryValue: $canaryValue,
+                safePreviousRoute: $safePreviousRoute,
+            );
         }
 
         if ($sampleSize < self::MIN_SAMPLE_SIZE) {
-            return [
-                'schema'                 => self::SCHEMA,
-                'action'                 => self::ACTION_WAIT_FOR_SAMPLE,
-                'severity'               => self::SEVERITY_NONE,
-                'breached_thresholds'    => [],
-                'rollback_scope'         => null,
-                'sample_size'            => $sampleSize,
-                'next_safe_variant'      => 'current_canary',
-                'kill_switch_active'     => false,
-                'kill_reason'            => null,
-                'recovery_condition'     => 'no_recovery_needed',
-                'safe_mode_policy'       => 'normal_operation',
-                'recovery_window_status' => self::RECOVERY_WINDOW_NOT_APPLICABLE,
-            ];
+            return $this->result(
+                action: self::ACTION_WAIT_FOR_SAMPLE,
+                severity: self::SEVERITY_NONE,
+                breached: [],
+                rollbackScope: null,
+                sampleSize: $sampleSize,
+                nextSafeVariant: 'current_canary',
+                killSwitchActive: false,
+                killReason: null,
+                recoveryCondition: 'no_recovery_needed',
+                safeModePolicy: 'normal_operation',
+                recoveryWindow: self::RECOVERY_WINDOW_NOT_APPLICABLE,
+                routeId: $routeId,
+                failedMetric: null,
+                baselineValue: $baselineValue,
+                canaryValue: $canaryValue,
+                safePreviousRoute: $safePreviousRoute,
+            );
         }
 
+        return $this->result(
+            action: self::ACTION_CONTINUE,
+            severity: self::SEVERITY_NONE,
+            breached: [],
+            rollbackScope: null,
+            sampleSize: $sampleSize,
+            nextSafeVariant: 'current_canary',
+            killSwitchActive: false,
+            killReason: null,
+            recoveryCondition: 'no_recovery_needed',
+            safeModePolicy: 'normal_operation',
+            recoveryWindow: self::RECOVERY_WINDOW_NOT_APPLICABLE,
+            routeId: $routeId,
+            failedMetric: null,
+            baselineValue: $baselineValue,
+            canaryValue: $canaryValue,
+            safePreviousRoute: $safePreviousRoute,
+        );
+    }
+
+    /**
+     * @param  list<string>  $breached
+     * @return array<string,mixed>
+     */
+    private function result(
+        string $action,
+        string $severity,
+        array $breached,
+        ?string $rollbackScope,
+        int $sampleSize,
+        string $nextSafeVariant,
+        bool $killSwitchActive,
+        ?string $killReason,
+        string $recoveryCondition,
+        string $safeModePolicy,
+        string $recoveryWindow,
+        string $routeId,
+        ?string $failedMetric,
+        ?float $baselineValue,
+        ?float $canaryValue,
+        string $safePreviousRoute,
+    ): array {
         return [
             'schema'                 => self::SCHEMA,
-            'action'                 => self::ACTION_CONTINUE,
-            'severity'               => self::SEVERITY_NONE,
-            'breached_thresholds'    => [],
-            'rollback_scope'         => null,
+            'action'                 => $action,
+            'severity'               => $severity,
+            'breached_thresholds'    => $breached,
+            'rollback_scope'         => $rollbackScope,
             'sample_size'            => $sampleSize,
-            'next_safe_variant'      => 'current_canary',
-            'kill_switch_active'     => false,
-            'kill_reason'            => null,
-            'recovery_condition'     => 'no_recovery_needed',
-            'safe_mode_policy'       => 'normal_operation',
-            'recovery_window_status' => self::RECOVERY_WINDOW_NOT_APPLICABLE,
+            'next_safe_variant'      => $nextSafeVariant,
+            'kill_switch_active'     => $killSwitchActive,
+            'kill_reason'            => $killReason,
+            'recovery_condition'     => $recoveryCondition,
+            'safe_mode_policy'       => $safeModePolicy,
+            'recovery_window_status' => $recoveryWindow,
+            'route_id'               => $routeId,
+            'failed_metric'          => $failedMetric,
+            'baseline_value'         => $baselineValue,
+            'canary_value'           => $canaryValue,
+            'safe_previous_route'    => $safePreviousRoute,
         ];
     }
 }

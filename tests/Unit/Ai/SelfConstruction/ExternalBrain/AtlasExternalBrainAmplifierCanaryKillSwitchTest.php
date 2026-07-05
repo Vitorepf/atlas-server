@@ -38,6 +38,8 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitchTest extends TestCase
             'schema', 'action', 'breached_thresholds', 'rollback_scope',
             'sample_size', 'next_safe_variant',
             'kill_switch_active', 'kill_reason', 'recovery_condition', 'safe_mode_policy',
+            'recovery_window_status', 'route_id', 'failed_metric',
+            'baseline_value', 'canary_value', 'safe_previous_route',
         ] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
