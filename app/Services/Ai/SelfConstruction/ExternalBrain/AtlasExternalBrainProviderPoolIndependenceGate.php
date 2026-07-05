@@ -70,9 +70,11 @@ final class AtlasExternalBrainProviderPoolIndependenceGate
         $missingFallbackProof = [];
         $tasks = [];
         $poolClassification = [];
+        $malformedClaims = [];
 
-        foreach ($providers as $claim) {
+        foreach ($providers as $idx => $claim) {
             if (! is_array($claim) || ! isset($claim['provider'])) {
+                $malformedClaims[] = $idx;
                 continue;
             }
 
@@ -132,7 +134,8 @@ final class AtlasExternalBrainProviderPoolIndependenceGate
 
         $productionPromotionBlocked = $requiredProviders !== [];
         $autonomyPreservedOverall = $requiredProviders === []
-            && ! in_array(false, array_column($scenarioResults, 'autonomy_preserved'), true);
+            && ! in_array(false, array_column($scenarioResults, 'autonomy_preserved'), true)
+            && $malformedClaims === [];
 
         return [
             'schema' => self::SCHEMA,
@@ -144,6 +147,7 @@ final class AtlasExternalBrainProviderPoolIndependenceGate
             'missing_fallback_proof' => array_values(array_unique($missingFallbackProof)),
             'minimal_next_tasks_needed_to_restore_independence' => array_values(array_unique($tasks)),
             'pool_classification' => $poolClassification,
+            'malformed_provider_claims' => $malformedClaims,
         ];
     }
 }

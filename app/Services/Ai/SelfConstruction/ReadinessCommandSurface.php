@@ -9,7 +9,7 @@ final class ReadinessCommandSurface
         $command = 'php artisan atlas:ai:self-construction --'.$option;
 
         if (is_string($packetId) && $packetId !== '') {
-            $command .= ' --packet='.$packetId;
+            $command .= ' --packet='.self::safeCommandValue($packetId);
         }
 
         return $command.' --json';

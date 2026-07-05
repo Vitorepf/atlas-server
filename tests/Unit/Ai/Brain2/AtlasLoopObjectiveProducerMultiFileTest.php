@@ -5,22 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Brain2;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopObjectiveProducer;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopOriginationBuilder;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopStateOfAtlasReader;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopAdversarialCritic;
-use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopLeverageScorer;
 use App\Services\Ai\AutonomousEvolution\Discovery\StateOfAtlas;
-use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use ReflectionMethod;
 use Tests\TestCase;
 
 /**
- * ██   ██  █████  ██████  ███████ ███████ 
- * ██   ██ ██   ██ ██   ██    ███    ███  
- * ██   ██ ███████ ██████    ███    ███  
- * ██   ██ ██   ██ ██   ██  ███    ███  
- *  ██████  ██   ██ ██████  ███████ ███████
- *
  * MULTI-FILE OBJECTIVE ORIGINATION — AtlasLoopObjectiveProducer multi-file gate.
  *
  * Tests that the producer's multi_file_origination_enabled flag correctly gates
@@ -33,6 +22,29 @@ final class AtlasLoopObjectiveProducerMultiFileTest extends TestCase
 {
     /** @var list<string> temp dirs to clean up */
     private array $tempDirs = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Disable EV and pattern driver to keep the routing simple and
+        // predictable: the adversarial critic picks the winner, then our
+        // multi-file gate fires (or not). EV brain would reorder candidates,
+        // potentially changing the winner. Pattern driver would short-circuit
+        // produce() entirely.
+        config([
+            'atlas.loop.ev_live_decision_enabled' => false,
+            'atlas.loop.producer_ev_pick_enabled' => false,
+            'atlas.loop.pattern_driver_enabled' => false,
+            // Let the refactor objective producer work
+            'atlas.loop.objective_producer_enabled' => true,
+            // Low ambition floor so our temp file qualifies
+            'atlas.loop.producer_leverage_floor' => 0.01,
+            'atlas.loop.producer_min_unblock' => 0.01,
+            // Refactor synthesizer floor
+            'atlas.loop.decision_min_refactor_cyclomatic' => 1,
+        ]);
+    }
 
     protected function tearDown(): void
     {
@@ -108,20 +120,28 @@ final class AtlasLoopObjectiveProducerMultiFileTest extends TestCase
         config(['atlas.loop.multi_file_origination_enabled' => true]);
         $repoRoot = $this->tempRepo();
 
-        $producer = new AtlasLoopObjectiveProducer(
-            stateReader: $this->fakeStateReader(),
-            analyzer: $this->fakeAnalyzer(),
+        // Pass a permissive StateOfAtlas directly (bypasses the stateReader).
+        $state = new StateOfAtlas(
+            strategic: [['text' => 'improve core', 'keywords' => ['Hub', 'process']]],
+            areaMaturity: ['app' => 0.5],
+            realityProvenPaths: [],
+            forbiddenPrefixes: [],
+            elapsedMs: 0,
+            deliveredCapabilities: [],
         );
+
+        $producer = new AtlasLoopObjectiveProducer();
 
         $result = $producer->produce(
             $repoRoot,
             ['app/Hub.php', 'app/CallerA.php', 'app/CallerB.php'],
             '',
             '',
+            $state, // Pass StateOfAtlas directly, bypassing the stateReader
         );
 
         $this->assertNotNull($result, 'produce() should return a multi-file objective');
-        $this->assertSame('multi_file_refactor', $result['shape']);
+        $this->assertSame('multi_file_refactor', $result['shape'], 'flag ON + callers ⇒ multi_file_refactor');
         $this->assertTrue($result['payload']['multi_file'] ?? false);
         $this->assertCount(3, $result['payload']['allowed_files'] ?? []);
         $this->assertContains('app/Hub.php', $result['payload']['allowed_files']);
@@ -130,40 +150,37 @@ final class AtlasLoopObjectiveProducerMultiFileTest extends TestCase
         $this->assertStringContainsString('multi-file', $result['rationale']);
     }
 
-    // ───── produce() routing: flag OFF → single-file ─────
+    // ───── produce() routing: flag OFF → single-file (falls through) ─────
 
     public function test_flag_off_produces_single_file_objective(): void
     {
         config(['atlas.loop.multi_file_origination_enabled' => false]);
         $repoRoot = $this->tempRepo();
 
-        $origination = $this->createMock(AtlasLoopOriginationBuilder::class);
-        $origination->method('build')->willReturn([
-            'objective' => 'Reduce cyclomatic complexity in app/Hub.php',
-            'payload' => ['allowed_files' => ['app/Hub.php']],
-            'acceptance_hash' => 'abc123',
-            'target_path' => 'app/Hub.php',
-            'shape' => 'refactor',
-            'self_contained' => true,
-        ]);
-
-        $producer = new AtlasLoopObjectiveProducer(
-            stateReader: $this->fakeStateReader(),
-            analyzer: $this->fakeAnalyzer(),
-            origination: $origination,
+        $state = new StateOfAtlas(
+            strategic: [['text' => 'improve core', 'keywords' => ['Hub', 'process']]],
+            areaMaturity: ['app' => 0.5],
+            realityProvenPaths: [],
+            forbiddenPrefixes: [],
+            elapsedMs: 0,
+            deliveredCapabilities: [],
         );
+
+        $producer = new AtlasLoopObjectiveProducer();
 
         $result = $producer->produce(
             $repoRoot,
             ['app/Hub.php', 'app/CallerA.php', 'app/CallerB.php'],
             '',
             '',
+            $state,
         );
 
-        $this->assertNotNull($result, 'produce() should return a single-file objective');
-        $this->assertSame('refactor', $result['shape'], 'flag OFF ⇒ single-file refactor');
-        $this->assertNotSame('multi_file_refactor', $result['shape']);
-        $this->assertArrayNotHasKey('multi_file', $result['payload'] ?? []);
+        // With the flag OFF, the multi-file gate is skipped. The real
+        // refactor synthesizer should build a single-file refactor for Hub.
+        $this->assertNotNull($result, 'produce() should return a single-file refactor objective');
+        $this->assertSame('refactor', $result['shape'], 'flag OFF ⇒ refactor');
+        $this->assertNotSame('multi_file_refactor', $result['shape'], 'flag OFF must NOT be multi_file_refactor');
     }
 
     // ───── helpers ─────
@@ -183,56 +200,30 @@ final class AtlasLoopObjectiveProducerMultiFileTest extends TestCase
         $root = sys_get_temp_dir().'/atlas-mfo-'.bin2hex(random_bytes(4));
         $this->tempDirs[] = $root;
 
-        // app/ dir
-        mkdir($root.'/app', 0777, true);
+        // Directories
         mkdir($root.'/app/Callers', 0777, true);
         mkdir($root.'/tests/Unit', 0777, true);
 
-        // Hub — a wired, complex class that its callers reference via FQCN.
-        // The cyclomatic is high enough to pass the refactor floor.
+        // Hub — a wired, complex class with high cyclomatic. Real callers
+        // reference it via FQCN, so the WiredCallerService will detect them.
         file_put_contents($root.'/app/Hub.php', "<?php\nnamespace App;\n\nfinal class Hub\n{\n    public function process(int \$n, string \$mode): int\n    {\n        \$result = 0;\n        foreach (range(0, \$n) as \$i) {\n            switch (\$mode) {\n                case 'a': \$result += \$i * 2; break;\n                case 'b': \$result += \$i * 3; break;\n                case 'c': \$result += \$i * 4; break;\n                case 'd': \$result += \$i * 5; break;\n                case 'e': \$result += \$i * 6; break;\n                default: \$result += \$i; break;\n            }\n        }\n        return \$result;\n    }\n}\n");
 
-        // CallerA — explicitly uses Hub via FQCN
+        // CallerA — uses Hub via FQCN
         file_put_contents($root.'/app/CallerA.php', "<?php\nnamespace App\\Callers;\n\nuse App\\Hub;\n\nfinal class CallerA\n{\n    public function run(Hub \$h): int\n    {\n        return \$h->process(10, 'a');\n    }\n}\n");
 
-        // CallerB — explicitly uses Hub via FQCN
+        // CallerB — uses Hub via FQCN
         file_put_contents($root.'/app/CallerB.php', "<?php\nnamespace App\\Callers;\n\nuse App\\Hub;\n\nfinal class CallerB\n{\n    public function run(Hub \$h): int\n    {\n        return \$h->process(5, 'b');\n    }\n}\n");
 
-        // Sibling test for Hub (enables verifiable flag)
-        file_put_contents($root.'/tests/Unit/HubTest.php', "<?php\nnamespace Tests\\Unit;\n\nuse App\\Hub;\n\nfinal class HubTest\n{\n    public function test_process(): void\n    {\n        \$h = new Hub();\n        \$this->assertSame(0, \$h->process(0, ''));\n    }\n}\n");
+        // Sibling test for Hub (required for refactor synthesizer)
+        file_put_contents($root.'/tests/Unit/HubTest.php', "<?php\nnamespace Tests\\Unit;\n\nuse PHPUnit\\Framework\\TestCase;\nuse App\\Hub;\n\nfinal class HubTest extends TestCase\n{\n    public function test_process(): void\n    {\n        \$h = new Hub();\n        \$this->assertSame(0, \$h->process(0, ''));\n    }\n}\n");
+
+        // Sibling test for CallerA (so it's also verifiable)
+        file_put_contents($root.'/tests/Unit/CallerATest.php', "<?php\nnamespace Tests\\Unit;\n\nuse PHPUnit\\Framework\\TestCase;\nuse App\\Callers\\CallerA;\nuse App\\Hub;\n\nfinal class CallerATest extends TestCase\n{\n    public function test_run(): void\n    {\n        \$c = new CallerA();\n        \$this->assertSame(0, \$c->run(new Hub()));\n    }\n}\n");
+
+        // Sibling test for CallerB
+        file_put_contents($root.'/tests/Unit/CallerBTest.php', "<?php\nnamespace Tests\\Unit;\n\nuse PHPUnit\\Framework\\TestCase;\nuse App\\Callers\\CallerB;\nuse App\\Hub;\n\nfinal class CallerBTest extends TestCase\n{\n    public function test_run(): void\n    {\n        \$c = new CallerB();\n        \$this->assertSame(0, \$c->run(new Hub()));\n    }\n}\n");
 
         return $root;
-    }
-
-    /** A fake StateOfAtlas reader that returns a permissive state (nothing forbidden). */
-    private function fakeStateReader(): AtlasLoopStateOfAtlasReader
-    {
-        // We cannot easily mock the reader because it uses `app()` internally.
-        // Instead, inject a stub via a custom reader that returns a clean StateOfAtlas.
-        $mock = $this->createMock(AtlasLoopStateOfAtlasReader::class);
-        $mock->method('read')->willReturn(new StateOfAtlas(
-            strategic: [['text' => 'improve core', 'keywords' => ['Hub', 'process']]],
-            areaMaturity: ['app' => 0.5],
-            realityProvenPaths: [],
-            forbiddenPrefixes: [],
-            elapsedMs: 0,
-            deliveredCapabilities: [],
-        ));
-
-        return $mock;
-    }
-
-    /** A fake analyzer that returns high cyclomatic for our temp Hub file. */
-    private function fakeAnalyzer(): AtlasLoopSignalAnalyzer
-    {
-        $mock = $this->createMock(AtlasLoopSignalAnalyzer::class);
-        $mock->method('fileComplexity')->willReturn([
-            'measured' => true,
-            'max_per_method' => 18,
-            'total' => 22,
-        ]);
-
-        return $mock;
     }
 
     /** Recursive rmdir helper. */

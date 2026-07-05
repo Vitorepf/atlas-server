@@ -56,6 +56,7 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
         $staleTaskIds = [];
         $dependencyBlockers = [];
         $recommendedChainAction = [];
+        $malformedEdges = [];
 
         $flag = function (string $taskId, string $dependsOn, string $rescopePlan, string $chainAction) use (&$staleTaskIds, &$dependencyBlockers, &$recommendedChainAction): void {
             $staleTaskIds[$taskId] = true;
