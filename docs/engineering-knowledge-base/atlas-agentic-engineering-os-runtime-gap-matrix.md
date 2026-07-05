@@ -21,6 +21,7 @@ decisions:
   - Esta matriz complementa Implementation Reality; ela nao substitui docs donos nem Code Reality.
   - Estado runtime deve ser provado por codigo, teste, comando, rota, receipt ou blocker.
   - Gaps nesta matriz devem alimentar Stewardship/Area Focus como backlog de alto impacto, nao microtarefas decorativas.
+  - Snapshot pos limpeza-bruta 2026-07-05: o juiz soberano existe em `EngineeringKernel` e a consolidacao de certifiers e governada por ledger; nao reabrir "gates dispersos" como se fosse ausencia de juiz. Caveat de modo: a consolidacao Obra #5 roda em modo observe-first (default observe grava veredito soberano sem alterar o local; enforce so APERTA veredito), commit 92abe2bc52.
 maintenance:
   - Atualizar quando AAEOS, Atlas Dev, Atlas Forge, Dual-Core, Evidence, Mission Control ou Stewardship mudarem.
   - Manter abaixo de 260 linhas.
@@ -155,6 +156,12 @@ retroalimentacao e research nao promovida.
 
 ## Snapshot Runtime
 
+Atualizacao 2026-07-05: a campanha `limpeza-bruta` removeu massa especulativa,
+aposentou o brick WAVE-14 e deixou o Acceptance/Sovereign Honesty Floor como
+centro de julgamento. Esta matriz agora distingue "juiz existe" de "todos os
+callers ja foram migrados". Backlogs devem atacar migracao/consumo real, nao
+recriar gates paralelos.
+
 | Area | Estado | Evidencia / caveat |
 |---|---|---|
 | AAEOS skeleton | solid_runtime | Services em `app/Services/Ai/AgenticEngineeringOs`; CLI e tests existem. |
@@ -163,12 +170,16 @@ retroalimentacao e research nao promovida.
 | Atlas Dev | partial_runtime | Fluxo rico e DTOs reais; matriz ainda marca Dev baixo por A2/HTTP/parity. |
 | Atlas Forge | partial_runtime | Runtime/provider/governance fortes; precisa usar owner runtime real, nao prompt simples. |
 | Dual-Core Dev/Forge | partial_runtime | Route decision existe; ha mecanismos paralelos de promocao a consolidar. |
-| Universal gates | partial_runtime | Evaluator existe, mas gates continuam parcialmente dispersos. |
+| Universal gates / judge | partial_runtime | `EngineeringKernel`/SovereignHonestyFloor e adapters existem; trabalho restante e migrar callers e certifiers legados, nao criar novo juiz. Ledger (`CertifierClassificationLedger`) classifica 66 certifiers (2 A_DELIVERY, 35 B_STATE, 10 C_PARKED, 19 D_ISOLATED). Consolidacao Obra #5 roda em modo observe-first (default observe grava veredito soberano sem alterar o local; enforce so APERTA veredito), commit 92abe2bc52. |
 | Mission Control | partial_runtime | Service/surface parcial; review humano nao pode ser claim completo. |
-| Evidence Dev/Forge | partial_runtime | Receipts existem; cross-reference ainda precisa caminho unico robusto. |
-| Stewardship 24h | partial_runtime | AP-790 prova merges reais; precisa backlog forte, failover e recovery. |
+| Evidence Dev/Forge | partial_runtime | Receipts existem; cross-reference ainda precisa caminho unico robusto. Obra #4 (2026-07-05) ja entregou replay-proof — reparo so certifica quando o caso original re-roda verde (commit 72a50f6e75) — e verificacao de hash do evidence-pack no completion gate (commit dd7c186f31); o gap remanescente e o caminho unico de cross-reference. |
+| Stewardship 24h | partial_runtime | Farm/AP antigo foi aposentado; usar Maestro/Task Fabric/owner-flow atual e backlogs atomicos, nunca AP-790 amplo como motor padrao sem gating. |
 | Rivals/Superiority | benchmark | Nao e arquitetura nem prova de Forge completo. |
 | TEOS/extreme tiers | north_star | Nao entra como runtime atual. |
+
+Nota 2026-07-05: o sistema de medicao citado em rows/riscos acima foi
+descontinuado (1.0 morto; medicao por entrega segue em esteira separada, equipe
+Criacao nao a modifica); rows correspondentes sao historicas.
 
 ## Dependencias
 
@@ -184,6 +195,12 @@ retroalimentacao e research nao promovida.
 Evidence aceita: service path, command path, route path, focused test, AP receipt,
 ledger, AP-790 merged cycle ou blocker machine-readable.
 
+Nota 2026-07-05: a farm AP-790 foi aposentada (campanha 01/07/2026, commit
+7c07b1bc82, ~156k linhas removidas); "AP-790 merged cycle" acima e evidencia
+historica. A evidencia valida atual e o owner-flow/Task Fabric com anti-farm e
+gate F0 de dedup
+(`app/Services/Ai/SelfConstruction/TaskQuality/AtlasTaskDuplicateReuseGate.php`).
+
 ## Riscos
 
 - Usar provider com prompt Atlas em vez de Forge/Dev governado.
@@ -196,11 +213,19 @@ ledger, AP-790 merged cycle ou blocker machine-readable.
 Correto: "Stewardship e partial_runtime; AP-790 teve ciclos merged, mas 10 ciclos
 seguidos ainda nao foram provados".
 
+Nota 2026-07-05: exemplo acima e historico — a farm AP-790 foi aposentada
+(campanha 01/07/2026, commit 7c07b1bc82, ~156k linhas removidas); exemplo
+correto atual cita owner-flow/Task Fabric com anti-farm e gate F0 de dedup
+(`AtlasTaskDuplicateReuseGate`).
+
 Incorreto: "Forge e completo porque a documentacao e DOC L4".
 
 ## Proximas Acoes
 
 1. Consolidar Dev->Forge em packet v1 unico.
-2. Fazer AP-790 consumir backlog estrutural desta matriz.
+2. Fazer o loop atual consumir backlog estrutural desta matriz por docs atomicos/gated, com anti-farm e dedup F0 ativos.
 3. Conectar provider failover real via AtlasDecide.
-4. Fechar evidence refs unificados Dev/Forge.
+4. Fechar evidence refs unificados Dev/Forge. Nota 2026-07-05: replay-proof
+   (commit 72a50f6e75) e verificacao de hash do evidence-pack no completion gate
+   (commit dd7c186f31) ja cobrem prova de reparo re-executada e tamper-evidence
+   do pack; resta so o caminho unico de cross-reference Dev/Forge.
