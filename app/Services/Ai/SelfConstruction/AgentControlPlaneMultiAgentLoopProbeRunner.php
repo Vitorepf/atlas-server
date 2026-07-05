@@ -316,6 +316,29 @@ function runTerminalBootstrapProbe(string $runId, int $probeAgentCount): array
             'preview_probe' => $previewProbe,
             'partial_supply_blocks_before_claim' => (bool) ($partialSupplyProbe['blocked_before_claim'] ?? false),
             'partial_supply_probe' => $partialSupplyProbe,
+            'negative_path_coverage' => [
+                'stale_claim_probe' => [
+                    'name' => 'stale_claim',
+                    'passed' => (bool) ($invalidScopeProbe['rejected'] ?? false),
+                    'blocker_code' => (bool) ($invalidScopeProbe['rejected'] ?? false) ? null : 'stale_claim_probe_not_rejected',
+                ],
+                'released_resume_probe' => [
+                    'name' => 'released_resume',
+                    'passed' => $leasesClosed,
+                    'blocker_code' => $leasesClosed ? null : 'released_resume_probe_leases_not_closed',
+                ],
+                'partial_supply_probe' => [
+                    'name' => 'partial_supply',
+                    'passed' => (bool) ($partialSupplyProbe['blocked_before_claim'] ?? false),
+                    'blocker_code' => (bool) ($partialSupplyProbe['blocked_before_claim'] ?? false) ? null : 'partial_supply_probe_not_blocked',
+                ],
+                'lane_isolation_probe' => [
+                    'name' => 'lane_isolation',
+                    'passed' => $writeSetCollisionCount === 0,
+                    'blocker_code' => $writeSetCollisionCount === 0 ? null : 'lane_isolation_probe_write_set_collision',
+                ],
+            ],
+            'certification_blocked' => $status !== 'available',
             'runtime_safety_all_false' => $runtimeSafety,
             'queue_tag' => $probeTag,
             'results' => $results,
