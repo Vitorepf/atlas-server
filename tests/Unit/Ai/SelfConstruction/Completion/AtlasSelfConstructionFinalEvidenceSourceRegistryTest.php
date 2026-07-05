@@ -886,6 +886,38 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
         $this->assertSame([], $result['blockers']);
     }
 
+    public function test_verify_observed_sources_missing_timestamp_fail_closed(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $nowUnix = 1_000_000_000;
+
+        // Find a source that has a freshness_window_seconds.
+        $targetSource = null;
+        foreach ($description['required_sources'] as $s) {
+            if (isset($s['freshness_window_seconds'])) {
+                $targetSource = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($targetSource);
+
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $entry = ['evidence_kind' => $source['evidence_kinds'][0], 'stale' => false];
+            if ($source['id'] === $targetSource['id']) {
+                // Omit generated_at_unix — should be treated as stale.
+            } else {
+                $entry['generated_at_unix'] = $nowUnix - 60;
+            }
+            $observed[$source['id']] = $entry;
+        }
+
+        $result = $registry->verifyObservedSources($observed, $nowUnix);
+        $this->assertFalse($result['passed']);
+        $this->assertContains('source_stale_timestamp:'.$targetSource['id'], $result['blockers']);
+    }
+
     // ── required fields check ─────────────────────────────────────────────────
 
     public function test_verify_observed_sources_missing_required_field_produces_blocker(): void
