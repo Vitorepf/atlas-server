@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\TaskQuality;
 
+use App\Services\Ai\SelfConstruction\WriteSetOverlap;
+
 /**
  * Pure, facts-only completer that turns review_recommended blocked-respec drafts (from
  * {@see \App\Console\Commands\AtlasTaskBlockedRespecPlanCommand}) into can_submit replacement drafts
@@ -226,7 +228,7 @@ final class AtlasTaskBlockedReplacementDraftCompleter
         $matched = [];
         foreach ($allowedFiles as $path) {
             $path = (string) $path;
-            if (in_array($path, $forbiddenTargets, true)) {
+            if (WriteSetOverlap::collidingPaths([$path], $forbiddenTargets) !== []) {
                 $matched[] = $path;
 
                 continue;

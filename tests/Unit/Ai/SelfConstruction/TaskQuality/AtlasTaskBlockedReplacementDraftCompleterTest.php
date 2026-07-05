@@ -411,6 +411,25 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
         $this->assertContains('forbidden_target_replacement_refused:app/Services/Ai/Utility/Special.php', $completed['refusal_reasons']);
     }
 
+    public function test_forbidden_directory_catches_file_under_it_via_prefix_aware_match(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['app/secret/credentials.php', 'tests/FooTest.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.95,
+                'forbidden_targets' => ['app/secret/'],
+            ],
+        ]];
+
+        $completed = $this->completer()->complete($items)['completed_drafts'][0];
+        $this->assertFalse($completed['can_submit']);
+        $this->assertContains('forbidden_target_replacement_refused:app/secret/credentials.php', $completed['refusal_reasons']);
+    }
+
     public function test_non_forbidden_non_test_only_non_human_draft_still_submits(): void
     {
         $items = [[
