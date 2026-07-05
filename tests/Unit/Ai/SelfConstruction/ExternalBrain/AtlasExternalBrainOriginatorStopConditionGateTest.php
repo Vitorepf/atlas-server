@@ -584,4 +584,54 @@ final class AtlasExternalBrainOriginatorStopConditionGateTest extends TestCase
         $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_CONTINUE_ORIGINATING, $result['verdict']);
         $this->assertNotSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_PREMATURE_STOP, $result['verdict']);
     }
+
+    // ── AC2: quota met alone without value_score, anti_goodhart, or outcome evidence does not stop ──
+
+    public function test_quota_met_alone_does_not_stop_and_requires_continuation(): void
+    {
+        $result = $this->eval([
+            'quota_count' => 10,
+            'quota_target' => 10,
+            'value_score' => null,
+            'anti_goodhart_pass' => false,
+            'outcome_learning_evidence' => [],
+        ]);
+
+        $this->assertFalse($result['can_stop']);
+        $this->assertTrue($result['continuation_required']);
+    }
+
+    // ── AC3: quota met with all evidence allows honest stop ──
+
+    public function test_quota_met_with_all_evidence_allows_honest_stop(): void
+    {
+        $result = $this->eval([
+            'quota_count' => 10,
+            'quota_target' => 10,
+            'value_score' => 0.8,
+            'anti_goodhart_pass' => true,
+            'outcome_learning_evidence' => ['lesson_1'],
+        ]);
+
+        $this->assertTrue($result['can_stop']);
+        $this->assertFalse($result['continuation_required']);
+    }
+
+    // ── AC4: missing evidence list names the exact missing proof dimensions ──
+
+    public function test_missing_evidence_list_names_exact_missing_dimensions(): void
+    {
+        $result = $this->eval([
+            'quota_count' => 10,
+            'quota_target' => 10,
+            'value_score' => null,
+            'anti_goodhart_pass' => false,
+            'outcome_learning_evidence' => [],
+        ]);
+
+        $this->assertNotEmpty($result['missing_evidence']);
+        $this->assertContains('value_score', $result['missing_evidence']);
+        $this->assertContains('anti_goodhart_pass', $result['missing_evidence']);
+        $this->assertContains('outcome_learning_evidence', $result['missing_evidence']);
+    }
 }
