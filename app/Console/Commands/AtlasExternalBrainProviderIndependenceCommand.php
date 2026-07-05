@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLocalClientGovernanceRunner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderPoolCapabilityContract;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderPoolCostQualityRouter;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderPoolIndependenceGate;
@@ -14,6 +15,11 @@ use Illuminate\Console\Command;
  * {@see AtlasExternalBrainProviderPoolCostQualityRouter} and {@see AtlasExternalBrainProviderPoolIndependenceGate}
  * into one provider-pool readiness and independence verdict — so optional accelerators
  * stay optional and any hidden steady-state dependency blocks production promotion.
+ *
+ * Also surfaces the local-client governance verdict via
+ * {@see AtlasExternalBrainLocalClientGovernanceRunner} so the four dormant
+ * local-client organs (fallback, recovery, cost, fragility) run on every
+ * provider-independence report.
  *
  * Never mutates files, calls providers, or runs git — read-only reporting only.
  *
@@ -29,7 +35,7 @@ final class AtlasExternalBrainProviderIndependenceCommand extends Command
         {--input= : Path to a JSON file with provider_pools, router and providers sections}';
 
     /** @var string */
-    protected $description = 'Read-only provider-pool capability + cost/quality routing + independence-gate verdict: optional accelerators stay optional, hidden steady-state dependency blocks promotion.';
+    protected $description = 'Read-only provider-pool capability + cost/quality routing + independence-gate + local-client-governance verdict: optional accelerators stay optional, hidden steady-state dependency blocks promotion.';
 
     public function handle(
         AtlasExternalBrainProviderPoolCapabilityContract $capabilityContract,
@@ -53,10 +59,12 @@ final class AtlasExternalBrainProviderIndependenceCommand extends Command
         $providerPools = is_array($decoded['provider_pools'] ?? null) ? $decoded['provider_pools'] : [];
         $routerFacts = is_array($decoded['router'] ?? null) ? $decoded['router'] : [];
         $providers = is_array($decoded['providers'] ?? null) ? $decoded['providers'] : [];
+        $localClientFacts = is_array($decoded['local_client'] ?? null) ? $decoded['local_client'] : [];
 
         $capability = $capabilityContract->describe(['provider_pools' => $providerPools]);
         $routing = $router->route($routerFacts);
         $independence = $independenceGate->evaluate(['providers' => $providers]);
+        $localClientGovernance = (new AtlasExternalBrainLocalClientGovernanceRunner)->run($localClientFacts);
 
         $readyForProduction = ! $independence['production_promotion_blocked'];
 
@@ -71,6 +79,7 @@ final class AtlasExternalBrainProviderIndependenceCommand extends Command
             'production_promotion_blocked' => $independence['production_promotion_blocked'],
             'required_for_steady_state_providers' => $independence['required_for_steady_state_providers'],
             'minimal_next_tasks_needed_to_restore_independence' => $independence['minimal_next_tasks_needed_to_restore_independence'],
+            'local_client_governance' => $localClientGovernance,
             'ready_for_production' => $readyForProduction,
         ];
 
