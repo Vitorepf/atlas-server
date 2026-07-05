@@ -31,7 +31,28 @@ final class AtlasContextObservabilityPlaneService
      */
     public function snapshot(array $input = []): array
     {
-        $risk = $this->risk((string) ($input['risk_level'] ?? $input['risk'] ?? 'low'));
+        $rawRisk = (string) ($input['risk_level'] ?? $input['risk'] ?? 'low');
+        $risk = $this->risk($rawRisk);
+        $rawHours = (int) ($input['hours'] ?? 24);
+        $windowHours = max(1, min(720, $rawHours));
+
+        // AC: input_normalization block — report what was normalized, not silently discarded.
+        $inputNormalization = [];
+        if ($rawRisk !== $risk) {
+            $inputNormalization[] = [
+                'field' => 'risk_level',
+                'normalized_from' => $rawRisk,
+                'normalized_to' => $risk,
+            ];
+        }
+        if ($rawHours !== $windowHours) {
+            $inputNormalization[] = [
+                'field' => 'hours',
+                'normalized_from' => (string) $rawHours,
+                'normalized_to' => (string) $windowHours,
+            ];
+        }
+
         $flowId = trim((string) ($input['flow_id'] ?? $this->flowId($input)));
         $arena = $this->arena->evaluate(['risk_level' => $risk]);
         $budget = $this->costLatencyGovernor->govern($input + ['risk_level' => $risk, 'flow_id' => $flowId]);
@@ -53,13 +74,14 @@ final class AtlasContextObservabilityPlaneService
             'generated_at' => Carbon::now()->toIso8601String(),
             'snapshot' => [
                 'schema_version' => self::SNAPSHOT_SCHEMA,
-                'window_hours' => max(1, min(720, (int) ($input['hours'] ?? 24))),
+                'window_hours' => $windowHours,
                 'flow_id' => $flowId,
                 'risk_level' => $risk,
                 'trace_count' => count($traces),
                 'source_count' => count($sourceHealth),
                 'blocker_count' => count($blockers),
             ],
+            'input_normalization' => $inputNormalization,
             'traces' => $traces,
             'source_health' => $sourceHealth,
             'blockers' => $blockers,
