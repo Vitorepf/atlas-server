@@ -8,7 +8,7 @@ implementation_state: backlog_consumed_deliverables_live
 authority_class: backlog
 category: agentic-engineering
 priority: 94
-summary: Atomic single-decision new-class pure-logic slices for the loop, mined from canonical AAEOS docs/code and adversarially filtered against scaffold + complexity. Each creates ONE new dependency-free class with ONE method computing a real decision from inputs, paired test with meaningful assertions. Decompose-ready; the loop one-shots these without I/O or existing-class edits.
+summary: Atomic single-decision new-class pure-logic slices for the loop, mined from canonical AAEOS docs/code and adversarially filtered against scaffold + complexity. Each creates ONE new dependency-free class with ONE method computing a real decision from inputs, paired test with meaningful assertions. Rows from this wave are retained for audit only; the loop must not consume them as create-new work without a fresh collision preflight.
 owner: operator (Vitor)
 risk_level: medium
 tags:
