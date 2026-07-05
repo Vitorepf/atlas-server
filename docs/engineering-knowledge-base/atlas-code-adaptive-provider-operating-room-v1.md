@@ -43,7 +43,7 @@ related_paths:
   - app/Services/Ai/Programming/AtlasForgeProviderTopologyService.php
   - app/Services/Ai/Programming/AtlasForgeProviderCapacityService.php
   - app/Services/Ai/Programming/AtlasForgeProviderInvocationService.php
-  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php
+  - app/Services/Ai/Programming/ForgeRivals/AtlasForgeRivalsDecideSignalProjectionService.php (retirado em 2026-07-02, commit f9aa666bfe)
   - ../atlas-desktop/apps/desktop/src/surfaces/code/panels/
 owner: programming
 layer: 2.4-provider-operating-room
@@ -448,7 +448,7 @@ Nao inclui benchmark competitivo da Arena, billing/API extra, IA local como fall
 
 - Programming Obras e Project/Workspace ativo.
 - Provider Topology, Capacity, Failure Memory e Governed Invocation.
-- Provider Performance Ledger e Decide Signal Projection.
+- Provider Performance Ledger e Decide Signal Projection (implementacao original do Decide Signal Projection retirada em 2026-07-02, commit f9aa666bfe; sem sucessor de mesmo nome no codigo).
 - Attention Control Plane para serializar decisoes humanas.
 - Work Packet Builder, Context Compiler, gates e Evidence Ledger.
 

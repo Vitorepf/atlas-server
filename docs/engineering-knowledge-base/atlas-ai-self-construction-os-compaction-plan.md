@@ -38,8 +38,6 @@ related_paths:
   - app/Console/Commands/AtlasAiSelfConstructionMotherCommand.php
   - app/Console/Commands/Support/AtlasSelfConstructionMotherCommandSurface.php
   - app/Services/Ai/SelfConstruction/AtlasSelfConstructionOsCompletionAuditService.php
-  - app/Console/Commands/Atlas/Ai/SelfConstruction/
-  - app/Services/Ai/AtlasAgentControlPlane/
   - app/Services/Ai/SelfConstruction/
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-ai-self-construction-os-compaction-plan
@@ -298,6 +296,14 @@ Docs afetadas:
 - `atlas-ai-self-construction-os.md` (reduzir para indice <=280 linhas)
 - 6 docs filhos novos
 - `atlas-canonical-glossary-and-naming.md` (adicionar `scos.*` namespace)
+
+> Nota (2026-07-05): removidos do frontmatter os related_paths
+> `app/Console/Commands/Atlas/Ai/SelfConstruction/` e `app/Services/Ai/AtlasAgentControlPlane/`;
+> nenhum dos dois diretorios existiu no historico git (paths de autoria, nao delecao).
+> Os comandos Self-Construction vivem planos em `app/Console/Commands/` (prefixos
+> `AtlasSelfConstruction*` / `AtlasAiSelfConstruction*`) e os services do Agent Control
+> Plane em `app/Services/Ai/SelfConstruction/` (prefixo `AgentControlPlane*`), path que
+> permanece listado no frontmatter.
 
 ## Dependencias
 

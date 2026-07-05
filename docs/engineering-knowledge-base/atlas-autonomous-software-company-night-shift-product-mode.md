@@ -97,7 +97,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-forge-operating-system.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-code-long-session-programming-cockpit.md
-  - docs/engineering-knowledge-base/atlas-mission-control-cockpit.md
+  - docs/engineering-knowledge-base/atlas-mission-control-cockpit-spec.md
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-autonomous-software-company-night-shift-product-mode

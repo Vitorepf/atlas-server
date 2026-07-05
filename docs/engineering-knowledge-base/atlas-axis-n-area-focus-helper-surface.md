@@ -47,7 +47,6 @@ authority_class: planner
 related_paths:
   - docs/engineering-knowledge-base/atlas-axis-n-fleet-live-pilar2-foundry.md
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusAppendOnlyJsonlRecorder.php
-  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusJsonFileReader.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusJsonlReader.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusJsonlWriter.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusLoopPayloadNormalizer.php
@@ -134,8 +133,10 @@ existente e mantem local apenas a regra de dominio realmente propria.
   por schema, chave presente, chave string obrigatoria, ultimo registro por
   schema+chave, indices fisicos e streaming por schema. Nao usar quando o
   consumidor precisa fail-closed em corrupcao ou limite proprio de bytes/linha.
-- `AreaFocusJsonFileReader` cobre somente o caso "arquivo JSON existe e decodifica
-  para array"; fallbacks tipados continuam locais.
+- `AreaFocusJsonFileReader` cobria somente o caso "arquivo JSON existe e decodifica
+  para array"; fallbacks tipados continuam locais. (Helper retirado em 2026-06-10,
+  commit 62fd7f8ffe, sem substituto dedicado; path removido de related_paths em
+  2026-07-05.)
 - `AreaFocusJsonlWriter` cobre append e rewrite fisico com diretorio garantido,
   lock exclusivo e `JSON_THROW_ON_ERROR`.
 - `AreaFocusAppendOnlyJsonlRecorder` cobre o caso simples `projected` vs

@@ -73,7 +73,6 @@ related_paths:
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchRefNormalizer.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusCircuitStateNormalizer.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusEvidenceRefNormalizer.php
-  - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusJsonFileReader.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusJsonlReader.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusJsonlWriter.php
   - app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusLoopPayloadNormalizer.php
@@ -235,6 +234,7 @@ Doc de planner em construcao; runtime fica default-off e so avanca por fatias AP
 Depende de Ap786 owner-flow, owner sandbox worktrees, ZeroProviderPreflightGate, MetricLedger, AdversarialProofPanel e Foundry armor.
 ## Evidencias
 Evidencia vem dos servicos/docs listados no frontmatter e de docs-health; runtime Axis N ainda e trabalho de fatia.
+Nota 2026-07-05: AreaFocusJsonFileReader.php foi retirado em 2026-06-10 (commit 62fd7f8ffe, consolidacao dos readers JSONL); leitura JSON vive em AreaFocusJsonlReader.php, ja listado no frontmatter.
 ## Riscos
 Riscos principais: scheduler duplicado, merge concorrente, provider-proof fake, integracao sem medida e proposta tratada como runtime.
 ## Exemplos
