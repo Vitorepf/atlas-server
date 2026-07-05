@@ -7,6 +7,7 @@ namespace App\Services\Ai\RealExecution;
 use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockWriter;
 use Closure;
 use Symfony\Component\Process\Process;
 
@@ -152,6 +153,36 @@ class AtlasRepoVerifiedDeliveryService
 
             $certified = ($testRun['ok'] ?? false) === true;
 
+            // OBRA #4 S1 — REGRESSION-LOCK: uma certificação que precisou de repair tranca a falha
+            // reparada como caso permanente. A sonda anti-flake roda o MESMO teste gerado 3× no
+            // worktree isolado (a suíte real); instável => quarentena, nunca entra como lock de
+            // suíte. Best-effort no writer (um erro de ledger não desfaz a certificação) MAS o
+            // lock_ref ausente fail-closa depois no floor (repaired_without_regression_lock) —
+            // a honestidade é cobrada no portão, não engolida aqui.
+            $repairAttempts = max(0, count($attempts) - 1);
+            $repairEvidence = ['attempts' => $repairAttempts];
+            if ($certified && $repairAttempts > 0) {
+                try {
+                    $lock = app(RegressionLockWriter::class)->lockRepairedFailure(
+                        [
+                            'failure_signature' => hash('sha256', 'repo_verified_delivery|'.$implRel.'|'.$testRel.'|'.$goal),
+                            'origin' => 'repo_verified_delivery',
+                            'failing_case' => $testRel,
+                            'locked_test_ref' => $testRel,
+                        ],
+                        fn (): bool => ($this->runRepoTest($path, $testRel)['ok'] ?? false) === true,
+                    );
+                    $repairEvidence['regression_lock_ref'] = (string) ($lock['lock_ref'] ?? '');
+                    $repairEvidence['regression_lock'] = [
+                        'flake_status' => (string) ($lock['flake_status'] ?? ''),
+                        'stability' => (string) ($lock['stability'] ?? ''),
+                        'deduped' => (bool) ($lock['deduped'] ?? false),
+                    ];
+                } catch (\Throwable $e) {
+                    $repairEvidence['regression_lock_error'] = substr($e->getMessage(), 0, 120);
+                }
+            }
+
             // Auto-merge-after-review (opt-in): land a CERTIFIED delivery on a
             // dedicated review branch in the shared repo — never main, never
             // pushed, never auto-merged. The operator reviews + merges.
@@ -163,6 +194,7 @@ class AtlasRepoVerifiedDeliveryService
             return [
                 'schema_version' => self::SCHEMA,
                 'status' => $certified ? self::STATUS_CERTIFIED : self::STATUS_BLOCKED,
+                'repair' => $repairEvidence,
                 'provider' => $providerKey,
                 'model' => (string) ($options['model'] ?? ''),
                 'impl_file' => $implRel,

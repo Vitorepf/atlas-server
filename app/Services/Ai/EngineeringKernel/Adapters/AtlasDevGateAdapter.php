@@ -79,6 +79,7 @@ final class AtlasDevGateAdapter implements AcceptanceGate
             'judges' => $evidence['judges'] ?? [],
             'context_sufficiency' => $evidence['context_sufficiency'] ?? 0,
             'non_functional' => self::nonFunctionalFromEvidence($evidence),
+            'repair' => (array) ($evidence['repair'] ?? []),
         ]);
     }
 

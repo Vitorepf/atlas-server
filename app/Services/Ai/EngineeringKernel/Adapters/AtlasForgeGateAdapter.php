@@ -87,6 +87,7 @@ final class AtlasForgeGateAdapter implements AcceptanceGate
             'non_functional' => isset($evidence['non_functional']) && is_array($evidence['non_functional'])
                 ? $evidence['non_functional']
                 : [],
+            'repair' => (array) ($evidence['repair'] ?? []),
         ]);
     }
 }
