@@ -288,17 +288,25 @@ final class AtlasExternalBrainOutcomeBackpressurePolicy
         }
 
         $total          = max(1, array_sum($counts));
-        $successRate    = $counts[self::OUTCOME_SUCCESS]    / $total;
-        $giveBackRate   = $counts[self::OUTCOME_GIVE_BACK]  / $total;
+        $successCount   = $counts[self::OUTCOME_SUCCESS];
+        $giveBackCount  = $counts[self::OUTCOME_GIVE_BACK];
+        $successRate    = $successCount / $total;
+        $giveBackRate   = $giveBackCount / $total;
         $poisonRate     = $counts[self::OUTCOME_POISON]     / $total;
         $quarantineCount = $counts[self::OUTCOME_QUARANTINE];
-        $confidenceScore = round($counts[self::OUTCOME_SUCCESS] / $total, 4);
+        $confidenceScore = round($successCount / $total, 4);
+
+        // Wilson score lower bound (95% confidence) — gates promotion on statistical
+        // certainty rather than raw success rate, so 1/1 (LB ≈ 0.21) and 3/3 (LB ≈ 0.44)
+        // won't promote even though raw successRate is 1.0, while 30/33 (LB ≈ 0.78)
+        // still promotes when the threshold is 0.75.
+        $wilsonLower = $this->wilsonLowerBound($successCount, $total);
 
         $recommendation = match (true) {
             $poisonRate     > $retireThresh  => self::RECOMMENDATION_RETIRE,
             $quarantineCount > 0             => self::RECOMMENDATION_BLOCK,
             $giveBackRate   > $respecThresh  => self::RECOMMENDATION_RESPEC,
-            $successRate   >= $promoteThresh => self::RECOMMENDATION_PROMOTE,
+            $wilsonLower   >= $promoteThresh => self::RECOMMENDATION_PROMOTE,
             default                          => self::RECOMMENDATION_CONTINUE,
         };
 
@@ -365,5 +373,25 @@ final class AtlasExternalBrainOutcomeBackpressurePolicy
             'repair_escalation' => $repairEscalation,
             'reason' => $reason,
         ];
+    }
+
+    /**
+     * Compute the Wilson score interval lower bound at 95% confidence (z=1.96).
+     * Returns 0 when total is 0 (unsampled). Used to gate promotion on statistical
+     * certainty rather than raw proportion.
+     */
+    private function wilsonLowerBound(int $successCount, int $total): float
+    {
+        if ($total <= 0) {
+            return 0.0;
+        }
+
+        $z = 1.96;
+        $p = $successCount / $total;
+        $denominator = 1.0 + $z * $z / $total;
+        $center = ($p + $z * $z / (2.0 * $total)) / $denominator;
+        $margin = $z * sqrt(($p * (1.0 - $p) + $z * $z / (4.0 * $total)) / $total) / $denominator;
+
+        return round(max(0.0, $center - $margin), 4);
     }
 }
