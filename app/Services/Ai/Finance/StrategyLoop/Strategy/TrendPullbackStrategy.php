@@ -26,6 +26,8 @@ use App\Services\Ai\Finance\StrategyLoop\Bar;
  */
 final class TrendPullbackStrategy implements StrategyRunner
 {
+    use SharedIndicatorMath;
+
     /**
      * @param  list<Bar>  $bars  ascending by time
      * @param  array<string,mixed>  $params
@@ -199,20 +201,6 @@ final class TrendPullbackStrategy implements StrategyRunner
         return $out;
     }
 
-    /** @param  list<float>  $a */
-    private function sma(array $a, int $idx, int $period): float
-    {
-        $lo = max(0, $idx - $period + 1);
-        $sum = 0.0;
-        $count = 0;
-        for ($i = $lo; $i <= $idx; $i++) {
-            $sum += $a[$i];
-            $count++;
-        }
-
-        return $count > 0 ? $sum / $count : 0.0;
-    }
-
     /** @param  list<float>  $a  highest value over the window ending at $idx (inclusive) */
     private function highest(array $a, int $idx, int $period): float
     {
@@ -228,29 +216,4 @@ final class TrendPullbackStrategy implements StrategyRunner
 
     }
 
-    /**
-     * Average True Range over the window ending at $idx. TR uses the previous close,
-     * so the window starts at index >= 1 (warmup guarantees enough history).
-     *
-     * @param  list<float>  $high
-     * @param  list<float>  $low
-     * @param  list<float>  $close
-     */
-    private function atr(array $high, array $low, array $close, int $idx, int $period): float
-    {
-        $lo = max(1, $idx - $period + 1);
-        $sum = 0.0;
-        $count = 0;
-        for ($i = $lo; $i <= $idx; $i++) {
-            $tr = max(
-                $high[$i] - $low[$i],
-                abs($high[$i] - $close[$i - 1]),
-                abs($low[$i] - $close[$i - 1]),
-            );
-            $sum += $tr;
-            $count++;
-        }
-
-        return $count > 0 ? $sum / $count : 0.0;
-    }
 }
