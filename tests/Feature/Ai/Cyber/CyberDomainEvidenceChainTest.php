@@ -82,4 +82,33 @@ class CyberDomainEvidenceChainTest extends TestCase
             'payload' => ['x' => 1],
         ]);
     }
+
+    public function test_tampered_entry_payload_is_detected_by_verify(): void
+    {
+        $engagement = $this->engagement();
+        $svc = app(CyberEvidenceChainService::class);
+
+        $first = $svc->append($engagement, [
+            'entry_kind' => CyberEvidenceChainService::KIND_AUTHORIZATION,
+            'actor' => 'operator',
+            'payload' => ['doc' => 'internal://auth'],
+        ]);
+        $second = $svc->append($engagement, [
+            'entry_kind' => CyberEvidenceChainService::KIND_SCOPE,
+            'actor' => 'operator',
+            'payload' => ['scope_id' => 'scope-1'],
+        ]);
+
+        // Sanity: clean chain verifies as intact.
+        $this->assertTrue($svc->verify($engagement)['integrity_ok']);
+
+        // Tamper: update the first entry's payload DIRECTLY in the database,
+        // leaving entry_hash and previous_hash unchanged.
+        $first->update(['payload' => ['doc' => 'internal://auth', 'tampered' => true]]);
+
+        $verification = $svc->verify($engagement);
+        $this->assertFalse($verification['integrity_ok'], 'tampered chain must report integrity_ok=false');
+        $this->assertCount(1, $verification['tampered_entries'], 'exactly one entry must be tampered');
+        $this->assertSame($first->id, $verification['tampered_entries'][0]['entry_id']);
+    }
 }

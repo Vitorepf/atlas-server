@@ -102,6 +102,13 @@ class CyberEvidenceChainService
     /**
      * Verify chain integrity for a given engagement.
      *
+     * Checks both link continuity (each entry's previous_hash matches the
+     * prior entry's entry_hash) AND entry integrity (each entry's stored
+     * entry_hash is recomputed from its stored columns using the same field
+     * set that append feeds into CyberCanonicalHash). When a stored entry's
+     * payload has been modified directly in the database without updating
+     * entry_hash, it is detected as tampered.
+     *
      * @return array<string,mixed>
      */
     public function verify(AiCyberEngagement $engagement): array
@@ -113,6 +120,7 @@ class CyberEvidenceChainService
 
         $expectedPrev = null;
         $broken = [];
+        $tamperedEntries = [];
         foreach ($entries as $entry) {
             if ($entry->previous_hash !== $expectedPrev) {
                 $broken[] = [
@@ -122,13 +130,34 @@ class CyberEvidenceChainService
                 ];
             }
             $expectedPrev = $entry->entry_hash;
+
+            // Recompute the canonical hash from the stored columns using the
+            // same field set that append() feeds into CyberCanonicalHash.
+            $recomputedHash = CyberCanonicalHash::sha256([
+                'engagement_id' => $entry->engagement_id,
+                'entry_kind' => $entry->entry_kind,
+                'actor' => $entry->actor,
+                'payload' => $entry->payload ?? [],
+                'artifact_refs' => $entry->artifact_refs ?? [],
+                'parent_entry_id' => $entry->parent_entry_id,
+                'previous_hash' => $entry->previous_hash,
+            ]);
+            if ($recomputedHash !== $entry->entry_hash) {
+                $tamperedEntries[] = [
+                    'entry_id' => $entry->id,
+                    'entry_kind' => $entry->entry_kind,
+                    'stored_entry_hash' => $entry->entry_hash,
+                    'recomputed_hash' => $recomputedHash,
+                ];
+            }
         }
 
         return [
             'engagement_id' => $engagement->id,
             'entry_count' => $entries->count(),
             'broken_links' => $broken,
-            'integrity_ok' => $broken === [],
+            'tampered_entries' => $tamperedEntries,
+            'integrity_ok' => $broken === [] && $tamperedEntries === [],
         ];
     }
 }
