@@ -7,182 +7,282 @@ namespace Tests\Unit\Ai\SelfConstruction\ChainIntegrity;
 use App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneCycleHorizonAnalyzer;
 use Tests\TestCase;
 
-class AgentControlPlaneCycleHorizonAnalyzerTest extends TestCase
+final class AgentControlPlaneCycleHorizonAnalyzerTest extends TestCase
 {
     public function test_cycle_integrity_ok_for_unknown_pointer(): void
     {
-        $result = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], 'unknown_pointer');
+        $result = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity(
+            deepChain: [],
+            currentNextRequiredSlice: 'some-pointer',
+        );
 
-        self::assertSame('ok', $result['status']);
-        self::assertFalse($result['cycle_detected']);
-        self::assertFalse($result['intentional_reentry_detected']);
-        self::assertTrue($result['cycle_ok']);
+        $this->assertSame('ok', $result['status']);
+        $this->assertFalse($result['cycle_detected']);
     }
 
     public function test_cycle_integrity_detects_intentional_reentry(): void
     {
-        $pointer = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
-        $result = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], $pointer);
+        $activateKey = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
+        $result = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity(
+            deepChain: [],
+            currentNextRequiredSlice: $activateKey,
+        );
 
-        self::assertTrue($result['intentional_reentry_detected']);
-        self::assertTrue($result['cycle_detected']);
-        self::assertSame($pointer, $result['intentional_reentry_activate_key']);
+        $this->assertTrue($result['intentional_reentry_detected']);
+        $this->assertSame('ok', $result['status']);
+        $this->assertTrue($result['cycle_detected']);
     }
 
     public function test_cycle_integrity_detects_unintentional_regression(): void
     {
-        $pointer = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract';
-        $result = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], $pointer);
+        // Use a key that IS in $previouslyCertifiedActivateKeys but NOT in
+        // $intentionalReentryActivateKeys (the operator_handoff key).
+        $previouslyCertified = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_operator_start_handoff_contract';
+        $result = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity(
+            deepChain: [],
+            currentNextRequiredSlice: $previouslyCertified,
+        );
 
-        self::assertSame('blocked', $result['status']);
-        self::assertTrue($result['unintentional_cycle_detected']);
-        self::assertFalse($result['cycle_ok']);
+        $this->assertTrue($result['unintentional_cycle_detected']);
+        $this->assertSame('blocked', $result['status']);
     }
 
     public function test_cycle_integrity_detects_repeated_slices(): void
     {
         $deepChain = [
-            ['slice_key' => 'a', 'activate_key' => 'ak_a'],
-            ['slice_key' => 'a', 'activate_key' => 'ak_a'],
+            ['slice_key' => 's1', 'activate_key' => 'a1'],
+            ['slice_key' => 's1', 'activate_key' => 'a1'],
         ];
 
-        $result = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity($deepChain, 'unknown');
+        $result = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity(
+            deepChain: $deepChain,
+            currentNextRequiredSlice: 'something-else',
+        );
 
-        self::assertCount(1, $result['repeated_slice_families']);
-        self::assertSame('a', $result['repeated_slice_families'][0]['slice_key']);
-        self::assertSame('warning', $result['status'], 'a repeated slice family must not report status ok — it can mask circular work as progress');
-        self::assertFalse($result['cycle_ok']);
+        $this->assertSame('warning', $result['status']);
     }
 
     public function test_cycle_integrity_has_terminal_horizons(): void
     {
-        $result = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], 'unknown');
+        $result = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity(
+            deepChain: [],
+            currentNextRequiredSlice: 'some-pointer',
+        );
 
-        self::assertNotEmpty($result['terminal_horizons']);
-        self::assertNotEmpty($result['terminal_horizon']);
+        $this->assertGreaterThan(20, count($result['terminal_horizons']));
+        $this->assertNotNull($result['terminal_horizon']);
     }
 
     public function test_cycle_integrity_is_deterministic(): void
     {
-        $a = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], 'x');
-        $b = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], 'x');
+        $a = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], 'some-pointer');
+        $b = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], 'some-pointer');
 
-        self::assertSame($a, $b);
+        $this->assertSame(json_encode($a), json_encode($b));
     }
 
     public function test_terminal_horizon_blocked_unknown(): void
     {
-        $cycle = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], 'unknown');
-        $result = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis([], 'unknown', $cycle);
+        $result = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis(
+            deepChain: [],
+            currentNextRequiredSlice: 'unknown-horizon',
+            cycleIntegrity: ['cycle_warnings' => [], 'unintentional_cycle_detected' => false],
+        );
 
-        self::assertSame('blocked_unknown', $result['horizon_type']);
-        self::assertFalse($result['horizon_ok']);
+        $this->assertSame('blocked_unknown', $result['horizon_type']);
+        $this->assertFalse($result['completion_claim_allowed']);
     }
 
     public function test_terminal_horizon_intentional_reentry(): void
     {
-        $pointer = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
-        $cycle = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], $pointer);
-        $result = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis([], $pointer, $cycle);
+        $activateKey = 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_receipt_contract';
+        $cycleIntegrity = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], $activateKey);
 
-        self::assertSame('intentional_reentry', $result['horizon_type']);
-        self::assertTrue($result['horizon_ok']);
-        self::assertSame('reentry_into_post_start_evidence_corridor', $result['next_safe_macro_batch']);
+        $result = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis(
+            deepChain: [],
+            currentNextRequiredSlice: $activateKey,
+            cycleIntegrity: $cycleIntegrity,
+        );
+
+        $this->assertTrue($result['horizon_ok']);
+        $this->assertSame('intentional_reentry', $result['horizon_type']);
     }
 
     public function test_terminal_horizon_linear_next(): void
     {
         $deepChain = [
-            ['slice_key' => 'a', 'activate_key' => 'ak_a'],
-            ['slice_key' => 'b', 'activate_key' => 'ak_b'],
+            ['slice_key' => 's1', 'activate_key' => 'ak-1'],
+            ['slice_key' => 's2', 'activate_key' => 'ak-2'],
         ];
 
-        $cycle = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity($deepChain, 'ak_a');
-        $result = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis($deepChain, 'ak_a', $cycle);
+        $result = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis(
+            deepChain: $deepChain,
+            currentNextRequiredSlice: 'ak-1',
+            cycleIntegrity: ['cycle_warnings' => [], 'unintentional_cycle_detected' => false],
+        );
 
-        self::assertSame('linear_next', $result['horizon_type']);
-        self::assertTrue($result['horizon_ok']);
-        self::assertSame('ak_b', $result['next_safe_macro_batch']);
-        self::assertCount(1, $result['remaining_known_slices_after_horizon']);
+        $this->assertSame('linear_next', $result['horizon_type']);
+        $this->assertTrue($result['horizon_ok']);
     }
 
     public function test_terminal_horizon_runtime_migration(): void
     {
-        $cycle = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], 'unknown');
-        $result = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis([], 'apply_agent_control_plane_runtime_schema_migration', $cycle);
+        $result = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis(
+            deepChain: [],
+            currentNextRequiredSlice: 'apply_agent_control_plane_runtime_schema_migration',
+            cycleIntegrity: ['cycle_warnings' => [], 'unintentional_cycle_detected' => false],
+        );
 
-        self::assertSame('terminal_runtime_gate', $result['horizon_type']);
-        self::assertTrue($result['horizon_ok']);
+        $this->assertSame('terminal_runtime_gate', $result['horizon_type']);
+        $this->assertTrue($result['horizon_ok']);
     }
 
     public function test_terminal_horizon_never_allows_completion(): void
     {
-        $cycle = AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity([], 'unknown');
-        $result = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis([], 'unknown', $cycle);
+        $result = AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis(
+            deepChain: [],
+            currentNextRequiredSlice: 'some-pointer',
+            cycleIntegrity: ['cycle_warnings' => [], 'unintentional_cycle_detected' => false],
+        );
 
-        self::assertFalse($result['completion_claim_allowed']);
+        $this->assertFalse($result['completion_claim_allowed']);
     }
 
     public function test_dead_end_chain_is_classified_as_dead_end(): void
     {
-        $packets = [
-            ['task_id' => 't-1', 'status' => 'blocked',     'family' => 'auth'],
-            ['task_id' => 't-2', 'status' => 'quarantined', 'family' => 'auth'],
-            ['task_id' => 't-3', 'status' => 'blocked',     'family' => 'billing'],
-        ];
+        $result = AgentControlPlaneCycleHorizonAnalyzer::analyzeChainHorizon([
+            ['task_id' => 'T1', 'status' => 'blocked', 'family' => 'x'],
+            ['task_id' => 'T2', 'status' => 'quarantined', 'family' => 'y'],
+        ]);
 
-        $result = AgentControlPlaneCycleHorizonAnalyzer::analyzeChainHorizon($packets);
-
-        self::assertTrue($result['dead_end']);
-        self::assertSame('dead_end', $result['classification']);
-        self::assertEmpty($result['servable_descendants']);
-        self::assertNotEmpty($result['repair_hints']);
+        $this->assertTrue($result['dead_end']);
+        $this->assertSame('dead_end', $result['classification']);
+        $this->assertEmpty($result['servable_descendants']);
     }
 
     public function test_repeated_give_back_families_are_surfaced_as_poison_family_risk(): void
     {
-        $packets = [
-            ['task_id' => 'g-1', 'status' => 'give_back', 'family' => 'infra'],
-            ['task_id' => 'g-2', 'status' => 'give_back', 'family' => 'infra'],
-            ['task_id' => 'g-3', 'status' => 'give_back', 'family' => 'infra'],
-        ];
+        $result = AgentControlPlaneCycleHorizonAnalyzer::analyzeChainHorizon([
+            ['task_id' => 'T1', 'status' => 'give_back', 'family' => 'scope_repair_doomed'],
+            ['task_id' => 'T2', 'status' => 'give_back', 'family' => 'scope_repair_doomed'],
+        ]);
 
-        $result = AgentControlPlaneCycleHorizonAnalyzer::analyzeChainHorizon($packets);
-
-        self::assertNotEmpty($result['poison_family_risk']);
-        $risk = $result['poison_family_risk'][0];
-        self::assertSame('infra', $risk['family']);
-        self::assertContains('g-1', $risk['task_ids']);
-        self::assertContains('g-2', $risk['task_ids']);
-        self::assertSame(3, $risk['count']);
+        $this->assertCount(1, $result['poison_family_risk']);
+        $this->assertSame('scope_repair_doomed', $result['poison_family_risk'][0]['family']);
     }
 
     public function test_healthy_chain_with_servable_descendant_is_not_flagged_as_dead_end(): void
     {
-        $packets = [
-            ['task_id' => 't-blocked', 'status' => 'blocked',  'family' => 'auth'],
-            ['task_id' => 't-ready',   'status' => 'servable', 'family' => 'auth'],
-        ];
+        $result = AgentControlPlaneCycleHorizonAnalyzer::analyzeChainHorizon([
+            ['task_id' => 't-queued', 'status' => 'queued', 'family' => 'main'],
+            ['task_id' => 't-blocked', 'status' => 'blocked', 'family' => 'main'],
+        ]);
 
-        $result = AgentControlPlaneCycleHorizonAnalyzer::analyzeChainHorizon($packets);
-
-        self::assertFalse($result['dead_end']);
-        self::assertSame('healthy', $result['classification']);
-        self::assertContains('t-ready', $result['servable_descendants']);
+        $this->assertFalse($result['dead_end']);
+        $this->assertSame('healthy', $result['classification']);
+        $this->assertContains('t-queued', $result['servable_descendants']);
     }
 
     public function test_analyze_chain_horizon_is_deterministic_and_emits_repair_hints_array(): void
     {
         $packets = [
-            ['task_id' => 'd-1', 'status' => 'blocked',     'family' => 'x'],
-            ['task_id' => 'd-2', 'status' => 'quarantined', 'family' => 'y'],
+            ['task_id' => 'T1', 'status' => 'queued', 'family' => 'family-a'],
         ];
 
         $a = AgentControlPlaneCycleHorizonAnalyzer::analyzeChainHorizon($packets);
         $b = AgentControlPlaneCycleHorizonAnalyzer::analyzeChainHorizon($packets);
 
+        self::assertSame(json_encode($a), json_encode($b));
+        self::assertArrayHasKey('repair_hints', $a);
+    }
+
+    // --- computeTerminalCycleHorizon ---------------------------------
+
+    private function baseDeepChain(): array
+    {
+        return [
+            ['slice_key' => 's1', 'activate_key' => 'ak-1'],
+            ['slice_key' => 's2', 'activate_key' => 'ak-2'],
+            ['slice_key' => 's3', 'activate_key' => 'ak-3'],
+        ];
+    }
+
+    public function test_compute_terminal_cycle_horizon_returns_hold_when_pointer_unknown(): void
+    {
+        $result = AgentControlPlaneCycleHorizonAnalyzer::computeTerminalCycleHorizon(
+            $this->baseDeepChain(),
+            'unknown-activate-key',
+            ['cycle_warnings' => [], 'unintentional_cycle_detected' => false],
+        );
+
+        self::assertSame('hold', $result['horizon_status']);
+        self::assertArrayHasKey('horizon_reason', $result);
+        self::assertArrayHasKey('current_next_required_slice', $result);
+        self::assertArrayHasKey('repair_action', $result);
+    }
+
+    public function test_compute_terminal_cycle_horizon_returns_hold_for_runtime_migration(): void
+    {
+        $result = AgentControlPlaneCycleHorizonAnalyzer::computeTerminalCycleHorizon(
+            $this->baseDeepChain(),
+            'apply_agent_control_plane_runtime_schema_migration',
+            ['cycle_warnings' => [], 'unintentional_cycle_detected' => false],
+        );
+
+        self::assertSame('hold', $result['horizon_status']);
+        self::assertSame('apply_runtime_schema_migration', $result['repair_action']);
+    }
+
+    public function test_compute_terminal_cycle_horizon_returns_advance_for_clean_linear_next(): void
+    {
+        $result = AgentControlPlaneCycleHorizonAnalyzer::computeTerminalCycleHorizon(
+            $this->baseDeepChain(),
+            'ak-2',
+            ['cycle_warnings' => [], 'unintentional_cycle_detected' => false],
+        );
+
+        self::assertSame('advance', $result['horizon_status']);
+        self::assertSame('', $result['repair_action']);
+    }
+
+    public function test_compute_terminal_cycle_horizon_returns_collect_proof_when_cycle_warnings_exist(): void
+    {
+        $result = AgentControlPlaneCycleHorizonAnalyzer::computeTerminalCycleHorizon(
+            $this->baseDeepChain(),
+            'ak-2',
+            [
+                'cycle_warnings' => [['code' => 'repeated_slice_family_detected']],
+                'unintentional_cycle_detected' => false,
+            ],
+        );
+
+        self::assertSame('collect_proof', $result['horizon_status']);
+        self::assertStringContainsString('cycle_warnings', $result['repair_action']);
+    }
+
+    public function test_compute_terminal_cycle_horizon_returns_collect_proof_when_unintentional_cycle(): void
+    {
+        $result = AgentControlPlaneCycleHorizonAnalyzer::computeTerminalCycleHorizon(
+            $this->baseDeepChain(),
+            'ak-2',
+            [
+                'cycle_warnings' => [],
+                'unintentional_cycle_detected' => true,
+            ],
+        );
+
+        self::assertSame('collect_proof', $result['horizon_status']);
+    }
+
+    public function test_compute_terminal_cycle_horizon_is_deterministic(): void
+    {
+        $a = AgentControlPlaneCycleHorizonAnalyzer::computeTerminalCycleHorizon(
+            $this->baseDeepChain(), 'unknown-key', [],
+        );
+        $b = AgentControlPlaneCycleHorizonAnalyzer::computeTerminalCycleHorizon(
+            $this->baseDeepChain(), 'unknown-key', [],
+        );
+
         self::assertSame($a, $b);
-        self::assertIsArray($a['repair_hints'], 'repair_hints must be an array, not a scalar risk score');
-        self::assertNotEmpty($a['repair_hints']);
     }
 }

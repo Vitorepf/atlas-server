@@ -270,4 +270,85 @@ final class AgentControlPlaneCycleHorizonAnalyzer
             'completion_claim_allowed' => false,
         ];
     }
+
+    /**
+     * Compute terminal-cycle horizon status: whether the system should advance,
+     * hold, repair schema, or collect proof.
+     *
+     * Wraps terminalHorizonAnalysis() and enriches it with a unified
+     * horizon_status (advance|hold|repair_schema|collect_proof) and
+     * repair_action.
+     *
+     * @param  list<array<string, string>>  $deepChain
+     * @param  array<string, mixed>  $cycleIntegrity
+     * @return array{
+     *     horizon_status: string,
+     *     horizon_reason: string,
+     *     current_next_required_slice: string,
+     *     repair_action: string
+     * }
+     */
+    public static function computeTerminalCycleHorizon(array $deepChain, string $currentNextRequiredSlice, array $cycleIntegrity): array
+    {
+        $analysis = self::terminalHorizonAnalysis($deepChain, $currentNextRequiredSlice, $cycleIntegrity);
+
+        $horizonType = (string) ($analysis['horizon_type'] ?? 'blocked_unknown');
+        $horizonReason = (string) ($analysis['horizon_reason'] ?? '');
+        $currentPointer = (string) ($analysis['current_pointer'] ?? $currentNextRequiredSlice);
+
+        // Decision matrix:
+        // - hold: blocked_unknown (pointer doesn't match any known horizon)
+        // - repair_schema: terminal_runtime_gate (runtime schema migration pending)
+        // - collect_proof: linear_next but cycle_integrity has warnings (need proof)
+        // - advance: linear_next with clean cycle + no warnings
+        // - hold: intentional_reentry without completion_allowed
+        // - advance: intentional_reentry when cycle is clean
+        if ($horizonType === 'terminal_runtime_gate') {
+            return [
+                'horizon_status' => 'hold',
+                'horizon_reason' => $horizonReason,
+                'current_next_required_slice' => $currentPointer,
+                'repair_action' => 'apply_runtime_schema_migration',
+            ];
+        }
+
+        if ($horizonType === 'blocked_unknown') {
+            $repairAction = 'repair';
+            if (str_contains($horizonReason, 'runtime') && str_contains($horizonReason, 'migration')) {
+                $repairAction = 'apply_runtime_schema_migration';
+            } elseif (str_contains($horizonReason, 'terminal_proof') || str_contains($horizonReason, 'evidence')) {
+                $repairAction = 'collect_missing_proof';
+            } elseif (str_contains($horizonReason, 'next_slice')) {
+                $repairAction = 'resolve_missing_next_slice_evidence';
+            }
+
+            return [
+                'horizon_status' => 'hold',
+                'horizon_reason' => $horizonReason,
+                'current_next_required_slice' => $currentPointer,
+                'repair_action' => $repairAction,
+            ];
+        }
+
+        // linear_next or intentional_reentry — check for poison family risk or cycle warnings.
+        $cycleWarnings = (array) ($cycleIntegrity['cycle_warnings'] ?? []);
+        $hasPoisonOrWarning = $cycleWarnings !== []
+            || (bool) ($cycleIntegrity['unintentional_cycle_detected'] ?? false);
+
+        if ($hasPoisonOrWarning) {
+            return [
+                'horizon_status' => 'collect_proof',
+                'horizon_reason' => $horizonReason,
+                'current_next_required_slice' => $currentPointer,
+                'repair_action' => 'resolve_cycle_warnings_or_poison_families_before_advancing',
+            ];
+        }
+
+        return [
+            'horizon_status' => 'advance',
+            'horizon_reason' => $horizonReason,
+            'current_next_required_slice' => $currentPointer,
+            'repair_action' => '',
+        ];
+    }
 }
