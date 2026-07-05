@@ -22,6 +22,14 @@ class OperatorProfileRegistry
         $scopeType = (string) ($value['scope_type'] ?? $signal?->scope_type ?? 'global');
         $scopeId = $value['scope_id'] ?? $signal?->scope_id;
 
+        // Honor the learned validity hint from the comprehension extractor.
+        // The extractor persists validity_hint in signal metadata as
+        // durable|momentary|scoped. Map it to the profile item's validity_kind
+        // and valid_until so the active-item expiry gate can expire momentary
+        // preferences instead of injecting them into every future prompt forever.
+        $validityHint = (string) ($signal?->metadata['validity_hint'] ?? $value['validity_hint'] ?? 'durable');
+        [$validityKind, $validUntil] = $this->resolveValidity($validityHint, $value, $signal);
+
         $existing = OperatorProfileItem::query()
             ->where('operator_id', $candidate->operator_id)
             ->where('profile_key', $profileKey)
@@ -37,9 +45,9 @@ class OperatorProfileRegistry
             'summary' => (string) ($value['summary'] ?? $candidate->claim),
             'scope_type' => $scopeType,
             'scope_id' => is_string($scopeId) && trim($scopeId) !== '' ? trim($scopeId) : null,
-            'validity_kind' => (string) ($value['validity_kind'] ?? 'permanent'),
+            'validity_kind' => $validityKind,
             'valid_from' => $value['valid_from'] ?? $signal?->valid_from,
-            'valid_until' => $value['valid_until'] ?? $signal?->valid_until,
+            'valid_until' => $validUntil,
             'confidence' => max((float) $candidate->confidence, (float) ($existing?->confidence ?? 0.0)),
             'privacy_class' => (string) ($value['privacy_class'] ?? $signal?->privacy_class ?? 'normal'),
             'automation_level' => $this->automationLevel($candidate, $value),
@@ -58,6 +66,37 @@ class OperatorProfileRegistry
         }
 
         return $item->refresh();
+    }
+
+    /**
+     * Map the comprehension extractor's validity hint to the profile item's
+     * validity_kind and valid_until.
+     *
+     * - durable  → permanent, valid_until = null (lives forever)
+     * - momentary → temporary, valid_until = now + 1 hour (expires quickly)
+     * - scoped   → session, valid_until = now + 8 hours (bounded session)
+     *
+     * If the candidate value already carries an explicit validity_kind or
+     * valid_until, those take precedence (the caller overrode the hint).
+     *
+     * @param  array<string,mixed>  $value
+     * @return array{0:string,1:\Carbon\CarbonImmutable|null}
+     */
+    private function resolveValidity(string $hint, array $value, ?\App\Models\OperatorLearningSignal $signal): array
+    {
+        // Explicit override from the candidate value wins.
+        if (isset($value['validity_kind']) && is_string($value['validity_kind']) && $value['validity_kind'] !== '') {
+            return [
+                $value['validity_kind'],
+                $value['valid_until'] ?? $signal?->valid_until,
+            ];
+        }
+
+        return match ($hint) {
+            'momentary' => ['temporary', now()->addHour()],
+            'scoped'    => ['session', now()->addHours(8)],
+            default     => ['permanent', $value['valid_until'] ?? $signal?->valid_until],
+        };
     }
 
     /**
