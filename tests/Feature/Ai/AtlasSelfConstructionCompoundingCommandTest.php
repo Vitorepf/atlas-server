@@ -100,6 +100,28 @@ final class AtlasSelfConstructionCompoundingCommandTest extends TestCase
         $this->assertSame([], $decoded['groups']);
     }
 
+    public function test_frontier_action_reduce_churn_recommendation_prioritizes_lesson_consolidation(): void
+    {
+        $path = $this->fixture([
+            'cycle_facts' => [
+                ['cycle_id' => 'c1', 'give_back_count' => 1, 'passed_count' => 0],
+            ],
+            'leverage_delta' => ['deltas' => ['capability_coverage' => 2]],
+            'unresolved_blockers' => [['organ' => 'verification_court', 'blocker_id' => 'b1']],
+            'missing_organ_coverage' => ['cortex'],
+            'give_back_lessons' => [
+                ['class' => 'ScopeDrift', 'repeat_count' => 3],
+            ],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'frontier', '--facts' => $path, '--json' => true]);
+        $this->assertSame(AtlasSelfConstructionCompoundingCommand::EXIT_OK, $exit);
+        $decoded = json_decode(trim($out), true);
+        // With reduce_churn_before_scaling recommendation, lesson consolidation
+        // (priority_class=1) outranks blocker removal (priority_class=2) and
+        // coverage completion (priority_class=3).
+        $this->assertSame('lesson_consolidation', $decoded['frontier'][0]['kind']);
+    }
+
     public function test_missing_facts_path_fails_closed(): void
     {
         [$exit] = $this->runCmd(['action' => 'velocity']);
