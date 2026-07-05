@@ -140,4 +140,51 @@ final class AtlasSelfConstructionCompoundingCommandTest extends TestCase
         $this->assertSame('usage_error', $decoded['status']);
         $this->assertNotEmpty($decoded['reason']);
     }
+
+    // ── AC7: raw outcomes → extractor → consolidator → frontier ──────────
+
+    public function test_raw_outcomes_with_repeated_scope_mismatch_produce_lesson_consolidation_frontier(): void
+    {
+        // Three give_back outcomes whose reasons contain 'scope' → each produces
+        // a 'give_back_due_to_scope_mismatch' lesson → consolidator merges to
+        // {class, repeat_count=3} → selector emits lesson_consolidation row.
+        $path = $this->fixture([
+            'leverage_delta' => ['deltas' => []],
+            'unresolved_blockers' => [],
+            'missing_organ_coverage' => [],
+            'outcomes' => [
+                ['task_id' => 't1', 'result' => 'give_back', 'give_back_reason' => 'scope_mismatch', 'task_family' => 'family-x'],
+                ['task_id' => 't2', 'result' => 'give_back', 'give_back_reason' => 'out_of_scope', 'task_family' => 'family-x'],
+                ['task_id' => 't3', 'result' => 'give_back', 'give_back_reason' => 'scope_too_large', 'task_family' => 'family-x'],
+            ],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'frontier', '--facts' => $path, '--json' => true]);
+        $this->assertSame(AtlasSelfConstructionCompoundingCommand::EXIT_OK, $exit);
+
+        $decoded = json_decode(trim($out), true);
+        $this->assertArrayHasKey('frontier', $decoded);
+
+        $lessonRows = array_values(array_filter(
+            $decoded['frontier'] ?? [],
+            static fn (array $r): bool => ($r['kind'] ?? '') === 'lesson_consolidation',
+        ));
+        $this->assertNotEmpty($lessonRows, 'lesson_consolidation must appear when a lesson repeats >= 2');
+        $this->assertSame('atlas_native', $decoded['final_runtime_owner']);
+    }
+
+    public function test_frontier_backward_compatible_give_back_lessons_key_skips_extractor(): void
+    {
+        // When 'give_back_lessons' is directly supplied, the extractor/consolidator is skipped.
+        $path = $this->fixture([
+            'leverage_delta' => ['deltas' => []],
+            'unresolved_blockers' => [],
+            'missing_organ_coverage' => [],
+            'give_back_lessons' => [['class' => 'scope_mismatch', 'repeat_count' => 3]],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'frontier', '--facts' => $path, '--json' => true]);
+        $this->assertSame(AtlasSelfConstructionCompoundingCommand::EXIT_OK, $exit);
+
+        $decoded = json_decode(trim($out), true);
+        $this->assertArrayHasKey('frontier', $decoded);
+    }
 }

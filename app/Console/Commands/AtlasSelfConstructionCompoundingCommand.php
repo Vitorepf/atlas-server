@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\Compounding\AtlasSelfConstructionGiveBackLessonConsolidator;
 use App\Services\Ai\SelfConstruction\Compounding\AtlasSelfConstructionCompoundingOutcomeProjection;
 use App\Services\Ai\SelfConstruction\Compounding\AtlasSelfConstructionCompoundingVelocityTracker;
 use App\Services\Ai\SelfConstruction\Compounding\AtlasSelfConstructionLeverageDeltaReporter;
 use App\Services\Ai\SelfConstruction\Compounding\AtlasSelfConstructionNextFrontierSelector;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPostImplementationLessonExtractor;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -54,7 +56,11 @@ final class AtlasSelfConstructionCompoundingCommand extends Command
                 (array) ($facts['leverage_delta'] ?? []),
                 (array) ($facts['unresolved_blockers'] ?? []),
                 (array) ($facts['missing_organ_coverage'] ?? []),
-                (array) ($facts['give_back_lessons'] ?? []),
+                // Backward compatible: if give_back_lessons is already supplied, use it directly.
+                // Otherwise run extractor + consolidator from raw outcomes.
+                array_key_exists('give_back_lessons', $facts)
+                    ? (array) $facts['give_back_lessons']
+                    : $this->resolveGiveBackLessons($facts),
             ),
             default => null,
         };
@@ -120,5 +126,27 @@ final class AtlasSelfConstructionCompoundingCommand extends Command
         foreach ($payload as $k => $v) {
             $this->line($k.': '.(is_scalar($v) ? (string) $v : json_encode($v, JSON_UNESCAPED_SLASHES)));
         }
+    }
+
+    /**
+     * When give_back_lessons are NOT pre-supplied in the facts payload, derive
+     * them by running the extractor then consolidator over the raw outcomes.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return list<array{class:string, repeat_count:int}>
+     */
+    private function resolveGiveBackLessons(array $facts): array
+    {
+        $rawOutcomes = (array) ($facts['outcomes'] ?? []);
+        if ($rawOutcomes === []) {
+            return [];
+        }
+
+        $extractor = new AtlasExternalBrainPostImplementationLessonExtractor;
+        $consolidator = new AtlasSelfConstructionGiveBackLessonConsolidator;
+
+        $extracted = $extractor->extract(['outcomes' => $rawOutcomes]);
+
+        return $consolidator->consolidate($extracted);
     }
 }
