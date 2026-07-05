@@ -161,6 +161,16 @@ final class AtlasExternalBrainAutonomyClaimAuditor
             $proofPriority = $status === self::STATUS_PROVEN ? null : ($missingStrongEvidenceKinds[0] ?? null);
         }
 
+        // AC4: stale evidence beyond threshold is reflected in the next proof chain
+        // as a refresh task, so the caller knows to re-produce fresh evidence —
+        // not just fill missing kinds.
+        if ($status === self::STATUS_STALE) {
+            $refreshTask = sprintf('Refresh stale evidence (age exceeds %d seconds) to support claim: "%s".', self::STALE_THRESHOLD_SECONDS, $claimText);
+            array_unshift($nextProofChain, $refreshTask);
+            $nextEvidenceTask = $refreshTask;
+            $proofPriority = 'refresh_stale_evidence';
+        }
+
         return [
             'schema' => self::SCHEMA,
             'claim' => $claimText,

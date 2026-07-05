@@ -373,4 +373,35 @@ final class AtlasExternalBrainAutonomyClaimAuditorTest extends TestCase
         ]);
         $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_STALE, $stale['status']);
     }
+
+    // ── AC4: stale evidence refresh in proof chain ───────────────────────────
+
+    public function test_stale_evidence_proof_chain_includes_refresh_task(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => '95 percent complete',
+            'evidence_refs' => ['runnable_end_to_end_replay', 'fresh_outcome_learning'],
+            'evidence_age_seconds' => 999999999,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_STALE, $r['status']);
+        $this->assertStringContainsString('Refresh stale evidence', $r['next_evidence_task']);
+        $this->assertStringContainsString('Refresh stale evidence', $r['next_proof_chain'][0]);
+        $this->assertSame('refresh_stale_evidence', $r['proof_priority']);
+    }
+
+    public function test_stale_evidence_with_missing_kinds_has_both_refresh_and_evidence_tasks(): void
+    {
+        // Only one strong evidence kind + stale
+        $r = $this->svc()->audit([
+            'claim' => 'queue healthy',
+            'evidence_refs' => ['runnable_end_to_end_replay'],
+            'evidence_age_seconds' => 999999999,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_STALE, $r['status']);
+        $this->assertStringContainsString('Refresh stale evidence', $r['next_proof_chain'][0]);
+        // Should also mention the missing strong evidence kind
+        $this->assertStringContainsString('fresh_outcome_learning', implode(' ', $r['next_proof_chain']));
+    }
 }
