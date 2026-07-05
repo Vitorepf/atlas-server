@@ -210,12 +210,19 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
             commands: $commands,
         );
         $promptToArtifactChecklist = $this->promptToArtifactChecklist($closureArtifactSequence);
+        $autonomousNextActions = $this->autonomousNextActions($closureArtifactSequence);
+        $operatorOnlyReceipts = $this->operatorOnlyReceipts($closureArtifactSequence);
+        $blockedActions = $this->blockedActions($closureArtifactSequence);
+        $steadyStateHumanDependency = ! ((string) data_get($runtimeGapMatrix, 'runtime_promotion_receipt.status') === 'passed'
+            && (string) data_get($realProviderSmoke, 'status') === 'passed'
+            && (string) data_get($humanReceipt, 'status') === 'passed');
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
             'status' => $missing === [] ? 'ready_for_operator_final_review' : 'operator_action_required',
             'generated_at' => CarbonImmutable::now()->toIso8601String(),
+            'steady_state_human_dependency' => $steadyStateHumanDependency,
             'missing_operator_artifacts' => $missing,
             'blockers' => $blockers,
             'blocker_count' => count($blockers),
@@ -224,6 +231,9 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
                 'real_provider_blockers' => array_values(array_filter($blockers, static fn (array $b): bool => ($b['blocker_type'] ?? '') === 'real_provider')),
                 'technical_blockers' => array_values(array_filter($blockers, static fn (array $b): bool => ($b['blocker_type'] ?? '') === 'technical')),
             ],
+            'autonomous_next_actions' => $autonomousNextActions,
+            'operator_only_receipts' => $operatorOnlyReceipts,
+            'blocked_actions' => $blockedActions,
             'expected_receipt_schemas' => [
                 'runtime_promotion_receipt' => AtlasSelfConstructionRuntimePromotionReceiptService::SCHEMA_VERSION,
                 'human_signed_os_complete_receipt' => AtlasSelfConstructionHumanSignedCompletionReceiptService::SCHEMA_VERSION,
@@ -452,4 +462,20 @@ final class AtlasSelfConstructionCompletionOperatorActionPacketService
     }
 
     /** @param array<string, mixed> $value */
+    private function autonomousNextActions(array $closureArtifactSequence): array
+    {
+        return array_values(array_filter($closureArtifactSequence, static fn (array $row): bool => (bool) $row['passed'] && ($row['blocker_type'] ?? '') !== 'human'));
+    }
+
+    /** @param array<string, mixed> $value */
+    private function operatorOnlyReceipts(array $closureArtifactSequence): array
+    {
+        return array_values(array_filter($closureArtifactSequence, static fn (array $row): bool => ($row['requires_operator_signature'] ?? false) === true));
+    }
+
+    /** @param array<string, mixed> $value */
+    private function blockedActions(array $closureArtifactSequence): array
+    {
+        return array_values(array_filter($closureArtifactSequence, static fn (array $row): bool => ! (bool) $row['passed']));
+    }
 }
