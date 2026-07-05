@@ -72,19 +72,21 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         self::assertSame('l-1', $verdict['lease_id']);
         self::assertNotNull($reportPayload);
         self::assertSame('success', $reportPayload['outcome']);
-        self::assertContains('write_evidence', $verdict['applied_steps']);
+        // write_evidence is honestly blocked (no real commands ran → empty commands_run → writer
+        // rejects). The old fabrication branch synthesized a fake command with hardcoded exit_code=0
+        // to bypass the writer guard; that has been removed. The honest verification outcome is
+        // carried by tests_or_gates_result.passed.
+        self::assertNotContains('write_evidence', $verdict['applied_steps']);
         self::assertContains('map_outcome', $verdict['applied_steps']);
         self::assertContains('report', $verdict['applied_steps']);
+        // The blocked write is recorded under blocked_actions.
+        $writeBlockReasons = array_column($verdict['blocked_actions'], 'reason');
+        self::assertNotEmpty(array_filter($writeBlockReasons, static fn (string $r): bool => str_contains($r, 'evidence writer: commands_run must not be empty')));
 
-        // Evidence write must precede map_outcome, which must precede report.
-        $evidenceIdx = array_search('write_evidence', $verdict['applied_steps'], true);
+        // map_outcome must still precede report.
         $mapIdx = array_search('map_outcome', $verdict['applied_steps'], true);
         $reportIdx = array_search('report', $verdict['applied_steps'], true);
-        self::assertLessThan($mapIdx, $evidenceIdx, 'write_evidence must run before map_outcome');
         self::assertLessThan($reportIdx, $mapIdx, 'map_outcome must run before report');
-
-        // Evidence MUST be written before report — so evidence file must exist now.
-        self::assertFileExists($ledger);
 
         @unlink($ledger);
     }
@@ -462,5 +464,40 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
                 self::assertArrayHasKey($k, $r['step_retry_contract'], "fixture {$i} step_retry_contract missing {$k}");
             }
         }
+    }
+
+    public function test_no_fabricated_command_when_no_real_command_ran(): void
+    {
+        // RED against current (pre-fix) code: the fabrication branch synthesizes
+        // {command:'/opt/homebrew/bin/php artisan test', exit_code:0} when
+        // verification.passed=true and commandsForEvidence is empty. After the
+        // fix, commands_run must contain NO synthesized entry.
+        $ledger = sys_get_temp_dir().'/atlas-cycle-no-fabrication-'.bin2hex(random_bytes(4)).'.jsonl';
+
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle(
+            evidenceWriter: new AtlasNativeWorkerEvidenceWriter($ledger),
+        ))->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $this->validClaim(),
+            'report_callback' => fn (array $p) => $p,
+            'verification' => ['passed' => true],
+            // NO command_plan supplied → no real command runner results.
+        ]);
+
+        // The cycle must NOT have written evidence (writer rejects empty commands_run).
+        self::assertNotContains('write_evidence', $r['applied_steps']);
+
+        // The blocked action must be the honest write_evidence rejection.
+        $writeBlocks = array_values(array_filter(
+            $r['blocked_actions'],
+            static fn (array $b): bool => $b['action'] === 'write_evidence',
+        ));
+        self::assertNotEmpty($writeBlocks, 'write_evidence must be blocked when no real command ran');
+        self::assertStringContainsString('commands_run must not be empty', $writeBlocks[0]['reason']);
+
+        // The ledger file must NOT exist (no row was written).
+        self::assertFileDoesNotExist($ledger);
+
+        @unlink($ledger);
     }
 }

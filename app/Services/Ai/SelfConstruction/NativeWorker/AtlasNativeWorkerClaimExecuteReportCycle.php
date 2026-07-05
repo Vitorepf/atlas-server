@@ -194,7 +194,16 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
                 if ($filesChanged === []) {
                     $filesChanged = $normalized['allowed_files'];
                 }
-                // commands_run: runner results as structured arrays; synthesize from acceptance_criteria when tests passed but no commands ran
+                // commands_run: ONLY real command runner results — never fabricated.
+                // The old code synthesized a fake {command:'php artisan test', exit_code:0}
+                // when verification passed but no commands ran; that wrote a command that
+                // NEVER executed into an append-only audited ledger (fake-green evidence).
+                // The honest verification outcome is already carried separately by
+                // tests_or_gates_result.passed, so no real signal is lost by omitting
+                // fabrication. When commands_run is empty, the writer will reject the
+                // write (it requires non-empty commands_run with a php artisan proof);
+                // that rejection is caught below and recorded as a truthful blocked
+                // write_evidence action rather than inventing a command.
                 $rawResults = is_array($commandResult['results'] ?? null) ? (array) $commandResult['results'] : [];
                 $commandsForEvidence = array_values(array_filter(array_map(
                     static fn (array $r): ?array => isset($r['exit_code']) && is_int($r['exit_code'])
@@ -202,14 +211,6 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
                         : null,
                     $rawResults,
                 )));
-                if ($commandsForEvidence === [] && (bool) ($verification['passed'] ?? false)) {
-                    $artisanCriteria = array_values(array_filter(
-                        (array) ($normalized['acceptance_criteria'] ?? []),
-                        static fn (string $c): bool => str_contains($c, 'php artisan'),
-                    ));
-                    $artisanCmd = $artisanCriteria[0] ?? '/opt/homebrew/bin/php artisan test';
-                    $commandsForEvidence = [['command' => $artisanCmd, 'exit_code' => 0, 'name' => 'tests_or_gates_result', 'status' => 'ok']];
-                }
                 $evidenceWriter->append([
                     'task_packet_id' => $taskPacketId,
                     'lease_id' => $leaseId,
