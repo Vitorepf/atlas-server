@@ -570,4 +570,50 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngineTest extends Test
         $this->assertSame('high-gap', $r['leverage_rank'][0]['id']);
         $this->assertSame('low-gap', $r['leverage_rank'][1]['id']);
     }
+
+    // ── AC2: output includes all 7 buckets ───────────────────────────────────
+
+    public function test_output_includes_all_seven_buckets(): void
+    {
+        $r = $this->engine()->triage([]);
+
+        foreach (['promising', 'exploratory', 'hype_rejected', 'ungrounded_rejected', 'provider_dependent_rejected', 'high_risk_rejected', 'no_atlas_fit_rejected'] as $bucket) {
+            $this->assertArrayHasKey($bucket, $r, "Missing bucket: {$bucket}");
+        }
+    }
+
+    // ── AC3: promising ideas expose leverage_rank and next_research_action ──
+
+    public function test_promising_ideas_expose_leverage_rank_and_next_research_action(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['evidence_strength' => 0.90, 'has_code' => true])],
+        ]);
+
+        $this->assertSame(1, $r['promising_count']);
+        $this->assertNotEmpty($r['leverage_rank']);
+        $this->assertArrayHasKey('next_research_action', $r);
+    }
+
+    // ── AC4: provider-dependent or no-Atlas-fit ideas do not enter promising ──
+
+    public function test_provider_dependent_ideas_do_not_enter_promising(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['evidence_strength' => 0.90, 'has_code' => true, 'provider_steady_state_dependency' => true])],
+        ]);
+
+        $this->assertSame(0, $r['promising_count']);
+        $this->assertNotEmpty($r['provider_dependent_rejected']);
+    }
+
+    public function test_no_atlas_fit_ideas_do_not_enter_promising(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['evidence_strength' => 0.90, 'has_code' => true, 'atlas_fit_score' => 0.1])],
+        ]);
+
+        $this->assertSame(0, $r['promising_count']);
+        $this->assertNotEmpty($r['no_atlas_fit_rejected']);
+    }
 }
