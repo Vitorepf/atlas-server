@@ -10,8 +10,10 @@ use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 /**
  * Coverage report for the Agent Control Plane certification stack.
  * Measures slice/edge/CLI/readiness/invoker/doc/runtime-flag/scenario
- * /fuzz/command-status/proof-bundle coverage and produces a single
- * coverage_score + grade.
+ * /fuzz/command-status/proof-bundle coverage grouped by 8 runtime surfaces
+ * (runtime, queue, scope, evidence, workspace, worker, release, rollback)
+ * and produces a structured report with covered, uncovered, stale items,
+ * blocking_gaps, and next_certification_task.
  *
  * Read-only: never starts processes, never calls Codex CLI/app, never
  * spawns subprocesses, never invokes adapters, never dispatches work,
@@ -24,6 +26,33 @@ final class AgentControlPlaneCertificationCoverageReportService
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_certification_coverage_report.v1';
 
     public const MODE = 'read_only_agent_control_plane_certification_coverage_report';
+
+    /** @var list<string> */
+    private const SURFACE_GROUPS = [
+        'runtime',
+        'queue',
+        'scope',
+        'evidence',
+        'workspace',
+        'worker',
+        'release',
+        'rollback',
+    ];
+
+    /** @var list<string> Proof bundle kinds an evidence surface requires for non-blocking. */
+    private const REQUIRED_EVIDENCE_KINDS = [
+        'chain_integrity_summary',
+        'control_plane_summary',
+        'capability_summary',
+        'readiness_summary',
+        'cli_summary',
+        'invoker_summary',
+        'docs_summary',
+        'runtime_safety_summary',
+        'cycle_summary',
+        'terminal_horizon_summary',
+        'regression_matrix_summary',
+    ];
 
     public function __construct(
         private readonly AgentControlPlaneChainIntegrityAuditService $audit,
@@ -170,14 +199,13 @@ final class AgentControlPlaneCertificationCoverageReportService
         $commandStatusCoverage = $statusOptionCount > 0 ? round($statusFlagPresent / $statusOptionCount, 4) : 0.0;
 
         $proofBundle = (array) data_get($replay, 'proof_bundle', []);
-        $expectedProofKinds = ['chain_integrity_summary', 'control_plane_summary', 'capability_summary', 'readiness_summary', 'cli_summary', 'invoker_summary', 'docs_summary', 'runtime_safety_summary', 'cycle_summary', 'terminal_horizon_summary', 'regression_matrix_summary'];
         $proofPresent = 0;
-        foreach ($expectedProofKinds as $kind) {
+        foreach (self::REQUIRED_EVIDENCE_KINDS as $kind) {
             if (array_key_exists($kind, $proofBundle)) {
                 $proofPresent++;
             }
         }
-        $proofCoverage = count($expectedProofKinds) > 0 ? round($proofPresent / count($expectedProofKinds), 4) : 0.0;
+        $proofCoverage = count(self::REQUIRED_EVIDENCE_KINDS) > 0 ? round($proofPresent / count(self::REQUIRED_EVIDENCE_KINDS), 4) : 0.0;
 
         $integratedSurfaceMethods = [
             'agentControlPlaneTaskPacketQueueStatus',
@@ -260,9 +288,194 @@ final class AgentControlPlaneCertificationCoverageReportService
             default => 'F',
         };
 
-        // critical_gap_summary: turns the single coverage_score into an actionable next-task
-        // selector — lowest blocks first, explicit skip flags (never silently treated as complete),
-        // and a single recommended_next_focus the external brain can act on directly.
+        // ── group coverage by surface ─────────────────────────────────────────────
+
+        $surfaces = [];
+        $blockingGaps = [];
+
+        foreach (self::SURFACE_GROUPS as $group) {
+            $covered = [];
+            $uncovered = [];
+            $stale = [];
+            $blocked = false;
+            $blockedReasons = [];
+
+            switch ($group) {
+                case 'runtime':
+                    $covered = [];
+                    if ($runtimeFlagCoverage >= 1.0) {
+                        $covered[] = 'runtime_safety_flags';
+                    } else {
+                        $uncovered[] = 'runtime_safety_flags';
+                    }
+                    if ($integratedRuntimeCoverage >= 1.0) {
+                        $covered[] = 'integrated_runtime_methods';
+                    } else {
+                        $uncovered[] = 'integrated_runtime_methods';
+                    }
+                    if ($scenarioCoverage >= 0.9) {
+                        $covered[] = 'certification_scenarios';
+                    } else {
+                        $uncovered[] = 'certification_scenarios';
+                    }
+                    if ($fuzzCoverage >= 0.9) {
+                        $covered[] = 'fuzz_harness';
+                    } else {
+                        $uncovered[] = 'fuzz_harness';
+                    }
+                    break;
+
+                case 'queue':
+                    if ($sliceCoverage >= 1.0) {
+                        $covered[] = 'chain_integrity_slices';
+                    } else {
+                        $uncovered[] = 'chain_integrity_slices';
+                    }
+                    if ($edgeCoverage >= 1.0) {
+                        $covered[] = 'per_slice_next_edges';
+                    } else {
+                        $uncovered[] = 'per_slice_next_edges';
+                    }
+                    if ($commandStatusCoverage >= 1.0) {
+                        $covered[] = 'task_queue_command_flags';
+                    } else {
+                        $uncovered[] = 'task_queue_command_flags';
+                    }
+                    break;
+
+                case 'scope':
+                    if ($invokerCoverage >= 1.0) {
+                        $covered[] = 'invoker_coverage';
+                    } else {
+                        $uncovered[] = 'invoker_coverage';
+                    }
+                    if ($cliCoverage >= 1.0) {
+                        $covered[] = 'cli_options';
+                    } else {
+                        $uncovered[] = 'cli_options';
+                    }
+                    break;
+
+                case 'evidence':
+                    if ($proofCoverage >= 1.0) {
+                        $covered[] = 'proof_bundle';
+                    } else {
+                        $uncovered[] = 'proof_bundle';
+                        $staleProofKinds = [];
+                        foreach (self::REQUIRED_EVIDENCE_KINDS as $kind) {
+                            if (! array_key_exists($kind, $proofBundle)) {
+                                $staleProofKinds[] = 'missing_proof:'.$kind;
+                            }
+                        }
+                        if ($staleProofKinds !== []) {
+                            $stale = $staleProofKinds;
+                            $blocked = true;
+                            $blockedReasons[] = 'missing_proof';
+                        }
+                    }
+                    if ($readinessCoverage >= 1.0) {
+                        $covered[] = 'readiness_quartet';
+                    } else {
+                        $uncovered[] = 'readiness_quartet';
+                        $blocked = true;
+                        $blockedReasons[] = 'readiness_gaps';
+                    }
+                    break;
+
+                case 'workspace':
+                    if ($integratedRuntimeCoverage >= 0.5) {
+                        $covered[] = 'execution_workspace_methods';
+                    } else {
+                        $uncovered[] = 'execution_workspace_methods';
+                    }
+                    if ($docCoverage >= 1.0) {
+                        $covered[] = 'slice_documentation';
+                    } else {
+                        $uncovered[] = 'slice_documentation';
+                    }
+                    break;
+
+                case 'worker':
+                    $workerMethodPrefixes = ['agentControlPlaneAgentRuntimeRegistry'];
+                    $workerOk = 0;
+                    $workerTotal = 0;
+                    foreach ($integratedSurfaceMethods as $method) {
+                        foreach ($workerMethodPrefixes as $prefix) {
+                            if (str_starts_with($method, $prefix)) {
+                                $workerTotal++;
+                                if (method_exists(AtlasSelfConstructionReadinessService::class, $method)) {
+                                    $workerOk++;
+                                }
+                            }
+                        }
+                    }
+                    if ($workerTotal > 0 && $workerOk === $workerTotal) {
+                        $covered[] = 'agent_registry_methods';
+                    } elseif ($workerTotal > 0) {
+                        $uncovered[] = 'agent_registry_methods';
+                    } else {
+                        $uncovered[] = 'agent_registry_methods';
+                    }
+                    break;
+
+                case 'release':
+                    $releaseCoverageOk = $sliceCoverage >= 1.0 && $edgeCoverage >= 1.0 && $cliCoverage >= 1.0;
+                    if ($releaseCoverageOk) {
+                        $covered[] = 'release_prerequisites';
+                    } else {
+                        $uncovered[] = 'release_prerequisites';
+                    }
+                    break;
+
+                case 'rollback':
+                    $rollbackPresent = false;
+                    foreach ((array) data_get($replay, 'proof_bundle', []) as $key => $val) {
+                        if (str_contains((string) $key, 'rollback') || (is_array($val) && (bool) data_get($val, 'rollback', false))) {
+                            $rollbackPresent = true;
+                        }
+                    }
+                    if ($rollbackPresent) {
+                        $covered[] = 'rollback_proof';
+                    } else {
+                        $uncovered[] = 'rollback_proof';
+                        $stale[] = 'rollback_proof';
+                        $blocked = true;
+                        $blockedReasons[] = 'missing_rollback_proof';
+                    }
+                    break;
+            }
+
+            $surfaces[] = [
+                'name' => $group,
+                'coverage' => match (true) {
+                    $uncovered === [] && $stale === [] => 1.0,
+                    $covered === [] && $stale !== [] => 0.0,
+                    $covered === [] => 0.0,
+                    default => round(count($covered) / max(1, count($covered) + count($uncovered)), 4),
+                },
+                'covered' => $covered,
+                'uncovered' => $uncovered,
+                'stale' => $stale,
+                'blocked' => $blocked,
+                'blocked_reasons' => $blockedReasons,
+            ];
+
+            if ($blocked) {
+                $blockingGaps[] = [
+                    'surface' => $group,
+                    'reasons' => $blockedReasons,
+                    'uncovered_items' => $uncovered,
+                    'stale_items' => $stale,
+                ];
+            }
+        }
+
+        $nextCertificationTask = $blockingGaps !== []
+            ? 'resolve_blocking_gap:'.$blockingGaps[0]['surface']
+            : 'no_blocking_gaps';
+
+        // ── critical_gap_summary (backward compatible) ────────────────────────────
+
         $lowestCoverageBlocks = $missing;
         usort($lowestCoverageBlocks, static fn (array $a, array $b): int => $a['value'] <=> $b['value']);
 
@@ -307,6 +520,9 @@ final class AgentControlPlaneCertificationCoverageReportService
             'coverage_blocks' => $coverageBlocks,
             'missing_coverage' => $missing,
             'critical_gap_summary' => $criticalGapSummary,
+            'surfaces' => $surfaces,
+            'blocking_gaps' => $blockingGaps,
+            'next_certification_task' => $nextCertificationTask,
             'block_count' => count($coverageBlocks),
             'metrics' => [
                 'slice_count' => $sliceCount,
@@ -325,7 +541,7 @@ final class AgentControlPlaneCertificationCoverageReportService
                 'command_status_flag_count' => $statusOptionCount,
                 'command_status_flag_present' => $statusFlagPresent,
                 'proof_bundle_kinds_present' => $proofPresent,
-                'proof_bundle_kinds_expected' => count($expectedProofKinds),
+                'proof_bundle_kinds_expected' => count(self::REQUIRED_EVIDENCE_KINDS),
                 'integrated_surface_present' => $integratedSurfacePresent,
                 'integrated_surface_expected' => count($integratedSurfaceMethods),
             ],
@@ -347,7 +563,7 @@ final class AgentControlPlaneCertificationCoverageReportService
                 'coverage_does_not_mutate_pointer',
                 'coverage_does_not_promote_completion_claim',
             ],
-            'human_summary' => sprintf('Certification coverage: %.4f (grade %s) across %d blocks.', $coverageScore, $grade, count($coverageBlocks)),
+            'human_summary' => sprintf('Certification coverage: %.4f (grade %s) across %d blocks, %d surfaces, %d blocking gaps.', $coverageScore, $grade, count($coverageBlocks), count($surfaces), count($blockingGaps)),
         ];
 
         $payload['coverage_hash'] = $this->stableHash($this->normalizeForCoverageHash($payload));

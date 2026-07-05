@@ -102,4 +102,130 @@ final class AgentControlPlaneCertificationCoverageReportServiceTest extends Test
         $this->assertFalse($result['dispatch_allowed']);
         $this->assertFalse($result['external_provider_call']);
     }
+
+    // ── AC: surfaces, blocking_gaps, next_certification_task ─────────────────
+
+    public function test_report_includes_surfaces_grouped_by_eight_runtime_surfaces(): void
+    {
+        $result = $this->service()->report();
+
+        $this->assertArrayHasKey('surfaces', $result);
+        $surfaces = $result['surfaces'];
+        $this->assertCount(8, $surfaces);
+
+        $names = array_column($surfaces, 'name');
+        $this->assertContains('runtime', $names);
+        $this->assertContains('queue', $names);
+        $this->assertContains('scope', $names);
+        $this->assertContains('evidence', $names);
+        $this->assertContains('workspace', $names);
+        $this->assertContains('worker', $names);
+        $this->assertContains('release', $names);
+        $this->assertContains('rollback', $names);
+    }
+
+    public function test_each_surface_has_covered_uncovered_stale_blocked_and_blocked_reasons(): void
+    {
+        $result = $this->service()->report();
+
+        foreach ($result['surfaces'] as $surface) {
+            $this->assertIsArray($surface['covered']);
+            $this->assertIsArray($surface['uncovered']);
+            $this->assertIsArray($surface['stale']);
+            $this->assertIsBool($surface['blocked']);
+            $this->assertIsArray($surface['blocked_reasons']);
+        }
+    }
+
+    public function test_report_includes_blocking_gaps_array(): void
+    {
+        $result = $this->service()->report();
+
+        $this->assertArrayHasKey('blocking_gaps', $result);
+        $this->assertIsArray($result['blocking_gaps']);
+    }
+
+    public function test_report_includes_next_certification_task_string(): void
+    {
+        $result = $this->service()->report();
+
+        $this->assertArrayHasKey('next_certification_task', $result);
+        $this->assertIsString($result['next_certification_task']);
+    }
+
+    public function test_next_certification_task_resolves_blocking_gap_when_gaps_exist(): void
+    {
+        $result = $this->service()->report();
+
+        if ($result['blocking_gaps'] !== []) {
+            $firstGapSurface = $result['blocking_gaps'][0]['surface'];
+            $this->assertSame(
+                'resolve_blocking_gap:'.$firstGapSurface,
+                $result['next_certification_task'],
+            );
+        } else {
+            $this->assertSame('no_blocking_gaps', $result['next_certification_task']);
+        }
+    }
+
+    public function test_blocking_gaps_surface_name_matches_a_known_surface(): void
+    {
+        $result = $this->service()->report();
+        $surfaceNames = array_column($result['surfaces'], 'name');
+
+        foreach ($result['blocking_gaps'] as $gap) {
+            $this->assertContains($gap['surface'], $surfaceNames);
+            $this->assertNotEmpty($gap['reasons']);
+        }
+    }
+
+    public function test_report_has_no_scalar_only_readiness_claim(): void
+    {
+        $result = $this->service()->report();
+
+        // The report must not rely on a single scalar score alone — it must
+        // also include structured surfaces and blocking_gaps for audit.
+        $this->assertArrayHasKey('surfaces', $result);
+        $this->assertArrayHasKey('blocking_gaps', $result);
+        $this->assertArrayHasKey('coverage_score', $result);
+        $this->assertArrayHasKey('coverage_grade', $result);
+    }
+
+    public function test_evidence_surface_marks_missing_proof_as_stale_and_blocking(): void
+    {
+        $result = $this->service()->report();
+        $evidenceSurface = null;
+        foreach ($result['surfaces'] as $surface) {
+            if ($surface['name'] === 'evidence') {
+                $evidenceSurface = $surface;
+            }
+        }
+        $this->assertNotNull($evidenceSurface);
+
+        // If proof_bundle is not at full coverage, the evidence surface must
+        // surface stale entries and be blocked.
+        if ($evidenceSurface['coverage'] < 1.0) {
+            $this->assertTrue($evidenceSurface['blocked']);
+            $this->assertNotEmpty($evidenceSurface['stale']);
+        }
+    }
+
+    public function test_rollback_surface_surfaces_missing_proof_when_absent(): void
+    {
+        $result = $this->service()->report();
+        $rollbackSurface = null;
+        foreach ($result['surfaces'] as $surface) {
+            if ($surface['name'] === 'rollback') {
+                $rollbackSurface = $surface;
+            }
+        }
+        $this->assertNotNull($rollbackSurface);
+
+        // If rollback proof is missing, the surface must be blocked with
+        // missing_rollback_proof reason.
+        if (in_array('rollback_proof', $rollbackSurface['uncovered'])) {
+            $this->assertTrue($rollbackSurface['blocked']);
+            $this->assertContains('missing_rollback_proof', $rollbackSurface['blocked_reasons']);
+        }
+    }
 }
