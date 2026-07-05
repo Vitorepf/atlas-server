@@ -127,4 +127,70 @@ final class AgentControlPlaneChainIntegrityChainBuilderTest extends TestCase
 
         $this->assertSame([], $shallow);
     }
+
+    // ── AC: canonicalDeepChain returns deterministic ordering across repeated calls ──
+
+    public function test_canonical_deep_chain_deterministic_ordering_across_three_calls(): void
+    {
+        $builder = $this->builder();
+        $a = $builder->canonicalDeepChain();
+        $b = $builder->canonicalDeepChain();
+        $c = $builder->canonicalDeepChain();
+
+        $this->assertSame($a, $b);
+        $this->assertSame($b, $c);
+    }
+
+    // ── AC: duplicate invoker classes are surfaced as duplicate_count > 0 ──────
+
+    public function test_duplicate_invoker_classes_are_detected(): void
+    {
+        $builder = $this->builder();
+        $chain = $builder->canonicalDeepChain();
+        $duplicated = array_merge($chain, [$chain[0]]);
+
+        $blockers = $builder->detectDuplicateInvokerClasses($duplicated);
+
+        $this->assertNotEmpty($blockers);
+        $this->assertContains('duplicate_invoker_class:'.$chain[0]['invoker_class'], $blockers);
+    }
+
+    public function test_canonical_deep_chain_audit_duplicate_count_zero_when_clean(): void
+    {
+        $audit = $this->builder()->canonicalDeepChainAudit();
+
+        $this->assertSame(0, $audit['duplicate_count']);
+    }
+
+    // ── AC: each deep chain entry includes all five required fields ──────────
+
+    public function test_every_entry_has_all_five_required_fields(): void
+    {
+        $chain = $this->builder()->canonicalDeepChain();
+
+        foreach ($chain as $entry) {
+            $this->assertArrayHasKey('slice_key', $entry);
+            $this->assertArrayHasKey('method_prefix', $entry);
+            $this->assertArrayHasKey('invoker_class', $entry);
+            $this->assertArrayHasKey('prepare_method', $entry);
+            $this->assertArrayHasKey('doc_bullet', $entry);
+        }
+    }
+
+    public function test_deep_chain_entry_factory_produces_all_five_fields(): void
+    {
+        $entry = $this->builder()->deepChainEntry(
+            'test_slice',
+            'testPrefix',
+            'TestInvoker',
+            'prepareTest',
+            'Test doc bullet',
+        );
+
+        $this->assertSame('test_slice', $entry['slice_key']);
+        $this->assertSame('testPrefix', $entry['method_prefix']);
+        $this->assertSame('App\\Services\\Ai\\SelfConstruction\\TestInvoker', $entry['invoker_class']);
+        $this->assertSame('prepareTest', $entry['prepare_method']);
+        $this->assertSame('Test doc bullet', $entry['doc_bullet']);
+    }
 }

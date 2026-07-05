@@ -36,12 +36,17 @@ final class AgentControlPlaneChainIntegrityChainBuilder
         $chain = $this->canonicalDeepChain();
         $audit = AgentControlPlaneDeepChainCatalog::audit($chain);
 
-        $duplicateCount = count(array_filter($audit['blockers'], static fn (string $b): bool => str_starts_with($b, 'duplicate_')));
+        // Extend audit with duplicate invoker_class detection (the catalog only
+        // checks slice_key and method_prefix duplicates natively).
+        $extraBlockers = $this->detectDuplicateInvokerClasses($chain);
+
+        $allBlockers = array_merge($audit['blockers'], $extraBlockers);
+        $duplicateCount = count(array_filter($allBlockers, static fn (string $b): bool => str_starts_with($b, 'duplicate_')));
 
         return [
-            'clean' => $audit['clean'],
+            'clean' => $allBlockers === [],
             'duplicate_count' => $duplicateCount,
-            'blockers' => $audit['blockers'],
+            'blockers' => $allBlockers,
             'entries' => $chain,
         ];
     }
@@ -66,6 +71,29 @@ final class AgentControlPlaneChainIntegrityChainBuilder
         }
 
         return 'agent-'.str_replace('_', '-', $sliceKey);
+    }
+
+    /**
+     * Detect duplicate invoker_class entries in a chain.
+     *
+     * @param  list<array<string,string>>  $chain
+     * @return list<string>  list of duplicate_invoker_class:<class> blockers
+     */
+    public function detectDuplicateInvokerClasses(array $chain): array
+    {
+        $seen = [];
+        $blockers = [];
+        foreach ($chain as $entry) {
+            $invokerClass = (string) ($entry['invoker_class'] ?? '');
+            if ($invokerClass !== '' && isset($seen[$invokerClass])) {
+                $blockers[] = 'duplicate_invoker_class:'.$invokerClass;
+            }
+            if ($invokerClass !== '') {
+                $seen[$invokerClass] = true;
+            }
+        }
+
+        return $blockers;
     }
 
     /**
