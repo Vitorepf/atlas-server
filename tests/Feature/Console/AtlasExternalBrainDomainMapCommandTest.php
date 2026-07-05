@@ -111,4 +111,52 @@ final class AtlasExternalBrainDomainMapCommandTest extends TestCase
         $this->assertSame('domain_map_clean_continue_normal_origination', $output['priority_target']);
         $this->assertContains('no_gap_or_drift_signal', $output['reasons']);
     }
+
+    public function test_candidate_strategy_padding_is_rejected(): void
+    {
+        $output = $this->exec([
+            'candidate_strategy' => 'padding',
+            'escalation_state' => ['wave_yield' => 0.3],
+            'backlog_freshness_facts' => [
+                'health_snapshot' => ['dry_queue' => true],
+                'replenish_urgency' => ['urgency_score' => 0.8],
+            ],
+        ]);
+
+        $this->assertTrue(
+            $output['breakthrough_plan']['padding_rejected'],
+            'padding_rejected must be true when candidate_strategy is a padding signal',
+        );
+        $this->assertSame(
+            [],
+            $output['breakthrough_plan']['constraint_escape_moves'],
+            'padding strategies must produce empty constraint_escape_moves',
+        );
+    }
+
+    public function test_backlog_freshness_facts_blocks_breakthrough_when_stop_decision(): void
+    {
+        $output = $this->exec([
+            'backlog_freshness_facts' => [
+                'health_snapshot' => ['dry_queue' => false],
+                'queue_age_histogram' => [
+                    'claimable_depth' => 5,
+                    'oldest_age_p95_seconds' => 7200,
+                    'stale_threshold_seconds' => 3600,
+                ],
+                'worker_idle_prediction' => ['observed_consumption_count' => 0],
+            ],
+        ]);
+
+        $this->assertStringStartsWith(
+            'backlog_freshness_blocked:',
+            $output['breakthrough_plan']['next_mode'],
+            'breakthrough next_mode must be blocked when backlog freshness says stop',
+        );
+        $this->assertSame(
+            [],
+            $output['breakthrough_plan']['investigations'],
+            'no investigations when backlog freshness blocks origination',
+        );
+    }
 }

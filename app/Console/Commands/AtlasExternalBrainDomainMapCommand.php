@@ -70,6 +70,8 @@ final class AtlasExternalBrainDomainMapCommand extends Command
             'verified_count' => $facts['verified_count'] ?? 0,
             'requested_target' => $facts['requested_target'] ?? 1,
             'escalation_state' => $facts['escalation_state'] ?? [],
+            'candidate_strategy' => is_string($facts['candidate_strategy'] ?? null) ? $facts['candidate_strategy'] : '',
+            'backlog_freshness_facts' => is_array($facts['backlog_freshness_facts'] ?? null) ? $facts['backlog_freshness_facts'] : [],
         ]);
 
         // Priority target: missing evidence and high-impact capability drift always come before
