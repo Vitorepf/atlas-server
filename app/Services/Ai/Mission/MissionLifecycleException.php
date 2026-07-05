@@ -30,4 +30,14 @@ class MissionLifecycleException extends RuntimeException
     {
         return new self("Unknown evidence_type [{$type}].");
     }
+
+    public static function missingEvidencePackHash(): self
+    {
+        return new self('Mission evidence_pack_hash is empty — certification has no recomputable evidence receipt.');
+    }
+
+    public static function certificationHashMismatch(): self
+    {
+        return new self('Mission evidence_pack_hash does not match recomputed hash over current evidence refs — evidence may have been tampered after certification.');
+    }
 }
