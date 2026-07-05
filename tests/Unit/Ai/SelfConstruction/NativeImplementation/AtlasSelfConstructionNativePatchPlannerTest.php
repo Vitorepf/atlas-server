@@ -24,6 +24,10 @@ final class AtlasSelfConstructionNativePatchPlannerTest extends TestCase
             'task_shape' => ['kind' => 'service', 'side_effects' => 'none'],
             'context' => ['namespace' => 'App\\Demo', 'class_name' => 'Foo', 'method_name' => 'bar'],
             'test_files' => ['tests/Unit/Demo/FooTest.php'],
+            'objective' => 'Add Foo service',
+            'acceptance_criteria' => ['Runnable gate: phpunit exits 0.'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'implementation_target' => 'app/Demo/Foo.php',
         ];
     }
 
@@ -41,6 +45,10 @@ final class AtlasSelfConstructionNativePatchPlannerTest extends TestCase
             'scope_files' => ['app/Console/Commands/DemoCli.php'],
             'task_shape' => ['kind' => 'cli_wrapper'],
             'context' => ['namespace' => 'App\\Console\\Commands', 'class_name' => 'DemoCli', 'signature' => 'demo', 'description' => 'd'],
+            'objective' => 'Add CLI command',
+            'acceptance_criteria' => ['Runnable gate: phpunit exits 0.'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'implementation_target' => 'app/Console/Commands/DemoCli.php',
         ]);
         $this->assertContains('cli_wrapper', $r['template_ids']);
         $this->assertContains('Illuminate\\Console\\Command', $r['required_imports']);
@@ -183,5 +191,85 @@ final class AtlasSelfConstructionNativePatchPlannerTest extends TestCase
 
         $this->assertArrayHasKey('minimal_template_reason', $r);
         $this->assertNull($r['minimal_template_reason']);
+    }
+
+    // ── AC: packet field validation ─────────────────────────────────────────
+
+    public function test_missing_objective_throws(): void
+    {
+        $p = $this->purePacket();
+        unset($p['objective']);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/missing_objective/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    public function test_missing_runnable_acceptance_throws(): void
+    {
+        $p = $this->purePacket();
+        $p['acceptance_criteria'] = ['Documentation only'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/missing_runnable_acceptance/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    public function test_missing_required_evidence_throws(): void
+    {
+        $p = $this->purePacket();
+        unset($p['required_evidence']);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/missing_required_evidence/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    public function test_missing_implementation_target_throws(): void
+    {
+        $p = $this->purePacket();
+        unset($p['implementation_target']);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/missing_implementation_target/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    public function test_broad_scope_throws(): void
+    {
+        $p = $this->purePacket();
+        $allowedFiles = [];
+        for ($i = 0; $i < 12; $i++) {
+            $allowedFiles[] = "app/Demo/File{$i}.php";
+        }
+        $p['allowed_files'] = $allowedFiles;
+        $p['scope_files'] = ['app/Demo/File0.php'];
+        $p['test_files'] = [];
+        $p['implementation_target'] = 'app/Demo/File0.php';
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/broad_scope/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    public function test_test_only_scope_throws(): void
+    {
+        $p = $this->purePacket();
+        $p['allowed_files'] = ['tests/Unit/FooTest.php', 'tests/Feature/FooTest.php'];
+        $p['scope_files'] = ['tests/Unit/FooTest.php'];
+        $p['test_files'] = ['tests/Unit/FooTest.php'];
+        $p['implementation_target'] = 'tests/Unit/FooTest.php';
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/test_only_scope/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    // ── AC: plan outputs ────────────────────────────────────────────────────
+
+    public function test_plan_emits_all_required_output_fields(): void
+    {
+        $r = (new AtlasSelfConstructionNativePatchPlanner)->plan($this->purePacket());
+
+        $this->assertArrayHasKey('target_files', $r);
+        $this->assertArrayHasKey('template_ids', $r);
+        $this->assertArrayHasKey('variables', $r);
+        $this->assertArrayHasKey('required_imports', $r);
+        $this->assertArrayHasKey('test_plan', $r);
+        $this->assertArrayHasKey('risk_notes', $r);
     }
 }

@@ -39,21 +39,60 @@ final class AtlasSelfConstructionNativePatchPlanner
      *     scope_files?:list<string>,
      *     provider_reasoning_required?:bool,
      *     context?:array<string,string>,
-     *     test_files?:list<string>
+     *     test_files?:list<string>,
+     *     objective?:string,
+     *     acceptance_criteria?:list<string>,
+     *     required_evidence?:list<string>,
+     *     implementation_target?:string,
+     *     forbidden_files?:list<string>,
+     *     candidate_template_ids?:list<string>
      * }  $packet
-     * @return array{schema:string, plan_id:string, target_files:list<string>, template_ids:list<string>, variables:array<string,string>, required_imports:list<string>, test_plan:array<string,mixed>, risk_notes:list<string>}
+     * @return array{schema:string, plan_id:string, target_files:list<string>, template_ids:list<string>, variables:array<string,string>, required_imports:list<string>, test_plan:array<string,mixed>, risk_notes:list<string>, minimal_template_reason:?string}
      */
     public function plan(array $packet): array
     {
+        // ── Reject packets missing required fields ────────────────────────────
+
+        $objective = trim((string) ($packet['objective'] ?? ''));
+        if ($objective === '') {
+            throw new RuntimeException('planner refuses: missing_objective');
+        }
+
         if ((bool) ($packet['provider_reasoning_required'] ?? false)) {
             throw new RuntimeException('planner refuses: provider_reasoning_required=true');
         }
+
         $allowed = is_array($packet['allowed_files'] ?? null) ? array_values(array_map('strval', $packet['allowed_files'])) : [];
-        $scope = is_array($packet['scope_files'] ?? null) ? array_values(array_map('strval', $packet['scope_files'])) : [];
         if ($allowed === []) {
             throw new RuntimeException('planner refuses: allowed_files empty');
         }
+
+        $acceptanceCriteria = is_array($packet['acceptance_criteria'] ?? null) ? array_values(array_map('strval', $packet['acceptance_criteria'])) : [];
+        $hasRunnableAcceptance = false;
+        foreach ($acceptanceCriteria as $ac) {
+            if (preg_match('/(test|gate|assert|exit\s+0|runnable)/i', $ac) === 1) {
+                $hasRunnableAcceptance = true;
+            }
+        }
+        if (! $hasRunnableAcceptance) {
+            throw new RuntimeException('planner refuses: missing_runnable_acceptance');
+        }
+
+        $requiredEvidence = is_array($packet['required_evidence'] ?? null) ? array_values(array_map('strval', $packet['required_evidence'])) : [];
+        if ($requiredEvidence === []) {
+            throw new RuntimeException('planner refuses: missing_required_evidence');
+        }
+
+        $implementationTarget = trim((string) ($packet['implementation_target'] ?? ''));
+        if ($implementationTarget === '') {
+            throw new RuntimeException('planner refuses: missing_implementation_target');
+        }
+
+        // ── Scope validation ──────────────────────────────────────────────────
+
+        $scope = is_array($packet['scope_files'] ?? null) ? array_values(array_map('strval', $packet['scope_files'])) : [];
         $forbidden = is_array($packet['forbidden_files'] ?? null) ? array_values(array_map('strval', $packet['forbidden_files'])) : [];
+
         foreach ($scope as $f) {
             if (! in_array($f, $allowed, true)) {
                 throw new RuntimeException('planner refuses: scope_file_outside_allowed:'.$f);
@@ -62,10 +101,30 @@ final class AtlasSelfConstructionNativePatchPlanner
                 throw new RuntimeException('planner refuses: forbidden_path:'.$f);
             }
         }
+
+        // Refuse broad scope: more than 10 allowed files is too broad for a native patch.
+        if (count($allowed) > 10) {
+            throw new RuntimeException('planner refuses: broad_scope:'.count($allowed).'_allowed_files');
+        }
+
+        // Refuse test-only scope: if ALL allowed files are test files, the plan
+        // has no production target.
+        $allTestFiles = true;
+        foreach ($allowed as $f) {
+            if (! str_contains($f, 'Test.php') && ! str_contains($f, 'tests/')) {
+                $allTestFiles = false;
+                break;
+            }
+        }
+        if ($allTestFiles && count($allowed) > 0) {
+            throw new RuntimeException('planner refuses: test_only_scope');
+        }
+
         $taskShape = is_array($packet['task_shape'] ?? null) ? $packet['task_shape'] : [];
         if ((bool) ($taskShape['speculative_abstraction'] ?? false)) {
             throw new RuntimeException('planner refuses: speculative_abstraction_in_task_shape');
         }
+
         $explicitCandidates = is_array($packet['candidate_template_ids'] ?? null)
             ? array_values(array_map('strval', $packet['candidate_template_ids']))
             : null;
