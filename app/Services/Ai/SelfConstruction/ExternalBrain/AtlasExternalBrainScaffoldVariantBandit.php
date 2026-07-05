@@ -119,6 +119,12 @@ final class AtlasExternalBrainScaffoldVariantBandit
         $quarantinedVariants = [];
         $evidenceCounts      = [];
 
+        // Total runs across all scored variants for UCB1 exploration
+        $totalRuns = 0;
+        foreach ($variants as $v) {
+            $totalRuns += max(0, (int) ($v['total_runs'] ?? 0));
+        }
+
         foreach ($variants as $v) {
             $id   = (string) ($v['variant_id'] ?? 'unknown');
             $runs = max(0, (int) ($v['total_runs'] ?? 0));
@@ -132,7 +138,7 @@ final class AtlasExternalBrainScaffoldVariantBandit
                 continue;
             }
 
-            $score        = $this->ucb($v, $runs, $weights);
+            $score        = $this->ucb($v, $runs, $totalRuns, $weights);
             $scored[$id]  = [
                 'variant_id' => $id,
                 'runs'       => $runs,
@@ -234,7 +240,7 @@ final class AtlasExternalBrainScaffoldVariantBandit
      * @param  array<string,mixed>  $v
      * @param  array<string,float>  $weights
      */
-    private function ucb(array $v, int $runs, array $weights): array
+    private function ucb(array $v, int $runs, int $totalRuns, array $weights): array
     {
         if ($runs === 0) {
             $bonus = self::EXPLORATION_FACTOR * 2.0;
@@ -263,8 +269,11 @@ final class AtlasExternalBrainScaffoldVariantBandit
             4,
         );
 
-        $exploration = $runs < self::MIN_EVIDENCE
-            ? round(self::EXPLORATION_FACTOR * (1.0 - $runs / self::MIN_EVIDENCE), 4)
+        // True UCB1: exploration = C * sqrt(2*ln(N) / n)
+        // where N = total runs across all variants, n = runs for this variant.
+        // Never reaches 0, so under-pulled variants stay in contention as N grows.
+        $exploration = $totalRuns > 0
+            ? round(self::EXPLORATION_FACTOR * sqrt(2.0 * log((float) $totalRuns) / (float) $runs), 4)
             : 0.0;
 
         return ['weighted' => $weighted, 'ucb' => min(1.0, round($weighted + $exploration, 4))];
