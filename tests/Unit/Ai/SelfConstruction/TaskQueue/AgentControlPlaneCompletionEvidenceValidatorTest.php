@@ -191,6 +191,8 @@ class AgentControlPlaneCompletionEvidenceValidatorTest extends TestCase
             'files_changed' => ['app/Foo.php'],
             'commands_run' => ['php artisan test app/Foo.php'],
             'tests_or_gates_result' => 'pass',
+            'implementation_notes' => 'Implemented Foo via bar contract.',
+            'capability_delta' => 'Added guard preventing empty payload.',
             'git_status_short' => 'clean',
             'git_diff_check_result' => 'clean',
         ];
@@ -241,6 +243,8 @@ class AgentControlPlaneCompletionEvidenceValidatorTest extends TestCase
             'files_changed' => ['app/Foo.php'],
             'commands_run' => ['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php app/Foo.php'],
             'tests_or_gates_result' => 'pass',
+            'implementation_notes' => 'Implemented Foo via bar contract.',
+            'capability_delta' => 'Added guard preventing empty payload.',
             'git_status_short' => 'clean',
             'git_diff_check_result' => 'clean',
         ];
@@ -379,6 +383,7 @@ class AgentControlPlaneCompletionEvidenceValidatorTest extends TestCase
             'commands_run' => ['vendor/bin/phpunit tests/Unit/FooTest.php'],
             'tests_or_gates_result' => 'pass',
             'implementation_notes' => 'Implemented Foo via bar contract.',
+            'capability_delta' => 'Added guard preventing empty payload.',
             'git_status_short' => 'clean',
             'git_diff_check_result' => 'clean',
         ];
@@ -397,5 +402,185 @@ class AgentControlPlaneCompletionEvidenceValidatorTest extends TestCase
         self::assertSame([], $result['missing_required_commands']);
         self::assertSame([], $result['missing_required_evidence_labels']);
         self::assertTrue($result['structured_completion_evidence_valid']);
+    }
+
+    // ── AC: implementation_notes now required unconditionally ───────────────
+
+    public function test_validate_blocked_when_implementation_notes_missing(): void
+    {
+        $evidence = [
+            'packet_id' => 'tp1', 'lease_id' => 'l1',
+            'files_changed' => ['app/Foo.php'],
+            'commands_run' => ['php artisan test app/Foo.php'],
+            'tests_or_gates_result' => 'pass',
+            'capability_delta' => 'Added guard preventing empty payload.',
+            'git_status_short' => 'clean',
+            'git_diff_check_result' => 'clean',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneCompletionEvidenceValidator::canonicalCompletionEvidenceHash($evidence);
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['app/Foo.php'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertSame('blocked', $result['status']);
+        self::assertContains('implementation_notes_missing', $result['blockers']);
+        self::assertFalse($result['structured_completion_evidence_valid']);
+        self::assertFalse($result['implementation_notes_present']);
+    }
+
+    // ── AC: capability_delta now required unconditionally ───────────────────
+
+    public function test_validate_blocked_when_capability_delta_missing(): void
+    {
+        $evidence = [
+            'packet_id' => 'tp1', 'lease_id' => 'l1',
+            'files_changed' => ['app/Foo.php'],
+            'commands_run' => ['php artisan test app/Foo.php'],
+            'tests_or_gates_result' => 'pass',
+            'implementation_notes' => 'Implemented Foo.',
+            'git_status_short' => 'clean',
+            'git_diff_check_result' => 'clean',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneCompletionEvidenceValidator::canonicalCompletionEvidenceHash($evidence);
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['app/Foo.php'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertSame('blocked', $result['status']);
+        self::assertContains('capability_delta_missing', $result['blockers']);
+        self::assertFalse($result['capability_delta_present']);
+    }
+
+    // ── AC: proxy evidence rejection ────────────────────────────────────────
+
+    public function test_validate_blocks_doc_only_evidence(): void
+    {
+        $evidence = [
+            'packet_id' => 'tp1', 'lease_id' => 'l1',
+            'files_changed' => ['docs/README.md'],
+            'commands_run' => ['php artisan test app/Foo.php'],
+            'tests_or_gates_result' => 'pass',
+            'implementation_notes' => 'Updated docs.',
+            'capability_delta' => 'Doc clarification.',
+            'git_status_short' => 'clean',
+            'git_diff_check_result' => 'clean',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneCompletionEvidenceValidator::canonicalCompletionEvidenceHash($evidence);
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['docs/README.md'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertContains('proxy_doc_only_evidence', $result['blockers']);
+        self::assertTrue($result['proxy_doc_only_evidence']);
+        self::assertFalse($result['structured_completion_evidence_valid']);
+    }
+
+    public function test_validate_blocks_exit_code_only_evidence(): void
+    {
+        $evidence = [
+            'packet_id' => 'tp1', 'lease_id' => 'l1',
+            'files_changed' => ['app/Foo.php'],
+            'commands_run' => ['echo done', 'ls -la'],
+            'tests_or_gates_result' => 'pass',
+            'implementation_notes' => 'Implemented Foo.',
+            'capability_delta' => 'Added guard.',
+            'git_status_short' => 'clean',
+            'git_diff_check_result' => 'clean',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneCompletionEvidenceValidator::canonicalCompletionEvidenceHash($evidence);
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['app/Foo.php'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertContains('proxy_exit_code_only_evidence', $result['blockers']);
+        self::assertTrue($result['proxy_exit_code_only_evidence']);
+    }
+
+    public function test_validate_blocks_schema_only_evidence(): void
+    {
+        $evidence = [
+            'schema' => 'atlas.evidence.v1',
+            'schema_version' => '1.0',
+            'evidence_hash' => str_repeat('c', 64),
+        ];
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['app/Foo.php'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertContains('proxy_schema_only_evidence', $result['blockers']);
+        self::assertTrue($result['proxy_schema_only_evidence']);
+    }
+
+    public function test_validate_blocks_out_of_scope_changed_files(): void
+    {
+        $evidence = [
+            'packet_id' => 'tp1', 'lease_id' => 'l1',
+            'files_changed' => ['app/Foo.php', 'app/Unrelated.php'],
+            'commands_run' => ['php artisan test app/Foo.php'],
+            'tests_or_gates_result' => 'pass',
+            'implementation_notes' => 'Implemented Foo.',
+            'capability_delta' => 'Added guard.',
+            'git_status_short' => 'clean',
+            'git_diff_check_result' => 'clean',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneCompletionEvidenceValidator::canonicalCompletionEvidenceHash($evidence);
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['app/Foo.php'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertContains('files_changed_outside_allowed_scope', $result['blockers']);
+        self::assertContains('app/Unrelated.php', $result['files_changed_outside_allowed_scope']);
+    }
+
+    // ── AC: accepts only with full scoped implementation + verification ─────
+
+    public function test_validate_accepts_complete_evidence_with_capability_delta_and_notes(): void
+    {
+        $evidence = [
+            'packet_id' => 'tp1', 'lease_id' => 'l1',
+            'files_changed' => ['app/Foo.php'],
+            'commands_run' => ['vendor/bin/phpunit tests/Unit/FooTest.php'],
+            'tests_or_gates_result' => 'pass',
+            'implementation_notes' => 'Added capability guard to Foo.',
+            'capability_delta' => 'New guard blocks empty payload from reaching processor.',
+            'git_status_short' => 'clean',
+            'git_diff_check_result' => 'clean',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneCompletionEvidenceValidator::canonicalCompletionEvidenceHash($evidence);
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['app/Foo.php'],
+            'required_commands' => ['vendor/bin/phpunit tests/Unit/FooTest.php'],
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertSame('valid', $result['status']);
+        self::assertSame([], $result['blockers']);
+        self::assertTrue($result['structured_completion_evidence_valid']);
+        self::assertTrue($result['implementation_notes_present']);
+        self::assertTrue($result['capability_delta_present']);
+        self::assertFalse($result['proxy_doc_only_evidence']);
+        self::assertFalse($result['proxy_exit_code_only_evidence']);
+        self::assertFalse($result['proxy_schema_only_evidence']);
     }
 }

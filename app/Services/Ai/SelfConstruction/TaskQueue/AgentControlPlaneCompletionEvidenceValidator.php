@@ -55,6 +55,8 @@ final class AgentControlPlaneCompletionEvidenceValidator
             'files_changed',
             'commands_run',
             'tests_or_gates_result',
+            'implementation_notes',
+            'capability_delta',
             'git_status_short',
             'git_diff_check_result',
         ];
@@ -93,6 +95,18 @@ final class AgentControlPlaneCompletionEvidenceValidator
             $missingFields[] = 'tests_or_gates_result';
         }
 
+        $implementationNotes = trim((string) ($evidence['implementation_notes'] ?? ''));
+        if ($implementationNotes === '') {
+            $blockers[] = 'implementation_notes_missing';
+            $missingFields[] = 'implementation_notes';
+        }
+
+        $capabilityDelta = trim((string) ($evidence['capability_delta'] ?? ''));
+        if ($capabilityDelta === '') {
+            $blockers[] = 'capability_delta_missing';
+            $missingFields[] = 'capability_delta';
+        }
+
         $filesChanged = AtlasLoopRefillerPayloadNormalizer::stringList((array) ($evidence['files_changed'] ?? []));
         if ($filesChanged === []) {
             $blockers[] = 'files_changed_missing';
@@ -106,6 +120,13 @@ final class AgentControlPlaneCompletionEvidenceValidator
         } elseif ($filesChangedOutsideAllowedScope !== []) {
             $blockers[] = 'files_changed_outside_allowed_scope';
         }
+
+        // PROXY: doc-only evidence — all changed files are documentation, no real code change.
+        $proxyDocOnly = $filesChanged !== [] && self::allFilesAreDocumentation($filesChanged);
+        if ($proxyDocOnly) {
+            $blockers[] = 'proxy_doc_only_evidence';
+        }
+
         $commandsRun = AtlasLoopRefillerPayloadNormalizer::stringList((array) ($evidence['commands_run'] ?? []));
         if ($commandsRun === []) {
             $blockers[] = 'commands_run_missing';
@@ -131,6 +152,19 @@ final class AgentControlPlaneCompletionEvidenceValidator
         if ($allowedFiles !== [] && $commandsRun !== [] && ! $commandsBoundToAllowedScope) {
             $blockers[] = 'command_not_bound_to_allowed_scope';
         }
+
+        // PROXY: exit-code-only evidence — no command references a real test/gate runner.
+        $proxyExitCodeOnly = $commandsRun !== [] && self::noCommandReferencesTestRunner($commandsRun);
+        if ($proxyExitCodeOnly) {
+            $blockers[] = 'proxy_exit_code_only_evidence';
+        }
+
+        // PROXY: schema-only evidence — no substantive proof fields beyond schema/hash metadata.
+        $proxySchemaOnly = self::isSchemaOnlyEvidence($evidence);
+        if ($proxySchemaOnly) {
+            $blockers[] = 'proxy_schema_only_evidence';
+        }
+
         $requiredEvidenceLabels = AtlasLoopRefillerPayloadNormalizer::stringList((array) ($expectedBinding['required_evidence'] ?? []));
         $missingRequiredEvidence = [];
         foreach ($requiredEvidenceLabels as $label) {
@@ -166,12 +200,17 @@ final class AgentControlPlaneCompletionEvidenceValidator
             && ($expectedLeaseId === '' || $evidenceLeaseId === $expectedLeaseId)
             && ($evidenceActor === '' || $expectedAgentId === '' || $evidenceActor === $expectedAgentId)
             && in_array($testsOrGates, ['pass', 'passed', 'green'], true)
+            && $implementationNotes !== ''
+            && $capabilityDelta !== ''
             && $filesChanged !== []
             && $allowedFiles !== []
             && $filesChangedOutsideAllowedScope === []
+            && ! $proxyDocOnly
             && $commandsRun !== []
             && $missingRequiredCommands === []
             && $commandsBoundToAllowedScope
+            && ! $proxyExitCodeOnly
+            && ! $proxySchemaOnly
             && $missingRequiredEvidence === []
             && $gitStatusShort !== ''
             && in_array($diffCheckResult, ['clean', 'passed', 'pass', 'ok'], true);
@@ -220,6 +259,11 @@ final class AgentControlPlaneCompletionEvidenceValidator
             'missing_required_evidence_labels' => $missingRequiredEvidence,
             'tests_or_gates_result' => $testsOrGates,
             'tests_or_gates_passing' => in_array($testsOrGates, ['pass', 'passed', 'green'], true),
+            'implementation_notes_present' => $implementationNotes !== '',
+            'capability_delta_present' => $capabilityDelta !== '',
+            'proxy_doc_only_evidence' => $proxyDocOnly,
+            'proxy_exit_code_only_evidence' => $proxyExitCodeOnly,
+            'proxy_schema_only_evidence' => $proxySchemaOnly,
             'git_status_short_present' => $gitStatusShort !== '',
             'git_diff_check_result' => $diffCheckResult,
             'git_diff_check_clean' => in_array($diffCheckResult, ['clean', 'passed', 'pass', 'ok'], true),
@@ -230,6 +274,63 @@ final class AgentControlPlaneCompletionEvidenceValidator
         $validation['evidence_validation_hash'] = hash('sha256', (string) json_encode($validation, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $validation;
+    }
+
+    /**
+     * @param  list<string>  $files
+     */
+    private static function allFilesAreDocumentation(array $files): bool
+    {
+        foreach ($files as $file) {
+            $lower = strtolower(trim($file));
+            if (! (str_ends_with($lower, '.md')
+                || str_ends_with($lower, '.txt')
+                || str_ends_with($lower, '.rst')
+                || str_ends_with($lower, '.adoc')
+                || str_starts_with($lower, 'docs/')
+                || str_starts_with($lower, 'doc/')
+                || str_contains($lower, '/docs/')
+                || str_starts_with(basename($lower), 'readme')
+                || str_starts_with(basename($lower), 'changelog')
+                || str_starts_with(basename($lower), 'license')
+                || str_starts_with(basename($lower), 'contributing')
+            )) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  list<string>  $commands
+     */
+    private static function noCommandReferencesTestRunner(array $commands): bool
+    {
+        foreach ($commands as $cmd) {
+            $c = strtolower(trim((string) $cmd));
+            if (preg_match('/(phpunit|pest|artisan\s+test|jest|pytest|mocha|rspec|gradle|cargo\s+test|go\s+test|npm\s+test|yarn\s+test|\.php)/', $c)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $evidence
+     */
+    private static function isSchemaOnlyEvidence(array $evidence): bool
+    {
+        $metadataKeys = [
+            'schema',
+            'schema_version',
+            'evidence_hash',
+            'operator_supplied_evidence_hash',
+        ];
+        $nonMetadataKeys = array_diff(array_keys($evidence), $metadataKeys);
+
+        return count($nonMetadataKeys) === 0;
     }
 
     /**
