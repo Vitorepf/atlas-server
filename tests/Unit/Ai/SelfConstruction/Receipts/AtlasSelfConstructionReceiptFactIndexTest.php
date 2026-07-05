@@ -147,6 +147,149 @@ final class AtlasSelfConstructionReceiptFactIndexTest extends TestCase
         $this->assertContains('verification_receipts:chain_ref_unknown:ghost-decision', $r['blockers']);
     }
 
+    // ── Acceptance criteria: missing kind, stale evidence, conflicting state ──
+
+    public function test_missing_kind_produces_blocker(): void
+    {
+        $f = $this->completeFacts();
+        unset($f['decision_receipts']);
+        unset($f['learning_receipts']);
+
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+
+        $this->assertContains('decision_receipts:kind_missing', $r['blockers']);
+        $this->assertContains('learning_receipts:kind_missing', $r['blockers']);
+        // Present kinds must not be flagged
+        $this->assertNotContains('task_receipts:kind_missing', $r['blockers']);
+    }
+
+    public function test_tolerated_missing_kinds_produce_no_blocker(): void
+    {
+        $f = $this->completeFacts();
+        unset($f['knowledge_receipts']);
+
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f, [
+            'tolerate_missing_kinds' => ['knowledge_receipts'],
+        ]);
+
+        $this->assertNotContains('knowledge_receipts:kind_missing', $r['blockers']);
+    }
+
+    public function test_stale_evidence_detected_when_max_age_set(): void
+    {
+        $now = time();
+        $f = $this->completeFacts();
+        // Set one receipt's ts to 2 hours ago
+        $f['task_receipts'][0]['ts'] = (string) ($now - 7_200);
+
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f, [
+            'max_age_seconds' => 3_600, // 1 hour
+        ]);
+
+        $this->assertContains('task_receipts:stale_evidence:t-1', $r['blockers']);
+    }
+
+    public function test_no_stale_blocker_when_ts_is_fresh(): void
+    {
+        $now = time();
+        $f = $this->completeFacts();
+        $f['task_receipts'][0]['ts'] = (string) $now;
+
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f, [
+            'max_age_seconds' => 3_600,
+        ]);
+
+        $this->assertNotContains('task_receipts:stale_evidence:t-1', $r['blockers']);
+    }
+
+    public function test_no_stale_blocker_when_max_age_not_set(): void
+    {
+        $now = time();
+        $f = $this->completeFacts();
+        $f['task_receipts'][0]['ts'] = (string) ($now - 100_000);
+
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+
+        // No max_age_seconds supplied — no stale detection
+        $this->assertNotContains('task_receipts:stale_evidence:t-1', $r['blockers']);
+    }
+
+    public function test_conflicting_final_state_detected(): void
+    {
+        $f = $this->completeFacts();
+        // Add a second task_receipt with different status for the same task
+        $f['task_receipts'][] = [
+            'id' => 't-2', 'hash' => 'h-t2', 'ts' => 't',
+            'task_packet_id' => 'pkt-conflict', 'status' => 'approved',
+        ];
+        $f['task_receipts'][] = [
+            'id' => 't-3', 'hash' => 'h-t3', 'ts' => 't',
+            'task_packet_id' => 'pkt-conflict', 'status' => 'rejected',
+        ];
+
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+
+        $conflict = array_values(array_filter(
+            $r['blockers'],
+            static fn (string $b): bool => str_contains($b, 'conflicting_final_state'),
+        ));
+        $this->assertNotEmpty($conflict);
+        $this->assertStringContainsString('task_receipts:conflicting_final_state', $conflict[0]);
+    }
+
+    public function test_no_conflict_when_same_task_same_state(): void
+    {
+        $f = $this->completeFacts();
+        $f['task_receipts'][] = [
+            'id' => 't-2', 'hash' => 'h-t2', 'ts' => 't',
+            'task_packet_id' => 'pkt-same', 'status' => 'approved',
+        ];
+        $f['task_receipts'][] = [
+            'id' => 't-3', 'hash' => 'h-t3', 'ts' => 't',
+            'task_packet_id' => 'pkt-same', 'status' => 'approved',
+        ];
+
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+
+        $this->assertEmpty(array_filter(
+            $r['blockers'],
+            static fn (string $b): bool => str_contains($b, 'conflicting_final_state'),
+        ));
+    }
+
+    // ── Acceptance criteria: provider-safe receipt_summaries ────────────
+
+    public function test_receipt_summaries_present_and_are_subset_of_full_index(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($this->completeFacts());
+
+        $this->assertArrayHasKey('receipt_summaries', $r);
+        foreach (AtlasSelfConstructionReceiptFactIndex::KINDS as $kind) {
+            $this->assertArrayHasKey($kind, $r['receipt_summaries']);
+            foreach ($r['receipt_summaries'][$kind] as $id => $summary) {
+                // Must have id, hash, ts
+                $this->assertArrayHasKey('id', $summary);
+                $this->assertArrayHasKey('hash', $summary);
+                $this->assertArrayHasKey('ts', $summary);
+                // Must NOT have raw payload fields
+                $this->assertArrayNotHasKey('task_packet_id', $summary, 'receipt_summaries must not expose task_packet_id');
+                $this->assertArrayNotHasKey('commit_sha', $summary, 'receipt_summaries must not expose commit_sha');
+                $this->assertArrayNotHasKey('worker_id', $summary, 'receipt_summaries must not expose worker_id');
+                $this->assertArrayNotHasKey('capability', $summary, 'receipt_summaries must not expose capability');
+                $this->assertArrayNotHasKey('signed_by', $summary, 'receipt_summaries must not expose signed_by');
+            }
+        }
+    }
+
+    public function test_receipt_summaries_deterministic_across_calls(): void
+    {
+        $facts = $this->completeFacts();
+        $a = (new AtlasSelfConstructionReceiptFactIndex)->project($facts);
+        $b = (new AtlasSelfConstructionReceiptFactIndex)->project($facts);
+
+        $this->assertSame(json_encode($a['receipt_summaries']), json_encode($b['receipt_summaries']));
+    }
+
     // ── join surface: task / commit / worker / decision / capability (AC) ──────
 
     public function test_rows_are_joinable_by_task_commit_worker_decision_and_capability(): void

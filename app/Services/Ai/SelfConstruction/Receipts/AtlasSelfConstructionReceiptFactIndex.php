@@ -49,13 +49,24 @@ final class AtlasSelfConstructionReceiptFactIndex
 
     /**
      * @param  array<string,list<array<string,mixed>>>  $facts
+     * @param  array<string,mixed>  $options  { max_age_seconds?: int, tolerate_missing_kinds?: list<string> }
      * @return array{schema:string, index:array<string,array<string,array<string,mixed>>>, blockers:list<string>, summary:array<string,int>}
      */
-    public function project(array $facts): array
+    public function project(array $facts, array $options = []): array
     {
         $blockers = [];
         $index = [];
         $summary = [];
+
+        // 0. Missing kind detection — every expected kind must be present (unless tolerated).
+        $tolerated = array_map('strval', (array) ($options['tolerate_missing_kinds'] ?? []));
+        foreach (self::KINDS as $kind) {
+            if (! array_key_exists($kind, $facts)) {
+                if (! in_array($kind, $tolerated, true)) {
+                    $blockers[] = $kind.':kind_missing';
+                }
+            }
+        }
 
         $allDecisionIds = [];
         foreach (($facts['decision_receipts'] ?? []) as $r) {
@@ -121,9 +132,69 @@ final class AtlasSelfConstructionReceiptFactIndex
             $summary[$kind] = count($index[$kind]);
         }
 
+        // 5. Stale evidence detection.
+        $maxAgeSeconds = (int) ($options['max_age_seconds'] ?? 0);
+        if ($maxAgeSeconds > 0) {
+            $now = time();
+            foreach (self::KINDS as $kind) {
+                foreach ($index[$kind] as $id => $r) {
+                    $ts = trim((string) ($r['ts'] ?? ''));
+                    if ($ts === '') {
+                        continue; // missing_ts already flagged above
+                    }
+                    $tsInt = is_numeric($ts) ? (int) $ts : 0;
+                    if ($tsInt > 0 && ($now - $tsInt) > $maxAgeSeconds) {
+                        $blockers[] = $kind.':stale_evidence:'.$id;
+                    }
+                }
+            }
+        }
+
+        // 6. Conflicting final-state facts: if two rows of the same kind share
+        //    a task_packet_id but have conflicting "status" or "state" fields.
+        foreach (self::KINDS as $kind) {
+            $byTask = [];
+            foreach ($index[$kind] as $id => $r) {
+                $taskId = trim((string) ($r['task_packet_id'] ?? ''));
+                if ($taskId === '') {
+                    continue;
+                }
+                $state = trim((string) ($r['status'] ?? $r['state'] ?? ''));
+                if ($state === '') {
+                    continue;
+                }
+                if (! isset($byTask[$taskId])) {
+                    $byTask[$taskId] = ['state' => $state, 'ids' => [$id]];
+                } elseif ($byTask[$taskId]['state'] !== $state) {
+                    // Got different states for the same task — conflict
+                    $byTask[$taskId]['ids'][] = $id;
+                }
+            }
+            foreach ($byTask as $taskId => $info) {
+                if (count($info['ids']) > 1 && $info['state'] !== '') {
+                    // At least one row has a different state — report conflict
+                    $blockers[] = $kind.':conflicting_final_state:'.implode(',', $info['ids']).'@'.$taskId;
+                }
+            }
+        }
+
         sort($blockers, SORT_STRING);
 
         $joinIndexes = $this->buildJoinIndexes($index);
+
+        // 7. Provider-safe receipt summaries — strip raw payload fields,
+        //    keeping only id/hash/ts/kind/chain_ref/decision_ref/decision_hash/status.
+        $receiptSummaries = [];
+        foreach (self::KINDS as $kind) {
+            $receiptSummaries[$kind] = [];
+            foreach ($index[$kind] as $id => $r) {
+                $receiptSummaries[$kind][$id] = array_intersect_key($r, array_flip([
+                    'id', 'hash', 'ts', 'kind', 'chain_ref',
+                    'decision_ref', 'decision_hash', 'status',
+                ]));
+            }
+            ksort($receiptSummaries[$kind]);
+        }
 
         return [
             'schema' => self::SCHEMA,
@@ -137,6 +208,7 @@ final class AtlasSelfConstructionReceiptFactIndex
             'by_decision' => $joinIndexes['by_decision'],
             'by_capability' => $joinIndexes['by_capability'],
             'missing_evidence_gaps' => $joinIndexes['missing_evidence_gaps'],
+            'receipt_summaries' => $receiptSummaries,
         ];
     }
 
