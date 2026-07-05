@@ -79,6 +79,17 @@ final class AtlasSelfConstructionCompletionEvidenceLockfileService
             $violations[] = ['code' => 'lockfile_hash_mismatch'];
         }
 
+        // Safety-flags contract: the lockfile promises non-execution.
+        $expectedSafety = (array) ($expected['safety_flags'] ?? []);
+        $actualSafety = (array) ($lockfile['safety_flags'] ?? []);
+        if ($expectedSafety !== $actualSafety) {
+            $violations[] = ['code' => 'lockfile_safety_flags_mismatch', 'expected' => $expectedSafety, 'actual' => $actualSafety];
+        }
+        $persistAllowed = (bool) ($lockfile['persistence_allowed'] ?? true);
+        if ($persistAllowed !== false) {
+            $violations[] = ['code' => 'lockfile_safety_flags_mismatch', 'reason' => 'persistence_allowed_not_false'];
+        }
+
         $status = $violations === [] ? 'passed' : 'blocked';
         $payload = [
             'schema_version' => self::SCHEMA_VERSION.'.verification',
