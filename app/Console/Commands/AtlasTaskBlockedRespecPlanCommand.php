@@ -109,6 +109,7 @@ final class AtlasTaskBlockedRespecPlanCommand extends Command
                     'acceptance_criteria' => (array) ($draft['acceptance_criteria'] ?? []),
                     'required_evidence' => (array) ($draft['required_evidence'] ?? []),
                     'scope_in' => (array) ($packet['scope_in'] ?? []),
+                    'known_existing_paths' => (array) ($packet['scope_in'] ?? []),
                     'metadata' => (array) ($packet['metadata'] ?? []),
                     'source_packet_id' => (string) $sourceIds[0],
                 ]);
