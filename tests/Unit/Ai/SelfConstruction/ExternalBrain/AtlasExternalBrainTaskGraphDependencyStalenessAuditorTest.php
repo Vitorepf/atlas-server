@@ -119,7 +119,7 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditorTest extends Te
     {
         $result = $this->auditor()->audit(['edges' => []]);
 
-        foreach (['schema_version', 'edge_count', 'stale_edges', 'satisfied_dependencies', 'broken_dependencies', 'superseded_dependents', 'repair_or_retire_recommendations', 'stale_task_ids', 'dependency_blockers', 'recommended_chain_action', 'resequence_actions', 'mutates_queue'] as $key) {
+        foreach (['schema_version', 'edge_count', 'malformed_edges', 'stale_edges', 'satisfied_dependencies', 'broken_dependencies', 'superseded_dependents', 'repair_or_retire_recommendations', 'stale_task_ids', 'dependency_blockers', 'recommended_chain_action', 'resequence_actions', 'mutates_queue'] as $key) {
             $this->assertArrayHasKey($key, $result, "missing key: {$key}");
         }
         $this->assertSame(AtlasExternalBrainTaskGraphDependencyStalenessAuditor::SCHEMA, $result['schema_version']);
@@ -136,5 +136,30 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditorTest extends Te
 
         $this->assertCount(1, $result['satisfied_dependencies']);
         $this->assertSame([], $result['broken_dependencies']);
+    }
+
+    public function test_malformed_edge_missing_task_id_is_recorded(): void
+    {
+        $result = $this->auditor()->audit([
+            'edges' => [
+                ['task_id' => 'a', 'depends_on_task_id' => 'b'],
+                ['depends_on_task_id' => 'orphan'], // missing task_id
+                ['task_id' => 'c'],                 // missing depends_on_task_id
+            ],
+            'statuses' => ['b' => 'completed'],
+            'completion_outcomes' => ['b' => ['outcome' => 'delivered', 'capability_evidence_present' => true]],
+        ]);
+
+        $this->assertCount(2, $result['malformed_edges']);
+        $this->assertSame('malformed_edge_missing_task_id_or_depends_on_task_id', $result['malformed_edges'][0]['reason']);
+        $this->assertSame('', $result['malformed_edges'][0]['task_id']);
+        $this->assertSame('orphan', $result['malformed_edges'][0]['depends_on_task_id']);
+
+        $this->assertSame('', $result['malformed_edges'][1]['depends_on_task_id']);
+        $this->assertSame('c', $result['malformed_edges'][1]['task_id']);
+
+        // Well-formed edge is unaffected — still in satisfied_dependencies.
+        $this->assertCount(1, $result['satisfied_dependencies']);
+        $this->assertSame('a', $result['satisfied_dependencies'][0]['task_id']);
     }
 }

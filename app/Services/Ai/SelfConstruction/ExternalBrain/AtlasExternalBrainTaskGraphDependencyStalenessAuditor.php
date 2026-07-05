@@ -69,6 +69,12 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
             $taskId = (string) ($edge['task_id'] ?? '');
             $dependsOn = (string) ($edge['depends_on_task_id'] ?? '');
             if ($taskId === '' || $dependsOn === '') {
+                $malformedEdges[] = [
+                    'index' => count($edges) > 0 ? array_search($edge, $edges, true) : null,
+                    'task_id' => $taskId,
+                    'depends_on_task_id' => $dependsOn,
+                    'reason' => 'malformed_edge_missing_task_id_or_depends_on_task_id',
+                ];
                 continue;
             }
 
@@ -194,6 +200,7 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
         return [
             'schema_version' => self::SCHEMA,
             'edge_count' => count($edges),
+            'malformed_edges' => $malformedEdges,
             'stale_edges' => $staleEdges,
             'satisfied_dependencies' => $satisfiedDependencies,
             'broken_dependencies' => $brokenDependencies,
