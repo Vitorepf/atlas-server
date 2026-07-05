@@ -382,6 +382,7 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
         $result = $this->bridge->decide($this->healthy(['evidence_freshness_status' => 'stale']));
 
         $this->assertContains($result['stop_go_decision'], [
+            AtlasExternalBrainControlPlaneStopGoBridge::DECISION_HOLD_FOR_EVIDENCE,
             AtlasExternalBrainControlPlaneStopGoBridge::DECISION_RUN_CONSOLIDATION,
             AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE,
         ]);
@@ -393,6 +394,7 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
         $result = $this->bridge->decide($this->healthy(['integration_coverage_percent' => 20.0]));
 
         $this->assertContains($result['stop_go_decision'], [
+            AtlasExternalBrainControlPlaneStopGoBridge::DECISION_HOLD_FOR_EVIDENCE,
             AtlasExternalBrainControlPlaneStopGoBridge::DECISION_RUN_CONSOLIDATION,
             AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE,
         ]);
@@ -438,5 +440,94 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
         $result = $this->bridge->decide($this->healthy(['claimable_per_active_worker' => 0.5, 'maturity_gap_count' => 2]));
 
         $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_ESCALATE_AMBITION, $result['stop_go_decision']);
+    }
+
+    // ── AC2: repair_regression, hold_for_evidence, self_heal, low-value backlog ──
+
+    public function test_regression_detected_returns_repair_regression(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['regression_detected' => true]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_REPAIR_REGRESSION, $result['stop_go_decision']);
+        $this->assertStringContainsString('regression_detected', implode(' ', $result['reasons']));
+    }
+
+    public function test_repair_regression_beats_create(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'regression_detected' => true,
+            'quality_trend' => 'high',
+            'queue_health' => 'healthy',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_REPAIR_REGRESSION, $result['stop_go_decision']);
+    }
+
+    public function test_repair_regression_beats_self_heal(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'regression_detected' => true,
+            'malformed_risk' => true,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_REPAIR_REGRESSION, $result['stop_go_decision']);
+    }
+
+    public function test_stale_evidence_returns_hold_for_evidence(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['evidence_freshness_status' => 'stale']));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_HOLD_FOR_EVIDENCE, $result['stop_go_decision']);
+    }
+
+    public function test_low_integration_coverage_returns_hold_for_evidence(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['integration_coverage_percent' => 20.0]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_HOLD_FOR_EVIDENCE, $result['stop_go_decision']);
+    }
+
+    public function test_lease_leak_returns_self_heal_queue(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['lease_leak' => true]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE, $result['stop_go_decision']);
+        $this->assertStringContainsString('lease_leak', implode(' ', $result['reasons']));
+    }
+
+    public function test_low_value_backlog_returns_drain_existing_queue(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['low_value_backlog' => true]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_DRAIN_EXISTING_QUEUE, $result['stop_go_decision']);
+        $this->assertStringContainsString('low_value_backlog', implode(' ', $result['reasons']));
+    }
+
+    public function test_hold_for_evidence_has_stop_signal(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['evidence_freshness_status' => 'stale']));
+
+        $this->assertSame('stop', $result['stop_go_signal']);
+    }
+
+    public function test_repair_regression_has_stop_signal(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['regression_detected' => true]));
+
+        $this->assertSame('stop', $result['stop_go_signal']);
+    }
+
+    public function test_hold_for_evidence_next_action_is_hold(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['evidence_freshness_status' => 'stale']));
+
+        $this->assertStringContainsString('hold', $result['next_action']);
+    }
+
+    public function test_repair_regression_next_action_is_repair(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['regression_detected' => true]));
+
+        $this->assertStringContainsString('repair', $result['next_action']);
     }
 }

@@ -36,6 +36,8 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
     public const SCHEMA = 'atlas.external_brain.control_plane_stop_go_bridge.v1';
 
     public const DECISION_SELF_HEAL_QUEUE      = 'self_heal_queue';
+    public const DECISION_REPAIR_REGRESSION    = 'repair_regression';
+    public const DECISION_HOLD_FOR_EVIDENCE    = 'hold_for_evidence';
     public const DECISION_RUN_CONSOLIDATION    = 'run_consolidation';
     public const DECISION_DRAIN_EXISTING_QUEUE = 'drain_existing_queue';
     public const DECISION_ESCALATE_AMBITION    = 'escalate_ambition';
@@ -64,6 +66,9 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         $giveBackPressure = (string) ($input['give_back_pressure'] ?? 'low');
         $forceConsolidate = (bool)   ($input['force_consolidation'] ?? false);
         $forceDrain       = (bool)   ($input['force_drain']         ?? false);
+        $regressionDetected = (bool) ($input['regression_detected']  ?? false);
+        $lowValueBacklog  = (bool)   ($input['low_value_backlog']   ?? false);
+        $leaseLeak        = (bool)   ($input['lease_leak']          ?? false);
 
         $finalReadinessPercent    = max(0.0, min(100.0, (float) ($input['final_readiness_percent']    ?? 100.0)));
         $integrationCoverage      = max(0.0, min(100.0, (float) ($input['integration_coverage_percent'] ?? 100.0)));
@@ -84,6 +89,7 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
             $forceConsolidate, $forceDrain,
             $evidenceFreshnessStatus, $integrationCoverage, $final95GapCount,
             $unexploredSurfaceCount, $highValueCandidateCount, $exhaustedSurfaceProof,
+            $regressionDetected, $lowValueBacklog, $leaseLeak,
         );
 
         return [
@@ -117,7 +123,20 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         int    $unexploredSurfaceCount,
         int    $highValueCandidateCount,
         bool   $exhaustedSurfaceProof,
+        bool   $regressionDetected,
+        bool   $lowValueBacklog,
+        bool   $leaseLeak,
     ): array {
+        // 0. REPAIR_REGRESSION — regressions are fixed before anything else
+        if ($regressionDetected) {
+            return [self::DECISION_REPAIR_REGRESSION, ['regression_detected:true']];
+        }
+
+        // 0a. LEASE_LEAK — treat like malformed risk (self-heal)
+        if ($leaseLeak) {
+            return [self::DECISION_SELF_HEAL_QUEUE, ['lease_leak:true']];
+        }
+
         // 1. SELF_HEAL_QUEUE — safety net first
         $healReasons = [];
         if ($malformedRisk) {
@@ -141,20 +160,26 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
             return [self::DECISION_DRAIN_EXISTING_QUEUE, ['upstream_decision:drain']];
         }
 
-        // 2. RUN_CONSOLIDATION — quality or sprawl degradation, or stale evidence / weak integration
-        //    coverage (a claim of readiness is not credible without fresh, well-integrated proof).
+        // 1b. HOLD_FOR_EVIDENCE — stale evidence or low integration coverage
+        if ($evidenceFreshnessStatus === 'stale') {
+            return [self::DECISION_HOLD_FOR_EVIDENCE, ['evidence_freshness_status:stale']];
+        }
+        if ($integrationCoverage < self::WEAK_INTEGRATION_COVERAGE_FLOOR) {
+            return [self::DECISION_HOLD_FOR_EVIDENCE, [sprintf('integration_coverage_percent:%.2f<%.2f', $integrationCoverage, self::WEAK_INTEGRATION_COVERAGE_FLOOR)]];
+        }
+
+        // 1c. LOW_VALUE_BACKLOG — drain when backlog is low-value
+        if ($lowValueBacklog) {
+            return [self::DECISION_DRAIN_EXISTING_QUEUE, ['low_value_backlog:true']];
+        }
+
+        // 2. RUN_CONSOLIDATION — quality or sprawl degradation
         $consolidateReasons = [];
         if ($qualityTrend === 'low') {
             $consolidateReasons[] = 'quality_trend:low';
         }
         if ($sprawlPressure === 'high') {
             $consolidateReasons[] = 'sprawl_pressure:high';
-        }
-        if ($evidenceFreshnessStatus === 'stale') {
-            $consolidateReasons[] = 'evidence_freshness_status:stale';
-        }
-        if ($integrationCoverage < self::WEAK_INTEGRATION_COVERAGE_FLOOR) {
-            $consolidateReasons[] = sprintf('integration_coverage_percent:%.2f<%.2f', $integrationCoverage, self::WEAK_INTEGRATION_COVERAGE_FLOOR);
         }
         if ($consolidateReasons !== []) {
             return [self::DECISION_RUN_CONSOLIDATION, $consolidateReasons];
@@ -250,6 +275,8 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
     {
         return match ($decision) {
             self::DECISION_SELF_HEAL_QUEUE,
+            self::DECISION_REPAIR_REGRESSION,
+            self::DECISION_HOLD_FOR_EVIDENCE,
             self::DECISION_RUN_CONSOLIDATION    => 'stop',
             self::DECISION_DRAIN_EXISTING_QUEUE => 'watch',
             self::DECISION_ESCALATE_AMBITION,
@@ -262,6 +289,8 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
     {
         return match ($decision) {
             self::DECISION_SELF_HEAL_QUEUE      => 'self_heal_queue_before_creating',
+            self::DECISION_REPAIR_REGRESSION    => 'repair_regression_before_proceeding',
+            self::DECISION_HOLD_FOR_EVIDENCE    => 'hold_for_fresh_evidence_before_go',
             self::DECISION_RUN_CONSOLIDATION    => 'consolidate_existing_tasks',
             self::DECISION_DRAIN_EXISTING_QUEUE => 'consolidate_existing_tasks',
             self::DECISION_ESCALATE_AMBITION,
