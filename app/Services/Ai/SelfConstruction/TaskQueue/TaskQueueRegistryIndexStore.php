@@ -46,15 +46,44 @@ final class TaskQueueRegistryIndexStore
     public function registerInRegistry(array $record): void
     {
         $registry = $this->loadRegistry();
-        $registry['entries'][] = [
-            'task_packet_id' => (string) ($record['task_packet_id'] ?? ''),
-            'task_packet_hash' => (string) ($record['task_packet_hash'] ?? ''),
-            'enqueued_at' => (string) ($record['enqueued_at'] ?? ''),
-            'updated_at' => (string) ($record['updated_at'] ?? ''),
-            'status' => (string) ($record['status'] ?? ''),
-            'priority' => (int) ($record['priority'] ?? 0),
-            'tags' => (array) ($record['tags'] ?? []),
-        ];
+        $entries = (array) ($registry['entries'] ?? []);
+
+        $packetId = (string) ($record['task_packet_id'] ?? '');
+        $packetHash = (string) ($record['task_packet_hash'] ?? '');
+
+        // Deduplicate: if an equivalent record (same task_packet_id AND same
+        // task_packet_hash) already exists, update it in place instead of
+        // appending a duplicate. This keeps the registry deterministic under
+        // repeated task replenishment.
+        $found = false;
+        foreach ($entries as $i => $entry) {
+            if (
+                (string) ($entry['task_packet_id'] ?? '') === $packetId
+                && (string) ($entry['task_packet_hash'] ?? '') === $packetHash
+            ) {
+                $entries[$i]['enqueued_at'] = (string) ($record['enqueued_at'] ?? $entry['enqueued_at'] ?? '');
+                $entries[$i]['updated_at'] = (string) ($record['updated_at'] ?? $entry['updated_at'] ?? '');
+                $entries[$i]['status'] = (string) ($record['status'] ?? $entry['status'] ?? '');
+                $entries[$i]['priority'] = (int) ($record['priority'] ?? $entry['priority'] ?? 0);
+                $entries[$i]['tags'] = (array) ($record['tags'] ?? $entry['tags'] ?? []);
+                $found = true;
+                break;
+            }
+        }
+
+        if (! $found) {
+            $entries[] = [
+                'task_packet_id' => $packetId,
+                'task_packet_hash' => $packetHash,
+                'enqueued_at' => (string) ($record['enqueued_at'] ?? ''),
+                'updated_at' => (string) ($record['updated_at'] ?? ''),
+                'status' => (string) ($record['status'] ?? ''),
+                'priority' => (int) ($record['priority'] ?? 0),
+                'tags' => (array) ($record['tags'] ?? []),
+            ];
+        }
+
+        $registry['entries'] = $entries;
         $registry = $this->capRegistry($registry, 200);
         $this->saveRegistry($registry);
     }
