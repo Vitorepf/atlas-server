@@ -106,6 +106,17 @@ final class AtlasProjectLaneContextFreshnessGateTest extends TestCase
         $this->assertContains('project_id_missing', $verdict['blockers']);
     }
 
+    public function test_missing_now_unix_blocks_conformant(): void
+    {
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate(
+            ['project_id' => 'lane-x', 'freshness_window_seconds' => ['docs_sync' => 3600, 'code_index' => 3600, 'context_pack' => 600]],
+            ['docs_sync_last_unix' => 100, 'code_index_last_unix' => 100, 'context_pack_hash' => 'h', 'context_pack_last_unix' => 100]
+        );
+
+        $this->assertFalse($verdict['conformant']);
+        $this->assertContains('now_unix_missing', $verdict['blockers']);
+    }
+
     public function test_invalid_freshness_window_blocks_conformant(): void
     {
         $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate(

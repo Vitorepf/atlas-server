@@ -62,6 +62,13 @@ final class AtlasProjectLaneContextFreshnessGate
         $windows = $this->normalizeWindows($manifest['freshness_window_seconds'] ?? null);
         $blockers = [];
 
+        // The gate clock must be a positive time reference — missing or non-positive
+        // now_unix makes every staleness check compute a negative age that can never
+        // exceed the window, reporting stale sources as fresh.
+        if ($now <= 0) {
+            $blockers[] = 'now_unix_missing';
+        }
+
         // project_id must be present and non-empty.
         $projectId = (string) ($manifest['project_id'] ?? '');
         if ($projectId === '') {
