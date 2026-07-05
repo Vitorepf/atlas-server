@@ -115,8 +115,13 @@ final class OperatorEvidenceFieldInspector
      * @param  array<string, mixed>  $realProviderSmoke
      * @return array<string, string>
      */
-    public static function humanContextFromOptions(array $options, array $runtimeGapMatrix, array $runtimeReceipt, array $realProviderSmoke, array $completionAudit): array
-    {
+    public static function humanContextFromOptions(
+        array $options,
+        array $runtimeGapMatrix,
+        array $runtimeReceipt,
+        array $realProviderSmoke,
+        array $completionAudit,
+    ): array {
         $explicitContext = (array) ($options['human_completion_receipt_context'] ?? []);
         $humanTemplate = (array) data_get($completionAudit, 'operator_action_packet.human_completion_receipt_template', []);
 
@@ -128,6 +133,118 @@ final class OperatorEvidenceFieldInspector
             'runtime_promotion_receipt_hash' => (string) ($explicitContext['runtime_promotion_receipt_hash'] ?? data_get($runtimeReceipt, 'receipt_hash', '')),
             'real_provider_smoke_hash' => (string) ($explicitContext['real_provider_smoke_hash'] ?? data_get($realProviderSmoke, 'smoke_hash', '')),
             'certification_status_batch_hash' => (string) ($explicitContext['certification_status_batch_hash'] ?? data_get($humanTemplate, 'certification_status_batch_hash', '')),
+        ];
+    }
+
+    /**
+     * Classify a single evidence field by path, returning a structured record with
+     * classification, severity, reason, and repair action.
+     *
+     * @param  string  $fieldPath   dot-notation path (e.g. "provider_run_id" or "smoke.receipt_hash")
+     * @param  mixed   $value       the field value
+     * @param  array<string, mixed>  $context   { max_age_seconds?: int, ts?: string, required_proof_fields?: list<string> }
+     * @return array{field:string, classification:string, severity:string, reason:string, repair:string}
+     */
+    public static function inspectEvidenceField(string $fieldPath, mixed $value, array $context = []): array
+    {
+        $classification = 'valid';
+        $severity = 'info';
+        $reason = '';
+        $repair = '';
+
+        $requiredProofFields = array_map('strval', (array) ($context['required_proof_fields'] ?? []));
+
+        // 1. Missing / empty value.
+        if ($value === null || (is_string($value) && trim($value) === '')) {
+            if (in_array($fieldPath, $requiredProofFields, true)) {
+                return [
+                    'field' => $fieldPath,
+                    'classification' => 'missing_required_proof',
+                    'severity' => 'error',
+                    'reason' => "Required proof field '{$fieldPath}' is empty",
+                    'repair' => "Provide a real {$fieldPath} value from the provider evidence",
+                ];
+            }
+
+            return [
+                'field' => $fieldPath,
+                'classification' => 'empty_optional',
+                'severity' => 'warning',
+                'reason' => "Field '{$fieldPath}' is empty",
+                'repair' => 'Either provide a value or explicitly mark as optional',
+            ];
+        }
+
+        $valueStr = is_string($value) ? $value : (is_scalar($value) ? (string) $value : '');
+
+        // 2. Placeholder / self-declared.
+        if (self::isPlaceholderValue($valueStr)) {
+            return [
+                'field' => $fieldPath,
+                'classification' => 'placeholder_or_self_declared',
+                'severity' => 'error',
+                'reason' => "Field '{$fieldPath}' contains placeholder or self-declared value: '{$valueStr}'",
+                'repair' => "Replace the placeholder '{$valueStr}' with a real value from provider evidence",
+            ];
+        }
+
+        // 3. Secret-like.
+        if (self::isSecretLike($valueStr)) {
+            return [
+                'field' => $fieldPath,
+                'classification' => 'secret_like',
+                'severity' => 'error',
+                'reason' => "Field '{$fieldPath}' contains secret-like content",
+                'repair' => "Redact or hash the secret value in '{$fieldPath}' before submission",
+            ];
+        }
+
+        // 4. Stale timestamp.
+        $maxAgeSeconds = (int) ($context['max_age_seconds'] ?? 0);
+        if ($maxAgeSeconds > 0 && isset($context['ts'])) {
+            $tsStr = (string) ($context['ts']);
+            $tsInt = is_numeric($tsStr) ? (int) $tsStr : 0;
+            if ($tsInt > 0 && (time() - $tsInt) > $maxAgeSeconds) {
+                return [
+                    'field' => $fieldPath,
+                    'classification' => 'stale_timestamp',
+                    'severity' => 'warning',
+                    'reason' => "Field '{$fieldPath}' timestamp is older than {$maxAgeSeconds}s",
+                    'repair' => 'Refresh the evidence to obtain a current timestamp',
+                ];
+            }
+        }
+
+        // 5. Proof-bearing field (required proof field with a value) — checked
+        //    BEFORE volatile so a required proof field that is also a hash/_id
+        //    suffix classifies as proof_bearing, not volatile.
+        if (in_array($fieldPath, $requiredProofFields, true)) {
+            return [
+                'field' => $fieldPath,
+                'classification' => 'proof_bearing',
+                'severity' => 'info',
+                'reason' => "Field '{$fieldPath}' carries a required proof value",
+                'repair' => '',
+            ];
+        }
+
+        // 6. Volatile field — /_hash or /_id suffix means it references mutable state.
+        if (str_ends_with($fieldPath, '_hash') || str_ends_with($fieldPath, '_id')) {
+            return [
+                'field' => $fieldPath,
+                'classification' => 'volatile',
+                'severity' => 'info',
+                'reason' => "Field '{$fieldPath}' is a volatile debt reference that may change",
+                'repair' => "Verify that '{$fieldPath}' still matches the current evidence before submission",
+            ];
+        }
+
+        return [
+            'field' => $fieldPath,
+            'classification' => $classification,
+            'severity' => $severity,
+            'reason' => $reason,
+            'repair' => $repair,
         ];
     }
 

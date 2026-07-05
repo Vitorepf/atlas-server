@@ -146,4 +146,141 @@ class OperatorEvidenceFieldInspectorTest extends TestCase
             'a' => ['b' => 'real-sha256-hash-abcdef123456'],
         ]));
     }
+
+    // --- inspectEvidenceField structured output -----------------------
+
+    public function test_inspect_evidence_field_missing_required_proof(): void
+    {
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField(
+            'provider_run_id',
+            '',
+            ['required_proof_fields' => ['provider_run_id']],
+        );
+
+        self::assertSame('missing_required_proof', $result['classification']);
+        self::assertSame('error', $result['severity']);
+        self::assertArrayHasKey('field', $result);
+        self::assertArrayHasKey('reason', $result);
+        self::assertArrayHasKey('repair', $result);
+    }
+
+    public function test_inspect_evidence_field_placeholder(): void
+    {
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField(
+            'provider_run_id',
+            '<placeholder>',
+        );
+
+        self::assertSame('placeholder_or_self_declared', $result['classification']);
+        self::assertSame('error', $result['severity']);
+    }
+
+    public function test_inspect_evidence_field_self_declared(): void
+    {
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField(
+            'approval_reason',
+            'fake-approval',
+        );
+
+        self::assertSame('placeholder_or_self_declared', $result['classification']);
+        self::assertSame('error', $result['severity']);
+    }
+
+    public function test_inspect_evidence_field_secret_like(): void
+    {
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField(
+            'api_key_plaintext',
+            'API_KEY=sk-abc123',
+        );
+
+        self::assertSame('secret_like', $result['classification']);
+        self::assertSame('error', $result['severity']);
+    }
+
+    public function test_inspect_evidence_field_stale_timestamp(): void
+    {
+        $oldTs = time() - 7_200; // 2 hours ago
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField(
+            'evidence_ts',
+            'some-value',
+            ['max_age_seconds' => 3_600, 'ts' => (string) $oldTs],
+        );
+
+        self::assertSame('stale_timestamp', $result['classification']);
+        self::assertSame('warning', $result['severity']);
+        self::assertStringContainsString('older than', $result['reason']);
+    }
+
+    public function test_inspect_evidence_field_fresh_timestamp_no_stale(): void
+    {
+        $now = time();
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField(
+            'evidence_ts',
+            'some-value',
+            ['max_age_seconds' => 3_600, 'ts' => (string) $now],
+        );
+
+        self::assertNotSame('stale_timestamp', $result['classification']);
+    }
+
+    public function test_inspect_evidence_field_proof_bearing(): void
+    {
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField(
+            'provider_response_hash',
+            'abc123def456',
+            ['required_proof_fields' => ['provider_response_hash']],
+        );
+
+        self::assertSame('proof_bearing', $result['classification']);
+        self::assertSame('info', $result['severity']);
+    }
+
+    public function test_inspect_evidence_field_volatile_hash_suffix(): void
+    {
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField(
+            'evidence_ledger_hash',
+            'real-hash-xyz',
+        );
+
+        self::assertSame('volatile', $result['classification']);
+        self::assertSame('info', $result['severity']);
+    }
+
+    public function test_inspect_evidence_field_valid_value(): void
+    {
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField(
+            'operator_name',
+            'João da Silva',
+        );
+
+        self::assertSame('valid', $result['classification']);
+        self::assertSame('info', $result['severity']);
+        self::assertSame('', $result['repair']);
+    }
+
+    public function test_inspect_evidence_field_empty_optional(): void
+    {
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField(
+            'optional_field',
+            '',
+        );
+
+        self::assertSame('empty_optional', $result['classification']);
+        self::assertSame('warning', $result['severity']);
+    }
+
+    public function test_inspect_evidence_field_return_shape(): void
+    {
+        $result = OperatorEvidenceFieldInspector::inspectEvidenceField('test_field', 'real-value');
+
+        self::assertArrayHasKey('field', $result);
+        self::assertArrayHasKey('classification', $result);
+        self::assertArrayHasKey('severity', $result);
+        self::assertArrayHasKey('reason', $result);
+        self::assertArrayHasKey('repair', $result);
+        self::assertIsString($result['classification']);
+        self::assertIsString($result['severity']);
+        self::assertIsString($result['reason']);
+        self::assertIsString($result['repair']);
+    }
 }
