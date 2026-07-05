@@ -104,4 +104,44 @@ class MultivariateBattlePlanTest extends TestCase
         $recommendedFlaws = $plan['recommended']['structural_flaws'] ?? [];
         $this->assertEmpty($recommendedFlaws, 'Recommended variant must have no structural flaws.');
     }
+
+    public function test_structurally_flawed_top_scorer_loses_to_clean_lower_scorer(): void
+    {
+        // Directly test the recommend() filter: a top-score variant with
+        // non-empty structural_flaws must NOT be the winner — the lower-score
+        // clean variant should be returned instead.
+        $plan = new MultivariateBattlePlan;
+
+        $variants = [
+            [
+                'variant_id' => 'v1',
+                'axes' => ['angle' => 'hidden_cause', 'hook' => 'hook_callout_specific', 'awareness' => 'problem_aware'],
+                'overall_score' => 95,
+                'grade' => 'killer',
+                'hollowness' => 10,
+                'hollowness_grade' => 'solid',
+                'flagged' => false,
+                'structural_flaws' => ['reveal_leak'],
+                'decision_flaws' => [],
+            ],
+            [
+                'variant_id' => 'v2',
+                'axes' => ['angle' => 'common_enemy', 'hook' => 'hook_warning', 'awareness' => 'problem_aware'],
+                'overall_score' => 72,
+                'grade' => 'strong',
+                'hollowness' => 10,
+                'hollowness_grade' => 'solid',
+                'flagged' => false,
+                'structural_flaws' => [],
+                'decision_flaws' => [],
+            ],
+        ];
+
+        $ref = new \ReflectionMethod($plan, 'recommend');
+        $winner = $ref->invoke($plan, $variants);
+
+        $this->assertNotNull($winner);
+        $this->assertSame('v2', $winner['variant_id']);
+        $this->assertEmpty($winner['structural_flaws']);
+    }
 }
