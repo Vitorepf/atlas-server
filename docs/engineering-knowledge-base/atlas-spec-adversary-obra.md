@@ -2,11 +2,35 @@
 id: atlas-spec-adversary-obra
 type: obra_spec
 title: "Obra #2 — Spec-Adversary + Deterministic Freeze Floor (fidelity-OF-spec)"
-status: proposed
+doc_schema: atlas_canonical_module_doc.v1
+status: active
+implementation_state: runtime_available
 priority: 990
 category: engineering-delivery-floor
 owner: atlas-ai
 canonical_source: docs/engineering-knowledge-base/atlas-spec-adversary-obra.md
+tags:
+  - atlas-ai
+  - engineering-kernel
+  - spec-adversary
+  - freeze-floor
+capabilities:
+  - spec_adversary
+  - deterministic_freeze_floor
+  - frozen_hash_binding
+decisions:
+  - Spec freeze depende de piso deterministico provider-free.
+  - Modelo pode levantar contestacao, mas nao sela freeze.
+  - Frozen hash deve ser computado sobre criterios reais canonizados.
+maintenance:
+  - Atualizar quando SpecComposer, IntentActionExtractor, EngineeringKernel/Spec ou freeze flow mudarem.
+  - Nao tratar esta spec como runtime entregue sem codigo, testes e receipts.
+related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - app/Services/Ai/EngineeringKernel
+  - app/Services/Ai/Programming/AtlasDev/Pipeline
+  - app/Services/Ai/Programming/AtlasDev/Pipeline/IntentActionExtractor.php
+  - docs/engineering-knowledge-base/atlas-sovereign-acceptance-gate-obra.md
 depends_on:
   - atlas-sovereign-acceptance-gate-obra
 summary: >
@@ -22,11 +46,123 @@ human_summary: >
 requires_evidence: true
 risk_level: high
 grounded_by: design-obra2-spec-adversary workflow (4 ground + 2 adversarial-critique agents, file:line)
+graph_id: atlas-spec-adversary-obra
+graph_title: Spec Adversary Obra
+graph_world: atlas
+graph_layer: module
+graph_kind: runbook
+graph_parent: atlas-sovereign-acceptance-gate-obra
+graph_status: active
+graph_source: repo
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-spec-adversary-obra.md
+  - app/Services/Ai/EngineeringKernel
+allowed_changes:
+  - Refinar contrato, slices e evidencias da Obra #2.
+  - Atualizar paths quando SpecAdversary, SpecComposer ou freeze flow mudarem.
+forbidden_changes:
+  - Declarar runtime entregue sem codigo, testes verdes e receipts.
+  - Permitir que modelo sele freeze ou que provider ausente vire freeze.
+flows_to:
+  - engineering-kernel-spec-freeze
+  - acceptance-gate-certification
+unlocks:
+  - deterministic-spec-freeze-floor
+  - frozen-hash-binding
+governs:
+  - spec-adversary
+  - spec-freeze
+evidence:
+  - docs/engineering-knowledge-base/atlas-spec-adversary-obra.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+  - php artisan atlas:documentation:enforce --task="manter doc canonica da Obra #2 spec adversary" --feature="spec adversary freeze floor" --strict --json
+next_actions:
+  - Runtime entregue em 2026-07-04 (S0-S7, 335ac4b9ed..74b739d96c); manter floor, oracle e advisor sob os testes de tests/Unit/Ai/EngineeringKernel/Spec.
+  - Manter esta spec alinhada com AcceptanceGate, SpecComposer e EngineeringKernel.
 ---
 
 # Obra #2 — Spec-Adversary + Deterministic Freeze Floor
 
 > Contrato inviolável que esta obra instala: **ninguém CONGELA uma spec antes de `contest()` passar, e `contest()` só sela FREEZE por prova determinística que um modelo não consegue conversar pra passar.** A Obra #1 matou o fake-green da execução; se a spec estiver confiantemente errada, a Obra #1 sela um green perfeito sobre lixo. Esta obra fecha essa porta.
+
+## Resumo
+
+Spec canônica da Obra #2: instalar `SpecAdversary` e freeze floor determinístico
+para provar fidelidade da spec antes que ela vire contrato congelado.
+
+## Papel no Atlas
+
+Fecha a metade epistêmica que a Obra #1 não cobre: não basta a implementação
+bater com a spec; a spec precisa resistir a contestação determinística.
+
+## Onde Se Encaixa
+
+Filha da Obra #1 e parte do `EngineeringKernel/Spec`. O resultado alimenta
+`AcceptanceGate` com critérios congelados e hash realmente ligado ao conteúdo.
+
+## Contratos
+
+- `contest()` é o único caminho de freeze.
+- Authority de freeze vem de pisos determinísticos provider-free.
+- Modelo só levanta contestação; concordância não sela freeze.
+
+## Fluxo
+
+Draft + intent + lane entram no `SpecAdversary`; o floor puro valida hash,
+discriminação, oracle adequacy, verb fidelity e ambiguity; o advisor assíncrono
+só pode elevar contestação; saída é `SpecVerdict`.
+
+## Regras para IA
+
+- Runtime entregue em 2026-07-04 (S0-S7 na main, 335ac4b9ed..74b739d96c); mudanças no piso/oracle só via obra com freeze.
+- Nao dar crédito positivo de freeze a modelo.
+- Nao aceitar spec verde contra no-op.
+
+## Escopo de Implementacao
+
+Criar contratos, canonicalize/hash-binding, oracle no-op, adapter de spec,
+produtor de ambiguidade, advisor contest-only, wiring no freeze e corpus dourado.
+
+**Entregue em 2026-07-04, na main, por slice:** S0+S1 contrato + hash-binding
+(`335ac4b9ed`), S2 `SovereignSpecFloor` + oracle no-op (`9fd7fc108d`), S3 oracle
+real via `WorkcellExecutor` + `AtlasSpecGateAdapter` (`7f2c722292`), S4 produtor
+determinístico de ambiguidade + roteamento de clarificação (`cc7465ff5e`), S5
+shadow advisor cross-family três-estados (`d1f5b73cb2`), S6/dogfood oracle
+default fail-closed + adapter resolvível (`1396748c99`), S7 recibo selado +
+corpus dourado known-bad/known-good (`74b739d96c`). Runtime: 22 classes em
+`app/Services/Ai/EngineeringKernel/Spec/`; wiring vivo em
+`AtlasDevFastPathOrchestrator.php` (construtor l.76, `contest()` l.175) e
+`ForgeObraCertificationService.php` (l.46-56, `contestSddSpec()`).
+
+## Dependencias
+
+- Obra #1 `AcceptanceGate`.
+- `SpecComposer`, `IntentActionExtractor` e `WorkcellExecutor`.
+- Governance wiper-safe para testes.
+
+## Evidencias
+
+- Este doc.
+- Corpus dourado known-bad/known-good em `tests/Unit/Ai/EngineeringKernel/Spec/SpecAdversaryGoldenCorpusTest.php`.
+- Testes de contrato e dogfood em `tests/Unit/Ai/EngineeringKernel/Spec/` (`SpecAdversaryContractTest.php`, `Obra2DogfoodTest.php`, `SovereignSpecFloorTest.php`, `WorkcellSpecOracleTest.php`, `SpecAmbiguityRoutingTest.php`, `SpecShadowAdvisorTest.php`).
+- Receipts de freeze com provenance e frozen_hash.
+
+## Riscos
+
+- Recriar fake-green na camada de spec.
+- Provider ausente virar fail-open.
+- Usar contagem de asserts como proxy de discriminação real.
+
+## Exemplos
+
+Uma spec tautológica que fica verde contra no-op deve retornar `refuse` ou
+`revise`, nunca `freeze`.
+
+## Proximas Acoes
+
+- Runtime entregue em 2026-07-04 (S0-S7 na main, `335ac4b9ed`..`74b739d96c`); nada a implementar para ativar.
+- Manter floor, oracle, advisor e corpus dourado sob os testes de `tests/Unit/Ai/EngineeringKernel/Spec/`; mudanças no piso/oracle só via obra com freeze.
 
 ## 0. Por que esta é a Obra #2 (a metade que falta)
 
