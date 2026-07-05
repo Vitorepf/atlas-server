@@ -195,6 +195,7 @@ final class AtlasExternalBrainControlPlaneSnapshot
             ),
             'task_quality_drift'       => $taskQualityDrift,
             'learning_freshness'       => $learningFreshness,
+            'evidence_freshness'       => $this->computeEvidenceFreshness($inputs, $learningFreshness),
             'blocked_debt'             => $blockedDebt,
             'next_originator_action'    => $nextOriginatorAction,
             'compression_wave'         => $inputs['compression_wave'] ?? null,
@@ -452,6 +453,53 @@ final class AtlasExternalBrainControlPlaneSnapshot
         }
 
         return ['status' => 'stale', 'reason' => 'low_success_rate'];
+    }
+
+    /**
+     * Compute evidence freshness: a top-level lens combining learning freshness
+     * with audit and queue signals. Missing or stale evidence lowers the quality
+     * band and cannot produce a go recommendation by default.
+     *
+     * @param  array<string,mixed>  $inputs
+     * @param  array{status: string, reason: string}  $learningFreshness
+     * @return array{status: string, quality_band: string, can_produce_go: bool, stale_signals: list<string>}
+     */
+    private function computeEvidenceFreshness(array $inputs, array $learningFreshness): array
+    {
+        $staleSignals = [];
+        $qualityBand = 'good';
+
+        if ($learningFreshness['status'] !== 'fresh') {
+            $staleSignals[] = 'learning_freshness:'.$learningFreshness['status'];
+            $qualityBand = 'degraded';
+        }
+
+        $auditVerdict = (string) ($inputs['audit_result']['verdict'] ?? 'unknown');
+        if ($auditVerdict !== 'pass') {
+            $staleSignals[] = 'audit_verdict:'.$auditVerdict;
+            if ($auditVerdict === 'reject') {
+                $qualityBand = 'blocked';
+            } elseif ($qualityBand !== 'blocked') {
+                $qualityBand = 'degraded';
+            }
+        }
+
+        $queueStatus = (string) ($inputs['queue_health']['status'] ?? 'unknown');
+        if ($queueStatus !== 'healthy' && $queueStatus !== 'unknown') {
+            $staleSignals[] = 'queue_health:'.$queueStatus;
+            if ($qualityBand !== 'blocked') {
+                $qualityBand = 'degraded';
+            }
+        }
+
+        $canProduceGo = $qualityBand === 'good' && $staleSignals === [];
+
+        return [
+            'status' => $qualityBand,
+            'quality_band' => $qualityBand,
+            'can_produce_go' => $canProduceGo,
+            'stale_signals' => $staleSignals,
+        ];
     }
 
     /**

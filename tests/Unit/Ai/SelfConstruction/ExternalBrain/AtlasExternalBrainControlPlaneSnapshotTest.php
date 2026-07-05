@@ -532,4 +532,109 @@ final class AtlasExternalBrainControlPlaneSnapshotTest extends TestCase
         $result = $this->snap()->snapshot($this->healthyInputs());
         $this->assertSame('monitor', $result['next_originator_action']['action']);
     }
+
+    // ── AC: snapshot exposes all required top-level lenses ──────────────────
+
+    public function test_snapshot_exposes_all_required_top_level_lenses(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+
+        foreach (['queue_health', 'worker_state', 'maturity_gaps', 'risk', 'quality', 'evidence_freshness', 'recommended_decision'] as $lens) {
+            $this->assertArrayHasKey($lens, $result, "Missing top-level lens: {$lens}");
+        }
+    }
+
+    // ── AC: missing or stale evidence lowers quality band and cannot produce go ──
+
+    public function test_evidence_freshness_can_produce_go_when_healthy(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+
+        $this->assertTrue($result['evidence_freshness']['can_produce_go']);
+        $this->assertSame('good', $result['evidence_freshness']['quality_band']);
+    }
+
+    public function test_evidence_freshness_cannot_produce_go_when_ledger_missing(): void
+    {
+        $inputs = $this->healthyInputs();
+        unset($inputs['ledger_summary']);
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertFalse($result['evidence_freshness']['can_produce_go']);
+        $this->assertNotSame('good', $result['evidence_freshness']['quality_band']);
+    }
+
+    public function test_evidence_freshness_cannot_produce_go_when_audit_reject(): void
+    {
+        $inputs = $this->healthyInputs();
+        $inputs['audit_result'] = ['verdict' => 'reject', 'findings' => []];
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertFalse($result['evidence_freshness']['can_produce_go']);
+        $this->assertSame('blocked', $result['evidence_freshness']['quality_band']);
+    }
+
+    public function test_evidence_freshness_cannot_produce_go_when_queue_stalled(): void
+    {
+        $inputs = $this->healthyInputs();
+        $inputs['queue_health'] = ['status' => 'stalled'];
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertFalse($result['evidence_freshness']['can_produce_go']);
+    }
+
+    public function test_evidence_freshness_stale_signals_populated_when_degraded(): void
+    {
+        $inputs = $this->healthyInputs();
+        $inputs['queue_health'] = ['status' => 'degraded'];
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertNotEmpty($result['evidence_freshness']['stale_signals']);
+    }
+
+    // ── AC: recommended_decision is deterministic for complete healthy snapshot ──
+
+    public function test_healthy_snapshot_recommended_decision_is_create_more_tasks(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+
+        $this->assertSame('create_more_tasks', $result['recommended_decision']);
+    }
+
+    public function test_stale_evidence_snapshot_recommended_decision_not_go(): void
+    {
+        $inputs = $this->healthyInputs();
+        $inputs['ledger_summary'] = null;
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertNotSame('create_more_tasks', $result['recommended_decision']);
+    }
+
+    // ── AC: missing worker/queue facts produce deterministic recommended decisions ──
+
+    public function test_missing_queue_facts_produce_deterministic_decision(): void
+    {
+        $inputs = $this->healthyInputs();
+        unset($inputs['queue_health']);
+        $a = $this->snap()->snapshot($inputs);
+        $b = $this->snap()->snapshot($inputs);
+
+        $this->assertSame($a['recommended_decision'], $b['recommended_decision']);
+    }
+
+    public function test_missing_worker_facts_produce_unknown_worker_state(): void
+    {
+        $inputs = $this->healthyInputs();
+        unset($inputs['worker_state']);
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertSame('unknown', $result['worker_state']);
+    }
+
+    public function test_empty_inputs_recommended_decision_not_create_more(): void
+    {
+        $result = $this->snap()->snapshot([]);
+
+        $this->assertNotSame('create_more_tasks', $result['recommended_decision']);
+    }
 }
