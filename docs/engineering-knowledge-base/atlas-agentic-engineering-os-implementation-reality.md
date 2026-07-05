@@ -25,7 +25,7 @@ decisions:
   - Claims de pronto precisam apontar para codigo, comando, teste, receipt, evidence ledger ou blocker explicito.
 maintenance:
   - Atualizar quando AAEOS, Dev, Forge, Stewardship, Evidence, Documentation Reality ou docs-health mudarem.
-  - Manter abaixo de 260 linhas.
+  - Manter abaixo de 320 linhas (teto ampliado 2026-07-05 para a secao Atualizacao; ja estava em 262 antes).
 related_paths:
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
@@ -192,16 +192,56 @@ Esta matriz e documental. Ela nao promove runtime sozinha.
 | Runbook 17 fases | DOC L4 | Canonico; cada fase precisa de envelope/receipt para runtime. |
 | HTTP Path Integration | DOC L3 | Spec e facade existem em partes; claim deve declarar fase ativa. |
 | Mission Control Cockpit | DOC L2 | Spec/surface parcial; nao usar como runtime completo sem evidence. |
-| Spec OS / Programming Governance | DOC L3-L4 | Governam mudanca; runtime deve provar gates locais. |
-| Atlas Dev Efficient Flow | DOC L4 | Fluxo bem documentado; patamares altos ainda nao sao todos runtime. |
-| Atlas Forge Continuum / Forge OS | DOC L4 | Forte; precisa usar owner runtime real, nao prompt simples de provider. |
-| Dual-Core Dev/Forge | DOC L4 | Fronteira canonica; eliminar mecanismos paralelos antes de claim perfeito. |
+| Spec OS / Programming Governance | DOC L3-L4 | Governam mudanca; piso de spec soberano e runtime desde 2026-07-04 (22 classes em `app/Services/Ai/EngineeringKernel/Spec/`, 335ac4b9ed..74b739d96c). |
+| Atlas Dev Efficient Flow | DOC L4 | Fluxo bem documentado; AcceptanceGate soberano + SovereignHonestyFloor sao runtime no Dev desde 2026-07-04 (b36244406c); patamares restantes exigem evidence propria. |
+| Atlas Forge Continuum / Forge OS | DOC L4 | Forte; certificacao ForgeObra roda sob o piso soberano de spec, default observe (6f3c327dda, 2026-07-05); owner runtime real segue exigido para claims de execucao. |
+| Dual-Core Dev/Forge | DOC L4 | Fronteira canonica; Dev/Forge/Autonomos convergem no AcceptanceGate soberano via adapters (b36244406c, 17aa692c0e, 3dee8f4a4f); fluxo paralelo WAVE-14 aposentado (5cf196249b, 2026-07-05). |
 | Context / Retrieval / Code Intelligence | DOC L3 | Read models; nao sao fonte autoral primaria. |
-| Evidence Certification | DOC L3 | Receipts fortes; cross-system evidence deve listar refs reais. |
-| Self-Construction OS | DOC L4 | Denso; exige inventario compacto e anti-sprawl antes de expandir. |
-| Stewardship Stack / Loop 24h | DOC L4 | Cadeia AP forte; ciclo real so conta quando merge/evidence dizem merged. |
+| Evidence Certification | DOC L3 | Receipts fortes; CertifierClassificationLedger classifica 66 certifiers (2 A_DELIVERY / 35 B_STATE / 10 C_PARKED / 19 D_ISOLATED; 60d436bba8, 2026-07-05); cross-system evidence deve listar refs reais. |
+| Self-Construction OS | DOC L4 | Denso; anti-sprawl ganhou freio runtime (AtlasTaskDuplicateReuseGate, blocker de classe duplicada) e a serie especulativa L8-L10 foi retirada (8d9ce8c0bd, 2026-07-05). |
+| Stewardship Stack / Loop 24h | DOC L4 | Cadeia AP vive como doc-contrato; a farm de AP workflow (codigo) foi aposentada (7c07b1bc82, 2026-07-01) e a serie Stewardship/AreaFocusLoop esta C_PARKED no ledger; ciclo real so conta quando merge/evidence dizem merged. |
 | TEOS / extreme tiers | DOC L1 | North-star; nunca claim runtime atual. |
 | Rivals / Superiority | DOC L3 benchmark | Mede e compara; nao governa arquitetura nem prova Forge real. |
+
+Nota 2026-07-05: a ultima linha registra o sistema de medicao historico; mantida
+como registro, nao re-medida nesta atualizacao.
+
+## Atualizacao 2026-07-05
+
+Re-verificado nesta data via `git log`, `ls` e `rg` na main (cada hash conferido):
+
+- Obra #1 (2026-07-04, b36244406c): AcceptanceGate + SovereignHonestyFloor em
+  `app/Services/Ai/EngineeringKernel/`; adapters Dev/Forge/Autonomos em
+  `EngineeringKernel/Adapters/` (17aa692c0e, 3dee8f4a4f, ambos 2026-07-05).
+- Obra #2 (2026-07-04, 335ac4b9ed..74b739d96c): 22 classes contadas em
+  `EngineeringKernel/Spec/`, consumidas por `AtlasDevFastPathOrchestrator` e
+  `ForgeObraCertificationService`.
+- Obra #4 (2026-07-05): automerge sob juiz soberano (a4a88b7fa3), RegressionLock
+  (4d29d8725f), replay-proof (72a50f6e75), RepairBrain (e0f44ebda5), flywheel
+  COMPOUND (181e17b5d7); diretorios `RegressionLock/`, `Repair/`, `Compound/`
+  existem no kernel.
+- Obra #5 (2026-07-05): `CertifierClassificationLedger` recontado no arquivo:
+  66 certifiers = 2 A_DELIVERY + 35 B_STATE + 10 C_PARKED + 19 D_ISOLATED
+  (60d436bba8); juizes de entrega Obra/ForgeObra sob o piso soberano, modo
+  observe por default (92abe2bc52 e 6f3c327dda).
+- Limpeza-bruta (2026-07-05): WAVE-14 aposentada (5cf196249b); 13 organs de
+  fluxos mortos removidos, incluindo `EscalationChannelGate` e
+  `ResearchDomainComplianceGate` (26333fec23) — nao citar esses gates como
+  vivos; serie L8-L10 retirada (8d9ce8c0bd) com excecoes `L9Invariant*` vivas.
+- Gate F0 anti-duplicacao vivo e blocker:
+  `app/Services/Ai/SelfConstruction/TaskQuality/AtlasTaskDuplicateReuseGate.php`,
+  consumido por `AtlasTaskServingService`.
+- `evidence_refs` deste doc conferidos vivos: service em
+  `app/Services/Ai/Aaeos/Generated/`, comando com signature
+  `atlas:aaeos:agentic-engineering-os-implementation-reality`, teste em
+  `tests/Unit/Ai/Aaeos/Generated/`; os dois `required_tests` existem como
+  comandos artisan. Os docs AP-786/AP-790 citados em Exemplos existem em
+  `docs/ap/`.
+- Segue como estava (nao re-medido): linhas Knowledge Governance, doc-mae,
+  Contracts, Runbook, HTTP Path, Mission Control, Context/Retrieval, TEOS e a
+  linha historica do sistema de medicao. Mencoes a esse sistema em Riscos e
+  Regras Para IA permanecem como padrao de risco, nao como afirmacao de que ele
+  esta operacional.
 
 ## Dependencias
 
@@ -258,5 +298,7 @@ Sem esses campos, o claim e narrativa, nao evidence.
 
 ## Proximas Acoes
 
-- Fazer docs-health exigir `implementation_state` em docs AAEOS com claim runtime.
-- Alimentar o loop Stewardship com esta classificacao antes de selecionar backlog.
+- Fazer docs-health exigir `implementation_state` em docs AAEOS com claim runtime
+  (re-verificado aberto em 2026-07-05: `rg implementation_state` vazio no tooling).
+- Alimentar o loop Stewardship com esta classificacao antes de selecionar backlog
+  (serie Stewardship/AreaFocusLoop esta C_PARKED aguardando decisao do operador).
