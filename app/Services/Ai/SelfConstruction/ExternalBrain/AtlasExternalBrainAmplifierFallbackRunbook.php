@@ -70,31 +70,123 @@ final class AtlasExternalBrainAmplifierFallbackRunbook
     public const FAILURE_WEAK_OUTPUT_REGRESSION = 'weak_output_regression';
     public const FAILURE_MISSING_CONTEXT       = 'missing_context';
 
-    /** @var array<string,list<string>> */
+    /**
+     * Structured fallback steps. Each step carries:
+     *   trigger                  — what condition activates this step
+     *   command_or_receipt_ref   — the Atlas-native command or receipt reference
+     *   expected_outcome         — what success looks like
+     *   rollback_condition       — when to abandon this step and proceed to the next
+     *
+     * No step depends on a human or paid external provider in steady state.
+     * The final step in each path is an advisory bootstrap audit — never a
+     * blocking human dependency.
+     *
+     * @var array<string,list<array<string,string>>>
+     */
     private const FALLBACK_PATHS = [
         self::FAILURE_PROVIDER_OUTAGE => [
-            'Detect provider_outage via health-check failure on the current provider',
-            'Route to the next Atlas-native provider in the topology (never a permanent human or external dependency)',
-            'Re-run proxy-detector and benchmark gates against the fallback provider output',
-            'Continue steady-state autonomy without pausing task origination',
+            [
+                'trigger'                => 'health_check_failure_on_current_provider',
+                'command_or_receipt_ref' => 'atlas:ai:replay-native --provider=atlas-native',
+                'expected_outcome'       => 'Atlas-native replay completes without external provider dependency',
+                'rollback_condition'     => 'replay fails or output does not pass proxy/benchmark gates',
+            ],
+            [
+                'trigger'                => 'native_replay_unavailable_or_gates_failed',
+                'command_or_receipt_ref' => 'atlas:ai:scaffold:lower-tier --mode=non_frontier_fallback',
+                'expected_outcome'       => 'Lower-tier scaffold produces output meeting proxy and benchmark gates',
+                'rollback_condition'     => 'scaffold output fails gates after repair loop exhaustion',
+            ],
+            [
+                'trigger'                => 'scaffold_retry_failed_gates',
+                'command_or_receipt_ref' => 'atlas:queue:defer-repair --safe --autonomous-retry',
+                'expected_outcome'       => 'Task safely deferred to autonomous repair queue for later retry',
+                'rollback_condition'     => 'queue depth exceeds safe threshold or task is stale beyond TTL',
+            ],
+            [
+                'trigger'                => 'deferred_repair_enqueued',
+                'command_or_receipt_ref' => 'atlas:audit:bootstrap-advisory --reason=provider_outage',
+                'expected_outcome'       => 'Advisory audit record emitted for operator review (non-blocking)',
+                'rollback_condition'     => 'advisory only — never blocks steady-state autonomy',
+            ],
         ],
         self::FAILURE_QUOTA_EXHAUSTION => [
-            'Detect quota_exhaustion via rate-limit or quota-exceeded signal',
-            'Rotate to the next Atlas-native provider with available quota, never lowering benchmark thresholds',
-            'Re-run proxy-detector and benchmark gates against the rotated provider output',
-            'Continue steady-state autonomy without pausing task origination',
+            [
+                'trigger'                => 'rate_limit_or_quota_exceeded_signal',
+                'command_or_receipt_ref' => 'atlas:provider:rotate --to=next-atlas-native --preserve-quota',
+                'expected_outcome'       => 'Rotated to Atlas-native provider with available quota, thresholds unchanged',
+                'rollback_condition'     => 'no Atlas-native provider has available quota',
+            ],
+            [
+                'trigger'                => 'no_provider_with_quota_available',
+                'command_or_receipt_ref' => 'atlas:ai:scaffold:lower-tier --mode=non_frontier_fallback',
+                'expected_outcome'       => 'Lower-tier scaffold produces output meeting gates without quota-dependent provider',
+                'rollback_condition'     => 'scaffold output fails gates after repair loop',
+            ],
+            [
+                'trigger'                => 'scaffold_retry_failed_gates',
+                'command_or_receipt_ref' => 'atlas:queue:defer-repair --safe --autonomous-retry',
+                'expected_outcome'       => 'Task safely deferred to autonomous repair queue',
+                'rollback_condition'     => 'queue depth exceeds safe threshold or task stale beyond TTL',
+            ],
+            [
+                'trigger'                => 'deferred_repair_enqueued',
+                'command_or_receipt_ref' => 'atlas:audit:bootstrap-advisory --reason=quota_exhaustion',
+                'expected_outcome'       => 'Advisory audit record emitted (non-blocking)',
+                'rollback_condition'     => 'advisory only — never blocks steady-state autonomy',
+            ],
         ],
         self::FAILURE_WEAK_OUTPUT_REGRESSION => [
-            'Detect weak_output_regression via benchmark_miss or proxy_leakage on the current output',
-            'Apply the repair loop and escalation triggers already defined, rather than accepting the regressed output',
-            'Re-run proxy-detector and benchmark gates before accepting any output',
-            'Continue steady-state autonomy without pausing task origination',
+            [
+                'trigger'                => 'benchmark_miss_or_proxy_leakage_on_current_output',
+                'command_or_receipt_ref' => 'atlas:ai:repair-loop --max-attempts=3',
+                'expected_outcome'       => 'Repair loop addresses regression and output passes gates',
+                'rollback_condition'     => 'repair loop exhausted (3 attempts, last failed)',
+            ],
+            [
+                'trigger'                => 'repair_loop_exhausted',
+                'command_or_receipt_ref' => 'atlas:ai:scaffold:lower-tier --mode=non_frontier_fallback',
+                'expected_outcome'       => 'Lower-tier scaffold produces non-regressed output meeting gates',
+                'rollback_condition'     => 'scaffold output also fails gates',
+            ],
+            [
+                'trigger'                => 'scaffold_retry_failed_gates',
+                'command_or_receipt_ref' => 'atlas:queue:defer-repair --safe --autonomous-retry',
+                'expected_outcome'       => 'Task safely deferred to autonomous repair queue',
+                'rollback_condition'     => 'queue depth exceeds safe threshold or task stale beyond TTL',
+            ],
+            [
+                'trigger'                => 'deferred_repair_enqueued',
+                'command_or_receipt_ref' => 'atlas:audit:bootstrap-advisory --reason=weak_output_regression',
+                'expected_outcome'       => 'Advisory audit record emitted (non-blocking)',
+                'rollback_condition'     => 'advisory only — never blocks steady-state autonomy',
+            ],
         ],
         self::FAILURE_MISSING_CONTEXT => [
-            'Detect missing_context via unresolved context_assembly items',
-            'Halt output acceptance until the required context is assembled — never guess or proceed without it',
-            'Re-run proxy-detector and benchmark gates once context assembly is complete',
-            'Continue steady-state autonomy without pausing task origination',
+            [
+                'trigger'                => 'unresolved_context_assembly_items',
+                'command_or_receipt_ref' => 'atlas:context:resolve --required-items=context_assembly',
+                'expected_outcome'       => 'Required context assembled without guessing or proceeding without it',
+                'rollback_condition'     => 'context items remain unresolved after resolution attempt',
+            ],
+            [
+                'trigger'                => 'context_resolution_failed',
+                'command_or_receipt_ref' => 'atlas:ai:scaffold:lower-tier --mode=non_frontier_fallback --context-aware',
+                'expected_outcome'       => 'Lower-tier scaffold compensates for missing context within allowed_files',
+                'rollback_condition'     => 'scaffold cannot produce gate-passing output without context',
+            ],
+            [
+                'trigger'                => 'scaffold_cannot_compensate',
+                'command_or_receipt_ref' => 'atlas:queue:defer-repair --safe --autonomous-retry --reason=missing_context',
+                'expected_outcome'       => 'Task safely deferred until context becomes available',
+                'rollback_condition'     => 'task stale beyond TTL or context permanently unavailable',
+            ],
+            [
+                'trigger'                => 'deferred_repair_enqueued',
+                'command_or_receipt_ref' => 'atlas:audit:bootstrap-advisory --reason=missing_context',
+                'expected_outcome'       => 'Advisory audit record emitted (non-blocking)',
+                'rollback_condition'     => 'advisory only — never blocks steady-state autonomy',
+            ],
         ],
     ];
 
@@ -132,9 +224,12 @@ final class AtlasExternalBrainAmplifierFallbackRunbook
         $fallbackPath = $failureSignal !== null && isset(self::FALLBACK_PATHS[$failureSignal]) ? [
             'failure_kind'                        => $failureSignal,
             'steps'                                => self::FALLBACK_PATHS[$failureSignal],
+            'fallback_steps'                       => self::FALLBACK_PATHS[$failureSignal],
             'preserves_runnable_gates'             => true,
             'preserves_allowed_files_discipline'   => true,
             'preserves_atlas_native_autonomy'      => true,
+            'steady_state_human_dependency'       => false,
+            'bootstrap_audit_advisory_only'        => true,
         ] : null;
 
         return [

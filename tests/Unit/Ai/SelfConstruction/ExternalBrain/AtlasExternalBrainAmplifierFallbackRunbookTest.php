@@ -419,4 +419,122 @@ final class AtlasExternalBrainAmplifierFallbackRunbookTest extends TestCase
         $this->assertFalse($result['fallback_rejected']);
         $this->assertNull($result['fallback_rejected_reason']);
     }
+
+    // ── AC4: each fallback step has trigger, command_or_receipt_ref, expected_outcome, rollback_condition ──
+
+    public function test_each_fallback_step_has_required_fields(): void
+    {
+        foreach ([
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_PROVIDER_OUTAGE,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_QUOTA_EXHAUSTION,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_WEAK_OUTPUT_REGRESSION,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_MISSING_CONTEXT,
+        ] as $failureSignal) {
+            $result = $this->runbook->compile($this->baseInput(['failure_signal' => $failureSignal]));
+
+            $this->assertNotNull($result['fallback_path'], "failure_signal={$failureSignal}");
+            $steps = $result['fallback_path']['fallback_steps'];
+            $this->assertNotEmpty($steps, "failure_signal={$failureSignal}");
+
+            foreach ($steps as $i => $step) {
+                $this->assertArrayHasKey('trigger', $step, "failure_signal={$failureSignal} step={$i}");
+                $this->assertArrayHasKey('command_or_receipt_ref', $step, "failure_signal={$failureSignal} step={$i}");
+                $this->assertArrayHasKey('expected_outcome', $step, "failure_signal={$failureSignal} step={$i}");
+                $this->assertArrayHasKey('rollback_condition', $step, "failure_signal={$failureSignal} step={$i}");
+            }
+        }
+    }
+
+    // ── AC2: provider outage produces Atlas-native replay, lower-tier scaffold retry, safe deferred repair ──
+
+    public function test_provider_outage_fallback_includes_atlas_native_replay(): void
+    {
+        $result = $this->runbook->compile($this->baseInput([
+            'failure_signal' => AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_PROVIDER_OUTAGE,
+        ]));
+
+        $steps = $result['fallback_path']['fallback_steps'];
+        $commands = implode(' ', array_column($steps, 'command_or_receipt_ref'));
+        $this->assertStringContainsString('replay-native', $commands);
+    }
+
+    public function test_provider_outage_fallback_includes_lower_tier_scaffold_retry(): void
+    {
+        $result = $this->runbook->compile($this->baseInput([
+            'failure_signal' => AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_PROVIDER_OUTAGE,
+        ]));
+
+        $steps = $result['fallback_path']['fallback_steps'];
+        $commands = implode(' ', array_column($steps, 'command_or_receipt_ref'));
+        $this->assertStringContainsString('scaffold:lower-tier', $commands);
+    }
+
+    public function test_provider_outage_fallback_includes_safe_deferred_repair(): void
+    {
+        $result = $this->runbook->compile($this->baseInput([
+            'failure_signal' => AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_PROVIDER_OUTAGE,
+        ]));
+
+        $steps = $result['fallback_path']['fallback_steps'];
+        $commands = implode(' ', array_column($steps, 'command_or_receipt_ref'));
+        $this->assertStringContainsString('defer-repair', $commands);
+    }
+
+    // ── AC3: no steady-state human dependency; bootstrap audit is advisory only ──
+
+    public function test_no_fallback_step_emits_steady_state_human_intervention(): void
+    {
+        foreach ([
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_PROVIDER_OUTAGE,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_QUOTA_EXHAUSTION,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_WEAK_OUTPUT_REGRESSION,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_MISSING_CONTEXT,
+        ] as $failureSignal) {
+            $result = $this->runbook->compile($this->baseInput(['failure_signal' => $failureSignal]));
+
+            $this->assertFalse($result['fallback_path']['steady_state_human_dependency'], "failure_signal={$failureSignal}");
+
+            $steps = $result['fallback_path']['fallback_steps'];
+            foreach ($steps as $i => $step) {
+                $combined = $step['trigger'] . ' ' . $step['command_or_receipt_ref'] . ' ' . $step['expected_outcome'] . ' ' . $step['rollback_condition'];
+                $this->assertStringNotContainsStringIgnoringCase('human', $combined, "failure_signal={$failureSignal} step={$i} must not depend on human");
+                $this->assertStringNotContainsStringIgnoringCase('manual intervention', $combined, "failure_signal={$failureSignal} step={$i} must not require manual intervention");
+            }
+        }
+    }
+
+    public function test_bootstrap_audit_is_advisory_only(): void
+    {
+        foreach ([
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_PROVIDER_OUTAGE,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_QUOTA_EXHAUSTION,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_WEAK_OUTPUT_REGRESSION,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_MISSING_CONTEXT,
+        ] as $failureSignal) {
+            $result = $this->runbook->compile($this->baseInput(['failure_signal' => $failureSignal]));
+
+            $this->assertTrue($result['fallback_path']['bootstrap_audit_advisory_only'], "failure_signal={$failureSignal}");
+
+            $steps = $result['fallback_path']['fallback_steps'];
+            $lastStep = end($steps);
+            $this->assertStringContainsStringIgnoringCase('advisory', $lastStep['expected_outcome'], "failure_signal={$failureSignal} last step should be advisory");
+            $this->assertStringContainsStringIgnoringCase('advisory', $lastStep['rollback_condition'], "failure_signal={$failureSignal} last step rollback should be advisory");
+        }
+    }
+
+    public function test_all_fallback_paths_preserve_atlas_native_autonomy(): void
+    {
+        foreach ([
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_PROVIDER_OUTAGE,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_QUOTA_EXHAUSTION,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_WEAK_OUTPUT_REGRESSION,
+            AtlasExternalBrainAmplifierFallbackRunbook::FAILURE_MISSING_CONTEXT,
+        ] as $failureSignal) {
+            $result = $this->runbook->compile($this->baseInput(['failure_signal' => $failureSignal]));
+
+            $this->assertTrue($result['fallback_path']['preserves_atlas_native_autonomy'], "failure_signal={$failureSignal}");
+            $this->assertTrue($result['fallback_path']['preserves_runnable_gates'], "failure_signal={$failureSignal}");
+            $this->assertTrue($result['fallback_path']['preserves_allowed_files_discipline'], "failure_signal={$failureSignal}");
+        }
+    }
 }
