@@ -78,6 +78,24 @@ final class AtlasSelfConstructionCortexFreshnessBridge
             ];
         }
 
+        // Fail closed: a missing or non-positive gate clock means freshness was
+        // never measured — block all sources.
+        if ($now <= 0) {
+            $rows = array_map(
+                static fn (string $s): array => ['source_id' => $s, 'readiness' => self::BLOCKED, 'reason' => 'invalid_gate_clock'],
+                self::REQUIRED_SOURCES,
+            );
+            usort($rows, static fn (array $a, array $b): int => strcmp($a['source_id'], $b['source_id']));
+
+            return [
+                'schema'                          => self::SCHEMA,
+                'all_fresh'                       => false,
+                'safe_to_origin_tasks'            => false,
+                'rows'                            => $rows,
+                'knowledge_dominance_refresh_plan' => $this->buildRefreshPlan($rows),
+            ];
+        }
+
         $sourceIdsToEvaluate = self::REQUIRED_SOURCES;
         if (array_key_exists('queued_targets', $sources) && ! in_array('queued_targets', $sourceIdsToEvaluate, true)) {
             $sourceIdsToEvaluate[] = 'queued_targets';

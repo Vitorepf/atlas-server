@@ -96,7 +96,7 @@ final class AtlasSelfConstructionCortexFreshnessBridgeTest extends TestCase
 
     public function test_output_has_all_required_keys(): void
     {
-        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt(['now_unix' => 0]);
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt(['now_unix' => time(), 'freshness_window_seconds' => 3600, 'sources' => []]);
 
         foreach (['schema', 'all_fresh', 'safe_to_origin_tasks', 'stale_but_usable', 'rows', 'blocking_refresh_plan', 'advisory_refresh_plan'] as $key) {
             $this->assertArrayHasKey($key, $r, "missing key: {$key}");
