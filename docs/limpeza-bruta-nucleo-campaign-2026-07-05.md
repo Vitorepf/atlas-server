@@ -56,3 +56,21 @@ Re-rodar: jscpd no mesmo escopo/params (min-tokens 100) + re-amostragem 0-ref (2
 
 ## Governança pré-início
 `php artisan atlas:ai:session-bootstrap --task="limpeza bruta nucleo AAEOS" --json`; consultar `atlas_memory_recall` sobre vetos de deleção antes da F1; ao final `atlas engineering knowledge sync --prune` + `atlas engineering knowledge index-code --prune`.
+
+---
+
+## PROVA FINAL — executada 05/07 ~16h (protocolo do §Prova final, mesmos params)
+
+| Métrica | Baseline (manhã) | Final | Meta | Veredito |
+|---|---|---|---|---|
+| jscpd `app/Services/Ai` (min-tokens 100) | 4,25% (54.926 dup / 4.016 clones) | **4,18%** (53.318 dup / 3.966 clones) | <2% | CAINDO (−1.608 dup, −50 clones); meta <2% NÃO atingida — estoque restante é bloco parcial em código vivo + áreas vetadas; caminho: esteira (decisão #3) |
+| 0-ref SelfConstruction (200 aleatórios) | 17% | **12%** | — | ↓5pp; restante ≈ inventário ExternalBrain preservado de propósito |
+| Linhas eliminadas (campanha toda, com prova) | 0 | **~45,4k** | 60–110k | abaixo do piso; próximo bloco (~20k L8-L10 + 25k Stewardship L1-L7) = decisão #1 do operador |
+| Certifiers | 81 | 80 classes; **vereditos de entrega fora do piso soberano 2→0**; ledger 80/80 com anti-drift; motor S2 + 3 pilotos | <20 classes | régua original assumia categoria errada (só 2 juízes reais); <20 fecha via esteira migrando B_STATE (critério grep-ável registrado) |
+| Bricks no-op bound | 1 | **0** | 0 | ✅ |
+| @deprecated no legado | 2/228 | régua re-medida: os "228" eram menções em PROSA; conjunto auto-declarado deprecável real pós-F2 ≈ 0 | 100% | métrica do baseline estava errada; nada a anotar sem inventar |
+| Suíte | nem carregava (Cannot redeclare) | carrega; 30+ suítes de área verdes nos lotes; falhas restantes atribuídas com prova a drift de contrato das sessões concorrentes (cresceram 131→140 sem mudança minha nas áreas) | verde | zero caller vivo quebrado pela campanha |
+
+Delta não comprovado = meta não atingida: **<2% e 60–110k NÃO atingidas nesta rodada** — reportado
+honesto; ambas dependem das decisões #1 (L8-L10/Stewardship) e #3 (esteira) do operador, com
+mecanismos prontos (gate F0 enforce, RefactorProofGate, critério de migração S2, censo de clones).
