@@ -241,6 +241,10 @@ final class AgentControlPlaneReleaseDossierService
 
         $payload['decision_summary'] = $this->buildDecisionSummary($status, $blockers, $warnings, $payload);
 
+        // Release readiness: ties queued work, worker evidence, unresolved blockers and
+        // rollback readiness into one operator-safe summary.
+        $payload['release_readiness'] = $this->buildReleaseReadiness($blockers, $replay, $gate, $baselineCaptureReadiness);
+
         $payload['release_dossier_hash'] = $this->stableHash($this->normalizeForDossierHash($payload));
 
         return $payload;
@@ -645,5 +649,59 @@ final class AgentControlPlaneReleaseDossierService
         $payload = $this->recursivelyKsort($payload);
 
         return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Build release_readiness: aggregate queue_health, proof_coverage,
+     * unresolved_blockers and rollback_ready into one operator-safe summary.
+     *
+     * @param  list<string>  $blockers
+     * @param  array<string,mixed>  $replay
+     * @param  array<string,mixed>  $gate
+     * @param  array<string,mixed>  $baselineCaptureReadiness
+     * @return array<string,mixed>
+     */
+    private function buildReleaseReadiness(
+        array $blockers,
+        array $replay,
+        array $gate,
+        array $baselineCaptureReadiness,
+    ): array {
+        $replayStatus = (string) ($replay['status'] ?? '');
+        $gateStatus = (string) ($gate['status'] ?? '');
+        $captureStatus = (string) ($baselineCaptureReadiness['status'] ?? '');
+
+        // Queue health: replay status and gate status must be healthy.
+        $queueHealth = $replayStatus === 'available' && in_array($gateStatus, ['available', 'warning'], true);
+
+        // Proof coverage: baseline capture must not be blocked.
+        $proofCoverage = $captureStatus !== 'blocked';
+
+        // Unresolved blockers: any remaining blockers make readiness false.
+        $unresolvedBlockersPresent = $blockers !== [];
+
+        // Rollback readiness: gate must not be blocked, replay must be available.
+        $rollbackReady = $replayStatus === 'available' && $gateStatus !== 'blocked';
+
+        $ready = $queueHealth && $proofCoverage && ! $unresolvedBlockersPresent && $rollbackReady;
+
+        return [
+            'ready' => $ready,
+            'queue_health' => [
+                'replay_status' => $replayStatus,
+                'gate_status' => $gateStatus,
+                'passes' => $queueHealth,
+            ],
+            'proof_coverage' => [
+                'baseline_capture_status' => $captureStatus,
+                'passes' => $proofCoverage,
+            ],
+            'unresolved_blockers' => $blockers,
+            'rollback_ready' => [
+                'replay_status' => $replayStatus,
+                'gate_status' => $gateStatus,
+                'passes' => $rollbackReady,
+            ],
+        ];
     }
 }
