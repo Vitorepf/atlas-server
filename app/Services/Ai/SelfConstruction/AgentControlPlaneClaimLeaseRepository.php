@@ -610,6 +610,19 @@ final class AgentControlPlaneClaimLeaseRepository
 
                 continue;
             }
+            if ($expiresAt <= 0) {
+                $entries[$i]['lease_status'] = self::LEASE_STATUS_EXPIRED;
+                $entries[$i]['orphaned_at'] = CarbonImmutable::now()->toIso8601String();
+                $entries[$i]['orphaned_reason'] = 'missing_or_invalid_expiry';
+                $expirations[] = [
+                    'lease_id' => $leaseId,
+                    'task_packet_id' => (string) ($entry['task_packet_id'] ?? ''),
+                    'agent_id' => (string) ($entry['agent_id'] ?? ''),
+                    'expires_at_unix' => $expiresAt,
+                ];
+
+                continue;
+            }
             if ($expiresAt > 0 && $expiresAt <= $now) {
                 $expiredAt = CarbonImmutable::now()->toIso8601String();
                 $lease['lease_status'] = self::LEASE_STATUS_EXPIRED;

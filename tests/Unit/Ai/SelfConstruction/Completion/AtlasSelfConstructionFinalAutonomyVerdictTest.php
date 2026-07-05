@@ -11,7 +11,7 @@ final class AtlasSelfConstructionFinalAutonomyVerdictTest extends TestCase
 {
     private function freshSoak(): array
     {
-        return ['status' => 'pass', 'age_seconds' => 60];
+        return ['status' => 'pass', 'age_seconds' => 60, 'soak_run_hash' => 'abc123def'];
     }
 
     public function test_compose_does_not_mutate_its_input_arrays(): void
@@ -546,6 +546,40 @@ final class AtlasSelfConstructionFinalAutonomyVerdictTest extends TestCase
             ['status' => 'pass'],
             ['age_seconds' => 60, 'claimable_per_active_worker' => 10.0, 'worker_feed_floor' => 2.0],
             $this->freshSoak(),
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_missing_soak_run_hash_blocks_complete_even_with_pass_status(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $this->allTrue(),
+            $this->allEvidence(),
+            ['status' => 'pass'],
+            ['age_seconds' => 60, 'claimable_per_active_worker' => 10.0, 'worker_feed_floor' => 2.0],
+            ['status' => 'pass', 'age_seconds' => 60], // no soak_run_hash
+        );
+
+        $this->assertNotSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertContains('soak_evidence:soak_evidence_missing_run_hash', $verdict['blockers']);
+    }
+
+    public function test_soak_run_hash_present_does_not_block(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $this->allTrue(),
+            $this->allEvidence(),
+            ['status' => 'pass'],
+            ['age_seconds' => 60, 'claimable_per_active_worker' => 10.0, 'worker_feed_floor' => 2.0],
+            ['status' => 'pass', 'age_seconds' => 60, 'soak_run_hash' => 'real-hash'],
         );
 
         $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
