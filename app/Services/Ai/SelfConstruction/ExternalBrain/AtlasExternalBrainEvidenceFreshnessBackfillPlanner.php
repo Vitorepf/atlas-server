@@ -166,9 +166,12 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
             return [$entry['capture_task'], $entry['proof_command']];
         }
 
+        $safe = (string) preg_replace('/[^A-Za-z0-9_.:-]/', '', $streamId);
+        $safe = $safe !== '' ? $safe : 'unknown';
+
         return [
-            'capture:'.$streamId,
-            '/opt/homebrew/bin/php artisan atlas:brain:seed --stream='.$streamId.' --dry-run',
+            'capture:'.$safe,
+            '/opt/homebrew/bin/php artisan atlas:brain:seed --stream='.$safe.' --dry-run',
         ];
     }
 }
