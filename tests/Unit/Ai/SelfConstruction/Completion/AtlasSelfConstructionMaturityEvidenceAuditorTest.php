@@ -275,4 +275,129 @@ final class AtlasSelfConstructionMaturityEvidenceAuditorTest extends TestCase
         $this->assertSame(1.0, $result['overall_audited_maturity']);
         $this->assertSame([], $result['proof_gap_index']);
     }
+
+    // ── AC: intent, doc, plan, future or proposed evidence remains unproven for maturity ──
+
+    public function test_intent_evidence_remains_unproven(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim(['evidence_refs' => ['intent:planned']])],
+        ]);
+
+        $this->assertNotSame('proven', $r['dimension_verdicts'][0]['verdict']);
+        $this->assertSame('intent_only', $r['dimension_verdicts'][0]['verdict']);
+    }
+
+    public function test_doc_evidence_remains_unproven(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim(['evidence_refs' => ['doc:design_doc']])],
+        ]);
+
+        $this->assertSame('intent_only', $r['dimension_verdicts'][0]['verdict']);
+    }
+
+    public function test_plan_evidence_remains_unproven(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim(['evidence_refs' => ['plan:roadmap']])],
+        ]);
+
+        $this->assertSame('intent_only', $r['dimension_verdicts'][0]['verdict']);
+    }
+
+    public function test_future_evidence_remains_unproven(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim(['evidence_refs' => ['future:next_quarter']])],
+        ]);
+
+        $this->assertSame('intent_only', $r['dimension_verdicts'][0]['verdict']);
+    }
+
+    public function test_proposed_evidence_remains_unproven(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim(['evidence_refs' => ['proposed:draft']])],
+        ]);
+
+        $this->assertSame('intent_only', $r['dimension_verdicts'][0]['verdict']);
+    }
+
+    // ── AC: refutes or contradicts evidence marks contradicted even with weak positive evidence ──
+
+    public function test_refutes_evidence_marks_contradicted_even_with_weak_positive(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim([
+                'evidence_refs' => ['runtime:telemetry', 'refutes:failure_report'],
+            ])],
+        ]);
+
+        $this->assertSame('contradicted', $r['dimension_verdicts'][0]['verdict']);
+        $this->assertSame(0.0, $r['dimension_verdicts'][0]['audited_score']);
+    }
+
+    public function test_contradicts_evidence_marks_contradicted_even_with_runtime(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim([
+                'evidence_refs' => ['runtime:pass', 'contradicts:regression_detected'],
+            ])],
+        ]);
+
+        $this->assertSame('contradicted', $r['dimension_verdicts'][0]['verdict']);
+    }
+
+    public function test_disproves_evidence_marks_contradicted(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim([
+                'evidence_refs' => ['disproves:counterexample'],
+            ])],
+        ]);
+
+        $this->assertSame('contradicted', $r['dimension_verdicts'][0]['verdict']);
+    }
+
+    // ── AC: runtime, live_proof or live_run evidence can mark proven when not contradicted ──
+
+    public function test_runtime_evidence_marks_proven_when_not_contradicted(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim(['evidence_refs' => ['runtime:telemetry']])],
+        ]);
+
+        $this->assertSame('proven', $r['dimension_verdicts'][0]['verdict']);
+    }
+
+    public function test_live_proof_evidence_marks_proven_when_not_contradicted(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim(['evidence_refs' => ['live_proof:soak_test']])],
+        ]);
+
+        $this->assertSame('proven', $r['dimension_verdicts'][0]['verdict']);
+    }
+
+    public function test_live_run_evidence_marks_proven_when_not_contradicted(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim(['evidence_refs' => ['live_run:production_deploy']])],
+        ]);
+
+        $this->assertSame('proven', $r['dimension_verdicts'][0]['verdict']);
+    }
+
+    public function test_runtime_evidence_not_proven_when_contradicted(): void
+    {
+        $r = $this->auditor()->audit([
+            'maturity_claims' => [$this->claim([
+                'evidence_refs' => ['runtime:pass', 'refutes:failure'],
+            ])],
+        ]);
+
+        $this->assertNotSame('proven', $r['dimension_verdicts'][0]['verdict']);
+        $this->assertSame('contradicted', $r['dimension_verdicts'][0]['verdict']);
+    }
 }
