@@ -104,6 +104,48 @@ final class L7L10QueueConsumerTest extends TestCase
         $this->assertSame([], $reconsumed['bad']);
     }
 
+    public function test_non_ready_status_rows_are_gated_out_of_ready_slices(): void
+    {
+        // DECISAO-1 (2026-07-05): the L8-L10 series was deleted from the repo and its
+        // rows demoted to done / spec_only_l7_l10_rebuild_gated. Those rows are present
+        // (not gaps) but must never re-enter the ready queue.
+        $md = $this->doc([
+            ['S83', 'deliver 83 [status=done]', 'acc 83', 'g'],
+            ['S84', 'deliver 84 [status=spec_only_l7_l10_rebuild_gated]', 'acc 84', 'g'],
+            ['S85', 'deliver 85 [status=done_existing_live_exception]', 'acc 85', 'g'],
+            ['S86', 'deliver 86 [status=ready]', 'acc 86', 'g'],
+        ]);
+
+        $r = $this->consumer->consume($md, $this->bands);
+
+        $this->assertSame('valid', $r['status']); // gated rows are seen, not missing
+        $this->assertSame(['S86'], $r['ready_slices']);
+        $this->assertSame(1, $r['total']);
+        $this->assertSame(0, $r['levels']['L7']);
+        $this->assertSame(1, $r['levels']['L8']);
+        $this->assertSame([
+            'S83:status_done',
+            'S84:status_spec_only_l7_l10_rebuild_gated',
+            'S85:status_done_existing_live_exception',
+        ], $r['gated_slices']);
+    }
+
+    public function test_rows_without_status_marker_stay_ready(): void
+    {
+        // Legacy docs predate the machine-readable status= marker; absence != gated.
+        $md = $this->doc([
+            ['S83', 'deliver 83', 'acc 83', 'g'],
+            ['S84', 'deliver 84', 'acc 84', 'g'],
+            ['S85', 'deliver 85', 'acc 85', 'g'],
+            ['S86', 'deliver 86', 'acc 86', 'g'],
+        ]);
+
+        $r = $this->consumer->consume($md, $this->bands);
+
+        $this->assertSame(['S83', 'S84', 'S85', 'S86'], $r['ready_slices']);
+        $this->assertSame([], $r['gated_slices']);
+    }
+
     public function test_default_levels_cover_exactly_s83_to_s165(): void
     {
         // Guard the canonical band arithmetic: L7=18, L8=25, L9=20, L10=20, total=83.
