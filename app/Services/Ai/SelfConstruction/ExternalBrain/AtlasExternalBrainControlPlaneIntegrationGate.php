@@ -59,6 +59,15 @@ final class AtlasExternalBrainControlPlaneIntegrationGate
 
     public const STATUS_DECISION_EFFECT_MISSING  = 'decision_effect_missing';
 
+    /** Required evidence channels for control-plane integration (AC2/AC3). */
+    public const REQUIRED_CHANNELS = [
+        'queue_health',
+        'outcome_learning',
+        'proof_system',
+        'knowledge_sync',
+        'rollback',
+    ];
+
     /**
      * @param  array<string,mixed>  $organ
      * @return array<string,mixed>
@@ -189,6 +198,42 @@ final class AtlasExternalBrainControlPlaneIntegrationGate
 
         return $this->result($organId, false, self::PATH_NONE, self::STATUS_NOT_INTEGRATED,
             '', '', [], $reasons, $integrationBlockers);
+    }
+
+    /**
+     * Verify that all required evidence channels are present.
+     * Returns integrated=false when any required channel lacks evidence.
+     *
+     * @param  array<string,mixed>  $input  {channels?: array<string,bool>}
+     * @return array<string,mixed>
+     */
+    public function verifyChannels(array $input): array
+    {
+        $channels = is_array($input['channels'] ?? null) ? $input['channels'] : [];
+        $missingChannels = [];
+        $blockingReasons = [];
+        $nextRequiredEvidence = [];
+
+        foreach (self::REQUIRED_CHANNELS as $channel) {
+            $present = (bool) ($channels[$channel] ?? false);
+            if (! $present) {
+                $missingChannels[] = $channel;
+                $blockingReasons[] = "missing_evidence_channel:{$channel}";
+                $nextRequiredEvidence[] = "produce_{$channel}_evidence";
+            }
+        }
+
+        $integrated = $missingChannels === [];
+
+        return [
+            'schema' => self::SCHEMA,
+            'integrated' => $integrated,
+            'missing_channels' => $missingChannels,
+            'blocking_reasons' => $blockingReasons,
+            'next_required_evidence' => $nextRequiredEvidence,
+            'channels_checked' => self::REQUIRED_CHANNELS,
+            'channels_present' => array_values(array_filter(self::REQUIRED_CHANNELS, static fn (string $c): bool => (bool) ($channels[$c] ?? false))),
+        ];
     }
 
     /**

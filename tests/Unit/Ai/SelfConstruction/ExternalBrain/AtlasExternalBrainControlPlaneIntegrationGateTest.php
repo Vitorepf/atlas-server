@@ -532,4 +532,140 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC2/AC3/AC4: verifyChannels ───────────────────────────────────────────
+
+    public function test_verify_channels_all_present_yields_integrated(): void
+    {
+        $result = $this->gate()->verifyChannels([
+            'channels' => [
+                'queue_health' => true,
+                'outcome_learning' => true,
+                'proof_system' => true,
+                'knowledge_sync' => true,
+                'rollback' => true,
+            ],
+        ]);
+
+        $this->assertTrue($result['integrated']);
+        $this->assertSame([], $result['missing_channels']);
+        $this->assertSame([], $result['blocking_reasons']);
+        $this->assertSame([], $result['next_required_evidence']);
+    }
+
+    public function test_verify_channels_missing_queue_health_blocks(): void
+    {
+        $result = $this->gate()->verifyChannels([
+            'channels' => [
+                'outcome_learning' => true,
+                'proof_system' => true,
+                'knowledge_sync' => true,
+                'rollback' => true,
+            ],
+        ]);
+
+        $this->assertFalse($result['integrated']);
+        $this->assertContains('queue_health', $result['missing_channels']);
+        $this->assertNotEmpty($result['blocking_reasons']);
+        $this->assertContains('produce_queue_health_evidence', $result['next_required_evidence']);
+    }
+
+    public function test_verify_channels_missing_outcome_learning_blocks(): void
+    {
+        $result = $this->gate()->verifyChannels([
+            'channels' => [
+                'queue_health' => true,
+                'proof_system' => true,
+                'knowledge_sync' => true,
+                'rollback' => true,
+            ],
+        ]);
+
+        $this->assertFalse($result['integrated']);
+        $this->assertContains('outcome_learning', $result['missing_channels']);
+    }
+
+    public function test_verify_channels_missing_proof_system_blocks(): void
+    {
+        $result = $this->gate()->verifyChannels([
+            'channels' => [
+                'queue_health' => true,
+                'outcome_learning' => true,
+                'knowledge_sync' => true,
+                'rollback' => true,
+            ],
+        ]);
+
+        $this->assertFalse($result['integrated']);
+        $this->assertContains('proof_system', $result['missing_channels']);
+    }
+
+    public function test_verify_channels_missing_knowledge_sync_blocks(): void
+    {
+        $result = $this->gate()->verifyChannels([
+            'channels' => [
+                'queue_health' => true,
+                'outcome_learning' => true,
+                'proof_system' => true,
+                'rollback' => true,
+            ],
+        ]);
+
+        $this->assertFalse($result['integrated']);
+        $this->assertContains('knowledge_sync', $result['missing_channels']);
+    }
+
+    public function test_verify_channels_missing_rollback_blocks(): void
+    {
+        $result = $this->gate()->verifyChannels([
+            'channels' => [
+                'queue_health' => true,
+                'outcome_learning' => true,
+                'proof_system' => true,
+                'knowledge_sync' => true,
+            ],
+        ]);
+
+        $this->assertFalse($result['integrated']);
+        $this->assertContains('rollback', $result['missing_channels']);
+    }
+
+    public function test_verify_channels_no_channels_yields_all_missing(): void
+    {
+        $result = $this->gate()->verifyChannels([]);
+
+        $this->assertFalse($result['integrated']);
+        $this->assertCount(5, $result['missing_channels']);
+        foreach (AtlasExternalBrainControlPlaneIntegrationGate::REQUIRED_CHANNELS as $channel) {
+            $this->assertContains($channel, $result['missing_channels']);
+        }
+    }
+
+    public function test_verify_channels_has_required_keys(): void
+    {
+        $result = $this->gate()->verifyChannels([]);
+
+        foreach (['schema', 'integrated', 'missing_channels', 'blocking_reasons', 'next_required_evidence'] as $key) {
+            $this->assertArrayHasKey($key, $result, "Missing key: {$key}");
+        }
+    }
+
+    public function test_verify_channels_fail_closed_without_optimistic_defaults(): void
+    {
+        // Empty channels input must never yield integrated=true
+        $result = $this->gate()->verifyChannels(['channels' => []]);
+
+        $this->assertFalse($result['integrated']);
+        $this->assertNotEmpty($result['missing_channels']);
+    }
+
+    public function test_verify_channels_is_deterministic(): void
+    {
+        $input = ['channels' => ['queue_health' => true, 'outcome_learning' => true]];
+
+        $a = $this->gate()->verifyChannels($input);
+        $b = $this->gate()->verifyChannels($input);
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }
