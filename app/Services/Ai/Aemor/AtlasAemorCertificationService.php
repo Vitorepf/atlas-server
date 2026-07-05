@@ -7,6 +7,7 @@ namespace App\Services\Ai\Aemor;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 final class AtlasAemorCertificationService
@@ -35,6 +36,7 @@ final class AtlasAemorCertificationService
             $this->commandsPresent(),
             $this->integrationWiring(),
             $this->testsPresent(),
+            $this->testsExecuted(),
             $this->claimPolicy(),
         ];
 
@@ -287,5 +289,72 @@ final class AtlasAemorCertificationService
     private function relative(string $path): string
     {
         return str_replace(base_path().'/', '', $path);
+    }
+
+    /**
+     * Run the AEMOR test directory via a Symfony Process phpunit sub-process
+     * scoped ONLY to tests/Feature/Ai/Aemor (never the full suite — the full
+     * suite currently fatals on a pre-existing duplicate test class).
+     *
+     * The self-referential certification test execution test
+     * (AtlasAemorCertificationTestExecutionTest) is excluded from the
+     * sub-process run to prevent infinite recursion: that test calls
+     * certify() → testsExecuted() → phpunit on the same directory →
+     * AtlasAemorCertificationTestExecutionTest → certify() → ...
+     *
+     * @return array<string,mixed>
+     */
+    private function testsExecuted(): array
+    {
+        $testDir = 'tests/Feature/Ai/Aemor';
+        $fullPath = base_path($testDir);
+
+        if (! File::isDirectory($fullPath)) {
+            return $this->check('tests_executed', false, ['tests_run' => 0, 'assertions' => 0, 'error' => 'directory_not_found'], "Restore {$testDir} test directory.");
+        }
+
+        // Collect all *Test.php files in the Aemor directory (recursive),
+        // excluding the self-referential certification test execution test
+        // to prevent infinite recursion.
+        $selfExclusion = 'AtlasAemorCertificationTestExecutionTest.php';
+        $testFiles = collect(File::allFiles($fullPath))
+            ->filter(fn (\SplFileInfo $file): bool => str_ends_with($file->getFilename(), 'Test.php'))
+            ->map(fn (\SplFileInfo $file): string => $file->getRealPath())
+            ->filter(fn (string $path): bool => ! str_ends_with($path, $selfExclusion))
+            ->values()
+            ->all();
+
+        if ($testFiles === []) {
+            return $this->check('tests_executed', false, ['tests_run' => 0, 'assertions' => 0, 'error' => 'no_test_files'], "Restore {$testDir} test files.");
+        }
+
+        $process = new Process(array_merge([
+            PHP_BINARY,
+            base_path('vendor/bin/phpunit'),
+            '--no-coverage',
+        ], $testFiles), base_path());
+
+        $process->setTimeout(300);
+        $process->run();
+
+        $output = $process->getOutput();
+
+        // Parse "OK (N tests, M assertions)" from output.
+        $testsRun = 0;
+        $assertions = 0;
+        if (preg_match('/OK\s*\((\d+)\s*tests?,\s*(\d+)\s*assertions?\)/', $output, $m)) {
+            $testsRun = (int) $m[1];
+            $assertions = (int) $m[2];
+        } elseif (preg_match('/Tests:\s*(\d+),\s*Assertions:\s*(\d+)/', $output, $m)) {
+            $testsRun = (int) $m[1];
+            $assertions = (int) $m[2];
+        }
+
+        $ok = $testsRun > 0;
+
+        return $this->check('tests_executed', $ok, [
+            'tests_run' => $testsRun,
+            'assertions' => $assertions,
+        ], "{$testDir} tests returned 0 executed tests — check syntax, namespaces, or dependencies.");
     }
 }
