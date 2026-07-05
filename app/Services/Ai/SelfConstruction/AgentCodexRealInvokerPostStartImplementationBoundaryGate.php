@@ -49,7 +49,7 @@ class AgentCodexRealInvokerPostStartImplementationBoundaryGate
 
         $sortedAllowedFiles = $allowedFiles;
         sort($sortedAllowedFiles);
-        $allowedScopeDigest = hash('sha256', implode('|', $sortedAllowedFiles));
+        $allowedScopeDigest = hash('sha256', (string) json_encode($sortedAllowedFiles, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return [
             'boundary_status' => $blockedPaths === [] ? 'within_boundary' : 'scope_expansion_blocked',
