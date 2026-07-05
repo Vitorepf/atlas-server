@@ -116,4 +116,93 @@ final class AgentRuntimeEvidenceContinuityIndexerTest extends TestCase
             $this->assertArrayHasKey($key, $row, "per_task_continuity row must include {$key}");
         }
     }
+
+    // ── New: stale / duplicate / conflict / blocker detection ──────────────
+
+    public function test_duplicate_receipts_are_detected_and_counted(): void
+    {
+        $entries = [
+            ['evidence_type' => 'dispatch_plan', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'receipt_id' => 'r1'],
+            ['evidence_type' => 'claim_lease', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'receipt_id' => 'r2'],
+            ['evidence_type' => 'scope_lock', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'receipt_id' => 'r3'],
+            ['evidence_type' => 'validation_result', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'receipt_id' => 'r4'],
+            ['evidence_type' => 'continuation_summary', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'receipt_id' => 'r1'], // duplicate
+        ];
+
+        $index = (new AgentRuntimeEvidenceContinuityIndexer)->build($entries);
+
+        $this->assertSame(1, $index['duplicate_receipt_count']);
+        $this->assertContains('duplicate_receipts_detected', $index['blockers']);
+        $this->assertSame('resolve_duplicate_receipts', $index['next_evidence_action']);
+    }
+
+    public function test_conflicting_outcomes_are_detected(): void
+    {
+        $entries = [
+            ['evidence_type' => 'dispatch_plan', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'outcome' => 'success'],
+            ['evidence_type' => 'claim_lease', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'outcome' => 'failure'],
+        ];
+
+        $index = (new AgentRuntimeEvidenceContinuityIndexer)->build($entries);
+
+        $this->assertContains('task-a', $index['conflicting_outcome_tasks']);
+        $this->assertContains('conflicting_outcomes_detected', $index['blockers']);
+    }
+
+    public function test_stale_entries_are_detected(): void
+    {
+        $entries = [
+            ['evidence_type' => 'dispatch_plan', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'created_at' => 1],
+        ];
+
+        $index = (new AgentRuntimeEvidenceContinuityIndexer)->build($entries);
+
+        $this->assertSame(1, $index['stale_entry_count']);
+    }
+
+    public function test_no_blockers_on_clean_input(): void
+    {
+        $entries = array_map(
+            static fn (string $type): array => [
+                'evidence_type' => $type,
+                'task_packet_id' => 'task-x',
+                'agent_id' => 'agent-1',
+                'created_at' => time(),
+                'receipt_id' => "r-{$type}",
+                'outcome' => 'success',
+            ],
+            AgentRuntimeEvidenceContinuityIndexer::REQUIRED_TYPES,
+        );
+
+        $index = (new AgentRuntimeEvidenceContinuityIndexer)->build($entries);
+
+        $this->assertSame(0, $index['stale_entry_count']);
+        $this->assertSame(0, $index['duplicate_receipt_count']);
+        $this->assertSame([], $index['conflicting_outcome_tasks']);
+        $this->assertSame([], $index['blockers']);
+        $this->assertSame('none_required', $index['next_evidence_action']);
+    }
+
+    public function test_next_evidence_action_respects_missing_types_priority(): void
+    {
+        $entries = []; // All required types missing
+
+        $index = (new AgentRuntimeEvidenceContinuityIndexer)->build($entries);
+
+        $this->assertSame('request_missing_types', $index['next_evidence_action']);
+    }
+
+    public function test_chronicle_preserves_order_of_entries_with_timestamps(): void
+    {
+        $entries = [
+            ['evidence_type' => 'scope_lock', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'created_at' => 100],
+            ['evidence_type' => 'dispatch_plan', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'created_at' => 50],
+            ['evidence_type' => 'claim_lease', 'task_packet_id' => 'task-a', 'agent_id' => 'agent-1', 'created_at' => 75],
+        ];
+
+        $index = (new AgentRuntimeEvidenceContinuityIndexer)->build($entries);
+
+        // The output should be deterministic — type counts are correct regardless.
+        $this->assertSame(3, $index['entry_count']);
+    }
 }

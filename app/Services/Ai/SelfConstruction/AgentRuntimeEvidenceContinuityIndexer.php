@@ -32,6 +32,9 @@ final class AgentRuntimeEvidenceContinuityIndexer
         'continuation_summary',
     ];
 
+    /** Entries older than this are flagged as stale (default 7 days). */
+    public const STALE_ENTRY_THRESHOLD_SECONDS = 604800;
+
     /**
      * @param  list<array<string, mixed>>  $entries
      * @return array<string, mixed>
@@ -42,7 +45,22 @@ final class AgentRuntimeEvidenceContinuityIndexer
         $tasks = [];
         $agents = [];
         $typesByTask = [];
-        foreach ($entries as $entry) {
+        $seenReceiptIds = [];
+        $duplicateReceiptCount = 0;
+        $staleCutoff = time() - self::STALE_ENTRY_THRESHOLD_SECONDS;
+        $staleCount = 0;
+        $conflictingOutcomeTasks = [];
+
+        // Chronological sort by created_at if present.
+        $sorted = $entries;
+        usort($sorted, static function (array $a, array $b): int {
+            $tA = (int) ($a['created_at'] ?? $a['timestamp'] ?? 0);
+            $tB = (int) ($b['created_at'] ?? $b['timestamp'] ?? 0);
+
+            return $tA <=> $tB;
+        });
+
+        foreach ($sorted as $entry) {
             $type = (string) ($entry['evidence_type'] ?? 'unknown');
             $task = (string) ($entry['task_packet_id'] ?? 'unknown');
             $agent = (string) ($entry['agent_id'] ?? 'unknown');
@@ -50,6 +68,34 @@ final class AgentRuntimeEvidenceContinuityIndexer
             $tasks[$task] = ($tasks[$task] ?? 0) + 1;
             $agents[$agent] = ($agents[$agent] ?? 0) + 1;
             $typesByTask[$task][$type] = true;
+
+            // Duplicate receipt detection.
+            $receiptId = (string) ($entry['receipt_id'] ?? '');
+            if ($receiptId !== '') {
+                if (isset($seenReceiptIds[$receiptId])) {
+                    $duplicateReceiptCount++;
+                }
+                $seenReceiptIds[$receiptId] = true;
+            }
+
+            // Stale timestamp detection.
+            $ts = (int) ($entry['created_at'] ?? $entry['timestamp'] ?? 0);
+            if ($ts > 0 && $ts < $staleCutoff) {
+                $staleCount++;
+            }
+
+            // Conflicting outcomes: same task with both success and non-success.
+            $outcome = (string) ($entry['outcome'] ?? '');
+            if ($outcome !== '' && ! isset($conflictingOutcomeTasks[$task])) {
+                // First outcome seen for this task.
+                $conflictingOutcomeTasks[$task] = ['first_outcome' => $outcome, 'entries_since' => 0, 'conflict' => false];
+            } elseif ($outcome !== '' && isset($conflictingOutcomeTasks[$task])) {
+                $prev = $conflictingOutcomeTasks[$task]['first_outcome'];
+                if ($prev !== $outcome) {
+                    $conflictingOutcomeTasks[$task]['conflict'] = true;
+                }
+                $conflictingOutcomeTasks[$task]['entries_since']++;
+            }
         }
         ksort($types);
         ksort($tasks);
@@ -85,11 +131,30 @@ final class AgentRuntimeEvidenceContinuityIndexer
             default => 'continuity_index_stitched_proxy',
         };
 
+        $conflictingTaskList = array_values(array_filter(
+            array_keys($conflictingOutcomeTasks),
+            static fn (string $t): bool => $conflictingOutcomeTasks[$t]['conflict'] ?? false,
+        ));
+
+        $blockers = [];
+        if ($missing !== []) {
+            $blockers[] = 'missing_required_evidence_types';
+        }
+        if ($duplicateReceiptCount > 0) {
+            $blockers[] = 'duplicate_receipts_detected';
+        }
+        if ($conflictingTaskList !== []) {
+            $blockers[] = 'conflicting_outcomes_detected';
+        }
+
         $index = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
             'status' => $status,
             'entry_count' => count($entries),
+            'stale_entry_count' => $staleCount,
+            'duplicate_receipt_count' => $duplicateReceiptCount,
+            'conflicting_outcome_tasks' => $conflictingTaskList,
             'task_packet_count' => count($tasks),
             'agent_count' => count($agents),
             'evidence_type_counts' => $types,
@@ -99,6 +164,13 @@ final class AgentRuntimeEvidenceContinuityIndexer
             'missing_required_evidence_types' => $missing,
             'per_task_continuity' => $perTaskContinuity,
             'continuation_summary_ready' => in_array('continuation_summary', array_keys($types), true),
+            'blockers' => $blockers,
+            'continuity_gaps' => $missing !== [] ? ['missing_required_types' => $missing] : [],
+            'next_evidence_action' => $missing !== [] ? 'request_missing_types' : (
+                $duplicateReceiptCount > 0 ? 'resolve_duplicate_receipts' : (
+                    $conflictingTaskList !== [] ? 'resolve_conflicting_outcomes' : 'none_required'
+                )
+            ),
             'runtime_safety' => [
                 'runtime_safety_all_false' => true,
                 'runtime_execution_allowed' => false,
