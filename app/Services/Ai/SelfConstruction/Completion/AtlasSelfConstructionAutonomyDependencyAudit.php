@@ -69,6 +69,7 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
         $seenSteadyStatePhases = [];
         $remediationHints = [];
         $providerLeakFloor = [];
+        $structuredBlockers = [];
         $requiredPhaseSet = array_flip($requiredSteadyStatePhases);
 
         foreach ($evidence as $row) {
@@ -80,7 +81,13 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
             $role = (string) ($row['role'] ?? '');
 
             if ($stepId !== '' && isset($seenStepIds[$stepId])) {
-                $blockers[] = 'duplicate_step_id:'.$stepId;
+                $blockerKey = 'duplicate_step_id:'.$stepId;
+                $blockers[] = $blockerKey;
+                $structuredBlockers[] = [
+                    'phase' => $stepId,
+                    'role' => $role,
+                    'replacement_needed' => 'remove_duplicate_step_id',
+                ];
 
                 continue;
             }
@@ -89,12 +96,24 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
             }
 
             if (! in_array($kind, self::VALID_KINDS, true)) {
-                $blockers[] = 'unknown_kind:'.$stepId.':'.$kind;
+                $blockerKey = 'unknown_kind:'.$stepId.':'.$kind;
+                $blockers[] = $blockerKey;
+                $structuredBlockers[] = [
+                    'phase' => $stepId,
+                    'role' => $role,
+                    'replacement_needed' => 'replace_with_valid_kind',
+                ];
 
                 continue;
             }
             if (! in_array($role, self::VALID_ROLES, true)) {
-                $blockers[] = 'unknown_role:'.$stepId.':'.$role;
+                $blockerKey = 'unknown_role:'.$stepId.':'.$role;
+                $blockers[] = $blockerKey;
+                $structuredBlockers[] = [
+                    'phase' => $stepId,
+                    'role' => $role,
+                    'replacement_needed' => 'replace_with_valid_role',
+                ];
 
                 continue;
             }
@@ -106,6 +125,11 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
                 if ($role !== self::ROLE_ATLAS) {
                     $b = 'steady_state_non_atlas_dependency:'.$stepId.':'.$role;
                     $blockers[] = $b;
+                    $structuredBlockers[] = [
+                        'phase' => $stepId,
+                        'role' => $role,
+                        'replacement_needed' => 'replace_with_atlas_native_capability',
+                    ];
                     $remediationHints[$b] = 'replace_non_atlas_role_with_atlas_native_capability_for_phase:'.$stepId;
                     $steadyStateDependencies[] = ['step_id' => $stepId, 'role' => $role];
                     // Group by role for provider_leak_floor
@@ -124,14 +148,29 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
                 if ($projStatus === 'stale') {
                     $b = 'stale_projection:'.$stepId;
                     $blockers[] = $b;
+                    $structuredBlockers[] = [
+                        'phase' => $stepId,
+                        'role' => $role,
+                        'replacement_needed' => 'run_projection_refresh',
+                    ];
                     $remediationHints[$b] = 'run_projection_refresh_for_phase:'.$stepId;
                 } elseif ($projStatus === 'unavailable') {
                     $b = 'unavailable_projection:'.$stepId;
                     $blockers[] = $b;
+                    $structuredBlockers[] = [
+                        'phase' => $stepId,
+                        'role' => $role,
+                        'replacement_needed' => 'provision_projection_source',
+                    ];
                     $remediationHints[$b] = 'provision_projection_source_for_phase:'.$stepId;
                 } elseif ($isRequiredPhase && $projStatus !== 'fresh') {
                     $b = 'missing_projection_status:'.$stepId;
                     $blockers[] = $b;
+                    $structuredBlockers[] = [
+                        'phase' => $stepId,
+                        'role' => $role,
+                        'replacement_needed' => 'record_fresh_projection_status',
+                    ];
                     $remediationHints[$b] = 'record_fresh_projection_status_for_required_phase:'.$stepId;
                 }
 
@@ -140,10 +179,20 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
                 if ($queueEv === 'unavailable') {
                     $b = 'unavailable_queue_evidence:'.$stepId;
                     $blockers[] = $b;
+                    $structuredBlockers[] = [
+                        'phase' => $stepId,
+                        'role' => $role,
+                        'replacement_needed' => 'restore_queue_evidence',
+                    ];
                     $remediationHints[$b] = 'restore_queue_evidence_for_phase:'.$stepId;
                 } elseif ($isRequiredPhase && $queueEv !== 'available') {
                     $b = 'missing_queue_evidence:'.$stepId;
                     $blockers[] = $b;
+                    $structuredBlockers[] = [
+                        'phase' => $stepId,
+                        'role' => $role,
+                        'replacement_needed' => 'record_available_queue_evidence',
+                    ];
                     $remediationHints[$b] = 'record_available_queue_evidence_for_required_phase:'.$stepId;
                 }
 
@@ -152,10 +201,20 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
                 if ($runtimeEv === 'unavailable') {
                     $b = 'unavailable_runtime_evidence:'.$stepId;
                     $blockers[] = $b;
+                    $structuredBlockers[] = [
+                        'phase' => $stepId,
+                        'role' => $role,
+                        'replacement_needed' => 'collect_runtime_evidence',
+                    ];
                     $remediationHints[$b] = 'collect_runtime_evidence_for_phase:'.$stepId;
                 } elseif ($isRequiredPhase && $runtimeEv !== 'available') {
                     $b = 'missing_runtime_evidence:'.$stepId;
                     $blockers[] = $b;
+                    $structuredBlockers[] = [
+                        'phase' => $stepId,
+                        'role' => $role,
+                        'replacement_needed' => 'record_available_runtime_evidence',
+                    ];
                     $remediationHints[$b] = 'record_available_runtime_evidence_for_required_phase:'.$stepId;
                 }
             } else {
@@ -168,6 +227,11 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
             if (! isset($seenSteadyStatePhases[$required])) {
                 $b = 'missing_steady_state_phase:'.$required;
                 $blockers[] = $b;
+                $structuredBlockers[] = [
+                    'phase' => $required,
+                    'role' => null,
+                    'replacement_needed' => 'add_steady_state_evidence_entry',
+                ];
                 $remediationHints[$b] = 'add_steady_state_evidence_entry_for_phase:'.$required;
             }
         }
@@ -177,7 +241,9 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
         return [
             'schema_version'           => self::SCHEMA,
             'atlas_native'             => $atlasNative,
+            'autonomy_ready'           => $atlasNative,
             'blockers'                 => array_values($blockers),
+            'structured_blockers'      => $structuredBlockers,
             'allowed_visibility'       => $allowedVisibility,
             'steady_state_dependencies' => $steadyStateDependencies,
             'remediation_hints'        => $remediationHints,

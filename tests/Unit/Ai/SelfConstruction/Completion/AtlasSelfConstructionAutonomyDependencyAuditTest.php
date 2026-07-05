@@ -384,4 +384,101 @@ final class AtlasSelfConstructionAutonomyDependencyAuditTest extends TestCase
             }
         }
     }
+
+    // ── AC2: autonomy_ready=false for steady-state non-atlas dependencies ─────
+
+    public function test_autonomy_ready_false_when_steady_state_operator_dependency(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native'],
+            ['step_id' => 'verify', 'kind' => 'steady_state', 'role' => 'operator'],
+        ]);
+
+        $this->assertFalse($verdict['autonomy_ready']);
+    }
+
+    public function test_autonomy_ready_false_when_steady_state_external_worker_dependency(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'execute', 'kind' => 'steady_state', 'role' => 'external_worker'],
+        ]);
+
+        $this->assertFalse($verdict['autonomy_ready']);
+    }
+
+    public function test_autonomy_ready_true_when_all_steady_state_atlas_native(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native'],
+            ['step_id' => 'verify', 'kind' => 'steady_state', 'role' => 'atlas_native'],
+        ]);
+
+        $this->assertTrue($verdict['autonomy_ready']);
+    }
+
+    // ── AC3: bootstrap and emergency reported separately ──────────────────────
+
+    public function test_bootstrap_and_emergency_reported_in_allowed_visibility(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'boot', 'kind' => 'bootstrap', 'role' => 'operator'],
+            ['step_id' => 'kill', 'kind' => 'emergency', 'role' => 'human'],
+            ['step_id' => 'steady', 'kind' => 'steady_state', 'role' => 'atlas_native'],
+        ]);
+
+        $this->assertTrue($verdict['autonomy_ready']);
+        $this->assertCount(2, $verdict['allowed_visibility']);
+        $kinds = array_column($verdict['allowed_visibility'], 'kind');
+        $this->assertContains('bootstrap', $kinds);
+        $this->assertContains('emergency', $kinds);
+    }
+
+    // ── AC4: every blocker includes phase, role and replacement_needed ───────
+
+    public function test_structured_blockers_have_phase_role_replacement_needed(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'verify', 'kind' => 'steady_state', 'role' => 'operator'],
+        ]);
+
+        $this->assertNotEmpty($verdict['structured_blockers']);
+        foreach ($verdict['structured_blockers'] as $blocker) {
+            $this->assertArrayHasKey('phase', $blocker);
+            $this->assertArrayHasKey('role', $blocker);
+            $this->assertArrayHasKey('replacement_needed', $blocker);
+        }
+    }
+
+    public function test_structured_blocker_for_operator_dependency_has_correct_fields(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'verify', 'kind' => 'steady_state', 'role' => 'operator'],
+        ]);
+
+        $blocker = $verdict['structured_blockers'][0];
+        $this->assertSame('verify', $blocker['phase']);
+        $this->assertSame('operator', $blocker['role']);
+        $this->assertSame('replace_with_atlas_native_capability', $blocker['replacement_needed']);
+    }
+
+    public function test_structured_blocker_for_provider_dependency_has_correct_fields(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'reason', 'kind' => 'steady_state', 'role' => 'provider'],
+        ]);
+
+        $blocker = $verdict['structured_blockers'][0];
+        $this->assertSame('reason', $blocker['phase']);
+        $this->assertSame('provider', $blocker['role']);
+        $this->assertSame('replace_with_atlas_native_capability', $blocker['replacement_needed']);
+    }
+
+    public function test_structured_blockers_empty_when_clean(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native'],
+        ]);
+
+        $this->assertSame([], $verdict['structured_blockers']);
+    }
 }
