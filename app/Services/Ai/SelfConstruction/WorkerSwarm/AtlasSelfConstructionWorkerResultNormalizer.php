@@ -95,7 +95,7 @@ final class AtlasSelfConstructionWorkerResultNormalizer
         // Gate outputs — every gate must have passed === true for verified status.
         $failedGates = [];
         foreach ($gateOutputs as $gate => $output) {
-            if (! (bool) (is_array($output) ? ($output['passed'] ?? false) : $output)) {
+            if (! (is_array($output) ? ($output['passed'] ?? false) === true : $output === true)) {
                 $failedGates[] = (string) $gate;
             }
         }
