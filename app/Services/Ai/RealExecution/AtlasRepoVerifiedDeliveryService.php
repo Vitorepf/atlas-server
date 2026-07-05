@@ -273,11 +273,36 @@ class AtlasRepoVerifiedDeliveryService
         }
 
         return [
-            'ok' => $process->isSuccessful(),
+            'ok' => $process->isSuccessful() && $this->assertionsPresent($process->getOutput().$process->getErrorOutput()),
             'tool' => 'php artisan test',
             'exit_code' => $process->getExitCode(),
             'output' => substr(trim($process->getOutput().$process->getErrorOutput()), -800),
         ];
+    }
+
+    /**
+     * Parse the PHPUnit test run output for evidence that at least one assertion
+     * was executed. A test that runs but performs zero assertions (or is marked
+     * risky with zero assertions) must fail the delivery — it proves nothing.
+     */
+    private function assertionsPresent(string $output): bool
+    {
+        // Match "Tests: N, Assertions: 0" (standard PHPUnit summary line)
+        if (preg_match('/Assertions:\s*0/i', $output) === 1) {
+            return false;
+        }
+        // Match "(0 assertions)" (Pest/Laravel compact summary line)
+        if (preg_match('/\(0\s+assertions?\)/i', $output) === 1) {
+            return false;
+        }
+        // If we can't find any assertion count in the output, err on the side of
+        // caution — treat it as no assertions (fail-closed).
+        // Matches both "5 assertions" (Pest) and "Assertions: 5" (standard PHPUnit).
+        if (! preg_match('/(?:\d+\s+assertions?|assertions?\s*\:?\s*\d+)/i', $output)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

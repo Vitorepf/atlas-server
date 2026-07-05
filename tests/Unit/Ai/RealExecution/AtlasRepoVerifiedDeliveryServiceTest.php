@@ -160,4 +160,26 @@ class AtlasRepoVerifiedDeliveryServiceTest extends TestCase
         $this->assertSame(AtlasRepoVerifiedDeliveryService::STATUS_BLOCKED, $env['status']);
         $this->assertTrue($spy->called);
     }
+
+    public function test_assertions_present_returns_false_for_zero_assertions_summary(): void
+    {
+        $svc = new AtlasRepoVerifiedDeliveryService(
+            Mockery::mock(\App\Services\Ai\AiProviderManager::class)
+        );
+        $ref = new \ReflectionMethod($svc, 'assertionsPresent');
+        $ref->setAccessible(true);
+
+        // PHPUnit compact summary: "(0 assertions)"
+        $this->assertFalse($ref->invoke($svc, 'Tests: 1 passed (0 assertions)'));
+
+        // Standard PHPUnit line: "Assertions: 0"
+        $this->assertFalse($ref->invoke($svc, "OK, but incomplete or skipped tests!\nTests: 5, Assertions: 0, Incomplete: 2."));
+
+        // No assertion count mentioned at all — fail-closed.
+        $this->assertFalse($ref->invoke($svc, 'Some output without any assertion count'));
+
+        // Valid assertions present.
+        $this->assertTrue($ref->invoke($svc, 'Tests: 1 passed (1 assertions)'));
+        $this->assertTrue($ref->invoke($svc, 'Tests: 3, Assertions: 5, Failures: 0.'));
+    }
 }
