@@ -24,6 +24,7 @@ decisions:
 maintenance:
   - Atualizar quando a fronteira Dev/Forge/Autonomos, o Engineering Kernel ou os patamares A0-A7 mudarem de contrato.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - docs/engineering-knowledge-base/atlas-dev-index.md
   - docs/engineering-knowledge-base/atlas-dev-policy.md
   - docs/engineering-knowledge-base/atlas-dev-patamares.md
