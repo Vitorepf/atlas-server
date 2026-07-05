@@ -164,6 +164,8 @@ final class AtlasProjectLaneAdmissionPolicy
             'admitted' => $admitted,
             'project_id' => $projectId,
             'blocking_reasons' => array_values($reasons),
+            'blockers' => array_values($reasons),
+            'required_fields_status' => $this->buildRequiredFieldsStatus($manifest),
             'workspace_policy' => [
                 'isolation' => self::ISOLATION,
                 'mainline_branch' => $mainline,
@@ -195,6 +197,23 @@ final class AtlasProjectLaneAdmissionPolicy
         }
 
         return false;
+    }
+
+    /**
+     * Build a per-field status map showing which required fields are present
+     * and which are missing.
+     *
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,bool>
+     */
+    private function buildRequiredFieldsStatus(array $manifest): array
+    {
+        $status = [];
+        foreach (self::REQUIRED_FIELDS as $field) {
+            $status[$field] = array_key_exists($field, $manifest);
+        }
+
+        return $status;
     }
 
     private function isSafeRepoRoot(string $repoRoot): bool

@@ -318,4 +318,88 @@ final class AtlasProjectLaneAdmissionPolicyTest extends TestCase
         ], $verdict['autonomy_budget']);
         $this->assertSame('none', $verdict['provider_dependency_policy']);
     }
+
+    // ── AC: missing owner scope, queue namespace, isolation evidence or knowledge sync readiness blocks admission ──
+
+    public function test_missing_owner_scope_blocks_admission(): void
+    {
+        $manifest = $this->validManifest();
+        $manifest['allowed_scope_roots'] = [];
+
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertFalse($verdict['admitted']);
+        $this->assertContains('allowed_scope_roots_empty', $verdict['blockers']);
+    }
+
+    public function test_missing_queue_namespace_blocks_admission_with_blockers(): void
+    {
+        $manifest = $this->validManifest();
+        unset($manifest['queue_namespace']);
+
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertFalse($verdict['admitted']);
+        $this->assertContains('missing_required_field:queue_namespace', $verdict['blockers']);
+    }
+
+    public function test_missing_knowledge_sync_readiness_blocks_admission(): void
+    {
+        $manifest = $this->validManifest();
+        unset($manifest['knowledge_sync_policy']);
+
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertFalse($verdict['admitted']);
+        $this->assertContains('missing_required_field:knowledge_sync_policy', $verdict['blockers']);
+    }
+
+    // ── AC: admitted lanes use isolation=shared_local_main_with_scope_lock ──
+
+    public function test_admitted_lanes_use_shared_local_main_with_scope_lock(): void
+    {
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($this->validManifest());
+
+        $this->assertTrue($verdict['admitted']);
+        $this->assertSame('shared_local_main_with_scope_lock', $verdict['workspace_policy']['isolation']);
+    }
+
+    // ── AC: admission output includes blockers and required_fields_status ──
+
+    public function test_admission_output_includes_blockers(): void
+    {
+        $manifest = $this->validManifest();
+        unset($manifest['queue_namespace']);
+
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertArrayHasKey('blockers', $verdict);
+        $this->assertIsArray($verdict['blockers']);
+        $this->assertNotEmpty($verdict['blockers']);
+    }
+
+    public function test_admission_output_includes_required_fields_status(): void
+    {
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($this->validManifest());
+
+        $this->assertArrayHasKey('required_fields_status', $verdict);
+        $this->assertIsArray($verdict['required_fields_status']);
+
+        // All required fields should be present (true) in a valid manifest
+        foreach ($verdict['required_fields_status'] as $field => $present) {
+            $this->assertTrue($present, "field {$field} should be present in valid manifest");
+        }
+    }
+
+    public function test_required_fields_status_shows_missing_fields_as_false(): void
+    {
+        $manifest = $this->validManifest();
+        unset($manifest['queue_namespace']);
+
+        $verdict = (new AtlasProjectLaneAdmissionPolicy)->admit($manifest);
+
+        $this->assertArrayHasKey('required_fields_status', $verdict);
+        $this->assertFalse($verdict['required_fields_status']['queue_namespace']);
+        $this->assertTrue($verdict['required_fields_status']['project_id']);
+    }
 }
