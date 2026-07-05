@@ -102,11 +102,37 @@ class AgentProviderAdapterRegistry
     {
         $descriptors = array_values($this->descriptors());
 
+        // Default facts where no per-adapter outcome/evidence is given: all families
+        // recognised, zero give_back, zero age, fallback=available for known adapters.
+        $defaultFacts = [
+            'self_declared'           => false,
+            'evidence_age_days'       => 0,
+            'max_evidence_age_days'   => self::DEFAULT_MAX_EVIDENCE_AGE_DAYS,
+            'give_back_rate'          => 0.0,
+            'capability_families'     => ['implementation', 'planning', 'review', 'scouting', 'documentation'],
+        ];
+
+        $enriched = [];
+        foreach ($descriptors as $d) {
+            $provider = (string) ($d['provider'] ?? '');
+            $cap = $this->computeCapabilityScore(
+                $defaultFacts['capability_families'],
+                $defaultFacts['give_back_rate'],
+                $defaultFacts['evidence_age_days'],
+                $defaultFacts['max_evidence_age_days'],
+                $provider,
+            );
+            $d['capability_score']   = $cap['capability_score'];
+            $d['capability_verdict'] = $cap['capability_verdict'];
+            $d['fallback_available'] = $cap['fallback_available'];
+            $enriched[] = $d;
+        }
+
         return [
             'status' => 'provider_adapter_registry_ready',
             'registry_id' => 'AGENT-PROVIDER-ADAPTER-REGISTRY-SELF-CONSTRUCTION-0001',
             'provider_count' => count($descriptors),
-            'providers' => $descriptors,
+            'providers' => $enriched,
             'registry_policy' => [
                 'registry_is_authoritative_for_adapter_identity' => true,
                 'external_process_start_allowed' => false,
@@ -129,6 +155,42 @@ class AgentProviderAdapterRegistry
     private function normalizeKey(string $value): string
     {
         return strtolower(trim($value));
+    }
+
+    /**
+     * Compute a capability_score (0.0–1.0) and capability_verdict for an adapter
+     * from supported task families, evidence freshness, give_back rate, and
+     * fallback availability.
+     *
+     * @param  list<string>  $supportedFamilies
+     * @return array{capability_score:float, capability_verdict:string, fallback_available:bool}
+     */
+    private function computeCapabilityScore(
+        array $supportedFamilies,
+        float $giveBackRate,
+        int $evidenceAgeDays,
+        int $maxEvidenceAgeDays,
+        string $provider,
+    ): array {
+        $familyFactor = min(1.0, count($supportedFamilies) / 5.0);
+        $freshnessFactor = $evidenceAgeDays > $maxEvidenceAgeDays ? 0.0 : 1.0 - ($evidenceAgeDays / max(1, $maxEvidenceAgeDays));
+        $giveBackFactor = 1.0 - min(1.0, $giveBackRate);
+
+        $score = round($familyFactor * 0.30 + $freshnessFactor * 0.35 + $giveBackFactor * 0.35, 4);
+
+        $verdict = match (true) {
+            $score >= 0.75 => 'capable',
+            $score >= 0.50 => 'marginal',
+            default        => 'incapable',
+        };
+
+        $fallbackAvailable = in_array($provider, ['codex', 'claude', 'gemini', 'local', 'http'], true);
+
+        return [
+            'capability_score'   => $score,
+            'capability_verdict' => $verdict,
+            'fallback_available' => $fallbackAvailable,
+        ];
     }
 
     private const DEFAULT_MAX_EVIDENCE_AGE_DAYS = 14;
