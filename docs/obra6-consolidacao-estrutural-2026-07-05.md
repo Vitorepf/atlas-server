@@ -82,6 +82,13 @@ recuperáveis, hash-safe); 18 têm montagem de payload própria cuja ORDEM alime
 (auditor de estado ≠ juiz clonado). Ação: migrados os 7 helper-carriers para o trait (dedup real,
 fonte única do rollup); o resto fica como está — reduzir seria Goodhart. Delta real medido no commit.
 
+**V2 — RELATÓRIO FAMÍLIA-A-FAMÍLIA (a spec permite "OU relatório honesto"; <2% NÃO atingível esta sessão, medido).**
+jscpd atual: **4,10%** (51.537 dup / 3.854 clones) — baseline limpeza 4,18%. Para <2% seria preciso remover ~26k linhas. Distribuição:
+- **SelfConstruction 20.374 (40% do total) — NÃO TOCAR.** Família `AgentAutomaticDispatchSchedulerOneShotTick*Invoker` = **62 arquivos, 20 commits nas últimas 3h** (workers codex ativos). Os invokers NÃO são byte-idênticos (cada um embrulha um gate diferente com chaves de payload distintas — jscpd flaga a estrutura, não o conteúdo) e os workers JÁ consolidam incrementalmente (`Support/OneShotTickInputNormalizer` em adoção). Extrair base aqui = colisão com 20 commits/3h + Goodhart num alvo auto-consolidante. **O freio estrutural desta família é o V0 (shipado): impede NOVOS clones; o estoque cai via workers + gate.**
+- **Aaeos ~5.2k = Generated/ → território do V3** (dedup no gerador, não aqui).
+- **Frio extraível fora da zona quente: ~1,1k linhas em 22 pares**, majoritariamente: variante-legítima (estratégias de trading, já com `SharedIndicatorMath`), VETADO (Rivals/Medição: `*RivalsReadiness`, `VoxV5/V6`; drivers `Claude/HermesCliProvider` = veredito keep-separate registrado), ou test-seam intencional (`AtlasLoopFrozenTestContentBuilder` = gêmeo public-method do `SourceRenderer` para caracterização — retire exige reescrita de teste, ~295 linhas, baixa prioridade → semente da esteira gate-guarded).
+Conclusão honesta: o problema de clone do núcleo é resolvido por CONSTRUÇÃO pelo V0 (produtor freado), não por extração manual num estoque hot/generated/vetado. Delta de extração manual disponível sem colisão/Goodhart/veto ≈ algumas centenas de linhas — não move a régua; semeado à esteira.
+
 ## Follow-ups
 - Enforce do `admission_v2_mode` (hoje observe) é decisão do operador — flip quando a janela de dados
   mostrar sinal limpo. O replay já provou 6 organs unwired reais entrando pela esteira.
