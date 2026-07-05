@@ -8,6 +8,9 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockWriter;
+use App\Services\Ai\EngineeringKernel\Repair\FailureBrainCorpus;
+use App\Services\Ai\EngineeringKernel\Repair\FailureTaxonomy;
+use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
 use Closure;
 use Symfony\Component\Process\Process;
 
@@ -99,6 +102,8 @@ class AtlasRepoVerifiedDeliveryService
             $latencyMs = 0;
             $lastFiles = [];
             $lastOutput = '';
+            $diagnoses = [];
+            $repairHalt = null;
 
             for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
                 $prompt = $attempt === 1
@@ -145,6 +150,60 @@ class AtlasRepoVerifiedDeliveryService
                 }
                 $lastFiles = $files;
                 $lastOutput = (string) ($testRun['output'] ?? '');
+
+                // OBRA #4 S3 — RepairBrain: DIAGNOSTICA antes de regenerar (determinístico-primeiro).
+                // env_flake => re-roda o teste SEM gastar provider; classes de parada (test_wrong/
+                // spec_wrong/dependency/scope) => HALT com blocker nomeado — test_wrong NUNCA
+                // autoriza consertar o teste; impl_bug/unknown => regenera com hint dirigido.
+                $diagnosis = app(RepairDiagnosisStage::class)->diagnose([
+                    'failure_output' => $lastOutput,
+                    'origin' => 'repo_verified_delivery',
+                    'explicit_signals' => array_map('strval', (array) ($options['repair_signals'] ?? [])),
+                ]);
+                $diagnoses[] = $diagnosis;
+                if ($diagnosis['strategy'] === FailureTaxonomy::STRATEGY_RERUN_NO_PROVIDER) {
+                    $testRun = $this->runRepoTest($path, $testRel);
+                    $attempts[] = [
+                        'attempt' => $attempt,
+                        'ok' => ($testRun['ok'] ?? false) === true,
+                        'exit_code' => $testRun['exit_code'] ?? null,
+                        'strategy' => FailureTaxonomy::STRATEGY_RERUN_NO_PROVIDER,
+                    ];
+                    if (($testRun['ok'] ?? false) === true) {
+                        break;
+                    }
+                    $lastOutput = (string) ($testRun['output'] ?? '');
+                } elseif ($diagnosis['strategy'] !== FailureTaxonomy::STRATEGY_REGENERATE_WITH_HINT) {
+                    $repairHalt = $diagnosis;
+                    break;
+                } else {
+                    $lastOutput .= "\n\nRepairBrain hint: ".$diagnosis['hint'];
+                }
+            }
+
+            // Corpus do failure-brain: cada diagnóstico persiste com o outcome REAL (best-effort).
+            if ($diagnoses !== []) {
+                $finalOutcome = ($testRun['ok'] ?? false) === true
+                    ? 'repaired'
+                    : ($repairHalt !== null ? 'halted:'.$repairHalt['class'] : 'unrepaired');
+                foreach ($diagnoses as $d) {
+                    try {
+                        app(FailureBrainCorpus::class)->record([
+                            'failure_signature' => hash('sha256', 'repo_verified_delivery|'.$implRel.'|'.$testRel.'|'.$goal),
+                            'origin' => 'repo_verified_delivery',
+                            'class' => $d['class'],
+                            'strategy' => $d['strategy'],
+                            'decided_by' => $d['decided_by'],
+                            'outcome' => $finalOutcome,
+                        ]);
+                    } catch (\Throwable) {
+                        // corpus é aprendizado, nunca bloqueia a entrega
+                    }
+                }
+            }
+
+            if ($repairHalt !== null) {
+                return $this->blocked('repair_halted_'.$repairHalt['class'].':'.$repairHalt['strategy'], $latencyMs);
             }
 
             if ($files === []) {

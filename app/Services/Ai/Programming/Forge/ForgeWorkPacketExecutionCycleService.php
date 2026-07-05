@@ -490,6 +490,27 @@ class ForgeWorkPacketExecutionCycleService
         $cycle = $this->persistOutcomeMemory($cycle, $failureCapsule);
         $this->feedCentralLearning($cycle, $failureCapsule);
 
+        // OBRA #4 S3 — failure-brain corpus: cada falha de ciclo Forge é DIAGNOSTICADA
+        // (determinístico) e persiste classe+estratégia para as priors do RepairBrain.
+        // Best-effort: aprendizado nunca quebra a transição do ciclo (mesma banda do
+        // feedCentralLearning acima).
+        try {
+            $diagnosis = app(\App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage::class)->diagnose([
+                'failure_output' => $failureReason,
+                'origin' => 'forge_work_packet_cycle',
+            ]);
+            app(\App\Services\Ai\EngineeringKernel\Repair\FailureBrainCorpus::class)->record([
+                'failure_signature' => hash('sha256', 'forge|'.$cycle->work_packet_canonical_id.'|'.$failureReason),
+                'origin' => 'forge_work_packet_cycle',
+                'class' => $diagnosis['class'],
+                'strategy' => $diagnosis['strategy'],
+                'decided_by' => $diagnosis['decided_by'],
+                'outcome' => 'failed_pending_repair',
+            ]);
+        } catch (\Throwable) {
+            // corpus é aprendizado, nunca bloqueia
+        }
+
         if ($state !== null) {
             $this->longHorizon->recordCycle($state, [
                 'cycle_id' => 'wp-cycle-'.$cycle->uuid,
