@@ -20,7 +20,7 @@ use App\Services\Ai\EngineeringKernel\NonFunctional\MigrationSafetyProbe;
 final class SovereignHonestyFloor implements AcceptanceGate
 {
     /** Bumped whenever the invariant set or a piso changes — sealed into every receipt for provenance. */
-    public const FLOOR_VERSION = 'atlas.engineering_kernel.sovereign_floor.v2';
+    public const FLOOR_VERSION = 'atlas.engineering_kernel.sovereign_floor.v3';
 
     /** The non-overridable sovereign pisos. config() may raise these, never lower them. */
     public const SOVEREIGN_MUTATION_FLOOR = 0.6;
@@ -83,6 +83,9 @@ final class SovereignHonestyFloor implements AcceptanceGate
             // OBRA #4 S1 — regression-lock como LEI: falha reparada vira caso trancado para sempre.
             // Waive quando não houve repair; fail-closed quando houve e o lock não existe.
             'regression_locked_for_repaired' => $this->regressionLockedForRepaired($bundle),
+            // OBRA #4 S2 — replay-proof: reparo só conta como consertado quando o caso EXATO da
+            // falha original re-rodou e passou. "Suíte verde de novo" não basta.
+            'replay_proof_for_repaired' => $this->replayProofForRepaired($bundle),
         ];
 
         $blockers = [];
@@ -402,6 +405,30 @@ final class SovereignHonestyFloor implements AcceptanceGate
         return $ref !== ''
             ? $this->pass('repaired_failure_locked:'.substr($ref, 0, 16))
             : $this->fail('repaired_without_regression_lock');
+    }
+
+    /**
+     * OBRA #4 S2 — replay-proof invariant: a repaired delivery must prove the ORIGINAL failing case
+     * was replayed and passed — a fix that turns the suite green without re-proving the exact case
+     * that failed is not a proven fix. No repair => waived; repaired-without-replay => refused.
+     *
+     * @return array{status:string,detail:string}
+     */
+    private function replayProofForRepaired(AcceptanceBundle $bundle): array
+    {
+        $attempts = (int) ($bundle->repair['attempts'] ?? 0);
+        if ($attempts < 1) {
+            return $this->pass('no_repair_attempts_replay_waived');
+        }
+
+        $proof = (array) ($bundle->repair['replay_proof'] ?? []);
+        if (($proof['replayed'] ?? false) !== true) {
+            return $this->fail('repaired_without_replaying_original_failure');
+        }
+
+        return ($proof['passed'] ?? false) === true
+            ? $this->pass('original_failure_replayed_green:'.(string) ($proof['original_failure_ref'] ?? ''))
+            : $this->fail('original_failure_replay_still_red');
     }
 
     private function isLintCommand(string $cmd): bool

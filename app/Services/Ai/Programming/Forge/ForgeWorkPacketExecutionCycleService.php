@@ -410,6 +410,10 @@ class ForgeWorkPacketExecutionCycleService
                     'selected_tests' => [],
                     'artifacts' => $artifacts,
                 ],
+                // OBRA #4 S1/S2 — evidência de repair atestada pelo executor no gate_result: quando o
+                // ciclo declarou repair, o floor cobra regression-lock + replay-proof (fail-closed no
+                // ENFORCE-mode; registrado no OBSERVE).
+                'repair' => is_array($gateResult['repair'] ?? null) ? $gateResult['repair'] : [],
             ]),
             TrustLevel::Forge,
         );

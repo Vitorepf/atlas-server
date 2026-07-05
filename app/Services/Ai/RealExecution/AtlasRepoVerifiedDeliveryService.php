@@ -162,6 +162,14 @@ class AtlasRepoVerifiedDeliveryService
             $repairAttempts = max(0, count($attempts) - 1);
             $repairEvidence = ['attempts' => $repairAttempts];
             if ($certified && $repairAttempts > 0) {
+                // OBRA #4 S2 — REPLAY-PROOF: a certificação final re-rodou EXATAMENTE o teste que
+                // falhava nas tentativas anteriores ($testRel, o caso original) e ele passou — isso
+                // é o replay por construção do loop de repair deste caminho.
+                $repairEvidence['replay_proof'] = [
+                    'original_failure_ref' => $testRel,
+                    'replayed' => true,
+                    'passed' => true,
+                ];
                 try {
                     $lock = app(RegressionLockWriter::class)->lockRepairedFailure(
                         [

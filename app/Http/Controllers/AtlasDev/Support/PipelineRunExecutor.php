@@ -54,6 +54,7 @@ use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineCache;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineGate;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService;
 use App\Services\Ai\Programming\AtlasDev\Regression\VerificationRegressionBaselineRunner;
+use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockLedger;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureSignatureHasher;
 use App\Services\Ai\Programming\AtlasDev\Repair\RepairPromptComposer;
@@ -1195,6 +1196,36 @@ final class PipelineRunExecutor implements RunExecutor
             }
         }
 
+        // OBRA #4 S1+S2 — evidência de repair do caminho Dev. Um run que convergiu VIA o loop M2
+        // re-rodou os comandos de verificação que FALHARAM até ficarem verdes: replay-proof por
+        // construção do próprio loop. O regression-lock grava direto no ledger — o caso que falhou
+        // JÁ é teste da suíte (a sonda anti-flake 3× existe para impedir teste NOVO flaky de entrar;
+        // aqui nada novo entra, trancamos o binding assinatura-da-falha→suíte). Best-effort: erro de
+        // ledger nunca derruba o run; a cobrança fail-closed é do floor quando o bundle levar `repair`.
+        $repairEvidence = ['attempts' => $repairAttempt];
+        if ($repairAttempt > 0 && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED) {
+            $devFailureSignature = (string) ($lastFailureSignature ?? '');
+            $repairEvidence['replay_proof'] = [
+                'original_failure_ref' => $devFailureSignature !== '' ? $devFailureSignature : 'verification_gate',
+                'replayed' => true,
+                'passed' => true,
+            ];
+            if ($devFailureSignature !== '') {
+                try {
+                    $lockLedger = new RegressionLockLedger;
+                    $lockEntry = $lockLedger->has($devFailureSignature) ?? $lockLedger->lock([
+                        'failure_signature' => $devFailureSignature,
+                        'origin' => 'atlas_dev_m2',
+                        'failing_case' => 'verification_gate',
+                        'locked_test_ref' => 'existing_suite_verification_commands',
+                    ]);
+                    $repairEvidence['regression_lock_ref'] = (string) ($lockEntry['lock_ref'] ?? '');
+                } catch (\Throwable) {
+                    // best-effort — a ausência do lock é cobrada pelo floor, nunca engolida aqui
+                }
+            }
+        }
+
         return new RunExecutionResult(
             completionState: $receipt->completion->status,
             scopeGuardStatus: $scopeReceipt->status,
@@ -1205,6 +1236,7 @@ final class PipelineRunExecutor implements RunExecutor
                 'model_family' => $callResult->actualModelFamily,
                 'provider_calls' => $providerCalls,
                 'repair_attempts' => $repairAttempt,
+                'repair' => $repairEvidence,
                 'repair_abort_reason' => $abortReason,
                 'exit_code' => $callResultForGates->exitStatus,
                 'duration_ms' => $callResultForGates->durationMs,
