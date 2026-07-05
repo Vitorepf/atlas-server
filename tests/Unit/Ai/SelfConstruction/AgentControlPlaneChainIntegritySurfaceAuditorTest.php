@@ -144,4 +144,140 @@ final class AgentControlPlaneChainIntegritySurfaceAuditorTest extends TestCase
             $this->assertSame([], $audit['duplicate_slice_bullets']);
         }
     }
+
+    // ── AC: duplicate CLI or documentation surfaces increase duplicate_count ──
+
+    public function test_cli_surface_has_duplicate_count_field(): void
+    {
+        $surface = $this->auditor()->cliSurface($this->sampleDeepChain());
+
+        $this->assertArrayHasKey('duplicate_count', $surface);
+        $this->assertIsInt($surface['duplicate_count']);
+    }
+
+    public function test_cli_surface_duplicate_count_zero_when_no_duplicates(): void
+    {
+        $surface = $this->auditor()->cliSurface($this->sampleDeepChain());
+
+        $this->assertSame(0, $surface['duplicate_count']);
+    }
+
+    public function test_cli_surface_duplicate_count_increases_with_duplicate_slices(): void
+    {
+        $auditor = $this->auditor();
+        $chain = $this->sampleDeepChain();
+        // Duplicate a slice to create duplicate CLI options.
+        $duplicatedChain = array_merge($chain, [$chain[0]]);
+
+        $surface = $auditor->cliSurface($duplicatedChain);
+
+        $this->assertGreaterThan(0, $surface['duplicate_count']);
+    }
+
+    public function test_invoker_surface_has_duplicate_count_field(): void
+    {
+        $surface = $this->auditor()->invokerSurface($this->sampleDeepChain());
+
+        $this->assertArrayHasKey('duplicate_count', $surface);
+        $this->assertIsInt($surface['duplicate_count']);
+    }
+
+    public function test_invoker_surface_duplicate_count_zero_when_no_duplicates(): void
+    {
+        $surface = $this->auditor()->invokerSurface($this->sampleDeepChain());
+
+        $this->assertSame(0, $surface['duplicate_count']);
+    }
+
+    public function test_invoker_surface_duplicate_count_increases_with_duplicate_invokers(): void
+    {
+        $auditor = $this->auditor();
+        $chain = $this->sampleDeepChain();
+        // Duplicate a slice to create duplicate invoker_class entries.
+        $duplicatedChain = array_merge($chain, [$chain[0]]);
+
+        $surface = $auditor->invokerSurface($duplicatedChain);
+
+        $this->assertGreaterThan(0, $surface['duplicate_count']);
+    }
+
+    public function test_documentation_audit_has_duplicate_count_field(): void
+    {
+        $audit = $this->auditor()->documentationAudit($this->sampleDeepChain());
+
+        $this->assertArrayHasKey('duplicate_count', $audit);
+        $this->assertIsInt($audit['duplicate_count']);
+    }
+
+    // ── AC: missing quartet methods make allQuartetMethodsPresent return false ──
+
+    public function test_all_quartet_methods_present_false_when_contract_missing(): void
+    {
+        $sliceReports = [
+            ['checks' => [
+                'contract_method_exists' => false,
+                'preflight_method_exists' => true,
+                'implementation_packet_method_exists' => true,
+                'status_method_exists' => true,
+            ]],
+        ];
+
+        $this->assertFalse($this->auditor()->allQuartetMethodsPresent($sliceReports));
+    }
+
+    public function test_all_quartet_methods_present_false_when_preflight_missing(): void
+    {
+        $sliceReports = [
+            ['checks' => [
+                'contract_method_exists' => true,
+                'preflight_method_exists' => false,
+                'implementation_packet_method_exists' => true,
+                'status_method_exists' => true,
+            ]],
+        ];
+
+        $this->assertFalse($this->auditor()->allQuartetMethodsPresent($sliceReports));
+    }
+
+    public function test_all_quartet_methods_present_false_when_status_missing(): void
+    {
+        $sliceReports = [
+            ['checks' => [
+                'contract_method_exists' => true,
+                'preflight_method_exists' => true,
+                'implementation_packet_method_exists' => true,
+                'status_method_exists' => false,
+            ]],
+        ];
+
+        $this->assertFalse($this->auditor()->allQuartetMethodsPresent($sliceReports));
+    }
+
+    public function test_all_quartet_methods_present_false_when_empty_reports(): void
+    {
+        $this->assertTrue($this->auditor()->allQuartetMethodsPresent([]));
+    }
+
+    // ── AC: testSurface returns provider-safe test inventory without raw runtime payloads ──
+
+    public function test_test_surface_does_not_expose_raw_runtime_payloads(): void
+    {
+        $surface = $this->auditor()->testSurface();
+
+        // The surface should only contain paths and booleans — no runtime data.
+        $this->assertArrayNotHasKey('runtime_payload', $surface);
+        $this->assertArrayNotHasKey('raw_output', $surface);
+        $this->assertArrayNotHasKey('command_output', $surface);
+    }
+
+    public function test_test_surface_returns_provider_safe_inventory_types(): void
+    {
+        $surface = $this->auditor()->testSurface();
+
+        // Verify all values are provider-safe types (bool, string, array of strings).
+        $this->assertIsString($surface['dedicated_test_path']);
+        $this->assertIsBool($surface['dedicated_test_present']);
+        $this->assertIsBool($surface['command_test_present']);
+        $this->assertIsArray($surface['missing_tests']);
+    }
 }

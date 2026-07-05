@@ -20,7 +20,7 @@ use Illuminate\Contracts\Console\Kernel as ConsoleKernelContract;
  * default (lazy); tests pass a fake parent to exercise the cross-cutting
  * helper paths.
  */
-final class AgentControlPlaneChainIntegritySurfaceAuditor
+class AgentControlPlaneChainIntegritySurfaceAuditor
 {
     public function __construct(
         private readonly ?AgentControlPlaneChainIntegrityAuditService $parent = null,
@@ -62,6 +62,8 @@ final class AgentControlPlaneChainIntegritySurfaceAuditor
             'contract_doc_byte_size' => $exists ? strlen($contents) : 0,
             'slice_bullets_found' => $bulletsFound,
             'duplicate_slice_bullets' => $duplicateBullets,
+            'duplicate_count' => count($duplicateBullets),
+            'missing_doc_bullets' => array_keys(array_filter($bulletsFound, static fn (int $count): bool => $count === 0)),
         ];
     }
 
@@ -92,6 +94,10 @@ final class AgentControlPlaneChainIntegritySurfaceAuditor
             $expectedOptions[] = $cliBase.'-implementation-packet';
             $expectedOptions[] = $cliBase.'-status';
         }
+
+        // Detect duplicate CLI options before dedup — duplicates must not count
+        // as unique coverage.
+        $duplicateCount = $this->countDuplicates($expectedOptions);
         $expectedOptions = array_values(array_unique($expectedOptions));
 
         $present = [];
@@ -122,8 +128,9 @@ final class AgentControlPlaneChainIntegritySurfaceAuditor
             'command_name' => 'atlas:ai:self-construction',
             'expected_options' => $expectedOptions,
             'present_options' => $present,
-            'missing_options' => $missing,
+            'missing_options' => array_map(static fn (string $option): array => ['slice_key' => '', 'option' => $option], $missing),
             'handlers_aligned' => $aligned,
+            'duplicate_count' => $duplicateCount,
         ];
     }
 
@@ -154,8 +161,10 @@ final class AgentControlPlaneChainIntegritySurfaceAuditor
     public function invokerSurface(array $deepChain): array
     {
         $missing = [];
+        $invokerClasses = [];
         foreach ($deepChain as $slice) {
             $invokerClass = $slice['invoker_class'];
+            $invokerClasses[] = $invokerClass;
             if ($invokerClass === '' || ! class_exists($invokerClass)) {
                 $missing[] = $slice['slice_key'];
 
@@ -166,9 +175,16 @@ final class AgentControlPlaneChainIntegritySurfaceAuditor
             }
         }
 
+        $duplicateCount = $this->countDuplicates($invokerClasses);
+
         return [
             'deep_checked' => count($deepChain),
             'missing' => $missing,
+            'missing_invokers' => array_map(static fn (string $sliceKey): array => [
+                'slice_key' => $sliceKey,
+                'invoker_class' => '',
+            ], $missing),
+            'duplicate_count' => $duplicateCount,
         ];
     }
 
@@ -184,6 +200,9 @@ final class AgentControlPlaneChainIntegritySurfaceAuditor
             'dedicated_test_path' => 'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php',
             'dedicated_test_present' => is_file($dedicatedTestPath),
             'command_test_present' => is_file($commandTestPath),
+            'missing_tests' => is_file($dedicatedTestPath) ? [] : [
+                ['slice_key' => 'agent_control_plane_chain_integrity', 'test_path' => 'tests/Feature/Ai/AtlasAiSelfConstructionAgentControlPlaneChainIntegrityAuditTest.php'],
+            ],
         ];
     }
 
