@@ -11,6 +11,8 @@ use Throwable;
 
 final class AtlasPersistentContextCertificationService
 {
+    use \App\Services\Ai\Support\CertificationScaffoldHelpers;
+
     public const SCHEMA_VERSION = 'atlas.persistent_context.certification.v1';
 
     public const STATUS_PASSED = 'passed';
@@ -26,7 +28,6 @@ final class AtlasPersistentContextCertificationService
      */
     public function certify(): array
     {
-        $now = CarbonImmutable::now();
         $checks = [
             $this->canonicalDoc(),
             $this->runtimeSmoke(),
@@ -44,13 +45,7 @@ final class AtlasPersistentContextCertificationService
             $this->claimPolicy(),
         ];
 
-        $payload = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $this->status($checks),
-            'generated_at' => $now->toJSON(),
-            'summary' => $this->summary($checks),
-            'checks' => $checks,
-            'blockers' => array_values(array_filter($checks, static fn (array $check): bool => ($check['status'] ?? null) === 'fail')),
+        $payload = $this->stateCertificationPayload(self::SCHEMA_VERSION, $checks, [
             'claim_policy' => [
                 'benchmark_not_run' => true,
                 'rivals_compared' => false,
@@ -63,7 +58,7 @@ final class AtlasPersistentContextCertificationService
                 'does_not_cover' => 'external provider execution, benchmark/rivals, UI rendering and live production traffic.',
             ],
             'writes' => false,
-        ];
+        ]);
         $payload['certification_hash'] = $this->hash($payload);
 
         return $payload;
@@ -304,16 +299,6 @@ final class AtlasPersistentContextCertificationService
             'evidence' => $evidence,
             'remediation' => $ok ? null : $remediation,
         ];
-    }
-
-    /**
-     * @param  list<array<string,mixed>>  $checks
-     */
-    private function status(array $checks): string
-    {
-        return collect($checks)->contains(fn (array $check): bool => ($check['status'] ?? null) === 'fail')
-            ? self::STATUS_BLOCKED
-            : self::STATUS_PASSED;
     }
 
     /**
