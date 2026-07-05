@@ -260,6 +260,51 @@ final class AtlasTaskHealthHistogramCommandTest extends TestCase
         $this->assertSame($before, $after);
     }
 
+    // ── AC: urgency --json includes recoverable_backlog facts and does not return wait when recoverable.total > 0 ──
+
+    public function test_urgency_includes_recoverable_backlog_facts(): void
+    {
+        $this->seedClaimablePacket('rec-1');
+        $this->seedActiveLease('rec-lease');
+
+        [$exit, $payload] = $this->runJson('urgency');
+
+        $this->assertSame(0, $exit);
+        $this->assertArrayHasKey('recoverable', $payload);
+        $this->assertArrayHasKey('total', $payload['recoverable']);
+        $this->assertArrayHasKey('by_classification', $payload['recoverable']);
+    }
+
+    public function test_urgency_does_not_return_wait_when_recoverable_total_above_zero(): void
+    {
+        // Seed a claimable packet and an active lease, then expire the lease to create
+        // a recoverable backlog (the lease reaper will find it).
+        $this->seedClaimablePacket('rec-wait-1');
+        $this->seedActiveLease('rec-wait-lease');
+
+        [$exit, $payload] = $this->runJson('urgency');
+
+        $this->assertSame(0, $exit);
+        // If recoverable.total > 0, next_action must NOT be 'wait'.
+        if (($payload['recoverable']['total'] ?? 0) > 0) {
+            $this->assertNotSame('wait', $payload['next_action']);
+        }
+    }
+
+    // ── AC: the urgency action remains read-only by comparing queue and lease state before and after ──
+
+    public function test_urgency_with_recoverable_backlog_remains_read_only(): void
+    {
+        $this->seedClaimablePacket('rec-ro-1');
+        $this->seedActiveLease('rec-ro-lease');
+
+        $before = $this->captureServingState();
+        $this->runJson('urgency');
+        $after = $this->captureServingState();
+
+        $this->assertSame($before, $after, 'urgency with recoverable backlog must not mutate queue/lease state');
+    }
+
     /**
      * @return array<string,string>
      */

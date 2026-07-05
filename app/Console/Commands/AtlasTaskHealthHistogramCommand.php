@@ -141,7 +141,27 @@ final class AtlasTaskHealthHistogramCommand extends Command
             )));
         }
 
+        // AC: recoverable backlog — when coordination health reports recoverable tasks,
+        // urgency must NOT advise passive wait/monitor. The backlog self-heals on the next
+        // claimNext, so the operator should be pointed to atlas:acp:reap-leases.
+        $recoverable = (array) ($snapshot['recoverable'] ?? []);
+        $recoverableTotal = (int) ($recoverable['total'] ?? 0);
+        $recoverableByClassification = (array) ($recoverable['by_classification'] ?? []);
+
+        if ($recoverableTotal > 0 && in_array($payload['next_action'], ['wait', 'monitor_idle_supply'], true)) {
+            $payload['next_action'] = 'reap_recoverable_backlog';
+            $payload['replenish_action'] = 'replenish_soon';
+            $payload['reasons'] = array_values(array_unique(array_merge(
+                array_filter($payload['reasons'], static fn (string $r): bool => $r !== 'no_replenish_pressure'),
+                ['recoverable_backlog'],
+            )));
+        }
+
         $payload['worker_drain_forecast'] = $forecast;
+        $payload['recoverable'] = [
+            'total' => $recoverableTotal,
+            'by_classification' => $recoverableByClassification,
+        ];
 
         return $payload;
     }
