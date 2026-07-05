@@ -46,8 +46,8 @@ related_paths:
   - docs/engineering-knowledge-base/memory-core-runbook.md
   - docs/engineering-knowledge-base/open-brain-context-injection.md
   - app/Services/Ai/AtlasMemoryLearningPromotionService.php
-  - app/Services/Ai/AtlasCompoundingMemoryService.php
-  - app/Services/Ai/AtlasMemoryConflictResolutionService.php
+  - app/Services/Ai/Compounding/AtlasCompoundingMemoryService.php
+  - app/Services/Ai/Memory/AtlasMemoryConflictResolutionService.php
   - app/Services/Ai/AtlasMemoryQualityService.php
   - app/Services/Ai/SelfImprovement/AtlasSelfImprovementProposalPacketService.php
   - app/Services/Ai/SelfImprovement/AtlasSelfImprovementProposalPowerGateService.php
@@ -271,9 +271,9 @@ Raw Capture Store
 - `atlas.capture_inbox_pipeline.promotion_gate.v1` — gate de pipeline
 
 ### 2.7 Implementação ativa
-- `app/Services/Ai/Capture/CaptureService.php` — grava `metadata.cognitive_quarantine` + immune_audit
-- `app/Services/Ai/Capture/CurationProposalService.php` — herda quarantine
-- `app/Services/Ai/Capture/AiMemoryDeltaProposer.php` — captura→delta com hash-only evidence
+- `app/Services/CaptureService.php` — grava `metadata.cognitive_quarantine` + immune_audit
+- `app/Services/Semantic/CurationProposalService.php` — herda quarantine
+- `app/Services/Ai/AiMemoryDeltaProposer.php` — captura→delta com hash-only evidence
 - `atlas:ai:capture-inbox-pipeline-report --json` — read-only pipeline check
 - `atlas:ai:capture-inbox-pipeline-backfill-contracts` — backfill dry-run default
 

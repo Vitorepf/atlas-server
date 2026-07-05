@@ -22,7 +22,7 @@ maintenance:
   - Update when surface aliases, model selection modes or domain catalog fields change.
 related_paths:
   - docs/engineering-knowledge-base/atlas-ai-operating-system.md
-  - app/Services/Ai/Kernel/Surface/SurfaceAdapterRegistry.php
+  - app/Services/Ai/Surface/SurfaceAdapterRegistry.php
   - app/Services/Ai/Kernel/Domain/AtlasAiDomainCatalogService.php
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1

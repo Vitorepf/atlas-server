@@ -30,7 +30,7 @@ related_paths:
   - app/Services/Engineering/EngineeringRunScoringService.php
   - app/Services/Engineering/EngineeringReviewFindingService.php
   - app/Services/Engineering/EngineeringQualityScanService.php
-  - app/Services/Engineering/EngineeringVisualSmokeService.php
+  - app/Console/Commands/AtlasEngineeringVisualSmokeCommand.php
   - tests/Feature/EngineeringHarnessRunnerTest.php
   - tests/Feature/AtlasEngineeringQualityScanCommandTest.php
   - tests/Feature/AtlasEngineeringVisualSmokeCommandTest.php
