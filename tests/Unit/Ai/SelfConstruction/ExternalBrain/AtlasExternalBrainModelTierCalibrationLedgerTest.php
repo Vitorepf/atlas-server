@@ -380,4 +380,83 @@ final class AtlasExternalBrainModelTierCalibrationLedgerTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainModelTierCalibrationLedger::CLASS_INSUFFICIENT_EVIDENCE, $classification['classification']);
     }
+
+    // ── New: poison_rate, mean_impact_score ──────────────────────────────────
+
+    public function test_tier_stats_includes_poison_rate_and_mean_impact_score(): void
+    {
+        $runs = [
+            $this->makeRun(['outcome' => 'success', 'impact_score' => 8.0]),
+            $this->makeRun(['outcome' => 'poison', 'impact_score' => 2.0]),
+        ];
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+        $stats  = $result['tier_stats'][AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL];
+
+        $this->assertArrayHasKey('poison_rate', $stats);
+        $this->assertArrayHasKey('mean_impact_score', $stats);
+        $this->assertEqualsWithDelta(0.5, $stats['poison_rate'], 0.001);
+        $this->assertEqualsWithDelta(5.0, $stats['mean_impact_score'], 0.001);
+    }
+
+    // ── New: scaffold_recommendations ────────────────────────────────────────
+
+    public function test_low_small_model_success_emits_scaffold_recommendation(): void
+    {
+        // Small model with success_rate < 0.80 ceiling and >= 5 samples.
+        $runs = array_fill(0, 5, $this->makeRun([
+            'model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL,
+            'outcome' => 'low_value',
+        ]));
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+
+        $this->assertNotEmpty($result['scaffold_recommendations']);
+        $this->assertSame('add_scaffold', $result['scaffold_recommendations'][0]['recommendation']);
+    }
+
+    public function test_high_small_model_success_does_not_emit_scaffold_recommendation(): void
+    {
+        $runs = array_fill(0, 5, $this->makeRun([
+            'model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL,
+            'outcome' => 'success',
+        ]));
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+
+        $this->assertSame([], $result['scaffold_recommendations']);
+    }
+
+    // ── New: escalation_needed ───────────────────────────────────────────────
+
+    public function test_escalation_needed_when_frontier_required_classification(): void
+    {
+        // Small model inadequate (< 0.80 success), scaffolded inadequate,
+        // frontier adequate (>= 0.80) with a small delta (< 0.30 over lower tiers),
+        // so it's frontier_required, not frontier_high_lift.
+        $runs = [
+            // Small: 3 success / 2 failed = 0.60 success — inadequate
+            ...array_fill(0, 3, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL, 'outcome' => 'success'])),
+            ...array_fill(0, 2, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL, 'outcome' => 'give_back'])),
+            // Frontier: 4 success / 1 give_back = 0.80 success — adequate
+            ...array_fill(0, 4, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_FRONTIER, 'outcome' => 'success'])),
+            ...array_fill(0, 1, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_FRONTIER, 'outcome' => 'give_back'])),
+        ];
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+
+        $this->assertTrue($result['escalation_needed']);
+    }
+
+    public function test_escalation_not_needed_when_small_model_ok(): void
+    {
+        $runs = array_fill(0, 5, $this->verifiedRun([
+            'model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL,
+            'outcome' => 'success',
+        ]));
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+
+        $this->assertFalse($result['escalation_needed']);
+    }
 }

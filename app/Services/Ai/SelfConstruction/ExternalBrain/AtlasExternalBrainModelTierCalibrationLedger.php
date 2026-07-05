@@ -36,6 +36,7 @@ final class AtlasExternalBrainModelTierCalibrationLedger
     public const OUTCOME_SUCCESS   = 'success';
     public const OUTCOME_GIVE_BACK = 'give_back';
     public const OUTCOME_LOW_VALUE = 'low_value';
+    public const OUTCOME_POISON    = 'poison';
 
     public const MIN_SAMPLES_FOR_RECOMMENDATION = 5;
 
@@ -77,6 +78,7 @@ final class AtlasExternalBrainModelTierCalibrationLedger
             $valueStr  = max(0.0, min(1.0, (float) ($run['value_proof_strength'] ?? 0.0)));
             $retries   = max(0, (int) ($run['retry_count'] ?? 0));
             $verified  = (bool) ($run['verified'] ?? false);
+            $impactScore = max(0.0, (float) ($run['impact_score'] ?? 0.0));
 
             if ($verified) {
                 if (! isset($taskClassTier[$taskClass][$tier])) {
@@ -101,34 +103,40 @@ final class AtlasExternalBrainModelTierCalibrationLedger
                     'success_count'     => 0,
                     'give_back_count'   => 0,
                     'low_value_count'   => 0,
+                    'poison_count'      => 0,
                     'total'             => 0,
                     'value_strength_sum' => 0.0,
                     'retry_sum'         => 0,
+                    'impact_sum'        => 0.0,
                 ];
             }
 
             $segments[$segKey]['total']++;
             $segments[$segKey]['value_strength_sum'] += $valueStr;
             $segments[$segKey]['retry_sum'] += $retries;
+            $segments[$segKey]['impact_sum'] += $impactScore;
 
             match ($outcome) {
                 self::OUTCOME_SUCCESS   => $segments[$segKey]['success_count']++,
                 self::OUTCOME_GIVE_BACK => $segments[$segKey]['give_back_count']++,
                 self::OUTCOME_LOW_VALUE => $segments[$segKey]['low_value_count']++,
+                self::OUTCOME_POISON    => $segments[$segKey]['poison_count']++,
                 default                 => null,
             };
 
             // Tier-level aggregation
             if (! isset($tierRaw[$tier])) {
-                $tierRaw[$tier] = ['success' => 0, 'give_back' => 0, 'low_value' => 0, 'total' => 0, 'vs_sum' => 0.0, 'retry_sum' => 0];
+                $tierRaw[$tier] = ['success' => 0, 'give_back' => 0, 'low_value' => 0, 'poison' => 0, 'total' => 0, 'vs_sum' => 0.0, 'retry_sum' => 0, 'impact_sum' => 0.0];
             }
             $tierRaw[$tier]['total']++;
             $tierRaw[$tier]['vs_sum'] += $valueStr;
             $tierRaw[$tier]['retry_sum'] += $retries;
+            $tierRaw[$tier]['impact_sum'] += $impactScore;
             match ($outcome) {
                 self::OUTCOME_SUCCESS   => $tierRaw[$tier]['success']++,
                 self::OUTCOME_GIVE_BACK => $tierRaw[$tier]['give_back']++,
                 self::OUTCOME_LOW_VALUE => $tierRaw[$tier]['low_value']++,
+                self::OUTCOME_POISON    => $tierRaw[$tier]['poison']++,
                 default                 => null,
             };
         }
@@ -141,6 +149,8 @@ final class AtlasExternalBrainModelTierCalibrationLedger
                 'sample_count'              => $total,
                 'success_rate'              => $total > 0 ? round($agg['success'] / $total, 4) : 0.0,
                 'give_back_rate'            => $total > 0 ? round($agg['give_back'] / $total, 4) : 0.0,
+                'poison_rate'               => $total > 0 ? round($agg['poison'] / $total, 4) : 0.0,
+                'mean_impact_score'         => $total > 0 ? round($agg['impact_sum'] / $total, 4) : 0.0,
                 'avg_value_proof_strength'  => $total > 0 ? round($agg['vs_sum'] / $total, 4) : 0.0,
                 'avg_retry_count'           => $total > 0 ? round($agg['retry_sum'] / $total, 4) : 0.0,
                 'confidence'                => $this->confidence($total),
@@ -192,12 +202,38 @@ final class AtlasExternalBrainModelTierCalibrationLedger
 
         $taskClassClassifications = $this->classifyTaskClasses($taskClassTier);
 
+        // Build scaffold_recommendations: for weak tiers, suggest scaffolding
+        // instead of treating lower-tier failures as permanent model incapability.
+        $scaffoldRecommendations = [];
+        foreach ($tierStats as $tier => $stats) {
+            if ($tier === self::TIER_SMALL && $stats['success_rate'] < self::RECOMMEND_SUCCESS_CEILING && $stats['sample_count'] >= self::MIN_SAMPLES_FOR_RECOMMENDATION) {
+                $scaffoldRecommendations[] = [
+                    'tier' => $tier,
+                    'recommendation' => 'add_scaffold',
+                    'reason' => 'small_model_success_below_ceiling_suggest_scaffold',
+                    'success_rate' => $stats['success_rate'],
+                ];
+            }
+        }
+
+        // escalation_needed: only when lower-tier scaffolded attempts repeatedly
+        // fail on high-impact task families.
+        $escalationNeeded = false;
+        foreach ($taskClassClassifications as $classification) {
+            if ($classification['classification'] === self::CLASS_FRONTIER_REQUIRED) {
+                $escalationNeeded = true;
+                break;
+            }
+        }
+
         return [
             'schema'                   => self::SCHEMA,
             'tier_stats'               => $tierStats,
             'routing_recommendations'  => $recommendations,
             'under_sampled_segments'   => $underSampled,
             'task_class_classifications' => $taskClassClassifications,
+            'scaffold_recommendations' => $scaffoldRecommendations,
+            'escalation_needed'        => $escalationNeeded,
             'evidence_thresholds'      => [
                 'min_samples_for_recommendation' => self::MIN_SAMPLES_FOR_RECOMMENDATION,
                 'success_rate_floor'             => self::RECOMMEND_SUCCESS_FLOOR,
