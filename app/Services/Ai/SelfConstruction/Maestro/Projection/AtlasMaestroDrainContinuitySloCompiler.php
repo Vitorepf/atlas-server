@@ -135,6 +135,8 @@ final class AtlasMaestroDrainContinuitySloCompiler
             (array) ($facts['throughput_samples'] ?? []),
             static fn (mixed $v): bool => is_numeric($v),
         ));
+        $ewmaAlpha = max(0.01, min(0.99, (float) ($facts['ewma_alpha'] ?? 0.3)));
+        $avgThroughput = self::ewma($throughputSamples, $ewmaAlpha);
         $giveBackRate = max(0.0, min(1.0, (float) ($facts['give_back_rate'] ?? 0.0)));
         $claimLatencySeconds = max(0.0, (float) ($facts['claim_latency_seconds'] ?? 0.0));
         $telemetryConfidence = $facts['telemetry_confidence'] ?? null;
@@ -146,10 +148,6 @@ final class AtlasMaestroDrainContinuitySloCompiler
             ? (float) $facts['claimable_per_active_worker']
             : null;
         $isWorkerFloorBreach = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= self::PROJECTION_WORKER_FLOOR_THRESHOLD;
-
-        $avgThroughput = $throughputSamples !== []
-            ? array_sum(array_map('floatval', $throughputSamples)) / count($throughputSamples)
-            : 0.0;
 
         $blockers = [];
         $verdicts = [];
@@ -367,5 +365,25 @@ final class AtlasMaestroDrainContinuitySloCompiler
             self::STATUS_AT_RISK => 'slo_at_risk',
             default => 'slo_met',
         };
+    }
+
+    /**
+     * Exponentially-weighted moving average over a time-ordered series.
+     * Recent samples dominate the estimate. Uses alpha=0.3 by default.
+     *
+     * @param  list<float|int>  $samples  time-ordered: index 0 = oldest, last = most recent
+     */
+    public static function ewma(array $samples, float $alpha = 0.3): float
+    {
+        if ($samples === []) {
+            return 0.0;
+        }
+        $ewma = (float) $samples[0];
+        $count = count($samples);
+        for ($i = 1; $i < $count; $i++) {
+            $ewma = $alpha * (float) $samples[$i] + (1 - $alpha) * $ewma;
+        }
+
+        return round($ewma, 2);
     }
 }
