@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainValueDensityWaveBudgetRunner;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
 use Illuminate\Console\Command;
@@ -42,6 +43,7 @@ final class AtlasTaskMaestroPriorityCommand extends Command
     public function __construct(
         private readonly AtlasMaestroPriorityFactSnapshotter $snapshotter,
         private readonly AtlasMaestroPriorityReshaper $reshaper,
+        private readonly AtlasExternalBrainValueDensityWaveBudgetRunner $valueDensityRunner,
     ) {
         parent::__construct();
     }
@@ -116,6 +118,29 @@ final class AtlasTaskMaestroPriorityCommand extends Command
         $snapshot = $this->latestSnapshot();
         $packets = $this->loadPendingPackets();
         $beforeHead = array_slice(array_column($packets, 'task_packet_id'), 0, 5);
+
+        // Run value-density wave budget planning to optimise priority ordering
+        // within proof+risk budget instead of raw arrival order.
+        $valueBudgetPlan = $this->valueDensityRunner->plan([
+            'decay_facts' => ['tasks' => $packets],
+            'ranking_input' => [
+                'candidates' => array_map(
+                    static fn (array $p): array => [
+                        'task_id' => (string) ($p['task_packet_id'] ?? ''),
+                        'impact' => (float) ($p['compound_impact_score'] ?? 0.5),
+                        'implementation_size' => 30.0,
+                    ],
+                    $packets,
+                ),
+                'claimable_count' => count($packets),
+                'capacity' => max(1, count($packets)),
+            ],
+            'budget_facts' => ['wave_tasks' => $packets, 'muscle_count' => 1],
+            'risk_wave' => ['has_runnable_tests' => true, 'rollback_ready' => true],
+            'scoreboard_facts' => [],
+            'proof_samples' => [],
+        ]);
+
         try {
             $ordered = $this->reshaper->reshape($packets, $snapshot, $this->queueTag());
         } catch (\Throwable $e) {
@@ -139,6 +164,7 @@ final class AtlasTaskMaestroPriorityCommand extends Command
             'status' => 'reshaped',
             'before_head' => $beforeHead,
             'after_head' => $afterHead,
+            'value_density_budget_plan' => $valueBudgetPlan,
         ]);
     }
 
