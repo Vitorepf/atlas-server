@@ -230,4 +230,155 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompilerTest extends TestCas
         $this->assertSame([], $result['gap_chains']);
         $this->assertSame('atlas.self_construction.external_brain.capability_gap_task_chain_compiler.v1', $result['schema']);
     }
+
+    // ── AC: missing_context has no dependency_ids, weak_gate depends on context, runtime depends on weak_gate ─
+
+    public function test_missing_context_has_empty_dependency_ids(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context'],
+                    ['type' => 'weak_gate'],
+                    ['type' => 'no_runtime_integration'],
+                ]],
+            ],
+        ]);
+
+        $contextNode = $result['chain'][0];
+        $this->assertSame('missing_context', $contextNode['blocker_type']);
+        $this->assertSame([], $contextNode['dependency_ids']);
+    }
+
+    public function test_weak_gate_depends_on_context_task(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context'],
+                    ['type' => 'weak_gate'],
+                    ['type' => 'no_runtime_integration'],
+                ]],
+            ],
+        ]);
+
+        $contextId = $result['chain'][0]['task_id'];
+        $weakGateNode = $result['chain'][1];
+
+        $this->assertSame('weak_gate', $weakGateNode['blocker_type']);
+        $this->assertSame([$contextId], $weakGateNode['dependency_ids']);
+    }
+
+    public function test_no_runtime_integration_depends_on_weak_gate_task(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context'],
+                    ['type' => 'weak_gate'],
+                    ['type' => 'no_runtime_integration'],
+                ]],
+            ],
+        ]);
+
+        $weakGateId = $result['chain'][1]['task_id'];
+        $runtimeNode = $result['chain'][2];
+
+        $this->assertSame('no_runtime_integration', $runtimeNode['blocker_type']);
+        $this->assertSame([$weakGateId], $runtimeNode['dependency_ids']);
+    }
+
+    // ── AC: shared unblockers emitted once and referenced by each gap_chain ──
+
+    public function test_shared_unblocker_emitted_once_in_chain(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context', 'unblocker_id' => 'shared-fix'],
+                ]],
+                ['gap_id' => 'gap-b', 'blockers' => [
+                    ['type' => 'missing_context', 'unblocker_id' => 'shared-fix'],
+                ]],
+                ['gap_id' => 'gap-c', 'blockers' => [
+                    ['type' => 'missing_context', 'unblocker_id' => 'shared-fix'],
+                ]],
+            ],
+        ]);
+
+        $this->assertCount(1, $result['chain']);
+        $sharedTaskId = $result['chain'][0]['task_id'];
+        $this->assertSame([$sharedTaskId], $result['gap_chains']['gap-a']);
+        $this->assertSame([$sharedTaskId], $result['gap_chains']['gap-b']);
+        $this->assertSame([$sharedTaskId], $result['gap_chains']['gap-c']);
+    }
+
+    public function test_shared_unblocker_node_exposes_dependent_gap_ids(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'weak_gate', 'unblocker_id' => 'shared-gate-fix'],
+                ]],
+                ['gap_id' => 'gap-b', 'blockers' => [
+                    ['type' => 'weak_gate', 'unblocker_id' => 'shared-gate-fix'],
+                ]],
+            ],
+        ]);
+
+        $node = $result['chain'][0];
+        $this->assertSame(['gap-a', 'gap-b'], $node['dependent_gap_ids']);
+    }
+
+    public function test_shared_unblocker_node_exposes_proof_contracts_by_gap(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'weak_gate', 'unblocker_id' => 'shared-gate-fix', 'acceptance_strength' => 'a-strong'],
+                ]],
+                ['gap_id' => 'gap-b', 'blockers' => [
+                    ['type' => 'weak_gate', 'unblocker_id' => 'shared-gate-fix', 'acceptance_strength' => 'b-strong'],
+                ]],
+            ],
+        ]);
+
+        $node = $result['chain'][0];
+        $this->assertArrayHasKey('gap-a', $node['proof_contracts_by_gap']);
+        $this->assertArrayHasKey('gap-b', $node['proof_contracts_by_gap']);
+    }
+
+    public function test_shared_unblocker_node_exposes_reuse_reason(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'no_runtime_integration', 'unblocker_id' => 'shared-runtime-fix'],
+                ]],
+                ['gap_id' => 'gap-b', 'blockers' => [
+                    ['type' => 'no_runtime_integration', 'unblocker_id' => 'shared-runtime-fix'],
+                ]],
+            ],
+        ]);
+
+        $node = $result['chain'][0];
+        $this->assertSame('shared unblocker_id: shared-runtime-fix', $node['reuse_reason']);
+    }
+
+    public function test_compile_is_deterministic(): void
+    {
+        $facts = [
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [
+                    ['type' => 'missing_context'],
+                    ['type' => 'weak_gate'],
+                    ['type' => 'no_runtime_integration'],
+                ]],
+            ],
+        ];
+        $a = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile($facts);
+        $b = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile($facts);
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }
