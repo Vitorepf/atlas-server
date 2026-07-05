@@ -21,6 +21,8 @@ final class AgentRuntimeEvidenceReceiptBuilderTest extends TestCase
             'agent_id' => 'claude-muscle-3',
             'evidence_type' => 'tests_or_gates_result',
             'evidence_hash' => str_repeat('b', 64),
+            'timestamp' => '2026-07-04T12:00:00Z',
+            'outcome' => 'success',
         ], $overrides);
     }
 
@@ -148,13 +150,14 @@ final class AgentRuntimeEvidenceReceiptBuilderTest extends TestCase
         $receipt = $this->builder()->build([]);
 
         $this->assertSame('blocked', $receipt['status']);
-        $this->assertCount(6, $receipt['blocker_reasons']);
         $this->assertContains('missing_journal_entry_id', $receipt['blocker_reasons']);
         $this->assertContains('missing_task_packet_id', $receipt['blocker_reasons']);
         $this->assertContains('missing_agent_id', $receipt['blocker_reasons']);
         $this->assertContains('missing_evidence_type', $receipt['blocker_reasons']);
         $this->assertContains('missing_evidence_hash', $receipt['blocker_reasons']);
         $this->assertContains('missing_journal_entry_hash', $receipt['blocker_reasons']);
+        $this->assertContains('missing_timestamp', $receipt['blocker_reasons']);
+        $this->assertContains('missing_outcome', $receipt['blocker_reasons']);
     }
 
     public function test_malformed_evidence_hash_and_malformed_journal_entry_hash_each_produce_blockers(): void
@@ -174,7 +177,7 @@ final class AgentRuntimeEvidenceReceiptBuilderTest extends TestCase
         $this->assertSame(count($ready['blocker_reasons']), $ready['blocker_count']);
         $this->assertSame(0, $ready['blocker_count']);
         $this->assertSame(count($blocked['blocker_reasons']), $blocked['blocker_count']);
-        $this->assertSame(6, $blocked['blocker_count']);
+        $this->assertSame(8, $blocked['blocker_count']);
     }
 
     public function test_test_result_evidence_type_without_command_ref_is_blocked(): void
@@ -253,5 +256,106 @@ final class AgentRuntimeEvidenceReceiptBuilderTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('json_encode failed on receipt payload');
         $method->invoke($builder, $unencodable);
+    }
+
+    // ── AC: missing timestamp and outcome blocked ──────────────────────────
+
+    public function test_missing_timestamp_is_blocked(): void
+    {
+        $receipt = $this->builder()->build($this->validEntry(['timestamp' => '']));
+
+        $this->assertSame('blocked', $receipt['status']);
+        $this->assertContains('missing_timestamp', $receipt['blocker_reasons']);
+    }
+
+    public function test_missing_outcome_is_blocked(): void
+    {
+        $receipt = $this->builder()->build($this->validEntry(['outcome' => '']));
+
+        $this->assertSame('blocked', $receipt['status']);
+        $this->assertContains('missing_outcome', $receipt['blocker_reasons']);
+    }
+
+    public function test_gate_result_type_without_gate_result_is_blocked(): void
+    {
+        $receipt = $this->builder()->build($this->validEntry([
+            'evidence_type' => 'gate_result',
+            'target_path' => 'app/Foo.php',
+        ]));
+
+        $this->assertContains('missing_gate_result', $receipt['blocker_reasons']);
+    }
+
+    public function test_gate_result_type_with_gate_result_passes(): void
+    {
+        $receipt = $this->builder()->build($this->validEntry([
+            'evidence_type' => 'gate_result',
+            'gate_result' => 'passed',
+            'target_path' => 'app/Foo.php',
+        ]));
+
+        $this->assertNotContains('missing_gate_result', $receipt['blocker_reasons']);
+    }
+
+    // ── AC: proof_hash exists and is stable for equivalent entries ──────────
+
+    public function test_proof_hash_present_in_output(): void
+    {
+        $receipt = $this->builder()->build($this->validEntry());
+
+        $this->assertArrayHasKey('proof_hash', $receipt);
+        $this->assertMatchesRegularExpression('/^proof_[a-f0-9]{32}$/', $receipt['proof_hash']);
+    }
+
+    public function test_proof_hash_stable_for_equivalent_entry(): void
+    {
+        $a = $this->builder()->build($this->validEntry());
+        $b = $this->builder()->build($this->validEntry());
+
+        $this->assertSame($a['proof_hash'], $b['proof_hash']);
+    }
+
+    public function test_proof_hash_changes_when_proof_fields_change(): void
+    {
+        $a = $this->builder()->build($this->validEntry());
+        $b = $this->builder()->build($this->validEntry(['outcome' => 'give_back']));
+
+        $this->assertNotSame($a['proof_hash'], $b['proof_hash']);
+    }
+
+    public function test_proof_hash_stable_across_volatile_metadata(): void
+    {
+        // Different blocker reasons should not change the proof hash
+        $a = $this->builder()->build($this->validEntry());
+        $b = $this->builder()->build($this->validEntry(['journal_entry_id' => 'entry-002']));
+
+        $this->assertNotSame($a['proof_hash'], $b['proof_hash'], 'different entry id changes proof');
+    }
+
+    public function test_receipt_hash_differs_from_proof_hash(): void
+    {
+        $receipt = $this->builder()->build($this->validEntry());
+
+        $this->assertNotSame($receipt['receipt_hash'], $receipt['proof_hash']);
+    }
+
+    // ── AC: volatile/provider-private fields redacted from hash ─────────────
+
+    // ── AC: receipt_hash stable for identical proof-bearing content ─────────
+
+    public function test_receipt_hash_stable_for_equivalent_valid_entries(): void
+    {
+        $receiptA = $this->builder()->build($this->validEntry());
+        $receiptB = $this->builder()->build($this->validEntry());
+
+        $this->assertSame($receiptA['receipt_hash'], $receiptB['receipt_hash']);
+    }
+
+    public function test_receipt_hash_changes_when_proof_changes(): void
+    {
+        $receiptA = $this->builder()->build($this->validEntry());
+        $receiptB = $this->builder()->build($this->validEntry(['task_packet_id' => 'different-task']));
+
+        $this->assertNotSame($receiptA['receipt_hash'], $receiptB['receipt_hash']);
     }
 }
