@@ -557,7 +557,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             $expiresAt = $lease === null ? 0 : (int) ($lease['expires_at_unix'] ?? 0);
             $leaseExpired = $lease !== null
                 && $leaseStatus === AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE
-                && $expiresAt > 0 && $expiresAt <= $now;
+                && $expiresAt <= $now;
             $releaseReason = $this->releaseReason($record);
 
             $classification = match (true) {
