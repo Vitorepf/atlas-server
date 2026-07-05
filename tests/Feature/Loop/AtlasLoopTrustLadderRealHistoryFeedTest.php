@@ -326,12 +326,31 @@ final class AtlasLoopTrustLadderRealHistoryFeedTest extends TestCase
             'metric' => null,
             // Trivial gate contract that always re-proves green (the doc file exists),
             // exercising the real reprove path without a provider.
-            'quality' => ['_acceptance_contract' => [
-                'commands' => ["php -r \"exit(is_file('docs/guide.md')?0:1);\""],
-                'allowed_globs' => ['docs/guide.md'],
-                'frozen_globs' => ['composer.json'],
-                'metric_kind' => 'gate',
-            ]],
+            'quality' => [
+                '_acceptance_contract' => [
+                    'commands' => ["php -r \"exit(is_file('docs/guide.md')?0:1);\""],
+                    'allowed_globs' => ['docs/guide.md'],
+                    'frozen_globs' => ['composer.json'],
+                    'metric_kind' => 'gate',
+                ],
+                // OBRA #4 S0 — axis-pin: gate soberano fixado verde; esta suíte prova o TRUST LADDER
+                // (dimensão do gate provada em AtlasLoopAutoMergeSovereignGateTest).
+                '_sovereign_evidence' => [
+                    'execution' => [
+                        'commands' => ['./vendor/bin/phpunit tests/Unit/GuideTest.php'],
+                        'claimed_status' => 'passed',
+                        'tests_run' => 3,
+                        'assertions_executed' => 7,
+                        'selected_tests' => ['tests/Unit/GuideTest.php'],
+                        'artifacts' => [],
+                    ],
+                    'judges' => [
+                        ['name' => 'frozen_judge', 'provider_family' => 'atlas_deterministic', 'approved' => true],
+                        ['name' => 'adversarial_certifier', 'provider_family' => 'codex', 'approved' => true],
+                    ],
+                    'context_sufficiency' => 90,
+                ],
+            ],
         ]);
     }
 

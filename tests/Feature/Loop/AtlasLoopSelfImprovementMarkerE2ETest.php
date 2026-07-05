@@ -104,7 +104,7 @@ final class AtlasLoopSelfImprovementMarkerE2ETest extends TestCase
     {
         AtlasLoopProposal::$governedMergeInProgress = false;
 
-        return app(AtlasLoopStore::class)->certifyProposal($task, [
+        $proposal = app(AtlasLoopStore::class)->certifyProposal($task, [
             'diff_text' => $diff,
             'proposal_hash' => $hash,
             'acceptance_contract' => [
@@ -114,6 +114,28 @@ final class AtlasLoopSelfImprovementMarkerE2ETest extends TestCase
                 'metric_kind' => 'gate',
             ],
         ]);
+
+        // OBRA #4 S0 — axis-pin: o drain roteia pelo AcceptanceGate soberano; esta suíte prova o FLUXO DO
+        // MARKER, então o eixo do gate é fixado verde (dimensão provada em AtlasLoopAutoMergeSovereignGateTest).
+        $quality = is_array($proposal->quality) ? $proposal->quality : [];
+        $quality['_sovereign_evidence'] = [
+            'execution' => [
+                'commands' => ['./vendor/bin/phpunit tests/Unit/SnippetTest.php'],
+                'claimed_status' => 'passed',
+                'tests_run' => 3,
+                'assertions_executed' => 7,
+                'selected_tests' => ['tests/Unit/SnippetTest.php'],
+                'artifacts' => [],
+            ],
+            'judges' => [
+                ['name' => 'frozen_judge', 'provider_family' => 'atlas_deterministic', 'approved' => true],
+                ['name' => 'adversarial_certifier', 'provider_family' => 'codex', 'approved' => true],
+            ],
+            'context_sufficiency' => 90,
+        ];
+        $proposal->forceFill(['quality' => $quality])->save();
+
+        return $proposal->fresh();
     }
 
     public function test_marker_flows_from_task_payload_to_proposal_quality_and_the_drain_parks_it(): void

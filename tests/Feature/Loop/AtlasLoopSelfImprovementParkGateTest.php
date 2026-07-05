@@ -104,12 +104,31 @@ final class AtlasLoopSelfImprovementParkGateTest extends TestCase
             'diff_text' => $diff,
             'proposal_hash' => $hash,
             'metric' => null,
-            'quality' => array_merge(['_acceptance_contract' => [
-                'commands' => ["php -r \"require 'snippet.php'; exit(val()===2?0:1);\""],
-                'allowed_globs' => ['snippet.php'],
-                'frozen_globs' => ['composer.json'],
-                'metric_kind' => 'gate',
-            ]], $extraQuality),
+            'quality' => array_merge([
+                '_acceptance_contract' => [
+                    'commands' => ["php -r \"require 'snippet.php'; exit(val()===2?0:1);\""],
+                    'allowed_globs' => ['snippet.php'],
+                    'frozen_globs' => ['composer.json'],
+                    'metric_kind' => 'gate',
+                ],
+                // OBRA #4 S0 — axis-pin: o gate soberano é fixado verde; esta suíte prova o PARK GATE de
+                // self-improvement (dimensão do gate soberano provada em AtlasLoopAutoMergeSovereignGateTest).
+                '_sovereign_evidence' => [
+                    'execution' => [
+                        'commands' => ['./vendor/bin/phpunit tests/Unit/SnippetTest.php'],
+                        'claimed_status' => 'passed',
+                        'tests_run' => 3,
+                        'assertions_executed' => 7,
+                        'selected_tests' => ['tests/Unit/SnippetTest.php'],
+                        'artifacts' => [],
+                    ],
+                    'judges' => [
+                        ['name' => 'frozen_judge', 'provider_family' => 'atlas_deterministic', 'approved' => true],
+                        ['name' => 'adversarial_certifier', 'provider_family' => 'codex', 'approved' => true],
+                    ],
+                    'context_sufficiency' => 90,
+                ],
+            ], $extraQuality),
         ]);
     }
 

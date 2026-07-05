@@ -13,6 +13,8 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasAutonomosGateAdapter;
+use App\Services\Ai\EngineeringKernel\CriteriaCanonicalizer;
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -610,6 +612,39 @@ final class AtlasLoopAutoMergeService
                 }
             }
 
+            // 4d. OBRA #4 S0 — PORTÃO SOBERANO (a cancela). O único caminho de merge 100% autônomo agora
+            // consulta o AcceptanceGate do Engineering Kernel ANTES do commit: bar(dev)=bar(forge)=
+            // bar(autonomos); o TrustLevel::Autonomos troca só a testemunha (frozen_judge_clean_checkout_
+            // reproof), nunca a régua. A evidência vem do que este drain REALMENTE tem (contrato congelado +
+            // reprove verde + canário real + envelope _sovereign_evidence quando o grinder o threda) — nada
+            // é fabricado; evidência ausente parqueia com o invariante NOMEADO, o mesmo tratamento que
+            // staleness/conflito já têm. REFUSE desfaz o apply (pré-commit; main intocado) — a topologia git
+            // (main única, commit direto, zero branch/worktree novo) fica intacta por construção. Fail-closed:
+            // um throw do gate recusa (banda de SEGURANÇA do reprove/lint/boot, nunca fail-open). O override
+            // humano usa a mesma porta dos demais parks: mergeOperatorApproved re-roda o pipeline com o
+            // operador como testemunha explícita — troca de testemunha, não de régua.
+            $sovereign = null;
+            if (! $operatorApproved) {
+                $sovereign = $this->sovereignGateVerdict($proposal, $changed, $canary);
+                if (($sovereign['promoted'] ?? false) !== true) {
+                    foreach ($changed as $file) {
+                        $this->git($repoRoot, ['checkout', '--', $file]); // pré-commit: desfaz o apply (não é revert)
+                    }
+                    $blockers = implode(',', $sovereign['blockers'] ?? []);
+                    $this->governedSave(function () use ($proposal, $sovereign): void {
+                        $quality = is_array($proposal->quality) ? $proposal->quality : [];
+                        $quality['_sovereign_gate'] = $sovereign['verdict'];
+                        $proposal->forceFill(['quality' => $quality])->save();
+                    });
+                    $this->markOperatorReview($proposal, 'parked_for_operator_review', 'sovereign_gate_refused:'.$blockers, 'auto_merge');
+
+                    return array_merge($base, [
+                        'reason' => 'sovereign_gate_refused:'.$blockers.' (apply desfeito, parked_for_operator_review)',
+                        'sovereign_gate' => $sovereign['verdict'],
+                    ]);
+                }
+            }
+
             // 5. Commit em main + receipt + marcação governada.
             $msg = 'atlas loop auto-merge: '.(string) $proposal->target_path.' ['.substr((string) $proposal->proposal_hash, 0, 12).']';
             $this->git($repoRoot, array_merge(['add', '--'], $changed));
@@ -648,12 +683,15 @@ final class AtlasLoopAutoMergeService
 
             // L2-6/L4-3: canário mede quebra; impact receipt mede valor. Ambos persistem
             // no mesmo registro de qualidade para alimentar guard + digest sem narrativa.
-            $this->governedSave(function () use ($proposal, $canary, $impactReceipt): void {
+            $this->governedSave(function () use ($proposal, $canary, $impactReceipt, $sovereign): void {
                 $quality = is_array($proposal->quality) ? $proposal->quality : [];
                 $quality['_canary'] = $canary;
                 if (is_array($impactReceipt)) {
                     $quality['_impact_receipt'] = $impactReceipt;
                 }
+                // OBRA #4 S0 — o veredito soberano (PROMOTE + receipt_ref selado) persiste no mesmo
+                // envelope de qualidade; no override do operador registra a troca de testemunha.
+                $quality['_sovereign_gate'] = $sovereign['verdict'] ?? ['status' => 'skipped_operator_approved'];
                 $proposal->forceFill(['quality' => $quality])->save();
             });
 
@@ -800,6 +838,125 @@ final class AtlasLoopAutoMergeService
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * OBRA #4 S0 — monta a evidência do AcceptanceBundle a partir do que o drain REALMENTE tem e a
+     * roteia pelo piso soberano via o adapter Autonomos (testemunha: frozen_judge_clean_checkout_reproof).
+     *
+     * Fontes de evidência, por autoridade:
+     *  - quality['_sovereign_evidence'] — envelope threaded pelo grinder (execution/judges/context/
+     *    security/non_functional/changed_public_symbols). Quando presente, seus campos VENCEM: o piso
+     *    julga o que a pipeline atestou.
+     *  - fallback derivado — o contrato de acceptance persistido (hash canônico via CriteriaCanonicalizer;
+     *    seus commands foram RE-EXECUTADOS verdes pelo reprove que precede este ponto) + o run real do
+     *    canário com contagens parseadas da saída do runner.
+     * Nada aqui é fabricado: evidência ausente permanece ausente e o piso recusa com invariante nomeado.
+     *
+     * @param  list<string>  $changed
+     * @param  array<string,mixed>  $canary
+     * @return array{promoted:bool, blockers:list<string>, verdict:array<string,mixed>}
+     */
+    private function sovereignGateVerdict(AtlasLoopProposal $proposal, array $changed, array $canary): array
+    {
+        try {
+            $quality = is_array($proposal->quality) ? $proposal->quality : [];
+            $threaded = (array) data_get($quality, '_sovereign_evidence', []);
+            $contract = (array) data_get($quality, '_acceptance_contract', []);
+            $contractHash = $contract === [] ? '' : CriteriaCanonicalizer::hash($contract);
+
+            $execution = is_array($threaded['execution'] ?? null)
+                ? $threaded['execution']
+                : $this->derivedExecutionEvidence($contract, $canary);
+
+            $verdict = app(AtlasAutonomosGateAdapter::class)->certifyAutonomosDelivery([
+                'criteria_hash' => $contractHash,
+                'frozen_hash' => $contractHash,
+                'changed_files' => $changed,
+                'changed_public_symbols' => (array) ($threaded['changed_public_symbols'] ?? []),
+                'execution' => $execution,
+                'security_scan' => $threaded['security_scan'] ?? null,
+                'judges' => (array) ($threaded['judges'] ?? []),
+                'context_sufficiency' => (int) ($threaded['context_sufficiency'] ?? 0),
+                'non_functional' => (array) ($threaded['non_functional'] ?? []),
+            ]);
+
+            return [
+                'promoted' => $verdict->promoted(),
+                'blockers' => $verdict->blockers,
+                'verdict' => $verdict->toArray(),
+            ];
+        } catch (Throwable $e) {
+            // Fail-closed: gate de SEGURANÇA (banda do reprove/lint/boot) — um throw nunca vira merge.
+            return [
+                'promoted' => false,
+                'blockers' => ['sovereign_gate_error'],
+                'verdict' => [
+                    'status' => 'refuse',
+                    'blockers' => ['sovereign_gate_error'],
+                    'error' => mb_substr($e->getMessage(), 0, 200),
+                ],
+            ];
+        }
+    }
+
+    /**
+     * Evidência de execução DERIVADA (quando o grinder ainda não threda `_sovereign_evidence`): os
+     * commands do contrato congelado foram re-executados VERDES pelo reprove que gateia este ponto —
+     * cada command é um check real com uma asserção de exit-code — somados ao run REAL do canário
+     * (comandos + contagens parseadas da saída do runner). claimed 'passed' porque é exatamente o que
+     * commitar afirma; o piso decide se os fatos sustentam a afirmação.
+     *
+     * @param  array<string,mixed>  $contract
+     * @param  array<string,mixed>  $canary
+     * @return array<string,mixed>
+     */
+    private function derivedExecutionEvidence(array $contract, array $canary): array
+    {
+        $commands = \App\Services\Ai\Support\AiStringListNormalizer::trimmedStrings($contract['commands'] ?? []);
+        $tests = count($commands);
+        $assertions = count($commands); // ponytail: 1 command de contrato = 1 check real com asserção de exit-code
+        $selected = [];
+        if (($canary['ran'] ?? false) === true) {
+            foreach (array_map('strval', (array) ($canary['commands'] ?? [])) as $cmd) {
+                $commands[] = $cmd;
+            }
+            $selected = array_values(array_filter(array_map(
+                'strval',
+                (array) ($canary['ran_targets'] ?? array_filter([(string) ($canary['target'] ?? '')])),
+            )));
+            $tests += (int) ($canary['tests_run'] ?? 0);
+            $assertions += (int) ($canary['assertions_executed'] ?? 0);
+        }
+
+        return [
+            'commands' => $commands,
+            'claimed_status' => 'passed',
+            'tests_run' => $tests,
+            'assertions_executed' => $assertions,
+            'selected_tests' => $selected,
+            'artifacts' => [],
+        ];
+    }
+
+    /**
+     * Contagens REAIS parseadas da saída de um runner (phpunit "OK (5 tests, 9 assertions)" /
+     * "Tests: 5, Assertions: 9" / artisan "5 passed (9 assertions)"). [0,0] quando não parseável —
+     * honesto: contagem desconhecida nunca vira número inventado.
+     *
+     * @return array{0:int,1:int}
+     */
+    private function parseRunCounts(string $output): array
+    {
+        if (preg_match('/OK \((\d+) tests?, (\d+) assertions?\)/', $output, $m)
+            || preg_match('/Tests:\s*(\d+)[^\n]*?Assertions:\s*(\d+)/', $output, $m)) {
+            return [(int) $m[1], (int) $m[2]];
+        }
+        if (preg_match('/(\d+)\s+passed\s*\((\d+)\s+assertions?\)/', $output, $m)) {
+            return [(int) $m[1], (int) $m[2]];
+        }
+
+        return [0, 0];
     }
 
     private function markOperatorReview(AtlasLoopProposal $proposal, string $status, string $reason, string $operatorId): void
@@ -1221,11 +1378,22 @@ final class AtlasLoopAutoMergeService
             // PHP_BINARY, not bare 'php': the canary runs as a direct child of the
             // launchd-spawned drain (outside the frozen judge's process tree). Under
             // launchd's minimal PATH a bare 'php' argv[0] would not resolve (exit-127).
-            $p = new Process([PHP_BINARY, '-d', 'memory_limit=2048M', 'artisan', 'test', $siblingRel], $repoRoot, null, null, 300.0);
+            $argv = [PHP_BINARY, '-d', 'memory_limit=2048M', 'artisan', 'test', $siblingRel];
+            $p = new Process($argv, $repoRoot, null, null, 300.0);
             $p->run();
             $passed = $p->isSuccessful();
+            // OBRA #4 S0 — contagens REAIS do run (evidência para o portão soberano; [0,0] se não parseável).
+            [$testsRun, $assertions] = $this->parseRunCounts($p->getOutput().$p->getErrorOutput());
 
-            return ['ran' => true, 'passed' => $passed, 'target' => $siblingRel, 'block' => ! $passed];
+            return [
+                'ran' => true,
+                'passed' => $passed,
+                'target' => $siblingRel,
+                'block' => ! $passed,
+                'commands' => [implode(' ', $argv)],
+                'tests_run' => $testsRun,
+                'assertions_executed' => $assertions,
+            ];
         }
 
         return ['ran' => false, 'passed' => null, 'target' => null, 'block' => false];
@@ -1245,6 +1413,9 @@ final class AtlasLoopAutoMergeService
         $ranTargets = [];
         $uncovered = [];
         $redTarget = null;
+        $commands = [];
+        $testsRun = 0;
+        $assertions = 0;
         foreach ($changed as $file) {
             $sib = $resolver->resolve($file);
             if (! ($sib['has_sibling'] ?? false)) {
@@ -1255,9 +1426,15 @@ final class AtlasLoopAutoMergeService
                 continue;
             }
             $siblingRel = (string) $sib['sibling_path'];
-            $p = new Process([PHP_BINARY, '-d', 'memory_limit=2048M', './vendor/bin/phpunit', $siblingRel], $repoRoot, null, null, 300.0);
+            $argv = [PHP_BINARY, '-d', 'memory_limit=2048M', './vendor/bin/phpunit', $siblingRel];
+            $p = new Process($argv, $repoRoot, null, null, 300.0);
             $p->run();
             $ranTargets[] = $siblingRel;
+            $commands[] = implode(' ', $argv);
+            // OBRA #4 S0 — contagens REAIS acumuladas do run (evidência para o portão soberano).
+            [$t, $a] = $this->parseRunCounts($p->getOutput().$p->getErrorOutput());
+            $testsRun += $t;
+            $assertions += $a;
             if (! $p->isSuccessful()) {
                 $redTarget = $siblingRel;
 
@@ -1276,6 +1453,9 @@ final class AtlasLoopAutoMergeService
             'block' => $block,
             'ran_targets' => $ranTargets,
             'uncovered' => $uncovered,
+            'commands' => $commands,
+            'tests_run' => $testsRun,
+            'assertions_executed' => $assertions,
         ];
     }
 

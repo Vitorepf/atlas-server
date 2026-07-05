@@ -119,6 +119,24 @@ final class AtlasLoopConfidenceSampleFeederTest extends TestCase
             'frozen_globs' => ['composer.json'],
             'metric_kind' => 'gate',
         ]];
+        // OBRA #4 S0 — axis-pin: o drain roteia pelo AcceptanceGate soberano antes do commit; esta suíte
+        // prova o FEEDER, então o eixo do gate é fixado verde (a dimensão do gate é provada em
+        // AtlasLoopAutoMergeSovereignGateTest).
+        $quality['_sovereign_evidence'] = [
+            'execution' => [
+                'commands' => ['./vendor/bin/phpunit tests/Unit/SnippetTest.php'],
+                'claimed_status' => 'passed',
+                'tests_run' => 3,
+                'assertions_executed' => 7,
+                'selected_tests' => ['tests/Unit/SnippetTest.php'],
+                'artifacts' => [],
+            ],
+            'judges' => [
+                ['name' => 'frozen_judge', 'provider_family' => 'atlas_deterministic', 'approved' => true],
+                ['name' => 'adversarial_certifier', 'provider_family' => 'codex', 'approved' => true],
+            ],
+            'context_sufficiency' => 90,
+        ];
         if ($confidence !== null) {
             // Mirror the grinder threading delivery_confidence into proposal.quality.
             $quality['delivery_confidence'] = ['confidence' => $confidence, 'threshold' => 0.93, 'passes' => true];
