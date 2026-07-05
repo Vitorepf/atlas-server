@@ -54,10 +54,24 @@ final class AgentValidationGateRepairRecommendationBuilder
                 escalation: 'none',
                 status: 'no_repair_required',
                 forbiddenFiles: $forbiddenFiles,
+                owner: 'none',
+                createNewTask: false,
+                retryable: true,
             );
         }
 
         [$steps, $evidence, $forbiddenOps, $escalation] = $this->buildPlan($category, $gateId, $gateResult, $allowedFiles, $forbiddenFiles, $requiresHuman);
+
+        // Determine owner, create_new_task, and retryability based on category.
+        $owner = $this->ownerFor($category, $requiresHuman);
+        $createNewTask = $this->shouldCreateNewTask($category, $requiresHuman);
+        $retryable = $this->isRetryable($category);
+
+        // Non-retryable failures must not produce retry steps.
+        if (! $retryable) {
+            $steps = $this->nonRetryableSteps($category);
+            $escalation = 'no_retry_non_retryable_failure';
+        }
 
         return $this->wrap(
             gateId: $gateId,
@@ -72,6 +86,9 @@ final class AgentValidationGateRepairRecommendationBuilder
             escalation: $escalation,
             status: 'recommendation_ready',
             forbiddenFiles: $forbiddenFiles,
+            owner: $owner,
+            createNewTask: $createNewTask,
+            retryable: $retryable,
         );
     }
 
@@ -96,9 +113,35 @@ final class AgentValidationGateRepairRecommendationBuilder
             $gr = $byGateId[$id] ?? [];
             $recommendations[] = $this->recommend($c, $gr, $context);
         }
+
+        // Deduplicate equivalent repairs while preserving all source gate failures.
+        // Two repairs are "equivalent" if they have the same category + steps + evidence.
+        $seenKeys = [];
+        $deduplicated = [];
+        foreach ($recommendations as $r) {
+            $dedupKey = hash('sha256', (string) json_encode([
+                'category' => $r['category'],
+                'steps' => $r['steps'],
+                'evidence' => $r['evidence_needed'],
+            ]));
+            $seenKeys[$dedupKey] = ($seenKeys[$dedupKey] ?? 0) + 1;
+            if (! isset($deduplicated[$dedupKey])) {
+                $deduplicated[$dedupKey] = $r;
+                $deduplicated[$dedupKey]['duplicate_gate_ids'] = [];
+            } else {
+                $deduplicated[$dedupKey]['duplicate_gate_ids'][] = $r['gate_id'];
+            }
+        }
+        foreach ($deduplicated as $key => &$r) {
+            if ($seenKeys[$key] > 1) {
+                $r['duplicate_count'] = $seenKeys[$key];
+            }
+        }
+        unset($r);
+
         $repairCount = 0;
         $humanCount = 0;
-        foreach ($recommendations as $r) {
+        foreach ($deduplicated as $r) {
             if ($r['status'] === 'recommendation_ready') {
                 $repairCount++;
             }
@@ -112,10 +155,11 @@ final class AgentValidationGateRepairRecommendationBuilder
             'mode' => self::MODE,
             'status' => 'recommendations_built',
             'total_count' => count($recommendations),
+            'unique_repair_count' => count($deduplicated),
             'repair_count' => $repairCount,
             'human_required_count' => $humanCount,
-            'recommendations' => $recommendations,
-            'recommendation_hash' => hash('sha256', (string) json_encode($recommendations)),
+            'recommendations' => array_values($deduplicated),
+            'recommendation_hash' => hash('sha256', (string) json_encode($deduplicated)),
             'runtime_safety' => [
                 'runtime_safety_all_false' => true,
                 'execution_allowed' => false,
@@ -259,6 +303,9 @@ final class AgentValidationGateRepairRecommendationBuilder
         string $escalation,
         string $status,
         array $forbiddenFiles = [],
+        string $owner = 'unknown',
+        bool $createNewTask = false,
+        bool $retryable = true,
     ): array {
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -268,6 +315,9 @@ final class AgentValidationGateRepairRecommendationBuilder
             'category' => $category,
             'recovery_class' => $recoveryClass,
             'severity' => $severity,
+            'owner' => $owner,
+            'create_new_task' => $createNewTask,
+            'retryable' => $retryable,
             'requires_human_review' => $requiresHuman,
             'steps' => $steps,
             'allowed_files' => $allowedFiles,
@@ -296,6 +346,43 @@ final class AgentValidationGateRepairRecommendationBuilder
         ];
 
         return $payload;
+    }
+
+    private function ownerFor(string $category, bool $requiresHuman): string
+    {
+        return match ($category) {
+            'scope_violation' => 'worker',
+            'architecture_violation' => 'worker_or_human',
+            'evidence_missing', 'rollback_missing', 'continuation_missing' => 'worker',
+            'lint_error', 'test_failure', 'docs_drift', 'whitespace_or_merge_marker' => 'worker',
+            'inconclusive_signal' => 'human',
+            'forbidden_scope', 'missing_implementation_target', 'operator_only_evidence' => 'human',
+            default => $requiresHuman ? 'human' : 'worker',
+        };
+    }
+
+    private function shouldCreateNewTask(string $category, bool $requiresHuman): bool
+    {
+        return in_array($category, ['scope_violation', 'architecture_violation'], true)
+            || $requiresHuman;
+    }
+
+    private function isRetryable(string $category): bool
+    {
+        // Forbidden scope, missing implementation target, and operator-only
+        // evidence are never retryable — the same attempt would fail identically.
+        return ! in_array($category, ['forbidden_scope', 'missing_implementation_target', 'operator_only_evidence', 'architecture_violation'], true);
+    }
+
+    /** @return array<int, string> */
+    private function nonRetryableSteps(string $category): array
+    {
+        return match ($category) {
+            'forbidden_scope' => ['acknowledge_scope_boundary', 'request_operator_to_redefine_allowed_files'],
+            'missing_implementation_target' => ['wait_for_implementation_target', 'request_operator_to_provide_target'],
+            'operator_only_evidence' => ['wait_for_operator_evidence', 'request_operator_to_provide_evidence'],
+            default => ['request_human_review_and_decision'],
+        };
     }
 
     /**
