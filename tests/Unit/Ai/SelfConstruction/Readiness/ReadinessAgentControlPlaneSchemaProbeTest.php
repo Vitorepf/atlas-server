@@ -89,4 +89,101 @@ class ReadinessAgentControlPlaneSchemaProbeTest extends TestCase
 
         self::assertIsBool($result);
     }
+
+    // --- requiredColumns & columnsReady --------------------------------
+
+    public function test_required_columns_returns_expected_tables(): void
+    {
+        $cols = ReadinessAgentControlPlaneSchemaProbe::requiredColumns();
+
+        $this->assertArrayHasKey('atlas_self_construction_agent_runs', $cols);
+        $this->assertArrayHasKey('atlas_self_construction_agent_heartbeats', $cols);
+    }
+
+    public function test_columns_ready_returns_ready_when_all_columns_present(): void
+    {
+        $result = ReadinessAgentControlPlaneSchemaProbe::columnsReady([
+            'atlas_self_construction_agent_runs' => [
+                'id', 'task_packet_id', 'client_id', 'lease_id',
+                'status', 'objective_digest', 'started_at', 'updated_at',
+            ],
+            'atlas_self_construction_agent_heartbeats' => [
+                'id', 'client_id', 'last_heartbeat_at', 'lease_id', 'status',
+            ],
+        ]);
+
+        $this->assertTrue($result['ready']);
+        $this->assertSame([], $result['missing']);
+    }
+
+    public function test_columns_ready_returns_not_ready_when_column_missing(): void
+    {
+        $result = ReadinessAgentControlPlaneSchemaProbe::columnsReady([
+            'atlas_self_construction_agent_runs' => ['id', 'task_packet_id'], // missing lease_id, etc.
+            'atlas_self_construction_agent_heartbeats' => ['id', 'client_id'], // missing last_heartbeat_at, etc.
+        ]);
+
+        $this->assertFalse($result['ready']);
+        $this->assertNotEmpty($result['missing']);
+        $this->assertContains('atlas_self_construction_agent_runs.lease_id', $result['missing']);
+        $this->assertContains('atlas_self_construction_agent_heartbeats.last_heartbeat_at', $result['missing']);
+    }
+
+    public function test_columns_ready_returns_not_ready_when_table_missing_from_schema(): void
+    {
+        $result = ReadinessAgentControlPlaneSchemaProbe::columnsReady([]);
+
+        $this->assertFalse($result['ready']);
+        $this->assertNotEmpty($result['missing']);
+    }
+
+    public function test_columns_ready_is_deterministic(): void
+    {
+        $schema = [
+            'atlas_self_construction_agent_runs' => [
+                'id', 'task_packet_id', 'client_id', 'lease_id',
+                'status', 'objective_digest', 'started_at', 'updated_at',
+            ],
+            'atlas_self_construction_agent_heartbeats' => [
+                'id', 'client_id', 'last_heartbeat_at', 'lease_id', 'status',
+            ],
+        ];
+
+        $a = ReadinessAgentControlPlaneSchemaProbe::columnsReady($schema);
+        $b = ReadinessAgentControlPlaneSchemaProbe::columnsReady($schema);
+
+        $this->assertSame($a, $b);
+    }
+
+    // --- migrationMarkerReady ------------------------------------------
+
+    public function test_migration_marker_ready_returns_true_when_applied(): void
+    {
+        $migration = ReadinessAgentControlPlaneSchemaProbe::migration();
+
+        $result = ReadinessAgentControlPlaneSchemaProbe::migrationMarkerReady(
+            [$migration, 'some_other_migration.php'],
+        );
+
+        $this->assertTrue($result['ready']);
+        $this->assertTrue($result['applied']);
+    }
+
+    public function test_migration_marker_ready_returns_false_when_not_applied(): void
+    {
+        $result = ReadinessAgentControlPlaneSchemaProbe::migrationMarkerReady(
+            ['some_other_migration.php'],
+        );
+
+        $this->assertFalse($result['ready']);
+        $this->assertFalse($result['applied']);
+    }
+
+    public function test_migration_marker_ready_is_deterministic(): void
+    {
+        $a = ReadinessAgentControlPlaneSchemaProbe::migrationMarkerReady([]);
+        $b = ReadinessAgentControlPlaneSchemaProbe::migrationMarkerReady([]);
+
+        $this->assertSame($a, $b);
+    }
 }
