@@ -48,6 +48,10 @@ public function stableHash(array $payload): string
      * always collide to the same identity hash regardless of how they were
      * assembled.
      *
+     * Volatile fields (timestamps, lease ids, run ids) are NEVER included
+     * in the identity hash — they change between runs without changing the
+     * substantive proof.
+     *
      * @param  array<string, mixed>  $evidence  { task_id?: string,
      *   worker_id?: string, allowed_files?: list<string>,
      *   proof_command?: string, outcome_class?: string }
@@ -60,6 +64,29 @@ public function stableHash(array $payload): string
         return $this->stableHash($this->normalizeForHash([
             'task_id' => (string) ($evidence['task_id'] ?? ''),
             'worker_id' => (string) ($evidence['worker_id'] ?? ''),
+            'allowed_files' => $allowedFiles,
+            'proof_command' => (string) ($evidence['proof_command'] ?? ''),
+            'outcome_class' => (string) ($evidence['outcome_class'] ?? ''),
+        ]));
+    }
+
+    /**
+     * Builds a SUBSTANTIVE identity hash that ignores worker_id — used to
+     * detect duplicated proof payloads across different workers or runs.
+     * Two evidence records with the same task, scope, proof command and
+     * outcome but different worker_ids produce the same substantive hash,
+     * revealing that the same proof was submitted twice under different
+     * worker identities.
+     *
+     * @param  array<string, mixed>  $evidence
+     */
+    public function substantiveIdentityHash(array $evidence): string
+    {
+        $allowedFiles = array_values(array_map('strval', (array) ($evidence['allowed_files'] ?? [])));
+        sort($allowedFiles);
+
+        return $this->stableHash($this->normalizeForHash([
+            'task_id' => (string) ($evidence['task_id'] ?? ''),
             'allowed_files' => $allowedFiles,
             'proof_command' => (string) ($evidence['proof_command'] ?? ''),
             'outcome_class' => (string) ($evidence['outcome_class'] ?? ''),
@@ -87,16 +114,22 @@ public function stableHash(array $payload): string
      *   accepted in this certification run.
      * @return array{identity_hash: string, duplicate_evidence: bool, tamper_suspected: bool}
      */
-    public function classifyEvidence(array $evidence, array $seenIdentityHashes = []): array
+    public function classifyEvidence(array $evidence, array $seenIdentityHashes = [], array $seenSubstantiveHashes = []): array
     {
         $identityHash = $this->evidenceIdentityHash($evidence);
+        $substantiveHash = $this->substantiveIdentityHash($evidence);
 
         $expectedIdentityHash = trim((string) ($evidence['expected_identity_hash'] ?? ''));
         $tamperSuspected = $expectedIdentityHash !== '' && $expectedIdentityHash !== $identityHash;
 
+        $duplicateEvidence = in_array($identityHash, $seenIdentityHashes, true);
+        $duplicateIdentity = in_array($substantiveHash, $seenSubstantiveHashes, true) && ! $duplicateEvidence;
+
         return [
             'identity_hash' => $identityHash,
-            'duplicate_evidence' => in_array($identityHash, $seenIdentityHashes, true),
+            'substantive_identity_hash' => $substantiveHash,
+            'duplicate_evidence' => $duplicateEvidence,
+            'duplicate_identity' => $duplicateIdentity,
             'tamper_suspected' => $tamperSuspected,
         ];
     }
