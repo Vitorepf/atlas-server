@@ -12,6 +12,8 @@ use Illuminate\Contracts\Container\Container;
 
 class DomainRuntimeReadinessService
 {
+    use \App\Services\Ai\Support\BuildsReadinessChecks;
+
     private const REQUIRED_TABLES = [
         'ai_domain_manifests',
         'ai_domain_capabilities',
@@ -60,40 +62,11 @@ class DomainRuntimeReadinessService
     {
         $checks = [];
 
-        foreach (self::REQUIRED_TABLES as $table) {
-            $exists = DatabaseTableAvailability::has($table);
-            $checks[] = [
-                'name' => "table:{$table}",
-                'status' => $exists ? 'passed' : 'failed',
-                'detail' => $exists ? 'exists' : 'missing - run php artisan migrate',
-            ];
-        }
+        $checks = array_merge($checks, $this->tableChecks(self::REQUIRED_TABLES));
 
-        foreach (self::REQUIRED_MODELS as $model) {
-            $exists = class_exists($model);
-            $checks[] = [
-                'name' => 'model:'.class_basename($model),
-                'status' => $exists ? 'passed' : 'failed',
-                'detail' => $exists ? 'class exists' : "missing class [{$model}]",
-            ];
-        }
+        $checks = array_merge($checks, $this->modelChecks(self::REQUIRED_MODELS));
 
-        foreach (self::REQUIRED_SERVICES as $service) {
-            $resolvable = false;
-            $detail = 'not resolvable';
-            try {
-                $resolved = $this->container->make($service);
-                $resolvable = $resolved instanceof $service;
-                $detail = $resolvable ? 'resolved' : 'not an instance';
-            } catch (\Throwable $e) {
-                $detail = 'exception: '.$e->getMessage();
-            }
-            $checks[] = [
-                'name' => 'service:'.class_basename($service),
-                'status' => $resolvable ? 'passed' : 'failed',
-                'detail' => $detail,
-            ];
-        }
+        $checks = array_merge($checks, $this->serviceChecks($this->container, self::REQUIRED_SERVICES));
 
         foreach (self::REQUIRED_TEST_FILES as $relativePath) {
             $exists = file_exists(base_path($relativePath));
