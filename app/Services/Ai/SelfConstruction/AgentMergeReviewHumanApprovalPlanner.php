@@ -6,6 +6,12 @@ namespace App\Services\Ai\SelfConstruction;
  * Plans the human approval policy for a merge review packet. Pure
  * projection — never grants approval, never persists approval state,
  * never advances a slice pointer.
+ *
+ * APPROVAL MODES (in escalation order):
+ *   autonomous_approval — low-risk clean-scope packets with fresh executable proof
+ *   single              — medium risk or one blocking condition
+ *   double              — high risk or two blocking conditions
+ *   quorum              — critical risk or multiple unsafe conditions
  */
 final class AgentMergeReviewHumanApprovalPlanner
 {
@@ -13,7 +19,7 @@ final class AgentMergeReviewHumanApprovalPlanner
 
     public const MODE = 'read_only_agent_merge_review_human_approval_plan';
 
-    public const APPROVAL_MODES = ['single', 'double', 'quorum'];
+    public const APPROVAL_MODES = ['autonomous_approval', 'single', 'double', 'quorum'];
 
     public const NON_EXECUTION_GUARANTEES = [
         'agent_merge_review_human_approval_planner_does_not_grant_approval',
@@ -30,6 +36,22 @@ final class AgentMergeReviewHumanApprovalPlanner
         'critical' => ['operator', 'reviewer', 'security', 'release_manager'],
     ];
 
+    /** Patterns that require human approval regardless of risk band. */
+    private const UNSAFE_PATH_PREFIXES = [
+        'app/Console/',
+        'app/Exceptions/',
+        'app/Http/Controllers/',
+        'bootstrap/',
+        'config/',
+        'database/migrations/',
+        'database/seeders/',
+        'routes/',
+        'storage/',
+        '.env',
+    ];
+
+    private const MIGRATION_PATTERN = '#database/migrations/#i';
+
     /**
      * @param  array<string, mixed>  $packet
      * @param  array<string, mixed>  $scopeVerification
@@ -41,18 +63,39 @@ final class AgentMergeReviewHumanApprovalPlanner
     {
         $band = (string) (data_get($riskScore, 'risk.overall_band') ?? 'low');
         $blockers = (array) (data_get($riskScore, 'risk.blockers') ?? []);
-        $approvers = self::DEFAULT_APPROVERS[$band] ?? ['operator'];
-        $overrideApprovers = (array) ($options['required_approvers'] ?? []);
-        if ($overrideApprovers !== []) {
-            $approvers = array_values(array_unique(array_map(static fn ($a) => (string) $a, $overrideApprovers)));
+
+        // Detect conditions that require human approval.
+        $humanApprovalReasons = $this->detectHumanApprovalConditions($packet, $scopeVerification, $options);
+
+        $hasFreshExecutableProof = (bool) ($options['has_fresh_executable_proof'] ?? false);
+        $isCleanScope = (int) (data_get($scopeVerification, 'verification.forbidden_violation_count') ?? 0) === 0
+            && (int) (data_get($scopeVerification, 'verification.cross_axis_violation_count') ?? 0) === 0
+            && (int) (data_get($scopeVerification, 'verification.unsafe_path_violation_count') ?? 0) === 0;
+
+        // Determine approval mode.
+        $canUseAutonomous = $band === 'low'
+            && $humanApprovalReasons === []
+            && $hasFreshExecutableProof
+            && $isCleanScope
+            && count($blockers) === 0;
+
+        if ($canUseAutonomous) {
+            $mode = 'autonomous_approval';
+            $approvers = ['operator'];
+        } else {
+            $mode = match ($band) {
+                'critical' => 'quorum',
+                'high' => 'double',
+                'medium' => 'double',
+                default => 'single',
+            };
+            $approvers = self::DEFAULT_APPROVERS[$band] ?? ['operator'];
         }
 
-        $mode = match ($band) {
-            'critical' => 'quorum',
-            'high' => 'double',
-            'medium' => 'double',
-            default => 'single',
-        };
+        $overrideApprovers = (array) ($options['required_approvers'] ?? []);
+        if ($overrideApprovers !== [] && $mode !== 'autonomous_approval') {
+            $approvers = array_values(array_unique(array_map(static fn ($a) => (string) $a, $overrideApprovers)));
+        }
 
         $blockingConditions = [];
         foreach ($blockers as $blocker) {
@@ -62,6 +105,14 @@ final class AgentMergeReviewHumanApprovalPlanner
                 'must_clear_before_approval' => true,
             ];
         }
+        foreach ($humanApprovalReasons as $reason) {
+            $blockingConditions[] = [
+                'name' => $reason,
+                'kind' => 'human_approval_required',
+                'must_clear_before_approval' => true,
+            ];
+        }
+
         $verification = (array) ($scopeVerification['verification'] ?? []);
         // Fail-closed: absent or empty scope verification is never treated as verified-clean.
         if ($verification === []) {
@@ -98,10 +149,13 @@ final class AgentMergeReviewHumanApprovalPlanner
         $approvalAllowed = $band !== 'critical' && count($blockingConditions) === 0;
         $packetId = (string) (data_get($packet, 'packet.packet_id') ?? 'agent-merge-review-packet-unknown');
 
+        $status = $canUseAutonomous ? 'autonomous_approval_ready' : ($approvalAllowed ? 'agent_merge_review_human_approval_plan_ready' : 'agent_merge_review_human_approval_blocked');
+
         $envelope = [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $approvalAllowed ? 'agent_merge_review_human_approval_plan_ready' : 'agent_merge_review_human_approval_blocked',
+            'status' => $status,
             'mode' => self::MODE,
+            'application_mode' => $mode,
             'apply_patch_allowed' => false,
             'real_file_write_allowed' => false,
             'completion_claim_allowed' => false,
@@ -115,10 +169,11 @@ final class AgentMergeReviewHumanApprovalPlanner
                 'approval_mode' => $mode,
                 'required_approvers' => array_values(array_unique($approvers)),
                 'required_approver_count' => count(array_unique($approvers)),
-                'justification' => $this->justification($band, $blockingConditions, $verification),
+                'justification' => $this->justification($band, $blockingConditions, $verification, $mode, $humanApprovalReasons),
                 'blocking_conditions' => $blockingConditions,
                 'blocking_condition_count' => count($blockingConditions),
                 'approval_eligible' => $approvalAllowed,
+                'human_approval_reasons' => $humanApprovalReasons,
             ],
             'non_execution_guarantees' => self::NON_EXECUTION_GUARANTEES,
         ];
@@ -129,11 +184,61 @@ final class AgentMergeReviewHumanApprovalPlanner
     }
 
     /**
+     * Detect conditions that require human approval.
+     *
+     * @param  array<string,mixed>  $packet
+     * @param  array<string,mixed>  $scopeVerification
+     * @param  array<string,mixed>  $options
+     * @return list<string>
+     */
+    private function detectHumanApprovalConditions(array $packet, array $scopeVerification, array $options): array
+    {
+        $reasons = [];
+
+        // Migration files require human review.
+        $allowedFiles = (array) (data_get($packet, 'packet.allowed_files') ?? data_get($packet, 'allowed_files') ?? []);
+        foreach ($allowedFiles as $file) {
+            if ((bool) preg_match(self::MIGRATION_PATTERN, (string) $file)) {
+                $reasons[] = 'migration_detected_in_allowed_files';
+                break;
+            }
+        }
+
+        // Destructive deletes.
+        if (! empty($options['contains_destructive_delete'])) {
+            $reasons[] = 'destructive_delete_detected';
+        }
+
+        // Unsafe path prefixes.
+        $changes = (array) (data_get($packet, 'packet.changes') ?? data_get($packet, 'changes') ?? []);
+        foreach ($changes as $change) {
+            $path = (string) ($change['path'] ?? '');
+            foreach (self::UNSAFE_PATH_PREFIXES as $prefix) {
+                if (str_starts_with($path, $prefix)) {
+                    $reasons[] = 'unsafe_path_prefix_in_changes:'.$prefix;
+                    break 2;
+                }
+            }
+        }
+
+        // Stale evidence.
+        if (! empty($options['stale_evidence'])) {
+            $reasons[] = 'stale_evidence_detected';
+        }
+
+        return array_values(array_unique($reasons));
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $blockingConditions
      * @param  array<string, mixed>  $verification
+     * @param  list<string>  $humanApprovalReasons
      */
-    private function justification(string $band, array $blockingConditions, array $verification): string
+    private function justification(string $band, array $blockingConditions, array $verification, string $mode, array $humanApprovalReasons): string
     {
+        if ($mode === 'autonomous_approval') {
+            return 'autonomous_approval_low_risk_clean_scope_fresh_proof';
+        }
         if (count($blockingConditions) > 0) {
             return 'human_approval_blocked_until_conditions_cleared';
         }
