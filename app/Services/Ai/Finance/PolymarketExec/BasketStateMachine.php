@@ -35,6 +35,8 @@ use Throwable;
  */
 final class BasketStateMachine
 {
+    use PolymarketStateMachineShared;
+
     private const PRICE_EPS = 1e-6;
 
     /** @var callable(string): ?array{asks: list<array{price: float, size: float}>, bids: list<array{price: float, size: float}>} */
@@ -491,82 +493,11 @@ final class BasketStateMachine
         $this->event($basketId, 'state_change', ['to' => $status, 'mode' => $mode, 'plan' => $plan->toArray()]);
     }
 
-    private function setStatus(string $basketId, string $status): void
-    {
-        DB::table('atlas_poly_exec_baskets')->where('basket_id', $basketId)
-            ->update(['status' => $status, 'updated_at' => now()]);
-        $this->event($basketId, 'state_change', ['to' => $status]);
-    }
 
-    private function finalize(string $basketId, string $status): void
-    {
-        DB::table('atlas_poly_exec_baskets')->where('basket_id', $basketId)
-            ->update(['status' => $status, 'finalized_at' => now(), 'updated_at' => now()]);
-    }
 
-    /**
-     * @param  array<string, mixed>  $detail
-     */
-    private function event(string $basketId, string $kind, array $detail): void
-    {
-        $seq = (int) DB::table('atlas_poly_exec_events')->where('basket_id', $basketId)->max('seq') + 1;
-        DB::table('atlas_poly_exec_events')->insert([
-            'basket_id' => $basketId,
-            'seq' => $seq,
-            'kind' => $kind,
-            'detail' => json_encode($detail),
-            'created_at' => now(),
-        ]);
-    }
 
-    private function recordGateBlock(string $basketId, string $layer, GateDecision $decision): void
-    {
-        $this->event($basketId, 'gate_block', [
-            'layer' => $layer,
-            'failed' => $decision->failedNames(),
-            'checks' => $decision->checks,
-        ]);
-    }
 
-    private function bumpDaily(string $mode, int $attempted = 0, int $filled = 0, int $aborted = 0, float $deployed = 0.0, float $realizedPnl = 0.0): void
-    {
-        $date = Carbon::now()->toDateString();
-        $row = DB::table('atlas_poly_exec_daily')->where('trade_date', $date)->where('mode', $mode)->first();
-        if ($row === null) {
-            DB::table('atlas_poly_exec_daily')->insert([
-                'trade_date' => $date,
-                'mode' => $mode,
-                'deployed_usd' => round($deployed, 4),
-                'realized_pnl_usd' => round($realizedPnl, 4),
-                'baskets_attempted' => $attempted,
-                'baskets_filled' => $filled,
-                'baskets_aborted' => $aborted,
-                'halted' => false,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
 
-            return;
-        }
-
-        DB::table('atlas_poly_exec_daily')->where('id', $row->id)->update([
-            'deployed_usd' => round((float) $row->deployed_usd + $deployed, 4),
-            'realized_pnl_usd' => round((float) $row->realized_pnl_usd + $realizedPnl, 4),
-            'baskets_attempted' => (int) $row->baskets_attempted + $attempted,
-            'baskets_filled' => (int) $row->baskets_filled + $filled,
-            'baskets_aborted' => (int) $row->baskets_aborted + $aborted,
-            'updated_at' => now(),
-        ]);
-    }
-
-    private function maybeHalt(string $mode): void
-    {
-        if ($this->gate->deployedToday($mode) >= $this->cfg->dailyCapUsd) {
-            DB::table('atlas_poly_exec_daily')
-                ->where('trade_date', Carbon::now()->toDateString())->where('mode', $mode)
-                ->update(['halted' => true, 'updated_at' => now()]);
-        }
-    }
 
     private function recordReceipt(string $basketId, string $mode): void
     {
@@ -618,11 +549,6 @@ final class BasketStateMachine
         return in_array($status, ['filled', 'unwound', 'halted', 'gated', 'failed'], true);
     }
 
-    /** DB::raw-safe decimal literal. */
-    private function dec(float $v): string
-    {
-        return number_format($v, 6, '.', '');
-    }
 
     /**
      * @return array<string, mixed>
