@@ -259,12 +259,13 @@ final class AtlasExternalBrainCausalAblationBatchStudyTest extends TestCase
 
     // ── compare(): control vs treatment ──────────────────────────────────────
 
-    private function makeSnapshot(float $greenRate, float $giveback = 0.15, float $proxy = 0.05, float $capDelta = 0.05, int $n = 20, float $cost = 100.0): array
+    private function makeSnapshot(float $greenRate, float $giveback = 0.15, float $proxy = 0.05, float $capDelta = 0.05, int $n = 20, float $cost = 100.0, float $poison = 0.02): array
     {
         return [
             'green_rate'       => $greenRate,
             'give_back_rate'   => $giveback,
             'proxy_rate'       => $proxy,
+            'poison_rate'      => $poison,
             'capability_delta' => $capDelta,
             'sample_count'     => $n,
             'cost_per_green'   => $cost,
@@ -294,7 +295,7 @@ final class AtlasExternalBrainCausalAblationBatchStudyTest extends TestCase
 
     public function test_positive_lift_yields_keep_policy(): void
     {
-        $r = $this->svc->compare($this->makeSnapshot(0.60), $this->makeSnapshot(0.72));
+        $r = $this->svc->compare($this->makeSnapshot(0.60, n: 15), $this->makeSnapshot(0.72, n: 15));
 
         $this->assertSame('keep_policy', $r['decision']);
         $this->assertGreaterThan(0.0, $r['causal_lift']);
@@ -371,5 +372,74 @@ final class AtlasExternalBrainCausalAblationBatchStudyTest extends TestCase
         $r = $this->svc->compare($this->makeSnapshot(0.60), $this->makeSnapshot(0.75));
 
         $this->assertEqualsWithDelta(0.15, $r['causal_lift'], 0.0001);
+    }
+
+    // ── AC2: positive lift rejected when proxy/poison/cost regresses ──────────
+
+    public function test_positive_lift_rejected_when_poison_rate_worsens(): void
+    {
+        $r = $this->svc->compare(
+            $this->makeSnapshot(0.60, poison: 0.02),
+            $this->makeSnapshot(0.72, poison: 0.10), // delta 0.08 > limit 0.05
+        );
+
+        $this->assertSame('rollback_policy', $r['decision']);
+        $this->assertStringContainsString('poison_rate', $r['decision_reason']);
+    }
+
+    public function test_positive_lift_rejected_when_proxy_rate_worsens(): void
+    {
+        $r = $this->svc->compare(
+            $this->makeSnapshot(0.60, proxy: 0.02),
+            $this->makeSnapshot(0.72, proxy: 0.15), // delta 0.13 > limit 0.10
+        );
+
+        $this->assertSame('rollback_policy', $r['decision']);
+        $this->assertStringContainsString('proxy_rate', $r['decision_reason']);
+    }
+
+    // ── AC3: low sample size → insufficient_sample ───────────────────────────
+
+    public function test_low_sample_size_produces_insufficient_sample(): void
+    {
+        $r = $this->svc->compare(
+            $this->makeSnapshot(0.60, n: 5),
+            $this->makeSnapshot(0.72, n: 5),
+        );
+
+        $this->assertSame('collect_more_evidence', $r['decision']);
+        $this->assertSame('weak', $r['confidence']);
+    }
+
+    // ── AC4: high-confidence positive lift with no regressions → adopt_pattern ──
+
+    public function test_high_confidence_positive_lift_no_regression_produces_adopt_pattern(): void
+    {
+        $r = $this->svc->compare(
+            $this->makeSnapshot(0.60, n: 25, proxy: 0.05, poison: 0.02),
+            $this->makeSnapshot(0.75, n: 25, proxy: 0.03, poison: 0.01),
+        );
+
+        $this->assertSame('adopt_pattern', $r['decision']);
+        $this->assertSame('high', $r['confidence']);
+        $this->assertGreaterThan(0.0, $r['causal_lift']);
+    }
+
+    public function test_adopt_pattern_not_produced_when_proxy_delta_positive(): void
+    {
+        $r = $this->svc->compare(
+            $this->makeSnapshot(0.60, n: 25, proxy: 0.05),
+            $this->makeSnapshot(0.75, n: 25, proxy: 0.06), // delta 0.01, not rollback but not ≤0
+        );
+
+        $this->assertNotSame('adopt_pattern', $r['decision']);
+    }
+
+    public function test_poison_rate_metric_present_in_compare_output(): void
+    {
+        $r = $this->svc->compare($this->makeSnapshot(0.60), $this->makeSnapshot(0.70));
+
+        $this->assertArrayHasKey('poison_rate', $r['metrics']);
+        $this->assertArrayHasKey('delta', $r['metrics']['poison_rate']);
     }
 }

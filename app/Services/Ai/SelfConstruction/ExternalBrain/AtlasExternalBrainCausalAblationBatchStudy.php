@@ -44,6 +44,7 @@ final class AtlasExternalBrainCausalAblationBatchStudy
     // compare() thresholds
     private const LIFT_THRESHOLD         = 0.05;
     private const PROXY_REGRESSION_LIMIT = 0.10;
+    private const POISON_REGRESSION_LIMIT = 0.05;
     private const COST_REGRESSION_RATIO  = 1.20;
     private const MIN_DECISION_SAMPLE    = 10;
     private const HIGH_CONF_SAMPLE       = 20;
@@ -213,7 +214,7 @@ final class AtlasExternalBrainCausalAblationBatchStudy
     private function compareMetrics(array $control, array $treatment): array
     {
         $metrics = [];
-        foreach (['green_rate', 'give_back_rate', 'proxy_rate', 'capability_delta', 'cost_per_green'] as $f) {
+        foreach (['green_rate', 'give_back_rate', 'proxy_rate', 'poison_rate', 'capability_delta', 'cost_per_green'] as $f) {
             $c = (float) ($control[$f]   ?? 0.0);
             $t = (float) ($treatment[$f] ?? 0.0);
             $metrics[$f] = ['control' => $c, 'treatment' => $t, 'delta' => round($t - $c, 4)];
@@ -238,6 +239,11 @@ final class AtlasExternalBrainCausalAblationBatchStudy
             return ['rollback_policy', 'proxy_rate increased by ' . $proxyDelta . ' exceeding limit ' . self::PROXY_REGRESSION_LIMIT];
         }
 
+        $poisonDelta = (float) ($metrics['poison_rate']['delta'] ?? 0.0);
+        if ($poisonDelta > self::POISON_REGRESSION_LIMIT) {
+            return ['rollback_policy', 'poison_rate increased by ' . $poisonDelta . ' exceeding limit ' . self::POISON_REGRESSION_LIMIT];
+        }
+
         $ctrlCost  = (float) ($metrics['cost_per_green']['control']   ?? 0.0);
         $treatCost = (float) ($metrics['cost_per_green']['treatment'] ?? 0.0);
         if ($ctrlCost > 0.0 && $treatCost > $ctrlCost * self::COST_REGRESSION_RATIO) {
@@ -247,6 +253,11 @@ final class AtlasExternalBrainCausalAblationBatchStudy
         }
 
         if ($lift >= self::LIFT_THRESHOLD) {
+            // AC4: high-confidence positive lift with no proxy/poison/cost regression → adopt_pattern.
+            if ($minSample >= self::HIGH_CONF_SAMPLE && $proxyDelta <= 0.0 && $poisonDelta <= 0.0) {
+                return ['adopt_pattern', 'positive_lift ' . $lift . ' >= threshold ' . self::LIFT_THRESHOLD . ' with high confidence and no regressions'];
+            }
+
             return ['keep_policy', 'positive_lift ' . $lift . ' >= threshold ' . self::LIFT_THRESHOLD];
         }
 
