@@ -412,4 +412,67 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridgeTest extends TestCas
         $this->assertCount(1, $r['poison_family_blocks']);
         $this->assertSame('reduce_supply', $r['replenisher_feedback'][0]['action']);
     }
+
+    // ── AC: rows below minimum samples are skipped to avoid overfitting worker routing ──
+
+    public function test_rows_below_minimum_samples_skipped_to_avoid_overfitting(): void
+    {
+        $r = $this->bridge([
+            $this->row(['task_family' => 'low_sample', 'sample_count' => 2, 'success_rate' => 1.0, 'has_value_proof' => true]),
+            $this->row(['task_family' => 'ok_sample', 'sample_count' => 3, 'success_rate' => 0.90, 'has_value_proof' => true]),
+        ]);
+
+        $families = array_column($r['worker_affinity_updates'], 'task_family');
+        $this->assertNotContains('low_sample', $families);
+        $this->assertContains('ok_sample', $families);
+    }
+
+    // ── AC: repeated poison or give_back families emit poison_family_blocks and replenisher_feedback ──
+
+    public function test_repeated_poison_families_emit_poison_blocks_and_replenisher_feedback(): void
+    {
+        $r = $this->bridge([$this->row([
+            'task_family' => 'poison_fam',
+            'give_back_rate' => 0.75,
+            'sample_count' => 5,
+        ])]);
+
+        $this->assertCount(1, $r['poison_family_blocks']);
+        $this->assertSame('poison_fam', $r['poison_family_blocks'][0]['task_family']);
+        $this->assertNotEmpty($r['replenisher_feedback']);
+        $this->assertSame('reduce_supply', $r['replenisher_feedback'][0]['action']);
+    }
+
+    public function test_repeated_give_back_families_emit_poison_blocks_and_replenisher_feedback(): void
+    {
+        $r = $this->bridge([$this->row([
+            'task_family' => 'give_back_fam',
+            'quarantine_rate' => 0.55,
+            'sample_count' => 5,
+        ])]);
+
+        $this->assertCount(1, $r['poison_family_blocks']);
+        $this->assertSame('give_back_fam', $r['poison_family_blocks'][0]['task_family']);
+        $this->assertNotEmpty($r['replenisher_feedback']);
+    }
+
+    // ── AC: strong success by worker and task family emits worker_affinity_updates without changing unrelated families ──
+
+    public function test_strong_success_emits_worker_affinity_updates_without_changing_unrelated_families(): void
+    {
+        $r = $this->bridge([
+            $this->row(['task_family' => 'strong_fam', 'success_rate' => 0.90, 'has_value_proof' => true, 'worker_tier' => 'frontier_model']),
+            $this->row(['task_family' => 'unrelated_fam', 'success_rate' => 0.50, 'has_value_proof' => false, 'worker_tier' => 'small_model']),
+        ]);
+
+        $affinityFamilies = array_column($r['worker_affinity_updates'], 'task_family');
+        $this->assertContains('strong_fam', $affinityFamilies);
+
+        // The unrelated family should NOT have a worker_affinity_update for tier confirmation
+        $strongAffinity = array_filter($r['worker_affinity_updates'], fn ($a) => $a['task_family'] === 'strong_fam');
+        $this->assertNotEmpty($strongAffinity);
+
+        $unrelatedAffinity = array_filter($r['worker_affinity_updates'], fn ($a) => $a['task_family'] === 'unrelated_fam');
+        $this->assertEmpty($unrelatedAffinity, 'unrelated family should not get worker_affinity_update');
+    }
 }
