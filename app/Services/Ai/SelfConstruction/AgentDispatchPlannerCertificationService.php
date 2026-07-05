@@ -15,6 +15,8 @@ use Carbon\CarbonImmutable;
  */
 final class AgentDispatchPlannerCertificationService
 {
+    use RuntimeFlagsShared;
+
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_certification.v1';
 
     public const MODE = 'read_only_agent_dispatch_planner_certification';
@@ -125,22 +127,6 @@ final class AgentDispatchPlannerCertificationService
             'next_action' => $allTrue
                 ? 'keep_dispatch_planner_dry_run_until_runtime_pilot_promotes'
                 : 'fix_failing_invariants_before_promotion',
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'provider_call_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'ledger_write_allowed' => false,
-            'claim_real_allowed' => false,
-        ];
-    }
-
-    /**
-     * @return array<string, bool>
-     */
-    public function runtimeFlags(): array
-    {
-        return [
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,

@@ -16,6 +16,8 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  */
 final class AgentDispatchPlannerCandidateSelector
 {
+    use RuntimeFlagsShared;
+
     use HashesPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_candidate_selection.v1';
 
@@ -183,22 +185,6 @@ final class AgentDispatchPlannerCandidateSelector
     }
 
     /**
-     * @return array<string, bool>
-     */
-    public function runtimeFlags(): array
-    {
-        return [
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'provider_call_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'ledger_write_allowed' => false,
-            'claim_real_allowed' => false,
-        ];
-    }
-
-    /**
      * @return list<array<string, mixed>>
      */
     private function selectCandidateTasks(string $statusFilter, ?int $minPriority, int $limit): array
@@ -338,7 +324,6 @@ final class AgentDispatchPlannerCandidateSelector
 
         return $counts;
     }
-
 
     private function scalarString(mixed $value): string
     {

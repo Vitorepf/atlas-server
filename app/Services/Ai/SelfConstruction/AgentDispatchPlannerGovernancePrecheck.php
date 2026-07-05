@@ -13,6 +13,8 @@ namespace App\Services\Ai\SelfConstruction;
  */
 final class AgentDispatchPlannerGovernancePrecheck
 {
+    use RuntimeFlagsShared;
+
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_governance_precheck.v1';
 
     public const MODE = 'read_only_agent_dispatch_planner_governance_precheck';
@@ -133,22 +135,6 @@ final class AgentDispatchPlannerGovernancePrecheck
             'clear_task_count' => $clearTaskCount,
             'clear_agent_count' => $clearAgentCount,
             'governance_hash' => $this->stableHash($hashPayload),
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'provider_call_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'ledger_write_allowed' => false,
-            'claim_real_allowed' => false,
-        ];
-    }
-
-    /**
-     * @return array<string, bool>
-     */
-    public function runtimeFlags(): array
-    {
-        return [
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,

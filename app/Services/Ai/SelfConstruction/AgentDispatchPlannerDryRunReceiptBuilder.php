@@ -24,6 +24,8 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  */
 final class AgentDispatchPlannerDryRunReceiptBuilder
 {
+    use RuntimeFlagsShared;
+
     use HashesPayloadCanonically;
     use EncodesPayloadAsPrettyJson;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_dry_run_receipt.v1';
@@ -197,22 +199,6 @@ final class AgentDispatchPlannerDryRunReceiptBuilder
     }
 
     /**
-     * @return array<string, bool>
-     */
-    public function runtimeFlags(): array
-    {
-        return [
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'provider_call_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'ledger_write_allowed' => false,
-            'claim_real_allowed' => false,
-        ];
-    }
-
-    /**
      * @template T
      *
      * @param  callable(): T  $callback
@@ -344,8 +330,6 @@ final class AgentDispatchPlannerDryRunReceiptBuilder
             'claim_real_allowed' => false,
         ], $extra);
     }
-
-
 
     private function disk(): Filesystem
     {

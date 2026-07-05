@@ -14,6 +14,8 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  */
 final class AgentDispatchPlannerScopeConflictAnalyzer
 {
+    use RuntimeFlagsShared;
+
     use HashesPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_scope_conflict.v1';
 
@@ -321,22 +323,6 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
         }
 
         return $sequencedIds;
-    }
-
-    /**
-     * @return array<string, bool>
-     */
-    public function runtimeFlags(): array
-    {
-        return [
-            'runtime_execution_allowed' => false,
-            'dispatch_allowed' => false,
-            'provider_call_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'ledger_write_allowed' => false,
-            'claim_real_allowed' => false,
-        ];
     }
 
     /**
