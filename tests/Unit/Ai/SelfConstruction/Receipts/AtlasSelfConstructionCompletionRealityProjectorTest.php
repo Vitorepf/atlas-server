@@ -309,4 +309,147 @@ final class AtlasSelfConstructionCompletionRealityProjectorTest extends TestCase
         $this->assertSame('low', $r['confidence']);
         $this->assertSame(0, $r['batch_size']);
     }
+
+    // ── AC: mismatched receipts, proof_run_id agreement, stale receipts ───────
+
+    public function test_verification_passed_merge_rejected_surfaces_mismatch_residual_risk(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'rejected'],
+        ]);
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_REJECTED, $r['reality']);
+        $this->assertContains('mismatched_receipts:verification_passed_merge_rejected', $r['residual_risks']);
+    }
+
+    public function test_verification_failed_merge_admitted_surfaces_mismatch_residual_risk(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'failed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+        ]);
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_REJECTED, $r['reality']);
+        $this->assertContains('mismatched_receipts:verification_failed_merge_admitted', $r['residual_risks']);
+    }
+
+    public function test_mismatched_proof_run_id_prevents_ready_state(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed', 'proof_run_id' => 'run-A'],
+            'merge_receipt' => ['decision' => 'admitted', 'proof_run_id' => 'run-B'],
+            'knowledge_sync_receipt' => ['conformant' => true, 'proof_run_id' => 'run-A'],
+        ]);
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_COMPLETED, $r['reality']);
+        $this->assertContains('mismatched_proof_run', $r['residual_risks']);
+        $this->assertNotSame('ready', $r['final_state']);
+    }
+
+    public function test_matching_proof_run_id_allows_ready_state(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed', 'proof_run_id' => 'run-A'],
+            'merge_receipt' => ['decision' => 'admitted', 'proof_run_id' => 'run-A'],
+            'knowledge_sync_receipt' => ['conformant' => true, 'proof_run_id' => 'run-A'],
+        ]);
+        $this->assertSame('ready', $r['final_state']);
+        $this->assertNotContains('mismatched_proof_run', $r['residual_risks']);
+    }
+
+    public function test_stale_verification_receipt_prevents_ready_state(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed', 'stale' => true],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'knowledge_sync_receipt' => ['conformant' => true],
+        ]);
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_COMPLETED, $r['reality']);
+        $this->assertContains('stale_receipt:verification', $r['residual_risks']);
+        $this->assertNotSame('ready', $r['final_state']);
+    }
+
+    public function test_stale_knowledge_sync_receipt_prevents_ready_state(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'knowledge_sync_receipt' => ['conformant' => true, 'stale' => true],
+        ]);
+        $this->assertContains('stale_receipt:knowledge_sync', $r['residual_risks']);
+        $this->assertNotSame('ready', $r['final_state']);
+    }
+
+    public function test_stale_merge_receipt_prevents_ready_state(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted', 'stale' => true],
+            'knowledge_sync_receipt' => ['conformant' => true],
+        ]);
+        $this->assertContains('stale_receipt:merge', $r['residual_risks']);
+        $this->assertNotSame('ready', $r['final_state']);
+    }
+
+    public function test_stale_decision_binding_receipt_prevents_ready_state(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'knowledge_sync_receipt' => ['conformant' => true],
+            'decision_binding_receipt' => ['status' => 'bound', 'stale' => true],
+        ]);
+        $this->assertContains('stale_receipt:decision_binding', $r['residual_risks']);
+        $this->assertNotSame('ready', $r['final_state']);
+    }
+
+    public function test_stale_rollback_receipt_surfaces_residual_risk(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'rollback_receipt' => ['performed' => true, 'stale' => true],
+        ]);
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_ROLLED_BACK, $r['reality']);
+        $this->assertContains('stale_receipt:rollback', $r['residual_risks']);
+    }
+
+    public function test_only_self_declared_worker_claim_yields_unverified_not_completed(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'worker_claim' => 'task is done',
+            'verification_receipt' => ['verdict' => 'passed', 'stale' => true],
+            'merge_receipt' => ['decision' => 'admitted'],
+        ]);
+        // verification is present with verdict=passed, so reality=completed, but stale prevents ready
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_COMPLETED, $r['reality']);
+        $this->assertContains('stale_receipt:verification', $r['residual_risks']);
+        $this->assertNotSame('ready', $r['final_state']);
+    }
+
+    public function test_completed_with_mismatch_and_stale_proofs_never_ready(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed', 'proof_run_id' => 'run-A', 'stale' => true],
+            'merge_receipt' => ['decision' => 'admitted', 'proof_run_id' => 'run-B'],
+            'knowledge_sync_receipt' => ['conformant' => true],
+        ]);
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_COMPLETED, $r['reality']);
+        $this->assertContains('mismatched_proof_run', $r['residual_risks']);
+        $this->assertContains('stale_receipt:verification', $r['residual_risks']);
+        $this->assertSame('stale', $r['final_state']);
+    }
+
+    public function test_projection_includes_reality_final_state_residual_risks_missing_proofs_and_deltas(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'knowledge_sync_receipt' => ['conformant' => true],
+        ]);
+        // AC: projection includes reality, final_state, residual_risks, missing_proofs, and deltas
+        $this->assertArrayHasKey('reality', $r);
+        $this->assertArrayHasKey('final_state', $r);
+        $this->assertArrayHasKey('residual_risks', $r);
+        $this->assertArrayHasKey('missing_proofs', $r);
+        $this->assertArrayHasKey('deltas', $r);
+    }
 }

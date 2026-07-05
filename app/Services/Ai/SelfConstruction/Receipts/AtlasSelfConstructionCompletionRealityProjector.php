@@ -10,10 +10,12 @@ namespace App\Services\Ai\SelfConstruction\Receipts;
  * receipt) are marked UNVERIFIED — NEVER completed.
  *
  * INPUT (each receipt may be null / missing — interpreted explicitly):
- *   { task_receipt?, verification_receipt?:{verdict:string},
- *     merge_receipt?:{decision:string},
- *     rollback_receipt?:{performed:bool},
- *     knowledge_sync_receipt?:{conformant:bool}, worker_claim?:string }
+ *   { task_receipt?, verification_receipt?:{verdict:string, proof_run_id?:string, stale?:bool},
+ *     merge_receipt?:{decision:string, proof_run_id?:string, stale?:bool},
+ *     rollback_receipt?:{performed:bool, proof_run_id?:string},
+ *     knowledge_sync_receipt?:{conformant:bool, proof_run_id?:string, stale?:bool},
+ *     decision_binding_receipt?:{status:string, proof_run_id?:string, stale?:bool},
+ *     worker_claim?:string }
  *
  * COMPLETION CLASSES:
  *   completed     — verification.verdict='passed' AND merge.decision='admitted'
@@ -24,6 +26,8 @@ namespace App\Services\Ai\SelfConstruction\Receipts;
  *
  * RESIDUAL RISK / MISSING PROOF CLASSES (additive):
  *   missing_proof:verification | missing_proof:merge | missing_proof:knowledge_sync | residual_risk:rollback_pending
+ *   mismatched_receipts:verification_passed_merge_rejected | mismatched_receipts:verification_failed_merge_admitted
+ *   mismatched_proof_run | stale_receipt:<receipt_class>
  *
  * INVARIANTS:
  *   - DETERMINISTIC envelope.
@@ -46,10 +50,11 @@ final class AtlasSelfConstructionCompletionRealityProjector
     /**
      * @param  array{
      *     task_receipt?:array<string,mixed>|null,
-     *     verification_receipt?:array{verdict?:string}|null,
-     *     merge_receipt?:array{decision?:string}|null,
-     *     rollback_receipt?:array{performed?:bool}|null,
-     *     knowledge_sync_receipt?:array{conformant?:bool}|null,
+     *     verification_receipt?:array{verdict?:string, proof_run_id?:string, stale?:bool}|null,
+     *     merge_receipt?:array{decision?:string, proof_run_id?:string, stale?:bool}|null,
+     *     rollback_receipt?:array{performed?:bool, proof_run_id?:string, stale?:bool}|null,
+     *     knowledge_sync_receipt?:array{conformant?:bool, proof_run_id?:string, stale?:bool}|null,
+     *     decision_binding_receipt?:array{status?:string, proof_run_id?:string, stale?:bool}|null,
      *     worker_claim?:string
      * }  $receipts
      * @return array{schema:string, reality:string, final_state:string, residual_risks:list<string>, missing_proofs:list<string>, deltas:list<array{kind:string,ref:string}>}
@@ -102,12 +107,49 @@ final class AtlasSelfConstructionCompletionRealityProjector
             $residualRisks[] = 'residual_risk:knowledge_sync_proof_absent';
         }
 
+        // Mismatched receipts: verification and merge disagree on the outcome.
+        if ($verification !== null && $merge !== null && $verdict !== '' && $decision !== '') {
+            if ($verdict === 'passed' && $decision === 'rejected') {
+                $residualRisks[] = 'mismatched_receipts:verification_passed_merge_rejected';
+            } elseif ($verdict === 'failed' && $decision === 'admitted') {
+                $residualRisks[] = 'mismatched_receipts:verification_failed_merge_admitted';
+            }
+        }
+
+        // Mismatched proof_run_id: receipts that declare a proof_run_id must all agree.
+        $proofRunIds = [];
+        $receiptByClass = [
+            'verification' => $verification,
+            'merge' => $merge,
+            'rollback' => $rollback,
+            'knowledge_sync' => $knowledge,
+            'decision_binding' => $decisionBinding,
+        ];
+        foreach ($receiptByClass as $receipt) {
+            if ($receipt !== null) {
+                $runId = trim((string) ($receipt['proof_run_id'] ?? ''));
+                if ($runId !== '') {
+                    $proofRunIds[$runId] = true;
+                }
+            }
+        }
+        if (count($proofRunIds) > 1) {
+            $residualRisks[] = 'mismatched_proof_run';
+        }
+
+        // Stale receipts: any receipt flagged stale prevents ready — evidence is outdated.
+        foreach ($receiptByClass as $class => $receipt) {
+            if ($receipt !== null && (bool) ($receipt['stale'] ?? false)) {
+                $residualRisks[] = 'stale_receipt:'.$class;
+            }
+        }
+
         sort($missingProofs, SORT_STRING);
         sort($residualRisks, SORT_STRING);
 
         // final_state: explicit verdict on how far this completion claim can be trusted.
         // blocked = actively rejected/unsafe; stale = completed but evidence outdated or absent;
-        // ready = fully proven with no outstanding proofs; hold = waiting for proofs.
+        // ready = fully proven with no outstanding proofs or mismatches; hold = waiting for proofs.
         $finalState = match (true) {
             $reality === self::REALITY_REJECTED => 'blocked',
             $reality === self::REALITY_ROLLED_BACK
