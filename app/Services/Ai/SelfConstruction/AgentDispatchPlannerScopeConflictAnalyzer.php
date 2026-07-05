@@ -39,6 +39,7 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
         $analyses = [];
         $conflictingTasks = 0;
         $clearTasks = 0;
+        $blockedTaskIds = [];
 
         foreach ($tasks as $task) {
             $taskId = (string) ($task['task_packet_id'] ?? '');
@@ -48,6 +49,8 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
             $scopeLock = (array) ($task['scope_lock'] ?? []);
             $writeSet = $this->normalizeSet((array) ($scopeLock['write_set'] ?? []));
             $readSet = $this->normalizeSet((array) ($scopeLock['read_set'] ?? []));
+            $taskCapabilities = $this->normalizeSet((array) ($task['capabilities'] ?? []));
+            $dependsOn = $this->normalizeSet((array) ($task['depends_on'] ?? []));
 
             if ($useLiveLedger) {
                 $live = $this->leases->conflictCheck($scopeLock, ['task_packet_id' => $taskId]);
@@ -58,28 +61,60 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
                 $liveStatus = $conflicts === [] ? 'clear' : 'conflict';
             }
 
+            // Detect capability conflicts: same capability required by multiple tasks.
+            $capabilityConflicts = $this->detectCapabilityConflicts($taskId, $taskCapabilities, $tasks);
+
+            // Detect dependency-order conflicts.
+            $dependencyConflicts = $this->detectDependencyConflicts($taskId, $dependsOn, $tasks);
+
             $hotScopeDirs = $this->hotScopeDirectories($writeSet, $leaseWriteSets);
-            [$recommendation, $recommendationReasons] = $this->recommend($conflicts, $hotScopeDirs);
+            [$recommendation, $recommendationReasons] = $this->recommend(
+                $conflicts,
+                $capabilityConflicts,
+                $dependencyConflicts,
+                $hotScopeDirs,
+            );
+
+            $allConflicts = array_merge(
+                $conflicts,
+                $capabilityConflicts,
+                $dependencyConflicts,
+            );
+
+            if ($recommendation === self::RECOMMENDATION_REJECT_CONFLICT) {
+                $blockedTaskIds[] = $taskId;
+            }
 
             $analyses[] = [
                 'task_packet_id' => $taskId,
                 'write_set' => $writeSet,
                 'read_set' => $readSet,
+                'required_capabilities' => $taskCapabilities,
+                'depends_on' => $dependsOn,
                 'conflict_status' => $liveStatus,
-                'conflict_count' => count($conflicts),
+                'conflict_count' => count($allConflicts),
                 'conflicts' => $conflicts,
+                'capability_conflicts' => $capabilityConflicts,
+                'dependency_conflicts' => $dependencyConflicts,
                 'has_scope_lock' => $writeSet !== [] || $readSet !== [],
                 'hot_scope_directories' => $hotScopeDirs,
                 'recommendation' => $recommendation,
                 'recommendation_reasons' => $recommendationReasons,
             ];
 
-            if ($conflicts === []) {
+            if ($allConflicts === [] && $capabilityConflicts === [] && $dependencyConflicts === []) {
                 $clearTasks++;
             } else {
                 $conflictingTasks++;
             }
         }
+
+        // Build safe_parallel_groups and conflict_groups.
+        $safeParallelGroups = $this->buildSafeParallelGroups($analyses, $tasks);
+        $conflictGroups = $this->buildConflictGroups($analyses);
+
+        // Build recommended sequencing (topological sort over dependencies).
+        $recommendedSequencing = $this->buildRecommendedSequencing($tasks);
 
         $hashPayload = [
             'analyses' => array_map(static fn (array $a): array => [
@@ -98,6 +133,10 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
             'clear_task_count' => $clearTasks,
             'conflicting_task_count' => $conflictingTasks,
             'active_lease_count' => count($activeLeases),
+            'safe_parallel_groups' => $safeParallelGroups,
+            'conflict_groups' => $conflictGroups,
+            'blocked_task_ids' => $blockedTaskIds,
+            'recommended_sequencing' => $recommendedSequencing,
             'analysis_hash' => $this->stableHash($hashPayload),
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
@@ -107,6 +146,181 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
             'ledger_write_allowed' => false,
             'claim_real_allowed' => false,
         ];
+    }
+
+    /**
+     * Detect capability conflicts: two tasks requiring the same finite capability.
+     *
+     * @return list<array{task_packet_id:string, capability:string, conflict_type:string}>
+     */
+    private function detectCapabilityConflicts(string $taskId, array $taskCaps, array $tasks): array
+    {
+        $conflicts = [];
+        foreach ($tasks as $other) {
+            $otherId = (string) ($other['task_packet_id'] ?? '');
+            if ($otherId === '' || $otherId === $taskId) {
+                continue;
+            }
+            $otherCaps = $this->normalizeSet((array) ($other['capabilities'] ?? []));
+            $shared = array_intersect($taskCaps, $otherCaps);
+            foreach ($shared as $cap) {
+                $conflicts[] = [
+                    'task_packet_id' => $otherId,
+                    'capability' => $cap,
+                    'conflict_type' => 'shared_capability',
+                ];
+            }
+        }
+
+        return $conflicts;
+    }
+
+    /**
+     * Detect dependency-order conflicts: task depends on another in the same batch
+     * but that other has not yet been scheduled or is itself blocked.
+     *
+     * @return list<array{task_packet_id:string, dependency:string, conflict_type:string}>
+     */
+    private function detectDependencyConflicts(string $taskId, array $dependsOn, array $tasks): array
+    {
+        $conflicts = [];
+        foreach ($dependsOn as $dep) {
+            $found = false;
+            foreach ($tasks as $other) {
+                if ((string) ($other['task_packet_id'] ?? '') === $dep) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (! $found) {
+                $conflicts[] = [
+                    'task_packet_id' => $dep,
+                    'dependency' => $dep,
+                    'conflict_type' => 'missing_dependency',
+                ];
+            }
+        }
+
+        return $conflicts;
+    }
+
+    /**
+     * Group tasks that can run in parallel with no conflicts (disjoint write sets, no shared capabilities, no dependency chains).
+     *
+     * @param  list<array<string, mixed>>  $analyses
+     * @param  list<array<string, mixed>>  $tasks
+     * @return list<list<string>>
+     */
+    private function buildSafeParallelGroups(array $analyses, array $tasks): array
+    {
+        $parallelSafe = [];
+        $remaining = [];
+        foreach ($analyses as $a) {
+            if ($a['recommendation'] === self::RECOMMENDATION_PARALLEL_SAFE) {
+                $parallelSafe[] = $a['task_packet_id'];
+            } else {
+                $remaining[] = $a['task_packet_id'];
+            }
+        }
+
+        $groups = [];
+        if ($parallelSafe !== []) {
+            sort($parallelSafe);
+            $groups[] = $parallelSafe;
+        }
+        foreach ($remaining as $id) {
+            $groups[] = [$id];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Group conflicting tasks by their conflict type.
+     *
+     * @param  list<array<string, mixed>>  $analyses
+     * @return list<array{conflict_type:string, task_ids:list<string>}>
+     */
+    private function buildConflictGroups(array $analyses): array
+    {
+        $groups = [];
+        $index = [];
+
+        foreach ($analyses as $a) {
+            $id = $a['task_packet_id'];
+            foreach ((array) ($a['conflicts'] ?? []) as $c) {
+                $type = 'file_overlap';
+                $index[$type][] = $id;
+            }
+            foreach ((array) ($a['capability_conflicts'] ?? []) as $c) {
+                $type = 'capability:'.$c['capability'];
+                $index[$type][] = $id;
+            }
+            foreach ((array) ($a['dependency_conflicts'] ?? []) as $c) {
+                $type = 'dependency:'.$c['dependency'];
+                $index[$type][] = $id;
+            }
+        }
+
+        foreach ($index as $type => $ids) {
+            $uniqueIds = array_values(array_unique($ids));
+            sort($uniqueIds);
+            $groups[] = [
+                'conflict_type' => $type,
+                'task_ids' => $uniqueIds,
+            ];
+        }
+
+        // Sort by first task_id for determinism.
+        usort($groups, static fn (array $a, array $b): int => strcmp($a['task_ids'][0] ?? '', $b['task_ids'][0] ?? ''));
+
+        return $groups;
+    }
+
+    /**
+     * Build a recommended execution order respecting dependency chains.
+     *
+     * @return list<string>
+     */
+    private function buildRecommendedSequencing(array $tasks): array
+    {
+        $sequenced = [];
+        $taskMap = [];
+        $depMap = [];
+
+        foreach ($tasks as $task) {
+            $id = (string) ($task['task_packet_id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $taskMap[$id] = true;
+            $deps = $this->normalizeSet((array) ($task['depends_on'] ?? []));
+            $depMap[$id] = array_values(array_intersect($deps, array_keys($taskMap)));
+        }
+
+        // Simple topological sort: tasks with no deps first, then tasks whose
+        // deps have all been sequenced.
+        $sequencedIds = [];
+        $remainingIds = array_keys($taskMap);
+        while ($remainingIds !== []) {
+            $next = [];
+            foreach ($remainingIds as $id) {
+                $unmet = array_diff($depMap[$id], $sequencedIds);
+                if ($unmet === []) {
+                    $next[] = $id;
+                }
+            }
+            if ($next === []) {
+                // Cycle or dependency on missing task — append remaining as-is.
+                $sequencedIds = array_merge($sequencedIds, $remainingIds);
+                break;
+            }
+            sort($next);
+            $sequencedIds = array_merge($sequencedIds, $next);
+            $remainingIds = array_values(array_diff($remainingIds, $next));
+        }
+
+        return $sequencedIds;
     }
 
     /**
@@ -202,13 +416,21 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
 
     /**
      * @param  list<array<string,mixed>>  $conflicts
+     * @param  list<array<string,mixed>>  $capabilityConflicts
+     * @param  list<array<string,mixed>>  $dependencyConflicts
      * @param  list<string>  $hotScopeDirs
      * @return array{0:string,1:list<string>}
      */
-    private function recommend(array $conflicts, array $hotScopeDirs): array
+    private function recommend(array $conflicts, array $capabilityConflicts, array $dependencyConflicts, array $hotScopeDirs): array
     {
         if ($conflicts !== []) {
             return [self::RECOMMENDATION_REJECT_CONFLICT, ['exact_allowed_files_overlap_or_active_lease_conflict']];
+        }
+        if ($dependencyConflicts !== []) {
+            return [self::RECOMMENDATION_REJECT_CONFLICT, ['missing_dependency_or_dependency_order_conflict']];
+        }
+        if ($capabilityConflicts !== []) {
+            return [self::RECOMMENDATION_SERIALIZE, ['shared_capability_conflict']];
         }
         if ($hotScopeDirs !== []) {
             return [self::RECOMMENDATION_SERIALIZE, ['same_directory_hot_scope']];
