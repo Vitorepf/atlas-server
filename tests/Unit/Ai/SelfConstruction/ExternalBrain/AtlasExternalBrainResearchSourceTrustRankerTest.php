@@ -432,4 +432,87 @@ final class AtlasExternalBrainResearchSourceTrustRankerTest extends TestCase
     }
 
     private function rank(array $a): array { return $this->ranker()->rank($a); }
+
+    // ── AC: primary documentation with concrete claim ranks above generic blog content ──
+
+    public function test_primary_documentation_with_concrete_claim_ranks_above_generic_blog(): void
+    {
+        $primary = $this->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+            'grounding' => 'repo_verified',
+        ]);
+        $blog = $this->rank([
+            'source_type' => 'blog',
+            'has_concrete_claim' => false,
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+        ]);
+
+        $this->assertGreaterThan($blog['trust_score'], $primary['trust_score']);
+    }
+
+    // ── AC: repo-local evidence ranks above generic summary evidence ──
+
+    public function test_repo_local_evidence_ranks_above_generic_summary_evidence(): void
+    {
+        $repo = $this->rank([
+            'source_type' => 'repo_local_evidence',
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+        ]);
+        $summary = $this->rank([
+            'source_type' => 'generic_summary',
+            'source_date' => '2026-06-30',
+        ]);
+
+        $this->assertGreaterThan($summary['trust_score'], $repo['trust_score']);
+    }
+
+    // ── AC: hype-heavy, undated, or missing-source input is penalized and not adopt_directly ──
+
+    public function test_hype_heavy_input_not_adopt_directly(): void
+    {
+        $r = $this->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+            'is_hype_heavy' => true,
+            'grounding' => 'repo_verified',
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::USE_ADOPT_DIRECTLY, $r['use_decision']);
+        $this->assertContains('hype_heavy', $r['penalties']);
+    }
+
+    public function test_undated_input_not_adopt_directly(): void
+    {
+        $r = $this->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date' => '',
+            'has_source_url' => true,
+            'grounding' => 'repo_verified',
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::USE_ADOPT_DIRECTLY, $r['use_decision']);
+        $this->assertContains('missing_source_date', $r['penalties']);
+    }
+
+    public function test_missing_source_input_not_adopt_directly(): void
+    {
+        $r = $this->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date' => '2026-06-30',
+            'has_source_url' => false,
+            'grounding' => 'repo_verified',
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::USE_ADOPT_DIRECTLY, $r['use_decision']);
+        $this->assertContains('source_url_missing', $r['penalties']);
+    }
 }
