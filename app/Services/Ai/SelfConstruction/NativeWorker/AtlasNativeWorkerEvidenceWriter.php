@@ -56,6 +56,7 @@ final class AtlasNativeWorkerEvidenceWriter
      *     envelope_hash:string,
      *     runtime_owner?:string,
      *     files_changed?:list<string>,
+     *     file_diffs?:array<string,string>,
      *     commands_run?:list<array<string,mixed>>,
      *     tests_or_gates_result?:array<string,mixed>,
      *     scope_deviations?:list<array{path:string, acknowledged:bool, reason?:string}>,
@@ -69,6 +70,7 @@ final class AtlasNativeWorkerEvidenceWriter
         $envHash = (string) ($attempt['envelope_hash'] ?? '');
         $runtimeOwner = (string) ($attempt['runtime_owner'] ?? '');
         $filesChanged = is_array($attempt['files_changed'] ?? null) ? array_values(array_map('strval', $attempt['files_changed'])) : null;
+        $fileDiffs = is_array($attempt['file_diffs'] ?? null) ? $attempt['file_diffs'] : null;
         $commandsRun = is_array($attempt['commands_run'] ?? null) ? array_values($attempt['commands_run']) : null;
         $gateResult = is_array($attempt['tests_or_gates_result'] ?? null) ? $attempt['tests_or_gates_result'] : null;
         $scopeDevs = is_array($attempt['scope_deviations'] ?? null) ? array_values($attempt['scope_deviations']) : [];
@@ -88,6 +90,15 @@ final class AtlasNativeWorkerEvidenceWriter
         }
         if ($filesChanged === []) {
             throw new RuntimeException('evidence writer: files_changed must not be empty');
+        }
+        // AC: a non-empty files_changed must carry per-file diffs covering every changed file.
+        if ($fileDiffs === null || $fileDiffs === []) {
+            throw new RuntimeException('evidence writer: file_diffs must not be empty when files_changed is non-empty');
+        }
+        $fileDiffsKeys = array_keys($fileDiffs);
+        $missingDiffs = array_values(array_diff($filesChanged, $fileDiffsKeys));
+        if ($missingDiffs !== []) {
+            throw new RuntimeException('evidence writer: files_changed without corresponding diff: '.implode(', ', $missingDiffs));
         }
         if ($commandsRun === null) {
             throw new RuntimeException('evidence writer: missing commands_run');
@@ -137,11 +148,16 @@ final class AtlasNativeWorkerEvidenceWriter
             'envelope_hash' => $envHash,
             'runtime_owner' => $runtimeOwner,
             'files_changed' => $filesChanged,
+            'file_diffs' => $fileDiffs,
             'commands_run' => $redactedCommandsRun,
             'tests_or_gates_result' => $gateResult,
             'scope_deviations' => $scopeDevs,
             'residual_risks' => $redactedResidualRisks,
         ];
+
+        // Compute diff_hash over the canonicalised sorted file_diffs map.
+        ksort($fileDiffs, SORT_STRING);
+        $row['diff_hash'] = hash('sha256', (string) json_encode($fileDiffs, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         // AC3: preserve outcome, give_back_reason, commit_reference and implementation_notes
         // ONLY when present -- absent optional fields are simply omitted, never defaulted.
