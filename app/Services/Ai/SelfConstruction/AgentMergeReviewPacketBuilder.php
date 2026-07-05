@@ -65,6 +65,9 @@ final class AgentMergeReviewPacketBuilder
                 'file_stats' => $stats,
                 'artifacts' => $artifacts,
                 'artifact_stats' => $artifactStats,
+                'artifact_provenance' => $this->buildArtifactProvenance($diffManifest, $artifactManifest, $context),
+                'changed_file_risk_groups' => $this->buildChangedFileRiskGroups($files),
+                'executable_proof_requirements' => $this->buildExecutableProofRequirements($artifacts),
             ],
             'non_execution_guarantees' => self::NON_EXECUTION_GUARANTEES,
         ];
@@ -214,5 +217,119 @@ final class AgentMergeReviewPacketBuilder
         unset($copy['packet_hash']);
 
         return hash('sha256', (string) json_encode($copy, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /**
+     * Build artifact provenance with hashes for diff, evidence and review inputs.
+     *
+     * @param  array<string, mixed>  $diffManifest
+     * @param  array<string, mixed>  $artifactManifest
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function buildArtifactProvenance(array $diffManifest, array $artifactManifest, array $context): array
+    {
+        $diffHash = hash('sha256', (string) json_encode($diffManifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $evidenceHash = hash('sha256', (string) json_encode($artifactManifest, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $reviewInputHash = hash('sha256', $diffHash.$evidenceHash.(string) ($context['task_packet_id'] ?? ''));
+
+        return [
+            'diff_hash' => $diffHash,
+            'evidence_hash' => $evidenceHash,
+            'review_input_hash' => $reviewInputHash,
+            'base_revision' => (string) ($diffManifest['base_revision'] ?? 'baseline-unknown'),
+            'head_revision' => (string) ($diffManifest['head_revision'] ?? 'head-unknown'),
+        ];
+    }
+
+    /**
+     * Group changed files into risk buckets: implementation, test, migration, storage, config, other.
+     *
+     * @param  list<array<string, mixed>>  $files
+     * @return array<string, list<string>>
+     */
+    private function buildChangedFileRiskGroups(array $files): array
+    {
+        $groups = [
+            'implementation' => [],
+            'test' => [],
+            'migration' => [],
+            'storage' => [],
+            'config' => [],
+            'other' => [],
+        ];
+
+        foreach ($files as $file) {
+            $path = (string) ($file['path'] ?? '');
+            if ($path === '') {
+                continue;
+            }
+
+            if (str_contains($path, 'database/migrations/')) {
+                $groups['migration'][] = $path;
+            } elseif (str_starts_with($path, 'tests/')) {
+                $groups['test'][] = $path;
+            } elseif (str_starts_with($path, 'storage/')) {
+                $groups['storage'][] = $path;
+            } elseif (str_starts_with($path, 'config/')) {
+                $groups['config'][] = $path;
+            } elseif (str_starts_with($path, 'app/') || str_starts_with($path, 'src/')) {
+                $groups['implementation'][] = $path;
+            } else {
+                $groups['other'][] = $path;
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Build executable proof requirements. Generic green text is not enough
+     * for review readiness — each requirement must have a concrete proof type.
+     *
+     * @param  list<array<string, mixed>>  $artifacts
+     * @return array<string, mixed>
+     */
+    private function buildExecutableProofRequirements(array $artifacts): array
+    {
+        $requirements = [];
+        $hasGenericGreenOnly = false;
+
+        foreach ($artifacts as $artifact) {
+            $kind = (string) ($artifact['kind'] ?? 'unknown');
+            $status = (string) ($artifact['status'] ?? 'unknown');
+            $name = (string) ($artifact['name'] ?? 'unknown');
+
+            // Generic green text (status=green without a concrete kind) is insufficient.
+            if ($status === 'green' && ($kind === 'unknown' || $kind === '')) {
+                $hasGenericGreenOnly = true;
+            }
+
+            $requirements[] = [
+                'artifact_kind' => $kind,
+                'artifact_name' => $name,
+                'required_proof_type' => $this->proofTypeForKind($kind),
+                'current_status' => $status,
+                'meets_executable_proof' => $status === 'passed' && $kind !== 'unknown' && $kind !== '',
+            ];
+        }
+
+        return [
+            'requirements' => $requirements,
+            'generic_green_text_insufficient' => $hasGenericGreenOnly,
+            'review_ready' => ! $hasGenericGreenOnly && count(array_filter($requirements, static fn (array $r): bool => ! $r['meets_executable_proof'])) === 0,
+        ];
+    }
+
+    private function proofTypeForKind(string $kind): string
+    {
+        return match ($kind) {
+            'test_suite', 'phpunit' => 'test_exit_zero_with_behavior_assertion',
+            'lint', 'phpstan', 'psalm' => 'lint_exit_zero',
+            'integration', 'e2e' => 'integration_test_green',
+            'build', 'compile' => 'build_exit_zero',
+            'migration_check' => 'migration_rollback_verified',
+            default => 'executable_proof_required',
+        };
     }
 }
