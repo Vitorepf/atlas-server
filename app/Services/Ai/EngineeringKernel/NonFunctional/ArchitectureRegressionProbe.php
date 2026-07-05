@@ -33,6 +33,61 @@ final class ArchitectureRegressionProbe
     }
 
     /**
+     * Regex-parse raw PHP sources into import edges {from, to}.
+     *
+     * @param  array<string,string>  $sources  map of path => raw PHP source
+     * @return list<array{from:string,to:string}>
+     */
+    public static function edgesFromSources(array $sources): array
+    {
+        $edges = [];
+        foreach ($sources as $path => $source) {
+            if (! is_string($source)) {
+                continue;
+            }
+
+            // Extract the declared namespace
+            $namespace = '';
+            if (preg_match('/^\s*namespace\s+([^;]+);/m', $source, $m)) {
+                $namespace = trim($m[1]);
+            }
+            if ($namespace === '') {
+                continue;
+            }
+
+            // 1. Simple use statements: use Foo\Bar;  or  use \Foo\Bar as Baz;
+            if (preg_match_all('/^\s*use\s+(\\\\?)([A-Za-z_\\\\][A-Za-z0-9_\\\\]*)(?:\s+as\s+\w+)?\s*;/m', $source, $simpleMatches, PREG_SET_ORDER)) {
+                foreach ($simpleMatches as $match) {
+                    $edges[] = [
+                        'from' => $namespace,
+                        'to' => $match[2],
+                    ];
+                }
+            }
+
+            // 2. Grouped use statements: use App\Foo\{Bar, Baz};
+            if (preg_match_all('/^\s*use\s+(\\\\?)([A-Za-z_\\\\][A-Za-z0-9_\\\\]*)\{([^}]+)\}\s*;/m', $source, $groupedMatches, PREG_SET_ORDER)) {
+                foreach ($groupedMatches as $match) {
+                    $prefix = $match[1].$match[2];
+                    $members = explode(',', $match[3]);
+                    foreach ($members as $member) {
+                        $member = trim($member);
+                        if ($member === '') {
+                            continue;
+                        }
+                        $edges[] = [
+                            'from' => $namespace,
+                            'to' => ltrim($prefix.$member, '\\'),
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $edges;
+    }
+
+    /**
      * @param  list<array{from:string,to:string}>  $addedEdges   import edges the diff ADDS
      * @param  list<array{from:string,to:string}>|null  $forbiddenRules  null => defaults
      * @return list<string>  human-readable violating edges (empty = clean)
