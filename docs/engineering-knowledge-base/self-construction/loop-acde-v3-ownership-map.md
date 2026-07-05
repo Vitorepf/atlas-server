@@ -284,7 +284,6 @@ strongest available caller (often a test) or the literal word `none`.
 | AtlasLoopWorkspaceMaterializerSupport2 | Writes workspace support files (composer.json etc.) for materialization | Engineering Kernel | app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php |
 | AtlasUnifiedLoopOrchestrator | THE UNIFIED LOOP — one durable, propose-only supervisor over every verifier-backed | Autonomos | app/Console/Commands/AtlasUnifiedLoopCommand.php |
 | AtlasUnifiedLoopSupervisorService | Liveness supervisor for the file-based unified evolution loop. | Autonomos | app/Console/Commands/AtlasUnifiedLoopSupervisorCommand.php |
-| FixtureRefactorObraNodeDelivery | DETERMINISTIC, ZERO-SPEND obra delivery for proving the multi-file execution MACHINERY | retire | tests/Feature/Loop/AtlasLoopObraExecutionAdapterTest.php |
 | LoopAttemptTimedOut | Thrown by {@see TimeBoundedLoopExecutionDriver} when a single execution attempt | Engineering Kernel | app/Services/Ai/AutonomousEvolution/TimeBoundedLoopExecutionDriver.php |
 | LoopExecutionDriver | The execution abstraction the evolution loop runs on. | Engineering Kernel | app/Providers/AppServiceProvider.php |
 | SeniorLoopExecutionDriver | Default {@see LoopExecutionDriver} — routes the evolution loop through the | Engineering Kernel | app/Providers/AppServiceProvider.php |
@@ -293,7 +292,9 @@ strongest available caller (often a test) or the literal word `none`.
 
 ## Retirement Candidates
 
-1. FixtureRefactorObraNodeDelivery
+Nenhuma candidata pendente.
+
+Nota 2026-07-05: FixtureRefactorObraNodeDelivery foi deletada do disco em 2026-07-01 (commit e60e560fbe); row removida da tabela conforme a regra deste doc (rows existem somente enquanto o arquivo existir).
 
 ## Resumo
 Inventario canonico de toda classe raiz de app/Services/Ai/AutonomousEvolution mapeada para um owner v3 ou marcada retire.

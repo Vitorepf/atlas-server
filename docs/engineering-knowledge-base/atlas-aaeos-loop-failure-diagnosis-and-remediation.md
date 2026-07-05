@@ -74,11 +74,13 @@ required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true
 next_actions:
-  - Unblock the productive execution path (raise the loop above scan-only) before adding any new governance.
-  - Pilot the parallel fan-out + adversarial-verify executor on one well-specified backlog batch and measure delivery rate.
+  - Scale the productive execution path to loop steady-state — post-Obra #4 S0 (a4a88b7fa3, 2026-07-05) an autonomous merge path exists (automerge drain fail-closed under the Engineering Kernel AcceptanceGate); the remaining gap is scale, not existence.
+  - Pilot the parallel fan-out executor on one well-specified backlog batch and measure delivery rate, consuming the delivered sovereign adversarial gate (Obra #4 S0-S4 + Obra #5 S0-S1, 2026-07-05) instead of building a parallel judge.
 ---
 
 > ⚠️ **DEFINIÇÃO CANÔNICA DO LOOP — leia primeiro: `docs/loop-canonical-definition.md` e `docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`.** Este doc descreve IMPLEMENTAÇÃO / ESTADO / HISTÓRICO; parte do framing aqui (refactor / ciclomática / landing-rate / best-of-N / proxy) é o **ALVO ERRADO**. Na arquitetura final, o Loop é o **Autopoiesis / Evolution Engine** dentro do `Atlas Autonomous Engineering Government`, não o OS inteiro. O alvo 24/7 é o Government evoluir Atlas e project lanes via Task Fabric, Maestro, Verification Court, Merge Governor, Receipts e Knowledge Sync.
+>
+> *Nota 05/07/2026 (vivo vs. aposentado, verificado por rg nesta data):* `AtlasSelfConstructionVerificationCourtCommand` existe em `app/Console/Commands/` (Verification Court vivo); a família `AtlasTaskMaestro*` existe com dezenas de comandos em `app/Console/Commands/` (Maestro vivo); o núcleo Task Fabric existe em `app/Services/Ai/SelfConstruction/TaskFabric/`. Já a cadeia de admission `BrutalValueAdmissionGate` foi aposentada em 05/07/2026 (a6935ab4e0, "fecha a cadeia BrutalValueAdmissionGate", 9 organs + 15 testes): zero referências no código hoje.
 
 
 # AAEOS Stewardship Loop — Failure Diagnosis and Remediation Plan
@@ -128,7 +130,7 @@ Este arquivo é runbook/diagnóstico. A implementação dos consertos vive no ru
 
 - AP-790 Reliable 24h Loop Runner; AP-786 owner-flow; AP-805 Ten-Cycle Readiness Governor.
 - Backlogs loop-ready (`atlas-aaeos-*-leap-backlog`) como fonte das fatias.
-- `atlas-aaeos-leap-kernels-numeric-safety-tail` para a cauda de bugs latentes.
+- `atlas-aaeos-leap-kernels-numeric-safety-tail` para a cauda de bugs latentes (referência sem arquivo em docs/engineering-knowledge-base — é memória externa, não doc; link histórico).
 
 ## Exemplos
 
@@ -162,6 +164,7 @@ Um ciclo "bom" pós-conserto: o executor de fan-out pega 10 slices independentes
 - `ScaffoldDensityScorer` (S58): `scaffold_density` podia **passar de 1.0** (contava linhas em branco só no numerador) — viola o bound 0..1 declarado.
 - `ForgeMigrationIndexCollisionClassifierService` (S206): quebrava o contrato `list<string>` (`array_keys()` coagindo chave numérica-string para int; `sort()` sem `SORT_STRING`).
 - **Gates fail-OPEN de governança/soberania**: `L8LocalEnginePortfolioAdmissionGate` admitia dados sensitive/secret/cyber **off-device** quando `privacy_class` tinha espaço/caixa; `L7PromotionExecutor` concedia promoção apesar de invariante quebrada (contagem chegando como numeric-string/float); `L10RecursiveDepthLimitGate` deixava recursão 10¹⁹ passar.
+  - *Nota 05/07/2026:* `L8LocalEnginePortfolioAdmissionGate` e `L10RecursiveDepthLimitGate` foram retiradas na limpeza-bruta DECISAO-1 (8d9ce8c0bd); a evidência permanece válida como histórico do diagnóstico.
 
 **Evidência (bloqueador demais).** Ao mesmo tempo, os gates de pré-gasto (preflight firewall, admission, weak-finding, escopo amplo, diff destrutivo) **abortam ciclos** com frequência. O Bloco 1 (Loop Self-Protection) existe justamente para *bloquear antes de gastar provider* — necessário, mas hoje calibrado para travar muito.
 
@@ -223,8 +226,9 @@ A conclusão correta: **dê ao loop o motor de execução (fan-out paralelo), a 
 
 - **P0-1 — Destravar execução (D1/S49):** substituir o caminho de execução fixture por um executor real; sair de Tier-0 scan-only. É pré-requisito de tudo.
 - **P0-2 — Executor de fan-out paralelo (D3):** um agente por slice (impl → verificação adversarial) para batches independentes, no lugar do ciclo único sequencial.
+  - *Nota 05/07/2026 (P0-1/P0-2):* pós-Obra #4 S0 (a4a88b7fa3) existe caminho de merge autônomo roteando pelo Engineering Kernel — o drain do automerge (`AtlasLoopAutoMergeService`) consulta o `AcceptanceGate` soberano antes do commit, fail-closed por proposta. O gap remanescente é escala/steady-state, não inexistência do caminho.
 - **P0-3 — Provider capaz na lane de execução (D4):** rotear execução crítica para um modelo forte; parar de rodar a tarefa difícil no provider fraco.
-- **P1-1 — Gate de verificação adversarial real (D2):** suíte real + schema-vs-doc + scan tautologia/scaffold + verificador que tenta refutar; substitui o auto-judge que carimba teste fraco.
+- **P1-1 — Gate de verificação adversarial real (D2):** Obra #4 entregou o eixo soberano/adversarial de reparo e replay; a pendencia agora e wiring sustentado no loop produtivo, nao criar outro juiz paralelo. Proximas alteracoes devem consumir AcceptanceGate/SovereignHonestyFloor e receipts reais. *(05/07/2026: Obra #4 — S0 a4a88b7fa3 automerge sob juiz soberano, S1 RegressionLock 4d29d8725f, S2 replay-proof 72a50f6e75, S3 RepairBrain e0f44ebda5, S4 flywheel 181e17b5d7 — entregou o eixo; Obra #5 — S0 60d436bba8 CertifierClassificationLedger, S1 92abe2bc52/6f3c327dda juízes de entrega sob o piso soberano, observe-first — cobre a recalibração de juízes.)*
 - **P1-2 — Recalibrar gates (D2):** fail-closed em governança/soberania; reduzir falso-bloqueio em finders bons.
 - **P1-3 — Wirar o governor de utilização (D3):** `LoopUtilizationQualityGovernor` (96% useful-cycle) como gate de runtime; medir entrega real, não volume de commit.
 - **P2-1 — Convenção determinística de segurança numérica (D2):** helpers de coerção `finite`+saturating, `is_string` antes de `(string)`, `SORT_STRING`/`strcmp` para listas, aplicados aos ~57/107 kernels com a superfície de risco (ver `atlas-aaeos-leap-kernels-numeric-safety-tail`).
@@ -256,4 +260,5 @@ A conclusão correta: **dê ao loop o motor de execução (fan-out paralelo), a 
 
 1. Destravar o caminho produtivo (P0-1) e medir o primeiro ciclo que entrega de verdade.
 2. Pilotar o executor de fan-out (P0-2) em **um** batch loop-ready e comparar entrega vs. o loop atual.
-3. Plugar o gate de verificação adversarial (P1-1) e re-rodar a varredura; meta: 0 fail-open.
+   - *Nota 05/07/2026 (ações 1-2):* pós-Obra #4 S0 (a4a88b7fa3) já existe caminho de merge autônomo roteando pelo Engineering Kernel (automerge drain fail-closed sob `AcceptanceGate`); o gap remanescente é escala/steady-state, não inexistência.
+3. Plugar o juiz adversarial ja entregue no steady-state do loop e re-rodar a varredura; meta: 0 fail-open, sem criar gate paralelo.
