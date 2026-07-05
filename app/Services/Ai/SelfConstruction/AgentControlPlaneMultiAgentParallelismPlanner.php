@@ -6,6 +6,7 @@ namespace App\Services\Ai\SelfConstruction;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroParallelMuscleCoordinationPolicy;
 
 /**
  * Plans whether multiple task packets can run in parallel, computing the
@@ -120,6 +121,24 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
 
         $parallelismAllowed = $blockedPairs === [] && $packetCount >= 2;
 
+        // Runtime health throttle: compose AtlasMaestroParallelMuscleCoordinationPolicy
+        // when health signals are present in options, clamp parallelism on live health.
+        $healthSignals = is_array($options['health_signals'] ?? null) ? $options['health_signals'] : [];
+        $throttleReasons = [];
+        $overrideParallelism = null;
+        if ($healthSignals !== []) {
+            $policy = new AtlasMaestroParallelMuscleCoordinationPolicy();
+            $coordination = $policy->recommend($healthSignals);
+            $policyThrottleReasons = (array) ($coordination['throttle_reasons'] ?? []);
+
+            if ($policyThrottleReasons !== []) {
+                $throttleReasons = array_merge($throttleReasons, $policyThrottleReasons);
+                // When throttled, reduce static parallelism.
+                $overrideParallelism = max(1, (int) ($coordination['recommended_parallelism'] ?? 1));
+                $parallelismAllowed = $overrideParallelism >= 2;
+            }
+        }
+
         $blockingReasons = [];
         if ($packetCount === 0) {
             $blockingReasons[] = 'no_task_packets';
@@ -132,6 +151,11 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
         if ($blockedPairs !== []) {
             $blockingReasons[] = 'write_or_axis_overlap_detected';
         }
+        if ($throttleReasons !== []) {
+            $blockingReasons = array_merge($blockingReasons, $throttleReasons);
+        }
+
+        $recommendedParallelism = $overrideParallelism ?? ($parallelismAllowed ? $maxParallel : 1);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -142,6 +166,9 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
             'agent_count' => $packetCount,
             'task_packet_count' => $packetCount,
             'parallelism_allowed' => $parallelismAllowed,
+            'recommended_parallelism' => $recommendedParallelism,
+            'throttle_reasons' => $throttleReasons,
+            'health_signals_consulted' => $healthSignals !== [],
             'conflict_matrix' => $conflictMatrix,
             'lanes' => $lanes,
             'blocked_tasks' => $blockedTasks,

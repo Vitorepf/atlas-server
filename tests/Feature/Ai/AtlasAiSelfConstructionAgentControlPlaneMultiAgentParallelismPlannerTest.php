@@ -241,6 +241,109 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentParallelismPlanner
         $this->assertSame([], $plan['blocked_tasks']);
     }
 
+    // ── AC: runtime health throttle ─────────────────────────────────────────
+
+    public function test_high_give_back_rate_throttles_parallelism_on_non_overlapping_packets(): void
+    {
+        $packets = [$this->packet(['a.php']), $this->packet(['b.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets, [
+            'health_signals' => [
+                'queue_depth' => 10,
+                'servable_count' => 5,
+                'active_leases' => 2,
+                'conflict_free_scope_ratio' => 0.9,
+                'lock_contention' => 0.1,
+                'give_back_rate' => 0.50, // above 0.30 threshold
+                'worker_quality_scores' => [8.0, 7.5],
+                'poison_pressure' => 0.0,
+            ],
+        ]);
+
+        $this->assertNotEmpty($plan['throttle_reasons']);
+        $this->assertTrue($plan['health_signals_consulted']);
+        // Parallelism must be reduced below the max.
+        $this->assertLessThan($plan['max_parallel_agents'], $plan['recommended_parallelism']);
+    }
+
+    public function test_healthy_signals_preserve_parallelism_on_non_overlapping_packets(): void
+    {
+        $packets = [$this->packet(['a.php']), $this->packet(['b.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets, [
+            'health_signals' => [
+                'queue_depth' => 10,
+                'servable_count' => 5,
+                'active_leases' => 2,
+                'conflict_free_scope_ratio' => 0.9,
+                'lock_contention' => 0.0,
+                'give_back_rate' => 0.0,
+                'worker_quality_scores' => [9.0, 8.5],
+                'poison_pressure' => 0.0,
+            ],
+        ]);
+
+        $this->assertTrue($plan['parallelism_allowed']);
+        $this->assertSame([], $plan['throttle_reasons']);
+        $this->assertTrue($plan['health_signals_consulted']);
+    }
+
+    public function test_no_health_signals_preserves_existing_behavior(): void
+    {
+        $packets = [$this->packet(['a.php']), $this->packet(['b.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets);
+
+        $this->assertTrue($plan['parallelism_allowed']);
+        $this->assertFalse($plan['health_signals_consulted']);
+        $this->assertSame([], $plan['throttle_reasons']);
+    }
+
+    public function test_high_lock_contention_throttles_parallelism(): void
+    {
+        $packets = [$this->packet(['a.php']), $this->packet(['b.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets, [
+            'health_signals' => [
+                'queue_depth' => 5,
+                'servable_count' => 3,
+                'active_leases' => 2,
+                'conflict_free_scope_ratio' => 0.8,
+                'lock_contention' => 0.40, // above 0.25 threshold
+                'give_back_rate' => 0.0,
+                'worker_quality_scores' => [8.0, 7.0],
+                'poison_pressure' => 0.0,
+            ],
+        ]);
+
+        $this->assertNotEmpty($plan['throttle_reasons']);
+    }
+
+    public function test_high_poison_pressure_throttles_parallelism(): void
+    {
+        $packets = [$this->packet(['a.php']), $this->packet(['b.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets, [
+            'health_signals' => [
+                'queue_depth' => 5,
+                'servable_count' => 3,
+                'active_leases' => 2,
+                'conflict_free_scope_ratio' => 0.8,
+                'lock_contention' => 0.0,
+                'give_back_rate' => 0.0,
+                'worker_quality_scores' => [8.0, 7.0],
+                'poison_pressure' => 0.30, // above 0.20 threshold
+            ],
+        ]);
+
+        $this->assertNotEmpty($plan['throttle_reasons']);
+    }
+
+    public function test_plan_includes_recommended_parallelism_field(): void
+    {
+        $packets = [$this->packet(['a.php']), $this->packet(['b.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets);
+
+        $this->assertArrayHasKey('recommended_parallelism', $plan);
+        $this->assertIsInt($plan['recommended_parallelism']);
+        $this->assertGreaterThanOrEqual(1, $plan['recommended_parallelism']);
+    }
+
     /**
      * @param  array<int, string>  $allowed
      * @return array<string, mixed>
