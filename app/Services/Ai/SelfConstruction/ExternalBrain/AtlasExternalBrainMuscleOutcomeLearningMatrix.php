@@ -179,8 +179,15 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrix
                 $signal = 'weak_green_prone';
                 $respecFamilies[] = $family;
             } elseif ($successRate >= $successThresh) {
-                $signal = 'high_success';
-                $supplyFamilies[] = $family;
+                // Gate on Wilson LB so small-sample families (e.g. 4/5) are NOT
+                // promoted to supply_families until the evidence is statistically confident.
+                $successLB = self::wilsonLowerBound((float) $succ, (float) $total);
+                if ($successLB >= $successThresh) {
+                    $signal = 'high_success';
+                    $supplyFamilies[] = $family;
+                } else {
+                    $signal = 'high_success_insufficient_sample';
+                }
             } else {
                 $signal = 'normal';
             }
@@ -254,6 +261,7 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrix
                 $r = static fn (int $n, int $t): float => $t > 0 ? round($n / $t, 4) : 0.0;
                 $familyWorkerFit[$fam][$wk] = [
                     'success_rate'    => $r($s,      $total),
+                    'success_count'   => $s,
                     'give_back_count' => $gb,
                     'poison_rate'     => $r($poison,  $total),
                     'quarantine_rate' => $r($quar,    $total),
@@ -296,12 +304,19 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrix
                         'routing'         => 'fail_closed',
                     ];
                 } elseif ($fit['success_rate'] >= $routingPrefer) {
-                    $preferred[] = [
-                        'worker_id'    => $wk,
-                        'success_rate' => $fit['success_rate'],
-                        'reason'       => 'high_family_success_rate',
-                        'routing'      => 'prefer',
-                    ];
+                    // Gate on Wilson LB so small-sample pairs (e.g. 2/2) are NOT
+                    // promoted to preferred until the evidence is statistically confident.
+                    $fitSuccessLB = self::wilsonLowerBound((float) ($fit['success_count'] ?? 0), (float) $fit['total']);
+                    if ($fitSuccessLB >= $routingPrefer) {
+                        $preferred[] = [
+                            'worker_id'     => $wk,
+                            'success_rate'  => $fit['success_rate'],
+                            'success_count' => $fit['success_count'] ?? 0,
+                            'total'         => $fit['total'],
+                            'reason'        => 'high_family_success_rate',
+                            'routing'       => 'prefer',
+                        ];
+                    }
                 } elseif ($fit['success_rate'] < $routingAvoid) {
                     $avoid[] = [
                         'worker_id'    => $wk,
@@ -322,7 +337,13 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrix
                 }
             }
 
-            usort($preferred, static fn ($a, $b) => $b['success_rate'] <=> $a['success_rate']);
+            usort($preferred, static function ($a, $b): int {
+                // Rank by Wilson LB so a proven 70/100 beats a lucky 2/2.
+                $aLb = self::wilsonLowerBound((float) ($a['success_count'] ?? ($a['success_rate'] * $a['total'])), (float) ($a['total'] ?? 1));
+                $bLb = self::wilsonLowerBound((float) ($b['success_count'] ?? ($b['success_rate'] * $b['total'])), (float) ($b['total'] ?? 1));
+
+                return $bLb <=> $aLb;
+            });
 
             $routingRecommendations[$fam] = [
                 'preferred_workers'        => $preferred,
@@ -356,5 +377,28 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrix
                 'tiers'      => count($tierMatrix),
             ],
         ];
+    }
+
+    /**
+     * Wilson score lower bound (95% confidence, z=1.96).
+     * The lower bound of the Binomial proportion confidence interval.
+     * Gates and ranks family/worker routing by statistical confidence.
+     *
+     * Formula: (p + z²/2n - z * sqrt(p*(1-p)/n + z²/(4n²))) / (1 + z²/n)
+     *
+     * Reference: Wilson, E.B. (1927). JASA, 22(158), 209-212.
+     */
+    private static function wilsonLowerBound(float $successes, float $total, float $z = 1.96): float
+    {
+        if ($total <= 0) {
+            return 0.0;
+        }
+        $p = $successes / $total;
+        $z2 = $z * $z;
+        $denom = 1.0 + $z2 / $total;
+        $center = $p + $z2 / (2.0 * $total);
+        $se = sqrt(($p * (1.0 - $p) + $z2 / (4.0 * $total)) / $total);
+
+        return ($center - $z * $se) / $denom;
     }
 }
