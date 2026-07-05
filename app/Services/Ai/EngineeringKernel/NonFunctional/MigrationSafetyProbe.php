@@ -85,9 +85,13 @@ final class MigrationSafetyProbe
      */
     private static function hits(string $source, array $needles): array
     {
+        // Collapse any run of whitespace (multi-space, tab, newline) to a single
+        // space before matching, so raw-SQL wipes like "DROP  TABLE" (two spaces),
+        // "DROP\tTABLE" (tab) or "DROP\nTABLE" (newline) don't evade detection.
+        $normalized = (string) preg_replace('/\s+/', ' ', $source);
         $found = [];
         foreach ($needles as $needle) {
-            if (stripos($source, $needle) !== false) {
+            if (stripos($normalized, $needle) !== false) {
                 $found[] = trim($needle);
             }
         }
