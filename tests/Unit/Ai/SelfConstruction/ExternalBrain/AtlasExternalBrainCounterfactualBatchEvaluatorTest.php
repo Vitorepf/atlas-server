@@ -298,4 +298,78 @@ final class AtlasExternalBrainCounterfactualBatchEvaluatorTest extends TestCase
         $this->assertSame(AtlasExternalBrainCounterfactualBatchEvaluator::REGRET_HIGH, $r['decision_regret_level']);
         $this->assertSame('best-alt', $r['learned_from_alternative_id']);
     }
+
+    // ── AC: lower-quality selected batches produce regret=high when similar stronger alternative exists ──
+
+    public function test_lower_quality_selected_batch_produces_high_regret_with_similar_stronger_alternative(): void
+    {
+        // Chosen has lower quality (evidence=4, impl=4) and a similar stronger alternative exists
+        $r = $this->svc()->evaluate([
+            'chosen_batch' => $this->batch(8.0, 3.0, 10.0, 5, 4.0, 4.0, 'chosen', 1.0, 0.5, 1.0),
+            'alternatives' => [$this->batch(7.5, 2.0, 8.0, 8, 9.0, 9.0, 'stronger-alt', 5.0, 0.1, 3.0)],
+        ]);
+
+        // Alternative beats on unlocks (8>5) AND risk (2<3) → high regret
+        $this->assertSame(AtlasExternalBrainCounterfactualBatchEvaluator::REGRET_HIGH, $r['decision_regret_level']);
+        $this->assertSame('stronger-alt', $r['learned_from_alternative_id']);
+    }
+
+    // ── AC: genuinely different high-leverage alternatives produce regret=medium with alternative_id ──
+
+    public function test_genuinely_different_high_leverage_alternative_produces_medium_regret_with_id(): void
+    {
+        // Chosen meets quality floor but alternative has higher leverage (different direction)
+        $r = $this->svc()->evaluate([
+            'chosen_batch' => $this->batch(7.0, 3.0, 10.0, 5, 8.0, 8.0, 'chosen', 1.0),
+            'alternatives' => [$this->batch(9.0, 4.0, 12.0, 3, 8.0, 8.0, 'diff-alt', 3.0)],
+        ]);
+
+        // deltaLeverage = 7-9 = -2 (negative) → doesn't meet low regret condition
+        $this->assertSame(AtlasExternalBrainCounterfactualBatchEvaluator::REGRET_MEDIUM, $r['decision_regret_level']);
+        $this->assertSame('diff-alt', $r['learned_from_alternative_id']);
+    }
+
+    // ── AC: low-regret batches include regret=low and no blocking alternative ──
+
+    public function test_low_regret_batch_has_no_blocking_alternative(): void
+    {
+        $r = $this->svc()->evaluate([
+            'chosen_batch' => $this->batch(9.0, 2.0, 5.0, 10, 9.0, 9.0, 'chosen'),
+            'alternatives' => [$this->batch(5.0, 5.0, 15.0, 3, 5.0, 5.0, 'weak-alt')],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainCounterfactualBatchEvaluator::REGRET_LOW, $r['decision_regret_level']);
+        $this->assertNull($r['learned_from_alternative_id']);
+        $this->assertNull($r['alternative_that_would_have_won']);
+    }
+
+    public function test_low_regret_when_chosen_dominates_all_dimensions(): void
+    {
+        $r = $this->svc()->evaluate([
+            'chosen_batch' => $this->batch(10.0, 1.0, 1.0, 20, 10.0, 10.0, 'chosen'),
+            'alternatives' => [
+                $this->batch(5.0, 5.0, 15.0, 3, 5.0, 5.0, 'alt1'),
+                $this->batch(6.0, 4.0, 12.0, 5, 6.0, 6.0, 'alt2'),
+            ],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainCounterfactualBatchEvaluator::REGRET_LOW, $r['decision_regret_level']);
+        $this->assertSame(0, $r['missed_unlocks']);
+        $this->assertGreaterThan(0.0, $r['delta_leverage']);
+    }
+
+    public function test_evaluator_is_deterministic(): void
+    {
+        $input = [
+            'chosen_batch' => $this->batch(8.0, 3.0, 10.0, 5, 8.0, 8.0, 'chosen', 2.0, 0.3, 1.0),
+            'alternatives' => [
+                $this->batch(7.5, 2.0, 8.0, 8, 9.0, 9.0, 'alt1', 4.0, 0.1, 2.0),
+                $this->batch(6.0, 5.0, 15.0, 3, 5.0, 5.0, 'alt2', 1.0, 0.5, 0.5),
+            ],
+        ];
+        $a = $this->svc()->evaluate($input);
+        $b = $this->svc()->evaluate($input);
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }
