@@ -302,7 +302,86 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
 
         $payload['certification_hash'] = $this->stableHash($this->normalizeForHash($payload));
 
+        // Release gate: aggregates leases, evidence identity, terminal bootstrap
+        // probes, and lane isolation into a single release_gate verdict.
+        $payload['release_gate'] = $this->buildReleaseGate($invariants, $cycleEvidence, $terminalBootstrapProbe, $terminalFleetLaneIsolationNegativeProbe);
+
         return $payload;
+    }
+
+    /**
+     * Build the release_gate verdict from invariants, evidence, and probes.
+     *
+     * @param  array<string,bool>  $invariants
+     * @param  list<array<string,mixed>>  $cycleEvidence
+     * @param  array<string,mixed>  $terminalBootstrapProbe
+     * @param  array<string,mixed>  $laneIsolationProbe
+     * @return array<string,mixed>
+     */
+    private function buildReleaseGate(array $invariants, array $cycleEvidence, array $terminalBootstrapProbe, array $laneIsolationProbe): array
+    {
+        // Collect all evidence identities across cycles.
+        $evidenceIdentities = [];
+        $duplicateEvidenceIdentities = [];
+        foreach ($cycleEvidence as $cycle) {
+            foreach (($cycle['per_agent'] ?? []) as $agent) {
+                $evidenceHash = (string) ($agent['completion_evidence_validation_hash'] ?? '');
+                if ($evidenceHash !== '') {
+                    if (isset($evidenceIdentities[$evidenceHash])) {
+                        $duplicateEvidenceIdentities[] = $evidenceHash;
+                    }
+                    $evidenceIdentities[$evidenceHash] = true;
+                }
+            }
+        }
+
+        // Lane isolation check.
+        $laneIsolationOk = (bool) ($laneIsolationProbe['no_cross_lane_launch_verified'] ?? false);
+
+        // Terminal bootstrap probe status.
+        $bootstrapOk = (string) ($terminalBootstrapProbe['status'] ?? '') === 'available';
+
+        // All required probes must pass.
+        $requiredProbeInvariants = array_filter(
+            $invariants,
+            static fn (string $key): bool => str_starts_with($key, 'terminal_worker_bootstrap_') || str_starts_with($key, 'terminal_loop_fleet_'),
+            ARRAY_FILTER_USE_KEY
+        );
+        $allProbesPass = ! in_array(false, $requiredProbeInvariants, true);
+
+        // Evidence identities must be unique.
+        $evidenceIdentitiesUnique = $duplicateEvidenceIdentities === [];
+
+        // Release gate ready only when all conditions met.
+        $ready = $allProbesPass && $evidenceIdentitiesUnique && $laneIsolationOk && $bootstrapOk;
+
+        // Collect proof paths from terminal bootstrap and queue-lane probes.
+        $proofPaths = [];
+        if ($bootstrapOk) {
+            $proofPaths[] = 'terminal_bootstrap_probe:available';
+        }
+        if ($laneIsolationOk) {
+            $proofPaths[] = 'queue_lane_isolation:no_cross_lane_launch_verified';
+        }
+        if ($evidenceIdentitiesUnique && $evidenceIdentities !== []) {
+            $proofPaths[] = 'evidence_identity:unique';
+        }
+
+        return [
+            'ready' => $ready,
+            'evidence_identities_unique' => $evidenceIdentitiesUnique,
+            'duplicate_evidence_identities' => array_values(array_unique($duplicateEvidenceIdentities)),
+            'lane_isolation_ok' => $laneIsolationOk,
+            'terminal_bootstrap_ok' => $bootstrapOk,
+            'all_probes_pass' => $allProbesPass,
+            'proof_paths' => $proofPaths,
+            'blockers' => $ready ? [] : array_values(array_filter([
+                ! $evidenceIdentitiesUnique ? 'duplicate_evidence_identities' : null,
+                ! $laneIsolationOk ? 'lane_isolation_failure' : null,
+                ! $bootstrapOk ? 'terminal_bootstrap_unavailable' : null,
+                ! $allProbesPass ? 'required_probes_not_passing' : null,
+            ])),
+        ];
     }
 
     /**
