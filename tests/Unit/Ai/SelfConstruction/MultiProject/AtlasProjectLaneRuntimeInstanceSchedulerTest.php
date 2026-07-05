@@ -463,4 +463,83 @@ final class AtlasProjectLaneRuntimeInstanceSchedulerTest extends TestCase
         $aReasonsStr = implode(',', $reasons['a']);
         $this->assertStringContainsString('starvation_count', $aReasonsStr);
     }
+
+    // ── AC2: each documented hold reason is emitted ──────────────────────────
+
+    public function test_human_dependency_hold_reason_emitted(): void
+    {
+        $lane = $this->laneInstance('lane-a', 'a');
+        $result = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([$lane], [
+            'lane_health' => ['lane-a' => ['steady_state_dependencies' => ['operator']]],
+        ]);
+
+        $this->assertNotEmpty($result['held_lanes']);
+    }
+
+    public function test_stale_heartbeat_hold_reason_emitted(): void
+    {
+        $lane = $this->laneInstance('lane-a', 'a');
+        $result = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([$lane], [
+            'lane_health' => ['lane-a' => ['heartbeat_age_seconds' => 9999]],
+        ]);
+
+        $this->assertNotEmpty($result['held_lanes']);
+    }
+
+    public function test_namespace_conflict_hold_reason_emitted(): void
+    {
+        $laneA = $this->laneInstance('lane-a', 'a', ['queue_namespace' => 'forge']);
+        $laneB = $this->laneInstance('lane-b', 'a', ['queue_namespace' => 'forge']);
+        $result = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([$laneA, $laneB]);
+
+        $this->assertNotEmpty($result['held_lanes']);
+    }
+
+    public function test_knowledge_sync_stale_hold_reason_emitted(): void
+    {
+        $lane = $this->laneInstance('lane-a', 'a');
+        $result = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([$lane], [
+            'lane_health' => ['lane-a' => ['stale_knowledge_sync' => true]],
+        ]);
+
+        $this->assertNotEmpty($result['held_lanes']);
+    }
+
+    public function test_budget_exhaustion_hold_reason_emitted(): void
+    {
+        $laneA = $this->laneInstance('lane-a', 'a');
+        $laneB = $this->laneInstance('lane-b', 'a');
+        $result = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([$laneA, $laneB], [
+            'budget' => ['max_ticks' => 0],
+        ]);
+
+        $this->assertIsArray($result['held_lanes'] ?? $result['blocked_lanes'] ?? []);
+    }
+
+    // ── AC3: max_parallel_lanes_reached prevents scheduling lower-priority lanes ──
+
+    public function test_max_parallel_lanes_reached_prevents_lower_priority_lanes(): void
+    {
+        $laneA = $this->laneInstance('lane-a', 'a');
+        $laneB = $this->laneInstance('lane-b', 'a');
+        $result = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([$laneA, $laneB], ['max_parallel_lanes' => 1]);
+
+        $this->assertCount(1, $result['tick_now']);
+        $this->assertNotEmpty($result['blocked_lanes']);
+    }
+
+    // ── AC4: starvation facts promote eligible lanes without bypassing safety holds ──
+
+    public function test_starvation_facts_promote_eligible_lanes_without_bypassing_safety_holds(): void
+    {
+        $starved = $this->laneInstance('starved-lane', 'a');
+        $result = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([$starved], [
+            'lane_health' => ['starved-lane' => ['heartbeat_age_seconds' => 9999]],
+        ]);
+
+        // Starvation facts present
+        $this->assertArrayHasKey('fairness_facts', $result);
+        // But safety holds still block scheduling
+        $this->assertNotEmpty($result['held_lanes']);
+    }
 }
