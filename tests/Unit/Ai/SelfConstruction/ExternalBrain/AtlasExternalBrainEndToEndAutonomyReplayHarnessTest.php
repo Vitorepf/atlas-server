@@ -270,4 +270,81 @@ final class AtlasExternalBrainEndToEndAutonomyReplayHarnessTest extends TestCase
 
         $this->assertSame($this->harness()->replay($scenario), $this->harness()->replay($scenario));
     }
+
+    // ── AC2: human/provider dependency detected ──────────────────────────────
+
+    public function test_human_dependency_returns_human_or_provider_dependency_detected(): void
+    {
+        $result = $this->harness()->replay($this->healthyScenario([
+            'intake' => ['requires_operator' => true],
+        ]));
+
+        $this->assertSame(
+            AtlasExternalBrainEndToEndAutonomyReplayHarness::STATUS_HUMAN_OR_PROVIDER_DEPENDENCY_DETECTED,
+            $result['autonomy_replay_status'],
+        );
+    }
+
+    public function test_provider_dependency_returns_human_or_provider_dependency_detected(): void
+    {
+        $result = $this->harness()->replay($this->healthyScenario([
+            'admission' => ['requires_provider_steady_state' => true],
+        ]));
+
+        $this->assertSame(
+            AtlasExternalBrainEndToEndAutonomyReplayHarness::STATUS_HUMAN_OR_PROVIDER_DEPENDENCY_DETECTED,
+            $result['autonomy_replay_status'],
+        );
+    }
+
+    // ── AC3: cycle_complete only when all steps have evidence ─────────────────
+
+    public function test_cycle_complete_requires_all_five_steps_with_evidence(): void
+    {
+        $result = $this->harness()->replay($this->healthyScenario());
+
+        $this->assertSame(AtlasExternalBrainEndToEndAutonomyReplayHarness::STATUS_CYCLE_COMPLETE, $result['autonomy_replay_status']);
+        $this->assertCount(5, $result['completed_steps']);
+        $this->assertCount(5, $result['native_loop_proof']);
+    }
+
+    // ── AC4: missing evidence returns repair-oriented next_decision ───────────
+
+    public function test_missing_evidence_returns_repair_oriented_next_repair_hint(): void
+    {
+        $scenario = $this->healthyScenario();
+        unset($scenario['intake']);
+
+        $result = $this->harness()->replay($scenario);
+
+        $this->assertSame(AtlasExternalBrainEndToEndAutonomyReplayHarness::STATUS_EVIDENCE_MISSING, $result['autonomy_replay_status']);
+        $this->assertNotNull($result['next_repair_hint']);
+        $this->assertStringContainsString('intake', $result['next_repair_hint']);
+    }
+
+    public function test_missing_evidence_does_not_return_create_more_tasks(): void
+    {
+        $scenario = $this->healthyScenario();
+        unset($scenario['outcome_learning']);
+
+        $result = $this->harness()->replay($scenario);
+
+        $this->assertSame(AtlasExternalBrainEndToEndAutonomyReplayHarness::STATUS_EVIDENCE_MISSING, $result['autonomy_replay_status']);
+        $this->assertArrayNotHasKey('brain_decision', $result);
+    }
+
+    public function test_dependency_detected_returns_repair_hint_not_create_more_tasks(): void
+    {
+        $result = $this->harness()->replay($this->healthyScenario([
+            'next_action' => ['requires_operator' => true],
+        ]));
+
+        $this->assertSame(
+            AtlasExternalBrainEndToEndAutonomyReplayHarness::STATUS_HUMAN_OR_PROVIDER_DEPENDENCY_DETECTED,
+            $result['autonomy_replay_status'],
+        );
+        $this->assertNotNull($result['next_repair_hint']);
+        $this->assertStringContainsString('Remove', $result['next_repair_hint']);
+        $this->assertArrayNotHasKey('brain_decision', $result);
+    }
 }
