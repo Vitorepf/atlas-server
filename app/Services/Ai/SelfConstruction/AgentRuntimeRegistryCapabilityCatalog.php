@@ -122,13 +122,112 @@ final class AgentRuntimeRegistryCapabilityCatalog
     }
 
     /**
-     * Compute the match between a required capability set and an available set.
+     * Normalize raw capability definitions into deterministic structured records.
+     * Each record includes: id, class, required_gates, evidence_abilities, and safety_flags.
+     *
+     * @param  array<int, array<string, mixed>>  $capabilities  raw capability definitions
+     * @return array{schema_version:string, mode:string, records:list<array{id:string, class:string, required_gates:list<string>, evidence_abilities:list<string>, safety_flags:array<string,bool>}>}
+     */
+    public function normalizeCapabilityRecords(array $capabilities): array
+    {
+        $records = [];
+        $seen = [];
+
+        foreach ($capabilities as $cap) {
+            if (! is_array($cap)) {
+                continue;
+            }
+            $id = strtolower(trim((string) ($cap['id'] ?? '')));
+            if ($id === '' || isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+
+            $class = strtolower(trim((string) ($cap['class'] ?? 'unknown')));
+            $requiredGates = $this->normalizeCapabilities($cap['required_gates'] ?? []);
+            $evidenceAbilities = $this->normalizeCapabilities($cap['evidence_abilities'] ?? []);
+            $safetyFlags = [
+                'runtime_execution_allowed' => (bool) ($cap['safety_flags']['runtime_execution_allowed'] ?? false),
+                'dispatch_allowed' => (bool) ($cap['safety_flags']['dispatch_allowed'] ?? false),
+                'provider_call_allowed' => (bool) ($cap['safety_flags']['provider_call_allowed'] ?? false),
+                'token_spend_allowed' => (bool) ($cap['safety_flags']['token_spend_allowed'] ?? false),
+                'self_programming_allowed' => (bool) ($cap['safety_flags']['self_programming_allowed'] ?? false),
+                'ledger_write_allowed' => (bool) ($cap['safety_flags']['ledger_write_allowed'] ?? false),
+            ];
+
+            $records[] = [
+                'id' => $id,
+                'class' => $class,
+                'required_gates' => $requiredGates,
+                'evidence_abilities' => $evidenceAbilities,
+                'safety_flags' => $safetyFlags,
+            ];
+        }
+
+        usort($records, static fn (array $a, array $b): int => strcmp($a['id'], $b['id']));
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'records' => $records,
+        ];
+    }
+
+    /**
+     * Validate structured capability records: rejects duplicate ids, missing
+     * required gates, missing evidence abilities, or unsafe runtime flags.
+     *
+     * @param  array<int, array<string, mixed>>  $capabilities
+     * @return array{schema_version:string, is_valid:bool, violations:list<string>, records:list<array<string,mixed>>}
+     */
+    public function validateCapabilityRecords(array $capabilities): array
+    {
+        $normalized = $this->normalizeCapabilityRecords($capabilities);
+        $records = $normalized['records'];
+        $violations = [];
+        $seenIds = [];
+
+        foreach ($records as $record) {
+            $id = $record['id'];
+            if (isset($seenIds[$id])) {
+                $violations[] = 'duplicate_id:'.$id;
+            }
+            $seenIds[$id] = true;
+
+            if ($record['required_gates'] === []) {
+                $violations[] = 'missing_required_gates:'.$id;
+            }
+            if ($record['evidence_abilities'] === []) {
+                $violations[] = 'missing_evidence_ability:'.$id;
+            }
+            foreach ($record['safety_flags'] as $flag => $value) {
+                if ($value === true) {
+                    $violations[] = 'unsafe_runtime_flag:'.$id.':'.$flag;
+                }
+            }
+        }
+
+        sort($violations, SORT_STRING);
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'is_valid' => $violations === [],
+            'violations' => $violations,
+            'records' => $records,
+        ];
+    }
+
+    /**
+     * Compute the match between a required capability set and an available set,
+     * optionally distinguishing missing proof ability and unsafe runtime state
+     * when capability facts are supplied.
      *
      * @param  array<int, mixed>  $required
      * @param  array<int, mixed>  $available
+     * @param  array<string, mixed>  $capabilityFacts  optional per-capability proof/safety facts
      * @return array<string, mixed>
      */
-    public function match(array $required, array $available): array
+    public function match(array $required, array $available, array $capabilityFacts = []): array
     {
         $req = $this->normalizeCapabilities($required);
         $avail = $this->normalizeCapabilities($available);
@@ -141,14 +240,36 @@ final class AgentRuntimeRegistryCapabilityCatalog
         $matchedCount = count($matched);
         $matchScore = $requiredCount === 0 ? 1.0 : round($matchedCount / $requiredCount, 4);
 
-        if ($missing === [] && $requiredCount > 0) {
-            $matchStatus = 'matched';
-        } elseif ($missing === [] && $requiredCount === 0) {
-            $matchStatus = 'matched';
-        } elseif ($matchedCount > 0) {
+        $missingProofAbilities = [];
+        $unsafeRuntimeStates = [];
+
+        if ($capabilityFacts !== []) {
+            foreach ($matched as $cap) {
+                $facts = $capabilityFacts[$cap] ?? null;
+                if (! is_array($facts)) {
+                    continue;
+                }
+                $hasProof = (bool) ($facts['has_proof'] ?? false);
+                $runtimeSafe = (bool) ($facts['runtime_safe'] ?? true);
+                if (! $hasProof) {
+                    $missingProofAbilities[] = $cap;
+                }
+                if (! $runtimeSafe) {
+                    $unsafeRuntimeStates[] = $cap;
+                }
+            }
+        }
+
+        if ($missing !== [] && $matchedCount > 0) {
             $matchStatus = 'partial';
-        } else {
+        } elseif ($missing !== []) {
             $matchStatus = 'missing';
+        } elseif ($missingProofAbilities !== []) {
+            $matchStatus = 'missing_proof_ability';
+        } elseif ($unsafeRuntimeStates !== []) {
+            $matchStatus = 'unsafe_runtime_state';
+        } else {
+            $matchStatus = 'matched';
         }
 
         return [
@@ -160,6 +281,8 @@ final class AgentRuntimeRegistryCapabilityCatalog
             'extra' => $extra,
             'match_score' => $matchScore,
             'match_status' => $matchStatus,
+            'missing_proof_abilities' => $missingProofAbilities,
+            'unsafe_runtime_states' => $unsafeRuntimeStates,
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
