@@ -213,4 +213,58 @@ final class AtlasSelfConstructionAutonomySoakPlanCompilerTest extends TestCase
             $this->assertSame([], $window['blocked_by']);
         }
     }
+
+    // ── AC: any soak criterion containing human, operator, manual, external_provider or approval dependency fails ──
+
+    public function test_external_provider_keyword_fails_closed(): void
+    {
+        $snap = $this->healthySnapshot();
+        $snap['criteria_overrides'] = [['name' => 'external_provider_validation', 'passing' => true]];
+        $r = $this->compiler()->compile($snap);
+
+        $this->assertFalse($r['is_soak_ready']);
+        $this->assertNotNull($r['fail_closed_reason']);
+    }
+
+    public function test_approval_keyword_fails_closed(): void
+    {
+        $snap = $this->healthySnapshot();
+        $snap['criteria_overrides'] = [['name' => 'requires_approval_from_manager', 'passing' => true]];
+        $r = $this->compiler()->compile($snap);
+
+        $this->assertFalse($r['is_soak_ready']);
+        $this->assertNotNull($r['fail_closed_reason']);
+    }
+
+    // ── AC: long soak plans include minimum_hours and minimum_cycles based on risk tier ──
+
+    public function test_long_soak_plan_includes_minimum_hours_and_cycles(): void
+    {
+        $r = $this->compiler()->compile($this->unhealthySnapshot());
+
+        $this->assertSame(72.0, $r['soak_duration_hours']);
+        $this->assertSame(200, $r['required_green_streak_tasks']);
+    }
+
+    public function test_medium_soak_plan_for_warnings(): void
+    {
+        $snap = $this->healthySnapshot();
+        $snap['criteria_overrides'] = [['name' => 'custom_check', 'passing' => false]];
+        $r = $this->compiler()->compile($snap);
+
+        $this->assertSame(72.0, $r['soak_duration_hours']);
+        $this->assertSame(200, $r['required_green_streak_tasks']);
+    }
+
+    // ── AC: all generated criteria include requires_human=false when compile returns soak_ready=true ──
+
+    public function test_all_criteria_have_requires_human_false_when_soak_ready(): void
+    {
+        $r = $this->compiler()->compile($this->healthySnapshot());
+
+        $this->assertTrue($r['is_soak_ready']);
+        foreach ($r['steady_state_criteria'] as $criterion) {
+            $this->assertFalse($criterion['requires_human'], "Criterion {$criterion['criterion']} should have requires_human=false");
+        }
+    }
 }
