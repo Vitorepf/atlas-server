@@ -68,7 +68,7 @@ final class AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder
                 'pass_condition' => 'malformed_count is zero',
                 'failure_action' => 'repair_or_quarantine_malformed_packets',
                 'blocks_autonomous_continuation' => true,
-                'value' => (int) ($facts['malformed_count'] ?? 0) === 0,
+                'value' => array_key_exists('malformed_count', $facts) && (int) $facts['malformed_count'] === 0,
             ],
             [
                 'id' => 'lane_isolation',
