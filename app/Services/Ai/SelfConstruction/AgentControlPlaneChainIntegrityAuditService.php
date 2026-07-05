@@ -29,6 +29,7 @@ final class AgentControlPlaneChainIntegrityAuditService
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
         ?AgentControlPlaneChainIntegrityCorridorAnalyzer $corridorAnalyzer = null,
+        private readonly ?AgentControlPlaneChainIntegritySurfaceAuditor $surfaceAuditor = null,
     ) {
         $this->corridorAnalyzerInstance = $corridorAnalyzer ?? new AgentControlPlaneChainIntegrityCorridorAnalyzer;
     }
@@ -193,6 +194,12 @@ final class AgentControlPlaneChainIntegrityAuditService
             default => 'available',
         };
 
+        $gapSummary = $this->gapSummary($sliceReports, $documentation, $cliSurface, $invokerSurface, $testSurface);
+        $verdict = $gapSummary !== [] ? 'critical_gap' : ($violations === [] && $warnings === [] ? 'chain_integrity_ok' : 'degraded');
+        if ($gapSummary !== []) {
+            $status = 'critical_gap';
+        }
+
         $invariantsMap = $this->invariantsMap(
             globalInvariants: $globalInvariants,
             runtimeSafety: $runtimeSafety,
@@ -277,6 +284,8 @@ final class AgentControlPlaneChainIntegrityAuditService
             'cycle_integrity' => $cycleIntegrity,
             'terminal_horizon_analysis' => $terminalHorizonAnalysis,
             'next_action' => $nextAction,
+            'verdict' => $verdict,
+            'gap_summary' => $gapSummary,
             'non_execution_guarantees' => [
                 'audit_does_not_start_codex',
                 'audit_does_not_call_codex_cli_or_app',
@@ -989,7 +998,7 @@ final class AgentControlPlaneChainIntegrityAuditService
 
     private function surfaceAuditor(): AgentControlPlaneChainIntegritySurfaceAuditor
     {
-        return $this->surfaceAuditorInstance ??= new AgentControlPlaneChainIntegritySurfaceAuditor($this);
+        return $this->surfaceAuditor ??= new AgentControlPlaneChainIntegritySurfaceAuditor($this);
     }
 
     private function chainBuilder(): AgentControlPlaneChainIntegrityChainBuilder
@@ -1046,5 +1055,69 @@ final class AgentControlPlaneChainIntegrityAuditService
         unset($clone['generated_at']);
 
         return hash('sha256', (string) json_encode($clone, JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $sliceReports
+     * @param  array<string, mixed>  $documentation
+     * @param  array<string, mixed>  $cliSurface
+     * @param  array<string, mixed>  $invokerSurface
+     * @param  array<string, mixed>  $testSurface
+     * @return list<array<string, mixed>>
+     */
+    private function gapSummary(
+        array $sliceReports,
+        array $documentation,
+        array $cliSurface,
+        array $invokerSurface,
+        array $testSurface,
+    ): array {
+        $gaps = [];
+
+        foreach ($sliceReports as $report) {
+            $sliceKey = (string) ($report['slice_key'] ?? '');
+            $missingArtifacts = (array) ($report['missing_artifacts'] ?? []);
+            foreach ($missingArtifacts as $artifact) {
+                $gaps[] = [
+                    'slice_key' => $sliceKey,
+                    'missing_surface' => $artifact,
+                    'recommended_fix' => 'provide_'.$artifact.'_for_'.$sliceKey,
+                ];
+            }
+        }
+
+        foreach ((array) ($documentation['missing_doc_bullets'] ?? []) as $sliceKey) {
+            $gaps[] = [
+                'slice_key' => (string) $sliceKey,
+                'missing_surface' => 'doc_bullet',
+                'recommended_fix' => 'add_canonical_doc_bullet_for_'.(string) $sliceKey,
+            ];
+        }
+
+        foreach ((array) ($cliSurface['missing_options'] ?? []) as $option) {
+            $gaps[] = [
+                'slice_key' => (string) ($option['slice_key'] ?? ''),
+                'missing_surface' => 'cli_option',
+                'recommended_fix' => 'add_cli_option_'.(string) ($option['option'] ?? '').'_for_'.(string) ($option['slice_key'] ?? ''),
+            ];
+        }
+
+        foreach ((array) ($invokerSurface['missing_invokers'] ?? []) as $invoker) {
+            $gaps[] = [
+                'slice_key' => (string) ($invoker['slice_key'] ?? ''),
+                'missing_surface' => 'invoker',
+                'recommended_fix' => 'provide_invoker_class_'.(string) ($invoker['invoker_class'] ?? '').'_for_'.(string) ($invoker['slice_key'] ?? ''),
+            ];
+        }
+
+        foreach ((array) ($testSurface['missing_tests'] ?? []) as $test) {
+            $gaps[] = [
+                'slice_key' => (string) ($test['slice_key'] ?? ''),
+                'missing_surface' => 'test_evidence',
+                'recommended_fix' => 'add_test_for_'.(string) ($test['slice_key'] ?? ''),
+            ];
+        }
+
+        return $gaps;
     }
 }
