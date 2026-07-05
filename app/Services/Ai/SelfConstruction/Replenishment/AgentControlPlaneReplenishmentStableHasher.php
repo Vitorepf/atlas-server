@@ -27,13 +27,50 @@ namespace App\Services\Ai\SelfConstruction\Replenishment;
 class AgentControlPlaneReplenishmentStableHasher
 {
     /**
+     * Volatile identity / runtime fields that must NEVER participate in the semantic hash.
+     *
+     * - Timestamps: generated_at, created_at, updated_at, resolved_at, leased_at, expires_at, ts
+     * - Lease/process ids: lease_id, process_id, pid, worker_id, session_id
+     * - Temp paths: tmp_path, temp_dir, scratch_path
+     * - Counters / runtime ids: auto_replenishment_hash, attempt_count, retry_count, sequence
+     */
+    private const VOLATILE_FIELDS = [
+        'generated_at',
+        'created_at',
+        'updated_at',
+        'resolved_at',
+        'leased_at',
+        'expires_at',
+        'ts',
+        'timestamp',
+        'lease_id',
+        'process_id',
+        'pid',
+        'worker_id',
+        'session_id',
+        'tmp_path',
+        'temp_dir',
+        'scratch_path',
+        'auto_replenishment_hash',
+        'attempt_count',
+        'retry_count',
+        'sequence',
+        'run_id',
+        'trace_id',
+        'request_id',
+        'correlation_id',
+    ];
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     public function normalizeForHash(array $payload): array
     {
         $clone = $payload;
-        unset($clone['generated_at'], $clone['auto_replenishment_hash']);
+        foreach (self::VOLATILE_FIELDS as $field) {
+            unset($clone[$field]);
+        }
 
         return $this->recursivelyKsort($clone);
     }

@@ -196,4 +196,138 @@ final class AgentControlPlaneReplenishmentStableHasherTest extends TestCase
             );
         }
     }
+
+    // ── AC: volatile field stripping extended ───────────────────────────────
+
+    public function test_normalize_strips_timestamps(): void
+    {
+        foreach (['created_at', 'updated_at', 'resolved_at', 'leased_at', 'expires_at', 'ts', 'timestamp'] as $field) {
+            $out = $this->hasher->normalizeForHash([$field => '2026-07-04T12:00:00Z', 'kept' => 'v']);
+            $this->assertArrayNotHasKey($field, $out, "normalizeForHash must strip {$field}");
+        }
+    }
+
+    public function test_normalize_strips_lease_and_process_ids(): void
+    {
+        foreach (['lease_id', 'process_id', 'pid', 'worker_id', 'session_id'] as $field) {
+            $out = $this->hasher->normalizeForHash([$field => 'id-123', 'kept' => 'v']);
+            $this->assertArrayNotHasKey($field, $out, "normalizeForHash must strip {$field}");
+        }
+    }
+
+    public function test_normalize_strips_temp_paths(): void
+    {
+        foreach (['tmp_path', 'temp_dir', 'scratch_path'] as $field) {
+            $out = $this->hasher->normalizeForHash([$field => '/tmp/foo', 'kept' => 'v']);
+            $this->assertArrayNotHasKey($field, $out, "normalizeForHash must strip {$field}");
+        }
+    }
+
+    public function test_normalize_strips_counters_and_runtime_ids(): void
+    {
+        foreach (['attempt_count', 'retry_count', 'sequence', 'run_id', 'trace_id', 'request_id', 'correlation_id'] as $field) {
+            $out = $this->hasher->normalizeForHash([$field => 42, 'kept' => 'v']);
+            $this->assertArrayNotHasKey($field, $out, "normalizeForHash must strip {$field}");
+        }
+    }
+
+    public function test_stable_hash_ignores_all_volatile_fields(): void
+    {
+        $semantic = ['objective' => 'do X', 'allowed_files' => ['app/Foo.php']];
+        $withVolatile = array_merge($semantic, [
+            'generated_at' => 'T1',
+            'created_at' => 'T2',
+            'lease_id' => 'L1',
+            'pid' => 12345,
+            'tmp_path' => '/tmp/abc',
+            'attempt_count' => 3,
+            'trace_id' => 'tr-1',
+        ]);
+
+        $h1 = $this->hasher->stableHash($this->hasher->normalizeForHash($withVolatile));
+        $h2 = $this->hasher->stableHash($this->hasher->normalizeForHash($semantic));
+
+        $this->assertSame($h1, $h2, 'volatile fields must not affect the stable hash');
+    }
+
+    public function test_stable_hash_same_for_different_volatile_values(): void
+    {
+        $base = ['objective' => 'do X', 'allowed_files' => ['app/Foo.php']];
+        $a = array_merge($base, ['lease_id' => 'L-A', 'pid' => 100, 'attempt_count' => 1]);
+        $b = array_merge($base, ['lease_id' => 'L-B', 'pid' => 200, 'attempt_count' => 99]);
+
+        $this->assertSame(
+            $this->hasher->stableHash($this->hasher->normalizeForHash($a)),
+            $this->hasher->stableHash($this->hasher->normalizeForHash($b)),
+        );
+    }
+
+    // ── AC: task-shaping fields DO change the hash ──────────────────────────
+
+    public function test_stable_hash_changes_when_required_evidence_changes(): void
+    {
+        $base = ['objective' => 'do X', 'allowed_files' => ['app/Foo.php'], 'required_evidence' => ['tests_or_gates_result']];
+        $changed = array_merge($base, ['required_evidence' => ['tests_or_gates_result', 'implementation_notes']]);
+
+        $this->assertNotSame(
+            $this->hasher->stableHash($this->hasher->normalizeForHash($base)),
+            $this->hasher->stableHash($this->hasher->normalizeForHash($changed)),
+        );
+    }
+
+    public function test_stable_hash_changes_when_dependency_graph_changes(): void
+    {
+        $base = ['objective' => 'do X', 'allowed_files' => ['app/Foo.php'], 'depends_on' => []];
+        $changed = array_merge($base, ['depends_on' => ['dep-1']]);
+
+        $this->assertNotSame(
+            $this->hasher->stableHash($this->hasher->normalizeForHash($base)),
+            $this->hasher->stableHash($this->hasher->normalizeForHash($changed)),
+        );
+    }
+
+    public function test_stable_hash_changes_when_scope_changes(): void
+    {
+        $base = ['objective' => 'do X', 'allowed_files' => ['app/Foo.php']];
+        $changed = array_merge($base, ['allowed_files' => ['app/Foo.php', 'app/Bar.php']]);
+
+        $this->assertNotSame(
+            $this->hasher->stableHash($this->hasher->normalizeForHash($base)),
+            $this->hasher->stableHash($this->hasher->normalizeForHash($changed)),
+        );
+    }
+
+    public function test_stable_hash_changes_when_acceptance_changes(): void
+    {
+        $base = ['objective' => 'do X', 'acceptance_criteria' => ['phpunit passes']];
+        $changed = array_merge($base, ['acceptance_criteria' => ['phpunit passes', 'coverage > 80%']]);
+
+        $this->assertNotSame(
+            $this->hasher->stableHash($this->hasher->normalizeForHash($base)),
+            $this->hasher->stableHash($this->hasher->normalizeForHash($changed)),
+        );
+    }
+
+    public function test_stable_hash_changes_when_objective_changes(): void
+    {
+        $base = ['objective' => 'do X', 'allowed_files' => ['app/Foo.php']];
+        $changed = array_merge($base, ['objective' => 'do Y']);
+
+        $this->assertNotSame(
+            $this->hasher->stableHash($this->hasher->normalizeForHash($base)),
+            $this->hasher->stableHash($this->hasher->normalizeForHash($changed)),
+        );
+    }
+
+    public function test_stable_hash_preserves_evidence_in_hash(): void
+    {
+        // evidence is a semantic field — it must participate in the hash.
+        $base = ['objective' => 'do X', 'evidence' => ['commit_sha' => 'abc']];
+        $changed = array_merge($base, ['evidence' => ['commit_sha' => 'def']]);
+
+        $this->assertNotSame(
+            $this->hasher->stableHash($this->hasher->normalizeForHash($base)),
+            $this->hasher->stableHash($this->hasher->normalizeForHash($changed)),
+        );
+    }
 }
