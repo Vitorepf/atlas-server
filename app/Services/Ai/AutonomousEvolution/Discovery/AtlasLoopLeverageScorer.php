@@ -92,9 +92,10 @@ final class AtlasLoopLeverageScorer
         $autonomy = $this->clamp01((float) ($c['autonomy_gain'] ?? 0.0));
         $simplif = $this->clamp01((float) ($c['simplification_gain'] ?? 0.0));
         $depUnlock = min(1.0, max(0, (int) ($c['dependency_unlock_count'] ?? 0)) / self::DEP_UNLOCK_SATURATION);
+        $coupling = $this->clamp01((float) ($c['multi_file_coupling'] ?? 0.0));
 
         // Bonus multiplier — zero when all new signals absent, so existing scores are unchanged.
-        $bonus = 0.2 * $autonomy + 0.1 * $simplif + 0.1 * $unblock + 0.1 * $riskRed + 0.1 * $depUnlock;
+        $bonus = 0.2 * $autonomy + 0.1 * $simplif + 0.1 * $unblock + 0.1 * $riskRed + 0.1 * $depUnlock + 0.15 * $coupling;
 
         $leverage = ($impact * $breadth * $compounding) / ($cost * $risk) * (1.0 + $bonus);
 
@@ -109,6 +110,7 @@ final class AtlasLoopLeverageScorer
             'autonomy_gain' => round($autonomy, 4),
             'simplification_gain' => round($simplif, 4),
             'dependency_unlock' => round($depUnlock, 4),
+            'multi_file_coupling' => round($coupling, 4),
         ];
 
         return [
