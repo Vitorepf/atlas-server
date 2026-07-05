@@ -332,4 +332,42 @@ final class AtlasExternalBrainSpecConsolidationPlannerTest extends TestCase
         ]);
         $this->assertSame('incompatible_dependencies', $rDep['rejection_reasons']['t1']);
     }
+
+    // ── AC: macro-task output deduplicates acceptance_criteria and required_evidence while preserving every runnable gate ──
+
+    public function test_acceptance_criteria_deduplicated_in_macro_task(): void
+    {
+        $r = $this->plan([
+            $this->candidate('t1', theme: 'brain', acceptance: ['test_passes', 'lint_clean']),
+            $this->candidate('t2', theme: 'brain', acceptance: ['test_passes', 'lint_clean']),
+        ]);
+
+        $acceptance = $r['consolidated_tasks'][0]['acceptance_criteria'];
+        $unique = array_unique($acceptance);
+        $this->assertCount(count($unique), $acceptance, 'acceptance_criteria should be deduplicated');
+    }
+
+    public function test_required_evidence_deduplicated_in_macro_task(): void
+    {
+        $r = $this->plan([
+            $this->candidate('t1', theme: 'brain', evidence: ['test_result', 'gate_passed']),
+            $this->candidate('t2', theme: 'brain', evidence: ['test_result', 'gate_passed']),
+        ]);
+
+        $evidence = $r['consolidated_tasks'][0]['required_evidence'];
+        $unique = array_unique($evidence);
+        $this->assertCount(count($unique), $evidence, 'required_evidence should be deduplicated');
+    }
+
+    public function test_macro_task_preserves_all_unique_evidence(): void
+    {
+        $r = $this->plan([
+            $this->candidate('t1', theme: 'brain', evidence: ['evidence_a']),
+            $this->candidate('t2', theme: 'brain', evidence: ['evidence_b']),
+        ]);
+
+        $evidence = $r['consolidated_tasks'][0]['required_evidence'];
+        $this->assertContains('evidence_a', $evidence);
+        $this->assertContains('evidence_b', $evidence);
+    }
 }

@@ -78,14 +78,18 @@ final class AtlasExternalBrainSpecConsolidationPlanner
                 continue;
             }
 
-            $acceptance = [];
-            $deps = [];
-            $evidence = [];
-            foreach ($group as $c) {
-                $acceptance = array_merge($acceptance, is_array($c['acceptance_criteria'] ?? null) ? $c['acceptance_criteria'] : []);
-                $deps = array_merge($deps, is_array($c['dependencies'] ?? null) ? $c['dependencies'] : []);
-                $evidence = array_merge($evidence, is_array($c['required_evidence'] ?? null) ? $c['required_evidence'] : []);
-            }
+            $acceptance = array_values(array_unique(array_merge(
+                [],
+                ...array_map(static fn (array $c): array => is_array($c['acceptance_criteria'] ?? null) ? $c['acceptance_criteria'] : [], $group)
+            )));
+            $deps = array_values(array_unique(array_merge(
+                [],
+                ...array_map(static fn (array $c): array => is_array($c['dependencies'] ?? null) ? $c['dependencies'] : [], $group)
+            )));
+            $evidence = array_values(array_unique(array_merge(
+                [],
+                ...array_map(static fn (array $c): array => is_array($c['required_evidence'] ?? null) ? $c['required_evidence'] : [], $group)
+            )));
 
             $fileCount = count($allFiles);
             $taskCount = count($group);
