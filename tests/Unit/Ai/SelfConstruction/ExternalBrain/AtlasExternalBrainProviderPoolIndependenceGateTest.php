@@ -174,4 +174,46 @@ final class AtlasExternalBrainProviderPoolIndependenceGateTest extends TestCase
 
         $this->assertSame([], $result['pool_classification']);
     }
+
+    // ── AC: malformed provider claims ────────────────────────────────────────
+
+    public function test_malformed_non_array_claim_surfaced_and_blocks_autonomy(): void
+    {
+        $result = $this->svc()->evaluate([
+            'providers' => [
+                ['provider' => 'claude', 'is_atlas_native' => true],
+                'not_an_array',
+                ['provider' => 'openai', 'is_atlas_native' => true],
+            ],
+        ]);
+
+        $this->assertSame([1], $result['malformed_provider_claims'], 'malformed claim index must be reported');
+        $this->assertFalse($result['autonomy_preserved'], 'malformed claim must block autonomy preservation');
+    }
+
+    public function test_malformed_missing_provider_key_surfaced_and_blocks_autonomy(): void
+    {
+        $result = $this->svc()->evaluate([
+            'providers' => [
+                ['provider' => 'claude', 'is_atlas_native' => true],
+                ['bogus' => 1],
+                ['provider' => 'openai', 'is_atlas_native' => true],
+            ],
+        ]);
+
+        $this->assertSame([1], $result['malformed_provider_claims'], 'claim without provider key must be reported');
+        $this->assertFalse($result['autonomy_preserved'], 'missing provider key must block autonomy');
+    }
+
+    public function test_clean_pool_has_no_malformed_claims(): void
+    {
+        $result = $this->svc()->evaluate([
+            'providers' => [
+                ['provider' => 'claude', 'is_atlas_native' => true],
+                ['provider' => 'openai', 'is_atlas_native' => true],
+            ],
+        ]);
+
+        $this->assertSame([], $result['malformed_provider_claims']);
+    }
 }
