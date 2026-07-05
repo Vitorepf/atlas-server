@@ -108,6 +108,7 @@ final class AtlasProjectLaneVerificationCourt
         $requiredGates = array_values(array_filter((array) ($facts['required_rerun_gates'] ?? [])));
         $evidence = (array) ($facts['evidence'] ?? []);
         $nowIso = (string) ($facts['now_iso'] ?? date('c'));
+        $votes = (array) ($facts['votes'] ?? []);
 
         $blockers = [];
         $validEvidence = [];
@@ -168,6 +169,39 @@ final class AtlasProjectLaneVerificationCourt
             }
         }
 
+        // Vote-based quorum: scope, evidence, isolation, rollback
+        $requiredVoteDomains = ['scope', 'evidence', 'isolation', 'rollback'];
+        $voteSummary = [];
+        $blockedVotes = 0;
+        $holdVotes = 0;
+        $passVotes = 0;
+
+        foreach ($requiredVoteDomains as $domain) {
+            $domainVote = $votes[$domain] ?? null;
+            if ($domainVote === null) {
+                $blockers[] = 'missing_vote:' . $domain;
+                $voteSummary[$domain] = 'missing';
+            } else {
+                $voteStatus = (string) ($domainVote['status'] ?? $domainVote);
+                $voteSummary[$domain] = $voteStatus;
+                if ($voteStatus === 'blocked') {
+                    $blockedVotes++;
+                    $blockers[] = 'vote_blocked:' . $domain;
+                } elseif ($voteStatus === 'hold') {
+                    $holdVotes++;
+                } elseif ($voteStatus === 'pass') {
+                    $passVotes++;
+                } else {
+                    $blockers[] = 'vote_unknown:' . $domain . ':' . $voteStatus;
+                }
+            }
+        }
+
+        // Blocked votes dominate hold votes in adjudication
+        if ($blockedVotes > 0) {
+            $blockers[] = 'blocked_votes_dominate:' . $blockedVotes;
+        }
+
         if (count($blockers) > 0) {
             sort($blockers, SORT_STRING);
 
@@ -177,6 +211,8 @@ final class AtlasProjectLaneVerificationCourt
                 'verdict' => self::VERDICT_BLOCKED,
                 'passed' => false,
                 'blockers' => $blockers,
+                'vote_summary' => $voteSummary,
+                'provider_safe' => true,
             ];
         }
 
@@ -186,6 +222,8 @@ final class AtlasProjectLaneVerificationCourt
             'verdict' => self::VERDICT_PASS,
             'passed' => true,
             'blockers' => [],
+            'vote_summary' => $voteSummary,
+            'provider_safe' => true,
         ];
     }
 }
