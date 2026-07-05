@@ -276,4 +276,51 @@ final class AtlasLoopObraBridgeTest extends TestCase
             ],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
+
+    // ── AC: work_order_id delimiter collision guard ─────────────────────────
+
+    public function test_distinct_intent_file_pairs_produce_distinct_work_order_ids(): void
+    {
+        $svc = app(AtlasLoopObraBridgeService::class);
+
+        // These two distinct (intent, files) pairs COLLIDE under the old '|'-join:
+        //   intent='A|B', files=['c']  → 'A|B|c'
+        //   intent='A',   files=['B','c'] → 'A|B|c'
+        // Under the fix (json_encode) they must produce different work_order_ids.
+        $a = $svc->bridge(['intent' => 'A|B', 'files' => ['c']]);
+        $b = $svc->bridge(['intent' => 'A', 'files' => ['B', 'c']]);
+
+        $this->assertNotSame(
+            data_get($a, 'bridge_packet.forge_schedule.work_order_id'),
+            data_get($b, 'bridge_packet.forge_schedule.work_order_id'),
+            'distinct (intent, files) pairs must NOT produce the same work_order_id',
+        );
+    }
+
+    public function test_normal_single_call_produces_stable_work_order_id(): void
+    {
+        $svc = app(AtlasLoopObraBridgeService::class);
+        $input = ['intent' => 'Implement a single-file fix', 'files' => ['app/Foo.php']];
+
+        $a = $svc->bridge($input);
+        $b = $svc->bridge($input);
+
+        $this->assertSame(
+            data_get($a, 'bridge_packet.forge_schedule.work_order_id'),
+            data_get($b, 'bridge_packet.forge_schedule.work_order_id'),
+            'same input must produce the same work_order_id',
+        );
+    }
+
+    public function test_colliding_old_pattern_now_differs_within_single_call(): void
+    {
+        $svc = app(AtlasLoopObraBridgeService::class);
+
+        $idA = data_get($svc->bridge(['intent' => 'A|B', 'files' => ['c']]), 'bridge_packet.forge_schedule.work_order_id');
+        $idB = data_get($svc->bridge(['intent' => 'A', 'files' => ['B', 'c']]), 'bridge_packet.forge_schedule.work_order_id');
+
+        $this->assertNotSame($idA, $idB, 'collision: old same-hash pair must now diverge');
+        $this->assertStringStartsWith('loop-to-obra-bridge:', $idA);
+        $this->assertStringStartsWith('loop-to-obra-bridge:', $idB);
+    }
 }

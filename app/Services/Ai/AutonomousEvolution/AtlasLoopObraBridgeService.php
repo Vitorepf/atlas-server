@@ -61,7 +61,7 @@ final class AtlasLoopObraBridgeService
                 'verification_required' => true,
                 'reviewer_required' => true,
                 'mission_id' => 'fable-lista-5-l5-2',
-                'work_order_id' => 'loop-to-obra-bridge:'.hash('sha256', $intent.'|'.implode('|', $files)),
+                'work_order_id' => 'loop-to-obra-bridge:'.hash('sha256', json_encode([$intent, $files], JSON_THROW_ON_ERROR)),
             ],
         );
         $parallelAssignment = $this->parallelDurable->propose(
