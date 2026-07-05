@@ -206,4 +206,86 @@ final class AtlasSelfConstructionSimplificationRollbackReceiptComposerTest exten
 
         $this->assertNotSame($first['rollback_receipt_hash'], $second['rollback_receipt_hash']);
     }
+
+    // ── AC: delete, merge and extract actions without preimage_hash are blocked ──
+
+    public function test_delete_without_preimage_hash_blocked(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput(['action_type' => 'delete', 'pre_image_refs' => []]),
+        );
+
+        $this->assertTrue($result['blocked']);
+        $this->assertContains('pre_image_refs_missing', $result['reasons']);
+    }
+
+    public function test_merge_without_preimage_hash_blocked(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput(['action_type' => 'merge', 'pre_image_refs' => []]),
+        );
+
+        $this->assertTrue($result['blocked']);
+        $this->assertContains('pre_image_refs_missing', $result['reasons']);
+    }
+
+    public function test_extract_without_preimage_hash_blocked(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput(['action_type' => 'extract', 'pre_image_refs' => []]),
+        );
+
+        $this->assertTrue($result['blocked']);
+        $this->assertContains('pre_image_refs_missing', $result['reasons']);
+    }
+
+    // ── AC: rollback receipts include changed_files, preimage_hashes and rollback_commands ──
+
+    public function test_rollback_receipt_includes_changed_files(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput(['touched_files' => ['app/Foo.php', 'app/Bar.php']]),
+        );
+
+        $this->assertFalse($result['blocked']);
+        $this->assertNotNull($result['rollback_receipt_hash']);
+    }
+
+    public function test_rollback_receipt_includes_preimage_hashes(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput(['pre_image_refs' => ['sha1:abc', 'sha1:def']]),
+        );
+
+        $this->assertFalse($result['blocked']);
+        $this->assertNotNull($result['rollback_receipt_hash']);
+    }
+
+    public function test_rollback_receipt_includes_rollback_commands(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput(['restore_steps' => ['git revert <sha>', 'php artisan migrate:rollback']]),
+        );
+
+        $this->assertFalse($result['blocked']);
+        $this->assertSame(['git revert <sha>', 'php artisan migrate:rollback'], $result['restore_steps']);
+    }
+
+    // ── AC: non-destructive simplify actions can proceed with lighter rollback evidence but still include receipt hashes ──
+
+    public function test_non_destructive_action_proceeds_with_lighter_evidence(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationRollbackReceiptComposer)->checkRollbackPreimage(
+            $this->preimageInput([
+                'action_type' => 'simplify',
+                'pre_image_refs' => [],
+                'touched_files' => [],
+                'replay_gates' => [],
+                'restore_steps' => [],
+            ]),
+        );
+
+        $this->assertFalse($result['blocked']);
+        $this->assertNotNull($result['rollback_receipt_hash']);
+    }
 }
