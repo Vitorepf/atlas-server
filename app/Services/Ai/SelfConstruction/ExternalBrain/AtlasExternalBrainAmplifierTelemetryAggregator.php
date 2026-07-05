@@ -94,7 +94,8 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             $heldoutPassed  = count(array_filter($heldoutRuns, static fn (array $r): bool => ! empty($r['heldout_passed'])));
             $proxyCount     = count(array_filter($runs, static fn (array $r): bool => ! empty($r['is_proxy'])));
             $regressedCount = count(array_filter($runs, static fn (array $r): bool => ! empty($r['regressed'])));
-            $totalCost      = (float) array_sum(array_map(static fn (array $r): float => (float) ($r['cost'] ?? 0.0), $runs));
+            $costs          = array_map(static fn (array $r): float => (float) ($r['cost'] ?? 0.0), $runs);
+            $totalCost      = (float) array_sum($costs);
             $badOutcomeCount = count(array_filter($runs, static fn (array $r): bool => in_array((string) ($r['outcome'] ?? ''), ['poison', 'give_back'], true)));
 
             $passRate        = round($passedCount / $sampleCount, 4);
@@ -103,6 +104,13 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             $avgCost         = round($totalCost   / $sampleCount, 4);
             $regressionRate  = round($regressedCount / $sampleCount, 4);
             $muscleOutcomeBadRate = round($badOutcomeCount / $sampleCount, 4);
+
+            // Compute median cost for robust gating (outlier-insensitive).
+            sort($costs, SORT_NUMERIC);
+            $midIdx = (int) floor($sampleCount / 2);
+            $medianCost = $sampleCount % 2 === 1
+                ? $costs[$midIdx]
+                : round(($costs[$midIdx - 1] + $costs[$midIdx]) / 2, 4);
         } else {
             $passRate        = round(($shadow + $canary + $replay) / 3, 4);
             $heldoutPassRate = max(0.0, min(1.0, (float) ($input['heldout_pass_rate'] ?? 1.0)));
@@ -112,6 +120,8 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             $muscleOutcomeBadRate = max(0.0, min(1.0,
                 (float) ($input['poison_rate'] ?? 0.0) + (float) ($input['give_back_rate'] ?? 0.0),
             ));
+            // No runs to compute median from; fall back to avg_cost for gating.
+            $medianCost = $avgCost;
         }
 
         $costFailureCeiling = (float) ($input['cost_failure_ceiling'] ?? self::DEFAULT_COST_FAILURE_CEILING);
@@ -216,11 +226,12 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
         }
 
         // AC2: cost — higher is worse, opposite direction from pass-rate signals.
-        if ($avgCost >= $costFailureCeiling) {
-            $blocking[] = "avg_cost:{$avgCost}>={$costFailureCeiling}";
+        // Gated on median cost (outlier-insensitive) with avg_cost retained as a reported field.
+        if ($medianCost >= $costFailureCeiling) {
+            $blocking[] = "median_cost:{$medianCost}>={$costFailureCeiling}";
             $rollup['cost'] = 'blocking';
-        } elseif ($avgCost >= $costWarningCeiling) {
-            $weak[]     = "avg_cost:{$avgCost}>={$costWarningCeiling}";
+        } elseif ($medianCost >= $costWarningCeiling) {
+            $weak[]     = "median_cost:{$medianCost}>={$costWarningCeiling}";
             $rollup['cost'] = 'watch';
         } else {
             $rollup['cost'] = 'healthy';
@@ -251,6 +262,7 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             'heldout_pass_rate'         => $heldoutPassRate,
             'proxy_leak_rate'           => $proxyLeakRate,
             'avg_cost'                  => $avgCost,
+            'median_cost'               => $medianCost,
             'regression_rate'           => $regressionRate,
             'sample_count'              => $sampleCount,
             'confidence'                => $confidence,
