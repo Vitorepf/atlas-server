@@ -1302,6 +1302,7 @@ class AtlasOpenBrainContextPackService
         $chars = 0;
         $rawPathCount = 0;
         $sameLayerPathCount = 0;
+        $sessionEchoPathCount = 0;
         foreach ((array) ($result['paths'] ?? []) as $path) {
             if (! is_array($path)) {
                 continue;
@@ -1314,12 +1315,27 @@ class AtlasOpenBrainContextPackService
             }
             $nodeIds = array_map('strval', (array) ($path['nodes'] ?? []));
             $chain = [];
+            $sessionEcho = false;
             foreach ($nodeIds as $nodeId) {
+                // Graph labels are UNTRUSTED display text — a node label can be a past operator
+                // prompt. Neutralize before it ever reaches the model context.
+                $label = self::sanitizeGraphLabel((string) ($labelById[$nodeId]['label'] ?? ''));
+                if (self::isSessionArtifactLabel($label)) {
+                    $sessionEcho = true;
+                }
                 $chain[] = [
                     'id' => $nodeId,
-                    'label' => $labelById[$nodeId]['label'] ?? '',
+                    'label' => $label,
                     'source_kind' => $labelById[$nodeId]['source_kind'] ?? '',
                 ];
+            }
+            // A path that runs into a session-capture artifact (a raw past-prompt / interrupted
+            // marker) is session ECHO, not an architectural cross-layer path. Dropping it stops the
+            // brain from replaying old operator prompts — some instruction-shaped — back into context.
+            if ($sessionEcho) {
+                $sessionEchoPathCount++;
+
+                continue;
             }
             $entry = [
                 'target' => (string) ($path['target'] ?? ''),
@@ -1344,10 +1360,39 @@ class AtlasOpenBrainContextPackService
                 'nodes' => count((array) ($result['nodes'] ?? [])),
                 'raw_paths' => $rawPathCount,
                 'same_layer_paths_omitted' => $sameLayerPathCount,
+                'session_echo_paths_omitted' => $sessionEchoPathCount,
                 'cross_layer_paths' => (int) data_get($result, 'counts.cross_layer_paths', 0),
                 'note' => self::HONESTY_LABEL,
             ],
         ];
+    }
+
+    /** Hard cap for an untrusted reality-graph node label rendered into the model context. */
+    private const GRAPH_LABEL_MAX_CHARS = 160;
+
+    /**
+     * Reality-graph node labels are UNTRUSTED display text — a label can be a verbatim past operator
+     * prompt (the session-capture mission node seeds its label from the first user prompt). Collapse
+     * all whitespace to a single line and hard-cap, so no multi-line / oversized raw text is ever
+     * replayed into the model context through the graph section.
+     */
+    public static function sanitizeGraphLabel(string $raw): string
+    {
+        $collapsed = trim((string) preg_replace('/\s+/u', ' ', $raw));
+
+        return mb_substr($collapsed, 0, self::GRAPH_LABEL_MAX_CHARS);
+    }
+
+    /**
+     * A pure session-capture ECHO label — a session mission node with no architectural value: the
+     * fallback "session capture" label or an interrupted-request marker. These are never real
+     * code/decision/domain labels, so dropping a cross-layer path that runs into one is safe and
+     * stops the brain replaying old session prompts back into context. An EMPTY label is NOT an echo
+     * — a legitimate code/mission node can carry no label (it then renders by node id).
+     */
+    public static function isSessionArtifactLabel(string $label): bool
+    {
+        return in_array(mb_strtolower(trim($label)), ['session capture', '[request interrupted by user]'], true);
     }
 
     /**

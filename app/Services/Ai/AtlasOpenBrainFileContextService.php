@@ -317,13 +317,23 @@ class AtlasOpenBrainFileContextService
             }
             $nodeIds = array_map('strval', (array) ($rawPath['nodes'] ?? []));
             $chain = [];
+            $sessionEcho = false;
             foreach ($nodeIds as $nodeId) {
+                // Same untrusted-label hygiene as the context pack: neutralize a node label (it can
+                // be a raw past prompt) and drop paths that run into a session-capture echo artifact.
+                $label = AtlasOpenBrainContextPackService::sanitizeGraphLabel((string) ($labelById[$nodeId]['label'] ?? ''));
+                if (AtlasOpenBrainContextPackService::isSessionArtifactLabel($label)) {
+                    $sessionEcho = true;
+                }
                 $chain[] = [
                     'id' => $nodeId,
-                    'label' => $labelById[$nodeId]['label'] ?? '',
+                    'label' => $label,
                     'source_kind' => $labelById[$nodeId]['source_kind'] ?? '',
                     'kind' => $labelById[$nodeId]['kind'] ?? '',
                 ];
+            }
+            if ($sessionEcho) {
+                continue;
             }
             $entry = [
                 'target' => (string) ($rawPath['target'] ?? ''),
