@@ -50,7 +50,8 @@ final class L7L10QueueConsumer
      *   total:int,
      *   bad:list<string>,
      *   range:array{min:int,max:int},
-     *   ready_slices:list<string>
+     *   ready_slices:list<string>,
+     *   gated_slices:list<string>
      * }
      */
     public function consume(string $markdown, array $levels = self::DEFAULT_LEVELS): array
@@ -62,6 +63,7 @@ final class L7L10QueueConsumer
         $byLevel = array_fill_keys(array_keys($levels), 0);
         $seen = [];
         $ready = [];
+        $gated = [];
         $bad = [];
 
         foreach ($parsed['slices'] as $slice) {
@@ -80,6 +82,17 @@ final class L7L10QueueConsumer
             $level = $this->levelFor($n, $levels);
             if ($level === null) {
                 $bad[] = $label.':outside_declared_level_band';
+
+                continue;
+            }
+            // DECISAO-1 (2026-07-05): rows carrying an explicit status= marker other
+            // than "ready" (done / spec_only_l7_l10_rebuild_gated / ...) are present
+            // and well-formed but MUST NOT enter the ready queue — they would
+            // re-materialize the deleted L8-L10 series. Mirrors
+            // BuildPlanDecomposerService::nonExecutableReason() status gating.
+            $gateReason = $this->statusGateReason($slice);
+            if ($gateReason !== null) {
+                $gated[] = $label.':'.$gateReason;
 
                 continue;
             }
@@ -103,7 +116,25 @@ final class L7L10QueueConsumer
             'bad' => $bad,
             'range' => ['min' => $min, 'max' => $max],
             'ready_slices' => $ready,
+            'gated_slices' => $gated,
         ];
+    }
+
+    /**
+     * Non-ready explicit status marker => gate reason (status_<marker>), mirroring
+     * {@see BuildPlanDecomposerService::nonExecutableReason()}. Rows without any
+     * status= marker pass (legacy docs predate the machine-readable status).
+     *
+     * @param  array<string,mixed>  $slice
+     */
+    private function statusGateReason(array $slice): ?string
+    {
+        $text = strtolower(trim((string) ($slice['delivery'] ?? '')).' '.trim((string) ($slice['authority_guard'] ?? '')));
+        if (preg_match('/\bstatus=([a-z0-9_]+)/', $text, $m) === 1 && $m[1] !== 'ready') {
+            return 'status_'.$m[1];
+        }
+
+        return null;
     }
 
     /**
