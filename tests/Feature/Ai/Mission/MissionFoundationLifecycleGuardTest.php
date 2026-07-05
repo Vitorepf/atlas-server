@@ -108,4 +108,62 @@ class MissionFoundationLifecycleGuardTest extends TestCase
         $this->assertSame(MissionLifecycleService::STATUS_COMPLETED, $event->status_after);
         $this->assertNotNull($mission->refresh()->completed_at);
     }
+
+    public function test_completion_with_empty_evidence_pack_hash_is_rejected(): void
+    {
+        $factory = app(MissionFactoryService::class);
+        $decomposer = app(ObjectiveDecomposerService::class);
+        $workOrders = app(WorkOrderFactoryService::class);
+        $evidence = app(MissionEvidenceService::class);
+        $certification = app(MissionCertificationService::class);
+        $lifecycle = app(MissionLifecycleService::class);
+        $mission = $factory->create('Implementar feature ABC com testes');
+        $decomposer->decompose($mission);
+        $lifecycle->transition($mission, MissionLifecycleService::STATUS_PLANNED);
+        $workOrders->plan($mission);
+        $lifecycle->transition($mission, MissionLifecycleService::STATUS_RUNNING);
+        $evidence->attach($mission, [
+            'evidence_type' => MissionEvidenceService::TYPE_TEST,
+            'evidence_ref' => 'guard:test:empty_hash',
+        ]);
+        $lifecycle->transition($mission, MissionLifecycleService::STATUS_CERTIFYING);
+        $certification->certify($mission);
+
+        // Tamper: wipe the evidence_pack_hash to simulate a hollow certification.
+        $mission->evidence_pack_hash = '';
+        $mission->save();
+
+        $this->expectException(MissionLifecycleException::class);
+        $this->expectExceptionMessageMatches('/evidence_pack_hash is empty/');
+        $lifecycle->transition($mission, MissionLifecycleService::STATUS_COMPLETED);
+    }
+
+    public function test_completion_with_tampered_evidence_pack_hash_is_rejected(): void
+    {
+        $factory = app(MissionFactoryService::class);
+        $decomposer = app(ObjectiveDecomposerService::class);
+        $workOrders = app(WorkOrderFactoryService::class);
+        $evidence = app(MissionEvidenceService::class);
+        $certification = app(MissionCertificationService::class);
+        $lifecycle = app(MissionLifecycleService::class);
+        $mission = $factory->create('Implementar feature ABC com testes');
+        $decomposer->decompose($mission);
+        $lifecycle->transition($mission, MissionLifecycleService::STATUS_PLANNED);
+        $workOrders->plan($mission);
+        $lifecycle->transition($mission, MissionLifecycleService::STATUS_RUNNING);
+        $evidence->attach($mission, [
+            'evidence_type' => MissionEvidenceService::TYPE_TEST,
+            'evidence_ref' => 'guard:test:tampered_hash',
+        ]);
+        $lifecycle->transition($mission, MissionLifecycleService::STATUS_CERTIFYING);
+        $certification->certify($mission);
+
+        // Tamper: set a wrong hash to simulate evidence changed after certifying.
+        $mission->evidence_pack_hash = 'bogus_hash_that_does_not_match';
+        $mission->save();
+
+        $this->expectException(MissionLifecycleException::class);
+        $this->expectExceptionMessageMatches('/does not match recomputed hash/');
+        $lifecycle->transition($mission, MissionLifecycleService::STATUS_COMPLETED);
+    }
 }

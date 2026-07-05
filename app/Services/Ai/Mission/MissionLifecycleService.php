@@ -128,5 +128,22 @@ class MissionLifecycleService
         if ($latest === null || $latest->status !== 'passed') {
             throw MissionLifecycleException::missingCertification();
         }
+
+        // Tamper-evidence: a genuinely certified mission carries a recomputable
+        // evidence_pack_hash. An empty hash means the certification is hollow;
+        // a mismatch means evidence was tampered after certifying.
+        $storedHash = (string) ($mission->evidence_pack_hash ?? '');
+        if ($storedHash === '') {
+            throw MissionLifecycleException::missingEvidencePackHash();
+        }
+
+        $evidenceRefIds = $mission->evidenceRefs()
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+        $recomputedHash = MissionCanonicalHash::sha256($evidenceRefIds);
+        if ($recomputedHash !== $storedHash) {
+            throw MissionLifecycleException::certificationHashMismatch();
+        }
     }
 }
