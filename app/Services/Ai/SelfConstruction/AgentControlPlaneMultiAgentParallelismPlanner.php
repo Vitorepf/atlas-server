@@ -121,6 +121,23 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
 
         $parallelismAllowed = $blockedPairs === [] && $packetCount >= 2;
 
+        // AC3: high-risk or high-proof-cost tasks reduce recommended parallelism
+        // even when file overlap is zero.
+        $riskReduction = 0;
+        $riskReasons = [];
+        foreach ($packets as $idx => $packet) {
+            $riskLevel = strtolower(trim((string) ($packet['risk_level'] ?? '')));
+            $proofCost = strtolower(trim((string) ($packet['proof_cost'] ?? '')));
+            if ($riskLevel === 'high' || $proofCost === 'high') {
+                $riskReduction++;
+                $riskReasons[] = 'packet_'.($packet['task_packet_id'] ?? $idx).'_high_risk_or_proof_cost';
+            }
+        }
+        if ($riskReduction > 0) {
+            $parallelismAllowed = false;
+            $blockingReasons = array_merge($blockingReasons ?? [], $riskReasons);
+        }
+
         // Runtime health throttle: compose AtlasMaestroParallelMuscleCoordinationPolicy
         // when health signals are present in options, clamp parallelism on live health.
         $healthSignals = is_array($options['health_signals'] ?? null) ? $options['health_signals'] : [];
@@ -156,6 +173,9 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
         }
 
         $recommendedParallelism = $overrideParallelism ?? ($parallelismAllowed ? $maxParallel : 1);
+        if ($riskReduction > 0) {
+            $recommendedParallelism = 1;
+        }
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
