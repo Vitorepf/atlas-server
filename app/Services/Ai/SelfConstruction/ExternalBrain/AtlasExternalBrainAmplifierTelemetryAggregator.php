@@ -248,6 +248,12 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             $rollup['muscle_outcome'] = 'healthy';
         }
 
+        // Real muscle outcome lift: improvement of good-outcome rate vs baseline.
+        // good_outcome_rate = 1 - bad_rate; lift = good - baseline_good.
+        $muscleGoodRate = round(1.0 - $muscleOutcomeBadRate, 4);
+        $baselineMuscleGoodRate = max(0.0, min(1.0, (float) ($input['baseline_muscle_outcome_good_rate'] ?? $muscleGoodRate)));
+        $muscleOutcomeLift = round($muscleGoodRate - $baselineMuscleGoodRate, 4);
+
         $status = $this->resolveStatus($blocking, $weak);
 
         return [
@@ -267,6 +273,8 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             'sample_count'              => $sampleCount,
             'confidence'                => $confidence,
             'recommended_status'        => $status,
+            'muscle_outcome_lift'       => $muscleOutcomeLift,
+            'baseline_muscle_outcome_good_rate' => $baselineMuscleGoodRate,
         ];
     }
 

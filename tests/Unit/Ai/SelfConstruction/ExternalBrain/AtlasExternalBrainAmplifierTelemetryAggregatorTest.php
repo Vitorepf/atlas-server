@@ -554,4 +554,48 @@ final class AtlasExternalBrainAmplifierTelemetryAggregatorTest extends TestCase
         $this->assertSame('model-a', $result['groups'][0]['model']);
         $this->assertSame('model-b', $result['groups'][1]['model']);
     }
+
+    // ── Muscle outcome lift ───────────────────────────────────────────────────
+
+    public function test_muscle_outcome_lift_is_present_in_output(): void
+    {
+        $result = $this->aggregator->aggregate($this->allHealthy());
+
+        $this->assertArrayHasKey('muscle_outcome_lift', $result);
+        $this->assertArrayHasKey('baseline_muscle_outcome_good_rate', $result);
+    }
+
+    public function test_muscle_outcome_lift_zero_when_no_baseline_difference(): void
+    {
+        $result = $this->aggregator->aggregate($this->allHealthy());
+
+        // No bad outcomes, no baseline → lift = 0
+        $this->assertSame(0.0, $result['muscle_outcome_lift']);
+    }
+
+    public function test_muscle_outcome_lift_positive_when_outcomes_improve_vs_baseline(): void
+    {
+        $input = $this->allHealthy();
+        $input['baseline_muscle_outcome_good_rate'] = 0.70; // baseline was worse
+        // No bad outcomes → good rate = 1.0, lift = 0.30
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(0.3, $result['muscle_outcome_lift']);
+    }
+
+    public function test_muscle_outcome_lift_negative_when_outcomes_worse_than_baseline(): void
+    {
+        $input = $this->allHealthy();
+        $input['baseline_muscle_outcome_good_rate'] = 1.0; // baseline was perfect
+        // 25% bad outcomes → good rate = 0.75, lift = -0.25
+        $input['runs'] = array_merge(
+            array_fill(0, 75, ['passed' => true, 'outcome' => 'success']),
+            array_fill(0, 25, ['passed' => false, 'outcome' => 'poison']),
+        );
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(-0.25, $result['muscle_outcome_lift']);
+    }
 }
