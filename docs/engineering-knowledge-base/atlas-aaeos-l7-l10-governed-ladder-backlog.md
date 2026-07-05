@@ -81,6 +81,14 @@ next_actions:
 ---
 # AAEOS L7-L10 Governed Ladder Backlog
 
+
+> **DECISÃO DO OPERADOR (2026-07-05, campanha limpeza-bruta, ordem "entregue 100%"):** o CÓDIGO
+> especulativo da série L8/L9/L10 (63 classes + 63 testes, ~28k linhas) foi RETIRADO do repo —
+> patamar se constrói quando chega, não antes; tudo recuperável do git (commit da limpeza) e as
+> rows S83-S165 abaixo permanecem como SPEC para reconstrução governada quando o L7 certificar.
+> EXCEÇÕES mantidas no código (wired vivas no AtlasLoopFormalInvariantGateService):
+> L9InvariantProofResultVerifier e L9InvariantFormalProofSpecBuilder.
+
 ## Resumo
 
 Fila automatica dedicada para o loop implementar a escada governada AAEOS de L7 ate L10. Ela existe porque o backlog amplo tambem contem S1-S82 legados/broad; colocar o doc amplo direto no runner automatico reabre provider burn ruim e partial decompose. Aqui ficam somente S83-S165, ja em formato que o `BuildPlanDocumentParser` e o decomposer conseguem materializar.
