@@ -247,4 +247,90 @@ class AtlasSelfConstructionLearningTransferAdmissionLedgerTest extends TestCase
         self::assertSame(['docs/a.md', 'docs/b.md'], $rows[0]['design_path_refs']);
         self::assertSame('green_commit', $rows[0]['muscle_outcome']['status']);
     }
+
+    // ── AC: duplicate plan hashes return already_recorded without appending a second row ──
+
+    public function test_duplicate_plan_hash_returns_already_recorded_without_second_row(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningTransferAdmissionLedger($this->path);
+        $plan = $this->validPlan();
+        $context = $this->validContext();
+
+        $first = $ledger->append($plan, $context);
+        $second = $ledger->append($plan, $context);
+
+        self::assertSame('recorded', $first['status']);
+        self::assertSame('already_recorded', $second['status']);
+        self::assertSame($first['plan_hash'], $second['plan_hash']);
+
+        $rows = $ledger->all();
+        self::assertCount(1, $rows, 'duplicate plan hash must not append a second row');
+    }
+
+    // ── AC: planHash is stable across key ordering ──
+
+    public function test_plan_hash_stable_across_key_ordering(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningTransferAdmissionLedger($this->path);
+
+        $planA = [
+            'target_surface' => 'docs_surface',
+            'class' => 'reusable',
+            'source_evidence_refs' => ['phpunit:test_passed'],
+            'impact_class' => 'high_leverage',
+            'design_path_refs' => ['docs/a.md'],
+        ];
+        $planB = [
+            'design_path_refs' => ['docs/a.md'],
+            'impact_class' => 'high_leverage',
+            'source_evidence_refs' => ['phpunit:test_passed'],
+            'class' => 'reusable',
+            'target_surface' => 'docs_surface',
+        ];
+
+        self::assertSame($ledger->planHash($planA), $ledger->planHash($planB));
+    }
+
+    // ── AC: appended rows include provider-safe context and no raw prompt or trace fields ──
+
+    public function test_appended_row_does_not_include_raw_prompt_or_trace_fields(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningTransferAdmissionLedger($this->path);
+        $ledger->append(
+            $this->validPlan(),
+            $this->validContext([
+                'raw_prompt' => 'secret prompt data',
+                'provider_trace' => 'secret trace data',
+                'api_key' => 'secret-key',
+            ]),
+        );
+
+        $rows = $ledger->all();
+        self::assertCount(1, $rows);
+        $row = $rows[0];
+        self::assertArrayNotHasKey('raw_prompt', $row);
+        self::assertArrayNotHasKey('provider_trace', $row);
+        self::assertArrayNotHasKey('api_key', $row);
+    }
+
+    public function test_appended_row_includes_provider_safe_context(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningTransferAdmissionLedger($this->path);
+        $ledger->append(
+            $this->validPlan(),
+            $this->validContext([
+                'muscle_outcome' => ['status' => 'success', 'task_packet_id' => 'tp-1'],
+                'classification' => ['label' => 'reusable'],
+                'gate_decision' => ['verdict' => 'admit'],
+            ]),
+        );
+
+        $rows = $ledger->all();
+        self::assertCount(1, $rows);
+        $row = $rows[0];
+        self::assertSame('success', $row['muscle_outcome']['status']);
+        self::assertSame('tp-1', $row['muscle_outcome']['task_packet_id']);
+        self::assertSame('reusable', $row['classification']['label']);
+        self::assertSame('admit', $row['gate_decision']['verdict']);
+    }
 }
