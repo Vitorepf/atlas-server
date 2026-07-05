@@ -28,7 +28,8 @@ use Illuminate\Console\Command;
  * Never mutates files, calls providers, or runs git — read-only reporting only.
  *
  * Input: a single JSON file (--input=PATH) with keys:
- *   { audit:{...}, give_backs:list<...>, claimable_per_active_worker?:float, diagnostics:list<...> }
+ *   { audit:{...}, give_backs:list<...>, claimable_per_active_worker?:float, diagnostics:list<...>,
+ *     existing_queued_targets?:list<string> }
  * Missing/absent sections default to empty/defaults and produce a clean report.
  */
 final class AtlasExternalBrainRegressionRepairCommand extends Command
@@ -67,6 +68,7 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
         $giveBacks = is_array($decoded['give_backs'] ?? null) ? $decoded['give_backs'] : [];
         $claimablePerActiveWorker = $decoded['claimable_per_active_worker'] ?? null;
         $diagnostics = is_array($decoded['diagnostics'] ?? null) ? $decoded['diagnostics'] : [];
+        $existingQueuedTargets = array_values(array_map('strval', (array) ($decoded['existing_queued_targets'] ?? [])));
         $amplifierFailures = is_array($decoded['amplifier_failures'] ?? null) ? $decoded['amplifier_failures'] : [];
         $autonomyIncidents = is_array($decoded['autonomy_incidents'] ?? null) ? $decoded['autonomy_incidents'] : [];
 
@@ -81,7 +83,10 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
             'give_backs' => $giveBacks,
             'claimable_per_active_worker' => $claimablePerActiveWorker,
         ], static fn ($v) => $v !== null));
-        $synthesis = $synthesizer->synthesize(['diagnostics' => $diagnostics]);
+        $synthesis = $synthesizer->synthesize([
+            'diagnostics' => $diagnostics,
+            'existing_queued_targets' => $existingQueuedTargets,
+        ]);
 
         $blockedOrigination = (bool) $regression['blocked_origination'];
         $hasPoisonPackets = $rootCauses['poison_packets'] !== [];

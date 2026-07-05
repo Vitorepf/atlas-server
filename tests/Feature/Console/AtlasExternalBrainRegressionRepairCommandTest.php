@@ -153,4 +153,43 @@ final class AtlasExternalBrainRegressionRepairCommandTest extends TestCase
         $this->assertTrue($decoded['has_runnable_repair_specs']);
         $this->assertNotEmpty($decoded['repair_synthesis']['repair_specs']);
     }
+
+    // ── existing_queued_targets dedup ────────────────────────────────────────
+
+    public function test_existing_queued_targets_wired_into_synthesizer_produces_dedup_flag(): void
+    {
+        $this->writeInput([
+            'diagnostics' => [
+                [
+                    'diagnostic_id' => 'd1',
+                    'gate_name' => 'phpunit',
+                    'target_path' => 'app/Services/Ai/SelfConstruction/ExternalBrain/SomeService.php',
+                    'runnable_proof_command' => 'php artisan test tests/Feature/Ai/SomeServiceTest.php',
+                ],
+            ],
+            'existing_queued_targets' => [
+                'app/Services/Ai/SelfConstruction/ExternalBrain/SomeService.php',
+            ],
+        ]);
+
+        [$exit, $out] = $this->runCmd(['--input' => $this->inputFile]);
+
+        $this->assertSame(0, $exit, $out);
+        $decoded = json_decode($out, true);
+        $this->assertTrue($decoded['has_runnable_repair_specs']);
+        $specs = $decoded['repair_synthesis']['repair_specs'];
+        $this->assertNotEmpty($specs);
+
+        // The target is already queued → the group must be flagged as duplicate
+        // and its allowed_files must be empty.
+        $firstSpec = $specs[0] ?? [];
+        $this->assertTrue(
+            $firstSpec['duplicate_of_existing_queued_target'] ?? false,
+            'spec for an already-queued target must be flagged',
+        );
+        $this->assertEmpty(
+            $firstSpec['allowed_files'] ?? [],
+            'allowed_files must be empty for an already-queued target',
+        );
+    }
 }
