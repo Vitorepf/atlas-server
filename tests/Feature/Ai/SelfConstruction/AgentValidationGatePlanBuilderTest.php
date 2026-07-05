@@ -150,6 +150,21 @@ final class AgentValidationGatePlanBuilderTest extends TestCase
         $this->assertSame([], $plan['context_summary']['unknown_files_touched']);
     }
 
+    public function test_forbidden_directory_prefix_catches_file_under_it(): void
+    {
+        // Forbidden 'app/Services/Ai/Programming/' is a directory prefix.
+        // A changed file 'app/Services/Ai/Programming/Foo.php' under it must
+        // be caught by WriteSetOverlap::collidingPaths (prefix-aware), which
+        // array_intersect (exact match) would miss.
+        $plan = (new AgentValidationGatePlanBuilder)->buildPlan([
+            'allowed_files' => ['app/services/ai/programming/foo.php', 'a.php'],
+            'forbidden_files' => ['app/services/ai/programming/'],
+            'changed_files' => ['app/services/ai/programming/foo.php', 'a.php'],
+        ]);
+        $this->assertTrue($plan['context_summary']['scope_violation_detected']);
+        $this->assertContains('app/services/ai/programming/foo.php', $plan['context_summary']['forbidden_files_touched']);
+    }
+
     public function test_scope_violation_unknown_files(): void
     {
         $plan = (new AgentValidationGatePlanBuilder)->buildPlan([

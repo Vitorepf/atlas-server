@@ -102,7 +102,7 @@ final class AgentValidationGatePlanBuilder
             $previous = $id;
         }
 
-        $forbiddenIntersection = array_values(array_intersect($changedFiles, $forbiddenFiles));
+        $forbiddenIntersection = WriteSetOverlap::collidingPaths($changedFiles, $forbiddenFiles);
         $unknownChanged = $allowedFiles === []
             ? []
             : array_values(array_diff($changedFiles, $allowedFiles, $forbiddenFiles));
