@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use App\Services\Ai\SelfConstruction\WriteSetOverlap;
+
 /**
  * Pure detector. Identifies which queued tasks UNLOCK downstream capability
  * and should be implemented before their dependents or unrelated leaf tasks.
@@ -198,7 +200,7 @@ final class AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector
                     continue;
                 }
                 $theirFiles = $tasks[$otherId]['allowed_files'] ?? [];
-                if (array_intersect($ourFiles, $theirFiles) !== []) {
+                if (WriteSetOverlap::collidingPaths($ourFiles, $theirFiles) !== []) {
                     $collisions[] = $otherId;
                 }
             }
