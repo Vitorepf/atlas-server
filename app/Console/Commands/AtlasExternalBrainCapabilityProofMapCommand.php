@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityD
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityEvidenceProvenanceLedger;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityIntegrationMap;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainComprehensionDeepeningMap;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderPoolSafetyRunner;
 use Illuminate\Console\Command;
 
 /**
@@ -54,6 +55,7 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
         AtlasExternalBrainCapabilityDebtLedger $debtLedger,
         AtlasExternalBrainAreaImpactLedger $areaImpactLedger,
         AtlasExternalBrainComprehensionDeepeningMap $comprehensionDeepeningMap,
+        AtlasExternalBrainProviderPoolSafetyRunner $poolSafetyRunner,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -67,6 +69,22 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
             $this->error('invalid input JSON');
 
             return self::FAILURE;
+        }
+
+        // Provider pool safety check: refuse unsafe or over-quota pools before admission.
+        $providerPoolInput = is_array($decoded['provider_pool'] ?? null) ? $decoded['provider_pool'] : null;
+        if ($providerPoolInput !== null) {
+            $poolSafety = $poolSafetyRunner->run($providerPoolInput);
+            if (! ($poolSafety['safe'] ?? false)) {
+                $poolId = (string) ($providerPoolInput['pool_id'] ?? 'unknown');
+                $reasons = (array) ($poolSafety['reasons'] ?? []);
+                $this->warn("Provider pool [{$poolId}] refused — unsafe or over-quota.");
+                foreach ($reasons as $reason) {
+                    $this->line("  - {$reason}");
+                }
+
+                return self::FAILURE;
+            }
         }
 
         $capabilities = is_array($decoded['capabilities'] ?? null) ? $decoded['capabilities'] : [];
