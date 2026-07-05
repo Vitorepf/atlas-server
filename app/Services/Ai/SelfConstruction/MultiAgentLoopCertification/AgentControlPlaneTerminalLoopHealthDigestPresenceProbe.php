@@ -153,4 +153,111 @@ final class AgentControlPlaneTerminalLoopHealthDigestPresenceProbe
             && data_get($digest, 'terminal_loop_fleet_launch_runbook.can_call_provider_from_runbook') === false
             && data_get($digest, 'terminal_loop_fleet_launch_runbook.can_spend_tokens_from_runbook') === false;
     }
+
+    /**
+     * Returns a complete section status map rather than a single boolean that
+     * hides which proof is missing. Each entry carries:
+     *   - present: bool       whether the section exists in the digest
+     *   - schema_ok: bool     whether the schema_version matches the expected constant
+     *   - expected_schema: string  the expected schema version constant
+     *   - observed_schema: string  the schema_version found in the digest (empty if absent)
+     *   - blocker: bool       true when the section is missing or schema-mismatched
+     *   - blocker_reason: string  human-readable reason (empty when not blocked)
+     *
+     * @return array{
+     *     schema: string,
+     *     sections: array<string, array{present:bool, schema_ok:bool, expected_schema:string, observed_schema:string, blocker:bool, blocker_reason:string}>,
+     *     all_present: bool,
+     *     blocker_count: int,
+     *     blockers: list<string>
+     * }
+     */
+    public static function sectionStatusMap(): array
+    {
+        $digest = (new AgentControlPlaneTerminalLoopHealthDigestService)->digest([
+            'actor' => 'multi-agent-certification-section-status-map-probe',
+            'target_min_claimable_tasks' => 1,
+            'max_new_tasks' => 1,
+            'queue_tags' => ['multi-agent-certification-section-status-map-probe'],
+        ]);
+
+        $sectionConfig = [
+            'fleet_launch_plan' => [
+                'path' => 'terminal_loop_fleet_launch_plan',
+                'expected_schema' => AgentControlPlaneTerminalLoopHealthDigestService::FLEET_LAUNCH_PLAN_SCHEMA_VERSION,
+            ],
+            'fleet_replenishment_plan' => [
+                'path' => 'terminal_loop_fleet_replenishment_plan',
+                'expected_schema' => AgentControlPlaneTerminalLoopHealthDigestService::FLEET_REPLENISHMENT_PLAN_SCHEMA_VERSION,
+            ],
+            'fleet_resume_rollup' => [
+                'path' => 'terminal_loop_fleet_resume_rollup',
+                'expected_schema' => AgentControlPlaneTerminalLoopHealthDigestService::FLEET_RESUME_ROLLUP_SCHEMA_VERSION,
+            ],
+            'fleet_evidence_rollup' => [
+                'path' => 'terminal_loop_fleet_evidence_rollup',
+                'expected_schema' => AgentControlPlaneTerminalLoopHealthDigestService::FLEET_EVIDENCE_ROLLUP_SCHEMA_VERSION,
+            ],
+            'fleet_operator_handoff' => [
+                'path' => 'terminal_loop_fleet_operator_handoff',
+                'expected_schema' => AgentControlPlaneTerminalLoopHealthDigestService::FLEET_OPERATOR_HANDOFF_SCHEMA_VERSION,
+            ],
+            'fleet_lane_isolation' => [
+                'path' => 'terminal_loop_fleet_lane_isolation',
+                'expected_schema' => AgentControlPlaneTerminalLoopHealthDigestService::FLEET_LANE_ISOLATION_SCHEMA_VERSION,
+            ],
+            'cycle_supervisor' => [
+                'path' => 'terminal_loop_cycle_supervisor',
+                'expected_schema' => AgentControlPlaneTerminalLoopHealthDigestService::CYCLE_SUPERVISOR_SCHEMA_VERSION,
+            ],
+            'fleet_launch_runbook' => [
+                'path' => 'terminal_loop_fleet_launch_runbook',
+                'expected_schema' => AgentControlPlaneTerminalLoopHealthDigestService::FLEET_LAUNCH_RUNBOOK_SCHEMA_VERSION,
+            ],
+        ];
+
+        $sections = [];
+        $blockers = [];
+
+        foreach ($sectionConfig as $sectionName => $config) {
+            $path = $config['path'];
+            $expectedSchema = $config['expected_schema'];
+            $sectionData = data_get($digest, $path);
+            $present = is_array($sectionData) && $sectionData !== [];
+            $observedSchema = (string) data_get($digest, $path.'.schema_version', '');
+            $schemaOk = $present && $observedSchema === $expectedSchema;
+            $blocker = ! $present || ! $schemaOk;
+
+            $reason = '';
+            if (! $present) {
+                $reason = $sectionName.':section_absent';
+            } elseif (! $schemaOk) {
+                $reason = $sectionName.':schema_mismatch:expected='.$expectedSchema.':observed='.$observedSchema;
+            }
+
+            if ($blocker) {
+                $blockers[] = $reason;
+            }
+
+            $sections[$sectionName] = [
+                'present' => $present,
+                'schema_ok' => $schemaOk,
+                'expected_schema' => $expectedSchema,
+                'observed_schema' => $observedSchema,
+                'blocker' => $blocker,
+                'blocker_reason' => $reason,
+            ];
+        }
+
+        ksort($sections);
+        sort($blockers, SORT_STRING);
+
+        return [
+            'schema' => 'atlas.self_construction.terminal_loop_health_digest_presence_probe.section_status_map.v1',
+            'sections' => $sections,
+            'all_present' => $blockers === [],
+            'blocker_count' => count($blockers),
+            'blockers' => $blockers,
+        ];
+    }
 }
