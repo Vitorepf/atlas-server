@@ -86,6 +86,19 @@ class AgentDispatchExecutorReleaseAuthorizationPersistenceWriter
         });
     }
 
+    /** @var list<string> Fields that must be redacted from persisted payloads. */
+    public const REDACTED_PAYLOAD_FIELDS = [
+        'raw_prompt',
+        'raw_trace',
+        'raw_provider_payload',
+        'provider_trace',
+        'provider_response',
+        'provider_request_body',
+        'provider_response_body',
+        'prompt_text',
+        'trace_data',
+    ];
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -146,6 +159,12 @@ class AgentDispatchExecutorReleaseAuthorizationPersistenceWriter
             throw new InvalidArgumentException('expired_signed_receipt');
         }
 
+        // AC4: redact raw provider payloads and prompts from the persisted payload.
+        $payload = (array) $input['payload'];
+        foreach (self::REDACTED_PAYLOAD_FIELDS as $field) {
+            unset($payload[$field]);
+        }
+
         return [
             'authorization_key' => (string) $input['authorization_key'],
             'receipt_key' => (string) $input['receipt_key'],
@@ -164,7 +183,8 @@ class AgentDispatchExecutorReleaseAuthorizationPersistenceWriter
             'persistence_preflight_hash' => $input['persistence_preflight_hash'],
             'external_signature_validation_report_hash' => $input['external_signature_validation_report_hash'],
             'signed_receipt_hash' => $input['signed_receipt_hash'],
-            'payload' => (array) $input['payload'],
+            'payload' => $payload,
+            'redacted_fields' => self::REDACTED_PAYLOAD_FIELDS,
             'persisted_at' => CarbonImmutable::now(),
         ];
     }
@@ -187,6 +207,7 @@ class AgentDispatchExecutorReleaseAuthorizationPersistenceWriter
             'authorization_status' => $authorization->status,
             'signed_receipt_hash' => $authorization->signed_receipt_hash,
             'ledger_event_id' => $ledgerEventId,
+            'redacted_fields' => self::REDACTED_PAYLOAD_FIELDS,
             'provider_start_allowed' => false,
             'dispatch_allowed' => false,
             'receipt_use_mark_allowed' => false,
