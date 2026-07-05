@@ -89,11 +89,27 @@ final class AgentMergeReviewPromotionDryRun
             ? 'agent_merge_review_promotion_dry_run_blocked'
             : 'agent_merge_review_promotion_dry_run_planned';
 
+        // AC2: promotion_ready is false when scope is unsafe, risk is high, or approval is missing.
+        $scopeClean = (bool) (data_get($scopeVerification, 'scope.scope_clean') ?? true);
+        $blockedReasons = [];
+        if (! $scopeClean) {
+            $blockedReasons[] = 'scope_not_clean';
+        }
+        if ($band === 'critical') {
+            $blockedReasons[] = 'risk_band_critical';
+        }
+        if (! $approvalEligible) {
+            $blockedReasons[] = 'approval_not_eligible';
+        }
+        $promotionReady = ! $criticalBlockers && $scopeClean;
+
         $envelope = [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $status,
             'mode' => self::MODE,
             'promotion_allowed' => $promotionAllowed,
+            'promotion_ready' => $promotionReady,
+            'blocked_reasons' => $blockedReasons,
             'apply_patch_allowed' => false,
             'real_file_write_allowed' => false,
             'completion_claim_allowed' => false,
