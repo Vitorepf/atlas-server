@@ -278,7 +278,13 @@ final class AtlasSelfConstructionReservationRepository
      */
     private function containsHotScope(array $paths, bool $forbiddenList = false): bool
     {
-        foreach ($paths as $path) {
+        foreach ($paths as $raw) {
+            // Normalize path: backslash → '/', strip leading './', collapse '//'.
+            $path = str_replace('\\', '/', $raw);
+            if (str_starts_with($path, './')) {
+                $path = substr($path, 2);
+            }
+            $path = (string) preg_replace('#/{2,}#', '/', $path);
             $isHot = str_starts_with($path, 'runtimes/python/voice_realtime/')
                 || $path === 'runtimes/python/voice_realtime/**'
                 || str_starts_with($path, 'app/Services/Ai/Voice/')
