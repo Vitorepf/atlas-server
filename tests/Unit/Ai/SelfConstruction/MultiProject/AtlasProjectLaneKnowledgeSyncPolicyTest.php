@@ -270,4 +270,14 @@ final class AtlasProjectLaneKnowledgeSyncPolicyTest extends TestCase
         $this->assertFalse($r['receipt_sync']);
         $this->assertFalse($r['post_merge_sync']);
     }
+
+    public function test_traversal_path_inside_root_is_blocked_as_cross_project(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest' => ['project_id' => 'lane-a', 'allowed_scope_roots' => ['/repo/lane-a/app/']],
+            'touched_paths' => ['/repo/lane-a/../lane-b/app/secret.php'],
+        ]);
+        $this->assertFalse($r['conformant'], 'traversal path must be non-conformant');
+        $this->assertContains('cross_project_path:/repo/lane-a/../lane-b/app/secret.php', $r['blockers']);
+    }
 }

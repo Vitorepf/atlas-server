@@ -177,6 +177,11 @@ final class AtlasProjectLaneKnowledgeSyncPolicy
      */
     private function insideAnyRoot(string $path, array $laneRoots): bool
     {
+        // A path with '..' traversal can never be confirmed inside a lane
+        // root — it may textually start with a root but resolve into another.
+        if (str_contains($path, '..')) {
+            return false;
+        }
         foreach ($laneRoots as $root) {
             $root = rtrim($root, '/');
             if ($root !== '' && (str_starts_with($path, $root.'/') || $path === $root)) {

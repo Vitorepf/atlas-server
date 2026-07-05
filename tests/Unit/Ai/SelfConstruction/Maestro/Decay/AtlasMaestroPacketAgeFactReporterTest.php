@@ -102,4 +102,17 @@ final class AtlasMaestroPacketAgeFactReporterTest extends TestCase
 
         $this->assertSame(AtlasMaestroPacketAgeFactReporter::VALUE_CLASS_LOW, $facts[0]['value_class']);
     }
+
+    public function test_missing_enqueued_at_reports_zero_age_not_fabricated_epoch(): void
+    {
+        $facts = $this->reporter([
+            ['task_packet_id' => 'p-no-enqueue'],
+        ])->report();
+
+        $this->assertSame(0, $facts[0]['time_in_queue_seconds']);
+        $this->assertSame(0, $facts[0]['age_seconds']);
+        $this->assertSame('fresh', $facts[0]['age_bucket']);
+        $this->assertSame('none', $facts[0]['stale_risk']);
+        $this->assertSame('', $facts[0]['enqueued_at']);
+    }
 }

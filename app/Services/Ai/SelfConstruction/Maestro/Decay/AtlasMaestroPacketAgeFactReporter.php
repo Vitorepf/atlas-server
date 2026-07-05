@@ -73,7 +73,7 @@ final class AtlasMaestroPacketAgeFactReporter
         foreach ($packets as $p) {
             $enqueued = (string) ($p['enqueued_at'] ?? '');
             $ts = $this->isoToTs($enqueued);
-            $seconds = max(0, $observedTs - $ts);
+            $seconds = ($enqueued !== '' && $ts > 0) ? max(0, $observedTs - $ts) : 0;
             $bucket = $this->ageBucket($seconds);
             $valueClass = $this->valueClass($p);
             $facts[] = [
