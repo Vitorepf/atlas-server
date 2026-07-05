@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainModelCapabilityAmplifier;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainModelTierGovernanceRunner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainScaffoldOverfitDetector;
 use Illuminate\Console\Command;
 
@@ -12,24 +13,25 @@ use Illuminate\Console\Command;
  * Read-only operator entry point combining {@see AtlasExternalBrainModelCapabilityAmplifier}
  * (does the model+scaffold combination PROVE a real lift, or must it escalate to frontier/human
  * review?) with {@see AtlasExternalBrainScaffoldOverfitDetector} (is the claimed lift itself
- * overfit, low-confidence, or proxy-prone?) — so a smaller model is only trusted to operate
- * autonomously with scaffold when BOTH checks are clean.
+ * overfit, low-confidence, or proxy-prone?) and
+ * {@see AtlasExternalBrainModelTierGovernanceRunner} (quality SLO, calibrated tier, weakness guard,
+ * escalation policy) — so a smaller model is only trusted to operate autonomously with scaffold
+ * when ALL checks are clean.
  *
  * Never mutates files, calls providers, or runs git — read-only reporting only.
  *
  * Input: a single JSON file (--input=PATH) with keys:
- *   { amplifier:{...AtlasExternalBrainModelCapabilityAmplifier::amplify input...},
- *     scaffold_metrics:list<array<string,mixed>> }
- * Missing/absent sections default to empty/defaults and simply produce no overfit findings.
+ *   { amplifier:{...Amplifier input...}, scaffold_metrics, model_tier:{...GovernanceRunner input...} }
+ * Missing/absent sections default to empty/defaults.
  */
 final class AtlasExternalBrainModelAmplifierCommand extends Command
 {
     /** @var string */
     protected $signature = 'atlas:external-brain:model-amplifier
-        {--input= : Path to a JSON file with amplifier and scaffold_metrics sections}';
+        {--input= : Path to a JSON file with amplifier, scaffold_metrics, and model_tier sections}';
 
     /** @var string */
-    protected $description = 'Read-only model-capability amplification + scaffold-overfit report: proves when a smaller model can safely operate with scaffold, and when escalation is mandatory.';
+    protected $description = 'Read-only model-capability amplification + scaffold-overfit + model-tier-governance report: proves when a smaller model can safely operate with scaffold, and when escalation is mandatory.';
 
     public function handle(
         AtlasExternalBrainModelCapabilityAmplifier $amplifier,
@@ -51,13 +53,13 @@ final class AtlasExternalBrainModelAmplifierCommand extends Command
 
         $amplifierInput = is_array($decoded['amplifier'] ?? null) ? $decoded['amplifier'] : [];
         $scaffoldMetrics = is_array($decoded['scaffold_metrics'] ?? null) ? $decoded['scaffold_metrics'] : [];
+        $modelTierInput = is_array($decoded['model_tier'] ?? null) ? $decoded['model_tier'] : [];
 
         $amplification = $amplifier->amplify($amplifierInput);
         $overfit = $overfitDetector->detect(['scaffold_metrics' => $scaffoldMetrics]);
+        $tierGovernance = (new AtlasExternalBrainModelTierGovernanceRunner)->run($modelTierInput);
 
-        // Mandatory escalation whenever EITHER check demands it — an overfit-detected scaffold
-        // can never be waved through just because the amplifier's own escalation trigger stayed
-        // clean, and vice versa.
+        // Mandatory escalation whenever EITHER check demands it.
         $mustEscalate = (bool) $amplification['escalation_recommendation']['escalate'] || $overfit['overfit_detected'];
         $safeToOperateAutonomously = $amplification['autonomous_execution_allowed'] && ! $overfit['overfit_detected'];
 
@@ -71,6 +73,7 @@ final class AtlasExternalBrainModelAmplifierCommand extends Command
             'suspect_scaffolds' => $overfit['suspect_scaffolds'],
             'overfit_recommended_action' => $overfit['recommended_action'],
             'overfit_risk_score' => $overfit['risk_score'],
+            'model_tier_governance' => $tierGovernance,
             'must_escalate' => $mustEscalate,
             'safe_to_operate_autonomously' => $safeToOperateAutonomously,
         ];
