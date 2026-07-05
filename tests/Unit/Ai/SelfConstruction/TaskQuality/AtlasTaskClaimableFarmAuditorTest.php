@@ -157,4 +157,61 @@ final class AtlasTaskClaimableFarmAuditorTest extends TestCase
         $this->assertSame([], $result['clusters']);
         $this->assertSame([], $result['decisions']);
     }
+
+    // ── AC3: acceptance_intent matches across different objectives / different files ──
+
+    public function test_same_substantive_acceptance_intent_cross_objective_clusters_via_acceptance_intent(): void
+    {
+        $this->seedClaimable(
+            'intent-a-1',
+            'Implement a retry mechanism for webhook delivery.',
+            ['app/Services/Webhook/RetryHandler.php'],
+            ['php artisan test --filter=RetryHandlerTest exits 0', 'must handle retry logic correctly'],
+        );
+        $this->seedClaimable(
+            'intent-a-2',
+            'Build a circuit breaker for upstream API calls.',
+            ['app/Services/Webhook/CircuitBreaker.php'],
+            ['php artisan test --filter=CircuitBreakerTest exits 0', 'must handle retry logic correctly'],
+        );
+
+        $result = (new AtlasTaskClaimableFarmAuditor)->audit();
+
+        $this->assertCount(1, $result['clusters'], 'same target_family + same substantive intent must cluster');
+        $cluster = $result['clusters'][0];
+        // Both packets have same specificity (1 + 1 = 2 each), tiebreak is packet_id ASC.
+        $this->assertSame('intent-a-1', $cluster['kept']);
+        $this->assertSame(['intent-a-2'], $cluster['retired_candidates']);
+        $this->assertContains(
+            'matched:acceptance_intent+target_family:must_handle_retry_logic_correctly',
+            $cluster['similarity_evidence']['duplicate_reasons'],
+            'acceptance_intent must appear in duplicate_reasons',
+        );
+    }
+
+    // ── AC4: boilerplate-only acceptance → no false-positive via acceptance_intent ──
+
+    public function test_boilerplate_only_acceptance_never_false_positives_via_acceptance_intent(): void
+    {
+        $this->seedClaimable(
+            'bp-only-1',
+            'Refactor the billing sync engine to use the new ledger API.',
+            ['app/Billing/SyncEngine.php'],
+            ['php artisan test --filter=SyncEngineTest exits 0'],
+        );
+        $this->seedClaimable(
+            'bp-only-2',
+            'Add real-time graph update for the cockpit dashboard.',
+            ['app/Cockpit/GraphUpdater.php'],
+            ['php artisan test --filter=GraphUpdaterTest exits 0'],
+        );
+
+        $result = (new AtlasTaskClaimableFarmAuditor)->audit();
+
+        // These two packets have different objectives, different files, different
+        // target_families, and no substantive acceptance intent after boilerplate
+        // strip — the acceptance_intent rule must stay inert.
+        // They are NOT related by similarity gate either (different scopes).
+        $this->assertCount(0, $result['clusters'], 'boilerplate-only packets must not cluster');
+    }
 }

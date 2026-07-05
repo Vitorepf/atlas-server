@@ -64,7 +64,8 @@ final class AtlasTaskClaimableFarmAuditor
                 continue;
             }
             $taskPacket = (array) ($record['task_packet'] ?? []);
-            $allowedFiles = array_values(array_map('strval', (array) ($taskPacket['allowed_files'] ?? [])));
+            $normalizedScope = (array) ($taskPacket['normalized_scope'] ?? []);
+            $allowedFiles = array_values(array_map('strval', (array) ($normalizedScope['allowed_files'] ?? [])));
             $acceptanceCriteria = array_values(array_map('strval', (array) ($taskPacket['acceptance_criteria'] ?? [])));
 
             $packets[] = [
@@ -195,17 +196,57 @@ final class AtlasTaskClaimableFarmAuditor
         ];
     }
 
-    /** @param  array{objective:string, allowed_files:list<string>}  $packet
-     * @return array{capability_key:string, target_family:string, allowed_files:list<string>}
+    /** @param  array{objective:string, allowed_files:list<string>, acceptance_criteria:list<string>}  $packet
+     * @return array{capability_key:string, target_family:string, allowed_files:list<string>, acceptance_intent?:string}
      */
     private function duplicateShape(array $packet): array
     {
         $firstFile = $packet['allowed_files'][0] ?? '';
 
-        return [
+        $shape = [
             'capability_key' => $packet['objective'],
             'target_family' => $firstFile !== '' ? dirname($firstFile) : '',
             'allowed_files' => $packet['allowed_files'],
         ];
+
+        $intent = $this->acceptanceIntent($packet['acceptance_criteria'] ?? []);
+        if ($intent !== '') {
+            $shape['acceptance_intent'] = $intent;
+        }
+
+        return $shape;
+    }
+
+    /**
+     * Extract substantive acceptance intent by stripping shared runnable-gate
+     * boilerplate and normalising the remainder.
+     *
+     * @param  list<string>  $criteria
+     */
+    private function acceptanceIntent(array $criteria): string
+    {
+        $lines = [];
+        foreach ($criteria as $line) {
+            $line = trim((string) $line);
+            if ($line === '') {
+                continue;
+            }
+            // Strip shared boilerplate: lines that only say "php artisan test ... exits 0"
+            // or "Runnable gate: ..." — nearly every packet carries these.
+            if (preg_match('/php artisan test|runnable gate/i', $line)) {
+                continue;
+            }
+            $lines[] = $line;
+        }
+
+        if ($lines === []) {
+            return '';
+        }
+
+        $raw = implode("\n", $lines);
+        $raw = strtolower(trim($raw));
+        $raw = preg_replace('/[^a-z0-9]+/', '_', $raw) ?? $raw;
+
+        return trim($raw, '_');
     }
 }
