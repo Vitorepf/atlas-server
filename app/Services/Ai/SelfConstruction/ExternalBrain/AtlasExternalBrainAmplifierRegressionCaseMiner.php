@@ -81,6 +81,12 @@ final class AtlasExternalBrainAmplifierRegressionCaseMiner
                 continue;
             }
 
+            // Enforce the supported-failure-types whitelist.
+            if ($type === '' || ! in_array($type, self::SUPPORTED_FAILURE_TYPES, true)) {
+                $rejectedCandidates[] = ['failure_id' => $id, 'rejection_reason' => 'unsupported_failure_type'];
+                continue;
+            }
+
             $key        = $type . '::' . $trigger;
             $isRepeated = ($keyCounts[$key] ?? 0) >= self::REPEAT_THRESHOLD;
             $isSevere   = in_array($severity, self::SEVERE_LEVELS, true);
