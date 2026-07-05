@@ -448,4 +448,80 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
         $this->assertTrue($r['accepted']);
         $this->assertNotEmpty($r['draft']['anti_hype_risks']);
     }
+
+    // ── AC: trusted provenance alone is not enough without local Atlas fit ──
+
+    public function test_trusted_provenance_alone_not_enough_without_local_atlas_fit(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'allowed_files_hint' => ['app/Services/Ai/AtlasWiringAdapter.php'],
+            'atlas_local_fit_score' => 0.10,
+        ]));
+
+        $this->assertFalse($r['accepted']);
+        $this->assertSame('below_minimum_adoption_score', $r['rejection_reason']);
+    }
+
+    // ── AC: accepted opportunities include owner_file, runnable_gate and expected_capability_delta ──
+
+    public function test_accepted_opportunity_includes_owner_file(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'allowed_files_hint' => ['app/Services/Ai/AtlasWiringAdapter.php'],
+        ]));
+
+        $this->assertTrue($r['accepted']);
+        $this->assertArrayHasKey('owner_file', $r['draft']);
+        $this->assertSame('app/Services/Ai/AtlasWiringAdapter.php', $r['draft']['owner_file']);
+    }
+
+    public function test_accepted_opportunity_includes_runnable_gate(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'allowed_files_hint' => ['app/Services/Ai/AtlasWiringAdapter.php'],
+            'runnable_acceptance_hint' => 'php artisan test tests/Unit/AtlasWiringAdapterTest.php',
+        ]));
+
+        $this->assertTrue($r['accepted']);
+        $this->assertArrayHasKey('runnable_gate', $r['draft']);
+        $this->assertNotEmpty($r['draft']['runnable_gate']);
+    }
+
+    public function test_accepted_opportunity_includes_expected_capability_delta(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'allowed_files_hint' => ['app/Services/Ai/AtlasWiringAdapter.php'],
+        ]));
+
+        $this->assertTrue($r['accepted']);
+        $this->assertArrayHasKey('expected_capability_delta', $r['draft']);
+        $this->assertNotEmpty($r['draft']['expected_capability_delta']);
+    }
+
+    // ── AC: untrusted or hype-only patterns are rejected with rejection_reason ──
+
+    public function test_untrusted_pattern_rejected_with_rejection_reason(): void
+    {
+        $r = $this->planner->toTaskOpportunity([
+            'provenance' => 'untrusted-source',
+            'comparison_summary' => 'A vs B',
+            'atlas_adaptation_hypothesis' => 'Wrap pattern A behind AtlasWiringAdapter, keep provider-free',
+        ]);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertNotEmpty($r['rejection_reason']);
+        $this->assertSame('untrusted_provenance_prefix', $r['rejection_reason']);
+    }
+
+    public function test_hype_only_pattern_rejected_with_rejection_reason(): void
+    {
+        $r = $this->planner->toTaskOpportunity([
+            'provenance' => 'github:example/repo',
+            'comparison_summary' => 'this is a game changer for A vs B',
+            'atlas_adaptation_hypothesis' => 'use it',
+        ]);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertNotEmpty($r['rejection_reason']);
+    }
 }

@@ -132,6 +132,9 @@ final class AtlasExternalBrainResearchPatternPlan
                 'runnable_acceptance_hint' => $runnableHint,
                 'adoption_score'          => $adoptionScore,
                 'score_explanation'       => $scoreExplanation,
+                'owner_file'              => $allowedFilesHint[0] ?? '',
+                'runnable_gate'           => $runnableHint,
+                'expected_capability_delta' => $adaptationHypothesis,
             ],
         ];
     }
