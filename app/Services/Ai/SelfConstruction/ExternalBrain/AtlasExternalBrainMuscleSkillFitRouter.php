@@ -149,6 +149,25 @@ final class AtlasExternalBrainMuscleSkillFitRouter
         return array_keys($tags);
     }
 
+    /**
+     * Wilson score interval lower bound at 95% confidence (z=1.96).
+     * Returns 0.5 as neutral prior when total is 0 (no data).
+     */
+    private function wilsonLowerBound(int $successCount, int $total): float
+    {
+        if ($total <= 0) {
+            return 0.5;
+        }
+
+        $z = 1.96;
+        $p = $successCount / $total;
+        $denominator = 1.0 + $z * $z / $total;
+        $center = ($p + $z * $z / (2.0 * $total)) / $denominator;
+        $margin = $z * sqrt(($p * (1.0 - $p) + $z * $z / (4.0 * $total)) / $total) / $denominator;
+
+        return round(max(0.0, $center - $margin), 4);
+    }
+
     private function scoreCandidate(array $candidate, string $taskFamily, array $requiredSkills, string $riskLevel, array $scopeTags = []): ?array
     {
         $muscleId = trim((string) ($candidate['muscle_id'] ?? ''));
@@ -170,7 +189,9 @@ final class AtlasExternalBrainMuscleSkillFitRouter
         $familySucc  = max(0, (int) ($history['success'] ?? 0));
         $familyGiveBack = max(0, (int) ($history['give_back'] ?? 0));
         $familyScopeFailure = max(0, (int) ($history['scope_failure'] ?? 0));
-        $familySuccessRate = $familyTotal > 0 ? $familySucc / $familyTotal : 0.5;
+        $familySuccessRate = $familyTotal > 0
+            ? $this->wilsonLowerBound($familySucc, $familyTotal)
+            : 0.5;
 
         $recentGiveBackRate = max(0.0, min(1.0, (float) ($candidate['recent_give_back_rate'] ?? 0.0)));
         $recentReliability  = 1.0 - $recentGiveBackRate;
@@ -186,7 +207,8 @@ final class AtlasExternalBrainMuscleSkillFitRouter
             if ($scopeTotal < self::SCOPE_MIN_SAMPLE_COUNT) {
                 continue;
             }
-            $scopeSuccessRate = max(0, (int) ($scopeHistory['success'] ?? 0)) / $scopeTotal;
+            $scopeSucc = max(0, (int) ($scopeHistory['success'] ?? 0));
+            $scopeSuccessRate = $this->wilsonLowerBound($scopeSucc, $scopeTotal);
             if ($scopeSuccessRate > 0.5) {
                 $bonus = ($scopeSuccessRate - 0.5) * self::SCOPE_MATCH_WEIGHT;
                 if ($bonus > $scopeBonus) {
