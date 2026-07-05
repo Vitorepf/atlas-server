@@ -20,14 +20,13 @@ forbidden_changes:
   - touch external_rivals_certification
 category: architecture
 priority: 92
-summary: Doc-mãe do runtime PHP do ResearchDomain. Aponta para os 10 services existentes + 17 docs de research-self-improvement + Profile no Registry + CLI canon + ComplianceGate novo + entry no ACOS Scorecard. Declara não-duplicação explícita.
+summary: Doc-mãe do runtime PHP do ResearchDomain. Aponta para os services existentes, profile no Registry, CLI canon e entrada no ACOS Scorecard. Declara não-duplicação explícita e registra que o gate standalone antigo foi aposentado.
 tags:
   - atlas-ai
   - domains
   - research
   - source-grounded
   - review-only
-  - compliance-gate
 capabilities:
   - research_domain_runtime
   - source_grounded_compliance
@@ -36,10 +35,9 @@ capabilities:
   - evidence_pack_bridge
 decisions:
   - Research é domínio review-only (analysis_review_only); nunca executa.
-  - Toda publicação de claim passa por ResearchDomainComplianceGate.
+  - Research permanece review-only e source-grounded por política declarada. O enforcement comprovável em código é a certificação de thresholds em ResearchSynthesisService (MIN_ACCEPTED_SOURCES/MIN_SOURCE_DIVERSITY/MIN_CLAIMS) mais a política declarativa do registry (gate_policy autonomy_ceiling=source_grounded_review). Não existe gate de execução — o gate standalone foi deletado em 2026-07-05 (commit 26333fec23) e nunca teve wiring.
   - ResearchDomain e Research Company Runtime sao adapter/executor do Research OS universal, nao uma arquitetura paralela de pesquisa.
   - Storage de runs/sources/claims/synthesis vive em DB (decisão 2026-05-18).
-  - Gate decisions vivem em JSONL append-only (storage/atlas/research_domain/gates.jsonl).
   - Flows canônicos: research.quick e research.super (registry).
   - Research é o subsystem 52 do ACOS (ARDR — Research Domain Runtime).
 maintenance:
@@ -48,7 +46,6 @@ maintenance:
   - Não migre DB → JSONL para runs/sources/claims/synthesis — a decisão é canon.
 related_paths:
   - app/Services/Ai/ResearchDomain/ResearchDomainCanon.php
-  - app/Services/Ai/ResearchDomain/ResearchDomainComplianceGate.php
   - app/Services/Ai/ResearchDomain/ResearchRuntimeService.php
   - app/Services/Ai/ResearchDomain/ResearchSourcePlanService.php
   - app/Services/Ai/ResearchDomain/ResearchSourceQualityService.php
@@ -86,7 +83,6 @@ repo_paths:
   - app/Services/Ai/ResearchDomain
   - app/Console/Commands/AtlasAiResearchDomainCommand.php
   - tests/Feature/Ai/ResearchDomain
-  - tests/Unit/Ai/ResearchDomain/ResearchDomainComplianceGateTest.php
 allowed_changes:
   - Atualizar runtime, thresholds, gates e evidências quando ResearchDomain mudar.
   - Adicionar novos flows apenas via AtlasDomainProfileRegistry e AtlasResearchOrchestrator.
@@ -100,21 +96,17 @@ unlocks:
   - research-domain-control-plane-projection
 governs:
   - research-domain
-  - research-compliance-gate
   - research-claim-publication
 evidence:
   - app/Services/Ai/ResearchDomain/ResearchDomainCanon.php
-  - app/Services/Ai/ResearchDomain/ResearchDomainComplianceGate.php
   - app/Services/Ai/ResearchDomain/ResearchRuntimeService.php
   - app/Console/Commands/AtlasAiResearchDomainCommand.php
   - tests/Feature/Ai/ResearchDomain
-  - tests/Unit/Ai/ResearchDomain/ResearchDomainComplianceGateTest.php
 evidence_refs:
   - symbol: ResearchRuntimeService
   - command: atlas:ai:research-domain
-  - test: ResearchDomainComplianceGateTest
 required_tests:
-  - "php artisan test tests/Feature/Ai/ResearchDomain tests/Unit/Ai/ResearchDomain/ResearchDomainComplianceGateTest.php"
+  - "php artisan test tests/Feature/Ai/ResearchDomain"
   - "php artisan atlas:ai:research-domain --action=readiness --json"
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true
@@ -122,7 +114,7 @@ next_actions:
   - Rodar bateria completa ResearchDomain depois de mudanças em gates ou storage.
   - Registrar qualquer novo flow no registry canônico, sem criar registry paralelo.
   - Manter Research review-only e source-grounded antes de claims externos.
-schema: atlas.research_domain.compliance_gate.v1
+schema: atlas.research_domain.runtime.v1
 ---
 
 # Atlas Research Domain Runtime
@@ -131,8 +123,12 @@ schema: atlas.research_domain.compliance_gate.v1
 
 Doc-mãe do runtime PHP do ResearchDomain. Documenta o que **já existe** desde
 2026-05-18, declara explicitamente o que **NÃO** é duplicado, e registra a
-**adição limpa** de 2026-05-26 (`ResearchDomainComplianceGate` + entry no
-ACOS Scorecard).
+entrada no ACOS Scorecard. Atualização 2026-07-05: o gate standalone de compliance
+(`ResearchDomainComplianceGate`) citado em versões antigas não existe no código
+atual — foi deletado no commit 26333fec23 e NUNCA teve wiring em
+app/config/routes/bootstrap (o único consumidor era o próprio teste unitário,
+deletado junto); o enforcement de execução descrito em versões antigas deste doc
+nunca foi real. Não o recrie sem AP/owner-flow explícito.
 
 ## Papel no Atlas
 
@@ -173,8 +169,9 @@ synthesis, citation health, promotion), ele pertence ao Research OS Core. Se o
 criterio e especifico do assunto, ele pertence ao adapter.
 
 Research depende da governança de conhecimento, Constitutional Kernel,
-Autonomy Admission e do registry de domínios. Finance é referência estrutural
-para compliance gate, mas não vira owner de regras Research.
+Autonomy Admission e do registry de domínios. Finance pode inspirar padrões de
+compliance, mas não vira owner de regras Research nem prova que há gate
+standalone neste domínio.
 
 ## Contratos
 
@@ -239,7 +236,6 @@ com as actions: `readiness`, `seed-manifest`, `smoke`, `control-plane`,
 | Conteúdo | Onde vive | Por quê |
 | --- | --- | --- |
 | Runs, sources, claims, synthesis | DB tables (`ai_research_*`) | Decisão de 2026-05-18, suporta queries relacionais. |
-| Gate decisions | `storage/atlas/research_domain/gates.jsonl` | Append-only ledger novo (2026-05-26), pétreo evidence pattern. |
 | Mission evidence refs | `ai_mission_evidence_refs` (tolerante) | Bridge existente em `ResearchEvidenceBridge`. |
 
 ## Fluxo
@@ -255,11 +251,13 @@ research.quick|research.super
 -> contradiction check
 -> synthesis/certification
 -> evidence bridge/control-plane projection
--> ResearchDomainComplianceGate before claim publication
+-> certificação source-grounded contra thresholds do canon em ResearchSynthesisService
 ```
 
-O fluxo é review-only. Qualquer tentativa de transformar Research em execução
-autônoma deve bloquear no compliance gate.
+O fluxo é review-only por política declarada (registry:
+`autonomy_ceiling=source_grounded_review`). O único enforcement comprovável em
+código é a certificação de thresholds em `ResearchSynthesisService`; não há
+gate de execução standalone ativo.
 
 ## Regras para IA
 
@@ -275,64 +273,58 @@ autônoma deve bloquear no compliance gate.
 
 ## Escopo de Implementacao
 
-### ResearchDomainComplianceGate
+### Enforcement atual
 
-Espelho **estrutural** (não conteúdo igual) de `AtlasFinanceComplianceGate`.
+Não existe `ResearchDomainComplianceGate` standalone nem gate de execução. O
+que existe, comprovável em código:
 
-### Contrato
+- `ResearchDomainCanon` concentra enums, thresholds e constantes canônicas.
+- `ResearchSourceQualityService` pontua fontes (accepted/rejected) e grava a
+  métrica `source_diversity` do run; ele NÃO aplica o threshold de diversidade.
+- `ResearchSynthesisService` é onde a certificação acontece: aplica
+  `MIN_ACCEPTED_SOURCES`, `MIN_SOURCE_DIVERSITY`
+  (`ResearchSynthesisService.php:105`) e `MIN_CLAIMS`, e marca como missing
+  claims sem `source_refs` antes de certificar.
+- `ResearchReadinessService` é health-check (tables, models, services, enums);
+  não bloqueia nada.
+- `AtlasDomainProfileRegistry::researchDomainGatePolicy()` declara
+  `autonomy_ceiling=source_grounded_review` — política declarativa do registry,
+  não gate de runtime.
 
-```php
-$gate = app(ResearchDomainComplianceGate::class);
-$envelope = $gate->evaluate($plan, $requestedExecutionActions);
-// $envelope['decision'] ∈ {allow, block, requires_evidence}
-```
+Políticas declaradas (decisão de doc/registry, sem enforcement dedicado em código):
 
-### Invariantes enforced
+- Research opera em modo analysis/review-only. Nenhum código do ResearchDomain
+  declara ou verifica `output_mode` — essa constante existe apenas no domínio
+  Finance; para Research é política declarada, não invariante enforced.
+- Research não executa ações externas.
+- Claims precisam ser source-grounded e atribuíveis a fontes aceitas (isto sim
+  é verificado na certificação da synthesis).
+- Claims comparativos externos e de medição competitiva não são autorizados
+  por este runtime; ver claim policy do ACOS.
 
-- `output_mode` deve ser `analysis_review_only`.
-- `execution_intent_allowed` deve ser `false` (review-only sempre).
-- `source_grounded` deve ser `true`.
-- `accepted_sources_count ≥ ResearchDomainCanon::MIN_ACCEPTED_SOURCES`.
-- `source_diversity ≥ ResearchDomainCanon::MIN_SOURCE_DIVERSITY`.
-- `claims_with_source_refs ≥ ResearchDomainCanon::MIN_CLAIMS`.
-- Constitutional Kernel atravessado a cada evaluate (pétreos).
-- Autonomy Admission consultado com `requested_autonomy=suggest`.
-- Qualquer `requested_execution_actions != []` → **hard block**.
-
-### Decision composition
-
-| Condição | Decisão |
-| --- | --- |
-| Kernel decide `block` | `block` |
-| `$requestedExecutionActions != []` | `block` |
-| Sem reasons | `allow` |
-| Reasons só de threshold/source-grounding | `requires_evidence` |
-
-`requires_evidence` é o caminho de retomada: operador fornece mais fonte
-ou evidência e re-roda. Não é falha pétreo.
-
-### Receipt JSONL
-
-`storage/atlas/research_domain/gates.jsonl` — append-only, schema
-`atlas.research_domain.compliance_gate.v1`, hash determinístico sobre
-campos canônicos (recorded_at fora do hash).
+Se um gate standalone voltar a ser necessário, ele deve nascer por AP/owner-flow
+explícito, com wiring real, teste vivo e atualização deste doc no mesmo commit.
 
 ### ACOS Scorecard registration
 
-Research entrou em `AtlasCognitionScoreCardService::SUBSYSTEMS` como linha
-**52**:
+ARDR está registrado em `AtlasCognitionScoreCardService::SUBSYSTEMS`
+(`app/Services/Ai/Cognition/AtlasCognitionScoreCardService.php:245`) como tupla
+de **4 elementos**:
 
 ```
-['ARDR', 'Research Domain Runtime', 'research_domain', ResearchRuntimeService::class, 'ready', 'ready', 'building']
+['ARDR',  'Research Domain Runtime',               'research_domain', ResearchRuntimeService::class],
 ```
 
-- `code_status` = derivado por `probeCodeStatus()` (ready — classe existe).
-- `doc_status` = `ready` (este doc + 17 docs research-self-improvement +
-  doc-mãe self-improvement-runtime).
-- `pipeline_status` = `ready` (11+ feature tests verdes + Profile registry +
-  Holding enterprise hook + ResearchReadinessService probe — pipeline real
-  prova-se hoje; evidence volume orgânico cresce com uso do operador,
-  consistent com a definição v3 de "ready").
+- Hoje (2026-07-05) ARDR é a entrada **70 de 73** em `SUBSYSTEMS`. Fato
+  histórico: versões anteriores deste doc (2026-05-26) registravam a entrada
+  como linha 52, com tupla de 7 elementos carregando literais de status; esses
+  literais foram deletados do scorecard.
+- `code_status` = derivado em runtime por `probeCodeStatus()`.
+- `doc_status` e `pipeline_status` NUNCA são lidos da tupla: são resolvidos em
+  runtime por `AtlasCognitionEvidenceResolver`
+  (`resolveDocStatus()`/`resolvePipelineStatus()` chamados em `build()`).
+- Testes: **10** arquivos de feature test em `tests/Feature/Ai/ResearchDomain`
+  (versões antigas diziam "11+").
 
 ### Holding integration
 
@@ -356,7 +348,7 @@ observada, sem que Research execute nada além de análise.
 Comandos de validação:
 
 ```bash
-php artisan test tests/Feature/Ai/ResearchDomain tests/Unit/Ai/ResearchDomain/ResearchDomainComplianceGateTest.php
+php artisan test tests/Feature/Ai/ResearchDomain
 php artisan atlas:ai:research-domain --action=readiness --json
 php artisan atlas:engineering:knowledge docs-health --json
 ```
@@ -371,28 +363,13 @@ fluxo Research está final.
 | --- | --- |
 | IA recriar `ResearchDomainFlowRegistry` | Registry canônico declarado neste doc. |
 | IA criar mini-Research por dominio | Research OS universal + adapters, conforme `research-operating-system.md`. |
-| Research virar executor | Compliance gate bloqueia execution intent. |
+| Research virar executor | Política declarada (registry `autonomy_ceiling=source_grounded_review`) + certificação de thresholds em `ResearchSynthesisService`. Não existe gate de execução em código desde a deleção do gate standalone (que nunca teve wiring) — vigiar em review. |
 | Claims sem fonte | Thresholds e `source_grounded=true` exigidos. |
-| Storage paralelo | DB e JSONL têm papéis separados no contrato. |
-| Scorecard virar claim externo | claim_policy bloqueia benchmark/Rivals/superioridade. |
+| Storage paralelo | DB é a fonte de runs/sources/claims/synthesis; evidence bridge é tolerante e não substitui o store canônico. |
+| Scorecard virar claim externo | Claims comparativos externos e de medição competitiva não são autorizados; ver claim policy do ACOS. |
 | Pesquisa certificada nao virar conhecimento reutilizavel | Futuro promotion gate deve levar synthesis para Memory/Vault/Semantic Notes/Open Brain/Constelacao. |
 
 ## Exemplos
-
-### claim_policy
-
-Hardcoded em `ResearchDomainComplianceGate::claimPolicy()`:
-
-```
-benchmark_claim_allowed                = false
-rivals_claim_allowed                   = false
-superiority_claim_allowed              = false
-external_rivals_certification_touched  = false
-concurrent_claim_allowed               = false
-cognitive_immune_law_enforced          = true
-provider_safe_only_enforced            = true
-review_only_enforced                   = true
-```
 
 ### Comando readiness
 
