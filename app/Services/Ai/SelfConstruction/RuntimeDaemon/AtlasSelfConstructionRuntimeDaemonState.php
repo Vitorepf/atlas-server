@@ -250,7 +250,7 @@ final class AtlasSelfConstructionRuntimeDaemonState
             return self::HEARTBEAT_MISSING;
         }
         if ($nowAt === null) {
-            return self::HEARTBEAT_FRESH;
+            return self::HEARTBEAT_MISSING;
         }
         $last = strtotime((string) $lastHeartbeatAt);
         $now = strtotime((string) $nowAt);

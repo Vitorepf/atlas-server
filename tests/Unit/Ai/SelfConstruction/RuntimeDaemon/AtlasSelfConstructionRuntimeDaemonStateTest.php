@@ -131,8 +131,11 @@ final class AtlasSelfConstructionRuntimeDaemonStateTest extends TestCase
         $reducer = new AtlasSelfConstructionRuntimeDaemonState;
         $a = $reducer->reduce(['status' => 'planned', 'last_heartbeat_at' => '2020-01-01T00:00:00+00:00'], ['type' => 'heartbeat']);
 
-        // No `now_at` supplied — heartbeat_status stays fresh because we can't measure age without a clock.
-        $this->assertSame('fresh', $a['heartbeat_status']);
+        // No `now_at` supplied — heartbeat_status is missing because we cannot
+        // assess freshness without a clock (fail-closed). But a missing clock
+        // does not block nextTickAllowed (only STALE does), so the tick is
+        // still allowed.
+        $this->assertSame('missing', $a['heartbeat_status']);
         $this->assertTrue($a['next_tick_allowed']);
     }
 
