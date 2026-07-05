@@ -304,4 +304,258 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
     {
         self::assertContains('blocked', AgentControlPlaneTaskDependencyClassifier::DEPENDENCY_DEAD_STATES);
     }
+
+    // ── AC: classify() verdicts ──────────────────────────────────────────────
+
+    private function runnableCandidate(array $overrides = []): array
+    {
+        return array_replace([
+            'task_packet_id' => 'tp1',
+            'metadata' => ['depends_on' => []],
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'acceptance_criteria' => ['phpunit tests/Unit/FooTest.php exits 0'],
+        ], $overrides);
+    }
+
+    public function test_classify_ready_when_deps_met_scope_sufficient_acceptance_runnable(): void
+    {
+        $cache = [];
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $this->runnableCandidate(),
+            $cache,
+        );
+
+        self::assertSame('ready', $result['verdict']);
+        self::assertSame('dependencies_met_scope_sufficient_acceptance_runnable', $result['reason']);
+    }
+
+    public function test_classify_waiting_when_upstream_inflight(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate(['metadata' => ['depends_on' => ['dep1']]]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader(['dep1' => ['status' => 'claimable', 'metadata' => []]]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('waiting', $result['verdict']);
+        self::assertSame('upstream_dependency_inflight', $result['reason']);
+    }
+
+    public function test_classify_blocked_when_upstream_dead(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate(['metadata' => ['depends_on' => ['dep1']]]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader(['dep1' => ['status' => 'blocked', 'metadata' => []]]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('blocked', $result['verdict']);
+        self::assertSame('upstream_dependency_blocked', $result['reason']);
+    }
+
+    public function test_classify_blocked_when_allowed_files_insufficient(): void
+    {
+        $cache = [];
+        // No allowed_files at all — acceptance cannot be verified against any file.
+        $candidate = $this->runnableCandidate([
+            'allowed_files' => [],
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('blocked', $result['verdict']);
+        self::assertSame('allowed_files_insufficient_for_acceptance', $result['reason']);
+    }
+
+    public function test_classify_blocked_when_no_runnable_acceptance(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate([
+            'acceptance_criteria' => ['code looks good'],
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('blocked', $result['verdict']);
+    }
+
+    public function test_classify_poison_for_test_only_packet(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate([
+            'allowed_files' => ['tests/Unit/FooTest.php', 'tests/Feature/FooTest.php'],
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('poison', $result['verdict']);
+        self::assertSame('test_only_packet_no_implementation', $result['reason']);
+    }
+
+    public function test_classify_poison_for_forbidden_self_target(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate([
+            'packet_quality' => [
+                'facts' => ['forbidden_self_targets' => ['app/HotScope.php']],
+                'deficiencies' => [],
+            ],
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('poison', $result['verdict']);
+        self::assertSame('forbidden_self_target', $result['reason']);
+    }
+
+    public function test_classify_poison_for_forbidden_self_target_deficiency(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate([
+            'packet_quality' => [
+                'facts' => [],
+                'deficiencies' => ['forbidden_self_target'],
+            ],
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('poison', $result['verdict']);
+    }
+
+    public function test_classify_poison_for_impossible_acceptance(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate([
+            'acceptance_criteria' => ['phpunit must pass AND fail simultaneously'],
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('poison', $result['verdict']);
+        self::assertSame('impossible_or_contradictory_acceptance', $result['reason']);
+    }
+
+    public function test_classify_poison_for_contradictory_acceptance_deficiency(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate([
+            'packet_quality' => [
+                'facts' => [],
+                'deficiencies' => ['contradictory_acceptance'],
+            ],
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('poison', $result['verdict']);
+    }
+
+    public function test_classify_operator_only_for_human_action_requirement(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate([
+            'metadata' => ['depends_on' => [], 'requires_human_review' => true],
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('operator_only', $result['verdict']);
+        self::assertSame('requires_human_action', $result['reason']);
+    }
+
+    public function test_classify_operator_only_in_objective(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate([
+            'objective' => 'This task requires manual_approval from the operator.',
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('operator_only', $result['verdict']);
+    }
+
+    public function test_classify_operator_only_takes_precedence_over_poison(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate([
+            'metadata' => ['depends_on' => [], 'requires_human' => true],
+            'packet_quality' => [
+                'facts' => ['forbidden_self_targets' => ['app/Hot.php']],
+                'deficiencies' => [],
+            ],
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader([]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('operator_only', $result['verdict']);
+    }
+
+    public function test_classify_poison_takes_precedence_over_blocked(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate([
+            'metadata' => ['depends_on' => ['dead_dep']],
+            'packet_quality' => [
+                'facts' => ['forbidden_self_targets' => ['app/Hot.php']],
+                'deficiencies' => [],
+            ],
+        ]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader(['dead_dep' => ['status' => 'blocked', 'metadata' => []]]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('poison', $result['verdict']);
+    }
+
+    public function test_classify_ready_when_upstream_completed(): void
+    {
+        $cache = [];
+        $candidate = $this->runnableCandidate(['metadata' => ['depends_on' => ['dep1']]]);
+        $result = AgentControlPlaneTaskDependencyClassifier::classify(
+            $this->makeLoader(['dep1' => ['status' => 'completed_dry_run', 'metadata' => []]]),
+            $candidate,
+            $cache,
+        );
+
+        self::assertSame('ready', $result['verdict']);
+    }
 }

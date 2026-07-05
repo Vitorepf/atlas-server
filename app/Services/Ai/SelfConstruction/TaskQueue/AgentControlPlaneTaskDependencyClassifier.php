@@ -21,6 +21,46 @@ final class AgentControlPlaneTaskDependencyClassifier
     /** A dep here is unmet but DEAD (quarantined) — operator-recoverable, NOT the advancing ladder. */
     public const DEPENDENCY_DEAD_STATES = ['blocked'];
 
+    /** Full-task classification verdicts. */
+    public const VERDICT_READY = 'ready';
+
+    public const VERDICT_WAITING = 'waiting';
+
+    public const VERDICT_BLOCKED = 'blocked';
+
+    public const VERDICT_POISON = 'poison';
+
+    public const VERDICT_OPERATOR_ONLY = 'operator_only';
+
+    /** @var list<string> Patterns that mark an acceptance as impossible / contradictory. */
+    private const IMPOSSIBLE_ACCEPTANCE_PATTERNS = [
+        'contradictory',
+        'impossible',
+        'paradox',
+        'circular',
+        'self-contradict',
+        'simultaneously',
+        'and fail',
+        'pass and fail',
+    ];
+
+    /** @var list<string> Markers that a task requires human-only action. */
+    private const OPERATOR_ONLY_MARKERS = [
+        'requires_human',
+        'human_only',
+        'manual_approval',
+        'operator_decision',
+        'requires_human_review',
+        'human_gate',
+    ];
+
+    /** @var list<string> Markers that a packet is test-only (no implementation file). */
+    private const TEST_ONLY_MARKERS = [
+        'test_only',
+        'test-only',
+        'feature_test_only',
+    ];
+
     /**
      * Classify a candidate's depends_on into the gate/wait verdict.
      *
@@ -58,6 +98,185 @@ final class AgentControlPlaneTaskDependencyClassifier
         }
 
         return $sawDead ? 'blocked' : 'met';
+    }
+
+    /**
+     * Full-task classification using concrete packet + queue evidence.
+     *
+     * Precedence: operator_only > poison > blocked > waiting > ready.
+     *   - operator_only: task metadata carries an operator-only marker.
+     *   - poison: test-only packet, forbidden self-target, or impossible acceptance.
+     *   - blocked: upstream dependency is dead (blocked/quarantined), or allowed_files
+     *     insufficient for the acceptance to be runnable.
+     *   - waiting: upstream dependency is inflight (claimable but not completed).
+     *   - ready: all deps satisfied, allowed_files sufficient, acceptance runnable.
+     *
+     * @param  Closure(string):?array  $nodeLoader
+     * @param  array<string, mixed>  $candidate
+     * @param  array<string, array{status:string, depends_on:list<string>}|null>  $cache
+     * @return array{verdict:string, reason:string}
+     */
+    public static function classify(Closure $nodeLoader, array $candidate, array &$cache): array
+    {
+        $rootId = (string) ($candidate['task_packet_id'] ?? '');
+        $metadata = is_array($candidate['metadata'] ?? null) ? $candidate['metadata'] : [];
+        $allowedFiles = array_values(array_filter((array) ($candidate['allowed_files'] ?? []), 'is_string'));
+        $acceptanceCriteria = array_values(array_filter((array) ($candidate['acceptance_criteria'] ?? []), 'is_string'));
+        $packetQuality = is_array($candidate['packet_quality'] ?? null) ? $candidate['packet_quality'] : [];
+        $qualityFacts = is_array($packetQuality['facts'] ?? null) ? $packetQuality['facts'] : [];
+        $qualityDeficiencies = is_array($packetQuality['deficiencies'] ?? null) ? $packetQuality['deficiencies'] : [];
+
+        // OPERATOR_ONLY: explicit human-only markers.
+        if (self::candidateHasMarker($metadata, $candidate, self::OPERATOR_ONLY_MARKERS)) {
+            return ['verdict' => self::VERDICT_OPERATOR_ONLY, 'reason' => 'requires_human_action'];
+        }
+
+        // POISON: forbidden self-target.
+        if (! empty($qualityFacts['forbidden_self_targets']) || in_array('forbidden_self_target', $qualityDeficiencies, true)) {
+            return ['verdict' => self::VERDICT_POISON, 'reason' => 'forbidden_self_target'];
+        }
+
+        // POISON: test-only packet with no implementation file (all allowed_files are test paths).
+        if ($allowedFiles !== [] && self::isTestOnlyPacket($allowedFiles)) {
+            return ['verdict' => self::VERDICT_POISON, 'reason' => 'test_only_packet_no_implementation'];
+        }
+        // Also detect explicit test_only markers in packet quality.
+        if (self::candidateHasMarker($metadata, $candidate, self::TEST_ONLY_MARKERS) || in_array('test_only', $qualityDeficiencies, true)) {
+            return ['verdict' => self::VERDICT_POISON, 'reason' => 'test_only_packet_no_implementation'];
+        }
+
+        // POISON: impossible / contradictory acceptance.
+        if (self::acceptanceIsImpossible($acceptanceCriteria, $qualityDeficiencies)) {
+            return ['verdict' => self::VERDICT_POISON, 'reason' => 'impossible_or_contradictory_acceptance'];
+        }
+
+        // BLOCKED: upstream dependency is dead.
+        $depVerdict = self::classifyDependencies($nodeLoader, $candidate, $cache);
+        if ($depVerdict === 'blocked') {
+            return ['verdict' => self::VERDICT_BLOCKED, 'reason' => 'upstream_dependency_blocked'];
+        }
+
+        // BLOCKED: allowed_files insufficient for acceptance to be runnable.
+        if (! self::acceptanceIsRunnable($acceptanceCriteria, $allowedFiles)) {
+            return ['verdict' => self::VERDICT_BLOCKED, 'reason' => 'allowed_files_insufficient_for_acceptance'];
+        }
+
+        // WAITING: upstream dependency is inflight.
+        if ($depVerdict === 'inflight') {
+            return ['verdict' => self::VERDICT_WAITING, 'reason' => 'upstream_dependency_inflight'];
+        }
+
+        // READY: all deps met, allowed_files sufficient, acceptance runnable.
+        return ['verdict' => self::VERDICT_READY, 'reason' => 'dependencies_met_scope_sufficient_acceptance_runnable'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @param  array<string, mixed>  $candidate
+     * @param  list<string>  $markers
+     */
+    private static function candidateHasMarker(array $metadata, array $candidate, array $markers): bool
+    {
+        $haystacks = [
+            json_encode($metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '',
+            (string) ($candidate['objective'] ?? ''),
+        ];
+        foreach ($haystacks as $hay) {
+            $lower = strtolower($hay);
+            foreach ($markers as $marker) {
+                if (str_contains($lower, $marker)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private static function isTestOnlyPacket(array $allowedFiles): bool
+    {
+        foreach ($allowedFiles as $file) {
+            $norm = str_replace('\\', '/', $file);
+            if (! (str_starts_with($norm, 'tests/')
+                || str_contains($norm, '/tests/')
+                || str_ends_with($norm, 'Test.php')
+                || str_ends_with($norm, '.test.php')
+                || str_ends_with($norm, 'Test.bs.php')
+            )) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  list<string>  $acceptanceCriteria
+     * @param  list<string>  $qualityDeficiencies
+     */
+    private static function acceptanceIsImpossible(array $acceptanceCriteria, array $qualityDeficiencies): bool
+    {
+        if (in_array('impossible_acceptance', $qualityDeficiencies, true)
+            || in_array('contradictory_acceptance', $qualityDeficiencies, true)
+        ) {
+            return true;
+        }
+        foreach ($acceptanceCriteria as $criterion) {
+            $lower = strtolower((string) $criterion);
+            foreach (self::IMPOSSIBLE_ACCEPTANCE_PATTERNS as $pattern) {
+                if (str_contains($lower, $pattern)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $acceptanceCriteria
+     * @param  list<string>  $allowedFiles
+     */
+    private static function acceptanceIsRunnable(array $acceptanceCriteria, array $allowedFiles): bool
+    {
+        // Acceptance is runnable when there is at least one runnable criterion AND at least
+        // one non-test implementation file to make it true.
+        if ($acceptanceCriteria === []) {
+            return false;
+        }
+        $hasRunnable = false;
+        foreach ($acceptanceCriteria as $criterion) {
+            $lower = strtolower((string) $criterion);
+            if (str_contains($lower, 'phpunit')
+                || str_contains($lower, 'artisan test')
+                || str_contains($lower, 'pest')
+                || str_contains($lower, 'exits 0')
+                || str_contains($lower, 'passes')
+                || str_contains($lower, 'gate')
+            ) {
+                $hasRunnable = true;
+                break;
+            }
+        }
+        if (! $hasRunnable) {
+            return false;
+        }
+
+        // Need at least one implementation file (not purely test paths) for the acceptance to be real.
+        foreach ($allowedFiles as $file) {
+            $norm = str_replace('\\', '/', $file);
+            if (! (str_starts_with($norm, 'tests/')
+                || str_contains($norm, '/tests/')
+                || str_ends_with($norm, 'Test.php')
+            )) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
