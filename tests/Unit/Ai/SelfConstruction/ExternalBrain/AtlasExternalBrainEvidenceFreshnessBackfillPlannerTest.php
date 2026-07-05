@@ -381,4 +381,103 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlannerTest extends TestC
         $this->assertFalse($result['freshness_summary']['is_backfill_needed']);
         $this->assertSame('none', $result['next_proof_command']);
     }
+
+    // ── AC: missing high-leverage streams outrank low-leverage stale streams ──
+
+    public function test_missing_high_leverage_outranks_low_leverage_stale(): void
+    {
+        $result = $this->planner()->plan([
+            'now_unix' => 1000000,
+            'evidence_streams' => [
+                // Stale but low leverage
+                ['stream_id' => 'low-lev-stale', 'has_evidence' => true, 'last_captured_at_unix' => 1, 'freshness_threshold_seconds' => 10, 'leverage_impact' => 0.1],
+                // Missing and high leverage
+                ['stream_id' => 'high-lev-missing', 'has_evidence' => false, 'leverage_impact' => 0.9],
+            ],
+        ]);
+
+        // Missing (reason rank 0) should outrank stale (reason rank 2) regardless of leverage
+        $this->assertSame('high-lev-missing', $result['priority_order'][0]);
+        $this->assertSame('low-lev-stale', $result['priority_order'][1]);
+    }
+
+    public function test_high_leverage_missing_outranks_low_leverage_missing(): void
+    {
+        $result = $this->planner()->plan([
+            'evidence_streams' => [
+                ['stream_id' => 'low-lev', 'has_evidence' => false, 'leverage_impact' => 0.1],
+                ['stream_id' => 'high-lev', 'has_evidence' => false, 'leverage_impact' => 0.9],
+            ],
+        ]);
+
+        // Both missing (same reason rank), but high leverage should come first
+        $this->assertSame('high-lev', $result['priority_order'][0]);
+        $this->assertSame('low-lev', $result['priority_order'][1]);
+    }
+
+    // ── AC: capture_cost affects ordering only after leverage impact and freshness risk ──
+
+    public function test_capture_cost_affects_ordering_after_leverage_and_risk(): void
+    {
+        $result = $this->planner()->plan([
+            'evidence_streams' => [
+                // Same reason (missing), same leverage, same freshness risk, different cost
+                ['stream_id' => 'expensive', 'has_evidence' => false, 'leverage_impact' => 0.5, 'capture_cost' => 0.9],
+                ['stream_id' => 'cheap', 'has_evidence' => false, 'leverage_impact' => 0.5, 'capture_cost' => 0.1],
+            ],
+        ]);
+
+        // Both missing, same leverage, same risk → cheaper one first
+        $this->assertSame('cheap', $result['priority_order'][0]);
+        $this->assertSame('expensive', $result['priority_order'][1]);
+    }
+
+    public function test_capture_cost_does_not_override_leverage_impact(): void
+    {
+        $result = $this->planner()->plan([
+            'evidence_streams' => [
+                // High leverage but expensive
+                ['stream_id' => 'high-lev-expensive', 'has_evidence' => false, 'leverage_impact' => 0.9, 'capture_cost' => 0.9],
+                // Low leverage but cheap
+                ['stream_id' => 'low-lev-cheap', 'has_evidence' => false, 'leverage_impact' => 0.1, 'capture_cost' => 0.1],
+            ],
+        ]);
+
+        // Leverage impact should override capture cost
+        $this->assertSame('high-lev-expensive', $result['priority_order'][0]);
+    }
+
+    // ── AC: every backfill item includes capture_task and proof_command ──
+
+    public function test_every_backfill_item_includes_capture_task_and_proof_command(): void
+    {
+        $result = $this->planner()->plan([
+            'evidence_streams' => [
+                ['stream_id' => 'queue_health', 'has_evidence' => false],
+                ['stream_id' => 'muscle_outcomes', 'has_evidence' => false],
+                ['stream_id' => 'custom_stream', 'has_evidence' => false],
+            ],
+        ]);
+
+        foreach ($result['backfill_tasks'] as $task) {
+            $this->assertArrayHasKey('capture_task', $task);
+            $this->assertArrayHasKey('proof_command', $task);
+            $this->assertNotEmpty($task['capture_task']);
+            $this->assertNotEmpty($task['proof_command']);
+        }
+    }
+
+    public function test_backfill_items_include_leverage_freshness_and_cost_fields(): void
+    {
+        $result = $this->planner()->plan([
+            'evidence_streams' => [
+                ['stream_id' => 'queue_health', 'has_evidence' => false],
+            ],
+        ]);
+
+        $task = $result['backfill_tasks'][0];
+        $this->assertArrayHasKey('leverage_impact', $task);
+        $this->assertArrayHasKey('freshness_risk', $task);
+        $this->assertArrayHasKey('capture_cost', $task);
+    }
 }

@@ -114,6 +114,26 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
 
             [$captureTask, $proofCommand] = $this->catalogueLookup($streamId);
 
+            // Leverage impact: how much brain autonomy depends on this stream.
+            // Known streams have higher leverage than unknown ones.
+            $leverageImpact = isset(self::KNOWN_STREAMS[$streamId]) ? 0.8 : 0.3;
+            $customLeverage = (float) ($stream['leverage_impact'] ?? 0.0);
+            if ($customLeverage > 0.0) {
+                $leverageImpact = $customLeverage;
+            }
+
+            // Freshness risk: how stale the evidence is (0=fresh, 1=very stale/missing).
+            $freshnessRisk = match ($reason) {
+                'missing'        => 1.0,
+                'contradictory'   => 0.9,
+                'never_captured'  => 0.9,
+                'stale'           => 0.5,
+                default           => 0.0,
+            };
+
+            // Capture cost: how expensive is the capture (0=cheap, 1=expensive).
+            $captureCost = (float) ($stream['capture_cost'] ?? 0.5);
+
             $backfillTasks[] = [
                 'stream_id'                   => $streamId,
                 'capture_task'                => $captureTask,
@@ -121,11 +141,32 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
                 'proof_command'               => $proofCommand,
                 'reason'                      => $reason,
                 'priority'                    => $reason === 'missing' ? 'high' : (in_array($reason, ['contradictory', 'never_captured'], true) ? 'high' : 'medium'),
+                'leverage_impact'              => round($leverageImpact, 4),
+                'freshness_risk'              => round($freshnessRisk, 4),
+                'capture_cost'                 => round($captureCost, 4),
             ];
         }
 
-        // Missing evidence outranks stale; contradictory/never_captured are also unsafe (rank 1).
-        usort($backfillTasks, static fn (array $a, array $b): int => self::REASON_RANK[$a['reason']] <=> self::REASON_RANK[$b['reason']]);
+        // Sort priority: reason rank first, then leverage impact (desc),
+        // then freshness risk (desc), then capture cost (asc).
+        usort($backfillTasks, static function (array $a, array $b): int {
+            $reasonCmp = self::REASON_RANK[$a['reason']] <=> self::REASON_RANK[$b['reason']];
+            if ($reasonCmp !== 0) {
+                return $reasonCmp;
+            }
+            // Higher leverage impact first.
+            $levCmp = ($b['leverage_impact'] ?? 0.0) <=> ($a['leverage_impact'] ?? 0.0);
+            if ($levCmp !== 0) {
+                return $levCmp;
+            }
+            // Higher freshness risk first.
+            $riskCmp = ($b['freshness_risk'] ?? 0.0) <=> ($a['freshness_risk'] ?? 0.0);
+            if ($riskCmp !== 0) {
+                return $riskCmp;
+            }
+            // Lower capture cost first.
+            return ($a['capture_cost'] ?? 0.0) <=> ($b['capture_cost'] ?? 0.0);
+        });
 
         $groupedByReason = [];
         foreach ($backfillTasks as $task) {
