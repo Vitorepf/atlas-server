@@ -4,11 +4,19 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Simplification;
 
+use App\Services\Ai\SelfConstruction\Simplification\AtlasSelfConstructionSimplificationReadinessGate;
+use App\Services\Ai\SelfConstruction\Simplification\AtlasSelfConstructionSimplificationSignalRunner;
+
 /**
  * Pure, read-only decision snapshot for a governed circuit-consolidation
  * (simplification) campaign. Combines redundancy maps, equivalence dossiers,
  * deletion plans, consumer impact, parity matrix, rollback receipts, replay
  * plans, and docs-sync blockers into one go/hold/fail_closed decision.
+ *
+ * When a candidate carries simplification signal data (organs, consumers,
+ * before_after, targets), the campaign runs
+ * AtlasSelfConstructionSimplificationSignalRunner → ReadinessGate and
+ * downgrades candidates whose gate returns hold or reject.
  *
  * REQUIRED INPUT SECTIONS (all must be present):
  *   redundancy_map:      {clusters: list<{cluster_id, members: list<string>}>}
@@ -34,6 +42,11 @@ namespace App\Services\Ai\SelfConstruction\Simplification;
  */
 final class AtlasSelfConstructionSimplificationCampaignControlPlane
 {
+    public function __construct(
+        private readonly AtlasSelfConstructionSimplificationSignalRunner $signalRunner = new AtlasSelfConstructionSimplificationSignalRunner,
+        private readonly AtlasSelfConstructionSimplificationReadinessGate $readinessGate = new AtlasSelfConstructionSimplificationReadinessGate,
+    ) {}
+
     public const SCHEMA = 'atlas.self_construction.simplification_campaign_control_plane.v1';
 
     public const DECISION_GO = 'go';
@@ -91,6 +104,20 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
             $redundancyStrengths[] = max(0.0, min(1.0, (float) ($candidate['redundancy_evidence_strength'] ?? 0.5)));
             $referenceStrengths[] = max(0.0, min(1.0, (float) ($candidate['reference_evidence_strength'] ?? 0.5)));
 
+            // Simplification signal gate: when the candidate carries organ/consumer/before_after/target
+            // data, run the real analyzer cluster → ReadinessGate to gate the candidate.
+            $simplificationBlocked = false;
+            if (array_key_exists('organs', $candidate) || array_key_exists('consumers', $candidate) || array_key_exists('before_after', $candidate)) {
+                $runnerResult = $this->signalRunner->run($candidate);
+                $gateResult = $this->readinessGate->evaluate($runnerResult['facts']);
+                if ($gateResult['decision'] === AtlasSelfConstructionSimplificationReadinessGate::DECISION_HOLD
+                    || $gateResult['decision'] === AtlasSelfConstructionSimplificationReadinessGate::DECISION_REJECT
+                ) {
+                    $simplificationBlocked = true;
+                    $blockedWaves[] = $id;
+                }
+            }
+
             $isHighRiskMissingProof = $risk === 'high'
                 && (! $evaluation['proof_readiness'] || ! $evaluation['rollback_readiness']);
 
@@ -106,6 +133,14 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
             if ($evaluation['decision'] !== self::DECISION_GO) {
                 $held[] = $id;
                 $blockedWaves[] = $id;
+
+                continue;
+            }
+
+            // Simplification gate blocks after all other checks — a candidate that
+            // passes redundancy/equivalence/parity but fails the ReadinessGate is held.
+            if ($simplificationBlocked) {
+                $held[] = $id;
 
                 continue;
             }
