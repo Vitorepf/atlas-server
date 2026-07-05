@@ -16,8 +16,20 @@ namespace App\Services\Ai\EngineeringKernel\Repair;
  */
 final class RepairDiagnosisStage
 {
+    /** Classes que um prior/advisor pode destravar em UNKNOWN — nunca test_wrong/spec_wrong. */
+    private const SAFE_CONTEST_CLASSES = [
+        FailureTaxonomy::IMPL_BUG,
+        FailureTaxonomy::ENV_FLAKE,
+        FailureTaxonomy::DEPENDENCY_BROKEN,
+        FailureTaxonomy::SCOPE_MISS,
+    ];
+
     /** Advisor CONTEST-only: pode contestar um UNKNOWN com uma classe, nunca sobrescrever regra. */
-    public function __construct(private readonly ?RepairDiagnosisAdvisor $advisor = null) {}
+    public function __construct(
+        private readonly ?RepairDiagnosisAdvisor $advisor = null,
+        // OBRA #4 S4 — prior do failure-brain: assinatura JÁ reparada reusa a classe comprovada.
+        private readonly ?FailureBrainCorpus $corpus = null,
+    ) {}
 
     /**
      * @param  array{failure_output:string, failure_signature?:string, origin?:string,
@@ -31,15 +43,32 @@ final class RepairDiagnosisStage
 
         [$class, $hint, $decidedBy] = $this->deterministicClass($output, $signals);
 
+        // OBRA #4 S4 — PRIOR DO CORPUS (flywheel): uma assinatura EXATA já diagnosticada e
+        // REPARADA reusa a classe comprovada. Clamp anti-poisoning: só outcome 'repaired' cria
+        // prior (halted/unrepaired NUNCA) e só classes SEGURAS são adotadas — um registro ruim
+        // não rebaixa nada abaixo do default (UNKNOWN => regenerar).
+        if ($class === FailureTaxonomy::UNKNOWN && $this->corpus !== null) {
+            $signature = trim((string) ($context['failure_signature'] ?? ''));
+            if ($signature !== '') {
+                foreach ($this->corpus->all() as $prior) {
+                    if (($prior['failure_signature'] ?? null) === $signature
+                        && ($prior['outcome'] ?? null) === 'repaired'
+                        && in_array((string) ($prior['class'] ?? ''), self::SAFE_CONTEST_CLASSES, true)) {
+                        $class = (string) $prior['class'];
+                        $decidedBy = 'corpus_prior';
+                        $hint = 'assinatura já reparada antes via '.(string) ($prior['strategy'] ?? '');
+                        break;
+                    }
+                }
+            }
+        }
+
         // Advisor contest-only: só quando as regras não decidiram, e NUNCA para classes de parada
         // sensível (test_wrong/spec_wrong exigem sinal explícito — um palpite de modelo não
         // autoriza tocar em teste nem spec).
         if ($class === FailureTaxonomy::UNKNOWN && $this->advisor !== null) {
             $contested = $this->advisor->contest($context);
-            if (is_string($contested) && in_array($contested, [
-                FailureTaxonomy::IMPL_BUG, FailureTaxonomy::ENV_FLAKE,
-                FailureTaxonomy::DEPENDENCY_BROKEN, FailureTaxonomy::SCOPE_MISS,
-            ], true)) {
+            if (is_string($contested) && in_array($contested, self::SAFE_CONTEST_CLASSES, true)) {
                 $class = $contested;
                 $decidedBy = 'advisor_contest';
             }
