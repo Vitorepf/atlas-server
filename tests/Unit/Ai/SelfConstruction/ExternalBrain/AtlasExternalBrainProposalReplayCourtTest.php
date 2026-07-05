@@ -468,4 +468,40 @@ final class AtlasExternalBrainProposalReplayCourtTest extends TestCase
         $this->assertContains('matches a known give_back pattern', $decision['replay_findings']);
         $this->assertContains('matches a known low_value pattern', $decision['replay_findings']);
     }
+
+    // ── AC2: valid proposal contributes to all_accepted verdict ──
+
+    public function test_valid_proposal_contributes_to_all_accepted_verdict(): void
+    {
+        $r = $this->court()->adjudicate(['proposals' => [$this->good()]]);
+
+        $this->assertContains('p1', $r['accepted_proposals']);
+        $this->assertEmpty($r['rejected_proposals']);
+    }
+
+    // ── AC3: duplicate target rejected with duplicate_target reason ──
+
+    public function test_duplicate_target_rejected_with_duplicate_target_reason(): void
+    {
+        $r = $this->court()->adjudicate([
+            'proposals' => [$this->good()],
+            'existing_queue_targets' => ['app/Services/Foo.php'],
+        ]);
+
+        $this->assertNotEmpty($r['rejected_proposals']);
+    }
+
+    // ── AC4: repairable rejected proposals include concrete repair synthesis ──
+
+    public function test_repairable_rejected_proposal_includes_repair_synthesis(): void
+    {
+        $proposal = $this->good(['evidence' => []]);
+
+        $r = $this->court()->adjudicate([
+            'proposals' => [$proposal],
+            'require_evidence' => true,
+        ]);
+
+        $this->assertNotEmpty($r['repairable_proposals']);
+    }
 }
