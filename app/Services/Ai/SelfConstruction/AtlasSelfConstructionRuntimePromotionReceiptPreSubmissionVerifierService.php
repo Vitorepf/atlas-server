@@ -2,8 +2,6 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-
-
 use App\Services\Ai\SelfConstruction\ReadinessHash;
 use Carbon\CarbonImmutable;
 
@@ -19,11 +17,12 @@ use Carbon\CarbonImmutable;
  */
 final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierService
 {
+    use IsPlaceholderReasonShared;
+
     /**
      * @param  array<string,mixed>  $value
      * @return array<string,mixed>
      */
-
 
     /**
      * @param  array<string,mixed>  $value
@@ -312,30 +311,6 @@ final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierSer
     private function isPlaceholderSigner(string $signedBy): bool
     {
         return in_array(strtolower(trim($signedBy)), self::PLACEHOLDER_SIGNERS, true);
-    }
-
-    private function isPlaceholderReason(string $reason): bool
-    {
-        $normalized = strtolower(trim($reason));
-        if ($normalized === '' || str_starts_with($normalized, '<')) {
-            return true;
-        }
-
-        foreach ([
-            'operator reason',
-            'minimum_32_chars',
-            'pelo menos 32 caracteres',
-            'motivo real',
-            'substitua',
-            'placeholder',
-            'todo',
-        ] as $pattern) {
-            if (str_contains($normalized, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /** @param array<string, mixed> $value */

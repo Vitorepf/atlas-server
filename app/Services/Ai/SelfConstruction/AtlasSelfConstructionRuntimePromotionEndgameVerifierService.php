@@ -2,8 +2,6 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
@@ -19,16 +17,16 @@ use Carbon\CarbonImmutable;
  */
 final class AtlasSelfConstructionRuntimePromotionEndgameVerifierService
 {
+    use IsPlaceholderReasonShared;
+
     use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
 
     use KsortsArraysByReference;
-
 
     /**
      * @param  array<string,mixed>  $value
      * @return array<string,mixed>
      */
-
 
     /**
      * @param  array<string,mixed>  $value
@@ -431,30 +429,6 @@ final class AtlasSelfConstructionRuntimePromotionEndgameVerifierService
             'rollback_proof_mismatch' => 'recompute rollback_proof_hash to match the expected rollback proof',
             default => 'review this violation and correct the receipt field it names',
         };
-    }
-
-    private function isPlaceholderReason(string $reason): bool
-    {
-        $normalized = strtolower(trim($reason));
-        if ($normalized === '' || str_starts_with($normalized, '<')) {
-            return true;
-        }
-
-        foreach ([
-            'operator reason',
-            'minimum_32_chars',
-            'pelo menos 32 caracteres',
-            'motivo real',
-            'substitua',
-            'placeholder',
-            'todo',
-        ] as $pattern) {
-            if (str_contains($normalized, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /** @param array<string, mixed> $payload */

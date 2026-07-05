@@ -2,14 +2,14 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-
-
 use App\Services\Ai\SelfConstruction\ReadinessHash;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 
 final class AtlasSelfConstructionRuntimePromotionReceiptService
 {
+    use IsPlaceholderReasonShared;
+
     public const SCHEMA_VERSION = 'atlas.self_construction.runtime_promotion_receipt.v1';
 
     public const MODE = 'read_only_runtime_promotion_receipt_verification';
@@ -373,30 +373,6 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
             '<operador>',
             'operador',
         ], true);
-    }
-
-    private function isPlaceholderReason(string $reason): bool
-    {
-        $normalized = strtolower(trim($reason));
-        if ($normalized === '' || str_starts_with($normalized, '<')) {
-            return true;
-        }
-
-        foreach ([
-            'operator reason',
-            'minimum_32_chars',
-            'pelo menos 32 caracteres',
-            'motivo real',
-            'substitua',
-            'placeholder',
-            'todo',
-        ] as $pattern) {
-            if (str_contains($normalized, $pattern)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /** @param array<string, mixed> $value */
