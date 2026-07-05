@@ -438,6 +438,35 @@ final class AgentRuntimeRegistryRepository
             ]);
             $record['receipts'][] = $receipt;
             $record['updated_at'] = $now;
+
+            // AC: maintain a bounded skill_outcome_profile from receipts.
+            $taskFamily = (string) ($receipt['task_family'] ?? 'unknown');
+            $outcome = (string) ($receipt['outcome'] ?? $receipt['receipt_kind'] ?? 'unknown');
+            if (! isset($record['skill_outcome_profile'])) {
+                $record['skill_outcome_profile'] = [];
+            }
+            if (! isset($record['skill_outcome_profile'][$taskFamily])) {
+                $record['skill_outcome_profile'][$taskFamily] = [
+                    'success' => 0,
+                    'give_back' => 0,
+                    'weak_green' => 0,
+                    'total' => 0,
+                ];
+            }
+            $profileKey = match ($outcome) {
+                'success', 'delivered', 'committed' => 'success',
+                'give_back' => 'give_back',
+                'weak_green' => 'weak_green',
+                default => null,
+            };
+            if ($profileKey !== null) {
+                $record['skill_outcome_profile'][$taskFamily][$profileKey]++;
+            }
+            $record['skill_outcome_profile'][$taskFamily]['total']++;
+
+            // Bound the profile to prevent unbounded growth.
+            $record['skill_outcome_profile'] = array_slice($record['skill_outcome_profile'], -50, null, true);
+
             $record['history'][] = [
                 'event' => 'receipt_appended',
                 'at' => $now,

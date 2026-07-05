@@ -210,4 +210,124 @@ final class AgentRuntimeRegistryRepositoryTest extends TestCase
         $this->assertSame('ok', $result['status']);
         $this->assertSame('unregistered', $result['record']['status']);
     }
+
+    // ── AC: appendReceipt updates skill_outcome_profile counts for success, give_back and weak_green outcomes by task_family ──
+
+    public function test_append_receipt_updates_skill_outcome_profile_for_success(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register($this->validAgent());
+
+        $repo->appendReceipt('agent-a', [
+            'receipt_kind' => 'task_completed',
+            'outcome' => 'success',
+            'task_family' => 'implementation',
+        ]);
+
+        $record = $repo->get('agent-a');
+        $this->assertArrayHasKey('skill_outcome_profile', $record);
+        $this->assertArrayHasKey('implementation', $record['skill_outcome_profile']);
+        $this->assertSame(1, $record['skill_outcome_profile']['implementation']['success']);
+        $this->assertSame(1, $record['skill_outcome_profile']['implementation']['total']);
+    }
+
+    public function test_append_receipt_updates_skill_outcome_profile_for_give_back(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register($this->validAgent());
+
+        $repo->appendReceipt('agent-a', [
+            'receipt_kind' => 'task_give_back',
+            'outcome' => 'give_back',
+            'task_family' => 'architecture',
+        ]);
+
+        $record = $repo->get('agent-a');
+        $this->assertSame(1, $record['skill_outcome_profile']['architecture']['give_back']);
+    }
+
+    public function test_append_receipt_updates_skill_outcome_profile_for_weak_green(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register($this->validAgent());
+
+        $repo->appendReceipt('agent-a', [
+            'receipt_kind' => 'task_weak_green',
+            'outcome' => 'weak_green',
+            'task_family' => 'testing',
+        ]);
+
+        $record = $repo->get('agent-a');
+        $this->assertSame(1, $record['skill_outcome_profile']['testing']['weak_green']);
+    }
+
+    // ── AC: the profile is bounded and deterministic when many receipts are appended ──
+
+    public function test_skill_outcome_profile_is_bounded(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register($this->validAgent());
+
+        for ($i = 0; $i < 100; $i++) {
+            $repo->appendReceipt('agent-a', [
+                'receipt_kind' => 'task_completed',
+                'outcome' => 'success',
+                'task_family' => "family_{$i}",
+            ]);
+        }
+
+        $record = $repo->get('agent-a');
+        $this->assertLessThanOrEqual(50, count($record['skill_outcome_profile']));
+    }
+
+    public function test_skill_outcome_profile_is_deterministic(): void
+    {
+        $receipts = [
+            ['receipt_kind' => 'task_completed', 'outcome' => 'success', 'task_family' => 'impl'],
+            ['receipt_kind' => 'task_give_back', 'outcome' => 'give_back', 'task_family' => 'impl'],
+            ['receipt_kind' => 'task_completed', 'outcome' => 'success', 'task_family' => 'impl'],
+        ];
+
+        $repo1 = new AgentRuntimeRegistryRepository;
+        $repo1->register($this->validAgent());
+        foreach ($receipts as $r) { $repo1->appendReceipt('agent-a', $r); }
+        $record1 = $repo1->get('agent-a');
+
+        Storage::fake('local');
+        $repo2 = new AgentRuntimeRegistryRepository;
+        $repo2->register($this->validAgent());
+        foreach ($receipts as $r) { $repo2->appendReceipt('agent-a', $r); }
+        $record2 = $repo2->get('agent-a');
+
+        $this->assertSame(
+            $record1['skill_outcome_profile']['impl'],
+            $record2['skill_outcome_profile']['impl'],
+        );
+    }
+
+    // ── AC: registry listings can expose agents by strongest task_family fit without leaking raw receipt payloads ──
+
+    public function test_registry_listing_exposes_skill_outcome_profile_without_raw_receipts(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register($this->validAgent());
+        $repo->appendReceipt('agent-a', [
+            'receipt_kind' => 'task_completed',
+            'outcome' => 'success',
+            'task_family' => 'implementation',
+            'secret_metadata' => 'should_not_leak',
+        ]);
+
+        $record = $repo->get('agent-a');
+        $this->assertArrayHasKey('skill_outcome_profile', $record);
+        $this->assertArrayHasKey('implementation', $record['skill_outcome_profile']);
+
+        // The profile should only contain counts, not raw receipt data.
+        $profile = $record['skill_outcome_profile']['implementation'];
+        $this->assertArrayHasKey('success', $profile);
+        $this->assertArrayHasKey('give_back', $profile);
+        $this->assertArrayHasKey('weak_green', $profile);
+        $this->assertArrayHasKey('total', $profile);
+        $this->assertArrayNotHasKey('secret_metadata', $profile);
+    }
 }
