@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOrganSprawlReductionPlanner;
+use App\Services\Ai\SelfConstruction\Simplification\AtlasSelfConstructionSimplificationExecutionSafetyRunner;
 use Illuminate\Console\Command;
 
 /**
@@ -27,7 +28,10 @@ final class AtlasExternalBrainSimplificationBurnDownCommand extends Command
     /** @var string */
     protected $description = 'Read-only first-safe retire/merge/simplify batch plan with preserved task-feed yield.';
 
-    public function handle(AtlasExternalBrainOrganSprawlReductionPlanner $planner): int
+    public function handle(
+        AtlasExternalBrainOrganSprawlReductionPlanner $planner,
+        AtlasSelfConstructionSimplificationExecutionSafetyRunner $safetyRunner,
+    ): int
     {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -47,9 +51,27 @@ final class AtlasExternalBrainSimplificationBurnDownCommand extends Command
 
         $plan = $planner->plan(['organs' => $organs]);
 
+        // Gate every organ in the first_safe_batch through the execution safety runner.
+        $executionSafetyByOrgan = [];
+        $safeBatch = (array) ($plan['first_safe_batch'] ?? []);
+        foreach ($safeBatch as $organId) {
+            $organId = (string) $organId;
+            $organData = [];
+            foreach ($organs as $o) {
+                if ((string) ($o['organ_id'] ?? '') === $organId) {
+                    $organData = $o;
+                    break;
+                }
+            }
+            $executionSafetyByOrgan[$organId] = $safetyRunner->execute(array_merge($organData, [
+                'organ_id' => $organId,
+                'action' => (string) ($organData['action'] ?? 'retire'),
+            ]));
+        }
+
         $payload = [
             'status' => 'ok',
-            'first_safe_batch' => $plan['first_safe_batch'],
+            'first_safe_batch' => $safeBatch,
             'expected_line_delta' => $plan['expected_line_delta'],
             'capability_preserved_count' => $plan['capability_preserved_count'],
             'required_tests' => $plan['required_tests'],
@@ -57,7 +79,8 @@ final class AtlasExternalBrainSimplificationBurnDownCommand extends Command
             'capability_groups' => $plan['capability_groups'],
             'task_feed_impact' => $plan['task_feed_impact'],
             'yield_preserved' => $plan['task_feed_impact']['yield_preserved'],
-            'required_prework_by_organ' => $this->buildRequiredPreworkByOrgan($plan['ranked_actions'], $plan['first_safe_batch']),
+            'required_prework_by_organ' => $this->buildRequiredPreworkByOrgan($plan['ranked_actions'], $safeBatch),
+            'execution_safety' => $executionSafetyByOrgan,
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
