@@ -865,4 +865,50 @@ final class AtlasExternalBrainFinal95GapBurnDownSchedulerTest extends TestCase
         $this->assertFalse($result['burned_down']);
         $this->assertNotEmpty($result['blockers']);
     }
+
+    // ── AC: empty input yields empty burn_down_schedule and zero totals ──
+
+    public function test_empty_input_yields_empty_burn_down_schedule_and_zero_totals(): void
+    {
+        $result = $this->scheduler()->schedule([]);
+
+        $this->assertSame([], $result['burn_down_schedule']);
+        $this->assertSame(0, $result['total_gaps']);
+        $this->assertSame(0, $result['gaps_closeable_without_new_feature_work']);
+    }
+
+    // ── AC: blocked gaps rank first and priority order is blocked, missing, thin, stale ──
+
+    public function test_blocked_ranks_first_in_mixed_priority_set(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'stale-1', 'gap_type' => 'stale'],
+            ['organ_id' => 'thin-1', 'gap_type' => 'thin'],
+            ['organ_id' => 'missing-1', 'gap_type' => 'missing'],
+            ['organ_id' => 'blocked-1', 'gap_type' => 'blocked'],
+        ]);
+
+        $this->assertSame('blocked-1', $result['burn_down_schedule'][0]['organ_id']);
+        $this->assertSame('missing-1', $result['burn_down_schedule'][1]['organ_id']);
+        $this->assertSame('thin-1', $result['burn_down_schedule'][2]['organ_id']);
+        $this->assertSame('stale-1', $result['burn_down_schedule'][3]['organ_id']);
+    }
+
+    // ── AC: each schedule entry includes required fields, proof command, and stop condition ──
+
+    public function test_every_schedule_entry_includes_proof_command_and_stop_condition(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'a', 'gap_type' => 'blocked'],
+            ['organ_id' => 'b', 'gap_type' => 'missing', 'can_evidence_backfill' => true],
+            ['organ_id' => 'c', 'gap_type' => 'stale', 'can_proof_replay' => true],
+        ]);
+
+        foreach ($result['burn_down_schedule'] as $entry) {
+            $this->assertArrayHasKey('cheapest_next_proof', $entry);
+            $this->assertArrayHasKey('stop_condition', $entry);
+            $this->assertNotEmpty($entry['cheapest_next_proof']);
+            $this->assertNotEmpty($entry['stop_condition']);
+        }
+    }
 }
