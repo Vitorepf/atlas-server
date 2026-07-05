@@ -704,11 +704,18 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             'tags' => ['tests', 'guardrail'],
         ]);
 
-        return array_slice(array_map(function (array $seed, int $index) use ($totalBefore): array {
+        // Partition: handoff seeds (operator-only) pass through unconditionally;
+        // worker-executable seeds are sliced to fit $needed so they fill the target.
+        $floorExecutable = array_values(array_filter($seeds, static fn (array $s): bool => (bool) ($s['worker_executable'] ?? true)));
+        $handoff = array_values(array_filter($seeds, static fn (array $s): bool => ! (bool) ($s['worker_executable'] ?? true)));
+        $trimmedExecutable = array_slice($floorExecutable, 0, $needed);
+        $seeds = array_merge($trimmedExecutable, $handoff);
+
+        return array_map(function (array $seed, int $index) use ($totalBefore): array {
             $seed['task_packet_id'] = $this->nextAvailableTaskPacketId($seed, $totalBefore, $index);
 
             return $seed;
-        }, $seeds, array_keys($seeds)), 0, $needed);
+        }, $seeds, array_keys($seeds));
     }
 
     /**
