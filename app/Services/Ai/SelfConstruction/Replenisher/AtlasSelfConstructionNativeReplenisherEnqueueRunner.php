@@ -116,6 +116,7 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunner
         return [
             'schema' => self::SCHEMA,
             'enqueued' => $enqueued,
+            'enqueued_task_ids' => $enqueued,
             'skipped_existing' => $skippedExisting,
             'skipped_rejected' => $skippedRejected,
             'prepare_blocked' => $blocked,
@@ -132,6 +133,35 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunner
             'produced_claimable_count' => $producedClaimableCount,
             'top_up_effective' => $topUpEffective,
             'effective_topup_failure_reasons' => $failureReasons,
+            'claimable_floor_coverage' => $this->computeClaimableFloorCoverage($producedClaimableCount, $workerFloorInputs),
+        ];
+    }
+
+    /**
+     * Compute claimable floor coverage: how many claimable tasks were produced
+     * relative to the worker floor requirement.
+     *
+     * @param  array<string,mixed>  $workerFloorInputs
+     * @return array<string,mixed>
+     */
+    private function computeClaimableFloorCoverage(int $producedClaimableCount, array $workerFloorInputs): array
+    {
+        $activeWorkerCount = (int) ($workerFloorInputs['active_worker_count'] ?? 0);
+        $claimablePerActiveWorker = (float) ($workerFloorInputs['claimable_per_active_worker'] ?? 0.0);
+        $workerFeedFloor = (float) ($workerFloorInputs['worker_feed_floor'] ?? 0.0);
+
+        $requiredClaimable = (int) ceil($activeWorkerCount * $workerFeedFloor);
+        $coverageRatio = $requiredClaimable > 0 ? round($producedClaimableCount / $requiredClaimable, 4) : 0.0;
+        $meetsFloor = $producedClaimableCount >= $requiredClaimable && $requiredClaimable > 0;
+
+        return [
+            'produced_claimable_count' => $producedClaimableCount,
+            'required_claimable_count' => $requiredClaimable,
+            'active_worker_count' => $activeWorkerCount,
+            'worker_feed_floor' => $workerFeedFloor,
+            'claimable_per_active_worker' => $claimablePerActiveWorker,
+            'coverage_ratio' => $coverageRatio,
+            'meets_floor' => $meetsFloor,
         ];
     }
 }
