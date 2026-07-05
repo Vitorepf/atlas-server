@@ -113,8 +113,8 @@ final class AtlasTaskMaestroMultiProviderCommandTest extends TestCase
         $row = json_decode($rows[0], true);
         $this->assertSame('real-packet-42', $row['task_packet_id'], 'task_packet_id must be the real value, not "unknown"');
         $this->assertNotSame('unknown', $row['task_packet_id'], 'default "unknown" means keys were mismatched');
-        $this->assertArrayHasKey('classified_class', $row, 'classified_class must exist in persisted row');
-        $this->assertArrayHasKey('primary_provider', $row, 'primary_provider must exist in persisted row');
+        $this->assertArrayHasKey('packet_class', $row, 'packet_class must exist in persisted row');
+        $this->assertArrayHasKey('provider_class', $row, 'provider_class must exist in persisted row');
     }
 
     public function test_classify_and_assign_without_packet_exit_non_zero(): void
@@ -149,5 +149,44 @@ final class AtlasTaskMaestroMultiProviderCommandTest extends TestCase
         // the `atlas:task:` namespace remain untouched.
         $this->assertGreaterThanOrEqual(2, count(array_filter(array_keys($registry), static fn (string $k): bool => str_starts_with($k, 'atlas:task:'))));
         $this->assertNotSame('atlas:task', 'atlas:task:maestro-multiprovider', 'must NOT collide with the bare atlas:task namespace');
+    }
+
+    // ── AC: task_family and routing_reason threaded through ──────────────────
+
+    public function test_assign_receipt_persists_task_family_and_routing_reason(): void
+    {
+        $path = $this->packetFixture([
+            'task_packet_id' => 'ft-pkt-1',
+            'task_family' => 'brain:steward-2',
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $this->runCmd(['action' => 'assign', '--packet' => $path, '--json' => true]);
+        @unlink($path);
+
+        $rows = file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $this->assertNotEmpty($rows);
+
+        // Find the row for our packet
+        $row = null;
+        foreach ($rows as $line) {
+            $decoded = json_decode($line, true);
+            if (($decoded['task_packet_id'] ?? '') === 'ft-pkt-1') {
+                $row = $decoded;
+                break;
+            }
+        }
+        $this->assertNotNull($row, 'receipt row for ft-pkt-1 must exist');
+
+        // task_family threaded from packet
+        $this->assertSame('brain:steward-2', $row['task_family']);
+
+        // routing_reason is the classifier rule, not empty
+        $this->assertNotEmpty($row['routing_reason'], 'routing_reason must be populated');
+        $this->assertNotSame('', $row['routing_reason']);
+
+        // ANTI-FABRICATION: fallback_used stays null, worker_id stays empty at assignment time
+        $this->assertNull($row['fallback_used'] ?? null, 'fallback_used must be null — no fallback has been executed');
+        $this->assertSame('', $row['worker_id'] ?? '', 'worker_id must be empty — no worker has claimed yet');
     }
 }

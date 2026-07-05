@@ -99,6 +99,8 @@ final class AtlasTaskMaestroMultiProviderCommand extends Command
             'classifier_rule_id' => $rule,
             'primary_provider' => $assignment['primary'],
             'fallback_chain' => $assignment['fallback'],
+            'task_family' => (string) ($packet['task_family'] ?? ''),
+            'routing_reason' => $rule,
         ]);
         $this->emit([
             'class' => $class,
