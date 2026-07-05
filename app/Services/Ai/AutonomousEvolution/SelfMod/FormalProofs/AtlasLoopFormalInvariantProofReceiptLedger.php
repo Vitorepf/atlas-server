@@ -10,6 +10,8 @@ use Throwable;
 
 final class AtlasLoopFormalInvariantProofReceiptLedger
 {
+    use \App\Services\Ai\AutonomousEvolution\Concerns\SortsReceiptPayloadsCanonically;
+
     private int $duplicateSeen = 0;
 
     public function __construct(
@@ -190,26 +192,4 @@ final class AtlasLoopFormalInvariantProofReceiptLedger
         return (string) json_encode($this->sortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
-    /**
-     * @param  mixed  $value
-     * @return mixed
-     */
-    private function sortRecursive(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $item): mixed => $this->sortRecursive($item), $value);
-        }
-
-        ksort($value, SORT_STRING);
-        $sorted = [];
-        foreach ($value as $key => $item) {
-            $sorted[$key] = $this->sortRecursive($item);
-        }
-
-        return $sorted;
-    }
 }

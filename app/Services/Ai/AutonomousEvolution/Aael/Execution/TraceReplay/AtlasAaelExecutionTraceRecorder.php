@@ -11,6 +11,8 @@ use Symfony\Component\Process\Process;
 
 final class AtlasAaelExecutionTraceRecorder
 {
+    use \App\Services\Ai\AutonomousEvolution\Concerns\SortsReceiptPayloadsCanonically;
+
     private ?string $traceId = null;
 
     private int $stepCount = 0;
@@ -228,25 +230,4 @@ final class AtlasAaelExecutionTraceRecorder
         return trim($process->getOutput());
     }
 
-    /**
-     * @return mixed
-     */
-    private function sortRecursive(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $item): mixed => $this->sortRecursive($item), $value);
-        }
-
-        ksort($value, SORT_STRING);
-        $sorted = [];
-        foreach ($value as $key => $item) {
-            $sorted[$key] = $this->sortRecursive($item);
-        }
-
-        return $sorted;
-    }
 }

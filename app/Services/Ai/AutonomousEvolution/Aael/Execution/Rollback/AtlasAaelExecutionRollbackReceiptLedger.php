@@ -10,6 +10,8 @@ use RuntimeException;
 
 final class AtlasAaelExecutionRollbackReceiptLedger
 {
+    use \App\Services\Ai\AutonomousEvolution\Concerns\SortsReceiptPayloadsCanonically;
+
     public const SCHEMA = 'atlas.aael.execution.rollback_receipt_ledger.v1';
     private const GENESIS = 'GENESIS';
 
@@ -304,28 +306,6 @@ final class AtlasAaelExecutionRollbackReceiptLedger
         return (string) json_encode($this->sortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
-    /**
-     * @param  mixed  $value
-     * @return mixed
-     */
-    private function sortRecursive(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $item): mixed => $this->sortRecursive($item), $value);
-        }
-
-        ksort($value, SORT_STRING);
-        $sorted = [];
-        foreach ($value as $key => $item) {
-            $sorted[$key] = $this->sortRecursive($item);
-        }
-
-        return $sorted;
-    }
 }
 
 final class AtlasAaelRollbackReceiptSchemaViolation extends RuntimeException {}

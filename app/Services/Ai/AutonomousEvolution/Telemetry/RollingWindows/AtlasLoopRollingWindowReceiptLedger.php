@@ -8,6 +8,8 @@ use RuntimeException;
 
 final class AtlasLoopRollingWindowReceiptLedger
 {
+    use \App\Services\Ai\AutonomousEvolution\Concerns\SortsReceiptPayloadsCanonically;
+
     public function __construct(
         private readonly string $basePath = '',
         ?callable $clock = null,
@@ -171,29 +173,6 @@ final class AtlasLoopRollingWindowReceiptLedger
     private function canonicalJson(array $payload): string
     {
         return json_encode($this->sortRecursive($payload), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
-    }
-
-    /**
-     * @param  mixed  $value
-     * @return mixed
-     */
-    private function sortRecursive(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (array_is_list($value)) {
-            return array_map(fn (mixed $item): mixed => $this->sortRecursive($item), $value);
-        }
-
-        ksort($value, SORT_STRING);
-        $sorted = [];
-        foreach ($value as $key => $item) {
-            $sorted[$key] = $this->sortRecursive($item);
-        }
-
-        return $sorted;
     }
 
     private function nowIso(): string
