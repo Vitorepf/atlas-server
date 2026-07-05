@@ -355,4 +355,98 @@ final class AtlasExternalBrainAutonomyRegressionSentinelTest extends TestCase
             'allowed_bootstrap'     => true,
         ], $result['autonomy_owner_contract']);
     }
+
+    // ── AC: high-severity regressions become blockers with capability, reason, repair_hint, required_evidence ──
+
+    public function test_high_severity_regression_becomes_blocker_with_all_fields(): void
+    {
+        $input = $this->clean();
+        $input['requires_human_approval'] = true;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertCount(1, $result['blockers']);
+        $blocker = $result['blockers'][0];
+        $this->assertSame('human_dependency', $blocker['capability']);
+        $this->assertStringContainsString('human_dependency', $blocker['reason']);
+        $this->assertNotEmpty($blocker['repair_hint']);
+        $this->assertNotEmpty($blocker['required_evidence']);
+    }
+
+    // ── AC: observation-only alerts without repair hints are not counted as resolved or safe-to-go ──
+
+    public function test_observation_only_alerts_not_counted_as_resolved(): void
+    {
+        $input = $this->clean();
+        $input['requires_operator_seeding'] = true;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertCount(1, $result['observation_only_alerts']);
+        $alert = $result['observation_only_alerts'][0];
+        $this->assertArrayNotHasKey('repair_hint', $alert);
+        $this->assertArrayNotHasKey('required_evidence', $alert);
+        // Observation-only alerts alone are safe_to_go=true (they don't block)
+        $this->assertTrue($result['safe_to_go']);
+    }
+
+    // ── AC: tests cover no-regression, warning, blocker, and observation-only cases with deterministic severity ordering ──
+
+    public function test_no_regression_case(): void
+    {
+        $result = $this->sentinel->scan($this->clean());
+
+        $this->assertFalse($result['is_regression']);
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionSentinel::SEVERITY_NONE, $result['severity']);
+        $this->assertSame([], $result['blockers']);
+        $this->assertSame([], $result['observation_only_alerts']);
+    }
+
+    public function test_warning_case(): void
+    {
+        $input = $this->clean();
+        $input['requires_operator_seeding'] = true;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionSentinel::SEVERITY_WARNING, $result['severity']);
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionSentinel::VERDICT_PASS, $result['sentinel_verdict']);
+    }
+
+    public function test_blocker_case(): void
+    {
+        $input = $this->clean();
+        $input['requires_human_approval'] = true;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionSentinel::SEVERITY_BLOCKING, $result['severity']);
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionSentinel::VERDICT_FAIL, $result['sentinel_verdict']);
+        $this->assertFalse($result['safe_to_go']);
+    }
+
+    public function test_observation_only_case(): void
+    {
+        $input = $this->clean();
+        $input['requires_operator_seeding'] = true;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertCount(1, $result['observation_only_alerts']);
+        $this->assertSame([], $result['blockers']);
+    }
+
+    public function test_deterministic_severity_ordering(): void
+    {
+        // When both soft and hard regressions are present, severity must be blocking (hard wins)
+        $input = $this->clean();
+        $input['requires_operator_seeding'] = true;
+        $input['requires_human_approval'] = true;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionSentinel::SEVERITY_BLOCKING, $result['severity']);
+        $this->assertNotEmpty($result['blockers']);
+        $this->assertNotEmpty($result['observation_only_alerts']);
+    }
 }
