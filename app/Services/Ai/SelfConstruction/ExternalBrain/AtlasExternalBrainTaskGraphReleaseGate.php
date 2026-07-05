@@ -49,8 +49,8 @@ final class AtlasExternalBrainTaskGraphReleaseGate
             array_map('strval', (array) ($facts['prerequisite_task_ids'] ?? []))
         ));
         $evidence = $facts['prerequisite_evidence'] ?? [];
-        $namespaceSafe = (bool) ($facts['namespace_lane_safe'] ?? true);
-        $workerCapacity = (bool) ($facts['worker_capacity_available'] ?? true);
+        $namespaceSafe = (bool) ($facts['namespace_lane_safe'] ?? false);
+        $workerCapacity = (bool) ($facts['worker_capacity_available'] ?? false);
 
         // No prerequisites → always release (root node).
         if ($prereqIds === []) {
