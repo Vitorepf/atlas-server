@@ -29,6 +29,24 @@ final class AgentControlPlaneChainIntegrityChainBuilder
     }
 
     /**
+     * @return array{clean:bool, duplicate_count:int, blockers:list<string>, entries:list<array<string,string>>}
+     */
+    public function canonicalDeepChainAudit(): array
+    {
+        $chain = $this->canonicalDeepChain();
+        $audit = AgentControlPlaneDeepChainCatalog::audit($chain);
+
+        $duplicateCount = count(array_filter($audit['blockers'], static fn (string $b): bool => str_starts_with($b, 'duplicate_')));
+
+        return [
+            'clean' => $audit['clean'],
+            'duplicate_count' => $duplicateCount,
+            'blockers' => $audit['blockers'],
+            'entries' => $chain,
+        ];
+    }
+
+    /**
      * @return array<string, string>
      */
     public function deepChainEntry(string $sliceKey, string $methodPrefix, string $invokerClass, string $prepareMethod, string $docBullet): array
