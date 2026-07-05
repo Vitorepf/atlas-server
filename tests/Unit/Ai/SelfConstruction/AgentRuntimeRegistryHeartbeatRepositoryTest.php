@@ -168,4 +168,128 @@ final class AgentRuntimeRegistryHeartbeatRepositoryTest extends TestCase
 
         $this->assertArrayNotHasKey('suggested_recovery_action', $summary['fresh_agents'][0]);
     }
+
+    // ── AC: repeated heartbeats with unchanged task id, evidence hash and no progress become fake_alive ──
+
+    public function test_repeated_heartbeats_with_no_progress_become_fake_alive(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $now = CarbonImmutable::now()->toIso8601String();
+
+        // First heartbeat: has a task, productive (first heartbeat gets benefit of the doubt)
+        $repo->record('agent-fake', [
+            'status' => 'healthy',
+            'observed_at' => $now,
+            'current_task_count' => 1,
+            'progress_marker' => 'marker-1',
+            'last_outcome_marker' => 'outcome-1',
+        ]);
+
+        // Second heartbeat: same task, same markers → fake_alive
+        $repo->record('agent-fake', [
+            'status' => 'healthy',
+            'observed_at' => $now,
+            'current_task_count' => 1,
+            'progress_marker' => 'marker-1',
+            'last_outcome_marker' => 'outcome-1',
+        ]);
+
+        $status = $repo->heartbeatStatus('agent-fake', ['ttl_seconds' => 60]);
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_FAKE_ALIVE, $status['heartbeat_state']);
+    }
+
+    // ── AC: productive heartbeats with new evidence or completed task movement remain productive ──
+
+    public function test_productive_heartbeat_with_new_progress_marker_remains_productive(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $now = CarbonImmutable::now()->toIso8601String();
+
+        $repo->record('agent-prod', [
+            'status' => 'healthy',
+            'observed_at' => $now,
+            'current_task_count' => 1,
+            'progress_marker' => 'marker-1',
+            'last_outcome_marker' => 'outcome-1',
+        ]);
+
+        $repo->record('agent-prod', [
+            'status' => 'healthy',
+            'observed_at' => $now,
+            'current_task_count' => 1,
+            'progress_marker' => 'marker-2',
+            'last_outcome_marker' => 'outcome-1',
+        ]);
+
+        $status = $repo->heartbeatStatus('agent-prod', ['ttl_seconds' => 60]);
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_PRODUCTIVE, $status['heartbeat_state']);
+    }
+
+    public function test_productive_heartbeat_with_new_outcome_marker_remains_productive(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $now = CarbonImmutable::now()->toIso8601String();
+
+        $repo->record('agent-prod', [
+            'status' => 'healthy',
+            'observed_at' => $now,
+            'current_task_count' => 1,
+            'progress_marker' => 'marker-1',
+            'last_outcome_marker' => 'outcome-1',
+        ]);
+
+        $repo->record('agent-prod', [
+            'status' => 'healthy',
+            'observed_at' => $now,
+            'current_task_count' => 1,
+            'progress_marker' => 'marker-1',
+            'last_outcome_marker' => 'outcome-2',
+        ]);
+
+        $status = $repo->heartbeatStatus('agent-prod', ['ttl_seconds' => 60]);
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_PRODUCTIVE, $status['heartbeat_state']);
+    }
+
+    // ── AC: staleAgents reports fake_alive separately from clock-based stale workers ──
+
+    public function test_stale_agents_reports_fake_alive_separately(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $now = CarbonImmutable::now()->toIso8601String();
+
+        // Fake-alive agent: two heartbeats with same markers
+        $repo->record('agent-fake', [
+            'status' => 'healthy',
+            'observed_at' => $now,
+            'current_task_count' => 1,
+            'progress_marker' => 'm1',
+            'last_outcome_marker' => 'o1',
+        ]);
+        $repo->record('agent-fake', [
+            'status' => 'healthy',
+            'observed_at' => $now,
+            'current_task_count' => 1,
+            'progress_marker' => 'm1',
+            'last_outcome_marker' => 'o1',
+        ]);
+
+        // Stale agent: old heartbeat
+        $repo->record('agent-stale', [
+            'status' => 'healthy',
+            'observed_at' => CarbonImmutable::now()->subSeconds(3600)->toIso8601String(),
+        ]);
+
+        $summary = $repo->staleAgents(['ttl_seconds' => 60]);
+
+        $this->assertArrayHasKey('fake_alive_agents', $summary);
+        $this->assertArrayHasKey('fake_alive_count', $summary);
+        $this->assertGreaterThan(0, $summary['fake_alive_count']);
+
+        $fakeAliveIds = array_column($summary['fake_alive_agents'], 'agent_id');
+        $this->assertContains('agent-fake', $fakeAliveIds);
+        $this->assertNotContains('agent-stale', $fakeAliveIds);
+    }
 }

@@ -215,8 +215,10 @@ final class AgentRuntimeRegistryHeartbeatRepository
 
         $stale = [];
         $fresh = [];
+        $fakeAlive = [];
         $staleCount = 0;
         $freshCount = 0;
+        $fakeAliveCount = 0;
         foreach ($this->loadIndex() as $entry) {
             $agentId = (string) ($entry['agent_id'] ?? '');
             $observed = (string) ($entry['observed_at'] ?? '');
@@ -242,6 +244,26 @@ final class AgentRuntimeRegistryHeartbeatRepository
                 'age_seconds' => $age,
                 'status' => (string) ($entry['status'] ?? 'unknown'),
             ];
+
+            // Check for fake_alive: agent has tasks but no progress markers moved.
+            $heartbeats = $this->readAgentHeartbeats($agentId);
+            if (count($heartbeats) >= 2) {
+                $latest = $heartbeats[count($heartbeats) - 1];
+                $previous = $heartbeats[count($heartbeats) - 2];
+                $state = $this->classifyHeartbeatState(false, $latest, $previous);
+                if ($state === self::HEARTBEAT_STATE_FAKE_ALIVE) {
+                    $fakeAliveCount++;
+                    $fakeAlive[] = [
+                        'agent_id' => $agentId,
+                        'observed_at' => $observed,
+                        'age_seconds' => $age,
+                        'status' => (string) ($entry['status'] ?? 'unknown'),
+                        'reason' => 'fake_alive_no_progress_delta',
+                        'suggested_recovery_action' => 'investigate_worker_progress_then_restart_or_give_back',
+                    ];
+                }
+            }
+
             if ($age > $ttl) {
                 $payload['reason'] = 'older_than_ttl';
                 $payload['suggested_recovery_action'] = 'reap_and_reclaim_leases_then_restart_agent';
@@ -265,12 +287,15 @@ final class AgentRuntimeRegistryHeartbeatRepository
             'reference_time' => $referenceIso,
             'stale_count' => $staleCount,
             'fresh_count' => $freshCount,
+            'fake_alive_count' => $fakeAliveCount,
             'stale_detail_count' => count($stale),
             'fresh_detail_count' => count($fresh),
+            'fake_alive_detail_count' => count($fakeAlive),
             'stale_detail_truncated' => $detailLimit > 0 && $staleCount > count($stale),
             'fresh_detail_truncated' => $detailLimit > 0 && $freshCount > count($fresh),
             'stale_agents' => $stale,
             'fresh_agents' => $fresh,
+            'fake_alive_agents' => $fakeAlive,
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
