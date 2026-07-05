@@ -8,6 +8,8 @@ use Throwable;
 
 class AtlasControlPlaneEvidenceService
 {
+    use ChecksControlPlaneTableAvailability;
+
     public const COMPONENT = 'evidence';
 
     private const REQUIRED_TABLES = [
@@ -130,32 +132,11 @@ class AtlasControlPlaneEvidenceService
     }
 
     /**
-     * @return array<string,mixed>
+     * @return array<string, mixed>
      */
     public function tableAvailability(): array
     {
-        $tables = [];
-        $present = 0;
-        foreach (self::REQUIRED_TABLES as $table) {
-            $exists = DatabaseTableAvailability::has($table);
-            $tables[$table] = $exists;
-            if ($exists) {
-                $present++;
-            }
-        }
-
-        $status = match (true) {
-            $present === 0 => AtlasControlPlaneStatus::MISSING,
-            $present === count(self::REQUIRED_TABLES) => AtlasControlPlaneStatus::READY,
-            default => AtlasControlPlaneStatus::DEGRADED,
-        };
-
-        return [
-            'status' => $status,
-            'tables' => $tables,
-            'tables_present' => $present,
-            'tables_required' => count(self::REQUIRED_TABLES),
-        ];
+        return $this->tableAvailabilityFor(self::REQUIRED_TABLES);
     }
 
     /**
