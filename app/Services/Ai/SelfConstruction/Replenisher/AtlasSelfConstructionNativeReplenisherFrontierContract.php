@@ -55,7 +55,7 @@ final class AtlasSelfConstructionNativeReplenisherFrontierContract
 
             $kind = (string) ($f['kind'] ?? '');
             if ($kind !== '' && preg_match(self::PROXY_KIND_REGEX, $kind)) {
-                $blockers[] = 'proxy_only_kind';
+                $blockers[] = 'proxy_kind:'.$kind;
             }
             $targetScope = trim((string) ($f['target_scope'] ?? ''));
             if ($targetScope === '') {
@@ -115,8 +115,10 @@ final class AtlasSelfConstructionNativeReplenisherFrontierContract
             $accepted[] = [
                 'frontier_id'             => $id,
                 'owner_organ'             => (string) ($f['owner_organ'] ?? ''),
+                'owner_file'              => $implFiles[0] ?? ($allowed[0] ?? ''),
                 'target_scope'            => $targetScope,
                 'capability_gap'          => (string) ($f['capability_gap'] ?? ''),
+                'capability_delta'         => (string) ($f['capability_delta'] ?? $f['capability_gap'] ?? ''),
                 'maturity_gap'            => (string) ($f['maturity_gap'] ?? ''),
                 'blockers'                => [],
                 'next_unlock'             => (string) ($f['next_unlock'] ?? ''),
@@ -124,6 +126,7 @@ final class AtlasSelfConstructionNativeReplenisherFrontierContract
                 'acceptance_obligations'  => $acceptance,
                 'evidence_obligations'    => $evidence,
                 'risk_class'              => (string) ($f['risk_class'] ?? self::RISK_DEFAULT),
+                'runnable_gate'           => $runnable[0] ?? '',
             ];
         }
 
