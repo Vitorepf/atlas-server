@@ -96,7 +96,7 @@ final class AtlasNativeWorkerReadinessGate
         }
 
         $heartbeatAge = $observed['heartbeat_age_seconds'] ?? null;
-        if (is_int($heartbeatAge) && $heartbeatAge > self::STALE_HEARTBEAT_THRESHOLD_SECONDS) {
+        if (is_numeric($heartbeatAge) && (float) $heartbeatAge > self::STALE_HEARTBEAT_THRESHOLD_SECONDS) {
             $blockers[] = 'stale_heartbeat';
         }
 
