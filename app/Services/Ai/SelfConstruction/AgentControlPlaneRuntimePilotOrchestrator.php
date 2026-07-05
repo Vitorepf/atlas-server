@@ -4,7 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
-use App\Services\Ai\SelfConstruction\Support\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Orchestrates the full Agent Control Plane Runtime Pilot dry-run by
