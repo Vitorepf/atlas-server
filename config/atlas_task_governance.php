@@ -53,6 +53,14 @@ return [
     // diretório são SEMPRE só observação no receipt, em qualquer modo.
     'dedup_reuse_mode' => 'enforce',
 
+    // Obra #6 V0 — admission gate v2: off|observe|enforce. Gate os DOIS produtores de entropia que o
+    // dedup_reuse_mode (nome de classe) não cobre: lógica quase-duplicada (AtlasTaskDuplicateReuseGate
+    // ::evaluateLogicReuse, >= 30 linhas idênticas em outro arquivo de app/) e classe 0-ref sem tag
+    // @unwired-until (AtlasTaskWiringAdmissionGate). observe (default) grava o veredito no receipt sem
+    // bloquear — colhe uma janela de dados; enforce recusa o commit mantendo a lease. Flip para enforce
+    // é decisão do operador (espelha a postura observe-first do gate soberano das Obras #4/#5).
+    'admission_v2_mode' => 'observe',
+
     // When true, the packet builder BLOCKS a heavy refactor (refactor-shaped objective over
     // 3+ allowed_files) that arrives without a complete refactor_design_spec (problem, real
     // callers, proposed abstraction, rejected alternative, risk, expected measurable delta).

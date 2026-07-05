@@ -449,6 +449,41 @@ final class AtlasTaskServingService
                 }
             }
 
+            // ADMISSION GATE v2 (Obra #6 V0) — os dois produtores de entropia que o dedup de NOME não
+            // pega: lógica quase-duplicada (bloco >= 30 linhas copiado de outro arquivo) e classe 0-ref
+            // sem tag @unwired-until. observe (default) grava no receipt sem bloquear; enforce recusa
+            // mantendo a lease. Fail-open em erro interno, como os gates acima.
+            $admissionMode = (string) config('atlas_task_governance.admission_v2_mode', 'observe');
+            if ($admissionMode !== 'off' && $stageProductionFiles !== []) {
+                $admission = null;
+                try {
+                    $admissionFiles = array_values(array_map('strval', (array) $scope['allowed_files']));
+                    $admission = [
+                        'logic' => (new TaskQuality\AtlasTaskDuplicateReuseGate)->evaluateLogicReuse($admissionFiles),
+                        'wiring' => (new TaskQuality\AtlasTaskWiringAdmissionGate)->evaluate($admissionFiles),
+                    ];
+                    $this->orchestrator->appendReportReceipt($taskPacketId, [
+                        'receipt_kind' => 'admission_gate_v2',
+                        'mode' => $admissionMode,
+                        'verdict' => $admission,
+                    ]);
+                } catch (Throwable) {
+                    // Fail-open: gate/receipt nunca derruba um report por infra.
+                }
+                if ($admissionMode === 'enforce' && $admission !== null
+                    && (($admission['logic']['passed'] ?? true) !== true
+                        || ($admission['wiring']['passed'] ?? true) !== true)) {
+                    return $this->reportEnvelope('commit_failed', $clientId, [
+                        'outcome' => 'success',
+                        'lease_closed' => false,
+                        'task_packet_id' => $taskPacketId,
+                        'lease_id' => $leaseId,
+                        'reason' => 'admission_v2_refused',
+                        'admission' => $admission,
+                    ]);
+                }
+            }
+
             $commit = $this->committer->commitScope((array) $scope['allowed_files'], $taskPacketId, $clientId, (string) $scope['objective']);
 
             if (($commit['committed'] ?? false) !== true) {

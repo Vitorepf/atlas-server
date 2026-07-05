@@ -26,7 +26,11 @@ final class AtlasTaskDuplicateReuseGate
 {
     public const SCHEMA = 'atlas.task.duplicate_reuse_gate.v1';
 
+    public const SCHEMA_LOGIC = 'atlas.task.logic_reuse_gate.v1';
+
     private const CLONE_BLOCK_MIN_LINES = 30; // ponytail: teto fixo; parametrizar só se ruído real aparecer
+
+    private const LOGIC_REUSE_MIN_LINES = 30; // Obra #6 V0: mesmo piso do clone_block; 30 linhas idênticas = re-implementação
 
     private const DECLARATION_PATTERN = '/^\s*(?:final\s+|abstract\s+|readonly\s+)*(?:class|interface|trait|enum)\s+(\w+)/mi';
 
@@ -89,6 +93,90 @@ final class AtlasTaskDuplicateReuseGate
             'passed' => $blockers === [],
             'blockers' => array_values(array_unique($blockers)),
             'observations' => $observations,
+            'examined' => $examined,
+        ];
+    }
+
+    /**
+     * Obra #6 V0 — reuse-first de LÓGICA (não só de nome). O check A pega classe homônima; este pega
+     * o padrão mais comum e caro do produtor: o worker COPIA um bloco de lógica (>= 30 linhas
+     * normalizadas idênticas) de um arquivo que já existe, com nome/namespace diferentes, e o check A
+     * não vê. Detecção exata por janela deslizante de 30 linhas: hash de cada janela dos arquivos de
+     * PRODUÇÃO entregues, depois uma passada única sobre app/ procurando a mesma janela em OUTRO
+     * arquivo. Memória O(janelas entregues) (poucas dezenas de arquivos), tempo O(linhas de app/).
+     *
+     * Retorna blocker nomeado `duplicate_logic_blocked:<entregue>~<existente>` para o admission gate
+     * v2 recusar em enforce (forçando reuso/extração). Fail-open: Throwable -> passed=true.
+     *
+     * @param  list<string>  $changedFiles  paths repo-relativos
+     * @return array{schema:string, passed:bool, blockers:list<string>, examined:int}
+     */
+    public function evaluateLogicReuse(array $changedFiles, ?string $repoRoot = null): array
+    {
+        $repoRoot = rtrim($repoRoot ?? base_path(), '/');
+        $phpChanged = array_values(array_filter(
+            array_map('strval', $changedFiles),
+            static fn (string $f): bool => str_ends_with($f, '.php')
+                && ! (str_starts_with($f, 'tests/') || str_contains($f, '/tests/') || str_ends_with($f, 'Test.php')),
+        ));
+        if ($phpChanged === []) {
+            return ['schema' => self::SCHEMA_LOGIC, 'passed' => true, 'blockers' => [], 'examined' => 0];
+        }
+        $changedSet = array_flip($phpChanged);
+
+        // 1) janelas de 30 linhas normalizadas dos arquivos entregues -> arquivo dono (o primeiro).
+        $wanted = [];
+        $examined = 0;
+        foreach ($phpChanged as $file) {
+            $abs = $repoRoot.'/'.$file;
+            if (! is_file($abs)) {
+                continue; // arquivo deletado pela entrega
+            }
+            $examined++;
+            $lines = $this->normalizedLines((string) file_get_contents($abs));
+            $limit = count($lines) - self::LOGIC_REUSE_MIN_LINES;
+            for ($i = 0; $i <= $limit; $i++) {
+                $h = md5(implode("\n", array_slice($lines, $i, self::LOGIC_REUSE_MIN_LINES)), true);
+                $wanted[$h] ??= $file;
+            }
+        }
+        if ($wanted === []) {
+            return ['schema' => self::SCHEMA_LOGIC, 'passed' => true, 'blockers' => [], 'examined' => $examined];
+        }
+
+        // 2) passada única sobre app/ (exceto os próprios entregues) procurando qualquer janela pedida.
+        $blockers = [];
+        $paired = [];
+        $base = $repoRoot.'/app';
+        if (is_dir($base)) {
+            $it = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS),
+            );
+            foreach ($it as $f) {
+                if ($f->getExtension() !== 'php') {
+                    continue;
+                }
+                $rel = 'app'.substr($f->getPathname(), strlen($base));
+                if (isset($changedSet[$rel])) {
+                    continue; // não comparar o entregue com ele mesmo
+                }
+                $lines = $this->normalizedLines((string) file_get_contents($f->getPathname()));
+                $limit = count($lines) - self::LOGIC_REUSE_MIN_LINES;
+                for ($i = 0; $i <= $limit; $i++) {
+                    $h = md5(implode("\n", array_slice($lines, $i, self::LOGIC_REUSE_MIN_LINES)), true);
+                    $owner = $wanted[$h] ?? null;
+                    if ($owner !== null && ! isset($paired[$owner.'|'.$rel])) {
+                        $paired[$owner.'|'.$rel] = true;
+                        $blockers[] = 'duplicate_logic_blocked:'.$owner.'~'.$rel.':'.self::LOGIC_REUSE_MIN_LINES.'+_lines';
+                    }
+                }
+            }
+        }
+
+        return [
+            'schema' => self::SCHEMA_LOGIC,
+            'passed' => $blockers === [],
+            'blockers' => array_values(array_unique($blockers)),
             'examined' => $examined,
         ];
     }
