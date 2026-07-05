@@ -110,6 +110,191 @@ final class AgentControlPlaneScopeRepairInputRebuilder
     }
 
     /**
+     * High-level scope-repair entry point: consolidates packet + inspector evidence
+     * into a single rebuilt input with a deterministic next_action.
+     *
+     * next_action decision matrix:
+     *  - give_back      : only test file(s) remain, OR the implementation target is
+     *                     forbidden, OR acceptance contradicts live code (inspector
+     *                     reports contradictory_acceptance).
+     *  - operator_only  : surviving criteria require operator-only blockers (the
+     *                     three runtime/human/provider criteria).
+     *  - split_task      : multiple disjoint implementation targets with no shared
+     *                     concern and inspector reports scope_too_broad.
+     *  - repair_scope    : default — there are buildable implementation files and
+     *                     the scope is repairable.
+     *
+     * @param  array<string, mixed>  $packet
+     * @param  array<string, mixed>  $evidence
+     *         rejected_files           : list<string>  files rejected by the guard
+     *         inspector_reasons        : list<string>  reasons from quality inspector
+     *         objective_symbols        : list<string>  symbols extracted from objective
+     *         removed_targets          : list<string>  targets removed by scope repair
+     *         forbidden_target_evidence: list<string>  evidence about forbidden targets
+     * @return array<string, mixed>
+     */
+    public static function rebuild(array $packet, array $evidence = []): array
+    {
+        $allowedFiles = AtlasLoopRefillerPayloadNormalizer::stringList(
+            (array) data_get($packet, 'normalized_scope.allowed_files', data_get($packet, 'allowed_files', [])),
+        );
+        $forbiddenFiles = AtlasLoopRefillerPayloadNormalizer::stringList(
+            (array) data_get($packet, 'normalized_scope.forbidden_files', data_get($packet, 'forbidden_files', [])),
+        );
+        $rejectedFiles = AtlasLoopRefillerPayloadNormalizer::stringList(
+            (array) ($evidence['rejected_files'] ?? []),
+        );
+        $inspectorReasons = AtlasLoopRefillerPayloadNormalizer::stringList(
+            (array) ($evidence['inspector_reasons'] ?? []),
+        );
+        $objectiveSymbols = AtlasLoopRefillerPayloadNormalizer::stringList(
+            (array) ($evidence['objective_symbols'] ?? []),
+        );
+        $removedTargets = AtlasLoopRefillerPayloadNormalizer::stringList(
+            (array) ($evidence['removed_targets'] ?? []),
+        );
+        $forbiddenTargetEvidence = AtlasLoopRefillerPayloadNormalizer::stringList(
+            (array) ($evidence['forbidden_target_evidence'] ?? []),
+        );
+
+        // Partition allowed_files into test paths and implementation candidates.
+        $testPaths = array_values(array_filter(
+            $allowedFiles,
+            static fn (string $p): bool => self::isTestPath($p),
+        ));
+        $implementationCandidates = array_values(array_filter(
+            $allowedFiles,
+            static fn (string $p): bool => ! self::isTestPath($p),
+        ));
+
+        // Determine which implementation targets are forbidden.
+        $forbiddenSet = array_flip($forbiddenFiles);
+        $forbiddenImplTargets = array_values(array_filter(
+            $implementationCandidates,
+            static fn (string $p): bool => isset($forbiddenSet[$p]),
+        ));
+
+        // Build the inspector-reasons string for the objective reconciliation.
+        $reasonsString = $inspectorReasons !== []
+            ? implode('; ', $inspectorReasons)
+            : '';
+
+        // --- Decide next_action ----------------------------------------------------
+        $nextAction = 'repair_scope';
+        $repairImpossible = false;
+        $blockedReason = null;
+
+        // Condition 1: only test file(s) remain (no implementation candidates).
+        if ($implementationCandidates === [] && $testPaths !== []) {
+            $nextAction = 'give_back';
+            $repairImpossible = true;
+            $blockedReason = 'test_only_survivors_no_implementation_target';
+        }
+
+        // Condition 2: the implementation target is forbidden.
+        if ($forbiddenImplTargets !== [] && count($forbiddenImplTargets) === count($implementationCandidates)) {
+            $nextAction = 'give_back';
+            $repairImpossible = true;
+            $blockedReason = 'implementation_target_is_forbidden';
+        }
+
+        // Condition 3: acceptance contradicts live code.
+        $reasonsLower = array_map('strtolower', $inspectorReasons);
+        foreach ($reasonsLower as $reason) {
+            if (str_contains($reason, 'contradictory_acceptance') || str_contains($reason, 'acceptance_contradicts')) {
+                $nextAction = 'give_back';
+                $repairImpossible = true;
+                $blockedReason = 'acceptance_contradicts_live_code';
+                break;
+            }
+        }
+
+        // Condition 4: operator-only blockers in surviving criteria.
+        if (! $repairImpossible) {
+            foreach ($reasonsLower as $reason) {
+                if (str_contains($reason, 'operator_only') || str_contains($reason, 'operator_handoff')) {
+                    $nextAction = 'operator_only';
+                    break;
+                }
+            }
+        }
+
+        // Condition 5: scope too broad → split_task.
+        if (! $repairImpossible && $nextAction === 'repair_scope') {
+            foreach ($reasonsLower as $reason) {
+                if (str_contains($reason, 'scope_too_broad') || str_contains($reason, 'split_task')) {
+                    $nextAction = 'split_task';
+                    break;
+                }
+            }
+        }
+
+        // --- Build the rebuilt input ------------------------------------------------
+        $objective = trim((string) data_get($packet, 'objective', ''));
+
+        $evidenceNote = '';
+        if ($rejectedFiles !== []) {
+            $evidenceNote .= ' Rejected files: '.implode(', ', $rejectedFiles).'.';
+        }
+        if ($inspectorReasons !== []) {
+            $evidenceNote .= ' Inspector reasons: '.$reasonsString.'.';
+        }
+        if ($forbiddenTargetEvidence !== []) {
+            $evidenceNote .= ' Forbidden target evidence: '.implode(', ', $forbiddenTargetEvidence).'.';
+        }
+        if ($repairImpossible) {
+            $evidenceNote .= ' REPAIR_IMPOSSIBLE: '.$blockedReason.'.';
+        }
+
+        $acceptance = AtlasLoopRefillerPayloadNormalizer::stringList(
+            (array) data_get($packet, 'acceptance_criteria', []),
+        );
+        if ($acceptance === []) {
+            $acceptance = ['Implement the listed allowed_files with their public API and a passing unit test; do not edit any forbidden_files (the operator wires those separately).'];
+        }
+
+        return [
+            'task_packet_id' => (string) data_get($packet, 'task_packet_id', ''),
+            'objective' => $objective.$evidenceNote,
+            'refactor_design_spec' => (array) data_get($packet, 'refactor_design_spec', []),
+            'source' => (string) data_get($packet, 'source', 'operator_intake'),
+            'operator_id' => (string) data_get($packet, 'operator_id', 'operator-unknown'),
+            'parent_run_id' => (string) data_get($packet, 'parent_run_id', ''),
+            'allowed_files' => $allowedFiles,
+            'scope_in' => AtlasLoopRefillerPayloadNormalizer::stringList(
+                (array) data_get($packet, 'normalized_scope.scope_in', data_get($packet, 'scope_in', [])),
+            ),
+            'scope_out' => AtlasLoopRefillerPayloadNormalizer::stringList(
+                (array) data_get($packet, 'normalized_scope.scope_out', data_get($packet, 'scope_out', [])),
+            ),
+            'forbidden_files' => $forbiddenFiles,
+            'acceptance_criteria' => $acceptance,
+            'required_evidence' => AtlasLoopRefillerPayloadNormalizer::stringList(
+                (array) data_get($packet, 'evidence_requirements.required', data_get($packet, 'required_evidence', [])),
+            ),
+            'risk_level' => (string) data_get($packet, 'risk_classification.risk_level', data_get($packet, 'risk_level', 'low')),
+            'max_runtime_seconds' => (int) data_get($packet, 'cost_budget_requirements.max_runtime_seconds', data_get($packet, 'max_runtime_seconds', 3600)),
+            'max_token_budget' => (int) data_get($packet, 'cost_budget_requirements.max_token_budget', data_get($packet, 'max_token_budget', 0)),
+            'workspace_policy' => (array) data_get($packet, 'workspace_policy', []),
+            'continuation_context' => (array) data_get($packet, 'continuation_context', []),
+            'lease_ttl_seconds' => (int) data_get($packet, 'lease_requirements.lease_ttl_seconds', 1800),
+            'rollback_strategy' => (string) data_get($packet, 'rollback_requirements.rollback_strategy', 'plan_only'),
+            // Evidence consolidation
+            'rejected_files' => $rejectedFiles,
+            'inspector_reasons' => $inspectorReasons,
+            'objective_symbols' => $objectiveSymbols,
+            'test_paths' => $testPaths,
+            'implementation_candidates' => $implementationCandidates,
+            'forbidden_target_evidence' => $forbiddenTargetEvidence,
+            'removed_targets' => $removedTargets,
+            // Decision
+            'next_action' => $nextAction,
+            'repair_impossible' => $repairImpossible,
+            'repair_blocked_reason' => $blockedReason,
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $packet
      * @param  list<string>  $forbiddenAllowed
      * @return array<string, mixed>

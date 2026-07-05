@@ -162,4 +162,129 @@ class AgentControlPlaneScopeRepairInputRebuilderTest extends TestCase
 
         self::assertSame($a, $b);
     }
+
+    // --- rebuild() ----------------------------------------------------
+
+    public function test_rebuild_includes_original_allowed_files_and_evidence_fields(): void
+    {
+        $packet = $this->basePacket([
+            'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+        ]);
+
+        $result = AgentControlPlaneScopeRepairInputRebuilder::rebuild($packet, [
+            'rejected_files' => ['app/Removed.php'],
+            'inspector_reasons' => ['scope_repair_needed'],
+            'objective_symbols' => ['Foo', 'doBar'],
+            'removed_targets' => ['app/OldTarget.php'],
+            'forbidden_target_evidence' => ['app/Forbidden.php is petreo'],
+        ]);
+
+        self::assertContains('app/Foo.php', $result['allowed_files']);
+        self::assertContains('tests/Unit/FooTest.php', $result['test_paths']);
+        self::assertContains('app/Foo.php', $result['implementation_candidates']);
+        self::assertSame(['app/Removed.php'], $result['rejected_files']);
+        self::assertSame(['scope_repair_needed'], $result['inspector_reasons']);
+        self::assertSame(['Foo', 'doBar'], $result['objective_symbols']);
+        self::assertSame(['app/OldTarget.php'], $result['removed_targets']);
+        self::assertSame(['app/Forbidden.php is petreo'], $result['forbidden_target_evidence']);
+    }
+
+    public function test_rebuild_marks_repair_impossible_when_only_test_file_remains(): void
+    {
+        $packet = $this->basePacket([
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+        ]);
+
+        $result = AgentControlPlaneScopeRepairInputRebuilder::rebuild($packet);
+
+        self::assertSame('give_back', $result['next_action']);
+        self::assertTrue($result['repair_impossible']);
+        self::assertSame('test_only_survivors_no_implementation_target', $result['repair_blocked_reason']);
+    }
+
+    public function test_rebuild_marks_repair_impossible_when_implementation_target_is_forbidden(): void
+    {
+        $packet = $this->basePacket([
+            'allowed_files' => ['app/Forbidden.php'],
+            'forbidden_files' => ['app/Forbidden.php'],
+        ]);
+
+        $result = AgentControlPlaneScopeRepairInputRebuilder::rebuild($packet);
+
+        self::assertSame('give_back', $result['next_action']);
+        self::assertTrue($result['repair_impossible']);
+        self::assertSame('implementation_target_is_forbidden', $result['repair_blocked_reason']);
+    }
+
+    public function test_rebuild_marks_repair_impossible_when_acceptance_contradicts_live_code(): void
+    {
+        $packet = $this->basePacket([
+            'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+        ]);
+
+        $result = AgentControlPlaneScopeRepairInputRebuilder::rebuild($packet, [
+            'inspector_reasons' => ['contradictory_acceptance: criteria conflict with live code'],
+        ]);
+
+        self::assertSame('give_back', $result['next_action']);
+        self::assertTrue($result['repair_impossible']);
+        self::assertSame('acceptance_contradicts_live_code', $result['repair_blocked_reason']);
+    }
+
+    public function test_rebuild_emits_operator_only_when_inspector_reports_operator_blocker(): void
+    {
+        $packet = $this->basePacket([
+            'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+        ]);
+
+        $result = AgentControlPlaneScopeRepairInputRebuilder::rebuild($packet, [
+            'inspector_reasons' => ['operator_only: runtime_gap_matrix_all_runtime_y'],
+        ]);
+
+        self::assertSame('operator_only', $result['next_action']);
+        self::assertFalse($result['repair_impossible']);
+    }
+
+    public function test_rebuild_emits_split_task_when_inspector_reports_scope_too_broad(): void
+    {
+        $packet = $this->basePacket([
+            'allowed_files' => ['app/Foo.php', 'app/Bar.php', 'tests/Unit/FooTest.php'],
+        ]);
+
+        $result = AgentControlPlaneScopeRepairInputRebuilder::rebuild($packet, [
+            'inspector_reasons' => ['scope_too_broad: multiple disjoint targets'],
+        ]);
+
+        self::assertSame('split_task', $result['next_action']);
+        self::assertFalse($result['repair_impossible']);
+    }
+
+    public function test_rebuild_defaults_to_repair_scope_for_buildable_packet(): void
+    {
+        $packet = $this->basePacket([
+            'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+        ]);
+
+        $result = AgentControlPlaneScopeRepairInputRebuilder::rebuild($packet);
+
+        self::assertSame('repair_scope', $result['next_action']);
+        self::assertFalse($result['repair_impossible']);
+        self::assertNull($result['repair_blocked_reason']);
+    }
+
+    public function test_rebuild_is_deterministic(): void
+    {
+        $packet = $this->basePacket([
+            'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+        ]);
+        $evidence = [
+            'inspector_reasons' => ['scope_repair_needed'],
+            'objective_symbols' => ['Foo'],
+        ];
+
+        $a = AgentControlPlaneScopeRepairInputRebuilder::rebuild($packet, $evidence);
+        $b = AgentControlPlaneScopeRepairInputRebuilder::rebuild($packet, $evidence);
+
+        self::assertSame($a, $b);
+    }
 }
