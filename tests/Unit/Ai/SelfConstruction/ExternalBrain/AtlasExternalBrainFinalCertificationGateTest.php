@@ -630,4 +630,38 @@ final class AtlasExternalBrainFinalCertificationGateTest extends TestCase
 
         $this->fail("Dossier entry not found for dimension: {$dimension}");
     }
+
+    // ── AC4: queue counts alone cannot reach final_95 and include live_cycle_evidence blocker ──
+
+    public function test_queue_counts_alone_include_live_cycle_evidence_blocker(): void
+    {
+        $evidence = array_merge($this->fullEvidence(), [
+            'live_cycle_evidence' => ['cycle_count' => 0, 'resolved_task_count' => 0],
+            'anti_goodhart' => ['verdict' => 'unknown'],
+        ]);
+
+        $result = $this->gate()->certify($evidence);
+
+        $this->assertNotSame(AtlasExternalBrainFinalCertificationGate::VERDICT_FINAL_95, $result['verdict']);
+        $blockerDims = array_column($result['blockers'], 'dimension');
+        $this->assertContains('live_cycle_evidence', $blockerDims);
+    }
+
+    public function test_spec_only_evidence_blocked_from_final_95(): void
+    {
+        // Spec-only = boolean flags with zero supporting evidence_refs
+        $evidence = [
+            'live_cycle_evidence'    => ['cycle_count' => 1, 'resolved_task_count' => 1],
+            'anti_goodhart'          => ['verdict' => 'pass'],
+            'self_improvement_cycle' => ['has_output' => true, 'recommendation_count' => 1],
+            'muscle_learning'        => ['outcome_count' => 1, 'success_rate' => 0.5],
+            'property_gated_path'    => ['ready' => true, 'blocking_gates' => []],
+            'doc_proposal'           => ['drafted' => true, 'certification_blocked' => false],
+            'autonomy'               => ['human_dependency_in_loop' => false, 'provider_dependency_in_steady_state' => false],
+        ];
+
+        $result = $this->gate()->certify($evidence);
+
+        $this->assertNotSame(AtlasExternalBrainFinalCertificationGate::VERDICT_FINAL_95, $result['verdict']);
+    }
 }
