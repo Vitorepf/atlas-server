@@ -140,4 +140,70 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernorTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $result['recommended_batch_size']);
         $this->assertLessThanOrEqual(12, $result['recommended_batch_size']);
     }
+
+    // ── AC: value floor + starvation horizon ──────────────────────────────────
+
+    public function test_deep_queue_with_low_value_score_recommends_zero_batch(): void
+    {
+        $result = $this->governor()->govern($this->input([
+            'queue_depth' => 80,
+            'candidate_value_score' => 0.1,
+        ]));
+
+        $this->assertSame(0, $result['recommended_batch_size']);
+        $this->assertFalse($result['should_enqueue']);
+        $this->assertContains('value_floor_blocks_deep_queue', $result['reason_codes']);
+        $this->assertFalse($result['value_floor_passed']);
+    }
+
+    public function test_deep_queue_with_high_value_score_does_not_block(): void
+    {
+        $result = $this->governor()->govern($this->input([
+            'queue_depth' => 80,
+            'candidate_value_score' => 0.8,
+        ]));
+
+        $this->assertNotContains('value_floor_blocks_deep_queue', $result['reason_codes']);
+        $this->assertTrue($result['value_floor_passed']);
+    }
+
+    public function test_starvation_horizon_allows_small_high_value_batch(): void
+    {
+        $result = $this->governor()->govern($this->input([
+            'hours_to_starvation' => 2.0,
+            'candidate_value_score' => 0.6,
+        ]));
+
+        $this->assertGreaterThanOrEqual(2, $result['recommended_batch_size']);
+        $this->assertContains('starvation_horizon_allows_small_batch', $result['reason_codes']);
+        $this->assertTrue($result['should_enqueue']);
+    }
+
+    public function test_starvation_horizon_does_not_fire_when_value_below_floor(): void
+    {
+        $result = $this->governor()->govern($this->input([
+            'hours_to_starvation' => 2.0,
+            'candidate_value_score' => 0.1,
+        ]));
+
+        $this->assertNotContains('starvation_horizon_allows_small_batch', $result['reason_codes']);
+    }
+
+    public function test_starvation_horizon_outside_horizon_does_not_fire(): void
+    {
+        $result = $this->governor()->govern($this->input([
+            'hours_to_starvation' => 10.0,
+            'candidate_value_score' => 0.9,
+        ]));
+
+        $this->assertNotContains('starvation_horizon_allows_small_batch', $result['reason_codes']);
+    }
+
+    public function test_output_includes_value_floor_passed_key(): void
+    {
+        $result = $this->governor()->govern($this->input());
+
+        $this->assertArrayHasKey('value_floor_passed', $result);
+        $this->assertIsBool($result['value_floor_passed']);
+    }
 }

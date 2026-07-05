@@ -25,7 +25,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   8. poison_rate_shrinks_batch — give_back_poison_rate >= 0.3 -> caps batch at 2,
  *      overriding every other rule (including quota-pressure fills) so a noisy queue
  *      never gets flooded with more work than it can safely absorb.
- *   9. baseline_batch — emitted only if no other reason fired.
+ *   9. value_floor_blocks_deep_queue — queue_depth >= 50 AND candidate_value_score
+ *      below VALUE_FLOOR_THRESHOLD -> batch forced to 0; a deep queue must not be
+ *      fed low-value work just to keep the pipeline busy.
+ *  10. starvation_horizon_allows_small_batch — hours_to_starvation is provided and
+ *      inside STARVATION_HORIZON_HOURS AND value floor passed -> raise batch to at
+ *      least 2 so a high-value frontier can be harvested before the queue starves.
+ *  11. baseline_batch — emitted only if no other reason fired.
  *
  * recommended_batch_size is always clamped to [0, 12].
  * should_enqueue = recommended_batch_size > 0.
@@ -41,9 +47,10 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   servable_now_delta:       float (default 0.0) — negative means servable depth is falling
  *   recent_seed_proof_quality: float (default 0.5) — quality of most recently originated seeds
  *   give_back_poison_rate:    float (default 0.0) — fraction of recent tasks given back as poison
+ *   hours_to_starvation:      float|null (default null) — estimated hours until queue is empty
  *
  * OUTPUT:
- *   { schema, recommended_batch_size, reason_codes, should_enqueue }
+ *   { schema, recommended_batch_size, reason_codes, should_enqueue, value_floor_passed }
  *
  * Pure: no I/O, no side effects.
  */
@@ -69,6 +76,12 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
 
     private const POISON_CAPPED_BATCH_SIZE = 2;
 
+    private const VALUE_FLOOR_THRESHOLD = 0.4;
+
+    private const STARVATION_HORIZON_HOURS = 4.0;
+
+    private const STARVATION_SMALL_BATCH = 2;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -86,6 +99,7 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
         $servableNowDelta = (float) ($input['servable_now_delta'] ?? 0.0);
         $recentSeedProofQuality = max(0.0, min(1.0, (float) ($input['recent_seed_proof_quality'] ?? 0.5)));
         $giveBackPoisonRate = max(0.0, min(1.0, (float) ($input['give_back_poison_rate'] ?? 0.0)));
+        $hoursToStarvation = isset($input['hours_to_starvation']) ? (float) $input['hours_to_starvation'] : null;
 
         $requiredFloor = max($activeWorkers * $minimumClaimablePerWorker, 4);
         $sufficient = $servableNow >= $requiredFloor;
@@ -97,6 +111,9 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
         $servableFalling = $servableNowDelta < 0.0;
         $proofQualityHigh = $recentSeedProofQuality >= self::HIGH_PROOF_QUALITY_THRESHOLD;
         $poisonRateHigh = $giveBackPoisonRate >= self::HIGH_POISON_RATE_THRESHOLD;
+
+        $valueFloorPassed = $candidateValueScore >= self::VALUE_FLOOR_THRESHOLD;
+        $deepBacklog = $queueDepth >= self::DEEP_BACKLOG_QUEUE_DEPTH;
 
         $batch = self::BASELINE_BATCH_SIZE;
         $reasonCodes = [];
@@ -140,6 +157,18 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
             $batch = min($batch, self::POISON_CAPPED_BATCH_SIZE);
             $reasonCodes[] = 'poison_rate_shrinks_batch';
         }
+        if ($deepBacklog && ! $valueFloorPassed) {
+            $batch = 0;
+            $reasonCodes[] = 'value_floor_blocks_deep_queue';
+        }
+        if ($hoursToStarvation !== null
+            && $hoursToStarvation > 0.0
+            && $hoursToStarvation <= self::STARVATION_HORIZON_HOURS
+            && $valueFloorPassed
+        ) {
+            $batch = max($batch, self::STARVATION_SMALL_BATCH);
+            $reasonCodes[] = 'starvation_horizon_allows_small_batch';
+        }
         if ($reasonCodes === []) {
             $reasonCodes[] = 'baseline_batch';
         }
@@ -151,6 +180,7 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
             'recommended_batch_size' => $batch,
             'reason_codes' => $reasonCodes,
             'should_enqueue' => $batch > 0,
+            'value_floor_passed' => $valueFloorPassed,
         ];
     }
 }
