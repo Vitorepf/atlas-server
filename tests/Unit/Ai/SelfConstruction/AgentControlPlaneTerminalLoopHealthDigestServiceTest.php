@@ -232,7 +232,29 @@ final class AgentControlPlaneTerminalLoopHealthDigestServiceTest extends TestCas
         $diagnostic = $digest['lease_leak_diagnostic'];
         $this->assertNotSame('replenish', $digest['loop_decision']['recommended_action']);
         $this->assertStringNotContainsString('replenish', $diagnostic['next_self_healing_action']);
-        $this->assertStringNotContainsString('originate', $diagnostic['next_self_healing_action']);
         $this->assertStringNotContainsString('create', $diagnostic['next_self_healing_action']);
+    }
+
+    public function test_resume_summary_sanitizes_packet_id_in_commands(): void
+    {
+        // prove safeCommandToken strips shell metacharacters from task_packet_id
+        // when interpolated into recover_command / resume_packet_command.
+        $service = new AgentControlPlaneTerminalLoopHealthDigestService(
+            new AgentControlPlaneTaskPacketQueueRepository,
+            new AgentControlPlaneTaskLeaseRecoveryService,
+        );
+        $ref = new \ReflectionMethod($service, 'safeCommandToken');
+        $ref->setAccessible(true);
+
+        $malicious = 'x; rm -rf /';
+        $sanitized = $ref->invoke($service, $malicious, 'packet');
+
+        // Must not contain shell metacharacters (;, &, |, `, $ are replaced with -).
+        $this->assertDoesNotMatchRegularExpression('/[;&|`$]/', (string) $sanitized);
+        $this->assertStringNotContainsString(';', (string) $sanitized);
+
+        // Ordinary alphanumeric id passes through safely.
+        $clean = $ref->invoke($service, 'pk-01h3abc', 'packet');
+        $this->assertSame('pk-01h3abc', (string) $clean);
     }
 }

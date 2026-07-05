@@ -824,6 +824,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
     private function resumeSummary(array $item, string $actor): array
     {
         $taskPacketId = (string) ($item['task_packet_id'] ?? '');
+        $safePacketId = $this->safeCommandToken($taskPacketId, 'packet');
         $classification = (string) ($item['classification'] ?? '');
         $recoverable = (bool) ($item['recoverable'] ?? false);
 
@@ -838,9 +839,9 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'recoverable' => $recoverable,
             'safe_next_action' => $recoverable ? 'recover_then_claim_fresh_lease' : 'do_not_steal_active_lease',
             'recover_command' => $recoverable
-                ? 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet='.$taskPacketId.' --actor='.$actor.' --reason=terminal_loop_resume_rollup'.$this->queueTagArgs($this->recordQueueTags($item)).' --json'
+                ? 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet='.$safePacketId.' --actor='.$actor.' --reason=terminal_loop_resume_rollup'.$this->queueTagArgs($this->recordQueueTags($item)).' --json'
                 : '',
-            'resume_packet_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet='.$taskPacketId.' --actor='.$actor.$this->queueTagArgs($this->recordQueueTags($item)).' --json',
+            'resume_packet_command' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --packet='.$safePacketId.' --actor='.$actor.$this->queueTagArgs($this->recordQueueTags($item)).' --json',
             'fresh_claim_required_before_work' => true,
         ];
     }
