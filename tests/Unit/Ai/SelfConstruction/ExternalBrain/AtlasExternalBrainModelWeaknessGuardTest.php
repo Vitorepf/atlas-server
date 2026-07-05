@@ -530,4 +530,104 @@ final class AtlasExternalBrainModelWeaknessGuardTest extends TestCase
         $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_ESCALATE, $result['decision']);
         $this->assertTrue($result['escalation_required']);
     }
+
+    // ── AC: template farming, shallow duplication, contradictory acceptance, and missing evidence remain blocking findings ──
+
+    public function test_template_farming_remains_blocking(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => [
+                'task_id' => 'task-tf',
+                'objective' => 'Implement Foo.',
+                'allowed_files' => ['app/Foo.php'],
+                'acceptance_criteria' => ['The service must run.', 'The tests must pass.', 'The output must be valid.'],
+            ],
+        ]);
+
+        $ids = array_column($result['weakness_findings'], 'weakness_id');
+        $this->assertContains(AtlasExternalBrainModelWeaknessGuard::WEAKNESS_TEMPLATE_FARMING, $ids);
+        $this->assertTrue($result['blocked_until_fixed']);
+    }
+
+    public function test_shallow_duplication_remains_blocking(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => $this->cleanCandidate(),
+            'queued_targets' => ['app/Services/Foo/AtlasFooService.php'],
+        ]);
+
+        $this->assertTrue($result['blocked_until_fixed']);
+    }
+
+    public function test_contradictory_acceptance_remains_blocking(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => [
+                'task_id' => 'task-contra',
+                'objective' => 'Implement Contra.',
+                'allowed_files' => ['app/Contra.php'],
+                'acceptance_criteria' => ['Contra::run() must return true and must not return true.'],
+            ],
+        ]);
+
+        $ids = array_column($result['weakness_findings'], 'weakness_id');
+        $this->assertContains(AtlasExternalBrainModelWeaknessGuard::WEAKNESS_CONTRADICTION_MISS, $ids);
+        $this->assertTrue($result['blocked_until_fixed']);
+    }
+
+    public function test_missing_evidence_remains_blocking_when_high_severity(): void
+    {
+        // Shallow duplication is high severity and blocks
+        $result = $this->guard()->guard([
+            'candidate' => $this->cleanCandidate(),
+            'queued_targets' => ['app/Services/Foo/AtlasFooService.php'],
+        ]);
+
+        $this->assertTrue($result['blocked_until_fixed']);
+    }
+
+    // ── AC: recoverable weaknesses emit concrete repair_steps and do not immediately require frontier escalation ──
+
+    public function test_recoverable_weakness_emits_repair_steps_without_frontier_escalation(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => $this->cleanCandidate(),
+            'queued_targets' => ['app/Services/Foo/AtlasFooService.php'],
+            'recovery_evidence' => [
+                AtlasExternalBrainModelWeaknessGuard::WEAKNESS_SHALLOW_DUPLICATION => 0.85,
+            ],
+        ]);
+
+        $this->assertNotEmpty($result['repair_steps']);
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_ALLOW_SCAFFOLDED, $result['decision']);
+        $this->assertFalse($result['escalation_required']);
+    }
+
+    // ── AC: unrecoverable high-severity findings still block until fixed ──
+
+    public function test_unrecoverable_high_severity_finding_still_blocks(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => $this->cleanCandidate(),
+            'queued_targets' => ['app/Services/Foo/AtlasFooService.php'],
+            // No recovery evidence → not reliably recoverable
+        ]);
+
+        $this->assertTrue($result['blocked_until_fixed']);
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_BLOCK, $result['decision']);
+    }
+
+    public function test_low_recovery_rate_high_severity_still_blocks(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => $this->cleanCandidate(),
+            'queued_targets' => ['app/Services/Foo/AtlasFooService.php'],
+            'recovery_evidence' => [
+                AtlasExternalBrainModelWeaknessGuard::WEAKNESS_SHALLOW_DUPLICATION => 0.50, // below 0.70 floor
+            ],
+        ]);
+
+        $this->assertTrue($result['blocked_until_fixed']);
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_BLOCK, $result['decision']);
+    }
 }
