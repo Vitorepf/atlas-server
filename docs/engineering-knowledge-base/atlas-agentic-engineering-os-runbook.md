@@ -36,7 +36,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-multi-agent-unified-architecture.md
   - docs/engineering-knowledge-base/atlas-aaeos-http-path-integration-spec.md
   - docs/engineering-knowledge-base/atlas-mission-control-cockpit-spec.md
-  - docs/engineering-knowledge-base/atlas-ai-mission-foundation.md
+  - docs/engineering-knowledge-base/atlas-kernel-mission-foundation.md
   - docs/engineering-knowledge-base/atlas-autonomous-software-company-runtime.md
   - docs/engineering-knowledge-base/atlas-autonomous-engineering-operating-system.md
   - docs/engineering-knowledge-base/atlas-real-engineering-execution-kernel.md
@@ -46,12 +46,13 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-evidence-certification-runtime.md
   - docs/engineering-knowledge-base/atlas-code-enterprise-certification.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
-  - app/Services/Ai/AtlasAaeos/
-  - app/Services/Ai/AtlasMission/
-  - app/Services/Ai/AtlasRouter/
-  - app/Services/Ai/AtlasCompanyRuntime/
+  - app/Services/Ai/AgenticEngineeringOs/
+  - app/Services/Ai/Aaeos/
+  - app/Services/Ai/Mission/
+  - app/Services/Ai/Router/
+  - app/Services/Ai/EngineeringCompany/
   - app/Services/Ai/AtlasDecide/
-  - app/Services/Ai/AtlasDev/
+  - app/Services/Ai/Programming/
   - app/Services/Ai/AtlasForge/
 doc_schema: atlas_canonical_module_doc.v1
 graph_id: atlas-agentic-engineering-os-runbook
@@ -83,7 +84,7 @@ forbidden_changes:
 depends_on:
   - atlas-agentic-engineering-os
   - atlas-agentic-engineering-os-contracts
-  - atlas-ai-mission-foundation
+  - atlas-kernel-mission-foundation
   - atlas-autonomous-software-company-runtime
   - atlas-real-engineering-execution-kernel
   - atlas-evidence-certification-runtime
@@ -272,7 +273,7 @@ flowchart TD
 
 | Fase | Servico canonico (atual ou esperado) | Status |
 |------|--------------------------------------|--------|
-| 0 | `App\\Services\\Ai\\Surfaces\\*` | parcial: Desktop ok, Mobile parcial |
+| 0 | `App\\Services\\Ai\\Surface\\*` | parcial: Desktop ok, Mobile parcial |
 | 1 | `AtlasMissionFoundationService` | existe, integracao HTTP pendente (T1.4) |
 | 2 | `AtlasPlaceFeatureService` | existe |
 | 3 | `AtlasAiRouterService` | existe, nao chamado pelo HTTP path |
@@ -388,7 +389,7 @@ Declaradas em frontmatter (`depends_on`). Resumo:
 
 - `atlas-agentic-engineering-os` (autoridade-mae)
 - `atlas-agentic-engineering-os-contracts` (departamentos)
-- `atlas-ai-mission-foundation` (P1)
+- `atlas-kernel-mission-foundation` (P1)
 - `atlas-autonomous-software-company-runtime` (P6)
 - `atlas-real-engineering-execution-kernel` (P10)
 - `atlas-evidence-certification-runtime` (P12, P15)

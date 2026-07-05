@@ -113,7 +113,7 @@ forbidden_changes:
   - Listar prompt projection, rendered_prompt_text, R-levels ou DTOs detalhados aqui. Esses contratos vivem nos docs dos fluxos.
   - Introduzir benchmark, Rivals, Opus challenge, baterias de prompts ou score competitivo.
 required_tests:
-  - "tests/Unit/Ai/Router/AtlasAiRouterContractTest.php (quando o runtime existir)"
+  - tests/Unit/Ai/Router/AtlasAiRouterServiceTest.php
 requires_evidence: true
 risk_level: high
 line_limit: 520
@@ -372,6 +372,8 @@ O que falta para o Router virar runtime:
 ## Evidencias
 
 Evidencia primaria: este doc + os contracts docs dos fluxos listados na tabela de flow_ids. Quando o runtime existir, evidencia secundaria sera `tests/Unit/Ai/Router/*` e logs de `flow_id`/`routing_reason` persistidos.
+
+Nota (2026-07-05): `required_tests` apontava para `tests/Unit/Ai/Router/AtlasAiRouterContractTest.php`, arquivo que nunca existiu no historico do repo. O runtime do Router e seu teste vivo existem desde 2026-05-17 (commit 0d91bdb823: `app/Services/Ai/Router/AtlasAiRouterService.php` + `tests/Unit/Ai/Router/AtlasAiRouterServiceTest.php`); o frontmatter passou a apontar para o teste vivo.
 
 ## Riscos
 

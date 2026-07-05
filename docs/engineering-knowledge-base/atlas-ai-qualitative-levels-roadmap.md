@@ -40,9 +40,7 @@ related_paths:
   - docs/engineering-knowledge-base/domains/personal-development.md
   - docs/engineering-knowledge-base/roadmap/qualitative-levels-implementation.md
   - app/Services/Ai/Kernel/Architecture/AtlasQualitativeLevelsReadModel.php
-  - app/Services/Ai/Kernel/Architecture/AtlasRivalsStrategyReadModel.php
   - app/Console/Commands/AtlasAiQualitativeLevelsCommand.php
-  - app/Console/Commands/AtlasAiRivalsStrategyCommand.php
   - app/Http/Controllers/AtlasAiQualitativeLevelsController.php
 doc_schema: atlas_canonical_module_doc.v1
 
@@ -270,9 +268,12 @@ O read model expoe `advanced_readiness` para P6/P7 sem promover nivel:
 
 ### QL-2 — Rivals Strategy
 
-Status: implementado como storage/read model inicial.
+Status: implementado como storage/read model inicial (read model e comando
+retirados do runtime em 2026-07-02, commit f9aa666bfe; patamar segue como norte
+qualitativo sem superficie dedicada).
 
-Superficie: `php artisan atlas:ai:rivals-strategy report --hours=8760 --json`.
+Superficie: `php artisan atlas:ai:rivals-strategy report --hours=8760 --json`
+(retirada em 2026-07-02, commit f9aa666bfe).
 
 Registra decisao direta vs assistida por Atlas, revisitas 30/90/180/365 e
 scores de regret/alignment/agency. Precisa casos reais para liberar P4+.
@@ -358,7 +359,7 @@ Define niveis qualitativos P1-P7, seus bloqueios de evidencia e os limites de ag
 
 ## Onde Se Encaixa
 
-Fica acima dos read models `AtlasQualitativeLevelsReadModel` e `AtlasRivalsStrategyReadModel`, mas abaixo do Kernel, Evidence Ledger, ADER e decisoes humanas.
+Fica acima dos read models `AtlasQualitativeLevelsReadModel` e `AtlasRivalsStrategyReadModel` (este retirado em 2026-07-02, commit f9aa666bfe), mas abaixo do Kernel, Evidence Ledger, ADER e decisoes humanas.
 
 ## Contratos
 
@@ -382,7 +383,7 @@ Depende da tese multiplicador/canal unico, Evidence Ledger, Rivals Strategy, sel
 
 ## Evidencias
 
-Evidencias atuais: `AtlasQualitativeLevelsReadModel`, `AtlasRivalsStrategyReadModel`, comandos `atlas:ai:qualitative-levels` e `atlas:ai:rivals-strategy`, API `/ai/qualitative-levels` e testes associados.
+Evidencias atuais: `AtlasQualitativeLevelsReadModel`, comando `atlas:ai:qualitative-levels`, API `/ai/qualitative-levels` e testes associados. `AtlasRivalsStrategyReadModel` e o comando `atlas:ai:rivals-strategy` foram retirados em 2026-07-02 (commit f9aa666bfe) e nao contam mais como evidencia viva.
 
 ## Riscos
 

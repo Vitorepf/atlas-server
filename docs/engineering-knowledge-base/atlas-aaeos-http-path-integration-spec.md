@@ -32,17 +32,17 @@ related_paths:
   - app/Http/Controllers/AiInteractionController.php
   - app/Services/Ai/AiWorker.php
   - app/Services/Ai/AiGatewayService.php
-  - app/Services/Engineering/AtlasProgrammingOrchestratorService.php
+  - app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php
   - app/Services/Ai/AgenticEngineeringOs/AtlasAaeosHttpPathFacadeService.php
   - app/Services/Ai/AgenticEngineeringOs/AaeosHttpPathEnvelopeFactory.php
   - app/Services/Ai/AgenticEngineeringOs/AaeosDeferredPhaseDispatcherService.php
   - app/Services/Ai/Aaeos/AtlasAaeosPhaseRouterService.php
-  - app/Services/Ai/AtlasMission/
-  - app/Services/Ai/AtlasRouter/
-  - app/Services/Ai/AtlasAgenticWorkcell/
-  - app/Services/Ai/AtlasCompanyRuntime/
+  - app/Services/Ai/Mission/
+  - app/Services/Ai/Router/
+  - app/Services/Ai/AgenticWorkcell/
+  - app/Services/Ai/EngineeringCompany/
   - app/Services/Ai/AtlasDecide/
-  - app/Services/Ai/AtlasDev/
+  - app/Services/Ai/Programming/AtlasDev/
   - app/Services/Ai/AtlasForge/
   - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
   - docs/engineering-knowledge-base/atlas-multi-agent-unified-architecture.md
@@ -297,7 +297,7 @@ Servicos afetados:
 - `AiInteractionController` (entry point)
 - `AiWorker` (sera reduzido a thin delegator na fase 4)
 - `AiGatewayService` (continua, nao muda papel)
-- `AtlasProgrammingOrchestratorService` (sera deprecated apos fase 4)
+- `AtlasProgrammingOrchestrator` (`app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php`; sera deprecated apos fase 4)
 - Servicos vivos: `AtlasAaeosHttpPathFacadeService`, `AaeosHttpPathEnvelopeFactory`, `AaeosDeferredPhaseDispatcherService`, `AtlasAaeosPhaseRouterService`
 
 ## Dependencias

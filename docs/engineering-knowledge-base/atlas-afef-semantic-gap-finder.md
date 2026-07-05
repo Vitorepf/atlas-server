@@ -259,8 +259,12 @@ gap-finder novo):
 
 ## Evidencias
 
-`tests/Feature/Foundry/FoundrySemanticGapFinderServiceTest.php` (a entregar junto
-com o servico) DEVE provar, sem provider, a partir de uma FIXTURE:
+`tests/Feature/Foundry/FoundrySemanticGapFinderContractTest.php` e
+`tests/Feature/Foundry/FoundrySemanticGapFinderPipelineTest.php` (entregues em
+2026-05-30, commits bb70038089 e 98a0dafdf8, junto com
+`app/Services/Ai/Foundry/FoundrySemanticGapFinderService.php`; o nome planejado
+`FoundrySemanticGapFinderServiceTest.php` nao foi usado) DEVEM provar, sem
+provider, a partir de uma FIXTURE:
 
 1. **Emite gap real**: dossie com claim `implementation_state: available` +
    ledger_event blocker confirmado -> 1 gap `claimed_available_runtime_blocked`
