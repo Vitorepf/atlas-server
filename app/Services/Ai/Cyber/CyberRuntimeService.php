@@ -101,6 +101,21 @@ class CyberRuntimeService
             ],
         ]);
 
+        // Gate: refuse to certify a review whose target is out of scope.
+        // A target_ref or defensive scope item listed in out_of_scope_targets
+        // must throw immediately so the runtime does not certify an unauthorized review.
+        $outOfScopeTargets = (array) ($scope->out_of_scope_targets ?? []);
+        $appsecTargetRef = (string) ($payload['appsec_review']['target_ref'] ?? '');
+        if ($appsecTargetRef !== '' && in_array($appsecTargetRef, $outOfScopeTargets, true)) {
+            throw CyberDomainException::outOfScope($appsecTargetRef, 'appsec_review');
+        }
+        $defensiveScope = (array) ($payload['defensive_review']['scope'] ?? []);
+        foreach ($defensiveScope as $target) {
+            if (is_string($target) && $target !== '' && in_array($target, $outOfScopeTargets, true)) {
+                throw CyberDomainException::outOfScope($target, 'defensive_review');
+            }
+        }
+
         $appsec = null;
         if (! empty($payload['appsec_review'])) {
             $appsec = $this->appsec->review(array_merge(

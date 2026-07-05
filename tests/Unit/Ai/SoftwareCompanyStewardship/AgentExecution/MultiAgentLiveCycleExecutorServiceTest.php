@@ -340,4 +340,44 @@ class MultiAgentLiveCycleExecutorServiceTest extends TestCase
         $this->assertSame($a['cycle_receipt_hash'], $b['cycle_receipt_hash']);
         $this->assertSame($a['lane_plan_hash'], $b['lane_plan_hash']);
     }
+
+    public function test_owner_missing_evidence_kind_blocks_judge_decision(): void
+    {
+        $owner = $this->ownerRuntimeReal([
+            // Slice requires evidence_obligations=['test_results']; provide a
+            // wholly different evidence kind so the judge sees the gap.
+            'evidence_refs' => ['other_evidence'],
+        ]);
+
+        $r = $this->executor()->execute([
+            'execute' => true,
+            'finding' => ['finding_id' => 'f1', 'kind' => 'test'],
+            'executable_slice' => $this->slice(),
+            'owner_runtime_result' => $owner,
+            'session_id' => 'sess-ev-gap',
+            'cycle_id' => 'cyc-ev-gap',
+        ]);
+
+        $this->assertNotSame(MultiAgentIntegrationJudgeService::STATUS_ACCEPTED, $r['judge_decision']['status']);
+        $this->assertFalse($r['judge_decision']['all_gates_passed']);
+    }
+
+    public function test_owner_matching_evidence_kind_produces_accepted_judge_decision(): void
+    {
+        $owner = $this->ownerRuntimeReal([
+            'evidence_refs' => ['test_results'],
+        ]);
+
+        $r = $this->executor()->execute([
+            'execute' => true,
+            'finding' => ['finding_id' => 'f1', 'kind' => 'test'],
+            'executable_slice' => $this->slice(),
+            'owner_runtime_result' => $owner,
+            'session_id' => 'sess-ev-match',
+            'cycle_id' => 'cyc-ev-match',
+        ]);
+
+        $this->assertSame(MultiAgentIntegrationJudgeService::STATUS_ACCEPTED, $r['judge_decision']['status']);
+        $this->assertTrue($r['judge_decision']['all_gates_passed']);
+    }
 }

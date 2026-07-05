@@ -23,4 +23,9 @@ class CyberDomainException extends \RuntimeException
     {
         return new self("cyber.runtime: forbidden offensive action [{$action}] - Atlas Cyber Runtime does NOT execute exploit, scan, credential collection or any offensive operation. Use authorized bug bounty intake with documented scope/RoE/legal/privacy gates instead.");
     }
+
+    public static function outOfScope(string $target, string $context): self
+    {
+        return new self("cyber.runtime: scope violation — target [{$target}] is out of scope for {$context}. Review target is listed in out_of_scope_targets and cannot be certified via this defensive review.");
+    }
 }

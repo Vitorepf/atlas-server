@@ -566,6 +566,18 @@ final class MultiAgentLiveCycleExecutorService
             return [];
         }
 
+        // Use the owner runtime's real evidence refs (from what it actually
+        // produced) instead of synthesizing one ref per slice obligation.
+        // When the owner omitted an required evidence kind the judge sees the
+        // gap and the evidence complete gate blocks.
+        // Pass through raw — the judge accepts both flat strings and {kind, ref} arrays.
+        $ownerRefs = (array) ($owner['evidence_refs'] ?? []);
+        if ($ownerRefs !== []) {
+            return $ownerRefs;
+        }
+
+        // Fallback: synthesize from obligations (backward compat for owner
+        // flows that do not supply structured evidence refs).
         $refs = [];
         foreach (array_values(array_filter((array) ($slice['evidence_obligations'] ?? []), 'is_string')) as $kind) {
             $refs[] = ['kind' => $kind, 'ref' => 'workcell:'.$kind];
