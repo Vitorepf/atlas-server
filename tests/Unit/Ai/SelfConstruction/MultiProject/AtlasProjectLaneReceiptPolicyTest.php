@@ -138,4 +138,47 @@ final class AtlasProjectLaneReceiptPolicyTest extends TestCase
             $this->assertStringContainsString('lane_namespace', $e->getMessage());
         }
     }
+
+    // ── AC2: unknown events are rejected with invalid_event ──
+
+    public function test_unknown_event_rejected_with_invalid_event(): void
+    {
+        $p = new AtlasProjectLaneReceiptPolicy;
+        try {
+            $p->build($this->facts('unknown_event_type'));
+            $this->fail('Expected exception for unknown event');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('unknown', $e->getMessage());
+        }
+    }
+
+    // ── AC3: prompt, provider, private and trace-prefixed evidence is rejected ──
+
+    public function test_prompt_provider_private_trace_evidence_rejected(): void
+    {
+        $p = new AtlasProjectLaneReceiptPolicy;
+        foreach (['prompt:secret', 'provider:key', 'private:trace', 'trace:log'] as $badRef) {
+            try {
+                $p->build(array_merge($this->facts(AtlasProjectLaneReceiptPolicy::EVENT_LANE_ADMITTED), [
+                    'provider_safe_source_refs' => [$badRef],
+                ]));
+                $this->fail("Expected rejection for {$badRef}");
+            } catch (RuntimeException $e) {
+                $this->assertStringContainsString('provider-unsafe', $e->getMessage());
+            }
+        }
+    }
+
+    // ── AC4: allowed events produce provider-safe receipt_hash and event fields ──
+
+    public function test_allowed_events_produce_provider_safe_receipt_hash_and_event_fields(): void
+    {
+        $p = new AtlasProjectLaneReceiptPolicy;
+        foreach (AtlasProjectLaneReceiptPolicy::ALLOWED_EVENTS as $event) {
+            $env = $p->build($this->facts($event));
+            $this->assertSame($event, $env['event_type']);
+            $this->assertSame(64, strlen($env['envelope_hash']));
+            $this->assertNotEmpty($env['provider_safe_source_refs']);
+        }
+    }
 }
