@@ -2,8 +2,6 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-
-
 use App\Services\Ai\SelfConstruction\ReadinessHash;
 use Carbon\CarbonImmutable;
 
@@ -16,6 +14,8 @@ use Carbon\CarbonImmutable;
  */
 final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService
 {
+    use HumanCompletionReceiptChecks;
+
     public const SCHEMA_VERSION = 'atlas.self_construction.human_completion_receipt_pre_submission_verifier.v1';
 
     public const MODE = 'read_only_human_completion_receipt_pre_submission_verifier';
@@ -205,27 +205,6 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierServ
         return $payload;
     }
 
-    private function staleHashCode(string $field): string
-    {
-        return match ($field) {
-            'completion_audit_hash' => 'stale_completion_audit_hash',
-            'release_dossier_hash' => 'stale_release_dossier_hash',
-            'replay_diff_hash' => 'stale_replay_diff_hash',
-            'runtime_gap_matrix_hash' => 'stale_runtime_gap_matrix_hash',
-            'runtime_promotion_receipt_hash' => 'stale_runtime_promotion_receipt_hash',
-            'real_provider_smoke_hash' => 'stale_real_provider_smoke_hash',
-            'certification_status_batch_hash' => 'stale_certification_status_batch_hash',
-            default => 'stale_evidence_hash',
-        };
-    }
-
-    private function isPlaceholderSigner(string $signedBy): bool
-    {
-        $normalized = mb_strtolower(trim($signedBy));
-
-        return in_array($normalized, self::PLACEHOLDER_SIGNERS, true);
-    }
-
     /** @return list<string> */
     private function externalCompletionClaimReasonPatterns(): array
     {
@@ -241,26 +220,6 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierServ
             'external completion claim',
             'claim externo',
         ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $context
-     * @return list<string>
-     */
-    private function failedPrerequisites(array $context): array
-    {
-        $failed = [];
-        $prerequisites = (array) ($context['prerequisites'] ?? []);
-        foreach ($prerequisites as $name => $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            if ((bool) ($row['green'] ?? false) !== true) {
-                $failed[] = (string) $name;
-            }
-        }
-
-        return $failed;
     }
 
     /** @param array<string, mixed> $value */

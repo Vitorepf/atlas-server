@@ -2,8 +2,6 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
@@ -17,10 +15,11 @@ use Carbon\CarbonImmutable;
  */
 final class AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService
 {
+    use HumanCompletionReceiptChecks;
+
     use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
 
     use KsortsArraysByReference;
-
 
     /**
      * @param  array<string,mixed>  $value
@@ -207,47 +206,6 @@ final class AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService
         $payload['endgame_verification_hash'] = $this->stableHash($payload);
 
         return $payload;
-    }
-
-    private function staleHashCode(string $field): string
-    {
-        return match ($field) {
-            'completion_audit_hash' => 'stale_completion_audit_hash',
-            'release_dossier_hash' => 'stale_release_dossier_hash',
-            'replay_diff_hash' => 'stale_replay_diff_hash',
-            'runtime_gap_matrix_hash' => 'stale_runtime_gap_matrix_hash',
-            'runtime_promotion_receipt_hash' => 'stale_runtime_promotion_receipt_hash',
-            'real_provider_smoke_hash' => 'stale_real_provider_smoke_hash',
-            'certification_status_batch_hash' => 'stale_certification_status_batch_hash',
-            default => 'stale_evidence_hash',
-        };
-    }
-
-    private function isPlaceholderSigner(string $signedBy): bool
-    {
-        $normalized = mb_strtolower(trim($signedBy));
-
-        return in_array($normalized, self::PLACEHOLDER_SIGNERS, true);
-    }
-
-    /**
-     * @param  array<string, mixed>  $context
-     * @return list<string>
-     */
-    private function failedPrerequisites(array $context): array
-    {
-        $failed = [];
-        $prerequisites = (array) ($context['prerequisites'] ?? []);
-        foreach ($prerequisites as $name => $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            if ((bool) ($row['green'] ?? false) !== true) {
-                $failed[] = (string) $name;
-            }
-        }
-
-        return $failed;
     }
 
     /** @param array<string, mixed> $payload */
