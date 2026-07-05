@@ -150,4 +150,48 @@ final class AtlasRuntimeEvidenceLearningTest extends TestCase
         $this->assertFalse($incoherent['coherent']);
         $this->assertNull($incoherent['learning']);
     }
+
+    // ── AC: hyphen and space aliases normalize to the canonical closed-vocabulary keys ──
+
+    public function test_hyphen_alias_normalizes_for_evidence(): void
+    {
+        $this->assertTrue($this->service->admitEvidence('provider-call')['admitted']);
+        $this->assertTrue($this->service->admitEvidence('gate-result')['admitted']);
+    }
+
+    public function test_space_alias_normalizes_for_evidence(): void
+    {
+        $this->assertTrue($this->service->admitEvidence('provider call')['admitted']);
+        $this->assertTrue($this->service->admitEvidence('gate result')['admitted']);
+    }
+
+    public function test_hyphen_alias_normalizes_for_learning(): void
+    {
+        $result = $this->service->classifyLearningOutput('repair-heuristic', false);
+        $this->assertTrue($result['valid_output']);
+        $this->assertSame('repair_heuristic', $result['output_kind']);
+    }
+
+    public function test_space_alias_normalizes_for_learning(): void
+    {
+        $result = $this->service->classifyLearningOutput('repair heuristic', false);
+        $this->assertTrue($result['valid_output']);
+        $this->assertSame('repair_heuristic', $result['output_kind']);
+    }
+
+    // ── AC: unknown evidence and learning kinds are still rejected ──
+
+    public function test_unknown_evidence_kind_still_rejected(): void
+    {
+        $result = $this->service->admitEvidence('garbage_in');
+        $this->assertFalse($result['admitted']);
+        $this->assertSame('unknown_evidence_kind', $result['reason']);
+    }
+
+    public function test_unknown_learning_kind_still_rejected(): void
+    {
+        $result = $this->service->classifyLearningOutput('garbage_out', false);
+        $this->assertFalse($result['valid_output']);
+        $this->assertSame('unknown_learning_output_kind', $result['reason']);
+    }
 }

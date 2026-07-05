@@ -179,11 +179,45 @@ final class AtlasRuntimeEvidenceLearningService
     }
 
     /**
+     * Normalize common aliases (hyphens, spaces) to canonical closed-vocabulary keys.
+     * provider-call / provider call -> provider_call
+     * gate-result -> gate_result
+     * repair heuristic -> repair_heuristic
+     */
+    private function normalizeAlias(string $kind): string
+    {
+        $key = strtolower(trim($kind));
+
+        // Direct match — no normalization needed.
+        if (in_array($key, self::EVIDENCE_EVENT_KINDS, true) || in_array($key, self::LEARNING_OUTPUT_KINDS, true)) {
+            return $key;
+        }
+
+        // Normalize hyphens and spaces to underscores.
+        $normalized = str_replace(['-', ' '], '_', $key);
+
+        // Check if the normalized version is a known evidence kind.
+        if (in_array($normalized, self::EVIDENCE_EVENT_KINDS, true)) {
+            return $normalized;
+        }
+
+        // Check if the normalized version is a known learning kind.
+        if (in_array($normalized, self::LEARNING_OUTPUT_KINDS, true)) {
+            return $normalized;
+        }
+
+        return $key; // Return original for rejection.
+    }
+
+    /**
      * Admit (or reject) an Evidence event by kind.
      *
      * "Every meaningful runtime action emits Evidence" — but the plane is a
      * closed vocabulary. A kind outside the documented list is rejected so the
      * Evidence plane stays a faithful, auditable enumeration.
+     *
+     * Common aliases (hyphens, spaces) are normalized before checking:
+     * provider-call / provider call -> provider_call, gate-result -> gate_result.
      *
      * @param  string  $kind  proposed evidence event kind.
      *
@@ -191,7 +225,7 @@ final class AtlasRuntimeEvidenceLearningService
      */
     public function admitEvidence(string $kind): array
     {
-        $normalized = strtolower(trim($kind));
+        $normalized = $this->normalizeAlias($kind);
 
         if (in_array($normalized, self::EVIDENCE_EVENT_KINDS, true)) {
             return [
@@ -227,7 +261,7 @@ final class AtlasRuntimeEvidenceLearningService
      */
     public function classifyLearningOutput(string $outputKind, bool $targetsCriticalBehavior): array
     {
-        $kind = strtolower(trim($outputKind));
+        $kind = $this->normalizeAlias($outputKind);
 
         if (! in_array($kind, self::LEARNING_OUTPUT_KINDS, true)) {
             return [
