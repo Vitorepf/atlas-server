@@ -558,4 +558,74 @@ final class AtlasSelfConstructionAutonomyModePolicyTest extends TestCase
 
         $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
     }
+
+    // ── AC: stale proof or missing rollback blocks execute_continuous ──
+
+    public function test_stale_proof_blocks_execute_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['stale_evidence_detected' => true])
+        );
+
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+    }
+
+    public function test_missing_rollback_blocks_execute_continuous(): void
+    {
+        $facts = $this->allOrgansReady();
+        $facts['rollback'] = $this->organ(false, ['rollback_plan_missing']);
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide($facts);
+
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+    }
+
+    // ── AC: unresolved blockers keep mode at observe or execute_guarded ──
+
+    public function test_unresolved_blockers_keep_mode_at_observe(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_OBSERVE, $r['mode']);
+        $this->assertNotEmpty($r['blockers']);
+    }
+
+    public function test_unresolved_native_worker_blocker_keeps_mode_at_propose(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric' => $this->organ(true),
+            'maestro' => $this->organ(true),
+            'verification_court' => $this->organ(true),
+            'merge_governor' => $this->organ(true),
+            'native_worker' => $this->organ(false, ['not_ready']),
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_PROPOSE, $r['mode']);
+    }
+
+    // ── AC: fresh proof, completed transition and safe rollback allow execute_continuous ──
+
+    public function test_fresh_proof_completed_transition_safe_rollback_allows_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric' => $this->organ(true),
+            'maestro' => $this->organ(true),
+            'verification_court' => $this->organ(true),
+            'merge_governor' => $this->organ(true),
+            'native_worker' => $this->organ(true),
+            'rollback' => $this->organ(true),
+            'server_side_verification' => $this->organ(true),
+            'knowledge_sync' => $this->organ(true),
+            'stale_evidence_detected' => false,
+            'proof_system' => [
+                'missing_receipts' => false,
+                'stale_receipts' => false,
+                'contradictory_receipts' => false,
+                'replay_unavailable' => false,
+            ],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+        $this->assertSame([], $r['blockers']);
+    }
 }
