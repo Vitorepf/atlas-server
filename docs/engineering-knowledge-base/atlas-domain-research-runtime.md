@@ -39,7 +39,7 @@ decisions:
   - ResearchDomain e Research Company Runtime sao adapter/executor do Research OS universal, nao uma arquitetura paralela de pesquisa.
   - Storage de runs/sources/claims/synthesis vive em DB (decisão 2026-05-18).
   - Flows canônicos: research.quick e research.super (registry).
-  - Research é o subsystem 52 do ACOS (ARDR — Research Domain Runtime).
+  - Research é subsystem do ACOS Scorecard como ARDR (Research Domain Runtime); entrou como linha 52 em 2026-05-26, hoje (2026-07-05) é a entrada 70 de 73 — posição de lista, não ID estável.
 maintenance:
   - Quando flows, gates, thresholds, ou runtime mudar, atualize este documento.
   - Não duplique enums já em ResearchDomainCanon — sempre referencie a fonte.
@@ -380,7 +380,7 @@ php artisan atlas:ai:research-domain --action=readiness --json
 ## Proximas Acoes
 
 - Self-improvement runtime: `atlas-ai-research-self-improvement-runtime.md`
-- 17 docs de função Research: `docs/engineering-knowledge-base/research-self-improvement/`
+- 18 docs de função Research: `docs/engineering-knowledge-base/research-self-improvement/` (17 na criação 2026-05-10; `agent-loop-patterns-catalog.md` adicionado 2026-06-21)
 - Finance pattern espelhado: `domains/finance.md`
 - Multi-domain sequence: `atlas-ai-multi-domain-implementation-sequence.md`
 - Knowledge governance: `atlas-ai-knowledge-governance-system.md`

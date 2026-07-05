@@ -154,7 +154,7 @@ Uma row segura transforma "slice one-shot feasibility" em um avaliador puro que 
 
 ## 10. Sequenciamento
 
-S261 -> S266 sao fatias atomicas raiz, sem dependencias, prontas para execucao imediata.
+S261 -> S266 sao fatias atomicas raiz, sem dependencias, mantidas apenas para auditoria de consumo existente (rebaixadas em 2026-07-05; ver nota pos-frontmatter).
 
 ## 11. Needs finer atomic decomposition (NOT loop-consumed)
 

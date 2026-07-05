@@ -151,4 +151,4 @@ Uma row boa cria uma classe pura de score ou simulacao deterministica, com `exec
 
 ## 10. Sequenciamento
 
-S221 -> S231 sao fatias atomicas raiz de pura-logica, sem dependencias, prontas para execucao imediata e paralela.
+S221 -> S231 sao fatias atomicas raiz de pura-logica, sem dependencias, mantidas apenas para auditoria de consumo existente (rebaixadas em 2026-07-05, exceto 1 row ready legitima; ver nota pos-frontmatter).

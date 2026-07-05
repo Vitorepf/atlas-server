@@ -167,7 +167,7 @@ Uma linha boa cria uma classe pura como `HalfOpenRecloseDecision`, com metodo un
 
 ## 10. Sequenciamento
 
-S161 -> S180 sao fatias atomicas raiz, sem dependencias, prontas para execucao imediata.
+S161 -> S180 sao fatias atomicas raiz, sem dependencias, mantidas apenas para auditoria de consumo existente (rebaixadas em 2026-07-05; ver nota pos-frontmatter).
 
 ## Needs finer atomic decomposition (NOT loop-consumed)
 
