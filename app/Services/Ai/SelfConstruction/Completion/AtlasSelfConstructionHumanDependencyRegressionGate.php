@@ -140,12 +140,9 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
             $isAdvisoryException = in_array($kind, self::ALLOWED_EXCEPTION_LABELS, true)
                 || in_array($label, self::ALLOWED_EXCEPTION_LABELS, true);
 
-            // A pasted-session/manual-recovery actor can never be waved through by a decorative
-            // `label` claiming bootstrap/visibility when the real `kind` is ordinary or recovery —
-            // otherwise any steady-state pasted-session dependency could hide behind a mislabeled
-            // advisory tag while the path itself is genuinely load-bearing.
-            $hasPastedSessionActor = (bool) array_intersect($nonAtlas, self::PASTED_SESSION_ANTIPATTERNS);
-            if ($hasPastedSessionActor && in_array($kind, ['ordinary', 'recovery'], true)) {
+            // A mislabeled advisory tag on a genuinely load-bearing ordinary or recovery path
+            // must never wave through ANY non-atlas steady-state actor — not just pasted-session ones.
+            if ($nonAtlas !== [] && in_array($kind, ['ordinary', 'recovery'], true)) {
                 $isAdvisoryException = false;
             }
 
