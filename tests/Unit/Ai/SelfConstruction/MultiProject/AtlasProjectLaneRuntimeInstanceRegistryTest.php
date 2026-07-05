@@ -194,4 +194,86 @@ final class AtlasProjectLaneRuntimeInstanceRegistryTest extends TestCase
 
         $this->assertSame($hashA, $hashB, 'registry_hash must be stable regardless of input key order');
     }
+
+    // ── AC: invalid lane type or missing shared_local_main_with_scope_lock blocks instance creation ──
+
+    public function test_invalid_lane_type_blocks_instance_creation(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceRegistry)->build(
+            $this->lane(['lane_type' => 'invalid_type']),
+            $this->manifest(),
+        );
+
+        $this->assertSame('rejected', $verdict['status']);
+        $this->assertContains('lane-x:lane_type_invalid:invalid_type', $verdict['blockers']);
+    }
+
+    public function test_missing_shared_local_main_with_scope_lock_blocks_instance_creation(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceRegistry)->build(
+            $this->lane(['execution_topology' => 'isolated_worktree']),
+            $this->manifest(),
+        );
+
+        $this->assertSame('rejected', $verdict['status']);
+        $this->assertContains('lane-x:execution_topology_unexpected:isolated_worktree', $verdict['blockers']);
+    }
+
+    // ── AC: human, operator or provider steady-state dependency blocks the instance ──
+
+    public function test_human_steady_state_dependency_blocks_instance(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceRegistry)->build(
+            $this->lane(['steady_state_dependencies' => ['human']]),
+            $this->manifest(),
+        );
+
+        $this->assertSame('rejected', $verdict['status']);
+        $this->assertContains('lane-x:steady_state_dependency_refused:human', $verdict['blockers']);
+    }
+
+    public function test_operator_steady_state_dependency_blocks_instance(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceRegistry)->build(
+            $this->lane(['steady_state_dependencies' => ['operator']]),
+            $this->manifest(),
+        );
+
+        $this->assertSame('rejected', $verdict['status']);
+        $this->assertContains('lane-x:steady_state_dependency_refused:operator', $verdict['blockers']);
+    }
+
+    public function test_external_provider_steady_state_blocks_instance(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceRegistry)->build(
+            $this->lane(['steady_state_dependencies' => ['external_provider']]),
+            $this->manifest(),
+        );
+
+        $this->assertSame('rejected', $verdict['status']);
+        $this->assertContains('lane-x:steady_state_dependency_refused:external_provider', $verdict['blockers']);
+    }
+
+    // ── AC: valid lane facts produce an instance with blockers=[] and topology summary ──
+
+    public function test_valid_lane_facts_produce_instance_with_blockers_empty(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceRegistry)->build($this->lane(), $this->manifest());
+
+        $this->assertSame('ok', $verdict['status']);
+        $this->assertSame([], $verdict['blockers']);
+        $this->assertCount(1, $verdict['instances']);
+    }
+
+    public function test_valid_instance_includes_topology_summary(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceRegistry)->build($this->lane(), $this->manifest());
+        $inst = $verdict['instances'][0];
+
+        $this->assertSame('shared_local_main_with_scope_lock', $inst['execution_topology']);
+        $this->assertArrayHasKey('allowed_roots', $inst);
+        $this->assertArrayHasKey('forbidden_roots', $inst);
+        $this->assertArrayHasKey('scheduler_policy', $inst);
+        $this->assertArrayHasKey('cadence_seconds', $inst['scheduler_policy']);
+    }
 }
