@@ -122,9 +122,37 @@ final class AtlasProjectLaneRuntimeInstanceCycleRunner
             }
         }
 
+        // Build blockers from withheld actions that were refused.
+        $blockers = [];
+        foreach ($withheld as $w) {
+            $reason = (string) ($w['reason'] ?? '');
+            if (str_starts_with($reason, 'refused_action_kind:')) {
+                $blockers[] = [
+                    'code' => $reason,
+                    'refused_action_kind' => $w['kind'] ?? '',
+                    'project_id' => $projectId,
+                ];
+            } elseif (str_starts_with($reason, 'cross_lane_action:')) {
+                $blockers[] = [
+                    'code' => $reason,
+                    'refused_action_kind' => $w['kind'] ?? '',
+                    'project_id' => $projectId,
+                ];
+            } elseif (str_starts_with($reason, 'write_root_outside_lane:')) {
+                $blockers[] = [
+                    'code' => $reason,
+                    'refused_action_kind' => $w['kind'] ?? '',
+                    'project_id' => $projectId,
+                ];
+            }
+        }
+
+        $cycleReady = $blockers === [] && $blocked === [];
+
         $payload = [
             'schema_version' => self::SCHEMA,
             'status' => 'ok',
+            'cycle_ready' => $cycleReady,
             'lane_id' => $laneId,
             'project_id' => $projectId,
             'dry_run' => ! $apply,
@@ -132,6 +160,7 @@ final class AtlasProjectLaneRuntimeInstanceCycleRunner
             'applied_actions' => $applied,
             'blocked_actions' => $blocked,
             'withheld_actions' => $withheld,
+            'blockers' => $blockers,
             'lane_receipts' => $laneReceipts,
             'daemon_status' => $daemonStatus,
         ];

@@ -228,4 +228,65 @@ final class AtlasProjectLaneRuntimeInstanceCycleRunnerTest extends TestCase
             $this->assertContains($r, $kinds);
         }
     }
+
+    // ── AC: refused action kinds block cycle_ready with stable blocker codes ──
+
+    public function test_refused_action_kinds_block_cycle_ready_with_stable_blocker_codes(): void
+    {
+        $runner = new AtlasProjectLaneRuntimeInstanceCycleRunner;
+        $out = $runner->run($this->laneInstance(), $this->readyFacts(['planned_actions' => [
+            ['kind' => 'human_action', 'lane_id' => 'lane-x', 'queue_namespace' => 'demo.x'],
+        ]]), ['apply' => true]);
+
+        $this->assertFalse($out['cycle_ready']);
+        $this->assertNotEmpty($out['blockers']);
+        $this->assertSame('refused_action_kind:human_action', $out['blockers'][0]['code']);
+        $this->assertSame('human_action', $out['blockers'][0]['refused_action_kind']);
+        $this->assertSame('demo', $out['blockers'][0]['project_id']);
+    }
+
+    // ── AC: safe lane-local work produces cycle_ready=true and lane-local action plan ──
+
+    public function test_safe_lane_local_work_produces_cycle_ready_true(): void
+    {
+        $runner = new AtlasProjectLaneRuntimeInstanceCycleRunner;
+        $out = $runner->run($this->laneInstance(), $this->readyFacts(), [
+            'apply' => true,
+            'action_callbacks' => ['native_lane_tick' => static fn (): array => ['ok' => true]],
+        ]);
+
+        $this->assertTrue($out['cycle_ready']);
+        $this->assertSame([], $out['blockers']);
+        $this->assertCount(1, $out['applied_actions']);
+        $this->assertSame('lane-x', $out['lane_id']);
+    }
+
+    // ── AC: blockers include refused_action_kind and project_id ──
+
+    public function test_blockers_include_refused_action_kind_and_project_id(): void
+    {
+        $runner = new AtlasProjectLaneRuntimeInstanceCycleRunner;
+        $out = $runner->run($this->laneInstance(), $this->readyFacts(['planned_actions' => [
+            ['kind' => 'git', 'lane_id' => 'lane-x', 'queue_namespace' => 'demo.x', 'write_roots' => ['projects/demo/src/x']],
+        ]]), ['apply' => true]);
+
+        $this->assertNotEmpty($out['blockers']);
+        $blocker = $out['blockers'][0];
+        $this->assertArrayHasKey('refused_action_kind', $blocker);
+        $this->assertArrayHasKey('project_id', $blocker);
+        $this->assertSame('git', $blocker['refused_action_kind']);
+        $this->assertSame('demo', $blocker['project_id']);
+    }
+
+    public function test_cross_lane_action_produces_blocker_with_project_id(): void
+    {
+        $runner = new AtlasProjectLaneRuntimeInstanceCycleRunner;
+        $out = $runner->run($this->laneInstance(), $this->readyFacts(['planned_actions' => [
+            ['kind' => 'native_lane_tick', 'lane_id' => 'other-lane', 'queue_namespace' => 'demo.x', 'write_roots' => ['projects/demo/src/foo.php']],
+        ]]), ['apply' => true]);
+
+        $this->assertFalse($out['cycle_ready']);
+        $this->assertNotEmpty($out['blockers']);
+        $this->assertSame('demo', $out['blockers'][0]['project_id']);
+    }
 }
