@@ -60,15 +60,18 @@ final class AtlasTaskDuplicateReuseGate
             $examined++;
             $contents = (string) file_get_contents($abs);
 
-            // A — declarações homônimas em outro arquivo do repo.
+            // A — declarações homônimas em outro arquivo do repo. A colisão só é REAL quando o
+            // FQCN inteiro coincide (mesmo namespace + mesma classe = "Cannot redeclare" no
+            // autoload); basename igual em namespace diferente é test double/homonímia legítima.
+            $ns = preg_match('/^namespace\s+([^;]+);/m', $contents, $nsm) === 1 ? trim($nsm[1]) : '';
             if (preg_match_all(self::DECLARATION_PATTERN, $contents, $m) > 0) {
                 foreach (array_unique($m[1]) as $symbol) {
                     foreach ($index[$symbol.'.php'] ?? [] as $existing) {
                         if ($existing === $file || isset($changedSet[$existing])) {
                             continue; // o próprio arquivo, ou outro arquivo DA MESMA entrega (renomeio em curso)
                         }
-                        if ($this->declaresSymbol($repoRoot.'/'.$existing, $symbol)) {
-                            $blockers[] = 'duplicate_class_name:'.$symbol.':'.$existing;
+                        if ($this->declaresSymbol($repoRoot.'/'.$existing, $symbol, $ns)) {
+                            $blockers[] = 'duplicate_class_name:'.($ns !== '' ? $ns.'\\' : '').$symbol.':'.$existing;
                         }
                     }
                 }
@@ -117,12 +120,16 @@ final class AtlasTaskDuplicateReuseGate
         return $index;
     }
 
-    private function declaresSymbol(string $absPath, string $symbol): bool
+    private function declaresSymbol(string $absPath, string $symbol, string $namespace): bool
     {
         if (! is_file($absPath)) {
             return false;
         }
         $contents = (string) file_get_contents($absPath);
+        $theirNs = preg_match('/^namespace\s+([^;]+);/m', $contents, $m) === 1 ? trim($m[1]) : '';
+        if ($theirNs !== $namespace) {
+            return false; // namespaces distintos = FQCNs distintos = sem colisão de autoload
+        }
 
         return preg_match(
             '/^\s*(?:final\s+|abstract\s+|readonly\s+)*(?:class|interface|trait|enum)\s+'.preg_quote($symbol, '/').'\b/mi',

@@ -64,7 +64,7 @@ final class AtlasTaskDuplicateReuseGateTest extends TestCase
         $verdict = (new AtlasTaskDuplicateReuseGate)->evaluate(['app/Services/Beta/Widget.php'], $this->repo);
 
         $this->assertFalse($verdict['passed']);
-        $this->assertSame(['duplicate_class_name:Widget:app/Services/Alpha/Widget.php'], $verdict['blockers']);
+        $this->assertSame(['duplicate_class_name:App\\Services\\Widget:app/Services/Alpha/Widget.php'], $verdict['blockers']);
     }
 
     public function test_unique_symbol_passes_clean(): void
