@@ -82,6 +82,7 @@ final class AtlasLoopObjectiveProducer
     public function gather(string $repoRoot, array $relPaths, StateOfAtlas $state): array
     {
         $callers = $this->callerCounts($repoRoot, $relPaths);
+        $callerPaths = $this->resolveCallerPaths($repoRoot, $relPaths);
         $packets = [];
 
         foreach ($relPaths as $rel) {
@@ -98,6 +99,7 @@ final class AtlasLoopObjectiveProducer
             $packets[] = [
                 'path' => $rel,
                 'caller_count' => $callerCount,
+                'caller_paths' => $callerPaths[$rel] ?? [],
                 'cyclomatic' => $cyclomatic,
                 'strategic_impact' => $state->strategicWeightFor($rel),
                 'cost' => $this->costOf($abs),
@@ -240,6 +242,16 @@ final class AtlasLoopObjectiveProducer
         // Adversarial self-critique: pick the biggest genuine leap, not the cheapest-looking one.
         $verdict = $this->critic()->challenge($floorPassers[0], $floorPassers);
         $winner = $verdict['pick'];
+
+        // Multi-file origination gate: when the flag is ON and the winner has
+        // production callers, synthesize a multi-file objective directly (bypassing
+        // single-file origination).
+        if ((bool) config('atlas.loop.multi_file_origination_enabled', false)) {
+            $winnerCallerPaths = (array) ($winner['caller_paths'] ?? []);
+            if ($winnerCallerPaths !== []) {
+                return $this->buildMultiFileObjective($winner, $winnerCallerPaths, $verdict, $evPick);
+            }
+        }
 
         // Originate the BIG objective (refactor or RED-verified feature) for the winner.
         $built = $this->origination()->build($state, $winner, $repoRoot, $provider, $targetId);
@@ -660,6 +672,70 @@ final class AtlasLoopObjectiveProducer
         } catch (Throwable) {
             return [];
         }
+    }
+
+    /**
+     * Resolve production caller FILE PATHS for the given rel paths. Returns
+     * an array keyed by rel path; files with unresolved FQCN or grep errors
+     * are omitted (fail-open). The paths are used by the multi-file origination
+     * gate to build the allowed_files list.
+     *
+     * @param  list<string>  $relPaths
+     * @return array<string,list<string>>
+     */
+    private function resolveCallerPaths(string $repoRoot, array $relPaths): array
+    {
+        try {
+            return (new AtlasLoopWiredCallerService($repoRoot))->callerPaths($relPaths);
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Build a multi-file refactor objective for a winner that has production
+     * callers. Bypasses single-file origination and returns the objective in
+     * the standard produce() format with shape='multi_file_refactor'.
+     *
+     * @param  array<string,mixed>  $winner
+     * @param  list<string>  $callerPaths
+     * @param  array{pick:array<string,mixed>, challenged:bool, reason:string}  $verdict
+     * @param  array{binding_axis:string, relief:float}|null  $evPick
+     * @return array{objective:string, payload:array<string,mixed>, acceptance_hash:string, target_path:string, shape:string, self_contained:bool, leverage:float, rationale:string}
+     */
+    private function buildMultiFileObjective(array $winner, array $callerPaths, array $verdict, ?array $evPick): array
+    {
+        $winnerPath = (string) ($winner['path'] ?? '');
+        $allowedFiles = array_values(array_unique(array_merge(
+            [$winnerPath],
+            $callerPaths,
+        )));
+        sort($allowedFiles);
+
+        $rationale = (string) ($winner['_score']['rationale'] ?? '')
+            .' [multi-file: hub='.$winnerPath.' callers='.count($callerPaths).']';
+        if ($verdict['challenged']) {
+            $rationale .= ' [critic: '.$verdict['reason'].']';
+        }
+        if ($evPick !== null) {
+            $rationale .= ' [ev: binding='.$evPick['binding_axis'].' relief='.round($evPick['relief'], 3).']';
+        }
+
+        return [
+            'objective' => 'Refactor '.$winnerPath.' and its '.count($callerPaths).' production caller(s)',
+            'payload' => [
+                'allowed_files' => $allowedFiles,
+                'hub_path' => $winnerPath,
+                'caller_paths' => $callerPaths,
+                'multi_file' => true,
+            ],
+            'acceptance_hash' => md5(json_encode($allowedFiles)),
+            'target_path' => $winnerPath,
+            'shape' => 'multi_file_refactor',
+            'self_contained' => false,
+            'leverage' => (float) ($winner['_score']['leverage'] ?? 0.0),
+            'rationale' => $rationale,
+        ];
     }
 
     private function cyclomaticOf(string $abs): int

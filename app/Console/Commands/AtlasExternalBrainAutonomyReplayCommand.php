@@ -46,7 +46,7 @@ final class AtlasExternalBrainAutonomyReplayCommand extends Command
         AtlasExternalBrainEndToEndAutonomyReplayHarness $harness,
         AtlasExternalBrainControlPlaneSnapshot $snapshot,
         AtlasExternalBrainAutonomyCycleReplayVerifier $cycleVerifier,
-        AtlasExternalBrainProviderIndependenceProofRunner $independenceRunner = null,
+        ?AtlasExternalBrainProviderIndependenceProofRunner $independenceRunner = null,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -108,7 +108,7 @@ final class AtlasExternalBrainAutonomyReplayCommand extends Command
 
         // Wire independence proof key into the output when runner is available.
         if ($independenceProof !== null) {
-            $payload['independence_proof'] = $independenceProof;
+            $payload['provider_independence'] = $independenceProof;
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));

@@ -99,6 +99,12 @@ final class AgentControlPlaneWorkProductCandidateNormalizer
                 $violations[] = $this->violation('forbidden_path_segment', $index, 'Path is outside the allowed work-product collection surface.');
             }
         }
+        // AC: control characters (0x00-0x1f, including NUL) in a path can
+        // truncate downstream file operations or fool the artifact_type
+        // classifier — block them at the trust boundary.
+        if (preg_match('/[\x00-\x1f]/', $path) === 1) {
+            $violations[] = $this->violation('control_char_in_path', $index, 'Path contains control characters (0x00-0x1f).');
+        }
 
         return $violations;
     }

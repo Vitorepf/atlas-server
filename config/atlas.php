@@ -2393,6 +2393,11 @@ return [
         // FEATURE ORIGINATION (the ceiling lift): when ON, the producer may originate a NEW-capability
         // objective (RED-verified) instead of only refactors. Default OFF — refactor-only until armed.
         'producer_feature_origination_enabled' => (bool) env('ATLAS_LOOP_PRODUCER_FEATURE_ORIGINATION_ENABLED', false),
+        // MULTI-FILE ORIGINATION: when ON, the producer may originate a multi_file_refactor objective
+        // when the winner has production callers, bypassing single-file origination. The objective
+        // carries allowed_files spanning the hub path + its callers so the execution lane knows exactly
+        // which files to touch. Default OFF — single-file only until armed.
+        'multi_file_origination_enabled' => (bool) env('ATLAS_LOOP_MULTI_FILE_ORIGINATION_ENABLED', false),
         // Adversarial critic: if the leverage(ratio)-winner's leap-magnitude (impact×breadth×compounding)
         // is below this fraction of the biggest floor-passer's, the critic promotes the bigger leap.
         'critic_numerator_threshold' => max(0.0, min(1.0, (float) env('ATLAS_LOOP_CRITIC_NUMERATOR_THRESHOLD', 0.6))),
