@@ -102,6 +102,7 @@ final class AtlasMaestroProviderRecommendationEngine
 
             $rows[] = [
                 'provider' => (string) $provider,
+                'success_count' => $successCount,
                 'success_rate' => $total > 0 ? $successCount / $total : 0.0,
                 'give_back_rate' => $giveBackRate,
                 'sample_size' => $total,
@@ -151,7 +152,12 @@ final class AtlasMaestroProviderRecommendationEngine
         }
 
         usort($rows, function (array $a, array $b): int {
-            $c = $b['success_rate'] <=> $a['success_rate'];
+            // Primary rank: Wilson score lower bound (95% confidence, z=1.96).
+            // A provider with 47/50 (LB ~0.84) beats 5/5 (LB ~0.57) because its
+            // evidence has narrower uncertainty, even though raw rates are 0.94 vs 1.0.
+            $aWilson = self::wilsonLowerBound((float) $a['success_count'], (float) $a['sample_size']);
+            $bWilson = self::wilsonLowerBound((float) $b['success_count'], (float) $b['sample_size']);
+            $c = $bWilson <=> $aWilson;
             if ($c !== 0) {
                 return $c;
             }
@@ -243,5 +249,28 @@ final class AtlasMaestroProviderRecommendationEngine
         }
 
         return 'provider_name';
+    }
+
+    /**
+     * Wilson score lower bound (95% confidence, z=1.96).
+     * The lower bound of the Binomial proportion confidence interval.
+     * Ranks providers by statistical confidence, not raw point estimate.
+     *
+     * Formula: (p + z²/2n - z * sqrt(p*(1-p)/n + z²/(4n²))) / (1 + z²/n)
+     *
+     * Reference: Wilson, E.B. (1927). JASA, 22(158), 209-212.
+     */
+    private static function wilsonLowerBound(float $successes, float $total, float $z = 1.96): float
+    {
+        if ($total <= 0) {
+            return 0.0;
+        }
+        $p = $successes / $total;
+        $z2 = $z * $z;
+        $denom = 1.0 + $z2 / $total;
+        $center = $p + $z2 / (2.0 * $total);
+        $se = sqrt(($p * (1.0 - $p) + $z2 / (4.0 * $total)) / $total);
+
+        return ($center - $z * $se) / $denom;
     }
 }
