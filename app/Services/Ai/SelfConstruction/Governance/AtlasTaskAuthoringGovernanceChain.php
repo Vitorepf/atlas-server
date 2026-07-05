@@ -69,6 +69,14 @@ final class AtlasTaskAuthoringGovernanceChain
             return $this->envelope($mode, [], null, [], 'skipped', '', $this->emptyArena($candidates, 'skipped'));
         }
 
+        // AC: enforce mode blocks underspecified candidates.
+        if ($mode === self::MODE_ENFORCE) {
+            $findings = $this->findUnderspecifiedCandidates($candidates);
+            if ($findings !== []) {
+                return $this->envelope($mode, [], null, [], 'blocked', '', $this->emptyArena($candidates, 'blocked'), $findings);
+            }
+        }
+
         try {
             $filtered = ($this->filter ?? new AtlasStrategyCouncilRoadmapCandidateFilter())->filter($candidates);
             $ranked = ($this->ranker ?? new AtlasStrategyCouncilLeverageRanker())->rank($filtered);
@@ -91,10 +99,48 @@ final class AtlasTaskAuthoringGovernanceChain
 
             $arena = $this->buildArena($candidates, $top, $ranked);
 
-            return $this->envelope($mode, $ranked, $top, $contract, $recorded, '', $arena);
+            // AC: observe mode reports findings but does not block.
+            $findings = $this->findUnderspecifiedCandidates($candidates);
+
+            return $this->envelope($mode, $ranked, $top, $contract, $recorded, '', $arena, $findings);
         } catch (Throwable $e) {
             return $this->envelope($mode, [], null, [], 'failed_open', $e->getMessage(), $this->emptyArena($candidates, 'failed_open'));
         }
+    }
+
+    /**
+     * Find candidates missing objective, allowed_files, acceptance_criteria or required_evidence.
+     *
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @return list<array{candidate_id:string, missing:list<string>}>
+     */
+    private function findUnderspecifiedCandidates(array $candidates): array
+    {
+        $findings = [];
+        foreach ($candidates as $c) {
+            if (! is_array($c)) {
+                continue;
+            }
+            $id = (string) ($c['candidate_id'] ?? $c['id'] ?? '');
+            $missing = [];
+            if (empty($c['objective'])) {
+                $missing[] = 'objective';
+            }
+            if (empty($c['allowed_files'])) {
+                $missing[] = 'allowed_files';
+            }
+            if (empty($c['acceptance_criteria'])) {
+                $missing[] = 'acceptance_criteria';
+            }
+            if (empty($c['required_evidence'])) {
+                $missing[] = 'required_evidence';
+            }
+            if ($missing !== []) {
+                $findings[] = ['candidate_id' => $id, 'missing' => $missing];
+            }
+        }
+
+        return $findings;
     }
 
     /**
@@ -207,7 +253,7 @@ final class AtlasTaskAuthoringGovernanceChain
      * @param  array<string,mixed>  $arena
      * @return array<string,mixed>
      */
-    private function envelope(string $mode, array $ranked, ?array $top, array $contract, string $recorded, string $error, array $arena = []): array
+    private function envelope(string $mode, array $ranked, ?array $top, array $contract, string $recorded, string $error, array $arena = [], array $findings = []): array
     {
         return [
             'arena' => $arena,
@@ -218,6 +264,8 @@ final class AtlasTaskAuthoringGovernanceChain
             'recorded' => $recorded,
             'schema' => self::SCHEMA,
             'top' => $top,
+            'findings' => $findings,
+            'failed_open' => $error !== '' && $recorded === 'failed_open',
         ];
     }
 
