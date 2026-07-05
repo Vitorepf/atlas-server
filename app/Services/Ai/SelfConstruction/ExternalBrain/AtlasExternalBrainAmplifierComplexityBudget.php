@@ -272,4 +272,81 @@ final class AtlasExternalBrainAmplifierComplexityBudget
         // Consolidate: everything else (mid-usage or SLO miss with some value).
         return ['consolidate', 'moderate_usage_or_slo_miss'];
     }
+
+    /**
+     * Review a proposed amplifier move (new scaffold, new abstraction, etc.) against
+     * the complexity budget. Small-model scaffolds have a strict ceiling and must
+     * prefer deletion, examples and replay over new abstractions.
+     *
+     * @param  array<string,mixed>  $proposal
+     * @return array<string,mixed>
+     */
+    public function reviewProposal(array $proposal): array
+    {
+        $moveType = (string) ($proposal['move_type'] ?? 'new_abstraction');
+        $isSmallModel = (bool) ($proposal['is_small_model'] ?? false);
+        $hasReplayExamples = (bool) ($proposal['has_replay_examples'] ?? false);
+        $hasDeletionPath = (bool) ($proposal['has_deletion_path'] ?? false);
+        $hasExistingDesignPath = (bool) ($proposal['has_existing_design_path'] ?? false);
+        $complexityScore = (float) ($proposal['complexity_score'] ?? 0.0);
+
+        // Small-model scaffolds get a strict ceiling: half the base limit.
+        $complexityCeiling = $isSmallModel
+            ? self::BASE_COMPLEXITY_LIMIT / 2.0
+            : self::BASE_COMPLEXITY_LIMIT;
+
+        $acceptedMoves = [];
+        $rejectedMoves = [];
+        $simplerAlternative = null;
+
+        // Reject new abstractions when simpler alternatives exist.
+        if ($moveType === 'new_abstraction') {
+            if ($hasDeletionPath) {
+                $rejectedMoves[] = [
+                    'move_type' => $moveType,
+                    'reason' => 'deletion_first_preferred_over_new_abstraction',
+                ];
+                $simplerAlternative = 'delete unused components instead of adding new abstractions';
+            } elseif ($hasReplayExamples) {
+                $rejectedMoves[] = [
+                    'move_type' => $moveType,
+                    'reason' => 'replay_examples_sufficient_no_new_abstraction_needed',
+                ];
+                $simplerAlternative = 'use existing replay examples instead of adding new abstractions';
+            } elseif ($hasExistingDesignPath) {
+                $rejectedMoves[] = [
+                    'move_type' => $moveType,
+                    'reason' => 'existing_design_path_sufficient_no_new_abstraction_needed',
+                ];
+                $simplerAlternative = 'follow the existing design path instead of adding new abstractions';
+            }
+        }
+
+        // Small-model scaffolds: reject if complexity exceeds the strict ceiling.
+        if ($isSmallModel && $moveType === 'new_scaffold' && $complexityScore > $complexityCeiling) {
+            $rejectedMoves[] = [
+                'move_type' => $moveType,
+                'reason' => 'small_model_scaffold_exceeds_complexity_ceiling',
+            ];
+            $simplerAlternative = $simplerAlternative ?? 'prefer deletion, examples and replay over new scaffolds for small models';
+        }
+
+        // If no rejections, accept the move.
+        if ($rejectedMoves === []) {
+            $acceptedMoves[] = [
+                'move_type' => $moveType,
+                'reason' => 'within_complexity_budget',
+            ];
+        }
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'accepted_moves' => $acceptedMoves,
+            'rejected_moves' => $rejectedMoves,
+            'complexity_score' => round($complexityScore, 4),
+            'complexity_ceiling' => round($complexityCeiling, 4),
+            'is_small_model' => $isSmallModel,
+            'simpler_alternative' => $simplerAlternative,
+        ];
+    }
 }

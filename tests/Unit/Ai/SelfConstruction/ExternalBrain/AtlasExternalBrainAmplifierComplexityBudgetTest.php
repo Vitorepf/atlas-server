@@ -273,4 +273,106 @@ final class AtlasExternalBrainAmplifierComplexityBudgetTest extends TestCase
         $this->assertSame([], $result['component_budget_evaluations'][0]['over_budget_reason']);
         $this->assertNull($result['component_budget_evaluations'][0]['simplification_hint']);
     }
+
+    // ── reviewProposal: small-model scaffold ceiling ───────────────────────
+
+    public function test_review_proposal_rejects_new_abstraction_when_deletion_path_exists(): void
+    {
+        $r = $this->budget()->reviewProposal([
+            'move_type' => 'new_abstraction',
+            'has_deletion_path' => true,
+        ]);
+
+        $this->assertSame([], $r['accepted_moves']);
+        $this->assertCount(1, $r['rejected_moves']);
+        $this->assertSame('deletion_first_preferred_over_new_abstraction', $r['rejected_moves'][0]['reason']);
+        $this->assertNotNull($r['simpler_alternative']);
+    }
+
+    public function test_review_proposal_rejects_new_abstraction_when_replay_examples_sufficient(): void
+    {
+        $r = $this->budget()->reviewProposal([
+            'move_type' => 'new_abstraction',
+            'has_replay_examples' => true,
+        ]);
+
+        $this->assertSame([], $r['accepted_moves']);
+        $this->assertSame('replay_examples_sufficient_no_new_abstraction_needed', $r['rejected_moves'][0]['reason']);
+    }
+
+    public function test_review_proposal_rejects_new_abstraction_when_existing_design_path_sufficient(): void
+    {
+        $r = $this->budget()->reviewProposal([
+            'move_type' => 'new_abstraction',
+            'has_existing_design_path' => true,
+        ]);
+
+        $this->assertSame([], $r['accepted_moves']);
+        $this->assertSame('existing_design_path_sufficient_no_new_abstraction_needed', $r['rejected_moves'][0]['reason']);
+    }
+
+    public function test_review_proposal_accepts_new_abstraction_when_no_simpler_alternative(): void
+    {
+        $r = $this->budget()->reviewProposal([
+            'move_type' => 'new_abstraction',
+            'has_deletion_path' => false,
+            'has_replay_examples' => false,
+            'has_existing_design_path' => false,
+        ]);
+
+        $this->assertCount(1, $r['accepted_moves']);
+        $this->assertSame([], $r['rejected_moves']);
+        $this->assertNull($r['simpler_alternative']);
+    }
+
+    public function test_review_proposal_small_model_scaffold_has_lower_complexity_ceiling(): void
+    {
+        $r = $this->budget()->reviewProposal([
+            'move_type' => 'new_scaffold',
+            'is_small_model' => true,
+            'complexity_score' => 8.0,
+        ]);
+
+        // Small-model ceiling is BASE_COMPLEXITY_LIMIT / 2 = 5.0
+        $this->assertSame(5.0, $r['complexity_ceiling']);
+        $this->assertCount(1, $r['rejected_moves']);
+        $this->assertSame('small_model_scaffold_exceeds_complexity_ceiling', $r['rejected_moves'][0]['reason']);
+        $this->assertNotNull($r['simpler_alternative']);
+    }
+
+    public function test_review_proposal_small_model_scaffold_within_ceiling_accepted(): void
+    {
+        $r = $this->budget()->reviewProposal([
+            'move_type' => 'new_scaffold',
+            'is_small_model' => true,
+            'complexity_score' => 3.0,
+        ]);
+
+        $this->assertCount(1, $r['accepted_moves']);
+        $this->assertSame([], $r['rejected_moves']);
+    }
+
+    public function test_review_proposal_frontier_scaffold_has_full_complexity_ceiling(): void
+    {
+        $r = $this->budget()->reviewProposal([
+            'move_type' => 'new_scaffold',
+            'is_small_model' => false,
+            'complexity_score' => 8.0,
+        ]);
+
+        $this->assertSame(10.0, $r['complexity_ceiling']);
+        $this->assertCount(1, $r['accepted_moves']);
+    }
+
+    public function test_review_proposal_output_has_required_keys(): void
+    {
+        $r = $this->budget()->reviewProposal([]);
+
+        $this->assertArrayHasKey('accepted_moves', $r);
+        $this->assertArrayHasKey('rejected_moves', $r);
+        $this->assertArrayHasKey('complexity_score', $r);
+        $this->assertArrayHasKey('simpler_alternative', $r);
+        $this->assertArrayHasKey('complexity_ceiling', $r);
+        $this->assertArrayHasKey('is_small_model', $r);
+    }
 }
