@@ -341,4 +341,74 @@ final class AtlasExternalBrainEvidenceFreshnessRuntimeBridgeTest extends TestCas
         $this->assertTrue($r['admission_blocked']);
         $this->assertSame('critical_evidence_evidence_intake_missing', $r['blocking_reason']);
     }
+
+    // ── AC2: one fresh channel + self_declared does not satisfy trust ─────────
+
+    public function test_one_fresh_plus_self_declared_does_not_satisfy_trust(): void
+    {
+        $r = $this->svc()->assess([
+            'commits' => [['timestamp' => '2026-06-30T10:00:00Z', 'source_type' => 'self_declared', 'verified_by_runtime' => false]],
+            'worker_reports' => [$this->item()],
+        ]);
+
+        // worker_reports is fresh, but commits is self_declared → admission blocked
+        $this->assertTrue($r['admission_blocked']);
+        $this->assertSame('self_declared', $r['freshness_status']);
+    }
+
+    // ── AC3: two fresh critical channels satisfy trust ───────────────────────
+
+    public function test_two_fresh_critical_channels_satisfy_trust(): void
+    {
+        $r = $this->svc()->assess([
+            'commits' => [$this->item()],
+            'worker_reports' => [$this->item()],
+        ]);
+
+        $this->assertTrue($r['fresh']);
+        $this->assertFalse($r['admission_blocked']);
+        $this->assertSame('fresh', $r['freshness_status']);
+        $this->assertNull($r['blocking_reason']);
+    }
+
+    public function test_two_fresh_critical_channels_no_missing_critical_channel(): void
+    {
+        $r = $this->svc()->assess([
+            'commits' => [$this->item()],
+            'worker_reports' => [$this->item()],
+        ]);
+
+        $this->assertSame('fresh', $r['channel_classifications']['commits']);
+        $this->assertSame('fresh', $r['channel_classifications']['worker_reports']);
+    }
+
+    // ── AC4: stale or missing worker_reports forces trusted=false ────────────
+
+    public function test_stale_worker_reports_forces_trusted_false_with_blocker(): void
+    {
+        $r = $this->svc()->assess([
+            'commits' => [$this->item('2026-06-30T10:00:00Z')],
+            'worker_reports' => [['timestamp' => '2026-06-01T00:00:00Z']],
+            'max_age_seconds' => 86400,
+            'now_iso' => '2026-06-30T10:00:00Z',
+        ]);
+
+        $this->assertTrue($r['admission_blocked']);
+        $this->assertNotNull($r['blocking_reason']);
+        $this->assertStringContainsString('worker_reports', $r['blocking_reason']);
+        $this->assertStringContainsString('stale', $r['blocking_reason']);
+    }
+
+    public function test_missing_worker_reports_forces_trusted_false_with_blocker(): void
+    {
+        $r = $this->svc()->assess([
+            'commits' => [$this->item()],
+        ]);
+
+        $this->assertTrue($r['admission_blocked']);
+        $this->assertNotNull($r['blocking_reason']);
+        $this->assertStringContainsString('worker_reports', $r['blocking_reason']);
+        $this->assertStringContainsString('missing', $r['blocking_reason']);
+        $this->assertNotNull($r['refresh_hint']);
+    }
 }
