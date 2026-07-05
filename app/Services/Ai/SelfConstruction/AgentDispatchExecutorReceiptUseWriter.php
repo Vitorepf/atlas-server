@@ -141,6 +141,16 @@ class AgentDispatchExecutorReceiptUseWriter
         $hasProof = $proofCommand !== '' || $proofOutput !== '';
         $isGenericSuccessText = in_array($outcomeText, self::GENERIC_SUCCESS_PHRASES, true);
 
+        // weak_green: generic success text with no concrete command evidence.
+        // This is a distinct outcome from verified success — it carries signal
+        // but must not be trusted as proven. It becomes a learning payload with
+        // outcome_class=weak_green instead of being rejected.
+        $isWeakGreen = $isGenericSuccessText && ! $hasProof && $outcomeClass === '';
+
+        if ($isWeakGreen) {
+            $outcomeClass = 'weak_green';
+        }
+
         if ($outcomeClass === '' && ! $hasProof) {
             return [
                 'status' => 'rejected_success_text_only',
@@ -167,6 +177,7 @@ class AgentDispatchExecutorReceiptUseWriter
         $proofStatus = match (true) {
             $outcomeClass === 'success' && $hasProof => 'proven',
             $outcomeClass === 'success' && ! $hasProof => 'unproven_success_claim',
+            $outcomeClass === 'weak_green' => 'unproven_success_claim',
             $outcomeClass === 'failed' => 'proven_failure',
             default => 'unknown',
         };
@@ -178,19 +189,50 @@ class AgentDispatchExecutorReceiptUseWriter
             default => 'neutral',
         };
 
+        // For give_back and poison outcomes, include root_cause and respec_hint
+        // when present in the receipt.
+        $rootCause = trim((string) ($receipt['root_cause'] ?? ''));
+        $respecHint = trim((string) ($receipt['respec_hint'] ?? ''));
+        $isGiveBackOrPoison = in_array($outcomeClass, ['give_back', 'poison'], true);
+
+        $learningPayload = [
+            'packet_id' => (string) ($receipt['packet_id'] ?? ''),
+            'worker_id' => (string) ($receipt['worker_id'] ?? ''),
+            'task_outcome' => $outcomeClass !== '' ? $outcomeClass : 'unknown',
+            'proof_status' => $proofStatus,
+            'elapsed_seconds' => $elapsedSeconds,
+            'failure_class' => $failureClass !== '' ? $failureClass : null,
+            'worker_fit_signal' => $workerFitSignal,
+            'destination' => ['runtime_registry', 'task_fabric'],
+        ];
+
+        // Verified success payloads include task_family and evidence_hash
+        // when present in the receipt.
+        $taskFamily = trim((string) ($receipt['task_family'] ?? ''));
+        $evidenceHash = trim((string) ($receipt['evidence_hash'] ?? ''));
+        if ($outcomeClass === 'success' && $proofStatus === 'proven') {
+            if ($taskFamily !== '') {
+                $learningPayload['task_family'] = $taskFamily;
+            }
+            if ($evidenceHash !== '') {
+                $learningPayload['evidence_hash'] = $evidenceHash;
+            }
+        }
+
+        // give_back and poison payloads include root_cause and respec_hint.
+        if ($isGiveBackOrPoison) {
+            if ($rootCause !== '') {
+                $learningPayload['root_cause'] = $rootCause;
+            }
+            if ($respecHint !== '') {
+                $learningPayload['respec_hint'] = $respecHint;
+            }
+        }
+
         return [
             'status' => 'learning_payload_built',
             'reason' => null,
-            'learning_payload' => [
-                'packet_id' => (string) ($receipt['packet_id'] ?? ''),
-                'worker_id' => (string) ($receipt['worker_id'] ?? ''),
-                'task_outcome' => $outcomeClass !== '' ? $outcomeClass : 'unknown',
-                'proof_status' => $proofStatus,
-                'elapsed_seconds' => $elapsedSeconds,
-                'failure_class' => $failureClass !== '' ? $failureClass : null,
-                'worker_fit_signal' => $workerFitSignal,
-                'destination' => ['runtime_registry', 'task_fabric'],
-            ],
+            'learning_payload' => $learningPayload,
         ];
     }
 

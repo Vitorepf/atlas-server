@@ -14,7 +14,7 @@ final class AgentDispatchExecutorReceiptUseWriterTest extends TestCase
         return app(AgentDispatchExecutorReceiptUseWriter::class);
     }
 
-    public function test_generic_success_text_without_proof_is_rejected_as_weak_green(): void
+    public function test_generic_success_text_without_proof_becomes_weak_green_learning_payload(): void
     {
         $result = $this->writer()->learningPayloadFromReceipt([
             'outcome_text' => 'success',
@@ -25,9 +25,11 @@ final class AgentDispatchExecutorReceiptUseWriterTest extends TestCase
             'packet_id' => 'packet-1',
         ]);
 
-        $this->assertSame('rejected_success_text_only', $result['status']);
-        $this->assertSame('receipt_has_generic_success_text_without_proof_or_outcome_class', $result['reason']);
-        $this->assertNull($result['learning_payload']);
+        $this->assertSame('learning_payload_built', $result['status']);
+        $payload = $result['learning_payload'];
+        $this->assertSame('weak_green', $payload['task_outcome']);
+        $this->assertSame('unproven_success_claim', $payload['proof_status']);
+        $this->assertSame('untrusted', $payload['worker_fit_signal']);
     }
 
     public function test_verified_success_payload_includes_task_family_evidence_hash_and_worker_id(): void
@@ -53,8 +55,26 @@ final class AgentDispatchExecutorReceiptUseWriterTest extends TestCase
         $this->assertSame('proven', $payload['proof_status']);
         $this->assertSame('positive', $payload['worker_fit_signal']);
         $this->assertSame(5, $payload['elapsed_seconds']);
+        $this->assertSame('goal-value', $payload['task_family']);
+        $this->assertSame('a'.str_repeat('b', 63), $payload['evidence_hash']);
         $this->assertContains('runtime_registry', $payload['destination']);
         $this->assertContains('task_fabric', $payload['destination']);
+    }
+
+    public function test_verified_success_without_task_family_or_evidence_hash_omits_them(): void
+    {
+        $result = $this->writer()->learningPayloadFromReceipt([
+            'outcome_text' => 'tests passed',
+            'outcome_class' => 'success',
+            'proof_command' => 'php artisan test',
+            'proof_output' => 'OK',
+            'worker_id' => 'worker-1',
+            'packet_id' => 'packet-1',
+        ]);
+
+        $payload = $result['learning_payload'];
+        $this->assertArrayNotHasKey('task_family', $payload);
+        $this->assertArrayNotHasKey('evidence_hash', $payload);
     }
 
     public function test_give_back_receipt_includes_root_cause_and_respec_hint(): void
@@ -71,7 +91,10 @@ final class AgentDispatchExecutorReceiptUseWriterTest extends TestCase
         ]);
 
         $this->assertSame('learning_payload_built', $result['status']);
-        $this->assertSame('give_back', $result['learning_payload']['task_outcome']);
+        $payload = $result['learning_payload'];
+        $this->assertSame('give_back', $payload['task_outcome']);
+        $this->assertSame('missing test coverage', $payload['root_cause']);
+        $this->assertSame('add unit tests', $payload['respec_hint']);
     }
 
     public function test_poison_receipt_includes_root_cause_and_respec_hint(): void
@@ -88,7 +111,24 @@ final class AgentDispatchExecutorReceiptUseWriterTest extends TestCase
         ]);
 
         $this->assertSame('learning_payload_built', $result['status']);
-        $this->assertSame('poison', $result['learning_payload']['task_outcome']);
+        $payload = $result['learning_payload'];
+        $this->assertSame('poison', $payload['task_outcome']);
+        $this->assertSame('proxy leak', $payload['root_cause']);
+        $this->assertSame('tighten gate', $payload['respec_hint']);
+    }
+
+    public function test_give_back_without_root_cause_does_not_include_it(): void
+    {
+        $result = $this->writer()->learningPayloadFromReceipt([
+            'outcome_text' => 'give back',
+            'outcome_class' => 'give_back',
+            'worker_id' => 'worker-1',
+            'packet_id' => 'packet-1',
+        ]);
+
+        $payload = $result['learning_payload'];
+        $this->assertArrayNotHasKey('root_cause', $payload);
+        $this->assertArrayNotHasKey('respec_hint', $payload);
     }
 
     public function test_learning_payload_does_not_include_raw_prompt_or_trace(): void
