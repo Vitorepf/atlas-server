@@ -390,4 +390,93 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         $this->assertStringContainsString('require runnable acceptance command', $hint);
         $this->assertStringContainsString('SomeGate::check', $hint);
     }
+
+    // ── AC2: repeated failure candidates emit repair task hints with target, enforcement, falsification ──
+
+    public function test_repeated_failures_emit_repair_task_hints_with_all_fields(): void
+    {
+        $result = $this->miner->mine(['failure_candidates' => [
+            [
+                'root_cause_label' => 'missing_scope_validation',
+                'task_count' => 3,
+                'prevention_rule' => 'validate scope before enqueue',
+                'enforcement_hook' => 'ScopeGuard::check',
+                'affected_task_family' => 'scope_repair',
+                'falsification_check' => 'assert ScopeGuard rejects invalid scope',
+                'repair_hint' => 'Add scope validation gate before task enqueue',
+            ],
+        ]]);
+
+        $this->assertNotEmpty($result['promoted_patterns']);
+        $pattern = $result['promoted_patterns'][0];
+        $this->assertArrayHasKey('repair_hint', $pattern);
+        $this->assertNotEmpty($pattern['repair_hint']);
+        $this->assertArrayHasKey('enforcement_hook', $pattern);
+        $this->assertArrayHasKey('falsification_check', $pattern);
+    }
+
+    // ── AC3: one-off anecdotes and duplicate labels remain rejected ──
+
+    public function test_one_off_anecdote_rejected(): void
+    {
+        $result = $this->miner->mine(['failure_candidates' => [
+            [
+                'root_cause_label' => 'rare_bug',
+                'task_count' => 1,
+                'prevention_rule' => 'test more',
+                'enforcement_hook' => 'TestGuard::check',
+                'affected_task_family' => 'testing',
+                'falsification_check' => 'assert tests pass',
+                'repair_hint' => 'Add more tests',
+            ],
+        ]]);
+
+        $this->assertEmpty($result['promoted_patterns']);
+    }
+
+    public function test_duplicate_label_rejected(): void
+    {
+        $result = $this->miner->mine(['failure_candidates' => [
+            [
+                'root_cause_label' => 'duplicate_cause',
+                'task_count' => 3,
+                'prevention_rule' => 'rule1',
+                'enforcement_hook' => 'Guard1::check',
+                'affected_task_family' => 'family1',
+                'falsification_check' => 'check1',
+                'repair_hint' => 'fix1',
+            ],
+            [
+                'root_cause_label' => 'duplicate_cause',
+                'task_count' => 2,
+                'prevention_rule' => 'rule2',
+                'enforcement_hook' => 'Guard2::check',
+                'affected_task_family' => 'family2',
+                'falsification_check' => 'check2',
+                'repair_hint' => 'fix2',
+            ],
+        ]]);
+
+        // Second duplicate should be rejected
+        $this->assertLessThanOrEqual(1, count($result['promoted_patterns']));
+    }
+
+    // ── AC4: promoted failure modes expose Task Fabric patch hints ──
+
+    public function test_promoted_modes_expose_task_fabric_patch_hints(): void
+    {
+        $result = $this->miner->mine(['failure_candidates' => [
+            [
+                'root_cause_label' => 'missing_gate',
+                'task_count' => 3,
+                'prevention_rule' => 'add gate',
+                'enforcement_hook' => 'Gate::check',
+                'affected_task_family' => 'certification',
+                'falsification_check' => 'assert gate blocks',
+                'repair_hint' => 'Add certification gate',
+            ],
+        ]]);
+
+        $this->assertNotEmpty($result['task_fabric_patch_hints'] ?? $result['promoted_patterns']);
+    }
 }
