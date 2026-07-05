@@ -117,7 +117,7 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifier
             if (! isset($byStage[$stage])) {
                 continue;
             }
-            $identity = (string) ($byStage[$stage]['task_packet_id'] ?? $byStage[$stage]['correlation_id'] ?? '');
+            $identity = (string) ($byStage[$stage]['task_packet_id'] ?? $byStage[$stage]['correlation_id'] ?? $byStage[$stage]['capability_id'] ?? '');
             if ($identity !== '') {
                 $identities[] = $identity;
             }
@@ -141,7 +141,7 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifier
             if (! isset($byStage[$stage])) {
                 continue;
             }
-            $identity = (string) ($byStage[$stage]['task_packet_id'] ?? $byStage[$stage]['correlation_id'] ?? '');
+            $identity = (string) ($byStage[$stage]['task_packet_id'] ?? $byStage[$stage]['correlation_id'] ?? $byStage[$stage]['capability_id'] ?? '');
             if ($identity === '') {
                 $violations[] = ['code' => 'missing_correlation_id', 'stage' => $stage];
 

@@ -371,4 +371,98 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifierTest extends TestCase
         $this->assertLessThan($complete['replay_score'], $result['replay_score']);
         $this->assertNotEmpty($result['causality_violations']);
     }
+
+    // ── AC: all required stages must be present and correlated by task id or capability id ──
+
+    public function test_all_stages_correlated_by_task_packet_id_completes_cycle(): void
+    {
+        $facts = $this->completeStream();
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertTrue($result['cycle_complete']);
+        $this->assertSame('tp-cycle-1', $result['correlation_id']);
+    }
+
+    public function test_all_stages_correlated_by_capability_id_completes_cycle(): void
+    {
+        $facts = [
+            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'widen_breadth', 'capability_id' => 'cap-1'],
+            ['stage' => 'packet_emitted', 'sequence' => 2, 'capability_id' => 'cap-1'],
+            ['stage' => 'muscle_outcome', 'sequence' => 3, 'outcome' => 'success', 'capability_id' => 'cap-1'],
+            ['stage' => 'gates_judged', 'sequence' => 4, 'capability_id' => 'cap-1', 'gate_verdict' => 'pass'],
+            ['stage' => 'outcome_learning', 'sequence' => 5, 'capability_id' => 'cap-1', 'outcome_learning_ref' => 'learn-1'],
+            ['stage' => 'next_decision', 'sequence' => 6, 'lever' => 'increase_depth', 'capability_id' => 'cap-1'],
+        ];
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertTrue($result['cycle_complete']);
+    }
+
+    // ── AC: uncorrelated green-looking evidence does not satisfy replay_complete ──
+
+    public function test_uncorrelated_green_looking_evidence_does_not_complete(): void
+    {
+        // All stages present and look green, but correlation ids don't match
+        $facts = $this->completeStream();
+        foreach ($facts as &$fact) {
+            if ($fact['stage'] === 'muscle_outcome') {
+                $fact['task_packet_id'] = 'different-task';
+            }
+        }
+        unset($fact);
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertFalse($result['cycle_complete']);
+        $this->assertNotEmpty($result['causality_violations']);
+    }
+
+    public function test_uncorrelated_stages_lower_replay_score_even_if_all_present(): void
+    {
+        $facts = $this->completeStream();
+        foreach ($facts as &$fact) {
+            if ($fact['stage'] === 'gates_judged') {
+                $fact['task_packet_id'] = 'mismatch';
+            }
+        }
+        unset($fact);
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+        $complete = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($this->completeStream());
+
+        $this->assertLessThan($complete['replay_score'], $result['replay_score']);
+    }
+
+    // ── AC: missing outcome_learning blocks replay completion with a stable blocker ──
+
+    public function test_missing_outcome_learning_blocks_with_stable_blocker(): void
+    {
+        $facts = array_values(array_filter(
+            $this->completeStream(),
+            static fn (array $f): bool => $f['stage'] !== 'outcome_learning',
+        ));
+
+        $a = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+        $b = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertFalse($a['cycle_complete']);
+        $this->assertSame('outcome_learning', $a['missing_stage']);
+        // Stable blocker: same result across repeated calls
+        $this->assertSame($a, $b);
+    }
+
+    public function test_missing_outcome_learning_produces_causality_violation(): void
+    {
+        $facts = array_values(array_filter(
+            $this->completeStream(),
+            static fn (array $f): bool => $f['stage'] !== 'outcome_learning',
+        ));
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertFalse($result['cycle_complete']);
+        $this->assertSame('outcome_learning', $result['missing_stage']);
+        $this->assertContains('outcome_learning', $result['missing_stages']);
+    }
 }
