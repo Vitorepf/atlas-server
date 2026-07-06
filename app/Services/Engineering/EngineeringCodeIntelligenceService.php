@@ -55,7 +55,7 @@ class EngineeringCodeIntelligenceService
      *     Atlas root indexes atlas-server/routes and atlas-server/tests as real
      *     Laravel routes/tests while preserving their umbrella file paths.
      */
-    private const EXTRACTOR_VERSION = 4;
+    private const EXTRACTOR_VERSION = 5; // v5: multi-class por arquivo + método atribuído por span
 
     /**
      * Detailed symbol set diffs require a PHP hash index of scan keys. On the primary
