@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use Symfony\Component\Process\Process;
 
 /**
@@ -63,8 +64,7 @@ final class AtlasLoopProposalDiffReconstructor
      */
     private function git(string $cwd, array $argv): bool
     {
-        $process = new Process(array_merge(['git'], $argv), $cwd, null, null, 60.0);
-        $process->run();
+        $process = GitSubprocess::run($cwd, $argv);
 
         return $process->isSuccessful();
     }
