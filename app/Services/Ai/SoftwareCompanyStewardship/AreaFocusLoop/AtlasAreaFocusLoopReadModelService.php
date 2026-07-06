@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopTierPromotionChainService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
 
@@ -65,7 +66,25 @@ class AtlasAreaFocusLoopReadModelService
 
     public function __construct(
         private readonly AtlasNightShiftAreaFocusContractRegistry $registry,
+        private readonly ?AtlasLoopTierPromotionChainService $tierChain = null,
     ) {}
+
+    /**
+     * Active autonomy tier from the promotion chain (Obra #14 H3.2 S49).
+     * Degrade-safe: no chain, no table, no promotion, any failure => 0 --
+     * byte-identical to the previous hardcoded 0 until an operator-signed
+     * promotion exists.
+     */
+    private function activeAutonomyTier(string $areaId): int
+    {
+        try {
+            $chain = $this->tierChain ?? app(AtlasLoopTierPromotionChainService::class);
+
+            return max(0, $chain->activeTier($areaId));
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
 
     /**
      * Project the read-only Area Focus Loop core read-model for one canonical area.
@@ -364,7 +383,7 @@ class AtlasAreaFocusLoopReadModelService
             'owner_docs_present' => count(array_filter($ownerDocsResolved, static fn (array $d): bool => ($d['exists'] ?? false) === true)),
             'finding_seed_count' => count($seeds),
             'finding_seeds_by_severity' => $bySeverity,
-            'autonomy_tier_active' => 0,
+            'autonomy_tier_active' => $this->activeAutonomyTier((string) ($contract['area_id'] ?? '')),
             'autonomy_tier_declared' => (int) $contract['autonomy_tier'],
         ];
     }
@@ -397,7 +416,7 @@ class AtlasAreaFocusLoopReadModelService
             'mode' => 'max_governed',
             'definition' => 'maximum useful throughput inside the canonical safety boundary; not permissionless autonomy',
             'autonomy_tier_declared' => (int) $contract['autonomy_tier'],
-            'autonomy_tier_active' => 0,
+            'autonomy_tier_active' => $this->activeAutonomyTier((string) ($contract['area_id'] ?? '')),
             'read_only_slice' => true,
             'invariants' => [
                 'merge_without_operator' => false,
