@@ -68,3 +68,25 @@ Adiados com razão registrada: P1 briefing noturno completo (LLM headless não p
 ## Uma linha
 
 Conserte a fundação em dias (retrieval que usa a pergunta), meça o que já existe antes de reconstruir (guard de decisão), entregue valor sentido a cada degrau (retomada → porquês → qualquer repo), e só então componha os saltos que fazem o cérebro melhorar dormindo — cada um religando substrato que já está construído e ocioso.
+
+## ADENDO DE IMPLEMENTABILIDADE (vinculante — 06/07, pós-auditoria do Agente B + verificação cruzada)
+
+Este adendo corrige/precisa os slices para execução por modelo barato. Em conflito com o corpo acima, o adendo vence. Nenhum slice se implementa sem ordem de trabalho (ver `docs/obra-linha-acos-leia-me-implementador.md`).
+
+**T0.1 (retrieval por query):**
+- ADITIVO-ONLY: a assinatura `relevantForContext(array $context, array $filters = [], int $limit = 12)` (AtlasMemoryRegistryService.php:251) NÃO muda. A query entra como chave opcional `$context['query']`; ausente ⇒ comportamento byte-idêntico ao atual.
+- Callers congelados (verificados por rg em 06/07; nenhum muda): AtlasHybridMemoryRetrievalService.php:179, AiContextPackBuilder.php:249, AtlasProviderProjectionService.php:730, EngineeringContextPackService.php:178. (AtlasVerbatimMemoryService:96 é MÉTODO PRÓPRIO homônimo de outra classe — não tocar.)
+- Flag: `config/atlas.php:4068` → `'semantic_retrieval' => env('ATLAS_AOBG_SEMANTIC_RETRIEVAL', false)` — virar o DEFAULT no config para true no mesmo commit (não no .env). Efeito colateral a corrigir junto: AobgSemanticRetrievalLiftService imprime instruções assumindo OFF.
+- Fallback sqlite: detectar driver pela CONNECTION do model (`AtlasMemoryEntry::query()->getConnection()->getDriverName()`), nunca por `config('database.default')`. pgsql ⇒ vetorial via `AtlasMemoryVectorSearchService`; sqlite ⇒ LIKE/FTS sobre title+summary+body.
+- `retrieval_mode` auditado: campo novo no sinal `feedback_loop_vivo` de `app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php` (serviço EXISTE — não criar comando novo).
+- Ordem de trabalho pronta: `docs/work-orders/WO-17-T0.1-retrieval-por-query.md` (teste de aceitação pré-escrito incluso).
+
+**T0.2 (medir o guard existente):** os símbolos EXISTEM — `AtlasOpenBrainGuardService::decisionViolationCheck()` (app/Services/Ai/AtlasOpenBrainGuardService.php:243, chamado em :160) via hook `.claude/hooks/atlas-pretooluse-guard.sh`. (A auditoria B acusou fantasma por grep no lugar errado — re-verificado em 06/07.) O protocolo de 20 edições é TAREFA DO PLANEJADOR/OPERADOR (gate:evento-operador); o hit-rate publica no doc da obra.
+
+**T0.3 (alerta de heartbeat):** o artefato EXISTE: `storage/atlas/scheduler/heartbeat.jsonl` (verificado, escrito pelo scheduler; também lido por AtlasAcosEvolutionScoreService::heartbeatFresh). Landing site: `.claude/hooks/` (o hook UserPromptSubmit). Regras: fail-OPEN sempre (check quebrado nunca degrada a sessão); dedup da linha injetada (hooks registrados 2× no settings.json); `rg` em storage/ exige `--no-ignore`.
+
+**T0.4 (baselines):** tarefa do OPERADOR/planejador — nunca do implementador (proibido fabricar TPE).
+
+**T1:** estado de obra em `storage/atlas/obras/<obra-id>.json` (schema na futura WO); identidade da obra ativa via arquivo `storage/atlas/obras/current` escrito por comando explícito (nunca inferida); "religar" o `LongHorizonContinuityPackEmitterService` só com call site consumidor NOMINAL no pack + teste que prova a seção presente; matcher de refutação exige antes o inventário nominal do pipeline (pendência atribuída ao scaffolder K2 da #18).
+
+**Regra geral:** toda sigla em ordem de trabalho vem com path absoluto no glossário; ordem com sigla não-resolvida é inválida (linter K3).
