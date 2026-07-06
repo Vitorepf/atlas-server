@@ -992,8 +992,10 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
         $this->assertContains('provider_failure_pressure', $risk['risk_factors']);
         $this->assertContains('cost_pressure', $risk['risk_factors']);
         $this->assertContains('test_flake_pressure', $risk['risk_factors']);
+        $this->assertContains('outcome_pressure', $risk['risk_factors']);
         $this->assertContains('provider_memory_review', $risk['required_gates']);
         $this->assertContains('flake_triage', $risk['required_gates']);
+        $this->assertContains('outcome_memory_review', $risk['required_gates']);
     }
 
     public function test_product_delivery_provider_memory_command_outputs_json(): void
@@ -1037,13 +1039,16 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
                     'provider_failure_count' => 1,
                     'flake_count' => 1,
                     'cost_pressure' => true,
+                    'outcome_pressure_score' => 0.5,
                 ],
             ],
         ]);
 
         $this->assertSame(AtlasProductDeliveryPolicyOptimizerService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('proposal_ready', $payload['status']);
-        $this->assertGreaterThanOrEqual(5, $payload['proposal_count']);
+        $this->assertGreaterThanOrEqual(6, $payload['proposal_count']);
+        $this->assertContains('outcome_pressure_review_gate', array_column($payload['proposals'], 'id'));
+        $this->assertSame(0.5, data_get($payload, 'source_signals.outcome_pressure_score'));
         $this->assertFalse(data_get($payload, 'policy_change_contract.auto_apply_allowed'));
         $this->assertTrue(data_get($payload, 'policy_change_contract.requires_aemor_judgment'));
         $this->assertTrue(data_get($payload, 'policy_change_contract.requires_human_review'));
