@@ -11,6 +11,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\Owner
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanCompletionTrackerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceDecompositionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanSliceSelectionService;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\Support\JsonFileStore;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -203,7 +204,9 @@ final class Reliable24hLoopRunnerService
     /** Re-check the kill/pause files at least this often (seconds) during an inter-cycle sleep. */
     private const SLEEP_INTERRUPT_GRANULARITY_SECONDS = 5;
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/reliable_24h_loop';
 
     /**
      * AP-807 (LHL-01) wire flag. Default OFF: when false, the cycle ledger record
@@ -268,11 +271,6 @@ final class Reliable24hLoopRunnerService
         private readonly ?LoopHealthPulseService $healthPulse = null,
     ) {}
 
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
     /**
      * @param  callable(array<string,mixed>):array<string,mixed>  $runner
      */
@@ -313,17 +311,6 @@ final class Reliable24hLoopRunnerService
     public function setProcessKillerForTesting(callable $killer): void
     {
         $this->processKiller = $killer;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/reliable_24h_loop')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/reliable_24h_loop';
     }
 
     public function ledgerPath(string $areaId, string $focus): string

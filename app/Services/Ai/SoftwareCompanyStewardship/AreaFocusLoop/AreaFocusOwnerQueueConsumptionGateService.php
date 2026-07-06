@@ -8,6 +8,7 @@ use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueConsumptionGate;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
 use Illuminate\Support\Facades\File;
 
@@ -34,23 +35,9 @@ final class AreaFocusOwnerQueueConsumptionGateService implements OwnerQueueConsu
 
     public const STATUS_BLOCKED = 'blocked';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
 
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/area_focus_owner_queue_consumptions')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/area_focus_owner_queue_consumptions';
-    }
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/area_focus_owner_queue_consumptions';
 
     public function consumptionFilePath(string $areaId): string
     {

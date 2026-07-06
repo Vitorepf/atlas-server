@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Support\AtlasSecurity;
 use DateTimeImmutable;
@@ -43,27 +44,13 @@ final class AgentExecutionSessionStoreService
         'continuation_token', 'secret', 'password', 'token', 'cookie', 'credential',
     ];
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software-company-stewardship/agent-execution';
 
     public function __construct(
         private readonly AgentExecutionProviderPortService $providerPort,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software-company-stewardship/agent-execution')
-            : sys_get_temp_dir().'/atlas/software-company-stewardship/agent-execution';
-    }
 
     public function sessionsFilePath(): string
     {

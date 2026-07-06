@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\ProductMode;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -20,7 +22,7 @@ use DateTimeZone;
  * each closed 24h cycle, the full chain: area, loop (finding/spec/handoff),
  * sandbox, owner, execution, result, evidence and inbox. It never invokes a
  * provider, opens a branch, mutates the target repo, merges, deploys or touches
- * secrets. It is fed by {@see \App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService}
+ * secrets. It is fed by {@see StewardshipRuntimeResultBridgeService}
  * and read by the cockpit; it does not create a parallel ledger or inbox.
  */
 final class ProductModeRuntimeResultEventService
@@ -31,23 +33,9 @@ final class ProductModeRuntimeResultEventService
 
     public const DEFAULT_AREA_ID = 'agentic_engineering_os';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
 
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/product_mode_runtime_result_events')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/product_mode_runtime_result_events';
-    }
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/product_mode_runtime_result_events';
 
     public function eventFilePath(string $areaId): string
     {

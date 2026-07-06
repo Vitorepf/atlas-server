@@ -10,6 +10,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Mobile\ProposalInboxEmitter;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeRuntimeResultEventService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
@@ -70,29 +71,15 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
 
     private const VALID_RESULT_STATUSES = ['completed', 'failed', 'blocked', 'partial'];
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/runtime_result_bridge';
 
     public function __construct(
         private readonly AtlasEvidenceLedger $evidenceLedger,
         private readonly ProposalInboxEmitter $proposalInbox,
         private readonly ProductModeRuntimeResultEventService $productModeEvents,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/runtime_result_bridge')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/runtime_result_bridge';
-    }
 
     public function bridgeFilePath(string $areaId): string
     {
@@ -991,7 +978,6 @@ final class StewardshipRuntimeResultBridgeService implements StewardshipRuntimeR
     }
 
     /**
-     * @param  mixed  $value
      * @return list<array<string,mixed>>
      */
     private function normalizeTestResults(mixed $value): array

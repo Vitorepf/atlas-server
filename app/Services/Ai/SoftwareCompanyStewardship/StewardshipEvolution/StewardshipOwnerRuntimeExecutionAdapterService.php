@@ -8,6 +8,8 @@ use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeExecutionAdapter;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
@@ -24,7 +26,7 @@ use Throwable;
  * invokes providers directly, never merges/deploys/pushes and never accesses
  * secrets. Provider/full mutation authority remains inside the existing owners.
  */
-final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeExecutionAdapter
+final class StewardshipOwnerRuntimeExecutionAdapterService implements OwnerRuntimeExecutionAdapter
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.owner_runtime_execution_adapter.v1';
 
@@ -38,28 +40,14 @@ final class StewardshipOwnerRuntimeExecutionAdapterService implements \App\Servi
 
     public const STATUS_BLOCKED = 'blocked';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/owner_runtime_executions';
 
     public function __construct(
         private readonly AtlasDevRuntimeService $atlasDevRuntime,
         private readonly AtlasForgeParallelDurableCoordinatorService $forgeCoordinator,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/owner_runtime_executions')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/owner_runtime_executions';
-    }
 
     public function executionFilePath(string $areaId): string
     {

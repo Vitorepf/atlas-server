@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
@@ -30,27 +31,13 @@ final class AreaStewardshipActiveHandoffService
 
     public const STATUS_BLOCKED = 'blocked';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/area_stewardship_active_handoffs';
 
     public function __construct(
         private readonly AreaStewardshipPromotionReadinessService $readiness,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/area_stewardship_active_handoffs')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/area_stewardship_active_handoffs';
-    }
 
     public function packetFilePath(string $areaId): string
     {

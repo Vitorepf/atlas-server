@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 
 /**
  * AP-770 · Branch lifecycle registry.
@@ -35,23 +36,9 @@ final class StewardshipBranchLifecycleRegistryService
     /** @var list<string> */
     private const ACTIVE_STATUSES = [self::STATUS_RESERVED, self::STATUS_MATERIALIZED];
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
 
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/branch_lifecycle_registry')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/branch_lifecycle_registry';
-    }
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/branch_lifecycle_registry';
 
     public function recordPath(string $areaId): string
     {

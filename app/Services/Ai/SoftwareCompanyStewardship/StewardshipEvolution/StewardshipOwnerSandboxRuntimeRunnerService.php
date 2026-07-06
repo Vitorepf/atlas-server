@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerSandboxRuntimeRunner;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Support\AtlasSecurity;
@@ -24,7 +26,7 @@ use Throwable;
  * runtime or provider path: it only calls existing owner CLIs under receipt,
  * allowlist, timeout, kill switch and AP-750 result bridge constraints.
  */
-final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerSandboxRuntimeRunner
+final class StewardshipOwnerSandboxRuntimeRunnerService implements OwnerSandboxRuntimeRunner
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.owner_sandbox_runtime_runner.v1';
 
@@ -116,29 +118,15 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements \App\Services
         '--allowed-files=',
     ];
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/owner_sandbox_runtime_runs';
 
     private ?string $vendorRootOverride = null;
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
 
     public function setVendorRootForTesting(?string $dir): void
     {
         $this->vendorRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/owner_sandbox_runtime_runs')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/owner_sandbox_runtime_runs';
     }
 
     public function runFilePath(string $areaId): string
@@ -1233,7 +1221,6 @@ PHP);
     }
 
     /**
-     * @param  mixed  $command
      * @return list<string>
      */
     private function normalizeCommand(mixed $command): array

@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\NightShift\AreaFocusLoopReadModelService;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 
 /**
  * Software Company Stewardship Stack · Area Focus Loop ·
@@ -42,27 +43,13 @@ class AreaFocusCycleRecorderService
         'evidence_pack',
     ];
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/area_focus_cycles';
 
     public function __construct(
         private readonly AreaFocusLoopReadModelService $readModel,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/area_focus_cycles')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/area_focus_cycles';
-    }
 
     public function cycleFilePath(string $areaId): string
     {
@@ -450,5 +437,4 @@ class AreaFocusCycleRecorderService
 
         return AreaFocusStringListNormalizer::coercedStringValues(glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'));
     }
-
 }

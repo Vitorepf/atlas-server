@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 
 /**
  * AP-810 / LHL-07 — Transactional Cycle State (AP-808/809).
@@ -87,23 +88,9 @@ final class TransactionalCycleStateService
     /** The terminal completion state. Reaching this is the only "cycle done". */
     private const TERMINAL_STATE = self::STATE_CLEANED;
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
 
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/long_horizon_loop')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/long_horizon_loop';
-    }
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/long_horizon_loop';
 
     /**
      * Path of the append-only JSONL ledger for one (area, focus, run, cycle).

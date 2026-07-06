@@ -8,6 +8,7 @@ use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerQueueReleaseGate;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -37,27 +38,13 @@ final class AreaFocusDevForgeReleaseService implements OwnerQueueReleaseGate
 
     public const DEFAULT_AREA_ID = 'agentic_engineering_os';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/area_focus_dev_forge_releases';
 
     public function __construct(
         private readonly AtlasForgeParallelDurableCoordinatorService $forgeCoordinator,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/area_focus_dev_forge_releases')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/area_focus_dev_forge_releases';
-    }
 
     public function releaseFilePath(string $areaId): string
     {

@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AutonomousExecutive;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipInboxService;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionDecisionLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -36,28 +37,14 @@ class AutonomousExecutiveRecommendationService
 
     public const STATUS_BLOCKED = 'blocked';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/executive_recommendations';
 
     public function __construct(
         private readonly PortfolioStewardshipInboxService $portfolioInbox,
         private readonly StewardshipEvolutionDecisionLedgerService $decisionLedger,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/executive_recommendations')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/executive_recommendations';
-    }
 
     public function ledgerFilePath(string $portfolioId): string
     {

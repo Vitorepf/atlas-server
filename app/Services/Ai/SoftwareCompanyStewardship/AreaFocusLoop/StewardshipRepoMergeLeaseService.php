@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 
 /**
  * AP-775 · Stewardship Repo Merge Lease.
@@ -27,23 +28,9 @@ final class StewardshipRepoMergeLeaseService
 
     public const DEFAULT_AREA_ID = 'agentic_engineering_os';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
 
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/repo_merge_lease')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/repo_merge_lease';
-    }
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/repo_merge_lease';
 
     public function recordPath(string $areaId): string
     {

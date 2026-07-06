@@ -6,9 +6,10 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipPromotionReadinessService;
-use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionDecisionLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -36,29 +37,15 @@ class PortfolioStewardshipHealthModelService
 
     public const DEFAULT_PORTFOLIO_ID = 'atlas_software_company';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/portfolio_health';
 
     public function __construct(
         private readonly StewardshipEvolutionReadModelService $evolution,
         private readonly StewardshipEvolutionDecisionLedgerService $decisionLedger,
         private readonly AreaStewardshipPromotionReadinessService $areaReadiness,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/portfolio_health')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/portfolio_health';
-    }
 
     public function ledgerFilePath(string $portfolioId): string
     {

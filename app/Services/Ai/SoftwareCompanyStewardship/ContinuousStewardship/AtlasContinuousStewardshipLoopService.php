@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship\AreaStewardshipActiveOperatingService;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
@@ -45,27 +46,13 @@ final class AtlasContinuousStewardshipLoopService
 
     public const STATUS_BLOCKED = 'blocked';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/continuous_stewardship_loop';
 
     public function __construct(
         private readonly AreaStewardshipActiveOperatingService $activeOperation,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/continuous_stewardship_loop')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/continuous_stewardship_loop';
-    }
 
     public function cycleFilePath(string $areaId): string
     {

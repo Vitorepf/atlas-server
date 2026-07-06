@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\ZeroProviderPreflightGate;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 
 /**
  * AP-790 · append-only quarantine ledger for area/focus loop candidates.
@@ -88,23 +89,9 @@ final class AreaFocusCandidateQuarantineService
 
     private const ROUTING_RETRY_AFTER_SECONDS = 600;
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
 
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/area_focus_candidate_quarantine')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/area_focus_candidate_quarantine';
-    }
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/area_focus_candidate_quarantine';
 
     public function ledgerPath(string $areaId, string $focus): string
     {

@@ -7,14 +7,15 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding;
 use App\Models\AiDomainManifest;
 use App\Services\Ai\DomainRuntime\DomainManifestRegistryService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\PortfolioStewardship\PortfolioStewardshipHealthModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipOutcomeEvidenceBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
  * AP-741 · Self-Expanding -> Domain Runtime Creation Gate handoff.
@@ -35,7 +36,9 @@ final class SelfExpandingDomainRuntimeCreationHandoffService
 
     public const STATUS_NO_READY_PROPOSALS = 'no_ready_proposals';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/domain_runtime_creation_handoffs';
 
     public function __construct(
         private readonly NewAreaProposalGateService $proposalGate,
@@ -43,22 +46,6 @@ final class SelfExpandingDomainRuntimeCreationHandoffService
         private readonly StewardshipOutcomeEvidenceBridgeService $outcomeBridge,
         private readonly DomainManifestRegistryService $domainRegistry,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/domain_runtime_creation_handoffs')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/domain_runtime_creation_handoffs';
-    }
 
     public function packetFilePath(string $areaId): string
     {

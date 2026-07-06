@@ -9,6 +9,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSand
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeRouterService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalOrchestratorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSpecDraftBridge;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
@@ -43,7 +44,9 @@ final class AreaStewardshipActiveOperatingService
 
     public const STATUS_BLOCKED = 'blocked';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/area_stewardship_active_operations';
 
     public function __construct(
         private readonly AreaStewardshipActiveHandoffService $activeHandoff,
@@ -51,22 +54,6 @@ final class AreaStewardshipActiveOperatingService
         private readonly AreaFocusSpecDraftBridge $specDraftBridge,
         private readonly AreaFocusBranchSandboxHandoffService $branchSandboxHandoff,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/area_stewardship_active_operations')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/area_stewardship_active_operations';
-    }
 
     public function operationFilePath(string $areaId): string
     {

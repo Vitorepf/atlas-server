@@ -7,6 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxHandoffService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusDevForgeRouterService;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\AtlasContinuousStewardshipRecurringSchedulerService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
@@ -36,27 +37,13 @@ final class StewardshipNativeObraRunnerService
 
     public const STATUS_BLOCKED = 'blocked';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/native_obra_runner';
 
     public function __construct(
         private readonly AtlasContinuousStewardshipRecurringSchedulerService $scheduler,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/native_obra_runner')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/native_obra_runner';
-    }
 
     public function runFilePath(string $areaId): string
     {

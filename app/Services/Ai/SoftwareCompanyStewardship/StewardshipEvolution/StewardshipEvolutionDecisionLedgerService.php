@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
@@ -17,27 +18,13 @@ class StewardshipEvolutionDecisionLedgerService
 {
     public const LEDGER_SCHEMA = 'atlas.software_company_stewardship.evolution_decision_ledger.v1';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/evolution_decisions';
 
     public function __construct(
         private readonly StewardshipEvolutionOperatorDecisionService $decisions,
     ) {}
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/evolution_decisions')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/evolution_decisions';
-    }
 
     public function ledgerFilePath(string $areaId): string
     {

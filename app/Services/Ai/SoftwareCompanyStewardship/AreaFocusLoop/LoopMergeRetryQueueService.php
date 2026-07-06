@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use Symfony\Component\Process\Process;
 
 /**
@@ -31,14 +32,11 @@ final class LoopMergeRetryQueueService
 
     private const DEFAULT_QUEUE_FILE = 'merge_retry_queue.jsonl';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/reliable_24h_loop';
 
     private ?string $repoRootOverride = null;
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
 
     /**
      * Override the repo root used for git operations (test seam only).
@@ -46,17 +44,6 @@ final class LoopMergeRetryQueueService
     public function setRepoRootForTesting(?string $repoRoot): void
     {
         $this->repoRootOverride = $repoRoot;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/reliable_24h_loop')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/reliable_24h_loop';
     }
 
     public function queuePath(): string

@@ -8,6 +8,7 @@ use App\Services\Ai\Foundry\FoundrySemanticGapFinderService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Rsi\SelfTargetSelectorService;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 
 /**
  * Software Company Stewardship Stack · Area Focus Loop ·
@@ -218,7 +219,9 @@ class AreaFocusDeepFindingEngineService
         ],
     ];
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/area_focus_deep_scans';
 
     public function __construct(
         private readonly AgenticEngineeringOsFindingEngineService $structuralEngine,
@@ -242,11 +245,6 @@ class AreaFocusDeepFindingEngineService
         }
 
         throw new \RuntimeException('FoundrySemanticGapFinderService is unavailable.');
-    }
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
     }
 
     /**
@@ -3393,17 +3391,6 @@ class AreaFocusDeepFindingEngineService
             trimInput: false,
             trimBoundaryUnderscores: false,
         ).'.jsonl';
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/area_focus_deep_scans')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/area_focus_deep_scans';
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Support\AtlasSecurity;
@@ -64,15 +65,12 @@ final class DevForgeRuntimeExecutionBridgeService
     /** Branch names that prove the sandbox is NOT isolated. */
     private const NON_ISOLATED_BRANCHES = ['', 'main', 'master', 'head', 'trunk', 'develop'];
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/dev_forge_runtime_executions';
 
     /** @var null|callable(list<string>,string,int):array<string,mixed> */
     private $taskRunner = null;
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
 
     /**
      * Inject a deterministic command runner for tests so the bridge does not spawn
@@ -84,17 +82,6 @@ final class DevForgeRuntimeExecutionBridgeService
     public function setTaskRunnerForTesting(callable $runner): void
     {
         $this->taskRunner = $runner;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/dev_forge_runtime_executions')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/dev_forge_runtime_executions';
     }
 
     public function executionFilePath(string $areaId): string
@@ -1081,7 +1068,6 @@ final class DevForgeRuntimeExecutionBridgeService
     }
 
     /**
-     * @param  mixed  $command
      * @return list<string>
      */
     private function normalizeCommand(mixed $command): array

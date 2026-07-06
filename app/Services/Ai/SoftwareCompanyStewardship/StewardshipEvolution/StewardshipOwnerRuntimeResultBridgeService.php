@@ -6,6 +6,8 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOwnerQueueConsumptionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeResultProjector;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
@@ -20,7 +22,7 @@ use Illuminate\Support\Facades\File;
  * Evidence, Morning Inbox and Portfolio signals. It never invokes Dev/Forge,
  * creates branches, merges, deploys, pushes externally or touches secrets.
  */
-final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerRuntimeResultProjector
+final class StewardshipOwnerRuntimeResultBridgeService implements OwnerRuntimeResultProjector
 {
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.owner_runtime_result_bridge.v1';
 
@@ -34,23 +36,9 @@ final class StewardshipOwnerRuntimeResultBridgeService implements \App\Services\
 
     public const STATUS_BLOCKED = 'blocked';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
 
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/owner_runtime_results')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/owner_runtime_results';
-    }
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/owner_runtime_results';
 
     public function resultFilePath(string $areaId): string
     {

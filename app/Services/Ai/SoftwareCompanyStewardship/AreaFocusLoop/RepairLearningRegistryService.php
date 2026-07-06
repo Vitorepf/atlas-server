@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -35,29 +36,15 @@ final class RepairLearningRegistryService
 
     public const DEFAULT_TASK_CLASS = 'general';
 
-    private ?string $storageRootOverride = null;
+    use HasStewardshipStorageRoot;
+
+    private const STORAGE_SUBPATH = 'atlas/software_company_stewardship/repair_learning_registry';
 
     private ?DateTimeImmutable $nowOverride = null;
-
-    public function setStorageRootForTesting(?string $dir): void
-    {
-        $this->storageRootOverride = $dir;
-    }
 
     public function setNowForTesting(?DateTimeImmutable $now): void
     {
         $this->nowOverride = $now;
-    }
-
-    public function storageDir(): string
-    {
-        if ($this->storageRootOverride !== null) {
-            return $this->storageRootOverride;
-        }
-
-        return function_exists('storage_path')
-            ? storage_path('atlas/software_company_stewardship/repair_learning_registry')
-            : sys_get_temp_dir().'/atlas/software_company_stewardship/repair_learning_registry';
     }
 
     public function ledgerPath(string $areaId, string $focus): string
