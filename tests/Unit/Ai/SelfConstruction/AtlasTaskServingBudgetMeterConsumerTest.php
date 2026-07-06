@@ -19,6 +19,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -58,7 +59,7 @@ final class AtlasTaskServingBudgetMeterConsumerTest extends TestCase
         AtlasLoopMasterSwitch::$envPathOverride = null;
         AtlasTaskServingSwitch::$envPathOverride = null;
         @unlink($this->envFile);
-        $this->rmrf($this->repo);
+        File::deleteDirectory($this->repo);
         parent::tearDown();
     }
 
@@ -276,18 +277,4 @@ final class AtlasTaskServingBudgetMeterConsumerTest extends TestCase
         return ['code' => (int) $p->getExitCode(), 'out' => $p->getOutput(), 'err' => $p->getErrorOutput()];
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $i) {
-            if ($i === '.' || $i === '..') {
-                continue;
-            }
-            $p = $dir.'/'.$i;
-            is_dir($p) ? $this->rmrf($p) : @unlink($p);
-        }
-        @rmdir($dir);
-    }
 }

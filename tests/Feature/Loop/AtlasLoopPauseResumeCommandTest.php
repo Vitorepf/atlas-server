@@ -10,6 +10,7 @@ use App\Services\Ai\AutonomousEvolution\PauseResume\AtlasLoopCyclePauseFlag;
 use App\Services\Ai\AutonomousEvolution\PauseResume\AtlasLoopCyclePauseResumeSignalBridge;
 use FilesystemIterator;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use Tests\TestCase;
@@ -38,7 +39,7 @@ final class AtlasLoopPauseResumeCommandTest extends TestCase
     protected function tearDown(): void
     {
         @unlink($this->sentinelPath);
-        $this->rmrf($this->storageDir);
+        File::deleteDirectory($this->storageDir);
         parent::tearDown();
     }
 
@@ -70,21 +71,6 @@ final class AtlasLoopPauseResumeCommandTest extends TestCase
     private function signalsForStage(string $stage): array
     {
         return array_values(array_filter($this->readSignals(), static fn (array $s): bool => ($s['stage'] ?? '') === $stage));
-    }
-
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        $it = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($it as $f) {
-            $f->isDir() ? @rmdir($f->getPathname()) : @unlink($f->getPathname());
-        }
-        @rmdir($dir);
     }
 
     private function runCli(string $action, array $options = []): array

@@ -11,6 +11,7 @@ use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Ai\Programming\Sdd\AtlasSddPipeline;
 use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
+use Illuminate\Support\Facades\File;
 use Tests\Concerns\CreatesAtlasSddTables;
 use Tests\TestCase;
 
@@ -31,7 +32,7 @@ class AtlasSddPipelineTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->workspace);
+        File::deleteDirectory($this->workspace);
         $this->dropAtlasSddTables();
         parent::tearDown();
     }
@@ -169,22 +170,4 @@ class AtlasSddPipelineTest extends TestCase
         });
     }
 
-    private function rmrf(string $path): void
-    {
-        if (! file_exists($path)) {
-            return;
-        }
-        if (is_file($path) || is_link($path)) {
-            @unlink($path);
-
-            return;
-        }
-        foreach (@scandir($path) ?: [] as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-            $this->rmrf($path.'/'.$item);
-        }
-        @rmdir($path);
-    }
 }

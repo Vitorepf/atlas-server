@@ -19,6 +19,7 @@ use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -87,8 +88,8 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
     {
         Schema::dropIfExists('atlas_dev_run_index');
         Schema::dropIfExists('atlas_dev_confirmation_tokens');
-        $this->rmrf($this->tmpStorage);
-        $this->rmrf($this->tmpWorkspace);
+        File::deleteDirectory($this->tmpStorage);
+        File::deleteDirectory($this->tmpWorkspace);
         parent::tearDown();
     }
 
@@ -194,7 +195,7 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
                 '--json' => true,
             ]);
         } finally {
-            $this->rmrf($workspace);
+            File::deleteDirectory($workspace);
         }
 
         $this->assertStringContainsString('"kind": "read_only_answer"', $output);
@@ -658,25 +659,6 @@ PHP);
         $this->assertTrue($process->isSuccessful(), $process->getErrorOutput() ?: $process->getOutput());
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$entry;
-            if (is_dir($path)) {
-                $this->rmrf($path);
-            } else {
-                @chmod($path, 0o600);
-                @unlink($path);
-            }
-        }
-        @rmdir($dir);
-    }
 }
 
 final class FakeCliRunExecutor implements RunExecutor

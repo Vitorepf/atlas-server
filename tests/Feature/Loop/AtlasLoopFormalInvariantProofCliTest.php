@@ -8,6 +8,7 @@ use App\Console\Commands\AtlasLoopFormalInvariantProofCli;
 use App\Services\Ai\AutonomousEvolution\SelfMod\FormalProofs\AtlasLoopFormalInvariantProofReceiptLedger;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Exception\CommandNotFoundException;
 use Tests\TestCase;
 
@@ -24,19 +25,8 @@ final class AtlasLoopFormalInvariantProofCliTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->sandbox);
+        File::deleteDirectory($this->sandbox);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) glob($dir.'/*') as $entry) {
-            is_dir($entry) ? $this->rrmdir($entry) : @unlink($entry);
-        }
-        @rmdir($dir);
     }
 
     /** Arm the CLI: flip the config flag and force-register the concrete runner on the live kernel. */

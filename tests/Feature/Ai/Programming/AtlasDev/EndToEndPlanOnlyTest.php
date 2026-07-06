@@ -34,6 +34,7 @@ use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptQualityChecker;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptRenderer;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\PromptSectionsMapper;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -89,8 +90,8 @@ final class EndToEndPlanOnlyTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->tmpStorage);
-        $this->rmrf($this->tmpWorkspace);
+        File::deleteDirectory($this->tmpStorage);
+        File::deleteDirectory($this->tmpWorkspace);
         parent::tearDown();
     }
 
@@ -372,25 +373,6 @@ PHP,
         }
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.'/'.$entry;
-            if (is_dir($path) && ! is_link($path)) {
-                $this->rmrf($path);
-            } else {
-                @chmod($path, 0o644);
-                @unlink($path);
-            }
-        }
-        @rmdir($dir);
-    }
 }
 
 /**

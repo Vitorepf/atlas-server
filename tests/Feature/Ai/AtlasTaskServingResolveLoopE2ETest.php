@@ -17,6 +17,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskBrainReplenisher;
 use App\Services\Ai\SelfConstruction\AtlasTaskCommitVerificationGate;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -55,7 +56,7 @@ final class AtlasTaskServingResolveLoopE2ETest extends TestCase
     {
         AtlasLoopMasterSwitch::$envPathOverride = null;
         @unlink($this->envFile);
-        $this->rmrf($this->repo);
+        File::deleteDirectory($this->repo);
         parent::tearDown();
     }
 
@@ -181,18 +182,4 @@ final class AtlasTaskServingResolveLoopE2ETest extends TestCase
         return ['code' => (int) $p->getExitCode(), 'out' => $p->getOutput(), 'err' => $p->getErrorOutput()];
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $i) {
-            if ($i === '.' || $i === '..') {
-                continue;
-            }
-            $p = $dir.'/'.$i;
-            is_dir($p) ? $this->rmrf($p) : @unlink($p);
-        }
-        @rmdir($dir);
-    }
 }

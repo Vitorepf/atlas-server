@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopBackupComposer;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopReceiptReplayer;
 use App\Services\Ai\AutonomousEvolution\Recovery\AtlasLoopRestoreVerifier;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalJson;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasLoopRestoreVerifierTest extends TestCase
@@ -29,27 +30,8 @@ final class AtlasLoopRestoreVerifierTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->root);
+        File::deleteDirectory($this->root);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) scandir($dir) as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$entry;
-            if (is_dir($full)) {
-                $this->rrmdir($full);
-            } else {
-                @unlink($full);
-            }
-        }
-        @rmdir($dir);
     }
 
     private function makeLedger(string $path, array $events): void

@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\SelfConstruction\Governance;
 
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -36,7 +37,7 @@ final class AtlasTaskMergeActuatorTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->repo);
+        File::deleteDirectory($this->repo);
         @unlink($this->ledgerPath);
         parent::tearDown();
     }
@@ -204,18 +205,4 @@ final class AtlasTaskMergeActuatorTest extends TestCase
         return ['code' => (int) $p->getExitCode(), 'out' => $p->getOutput(), 'err' => $p->getErrorOutput()];
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $i) {
-            if ($i === '.' || $i === '..') {
-                continue;
-            }
-            $p = $dir.'/'.$i;
-            is_dir($p) ? $this->rmrf($p) : @unlink($p);
-        }
-        @rmdir($dir);
-    }
 }

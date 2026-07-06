@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Simulation\AtlasLoopSimulationDryRunner;
 use App\Services\Ai\AutonomousEvolution\Simulation\AtlasLoopSimulationSandboxBuilder;
 use App\Services\Ai\AutonomousEvolution\Simulation\DryRunReceipt;
 use App\Services\Ai\AutonomousEvolution\Simulation\SandboxHandle;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 // SandboxHandle is declared in the same file as AtlasLoopSimulationSandboxBuilder; force its load.
@@ -28,7 +29,7 @@ class AtlasLoopSimulationDryRunnerTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->sandbox);
+        File::deleteDirectory($this->sandbox);
         parent::tearDown();
     }
 
@@ -119,7 +120,7 @@ class AtlasLoopSimulationDryRunnerTest extends TestCase
             );
             self::assertSame($a->phpLintExitCodePerFile, $b->phpLintExitCodePerFile);
         } finally {
-            $this->rrmdir($sb2);
+            File::deleteDirectory($sb2);
         }
     }
 
@@ -131,19 +132,4 @@ class AtlasLoopSimulationDryRunnerTest extends TestCase
         self::assertNotSame(0, $receipt->patchApplyExitCode);
     }
 
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        $iter = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($iter as $entry) {
-            /** @var \SplFileInfo $entry */
-            $entry->isDir() ? @rmdir($entry->getPathname()) : @unlink($entry->getPathname());
-        }
-        @rmdir($dir);
-    }
 }

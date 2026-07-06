@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
@@ -35,7 +36,7 @@ class AtlasTaskSimplicityContractCommandTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->diskRoot);
+        File::deleteDirectory($this->diskRoot);
         parent::tearDown();
     }
 
@@ -177,22 +178,4 @@ class AtlasTaskSimplicityContractCommandTest extends TestCase
         return $exit;
     }
 
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) scandir($dir) as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$entry;
-            if (is_dir($full)) {
-                $this->rrmdir($full);
-            } else {
-                @unlink($full);
-            }
-        }
-        @rmdir($dir);
-    }
 }

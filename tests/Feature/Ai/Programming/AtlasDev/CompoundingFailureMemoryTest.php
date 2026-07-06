@@ -24,6 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePr
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
+use Illuminate\Support\Facades\File;
 use Tests\Feature\Ai\Programming\AtlasDev\Http\FakeAtlasOpenBrainService;
 use Tests\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\PromptProjection\PromptProjectionFixtures;
@@ -87,27 +88,9 @@ final class CompoundingFailureMemoryTest extends TestCase
     protected function tearDown(): void
     {
         $this->migration->down();
-        $this->rmrf($this->tmpStorage);
-        $this->rmrf($this->tmpWorkspace);
+        File::deleteDirectory($this->tmpStorage);
+        File::deleteDirectory($this->tmpWorkspace);
         parent::tearDown();
-    }
-
-    private function rmrf(string $path): void
-    {
-        if (! is_dir($path)) {
-            if (is_file($path)) {
-                @unlink($path);
-            }
-
-            return;
-        }
-        foreach ((array) scandir($path) as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $this->rmrf($path.DIRECTORY_SEPARATOR.$entry);
-        }
-        @rmdir($path);
     }
 
     private function makeBuilder(): ProviderPromptBuilder

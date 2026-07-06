@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Loop;
 
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
@@ -22,7 +23,7 @@ class AtlasLoopBranchCommandTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->branchesRoot);
+        File::deleteDirectory($this->branchesRoot);
         parent::tearDown();
     }
 
@@ -116,19 +117,4 @@ class AtlasLoopBranchCommandTest extends TestCase
         self::assertSame('missing_branch_id', json_decode(trim($rD['output']), true)['reason']);
     }
 
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        $iter = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($iter as $entry) {
-            /** @var \SplFileInfo $entry */
-            $entry->isDir() ? @rmdir($entry->getPathname()) : @unlink($entry->getPathname());
-        }
-        @rmdir($dir);
-    }
 }

@@ -7,6 +7,7 @@ namespace Tests\Feature\Loop;
 use App\Console\Commands\AtlasLoopCortexSimilarCommand;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Similarity\AtlasCortexSymbolSimilarityPairFact;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasLoopCortexSimilarCommandTest extends TestCase
@@ -21,19 +22,8 @@ final class AtlasLoopCortexSimilarCommandTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->historyDir);
+        File::deleteDirectory($this->historyDir);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) glob($dir.'/*') as $entry) {
-            @unlink((string) $entry);
-        }
-        @rmdir($dir);
     }
 
     private function bindFacts(array $facts): void

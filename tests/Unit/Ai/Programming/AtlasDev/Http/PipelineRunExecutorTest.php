@@ -22,6 +22,7 @@ use App\Services\Ai\Programming\AtlasForgeProviderCommandAllowlistService;
 use App\Services\Ai\Programming\AtlasForgeProviderInvocationFailureClassifier;
 use App\Services\Ai\Programming\AtlasForgeProviderProcessRunner;
 use Illuminate\Container\Container;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\Gate\FakeCommandRunner;
@@ -97,8 +98,8 @@ final class PipelineRunExecutorTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->tmpStorage);
-        $this->rmrf($this->tmpWorkspace);
+        File::deleteDirectory($this->tmpStorage);
+        File::deleteDirectory($this->tmpWorkspace);
         parent::tearDown();
     }
 
@@ -1313,26 +1314,6 @@ DIFF;
         $this->assertIsArray($payload, 'verification_receipt.json must be persisted');
 
         return VerificationReceipt::fromArray($payload);
-    }
-
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$entry;
-            if (is_dir($path)) {
-                $this->rmrf($path);
-            } else {
-                @chmod($path, 0o600);
-                @unlink($path);
-            }
-        }
-        @rmdir($dir);
     }
 
     private function installFakeCursorAgent(): string

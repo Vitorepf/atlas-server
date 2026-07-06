@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\SelfConstruction\TaskQuality;
 
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskDuplicateReuseGate;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskWiringAdmissionGate;
+use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,7 +26,7 @@ final class AtlasTaskAdmissionGateV2Test extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->root);
+        File::deleteDirectory($this->root);
         parent::tearDown();
     }
 
@@ -217,18 +218,4 @@ final class AtlasTaskAdmissionGateV2Test extends TestCase
         $this->assertSame(0, $verdict['examined']);
     }
 
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($items as $item) {
-            $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
-        }
-        @rmdir($dir);
-    }
 }

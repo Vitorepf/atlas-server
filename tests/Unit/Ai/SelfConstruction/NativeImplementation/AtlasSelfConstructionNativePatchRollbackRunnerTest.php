@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\NativeImplementation;
 
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePatchRollbackRunner;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionNativePatchRollbackRunnerTest extends TestCase
@@ -20,27 +21,8 @@ final class AtlasSelfConstructionNativePatchRollbackRunnerTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->root);
+        File::deleteDirectory($this->root);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) scandir($dir) as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$entry;
-            if (is_dir($full)) {
-                $this->rrmdir($full);
-            } else {
-                @unlink($full);
-            }
-        }
-        @rmdir($dir);
     }
 
     private function writeFile(string $path, string $contents): void

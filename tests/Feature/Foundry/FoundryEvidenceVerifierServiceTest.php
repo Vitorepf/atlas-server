@@ -8,6 +8,7 @@ use App\Services\Ai\Foundry\FoundryEvidenceVerifierService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class FoundryEvidenceVerifierServiceTest extends TestCase
@@ -28,8 +29,8 @@ final class FoundryEvidenceVerifierServiceTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->repoDir);
-        $this->rmrf($this->rejectionDir);
+        File::deleteDirectory($this->repoDir);
+        File::deleteDirectory($this->rejectionDir);
         parent::tearDown();
     }
 
@@ -40,17 +41,6 @@ final class FoundryEvidenceVerifierServiceTest extends TestCase
         $svc->setRejectionStorageDirForTesting($this->rejectionDir);
 
         return $svc;
-    }
-
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) glob($dir.'/*') as $entry) {
-            is_dir($entry) ? $this->rmrf($entry) : @unlink($entry);
-        }
-        @rmdir($dir);
     }
 
     private function rejectionLines(string $areaId = 'agentic_engineering_os'): array

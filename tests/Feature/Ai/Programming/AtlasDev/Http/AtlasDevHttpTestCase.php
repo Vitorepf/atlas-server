@@ -9,6 +9,7 @@ use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -93,8 +94,8 @@ abstract class AtlasDevHttpTestCase extends TestCase
         Schema::dropIfExists('atlas_dev_confirmation_tokens');
         Schema::dropIfExists('atlas_workspace_profiles');
 
-        $this->rmrf($this->tmpStorage);
-        $this->rmrf($this->tmpWorkspace);
+        File::deleteDirectory($this->tmpStorage);
+        File::deleteDirectory($this->tmpWorkspace);
         parent::tearDown();
     }
 
@@ -185,26 +186,6 @@ abstract class AtlasDevHttpTestCase extends TestCase
                 'status' => 'active',
             ],
         );
-    }
-
-    protected function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$entry;
-            if (is_dir($path)) {
-                $this->rmrf($path);
-            } else {
-                @chmod($path, 0o600);
-                @unlink($path);
-            }
-        }
-        @rmdir($dir);
     }
 
     /**

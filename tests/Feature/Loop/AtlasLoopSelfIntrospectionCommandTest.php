@@ -9,6 +9,7 @@ use App\Services\Ai\AutonomousEvolution\Introspection\AtlasLoopSelfArchitectureS
 use App\Services\Ai\AutonomousEvolution\Introspection\AtlasLoopSelfIntrospectionReceiptLedger;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasLoopSelfIntrospectionCommandTest extends TestCase
@@ -38,27 +39,8 @@ final class AtlasLoopSelfIntrospectionCommandTest extends TestCase
         AtlasLoopSelfIntrospectionReceiptLedger::setRootForTesting(null);
         AtlasLoopMasterSwitch::$envPathOverride = $this->prevOverride;
         Carbon::setTestNow();
-        $this->rrmdir(\dirname($this->ledgerRoot));
+        File::deleteDirectory(\dirname($this->ledgerRoot));
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) scandir($dir) as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$entry;
-            if (is_dir($full)) {
-                $this->rrmdir($full);
-            } else {
-                @unlink($full);
-            }
-        }
-        @rmdir($dir);
     }
 
     private function countReceipts(): int

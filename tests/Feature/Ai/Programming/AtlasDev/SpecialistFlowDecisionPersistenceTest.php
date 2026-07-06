@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai\Programming\AtlasDev;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\SpecialistFlowDecision;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class SpecialistFlowDecisionPersistenceTest extends TestCase
@@ -24,7 +25,7 @@ final class SpecialistFlowDecisionPersistenceTest extends TestCase
     protected function tearDown(): void
     {
         if (is_dir($this->tmpWorkspace)) {
-            $this->rrmdir($this->tmpWorkspace);
+            File::deleteDirectory($this->tmpWorkspace);
         }
         parent::tearDown();
     }
@@ -79,18 +80,4 @@ final class SpecialistFlowDecisionPersistenceTest extends TestCase
         );
     }
 
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$item;
-            is_dir($path) ? $this->rrmdir($path) : @unlink($path);
-        }
-        @rmdir($dir);
-    }
 }

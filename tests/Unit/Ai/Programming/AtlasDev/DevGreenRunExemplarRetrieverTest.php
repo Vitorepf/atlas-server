@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Programming\AtlasDev;
 
 use App\Services\Ai\Programming\AtlasDev\Discovery\DevGreenRunExemplarRetriever;
+use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\TestCase;
 
 final class DevGreenRunExemplarRetrieverTest extends TestCase
@@ -15,7 +16,7 @@ final class DevGreenRunExemplarRetrieverTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->dirs as $dir) {
-            $this->rrmdir($dir);
+            File::deleteDirectory($dir);
         }
         parent::tearDown();
     }
@@ -27,21 +28,6 @@ final class DevGreenRunExemplarRetrieverTest extends TestCase
         $this->dirs[] = $dir;
 
         return $dir;
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.'/'.$entry;
-            is_dir($path) ? $this->rrmdir($path) : @unlink($path);
-        }
-        @rmdir($dir);
     }
 
     /** Writes a fixture verification_receipt.json mirroring the real orchestrator's persisted shape. */

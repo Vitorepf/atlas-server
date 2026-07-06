@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AutonomousEvolution\Cortex\Spatial;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Spatial\AtlasCortexFsLocalityReporter;
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -34,28 +35,8 @@ final class AtlasCortexFsLocalityReporterTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->sandbox);
+        File::deleteDirectory($this->sandbox);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir) && ! is_link($dir)) {
-            return;
-        }
-        if (is_link($dir)) {
-            @unlink($dir);
-
-            return;
-        }
-        foreach ((array) scandir($dir) as $f) {
-            if ($f === '.' || $f === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$f;
-            (is_dir($full) && ! is_link($full)) ? $this->rrmdir($full) : @unlink($full);
-        }
-        @rmdir($dir);
     }
 
     public function test_reports_neighbors_per_file_and_depth_deterministically(): void

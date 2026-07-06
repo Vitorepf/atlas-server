@@ -10,6 +10,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ObservedSignals;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FastPathErrorLedgerEntry;
 use App\Services\Ai\Programming\AtlasDev\Telemetry\ErrorLedgerWriter;
+use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\TestCase;
 
 final class ErrorLedgerWriterTest extends TestCase
@@ -27,7 +28,7 @@ final class ErrorLedgerWriterTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->tmpDir);
+        File::deleteDirectory($this->tmpDir);
     }
 
     public function test_should_record_only_for_relevant_states(): void
@@ -92,23 +93,4 @@ final class ErrorLedgerWriterTest extends TestCase
         );
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.'/'.$entry;
-            if (is_dir($path)) {
-                $this->rmrf($path);
-            } else {
-                @chmod($path, 0o644);
-                @unlink($path);
-            }
-        }
-        @rmdir($dir);
-    }
 }

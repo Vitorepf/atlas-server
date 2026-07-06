@@ -10,6 +10,7 @@ use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\RealExecution\AtlasRepoVerifiedDeliveryService;
+use Illuminate\Support\Facades\File;
 use Mockery;
 use Tests\TestCase;
 
@@ -21,25 +22,10 @@ class AtlasRepoVerifiedDeliveryServiceTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->dirs as $d) {
-            $this->rmrf($d);
+            File::deleteDirectory($d);
         }
         Mockery::close();
         parent::tearDown();
-    }
-
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $f) {
-            if ($f === '.' || $f === '..') {
-                continue;
-            }
-            $p = $dir.DIRECTORY_SEPARATOR.$f;
-            is_dir($p) ? $this->rmrf($p) : @unlink($p);
-        }
-        @rmdir($dir);
     }
 
     private function service(callable $runHandler, object $cleanupSpy): AtlasRepoVerifiedDeliveryService

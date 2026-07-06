@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionMod
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionReadModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Diff\AtlasCortexSnapshotDiffReceiptLedger;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasLoopCortexDiffCommandTest extends TestCase
@@ -43,28 +44,9 @@ final class AtlasLoopCortexDiffCommandTest extends TestCase
     protected function tearDown(): void
     {
         AtlasCortexSnapshotDiffReceiptLedger::setRootForTesting(null);
-        $this->rrmdir($this->readModelRoot);
-        $this->rrmdir($this->ledgerRoot);
+        File::deleteDirectory($this->readModelRoot);
+        File::deleteDirectory($this->ledgerRoot);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) scandir($dir) as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$entry;
-            if (is_dir($full)) {
-                $this->rrmdir($full);
-            } else {
-                @unlink($full);
-            }
-        }
-        @rmdir($dir);
     }
 
     /**

@@ -13,6 +13,7 @@ use App\Services\Ai\Programming\Sdd\Pipeline\Intent;
 use App\Services\Ai\Programming\Sdd\Pipeline\SddPipelineOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\Sdd\RepairLoop;
 use App\Services\Ai\Programming\Sdd\RuntimeExecutor;
+use Illuminate\Support\Facades\File;
 use Tests\Concerns\CreatesAtlasSddTables;
 use Tests\TestCase;
 
@@ -32,7 +33,7 @@ class RuntimeExecutorAndRepairLoopTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->workspace);
+        File::deleteDirectory($this->workspace);
         $this->dropAtlasSddTables();
         parent::tearDown();
     }
@@ -162,22 +163,4 @@ class RuntimeExecutorAndRepairLoopTest extends TestCase
         ], $ctx, $intent);
     }
 
-    private function rmrf(string $path): void
-    {
-        if (! file_exists($path)) {
-            return;
-        }
-        if (is_file($path) || is_link($path)) {
-            @unlink($path);
-
-            return;
-        }
-        foreach (@scandir($path) ?: [] as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-            $this->rmrf($path.'/'.$item);
-        }
-        @rmdir($path);
-    }
 }

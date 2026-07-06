@@ -24,6 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ObservedSignals;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationDecision;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
 use App\Services\Ai\Programming\AtlasDev\Telemetry\ErrorLedgerWriter;
+use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\Repair\RepairFixtureFactory;
 
@@ -70,7 +71,7 @@ final class EndToEndRepairDecisionTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->tmpDir);
+        File::deleteDirectory($this->tmpDir);
     }
 
     public function test_first_attempt_recovers_emits_no_escalation_no_ledger_entry(): void
@@ -317,21 +318,4 @@ final class EndToEndRepairDecisionTest extends TestCase
         $this->assertSame(FailureCapsule::DECISION_RETRY, $read0->decision);
     }
 
-    private function rmrf(string $path): void
-    {
-        if (! is_dir($path)) {
-            if (is_file($path)) {
-                @unlink($path);
-            }
-
-            return;
-        }
-        foreach (scandir($path) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $this->rmrf($path.DIRECTORY_SEPARATOR.$entry);
-        }
-        @rmdir($path);
-    }
 }

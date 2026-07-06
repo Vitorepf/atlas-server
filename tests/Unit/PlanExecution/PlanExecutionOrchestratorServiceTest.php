@@ -11,6 +11,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\Build
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanCompletionTrackerService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanDeliveryCertificationService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanExecutionOrchestratorService;
+use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -65,21 +66,9 @@ final class PlanExecutionOrchestratorServiceTest extends TestCase
     protected function tearDown(): void
     {
         if ($this->storageDir !== '' && is_dir($this->storageDir)) {
-            $this->rrmdir($this->storageDir);
+            File::deleteDirectory($this->storageDir);
         }
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$entry;
-            is_dir($path) ? $this->rrmdir($path) : @unlink($path);
-        }
-        @rmdir($dir);
     }
 
     /**

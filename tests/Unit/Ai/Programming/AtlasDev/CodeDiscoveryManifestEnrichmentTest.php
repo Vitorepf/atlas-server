@@ -24,6 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CodeCandidate;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -51,25 +52,9 @@ final class CodeDiscoveryManifestEnrichmentTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->tmpStorage);
-        $this->rmrf($this->tmpWorkspace);
+        File::deleteDirectory($this->tmpStorage);
+        File::deleteDirectory($this->tmpWorkspace);
         parent::tearDown();
-    }
-
-    private function rmrf(string $path): void
-    {
-        if (! is_dir($path)) {
-            return;
-        }
-        $items = scandir($path) ?: [];
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-            $full = $path.'/'.$item;
-            is_dir($full) ? $this->rmrf($full) : unlink($full);
-        }
-        rmdir($path);
     }
 
     private function baseManifest(array $overrides = []): CodeDiscoveryManifest

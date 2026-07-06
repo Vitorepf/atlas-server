@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming\AtlasDev\Http;
 
+use Illuminate\Support\Facades\File;
+
 final class ReadinessEndpointTest extends AtlasDevHttpTestCase
 {
     private string $tmpBin;
@@ -24,7 +26,7 @@ final class ReadinessEndpointTest extends AtlasDevHttpTestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->tmpBin);
+        File::deleteDirectory($this->tmpBin);
         parent::tearDown();
     }
 

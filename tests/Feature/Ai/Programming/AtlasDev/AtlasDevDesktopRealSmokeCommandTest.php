@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai\Programming\AtlasDev;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\SymfonyClaudeCliGateway;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\Feature\Ai\Programming\AtlasDev\Http\AtlasDevHttpTestCase;
 
@@ -67,7 +68,7 @@ SH);
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->fakeBinDir);
+        File::deleteDirectory($this->fakeBinDir);
 
         parent::tearDown();
     }

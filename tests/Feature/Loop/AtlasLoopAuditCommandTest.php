@@ -9,6 +9,7 @@ use App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailExporter;
 use App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailIntegrityVerifier;
 use App\Services\Ai\AutonomousEvolution\AuditTrail\AtlasLoopAuditTrailReplayer;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasLoopAuditCommandTest extends TestCase
@@ -28,27 +29,8 @@ final class AtlasLoopAuditCommandTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->workDir);
+        File::deleteDirectory($this->workDir);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) scandir($dir) as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$entry;
-            if (is_dir($full)) {
-                $this->rrmdir($full);
-            } else {
-                @unlink($full);
-            }
-        }
-        @rmdir($dir);
     }
 
     private function writeFixtureSource(bool $intact): void

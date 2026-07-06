@@ -3,6 +3,7 @@
 namespace Tests\Concerns;
 
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 
 trait CreatesAtlasProgrammingGovernanceTables
@@ -143,28 +144,9 @@ trait CreatesAtlasProgrammingGovernanceTables
     protected function cleanupProgrammingWorkspaces(): void
     {
         foreach ($this->_programmingWorkspaces as $root) {
-            $this->rmrf($root);
+            File::deleteDirectory($root);
         }
         $this->_programmingWorkspaces = [];
     }
 
-    private function rmrf(string $path): void
-    {
-        if (! file_exists($path)) {
-            return;
-        }
-        if (is_file($path) || is_link($path)) {
-            @unlink($path);
-
-            return;
-        }
-        $items = @scandir($path) ?: [];
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-            $this->rmrf($path.'/'.$item);
-        }
-        @rmdir($path);
-    }
 }

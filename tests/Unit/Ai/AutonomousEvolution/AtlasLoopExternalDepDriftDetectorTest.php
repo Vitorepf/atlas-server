@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\ExternalDeps\AtlasLoopExternalDepDriftDetector;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasLoopExternalDepDriftDetectorTest extends TestCase
@@ -20,23 +21,8 @@ final class AtlasLoopExternalDepDriftDetectorTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->root);
+        File::deleteDirectory($this->root);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) scandir($dir) as $f) {
-            if ($f === '.' || $f === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$f;
-            is_dir($full) ? $this->rrmdir($full) : @unlink($full);
-        }
-        @rmdir($dir);
     }
 
     private function lock(string $hash, array $packages): array

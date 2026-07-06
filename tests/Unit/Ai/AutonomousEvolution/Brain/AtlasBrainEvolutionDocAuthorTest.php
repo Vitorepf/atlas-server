@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AutonomousEvolution\Brain;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionDocAuthor;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 /**
@@ -24,7 +25,7 @@ final class AtlasBrainEvolutionDocAuthorTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->tempRoot);
+        File::deleteDirectory($this->tempRoot);
         parent::tearDown();
     }
 
@@ -138,22 +139,4 @@ final class AtlasBrainEvolutionDocAuthorTest extends TestCase
         self::assertSame($this->tempRoot.'/path-test.md', $path);
     }
 
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$entry;
-            if (is_dir($full)) {
-                $this->rrmdir($full);
-            } else {
-                @unlink($full);
-            }
-        }
-        @rmdir($dir);
-    }
 }

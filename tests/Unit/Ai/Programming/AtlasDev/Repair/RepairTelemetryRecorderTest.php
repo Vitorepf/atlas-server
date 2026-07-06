@@ -14,6 +14,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ObservedSignals;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FastPathErrorLedgerEntry;
 use App\Services\Ai\Programming\AtlasDev\Telemetry\ErrorLedgerWriter;
+use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\TestCase;
 
 final class RepairTelemetryRecorderTest extends TestCase
@@ -36,7 +37,7 @@ final class RepairTelemetryRecorderTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->tmpDir);
+        File::deleteDirectory($this->tmpDir);
     }
 
     public function test_record_skips_healthy_runs(): void
@@ -144,21 +145,4 @@ final class RepairTelemetryRecorderTest extends TestCase
         );
     }
 
-    private function rmrf(string $path): void
-    {
-        if (! is_dir($path)) {
-            if (is_file($path)) {
-                @unlink($path);
-            }
-
-            return;
-        }
-        foreach (scandir($path) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $this->rmrf($path.DIRECTORY_SEPARATOR.$entry);
-        }
-        @rmdir($path);
-    }
 }

@@ -20,6 +20,7 @@ use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutionReporter;
 use Illuminate\Config\Repository as ConfigRepository;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\InputBag;
 use Tests\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\Provider\AtlasDevProviderFixtures;
@@ -64,7 +65,7 @@ final class RunCompactSddMissingTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->tmpStorage);
+        File::deleteDirectory($this->tmpStorage);
         parent::tearDown();
     }
 
@@ -181,25 +182,6 @@ final class RunCompactSddMissingTest extends TestCase
         return $request;
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$entry;
-            if (is_dir($path)) {
-                $this->rmrf($path);
-            } else {
-                @chmod($path, 0o600);
-                @unlink($path);
-            }
-        }
-        @rmdir($dir);
-    }
 }
 
 final class NullRunWorkerDispatcher implements RunWorkerDispatcher

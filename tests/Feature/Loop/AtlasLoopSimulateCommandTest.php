@@ -7,6 +7,7 @@ namespace Tests\Feature\Loop;
 use App\Services\Ai\AutonomousEvolution\Simulation\AtlasLoopSimulationDryRunner;
 use App\Services\Ai\AutonomousEvolution\Simulation\AtlasLoopSimulationReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Simulation\AtlasLoopSimulationSandboxBuilder;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
@@ -45,8 +46,8 @@ class AtlasLoopSimulateCommandTest extends TestCase
     protected function tearDown(): void
     {
         @unlink($this->ledgerPath);
-        $this->rrmdir($this->sandboxParent);
-        $this->rrmdir($this->sourceRoot);
+        File::deleteDirectory($this->sandboxParent);
+        File::deleteDirectory($this->sourceRoot);
         parent::tearDown();
     }
 
@@ -140,19 +141,4 @@ class AtlasLoopSimulateCommandTest extends TestCase
         self::assertStringContainsString('unknown_action', $r['output']);
     }
 
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        $iter = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($iter as $entry) {
-            /** @var \SplFileInfo $entry */
-            $entry->isDir() ? @rmdir($entry->getPathname()) : @unlink($entry->getPathname());
-        }
-        @rmdir($dir);
-    }
 }

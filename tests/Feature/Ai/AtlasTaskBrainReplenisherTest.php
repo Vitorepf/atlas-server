@@ -13,6 +13,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskBrainReplenisher;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -175,7 +176,7 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
             $this->assertCount(1, $tasks, 'both already-existing capabilities are filtered; only the genuine gap survives');
             $this->assertStringContainsString('AtlasLoopGenuinelyMissingCapabilityXyz', (string) $tasks[0]['objective']);
         } finally {
-            $this->rmrf($repo);
+            File::deleteDirectory($repo);
         }
     }
 
@@ -184,21 +185,6 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
         $path = $repo.'/'.$rel;
         @mkdir(\dirname($path), 0775, true);
         @file_put_contents($path, "<?php\n\nnamespace {$namespace};\n\nfinal class {$class} {}\n");
-    }
-
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $i) {
-            if ($i === '.' || $i === '..') {
-                continue;
-            }
-            $p = $dir.'/'.$i;
-            is_dir($p) ? $this->rmrf($p) : @unlink($p);
-        }
-        @rmdir($dir);
     }
 
     public function test_replenish_fills_the_serving_queue_and_is_idempotent(): void

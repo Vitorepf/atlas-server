@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopDeterministicDeadCodeWorkType;
+use Illuminate\Support\Facades\File;
 use PhpParser\ParserFactory;
 use Tests\TestCase;
 
@@ -27,20 +28,8 @@ final class AtlasLoopDeterministicDeadCodeWorkTypeTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->dir);
+        File::deleteDirectory($this->dir);
         parent::tearDown();
-    }
-
-    private function rmrf(string $path): void
-    {
-        if (is_dir($path)) {
-            foreach (glob($path.'/*') ?: [] as $child) {
-                $this->rmrf($child);
-            }
-            @rmdir($path);
-        } elseif (is_file($path)) {
-            @unlink($path);
-        }
     }
 
     public function test_mills_authors_and_certifies_a_dead_code_removal_with_no_provider(): void

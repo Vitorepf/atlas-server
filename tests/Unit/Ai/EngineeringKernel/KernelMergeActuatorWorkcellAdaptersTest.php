@@ -18,6 +18,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -58,8 +59,8 @@ final class KernelMergeActuatorWorkcellAdaptersTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->repo);
-        $this->rmrf($this->diskRoot);
+        File::deleteDirectory($this->repo);
+        File::deleteDirectory($this->diskRoot);
         parent::tearDown();
     }
 
@@ -178,18 +179,4 @@ final class KernelMergeActuatorWorkcellAdaptersTest extends TestCase
         return ['code' => (int) $p->getExitCode(), 'out' => $p->getOutput(), 'err' => $p->getErrorOutput()];
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $i) {
-            if ($i === '.' || $i === '..') {
-                continue;
-            }
-            $p = $dir.'/'.$i;
-            is_dir($p) ? $this->rmrf($p) : @unlink($p);
-        }
-        @rmdir($dir);
-    }
 }

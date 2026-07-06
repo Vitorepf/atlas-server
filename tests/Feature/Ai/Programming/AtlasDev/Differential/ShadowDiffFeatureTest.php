@@ -22,11 +22,12 @@ use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
-use App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
+use App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt;
 use Illuminate\Container\Container;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\Gate\FakeCommandRunner;
@@ -79,10 +80,10 @@ final class ShadowDiffFeatureTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->tmpStorage);
-        $this->rmrf($this->tmpWorkspace);
+        File::deleteDirectory($this->tmpStorage);
+        File::deleteDirectory($this->tmpWorkspace);
         foreach ($this->scenarioStoragePaths as $path) {
-            $this->rmrf($path);
+            File::deleteDirectory($path);
         }
         $this->scenarioStoragePaths = [];
         parent::tearDown();
@@ -394,7 +395,7 @@ final class ShadowDiffFeatureTest extends TestCase
 
             return $this->executeRunWithHarnessIn($executor, $runId, $workspace, $container, $harness);
         } finally {
-            $this->rmrf($workspace);
+            File::deleteDirectory($workspace);
             // The scenario-local receipt storage must OUTLIVE this call:
             // readHonestyFlagsFromResult() reads the persisted verification
             // receipt from disk after the run returns. tearDown removes it.
@@ -632,25 +633,6 @@ final class ShadowDiffFeatureTest extends TestCase
         $process->run();
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$entry;
-            if (is_dir($path)) {
-                $this->rmrf($path);
-            } else {
-                @chmod($path, 0o600);
-                @unlink($path);
-            }
-        }
-        @rmdir($dir);
-    }
 }
 
 /**

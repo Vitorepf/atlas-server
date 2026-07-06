@@ -26,6 +26,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\FastPathErrorLedgerEntry;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ScopeGuardReceipt;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalJson;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
+use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -43,7 +44,7 @@ final class GenericArtifactPersisterTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->tmpDir);
+        File::deleteDirectory($this->tmpDir);
     }
 
     public function test_scope_guard_write_then_read_round_trip(): void
@@ -221,23 +222,4 @@ final class GenericArtifactPersisterTest extends TestCase
         );
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.'/'.$entry;
-            if (is_dir($path)) {
-                $this->rmrf($path);
-            } else {
-                @chmod($path, 0o644);
-                @unlink($path);
-            }
-        }
-        @rmdir($dir);
-    }
 }

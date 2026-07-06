@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai;
 
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\AtlasAaelExecutionSafeStateRecoverer;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasAaelExecutionDepthCommandTest extends TestCase
@@ -23,23 +24,8 @@ final class AtlasAaelExecutionDepthCommandTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->sandbox);
+        File::deleteDirectory($this->sandbox);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) scandir($dir) as $f) {
-            if ($f === '.' || $f === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$f;
-            is_dir($full) ? $this->rrmdir($full) : @unlink($full);
-        }
-        @rmdir($dir);
     }
 
     public function test_prove_emits_facts_with_schema_and_no_score(): void

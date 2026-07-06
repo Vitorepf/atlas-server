@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Foundry\Frontier\Promotion;
 
 use App\Services\Ai\Foundry\Frontier\Promotion\FoundryPromotedBacklogReaderService;
+use Illuminate\Support\Facades\File;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -29,7 +30,7 @@ final class FoundryPromotedBacklogReaderTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->dir);
+        File::deleteDirectory($this->dir);
         parent::tearDown();
     }
 
@@ -200,19 +201,4 @@ final class FoundryPromotedBacklogReaderTest extends TestCase
         self::assertSame($record['promoted_parent_finding'], $out[0]);
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        $items = scandir($dir) ?: [];
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$item;
-            is_dir($path) ? $this->rmrf($path) : @unlink($path);
-        }
-        @rmdir($dir);
-    }
 }

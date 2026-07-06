@@ -9,6 +9,7 @@ use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionScaffoldStagingExecutorService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class AtlasSelfConstructionScaffoldStagingExecutorServiceTest extends TestCase
@@ -62,19 +63,8 @@ class AtlasSelfConstructionScaffoldStagingExecutorServiceTest extends TestCase
         @unlink($this->kernelLog);
         @unlink($this->admissionLog);
         @unlink($this->receiptsLog);
-        $this->rrmdir($this->stagingRoot);
+        File::deleteDirectory($this->stagingRoot);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (glob($dir.'/*') ?: [] as $f) {
-            is_dir($f) ? $this->rrmdir($f) : @unlink($f);
-        }
-        @rmdir($dir);
     }
 
     public function test_stage_requires_approved_proposal(): void

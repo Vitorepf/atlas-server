@@ -6,6 +6,7 @@ namespace Tests\Feature\Loop;
 
 use App\Services\Ai\AutonomousEvolution\ExternalDeps\AtlasLoopExternalDepDriftDetector;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasLoopExternalDepCommandTest extends TestCase
@@ -21,23 +22,8 @@ final class AtlasLoopExternalDepCommandTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->sandbox);
+        File::deleteDirectory($this->sandbox);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) scandir($dir) as $f) {
-            if ($f === '.' || $f === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$f;
-            is_dir($full) ? $this->rrmdir($full) : @unlink($full);
-        }
-        @rmdir($dir);
     }
 
     private function writeComposer(string $hash, array $packages, array $require): array

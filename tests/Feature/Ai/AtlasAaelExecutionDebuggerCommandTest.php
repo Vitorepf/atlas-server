@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai;
 use App\Console\Commands\AtlasAaelExecutionDebuggerCommand;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\Debugger\AtlasAaelExecutionDebuggerReceiptLedger;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasAaelExecutionDebuggerCommandTest extends TestCase
@@ -42,23 +43,8 @@ final class AtlasAaelExecutionDebuggerCommandTest extends TestCase
     protected function tearDown(): void
     {
         $base = \dirname($this->pauseRoot);
-        $this->rrmdir($base);
+        File::deleteDirectory($base);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) glob($dir.'/{,.}*', GLOB_BRACE) as $entry) {
-            $b = basename((string) $entry);
-            if ($b === '.' || $b === '..') {
-                continue;
-            }
-            is_dir($entry) ? $this->rrmdir((string) $entry) : @unlink((string) $entry);
-        }
-        @rmdir($dir);
     }
 
     private function callCli(string $action, array $options = []): array

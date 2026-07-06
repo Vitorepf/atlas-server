@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\TransactionalCycleStateService;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class TransactionalCycleStateServiceTest extends TestCase
@@ -20,7 +21,7 @@ final class TransactionalCycleStateServiceTest extends TestCase
     protected function tearDown(): void
     {
         if ($this->storageRoot !== '' && is_dir($this->storageRoot)) {
-            $this->rmrf($this->storageRoot);
+            File::deleteDirectory($this->storageRoot);
         }
         parent::tearDown();
     }
@@ -325,19 +326,4 @@ final class TransactionalCycleStateServiceTest extends TestCase
         $this->assertSame($a['report_hash'], $b['report_hash']);
     }
 
-    private function rmrf(string $dir): void
-    {
-        $items = scandir($dir);
-        if ($items === false) {
-            return;
-        }
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$item;
-            is_dir($path) ? $this->rmrf($path) : @unlink($path);
-        }
-        @rmdir($dir);
-    }
 }

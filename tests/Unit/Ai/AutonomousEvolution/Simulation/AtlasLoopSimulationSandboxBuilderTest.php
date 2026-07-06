@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\AutonomousEvolution\Simulation;
 
 use App\Services\Ai\AutonomousEvolution\Simulation\AtlasLoopSimulationSandboxBuilder;
 use App\Services\Ai\AutonomousEvolution\Simulation\SandboxHandle;
+use Illuminate\Support\Facades\File;
 use LogicException;
 use Tests\TestCase;
 
@@ -35,8 +36,8 @@ class AtlasLoopSimulationSandboxBuilderTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->sourceRoot);
-        $this->rrmdir($this->sandboxParent);
+        File::deleteDirectory($this->sourceRoot);
+        File::deleteDirectory($this->sandboxParent);
         parent::tearDown();
     }
 
@@ -156,19 +157,4 @@ class AtlasLoopSimulationSandboxBuilderTest extends TestCase
         return $map;
     }
 
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        $iter = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-        foreach ($iter as $entry) {
-            /** @var \SplFileInfo $entry */
-            $entry->isDir() ? @rmdir($entry->getPathname()) : @unlink($entry->getPathname());
-        }
-        @rmdir($dir);
-    }
 }

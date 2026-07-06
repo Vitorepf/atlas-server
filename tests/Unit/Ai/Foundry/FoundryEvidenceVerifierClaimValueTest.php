@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Foundry;
 
 use App\Services\Ai\Foundry\FoundryEvidenceVerifierService;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 /**
@@ -34,8 +35,8 @@ final class FoundryEvidenceVerifierClaimValueTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rmrf($this->repoDir);
-        $this->rmrf($this->rejectionDir);
+        File::deleteDirectory($this->repoDir);
+        File::deleteDirectory($this->rejectionDir);
         parent::tearDown();
     }
 
@@ -46,17 +47,6 @@ final class FoundryEvidenceVerifierClaimValueTest extends TestCase
         $svc->setRejectionStorageDirForTesting($this->rejectionDir);
 
         return $svc;
-    }
-
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) glob($dir.'/*') as $entry) {
-            is_dir($entry) ? $this->rmrf($entry) : @unlink($entry);
-        }
-        @rmdir($dir);
     }
 
     /**

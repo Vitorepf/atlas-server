@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Introspection\AtlasLoopSelfIntrospectionReceiptLedger;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\File;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -25,27 +26,8 @@ final class AtlasLoopSelfIntrospectionReceiptLedgerTest extends TestCase
     {
         AtlasLoopSelfIntrospectionReceiptLedger::setRootForTesting(null);
         Carbon::setTestNow();
-        $this->rrmdir($this->root);
+        File::deleteDirectory($this->root);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) scandir($dir) as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$entry;
-            if (is_dir($full)) {
-                $this->rrmdir($full);
-            } else {
-                @unlink($full);
-            }
-        }
-        @rmdir($dir);
     }
 
     public function test_payload_sha_is_deterministic_and_second_record_is_idempotent(): void

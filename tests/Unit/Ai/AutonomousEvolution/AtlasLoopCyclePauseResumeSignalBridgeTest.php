@@ -7,6 +7,7 @@ namespace Tests\Unit\Ai\AutonomousEvolution;
 use App\Services\Ai\AutonomousEvolution\Observability\AtlasLoopCycleSignalEmitter;
 use App\Services\Ai\AutonomousEvolution\PauseResume\AtlasLoopCyclePauseFlag;
 use App\Services\Ai\AutonomousEvolution\PauseResume\AtlasLoopCyclePauseResumeSignalBridge;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class AtlasLoopCyclePauseResumeSignalBridgeTest extends TestCase
@@ -31,23 +32,8 @@ final class AtlasLoopCyclePauseResumeSignalBridgeTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->rrmdir($this->sandbox);
+        File::deleteDirectory($this->sandbox);
         parent::tearDown();
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach ((array) glob($dir.'/{,.}*', GLOB_BRACE) as $entry) {
-            $base = basename((string) $entry);
-            if ($base === '.' || $base === '..') {
-                continue;
-            }
-            is_dir($entry) ? $this->rrmdir((string) $entry) : @unlink((string) $entry);
-        }
-        @rmdir($dir);
     }
 
     private function flag(): AtlasLoopCyclePauseFlag

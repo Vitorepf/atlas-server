@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopFlightRecorderService;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class LoopFlightRecorderServiceTest extends TestCase
@@ -20,20 +21,9 @@ final class LoopFlightRecorderServiceTest extends TestCase
     protected function tearDown(): void
     {
         if (is_dir($this->storageRoot)) {
-            $this->rmrf($this->storageRoot);
+            File::deleteDirectory($this->storageRoot);
         }
         parent::tearDown();
-    }
-
-    private function rmrf(string $dir): void
-    {
-        foreach ((array) glob($dir.'/*') as $path) {
-            if (! is_string($path)) {
-                continue;
-            }
-            is_dir($path) ? $this->rmrf($path) : @unlink($path);
-        }
-        @rmdir($dir);
     }
 
     private function service(): LoopFlightRecorderService
