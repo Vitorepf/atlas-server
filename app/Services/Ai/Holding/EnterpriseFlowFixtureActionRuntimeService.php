@@ -2504,7 +2504,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_workforce_capacity_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_workforce_capacity_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -2536,10 +2536,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'external_unreviewed_staffing_change_allowed' => false,
                 'workforce_runtime_requires_capacity_plan_flow_staffing_training_succession_and_observability' => true,
             ],
-        ];
-        $payload['workforce_capacity_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'workforce_capacity_runtime_status_hash');
     }
 
     /**
@@ -2603,7 +2600,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_portfolio_dependency_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_portfolio_dependency_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -2637,10 +2634,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'unresolved_conflict_external_side_effect_allowed' => false,
                 'portfolio_dependency_runtime_requires_role_intake_maps_flow_routing_escalation_and_reporting' => true,
             ],
-        ];
-        $payload['portfolio_dependency_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'portfolio_dependency_runtime_status_hash');
     }
 
     /**
@@ -2700,7 +2694,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_operational_dossier_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_operational_dossier_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -2731,10 +2725,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operational_dossier_requires_evidence_controls_decision_packet_promotion_path_and_scorecard' => true,
                 'operator_mandate_required_for_any_external_promotion' => true,
             ],
-        ];
-        $payload['operational_dossier_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'operational_dossier_runtime_status_hash');
     }
 
     /**
@@ -2793,7 +2784,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_operational_outcome_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_operational_outcome_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -2823,10 +2814,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operational_outcome_runtime_requires_ledger_value_proxy_acceptance_risk_next_cycle_and_evidence_refs_per_flow' => true,
                 'real_world_outcome_claim_requires_external_evidence_and_operator_acceptance' => true,
             ],
-        ];
-        $payload['operational_outcome_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'operational_outcome_runtime_status_hash');
     }
 
     /**
@@ -2885,7 +2873,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_autonomy_promotion_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_autonomy_promotion_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -2916,10 +2904,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'second_reviewer_required_for_limited_external_autonomy' => true,
                 'autonomy_promotion_requires_fixture_shadow_supervised_packet_evidence_rollback_and_reconciliation' => true,
             ],
-        ];
-        $payload['autonomy_promotion_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'autonomy_promotion_runtime_status_hash');
     }
 
     /**
