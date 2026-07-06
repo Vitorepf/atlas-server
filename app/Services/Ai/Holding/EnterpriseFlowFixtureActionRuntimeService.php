@@ -7,6 +7,7 @@ use App\Models\AiDomainRuntimeRecord;
 use App\Services\Ai\DomainRuntime\DomainRuntimeRecordService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Support\AtlasEnvelope;
 use Illuminate\Support\Str;
 
 class EnterpriseFlowFixtureActionRuntimeService
@@ -231,7 +232,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $summary['external_side_effect_count'] = count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true)));
         $summary['coverage_rate'] = $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0;
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_company_system_model_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -247,10 +248,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'calendar_wait_blocker_enabled' => false,
                 'company_system_model_requires_data_process_quality_production_and_commercial_contracts' => true,
             ],
-        ];
-        $payload['company_system_model_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'company_system_model_runtime_status_hash');
     }
 
     /**
@@ -336,7 +334,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $summary['external_side_effect_count'] = count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true)));
         $summary['coverage_rate'] = $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0;
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_internal_operations_backbone_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -352,10 +350,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operator_mandate_required_for_external_action' => true,
                 'internal_operations_backbone_requires_account_vendor_resilience_analytics_memory_identity_control_tower_delivery_and_grc' => true,
             ],
-        ];
-        $payload['internal_operations_backbone_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'internal_operations_backbone_runtime_status_hash');
     }
 
     /**
@@ -443,7 +438,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $summary['external_side_effect_count'] = count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true)));
         $summary['coverage_rate'] = $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0;
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_activation_run_operations_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -460,10 +455,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operator_mandate_required_for_external_action' => true,
                 'activation_runtime_requires_tracks_queue_probe_live_read_rehearsal_and_observability' => true,
             ],
-        ];
-        $payload['activation_run_operations_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'activation_run_operations_runtime_status_hash');
     }
 
     /**
@@ -503,7 +495,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_runtime_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_flow_action_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -523,10 +515,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
             ],
-        ];
-        $payload['runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'runtime_status_hash');
     }
 
     /**
