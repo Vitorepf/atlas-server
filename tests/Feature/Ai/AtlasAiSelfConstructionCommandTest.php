@@ -24,7 +24,11 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         parent::tearDown();
     }
 
-    private function completeSelfConstructionSplitPackets(): void
+    private function completeSelfConstructionSplitPackets(
+        string $actorPrefix = 'codex-',
+        string $sessionPrefix = 'session-',
+        string $evidencePrefix = '',
+    ): void
     {
         $packets = [
             'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
@@ -35,8 +39,8 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         ];
 
         foreach ($packets as $index => $packetId) {
-            $actor = 'codex-'.($index + 1);
-            $session = 'session-'.($index + 1);
+            $actor = $actorPrefix.($index + 1);
+            $session = $sessionPrefix.($index + 1);
 
             Artisan::call('atlas:ai:self-construction', [
                 '--claim-packet' => true,
@@ -52,7 +56,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                 '--actor' => $actor,
                 '--session' => $session,
                 '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', $packetId),
+                '--evidence-hash' => hash('sha256', $evidencePrefix.$packetId),
                 '--json' => true,
             ]);
         }
@@ -11403,36 +11407,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-response-'.($index + 1);
-            $session = 'session-response-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'response-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-response-', 'session-response-', 'response-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-response-template' => true,
@@ -11498,36 +11473,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-draft-'.($index + 1);
-            $session = 'session-draft-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'draft-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-draft-', 'session-draft-', 'draft-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-draft-template' => true,
@@ -11594,36 +11540,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-preflight-'.($index + 1);
-            $session = 'session-preflight-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'preflight-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-preflight-', 'session-preflight-', 'preflight-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-preflight-template' => true,
@@ -11692,36 +11609,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-receipt-'.($index + 1);
-            $session = 'session-receipt-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'receipt-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-receipt-', 'session-receipt-', 'receipt-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-receipt-template' => true,
@@ -11787,36 +11675,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-post-review-'.($index + 1);
-            $session = 'session-post-review-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'post-review-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-post-review-', 'session-post-review-', 'post-review-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-post-persistence-review-template' => true,
@@ -11881,36 +11740,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-rejection-'.($index + 1);
-            $session = 'session-rejection-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'rejection-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-rejection-', 'session-rejection-', 'rejection-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-persistence-rejection-template' => true,
@@ -11976,36 +11806,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-observe-'.($index + 1);
-            $session = 'session-observe-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'observe-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-observe-', 'session-observe-', 'observe-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-follow-up-observability-template' => true,
@@ -12069,36 +11870,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-final-report-'.($index + 1);
-            $session = 'session-final-report-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'final-report-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-final-report-', 'session-final-report-', 'final-report-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-final-non-execution-report-template' => true,
@@ -12160,36 +11932,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-archive-index-'.($index + 1);
-            $session = 'session-archive-index-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'archive-index-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-archive-index-', 'session-archive-index-', 'archive-index-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-archive-index-template' => true,
@@ -12255,36 +11998,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_human_review_packet_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-human-review-packet-'.($index + 1);
-            $session = 'session-human-review-packet-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'human-review-packet-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-human-review-packet-', 'session-human-review-packet-', 'human-review-packet-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-human-review-packet-template' => true,
@@ -12353,36 +12067,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_durable_writer_candidate_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-durable-writer-candidate-'.($index + 1);
-            $session = 'session-durable-writer-candidate-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'durable-writer-candidate-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-durable-writer-candidate-', 'session-durable-writer-candidate-', 'durable-writer-candidate-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-durable-writer-candidate-template' => true,
@@ -12452,36 +12137,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
 
     public function test_command_returns_codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_writer_activation_request_template_ready_after_all_packets_completed(): void
     {
-        $packets = [
-            'AIP-SPLIT-SELF-CONSTRUCTION-DOCS-0001',
-            'AIP-SPLIT-SELF-CONSTRUCTION-PACKET-CONTRACTS-0002',
-            'AIP-SPLIT-SELF-CONSTRUCTION-COMMAND-0003',
-            'AIP-SPLIT-SELF-CONSTRUCTION-SERVICE-0004',
-            'AIP-SPLIT-SELF-CONSTRUCTION-EVIDENCE-0005',
-        ];
-
-        foreach ($packets as $index => $packetId) {
-            $actor = 'codex-writer-activation-request-'.($index + 1);
-            $session = 'session-writer-activation-request-'.($index + 1);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--claim-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--json' => true,
-            ]);
-
-            Artisan::call('atlas:ai:self-construction', [
-                '--complete-packet' => true,
-                '--packet' => $packetId,
-                '--actor' => $actor,
-                '--session' => $session,
-                '--reason' => 'packet_scope_finished',
-                '--evidence-hash' => hash('sha256', 'writer-activation-request-'.$packetId),
-                '--json' => true,
-            ]);
-        }
+        $this->completeSelfConstructionSplitPackets('codex-writer-activation-request-', 'session-writer-activation-request-', 'writer-activation-request-');
 
         $exit = Artisan::call('atlas:ai:self-construction', [
             '--codex-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-decision-record-writer-activation-request-template' => true,
