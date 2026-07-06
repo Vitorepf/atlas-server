@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Jobs\ProcessVslAssetIngestionJob;
 use App\Models\AiMarketingVslAsset;
 use App\Services\Ai\MarketingDomain\VslAssetIngestionService;
@@ -11,6 +12,8 @@ use Throwable;
 
 class AtlasAiMarketingVslCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:marketing:vsl
         {action=ingest : ingest | show | list}
         {--file= : Path to the VSL media file (mp4/mov/mp3/wav...) — required for ingest}
@@ -129,7 +132,7 @@ class AtlasAiMarketingVslCommand extends Command
             ->get();
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode([
+            $this->line($this->encodeOrEmptyObject([
                 'ok' => true,
                 'count' => $assets->count(),
                 'assets' => $assets->map(fn (AiMarketingVslAsset $a): array => $this->summary($a))->all(),
@@ -149,7 +152,7 @@ class AtlasAiMarketingVslCommand extends Command
     private function emitAsset(AiMarketingVslAsset $asset, string $event): int
     {
         if ((bool) $this->option('json')) {
-            $this->line($this->encode([
+            $this->line($this->encodeOrEmptyObject([
                 'ok' => $asset->status !== 'failed',
                 'event' => $event,
                 'asset' => $this->summary($asset),
@@ -200,7 +203,7 @@ class AtlasAiMarketingVslCommand extends Command
     private function respondError(string $message, ?string $type = null): int
     {
         if ((bool) $this->option('json')) {
-            $this->line($this->encode(array_filter(['ok' => false, 'error' => $message, 'type' => $type])));
+            $this->line($this->encodeOrEmptyObject(array_filter(['ok' => false, 'error' => $message, 'type' => $type])));
         } else {
             $this->components->error($message);
         }
@@ -208,11 +211,4 @@ class AtlasAiMarketingVslCommand extends Command
         return self::FAILURE;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

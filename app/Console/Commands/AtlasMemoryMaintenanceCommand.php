@@ -2,11 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\AtlasMemoryMaintenanceService;
 use Illuminate\Console\Command;
 
 class AtlasMemoryMaintenanceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:memory:maintain
         {--workspace= : Workspace path used for code index and provider projections}
         {--dry-run : Preview sync/index steps without writing}
@@ -95,11 +98,4 @@ class AtlasMemoryMaintenanceCommand extends Command
         return (bool) ($stage['ok'] ?? false) ? 'ok' : 'failed';
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    }
 }

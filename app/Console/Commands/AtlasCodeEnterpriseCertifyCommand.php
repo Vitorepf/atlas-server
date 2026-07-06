@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService;
 use Illuminate\Console\Command;
 
 class AtlasCodeEnterpriseCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:code:enterprise-certify
         {--json : Imprime resultado em JSON canonico}
         {--strict : Exit non-zero quando atlas_code_enterprise_status nao for passed}
@@ -64,14 +67,4 @@ class AtlasCodeEnterpriseCertifyCommand extends Command
         }
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-    }
 }

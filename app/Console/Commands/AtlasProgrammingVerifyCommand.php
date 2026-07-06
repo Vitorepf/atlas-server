@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use Illuminate\Console\Command;
 use Throwable;
@@ -13,6 +14,8 @@ use Throwable;
  */
 class AtlasProgrammingVerifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:verify
         {work_item : Work item code or UUID}
         {--gate=* : Run only these named gates (default: all required for scope_mode)}
@@ -35,7 +38,7 @@ class AtlasProgrammingVerifyCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return $this->resolveExit($payload, $strict);
         }
@@ -83,13 +86,4 @@ class AtlasProgrammingVerifyCommand extends Command
         return $allGreen ? self::SUCCESS : self::FAILURE;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        return $json === false ? '{}' : $json;
-    }
 }

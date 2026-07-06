@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasForgeProviderCapacityService;
 use App\Services\Ai\Programming\AtlasForgeProviderFailureMemoryService;
@@ -31,6 +32,8 @@ use Throwable;
  */
 final class AtlasForgeProviderFailureRecordCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:forge:provider-failure-record
         {--obra= : UUID de Obra (obrigatorio em --strict)}
         {--provider= : Provider runtime canonico: claude_cli|codex_cli|gemini_cli|claude_codex|atlas-local}
@@ -195,14 +198,4 @@ final class AtlasForgeProviderFailureRecordCommand extends Command
         return $value === '' ? null : $value;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-    }
 }

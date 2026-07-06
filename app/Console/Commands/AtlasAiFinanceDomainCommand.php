@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Finance\Kernel\FinanceControlPlaneProjection;
 use App\Services\Ai\Finance\Kernel\FinanceDomainException;
 use App\Services\Ai\Finance\Kernel\FinanceDomainReadinessService;
@@ -12,6 +13,8 @@ use Throwable;
 
 class AtlasAiFinanceDomainCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:finance-domain
         {positional? : Optional positional action (alternative to --action)}
         {--action=readiness : readiness, smoke, control-plane, enterprise-analysis}
@@ -38,7 +41,7 @@ class AtlasAiFinanceDomainCommand extends Command
         try {
             if ($fixtureRuntime->supports('finance', $action)) {
                 $payload = $fixtureRuntime->run('finance', $action, $this->fixtureRequested());
-                $this->line($this->encode($payload));
+                $this->line($this->encodeOrEmptyObject($payload));
 
                 return self::SUCCESS;
             }
@@ -131,7 +134,7 @@ class AtlasAiFinanceDomainCommand extends Command
         if ($type !== null) {
             $payload['type'] = $type;
         }
-        $this->line($this->encode($payload));
+        $this->line($this->encodeOrEmptyObject($payload));
 
         return self::FAILURE;
     }
@@ -165,18 +168,11 @@ class AtlasAiFinanceDomainCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return;
         }
         $human();
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

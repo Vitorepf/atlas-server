@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
 use App\Services\Ai\PersonalDevelopment\AtlasPersonalDevelopmentOrchestrator;
 use App\Services\Ai\PersonalDevelopment\PersonalDevelopmentFlowCatalog;
@@ -10,6 +11,8 @@ use Throwable;
 
 class AtlasAiPersonalDevelopmentDomainCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:personal-development-domain
         {positional? : Optional positional action (alternative to --action)}
         {--action=readiness : readiness, smoke, control-plane, enterprise-analysis}
@@ -32,7 +35,7 @@ class AtlasAiPersonalDevelopmentDomainCommand extends Command
 
         try {
             if ($fixtureRuntime->supports('personal_development', $action)) {
-                $this->line($this->encode($fixtureRuntime->run(
+                $this->line($this->encodeOrEmptyObject($fixtureRuntime->run(
                     'personal_development',
                     $action,
                     $this->fixtureRequested(),
@@ -163,7 +166,7 @@ class AtlasAiPersonalDevelopmentDomainCommand extends Command
         if ($type !== null) {
             $payload['type'] = $type;
         }
-        $this->line($this->encode($payload));
+        $this->line($this->encodeOrEmptyObject($payload));
 
         return self::FAILURE;
     }
@@ -174,20 +177,12 @@ class AtlasAiPersonalDevelopmentDomainCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return;
         }
 
         $human();
-    }
-
-    /**
-     * @param array<string,mixed> $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
     }
 
     private function fixtureRequested(): bool

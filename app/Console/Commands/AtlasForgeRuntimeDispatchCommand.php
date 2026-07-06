@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService;
 use Illuminate\Console\Command;
 
@@ -18,6 +19,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasForgeRuntimeDispatchCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:forge:runtime-dispatch
         {--obra= : UUID da Obra (obrigatorio em --strict)}
         {--role=primary_builder : Role canonica (primary_builder|critical_reviewer|context_scout|repair_agent|local_tool_runner)}
@@ -110,14 +113,4 @@ final class AtlasForgeRuntimeDispatchCommand extends Command
         return $value === '' ? null : $value;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-    }
 }

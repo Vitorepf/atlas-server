@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use Illuminate\Console\Command;
 use RuntimeException;
@@ -15,6 +16,8 @@ use Throwable;
  */
 class AtlasProgrammingSpecCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:spec
         {work_item : Work item code or UUID}
         {--from-file= : Path to JSON spec file}
@@ -45,7 +48,7 @@ class AtlasProgrammingSpecCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -136,13 +139,4 @@ class AtlasProgrammingSpecCommand extends Command
         ));
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        return $json === false ? '{}' : $json;
-    }
 }

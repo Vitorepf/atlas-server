@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Policy\ApprovalRequestService;
 use App\Services\Ai\Policy\PermissionGateService;
 use App\Services\Ai\Policy\PolicyControlPlaneService;
@@ -13,6 +14,8 @@ use Throwable;
 
 class AtlasAiPolicyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:policy
         {positional? : Optional positional action (alternative to --action)}
         {--action=readiness : readiness, seed-defaults, evaluate, request-approval, control-plane}
@@ -54,7 +57,7 @@ class AtlasAiPolicyCommand extends Command
                 default => $this->invalidAction($action),
             };
         } catch (Throwable $e) {
-            $this->line($this->encode([
+            $this->line($this->encodeOrEmptyObject([
                 'ok' => false,
                 'error' => 'exception',
                 'message' => $e->getMessage(),
@@ -194,7 +197,7 @@ class AtlasAiPolicyCommand extends Command
 
     private function failWith(string $message): int
     {
-        $this->line($this->encode([
+        $this->line($this->encodeOrEmptyObject([
             'ok' => false,
             'error' => 'invalid_arguments',
             'message' => $message,
@@ -214,7 +217,7 @@ class AtlasAiPolicyCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return;
         }
@@ -233,11 +236,4 @@ class AtlasAiPolicyCommand extends Command
         return (bool) $this->option('json');
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

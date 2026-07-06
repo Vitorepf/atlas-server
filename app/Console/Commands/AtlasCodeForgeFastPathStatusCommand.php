@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasCodeForgeFastPathStatusService;
 use Illuminate\Console\Command;
@@ -17,6 +18,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasCodeForgeFastPathStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:code:forge-fast-path-status
         {--obra= : UUID da Obra (obrigatorio)}
         {--run= : Fast Path run id (obrigatorio)}
@@ -124,14 +127,4 @@ final class AtlasCodeForgeFastPathStatusCommand extends Command
         return $value !== '' ? $value : null;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-    }
 }

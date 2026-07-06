@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Semantic\AtlasVaultCommandInput;
 use App\Services\Semantic\AtlasVaultManagedNoteService;
 use App\Services\Semantic\AtlasVaultSyncService;
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class AtlasVaultCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private AtlasVaultCommandInput $vaultInput;
 
     protected $signature = 'atlas:vault
@@ -358,11 +361,4 @@ class AtlasVaultCommand extends Command
         };
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    }
 }

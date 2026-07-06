@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopImpactReceiptService;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
@@ -26,6 +27,8 @@ use Throwable;
  */
 class AtlasFableDeltaSeriesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:fable:delta-series
         {--baseline= : Caminho do JSON do Marco Zero (default: o congelado de 12/06)}
         {--series= : Caminho do JSONL da série (default: storage evidence)}
@@ -401,14 +404,6 @@ class AtlasFableDeltaSeriesCommand extends Command
         }
 
         return (string) $value;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**

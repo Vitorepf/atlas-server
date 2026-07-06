@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Forge\ForgeKanbanSwarmDispatcher;
 use Illuminate\Console\Command;
 
@@ -22,6 +23,8 @@ use Illuminate\Console\Command;
  */
 class AtlasForgeKanbanDispatchCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:forge:kanban-dispatch
         {--file= : JSON file: {"task_summary":"...","work_packets":[{"objective":"...","role_slot":"coder"}],"permission_mode":"write","mission_id":"..."}}
         {--json : Emit JSON}
@@ -49,7 +52,7 @@ class AtlasForgeKanbanDispatchCommand extends Command
         if ((bool) $this->option('dry-run') || ! (bool) $this->option('confirm')) {
             $preview = $dispatcher->preview($taskSummary, $packets, $options);
             if ($this->wantsJson()) {
-                $this->printJson(array_merge(['action' => 'dry_run', 'launched' => false], $preview));
+                $this->jsonLine(array_merge(['action' => 'dry_run', 'launched' => false], $preview));
 
                 return self::SUCCESS;
             }
@@ -65,7 +68,7 @@ class AtlasForgeKanbanDispatchCommand extends Command
         $result = $dispatcher->dispatch($taskSummary, $packets, $options + ['confirm' => true]);
 
         if ($this->wantsJson()) {
-            $this->printJson(['action' => 'dispatch', 'result' => $result]);
+            $this->jsonLine(['action' => 'dispatch', 'result' => $result]);
 
             return self::SUCCESS;
         }
@@ -106,7 +109,7 @@ class AtlasForgeKanbanDispatchCommand extends Command
     private function failWith(string $message): int
     {
         if ($this->wantsJson()) {
-            $this->printJson(['error' => $message, 'authority' => 'atlas']);
+            $this->jsonLine(['error' => $message, 'authority' => 'atlas']);
         } else {
             $this->error($message);
         }
@@ -117,8 +120,4 @@ class AtlasForgeKanbanDispatchCommand extends Command
     /**
      * @param  array<string,mixed>  $payload
      */
-    private function printJson(array $payload): void
-    {
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
-    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\RouterRuntime\DecisionReceiptService;
 use App\Services\Ai\RouterRuntime\DomainRouterService;
 use App\Services\Ai\RouterRuntime\FlowRouterService;
@@ -15,6 +16,8 @@ use Throwable;
 
 class AtlasAiRouterRuntimeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:router-runtime
         {positional? : Optional positional action (alternative to --action)}
         {--action=readiness : readiness, classify, route, dispatch, smoke, control-plane}
@@ -62,7 +65,7 @@ class AtlasAiRouterRuntimeCommand extends Command
                 default => $this->invalidAction($action),
             };
         } catch (Throwable $e) {
-            $this->line($this->encode([
+            $this->line($this->encodeOrEmptyObject([
                 'ok' => false,
                 'error' => 'exception',
                 'message' => $e->getMessage(),
@@ -286,7 +289,7 @@ class AtlasAiRouterRuntimeCommand extends Command
 
     private function failWith(string $message): int
     {
-        $this->line($this->encode([
+        $this->line($this->encodeOrEmptyObject([
             'ok' => false,
             'error' => 'invalid_arguments',
             'message' => $message,
@@ -306,7 +309,7 @@ class AtlasAiRouterRuntimeCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return;
         }
@@ -325,11 +328,4 @@ class AtlasAiRouterRuntimeCommand extends Command
         return (bool) $this->option('json');
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

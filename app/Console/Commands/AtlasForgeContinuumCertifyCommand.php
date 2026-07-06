@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeContinuumCertificationService;
 use Illuminate\Console\Command;
 
@@ -23,6 +24,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasForgeContinuumCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:forge:continuum-certify
         {--obra= : UUID da Obra (opcional; obrigatorio em --strict)}
         {--simulate-provider-failure= : rate_limit|quota_exhausted|auth_failed|timeout|context_limit|model_unavailable|provider_error|insufficient_capability|provider_capacity_exhausted}
@@ -135,14 +138,4 @@ final class AtlasForgeContinuumCertifyCommand extends Command
         return $value === '' ? null : $value;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-    }
 }

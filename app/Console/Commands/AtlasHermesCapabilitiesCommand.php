@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\HermesCapabilityCandidate;
 use App\Services\Ai\Hermes\HermesCapabilityProbe;
 use App\Services\Ai\Hermes\HermesCapabilityRegistry;
@@ -27,6 +28,8 @@ use Illuminate\Support\Str;
  */
 class AtlasHermesCapabilitiesCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:hermes:capabilities
         {action=probe : probe|diff|candidates}
         {--json : Emit JSON}
@@ -63,7 +66,7 @@ class AtlasHermesCapabilitiesCommand extends Command
             if ($registryReceipt !== null) {
                 $payload['registry_receipt'] = $registryReceipt;
             }
-            $this->printJson($payload);
+            $this->jsonLine($payload);
 
             return $offline ? self::FAILURE : self::SUCCESS;
         }
@@ -80,7 +83,7 @@ class AtlasHermesCapabilitiesCommand extends Command
         $diff = $registry->diff(is_array($previous) ? $previous : [], $current);
 
         if ($this->wantsJson()) {
-            $this->printJson([
+            $this->jsonLine([
                 'action' => 'diff',
                 'has_previous_manifest' => is_array($previous),
                 'probe_status' => $current['probe_status'] ?? null,
@@ -117,7 +120,7 @@ class AtlasHermesCapabilitiesCommand extends Command
     {
         if (! DatabaseTableAvailability::has('hermes_capability_candidates')) {
             if ($this->wantsJson()) {
-                $this->printJson([
+                $this->jsonLine([
                     'action' => 'candidates',
                     'available' => false,
                     'reason' => 'capability tables not migrated',
@@ -150,7 +153,7 @@ class AtlasHermesCapabilitiesCommand extends Command
         ])->all();
 
         if ($this->wantsJson()) {
-            $this->printJson([
+            $this->jsonLine([
                 'action' => 'candidates',
                 'available' => true,
                 'capability_authority' => 'atlas',
@@ -277,8 +280,4 @@ class AtlasHermesCapabilitiesCommand extends Command
     /**
      * @param  array<string,mixed>  $payload
      */
-    private function printJson(array $payload): void
-    {
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
-    }
 }

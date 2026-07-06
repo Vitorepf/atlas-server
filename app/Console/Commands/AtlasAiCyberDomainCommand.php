@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
 use App\Services\Ai\Cyber\AppSecReviewService;
 use App\Services\Ai\Cyber\CyberControlPlaneProjection;
@@ -18,6 +19,8 @@ use Throwable;
 
 class AtlasAiCyberDomainCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:cyber-domain
         {positional? : Optional positional action (alternative to --action)}
         {--action=readiness : readiness, smoke, control-plane, seed-manifest, enterprise-analysis}
@@ -42,7 +45,7 @@ class AtlasAiCyberDomainCommand extends Command
 
         try {
             if ($fixtureRuntime->supports(CyberDomainManifestSeeder::DOMAIN_ID, $action)) {
-                $this->line($this->encode($fixtureRuntime->run(
+                $this->line($this->encodeOrEmptyObject($fixtureRuntime->run(
                     CyberDomainManifestSeeder::DOMAIN_ID,
                     $action,
                     $this->fixtureRequested(),
@@ -61,7 +64,7 @@ class AtlasAiCyberDomainCommand extends Command
             };
         } catch (CyberDomainException $e) {
             $payload = ['ok' => false, 'error' => 'cyber_exception', 'message' => $e->getMessage()];
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::FAILURE;
         } catch (Throwable $e) {
@@ -71,7 +74,7 @@ class AtlasAiCyberDomainCommand extends Command
                 'message' => $e->getMessage(),
                 'type' => $e::class,
             ];
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::FAILURE;
         }
@@ -243,7 +246,7 @@ class AtlasAiCyberDomainCommand extends Command
     private function invalidAction(string $action): int
     {
         $payload = ['ok' => false, 'error' => 'invalid_action', 'message' => "invalid action [{$action}]"];
-        $this->line($this->encode($payload));
+        $this->line($this->encodeOrEmptyObject($payload));
 
         return self::FAILURE;
     }
@@ -254,7 +257,7 @@ class AtlasAiCyberDomainCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return;
         }
@@ -264,14 +267,6 @@ class AtlasAiCyberDomainCommand extends Command
     private function json(): bool
     {
         return (bool) $this->option('json');
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
     }
 
     private function fixtureRequested(): bool

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasCodeForgeUxOrchestratorService;
 use Illuminate\Console\Command;
 
@@ -17,6 +18,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasCodeForgeUxOrchestratorCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:code:forge-ux
         {--obra= : UUID da Obra (obrigatorio em --strict)}
         {--json : Imprime JSON canonico atlas.code.forge_ux_orchestrator.v1}
@@ -90,14 +93,4 @@ final class AtlasCodeForgeUxOrchestratorCommand extends Command
         return $value === '' ? null : $value;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-    }
 }

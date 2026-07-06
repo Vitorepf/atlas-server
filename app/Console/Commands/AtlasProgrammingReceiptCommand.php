@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use Illuminate\Console\Command;
@@ -19,6 +20,8 @@ use Throwable;
  */
 class AtlasProgrammingReceiptCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:receipt
         {work_item : Work item code or UUID}
         {--command= : Command executed}
@@ -61,7 +64,7 @@ class AtlasProgrammingReceiptCommand extends Command
                 'input_received' => array_keys($input),
             ];
             if ((bool) $this->option('json')) {
-                $this->line($this->encode($payload));
+                $this->line($this->encodeOrEmptyObject($payload));
             } else {
                 $this->error('Receipt rejected: '.$payload['reason']);
             }
@@ -79,7 +82,7 @@ class AtlasProgrammingReceiptCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode(['receipt' => $receipt, 'work_item' => $snapshot]));
+            $this->line($this->encodeOrEmptyObject(['receipt' => $receipt, 'work_item' => $snapshot]));
 
             return self::SUCCESS;
         }
@@ -166,13 +169,4 @@ class AtlasProgrammingReceiptCommand extends Command
         ));
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        return $json === false ? '{}' : $json;
-    }
 }

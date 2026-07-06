@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasCodeObraCommandCenterService;
 use Illuminate\Console\Command;
 
@@ -17,6 +18,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasCodeObraCommandCenterCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:code:obra-command-center
         {--obra= : UUID da Obra (obrigatorio em --strict)}
         {--json : Imprime JSON canonico atlas.code.obra_command_center.v1}
@@ -106,14 +109,4 @@ final class AtlasCodeObraCommandCenterCommand extends Command
         return $value === '' ? null : $value;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-    }
 }

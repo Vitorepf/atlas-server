@@ -53,7 +53,7 @@ class AtlasMemoryPrivacyCommand extends Command
 
         return match ($action) {
             'scan' => $this->scan($privacy, true),
-            'apply' => $this->scan($privacy, false),
+            'apply' => $this->shouldApplySingleReview() ? $this->review($privacy) : $this->scan($privacy, false),
             'review' => $this->review($privacy),
             default => $this->invalidAction($action),
         };
@@ -151,6 +151,26 @@ class AtlasMemoryPrivacyCommand extends Command
         }
 
         return $entry;
+    }
+
+    private function shouldApplySingleReview(): bool
+    {
+        $argument = $this->argument('memory');
+        if ($this->stringOption('id') || (is_string($argument) && trim($argument) !== '')) {
+            return true;
+        }
+
+        if ((bool) $this->option('allow-external-ai') || (bool) $this->option('block-external-ai')) {
+            return true;
+        }
+
+        foreach (['redacted-title', 'redacted-body', 'redacted-summary', 'note'] as $option) {
+            if ($this->stringOption($option)) {
+                return true;
+            }
+        }
+
+        return $this->metadata() !== [];
     }
 
     /**

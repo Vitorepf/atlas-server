@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 class AtlasMemoryReviewQueueCommand extends Command
 {
     protected $signature = 'atlas:memory:review-queue
-        {--area=* : memory, verbatim, relations, semantic_curation or memory_delta}
+        {--area=* : memory, verbatim, relations, semantic_curation, memory_delta or memory_quality}
         {--scope-type= : global, project, task, engineering_run, workspace, user or session}
         {--scope-id= : Scope identifier}
         {--scope= : Memory delta scope, for example global, project:atlas or workspace:/path}
@@ -58,6 +58,7 @@ class AtlasMemoryReviewQueueCommand extends Command
         $this->components->twoColumnDetail('Relations', (string) data_get($queue, 'counts.relation', 0));
         $this->components->twoColumnDetail('Semantic curation', (string) data_get($queue, 'counts.semantic_curation', 0));
         $this->components->twoColumnDetail('Memory deltas', (string) data_get($queue, 'counts.memory_delta', 0));
+        $this->components->twoColumnDetail('Memory quality', (string) data_get($queue, 'counts.memory_quality', 0));
 
         $this->table(
             ['priority', 'kind', 'scope', 'target', 'reason', 'action'],

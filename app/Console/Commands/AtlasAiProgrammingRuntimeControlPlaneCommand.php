@@ -2,12 +2,15 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\ProgrammingRuntime\ControlPlane\ProgrammingRuntimeControlPlaneCanon;
 use App\Services\Ai\ProgrammingRuntime\ControlPlane\ProgrammingRuntimeControlPlaneService;
 use Illuminate\Console\Command;
 
 class AtlasAiProgrammingRuntimeControlPlaneCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:programming-runtime-control-plane
         {--json : output JSON only}';
 
@@ -18,7 +21,7 @@ class AtlasAiProgrammingRuntimeControlPlaneCommand extends Command
         $payload = $service->snapshot();
 
         if ($this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
         } else {
             $this->renderHuman($payload);
         }
@@ -121,16 +124,4 @@ class AtlasAiProgrammingRuntimeControlPlaneCommand extends Command
         return (string) $value;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        $encoded = json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-
-        return is_string($encoded) ? $encoded : '{}';
-    }
 }

@@ -22,7 +22,10 @@ class AtlasMemoryListCommand extends Command
         {--privacy= : normal, private, sensitive or secret}
         {--privacy-class= : Alias for --privacy}
         {--status= : active, inactive or archived}
+        {--never-recalled : Only entries never returned by atlas:memory:recall}
+        {--thin : Only entries whose summary repeats the title}
         {--include-inactive : Include inactive and archived memories}
+        {--compact : Omit full memory bodies from JSON output}
         {--limit=50 : Maximum entries}
         {--json : Print machine-readable JSON}';
 
@@ -46,14 +49,32 @@ class AtlasMemoryListCommand extends Command
             'source_type' => $this->stringOption('source-type'),
             'privacy_class' => $this->stringOption('privacy-class') ?: $this->stringOption('privacy'),
             'status' => $this->stringOption('status'),
+            'never_recalled' => (bool) $this->option('never-recalled'),
+            'thin' => (bool) $this->option('thin'),
             'include_inactive' => (bool) $this->option('include-inactive'),
         ];
 
-        $entries = $memory->search($filters, $input->registryLimit($this->option('limit')));
-        $rows = $entries->map(fn (AtlasMemoryEntry $entry): array => $this->row($entry))->values()->all();
+        $compact = (bool) $this->option('compact');
+        $includeBodyExcerpt = $compact && (bool) $this->option('thin');
+        $limit = $input->registryLimit($this->option('limit'));
+
+        $entries = $memory->search($filters, $limit);
+        $rows = $entries->map(fn (AtlasMemoryEntry $entry): array => $this->row($entry, $compact, $includeBodyExcerpt))->values()->all();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode(['memories' => $rows], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->line(json_encode([
+                'summary' => [
+                    'count' => count($rows),
+                    'limit' => $limit,
+                    'possibly_truncated' => count($rows) >= $limit,
+                    'filters' => [
+                        'never_recalled' => (bool) $this->option('never-recalled'),
+                        'thin' => (bool) $this->option('thin'),
+                        'compact' => $compact,
+                    ],
+                ],
+                'memories' => $rows,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             return self::SUCCESS;
         }
@@ -76,9 +97,9 @@ class AtlasMemoryListCommand extends Command
         return self::SUCCESS;
     }
 
-    private function row(AtlasMemoryEntry $entry): array
+    private function row(AtlasMemoryEntry $entry, bool $compact = false, bool $includeBodyExcerpt = false): array
     {
-        return [
+        $row = [
             'id' => $entry->id,
             'memory_type' => $entry->memory_type,
             'scope_type' => $entry->scope_type,
@@ -95,10 +116,20 @@ class AtlasMemoryListCommand extends Command
             'status' => $entry->status,
             'title' => $entry->title,
             'summary' => $entry->summary,
-            'body' => $entry->body,
             'safety' => $this->safetySummary($entry),
             'recorded_at' => $entry->recorded_at?->toJSON(),
+            'last_used_at' => $entry->last_used_at?->toJSON(),
         ];
+
+        if ($includeBodyExcerpt) {
+            $row['body_excerpt'] = Str::limit((string) ($entry->body ?? ''), 220);
+        }
+
+        if (! $compact) {
+            $row['body'] = $entry->body;
+        }
+
+        return $row;
     }
 
     /**
@@ -129,4 +160,5 @@ class AtlasMemoryListCommand extends Command
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
+
 }

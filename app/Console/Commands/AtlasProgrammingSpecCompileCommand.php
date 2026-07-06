@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use App\Services\Ai\Programming\Governance\ProgrammingSpecCompiler;
 use Illuminate\Console\Command;
@@ -13,6 +14,8 @@ use Throwable;
  */
 class AtlasProgrammingSpecCompileCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:spec-compile
         {work_item : Work item code or UUID}
         {--critique : Also return the critic report}
@@ -62,7 +65,7 @@ class AtlasProgrammingSpecCompileCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
         } else {
             $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Spec compiled</>', $workItem->code);
             $this->components->twoColumnDetail('Critic status', (string) ($critique['status'] ?? 'n/a'));
@@ -77,13 +80,4 @@ class AtlasProgrammingSpecCompileCommand extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        return $json === false ? '{}' : $json;
-    }
 }

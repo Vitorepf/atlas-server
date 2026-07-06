@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiToolDefinition;
 use App\Services\Ai\ToolRuntime\ToolCapabilityCatalogService;
 use App\Services\Ai\ToolRuntime\ToolDefinitionRegistryService;
@@ -19,6 +20,8 @@ use Throwable;
 
 class AtlasAiToolRuntimeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:tool-runtime
         {positional? : Optional positional action (alternative to --action)}
         {--action=readiness : readiness, seed-defaults, list, plan, doctor, smoke, control-plane, validate, show}
@@ -319,7 +322,7 @@ class AtlasAiToolRuntimeCommand extends Command
         if ($type !== null) {
             $payload['type'] = $type;
         }
-        $this->line($this->encode($payload));
+        $this->line($this->encodeOrEmptyObject($payload));
 
         return self::FAILURE;
     }
@@ -352,18 +355,11 @@ class AtlasAiToolRuntimeCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return;
         }
         $human();
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

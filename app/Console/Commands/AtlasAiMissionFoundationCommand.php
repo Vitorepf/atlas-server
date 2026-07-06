@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiMission;
 use App\Services\Ai\Mission\MissionCertificationService;
 use App\Services\Ai\Mission\MissionControlPlaneService;
@@ -17,6 +18,8 @@ use Throwable;
 
 class AtlasAiMissionFoundationCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:mission-foundation
         {positional? : Optional positional action (alternative to --action)}
         {--action=readiness : readiness, create, decompose, plan, evidence, certify, control-plane, smoke}
@@ -73,7 +76,7 @@ class AtlasAiMissionFoundationCommand extends Command
                 'message' => $e->getMessage(),
             ];
 
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::FAILURE;
         } catch (Throwable $e) {
@@ -83,7 +86,7 @@ class AtlasAiMissionFoundationCommand extends Command
                 'message' => $e->getMessage(),
                 'type' => $e::class,
             ];
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::FAILURE;
         }
@@ -353,7 +356,7 @@ class AtlasAiMissionFoundationCommand extends Command
     private function failWith(string $message): int
     {
         $payload = ['ok' => false, 'error' => 'invalid_arguments', 'message' => $message];
-        $this->line($this->encode($payload));
+        $this->line($this->encodeOrEmptyObject($payload));
 
         return self::FAILURE;
     }
@@ -395,7 +398,7 @@ class AtlasAiMissionFoundationCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return;
         }
@@ -414,11 +417,4 @@ class AtlasAiMissionFoundationCommand extends Command
         return (bool) $this->option('json');
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Kernel\ProgrammingAdapterException;
 use App\Services\Ai\Programming\Kernel\ProgrammingAdapterReadinessService;
 use App\Services\Ai\Programming\Kernel\ProgrammingAdapterSmokeService;
@@ -11,6 +12,8 @@ use Throwable;
 
 class AtlasAiProgrammingAdapterCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:programming-adapter
         {positional? : Optional positional action (alternative to --action)}
         {--action=readiness : readiness, smoke, control-plane}
@@ -101,7 +104,7 @@ class AtlasAiProgrammingAdapterCommand extends Command
         if ($type !== null) {
             $payload['type'] = $type;
         }
-        $this->line($this->encode($payload));
+        $this->line($this->encodeOrEmptyObject($payload));
 
         return self::FAILURE;
     }
@@ -129,18 +132,11 @@ class AtlasAiProgrammingAdapterCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return;
         }
         $human();
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

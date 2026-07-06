@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Governance\ProgrammingAdaptiveHierarchicalControlPlaneService;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use Illuminate\Console\Command;
@@ -14,6 +15,8 @@ use Throwable;
  */
 class AtlasProgrammingAdaptiveControlPlaneCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:adaptive-control-plane
         {work_item : Work item code or UUID}
         {--level=all : all|v2|v3|v4|v5}
@@ -48,7 +51,7 @@ class AtlasProgrammingAdaptiveControlPlaneCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return $this->resolveExit($payload, (bool) $this->option('strict'));
         }
@@ -115,13 +118,4 @@ class AtlasProgrammingAdaptiveControlPlaneCommand extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        return $json === false ? '{}' : $json;
-    }
 }

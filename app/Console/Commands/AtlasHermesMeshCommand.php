@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiJob;
 use App\Services\Ai\Hermes\Mesh\HermesExecutiveMeshService;
 use App\Services\Ai\Hermes\Mesh\HermesMeshProcessWorkerFactory;
@@ -26,6 +27,8 @@ use Illuminate\Support\Str;
  */
 class AtlasHermesMeshCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:hermes:mesh
         {action=status : status|plan|dispatch}
         {--file= : JSON file: {"permission_mode":"write","subtasks":[{"objective":"...","role":"coder","toolsets":["file"],"worktree":true}]}}
@@ -61,7 +64,7 @@ class AtlasHermesMeshCommand extends Command
         ];
 
         if ($this->wantsJson()) {
-            $this->printJson($payload);
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }
@@ -83,7 +86,7 @@ class AtlasHermesMeshCommand extends Command
         $plan = $service->plan($this->transientJob(), $mission, $subtasks, $this->policy());
 
         if ($this->wantsJson()) {
-            $this->printJson(['action' => 'plan', 'plan' => $plan]);
+            $this->jsonLine(['action' => 'plan', 'plan' => $plan]);
 
             return self::SUCCESS;
         }
@@ -124,7 +127,7 @@ class AtlasHermesMeshCommand extends Command
         $result = $service->run($this->transientJob(), $mission, $subtasks, $worker, $this->policy());
 
         if ($this->wantsJson()) {
-            $this->printJson([
+            $this->jsonLine([
                 'action' => 'dispatch',
                 'run' => $result['run'],
                 'reconciliation' => $result['reconciliation'],
@@ -173,7 +176,7 @@ class AtlasHermesMeshCommand extends Command
         ];
 
         if ($this->wantsJson()) {
-            $this->printJson($payload);
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }
@@ -298,7 +301,7 @@ class AtlasHermesMeshCommand extends Command
     private function failWith(string $message): int
     {
         if ($this->wantsJson()) {
-            $this->printJson(['action' => $this->action(), 'error' => $message, 'authority' => 'atlas']);
+            $this->jsonLine(['action' => $this->action(), 'error' => $message, 'authority' => 'atlas']);
         } else {
             $this->error($message);
         }
@@ -309,8 +312,4 @@ class AtlasHermesMeshCommand extends Command
     /**
      * @param  array<string,mixed>  $payload
      */
-    private function printJson(array $payload): void
-    {
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
-    }
 }

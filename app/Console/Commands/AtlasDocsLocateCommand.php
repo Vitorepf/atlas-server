@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AtlasDocsAuthorityGraph;
 use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
 use Illuminate\Console\Command;
@@ -17,6 +18,8 @@ use Illuminate\Support\Str;
  */
 class AtlasDocsLocateCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:docs:locate
         {needle? : The topic, capability, symbol or doc id to resolve to its owner doc}
         {--rebuild : Rebuild the authority graph from doc frontmatter before resolving}
@@ -44,7 +47,7 @@ class AtlasDocsLocateCommand extends Command
                 'hint' => 'Pass a needle, e.g. atlas:docs:locate "<capability or doc id>" --json',
             ];
             if ((bool) $this->option('json')) {
-                $this->line($this->encode($payload));
+                $this->line($this->encodeOrEmptyObject($payload));
 
                 return self::SUCCESS;
             }
@@ -65,7 +68,7 @@ class AtlasDocsLocateCommand extends Command
         $exit = ((bool) $this->option('strict') && ! $authoritative) ? self::FAILURE : self::SUCCESS;
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($result));
+            $this->line($this->encodeOrEmptyObject($result));
 
             return $exit;
         }
@@ -97,11 +100,4 @@ class AtlasDocsLocateCommand extends Command
         return $exit;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

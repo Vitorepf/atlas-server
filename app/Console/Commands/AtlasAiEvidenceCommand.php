@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Evidence\ArtifactRegistryService;
 use App\Services\Ai\Evidence\BlockerService;
 use App\Services\Ai\Evidence\CertificationRuntimeService;
@@ -18,6 +19,8 @@ use Throwable;
 
 class AtlasAiEvidenceCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:evidence
         {positional? : Optional positional action (alternative to --action)}
         {--action=readiness : readiness, smoke, pack, receipt, certify, control-plane}
@@ -74,7 +77,7 @@ class AtlasAiEvidenceCommand extends Command
                 'message' => $e->getMessage(),
                 'type' => $e::class,
             ];
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::FAILURE;
         }
@@ -312,7 +315,7 @@ class AtlasAiEvidenceCommand extends Command
     private function failWith(string $message): int
     {
         $payload = ['ok' => false, 'error' => 'invalid_arguments', 'message' => $message];
-        $this->line($this->encode($payload));
+        $this->line($this->encodeOrEmptyObject($payload));
 
         return self::FAILURE;
     }
@@ -328,7 +331,7 @@ class AtlasAiEvidenceCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return;
         }
@@ -347,11 +350,4 @@ class AtlasAiEvidenceCommand extends Command
         return (bool) $this->option('json');
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

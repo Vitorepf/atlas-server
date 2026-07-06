@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Autonomy\AtlasAutonomyDemoteWatchdog;
 use App\Services\Ai\Autonomy\AtlasAutonomyLadderRuntimeService;
 use App\Services\Ai\Autonomy\AtlasAutonomyMetricsAggregator;
@@ -17,6 +18,8 @@ use Illuminate\Console\Command;
  */
 class AtlasAutonomyLadderCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:autonomy:ladder
         {--level= : Current level (L0..L7) to evaluate a promotion from}
         {--signals= : JSON map of raw autonomy signals to aggregate into metrics}
@@ -36,7 +39,7 @@ class AtlasAutonomyLadderCommand extends Command
         if ($level === null) {
             $payload = ['schema_version' => AtlasAutonomyLadderRuntimeService::SCHEMA, 'ladder' => $ladder->ladder()];
             if ((bool) $this->option('json')) {
-                $this->line($this->encode($payload));
+                $this->line($this->encodeOrEmptyObject($payload));
 
                 return self::SUCCESS;
             }
@@ -65,7 +68,7 @@ class AtlasAutonomyLadderCommand extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return ($promotion['eligible'] ?? false) ? self::SUCCESS : self::SUCCESS;
         }
@@ -110,11 +113,4 @@ class AtlasAutonomyLadderCommand extends Command
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

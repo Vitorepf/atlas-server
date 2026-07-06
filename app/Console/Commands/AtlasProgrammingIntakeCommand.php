@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use Illuminate\Console\Command;
 use Throwable;
@@ -13,6 +14,8 @@ use Throwable;
  */
 class AtlasProgrammingIntakeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:intake
         {intent : Plain-text description of the work to govern}
         {--type= : Override classifier intent_type (feature, bugfix, refactor, docs, migration, test, architecture, cartography, self_construction, other)}
@@ -37,7 +40,7 @@ class AtlasProgrammingIntakeCommand extends Command
         }
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($snapshot));
+            $this->line($this->encodeOrEmptyObject($snapshot));
 
             return self::SUCCESS;
         }
@@ -70,13 +73,4 @@ class AtlasProgrammingIntakeCommand extends Command
         return $options;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        return $json === false ? '{}' : $json;
-    }
 }

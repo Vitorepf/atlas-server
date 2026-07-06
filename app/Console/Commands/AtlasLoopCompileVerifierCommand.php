@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopIntentVerifierFactory;
 use Illuminate\Console\Command;
 use JsonException;
 
 final class AtlasLoopCompileVerifierCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:loop:compile-verifier
         {--intent= : Human intent to turn into a frozen verifier}
         {--intent-file= : File containing the human intent}
@@ -69,12 +72,12 @@ final class AtlasLoopCompileVerifierCommand extends Command
 
                 return self::FAILURE;
             }
-            file_put_contents($write, $this->encode($packet)."\n");
+            file_put_contents($write, $this->encodeOrEmptyObject($packet)."\n");
             $packet['packet_path'] = $write;
         }
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($packet));
+            $this->line($this->encodeOrEmptyObject($packet));
         } else {
             $this->components->twoColumnDetail('Intent verifier factory', (string) ($packet['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Target', (string) ($packet['target_relative_path'] ?? '-'));
@@ -231,13 +234,4 @@ final class AtlasLoopCompileVerifierCommand extends Command
         return trim((string) ($this->option($key) ?? '')) !== '';
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        return $json === false ? '{}' : $json;
-    }
 }

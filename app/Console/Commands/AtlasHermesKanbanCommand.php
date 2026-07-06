@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanSwarmService;
 use Illuminate\Console\Command;
 
@@ -25,6 +26,8 @@ use Illuminate\Console\Command;
  */
 class AtlasHermesKanbanCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:hermes:kanban
         {action=status : status|plan|dispatch}
         {--file= : JSON file: {"goal":"...","workers":[{"profile":"coder","title":"...","skills":["file"]}],"verifier":"verifier","synthesizer":"synthesizer","permission_mode":"write"}}
@@ -59,7 +62,7 @@ class AtlasHermesKanbanCommand extends Command
         ];
 
         if ($this->wantsJson()) {
-            $this->printJson($payload);
+            $this->jsonLine($payload);
 
             return self::SUCCESS;
         }
@@ -81,7 +84,7 @@ class AtlasHermesKanbanCommand extends Command
         $plan = $service->compose($spec);
 
         if ($this->wantsJson()) {
-            $this->printJson(['action' => 'plan', 'plan' => $plan]);
+            $this->jsonLine(['action' => 'plan', 'plan' => $plan]);
 
             return self::SUCCESS;
         }
@@ -102,7 +105,7 @@ class AtlasHermesKanbanCommand extends Command
         if ((bool) $this->option('dry-run')) {
             $preview = $service->previewArgv($spec);
             if ($this->wantsJson()) {
-                $this->printJson(array_merge(['action' => 'dry_run', 'launched' => false], $preview));
+                $this->jsonLine(array_merge(['action' => 'dry_run', 'launched' => false], $preview));
 
                 return self::SUCCESS;
             }
@@ -124,7 +127,7 @@ class AtlasHermesKanbanCommand extends Command
         $result = $service->run($spec, true);
 
         if ($this->wantsJson()) {
-            $this->printJson(['action' => 'dispatch', 'run' => $result]);
+            $this->jsonLine(['action' => 'dispatch', 'run' => $result]);
 
             return self::SUCCESS;
         }
@@ -190,7 +193,7 @@ class AtlasHermesKanbanCommand extends Command
     private function failWith(string $message): int
     {
         if ($this->wantsJson()) {
-            $this->printJson(['action' => $this->action(), 'error' => $message, 'authority' => 'atlas']);
+            $this->jsonLine(['action' => $this->action(), 'error' => $message, 'authority' => 'atlas']);
         } else {
             $this->error($message);
         }
@@ -201,8 +204,4 @@ class AtlasHermesKanbanCommand extends Command
     /**
      * @param  array<string,mixed>  $payload
      */
-    private function printJson(array $payload): void
-    {
-        $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
-    }
 }

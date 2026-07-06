@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
 
 class AtlasEngineeringKnowledgeCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     private ?EngineeringContextIntelligenceInput $contextInput = null;
 
     protected $signature = 'atlas:engineering:knowledge
@@ -85,7 +88,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         ]);
 
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return $payload['ok'] ? self::SUCCESS : self::FAILURE;
         }
@@ -105,7 +108,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
     {
         $payload = ['summary' => $knowledge->summary()];
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -123,7 +126,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
     {
         $payload = $knowledge->catalog($this->filters(), $this->contextInput()->knowledgeLimit($this->option('limit')));
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -159,7 +162,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         }
 
         if ($this->json()) {
-            $this->line($this->encode(['knowledge_item' => $payload]));
+            $this->line($this->encodeOrEmptyObject(['knowledge_item' => $payload]));
 
             return self::SUCCESS;
         }
@@ -185,7 +188,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         ];
 
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -219,7 +222,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             : (($payload['status'] ?? null) === 'ok' ? self::SUCCESS : self::FAILURE);
 
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return $exit;
         }
@@ -288,7 +291,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             ];
 
             if ($this->json()) {
-                $this->line($this->encode($payload));
+                $this->line($this->encodeOrEmptyObject($payload));
 
                 return self::SUCCESS;
             }
@@ -306,7 +309,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         $payload['baseline_path'] = $documentationHealth->relativeBaselinePath();
 
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -340,7 +343,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             ];
 
             if ($this->json()) {
-                $this->line($this->encode($payload));
+                $this->line($this->encodeOrEmptyObject($payload));
 
                 return self::FAILURE;
             }
@@ -365,7 +368,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             ];
 
             if ($this->json()) {
-                $this->line($this->encode($payload));
+                $this->line($this->encodeOrEmptyObject($payload));
 
                 return self::FAILURE;
             }
@@ -396,7 +399,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         }
 
         if ($this->json()) {
-            $this->line($this->encode($this->summaryOnly() ? $this->compactCodeIndexPayload($payload) : $payload));
+            $this->line($this->encodeOrEmptyObject($this->summaryOnly() ? $this->compactCodeIndexPayload($payload) : $payload));
 
             return $payload['ok'] ? self::SUCCESS : self::FAILURE;
         }
@@ -427,7 +430,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         ]);
 
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return $this->codeGateExitCode($payload);
         }
@@ -451,7 +454,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
             'workspace' => $this->stringOption('workspace'),
         ])];
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -478,7 +481,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         ]);
 
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -508,7 +511,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         ]);
 
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return $payload['status'] === 'blocked' ? self::FAILURE : self::SUCCESS;
         }
@@ -528,7 +531,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
     {
         $payload = $code->catalog($this->codeModuleFilters(), $this->contextInput()->codeLimit($this->option('limit')));
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -554,7 +557,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
     {
         $payload = $code->symbols($this->codeSymbolFilters(), $this->contextInput()->codeLimit($this->option('limit')));
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -591,7 +594,7 @@ class AtlasEngineeringKnowledgeCommand extends Command
         }
 
         if ($this->json()) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -699,11 +702,4 @@ class AtlasEngineeringKnowledgeCommand extends Command
         return $this->contextInput ?? app(EngineeringContextIntelligenceInput::class);
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }

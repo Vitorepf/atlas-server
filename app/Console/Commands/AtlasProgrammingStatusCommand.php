@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use Illuminate\Console\Command;
@@ -13,6 +14,8 @@ use Throwable;
  */
 class AtlasProgrammingStatusCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:programming:status
         {work_item : Work item code or UUID}
         {--json : Print machine-readable JSON}';
@@ -36,7 +39,7 @@ class AtlasProgrammingStatusCommand extends Command
         ]);
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -110,13 +113,4 @@ class AtlasProgrammingStatusCommand extends Command
             ->all();
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        return $json === false ? '{}' : $json;
-    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
 use App\Services\Ai\AutomationDomain\AutomationControlPlaneProjection;
 use App\Services\Ai\AutomationDomain\AutomationDomainCanon;
@@ -14,6 +15,8 @@ use Throwable;
 
 class AtlasAiAutomationDomainCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:automation-domain
         {positional? : Optional positional action (alternative to --action)}
         {--action=readiness : readiness, seed-manifest, smoke, control-plane, enterprise-analysis}
@@ -38,7 +41,7 @@ class AtlasAiAutomationDomainCommand extends Command
 
         try {
             if ($fixtureRuntime->supports(AutomationDomainCanon::DOMAIN_ID, $action)) {
-                $this->line($this->encode($fixtureRuntime->run(
+                $this->line($this->encodeOrEmptyObject($fixtureRuntime->run(
                     AutomationDomainCanon::DOMAIN_ID,
                     $action,
                     $this->fixtureRequested(),
@@ -56,7 +59,7 @@ class AtlasAiAutomationDomainCommand extends Command
                 default => $this->invalidAction($action),
             };
         } catch (AutomationDomainException $e) {
-            $this->line($this->encode([
+            $this->line($this->encodeOrEmptyObject([
                 'ok' => false,
                 'error' => 'automation_exception',
                 'message' => $e->getMessage(),
@@ -64,7 +67,7 @@ class AtlasAiAutomationDomainCommand extends Command
 
             return self::FAILURE;
         } catch (Throwable $e) {
-            $this->line($this->encode([
+            $this->line($this->encodeOrEmptyObject([
                 'ok' => false,
                 'error' => 'exception',
                 'message' => $e->getMessage(),
@@ -183,7 +186,7 @@ class AtlasAiAutomationDomainCommand extends Command
 
     private function invalidAction(string $action): int
     {
-        $this->line($this->encode([
+        $this->line($this->encodeOrEmptyObject([
             'ok' => false,
             'error' => 'invalid_arguments',
             'message' => "invalid action [{$action}] for atlas:ai:automation-domain",
@@ -198,19 +201,11 @@ class AtlasAiAutomationDomainCommand extends Command
     private function emit(array $payload, callable $human): void
     {
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return;
         }
         $human();
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
     }
 
     private function fixtureRequested(): bool

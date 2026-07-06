@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\AutonomousEvolution\Telemetry\AtlasLoopTelemetryFactExporter;
 use App\Services\Ai\AutonomousEvolution\Telemetry\AtlasLoopTelemetryFactStreamEmitter;
 use App\Services\Ai\AutonomousEvolution\Telemetry\AtlasLoopTelemetryFactWindowAggregator;
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
 
 class AtlasLoopTelemetryCli extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:loop:telemetry {action : tail|aggregate|export|starvation} {--minutes=15} {--path=} {--json}';
 
     protected $description = 'Read-only operator surface over the canonical Loop telemetry FACT stream. No score, no rank.';
@@ -58,7 +61,7 @@ class AtlasLoopTelemetryCli extends Command
     {
         $payload = (new AtlasLoopTelemetryStarvationDetector)->detect($facts, gmdate('c'), (int) $this->option('minutes'));
 
-        $this->line($this->encode($payload));
+        $this->line($this->encodeOrEmptyObject($payload));
 
         return self::SUCCESS;
     }
@@ -78,7 +81,7 @@ class AtlasLoopTelemetryCli extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode(['facts' => $tail]));
+            $this->line($this->encodeOrEmptyObject(['facts' => $tail]));
 
             return self::SUCCESS;
         }
@@ -102,12 +105,12 @@ class AtlasLoopTelemetryCli extends Command
         );
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
 
-        $this->line($this->encode($payload));
+        $this->line($this->encodeOrEmptyObject($payload));
 
         return self::SUCCESS;
     }
@@ -137,7 +140,7 @@ class AtlasLoopTelemetryCli extends Command
         ];
 
         if ((bool) $this->option('json')) {
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         }
@@ -152,14 +155,6 @@ class AtlasLoopTelemetryCli extends Command
         $this->error('Unknown action: '.$action.'. Expected one of tail|aggregate|export|starvation.');
 
         return self::FAILURE;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
     }
 
     private function stream(): AtlasLoopTelemetryFactStreamEmitter

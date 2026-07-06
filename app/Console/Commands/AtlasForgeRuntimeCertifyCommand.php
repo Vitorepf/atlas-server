@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeRuntimeCertificationService;
 use Illuminate\Console\Command;
 
@@ -14,6 +15,8 @@ use Illuminate\Console\Command;
  */
 class AtlasForgeRuntimeCertifyCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:forge:runtime-certify
         {--obra= : UUID de Obra real para capturar evidence vinculada (opcional)}
         {--json : Imprime resultado em JSON canonico}
@@ -88,14 +91,4 @@ class AtlasForgeRuntimeCertifyCommand extends Command
         return $value !== '' ? $value : null;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-    }
 }

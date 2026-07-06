@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryAggregator;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryRecorder;
 use Carbon\CarbonImmutable;
@@ -9,6 +10,8 @@ use Illuminate\Console\Command;
 
 class AtlasAiProgrammingRuntimeTelemetryCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:ai:programming-runtime-telemetry
         {--action=aggregate : aggregate|record}
         {--event-name= : when --action=record, the event name (required)}
@@ -48,7 +51,7 @@ class AtlasAiProgrammingRuntimeTelemetryCommand extends Command
         $report = $aggregator->aggregate($since, $until);
 
         if ($this->option('json')) {
-            $this->line($this->encode($report));
+            $this->line($this->encodeOrEmptyObject($report));
         } else {
             $this->renderHuman($report);
         }
@@ -101,7 +104,7 @@ class AtlasAiProgrammingRuntimeTelemetryCommand extends Command
             ],
             'benchmark_not_run' => true,
         ];
-        $this->line($this->encode($payload));
+        $this->line($this->encodeOrEmptyObject($payload));
 
         return Command::SUCCESS;
     }
@@ -157,16 +160,4 @@ class AtlasAiProgrammingRuntimeTelemetryCommand extends Command
         }
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        $encoded = json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-
-        return is_string($encoded) ? $encoded : '{}';
-    }
 }

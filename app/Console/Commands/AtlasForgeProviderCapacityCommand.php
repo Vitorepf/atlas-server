@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasForgeProviderCapacityService;
 use App\Services\Ai\Programming\AtlasForgeProviderFailureMemoryService;
@@ -23,6 +24,8 @@ use Throwable;
  */
 final class AtlasForgeProviderCapacityCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:forge:provider-capacity
         {--obra= : UUID de Obra opcional para incluir failure memory persistida}
         {--workspace= : Workspace root opcional}
@@ -149,14 +152,4 @@ final class AtlasForgeProviderCapacityCommand extends Command
         return $value === '' ? null : $value;
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return (string) json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        );
-    }
 }

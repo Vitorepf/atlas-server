@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Aaeos\Generated\AtlasCyberSecurityExtensionService;
 use Illuminate\Console\Command;
 use Throwable;
@@ -24,6 +25,8 @@ use Throwable;
  */
 class AtlasCyberSecurityExtensionCommand extends Command
 {
+    use EmitsCanonicalJson;
+
     protected $signature = 'atlas:aaeos:cyber-security-extension
         {--activity= : requested activity id (e.g. bug_bounty_automation, dos_resource_exhaustion)}
         {--clauses= : comma-separated exception-clause tokens supplied by the operator}
@@ -51,7 +54,7 @@ class AtlasCyberSecurityExtensionCommand extends Command
                 'manifest' => $service->manifest(),
             ];
 
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::SUCCESS;
         } catch (Throwable $e) {
@@ -61,7 +64,7 @@ class AtlasCyberSecurityExtensionCommand extends Command
                 'message' => $e->getMessage(),
                 'type' => $e::class,
             ];
-            $this->line($this->encode($payload));
+            $this->line($this->encodeOrEmptyObject($payload));
 
             return self::FAILURE;
         }
@@ -83,11 +86,4 @@ class AtlasCyberSecurityExtensionCommand extends Command
         ));
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function encode(array $payload): string
-    {
-        return json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}';
-    }
 }
