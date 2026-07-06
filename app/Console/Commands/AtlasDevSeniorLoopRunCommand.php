@@ -179,8 +179,8 @@ final class AtlasDevSeniorLoopRunCommand extends Command
 
     private function createFixtureWorkspace(string $workspace): void
     {
-        mkdir($workspace.'/src', 0o755, true);
-        mkdir($workspace.'/tests', 0o755, true);
+        File::ensureDirectoryExists($workspace.'/src');
+        File::ensureDirectoryExists($workspace.'/tests');
         file_put_contents($workspace.'/composer.json', '{"scripts":{"test":"php tests/SmokeSubjectTest.php"}}'.PHP_EOL);
         file_put_contents($workspace.'/src/SmokeSubject.php', <<<'PHP'
 <?php

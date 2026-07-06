@@ -80,9 +80,9 @@ final class AtlasDevSeniorLoopAuditCommand extends Command
         }
 
         $workspace = sys_get_temp_dir().'/atlas-dev-senior-loop-'.bin2hex(random_bytes(4));
-        mkdir($workspace.'/src', 0o755, true);
-        mkdir($workspace.'/tests', 0o755, true);
-        mkdir($workspace.'/.git/refs/heads', 0o755, true);
+        File::ensureDirectoryExists($workspace.'/src');
+        File::ensureDirectoryExists($workspace.'/tests');
+        File::ensureDirectoryExists($workspace.'/.git/refs/heads');
         file_put_contents($workspace.'/.git/HEAD', 'ref: refs/heads/main');
         file_put_contents($workspace.'/.git/refs/heads/main', '0123456789abcdef0123456789abcdef01234567');
         file_put_contents($workspace.'/composer.json', '{"scripts":{"test":"php tests/SmokeSubjectTest.php"}}'.PHP_EOL);
