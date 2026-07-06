@@ -9,6 +9,11 @@ class KernelArchitectureStaticScanner
     private ?string $kernelDocumentationCorpus = null;
 
     /**
+     * @var array<string,string>
+     */
+    private array $fileContentsCache = [];
+
+    /**
      * @return array{
      *   ok:bool,
      *   ap1_surface_provider_bypass:array{valid:bool,violations:array<int,string>},
@@ -2113,54 +2118,54 @@ class KernelArchitectureStaticScanner
         $docPath = base_path('docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md');
         $staticScanDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
 
-        $certification = File::exists($certificationPath) ? File::get($certificationPath) : '';
-        $voiceService = File::exists($voiceServicePath) ? File::get($voiceServicePath) : '';
-        $tokenIssuer = File::exists($tokenIssuerPath) ? File::get($tokenIssuerPath) : '';
-        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
-        $tokenIssuerTest = File::exists($tokenIssuerTestPath) ? File::get($tokenIssuerTestPath) : '';
-        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
-        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $pythonContract = File::exists($pythonContractPath) ? File::get($pythonContractPath) : '';
-        $pythonContractTest = File::exists($pythonContractTestPath) ? File::get($pythonContractTestPath) : '';
-        $pythonSessionLease = File::exists($pythonSessionLeasePath) ? File::get($pythonSessionLeasePath) : '';
-        $pythonSessionLeaseTest = File::exists($pythonSessionLeaseTestPath) ? File::get($pythonSessionLeaseTestPath) : '';
-        $pythonMockKernel = File::exists($pythonMockKernelPath) ? File::get($pythonMockKernelPath) : '';
-        $pythonMockKernelTest = File::exists($pythonMockKernelTestPath) ? File::get($pythonMockKernelTestPath) : '';
-        $pythonRuntimeEntrypoint = File::exists($pythonRuntimeEntrypointPath) ? File::get($pythonRuntimeEntrypointPath) : '';
-        $pythonRuntimeEntrypointTest = File::exists($pythonRuntimeEntrypointTestPath) ? File::get($pythonRuntimeEntrypointTestPath) : '';
-        $pythonSupervisedStartPlan = File::exists($pythonSupervisedStartPlanPath) ? File::get($pythonSupervisedStartPlanPath) : '';
-        $pythonSupervisedStartPlanTest = File::exists($pythonSupervisedStartPlanTestPath) ? File::get($pythonSupervisedStartPlanTestPath) : '';
-        $pythonDaemonImplementationReview = File::exists($pythonDaemonImplementationReviewPath) ? File::get($pythonDaemonImplementationReviewPath) : '';
-        $pythonDaemonImplementationReviewTest = File::exists($pythonDaemonImplementationReviewTestPath) ? File::get($pythonDaemonImplementationReviewTestPath) : '';
-        $pythonDaemonSupervisor = File::exists($pythonDaemonSupervisorPath) ? File::get($pythonDaemonSupervisorPath) : '';
-        $pythonDaemonSupervisorTest = File::exists($pythonDaemonSupervisorTestPath) ? File::get($pythonDaemonSupervisorTestPath) : '';
-        $pythonSupervisedProcessAdapter = File::exists($pythonSupervisedProcessAdapterPath) ? File::get($pythonSupervisedProcessAdapterPath) : '';
-        $pythonSupervisedProcessAdapterTest = File::exists($pythonSupervisedProcessAdapterTestPath) ? File::get($pythonSupervisedProcessAdapterTestPath) : '';
-        $pythonManagedEnvWriter = File::exists($pythonManagedEnvWriterPath) ? File::get($pythonManagedEnvWriterPath) : '';
-        $pythonManagedEnvWriterTest = File::exists($pythonManagedEnvWriterTestPath) ? File::get($pythonManagedEnvWriterTestPath) : '';
-        $pythonSupervisedLaunchExecution = File::exists($pythonSupervisedLaunchExecutionPath) ? File::get($pythonSupervisedLaunchExecutionPath) : '';
-        $pythonSupervisedLaunchExecutionTest = File::exists($pythonSupervisedLaunchExecutionTestPath) ? File::get($pythonSupervisedLaunchExecutionTestPath) : '';
-        $pythonActivationContract = File::exists($pythonActivationContractPath) ? File::get($pythonActivationContractPath) : '';
-        $pythonActivationContractTest = File::exists($pythonActivationContractTestPath) ? File::get($pythonActivationContractTestPath) : '';
-        $pythonSdkHandlers = File::exists($pythonSdkHandlersPath) ? File::get($pythonSdkHandlersPath) : '';
-        $pythonSdkHandlersTest = File::exists($pythonSdkHandlersTestPath) ? File::get($pythonSdkHandlersTestPath) : '';
-        $pythonSdkWiringContract = File::exists($pythonSdkWiringContractPath) ? File::get($pythonSdkWiringContractPath) : '';
-        $pythonSdkWiringContractTest = File::exists($pythonSdkWiringContractTestPath) ? File::get($pythonSdkWiringContractTestPath) : '';
-        $pythonProductionLoopRunner = File::exists($pythonProductionLoopRunnerPath) ? File::get($pythonProductionLoopRunnerPath) : '';
-        $pythonProductionLoopRunnerTest = File::exists($pythonProductionLoopRunnerTestPath) ? File::get($pythonProductionLoopRunnerTestPath) : '';
-        $pythonProductLoopCheck = File::exists($pythonProductLoopCheckPath) ? File::get($pythonProductLoopCheckPath) : '';
-        $pythonProductLoopCheckTest = File::exists($pythonProductLoopCheckTestPath) ? File::get($pythonProductLoopCheckTestPath) : '';
-        $pythonSdkStatus = File::exists($pythonSdkStatusPath) ? File::get($pythonSdkStatusPath) : '';
-        $pythonSdkStatusTest = File::exists($pythonSdkStatusTestPath) ? File::get($pythonSdkStatusTestPath) : '';
-        $pythonSettings = File::exists($pythonSettingsPath) ? File::get($pythonSettingsPath) : '';
-        $pythonSettingsTest = File::exists($pythonSettingsTestPath) ? File::get($pythonSettingsTestPath) : '';
-        $apDoc = File::exists($apPath) ? File::get($apPath) : '';
-        $doc = File::exists($docPath) ? File::get($docPath) : '';
-        $staticScanDoc = File::exists($staticScanDocPath) ? File::get($staticScanDocPath) : '';
+        $certification = $this->fileContents($certificationPath);
+        $voiceService = $this->fileContents($voiceServicePath);
+        $tokenIssuer = $this->fileContents($tokenIssuerPath);
+        $selfImprovement = $this->fileContents($selfImprovementPath);
+        $command = $this->fileContents($commandPath);
+        $unitTest = $this->fileContents($unitTestPath);
+        $tokenIssuerTest = $this->fileContents($tokenIssuerTestPath);
+        $commandTest = $this->fileContents($commandTestPath);
+        $apiTest = $this->fileContents($apiTestPath);
+        $pythonContract = $this->fileContents($pythonContractPath);
+        $pythonContractTest = $this->fileContents($pythonContractTestPath);
+        $pythonSessionLease = $this->fileContents($pythonSessionLeasePath);
+        $pythonSessionLeaseTest = $this->fileContents($pythonSessionLeaseTestPath);
+        $pythonMockKernel = $this->fileContents($pythonMockKernelPath);
+        $pythonMockKernelTest = $this->fileContents($pythonMockKernelTestPath);
+        $pythonRuntimeEntrypoint = $this->fileContents($pythonRuntimeEntrypointPath);
+        $pythonRuntimeEntrypointTest = $this->fileContents($pythonRuntimeEntrypointTestPath);
+        $pythonSupervisedStartPlan = $this->fileContents($pythonSupervisedStartPlanPath);
+        $pythonSupervisedStartPlanTest = $this->fileContents($pythonSupervisedStartPlanTestPath);
+        $pythonDaemonImplementationReview = $this->fileContents($pythonDaemonImplementationReviewPath);
+        $pythonDaemonImplementationReviewTest = $this->fileContents($pythonDaemonImplementationReviewTestPath);
+        $pythonDaemonSupervisor = $this->fileContents($pythonDaemonSupervisorPath);
+        $pythonDaemonSupervisorTest = $this->fileContents($pythonDaemonSupervisorTestPath);
+        $pythonSupervisedProcessAdapter = $this->fileContents($pythonSupervisedProcessAdapterPath);
+        $pythonSupervisedProcessAdapterTest = $this->fileContents($pythonSupervisedProcessAdapterTestPath);
+        $pythonManagedEnvWriter = $this->fileContents($pythonManagedEnvWriterPath);
+        $pythonManagedEnvWriterTest = $this->fileContents($pythonManagedEnvWriterTestPath);
+        $pythonSupervisedLaunchExecution = $this->fileContents($pythonSupervisedLaunchExecutionPath);
+        $pythonSupervisedLaunchExecutionTest = $this->fileContents($pythonSupervisedLaunchExecutionTestPath);
+        $pythonActivationContract = $this->fileContents($pythonActivationContractPath);
+        $pythonActivationContractTest = $this->fileContents($pythonActivationContractTestPath);
+        $pythonSdkHandlers = $this->fileContents($pythonSdkHandlersPath);
+        $pythonSdkHandlersTest = $this->fileContents($pythonSdkHandlersTestPath);
+        $pythonSdkWiringContract = $this->fileContents($pythonSdkWiringContractPath);
+        $pythonSdkWiringContractTest = $this->fileContents($pythonSdkWiringContractTestPath);
+        $pythonProductionLoopRunner = $this->fileContents($pythonProductionLoopRunnerPath);
+        $pythonProductionLoopRunnerTest = $this->fileContents($pythonProductionLoopRunnerTestPath);
+        $pythonProductLoopCheck = $this->fileContents($pythonProductLoopCheckPath);
+        $pythonProductLoopCheckTest = $this->fileContents($pythonProductLoopCheckTestPath);
+        $pythonSdkStatus = $this->fileContents($pythonSdkStatusPath);
+        $pythonSdkStatusTest = $this->fileContents($pythonSdkStatusTestPath);
+        $pythonSettings = $this->fileContents($pythonSettingsPath);
+        $pythonSettingsTest = $this->fileContents($pythonSettingsTestPath);
+        $apDoc = $this->fileContents($apPath);
+        $doc = $this->fileContents($docPath);
+        $staticScanDoc = $this->fileContents($staticScanDocPath);
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($certification, [
             'production_promotion_gate',
             'atlas.voice_realtime.production_promotion_gate.v1',
             'human_review_required',
@@ -2184,13 +2189,9 @@ class KernelArchitectureStaticScanner
             'artifacts',
             'product_loop_check',
             '--product-loop-check',
-        ] as $token) {
-            if (! str_contains($certification, $token)) {
-                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php: AP-687 production promotion gate must remain fail-closed and human-review governed [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Voice/AtlasVoiceRuntimeCertificationService.php: AP-687 production promotion gate must remain fail-closed and human-review governed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($voiceService, [
             'voiceRoomName',
             'voiceParticipantIdentity',
             'phase0HardeningGate',
@@ -2206,13 +2207,9 @@ class KernelArchitectureStaticScanner
             'session_lease',
             'kernelBaseUrl',
             'parse_url($baseUrl)',
-        ] as $token) {
-            if (! str_contains($voiceService, $token)) {
-                $violations[] = "app/Services/Ai/Voice/AtlasVoiceRealtimeService.php: AP-687 session lease must scope LiveKit rooms to Atlas Voice namespace [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Voice/AtlasVoiceRealtimeService.php: AP-687 session lease must scope LiveKit rooms to Atlas Voice namespace"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($tokenIssuer, [
             'readiness(): array',
             'atlas.voice_realtime.livekit_token_issuer_readiness.v1',
             "'secrets_exposed' => false",
@@ -2220,49 +2217,33 @@ class KernelArchitectureStaticScanner
             'livekit_room_outside_atlas_voice_namespace',
             'livekit_participant_outside_client_surface_namespace',
             'configure_livekit_token_issuer',
-        ] as $token) {
-            if (! str_contains($tokenIssuer, $token)) {
-                $violations[] = "app/Services/Ai/Voice/AtlasVoiceLiveKitTokenIssuer.php: AP-687 LiveKit token issuer readiness must be explicit and secret-safe [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Voice/AtlasVoiceLiveKitTokenIssuer.php: AP-687 LiveKit token issuer readiness must be explicit and secret-safe"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonContract, [
             'urlparse',
             'session_lease.room_prefix',
             'atlas-voice- namespace',
             'not isinstance(room_prefix, str)',
             '_absolute_http_url',
             'control characters',
-        ] as $token) {
-            if (! str_contains($pythonContract, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/contract.py: AP-687 Python runtime contract must reject unsafe manifest URLs and room prefixes outside Atlas Voice namespace [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/contract.py: AP-687 Python runtime contract must reject unsafe manifest URLs and room prefixes outside Atlas Voice namespace"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonContractTest, [
             'rejects_room_prefix_outside_atlas_voice_namespace',
             'rejects_kernel_url_with_control_characters',
             'rejects_kernel_url_without_host',
             'rogue-voice-',
             'LIVEKIT_API_SECRET=injected',
-        ] as $token) {
-            if (! str_contains($pythonContractTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_contract.py: AP-687 Python runtime contract URL and room namespace safety must be tested [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_contract.py: AP-687 Python runtime contract URL and room namespace safety must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSettings, [
             'urlparse',
             'control characters',
             'atlas-voice-',
             '_room_prefix',
-        ] as $token) {
-            if (! str_contains($pythonSettings, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/settings.py: AP-687 Python runtime settings must mirror Kernel URL and room namespace safety [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/settings.py: AP-687 Python runtime settings must mirror Kernel URL and room namespace safety"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSessionLease, [
             'urlparse',
             'ALLOWED_PARTICIPANT_NAMESPACES',
             '_atlas_voice_room',
@@ -2270,47 +2251,31 @@ class KernelArchitectureStaticScanner
             '_optional_url',
             'atlas-voice- namespace',
             'allowed client surface',
-        ] as $token) {
-            if (! str_contains($pythonSessionLease, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/session_lease.py: AP-687 Python runtime session leases must reject unsafe LiveKit URL, room and participant namespaces [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/session_lease.py: AP-687 Python runtime session leases must reject unsafe LiveKit URL, room and participant namespaces"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSessionLeaseTest, [
             'rejects_room_name_outside_atlas_voice_namespace',
             'rejects_participant_identity_outside_client_surface_namespace',
             'rejects_livekit_url_with_control_characters',
             'rejects_livekit_url_without_host',
             'LIVEKIT_API_SECRET=injected',
-        ] as $token) {
-            if (! str_contains($pythonSessionLeaseTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_session_lease.py: AP-687 Python runtime session lease namespace safety must be tested [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_session_lease.py: AP-687 Python runtime session lease namespace safety must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonMockKernel, [
             '_atlas_voice_room',
             '_participant_identity',
             'atlas-voice-',
             'mobile:',
             'mac_edge:',
-        ] as $token) {
-            if (! str_contains($pythonMockKernel, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/mock_kernel.py: AP-687 mock Kernel must normalize session leases like the real Kernel [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/mock_kernel.py: AP-687 mock Kernel must normalize session leases like the real Kernel"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonMockKernelTest, [
             'normalizes_unsafe_session_lease_namespaces',
             'atlas-voice-prod-room',
             'mobile:adminroot',
-        ] as $token) {
-            if (! str_contains($pythonMockKernelTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_mock_kernel.py: AP-687 mock Kernel namespace normalization must be tested [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_mock_kernel.py: AP-687 mock Kernel namespace normalization must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonRuntimeEntrypoint, [
             'production_promotion',
             'human_review_required',
             'decision_receipt_required',
@@ -2330,13 +2295,9 @@ class KernelArchitectureStaticScanner
             'callback_loop_wired',
             'production_sdk_loop_wired',
             'supervised_start_plan',
-        ] as $token) {
-            if (! str_contains($pythonRuntimeEntrypoint, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_runtime_entrypoint.py: AP-687 worker start must expose production promotion and human review guardrails [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/livekit_runtime_entrypoint.py: AP-687 worker start must expose production promotion and human review guardrails"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonRuntimeEntrypointTest, [
             'worker_start_without_production_promotion_allowed',
             'production_promotion',
             'human_review_required',
@@ -2356,13 +2317,9 @@ class KernelArchitectureStaticScanner
             'blocked_pending_daemon_implementation_review',
             'blocked_pending_human_review',
             'production_sdk_loop_wired',
-        ] as $token) {
-            if (! str_contains($pythonRuntimeEntrypointTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_runtime_entrypoint.py: AP-687 worker start production promotion guardrails must be tested [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_livekit_runtime_entrypoint.py: AP-687 worker start production promotion guardrails must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSupervisedStartPlan, [
             'atlas.voice_realtime.supervised_start_plan.v1',
             'atlas.voice_realtime.daemon_supervisor_contract.v1',
             'atlas.voice_realtime.daemon_supervisor_health_snapshot.v1',
@@ -2390,13 +2347,9 @@ class KernelArchitectureStaticScanner
             'start_without_supervisor_allowed',
             'unbounded_restart_loop_allowed',
             'implement_supervised_daemon_start',
-        ] as $token) {
-            if (! str_contains($pythonSupervisedStartPlan, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/supervised_start_plan.py: AP-687 supervised daemon start plan must remain fail-closed before real process launch [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/supervised_start_plan.py: AP-687 supervised daemon start plan must remain fail-closed before real process launch"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSupervisedStartPlanTest, [
             'test_blocks_until_human_review',
             'test_blocks_until_daemon_implementation_review',
             'test_ready_for_implementation_still_does_not_start',
@@ -2411,13 +2364,9 @@ class KernelArchitectureStaticScanner
             'ready_for_supervisor_execution_implementation',
             'worker_process_launch_disabled',
             'blocked_kernel_normalizer_contract',
-        ] as $token) {
-            if (! str_contains($pythonSupervisedStartPlanTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_supervised_start_plan.py: AP-687 supervised start plan must be tested fail-closed [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_supervised_start_plan.py: AP-687 supervised start plan must be tested fail-closed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonDaemonImplementationReview, [
             'atlas.voice_realtime.daemon_implementation_review.v1',
             'atlas.voice_realtime.daemon_implementation_review_check.v1',
             'validate_daemon_implementation_review',
@@ -2428,13 +2377,9 @@ class KernelArchitectureStaticScanner
             'supervised_start_required_must_be_true',
             'direct_provider_call_allowed_must_be_false',
             'raw_audio_persistence_allowed_must_be_false',
-        ] as $token) {
-            if (! str_contains($pythonDaemonImplementationReview, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/daemon_implementation_review.py: AP-687 daemon implementation review must be a separate fail-closed receipt [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/daemon_implementation_review.py: AP-687 daemon implementation review must be a separate fail-closed receipt"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonDaemonImplementationReviewTest, [
             'test_valid_daemon_implementation_review_is_approved_and_sanitized',
             'test_missing_daemon_implementation_review_is_not_approved',
             'test_rejects_review_without_required_rollback_actions',
@@ -2443,13 +2388,9 @@ class KernelArchitectureStaticScanner
             'commit:voice-daemon-reviewed',
             'direct_provider_call_from_daemon',
             'start_without_supervisor',
-        ] as $token) {
-            if (! str_contains($pythonDaemonImplementationReviewTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_daemon_implementation_review.py: AP-687 daemon implementation review receipt must be tested [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_daemon_implementation_review.py: AP-687 daemon implementation review receipt must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonDaemonSupervisor, [
             'atlas.voice_realtime.daemon_supervisor_execution.v1',
             'atlas.voice_realtime.daemon_process_adapter_blueprint.v1',
             'AtlasVoiceDaemonSupervisor',
@@ -2473,13 +2414,9 @@ class KernelArchitectureStaticScanner
             'VOICE_DAEMON_START_BLOCKED',
             'process_launch_allowed_by_this_contract',
             'implement_reviewed_process_adapter',
-        ] as $token) {
-            if (! str_contains($pythonDaemonSupervisor, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/daemon_supervisor.py: AP-687 daemon supervisor execution boundary must exist and remain fail-closed [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/daemon_supervisor.py: AP-687 daemon supervisor execution boundary must exist and remain fail-closed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonDaemonSupervisorTest, [
             'test_ready_worker_reaches_process_adapter_boundary_without_launch',
             'test_blocks_when_receipts_are_missing',
             'test_blocks_when_preflight_is_not_ready',
@@ -2494,13 +2431,9 @@ class KernelArchitectureStaticScanner
             'daemon_started',
             'process_adapter_implemented',
             'process_launch_allowed_by_this_contract',
-        ] as $token) {
-            if (! str_contains($pythonDaemonSupervisorTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_daemon_supervisor.py: AP-687 daemon supervisor execution boundary must be tested fail-closed [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_daemon_supervisor.py: AP-687 daemon supervisor execution boundary must be tested fail-closed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSupervisedProcessAdapter, [
             'atlas.voice_realtime.supervised_process_adapter.v1',
             'AtlasVoiceSupervisedProcessAdapter',
             'inspect_supervised_process_adapter',
@@ -2542,13 +2475,9 @@ class KernelArchitectureStaticScanner
             'process_launch_attempted',
             'daemon_started',
             'launch_allowed',
-        ] as $token) {
-            if (! str_contains($pythonSupervisedProcessAdapter, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/supervised_process_adapter.py: AP-687 supervised process adapter shell must exist and remain fail-closed [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/supervised_process_adapter.py: AP-687 supervised process adapter shell must exist and remain fail-closed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSupervisedProcessAdapterTest, [
             'test_inspects_ready_supervisor_without_launching_process',
             'test_blocks_when_supervisor_execution_is_not_ready',
             'atlas.voice_realtime.supervised_process_adapter.v1',
@@ -2577,13 +2506,9 @@ class KernelArchitectureStaticScanner
             'atlas.voice_realtime.subprocess_start_contract.v1',
             'VOICE_DAEMON_SUBPROCESS_START_CONTRACT_EVALUATED',
             'VOICE_DAEMON_SUPERVISED_LAUNCH_EVALUATED',
-        ] as $token) {
-            if (! str_contains($pythonSupervisedProcessAdapterTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_supervised_process_adapter.py: AP-687 supervised process adapter shell must be tested fail-closed [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_supervised_process_adapter.py: AP-687 supervised process adapter shell must be tested fail-closed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonManagedEnvWriter, [
             'atlas.voice_realtime.managed_env_writer.v1',
             'inspect_managed_env_writer',
             'contract_only_no_file_write',
@@ -2603,13 +2528,9 @@ class KernelArchitectureStaticScanner
             'VOICE_DAEMON_MANAGED_ENV_WRITER_EVALUATED',
             'VOICE_DAEMON_MANAGED_ENV_WRITE_BLOCKED',
             'start_process_after_env_render',
-        ] as $token) {
-            if (! str_contains($pythonManagedEnvWriter, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/managed_env_writer.py: AP-687 managed env writer contract must exist without writing env files [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/managed_env_writer.py: AP-687 managed env writer contract must exist without writing env files"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonManagedEnvWriterTest, [
             'test_writer_contract_is_ready_without_writing_env_file_or_leaking_secret',
             'test_writer_blocks_unsafe_manifest_values',
             'test_execute_managed_env_write_requires_explicit_authorization',
@@ -2623,13 +2544,9 @@ class KernelArchitectureStaticScanner
             'write_env_file_from_writer_contract',
             'literal-secret-value',
             '0o600',
-        ] as $token) {
-            if (! str_contains($pythonManagedEnvWriterTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_managed_env_writer.py: AP-687 managed env writer contract must be tested fail-closed [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_managed_env_writer.py: AP-687 managed env writer contract must be tested fail-closed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSupervisedLaunchExecution, [
             'atlas.voice_realtime.supervised_launch_execution.v1',
             'inspect_supervised_launch_execution',
             'atlas.voice_realtime.launch_execution_authorization.v1',
@@ -2664,13 +2581,9 @@ class KernelArchitectureStaticScanner
             'implement_real_subprocess_start_after_final_review',
             'start_without_launch_execution_decision_receipt',
             'call_provider_from_launch_execution',
-        ] as $token) {
-            if (! str_contains($pythonSupervisedLaunchExecution, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/supervised_launch_execution.py: AP-687 supervised launch execution contract must exist without starting subprocess [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/supervised_launch_execution.py: AP-687 supervised launch execution contract must exist without starting subprocess"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSupervisedLaunchExecutionTest, [
             'test_launch_execution_contract_is_available_but_blocked_without_written_env',
             'test_launch_execution_becomes_ready_after_written_env_and_authorization_without_starting',
             'test_launch_execution_blocks_if_authorization_would_allow_process_launch',
@@ -2699,44 +2612,28 @@ class KernelArchitectureStaticScanner
             'VOICE_DAEMON_PRE_START_HEALTH_CHECKS_EVALUATED',
             'VOICE_DAEMON_SUBPROCESS_START_CONTRACT_EVALUATED',
             'import_subprocess_from_launch_execution_contract',
-        ] as $token) {
-            if (! str_contains($pythonSupervisedLaunchExecutionTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_supervised_launch_execution.py: AP-687 supervised launch execution contract must be tested fail-closed [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_supervised_launch_execution.py: AP-687 supervised launch execution contract must be tested fail-closed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonActivationContract, [
             'production_sdk_loop_wired',
             'start_worker_before_production_sdk_loop_wired',
             'wire_production_sdk_loop',
-        ] as $token) {
-            if (! str_contains($pythonActivationContract, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/activation_contract.py: AP-687 activation contract must require production SDK loop wiring before worker start [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/activation_contract.py: AP-687 activation contract must require production SDK loop wiring before worker start"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonActivationContractTest, [
             'test_activation_contract_blocks_until_production_sdk_loop_is_wired',
             'production_sdk_loop_wired',
             'wire_production_sdk_loop',
-        ] as $token) {
-            if (! str_contains($pythonActivationContractTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_activation_contract.py: AP-687 activation contract production SDK loop gate must be tested [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_activation_contract.py: AP-687 activation contract production SDK loop gate must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSettingsTest, [
             'rejects_urls_with_control_characters',
             'rejects_room_prefix_outside_atlas_voice_namespace',
             'LIVEKIT_API_SECRET=injected',
             'atlas-voice-from-file-',
-        ] as $token) {
-            if (! str_contains($pythonSettingsTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_settings.py: AP-687 Python runtime settings safety must be tested [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_settings.py: AP-687 Python runtime settings safety must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($command, [
             'Production promotion',
             'Human review required',
             'PYTHON_COMMAND_TIMEOUT_SECONDS',
@@ -2754,23 +2651,15 @@ class KernelArchitectureStaticScanner
             'Daemon supervisor launch attempted',
             'product-loop-check',
             'daemon-supervisor-check',
-        ] as $token) {
-            if (! str_contains($command, $token)) {
-                $violations[] = "app/Console/Commands/AtlasAiVoiceRealtimeCommand.php: AP-687 CLI must surface production promotion status and human review requirement [{$token}]";
-            }
-        }
+        ], "app/Console/Commands/AtlasAiVoiceRealtimeCommand.php: AP-687 CLI must surface production promotion status and human review requirement"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($tokenIssuerTest, [
             'rejects_rooms_outside_atlas_voice_namespace',
             'rejects_participants_outside_client_surface_namespace',
             'not_issued_invalid_lease',
-        ] as $token) {
-            if (! str_contains($tokenIssuerTest, $token)) {
-                $violations[] = "tests/Unit/Ai/Voice/AtlasVoiceLiveKitTokenIssuerTest.php: AP-687 token issuer must reject arbitrary room and participant leases [{$token}]";
-            }
-        }
+        ], "tests/Unit/Ai/Voice/AtlasVoiceLiveKitTokenIssuerTest.php: AP-687 token issuer must reject arbitrary room and participant leases"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($unitTest, [
             'production_promotion_gate.status',
             'production_promotion_gate.promotion_allowed',
             'auto_promotion_allowed',
@@ -2831,13 +2720,9 @@ class KernelArchitectureStaticScanner
             'daemon_implementation_review_valid',
             'artifacts.product_loop_check',
             'product-loop-secret',
-        ] as $token) {
-            if (! str_contains($unitTest, $token)) {
-                $violations[] = "tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php: AP-687 production promotion gate must be covered by unit tests [{$token}]";
-            }
-        }
+        ], "tests/Unit/Ai/Voice/AtlasVoiceRuntimeCertificationServiceTest.php: AP-687 production promotion gate must be covered by unit tests"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($commandTest, [
             'Production promotion',
             'Human review required',
             'production_promotion_gate.status',
@@ -2924,13 +2809,9 @@ class KernelArchitectureStaticScanner
             'product_loop_check_available',
             'artifacts.product_loop_check',
             'timeout_seconds',
-        ] as $token) {
-            if (! str_contains($commandTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php: AP-687 CLI promotion gate output must be tested [{$token}]";
-            }
-        }
+        ], "tests/Feature/Ai/AtlasAiVoiceRealtimeCommandTest.php: AP-687 CLI promotion gate output must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($apiTest, [
             'production_promotion_gate.schema_version',
             'production_promotion_gate.promotion_allowed',
             'livekit_token_issuer.schema_version',
@@ -2942,13 +2823,9 @@ class KernelArchitectureStaticScanner
             'sdk_handler_blueprint_available',
             'sdk_kernel_normalizer_required',
             'artifacts.product_loop_check',
-        ] as $token) {
-            if (! str_contains($apiTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php: AP-687 API/mobile promotion gate and token issuer artifacts must be tested [{$token}]";
-            }
-        }
+        ], "tests/Feature/Ai/AtlasAiVoiceRealtimeApiTest.php: AP-687 API/mobile promotion gate and token issuer artifacts must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($apDoc, [
             'status: implemented_ready',
             'production_promotion_gate.status=blocked',
             'promotion_allowed=false',
@@ -2989,13 +2866,9 @@ class KernelArchitectureStaticScanner
             '--production-sdk-loop-wired',
             'runtime-certify',
             'status=blocked',
-        ] as $token) {
-            if (! str_contains($apDoc, $token)) {
-                $violations[] = "docs/ap/AP-687-voice-realtime-production-promotion-gate.md: AP-687 implementation contract must remain documented [{$token}]";
-            }
-        }
+        ], "docs/ap/AP-687-voice-realtime-production-promotion-gate.md: AP-687 implementation contract must remain documented"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($doc, [
             'AP-687',
             'production_promotion_gate',
             'phase0_hardening',
@@ -3021,13 +2894,9 @@ class KernelArchitectureStaticScanner
             'ready_for_supervised_start_implementation',
             'blocked_pending_daemon_implementation_review',
             'production_sdk_loop_wired',
-        ] as $token) {
-            if (! str_contains($doc, $token)) {
-                $violations[] = "docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md: AP-687 owner doc must keep production promotion governance [{$token}]";
-            }
-        }
+        ], "docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md: AP-687 owner doc must keep production promotion governance"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonProductionLoopRunnerTest, [
             'test_bridge_contract_report_fails_closed_for_missing_callback_or_guardrail',
             'test_handler_registry_contract_report_fails_closed_for_missing_handler_or_guardrail',
             'handler_registry_contract_report',
@@ -3036,26 +2905,18 @@ class KernelArchitectureStaticScanner
             'direct_provider_call_allowed',
             'missing_callbacks',
             'invalid_guardrails',
-        ] as $token) {
-            if (! str_contains($pythonProductionLoopRunnerTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_production_loop_runner.py: AP-687 production loop smoke must fail closed when bridge callbacks or guardrails regress [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_livekit_production_loop_runner.py: AP-687 production loop smoke must fail closed when bridge callbacks or guardrails regress"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonProductionLoopRunner, [
             'LiveKitSdkHandlerRegistry',
             'handler_registry_contract_report',
             'atlas.voice_realtime.handler_registry_contract_report.v1',
             '_handler_registry_contract_report',
             'missing_handlers',
             'sdk_import_safe',
-        ] as $token) {
-            if (! str_contains($pythonProductionLoopRunner, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_production_loop_runner.py: AP-687 production smoke must pass through SDK handler registry [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/livekit_production_loop_runner.py: AP-687 production smoke must pass through SDK handler registry"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSdkWiringContract, [
             'handler_blueprint',
             'handler_registry_contract',
             'complete_handler_registry',
@@ -3070,13 +2931,9 @@ class KernelArchitectureStaticScanner
             'kernel_event_normalizer_required_for_real_loop',
             'return_LiveKitWorkerResult_log_payload_only',
             'never_call_provider_tool_memory_or_policy_from_sdk_handler',
-        ] as $token) {
-            if (! str_contains($pythonSdkWiringContract, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_wiring_contract.py: AP-687 SDK wiring contract must document exact handler blueprint and Kernel-only invariants [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_wiring_contract.py: AP-687 SDK wiring contract must document exact handler blueprint and Kernel-only invariants"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSdkWiringContractTest, [
             'test_wiring_contract_uses_bridge_and_router_as_sources_of_truth',
             'handler_blueprint',
             'handler_registry_contract',
@@ -3089,13 +2946,9 @@ class KernelArchitectureStaticScanner
             'never_call_provider_tool_memory_or_policy_from_sdk_handler',
             'kernel_event_normalizer_required_for_real_loop',
             'provider SDK call',
-        ] as $token) {
-            if (! str_contains($pythonSdkWiringContractTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_sdk_wiring_contract.py: AP-687 SDK wiring blueprint must be tested [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_livekit_sdk_wiring_contract.py: AP-687 SDK wiring blueprint must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSdkHandlers, [
             'atlas.voice_realtime.sdk_handler_registry.v1',
             'LiveKitSdkHandlerRegistry',
             'KernelRuntimeEventNormalizerGuard',
@@ -3107,13 +2960,9 @@ class KernelArchitectureStaticScanner
             'memory_write_allowed',
             'policy_mutation_allowed',
             'sdk_import_required_for_contract',
-        ] as $token) {
-            if (! str_contains($pythonSdkHandlers, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_handlers.py: AP-687 SDK handlers must route real SDK callbacks through Kernel-only registry [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/livekit_sdk_handlers.py: AP-687 SDK handlers must route real SDK callbacks through Kernel-only registry"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSdkHandlersTest, [
             'test_handler_registry_contract_is_complete_without_importing_sdk',
             'test_handlers_route_sdk_events_through_kernel_only_router',
             'test_handlers_validate_sdk_events_with_kernel_normalizer_before_routing',
@@ -3122,13 +2971,9 @@ class KernelArchitectureStaticScanner
             'KernelRuntimeEventNormalizerGuard',
             'direct_provider_call',
             'audio_bytes',
-        ] as $token) {
-            if (! str_contains($pythonSdkHandlersTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_livekit_sdk_handlers.py: AP-687 SDK handler registry must be tested fail-closed [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_livekit_sdk_handlers.py: AP-687 SDK handler registry must be tested fail-closed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonProductLoopCheck, [
             'atlas.voice_realtime.product_loop_check.v1',
             'build_product_loop_check',
             'daemon_started',
@@ -3170,13 +3015,9 @@ class KernelArchitectureStaticScanner
             'ready_for_supervised_start_implementation',
             'submit_daemon_implementation_review',
             'implement_supervised_daemon_start',
-        ] as $token) {
-            if (! str_contains($pythonProductLoopCheck, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/product_loop_check.py: AP-687 product loop check must aggregate readiness without starting daemon [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/product_loop_check.py: AP-687 product loop check must aggregate readiness without starting daemon"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonProductLoopCheckTest, [
             'test_product_loop_check_aggregates_wired_gates_without_starting_daemon',
             'test_product_loop_check_never_treats_mock_kernel_as_product_ready',
             'test_product_loop_check_blocks_if_sdk_probe_contract_was_bypassed',
@@ -3221,46 +3062,30 @@ class KernelArchitectureStaticScanner
             'fix_sdk_handler_blueprint_contract',
             'fix_sdk_kernel_normalizer_contract',
             'fix_sdk_probe_contract',
-        ] as $token) {
-            if (! str_contains($pythonProductLoopCheckTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_product_loop_check.py: AP-687 product loop check must be tested fail-closed [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_product_loop_check.py: AP-687 product loop check must be tested fail-closed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSdkStatus, [
             'metadata.version',
             'package_checks',
             'missing_imports',
             'sdk_imported',
             'import_probe_only',
             'probe_policy',
-        ] as $token) {
-            if (! str_contains($pythonSdkStatus, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/atlas_voice_agent/sdk_status.py: AP-687 SDK status must be import-safe and expose package compatibility checks [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/atlas_voice_agent/sdk_status.py: AP-687 SDK status must be import-safe and expose package compatibility checks"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($pythonSdkStatusTest, [
             'test_sdk_check_reports_package_checks_without_importing_sdk',
             'sdk_imported',
             'import_probe_only',
             'package_checks',
             'missing_imports',
             'probe_policy',
-        ] as $token) {
-            if (! str_contains($pythonSdkStatusTest, $token)) {
-                $violations[] = "runtimes/python/voice_realtime/tests/test_sdk_status.py: AP-687 SDK status probe contract must be tested [{$token}]";
-            }
-        }
+        ], "runtimes/python/voice_realtime/tests/test_sdk_status.py: AP-687 SDK status probe contract must be tested"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($staticScanDoc, [
             'Voice production promotion (AP-687)',
             'voice runtime being promoted to production',
-        ] as $token) {
-            if (! str_contains($staticScanDoc, $token)) {
-                $violations[] = "docs/engineering-knowledge-base/kernel/static-scans.md: AP-687 static scan behavior must be documented [{$token}]";
-            }
-        }
+        ], "docs/engineering-knowledge-base/kernel/static-scans.md: AP-687 static scan behavior must be documented"));
 
         return $violations;
     }
@@ -5750,42 +5575,42 @@ class KernelArchitectureStaticScanner
         $modelSelectionDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md');
         $dynamicComputeMarketApPath = base_path('docs/ap/AP-147-dynamic-compute-market-shadow-surface.md');
 
-        $payload = File::exists($payloadPath) ? File::get($payloadPath) : '';
-        $projection = File::exists($projectionPath) ? File::get($projectionPath) : '';
-        $worker = File::exists($workerPath) ? File::get($workerPath) : '';
-        $strategy = File::exists($strategyPath) ? File::get($strategyPath) : '';
-        $dynamicComputeMarket = File::exists($dynamicComputeMarketPath) ? File::get($dynamicComputeMarketPath) : '';
-        $dynamicComputeMarketReport = File::exists($dynamicComputeMarketReportPath) ? File::get($dynamicComputeMarketReportPath) : '';
-        $dynamicComputeMarketCommand = File::exists($dynamicComputeMarketCommandPath) ? File::get($dynamicComputeMarketCommandPath) : '';
-        $dynamicComputeMarketApi = File::exists($dynamicComputeMarketApiPath) ? File::get($dynamicComputeMarketApiPath) : '';
-        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
-        $inboxActions = File::exists($inboxActionsPath) ? File::get($inboxActionsPath) : '';
-        $costRateService = File::exists($costRateServicePath) ? File::get($costRateServicePath) : '';
-        $costRateCommand = File::exists($costRateCommandPath) ? File::get($costRateCommandPath) : '';
-        $replayService = File::exists($replayServicePath) ? File::get($replayServicePath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $api = File::exists($apiPath) ? File::get($apiPath) : '';
-        $observability = File::exists($observabilityPath) ? File::get($observabilityPath) : '';
-        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
-        $bootstrap = File::exists($bootstrapPath) ? File::get($bootstrapPath) : '';
-        $projectionTest = File::exists($projectionTestPath) ? File::get($projectionTestPath) : '';
-        $workerTest = File::exists($workerTestPath) ? File::get($workerTestPath) : '';
-        $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
-        $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
-        $dynamicComputeMarketCommandTest = File::exists($dynamicComputeMarketCommandTestPath) ? File::get($dynamicComputeMarketCommandTestPath) : '';
-        $dynamicComputeMarketApiTest = File::exists($dynamicComputeMarketApiTestPath) ? File::get($dynamicComputeMarketApiTestPath) : '';
-        $selfImprovementRuntimeTest = File::exists($selfImprovementRuntimeTestPath) ? File::get($selfImprovementRuntimeTestPath) : '';
-        $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $decideReceiptTest = File::exists($decideReceiptTestPath) ? File::get($decideReceiptTestPath) : '';
-        $telemetryMetricsTest = File::exists($telemetryMetricsTestPath) ? File::get($telemetryMetricsTestPath) : '';
-        $telemetryDiagnosticsTest = File::exists($telemetryDiagnosticsTestPath) ? File::get($telemetryDiagnosticsTestPath) : '';
-        $telemetryDoc = File::exists($telemetryDocPath) ? File::get($telemetryDocPath) : '';
-        $modelSelectionDoc = File::exists($modelSelectionDocPath) ? File::get($modelSelectionDocPath) : '';
-        $dynamicComputeMarketAp = File::exists($dynamicComputeMarketApPath) ? File::get($dynamicComputeMarketApPath) : '';
+        $payload = $this->fileContents($payloadPath);
+        $projection = $this->fileContents($projectionPath);
+        $worker = $this->fileContents($workerPath);
+        $strategy = $this->fileContents($strategyPath);
+        $dynamicComputeMarket = $this->fileContents($dynamicComputeMarketPath);
+        $dynamicComputeMarketReport = $this->fileContents($dynamicComputeMarketReportPath);
+        $dynamicComputeMarketCommand = $this->fileContents($dynamicComputeMarketCommandPath);
+        $dynamicComputeMarketApi = $this->fileContents($dynamicComputeMarketApiPath);
+        $selfImprovement = $this->fileContents($selfImprovementPath);
+        $inboxActions = $this->fileContents($inboxActionsPath);
+        $costRateService = $this->fileContents($costRateServicePath);
+        $costRateCommand = $this->fileContents($costRateCommandPath);
+        $replayService = $this->fileContents($replayServicePath);
+        $command = $this->fileContents($commandPath);
+        $mcp = $this->fileContents($mcpPath);
+        $api = $this->fileContents($apiPath);
+        $observability = $this->fileContents($observabilityPath);
+        $routes = $this->fileContents($routesPath);
+        $bootstrap = $this->fileContents($bootstrapPath);
+        $projectionTest = $this->fileContents($projectionTestPath);
+        $workerTest = $this->fileContents($workerTestPath);
+        $commandTest = $this->fileContents($commandTestPath);
+        $mcpTest = $this->fileContents($mcpTestPath);
+        $apiTest = $this->fileContents($apiTestPath);
+        $dynamicComputeMarketCommandTest = $this->fileContents($dynamicComputeMarketCommandTestPath);
+        $dynamicComputeMarketApiTest = $this->fileContents($dynamicComputeMarketApiTestPath);
+        $selfImprovementRuntimeTest = $this->fileContents($selfImprovementRuntimeTestPath);
+        $observabilityTest = $this->fileContents($observabilityTestPath);
+        $decideReceiptTest = $this->fileContents($decideReceiptTestPath);
+        $telemetryMetricsTest = $this->fileContents($telemetryMetricsTestPath);
+        $telemetryDiagnosticsTest = $this->fileContents($telemetryDiagnosticsTestPath);
+        $telemetryDoc = $this->fileContents($telemetryDocPath);
+        $modelSelectionDoc = $this->fileContents($modelSelectionDocPath);
+        $dynamicComputeMarketAp = $this->fileContents($dynamicComputeMarketApPath);
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($payload, [
             'class ProviderUsagePayload',
             "public const SCHEMA_VERSION = 'atlas.provider_usage.v1'",
             'public function called(AiJob $job, AiJobAttempt $attempt',
@@ -5803,13 +5628,9 @@ class KernelArchitectureStaticScanner
             "'cost_microusd'",
             "'cost_confidence'",
             "'cost_mode'",
-        ] as $token) {
-            if (! str_contains($payload, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php: provider usage payload must keep AP-99 normalized field [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Kernel/Evidence/ProviderUsagePayload.php: provider usage payload must keep AP-99 normalized field"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($projection, [
             'class ProviderPerformanceProjection',
             'public function reportForWindow(CarbonInterface $since',
             'LedgerEventType::ProviderReturned',
@@ -5823,13 +5644,9 @@ class KernelArchitectureStaticScanner
             "'average_cost_microusd'",
             "'cost_confidence_counts'",
             "'groups'",
-        ] as $token) {
-            if (! str_contains($projection, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Evidence/ProviderPerformanceProjection.php: provider performance projection must aggregate AP-99 ledger events [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Kernel/Evidence/ProviderPerformanceProjection.php: provider performance projection must aggregate AP-99 ledger events"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($worker, [
             'ProviderUsagePayload $providerUsage',
             'LedgerEventType::ProviderCalled',
             'LedgerEventType::ProviderReturned',
@@ -5837,23 +5654,15 @@ class KernelArchitectureStaticScanner
             '$this->providerUsage->called(',
             '$this->providerUsage->returned(',
             '$this->providerUsage->fallback(',
-        ] as $token) {
-            if (! str_contains($worker, $token)) {
-                $violations[] = "app/Services/Ai/AiWorker.php: worker must emit normalized provider usage events for AP-99 [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/AiWorker.php: worker must emit normalized provider usage events for AP-99"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($strategy, [
             'ProviderPerformanceProjection $performance',
             "'empirical_performance'",
             '$this->performance->reportForWindow(',
-        ] as $token) {
-            if (! str_contains($strategy, $token)) {
-                $violations[] = "app/Services/Ai/Cli/AtlasCliProviderStrategyService.php: Strategy Matrix must expose AP-99 empirical performance projection [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Cli/AtlasCliProviderStrategyService.php: Strategy Matrix must expose AP-99 empirical performance projection"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($dynamicComputeMarket, [
             'class DynamicComputeMarketAdvisor',
             'ProviderPerformanceProjection $providerPerformance',
             "'mode' => 'shadow_advisory'",
@@ -5878,13 +5687,9 @@ class KernelArchitectureStaticScanner
             "'recommendation_reason'",
             "'benchmark_candidate'",
             'run_controlled_provider_benchmark_before_policy_change',
-        ] as $token) {
-            if (! str_contains($dynamicComputeMarket, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Decision/DynamicComputeMarketAdvisor.php: Dynamic Compute Market must stay advisory, explainable, and non-routing [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Kernel/Decision/DynamicComputeMarketAdvisor.php: Dynamic Compute Market must stay advisory, explainable, and non-routing"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($dynamicComputeMarketReport, [
             'class DynamicComputeMarketReportService',
             'DynamicComputeMarketAdvisor $advisor',
             "'schema_version' => 'atlas.dynamic_compute_market_report.v1'",
@@ -5892,37 +5697,25 @@ class KernelArchitectureStaticScanner
             "'authority' => 'read_only_no_routing_change'",
             "'dynamic_compute_market' => \$market",
             'private function requiredScalar',
-        ] as $token) {
-            if (! str_contains($dynamicComputeMarketReport, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Decision/DynamicComputeMarketReportService.php: Dynamic Compute Market report service must stay read-only and advisor-backed [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Kernel/Decision/DynamicComputeMarketReportService.php: Dynamic Compute Market report service must stay read-only and advisor-backed"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($dynamicComputeMarketCommand, [
             "protected \$signature = 'atlas:ai:dynamic-compute-market",
             'DynamicComputeMarketReportService $reports',
             "'status' => 'invalid_input'",
             'Atlas Dynamic Compute Market',
             'Changes provider',
-        ] as $token) {
-            if (! str_contains($dynamicComputeMarketCommand, $token)) {
-                $violations[] = "app/Console/Commands/AtlasAiDynamicComputeMarketCommand.php: Dynamic Compute Market CLI must expose governed read-only advice [{$token}]";
-            }
-        }
+        ], "app/Console/Commands/AtlasAiDynamicComputeMarketCommand.php: Dynamic Compute Market CLI must expose governed read-only advice"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($dynamicComputeMarketApi, [
             'class AtlasAiDynamicComputeMarketController',
             'DynamicComputeMarketReportService $reports',
             "'provider' => ['required', 'string', 'max:120']",
             '$reports->report($data)',
             "=== 'ok' ? 200 : 503",
-        ] as $token) {
-            if (! str_contains($dynamicComputeMarketApi, $token)) {
-                $violations[] = "app/Http/Controllers/AtlasAiDynamicComputeMarketController.php: Dynamic Compute Market API must expose authenticated read-only report contract [{$token}]";
-            }
-        }
+        ], "app/Http/Controllers/AtlasAiDynamicComputeMarketController.php: Dynamic Compute Market API must expose authenticated read-only report contract"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($selfImprovement, [
             'ProviderPerformanceProjection $providerPerformance',
             'DynamicComputeMarketAdvisor $dynamicComputeMarket',
             'providerPerformanceFindings(',
@@ -5935,63 +5728,43 @@ class KernelArchitectureStaticScanner
             'self-improvement:dynamic-compute-market:',
             'configure_provider_cost_rates',
             'atlas.provider_usage.v1',
-        ] as $token) {
-            if (! str_contains($selfImprovement, $token)) {
-                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: provider_performance_review must consume AP-99 projection [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: provider_performance_review must consume AP-99 projection"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($inboxActions, [
             "'configure_provider_cost_rates' => \$this->configureProviderCostRates(\$locked, \$input)",
             'private readonly AiProviderCostRateService $providerCostRates',
             'private function configureProviderCostRates(AiInboxItem $item, array $input): array',
             "'schema_version' => 'atlas.inbox_action.provider_cost_rates.v1'",
             '$this->providerCostRates->upsert($rateTemplate)',
-        ] as $token) {
-            if (! str_contains($inboxActions, $token)) {
-                $violations[] = "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-99 provider cost-rate Inbox action must close unknown-cost findings [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Mobile/InboxActionRegistry.php: AP-99 provider cost-rate Inbox action must close unknown-cost findings"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($costRateService, [
             'private function requiredString',
             'private function nonNegativeInt',
             'private function currency',
             'effective_until must not be before effective_from.',
             '{$field} must be greater than or equal to 0.',
             'currency must be a 3 to 8 character code.',
-        ] as $token) {
-            if (! str_contains($costRateService, $token)) {
-                $violations[] = "app/Services/Ai/Telemetry/AiProviderCostRateService.php: AP-99 cost rates must reject invalid provider/model/rate windows before contaminating AP-99 [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Telemetry/AiProviderCostRateService.php: AP-99 cost rates must reject invalid provider/model/rate windows before contaminating AP-99"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($costRateCommand, [
             'private function renderError',
             "'ok' => false",
             'Invalid cost rate input:',
             "'currency'",
             "'input uUSD/1K'",
             "'output uUSD/1K'",
-        ] as $token) {
-            if (! str_contains($costRateCommand, $token)) {
-                $violations[] = "app/Console/Commands/AiTelemetryCostRatesCommand.php: AP-99 cost-rate CLI must report governed validation failures [{$token}]";
-            }
-        }
+        ], "app/Console/Commands/AiTelemetryCostRatesCommand.php: AP-99 cost-rate CLI must report governed validation failures"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($replayService, [
             'provider_cost_rate_action_count',
             'provider_cost_rate_applied_count',
             'provider_cost_rate_provider_counts',
             'configure_provider_cost_rates_action_without_applied_rate',
             'provider_cost_rates_configured',
-        ] as $token) {
-            if (! str_contains($replayService, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-99 provider cost-rate Inbox action must be projected in replay reports [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: AP-99 provider cost-rate Inbox action must be projected in replay reports"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($command, [
             "protected \$signature = 'atlas:ai:provider-performance",
             'ProviderPerformanceProjection $performance',
             '$performance->reportForWindow(',
@@ -5999,22 +5772,14 @@ class KernelArchitectureStaticScanner
             '{--provider=',
             '{--specialist-profile=',
             "data_get(\$report, 'review_signal.status'",
-        ] as $token) {
-            if (! str_contains($command, $token)) {
-                $violations[] = "app/Console/Commands/AtlasAiProviderPerformanceCommand.php: AP-99 must expose provider performance through CLI read model [{$token}]";
-            }
-        }
+        ], "app/Console/Commands/AtlasAiProviderPerformanceCommand.php: AP-99 must expose provider performance through CLI read model"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($bootstrap, [
             'AtlasAiProviderPerformanceCommand::class',
             'AtlasAiDynamicComputeMarketCommand::class',
-        ] as $token) {
-            if (! str_contains($bootstrap, $token)) {
-                $violations[] = "bootstrap/app.php: AP-99 provider performance CLI command must be registered [{$token}]";
-            }
-        }
+        ], "bootstrap/app.php: AP-99 provider performance CLI command must be registered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($mcp, [
             'ProviderPerformanceProjection $providerPerformance',
             "'name' => 'atlas_provider_performance_report'",
             "'atlas_provider_performance_report' => \$this->toolResponse(\$id, \$this->providerPerformanceReport(\$arguments))",
@@ -6024,67 +5789,43 @@ class KernelArchitectureStaticScanner
             "'atlas_dynamic_compute_market_report' => \$this->toolResponse(\$id, \$this->dynamicComputeMarketReport(\$arguments))",
             'dynamicComputeMarketReport(array $arguments)',
             'DynamicComputeMarketReportService $dynamicComputeMarketReports',
-        ] as $token) {
-            if (! str_contains($mcp, $token)) {
-                $violations[] = "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-99 provider performance must be available as a read-only MCP report [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/AtlasOpenBrainMcpService.php: AP-99 provider performance must be available as a read-only MCP report"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($api, [
             'class AtlasAiProviderPerformanceController',
             'ProviderPerformanceProjection $performance',
             'KernelReplayReportInput $input',
             '$performance->reportForWindow(',
             "'provider_performance'",
             "'ledger_unavailable'",
-        ] as $token) {
-            if (! str_contains($api, $token)) {
-                $violations[] = "app/Http/Controllers/AtlasAiProviderPerformanceController.php: AP-99 provider performance API must expose the shared read model [{$token}]";
-            }
-        }
+        ], "app/Http/Controllers/AtlasAiProviderPerformanceController.php: AP-99 provider performance API must expose the shared read model"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($routes, [
             'AtlasAiProviderPerformanceController::class',
             "'/ai/provider-performance'",
             'AtlasAiDynamicComputeMarketController::class',
             "'/ai/dynamic-compute-market'",
-        ] as $token) {
-            if (! str_contains($routes, $token)) {
-                $violations[] = "routes/api.php: AP-99 provider performance API route must be registered [{$token}]";
-            }
-        }
+        ], "routes/api.php: AP-99 provider performance API route must be registered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($observability, [
             'ProviderPerformanceProjection $providerPerformance',
             '$providerPerformance->reportForWindow($since)',
             "'provider_performance' => \$providerPerformanceReport",
-        ] as $token) {
-            if (! str_contains($observability, $token)) {
-                $violations[] = "app/Http/Controllers/AiObservabilityController.php: AP-99 provider performance must appear in Observability through the shared projection [{$token}]";
-            }
-        }
+        ], "app/Http/Controllers/AiObservabilityController.php: AP-99 provider performance must appear in Observability through the shared projection"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($projectionTest, [
             'ProviderPerformanceProjectionTest',
             'provider_performance_projection_groups',
             'ProviderUsagePayload::SCHEMA_VERSION',
-        ] as $token) {
-            if (! str_contains($projectionTest, $token)) {
-                $violations[] = "tests/Unit/Ai/ProviderPerformanceProjectionTest.php: AP-99 projection contract must have focused tests [{$token}]";
-            }
-        }
+        ], "tests/Unit/Ai/ProviderPerformanceProjectionTest.php: AP-99 projection contract must have focused tests"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($workerTest, [
             'atlas.provider_usage.v1',
             "'router_fallback_provider'",
             "'selection_mode'",
-        ] as $token) {
-            if (! str_contains($workerTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AiWorkerProviderChoiceTest.php: AP-99 worker hot path must assert normalized provider usage payload [{$token}]";
-            }
-        }
+        ], "tests/Feature/Ai/AiWorkerProviderChoiceTest.php: AP-99 worker hot path must assert normalized provider usage payload"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($commandTest, [
             'AtlasAiProviderPerformanceCommandTest',
             'atlas:ai:provider-performance',
             'provider_performance.event_count',
@@ -6092,13 +5833,9 @@ class KernelArchitectureStaticScanner
             'provider_performance.cost_confidence_counts',
             'Review signal',
             'ledger_unavailable',
-        ] as $token) {
-            if (! str_contains($commandTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasAiProviderPerformanceCommandTest.php: AP-99 provider performance CLI must be covered [{$token}]";
-            }
-        }
+        ], "tests/Feature/Ai/AtlasAiProviderPerformanceCommandTest.php: AP-99 provider performance CLI must be covered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($mcpTest, [
             'atlas_provider_performance_report',
             'test_provider_performance_report_summarizes_normalized_provider_usage',
             'provider_performance.success_rate',
@@ -6109,26 +5846,18 @@ class KernelArchitectureStaticScanner
             'test_dynamic_compute_market_report_exposes_read_only_shadow_advice',
             'test_dynamic_compute_market_report_preserves_review_signal_when_ledger_is_unavailable',
             'ledger_unavailable',
-        ] as $token) {
-            if (! str_contains($mcpTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-99 provider performance MCP report must be covered [{$token}]";
-            }
-        }
+        ], "tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php: AP-99 provider performance MCP report must be covered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($apiTest, [
             'AtlasAiProviderPerformanceApiTest',
             '/ai/provider-performance?hours=24&provider=codex_cli&domain=programming',
             'provider_performance.review_signal.status',
             'provider_performance.average_cost_microusd',
             'provider_performance.cost_confidence_counts.estimated',
             'wait_for_provider_usage_evidence',
-        ] as $token) {
-            if (! str_contains($apiTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasAiProviderPerformanceApiTest.php: AP-99 provider performance API must be covered [{$token}]";
-            }
-        }
+        ], "tests/Feature/Ai/AtlasAiProviderPerformanceApiTest.php: AP-99 provider performance API must be covered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($dynamicComputeMarketCommandTest, [
             'AtlasAiDynamicComputeMarketCommandTest',
             'atlas:ai:dynamic-compute-market',
             'atlas.dynamic_compute_market_report.v1',
@@ -6138,13 +5867,9 @@ class KernelArchitectureStaticScanner
             'provider is required.',
             'test_command_reports_unavailable_without_ap99_ledger_projection',
             'ledger_unavailable',
-        ] as $token) {
-            if (! str_contains($dynamicComputeMarketCommandTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasAiDynamicComputeMarketCommandTest.php: Dynamic Compute Market CLI surface must be covered [{$token}]";
-            }
-        }
+        ], "tests/Feature/Ai/AtlasAiDynamicComputeMarketCommandTest.php: Dynamic Compute Market CLI surface must be covered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($dynamicComputeMarketApiTest, [
             'AtlasAiDynamicComputeMarketApiTest',
             '/ai/dynamic-compute-market?provider=codex_cli',
             'atlas.dynamic_compute_market_report.v1',
@@ -6154,71 +5879,47 @@ class KernelArchitectureStaticScanner
             'test_api_requires_atlas_token',
             'test_api_reports_unavailable_without_ap99_ledger_projection',
             'ledger_unavailable',
-        ] as $token) {
-            if (! str_contains($dynamicComputeMarketApiTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasAiDynamicComputeMarketApiTest.php: Dynamic Compute Market API surface must be covered [{$token}]";
-            }
-        }
+        ], "tests/Feature/Ai/AtlasAiDynamicComputeMarketApiTest.php: Dynamic Compute Market API surface must be covered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($selfImprovementRuntimeTest, [
             'test_provider_performance_review_emits_dynamic_compute_market_benchmark_proposal',
             'test_self_improvement_command_surfaces_dynamic_compute_market_proposal_without_routing_change',
             'atlas.self_improvement.dynamic_compute_market.v1',
             'routing_control.changes_provider',
             'routing_control.routing_authority',
             'metadata.proposal_evidence_contract',
-        ] as $token) {
-            if (! str_contains($selfImprovementRuntimeTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-147 Curator proposal-only contract must be covered [{$token}]";
-            }
-        }
+        ], "tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php: AP-147 Curator proposal-only contract must be covered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($observabilityTest, [
             'test_observability_payload_includes_provider_performance_summary',
             'ProviderUsagePayload::SCHEMA_VERSION',
             'provider_performance.provider_counts.codex_cli',
             'provider_performance.review_signal.status',
             'test_observability_payload_exposes_provider_cost_rate_inbox_actions',
             'inbox_actions.provider_cost_rate_action_count',
-        ] as $token) {
-            if (! str_contains($observabilityTest, $token)) {
-                $violations[] = "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-99 provider performance Observability payload must be covered [{$token}]";
-            }
-        }
+        ], "tests/Feature/Ai/AiObservabilityKernelSloTest.php: AP-99 provider performance Observability payload must be covered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($telemetryMetricsTest, [
             'test_cost_rate_upsert_rejects_negative_input_and_output_rates',
             'test_cost_rate_upsert_rejects_empty_provider_and_model',
             'test_cost_rate_upsert_rejects_effective_until_before_effective_from',
             'test_cost_rate_command_reports_invalid_input_as_json_and_human_error',
             'test_cost_rate_import_reports_indexed_validation_errors',
-        ] as $token) {
-            if (! str_contains($telemetryMetricsTest, $token)) {
-                $violations[] = "tests/Feature/AiTelemetryMetricsTest.php: AP-99 cost-rate governance must be covered [{$token}]";
-            }
-        }
+        ], "tests/Feature/AiTelemetryMetricsTest.php: AP-99 cost-rate governance must be covered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($telemetryDiagnosticsTest, [
             'test_cost_rate_service_rejects_invalid_effective_window',
             'effective_until must not be before effective_from.',
-        ] as $token) {
-            if (! str_contains($telemetryDiagnosticsTest, $token)) {
-                $violations[] = "tests/Feature/AiTelemetryToolDiagnosticsTest.php: AP-99 cost-rate diagnostics must cover invalid windows [{$token}]";
-            }
-        }
+        ], "tests/Feature/AiTelemetryToolDiagnosticsTest.php: AP-99 cost-rate diagnostics must cover invalid windows"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($telemetryDoc, [
             'Cost rates sao governados',
             'provider/model obrigatorios',
             'micro-USD por 1K tokens',
             'effective_until',
-        ] as $token) {
-            if (! str_contains($telemetryDoc, $token)) {
-                $violations[] = "docs/atlas-ai-telemetry.md: AP-99 cost-rate governance must be documented [{$token}]";
-            }
-        }
+        ], "docs/atlas-ai-telemetry.md: AP-99 cost-rate governance must be documented"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($decideReceiptTest, [
             'test_dynamic_compute_market_uses_ap99_provider_performance_inside_decision_receipt',
             'test_dynamic_compute_market_requests_cost_rates_when_quality_is_ok_but_cost_is_unknown',
             'test_dynamic_compute_market_recommends_benchmark_when_better_alternative_has_insufficient_sample',
@@ -6231,13 +5932,9 @@ class KernelArchitectureStaticScanner
             'explanation.latency_basis',
             'explanation.cost_basis',
             'routing_control.changes_provider',
-        ] as $token) {
-            if (! str_contains($decideReceiptTest, $token)) {
-                $violations[] = "tests/Unit/Ai/AtlasDecideReceiptIntegrationTest.php: Dynamic Compute Market receipt explainability must be covered [{$token}]";
-            }
-        }
+        ], "tests/Unit/Ai/AtlasDecideReceiptIntegrationTest.php: Dynamic Compute Market receipt explainability must be covered"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($modelSelectionDoc, [
             'DynamicComputeMarketAdvisor',
             'Dynamic Compute Market Report',
             'quality_basis',
@@ -6247,13 +5944,9 @@ class KernelArchitectureStaticScanner
             'recommendation_reason',
             'benchmark controlado',
             'proposal_review_packet',
-        ] as $token) {
-            if (! str_contains($modelSelectionDoc, $token)) {
-                $violations[] = "docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md: Dynamic Compute Market explainability must be documented [{$token}]";
-            }
-        }
+        ], "docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md: Dynamic Compute Market explainability must be documented"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($dynamicComputeMarketAp, [
             'AP-147',
             'implemented-shadow-evidence-contract',
             'atlas.dynamic_compute_market_report.v1',
@@ -6267,11 +5960,7 @@ class KernelArchitectureStaticScanner
             'AtlasOpenBrainMcpServiceTest::test_dynamic_compute_market_report_preserves_review_signal_when_ledger_is_unavailable',
             'AtlasSelfImprovementRuntimeTest::test_provider_performance_review_emits_dynamic_compute_market_benchmark_proposal',
             'AtlasSelfImprovementRuntimeTest::test_self_improvement_command_surfaces_dynamic_compute_market_proposal_without_routing_change',
-        ] as $token) {
-            if (! str_contains($dynamicComputeMarketAp, $token)) {
-                $violations[] = "docs/ap/AP-147-dynamic-compute-market-shadow-surface.md: Dynamic Compute Market shadow surface contract must be documented [{$token}]";
-            }
-        }
+        ], "docs/ap/AP-147-dynamic-compute-market-shadow-surface.md: Dynamic Compute Market shadow surface contract must be documented"));
 
         return $violations;
     }
@@ -7029,6 +6718,28 @@ class KernelArchitectureStaticScanner
         sort($violations);
 
         return $violations;
+    }
+
+    /**
+     * @param  array<int,string>  $tokens
+     * @return array<int,string>
+     */
+    private function missingTokenViolations(string $content, array $tokens, string $messagePrefix): array
+    {
+        $violations = [];
+        foreach ($tokens as $token) {
+            if (! str_contains($content, $token)) {
+                $violations[] = "{$messagePrefix} [{$token}]";
+            }
+        }
+
+        return $violations;
+    }
+
+    private function fileContents(string $path): string
+    {
+        // ponytail: per-run cache; compliance scans are read-only over disk
+        return $this->fileContentsCache[$path] ??= (File::exists($path) ? File::get($path) : '');
     }
 
     /**
@@ -15500,9 +15211,9 @@ class KernelArchitectureStaticScanner
         }
 
         $orchestratorPath = $repairPath.DIRECTORY_SEPARATOR.'AtlasRepairOrchestrator.php';
-        $orchestrator = File::exists($orchestratorPath) ? File::get($orchestratorPath) : '';
+        $orchestrator = $this->fileContents($orchestratorPath);
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($orchestrator, [
             'public function plan(RepairRequest $request): RepairDecision',
             'public function attempt(RepairRequest $request): RepairResult',
             'public function complianceReport(): array',
@@ -15512,20 +15223,16 @@ class KernelArchitectureStaticScanner
             'RepairReason::ExecutionBlockedByDryRun',
             'RepairReason::ExecutionNotImplementedContractFoundationOnly',
             "'execution_enabled' => false",
-        ] as $token) {
-            if (! str_contains($orchestrator, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Repair/AtlasRepairOrchestrator.php: repair loop must remain scaffold-safe [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Kernel/Repair/AtlasRepairOrchestrator.php: repair loop must remain scaffold-safe"));
 
         $commandPath = app_path('Console/Commands/AtlasAiRepairCommand.php');
         $controllerPath = app_path('Http/Controllers/AtlasAiRepairController.php');
         $routesPath = base_path('routes/api.php');
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
-        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
+        $command = $this->fileContents($commandPath);
+        $controller = $this->fileContents($controllerPath);
+        $routes = $this->fileContents($routesPath);
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($command, [
             'AtlasRepairOrchestrator',
             'atlas:ai:repair',
             '{--attempt-repair',
@@ -15538,13 +15245,9 @@ class KernelArchitectureStaticScanner
             "'status' => 'planned_scaffold'",
             "'status' => 'attempted_scaffold'",
             "'compliance' => \$repair->complianceReport()",
-        ] as $token) {
-            if (! str_contains($command, $token)) {
-                $violations[] = "app/Console/Commands/AtlasAiRepairCommand.php: missing safe repair CLI contract [{$token}]";
-            }
-        }
+        ], "app/Console/Commands/AtlasAiRepairCommand.php: missing safe repair CLI contract"));
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($controller, [
             'AtlasRepairOrchestrator',
             'RepairRequest::fromArray',
             'AtlasEvidenceLedger',
@@ -15557,19 +15260,15 @@ class KernelArchitectureStaticScanner
             "'status' => 'planned_scaffold'",
             "'status' => 'attempted_scaffold'",
             "'compliance' => \$repair->complianceReport()",
-        ] as $token) {
-            if (! str_contains($controller, $token)) {
-                $violations[] = "app/Http/Controllers/AtlasAiRepairController.php: missing safe repair API contract [{$token}]";
-            }
-        }
+        ], "app/Http/Controllers/AtlasAiRepairController.php: missing safe repair API contract"));
 
         if (! str_contains($routes, 'AtlasAiRepairController') || ! str_contains($routes, "Route::post('/ai/repair', AtlasAiRepairController::class);")) {
             $violations[] = 'routes/api.php: POST /ai/repair must be registered inside the atlas.token API group';
         }
 
         $workerPath = app_path('Services/Ai/AiWorker.php');
-        $worker = File::exists($workerPath) ? File::get($workerPath) : '';
-        foreach ([
+        $worker = $this->fileContents($workerPath);
+        $violations = array_merge($violations, $this->missingTokenViolations($worker, [
             'AtlasRepairOrchestrator',
             'RepairRequestFactory',
             'nativeProgrammingRepairKernelDecision(',
@@ -15578,15 +15277,11 @@ class KernelArchitectureStaticScanner
             "'kernel_repair' => \$kernelRepairDecision?->toArray()",
             "'kernel_decision' => \$kernelRepairDecision?->toArray()",
             'kernel_repair_contract_blocks',
-        ] as $token) {
-            if (! str_contains($worker, $token)) {
-                $violations[] = "app/Services/Ai/AiWorker.php: native programming repair must pass through kernel repair contract [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/AiWorker.php: native programming repair must pass through kernel repair contract"));
 
         $programmingPath = app_path('Services/Ai/Programming/AtlasProgrammingOrchestrator.php');
-        $programming = File::exists($programmingPath) ? File::get($programmingPath) : '';
-        foreach ([
+        $programming = $this->fileContents($programmingPath);
+        $violations = array_merge($violations, $this->missingTokenViolations($programming, [
             'RepairStrategy',
             "\$plan['repair_execution_contract'] = \$this->repairExecutionContract(\$plan);",
             "'kernel_repair_contract' => [",
@@ -15596,15 +15291,11 @@ class KernelArchitectureStaticScanner
             "'blocks_when_kernel_blocks' => true",
             "'allowed_strategies' => RepairStrategy::values()",
             "'requires_evidence_for_heavy_repair' => true",
-        ] as $token) {
-            if (! str_contains($programming, $token)) {
-                $violations[] = "app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php: programming repair contract must declare kernel repair policy [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php: programming repair contract must declare kernel repair policy"));
 
         $harnessPath = app_path('Services/Engineering/EngineeringHarnessExecutionService.php');
-        $harness = File::exists($harnessPath) ? File::get($harnessPath) : '';
-        foreach ([
+        $harness = $this->fileContents($harnessPath);
+        $violations = array_merge($violations, $this->missingTokenViolations($harness, [
             'AtlasRepairOrchestrator',
             'RepairRequestFactory',
             'AtlasEvidenceLedger',
@@ -15617,15 +15308,11 @@ class KernelArchitectureStaticScanner
             "'decision_required_before_enqueue' => true",
             "'blocks_when_kernel_blocks' => true",
             "'executor' => 'engineering_harness'",
-        ] as $token) {
-            if (! str_contains($harness, $token)) {
-                $violations[] = "app/Services/Engineering/EngineeringHarnessExecutionService.php: engineering harness failures must attach kernel repair decisions [{$token}]";
-            }
-        }
+        ], "app/Services/Engineering/EngineeringHarnessExecutionService.php: engineering harness failures must attach kernel repair decisions"));
 
         $ledgerPath = app_path('Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php');
-        $ledger = File::exists($ledgerPath) ? File::get($ledgerPath) : '';
-        foreach ([
+        $ledger = $this->fileContents($ledgerPath);
+        $violations = array_merge($violations, $this->missingTokenViolations($ledger, [
             'public function recordRepairDecision(RepairDecision $decision',
             'public function recordRepairResult(RepairResult $result',
             'LedgerEventType::RepairInitiated',
@@ -15633,11 +15320,7 @@ class KernelArchitectureStaticScanner
             "'emitter_stage' => \$context['emitter_stage'] ?? 'atlas.repair'",
             "'causation_id' => \$context['causation_id'] ?? data_get(\$result->decision->evidencePayload, 'decision_hash')",
             "'repair_executed' => false",
-        ] as $token) {
-            if (! str_contains($ledger, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php: repair decisions must be recordable as canonical evidence [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php: repair decisions must be recordable as canonical evidence"));
 
         $replayPath = app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php');
         $ledgerCommandPath = app_path('Console/Commands/AtlasAiLedgerCommand.php');
@@ -15650,18 +15333,18 @@ class KernelArchitectureStaticScanner
         $selfImprovementScheduleControllerPath = app_path('Http/Controllers/AtlasAiSelfImprovementScheduleController.php');
         $selfImprovementScheduleHealthControllerPath = app_path('Http/Controllers/AtlasAiSelfImprovementScheduleHealthController.php');
         $bootstrapPath = base_path('bootstrap/app.php');
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $ledgerCommand = File::exists($ledgerCommandPath) ? File::get($ledgerCommandPath) : '';
-        $ledgerController = File::exists($ledgerControllerPath) ? File::get($ledgerControllerPath) : '';
-        $ledgerReport = File::exists($ledgerReportPath) ? File::get($ledgerReportPath) : '';
-        $repairReportCommand = File::exists($repairReportCommandPath) ? File::get($repairReportCommandPath) : '';
-        $repairReportController = File::exists($repairReportControllerPath) ? File::get($repairReportControllerPath) : '';
-        $selfImprovementCommand = File::exists($selfImprovementCommandPath) ? File::get($selfImprovementCommandPath) : '';
-        $selfImprovementSchedule = File::exists($selfImprovementSchedulePath) ? File::get($selfImprovementSchedulePath) : '';
-        $selfImprovementScheduleController = File::exists($selfImprovementScheduleControllerPath) ? File::get($selfImprovementScheduleControllerPath) : '';
-        $selfImprovementScheduleHealthController = File::exists($selfImprovementScheduleHealthControllerPath) ? File::get($selfImprovementScheduleHealthControllerPath) : '';
-        $bootstrap = File::exists($bootstrapPath) ? File::get($bootstrapPath) : '';
-        foreach ([
+        $replay = $this->fileContents($replayPath);
+        $ledgerCommand = $this->fileContents($ledgerCommandPath);
+        $ledgerController = $this->fileContents($ledgerControllerPath);
+        $ledgerReport = $this->fileContents($ledgerReportPath);
+        $repairReportCommand = $this->fileContents($repairReportCommandPath);
+        $repairReportController = $this->fileContents($repairReportControllerPath);
+        $selfImprovementCommand = $this->fileContents($selfImprovementCommandPath);
+        $selfImprovementSchedule = $this->fileContents($selfImprovementSchedulePath);
+        $selfImprovementScheduleController = $this->fileContents($selfImprovementScheduleControllerPath);
+        $selfImprovementScheduleHealthController = $this->fileContents($selfImprovementScheduleHealthControllerPath);
+        $bootstrap = $this->fileContents($bootstrapPath);
+        $violations = array_merge($violations, $this->missingTokenViolations($replay, [
             'public function repairReportForEnvelope(string $envelopeId): array',
             'public function repairReportForWindow(CarbonInterface $since, ?CarbonInterface $until = null, array $filters = []): array',
             'normalizedRepairFilters(',
@@ -15670,38 +15353,22 @@ class KernelArchitectureStaticScanner
             'LedgerEventType::RepairCompleted',
             'requires_human_review',
             'repairEventFromEvent(',
-        ] as $token) {
-            if (! str_contains($replay, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: repair events must be projectable from ledger replay [{$token}]";
-            }
-        }
-        foreach ([
+        ], "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php: repair events must be projectable from ledger replay"));
+        $violations = array_merge($violations, $this->missingTokenViolations($ledgerCommand, [
             '{--repair : Include Repair Loop summary for the envelope}',
             'KernelLedgerEnvelopeReportService $reports',
             'includeRepair: (bool) $this->option(\'repair\')',
-        ] as $token) {
-            if (! str_contains($ledgerCommand, $token)) {
-                $violations[] = "app/Console/Commands/AtlasAiLedgerCommand.php: ledger CLI must expose repair replay summary [{$token}]";
-            }
-        }
-        foreach ([
+        ], "app/Console/Commands/AtlasAiLedgerCommand.php: ledger CLI must expose repair replay summary"));
+        $violations = array_merge($violations, $this->missingTokenViolations($ledgerController, [
             "'repair' => ['nullable', 'boolean']",
             'KernelLedgerEnvelopeReportService $reports',
             'includeRepair: (bool) ($filters[\'repair\'] ?? false)',
-        ] as $token) {
-            if (! str_contains($ledgerController, $token)) {
-                $violations[] = "app/Http/Controllers/AtlasAiLedgerController.php: ledger API must expose repair replay summary [{$token}]";
-            }
-        }
-        foreach ([
+        ], "app/Http/Controllers/AtlasAiLedgerController.php: ledger API must expose repair replay summary"));
+        $violations = array_merge($violations, $this->missingTokenViolations($ledgerReport, [
             'repairReportForEnvelope($envelopeId)',
             "\$payload['repair']",
-        ] as $token) {
-            if (! str_contains($ledgerReport, $token)) {
-                $violations[] = "app/Services/Ai/Kernel/Evidence/KernelLedgerEnvelopeReportService.php: shared ledger report must expose repair replay summary [{$token}]";
-            }
-        }
-        foreach ([
+        ], "app/Services/Ai/Kernel/Evidence/KernelLedgerEnvelopeReportService.php: shared ledger report must expose repair replay summary"));
+        $violations = array_merge($violations, $this->missingTokenViolations($repairReportCommand, [
             'atlas:ai:repair-report',
             'repairReportForWindow(',
             '{--status= : Filter by repair decision status}',
@@ -15709,12 +15376,8 @@ class KernelArchitectureStaticScanner
             '{--failure-domain= : Filter by failure domain}',
             "'kernel_repair' => \$report",
             'ledger_unavailable',
-        ] as $token) {
-            if (! str_contains($repairReportCommand, $token)) {
-                $violations[] = "app/Console/Commands/AtlasAiRepairReportCommand.php: dedicated Repair Loop report CLI must expose window projection [{$token}]";
-            }
-        }
-        foreach ([
+        ], "app/Console/Commands/AtlasAiRepairReportCommand.php: dedicated Repair Loop report CLI must expose window projection"));
+        $violations = array_merge($violations, $this->missingTokenViolations($repairReportController, [
             'AtlasAiRepairReportController',
             'repairReportForWindow(',
             "'status' => ['nullable', 'string', 'max:80']",
@@ -15722,16 +15385,12 @@ class KernelArchitectureStaticScanner
             "'failure_domain' => ['nullable', 'string', 'max:160']",
             "'kernel_repair' => \$report",
             'ledger_unavailable',
-        ] as $token) {
-            if (! str_contains($repairReportController, $token)) {
-                $violations[] = "app/Http/Controllers/AtlasAiRepairReportController.php: dedicated Repair Loop report API must expose window projection [{$token}]";
-            }
-        }
+        ], "app/Http/Controllers/AtlasAiRepairReportController.php: dedicated Repair Loop report API must expose window projection"));
         if (! str_contains($routes, 'AtlasAiRepairReportController') || ! str_contains($routes, "Route::get('/ai/repair/report', AtlasAiRepairReportController::class);")) {
             $violations[] = 'routes/api.php: GET /ai/repair/report must be registered inside the atlas.token API group';
         }
 
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($selfImprovementCommand, [
             'AtlasSelfImprovementScheduleService',
             '{--schedule-plan : Print the recurring self-improvement schedule plan}',
             '{--schedule-health : Print the compact recurring self-improvement schedule health}',
@@ -15742,12 +15401,8 @@ class KernelArchitectureStaticScanner
             'Registered commands',
             'Skipped reason',
             'schedulePlanExitCode(',
-        ] as $token) {
-            if (! str_contains($selfImprovementCommand, $token)) {
-                $violations[] = "app/Console/Commands/AtlasAiSelfImproveCommand.php: Self-Improvement schedule plan must be inspectable from CLI [{$token}]";
-            }
-        }
-        foreach ([
+        ], "app/Console/Commands/AtlasAiSelfImproveCommand.php: Self-Improvement schedule plan must be inspectable from CLI"));
+        $violations = array_merge($violations, $this->missingTokenViolations($selfImprovementSchedule, [
             'schedulePlan()',
             'scheduleHealth()',
             'scheduledCommands()',
@@ -15775,50 +15430,34 @@ class KernelArchitectureStaticScanner
             "'repair_loop_review'",
             "'kernel_pipeline_review'",
             'SUPPORTED_FLOWS',
-        ] as $token) {
-            if (! str_contains($selfImprovementSchedule, $token)) {
-                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php: recurring Self-Improvement schedule must be centralized and include Repair Loop review by default [{$token}]";
-            }
-        }
-        foreach ([
+        ], "app/Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php: recurring Self-Improvement schedule must be centralized and include Repair Loop review by default"));
+        $violations = array_merge($violations, $this->missingTokenViolations($selfImprovementScheduleController, [
             'AtlasAiSelfImprovementScheduleController',
             'AtlasSelfImprovementScheduleService',
             'schedulePlan()',
-        ] as $token) {
-            if (! str_contains($selfImprovementScheduleController, $token)) {
-                $violations[] = "app/Http/Controllers/AtlasAiSelfImprovementScheduleController.php: Self-Improvement schedule plan must be inspectable from API [{$token}]";
-            }
-        }
+        ], "app/Http/Controllers/AtlasAiSelfImprovementScheduleController.php: Self-Improvement schedule plan must be inspectable from API"));
         if (! str_contains($routes, 'AtlasAiSelfImprovementScheduleController') || ! str_contains($routes, "Route::get('/ai/self-improvement/schedule', AtlasAiSelfImprovementScheduleController::class);")) {
             $violations[] = 'routes/api.php: GET /ai/self-improvement/schedule must be registered inside the atlas.token API group';
         }
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($selfImprovementScheduleHealthController, [
             'AtlasAiSelfImprovementScheduleHealthController',
             'AtlasSelfImprovementScheduleService',
             'scheduleHealth()',
-        ] as $token) {
-            if (! str_contains($selfImprovementScheduleHealthController, $token)) {
-                $violations[] = "app/Http/Controllers/AtlasAiSelfImprovementScheduleHealthController.php: Self-Improvement schedule health must be inspectable from API [{$token}]";
-            }
-        }
+        ], "app/Http/Controllers/AtlasAiSelfImprovementScheduleHealthController.php: Self-Improvement schedule health must be inspectable from API"));
         if (! str_contains($routes, 'AtlasAiSelfImprovementScheduleHealthController') || ! str_contains($routes, "Route::get('/ai/self-improvement/schedule/health', AtlasAiSelfImprovementScheduleHealthController::class);")) {
             $violations[] = 'routes/api.php: GET /ai/self-improvement/schedule/health must be registered inside the atlas.token API group';
         }
-        foreach ([
+        $violations = array_merge($violations, $this->missingTokenViolations($bootstrap, [
             'AtlasSelfImprovementScheduleService::class',
             'scheduledCommands()',
             "->dailyAt(\$selfImprovementCommand['time'])",
             "->timezone(\$selfImprovementCommand['timezone'])",
             '->withoutOverlapping()',
-        ] as $token) {
-            if (! str_contains($bootstrap, $token)) {
-                $violations[] = "bootstrap/app.php: recurring Self-Improvement scheduler registration must use the centralized schedule contract [{$token}]";
-            }
-        }
+        ], "bootstrap/app.php: recurring Self-Improvement scheduler registration must use the centralized schedule contract"));
 
         $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
-        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
-        foreach ([
+        $selfImprovement = $this->fileContents($selfImprovementPath);
+        $violations = array_merge($violations, $this->missingTokenViolations($selfImprovement, [
             'repairLoopFindings(',
             'repairReportForWindow(',
             'kernelPipelineFindings(',
@@ -15841,11 +15480,7 @@ class KernelArchitectureStaticScanner
             "'type' => 'domain_catalog'",
             'executable_incomplete_domains',
             'scaffold_domains',
-        ] as $token) {
-            if (! str_contains($selfImprovement, $token)) {
-                $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: Self-Improvement must consume Repair Loop, Kernel Pipeline, and Domain Catalog onboarding evidence [{$token}]";
-            }
-        }
+        ], "app/Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php: Self-Improvement must consume Repair Loop, Kernel Pipeline, and Domain Catalog onboarding evidence"));
 
         return $violations;
     }
