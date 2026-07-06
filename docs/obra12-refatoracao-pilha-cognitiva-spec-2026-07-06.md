@@ -80,3 +80,9 @@ Descobertos SEM tag `@unwired-until` (violam a convenção da Obra #7): **SRL** 
 **Casar com a Obra #11**: cada slice fecha com (a) certificador da área verde, (b) `mint-pipeline-receipts` cunhando o green-run do subsistema tocado. A obra entrega as duas metas do operador numa esteira: pilha mais enxuta E pipeline score subindo mensuravelmente a cada commit. Pré-requisito parcial: Obra #9 (vermelhos) para as áreas cujos testes estão red; as slices S-01..S-06 têm suites verdes hoje e podem começar imediatamente após aprovação.
 
 **Sequência**: S-01 → S-02 → S-04 → S-05 → S-06 → S-10 → S-07 → S-08 → (pós-merge #7) S-09. Órfãos: esteira paralela de governança. (S-03 refutada na execução.)
+
+## ✅ RESULTADOS DA EXECUÇÃO (06/07/2026 — obra executada no mesmo dia)
+
+**11 commits, −1.439 LOC líquidas** (104 arquivos, +1.103/−2.542, inclui +227 de infra de prova nova). Entregues: S-01 (−40), S-02+S-06 (−8), S-04+S-05a (−65), S-11 (−9), S-13 (−64), S-15 (−1.217, a maior), C-09 do SCS (−344), ledgers AE (−78), DI do audit (−12), golden do completion audit (+227 infra). **Refutadas NA EXECUÇÃO com prova** (além de S-03/S-08): S-05b (+26), S-10 (+12), S-12 (+23, revertida byte-exato), god-audit spec+engine (censo dizia −2.292; leitura integral achou 13/23 verbatim → líquido −100/−250 com mini-DSL, parado no piso 500 — golden 23/23 entregue no lugar), Surface adapters (+108), C-14 f1 (contrato pinado por teste), blocked/claimPolicy (28/64 hashes únicos), TTL (shapes distintos), SIGTERM/walkers/Cortex-deletion (caller VIVO no AppServiceProvider — tripla prova salvou código vivo).
+
+**Lição consolidada da obra:** os finders (mesmo calibrados) superestimam 3-10×; a régua líquido-real + byte-prova na EXECUÇÃO é o único número que vale. A pilha cognitiva confirmou o perfil Obra #6: densa e legítima. Pendentes: S-09 (pós-merge #7), S-16 Python (~100), governança de órfãos (~657), cauda de helpers de teste (orchestrator 26×11, baseChain 4×37).
