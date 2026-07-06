@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
-use Symfony\Component\Process\Process;
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use Throwable;
 
 /**
@@ -364,8 +364,7 @@ final class AtlasLoopCycleGitContract
      */
     private function git(string $cwd, array $argv): array
     {
-        $p = new Process(array_merge(['git'], array_values($argv)), $cwd, null, null, self::GIT_TIMEOUT);
-        $p->run();
+        $p = GitSubprocess::run($cwd, $argv, self::GIT_TIMEOUT);
 
         return [$p->isSuccessful(), $p->getOutput().$p->getErrorOutput()];
     }

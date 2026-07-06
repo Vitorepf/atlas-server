@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopProposal;
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use Closure;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -383,8 +384,7 @@ final class AtlasLoopProposalPromotionGate
      */
     private function git(string $cwd, array $argv): bool
     {
-        $p = new Process(array_merge(['git'], $argv), $cwd, null, null, 60.0);
-        $p->run();
+        $p = GitSubprocess::run($cwd, $argv);
 
         return $p->isSuccessful();
     }
