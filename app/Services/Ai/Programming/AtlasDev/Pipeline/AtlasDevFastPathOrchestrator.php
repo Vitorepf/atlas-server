@@ -39,6 +39,10 @@ use Throwable;
  * user_constraints) plus optional surface hints. Every step is deterministic
  * and provider-free; this orchestrator MUST NOT call any provider.
  *
+ * The six inline wiring points are extracted into a private ordered stage
+ * pipeline (stages()), each with the uniform signature array → array, executed
+ * by a single loop with per-stage timing recorded into run artifacts.
+ *
  * Persisted artifacts (one JSON file per name under
  * `storage/atlas-dev/receipts/<run_id>/`):
  *   - operation_envelope.json
@@ -95,7 +99,7 @@ class AtlasDevFastPathOrchestrator
 
         $contextPlan = $this->tierSelector->select($envelope, $compactSddPreliminary);
         $discovery = $this->codeDiscovery->discover($envelope, $compactSddPreliminary);
-        $discovery = $this->enrichDiscovery($discovery, $envelope->workspace);
+        // NOTE: discovery enrichment now happens in the stage pipeline below
 
         $finalRisk = $this->riskScorer->score($envelope, $classification, $discovery);
         $compactSdd = $finalRisk === $preliminaryRisk
@@ -109,26 +113,6 @@ class AtlasDevFastPathOrchestrator
 
         $projection = $this->openBrainAdapter->projectFor($envelope, $compactSdd, $contextPlan);
 
-        // Context budgeting: distill the discovery/projection evidence down to what the CompactSdd
-        // already declared as the char budget, so a small model gets less noise and more of the
-        // acceptance-critical evidence (callers, tests, decisions) rather than generic doc prose.
-        // Behind the EXISTING contextBudget concept — no new budget is introduced. Fail-open and
-        // non-blocking: any distillation error is swallowed and simply skips the receipt.
-        try {
-            $distillation = (new DevContextBudgetDistiller)->distill(
-                $this->buildContextSections($discovery, $projection, $compactSdd),
-                $compactSdd->contextBudget->maxChars,
-            );
-            $persistedDistillation = $this->receiptStorage->writeAtomic(
-                $envelope->runId,
-                'dev_context_budget_distillation',
-                $distillation,
-            );
-        } catch (Throwable) {
-            $distillation = [];
-            $persistedDistillation = null;
-        }
-
         $miniSpec = $this->specComposer->composeMiniSpec($envelope, $compactSdd, $discovery, $projection);
         $taskContract = $this->specComposer->composeTaskContract($envelope, $compactSdd, $miniSpec);
 
@@ -138,6 +122,378 @@ class AtlasDevFastPathOrchestrator
         // explicitly non-sendable projection so downstream surfaces cannot
         // accidentally pipe it into the provider adapter.
         $routing = $this->routingEngine->decide($envelope, $classification, $compactSdd, $discovery);
+
+        // Stage pipeline: enrichment, distillation, exemplar retrieval,
+        // verification receipts, decomposition — all in one ordered loop.
+        $workspaceSlug = WorkspaceOriginIdentity::slug($envelope->workspace);
+        $workspaceHash = $envelope->workspaceHash;
+        $originHash = WorkspaceOriginIdentity::hash($envelope->workspace);
+
+        $state = [
+            'envelope' => $envelope,
+            'classification' => $classification,
+            'finalRisk' => $finalRisk,
+            'compactSdd' => $compactSdd,
+            'contextPlan' => $contextPlan,
+            'discovery' => $discovery,
+            'projection' => $projection,
+            'miniSpec' => $miniSpec,
+            'taskContract' => $taskContract,
+            'routing' => $routing,
+            'workspace' => $envelope->workspace,
+            'workspaceSlug' => $workspaceSlug,
+            'workspaceHash' => $workspaceHash,
+            'originHash' => $originHash,
+            'distillation' => [],
+            'persistedDistillation' => null,
+            'provenExemplars' => [],
+            'gate' => null,
+            'specVerdictArtifact' => null,
+            'decomposition' => null,
+            'workcellInstructions' => null,
+            'workspaceOrigin' => null,
+            'persistedExtra' => [],
+        ];
+
+        $state = $this->runStages($state);
+
+        // Extract updated values from the state after the pipeline.
+        $discovery = $state['discovery'];
+        $routing = $state['routing'];
+        $distillation = $state['distillation'];
+        $persistedDistillation = $state['persistedDistillation'];
+        $provenExemplars = $state['provenExemplars'];
+        $gate = $state['gate'];
+        $specVerdictArtifact = $state['specVerdictArtifact'];
+
+        $promptIsSendable = $routing->kind === RoutingDecision::ATLAS_DEV_FAST_PATH;
+
+        // M5: Compounding failure memory — feed persisted AtlasDevFailureCapsule
+        // rows forward as known failure modes of the area into the prompt
+        // projection. Area identity = overlap between the run's allowed_files
+        // and a capsule's changed_files, AND repository/workspace identity via
+        // the capsule's task_packet.workspace_slug. REUSES AtlasDevFailureCapsule
+        // (model) via DevFailureCapsulePromptInjector (read-only). Injection is
+        // workspace-scoped (foreign-workspace capsule never injects even when
+        // its changed_files overlap — VAL-M5-007 anti cross-repo bleed),
+        // area-scoped (foreign-area capsule never injects — VAL-M5-003),
+        // provider-safe (secrets redacted — VAL-M5-005), deterministic and
+        // deduped on failure_hash (VAL-M5-006). An empty/foreign area yields
+        // an empty list and the projection stays byte-identical to the pre-M5
+        // baseline (VAL-M5-004 — the renderer omits the section when empty).
+        //
+        // Workspace_slug normalization mirrors DevTaskPacketRuntimeService,
+        // where workspace_slug falls back to the workspace string when no
+        // explicit slug is supplied. The envelope carries the resolved
+        // workspace (path or slug) used by the current run.
+        // Workspace identity for M5 = the stable REPO ORIGIN, not the
+        // checkout path: sandboxed flows run in per-run temp dirs, so the
+        // raw envelope workspace never matches a previously persisted
+        // capsule's slug (the write side uses the same identity).
+        $knownFailureModes = ($this->failureCapsuleInjector ?? new DevFailureCapsulePromptInjector)
+            ->injectFor($taskContract->allowedFiles, $workspaceSlug);
+
+        $promptProjection = $this->promptBuilder->build(
+            envelope: $envelope,
+            compactSdd: $compactSdd,
+            miniSpec: $miniSpec,
+            taskContract: $taskContract,
+            discovery: $discovery,
+            projection: $projection,
+            providerSafe: $promptIsSendable,
+            knownFailureModes: $knownFailureModes,
+            provenExemplars: $provenExemplars,
+        );
+
+        $persisted = $this->persistArtifacts(
+            envelope: $envelope,
+            compactSdd: $compactSdd,
+            contextPlan: $contextPlan,
+            discovery: $discovery,
+            projection: $projection,
+            miniSpec: $miniSpec,
+            taskContract: $taskContract,
+            promptProjection: $promptProjection,
+            classification: $classification,
+            routing: $routing,
+            distillation: $distillation,
+        );
+
+        if ($persistedDistillation !== null) {
+            $persisted['dev_context_budget_distillation'] = $persistedDistillation;
+        }
+        if ($specVerdictArtifact !== null) {
+            $persisted['spec_adversary_verdict.json'] = $specVerdictArtifact;
+        }
+
+        // Merge extra artifacts from the stage pipeline (workcell
+        // decomposition, workcell instructions, workspace origin).
+        foreach ($state['persistedExtra'] as $name => $path) {
+            $persisted[$name] = $path;
+        }
+
+        $result = new PlanOnlyResult(
+            envelope: $envelope,
+            classification: $classification,
+            riskLevel: $finalRisk,
+            compactSdd: $compactSdd,
+            contextPlan: $contextPlan,
+            discovery: $discovery,
+            projection: $projection,
+            miniSpec: $miniSpec,
+            taskContract: $taskContract,
+            promptProjection: $promptProjection,
+            routing: $routing,
+            persistedArtifactPaths: $persisted,
+            blockers: $routing->blockers,
+        );
+
+        $seniorLoopAudit = (new SeniorEngineerLoopAuditor)->audit($result);
+        $persisted[ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT] = $this->receiptStorage->writeAtomic(
+            $envelope->runId,
+            ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT,
+            $seniorLoopAudit->toCanonicalArray(),
+        );
+
+        $persisted[ArtifactNames::MANDATORY_RAG_GATE] = $this->receiptStorage->writeAtomic(
+            $envelope->runId,
+            ArtifactNames::MANDATORY_RAG_GATE,
+            $gate !== null ? $gate->toCanonicalArray() : (new MandatoryRagGate)->evaluate($envelope, $classification, $compactSdd, $contextPlan, $routing)->toCanonicalArray(),
+        );
+
+        // Specialist Flow Router (Atlas Dev Superiority Runtime).
+        // Decides which of the 9 canonical specialist flows the operator is
+        // really executing (plan / code / debug / review / research /
+        // explain / test / refactor / forge_escalation) and the path within
+        // it (fast / deep / ask_clarification / escalate). Decision is
+        // advisory for the operator surface — does not change the routing
+        // kind already chosen by RoutingDecisionEngine + the Mandatory RAG
+        // Gate. Persisted as an auditable receipt.
+        $specialistDecision = ($this->specialistFlowRouter ?? new SpecialistFlowRouter)
+            ->decide($envelope, $classification, $compactSdd, $discovery, $routing);
+        $persisted[ArtifactNames::SPECIALIST_FLOW_DECISION] = $this->receiptStorage->writeAtomic(
+            $envelope->runId,
+            ArtifactNames::SPECIALIST_FLOW_DECISION,
+            $specialistDecision->toCanonicalArray(),
+        );
+
+        return new PlanOnlyResult(
+            envelope: $envelope,
+            classification: $classification,
+            riskLevel: $finalRisk,
+            compactSdd: $compactSdd,
+            contextPlan: $contextPlan,
+            discovery: $discovery,
+            projection: $projection,
+            miniSpec: $miniSpec,
+            taskContract: $taskContract,
+            promptProjection: $promptProjection,
+            routing: $routing,
+            persistedArtifactPaths: $persisted,
+            blockers: $routing->blockers,
+            seniorLoopAudit: $seniorLoopAudit,
+            specialistFlow: $specialistDecision,
+        );
+    }
+
+    // ── Stage pipeline ──────────────────────────────────────────────────────
+
+    /**
+     * Ordered stage pipeline. Each stage receives the full run state array and
+     * returns it with its contributions merged in. Uniform signature:
+     * function(array $state): array.
+     *
+     * @return array<string, callable>
+     */
+    private function stages(): array
+    {
+        return [
+            'discovery_enrichment'       => fn (array $state): array => $this->stageDiscoveryEnrichment($state),
+            'aemor_outcome_bridge'       => fn (array $state): array => $this->stageAemorOutcomeBridge($state),
+            'context_budget_distillation' => fn (array $state): array => $this->stageContextBudgetDistillation($state),
+            'exemplar_retrieval'         => fn (array $state): array => $this->stageExemplarRetrieval($state),
+            'verification_receipts'      => fn (array $state): array => $this->stageVerificationReceipts($state),
+            'workcell_decomposition'     => fn (array $state): array => $this->stageWorkcellDecomposition($state),
+        ];
+    }
+
+    /**
+     * Execute the ordered stage pipeline in a single loop, recording
+     * per-stage timing (milliseconds) into the state under
+     * 'stage_timings_ms'.
+     *
+     * @param  array<string, mixed>  $state
+     * @return array<string, mixed>
+     */
+    private function runStages(array $state): array
+    {
+        $timings = [];
+        foreach ($this->stages() as $name => $callable) {
+            $start = microtime(true);
+            try {
+                $state = $callable($state);
+            } catch (Throwable $e) {
+                // Fail-open: a stage exception is recorded but never kills
+                // the pipeline. The stage already guards its own boundary;
+                // this is a last-resort safety net.
+                $state['stage_errors'][] = ['stage' => $name, 'error' => $e->getMessage()];
+            }
+            $elapsed = (microtime(true) - $start) * 1000; // milliseconds
+            $timings[$name] = round($elapsed, 2);
+        }
+        $state['stage_timings_ms'] = $timings;
+
+        // Persist stage timings as an additive run artifact.
+        try {
+            $state['persistedExtra']['fast_path_stage_timings.json'] = $this->receiptStorage->writeAtomic(
+                (string) $state['envelope']->runId,
+                'fast_path_stage_timings.json',
+                [
+                    'schema' => 'atlas.dev.fast_path_stage_timings.v1',
+                    'stages' => $timings,
+                    'total_ms' => round(array_sum($timings), 2),
+                ],
+            );
+        } catch (Throwable) {
+            // Best-effort: timing artifact is additive; failure is non-blocking.
+        }
+
+        return $state;
+    }
+
+    /**
+     * Stage 1: Enrich the discovery manifest with likely_callers — the
+     * strongest production consumers of the likely files, discovered via
+     * SymbolLookup. Purely additive (fail-open). Any internal error yields
+     * the original manifest untouched.
+     */
+    private function stageDiscoveryEnrichment(array $state): array
+    {
+        $discovery = $state['discovery'];
+        $workspace = $state['workspace'];
+
+        try {
+            $callers = $this->discoverLikelyCallers($discovery, $workspace);
+            $state['discovery'] = new CodeDiscoveryManifest(
+                runId: $discovery->runId,
+                likelyFiles: $discovery->likelyFiles,
+                relatedSymbols: $discovery->relatedSymbols,
+                relatedTests: $discovery->relatedTests,
+                relatedCommands: $discovery->relatedCommands,
+                confidence: $discovery->confidence,
+                missingRefs: $discovery->missingRefs,
+                forbiddenFiles: $discovery->forbiddenFiles,
+                providerSafe: $discovery->providerSafe,
+                manifestHash: $discovery->manifestHash,
+                likelyCallers: $callers,
+                recentOutcomeFacts: $discovery->recentOutcomeFacts,
+            );
+        } catch (Throwable) {
+            // fail-open: keep discovery unchanged
+        }
+
+        return $state;
+    }
+
+    /**
+     * Stage 2: Read recent AEMOR run outcomes for the files in the discovery
+     * manifest and fold them in as compact facts. Purely additive (fail-open):
+     * unavailable runtime or a thrown exception yields empty facts, never a
+     * failed run.
+     */
+    private function stageAemorOutcomeBridge(array $state): array
+    {
+        $discovery = $state['discovery'];
+
+        $facts = $this->discoverRecentOutcomeFacts($discovery);
+
+        // Only rebuild if we have new facts and they're not already present.
+        if ($facts !== [] || $discovery->recentOutcomeFacts !== []) {
+            $state['discovery'] = new CodeDiscoveryManifest(
+                runId: $discovery->runId,
+                likelyFiles: $discovery->likelyFiles,
+                relatedSymbols: $discovery->relatedSymbols,
+                relatedTests: $discovery->relatedTests,
+                relatedCommands: $discovery->relatedCommands,
+                confidence: $discovery->confidence,
+                missingRefs: $discovery->missingRefs,
+                forbiddenFiles: $discovery->forbiddenFiles,
+                providerSafe: $discovery->providerSafe,
+                manifestHash: $discovery->manifestHash,
+                likelyCallers: $discovery->likelyCallers,
+                recentOutcomeFacts: $facts,
+            );
+        }
+
+        return $state;
+    }
+
+    /**
+     * Stage 3: Distill discovery/projection evidence down to what the
+     * CompactSdd already declared as the char budget, so a small model gets
+     * less noise and more of the acceptance-critical evidence (callers, tests,
+     * decisions). Non-blocking: any distillation error is swallowed and the
+     * distillation receipt is skipped.
+     */
+    private function stageContextBudgetDistillation(array $state): array
+    {
+        try {
+            $distillation = (new DevContextBudgetDistiller)->distill(
+                $this->buildContextSections($state['discovery'], $state['projection'], $state['compactSdd']),
+                $state['compactSdd']->contextBudget->maxChars,
+            );
+            $persistedDistillation = $this->receiptStorage->writeAtomic(
+                $state['envelope']->runId,
+                'dev_context_budget_distillation',
+                $distillation,
+            );
+            $state['distillation'] = $distillation;
+            $state['persistedDistillation'] = $persistedDistillation;
+        } catch (Throwable) {
+            $state['distillation'] = [];
+            $state['persistedDistillation'] = null;
+        }
+
+        return $state;
+    }
+
+    /**
+     * Stage 4: Retrieve proven green-run exemplars for the LIVE prompt (not
+     * just the workcell_instructions.json receipt). Real runs of the same task
+     * kind / design path / files that already passed verification here. Uses
+     * DevGreenRunExemplarRetriever which never throws (fail-open); an empty
+     * store keeps the prompt byte-identical.
+     */
+    private function stageExemplarRetrieval(array $state): array
+    {
+        $state['provenExemplars'] = ($this->exemplarRetriever ?? new DevGreenRunExemplarRetriever)->retrieve(
+            $state['classification']->taskKind,
+            $this->designPathFromSpec($state['miniSpec']->toCanonicalArray()),
+            $state['taskContract']->allowedFiles,
+            workspaceHash: $state['workspaceHash'],
+            originHash: $state['originHash'],
+        );
+
+        return $state;
+    }
+
+    /**
+     * Stage 5: Verification receipts — Mandatory RAG Gate (fail-closed) and
+     * Spec Adversary (fail-closed structural check). The Mandatory RAG Gate
+     * evaluates whether the run has sufficient context; for non-trivial
+     * engineering tasks, insufficient context forces routing → BLOCKED. The
+     * Spec Adversary (Obra #2) attacks fidelity-of-spec; a structural refusal
+     * forces BLOCKED. Both are deterministic and provider-free.
+     */
+    private function stageVerificationReceipts(array $state): array
+    {
+        $envelope = $state['envelope'];
+        $classification = $state['classification'];
+        $compactSdd = $state['compactSdd'];
+        $contextPlan = $state['contextPlan'];
+        $routing = $state['routing'];
+        $miniSpec = $state['miniSpec'];
+        $taskContract = $state['taskContract'];
 
         // Mandatory RAG Gate (fail-closed). After classification/spec/plan
         // are deterministic, the gate decides whether the run can proceed.
@@ -163,6 +519,9 @@ class AtlasDevFastPathOrchestrator
             );
         }
 
+        $state['gate'] = $gate;
+        $state['routing'] = $routing;
+
         // SPEC-ADVERSARY (Obra #2) — fidelity-OF-spec, provider-free, fail-closed. Before the
         // composed criteria are frozen into a sendable prompt, the deterministic spec floor attacks
         // them. A STRUCTURAL refusal (a recognized write verb with ZERO acceptance criteria, or an
@@ -170,7 +529,7 @@ class AtlasDevFastPathOrchestrator
         // not skipped: oracle_adequacy (no test is authored yet at plan time — discrimination is
         // discharged downstream by the sovereign floor's mutation_kill_ratio at certify) and
         // ambiguity_resolved (surfaced to the operator via the clarification queue, not a hard block).
-        $specVerdictArtifact = null;
+        $specVerdictArtifact = $state['specVerdictArtifact'];
         if ($this->specGate !== null && $routing->kind === RoutingDecision::ATLAS_DEV_FAST_PATH) {
             $specVerdict = $this->specGate->contest(
                 new SpecDraft(
@@ -210,153 +569,77 @@ class AtlasDevFastPathOrchestrator
             } catch (Throwable) {
                 $specVerdictArtifact = null;
             }
+            $state['routing'] = $routing;
+            $state['specVerdictArtifact'] = $specVerdictArtifact;
         }
 
-        $promptIsSendable = $routing->kind === RoutingDecision::ATLAS_DEV_FAST_PATH;
-
-        // M5: Compounding failure memory — feed persisted AtlasDevFailureCapsule
-        // rows forward as known failure modes of the area into the prompt
-        // projection. Area identity = overlap between the run's allowed_files
-        // and a capsule's changed_files, AND repository/workspace identity via
-        // the capsule's task_packet.workspace_slug. REUSES AtlasDevFailureCapsule
-        // (model) via DevFailureCapsulePromptInjector (read-only). Injection is
-        // workspace-scoped (foreign-workspace capsule never injects even when
-        // its changed_files overlap — VAL-M5-007 anti cross-repo bleed),
-        // area-scoped (foreign-area capsule never injects — VAL-M5-003),
-        // provider-safe (secrets redacted — VAL-M5-005), deterministic and
-        // deduped on failure_hash (VAL-M5-006). An empty/foreign area yields
-        // an empty list and the projection stays byte-identical to the pre-M5
-        // baseline (VAL-M5-004 — the renderer omits the section when empty).
-        //
-        // Workspace_slug normalization mirrors DevTaskPacketRuntimeService,
-        // where workspace_slug falls back to the workspace string when no
-        // explicit slug is supplied. The envelope carries the resolved
-        // workspace (path or slug) used by the current run.
-        // Workspace identity for M5 = the stable REPO ORIGIN, not the
-        // checkout path: sandboxed flows run in per-run temp dirs, so the
-        // raw envelope workspace never matches a previously persisted
-        // capsule's slug (the write side uses the same identity).
-        $workspaceSlug = WorkspaceOriginIdentity::slug($envelope->workspace);
-        $knownFailureModes = ($this->failureCapsuleInjector ?? new DevFailureCapsulePromptInjector)
-            ->injectFor($taskContract->allowedFiles, $workspaceSlug);
-
-        // Proven green-run exemplars for the LIVE prompt (not just the
-        // workcell_instructions.json receipt, which nothing consumes): real
-        // runs of the same task kind / design path / files that already
-        // passed verification here. retrieve() never throws (fail-open); an
-        // empty store keeps the prompt byte-identical.
-        $provenExemplars = ($this->exemplarRetriever ?? new DevGreenRunExemplarRetriever)->retrieve(
-            $classification->taskKind,
-            $this->designPathFromSpec($miniSpec->toCanonicalArray()),
-            $taskContract->allowedFiles,
-            workspaceHash: $envelope->workspaceHash,
-            originHash: WorkspaceOriginIdentity::hash($envelope->workspace),
-        );
-
-        $promptProjection = $this->promptBuilder->build(
-            envelope: $envelope,
-            compactSdd: $compactSdd,
-            miniSpec: $miniSpec,
-            taskContract: $taskContract,
-            discovery: $discovery,
-            projection: $projection,
-            providerSafe: $promptIsSendable,
-            knownFailureModes: $knownFailureModes,
-            provenExemplars: $provenExemplars,
-        );
-
-        $persisted = $this->persistArtifacts(
-            envelope: $envelope,
-            compactSdd: $compactSdd,
-            contextPlan: $contextPlan,
-            discovery: $discovery,
-            projection: $projection,
-            miniSpec: $miniSpec,
-            taskContract: $taskContract,
-            promptProjection: $promptProjection,
-            classification: $classification,
-            routing: $routing,
-            distillation: $distillation,
-        );
-
-        if ($persistedDistillation !== null) {
-            $persisted['dev_context_budget_distillation'] = $persistedDistillation;
-        }
-        if ($specVerdictArtifact !== null) {
-            $persisted['spec_adversary_verdict.json'] = $specVerdictArtifact;
-        }
-
-        $result = new PlanOnlyResult(
-            envelope: $envelope,
-            classification: $classification,
-            riskLevel: $finalRisk,
-            compactSdd: $compactSdd,
-            contextPlan: $contextPlan,
-            discovery: $discovery,
-            projection: $projection,
-            miniSpec: $miniSpec,
-            taskContract: $taskContract,
-            promptProjection: $promptProjection,
-            routing: $routing,
-            persistedArtifactPaths: $persisted,
-            blockers: $routing->blockers,
-        );
-
-        $seniorLoopAudit = (new SeniorEngineerLoopAuditor)->audit($result);
-        $persisted[ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT] = $this->receiptStorage->writeAtomic(
-            $envelope->runId,
-            ArtifactNames::SENIOR_ENGINEER_LOOP_AUDIT,
-            $seniorLoopAudit->toCanonicalArray(),
-        );
-
-        $persisted[ArtifactNames::MANDATORY_RAG_GATE] = $this->receiptStorage->writeAtomic(
-            $envelope->runId,
-            ArtifactNames::MANDATORY_RAG_GATE,
-            $gate->toCanonicalArray(),
-        );
-
-        // Specialist Flow Router (Atlas Dev Superiority Runtime).
-        // Decides which of the 9 canonical specialist flows the operator is
-        // really executing (plan / code / debug / review / research /
-        // explain / test / refactor / forge_escalation) and the path within
-        // it (fast / deep / ask_clarification / escalate). Decision is
-        // advisory for the operator surface — does not change the routing
-        // kind already chosen by RoutingDecisionEngine + the Mandatory RAG
-        // Gate. Persisted as an auditable receipt.
-        $specialistDecision = ($this->specialistFlowRouter ?? new SpecialistFlowRouter)
-            ->decide($envelope, $classification, $compactSdd, $discovery, $routing);
-        $persisted[ArtifactNames::SPECIALIST_FLOW_DECISION] = $this->receiptStorage->writeAtomic(
-            $envelope->runId,
-            ArtifactNames::SPECIALIST_FLOW_DECISION,
-            $specialistDecision->toCanonicalArray(),
-        );
-
-        return new PlanOnlyResult(
-            envelope: $envelope,
-            classification: $classification,
-            riskLevel: $finalRisk,
-            compactSdd: $compactSdd,
-            contextPlan: $contextPlan,
-            discovery: $discovery,
-            projection: $projection,
-            miniSpec: $miniSpec,
-            taskContract: $taskContract,
-            promptProjection: $promptProjection,
-            routing: $routing,
-            persistedArtifactPaths: $persisted,
-            blockers: $routing->blockers,
-            seniorLoopAudit: $seniorLoopAudit,
-            specialistFlow: $specialistDecision,
-        );
+        return $state;
     }
 
     /**
-     * Enriches the discovery manifest with likely_callers and recent_outcome_facts — evidence a
-     * small model needs most, so the context pack is not just "what files" but "who else depends
-     * on them" and "what happened last time this area was touched". Purely additive: every
-     * existing manifest field is untouched, and ANY failure inside enrichment (missing collaborator,
-     * lookup exception, unexpected shape) yields the ORIGINAL unenriched manifest — enrichment can
-     * only ever add evidence, never block or corrupt a Dev run.
+     * Stage 6: Decompose the spec into workcells and assemble one executable
+     * instruction per workcell boosted with green-run exemplars. Additive,
+     * never blocks. Also persists the workspace origin identity for future
+     * cross-sandbox exemplar matching.
+     */
+    private function stageWorkcellDecomposition(array $state): array
+    {
+        $envelope = $state['envelope'];
+        $miniSpec = $state['miniSpec'];
+        $discovery = $state['discovery'];
+        $classification = $state['classification'];
+        $distillation = $state['distillation'];
+        $workspaceHash = $state['workspaceHash'];
+        $originHash = $state['originHash'];
+
+        $decomposer = $this->workcellDecomposer ?? new DevWorkcellDecomposer;
+        $decomposition = $decomposer->decompose($miniSpec->toCanonicalArray(), $discovery->toCanonicalArray());
+        $state['decomposition'] = $decomposition;
+
+        $state['persistedExtra']['workcell_decomposition.json'] = $this->receiptStorage->writeAtomic(
+            $envelope->runId,
+            'workcell_decomposition.json',
+            $decomposition,
+        );
+
+        // ADDITIVE: one executable instruction per workcell, boosted with real green-run
+        // exemplars. Same fail-open contract as the distillation above — never blocks planOnly().
+        $state['persistedExtra']['workcell_instructions.json'] = $this->receiptStorage->writeAtomic(
+            $envelope->runId,
+            'workcell_instructions.json',
+            $this->assembleWorkcellInstructions($decomposition, $miniSpec->toCanonicalArray(), $classification->taskKind, $distillation, $workspaceHash, $originHash),
+        );
+
+        // Stable origin identity of this run's workspace, so future exemplar
+        // retrieval can match runs whose CHECKOUT PATH differs (per-run
+        // sandboxes) but whose REPO is the same. Only the hash is persisted
+        // (the slug may be a git remote URL). Additive artifact.
+        $state['persistedExtra']['workspace_origin.json'] = $this->receiptStorage->writeAtomic(
+            $envelope->runId,
+            'workspace_origin.json',
+            [
+                'schema' => 'atlas.dev.workspace_origin.v1',
+                'origin_hash' => $originHash,
+            ],
+        );
+
+        return $state;
+    }
+
+    // ── Original private helpers (unchanged) ────────────────────────────────
+
+    /**
+     * Enriches the discovery manifest with likely_callers — evidence a
+     * small model needs most, so the context pack is not just "what files" but
+     * "who else depends on them". Purely additive: every existing manifest
+     * field is untouched, and ANY failure inside enrichment (missing collaborator,
+     * lookup exception, unexpected shape) yields the ORIGINAL unenriched
+     * manifest — enrichment can only ever add evidence, never block or corrupt
+     * a Dev run.
+     *
+     * NOTE: recent_outcome_facts enrichment has been extracted into
+     * stageAemorOutcomeBridge so the AEMOR outcome bridge is an independent
+     * pipeline stage with its own timing and fail-open boundary.
      */
     private function enrichDiscovery(CodeDiscoveryManifest $discovery, string $workspace): CodeDiscoveryManifest
     {
@@ -373,7 +656,7 @@ class AtlasDevFastPathOrchestrator
                 providerSafe: $discovery->providerSafe,
                 manifestHash: $discovery->manifestHash,
                 likelyCallers: $this->discoverLikelyCallers($discovery, $workspace),
-                recentOutcomeFacts: $this->discoverRecentOutcomeFacts($discovery),
+                recentOutcomeFacts: $discovery->recentOutcomeFacts,
             );
         } catch (Throwable) {
             return $discovery;
@@ -560,36 +843,8 @@ class AtlasDevFastPathOrchestrator
             $routingPayload,
         );
 
-        // ADDITIVE: workcell decomposition — never blocks, never replaces an existing artifact.
-        // Composed from the same mini spec + discovery manifest already persisted above.
-        $decomposer = $this->workcellDecomposer ?? new DevWorkcellDecomposer;
-        $decomposition = $decomposer->decompose($miniSpec->toCanonicalArray(), $discovery->toCanonicalArray());
-        $persisted['workcell_decomposition.json'] = $this->receiptStorage->writeAtomic(
-            $runId,
-            'workcell_decomposition.json',
-            $decomposition,
-        );
-
-        // ADDITIVE: one executable instruction per workcell, boosted with real green-run
-        // exemplars. Same fail-open contract as the distillation above — never blocks planOnly().
-        $persisted['workcell_instructions.json'] = $this->receiptStorage->writeAtomic(
-            $runId,
-            'workcell_instructions.json',
-            $this->assembleWorkcellInstructions($decomposition, $miniSpec->toCanonicalArray(), $classification->taskKind, $distillation, $envelope->workspaceHash, WorkspaceOriginIdentity::hash($envelope->workspace)),
-        );
-
-        // Stable origin identity of this run's workspace, so future exemplar
-        // retrieval can match runs whose CHECKOUT PATH differs (per-run
-        // sandboxes) but whose REPO is the same. Only the hash is persisted
-        // (the slug may be a git remote URL). Additive artifact.
-        $persisted['workspace_origin.json'] = $this->receiptStorage->writeAtomic(
-            $runId,
-            'workspace_origin.json',
-            [
-                'schema' => 'atlas.dev.workspace_origin.v1',
-                'origin_hash' => WorkspaceOriginIdentity::hash($envelope->workspace),
-            ],
-        );
+        // NOTE: workcell decomposition, workcell instructions, and workspace
+        // origin are now handled by stageWorkcellDecomposition in the pipeline.
 
         return $persisted;
     }
