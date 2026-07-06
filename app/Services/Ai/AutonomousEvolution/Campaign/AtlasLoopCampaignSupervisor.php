@@ -133,42 +133,85 @@ final class AtlasLoopCampaignSupervisor
         }
     }
 
+    /**
+     * Unified test-dependency injection seam. Replaces the individual set*ForTesting methods.
+     *
+     * Supported keys: clock, sleeper, git_head_resolver, changed_files_resolver, storage_root,
+     * provider_swap_policy, provider_effort_policy, origination_producer.
+     *
+     * @param  array<string, mixed>  $deps
+     */
+    public function setTestDependencies(array $deps): void
+    {
+        if (isset($deps['clock']) && $deps['clock'] instanceof Closure) {
+            $this->clock = $deps['clock'];
+        }
+        if (isset($deps['sleeper']) && $deps['sleeper'] instanceof Closure) {
+            $this->sleeper = $deps['sleeper'];
+        }
+        if (isset($deps['git_head_resolver']) && $deps['git_head_resolver'] instanceof Closure) {
+            $this->gitHeadResolver = $deps['git_head_resolver'];
+        }
+        if (isset($deps['changed_files_resolver']) && $deps['changed_files_resolver'] instanceof Closure) {
+            $this->changedFilesResolver = $deps['changed_files_resolver'];
+        }
+        if (isset($deps['storage_root']) && is_string($deps['storage_root'])) {
+            $this->storageRoot = rtrim($deps['storage_root'], '/');
+        }
+        if (isset($deps['provider_swap_policy']) && $deps['provider_swap_policy'] instanceof AtlasLoopProviderSwapPolicy) {
+            $this->swapPolicy = $deps['provider_swap_policy'];
+        }
+        if (isset($deps['provider_effort_policy']) && $deps['provider_effort_policy'] instanceof AtlasLoopProviderEffortPolicy) {
+            $this->effortPolicy = $deps['provider_effort_policy'];
+        }
+        if (isset($deps['origination_producer']) && $deps['origination_producer'] instanceof Closure) {
+            $this->originationProducer = $deps['origination_producer'];
+        }
+    }
+
+    /** @deprecated use setTestDependencies(['clock' => $clock]) */
     public function setClockForTesting(Closure $clock): void
     {
         $this->clock = $clock;
     }
 
+    /** @deprecated use setTestDependencies(['sleeper' => $sleeper]) */
     public function setSleeperForTesting(Closure $sleeper): void
     {
         $this->sleeper = $sleeper;
     }
 
+    /** @deprecated use setTestDependencies(['git_head_resolver' => $resolver]) */
     public function setGitHeadResolverForTesting(Closure $resolver): void
     {
         $this->gitHeadResolver = $resolver;
     }
 
+    /** @deprecated use setTestDependencies(['changed_files_resolver' => $resolver]) */
     public function setChangedFilesResolverForTesting(Closure $resolver): void
     {
         $this->changedFilesResolver = $resolver;
     }
 
+    /** @deprecated use setTestDependencies(['storage_root' => $root]) */
     public function setStorageRootForTesting(string $root): void
     {
         $this->storageRoot = rtrim($root, '/');
     }
 
-    /** Test seam: inject a swap policy whose probe is pre-seeded, so the §W40 selection is provable. */
+    /** @deprecated use setTestDependencies(['provider_swap_policy' => $policy]) */
     public function setProviderSwapPolicyForTesting(AtlasLoopProviderSwapPolicy $policy): void
     {
         $this->swapPolicy = $policy;
     }
 
+    /** @deprecated use setTestDependencies(['provider_effort_policy' => $policy]) */
     public function setProviderEffortPolicyForTesting(AtlasLoopProviderEffortPolicy $policy): void
     {
         $this->effortPolicy = $policy;
     }
 
+    /** @deprecated use setTestDependencies(['origination_producer' => $producer]) */
     public function setOriginationProducerForTesting(Closure $producer): void
     {
         $this->originationProducer = $producer;
