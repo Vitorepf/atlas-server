@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Generated\Concerns\AssertGuaranteeHeld;
 
 /**
  * Atlas Self-Construction Durable Reservation Collision Guard Contract — pure,
@@ -56,6 +57,8 @@ use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
  */
 final class AtlasDurableReservationCollisionGuardContractService
 {
+    use AssertGuaranteeHeld;
+
     /** Stable evidence schema id this read-only surface emits. */
     public const SCHEMA = 'atlas.self_construction_durable_reservation_collision_guard_contract.v1';
 
@@ -321,37 +324,6 @@ final class AtlasDurableReservationCollisionGuardContractService
             self::DECISION_REQUIRE_HUMAN_REVIEW => 'atlas:aaeos:durable-reservation-approval-request',
             default => 'atlas:aaeos:durable-reservation-collision-guard-contract',
         };
-    }
-
-    /**
-     * Prove that no result flipped a non-execution guarantee key (or the two
-     * restated guarantees) to a truthy value. Returns "surface.key" violations
-     * (empty = intact).
-     *
-     * @param list<array<string,mixed>> $results
-     * @return list<string>
-     */
-    public function assertGuaranteeHeld(array $results): array
-    {
-        $violations = [];
-        foreach ($results as $result) {
-            $label = is_string($result['surface'] ?? null) ? $result['surface'] : 'unknown';
-
-            $guarantee = is_array($result['guarantee'] ?? null) ? $result['guarantee'] : [];
-            foreach (self::GUARANTEE_KEYS as $key) {
-                if (! array_key_exists($key, $guarantee) || $guarantee[$key] !== false) {
-                    $violations[] = $label.'.'.$key;
-                }
-            }
-
-            foreach (['claim_persisted', 'is_execution'] as $extra) {
-                if (array_key_exists($extra, $result) && $result[$extra] !== false) {
-                    $violations[] = $label.'.'.$extra;
-                }
-            }
-        }
-
-        return $violations;
     }
 
     /**
