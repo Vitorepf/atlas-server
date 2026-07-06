@@ -36,7 +36,7 @@ Método: 4 finders read-only por dimensão (famílias/clones, god-methods, trans
 |---|---|---|---|---|---|
 | S-01 | Trait `TestsWithLedgerEvents` para o setUp/tearDown clonado em 7 testes de Cognitive (Failure/Dreyfus/SRL) | tests/Unit/Ai/Cognitive/* | ~118 | baixo | placar idêntico por arquivo |
 | S-02 | Traits de família nos scorers/gates do Aucri: `ScalarExtraction` (int/float/string/boolValue duplicados em AucriSegmentRoiScorer + RecallContextBudgetSplitScorer) + clamp helper LOCAL (RetrievalFanoutGate, IrrelevantContextRatioGate, QualityCertification) | app/Services/Ai/Context/{Aucri,Gates}/ | ~145 | baixo | testes unit dos scorers + `atlas:context:quality-certify` |
-| S-03 | Adotar `EmitsCanonicalJson` (trait da #8, já existe) nos 27 comandos certify da pilha com json_encode inline | app/Console/Commands/Atlas*Certify*.php | ~48 | mínimo | saída byte-idêntica (OR comutativo) + 1 teste por amostra |
+| ~~S-03~~ | ~~EmitsCanonicalJson nos 27 certify~~ **REFUTADA por medição (06/07)**: shape real é 1 site/comando (`line(json_encode ?: '{}')` → `jsonLine()` = 1:1, LOC-neutro) + 2 de adoção/arquivo = **net POSITIVO**. Mesma classe do strictExit — o finder contou "2 linhas/comando" errado. | — | 0 | — | — |
 | S-04 | RuntimeBoundary: trait/factory para o construtor + `run()` clonados nos 5 clients Python (GraphRank/StatsEngine/NearDuplicate/SemanticRag/HonestMetrics) | app/Services/Ai/RuntimeBoundary/ | ~70 | baixo | contratos de boundary + `atlas:ai:local-rag-readiness` |
 | S-05 | AiCompactionService: normalizadores (must-keep/forced-discards/string-list) → canon compartilhado + `normalizeCompactionInput()` no compactForScope (128 ln) | app/Services/Ai/AiCompactionService.php | ~85 | baixo | testes de compaction + APCR certify 14/14 |
 | S-06 | Consolidações intra-arquivo dos grandes: const `POLICY_PROVIDER_SAFE_DEFAULTS` (3 serviços), tabela única `ScopeTypeLabels` (2 matches duplicados), `extractRefMetadata()` e `reportSection()` helpers | Context/ + AiContextPackBuilder | ~100 | baixo | byte-identity dos subarrays policy/reason + ACIE certify 13/13 |
@@ -62,4 +62,4 @@ Descobertos SEM tag `@unwired-until` (violam a convenção da Obra #7): **SRL** 
 
 **Casar com a Obra #11**: cada slice fecha com (a) certificador da área verde, (b) `mint-pipeline-receipts` cunhando o green-run do subsistema tocado. A obra entrega as duas metas do operador numa esteira: pilha mais enxuta E pipeline score subindo mensuravelmente a cada commit. Pré-requisito parcial: Obra #9 (vermelhos) para as áreas cujos testes estão red; as slices S-01..S-06 têm suites verdes hoje e podem começar imediatamente após aprovação.
 
-**Sequência**: S-03 (mínimo risco) → S-01 → S-02 → S-04 → S-05 → S-06 → S-10 → S-07 → S-08 → (pós-merge #7) S-09. Órfãos: esteira paralela de governança.
+**Sequência**: S-01 → S-02 → S-04 → S-05 → S-06 → S-10 → S-07 → S-08 → (pós-merge #7) S-09. Órfãos: esteira paralela de governança. (S-03 refutada na execução.)
