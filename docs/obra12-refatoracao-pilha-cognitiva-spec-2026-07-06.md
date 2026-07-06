@@ -62,7 +62,11 @@ O escopo da onda 1 (~58k) NÃO cobria: SelfImprovement (11,4k — ACOS L7), Comp
 
 **Teto honesto da obra completa (ondas 1+2):** ~1,7k–2,3k LOC líquidas + ~100 Python + governança de órfãos.
 
-## Governança de órfãos (potencial adicional ~657 LOC — NÃO é deleção livre)
+## Governança de órfãos — ⚠️ CATÁLOGO REFUTADO NA EXECUÇÃO (06/07)
+
+**Verificação classe a classe refutou o censo dos finders: das 18 "órfãs", 15 são WIRED** (callers vivos via DI de construtor com cadeia até comando registrado/rota — ex.: SRL* → SRLEpisodeRepository → AtlasSRLCommand; LearningPacket* → ResultLedgerService → routes/api.php:843) **e 3 já tinham @unwired-until da Obra #7**. Zero órfãos reais; zero tags novas; os ~657 LOC "recuperáveis" NÃO existem. Causa-raiz: os finders não seguem DI de construtor nem `new Classe` inline — corrigir qualquer detector de órfãos futuro para resolver a cadeia de DI antes de classificar. (Seção original mantida abaixo como registro do erro.)
+
+## ~~Governança de órfãos (potencial adicional ~657 LOC — NÃO é deleção livre)~~ [REFUTADA]
 
 Descobertos SEM tag `@unwired-until` (violam a convenção da Obra #7): **SRL** (`SRLForethoughtCapture`, `SRLPerformanceObserver`, `SRLReflectionCapture` — 71 LOC, 0 callers, 0 testes), **Dreyfus** (`DreyfusEvidenceAggregator` — 80 LOC), **ProductiveFailure** (7 classes — ~71+ LOC), **SelfImprovement** (onda 2: `LearningPacketQualityScorer` 143, `LearningPacketConflictDetector` 129, `SelfImprovementGradeTrajectoryClassifier` 99, `RegressionRecurrenceDetector` 56 — 427 LOC). Ação da obra: para cada um, decidir wire (consumidor real) / tag (`@unwired-until` + missão) / retire (tripla prova). Isso é trabalho da esteira wire-or-retire, não desta spec — mas a spec REGISTRA a dívida de governança.
 
