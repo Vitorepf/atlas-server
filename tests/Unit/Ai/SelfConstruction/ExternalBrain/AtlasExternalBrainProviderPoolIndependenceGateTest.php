@@ -42,7 +42,7 @@ final class AtlasExternalBrainProviderPoolIndependenceGateTest extends TestCase
     {
         $result = $this->svc()->evaluate([
             'providers' => [
-                ['provider' => 'claude', 'has_local_fallback' => true, 'required_for_steady_state' => false],
+                ['provider' => 'claude', 'has_local_fallback' => true, 'required_for_steady_state' => false, 'fallback_proof_refs' => ['tests/Unit/FallbackTest.php']],
             ],
         ]);
 
