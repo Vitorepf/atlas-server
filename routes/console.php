@@ -160,8 +160,10 @@ Schedule::command('atlas:loop:coverage-gaps --hours=24 --feed --json')
 // L3-11 · Mint de green-run receipts da dimensão pipeline do ACOS, em cadência. Mira os
 // subsistemas `partial` (cada receipt verde flipa partial→ready) e sobe o scorecard com
 // evidência resolved (nunca self-declared). Bounded por passe; gated para o operador ligar.
+// 06:30: SEMPRE depois do index-code (06:05) — mint concorrente com reindex grava
+// receipts vermelhos falsos (filtros resolvem vazio com o índice em rebuild).
 Schedule::command('atlas:cognition:mint-pipeline-receipts --limit=30 --json')
-    ->dailyAt('04:40')
+    ->dailyAt('06:30')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.cognition.mint_pipeline_receipts_enabled', true));
 
