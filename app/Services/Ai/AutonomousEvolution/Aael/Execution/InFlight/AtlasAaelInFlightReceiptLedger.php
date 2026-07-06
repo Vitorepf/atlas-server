@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
 
 /**
@@ -11,6 +12,10 @@ use RuntimeException;
  * during an AAEL run. Keyed by aael_run_id + step_index; receipts are byte-stable JSON with
  * monotonic sequence ids per ledger file. No in-place updates — re-appending the same payload
  * always produces a NEW line with a fresh seq.
+ *
+ * Consolidated onto the kernel JsonlReceiptStore (fable-eng-r2): the raw fopen/flock/json-line
+ * mechanics now live in the store; this class keeps its domain payload shaping (nextSeq,
+ * canonicalize) and public API.
  */
 final class AtlasAaelInFlightReceiptLedger
 {
@@ -20,7 +25,12 @@ final class AtlasAaelInFlightReceiptLedger
 
     public const KIND_DRIFT = 'drift';
 
-    public function __construct(private readonly string $ledgerPath) {}
+    private readonly JsonlReceiptStore $store;
+
+    public function __construct(private readonly string $ledgerPath)
+    {
+        $this->store = new JsonlReceiptStore($ledgerPath);
+    }
 
     /**
      * @param  array<string,mixed>  $fact
@@ -50,22 +60,11 @@ final class AtlasAaelInFlightReceiptLedger
         if ($aaelRunId === '') {
             throw new RuntimeException('aael_inflight_receipt_missing_run_id');
         }
-        $dir = \dirname($this->ledgerPath);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new RuntimeException('aael_inflight_receipt_mkdir_failed:'.$dir);
-        }
 
-        $fh = @fopen($this->ledgerPath, 'cb+');
-        if (! is_resource($fh)) {
-            throw new RuntimeException('aael_inflight_receipt_open_failed');
-        }
-        try {
-            if (! @flock($fh, LOCK_EX)) {
-                throw new RuntimeException('aael_inflight_receipt_lock_failed');
-            }
+        $raw = $this->store->appendWith(function (?string $lastLine) use ($aaelRunId, $stepIndex, $kind, $fact): array {
+            $seq = $this->nextSeq();
 
-            $seq = $this->nextSeq($fh);
-            $receipt = $this->canonicalize([
+            return $this->canonicalize([
                 'schema' => self::SCHEMA,
                 'seq' => $seq,
                 'aael_run_id' => $aaelRunId,
@@ -73,19 +72,9 @@ final class AtlasAaelInFlightReceiptLedger
                 'kind' => $kind,
                 'fact' => $fact,
             ]);
-            $line = (string) json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        });
 
-            fseek($fh, 0, SEEK_END);
-            if (fwrite($fh, $line."\n") === false) {
-                throw new RuntimeException('aael_inflight_receipt_write_failed');
-            }
-            @fflush($fh);
-
-            return $receipt;
-        } finally {
-            @flock($fh, LOCK_UN);
-            @fclose($fh);
-        }
+        return json_decode((string) $raw, true);
     }
 
     /**
@@ -94,15 +83,11 @@ final class AtlasAaelInFlightReceiptLedger
     public function forRun(string $aaelRunId): array
     {
         $aaelRunId = trim($aaelRunId);
-        if ($aaelRunId === '' || ! is_file($this->ledgerPath)) {
+        if ($aaelRunId === '') {
             return [];
         }
         $rows = [];
-        foreach ((array) file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (! is_array($decoded)) {
-                continue;
-            }
+        foreach ($this->store->replay() as $decoded) {
             if ((string) ($decoded['aael_run_id'] ?? '') === $aaelRunId) {
                 $rows[] = $decoded;
             }
@@ -117,18 +102,7 @@ final class AtlasAaelInFlightReceiptLedger
      */
     public function all(): array
     {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $rows = [];
-        foreach ((array) file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return $this->store->replay();
     }
 
     public function ledgerPath(): string
@@ -137,18 +111,14 @@ final class AtlasAaelInFlightReceiptLedger
     }
 
     /**
-     * Compute the next monotonic sequence id by scanning the open file's existing receipts.
-     *
-     * @param  resource  $fh
+     * Compute the next monotonic sequence id by scanning the store's existing receipts.
      */
-    private function nextSeq($fh): int
+    private function nextSeq(): int
     {
-        rewind($fh);
         $max = 0;
-        while (($line = fgets($fh)) !== false) {
-            $decoded = json_decode((string) trim($line), true);
-            if (is_array($decoded) && isset($decoded['seq']) && (int) $decoded['seq'] > $max) {
-                $max = (int) $decoded['seq'];
+        foreach ($this->store->replay() as $row) {
+            if (isset($row['seq']) && (int) $row['seq'] > $max) {
+                $max = (int) $row['seq'];
             }
         }
 

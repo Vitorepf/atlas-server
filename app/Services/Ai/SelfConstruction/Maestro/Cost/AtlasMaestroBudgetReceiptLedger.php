@@ -4,17 +4,23 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\Cost;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * Append-only receipt ledger for {@see AtlasMaestroBudgetGate} decisions.
  *
  * Each receipt: task_packet_id, cycle_id, gate, reason, window, overage_cents, recorded_at,
  * receipt_hash. Prior receipts are never mutated; history is filtered by task or cycle.
+ *
+ * Consolidated onto the kernel JsonlReceiptStore (fable-eng-r2): the raw fopen/json-line
+ * mechanics now live in the store; this class keeps its domain payload shaping (receiptHash,
+ * dedup) and public API.
  */
 final class AtlasMaestroBudgetReceiptLedger
 {
-    use \App\Services\Ai\Support\ReadsJsonlLedgerEntries;
-
     public const SCHEMA = 'atlas.maestro.budget_receipt.v1';
+
+    private readonly JsonlReceiptStore $store;
 
     public function __construct(private readonly string $ledgerPath)
     {
@@ -22,6 +28,7 @@ final class AtlasMaestroBudgetReceiptLedger
         if (! is_dir($dir)) {
             @mkdir($dir, 0o755, true);
         }
+        $this->store = new JsonlReceiptStore($ledgerPath);
     }
 
     /**
@@ -50,24 +57,25 @@ final class AtlasMaestroBudgetReceiptLedger
         ];
         $row['receipt_hash'] = $this->receiptHash($row);
 
-        $hash = $row['receipt_hash'];
-        $duplicate = $this->orderedFilter(static fn (array $r): bool => ($r['receipt_hash'] ?? '') === $hash);
-        if ($duplicate !== []) {
+        $raw = $this->store->appendWith(function (?string $lastLine) use ($row): ?array {
+            // Dedup inside the exclusive lock: if a receipt with the same hash already
+            // exists, skip the write by returning null.
+            $hash = $row['receipt_hash'];
+            foreach ($this->store->replay() as $existing) {
+                if (($existing['receipt_hash'] ?? '') === $hash) {
+                    return null;
+                }
+            }
+
+            return $row;
+        });
+
+        if ($raw === null) {
+            // Duplicate detected — still return the receipt to keep the caller interface stable.
             return $row;
         }
 
-        $line = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $handle = @fopen($this->ledgerPath, 'a');
-        if ($handle === false) {
-            throw new \RuntimeException('budget receipt ledger: cannot open '.$this->ledgerPath.' for append');
-        }
-        try {
-            fwrite($handle, $line."\n");
-        } finally {
-            fclose($handle);
-        }
-
-        return $row;
+        return json_decode($raw, true);
     }
 
     /**
@@ -99,7 +107,7 @@ final class AtlasMaestroBudgetReceiptLedger
      */
     private function orderedFilter(callable $predicate): array
     {
-        $rows = $this->readAll();
+        $rows = $this->store->replay();
         $rows = array_values(array_filter($rows, $predicate));
 
         return $rows; // append-order preserved.

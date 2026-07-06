@@ -13,13 +13,12 @@ use Tests\TestCase;
 /**
  * Batch two of the JSONL line engine consolidation (fable-eng-r2).
  *
- * One parity case per absorbed or assessed ledger, plus a kept-as-is note
- * for any ledger whose semantics exceed simple append-only line IO.
+ * Three of the four targeted ledgers are now absorbed onto JsonlReceiptStore:
+ *   - AtlasLoopFactConfidenceBoundsReceiptLedger (already done in batch one)
+ *   - AtlasAaelInFlightReceiptLedger (monotonic seq via store::replay inside appendWith)
+ *   - AtlasMaestroBudgetReceiptLedger (dedup via null return from appendWith builder)
  *
- * README: The task objective named four ledgers. Only one
- * (AtlasLoopFactConfidenceBoundsReceiptLedger) was a pure fopen/flock/append
- * clone absorbable onto JsonlReceiptStore. The other three genuinely exceed
- * append-only line IO and are kept-as-is with documented reasons below.
+ * AtlasLoopGoodhartReceiptLedger is kept as-is because it uses MySQL DB::table, not file IO.
  */
 final class JsonlReceiptStoreBatchTwoParityTest extends TestCase
 {
@@ -43,7 +42,7 @@ final class JsonlReceiptStoreBatchTwoParityTest extends TestCase
         parent::tearDown();
     }
 
-    // ── ABSORBED (1 ledger) ────────────────────────────────────────────
+    // ── ABSORBED (3 ledgers) ──────────────────────────────────────────
 
     public function test_fact_confidence_bounds_ledger_parity_after_migration(): void
     {
@@ -96,7 +95,93 @@ final class JsonlReceiptStoreBatchTwoParityTest extends TestCase
         $this->assertSame('test.fact.2', $secondRow['fact_key']);
     }
 
-    // ── KEPT-AS-IS (3 ledgers) ──────────────────────────────────────────
+    public function test_aael_inflight_ledger_parity_after_migration(): void
+    {
+        $path = $this->dir.'/aael-inflight.jsonl';
+        $ledger = new AtlasAaelInFlightReceiptLedger($path);
+
+        $fact = ['rule' => 'no_regression', 'status' => 'pass', 'details' => ['count' => 3]];
+
+        // Append two validation facts for the same run.
+        $first = $ledger->appendValidation('run-A', 4, $fact);
+        $second = $ledger->appendValidation('run-A', 4, $fact);
+
+        // Monotonic sequence ids preserved.
+        $this->assertSame(1, $first['seq']);
+        $this->assertSame(2, $second['seq']);
+
+        // Both lines persisted with expected keys.
+        $lines = array_values((array) file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
+        $this->assertCount(2, $lines);
+
+        $firstRow = json_decode($lines[0], true);
+        $this->assertIsArray($firstRow);
+        $this->assertSame(AtlasAaelInFlightReceiptLedger::SCHEMA, $firstRow['schema']);
+        $this->assertSame(1, $firstRow['seq']);
+        $this->assertSame('run-A', $firstRow['aael_run_id']);
+        $this->assertSame(4, $firstRow['step_index']);
+        $this->assertSame(AtlasAaelInFlightReceiptLedger::KIND_VALIDATION, $firstRow['kind']);
+
+        // Canonical key ordering: schema comes before seq alphabetically.
+        $this->assertSame(['aael_run_id', 'fact', 'kind', 'schema', 'seq', 'step_index'], array_keys($firstRow));
+
+        // forRun filter still works.
+        $runRows = $ledger->forRun('run-A');
+        $this->assertCount(2, $runRows);
+        $this->assertSame([], $ledger->forRun('run-missing'));
+
+        // Drift also works.
+        $drift = $ledger->appendDrift('run-A', 5, ['rolling' => 0.5]);
+        $this->assertSame(3, $drift['seq']);
+        $this->assertSame(AtlasAaelInFlightReceiptLedger::KIND_DRIFT, $drift['kind']);
+
+        $all = $ledger->all();
+        $this->assertCount(3, $all);
+    }
+
+    public function test_maestro_budget_ledger_parity_after_migration(): void
+    {
+        $path = $this->dir.'/maestro-budget.jsonl';
+        $ledger = new AtlasMaestroBudgetReceiptLedger($path);
+        $decision = [
+            'gate' => 'advise',
+            'reason' => 'cycle_budget_exceeded',
+            'window' => 'per_cycle_cents',
+            'overage_cents' => 100,
+        ];
+
+        // Append once.
+        $a = $ledger->append('pk-1', 'cycle-A', $decision, '2026-06-25T00:00:00Z');
+        foreach (['task_packet_id', 'cycle_id', 'gate', 'reason', 'window', 'overage_cents', 'recorded_at', 'receipt_hash', 'schema'] as $field) {
+            $this->assertArrayHasKey($field, $a);
+        }
+        $this->assertSame('pk-1', $a['task_packet_id']);
+        $this->assertStringStartsWith('budget_receipt_', $a['receipt_hash']);
+        $this->assertSame(AtlasMaestroBudgetReceiptLedger::SCHEMA, $a['schema']);
+
+        // Same append (duplicate) does NOT write a second line.
+        $b = $ledger->append('pk-1', 'cycle-A', $decision, '2026-06-25T00:00:00Z');
+        $this->assertSame($a['receipt_hash'], $b['receipt_hash'], 'duplicate returns same hash');
+
+        $lines = array_values((array) file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
+        $this->assertCount(1, $lines, 'duplicate must not produce a second line');
+
+        // Different recorded_at is not a duplicate.
+        $c = $ledger->append('pk-1', 'cycle-A', $decision, '2026-06-25T00:01:00Z');
+        $this->assertCount(2, $ledger->all());
+
+        // Filtering by task and cycle.
+        $this->assertCount(2, $ledger->receiptsForTask('pk-1'));
+        $this->assertCount(2, $ledger->receiptsForCycle('cycle-A'));
+
+        // Persisted line decodes correctly.
+        $firstRow = json_decode($lines[0], true);
+        $this->assertSame('pk-1', $firstRow['task_packet_id']);
+        $this->assertSame('advise', $firstRow['gate']);
+        $this->assertSame(100, $firstRow['overage_cents']);
+    }
+
+    // ── KEPT-AS-IS (1 ledger) ─────────────────────────────────────────
 
     public function test_goodhart_ledger_kept_as_is_database_backed(): void
     {
@@ -111,44 +196,12 @@ final class JsonlReceiptStoreBatchTwoParityTest extends TestCase
         $this->assertTrue($ref->hasMethod('record'));
     }
 
-    public function test_aael_inflight_ledger_kept_as_is_needs_monotonic_seq_counter(): void
-    {
-        // AtlasAaelInFlightReceiptLedger reads ALL existing lines under the
-        // exclusive write lock to compute nextSeq() (monotonic sequence id).
-        // JsonlReceiptStore::appendWith sees the last line only, not the full
-        // set. A full scan inside appendWith would be wasteful and risk
-        // performance regression. The seq counter is genuinely domain-specific
-        // and exceeds what appendWith's single-tail-line contract provides.
-        $ref = new \ReflectionClass(AtlasAaelInFlightReceiptLedger::class);
-        $this->assertTrue($ref->isFinal());
-        $this->assertTrue($ref->hasMethod('nextSeq'));
-        $this->assertTrue($ref->hasMethod('forRun'));
-        $this->assertTrue($ref->hasMethod('all'));
-    }
+    // ── INTEGRITY GUARD ───────────────────────────────────────────────
 
-    public function test_maestro_budget_ledger_kept_as_is_dedup_without_flock(): void
+    public function test_all_four_ledgers_accounted_for(): void
     {
-        // AtlasMaestroBudgetReceiptLedger opens with fopen(..., 'a') (no lock),
-        // does its own dedup by scanning existing lines for matching receipt_hash,
-        // and returns the existing row instead of writing a duplicate.
-        // JsonlReceiptStore uses LOCK_EX and would force an append — the dedup
-        // contract would change. Keeping the dedicated implementation prevents
-        // a behaviour regression for the budget gate's idempotency invariant.
-        $ref = new \ReflectionClass(AtlasMaestroBudgetReceiptLedger::class);
-        $this->assertTrue($ref->isFinal());
-        $this->assertTrue($ref->hasMethod('receiptHash'));
-        $this->assertTrue($ref->hasMethod('receiptsForTask'));
-        $this->assertTrue($ref->hasMethod('receiptsForCycle'));
-    }
-
-    // ── INTEGRITY GUARD ─────────────────────────────────────────────────
-
-    public function test_all_four_ledgers_accounted_for_in_kept_as_is_note(): void
-    {
-        // This test asserts that every ledger named in the task objective is
-        // either absorbed (proven by its own parity test above) or has an
-        // explicit kept-as-is explanation above. If a new ledger were added
-        // without an entry here, this test catches it.
-        $this->assertTrue(true, 'Goodhart=DB, AaelInFlight=seq, MaestroBudget=dedup, FactConfidenceBounds=absorbed');
+        // Every ledger named in the task objective is either absorbed (proven
+        // by its own parity test above) or has an explicit kept-as-is note.
+        $this->assertTrue(true, 'Goodhart=DB, AaelInFlight=absorbed, MaestroBudget=absorbed, FactConfidenceBounds=absorbed');
     }
 }
