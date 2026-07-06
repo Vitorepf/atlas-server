@@ -164,7 +164,9 @@ Anti-achados registrados pelos próprios finders (não perseguir): percentile/me
 
 Entram como fila de "quinta-feira de faxina" APÓS as ondas, cada um com verificação local antes do commit. Top por economia estimada:
 
-- `strictExit(payload, okStatus)` — gate `--strict` reimplementado ~80× em comandos (140)
+⚠️ **Calibração pós-execução (06/07):** a primeira amostra da fila (`strictExit`) foi REFUTADA por medição — censo real: 26 sites byte-equivalentes (não ~80), e a adoção de trait custa +2 linhas/arquivo (import+use), comendo o ganho de −2/site → **net +13 LOC de churn puro**. Antes de puxar qualquer item desta fila, fazer o censo e a conta import-vs-ganho; itens de corpo ≤3 linhas por site raramente pagam.
+
+- ~~`strictExit(payload, okStatus)` — gate `--strict` reimplementado ~80× em comandos (140)~~ **REFUTADO por medição** (26×1 forma + cauda de ~20 variantes semânticas; net +13 LOC)
 - `File::ensureDirectoryExists` no lugar de ~73 guardas `if(!is_dir) mkdir` (120)
 - ~54 helpers privados de coerção (stringValue/intValue/floatValue…) → `AiValueNormalizer` (120)
 - `AiWorker::completeAttempt` (490 ln): blocos telemetria/audit/ledger duplicados entre branches (120)
