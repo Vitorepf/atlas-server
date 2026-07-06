@@ -293,4 +293,44 @@ final class AtlasSelfConstructionWorkerResultNormalizerTest extends TestCase
 
         $this->assertSame('blocked', $verdict['result_class']);
     }
+
+    // ── AC: gate output with string 'false' must NOT count as passed ──
+
+    public function test_string_false_in_passed_flag_does_not_count_as_passed(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome' => 'success',
+            'changed_files'   => ['app/Foo.php'],
+            'gate_outputs'    => ['phpunit' => ['passed' => 'false'], 'lint' => true],
+            'evidence_refs'   => ['phpunit:t1', 'mutop:m1'],
+        ]);
+
+        $this->assertNotSame('verified_pass', $verdict['court_status'],
+            'string "false" must not be treated as passed === true');
+        $this->assertNotSame('verified_success', $verdict['result_class']);
+    }
+
+    public function test_string_no_in_passed_flag_does_not_count_as_passed(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome' => 'success',
+            'changed_files'   => ['app/Foo.php'],
+            'gate_outputs'    => ['phpunit' => ['passed' => 'no'], 'lint' => true],
+            'evidence_refs'   => ['phpunit:t1', 'mutop:m1'],
+        ]);
+
+        $this->assertNotSame('verified_pass', $verdict['court_status']);
+    }
+
+    public function test_strict_true_passed_still_works(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome' => 'success',
+            'changed_files'   => ['app/Foo.php'],
+            'gate_outputs'    => ['phpunit' => ['passed' => true], 'lint' => true],
+            'evidence_refs'   => ['phpunit:t1', 'mutop:m1'],
+        ]);
+
+        $this->assertSame('verified_pass', $verdict['court_status']);
+    }
 }
