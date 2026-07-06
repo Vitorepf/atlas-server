@@ -28,10 +28,10 @@ class AtlasAiAssistedExecutionQualityServiceTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_login_bug_human_request_builds_control_area_envelope_and_blocks_without_review(): void
+    public function test_auth_login_bug_human_request_builds_control_area_envelope_and_blocks_without_review(): void
     {
         $payload = app(AtlasAiAssistedExecutionQualityService::class)->buildEnvelope([
-            'human_request' => 'estou com um bug na tela de login',
+            'human_request' => 'estou com um bug na autenticação da tela de login',
             'workspace' => 'atlas-app',
             'surface_id' => 'atlas_app',
         ]);
@@ -70,10 +70,10 @@ class AtlasAiAssistedExecutionQualityServiceTest extends TestCase
         $this->assertSame(64, strlen((string) $payload['assisted_execution_hash']));
     }
 
-    public function test_reviewed_login_bug_can_pass_assisted_execution_gate(): void
+    public function test_reviewed_auth_login_bug_can_pass_assisted_execution_gate(): void
     {
         $payload = app(AtlasAiAssistedExecutionQualityService::class)->buildEnvelope([
-            'human_request' => 'estou com um bug na tela de login',
+            'human_request' => 'estou com um bug na autenticação da tela de login',
             'workspace' => 'atlas-app',
             'surface_id' => 'atlas_app',
             'review_refs' => ['senior-security-review:approved'],
@@ -83,6 +83,21 @@ class AtlasAiAssistedExecutionQualityServiceTest extends TestCase
         $this->assertSame('passed', data_get($payload, 'aedpds.gate.status'));
         $this->assertSame([], $payload['blockers']);
         $this->assertSame('passed', data_get($payload, 'aemor_outcome_memory.gate_status'));
+    }
+
+    public function test_visual_login_surface_bug_warns_but_does_not_block_without_review(): void
+    {
+        $payload = app(AtlasAiAssistedExecutionQualityService::class)->buildEnvelope([
+            'human_request' => 'estou com um bug na tela de login',
+            'workspace' => 'atlas-app',
+            'surface_id' => 'atlas_app',
+        ]);
+
+        $this->assertSame('ready_for_assisted_execution', $payload['status']);
+        $this->assertSame('warning', data_get($payload, 'aedpds.gate.status'));
+        $this->assertSame([], data_get($payload, 'aedpds.gate.blockers'));
+        $this->assertContains('security_review_not_attached', data_get($payload, 'aedpds.gate.warnings'));
+        $this->assertSame([], $payload['blockers']);
     }
 
     public function test_missing_workspace_blocks_before_provider(): void
