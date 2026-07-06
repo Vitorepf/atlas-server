@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -770,9 +771,7 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
      */
     private function git(string $repoRoot, array $args, int $timeout = 30): array
     {
-        $process = new Process(array_merge(['git'], $args), $repoRoot);
-        $process->setTimeout($timeout);
-        $process->run();
+        $process = GitSubprocess::run($repoRoot, $args, $timeout);
 
         return [
             'ok' => $process->isSuccessful(),

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use Symfony\Component\Process\Process;
 
 /**
  * AP-783 · Stewardship Integration Lane Promotion.
@@ -614,9 +614,7 @@ final class StewardshipIntegrationLanePromotionService
      */
     private function git(string $repoRoot, array $args): array
     {
-        $process = new Process(array_merge(['git'], $args), $repoRoot);
-        $process->setTimeout(60);
-        $process->run();
+        $process = GitSubprocess::run($repoRoot, $args);
 
         return [
             'ok' => $process->isSuccessful(),

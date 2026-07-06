@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
-use Symfony\Component\Process\Process;
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 
 /**
  * Worktree topology verifier (operator mandate, 2026-05-31). Read-only/honest:
@@ -213,9 +213,7 @@ final class LoopWorktreeTopologyVerifierService
             return ['ok' => false, 'out' => '', 'err' => 'empty_cwd'];
         }
         try {
-            $process = new Process(array_merge(['git'], $args), $cwd);
-            $process->setTimeout(30);
-            $process->run();
+            $process = GitSubprocess::run($cwd, $args, 30);
 
             return ['ok' => $process->isSuccessful(), 'out' => $process->getOutput(), 'err' => $process->getErrorOutput()];
         } catch (\Throwable $e) {
