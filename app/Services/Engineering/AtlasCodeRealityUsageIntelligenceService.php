@@ -100,7 +100,8 @@ final class AtlasCodeRealityUsageIntelligenceService
             $entrypoints = $this->uniqueStrings($entrypoints);
             sort($entrypoints);
         }
-        $reachability = $this->reachabilityEnvelope($targetPath, $references, $ownerDocs, $tests, $entrypoints);
+        $constructorInjectors = $this->constructorInjectors($basename, $targetPath);
+        $reachability = $this->reachabilityEnvelope($targetPath, $references, $ownerDocs, $tests, $entrypoints, $constructorInjectors);
         $classification = $this->classification($targetPath, $reachability);
         $blockers = $this->blockers($classification, $targetPath, $ownerDocs);
 
@@ -4186,6 +4187,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             $this->ownerDocs($needle, $basename),
             $this->testRefs($needle, $basename),
             $this->entrypoints($needle, $basename),
+            $this->constructorInjectors($basename, $targetPath),
         );
 
         return [
@@ -5377,9 +5379,9 @@ final class AtlasCodeRealityUsageIntelligenceService
      * @param  array<int,string>  $entrypoints
      * @return array<string,mixed>
      */
-    private function reachabilityEnvelope(?string $targetPath, array $references, array $ownerDocs, array $tests, array $entrypoints): array
+    private function reachabilityEnvelope(?string $targetPath, array $references, array $ownerDocs, array $tests, array $entrypoints, array $constructorInjectors = []): array
     {
-        $breakdown = $this->sourceBreakdown($references, $ownerDocs, $tests, $entrypoints);
+        $breakdown = $this->sourceBreakdown($references, $ownerDocs, $tests, $entrypoints, $constructorInjectors);
         $signals = [
             'target_exists' => $targetPath !== null,
             'has_route_entrypoint' => $breakdown['routes']['count'] > 0,
@@ -5387,6 +5389,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             'has_test_coverage' => $breakdown['tests']['count'] > 0,
             'has_owner_doc' => $breakdown['owner_docs']['count'] > 0,
             'has_service_or_code_callers' => $breakdown['code_callers']['count'] > 0,
+            'has_constructor_injectors' => $breakdown['constructor_injectors']['count'] > 0,
             'has_config_reference' => $breakdown['config']['count'] > 0,
             'has_database_reference' => $breakdown['database']['count'] > 0,
         ];
@@ -5431,9 +5434,10 @@ final class AtlasCodeRealityUsageIntelligenceService
      * @param  array<int,string>  $ownerDocs
      * @param  array<int,string>  $tests
      * @param  array<int,string>  $entrypoints
+     * @param  array<int,string>  $constructorInjectors
      * @return array<string,array{count:int,paths:array<int,string>}>
      */
-    private function sourceBreakdown(array $references, array $ownerDocs, array $tests, array $entrypoints): array
+    private function sourceBreakdown(array $references, array $ownerDocs, array $tests, array $entrypoints, array $constructorInjectors = []): array
     {
         $routes = array_values(array_filter($entrypoints, static fn (string $path): bool => str_starts_with($path, 'routes/')));
         $commands = array_values(array_filter($entrypoints, static fn (string $path): bool => str_starts_with($path, 'app/Console/Commands/')));
@@ -5452,6 +5456,7 @@ final class AtlasCodeRealityUsageIntelligenceService
             'owner_docs' => ['count' => count($ownerDocs), 'paths' => array_slice($ownerDocs, 0, 12)],
             'docs' => ['count' => count($docs), 'paths' => array_slice($docs, 0, 12)],
             'code_callers' => ['count' => count($codeCallers), 'paths' => array_slice($codeCallers, 0, 12)],
+            'constructor_injectors' => ['count' => count($constructorInjectors), 'paths' => array_slice($constructorInjectors, 0, 12)],
             'config' => ['count' => count($config), 'paths' => array_slice($config, 0, 12)],
             'database' => ['count' => count($database), 'paths' => array_slice($database, 0, 12)],
         ];
@@ -5482,6 +5487,49 @@ final class AtlasCodeRealityUsageIntelligenceService
         }
 
         return $edges;
+    }
+
+    /**
+     * DI-aware reachability (Obra #12 lesson): app files that type-hint the class
+     * (`Foo $x`) or resolve it (`Foo::class`) are live wiring even without a `use`
+     * statement, tests or docs. Target file itself never counts.
+     *
+     * @return array<int,string>
+     */
+    private function constructorInjectors(string $basename, ?string $targetPath): array
+    {
+        $shortName = pathinfo($basename, PATHINFO_FILENAME);
+        if ($shortName === '') {
+            return [];
+        }
+
+        // ponytail: lexical patterns, not AST — a type-hint or ::class of the short name in app/ is the DI signal
+        $terms = [$shortName.' $', $shortName.'::class'];
+
+        $matches = [];
+        $startedAt = microtime(true);
+        $visited = 0;
+        foreach ($this->allFiles(['app']) as $file) {
+            $visited++;
+            if ($visited > self::MAX_SCAN_FILES || microtime(true) - $startedAt > self::MAX_SCAN_SECONDS) {
+                break;
+            }
+            $path = $file->getPathname();
+            if (! $this->isTextFile($path)) {
+                continue;
+            }
+            $relative = $this->relativePath($path);
+            if ($relative === $targetPath) {
+                continue;
+            }
+            if ($this->fileContainsAny($path, $terms)) {
+                $matches[] = $relative;
+            }
+        }
+
+        sort($matches);
+
+        return $this->uniqueStrings($matches);
     }
 
     /**
@@ -5650,13 +5698,14 @@ final class AtlasCodeRealityUsageIntelligenceService
         $hasTests = (bool) ($signals['has_test_coverage'] ?? false);
         $hasOwner = (bool) ($signals['has_owner_doc'] ?? false);
         $hasCodeCallers = (bool) ($signals['has_service_or_code_callers'] ?? false);
+        $hasConstructorInjectors = (bool) ($signals['has_constructor_injectors'] ?? false);
         $confidence = (string) ($reachability['confidence'] ?? 'review_required');
 
         if ($hasEntrypoint && $hasTests && $hasOwner) {
             return 'active_runtime';
         }
 
-        if ($hasEntrypoint || ($hasTests && $hasOwner) || ($hasCodeCallers && $hasTests)) {
+        if ($hasEntrypoint || ($hasTests && $hasOwner) || ($hasCodeCallers && $hasTests) || $hasConstructorInjectors) {
             return 'active_read_only';
         }
 

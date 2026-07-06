@@ -20,6 +20,7 @@ use Illuminate\Database\QueryException;
 use PhpParser\Node;
 use PhpParser\Node\Expr\ClassConstFetch;
 use PhpParser\Node\Name;
+use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\Namespace_;
 use PhpParser\Node\Stmt\Use_;
 use PhpParser\ParserFactory;
@@ -2595,6 +2596,16 @@ class EngineeringCodeIntelligenceService
                     continue;
                 }
 
+                foreach ($this->phpAstConstructorInjectionClasses($node, $namespace, $imports) as $injection) {
+                    $references[] = [
+                        'kind' => 'php_constructor_injection',
+                        'symbol' => $injection['class'],
+                        'target_module' => $this->moduleSlugForClass($injection['class']),
+                        'file_path' => $relativePath,
+                        'line' => $injection['line'],
+                    ];
+                }
+
                 foreach ($this->phpAstClassConstFetches($node) as $fetch) {
                     if (! $fetch->class instanceof Name) {
                         continue;
@@ -2657,6 +2668,46 @@ class EngineeringCodeIntelligenceService
         }
 
         return $matches;
+    }
+
+    /**
+     * Constructor-injection type-hints (Obra #12 lesson: same-namespace DI has no
+     * `use` and no `::class`, so it was invisible to the relation graph).
+     *
+     * @param  array<string,string>  $imports
+     * @return array<int,array{class:string,line:int}>
+     */
+    private function phpAstConstructorInjectionClasses(Node $node, string $namespace, array $imports): array
+    {
+        if (! $node instanceof ClassLike) {
+            return [];
+        }
+
+        $constructor = $node->getMethod('__construct');
+        if ($constructor === null) {
+            return [];
+        }
+
+        $injections = [];
+        foreach ($constructor->params as $param) {
+            $type = $param->type;
+            if ($type instanceof Node\NullableType) {
+                $type = $type->type;
+            }
+            if (! $type instanceof Name) {
+                // ponytail: scalars (Identifier) and union/intersection hints skipped; add if DI unions ever appear
+                continue;
+            }
+
+            $class = $this->resolvePhpAstClassName($this->phpAstName($type), $namespace, $imports);
+            if ($class === '') {
+                continue;
+            }
+
+            $injections[] = ['class' => $class, 'line' => $param->getStartLine()];
+        }
+
+        return $injections;
     }
 
     /**
