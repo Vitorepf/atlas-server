@@ -2740,20 +2740,33 @@ class AtlasSelfImprovementRuntime
     }
 
     /**
+     * Keep only whitelisted scalar filters, trimmed. Int keys map to themselves;
+     * string keys rename source => target (last write wins, preserving order).
+     *
+     * @param  array<string,string|null>  $filters
+     * @param  array<int|string,string>  $keys
+     * @return array<string,string>
+     */
+    private function normalizedWhitelistFilters(array $filters, array $keys): array
+    {
+        $normalized = [];
+        foreach ($keys as $source => $target) {
+            $value = $filters[is_int($source) ? $target : $source] ?? null;
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $normalized[$target] = trim((string) $value);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
      * @param  array<string,string|null>  $filters
      * @return array<string,string>
      */
     private function normalizedDimensionFilters(array $filters): array
     {
-        $normalized = [];
-        foreach (['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id'] as $key) {
-            $value = $filters[$key] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$key] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->normalizedWhitelistFilters($filters, ['domain', 'flow', 'surface_id', 'provider', 'model', 'runtime', 'tool_id']);
     }
 
     /**
@@ -2762,15 +2775,7 @@ class AtlasSelfImprovementRuntime
      */
     private function normalizedRepairFilters(array $filters): array
     {
-        $normalized = [];
-        foreach (['status', 'strategy', 'failure_domain', 'emitter_stage'] as $key) {
-            $value = $filters[$key] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$key] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->normalizedWhitelistFilters($filters, ['status', 'strategy', 'failure_domain', 'emitter_stage']);
     }
 
     /**
@@ -2779,15 +2784,7 @@ class AtlasSelfImprovementRuntime
      */
     private function normalizedKernelPipelineFilters(array $filters): array
     {
-        $normalized = [];
-        foreach (['status', 'surface_id', 'flow', 'input_mode', 'emitter_stage'] as $key) {
-            $value = $filters[$key] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$key] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->normalizedWhitelistFilters($filters, ['status', 'surface_id', 'flow', 'input_mode', 'emitter_stage']);
     }
 
     /**
@@ -2796,20 +2793,7 @@ class AtlasSelfImprovementRuntime
      */
     private function normalizedDomainOnboardingFilters(array $filters): array
     {
-        $normalized = [];
-
-        foreach ([
-            'domain' => 'domain',
-            'flow' => 'flow',
-            'onboarding_status' => 'onboarding_status',
-        ] as $key => $catalogKey) {
-            $value = $filters[$key] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$catalogKey] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->normalizedWhitelistFilters($filters, ['domain', 'flow', 'onboarding_status']);
     }
 
     /**
@@ -2818,15 +2802,7 @@ class AtlasSelfImprovementRuntime
      */
     private function normalizedArchitectureValidationFilters(array $filters): array
     {
-        $normalized = [];
-        foreach (['status', 'domain', 'surface_id', 'provider', 'flow'] as $key) {
-            $value = $filters[$key] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$key] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->normalizedWhitelistFilters($filters, ['status', 'domain', 'surface_id', 'provider', 'flow']);
     }
 
     /**
@@ -2835,15 +2811,7 @@ class AtlasSelfImprovementRuntime
      */
     private function normalizedProviderPerformanceFilters(array $filters): array
     {
-        $normalized = [];
-        foreach (['provider', 'provider_cli', 'domain', 'flow', 'task_type', 'specialist_profile', 'risk', 'selection_mode'] as $key) {
-            $value = $filters[$key] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$key === 'provider' ? 'provider_cli' : $key] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->normalizedWhitelistFilters($filters, ['provider' => 'provider_cli', 'provider_cli', 'domain', 'flow', 'task_type', 'specialist_profile', 'risk', 'selection_mode']);
     }
 
     private function knownProviderDimension(mixed $value): ?string
@@ -2863,15 +2831,7 @@ class AtlasSelfImprovementRuntime
      */
     private function normalizedInboxActionFilters(array $filters): array
     {
-        $normalized = [];
-        foreach (['action', 'actor_type', 'inbox_item_category', 'inbox_item_severity', 'recommended_action', 'source_type'] as $key) {
-            $value = $filters[$key] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$key] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->normalizedWhitelistFilters($filters, ['action', 'actor_type', 'inbox_item_category', 'inbox_item_severity', 'recommended_action', 'source_type']);
     }
 
     /**
@@ -2880,15 +2840,7 @@ class AtlasSelfImprovementRuntime
      */
     private function normalizedDecisionReceiptFilters(array $filters): array
     {
-        $normalized = [];
-        foreach (['domain', 'flow', 'provider', 'model', 'risk'] as $key) {
-            $value = $filters[$key] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$key] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->normalizedWhitelistFilters($filters, ['domain', 'flow', 'provider', 'model', 'risk']);
     }
 
     /**
@@ -2897,15 +2849,7 @@ class AtlasSelfImprovementRuntime
      */
     private function normalizedAgentBehaviorFilters(array $filters): array
     {
-        $normalized = [];
-        foreach (['status', 'provider', 'model', 'agent_slug', 'finding_code', 'contract_id'] as $key) {
-            $value = $filters[$key] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$key] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->normalizedWhitelistFilters($filters, ['status', 'provider', 'model', 'agent_slug', 'finding_code', 'contract_id']);
     }
 
     /**
@@ -2952,15 +2896,7 @@ class AtlasSelfImprovementRuntime
      */
     private function normalizedProviderReleaseFilters(array $filters): array
     {
-        $normalized = [];
-        foreach (['provider', 'release_type', 'domain', 'recommended_action'] as $key) {
-            $value = $filters[$key] ?? null;
-            if (is_scalar($value) && trim((string) $value) !== '') {
-                $normalized[$key] = trim((string) $value);
-            }
-        }
-
-        return $normalized;
+        return $this->normalizedWhitelistFilters($filters, ['provider', 'release_type', 'domain', 'recommended_action']);
     }
 
     /**
