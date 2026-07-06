@@ -60,211 +60,30 @@ class AtlasAiAutonomousHoldingCommand extends Command
             : (string) $this->option('action');
 
         try {
+            $spec = self::RENDER_TABLE[$action] ?? null;
+            if ($spec !== null) {
+                $services = [
+                    'operatingCycle' => $operatingCycle,
+                    'enterpriseBuildout' => $enterpriseBuildout,
+                    'fixtureSuite' => $fixtureSuite,
+                    'flowActionRuntime' => $flowActionRuntime,
+                    'mandateRegistry' => $mandateRegistry,
+                ];
+
+                return $this->renderPayload($spec, $services[$spec[0]]);
+            }
+
             return match ($action) {
                 'readiness' => $this->renderReadiness($readiness),
-                'observe-cycle' => $this->renderObserveCycle($operatingCycle),
-                'enterprise-operating-packet-status' => $this->renderEnterpriseOperatingPacketStatus($operatingCycle),
-                'enterprise-buildout' => $this->renderEnterpriseBuildout($enterpriseBuildout),
                 'enterprise-consolidation-run' => $this->renderEnterpriseConsolidationRun($mandateRegistry, $flowActionRuntime, $operatingCycle, $readiness),
                 'enterprise-fixture-suite' => $this->renderEnterpriseFixtureSuite($fixtureSuite),
-                'enterprise-flow-action-runtime-run' => $this->renderEnterpriseFlowActionRuntimeRun($flowActionRuntime),
-                'enterprise-flow-action-runtime-status' => $this->renderEnterpriseFlowActionRuntimeStatus($flowActionRuntime),
-                'enterprise-vertical-solution-runtime-status' => $this->renderEnterpriseVerticalSolutionRuntimeStatus($flowActionRuntime),
-                'enterprise-domain-solution-playbook-runtime-status' => $this->renderEnterpriseDomainSolutionPlaybookRuntimeStatus($flowActionRuntime),
-                'enterprise-domain-operating-depth-runtime-status' => $this->renderEnterpriseDomainOperatingDepthRuntimeStatus($flowActionRuntime),
-                'enterprise-domain-agent-workforce-runtime-status' => $this->renderEnterpriseDomainAgentWorkforceRuntimeStatus($flowActionRuntime),
-                'enterprise-operational-dossier-runtime-status' => $this->renderEnterpriseOperationalDossierRuntimeStatus($flowActionRuntime),
-                'enterprise-autonomy-promotion-runtime-status' => $this->renderEnterpriseAutonomyPromotionRuntimeStatus($flowActionRuntime),
-                'enterprise-domain-business-execution-runtime-status' => $this->renderEnterpriseDomainBusinessExecutionRuntimeStatus($flowActionRuntime),
-                'enterprise-company-operating-spine-runtime-status' => $this->renderEnterpriseCompanyOperatingSpineRuntimeStatus($flowActionRuntime),
-                'enterprise-commercial-operations-runtime-status' => $this->renderEnterpriseCommercialOperationsRuntimeStatus($flowActionRuntime),
-                'enterprise-domain-provider-workbench-runtime-status' => $this->renderEnterpriseDomainProviderWorkbenchRuntimeStatus($flowActionRuntime),
-                'enterprise-domain-company-execution-suite-runtime-status' => $this->renderEnterpriseDomainCompanyExecutionSuiteRuntimeStatus($flowActionRuntime),
-                'enterprise-flow-work-product-delivery-runtime-status' => $this->renderEnterpriseFlowWorkProductDeliveryRuntimeStatus($flowActionRuntime),
-                'enterprise-domain-data-connector-operating-runtime-status' => $this->renderEnterpriseDomainDataConnectorOperatingRuntimeStatus($flowActionRuntime),
-                'enterprise-flow-live-read-connector-probe-runtime-status' => $this->renderEnterpriseFlowLiveReadConnectorProbeRuntimeStatus($flowActionRuntime),
-                'enterprise-external-research-adoption-runtime-status' => $this->renderEnterpriseExternalResearchAdoptionRuntimeStatus($flowActionRuntime),
-                'enterprise-flow-benchmark-replay-runtime-status' => $this->renderEnterpriseFlowBenchmarkReplayRuntimeStatus($flowActionRuntime),
-                'enterprise-connector-certification-preflight-runtime-status' => $this->renderEnterpriseConnectorCertificationPreflightRuntimeStatus($flowActionRuntime),
-                'enterprise-command-center-control-tower-runtime-status' => $this->renderEnterpriseCommandCenterControlTowerRuntimeStatus($flowActionRuntime),
-                'enterprise-operational-dress-rehearsal-runtime-status' => $this->renderEnterpriseOperationalDressRehearsalRuntimeStatus($flowActionRuntime),
-                'enterprise-semantic-operating-graph-runtime-status' => $this->renderEnterpriseSemanticOperatingGraphRuntimeStatus($flowActionRuntime),
-                'enterprise-company-system-model-runtime-status' => $this->renderEnterpriseCompanySystemModelRuntimeStatus($flowActionRuntime),
-                'enterprise-internal-operations-backbone-runtime-status' => $this->renderEnterpriseInternalOperationsBackboneRuntimeStatus($flowActionRuntime),
-                'enterprise-activation-run-operations-runtime-status' => $this->renderEnterpriseActivationRunOperationsRuntimeStatus($flowActionRuntime),
-                'enterprise-flow-execution-foundation-runtime-status' => $this->renderEnterpriseFlowExecutionFoundationRuntimeStatus($flowActionRuntime),
-                'enterprise-agent-toolchain-runtime-status' => $this->renderEnterpriseAgentToolchainRuntimeStatus($flowActionRuntime),
-                'enterprise-workforce-capacity-runtime-status' => $this->renderEnterpriseWorkforceCapacityRuntimeStatus($flowActionRuntime),
-                'enterprise-portfolio-dependency-runtime-status' => $this->renderEnterprisePortfolioDependencyRuntimeStatus($flowActionRuntime),
-                'enterprise-cross-company-handoff-runtime-status' => $this->renderEnterpriseCrossCompanyHandoffRuntimeStatus($flowActionRuntime),
-                'enterprise-customer-account-revenue-runtime-status' => $this->renderEnterpriseCustomerAccountRevenueRuntimeStatus($flowActionRuntime),
-                'enterprise-productized-service-runtime-status' => $this->renderEnterpriseProductizedServiceRuntimeStatus($flowActionRuntime),
-                'enterprise-sales-crm-pipeline-runtime-status' => $this->renderEnterpriseSalesCrmPipelineRuntimeStatus($flowActionRuntime),
-                'enterprise-customer-support-service-desk-runtime-status' => $this->renderEnterpriseCustomerSupportServiceDeskRuntimeStatus($flowActionRuntime),
-                'enterprise-marketing-growth-engine-runtime-status' => $this->renderEnterpriseMarketingGrowthEngineRuntimeStatus($flowActionRuntime),
-                'enterprise-finance-treasury-billing-runtime-status' => $this->renderEnterpriseFinanceTreasuryBillingRuntimeStatus($flowActionRuntime),
-                'enterprise-governance-risk-operations-runtime-status' => $this->renderEnterpriseGovernanceRiskOperationsRuntimeStatus($flowActionRuntime),
-                'enterprise-unit-economics-capacity-runtime-status' => $this->renderEnterpriseUnitEconomicsCapacityRuntimeStatus($flowActionRuntime),
-                'enterprise-business-operating-packet-runtime-status' => $this->renderEnterpriseBusinessOperatingPacketRuntimeStatus($flowActionRuntime),
-                'enterprise-delivery-risk-runtime-status' => $this->renderEnterpriseDeliveryRiskRuntimeStatus($flowActionRuntime),
-                'enterprise-operational-outcome-runtime-status' => $this->renderEnterpriseOperationalOutcomeRuntimeStatus($flowActionRuntime),
-                'enterprise-holding-outcome-scorecard-status' => $this->renderEnterpriseHoldingOutcomeScorecardStatus($flowActionRuntime),
-                'enterprise-portfolio-decision-packet-status' => $this->renderEnterprisePortfolioDecisionPacketStatus($flowActionRuntime),
-                'enterprise-company-board-operating-review-status' => $this->renderEnterpriseCompanyBoardOperatingReviewStatus($flowActionRuntime),
-                'enterprise-company-completion-certification-status' => $this->renderEnterpriseCompanyCompletionCertificationStatus($mandateRegistry),
-                'enterprise-holding-completion-audit-status' => $this->renderEnterpriseHoldingCompletionAuditStatus($mandateRegistry),
-                'enterprise-vertical-operational-depth-status' => $this->renderEnterpriseVerticalOperationalDepthStatus($mandateRegistry),
-                'enterprise-company-operating-cycle-status' => $this->renderEnterpriseCompanyOperatingCycleStatus($mandateRegistry),
-                'enterprise-company-operating-cadence-status' => $this->renderEnterpriseCompanyOperatingCadenceStatus($mandateRegistry),
-                'enterprise-company-operating-scorecard-status' => $this->renderEnterpriseCompanyOperatingScorecardStatus($mandateRegistry),
-                'enterprise-company-active-operating-system-status' => $this->renderEnterpriseCompanyActiveOperatingSystemStatus($mandateRegistry),
-                'enterprise-company-capability-catalog-status' => $this->renderEnterpriseCompanyCapabilityCatalogStatus($mandateRegistry),
-                'enterprise-company-integration-readiness-status' => $this->renderEnterpriseCompanyIntegrationReadinessStatus($mandateRegistry),
-                'enterprise-domain-workload-agent-template-status' => $this->renderEnterpriseDomainWorkloadAgentTemplateStatus($mandateRegistry),
-                'enterprise-company-domain-solution-pack-status' => $this->renderEnterpriseCompanyDomainSolutionPackStatus($mandateRegistry),
-                'enterprise-company-agent-operations-pack-status' => $this->renderEnterpriseCompanyAgentOperationsPackStatus($mandateRegistry),
-                'enterprise-company-agent-workforce-runtime-register' => $this->renderEnterpriseCompanyAgentWorkforceRuntimeRegister($mandateRegistry),
-                'enterprise-company-agent-workforce-runtime-status' => $this->renderEnterpriseCompanyAgentWorkforceRuntimeStatus($mandateRegistry),
-                'enterprise-company-domain-operating-model-certification-status' => $this->renderEnterpriseCompanyDomainOperatingModelCertificationStatus($mandateRegistry),
-                'enterprise-company-domain-tool-execution-readiness-status' => $this->renderEnterpriseCompanyDomainToolExecutionReadinessStatus($mandateRegistry),
-                'enterprise-company-flow-tool-execution-ledger-status' => $this->renderEnterpriseCompanyFlowToolExecutionLedgerStatus($mandateRegistry),
-                'enterprise-company-flow-tool-execution-runtime-register' => $this->renderEnterpriseCompanyFlowToolExecutionRuntimeRegister($mandateRegistry),
-                'enterprise-company-flow-tool-execution-runtime-status' => $this->renderEnterpriseCompanyFlowToolExecutionRuntimeStatus($mandateRegistry),
-                'enterprise-company-domain-adapter-execution-envelope-register' => $this->renderEnterpriseCompanyDomainAdapterExecutionEnvelopeRegister($mandateRegistry),
-                'enterprise-company-domain-adapter-execution-envelope-status' => $this->renderEnterpriseCompanyDomainAdapterExecutionEnvelopeStatus($mandateRegistry),
-                'enterprise-company-operational-execution-loop-status' => $this->renderEnterpriseCompanyOperationalExecutionLoopStatus($mandateRegistry),
-                'enterprise-company-work-product-acceptance-evidence-status' => $this->renderEnterpriseCompanyWorkProductAcceptanceEvidenceStatus($mandateRegistry),
-                'enterprise-company-work-product-runtime-register' => $this->renderEnterpriseCompanyWorkProductRuntimeRegister($mandateRegistry),
-                'enterprise-company-work-product-runtime-status' => $this->renderEnterpriseCompanyWorkProductRuntimeStatus($mandateRegistry),
-                'enterprise-company-operating-blueprint-runtime-register' => $this->renderEnterpriseCompanyOperatingBlueprintRuntimeRegister($mandateRegistry),
-                'enterprise-company-operating-blueprint-runtime-status' => $this->renderEnterpriseCompanyOperatingBlueprintRuntimeStatus($mandateRegistry),
-                'enterprise-company-business-runtime-persistence-register' => $this->renderEnterpriseCompanyBusinessRuntimePersistenceRegister($mandateRegistry),
-                'enterprise-company-business-runtime-persistence-status' => $this->renderEnterpriseCompanyBusinessRuntimePersistenceStatus($mandateRegistry),
-                'enterprise-company-capability-runtime-mesh-register' => $this->renderEnterpriseCompanyCapabilityRuntimeMeshRegister($mandateRegistry),
-                'enterprise-company-capability-runtime-mesh-status' => $this->renderEnterpriseCompanyCapabilityRuntimeMeshStatus($mandateRegistry),
-                'enterprise-company-supervised-connector-execution-register' => $this->renderEnterpriseCompanySupervisedConnectorExecutionRegister($mandateRegistry),
-                'enterprise-company-supervised-connector-execution-status' => $this->renderEnterpriseCompanySupervisedConnectorExecutionStatus($mandateRegistry),
-                'enterprise-company-external-tool-activation-work-order-register' => $this->renderEnterpriseCompanyExternalToolActivationWorkOrderRegister($mandateRegistry),
-                'enterprise-company-external-tool-activation-work-order-status' => $this->renderEnterpriseCompanyExternalToolActivationWorkOrderStatus($mandateRegistry),
-                'enterprise-company-external-tool-activation-packet-register' => $this->renderEnterpriseCompanyExternalToolActivationPacketRegister($mandateRegistry),
-                'enterprise-company-external-tool-activation-packet-status' => $this->renderEnterpriseCompanyExternalToolActivationPacketStatus($mandateRegistry),
-                'enterprise-company-vertical-tool-operating-runtime-register' => $this->renderEnterpriseCompanyVerticalToolOperatingRuntimeRegister($mandateRegistry),
-                'enterprise-company-vertical-tool-operating-runtime-status' => $this->renderEnterpriseCompanyVerticalToolOperatingRuntimeStatus($mandateRegistry),
-                'enterprise-company-business-execution-control-plane-register' => $this->renderEnterpriseCompanyBusinessExecutionControlPlaneRegister($mandateRegistry),
-                'enterprise-company-business-execution-control-plane-status' => $this->renderEnterpriseCompanyBusinessExecutionControlPlaneStatus($mandateRegistry),
-                'enterprise-company-commercial-service-catalog-status' => $this->renderEnterpriseCompanyCommercialServiceCatalogStatus($mandateRegistry),
-                'enterprise-company-revenue-delivery-operating-mesh-status' => $this->renderEnterpriseCompanyRevenueDeliveryOperatingMeshStatus($mandateRegistry),
-                'enterprise-company-org-operating-model-status' => $this->renderEnterpriseCompanyOrgOperatingModelStatus($mandateRegistry),
-                'enterprise-company-customer-delivery-lifecycle-status' => $this->renderEnterpriseCompanyCustomerDeliveryLifecycleStatus($mandateRegistry),
-                'enterprise-company-quality-compliance-lifecycle-status' => $this->renderEnterpriseCompanyQualityComplianceLifecycleStatus($mandateRegistry),
-                'enterprise-company-production-readiness-certification-status' => $this->renderEnterpriseCompanyProductionReadinessCertificationStatus($mandateRegistry),
-                'enterprise-company-operating-evidence-bundle-status' => $this->renderEnterpriseCompanyOperatingEvidenceBundleStatus($mandateRegistry),
-                'enterprise-shadow-readiness' => $this->renderEnterpriseShadowReadiness($fixtureSuite),
-                'enterprise-supervised-activation-plan' => $this->renderEnterpriseSupervisedActivationPlan($fixtureSuite),
-                'enterprise-supervised-runtime' => $this->renderEnterpriseSupervisedRuntime($fixtureSuite),
-                'enterprise-connector-certification' => $this->renderEnterpriseConnectorCertification($fixtureSuite),
-                'enterprise-external-action-mandates' => $this->renderEnterpriseExternalActionMandates($fixtureSuite),
-                'enterprise-external-action-register' => $this->renderEnterpriseExternalActionRegister($mandateRegistry),
-                'enterprise-external-action-preflight' => $this->renderEnterpriseExternalActionPreflight($mandateRegistry),
-                'enterprise-external-action-request-approval' => $this->renderEnterpriseExternalActionRequestApproval($mandateRegistry),
                 'enterprise-external-action-approve' => $this->renderEnterpriseExternalActionDecision($mandateRegistry, 'approved'),
                 'enterprise-external-action-reject' => $this->renderEnterpriseExternalActionDecision($mandateRegistry, 'rejected'),
-                'enterprise-external-action-approval-status' => $this->renderEnterpriseExternalActionApprovalStatus($mandateRegistry),
-                'enterprise-control-tower' => $this->renderEnterpriseControlTower($mandateRegistry),
-                'enterprise-activation-cockpit' => $this->renderEnterpriseActivationCockpit($mandateRegistry),
-                'enterprise-premium-activation-status' => $this->renderEnterprisePremiumActivationStatus($mandateRegistry),
-                'enterprise-provider-workbench-status' => $this->renderEnterpriseProviderWorkbenchStatus($mandateRegistry),
-                'enterprise-agent-repository-adoption-status' => $this->renderEnterpriseAgentRepositoryAdoptionStatus($mandateRegistry),
-                'enterprise-agent-repository-operating-catalog-status' => $this->renderEnterpriseAgentRepositoryOperatingCatalogStatus($mandateRegistry),
-                'enterprise-domain-data-fabric-status' => $this->renderEnterpriseDomainDataFabricStatus($mandateRegistry),
-                'enterprise-domain-data-connector-operating-status' => $this->renderEnterpriseDomainDataConnectorOperatingStatus($mandateRegistry),
-                'enterprise-flow-live-read-connector-probe-status' => $this->renderEnterpriseFlowLiveReadConnectorProbeStatus($mandateRegistry),
-                'enterprise-external-research-adoption-status' => $this->renderEnterpriseExternalResearchAdoptionStatus($mandateRegistry),
-                'enterprise-flow-benchmark-replay-status' => $this->renderEnterpriseFlowBenchmarkReplayStatus($mandateRegistry),
-                'enterprise-connector-certification-preflight-status' => $this->renderEnterpriseConnectorCertificationPreflightStatus($mandateRegistry),
-                'enterprise-domain-agent-toolchain-certification-status' => $this->renderEnterpriseDomainAgentToolchainCertificationStatus($mandateRegistry),
-                'enterprise-industry-solution-ecosystem-status' => $this->renderEnterpriseIndustrySolutionEcosystemStatus($mandateRegistry),
-                'enterprise-business-operating-backbone-status' => $this->renderEnterpriseBusinessOperatingBackboneStatus($mandateRegistry),
-                'enterprise-production-connector-preflight-status' => $this->renderEnterpriseProductionConnectorPreflightStatus($mandateRegistry),
-                'enterprise-flow-quality-research-status' => $this->renderEnterpriseFlowQualityResearchStatus($mandateRegistry),
-                'enterprise-vertical-solution-suite-status' => $this->renderEnterpriseVerticalSolutionSuiteStatus($mandateRegistry),
-                'enterprise-domain-business-execution-mesh-status' => $this->renderEnterpriseDomainBusinessExecutionMeshStatus($mandateRegistry),
-                'enterprise-flow-operating-package-status' => $this->renderEnterpriseFlowOperatingPackageStatus($mandateRegistry),
-                'enterprise-company-command-center-status' => $this->renderEnterpriseCompanyCommandCenterStatus($mandateRegistry),
-                'enterprise-operational-dress-rehearsal-status' => $this->renderEnterpriseOperationalDressRehearsalStatus($mandateRegistry),
-                'enterprise-real-external-execution-readiness-dossier' => $this->renderEnterpriseRealExternalExecutionReadinessDossier($mandateRegistry),
-                'enterprise-real-external-execution-handoff-pack' => $this->renderEnterpriseRealExternalExecutionHandoffPack($mandateRegistry),
-                'enterprise-supervised-external-execution-packet-status' => $this->renderEnterpriseSupervisedExternalExecutionPacketStatus($mandateRegistry),
-                'enterprise-external-worker-preflight-status' => $this->renderEnterpriseExternalWorkerPreflightStatus($mandateRegistry),
-                'enterprise-external-worker-dispatch-plan-status' => $this->renderEnterpriseExternalWorkerDispatchPlanStatus($mandateRegistry),
-                'enterprise-external-launch-control-status' => $this->renderEnterpriseExternalLaunchControlStatus($mandateRegistry),
-                'enterprise-external-receipt-binding-status' => $this->renderEnterpriseExternalReceiptBindingStatus($mandateRegistry),
-                'enterprise-external-supervised-cutover-dossier-status' => $this->renderEnterpriseExternalSupervisedCutoverDossierStatus($mandateRegistry),
-                'enterprise-external-supervised-cutover-work-order-status' => $this->renderEnterpriseExternalSupervisedCutoverWorkOrderStatus($mandateRegistry),
-                'enterprise-external-supervised-cutover-work-order-register' => $this->renderEnterpriseExternalSupervisedCutoverWorkOrderRegister($mandateRegistry),
-                'enterprise-external-supervised-cutover-work-order-persisted-status' => $this->renderEnterpriseExternalSupervisedCutoverWorkOrderPersistedStatus($mandateRegistry),
-                'enterprise-external-supervised-cutover-work-item-bind-receipt' => $this->renderEnterpriseExternalSupervisedCutoverWorkItemBindReceipt($mandateRegistry),
-                'enterprise-external-supervised-cutover-promotion-status' => $this->renderEnterpriseExternalSupervisedCutoverPromotionStatus($mandateRegistry),
-                'enterprise-external-supervised-cutover-final-authority-bind-receipt' => $this->renderEnterpriseExternalSupervisedCutoverFinalAuthorityBindReceipt($mandateRegistry),
-                'enterprise-external-supervised-cutover-runtime-invocation-register' => $this->renderEnterpriseExternalSupervisedCutoverRuntimeInvocationRegister($mandateRegistry),
-                'enterprise-external-supervised-cutover-runtime-invocation-status' => $this->renderEnterpriseExternalSupervisedCutoverRuntimeInvocationStatus($mandateRegistry),
-                'enterprise-external-supervised-cutover-runtime-rehearsal-execute' => $this->renderEnterpriseExternalSupervisedCutoverRuntimeRehearsalExecute($mandateRegistry),
-                'enterprise-external-supervised-cutover-rehearsal-promotion-status' => $this->renderEnterpriseExternalSupervisedCutoverRehearsalPromotionStatus($mandateRegistry),
-                'enterprise-external-supervised-cutover-manual-handoff-register' => $this->renderEnterpriseExternalSupervisedCutoverManualHandoffRegister($mandateRegistry),
-                'enterprise-external-supervised-cutover-manual-handoff-status' => $this->renderEnterpriseExternalSupervisedCutoverManualHandoffStatus($mandateRegistry),
-                'enterprise-external-supervised-cutover-manual-closeout-bind-receipt' => $this->renderEnterpriseExternalSupervisedCutoverManualCloseoutBindReceipt($mandateRegistry),
-                'enterprise-external-supervised-cutover-manual-closeout-status' => $this->renderEnterpriseExternalSupervisedCutoverManualCloseoutStatus($mandateRegistry),
-                'enterprise-external-supervised-cutover-portfolio-readiness-status' => $this->renderEnterpriseExternalSupervisedCutoverPortfolioReadinessStatus($mandateRegistry),
-                'enterprise-external-supervised-cutover-company-evidence-bundle-apply' => $this->renderEnterpriseExternalSupervisedCutoverCompanyEvidenceBundleApply($mandateRegistry),
-                'enterprise-external-supervised-cutover-portfolio-evidence-bundle-apply' => $this->renderEnterpriseExternalSupervisedCutoverPortfolioEvidenceBundleApply($mandateRegistry),
-                'enterprise-activation-backlog-register' => $this->renderEnterpriseActivationBacklogRegister($mandateRegistry),
-                'enterprise-activation-backlog-status' => $this->renderEnterpriseActivationBacklogStatus($mandateRegistry),
-                'enterprise-activation-backlog-run' => $this->renderEnterpriseActivationBacklogRun($mandateRegistry),
-                'enterprise-connector-activation-register' => $this->renderEnterpriseConnectorActivationRegister($mandateRegistry),
-                'enterprise-connector-activation-probe' => $this->renderEnterpriseConnectorActivationProbe($mandateRegistry),
-                'enterprise-connector-activation-status' => $this->renderEnterpriseConnectorActivationStatus($mandateRegistry),
-                'enterprise-live-read-connector-readiness-status' => $this->renderEnterpriseLiveReadConnectorReadinessStatus($mandateRegistry),
-                'enterprise-flow-run-queue-register' => $this->renderEnterpriseFlowRunQueueRegister($mandateRegistry),
-                'enterprise-flow-run-queue-execute' => $this->renderEnterpriseFlowRunQueueExecute($mandateRegistry),
-                'enterprise-flow-run-queue-replay' => $this->renderEnterpriseFlowRunQueueReplay($mandateRegistry),
-                'enterprise-flow-run-queue-status' => $this->renderEnterpriseFlowRunQueueStatus($mandateRegistry),
-                'enterprise-flow-operations-runbook-register' => $this->renderEnterpriseFlowOperationsRunbookRegister($mandateRegistry),
-                'enterprise-flow-operations-runbook-drill' => $this->renderEnterpriseFlowOperationsRunbookDrill($mandateRegistry),
-                'enterprise-flow-operations-runbook-status' => $this->renderEnterpriseFlowOperationsRunbookStatus($mandateRegistry),
                 default => $this->renderError('invalid_arguments', "invalid action [{$action}] for atlas:ai:autonomous-holding"),
             };
         } catch (Throwable $e) {
             return $this->renderError('exception', $e->getMessage(), $e::class);
         }
-    }
-
-    private function renderObserveCycle(AutonomousHoldingOperatingCycleService $operatingCycle): int
-    {
-        $payload = $operatingCycle->observeToday();
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('date', (string) $payload['date']);
-            $this->components->twoColumnDetail('created', (string) $payload['summary']['created']);
-            $this->components->twoColumnDetail('skipped', (string) $payload['summary']['skipped']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseOperatingPacketStatus(AutonomousHoldingOperatingCycleService $operatingCycle): int
-    {
-        $company = $this->option('company');
-        $payload = $operatingCycle->operatingPacketStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('operating_packets', (string) $payload['summary']['operating_packet_count']);
-            $this->components->twoColumnDetail('runbook_evidence', (string) $payload['summary']['flow_operations_runbook_evidence_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
     }
 
     private function renderReadiness(AutonomousHoldingReadinessService $readiness): int
@@ -287,19 +106,6 @@ class AtlasAiAutonomousHoldingCommand extends Command
         });
 
         return self::SUCCESS;
-    }
-
-    private function renderEnterpriseBuildout(AutonomousHoldingEnterpriseBuildoutService $enterpriseBuildout): int
-    {
-        $payload = $enterpriseBuildout->report();
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', $payload['ok'] ? 'true' : 'false');
-            $this->components->twoColumnDetail('company_count', (string) $payload['company_count']);
-            $this->components->twoColumnDetail('enterprise_company_count', (string) $payload['enterprise_company_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
     }
 
     private function renderEnterpriseConsolidationRun(
@@ -830,1696 +636,6 @@ class AtlasAiAutonomousHoldingCommand extends Command
         return $compact;
     }
 
-    private function renderEnterpriseFlowActionRuntimeRun(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->runPortfolioInternal(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('runtime_records', (string) $payload['summary']['runtime_record_bound_count']);
-            $this->components->twoColumnDetail('external_side_effects', (string) $payload['summary']['external_side_effect_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowActionRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->runtimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_flows', (string) $payload['summary']['completed_runtime_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseVerticalSolutionRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->verticalSolutionRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_vertical_flows', (string) $payload['summary']['completed_vertical_runtime_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-            $this->components->twoColumnDetail('external_side_effects', (string) $payload['summary']['external_side_effect_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainSolutionPlaybookRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->domainSolutionPlaybookRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_solution_playbook_flows', (string) $payload['summary']['completed_domain_solution_playbook_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainOperatingDepthRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->domainOperatingDepthRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_domain_depth_flows', (string) $payload['summary']['completed_domain_operating_depth_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainAgentWorkforceRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->domainAgentWorkforceRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_agent_workforce_flows', (string) $payload['summary']['completed_domain_agent_workforce_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseOperationalDossierRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->operationalDossierRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_dossier_flows', (string) $payload['summary']['completed_operational_dossier_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseAutonomyPromotionRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->autonomyPromotionRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_autonomy_flows', (string) $payload['summary']['completed_autonomy_promotion_flow_count']);
-            $this->components->twoColumnDetail('limited_autonomy_blocked', (string) $payload['summary']['limited_external_autonomy_blocked_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainBusinessExecutionRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->domainBusinessExecutionRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_business_flows', (string) $payload['summary']['completed_business_execution_runtime_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-            $this->components->twoColumnDetail('external_side_effects', (string) $payload['summary']['external_side_effect_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyOperatingSpineRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->companyOperatingSpineRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_operating_spine_flows', (string) $payload['summary']['completed_operating_spine_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCommercialOperationsRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->commercialOperationsRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_commercial_flows', (string) $payload['summary']['completed_commercial_operations_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainProviderWorkbenchRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->domainProviderWorkbenchRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_provider_workbench_flows', (string) $payload['summary']['completed_provider_workbench_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainCompanyExecutionSuiteRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->domainCompanyExecutionSuiteRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_domain_suite_flows', (string) $payload['summary']['completed_domain_company_execution_suite_flow_count']);
-            $this->components->twoColumnDetail('external_actions_blocked', (string) $payload['summary']['external_actions_blocked_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowWorkProductDeliveryRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->flowWorkProductDeliveryRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_delivery_flows', (string) $payload['summary']['completed_flow_work_product_delivery_count']);
-            $this->components->twoColumnDetail('external_delivery_blocked', (string) $payload['summary']['external_delivery_blocked_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainDataConnectorOperatingRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->domainDataConnectorOperatingRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_data_connector_flows', (string) $payload['summary']['completed_domain_data_connector_flow_count']);
-            $this->components->twoColumnDetail('external_mutations_blocked', (string) $payload['summary']['external_mutations_blocked_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowLiveReadConnectorProbeRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->flowLiveReadConnectorProbeRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_probe_flows', (string) $payload['summary']['completed_flow_live_read_connector_probe_count']);
-            $this->components->twoColumnDetail('external_mutations_blocked', (string) $payload['summary']['external_mutations_blocked_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalResearchAdoptionRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->externalResearchAdoptionRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_research_adoption_flows', (string) $payload['summary']['completed_external_research_adoption_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowBenchmarkReplayRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->flowBenchmarkReplayRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_benchmark_flows', (string) $payload['summary']['completed_benchmark_replay_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseConnectorCertificationPreflightRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->connectorCertificationPreflightRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_connector_flows', (string) $payload['summary']['completed_connector_certification_preflight_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCommandCenterControlTowerRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->commandCenterControlTowerRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_command_center_flows', (string) $payload['summary']['completed_command_center_control_tower_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseOperationalDressRehearsalRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->operationalDressRehearsalRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_rehearsal_flows', (string) $payload['summary']['completed_operational_dress_rehearsal_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseSemanticOperatingGraphRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->semanticOperatingGraphRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_graph_flows', (string) $payload['summary']['completed_semantic_graph_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseAgentToolchainRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->agentToolchainRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_toolchain_flows', (string) $payload['summary']['completed_agent_toolchain_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanySystemModelRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->companySystemModelRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_company_system_model_flows', (string) $payload['summary']['completed_company_system_model_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseInternalOperationsBackboneRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->internalOperationsBackboneRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_internal_operations_backbone_flows', (string) $payload['summary']['completed_internal_operations_backbone_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseActivationRunOperationsRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->activationRunOperationsRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_activation_run_operations_flows', (string) $payload['summary']['completed_activation_run_operations_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowExecutionFoundationRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->flowExecutionFoundationRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_foundation_flows', (string) $payload['summary']['completed_flow_execution_foundation_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseWorkforceCapacityRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->workforceCapacityRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_workforce_flows', (string) $payload['summary']['completed_workforce_capacity_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterprisePortfolioDependencyRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->portfolioDependencyRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_dependency_flows', (string) $payload['summary']['completed_portfolio_dependency_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCrossCompanyHandoffRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->crossCompanyHandoffRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('handoff_contracts', (string) $payload['summary']['handoff_contract_count']);
-            $this->components->twoColumnDetail('ready_packets', (string) $payload['summary']['ready_handoff_runtime_packet_count']);
-            $this->components->twoColumnDetail('target_acceptance', (string) $payload['summary']['target_acceptance_bound_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCustomerAccountRevenueRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->customerAccountRevenueRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_customer_account_revenue_flows', (string) $payload['summary']['completed_customer_account_revenue_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseProductizedServiceRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->productizedServiceRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_productized_service_flows', (string) $payload['summary']['completed_productized_service_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseSalesCrmPipelineRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->salesCrmPipelineRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_sales_crm_pipeline_flows', (string) $payload['summary']['completed_sales_crm_pipeline_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCustomerSupportServiceDeskRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->customerSupportServiceDeskRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_customer_support_service_desk_flows', (string) $payload['summary']['completed_customer_support_service_desk_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseMarketingGrowthEngineRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->marketingGrowthEngineRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_marketing_growth_engine_flows', (string) $payload['summary']['completed_marketing_growth_engine_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFinanceTreasuryBillingRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->financeTreasuryBillingRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_finance_treasury_billing_flows', (string) $payload['summary']['completed_finance_treasury_billing_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseGovernanceRiskOperationsRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->governanceRiskOperationsRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_governance_risk_operations_flows', (string) $payload['summary']['completed_governance_risk_operations_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseUnitEconomicsCapacityRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->unitEconomicsCapacityRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_economic_flows', (string) $payload['summary']['completed_unit_economics_capacity_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseBusinessOperatingPacketRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->businessOperatingPacketRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_business_packets', (string) $payload['summary']['completed_business_operating_packet_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-            $this->components->twoColumnDetail('external_commitments_blocked', (string) $payload['summary']['external_commitments_blocked_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDeliveryRiskRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->deliveryRiskRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_delivery_risk_flows', (string) $payload['summary']['completed_delivery_risk_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseOperationalOutcomeRuntimeStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->operationalOutcomeRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('completed_outcome_flows', (string) $payload['summary']['completed_operational_outcome_flow_count']);
-            $this->components->twoColumnDetail('coverage_rate', (string) $payload['summary']['coverage_rate']);
-            $this->components->twoColumnDetail('external_side_effects', (string) $payload['summary']['external_side_effect_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseHoldingOutcomeScorecardStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->holdingOutcomeScorecardStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready_companies', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('completed_outcome_flows', (string) $payload['summary']['completed_outcome_flow_count']);
-            $this->components->twoColumnDetail('average_score', (string) $payload['summary']['average_score']);
-            $this->components->twoColumnDetail('external_value_claims', (string) $payload['summary']['external_value_claim_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterprisePortfolioDecisionPacketStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->portfolioDecisionPacketStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready_packets', (string) $payload['summary']['ready_decision_packet_count']);
-            $this->components->twoColumnDetail('scale_internal', (string) $payload['summary']['scale_internal_supervised_capacity_count']);
-            $this->components->twoColumnDetail('real_capital_blocked', (string) $payload['summary']['blocked_real_capital_action_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyBoardOperatingReviewStatus(EnterpriseFlowFixtureActionRuntimeService $runtime): int
-    {
-        $company = $this->option('company');
-        $payload = $runtime->companyBoardOperatingReviewStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready_companies', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('business_packets', (string) $payload['summary']['business_operating_packet_flow_count']);
-            $this->components->twoColumnDetail('command_center_flows', (string) $payload['summary']['command_center_flow_count']);
-            $this->components->twoColumnDetail('external_commitments_allowed', (string) $payload['summary']['external_commitment_allowed_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyCompletionCertificationStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyCompletionCertificationStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('certified_companies', (string) $payload['summary']['completion_certified_company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('cutover_complete', (string) $payload['summary']['supervised_cutover_complete_company_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseHoldingCompletionAuditStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseHoldingCompletionAuditStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('proven_gates', (string) $payload['summary']['proven_requirement_gate_count']);
-            $this->components->twoColumnDetail('requirement_gates', (string) $payload['summary']['requirement_gate_count']);
-            $this->components->twoColumnDetail('missing_gates', (string) $payload['summary']['missing_requirement_gate_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseVerticalOperationalDepthStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseVerticalOperationalDepthStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('depth_ready_companies', (string) $payload['summary']['operational_depth_ready_company_count']);
-            $this->components->twoColumnDetail('ready_gates', (string) $payload['summary']['ready_gate_count']);
-            $this->components->twoColumnDetail('required_gates', (string) $payload['summary']['required_gate_count']);
-            $this->components->twoColumnDetail('average_depth_score', (string) $payload['summary']['average_depth_score']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyOperatingCycleStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyOperatingCycleStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('cycle_ready_companies', (string) $payload['summary']['operating_cycle_ready_company_count']);
-            $this->components->twoColumnDetail('ready_flow_cycles', (string) $payload['summary']['ready_flow_cycle_count']);
-            $this->components->twoColumnDetail('flow_cycles', (string) $payload['summary']['flow_cycle_count']);
-            $this->components->twoColumnDetail('average_cycle_score', (string) $payload['summary']['average_operating_cycle_score']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyOperatingCadenceStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyOperatingCadenceStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('cadence_ready_companies', (string) $payload['summary']['cadence_ready_company_count']);
-            $this->components->twoColumnDetail('ready_cadences', (string) $payload['summary']['ready_cadence_count']);
-            $this->components->twoColumnDetail('cadences', (string) $payload['summary']['cadence_count']);
-            $this->components->twoColumnDetail('average_cadence_score', (string) $payload['summary']['average_cadence_score']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyOperatingScorecardStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyOperatingScorecardStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('scorecard_ready_companies', (string) $payload['summary']['scorecard_ready_company_count']);
-            $this->components->twoColumnDetail('average_internal_outcome_score', (string) $payload['summary']['average_internal_outcome_score']);
-            $this->components->twoColumnDetail('average_scorecard_score', (string) $payload['summary']['average_scorecard_score']);
-            $this->components->twoColumnDetail('external_revenue_claim_allowed', (string) $payload['summary']['external_revenue_claim_allowed_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyActiveOperatingSystemStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyActiveOperatingSystemStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('active_operating_system_ready_companies', (string) $payload['summary']['active_operating_system_ready_company_count']);
-            $this->components->twoColumnDetail('average_active_operating_system_score', (string) $payload['summary']['average_active_operating_system_score']);
-            $this->components->twoColumnDetail('average_internal_outcome_score', (string) $payload['summary']['average_internal_outcome_score']);
-            $this->components->twoColumnDetail('external_autonomy_allowed', (string) $payload['summary']['external_autonomy_allowed_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyCapabilityCatalogStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyCapabilityCatalogStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('catalog_ready_companies', (string) $payload['summary']['catalog_ready_company_count']);
-            $this->components->twoColumnDetail('ready_families', (string) $payload['summary']['ready_family_count']);
-            $this->components->twoColumnDetail('families', (string) $payload['summary']['required_family_count']);
-            $this->components->twoColumnDetail('ready_flow_capabilities', (string) $payload['summary']['ready_flow_capability_count']);
-            $this->components->twoColumnDetail('flow_capabilities', (string) $payload['summary']['flow_capability_count']);
-            $this->components->twoColumnDetail('average_catalog_score', (string) $payload['summary']['average_catalog_score']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyIntegrationReadinessStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyIntegrationReadinessStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('integration_ready_companies', (string) $payload['summary']['integration_ready_company_count']);
-            $this->components->twoColumnDetail('ready_gates', (string) $payload['summary']['ready_gate_count']);
-            $this->components->twoColumnDetail('gates', (string) $payload['summary']['required_gate_count']);
-            $this->components->twoColumnDetail('ready_flow_integrations', (string) $payload['summary']['ready_flow_integration_count']);
-            $this->components->twoColumnDetail('flow_integrations', (string) $payload['summary']['flow_integration_count']);
-            $this->components->twoColumnDetail('average_integration_score', (string) $payload['summary']['average_integration_score']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainWorkloadAgentTemplateStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseDomainWorkloadAgentTemplateStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready_companies', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('templates', (string) $payload['summary']['template_count']);
-            $this->components->twoColumnDetail('ready_templates', (string) $payload['summary']['ready_template_count']);
-            $this->components->twoColumnDetail('skills', (string) $payload['summary']['skill_count']);
-            $this->components->twoColumnDetail('subagents', (string) $payload['summary']['subagent_count']);
-            $this->components->twoColumnDetail('distribution_packages', (string) $payload['summary']['distribution_package_ready_count']);
-            $this->components->twoColumnDetail('rollout_plans', (string) $payload['summary']['rollout_plan_ready_count']);
-            $this->components->twoColumnDetail('tool_permission_matrices', (string) $payload['summary']['tool_permission_matrix_ready_count']);
-            $this->components->twoColumnDetail('surface_bindings', (string) $payload['summary']['execution_surface_binding_ready_count']);
-            $this->components->twoColumnDetail('fixture_smoke_contracts', (string) $payload['summary']['fixture_smoke_contract_ready_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyDomainOperatingModelCertificationStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyDomainOperatingModelCertificationStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('certified_companies', (string) $payload['summary']['certified_company_count']);
-            $this->components->twoColumnDetail('ready_gates', (string) $payload['summary']['ready_gate_count']);
-            $this->components->twoColumnDetail('gates', (string) $payload['summary']['required_gate_count']);
-            $this->components->twoColumnDetail('average_certification_score', (string) $payload['summary']['average_certification_score']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyOperationalExecutionLoopStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyOperationalExecutionLoopStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('loop_ready_companies', (string) $payload['summary']['operational_execution_loop_ready_company_count']);
-            $this->components->twoColumnDetail('ready_gates', (string) $payload['summary']['ready_gate_count']);
-            $this->components->twoColumnDetail('gates', (string) $payload['summary']['required_gate_count']);
-            $this->components->twoColumnDetail('queue_attempted', (string) $payload['summary']['queue_attempted_count']);
-            $this->components->twoColumnDetail('runbooks_green', (string) $payload['summary']['runbook_operations_green_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyWorkProductAcceptanceEvidenceStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyWorkProductAcceptanceEvidenceStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('acceptance_ready_companies', (string) $payload['summary']['work_product_acceptance_ready_company_count']);
-            $this->components->twoColumnDetail('ready_gates', (string) $payload['summary']['ready_gate_count']);
-            $this->components->twoColumnDetail('gates', (string) $payload['summary']['required_gate_count']);
-            $this->components->twoColumnDetail('acceptance_contracts', (string) $payload['summary']['acceptance_contract_count']);
-            $this->components->twoColumnDetail('handoff_packets', (string) $payload['summary']['handoff_packet_count']);
-            $this->components->twoColumnDetail('external_delivery_allowed', ($payload['policy']['external_delivery_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyWorkProductRuntimeRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyWorkProductRuntimeRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('registered_work_product_runs', (string) $payload['summary']['registered_work_product_run_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('external_delivery_allowed', ($payload['policy']['external_delivery_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyWorkProductRuntimeStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyWorkProductRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('runtime_ready_companies', (string) $payload['summary']['work_product_runtime_ready_company_count']);
-            $this->components->twoColumnDetail('ready_work_product_runs', (string) $payload['summary']['ready_persisted_work_product_run_count']);
-            $this->components->twoColumnDetail('persisted_work_product_runs', (string) $payload['summary']['persisted_work_product_run_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('external_delivery_allowed', ($payload['policy']['external_delivery_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyOperatingBlueprintRuntimeRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyOperatingBlueprintRuntimeRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('registered_blueprint_runs', (string) $payload['summary']['registered_blueprint_run_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyOperatingBlueprintRuntimeStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyOperatingBlueprintRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('runtime_ready_companies', (string) $payload['summary']['operating_blueprint_runtime_ready_company_count']);
-            $this->components->twoColumnDetail('ready_blueprint_runs', (string) $payload['summary']['ready_persisted_blueprint_run_count']);
-            $this->components->twoColumnDetail('persisted_blueprint_runs', (string) $payload['summary']['persisted_blueprint_run_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyBusinessRuntimePersistenceRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyBusinessRuntimePersistenceRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('business_runtime_layers', (string) $payload['summary']['business_runtime_layer_count']);
-            $this->components->twoColumnDetail('registered_business_runtime_runs', (string) $payload['summary']['registered_business_runtime_run_count']);
-            $this->components->twoColumnDetail('expected_business_runtime_runs', (string) $payload['summary']['expected_business_runtime_run_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyBusinessRuntimePersistenceStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyBusinessRuntimePersistenceStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('business_runtime_layers', (string) $payload['summary']['business_runtime_layer_count']);
-            $this->components->twoColumnDetail('runtime_ready_companies', (string) $payload['summary']['business_runtime_persistence_ready_company_count']);
-            $this->components->twoColumnDetail('ready_business_runtime_runs', (string) $payload['summary']['ready_persisted_business_runtime_run_count']);
-            $this->components->twoColumnDetail('persisted_business_runtime_runs', (string) $payload['summary']['persisted_business_runtime_run_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyCapabilityRuntimeMeshRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyCapabilityRuntimeMeshRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('capabilities', (string) $payload['summary']['capability_count']);
-            $this->components->twoColumnDetail('registered_capability_runs', (string) $payload['summary']['registered_capability_runtime_run_count']);
-            $this->components->twoColumnDetail('expected_capability_runs', (string) $payload['summary']['expected_capability_runtime_run_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyCapabilityRuntimeMeshStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyCapabilityRuntimeMeshStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('capabilities', (string) $payload['summary']['capability_count']);
-            $this->components->twoColumnDetail('runtime_ready_companies', (string) $payload['summary']['capability_runtime_mesh_ready_company_count']);
-            $this->components->twoColumnDetail('ready_capability_runs', (string) $payload['summary']['ready_capability_runtime_run_count']);
-            $this->components->twoColumnDetail('persisted_capability_runs', (string) $payload['summary']['persisted_capability_runtime_run_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanySupervisedConnectorExecutionRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanySupervisedConnectorExecutionRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('registered_connector_runs', (string) $payload['summary']['registered_supervised_connector_execution_run_count']);
-            $this->components->twoColumnDetail('expected_connector_runs', (string) $payload['summary']['expected_supervised_connector_execution_run_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanySupervisedConnectorExecutionStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanySupervisedConnectorExecutionStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('runtime_ready_companies', (string) $payload['summary']['supervised_connector_execution_ready_company_count']);
-            $this->components->twoColumnDetail('ready_connector_runs', (string) $payload['summary']['ready_supervised_connector_execution_run_count']);
-            $this->components->twoColumnDetail('persisted_connector_runs', (string) $payload['summary']['persisted_supervised_connector_execution_run_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyExternalToolActivationWorkOrderRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyExternalToolActivationWorkOrderRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('registered_work_orders', (string) $payload['summary']['registered_external_tool_activation_work_order_count']);
-            $this->components->twoColumnDetail('expected_work_orders', (string) $payload['summary']['expected_external_tool_activation_work_order_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyExternalToolActivationWorkOrderStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyExternalToolActivationWorkOrderStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('work_order_ready_companies', (string) $payload['summary']['external_tool_activation_work_orders_ready_company_count']);
-            $this->components->twoColumnDetail('ready_work_orders', (string) $payload['summary']['ready_external_tool_activation_work_order_count']);
-            $this->components->twoColumnDetail('persisted_work_orders', (string) $payload['summary']['persisted_external_tool_activation_work_order_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyExternalToolActivationPacketRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyExternalToolActivationPacketRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('registered_packets', (string) $payload['summary']['registered_external_tool_activation_packet_count']);
-            $this->components->twoColumnDetail('expected_packets', (string) $payload['summary']['expected_external_tool_activation_packet_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyExternalToolActivationPacketStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyExternalToolActivationPacketStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('packet_ready_companies', (string) $payload['summary']['external_tool_activation_packets_ready_company_count']);
-            $this->components->twoColumnDetail('ready_packets', (string) $payload['summary']['ready_external_tool_activation_packet_count']);
-            $this->components->twoColumnDetail('persisted_packets', (string) $payload['summary']['persisted_external_tool_activation_packet_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyVerticalToolOperatingRuntimeRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyVerticalToolOperatingRuntimeRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('registered_vertical_tool_runtimes', (string) $payload['summary']['registered_vertical_tool_runtime_count']);
-            $this->components->twoColumnDetail('expected_vertical_tool_runtimes', (string) $payload['summary']['expected_vertical_tool_runtime_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyVerticalToolOperatingRuntimeStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyVerticalToolOperatingRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('vertical_tool_runtime_ready_companies', (string) $payload['summary']['vertical_tool_operating_runtime_ready_company_count']);
-            $this->components->twoColumnDetail('ready_vertical_tool_runtimes', (string) $payload['summary']['ready_vertical_tool_runtime_count']);
-            $this->components->twoColumnDetail('persisted_vertical_tool_runtimes', (string) $payload['summary']['persisted_vertical_tool_runtime_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyBusinessExecutionControlPlaneRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyBusinessExecutionControlPlaneRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('registered_business_control_planes', (string) $payload['summary']['registered_business_control_plane_count']);
-            $this->components->twoColumnDetail('expected_business_control_planes', (string) $payload['summary']['expected_business_control_plane_count']);
-            $this->components->twoColumnDetail('real_money_movement_allowed', ($payload['policy']['real_money_movement_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyBusinessExecutionControlPlaneStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyBusinessExecutionControlPlaneStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('business_control_plane_ready_companies', (string) $payload['summary']['business_execution_control_plane_ready_company_count']);
-            $this->components->twoColumnDetail('ready_business_control_planes', (string) $payload['summary']['ready_business_control_plane_count']);
-            $this->components->twoColumnDetail('persisted_business_control_planes', (string) $payload['summary']['persisted_business_control_plane_count']);
-            $this->components->twoColumnDetail('customer_commitment_allowed', ($payload['policy']['customer_commitment_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyProductionReadinessCertificationStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyProductionReadinessCertificationStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('production_ready_companies', (string) $payload['summary']['production_ready_company_count']);
-            $this->components->twoColumnDetail('ready_gates', (string) $payload['summary']['ready_gate_count']);
-            $this->components->twoColumnDetail('gates', (string) $payload['summary']['required_gate_count']);
-            $this->components->twoColumnDetail('average_production_readiness_score', (string) $payload['summary']['average_production_readiness_score']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-            $this->components->twoColumnDetail('external_launch_allowed', ($payload['policy']['external_launch_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyCommercialServiceCatalogStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyCommercialServiceCatalogStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('commercial_catalog_ready_companies', (string) $payload['summary']['commercial_service_catalog_ready_company_count']);
-            $this->components->twoColumnDetail('ready_commercial_flows', (string) $payload['summary']['ready_commercial_flow_count']);
-            $this->components->twoColumnDetail('service_offers', (string) $payload['summary']['service_offer_count']);
-            $this->components->twoColumnDetail('pricing_packages', (string) $payload['summary']['pricing_package_count']);
-            $this->components->twoColumnDetail('sla_contracts', (string) $payload['summary']['sla_success_contract_count']);
-            $this->components->twoColumnDetail('external_revenue_claim_allowed', ($payload['policy']['external_revenue_claim_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyRevenueDeliveryOperatingMeshStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyRevenueDeliveryOperatingMeshStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('mesh_ready_companies', (string) $payload['summary']['revenue_delivery_operating_mesh_ready_company_count']);
-            $this->components->twoColumnDetail('ready_flow_threads', (string) $payload['summary']['ready_flow_thread_count']);
-            $this->components->twoColumnDetail('operating_systems', (string) $payload['summary']['operating_system_count']);
-            $this->components->twoColumnDetail('connector_maps', (string) $payload['summary']['connector_map_count']);
-            $this->components->twoColumnDetail('external_billing_allowed', ($payload['policy']['external_billing_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyOrgOperatingModelStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyOrgOperatingModelStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('org_ready_companies', (string) $payload['summary']['org_operating_model_ready_company_count']);
-            $this->components->twoColumnDetail('ready_flow_org_records', (string) $payload['summary']['ready_flow_org_record_count']);
-            $this->components->twoColumnDetail('flow_staffing', (string) $payload['summary']['flow_staffing_count']);
-            $this->components->twoColumnDetail('vendor_due_diligence', (string) $payload['summary']['vendor_due_diligence_count']);
-            $this->components->twoColumnDetail('audit_evidence_requirements', (string) $payload['summary']['audit_evidence_requirement_count']);
-            $this->components->twoColumnDetail('external_procurement_allowed', ($payload['policy']['external_procurement_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyCustomerDeliveryLifecycleStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyCustomerDeliveryLifecycleStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('lifecycle_ready_companies', (string) $payload['summary']['customer_delivery_lifecycle_ready_company_count']);
-            $this->components->twoColumnDetail('ready_flow_lifecycles', (string) $payload['summary']['ready_flow_lifecycle_count']);
-            $this->components->twoColumnDetail('account_health_risks', (string) $payload['summary']['account_health_risk_count']);
-            $this->components->twoColumnDetail('billing_controls', (string) $payload['summary']['billing_ledger_control_count']);
-            $this->components->twoColumnDetail('external_customer_commitment_allowed', ($payload['policy']['external_customer_commitment_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyQualityComplianceLifecycleStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyQualityComplianceLifecycleStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('quality_ready_companies', (string) $payload['summary']['quality_compliance_lifecycle_ready_company_count']);
-            $this->components->twoColumnDetail('ready_flow_quality_records', (string) $payload['summary']['ready_flow_quality_count']);
-            $this->components->twoColumnDetail('replay_matrices', (string) $payload['summary']['replay_matrix_count']);
-            $this->components->twoColumnDetail('audit_evidence_requirements', (string) $payload['summary']['audit_evidence_requirement_count']);
-            $this->components->twoColumnDetail('external_benchmark_claim_allowed', ($payload['policy']['external_benchmark_claim_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyDomainSolutionPackStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyDomainSolutionPackStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('solution_pack_ready_companies', (string) $payload['summary']['domain_solution_pack_ready_company_count']);
-            $this->components->twoColumnDetail('ready_flow_solution_packs', (string) $payload['summary']['ready_flow_solution_pack_count']);
-            $this->components->twoColumnDetail('domain_sources', (string) $payload['summary']['domain_source_count']);
-            $this->components->twoColumnDetail('solution_modules', (string) $payload['summary']['solution_module_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyAgentOperationsPackStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyAgentOperationsPackStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('agent_ops_ready_companies', (string) $payload['summary']['agent_operations_pack_ready_company_count']);
-            $this->components->twoColumnDetail('ready_flow_agent_ops', (string) $payload['summary']['ready_flow_agent_operations_pack_count']);
-            $this->components->twoColumnDetail('skills', (string) $payload['summary']['skill_count']);
-            $this->components->twoColumnDetail('subagents', (string) $payload['summary']['subagent_count']);
-            $this->components->twoColumnDetail('adapter_envelopes', (string) $payload['summary']['adapter_envelope_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyAgentWorkforceRuntimeRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyAgentWorkforceRuntimeRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_agent_runtimes', (string) $payload['summary']['expected_agent_workforce_runtime_count']);
-            $this->components->twoColumnDetail('registered_agent_runtimes', (string) $payload['summary']['registered_agent_workforce_runtime_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyAgentWorkforceRuntimeStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyAgentWorkforceRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready_companies', (string) $payload['summary']['agent_workforce_runtime_ready_company_count']);
-            $this->components->twoColumnDetail('ready_agent_runtimes', (string) $payload['summary']['ready_agent_workforce_runtime_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyDomainToolExecutionReadinessStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyDomainToolExecutionReadinessStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('tool_execution_ready_companies', (string) $payload['summary']['tool_execution_ready_company_count']);
-            $this->components->twoColumnDetail('ready_flow_tool_execution', (string) $payload['summary']['ready_flow_tool_execution_count']);
-            $this->components->twoColumnDetail('flow_tool_execution', (string) $payload['summary']['flow_tool_execution_count']);
-            $this->components->twoColumnDetail('ready_gates', (string) $payload['summary']['ready_gate_count']);
-            $this->components->twoColumnDetail('gates', (string) $payload['summary']['required_gate_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyFlowToolExecutionLedgerStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyFlowToolExecutionLedgerStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ledger_ready_companies', (string) $payload['summary']['flow_tool_execution_ledger_ready_company_count']);
-            $this->components->twoColumnDetail('ready_ledger_records', (string) $payload['summary']['ready_ledger_record_count']);
-            $this->components->twoColumnDetail('ledger_records', (string) $payload['summary']['ledger_record_count']);
-            $this->components->twoColumnDetail('ready_gates', (string) $payload['summary']['ready_gate_count']);
-            $this->components->twoColumnDetail('gates', (string) $payload['summary']['required_gate_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyFlowToolExecutionRuntimeRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyFlowToolExecutionRuntimeRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('registered_runs', (string) $payload['summary']['registered_run_count']);
-            $this->components->twoColumnDetail('expected_runs', (string) $payload['summary']['expected_ledger_record_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyFlowToolExecutionRuntimeStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyFlowToolExecutionRuntimeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('runtime_ready_companies', (string) $payload['summary']['persisted_runtime_ready_company_count']);
-            $this->components->twoColumnDetail('ready_persisted_runs', (string) $payload['summary']['ready_persisted_run_count']);
-            $this->components->twoColumnDetail('persisted_runs', (string) $payload['summary']['persisted_run_count']);
-            $this->components->twoColumnDetail('expected_runs', (string) $payload['summary']['expected_run_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyDomainAdapterExecutionEnvelopeRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyDomainAdapterExecutionEnvelopeRegister(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('registered_envelopes', (string) $payload['summary']['registered_envelope_count']);
-            $this->components->twoColumnDetail('expected_connectors', (string) $payload['summary']['expected_connector_readiness_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyDomainAdapterExecutionEnvelopeStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyDomainAdapterExecutionEnvelopeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('adapter_ready_companies', (string) $payload['summary']['adapter_envelope_ready_company_count']);
-            $this->components->twoColumnDetail('ready_envelopes', (string) $payload['summary']['ready_persisted_envelope_count']);
-            $this->components->twoColumnDetail('persisted_envelopes', (string) $payload['summary']['persisted_envelope_count']);
-            $this->components->twoColumnDetail('expected_envelopes', (string) $payload['summary']['expected_envelope_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyOperatingEvidenceBundleStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->enterpriseCompanyOperatingEvidenceBundleStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('bundle_ready_companies', (string) $payload['summary']['operating_evidence_bundle_ready_company_count']);
-            $this->components->twoColumnDetail('ready_gates', (string) $payload['summary']['ready_gate_count']);
-            $this->components->twoColumnDetail('gates', (string) $payload['summary']['required_gate_count']);
-            $this->components->twoColumnDetail('flow_evidence_records', (string) $payload['summary']['flow_evidence_record_count']);
-            $this->components->twoColumnDetail('average_bundle_score', (string) $payload['summary']['average_bundle_score']);
-            $this->components->twoColumnDetail('external_launch_allowed', ($payload['policy']['external_launch_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseShadowReadiness(EnterpriseFlowFixtureSuiteService $fixtureSuite): int
-    {
-        $company = $this->option('company');
-        $payload = $fixtureSuite->shadowReadiness(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('shadow_ready', (string) $payload['summary']['shadow_ready_company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseSupervisedActivationPlan(EnterpriseFlowFixtureSuiteService $fixtureSuite): int
-    {
-        $company = $this->option('company');
-        $payload = $fixtureSuite->supervisedActivationPlan(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready_for_mandate', (string) $payload['summary']['ready_for_operator_mandate_company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseSupervisedRuntime(EnterpriseFlowFixtureSuiteService $fixtureSuite): int
-    {
-        $company = $this->option('company');
-        $payload = $fixtureSuite->supervisedRuntime(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('completed_flows', (string) $payload['summary']['completed_flow_count']);
-            $this->components->twoColumnDetail('completion_rate', (string) $payload['summary']['completion_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseConnectorCertification(EnterpriseFlowFixtureSuiteService $fixtureSuite): int
-    {
-        $company = $this->option('company');
-        $payload = $fixtureSuite->connectorCertificationSuite(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('certified_connectors', (string) $payload['summary']['certified_connector_count']);
-            $this->components->twoColumnDetail('certification_rate', (string) $payload['summary']['certification_rate']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalActionMandates(EnterpriseFlowFixtureSuiteService $fixtureSuite): int
-    {
-        $company = $this->option('company');
-        $payload = $fixtureSuite->externalActionMandateSuite(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('prepared_packets', (string) $payload['summary']['prepared_packet_count']);
-            $this->components->twoColumnDetail('auto_execute_allowed', $payload['summary']['auto_execute_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalActionRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $flow = $this->option('flow');
-        $payload = $mandateRegistry->register(
-            is_string($company) && trim($company) !== '' ? trim($company) : null,
-            is_string($flow) && trim($flow) !== '' ? trim($flow) : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('registered', (string) $payload['summary']['registered_count']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('auto_execute_allowed_count', (string) $payload['summary']['auto_execute_allowed_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalActionPreflight(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $hash = $this->option('mandate-hash');
-        $payload = $mandateRegistry->preflight(is_string($hash) ? trim($hash) : '');
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['external_execution_allowed'] ? 'true' : 'false');
-            $this->components->twoColumnDetail('mandate_packet_hash', (string) $payload['mandate_packet_hash']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalActionRequestApproval(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $hash = $this->option('mandate-hash');
-        $payload = $mandateRegistry->requestApproval(is_string($hash) ? trim($hash) : '');
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('approval_count', (string) ($payload['approval_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
     private function renderEnterpriseExternalActionDecision(
         ExternalActionMandateRegistryService $mandateRegistry,
         string $decision,
@@ -2544,1082 +660,1461 @@ class AtlasAiAutonomousHoldingCommand extends Command
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
     }
 
-    private function renderEnterpriseExternalActionApprovalStatus(ExternalActionMandateRegistryService $mandateRegistry): int
+    /**
+     * R-17 dispatch table for the uniform render* template: one row per action.
+     * Row: [service key in handle(), service method, option args as
+     * [name, normalization], twoColumnDetail lines as [label, form, payload
+     * path, coalesce default?]]. Forms: 's' = (string) cast, 'b' = bool
+     * ternary, 'c' = (string) (value ?? default), 'bc' = coalesced bool ternary.
+     */
+    private const RENDER_TABLE = [
+        'observe-cycle' => ['operatingCycle', 'observeToday', [], [
+            ['schema', 's', ['schema']],
+            ['date', 's', ['date']],
+            ['created', 's', ['summary', 'created']],
+            ['skipped', 's', ['summary', 'skipped']],
+        ]],
+        'enterprise-operating-packet-status' => ['operatingCycle', 'operatingPacketStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['operating_packets', 's', ['summary', 'operating_packet_count']],
+            ['runbook_evidence', 's', ['summary', 'flow_operations_runbook_evidence_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-buildout' => ['enterpriseBuildout', 'report', [], [
+            ['schema', 's', ['schema']],
+            ['ok', 'b', ['ok']],
+            ['company_count', 's', ['company_count']],
+            ['enterprise_company_count', 's', ['enterprise_company_count']],
+        ]],
+        'enterprise-flow-action-runtime-run' => ['flowActionRuntime', 'runPortfolioInternal', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['runtime_records', 's', ['summary', 'runtime_record_bound_count']],
+            ['external_side_effects', 's', ['summary', 'external_side_effect_count']],
+        ]],
+        'enterprise-flow-action-runtime-status' => ['flowActionRuntime', 'runtimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_flows', 's', ['summary', 'completed_runtime_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-vertical-solution-runtime-status' => ['flowActionRuntime', 'verticalSolutionRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_vertical_flows', 's', ['summary', 'completed_vertical_runtime_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+            ['external_side_effects', 's', ['summary', 'external_side_effect_count']],
+        ]],
+        'enterprise-domain-solution-playbook-runtime-status' => ['flowActionRuntime', 'domainSolutionPlaybookRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_solution_playbook_flows', 's', ['summary', 'completed_domain_solution_playbook_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-domain-operating-depth-runtime-status' => ['flowActionRuntime', 'domainOperatingDepthRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_domain_depth_flows', 's', ['summary', 'completed_domain_operating_depth_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-domain-agent-workforce-runtime-status' => ['flowActionRuntime', 'domainAgentWorkforceRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_agent_workforce_flows', 's', ['summary', 'completed_domain_agent_workforce_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-operational-dossier-runtime-status' => ['flowActionRuntime', 'operationalDossierRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_dossier_flows', 's', ['summary', 'completed_operational_dossier_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-autonomy-promotion-runtime-status' => ['flowActionRuntime', 'autonomyPromotionRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_autonomy_flows', 's', ['summary', 'completed_autonomy_promotion_flow_count']],
+            ['limited_autonomy_blocked', 's', ['summary', 'limited_external_autonomy_blocked_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-domain-business-execution-runtime-status' => ['flowActionRuntime', 'domainBusinessExecutionRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_business_flows', 's', ['summary', 'completed_business_execution_runtime_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+            ['external_side_effects', 's', ['summary', 'external_side_effect_count']],
+        ]],
+        'enterprise-company-operating-spine-runtime-status' => ['flowActionRuntime', 'companyOperatingSpineRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_operating_spine_flows', 's', ['summary', 'completed_operating_spine_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-commercial-operations-runtime-status' => ['flowActionRuntime', 'commercialOperationsRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_commercial_flows', 's', ['summary', 'completed_commercial_operations_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-domain-provider-workbench-runtime-status' => ['flowActionRuntime', 'domainProviderWorkbenchRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_provider_workbench_flows', 's', ['summary', 'completed_provider_workbench_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-domain-company-execution-suite-runtime-status' => ['flowActionRuntime', 'domainCompanyExecutionSuiteRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_domain_suite_flows', 's', ['summary', 'completed_domain_company_execution_suite_flow_count']],
+            ['external_actions_blocked', 's', ['summary', 'external_actions_blocked_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-flow-work-product-delivery-runtime-status' => ['flowActionRuntime', 'flowWorkProductDeliveryRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_delivery_flows', 's', ['summary', 'completed_flow_work_product_delivery_count']],
+            ['external_delivery_blocked', 's', ['summary', 'external_delivery_blocked_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-domain-data-connector-operating-runtime-status' => ['flowActionRuntime', 'domainDataConnectorOperatingRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_data_connector_flows', 's', ['summary', 'completed_domain_data_connector_flow_count']],
+            ['external_mutations_blocked', 's', ['summary', 'external_mutations_blocked_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-flow-live-read-connector-probe-runtime-status' => ['flowActionRuntime', 'flowLiveReadConnectorProbeRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_probe_flows', 's', ['summary', 'completed_flow_live_read_connector_probe_count']],
+            ['external_mutations_blocked', 's', ['summary', 'external_mutations_blocked_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-external-research-adoption-runtime-status' => ['flowActionRuntime', 'externalResearchAdoptionRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_research_adoption_flows', 's', ['summary', 'completed_external_research_adoption_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-flow-benchmark-replay-runtime-status' => ['flowActionRuntime', 'flowBenchmarkReplayRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_benchmark_flows', 's', ['summary', 'completed_benchmark_replay_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-connector-certification-preflight-runtime-status' => ['flowActionRuntime', 'connectorCertificationPreflightRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_connector_flows', 's', ['summary', 'completed_connector_certification_preflight_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-command-center-control-tower-runtime-status' => ['flowActionRuntime', 'commandCenterControlTowerRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_command_center_flows', 's', ['summary', 'completed_command_center_control_tower_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-operational-dress-rehearsal-runtime-status' => ['flowActionRuntime', 'operationalDressRehearsalRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_rehearsal_flows', 's', ['summary', 'completed_operational_dress_rehearsal_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-semantic-operating-graph-runtime-status' => ['flowActionRuntime', 'semanticOperatingGraphRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_graph_flows', 's', ['summary', 'completed_semantic_graph_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-company-system-model-runtime-status' => ['flowActionRuntime', 'companySystemModelRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_company_system_model_flows', 's', ['summary', 'completed_company_system_model_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-internal-operations-backbone-runtime-status' => ['flowActionRuntime', 'internalOperationsBackboneRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_internal_operations_backbone_flows', 's', ['summary', 'completed_internal_operations_backbone_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-activation-run-operations-runtime-status' => ['flowActionRuntime', 'activationRunOperationsRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_activation_run_operations_flows', 's', ['summary', 'completed_activation_run_operations_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-flow-execution-foundation-runtime-status' => ['flowActionRuntime', 'flowExecutionFoundationRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_foundation_flows', 's', ['summary', 'completed_flow_execution_foundation_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-agent-toolchain-runtime-status' => ['flowActionRuntime', 'agentToolchainRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_toolchain_flows', 's', ['summary', 'completed_agent_toolchain_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-workforce-capacity-runtime-status' => ['flowActionRuntime', 'workforceCapacityRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_workforce_flows', 's', ['summary', 'completed_workforce_capacity_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-portfolio-dependency-runtime-status' => ['flowActionRuntime', 'portfolioDependencyRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_dependency_flows', 's', ['summary', 'completed_portfolio_dependency_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-cross-company-handoff-runtime-status' => ['flowActionRuntime', 'crossCompanyHandoffRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['handoff_contracts', 's', ['summary', 'handoff_contract_count']],
+            ['ready_packets', 's', ['summary', 'ready_handoff_runtime_packet_count']],
+            ['target_acceptance', 's', ['summary', 'target_acceptance_bound_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-customer-account-revenue-runtime-status' => ['flowActionRuntime', 'customerAccountRevenueRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_customer_account_revenue_flows', 's', ['summary', 'completed_customer_account_revenue_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-productized-service-runtime-status' => ['flowActionRuntime', 'productizedServiceRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_productized_service_flows', 's', ['summary', 'completed_productized_service_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-sales-crm-pipeline-runtime-status' => ['flowActionRuntime', 'salesCrmPipelineRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_sales_crm_pipeline_flows', 's', ['summary', 'completed_sales_crm_pipeline_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-customer-support-service-desk-runtime-status' => ['flowActionRuntime', 'customerSupportServiceDeskRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_customer_support_service_desk_flows', 's', ['summary', 'completed_customer_support_service_desk_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-marketing-growth-engine-runtime-status' => ['flowActionRuntime', 'marketingGrowthEngineRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_marketing_growth_engine_flows', 's', ['summary', 'completed_marketing_growth_engine_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-finance-treasury-billing-runtime-status' => ['flowActionRuntime', 'financeTreasuryBillingRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_finance_treasury_billing_flows', 's', ['summary', 'completed_finance_treasury_billing_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-governance-risk-operations-runtime-status' => ['flowActionRuntime', 'governanceRiskOperationsRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_governance_risk_operations_flows', 's', ['summary', 'completed_governance_risk_operations_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-unit-economics-capacity-runtime-status' => ['flowActionRuntime', 'unitEconomicsCapacityRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_economic_flows', 's', ['summary', 'completed_unit_economics_capacity_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-business-operating-packet-runtime-status' => ['flowActionRuntime', 'businessOperatingPacketRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_business_packets', 's', ['summary', 'completed_business_operating_packet_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+            ['external_commitments_blocked', 's', ['summary', 'external_commitments_blocked_count']],
+        ]],
+        'enterprise-delivery-risk-runtime-status' => ['flowActionRuntime', 'deliveryRiskRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_delivery_risk_flows', 's', ['summary', 'completed_delivery_risk_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+        ]],
+        'enterprise-operational-outcome-runtime-status' => ['flowActionRuntime', 'operationalOutcomeRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['completed_outcome_flows', 's', ['summary', 'completed_operational_outcome_flow_count']],
+            ['coverage_rate', 's', ['summary', 'coverage_rate']],
+            ['external_side_effects', 's', ['summary', 'external_side_effect_count']],
+        ]],
+        'enterprise-holding-outcome-scorecard-status' => ['flowActionRuntime', 'holdingOutcomeScorecardStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready_companies', 's', ['summary', 'ready_company_count']],
+            ['completed_outcome_flows', 's', ['summary', 'completed_outcome_flow_count']],
+            ['average_score', 's', ['summary', 'average_score']],
+            ['external_value_claims', 's', ['summary', 'external_value_claim_count']],
+        ]],
+        'enterprise-portfolio-decision-packet-status' => ['flowActionRuntime', 'portfolioDecisionPacketStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready_packets', 's', ['summary', 'ready_decision_packet_count']],
+            ['scale_internal', 's', ['summary', 'scale_internal_supervised_capacity_count']],
+            ['real_capital_blocked', 's', ['summary', 'blocked_real_capital_action_count']],
+        ]],
+        'enterprise-company-board-operating-review-status' => ['flowActionRuntime', 'companyBoardOperatingReviewStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready_companies', 's', ['summary', 'ready_company_count']],
+            ['business_packets', 's', ['summary', 'business_operating_packet_flow_count']],
+            ['command_center_flows', 's', ['summary', 'command_center_flow_count']],
+            ['external_commitments_allowed', 's', ['summary', 'external_commitment_allowed_count']],
+        ]],
+        'enterprise-company-completion-certification-status' => ['mandateRegistry', 'enterpriseCompanyCompletionCertificationStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['certified_companies', 's', ['summary', 'completion_certified_company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['cutover_complete', 's', ['summary', 'supervised_cutover_complete_company_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-holding-completion-audit-status' => ['mandateRegistry', 'enterpriseHoldingCompletionAuditStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['proven_gates', 's', ['summary', 'proven_requirement_gate_count']],
+            ['requirement_gates', 's', ['summary', 'requirement_gate_count']],
+            ['missing_gates', 's', ['summary', 'missing_requirement_gate_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-vertical-operational-depth-status' => ['mandateRegistry', 'enterpriseVerticalOperationalDepthStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['depth_ready_companies', 's', ['summary', 'operational_depth_ready_company_count']],
+            ['ready_gates', 's', ['summary', 'ready_gate_count']],
+            ['required_gates', 's', ['summary', 'required_gate_count']],
+            ['average_depth_score', 's', ['summary', 'average_depth_score']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-operating-cycle-status' => ['mandateRegistry', 'enterpriseCompanyOperatingCycleStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['cycle_ready_companies', 's', ['summary', 'operating_cycle_ready_company_count']],
+            ['ready_flow_cycles', 's', ['summary', 'ready_flow_cycle_count']],
+            ['flow_cycles', 's', ['summary', 'flow_cycle_count']],
+            ['average_cycle_score', 's', ['summary', 'average_operating_cycle_score']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-operating-cadence-status' => ['mandateRegistry', 'enterpriseCompanyOperatingCadenceStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['cadence_ready_companies', 's', ['summary', 'cadence_ready_company_count']],
+            ['ready_cadences', 's', ['summary', 'ready_cadence_count']],
+            ['cadences', 's', ['summary', 'cadence_count']],
+            ['average_cadence_score', 's', ['summary', 'average_cadence_score']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-operating-scorecard-status' => ['mandateRegistry', 'enterpriseCompanyOperatingScorecardStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['scorecard_ready_companies', 's', ['summary', 'scorecard_ready_company_count']],
+            ['average_internal_outcome_score', 's', ['summary', 'average_internal_outcome_score']],
+            ['average_scorecard_score', 's', ['summary', 'average_scorecard_score']],
+            ['external_revenue_claim_allowed', 's', ['summary', 'external_revenue_claim_allowed_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-active-operating-system-status' => ['mandateRegistry', 'enterpriseCompanyActiveOperatingSystemStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['active_operating_system_ready_companies', 's', ['summary', 'active_operating_system_ready_company_count']],
+            ['average_active_operating_system_score', 's', ['summary', 'average_active_operating_system_score']],
+            ['average_internal_outcome_score', 's', ['summary', 'average_internal_outcome_score']],
+            ['external_autonomy_allowed', 's', ['summary', 'external_autonomy_allowed_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-capability-catalog-status' => ['mandateRegistry', 'enterpriseCompanyCapabilityCatalogStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['catalog_ready_companies', 's', ['summary', 'catalog_ready_company_count']],
+            ['ready_families', 's', ['summary', 'ready_family_count']],
+            ['families', 's', ['summary', 'required_family_count']],
+            ['ready_flow_capabilities', 's', ['summary', 'ready_flow_capability_count']],
+            ['flow_capabilities', 's', ['summary', 'flow_capability_count']],
+            ['average_catalog_score', 's', ['summary', 'average_catalog_score']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-integration-readiness-status' => ['mandateRegistry', 'enterpriseCompanyIntegrationReadinessStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['integration_ready_companies', 's', ['summary', 'integration_ready_company_count']],
+            ['ready_gates', 's', ['summary', 'ready_gate_count']],
+            ['gates', 's', ['summary', 'required_gate_count']],
+            ['ready_flow_integrations', 's', ['summary', 'ready_flow_integration_count']],
+            ['flow_integrations', 's', ['summary', 'flow_integration_count']],
+            ['average_integration_score', 's', ['summary', 'average_integration_score']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-domain-workload-agent-template-status' => ['mandateRegistry', 'enterpriseDomainWorkloadAgentTemplateStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready_companies', 's', ['summary', 'ready_company_count']],
+            ['templates', 's', ['summary', 'template_count']],
+            ['ready_templates', 's', ['summary', 'ready_template_count']],
+            ['skills', 's', ['summary', 'skill_count']],
+            ['subagents', 's', ['summary', 'subagent_count']],
+            ['distribution_packages', 's', ['summary', 'distribution_package_ready_count']],
+            ['rollout_plans', 's', ['summary', 'rollout_plan_ready_count']],
+            ['tool_permission_matrices', 's', ['summary', 'tool_permission_matrix_ready_count']],
+            ['surface_bindings', 's', ['summary', 'execution_surface_binding_ready_count']],
+            ['fixture_smoke_contracts', 's', ['summary', 'fixture_smoke_contract_ready_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-domain-solution-pack-status' => ['mandateRegistry', 'enterpriseCompanyDomainSolutionPackStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['solution_pack_ready_companies', 's', ['summary', 'domain_solution_pack_ready_company_count']],
+            ['ready_flow_solution_packs', 's', ['summary', 'ready_flow_solution_pack_count']],
+            ['domain_sources', 's', ['summary', 'domain_source_count']],
+            ['solution_modules', 's', ['summary', 'solution_module_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-agent-operations-pack-status' => ['mandateRegistry', 'enterpriseCompanyAgentOperationsPackStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['agent_ops_ready_companies', 's', ['summary', 'agent_operations_pack_ready_company_count']],
+            ['ready_flow_agent_ops', 's', ['summary', 'ready_flow_agent_operations_pack_count']],
+            ['skills', 's', ['summary', 'skill_count']],
+            ['subagents', 's', ['summary', 'subagent_count']],
+            ['adapter_envelopes', 's', ['summary', 'adapter_envelope_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-agent-workforce-runtime-register' => ['mandateRegistry', 'enterpriseCompanyAgentWorkforceRuntimeRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_agent_runtimes', 's', ['summary', 'expected_agent_workforce_runtime_count']],
+            ['registered_agent_runtimes', 's', ['summary', 'registered_agent_workforce_runtime_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-agent-workforce-runtime-status' => ['mandateRegistry', 'enterpriseCompanyAgentWorkforceRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready_companies', 's', ['summary', 'agent_workforce_runtime_ready_company_count']],
+            ['ready_agent_runtimes', 's', ['summary', 'ready_agent_workforce_runtime_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-domain-operating-model-certification-status' => ['mandateRegistry', 'enterpriseCompanyDomainOperatingModelCertificationStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['certified_companies', 's', ['summary', 'certified_company_count']],
+            ['ready_gates', 's', ['summary', 'ready_gate_count']],
+            ['gates', 's', ['summary', 'required_gate_count']],
+            ['average_certification_score', 's', ['summary', 'average_certification_score']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-domain-tool-execution-readiness-status' => ['mandateRegistry', 'enterpriseCompanyDomainToolExecutionReadinessStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['tool_execution_ready_companies', 's', ['summary', 'tool_execution_ready_company_count']],
+            ['ready_flow_tool_execution', 's', ['summary', 'ready_flow_tool_execution_count']],
+            ['flow_tool_execution', 's', ['summary', 'flow_tool_execution_count']],
+            ['ready_gates', 's', ['summary', 'ready_gate_count']],
+            ['gates', 's', ['summary', 'required_gate_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-flow-tool-execution-ledger-status' => ['mandateRegistry', 'enterpriseCompanyFlowToolExecutionLedgerStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ledger_ready_companies', 's', ['summary', 'flow_tool_execution_ledger_ready_company_count']],
+            ['ready_ledger_records', 's', ['summary', 'ready_ledger_record_count']],
+            ['ledger_records', 's', ['summary', 'ledger_record_count']],
+            ['ready_gates', 's', ['summary', 'ready_gate_count']],
+            ['gates', 's', ['summary', 'required_gate_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-flow-tool-execution-runtime-register' => ['mandateRegistry', 'enterpriseCompanyFlowToolExecutionRuntimeRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['registered_runs', 's', ['summary', 'registered_run_count']],
+            ['expected_runs', 's', ['summary', 'expected_ledger_record_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-flow-tool-execution-runtime-status' => ['mandateRegistry', 'enterpriseCompanyFlowToolExecutionRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['runtime_ready_companies', 's', ['summary', 'persisted_runtime_ready_company_count']],
+            ['ready_persisted_runs', 's', ['summary', 'ready_persisted_run_count']],
+            ['persisted_runs', 's', ['summary', 'persisted_run_count']],
+            ['expected_runs', 's', ['summary', 'expected_run_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-domain-adapter-execution-envelope-register' => ['mandateRegistry', 'enterpriseCompanyDomainAdapterExecutionEnvelopeRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['registered_envelopes', 's', ['summary', 'registered_envelope_count']],
+            ['expected_connectors', 's', ['summary', 'expected_connector_readiness_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-domain-adapter-execution-envelope-status' => ['mandateRegistry', 'enterpriseCompanyDomainAdapterExecutionEnvelopeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['adapter_ready_companies', 's', ['summary', 'adapter_envelope_ready_company_count']],
+            ['ready_envelopes', 's', ['summary', 'ready_persisted_envelope_count']],
+            ['persisted_envelopes', 's', ['summary', 'persisted_envelope_count']],
+            ['expected_envelopes', 's', ['summary', 'expected_envelope_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-operational-execution-loop-status' => ['mandateRegistry', 'enterpriseCompanyOperationalExecutionLoopStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['loop_ready_companies', 's', ['summary', 'operational_execution_loop_ready_company_count']],
+            ['ready_gates', 's', ['summary', 'ready_gate_count']],
+            ['gates', 's', ['summary', 'required_gate_count']],
+            ['queue_attempted', 's', ['summary', 'queue_attempted_count']],
+            ['runbooks_green', 's', ['summary', 'runbook_operations_green_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-work-product-acceptance-evidence-status' => ['mandateRegistry', 'enterpriseCompanyWorkProductAcceptanceEvidenceStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['acceptance_ready_companies', 's', ['summary', 'work_product_acceptance_ready_company_count']],
+            ['ready_gates', 's', ['summary', 'ready_gate_count']],
+            ['gates', 's', ['summary', 'required_gate_count']],
+            ['acceptance_contracts', 's', ['summary', 'acceptance_contract_count']],
+            ['handoff_packets', 's', ['summary', 'handoff_packet_count']],
+            ['external_delivery_allowed', 'bc', ['policy', 'external_delivery_allowed'], false],
+        ]],
+        'enterprise-company-work-product-runtime-register' => ['mandateRegistry', 'enterpriseCompanyWorkProductRuntimeRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['registered_work_product_runs', 's', ['summary', 'registered_work_product_run_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['external_delivery_allowed', 'bc', ['policy', 'external_delivery_allowed'], false],
+        ]],
+        'enterprise-company-work-product-runtime-status' => ['mandateRegistry', 'enterpriseCompanyWorkProductRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['runtime_ready_companies', 's', ['summary', 'work_product_runtime_ready_company_count']],
+            ['ready_work_product_runs', 's', ['summary', 'ready_persisted_work_product_run_count']],
+            ['persisted_work_product_runs', 's', ['summary', 'persisted_work_product_run_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['external_delivery_allowed', 'bc', ['policy', 'external_delivery_allowed'], false],
+        ]],
+        'enterprise-company-operating-blueprint-runtime-register' => ['mandateRegistry', 'enterpriseCompanyOperatingBlueprintRuntimeRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['registered_blueprint_runs', 's', ['summary', 'registered_blueprint_run_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-operating-blueprint-runtime-status' => ['mandateRegistry', 'enterpriseCompanyOperatingBlueprintRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['runtime_ready_companies', 's', ['summary', 'operating_blueprint_runtime_ready_company_count']],
+            ['ready_blueprint_runs', 's', ['summary', 'ready_persisted_blueprint_run_count']],
+            ['persisted_blueprint_runs', 's', ['summary', 'persisted_blueprint_run_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-business-runtime-persistence-register' => ['mandateRegistry', 'enterpriseCompanyBusinessRuntimePersistenceRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['business_runtime_layers', 's', ['summary', 'business_runtime_layer_count']],
+            ['registered_business_runtime_runs', 's', ['summary', 'registered_business_runtime_run_count']],
+            ['expected_business_runtime_runs', 's', ['summary', 'expected_business_runtime_run_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-business-runtime-persistence-status' => ['mandateRegistry', 'enterpriseCompanyBusinessRuntimePersistenceStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['business_runtime_layers', 's', ['summary', 'business_runtime_layer_count']],
+            ['runtime_ready_companies', 's', ['summary', 'business_runtime_persistence_ready_company_count']],
+            ['ready_business_runtime_runs', 's', ['summary', 'ready_persisted_business_runtime_run_count']],
+            ['persisted_business_runtime_runs', 's', ['summary', 'persisted_business_runtime_run_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-capability-runtime-mesh-register' => ['mandateRegistry', 'enterpriseCompanyCapabilityRuntimeMeshRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['capabilities', 's', ['summary', 'capability_count']],
+            ['registered_capability_runs', 's', ['summary', 'registered_capability_runtime_run_count']],
+            ['expected_capability_runs', 's', ['summary', 'expected_capability_runtime_run_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-capability-runtime-mesh-status' => ['mandateRegistry', 'enterpriseCompanyCapabilityRuntimeMeshStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['capabilities', 's', ['summary', 'capability_count']],
+            ['runtime_ready_companies', 's', ['summary', 'capability_runtime_mesh_ready_company_count']],
+            ['ready_capability_runs', 's', ['summary', 'ready_capability_runtime_run_count']],
+            ['persisted_capability_runs', 's', ['summary', 'persisted_capability_runtime_run_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-supervised-connector-execution-register' => ['mandateRegistry', 'enterpriseCompanySupervisedConnectorExecutionRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['registered_connector_runs', 's', ['summary', 'registered_supervised_connector_execution_run_count']],
+            ['expected_connector_runs', 's', ['summary', 'expected_supervised_connector_execution_run_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-supervised-connector-execution-status' => ['mandateRegistry', 'enterpriseCompanySupervisedConnectorExecutionStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['runtime_ready_companies', 's', ['summary', 'supervised_connector_execution_ready_company_count']],
+            ['ready_connector_runs', 's', ['summary', 'ready_supervised_connector_execution_run_count']],
+            ['persisted_connector_runs', 's', ['summary', 'persisted_supervised_connector_execution_run_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-external-tool-activation-work-order-register' => ['mandateRegistry', 'enterpriseCompanyExternalToolActivationWorkOrderRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['registered_work_orders', 's', ['summary', 'registered_external_tool_activation_work_order_count']],
+            ['expected_work_orders', 's', ['summary', 'expected_external_tool_activation_work_order_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-external-tool-activation-work-order-status' => ['mandateRegistry', 'enterpriseCompanyExternalToolActivationWorkOrderStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['work_order_ready_companies', 's', ['summary', 'external_tool_activation_work_orders_ready_company_count']],
+            ['ready_work_orders', 's', ['summary', 'ready_external_tool_activation_work_order_count']],
+            ['persisted_work_orders', 's', ['summary', 'persisted_external_tool_activation_work_order_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-external-tool-activation-packet-register' => ['mandateRegistry', 'enterpriseCompanyExternalToolActivationPacketRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['registered_packets', 's', ['summary', 'registered_external_tool_activation_packet_count']],
+            ['expected_packets', 's', ['summary', 'expected_external_tool_activation_packet_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-external-tool-activation-packet-status' => ['mandateRegistry', 'enterpriseCompanyExternalToolActivationPacketStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['packet_ready_companies', 's', ['summary', 'external_tool_activation_packets_ready_company_count']],
+            ['ready_packets', 's', ['summary', 'ready_external_tool_activation_packet_count']],
+            ['persisted_packets', 's', ['summary', 'persisted_external_tool_activation_packet_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-vertical-tool-operating-runtime-register' => ['mandateRegistry', 'enterpriseCompanyVerticalToolOperatingRuntimeRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['registered_vertical_tool_runtimes', 's', ['summary', 'registered_vertical_tool_runtime_count']],
+            ['expected_vertical_tool_runtimes', 's', ['summary', 'expected_vertical_tool_runtime_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-vertical-tool-operating-runtime-status' => ['mandateRegistry', 'enterpriseCompanyVerticalToolOperatingRuntimeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['vertical_tool_runtime_ready_companies', 's', ['summary', 'vertical_tool_operating_runtime_ready_company_count']],
+            ['ready_vertical_tool_runtimes', 's', ['summary', 'ready_vertical_tool_runtime_count']],
+            ['persisted_vertical_tool_runtimes', 's', ['summary', 'persisted_vertical_tool_runtime_count']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-company-business-execution-control-plane-register' => ['mandateRegistry', 'enterpriseCompanyBusinessExecutionControlPlaneRegister', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['registered_business_control_planes', 's', ['summary', 'registered_business_control_plane_count']],
+            ['expected_business_control_planes', 's', ['summary', 'expected_business_control_plane_count']],
+            ['real_money_movement_allowed', 'bc', ['policy', 'real_money_movement_allowed'], false],
+        ]],
+        'enterprise-company-business-execution-control-plane-status' => ['mandateRegistry', 'enterpriseCompanyBusinessExecutionControlPlaneStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['business_control_plane_ready_companies', 's', ['summary', 'business_execution_control_plane_ready_company_count']],
+            ['ready_business_control_planes', 's', ['summary', 'ready_business_control_plane_count']],
+            ['persisted_business_control_planes', 's', ['summary', 'persisted_business_control_plane_count']],
+            ['customer_commitment_allowed', 'bc', ['policy', 'customer_commitment_allowed'], false],
+        ]],
+        'enterprise-company-commercial-service-catalog-status' => ['mandateRegistry', 'enterpriseCompanyCommercialServiceCatalogStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['commercial_catalog_ready_companies', 's', ['summary', 'commercial_service_catalog_ready_company_count']],
+            ['ready_commercial_flows', 's', ['summary', 'ready_commercial_flow_count']],
+            ['service_offers', 's', ['summary', 'service_offer_count']],
+            ['pricing_packages', 's', ['summary', 'pricing_package_count']],
+            ['sla_contracts', 's', ['summary', 'sla_success_contract_count']],
+            ['external_revenue_claim_allowed', 'bc', ['policy', 'external_revenue_claim_allowed'], false],
+        ]],
+        'enterprise-company-revenue-delivery-operating-mesh-status' => ['mandateRegistry', 'enterpriseCompanyRevenueDeliveryOperatingMeshStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['mesh_ready_companies', 's', ['summary', 'revenue_delivery_operating_mesh_ready_company_count']],
+            ['ready_flow_threads', 's', ['summary', 'ready_flow_thread_count']],
+            ['operating_systems', 's', ['summary', 'operating_system_count']],
+            ['connector_maps', 's', ['summary', 'connector_map_count']],
+            ['external_billing_allowed', 'bc', ['policy', 'external_billing_allowed'], false],
+        ]],
+        'enterprise-company-org-operating-model-status' => ['mandateRegistry', 'enterpriseCompanyOrgOperatingModelStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['org_ready_companies', 's', ['summary', 'org_operating_model_ready_company_count']],
+            ['ready_flow_org_records', 's', ['summary', 'ready_flow_org_record_count']],
+            ['flow_staffing', 's', ['summary', 'flow_staffing_count']],
+            ['vendor_due_diligence', 's', ['summary', 'vendor_due_diligence_count']],
+            ['audit_evidence_requirements', 's', ['summary', 'audit_evidence_requirement_count']],
+            ['external_procurement_allowed', 'bc', ['policy', 'external_procurement_allowed'], false],
+        ]],
+        'enterprise-company-customer-delivery-lifecycle-status' => ['mandateRegistry', 'enterpriseCompanyCustomerDeliveryLifecycleStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['lifecycle_ready_companies', 's', ['summary', 'customer_delivery_lifecycle_ready_company_count']],
+            ['ready_flow_lifecycles', 's', ['summary', 'ready_flow_lifecycle_count']],
+            ['account_health_risks', 's', ['summary', 'account_health_risk_count']],
+            ['billing_controls', 's', ['summary', 'billing_ledger_control_count']],
+            ['external_customer_commitment_allowed', 'bc', ['policy', 'external_customer_commitment_allowed'], false],
+        ]],
+        'enterprise-company-quality-compliance-lifecycle-status' => ['mandateRegistry', 'enterpriseCompanyQualityComplianceLifecycleStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['quality_ready_companies', 's', ['summary', 'quality_compliance_lifecycle_ready_company_count']],
+            ['ready_flow_quality_records', 's', ['summary', 'ready_flow_quality_count']],
+            ['replay_matrices', 's', ['summary', 'replay_matrix_count']],
+            ['audit_evidence_requirements', 's', ['summary', 'audit_evidence_requirement_count']],
+            ['external_benchmark_claim_allowed', 'bc', ['policy', 'external_benchmark_claim_allowed'], false],
+        ]],
+        'enterprise-company-production-readiness-certification-status' => ['mandateRegistry', 'enterpriseCompanyProductionReadinessCertificationStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['production_ready_companies', 's', ['summary', 'production_ready_company_count']],
+            ['ready_gates', 's', ['summary', 'ready_gate_count']],
+            ['gates', 's', ['summary', 'required_gate_count']],
+            ['average_production_readiness_score', 's', ['summary', 'average_production_readiness_score']],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+            ['external_launch_allowed', 'bc', ['policy', 'external_launch_allowed'], false],
+        ]],
+        'enterprise-company-operating-evidence-bundle-status' => ['mandateRegistry', 'enterpriseCompanyOperatingEvidenceBundleStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['bundle_ready_companies', 's', ['summary', 'operating_evidence_bundle_ready_company_count']],
+            ['ready_gates', 's', ['summary', 'ready_gate_count']],
+            ['gates', 's', ['summary', 'required_gate_count']],
+            ['flow_evidence_records', 's', ['summary', 'flow_evidence_record_count']],
+            ['average_bundle_score', 's', ['summary', 'average_bundle_score']],
+            ['external_launch_allowed', 'bc', ['policy', 'external_launch_allowed'], false],
+        ]],
+        'enterprise-shadow-readiness' => ['fixtureSuite', 'shadowReadiness', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['shadow_ready', 's', ['summary', 'shadow_ready_company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+        ]],
+        'enterprise-supervised-activation-plan' => ['fixtureSuite', 'supervisedActivationPlan', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready_for_mandate', 's', ['summary', 'ready_for_operator_mandate_company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+        ]],
+        'enterprise-supervised-runtime' => ['fixtureSuite', 'supervisedRuntime', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['completed_flows', 's', ['summary', 'completed_flow_count']],
+            ['completion_rate', 's', ['summary', 'completion_rate']],
+        ]],
+        'enterprise-connector-certification' => ['fixtureSuite', 'connectorCertificationSuite', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['certified_connectors', 's', ['summary', 'certified_connector_count']],
+            ['certification_rate', 's', ['summary', 'certification_rate']],
+        ]],
+        'enterprise-external-action-mandates' => ['fixtureSuite', 'externalActionMandateSuite', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['prepared_packets', 's', ['summary', 'prepared_packet_count']],
+            ['auto_execute_allowed', 'b', ['summary', 'auto_execute_allowed']],
+        ]],
+        'enterprise-external-action-register' => ['mandateRegistry', 'register', [['company', 'nullable'], ['flow', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['registered', 's', ['summary', 'registered_count']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['auto_execute_allowed_count', 's', ['summary', 'auto_execute_allowed_count']],
+        ]],
+        'enterprise-external-action-preflight' => ['mandateRegistry', 'preflight', [['mandate-hash', 'string']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['external_execution_allowed', 'b', ['external_execution_allowed']],
+            ['mandate_packet_hash', 's', ['mandate_packet_hash']],
+        ]],
+        'enterprise-external-action-request-approval' => ['mandateRegistry', 'requestApproval', [['mandate-hash', 'string']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['approval_count', 'c', ['approval_count'], 0],
+            ['external_execution_allowed', 'b', ['external_execution_allowed']],
+        ]],
+        'enterprise-external-action-approval-status' => ['mandateRegistry', 'approvalStatus', [['mandate-hash', 'string']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['approval_count', 'c', ['approval_count'], 0],
+            ['external_execution_allowed', 'b', ['external_execution_allowed']],
+        ]],
+        'enterprise-control-tower' => ['mandateRegistry', 'controlTower', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['expected_flows', 's', ['summary', 'expected_flow_count']],
+            ['registered_mandates', 's', ['summary', 'registered_mandate_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-activation-cockpit' => ['mandateRegistry', 'activationCockpit', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['blocked_flows', 's', ['summary', 'blocked_flow_count']],
+            ['external_execution_allowed', 'b', ['activation_policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-premium-activation-status' => ['mandateRegistry', 'premiumActivationStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['premium_ready', 's', ['summary', 'premium_ready_company_count']],
+            ['wait_days_required_max', 's', ['summary', 'wait_days_required_max']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-provider-workbench-status' => ['mandateRegistry', 'providerWorkbenchStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['provider_contracts', 's', ['summary', 'provider_contract_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-agent-repository-adoption-status' => ['mandateRegistry', 'agentRepositoryAdoptionStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['repository_intake', 's', ['summary', 'repository_intake_count']],
+            ['flow_epics', 's', ['summary', 'flow_epic_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-agent-repository-operating-catalog-status' => ['mandateRegistry', 'agentRepositoryOperatingCatalogStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['framework_profiles', 's', ['summary', 'framework_profile_count']],
+            ['mcp_security_profiles', 's', ['summary', 'mcp_security_profile_count']],
+            ['flow_runtime_maps', 's', ['summary', 'flow_runtime_map_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-domain-data-fabric-status' => ['mandateRegistry', 'domainDataFabricStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['sources', 's', ['summary', 'source_count']],
+            ['data_products', 's', ['summary', 'data_product_count']],
+            ['flow_workbenches', 's', ['summary', 'flow_workbench_count']],
+            ['external_data_mutation_allowed', 'b', ['policy', 'external_data_mutation_allowed']],
+        ]],
+        'enterprise-domain-data-connector-operating-status' => ['mandateRegistry', 'domainDataConnectorOperatingStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['source_data_rooms', 's', ['summary', 'source_data_room_count']],
+            ['data_products', 's', ['summary', 'domain_data_product_count']],
+            ['permission_profiles', 's', ['summary', 'connector_permission_profile_count']],
+            ['flow_contracts', 's', ['summary', 'flow_data_connector_contract_count']],
+            ['external_data_mutation_allowed', 'b', ['policy', 'external_data_mutation_allowed']],
+        ]],
+        'enterprise-flow-live-read-connector-probe-status' => ['mandateRegistry', 'flowLiveReadConnectorProbeStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['probe_profiles', 's', ['summary', 'connector_probe_profile_count']],
+            ['probe_contracts', 's', ['summary', 'flow_live_read_probe_contract_count']],
+            ['evidence_matrices', 's', ['summary', 'flow_probe_evidence_matrix_count']],
+            ['external_mutation_allowed', 'b', ['policy', 'external_mutation_allowed']],
+        ]],
+        'enterprise-external-research-adoption-status' => ['mandateRegistry', 'externalResearchAdoptionStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['sources', 's', ['summary', 'source_basis_count']],
+            ['framework_repositories', 's', ['summary', 'official_framework_repository_count']],
+            ['domain_repositories', 's', ['summary', 'domain_repository_candidate_count']],
+            ['flow_matrices', 's', ['summary', 'flow_adoption_matrix_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-flow-benchmark-replay-status' => ['mandateRegistry', 'flowBenchmarkReplayStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['offline_datasets', 's', ['summary', 'offline_dataset_contract_count']],
+            ['trace_rubrics', 's', ['summary', 'trace_grading_rubric_count']],
+            ['adversarial_cases', 's', ['summary', 'adversarial_regression_case_count']],
+            ['replay_matrices', 's', ['summary', 'replay_comparison_matrix_count']],
+            ['external_benchmark_execution_allowed', 'b', ['policy', 'external_benchmark_execution_allowed']],
+        ]],
+        'enterprise-connector-certification-preflight-status' => ['mandateRegistry', 'connectorCertificationPreflightStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['connectors', 's', ['summary', 'connector_count']],
+            ['adapter_contracts', 's', ['summary', 'adapter_contract_count']],
+            ['sandbox_probes', 's', ['summary', 'sandbox_probe_count']],
+            ['cutover_matrices', 's', ['summary', 'flow_cutover_matrix_count']],
+            ['external_connector_cutover_allowed', 'b', ['policy', 'external_connector_cutover_allowed']],
+        ]],
+        'enterprise-domain-agent-toolchain-certification-status' => ['mandateRegistry', 'domainAgentToolchainCertificationStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['tool_contracts', 's', ['summary', 'certified_tool_contract_count']],
+            ['toolkit_certifications', 's', ['summary', 'toolkit_certification_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-industry-solution-ecosystem-status' => ['mandateRegistry', 'industrySolutionEcosystemStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['providers', 's', ['summary', 'ecosystem_provider_count']],
+            ['workload_packs', 's', ['summary', 'flow_workload_pack_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-business-operating-backbone-status' => ['mandateRegistry', 'businessOperatingBackboneStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['ready_components', 's', ['summary', 'ready_component_count']],
+            ['required_components', 's', ['summary', 'required_component_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-production-connector-preflight-status' => ['mandateRegistry', 'productionConnectorPreflightStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['connector_preflight_contracts', 's', ['summary', 'connector_preflight_contract_count']],
+            ['flow_cutovers', 's', ['summary', 'flow_cutover_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-flow-quality-research-status' => ['mandateRegistry', 'flowQualityResearchStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['offline_datasets', 's', ['summary', 'offline_dataset_count']],
+            ['tooling_benchmarks', 's', ['summary', 'tooling_benchmark_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-vertical-solution-suite-status' => ['mandateRegistry', 'verticalSolutionSuiteStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['solution_suites', 's', ['summary', 'solution_suite_count']],
+            ['flow_kits', 's', ['summary', 'flow_solution_kit_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-domain-business-execution-mesh-status' => ['mandateRegistry', 'domainBusinessExecutionMeshStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['execution_cells', 's', ['summary', 'execution_cell_count']],
+            ['service_lanes', 's', ['summary', 'service_lane_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-flow-operating-package-status' => ['mandateRegistry', 'flowOperatingPackageStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['flow_packages', 's', ['summary', 'flow_package_count']],
+            ['replay_contracts', 's', ['summary', 'replay_contract_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-company-command-center-status' => ['mandateRegistry', 'companyCommandCenterStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['flow_cards', 's', ['summary', 'flow_command_card_count']],
+            ['connector_panels', 's', ['summary', 'connector_workbench_panel_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-operational-dress-rehearsal-status' => ['mandateRegistry', 'operationalDressRehearsalStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['ready', 's', ['summary', 'ready_company_count']],
+            ['rehearsal_runbooks', 's', ['summary', 'flow_rehearsal_runbook_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-real-external-execution-readiness-dossier' => ['mandateRegistry', 'realExternalExecutionReadinessDossier', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['manual_candidates', 's', ['summary', 'manual_handoff_candidate_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-real-external-execution-handoff-pack' => ['mandateRegistry', 'realExternalExecutionHandoffPack', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['handoff_packs', 's', ['summary', 'handoff_pack_ready_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-supervised-external-execution-packet-status' => ['mandateRegistry', 'supervisedExternalExecutionPacketStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['ready_packets', 's', ['summary', 'packet_ready_count']],
+            ['external_worker_enabled', 'b', ['policy', 'external_worker_enabled']],
+        ]],
+        'enterprise-external-worker-preflight-status' => ['mandateRegistry', 'externalWorkerPreflightStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['worker_preflights', 's', ['summary', 'worker_preflight_ready_count']],
+            ['dispatch_enabled', 'b', ['policy', 'external_worker_dispatch_enabled']],
+        ]],
+        'enterprise-external-worker-dispatch-plan-status' => ['mandateRegistry', 'externalWorkerDispatchPlanStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['dispatch_plans', 's', ['summary', 'dispatch_plan_ready_count']],
+            ['dispatch_enabled', 'b', ['policy', 'external_worker_dispatch_enabled']],
+        ]],
+        'enterprise-external-launch-control-status' => ['mandateRegistry', 'externalLaunchControlStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['launch_controls', 's', ['summary', 'launch_control_ready_count']],
+            ['launch_enabled', 'b', ['policy', 'launch_enabled']],
+        ]],
+        'enterprise-external-receipt-binding-status' => ['mandateRegistry', 'externalReceiptBindingStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['receipt_slots', 's', ['summary', 'receipt_slot_count']],
+            ['bound_receipts', 's', ['summary', 'bound_receipt_count']],
+        ]],
+        'enterprise-external-supervised-cutover-dossier-status' => ['mandateRegistry', 'externalSupervisedCutoverDossierStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['cutover_dossiers', 's', ['summary', 'cutover_dossier_ready_count']],
+            ['cutover_enabled', 's', ['summary', 'supervised_cutover_enabled_count']],
+        ]],
+        'enterprise-external-supervised-cutover-work-order-status' => ['mandateRegistry', 'externalSupervisedCutoverWorkOrderStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['work_orders', 's', ['summary', 'work_order_ready_count']],
+            ['work_items', 's', ['summary', 'work_item_count']],
+        ]],
+        'enterprise-external-supervised-cutover-work-order-register' => ['mandateRegistry', 'registerExternalSupervisedCutoverWorkOrders', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['work_orders', 's', ['summary', 'work_order_count']],
+            ['work_items', 's', ['summary', 'work_item_count']],
+            ['executable_items', 's', ['summary', 'executable_item_count']],
+        ]],
+        'enterprise-external-supervised-cutover-work-order-persisted-status' => ['mandateRegistry', 'externalSupervisedCutoverWorkOrderPersistedStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['work_orders', 's', ['summary', 'work_order_count']],
+            ['work_items', 's', ['summary', 'work_item_count']],
+            ['pending_items', 's', ['summary', 'pending_work_item_count']],
+        ]],
+        'enterprise-external-supervised-cutover-work-item-bind-receipt' => ['mandateRegistry', 'bindExternalSupervisedCutoverWorkItemReceipt', [['work-item', 'raw'], ['receipt-hash', 'raw'], ['receipt-source', 'raw'], ['operator', 'raw'], ['note', 'raw']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['bound_receipts', 'c', ['summary', 'bound_receipt_count'], 0],
+            ['pending_items', 'c', ['summary', 'pending_work_item_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-promotion-status' => ['mandateRegistry', 'externalSupervisedCutoverPromotionStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['work_orders', 's', ['summary', 'work_order_count']],
+            ['promotion_ready', 's', ['summary', 'promotion_review_ready_count']],
+            ['pending_items', 's', ['summary', 'pending_work_item_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-external-supervised-cutover-final-authority-bind-receipt' => ['mandateRegistry', 'bindExternalSupervisedCutoverFinalAuthorityReceipt', [['work-order', 'raw'], ['authority', 'raw'], ['receipt-hash', 'raw'], ['receipt-source', 'raw'], ['operator', 'raw'], ['note', 'raw']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['final_authorities', 'c', ['summary', 'final_authority_binding_count'], 0],
+            ['missing_authorities', 'c', ['summary', 'missing_final_authority_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-runtime-invocation-register' => ['mandateRegistry', 'registerExternalSupervisedCutoverRuntimeInvocation', [['work-order', 'raw']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['invocations', 'c', ['summary', 'runtime_invocation_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-runtime-invocation-status' => ['mandateRegistry', 'externalSupervisedCutoverRuntimeInvocationStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['invocations', 'c', ['summary', 'runtime_invocation_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-runtime-rehearsal-execute' => ['mandateRegistry', 'executeExternalSupervisedCutoverRuntimeRehearsal', [['invocation', 'raw'], ['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['execution_receipts', 'c', ['summary', 'execution_receipt_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-rehearsal-promotion-status' => ['mandateRegistry', 'externalSupervisedCutoverRehearsalPromotionStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['ready_packets', 'c', ['summary', 'manual_execution_packet_ready_count'], 0],
+            ['blocked_packets', 'c', ['summary', 'manual_execution_packet_blocked_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-manual-handoff-register' => ['mandateRegistry', 'registerExternalSupervisedCutoverManualHandoff', [['work-order', 'raw'], ['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['handoff_packets', 'c', ['summary', 'manual_handoff_packet_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-manual-handoff-status' => ['mandateRegistry', 'externalSupervisedCutoverManualHandoffStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['handoff_packets', 'c', ['summary', 'manual_handoff_packet_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-manual-closeout-bind-receipt' => ['mandateRegistry', 'bindExternalSupervisedCutoverManualCloseoutReceipt', [['work-order', 'raw'], ['receipt-hash', 'raw'], ['receipt-source', 'raw'], ['operator', 'raw'], ['note', 'raw']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['closeout_receipts', 'c', ['summary', 'manual_closeout_receipt_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-manual-closeout-status' => ['mandateRegistry', 'externalSupervisedCutoverManualCloseoutStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['closeout_receipts', 'c', ['summary', 'manual_closeout_receipt_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-portfolio-readiness-status' => ['mandateRegistry', 'externalSupervisedCutoverPortfolioReadinessStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['expected_flows', 'c', ['summary', 'expected_flow_count'], 0],
+            ['complete_companies', 'c', ['summary', 'cutover_chain_complete_company_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-company-evidence-bundle-apply' => ['mandateRegistry', 'applyExternalSupervisedCutoverCompanyEvidenceBundle', [['company', 'nullable'], ['receipt-hash', 'raw'], ['receipt-source', 'raw'], ['operator', 'raw'], ['note', 'raw']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['company', 'c', ['company_id'], ''],
+            ['work_orders', 'c', ['summary', 'work_order_count'], 0],
+            ['complete_companies', 'c', ['summary', 'cutover_chain_complete_company_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-external-supervised-cutover-portfolio-evidence-bundle-apply' => ['mandateRegistry', 'applyExternalSupervisedCutoverPortfolioEvidenceBundle', [['receipt-hash', 'raw'], ['receipt-source', 'raw'], ['operator', 'raw'], ['note', 'raw']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 'c', ['summary', 'company_count'], 0],
+            ['expected_flows', 'c', ['summary', 'expected_flow_count'], 0],
+            ['complete_companies', 'c', ['summary', 'cutover_chain_complete_company_count'], 0],
+            ['external_execution_allowed', 'bc', ['policy', 'external_execution_allowed'], false],
+        ]],
+        'enterprise-activation-backlog-register' => ['mandateRegistry', 'registerActivationBacklog', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['work_packages', 's', ['summary', 'work_package_count']],
+            ['external_execution_allowed', 'b', ['registry_policy', 'external_execution_enabled_by_registry']],
+        ]],
+        'enterprise-activation-backlog-status' => ['mandateRegistry', 'activationBacklogStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['work_packages', 's', ['summary', 'work_package_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-activation-backlog-run' => ['mandateRegistry', 'runActivationBacklog', [['company', 'nullable'], ['flow', 'nullable'], ['work-package', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['work_packages', 's', ['summary', 'work_package_count']],
+            ['completed', 's', ['summary', 'completed_count']],
+            ['blocked', 's', ['summary', 'blocked_count']],
+            ['external_execution_allowed', 'b', ['run_policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-connector-activation-register' => ['mandateRegistry', 'registerConnectorActivations', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['connector_activations', 's', ['summary', 'connector_activation_count']],
+            ['external_execution_allowed', 'b', ['registry_policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-connector-activation-probe' => ['mandateRegistry', 'probeConnectorActivations', [['company', 'nullable'], ['flow', 'nullable'], ['connector', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['connector_activations', 's', ['summary', 'connector_activation_count']],
+            ['probe_green', 's', ['summary', 'probe_green_count']],
+            ['external_execution_allowed', 'b', ['probe_policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-connector-activation-status' => ['mandateRegistry', 'connectorActivationStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['connector_activations', 's', ['summary', 'connector_activation_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-live-read-connector-readiness-status' => ['mandateRegistry', 'liveReadConnectorReadinessStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['connectors', 's', ['summary', 'connector_readiness_count']],
+            ['live_read_ready', 's', ['summary', 'live_read_ready_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-flow-run-queue-register' => ['mandateRegistry', 'registerFlowRunQueue', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['durable_envelopes', 's', ['summary', 'durable_execution_envelope_bound_count']],
+            ['hitl_checkpoints', 's', ['summary', 'human_in_loop_bound_count']],
+            ['external_execution_allowed', 'b', ['queue_policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-flow-run-queue-execute' => ['mandateRegistry', 'executeFlowRunQueue', [['company', 'nullable'], ['flow', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['completed', 's', ['summary', 'completed_count']],
+            ['dlq', 's', ['summary', 'dlq_count']],
+            ['durable_envelopes', 's', ['summary', 'durable_execution_envelope_bound_count']],
+            ['trace_receipts', 's', ['summary', 'trace_receipt_bound_count']],
+            ['external_execution_allowed', 'b', ['execution_policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-flow-run-queue-replay' => ['mandateRegistry', 'replayFlowRunQueue', [['company', 'nullable'], ['flow', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['completed', 's', ['summary', 'completed_count']],
+            ['dlq', 's', ['summary', 'dlq_count']],
+            ['durable_envelopes', 's', ['summary', 'durable_execution_envelope_bound_count']],
+            ['trace_receipts', 's', ['summary', 'trace_receipt_bound_count']],
+            ['external_execution_allowed', 'b', ['replay_policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-flow-run-queue-status' => ['mandateRegistry', 'flowRunQueueStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['durable_envelopes', 's', ['summary', 'durable_execution_envelope_bound_count']],
+            ['hitl_checkpoints', 's', ['summary', 'human_in_loop_bound_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-flow-operations-runbook-register' => ['mandateRegistry', 'registerFlowOperationsRunbooks', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['external_execution_allowed', 'b', ['registry_policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-flow-operations-runbook-drill' => ['mandateRegistry', 'drillFlowOperationsRunbooks', [['company', 'nullable'], ['flow', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['operations_green', 's', ['summary', 'operations_green_count']],
+            ['external_execution_allowed', 'b', ['drill_policy', 'external_execution_allowed']],
+        ]],
+        'enterprise-flow-operations-runbook-status' => ['mandateRegistry', 'flowOperationsRunbookStatus', [['company', 'nullable']], [
+            ['schema', 's', ['schema']],
+            ['status', 's', ['status']],
+            ['companies', 's', ['summary', 'company_count']],
+            ['flows', 's', ['summary', 'flow_count']],
+            ['external_execution_allowed', 'b', ['policy', 'external_execution_allowed']],
+        ]],
+    ];
+
+    private function renderPayload(array $spec, object $service): int
     {
-        $hash = $this->option('mandate-hash');
-        $payload = $mandateRegistry->approvalStatus(is_string($hash) ? trim($hash) : '');
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('approval_count', (string) ($payload['approval_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseControlTower(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->controlTower(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('expected_flows', (string) $payload['summary']['expected_flow_count']);
-            $this->components->twoColumnDetail('registered_mandates', (string) $payload['summary']['registered_mandate_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseActivationCockpit(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->activationCockpit(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('blocked_flows', (string) $payload['summary']['blocked_flow_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['activation_policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterprisePremiumActivationStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->premiumActivationStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('premium_ready', (string) $payload['summary']['premium_ready_company_count']);
-            $this->components->twoColumnDetail('wait_days_required_max', (string) $payload['summary']['wait_days_required_max']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseProviderWorkbenchStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->providerWorkbenchStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('provider_contracts', (string) $payload['summary']['provider_contract_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseAgentRepositoryAdoptionStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->agentRepositoryAdoptionStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('repository_intake', (string) $payload['summary']['repository_intake_count']);
-            $this->components->twoColumnDetail('flow_epics', (string) $payload['summary']['flow_epic_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseAgentRepositoryOperatingCatalogStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->agentRepositoryOperatingCatalogStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('framework_profiles', (string) $payload['summary']['framework_profile_count']);
-            $this->components->twoColumnDetail('mcp_security_profiles', (string) $payload['summary']['mcp_security_profile_count']);
-            $this->components->twoColumnDetail('flow_runtime_maps', (string) $payload['summary']['flow_runtime_map_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainDataFabricStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->domainDataFabricStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('sources', (string) $payload['summary']['source_count']);
-            $this->components->twoColumnDetail('data_products', (string) $payload['summary']['data_product_count']);
-            $this->components->twoColumnDetail('flow_workbenches', (string) $payload['summary']['flow_workbench_count']);
-            $this->components->twoColumnDetail('external_data_mutation_allowed', $payload['policy']['external_data_mutation_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainDataConnectorOperatingStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->domainDataConnectorOperatingStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('source_data_rooms', (string) $payload['summary']['source_data_room_count']);
-            $this->components->twoColumnDetail('data_products', (string) $payload['summary']['domain_data_product_count']);
-            $this->components->twoColumnDetail('permission_profiles', (string) $payload['summary']['connector_permission_profile_count']);
-            $this->components->twoColumnDetail('flow_contracts', (string) $payload['summary']['flow_data_connector_contract_count']);
-            $this->components->twoColumnDetail('external_data_mutation_allowed', $payload['policy']['external_data_mutation_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowLiveReadConnectorProbeStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->flowLiveReadConnectorProbeStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('probe_profiles', (string) $payload['summary']['connector_probe_profile_count']);
-            $this->components->twoColumnDetail('probe_contracts', (string) $payload['summary']['flow_live_read_probe_contract_count']);
-            $this->components->twoColumnDetail('evidence_matrices', (string) $payload['summary']['flow_probe_evidence_matrix_count']);
-            $this->components->twoColumnDetail('external_mutation_allowed', $payload['policy']['external_mutation_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalResearchAdoptionStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalResearchAdoptionStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('sources', (string) $payload['summary']['source_basis_count']);
-            $this->components->twoColumnDetail('framework_repositories', (string) $payload['summary']['official_framework_repository_count']);
-            $this->components->twoColumnDetail('domain_repositories', (string) $payload['summary']['domain_repository_candidate_count']);
-            $this->components->twoColumnDetail('flow_matrices', (string) $payload['summary']['flow_adoption_matrix_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowBenchmarkReplayStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->flowBenchmarkReplayStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('offline_datasets', (string) $payload['summary']['offline_dataset_contract_count']);
-            $this->components->twoColumnDetail('trace_rubrics', (string) $payload['summary']['trace_grading_rubric_count']);
-            $this->components->twoColumnDetail('adversarial_cases', (string) $payload['summary']['adversarial_regression_case_count']);
-            $this->components->twoColumnDetail('replay_matrices', (string) $payload['summary']['replay_comparison_matrix_count']);
-            $this->components->twoColumnDetail('external_benchmark_execution_allowed', $payload['policy']['external_benchmark_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseConnectorCertificationPreflightStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->connectorCertificationPreflightStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('connectors', (string) $payload['summary']['connector_count']);
-            $this->components->twoColumnDetail('adapter_contracts', (string) $payload['summary']['adapter_contract_count']);
-            $this->components->twoColumnDetail('sandbox_probes', (string) $payload['summary']['sandbox_probe_count']);
-            $this->components->twoColumnDetail('cutover_matrices', (string) $payload['summary']['flow_cutover_matrix_count']);
-            $this->components->twoColumnDetail('external_connector_cutover_allowed', $payload['policy']['external_connector_cutover_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainAgentToolchainCertificationStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->domainAgentToolchainCertificationStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('tool_contracts', (string) $payload['summary']['certified_tool_contract_count']);
-            $this->components->twoColumnDetail('toolkit_certifications', (string) $payload['summary']['toolkit_certification_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseIndustrySolutionEcosystemStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->industrySolutionEcosystemStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('providers', (string) $payload['summary']['ecosystem_provider_count']);
-            $this->components->twoColumnDetail('workload_packs', (string) $payload['summary']['flow_workload_pack_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseBusinessOperatingBackboneStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->businessOperatingBackboneStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('ready_components', (string) $payload['summary']['ready_component_count']);
-            $this->components->twoColumnDetail('required_components', (string) $payload['summary']['required_component_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseProductionConnectorPreflightStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->productionConnectorPreflightStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('connector_preflight_contracts', (string) $payload['summary']['connector_preflight_contract_count']);
-            $this->components->twoColumnDetail('flow_cutovers', (string) $payload['summary']['flow_cutover_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowQualityResearchStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->flowQualityResearchStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('offline_datasets', (string) $payload['summary']['offline_dataset_count']);
-            $this->components->twoColumnDetail('tooling_benchmarks', (string) $payload['summary']['tooling_benchmark_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseCompanyCommandCenterStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->companyCommandCenterStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('flow_cards', (string) $payload['summary']['flow_command_card_count']);
-            $this->components->twoColumnDetail('connector_panels', (string) $payload['summary']['connector_workbench_panel_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowOperatingPackageStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->flowOperatingPackageStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('flow_packages', (string) $payload['summary']['flow_package_count']);
-            $this->components->twoColumnDetail('replay_contracts', (string) $payload['summary']['replay_contract_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseVerticalSolutionSuiteStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->verticalSolutionSuiteStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('solution_suites', (string) $payload['summary']['solution_suite_count']);
-            $this->components->twoColumnDetail('flow_kits', (string) $payload['summary']['flow_solution_kit_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseDomainBusinessExecutionMeshStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->domainBusinessExecutionMeshStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('execution_cells', (string) $payload['summary']['execution_cell_count']);
-            $this->components->twoColumnDetail('service_lanes', (string) $payload['summary']['service_lane_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseOperationalDressRehearsalStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->operationalDressRehearsalStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('ready', (string) $payload['summary']['ready_company_count']);
-            $this->components->twoColumnDetail('rehearsal_runbooks', (string) $payload['summary']['flow_rehearsal_runbook_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseRealExternalExecutionReadinessDossier(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->realExternalExecutionReadinessDossier(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('manual_candidates', (string) $payload['summary']['manual_handoff_candidate_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseRealExternalExecutionHandoffPack(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->realExternalExecutionHandoffPack(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('handoff_packs', (string) $payload['summary']['handoff_pack_ready_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseSupervisedExternalExecutionPacketStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->supervisedExternalExecutionPacketStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('ready_packets', (string) $payload['summary']['packet_ready_count']);
-            $this->components->twoColumnDetail('external_worker_enabled', $payload['policy']['external_worker_enabled'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalWorkerPreflightStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalWorkerPreflightStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('worker_preflights', (string) $payload['summary']['worker_preflight_ready_count']);
-            $this->components->twoColumnDetail('dispatch_enabled', $payload['policy']['external_worker_dispatch_enabled'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalWorkerDispatchPlanStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalWorkerDispatchPlanStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('dispatch_plans', (string) $payload['summary']['dispatch_plan_ready_count']);
-            $this->components->twoColumnDetail('dispatch_enabled', $payload['policy']['external_worker_dispatch_enabled'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalLaunchControlStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalLaunchControlStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('launch_controls', (string) $payload['summary']['launch_control_ready_count']);
-            $this->components->twoColumnDetail('launch_enabled', $payload['policy']['launch_enabled'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalReceiptBindingStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalReceiptBindingStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('receipt_slots', (string) $payload['summary']['receipt_slot_count']);
-            $this->components->twoColumnDetail('bound_receipts', (string) $payload['summary']['bound_receipt_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverDossierStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalSupervisedCutoverDossierStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('cutover_dossiers', (string) $payload['summary']['cutover_dossier_ready_count']);
-            $this->components->twoColumnDetail('cutover_enabled', (string) $payload['summary']['supervised_cutover_enabled_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverWorkOrderStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalSupervisedCutoverWorkOrderStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('work_orders', (string) $payload['summary']['work_order_ready_count']);
-            $this->components->twoColumnDetail('work_items', (string) $payload['summary']['work_item_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverWorkOrderRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->registerExternalSupervisedCutoverWorkOrders(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('work_orders', (string) $payload['summary']['work_order_count']);
-            $this->components->twoColumnDetail('work_items', (string) $payload['summary']['work_item_count']);
-            $this->components->twoColumnDetail('executable_items', (string) $payload['summary']['executable_item_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverWorkOrderPersistedStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalSupervisedCutoverWorkOrderPersistedStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('work_orders', (string) $payload['summary']['work_order_count']);
-            $this->components->twoColumnDetail('work_items', (string) $payload['summary']['work_item_count']);
-            $this->components->twoColumnDetail('pending_items', (string) $payload['summary']['pending_work_item_count']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverWorkItemBindReceipt(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $workItem = $this->option('work-item');
-        $receiptHash = $this->option('receipt-hash');
-        $receiptSource = $this->option('receipt-source');
-        $operator = $this->option('operator');
-        $note = $this->option('note');
-        $payload = $mandateRegistry->bindExternalSupervisedCutoverWorkItemReceipt(
-            is_string($workItem) ? $workItem : null,
-            is_string($receiptHash) ? $receiptHash : null,
-            is_string($receiptSource) ? $receiptSource : null,
-            is_string($operator) ? $operator : null,
-            is_string($note) ? $note : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('bound_receipts', (string) ($payload['summary']['bound_receipt_count'] ?? 0));
-            $this->components->twoColumnDetail('pending_items', (string) ($payload['summary']['pending_work_item_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverPromotionStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalSupervisedCutoverPromotionStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('work_orders', (string) $payload['summary']['work_order_count']);
-            $this->components->twoColumnDetail('promotion_ready', (string) $payload['summary']['promotion_review_ready_count']);
-            $this->components->twoColumnDetail('pending_items', (string) $payload['summary']['pending_work_item_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverFinalAuthorityBindReceipt(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $workOrder = $this->option('work-order');
-        $authority = $this->option('authority');
-        $receiptHash = $this->option('receipt-hash');
-        $receiptSource = $this->option('receipt-source');
-        $operator = $this->option('operator');
-        $note = $this->option('note');
-        $payload = $mandateRegistry->bindExternalSupervisedCutoverFinalAuthorityReceipt(
-            is_string($workOrder) ? $workOrder : null,
-            is_string($authority) ? $authority : null,
-            is_string($receiptHash) ? $receiptHash : null,
-            is_string($receiptSource) ? $receiptSource : null,
-            is_string($operator) ? $operator : null,
-            is_string($note) ? $note : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('final_authorities', (string) ($payload['summary']['final_authority_binding_count'] ?? 0));
-            $this->components->twoColumnDetail('missing_authorities', (string) ($payload['summary']['missing_final_authority_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverRuntimeInvocationRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $workOrder = $this->option('work-order');
-        $payload = $mandateRegistry->registerExternalSupervisedCutoverRuntimeInvocation(is_string($workOrder) ? $workOrder : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('invocations', (string) ($payload['summary']['runtime_invocation_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverRuntimeInvocationStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalSupervisedCutoverRuntimeInvocationStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('invocations', (string) ($payload['summary']['runtime_invocation_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverRuntimeRehearsalExecute(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $invocation = $this->option('invocation');
-        $company = $this->option('company');
-        $payload = $mandateRegistry->executeExternalSupervisedCutoverRuntimeRehearsal(
-            is_string($invocation) ? $invocation : null,
-            is_string($company) && trim($company) !== '' ? trim($company) : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('execution_receipts', (string) ($payload['summary']['execution_receipt_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverRehearsalPromotionStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalSupervisedCutoverRehearsalPromotionStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('ready_packets', (string) ($payload['summary']['manual_execution_packet_ready_count'] ?? 0));
-            $this->components->twoColumnDetail('blocked_packets', (string) ($payload['summary']['manual_execution_packet_blocked_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverManualHandoffRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $workOrder = $this->option('work-order');
-        $company = $this->option('company');
-        $payload = $mandateRegistry->registerExternalSupervisedCutoverManualHandoff(
-            is_string($workOrder) ? $workOrder : null,
-            is_string($company) && trim($company) !== '' ? trim($company) : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('handoff_packets', (string) ($payload['summary']['manual_handoff_packet_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverManualHandoffStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalSupervisedCutoverManualHandoffStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('handoff_packets', (string) ($payload['summary']['manual_handoff_packet_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverManualCloseoutBindReceipt(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $workOrder = $this->option('work-order');
-        $receiptHash = $this->option('receipt-hash');
-        $receiptSource = $this->option('receipt-source');
-        $operator = $this->option('operator');
-        $note = $this->option('note');
-        $payload = $mandateRegistry->bindExternalSupervisedCutoverManualCloseoutReceipt(
-            is_string($workOrder) ? $workOrder : null,
-            is_string($receiptHash) ? $receiptHash : null,
-            is_string($receiptSource) ? $receiptSource : null,
-            is_string($operator) ? $operator : null,
-            is_string($note) ? $note : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('closeout_receipts', (string) ($payload['summary']['manual_closeout_receipt_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverManualCloseoutStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalSupervisedCutoverManualCloseoutStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('closeout_receipts', (string) ($payload['summary']['manual_closeout_receipt_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverPortfolioReadinessStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->externalSupervisedCutoverPortfolioReadinessStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('expected_flows', (string) ($payload['summary']['expected_flow_count'] ?? 0));
-            $this->components->twoColumnDetail('complete_companies', (string) ($payload['summary']['cutover_chain_complete_company_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverCompanyEvidenceBundleApply(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $receiptHash = $this->option('receipt-hash');
-        $receiptSource = $this->option('receipt-source');
-        $operator = $this->option('operator');
-        $note = $this->option('note');
-        $payload = $mandateRegistry->applyExternalSupervisedCutoverCompanyEvidenceBundle(
-            is_string($company) && trim($company) !== '' ? trim($company) : null,
-            is_string($receiptHash) ? $receiptHash : null,
-            is_string($receiptSource) ? $receiptSource : null,
-            is_string($operator) ? $operator : null,
-            is_string($note) ? $note : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('company', (string) ($payload['company_id'] ?? ''));
-            $this->components->twoColumnDetail('work_orders', (string) ($payload['summary']['work_order_count'] ?? 0));
-            $this->components->twoColumnDetail('complete_companies', (string) ($payload['summary']['cutover_chain_complete_company_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseExternalSupervisedCutoverPortfolioEvidenceBundleApply(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $receiptHash = $this->option('receipt-hash');
-        $receiptSource = $this->option('receipt-source');
-        $operator = $this->option('operator');
-        $note = $this->option('note');
-        $payload = $mandateRegistry->applyExternalSupervisedCutoverPortfolioEvidenceBundle(
-            is_string($receiptHash) ? $receiptHash : null,
-            is_string($receiptSource) ? $receiptSource : null,
-            is_string($operator) ? $operator : null,
-            is_string($note) ? $note : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) ($payload['summary']['company_count'] ?? 0));
-            $this->components->twoColumnDetail('expected_flows', (string) ($payload['summary']['expected_flow_count'] ?? 0));
-            $this->components->twoColumnDetail('complete_companies', (string) ($payload['summary']['cutover_chain_complete_company_count'] ?? 0));
-            $this->components->twoColumnDetail('external_execution_allowed', ($payload['policy']['external_execution_allowed'] ?? false) ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseActivationBacklogRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->registerActivationBacklog(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('work_packages', (string) $payload['summary']['work_package_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['registry_policy']['external_execution_enabled_by_registry'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseActivationBacklogStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->activationBacklogStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('work_packages', (string) $payload['summary']['work_package_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseActivationBacklogRun(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $flow = $this->option('flow');
-        $workPackage = $this->option('work-package');
-        $payload = $mandateRegistry->runActivationBacklog(
-            is_string($company) && trim($company) !== '' ? trim($company) : null,
-            is_string($flow) && trim($flow) !== '' ? trim($flow) : null,
-            is_string($workPackage) && trim($workPackage) !== '' ? trim($workPackage) : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('work_packages', (string) $payload['summary']['work_package_count']);
-            $this->components->twoColumnDetail('completed', (string) $payload['summary']['completed_count']);
-            $this->components->twoColumnDetail('blocked', (string) $payload['summary']['blocked_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['run_policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseConnectorActivationRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->registerConnectorActivations(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('connector_activations', (string) $payload['summary']['connector_activation_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['registry_policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseConnectorActivationProbe(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $flow = $this->option('flow');
-        $connector = $this->option('connector');
-        $payload = $mandateRegistry->probeConnectorActivations(
-            is_string($company) && trim($company) !== '' ? trim($company) : null,
-            is_string($flow) && trim($flow) !== '' ? trim($flow) : null,
-            is_string($connector) && trim($connector) !== '' ? trim($connector) : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('connector_activations', (string) $payload['summary']['connector_activation_count']);
-            $this->components->twoColumnDetail('probe_green', (string) $payload['summary']['probe_green_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['probe_policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseConnectorActivationStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->connectorActivationStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('connector_activations', (string) $payload['summary']['connector_activation_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseLiveReadConnectorReadinessStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->liveReadConnectorReadinessStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('connectors', (string) $payload['summary']['connector_readiness_count']);
-            $this->components->twoColumnDetail('live_read_ready', (string) $payload['summary']['live_read_ready_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowRunQueueRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->registerFlowRunQueue(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('durable_envelopes', (string) $payload['summary']['durable_execution_envelope_bound_count']);
-            $this->components->twoColumnDetail('hitl_checkpoints', (string) $payload['summary']['human_in_loop_bound_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['queue_policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowRunQueueExecute(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $flow = $this->option('flow');
-        $payload = $mandateRegistry->executeFlowRunQueue(
-            is_string($company) && trim($company) !== '' ? trim($company) : null,
-            is_string($flow) && trim($flow) !== '' ? trim($flow) : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('completed', (string) $payload['summary']['completed_count']);
-            $this->components->twoColumnDetail('dlq', (string) $payload['summary']['dlq_count']);
-            $this->components->twoColumnDetail('durable_envelopes', (string) $payload['summary']['durable_execution_envelope_bound_count']);
-            $this->components->twoColumnDetail('trace_receipts', (string) $payload['summary']['trace_receipt_bound_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['execution_policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowRunQueueStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->flowRunQueueStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('durable_envelopes', (string) $payload['summary']['durable_execution_envelope_bound_count']);
-            $this->components->twoColumnDetail('hitl_checkpoints', (string) $payload['summary']['human_in_loop_bound_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowRunQueueReplay(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $flow = $this->option('flow');
-        $payload = $mandateRegistry->replayFlowRunQueue(
-            is_string($company) && trim($company) !== '' ? trim($company) : null,
-            is_string($flow) && trim($flow) !== '' ? trim($flow) : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('completed', (string) $payload['summary']['completed_count']);
-            $this->components->twoColumnDetail('dlq', (string) $payload['summary']['dlq_count']);
-            $this->components->twoColumnDetail('durable_envelopes', (string) $payload['summary']['durable_execution_envelope_bound_count']);
-            $this->components->twoColumnDetail('trace_receipts', (string) $payload['summary']['trace_receipt_bound_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['replay_policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowOperationsRunbookRegister(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->registerFlowOperationsRunbooks(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['registry_policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowOperationsRunbookDrill(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $flow = $this->option('flow');
-        $payload = $mandateRegistry->drillFlowOperationsRunbooks(
-            is_string($company) && trim($company) !== '' ? trim($company) : null,
-            is_string($flow) && trim($flow) !== '' ? trim($flow) : null,
-        );
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('operations_green', (string) $payload['summary']['operations_green_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['drill_policy']['external_execution_allowed'] ? 'true' : 'false');
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
-    }
-
-    private function renderEnterpriseFlowOperationsRunbookStatus(ExternalActionMandateRegistryService $mandateRegistry): int
-    {
-        $company = $this->option('company');
-        $payload = $mandateRegistry->flowOperationsRunbookStatus(is_string($company) && trim($company) !== '' ? trim($company) : null);
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('status', (string) $payload['status']);
-            $this->components->twoColumnDetail('companies', (string) $payload['summary']['company_count']);
-            $this->components->twoColumnDetail('flows', (string) $payload['summary']['flow_count']);
-            $this->components->twoColumnDetail('external_execution_allowed', $payload['policy']['external_execution_allowed'] ? 'true' : 'false');
+        $args = [];
+        foreach ($spec[2] as [$option, $norm]) {
+            $value = $this->option($option);
+            $args[] = match ($norm) {
+                'nullable' => is_string($value) && trim($value) !== '' ? trim($value) : null,
+                'string' => is_string($value) ? trim($value) : '',
+                'raw' => is_string($value) ? $value : null,
+            };
+        }
+
+        $payload = $service->{$spec[1]}(...$args);
+        $this->emit($payload, function () use ($payload, $spec): void {
+            foreach ($spec[3] as $detail) {
+                [$label, $form, $path] = $detail;
+                $value = $payload;
+                if ($form === 's' || $form === 'b') {
+                    foreach ($path as $key) {
+                        $value = $value[$key];
+                    }
+                } else {
+                    foreach ($path as $key) {
+                        if (! is_array($value) || ! array_key_exists($key, $value)) {
+                            $value = null;
+                            break;
+                        }
+                        $value = $value[$key];
+                    }
+                    $value ??= $detail[3];
+                }
+                $this->components->twoColumnDetail(
+                    $label,
+                    $form === 's' || $form === 'c' ? (string) $value : ($value ? 'true' : 'false'),
+                );
+            }
         });
 
         return $payload['ok'] ? self::SUCCESS : self::FAILURE;
