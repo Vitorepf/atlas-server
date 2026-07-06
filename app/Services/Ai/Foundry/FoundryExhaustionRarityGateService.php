@@ -75,32 +75,39 @@ final class FoundryExhaustionRarityGateService
     ) {}
 
     /**
-     * Input-override seam mirroring setRepoRootForTesting: inject the
-     * exhaustion-window ledger records directly (key `ledger_records`), bypassing
-     * the real Reliable24hLoopRunnerService read.
+     * Unified test-dependency injection seam. Supported keys:
+     *   - runner_report  => array|null (exhaustion-window ledger)
+     *   - budget_report  => array|null (LoopResourceGovernor::evaluate output)
+     *   - backlog_report => array|null (BacklogDepthGovernor::assess output)
      *
-     * @param  array<string,mixed>|null  $report
+     * @param  array<string, array<string,mixed>|null>  $deps
      */
+    public function setTestDependencies(array $deps): void
+    {
+        if (array_key_exists('runner_report', $deps)) {
+            $this->runnerReportOverride = $deps['runner_report'];
+        }
+        if (array_key_exists('budget_report', $deps)) {
+            $this->budgetReportOverride = $deps['budget_report'];
+        }
+        if (array_key_exists('backlog_report', $deps)) {
+            $this->backlogReportOverride = $deps['backlog_report'];
+        }
+    }
+
+    /** @deprecated use setTestDependencies(['runner_report' => $report]) */
     public function setRunnerReportForTesting(?array $report): void
     {
         $this->runnerReportOverride = $report;
     }
 
-    /**
-     * Override the budget leg (LoopResourceGovernor::evaluate output).
-     *
-     * @param  array<string,mixed>|null  $report
-     */
+    /** @deprecated use setTestDependencies(['budget_report' => $report]) */
     public function setBudgetReportForTesting(?array $report): void
     {
         $this->budgetReportOverride = $report;
     }
 
-    /**
-     * Override the rarity leg (BacklogDepthGovernor::assess output).
-     *
-     * @param  array<string,mixed>|null  $report
-     */
+    /** @deprecated use setTestDependencies(['backlog_report' => $report]) */
     public function setBacklogReportForTesting(?array $report): void
     {
         $this->backlogReportOverride = $report;
