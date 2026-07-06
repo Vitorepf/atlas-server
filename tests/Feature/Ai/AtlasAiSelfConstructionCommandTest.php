@@ -2442,6 +2442,1098 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     'Agent review merge signed final receipt persistence template is blocked',
                 ],
             ],
+            'test_command_human_output_lists_agent_review_merge_executor_release_preflight' => [
+                '--agent-review-merge-executor-release-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Preflight status',
+                    'Receipt persisted',
+                    'Executor allowed',
+                    'Preflight hash',
+                    'Agent review merge executor release preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_executor_contract_template' => [
+                '--agent-review-merge-executor-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Template status',
+                    'Patch execution allowed',
+                    'Merge allowed',
+                    'Template hash',
+                    'Agent review merge executor contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_execution_receipt_template' => [
+                '--agent-review-merge-execution-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Template status',
+                    'Patch executed',
+                    'Merge allowed',
+                    'Template hash',
+                    'Agent review merge execution receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_preflight' => [
+                '--agent-review-merge-post-execution-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Preflight status',
+                    'Execution receipt persisted',
+                    'Merge allowed',
+                    'Preflight hash',
+                    'Agent review merge post-execution preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_template' => [
+                '--agent-review-merge-post-execution-action-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Template status',
+                    'Default decision',
+                    'Merge allowed',
+                    'Template hash',
+                    'Agent review merge post-execution action template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_receipt_draft' => [
+                '--agent-review-merge-post-execution-action-receipt-draft',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Receipt status',
+                    'Default decision',
+                    'Signature required',
+                    'Receipt hash',
+                    'Agent review merge post-execution action receipt draft is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signature_request' => [
+                '--agent-review-merge-post-execution-action-signature-request',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Signature status',
+                    'Signature present',
+                    'Signable hash',
+                    'Request hash',
+                    'Agent review merge post-execution action signature request is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_post_signature_runbook' => [
+                '--agent-review-merge-post-execution-action-post-signature-runbook',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Runbook status',
+                    'Signature required',
+                    'Step count',
+                    'Runbook hash',
+                    'Agent review merge post-execution action post-signature runbook is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Template status',
+                    'Receipt persisted',
+                    'Merge allowed',
+                    'Template hash',
+                    'Agent review merge post-execution action signed receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_preflight' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Preflight status',
+                    'Blocking count',
+                    'Receipt persisted',
+                    'Preflight hash',
+                    'Agent review merge post-execution action signed receipt preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Template status',
+                    'Ledger write allowed',
+                    'Receipt persisted',
+                    'Template hash',
+                    'Agent review merge post-execution action signed receipt persistence template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-receipt-draft',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Receipt status',
+                    'Ledger write allowed',
+                    'Receipt persisted',
+                    'Receipt hash',
+                    'Agent review merge post-execution action signed receipt persistence receipt draft is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_preflight' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Preflight status',
+                    'Blocking count',
+                    'Ledger write allowed',
+                    'Preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-post-preflight-runbook',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Runbook status',
+                    'Step count',
+                    'Ledger write allowed',
+                    'Runbook hash',
+                    'Agent review merge post-execution action signed receipt persistence post-preflight runbook is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-append-only-event-payload-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Payload status',
+                    'Event type',
+                    'Ledger write allowed',
+                    'Payload hash',
+                    'Agent review merge post-execution action signed receipt persistence append-only event payload template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Writer preflight status',
+                    'Blocking count',
+                    'Ledger write allowed',
+                    'Writer preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Contract status',
+                    'Capability count',
+                    'Ledger write allowed',
+                    'Contract hash',
+                    'Agent review merge post-execution action signed receipt persistence writer contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-implementation-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Implementation preflight status',
+                    'Blocking count',
+                    'Ledger write allowed',
+                    'Implementation preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer implementation preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Release authorization status',
+                    'Required evidence count',
+                    'Ledger write allowed',
+                    'Authorization hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release authorization template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Release authorization preflight status',
+                    'Blocking count',
+                    'Ledger write allowed',
+                    'Preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release authorization preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-receipt-draft',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Receipt status',
+                    'Selected decision',
+                    'Ledger write allowed',
+                    'Receipt hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release authorization receipt draft is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signature-request',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Signature request status',
+                    'Signature required',
+                    'Ledger write allowed',
+                    'Request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release authorization signature request is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-post-signature-runbook',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Runbook status',
+                    'Step count',
+                    'Ledger write allowed',
+                    'Runbook hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release authorization post-signature runbook is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signed-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Template status',
+                    'Receipt signed',
+                    'Ledger write allowed',
+                    'Template hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release authorization signed receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Release preflight status',
+                    'Blocking count',
+                    'Ledger write allowed',
+                    'Preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-receipt-draft',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Receipt status',
+                    'Selected decision',
+                    'Ledger write allowed',
+                    'Receipt hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release receipt draft is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signature-request',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Signature request status',
+                    'Signature required',
+                    'Ledger write allowed',
+                    'Request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release signature request is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-signature-runbook',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Runbook status',
+                    'Step count',
+                    'Ledger write allowed',
+                    'Runbook hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release post-signature runbook is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signed-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Template status',
+                    'Receipt signed',
+                    'Ledger write allowed',
+                    'Template hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release signed receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Execution preflight status',
+                    'Blocking count',
+                    'Writer file creation allowed',
+                    'Preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release execution contract preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Contract status',
+                    'Blocking count',
+                    'Writer file creation allowed',
+                    'Contract hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release execution contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-disable-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Disable status',
+                    'Trigger count',
+                    'Writer file creation allowed',
+                    'Disable hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release disable contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-observability-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Observability status',
+                    'Signal count',
+                    'Writer file creation allowed',
+                    'Observability hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release observability contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-monitoring-review-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Review status',
+                    'Decision count',
+                    'Writer file creation allowed',
+                    'Review hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release post-monitoring review template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-reenable-review-packet-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Re-enable status',
+                    'Requirement count',
+                    'Writer file creation allowed',
+                    'Re-enable hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release re-enable review packet template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Authorization status',
+                    'Required signer count',
+                    'Approval granted',
+                    'Authorization hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-receipt-draft-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Receipt status',
+                    'Receipt claim count',
+                    'Receipt signed',
+                    'Receipt draft hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization receipt draft template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signature-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Signature status',
+                    'Signable field count',
+                    'Signature valid',
+                    'Signature request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization signature request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-signature-runbook-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Runbook status',
+                    'Step count',
+                    'Signature valid',
+                    'Runbook hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization post-signature runbook template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signed-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Template status',
+                    'Receipt signed',
+                    'Receipt persisted',
+                    'Template hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization signed receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-preflight-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Preflight status',
+                    'Blocking count',
+                    'Execution allowed',
+                    'Preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization execution contract preflight template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Contract status',
+                    'Blocking count',
+                    'Writer file creation allowed',
+                    'Contract hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization execution contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Disable status',
+                    'Trigger count',
+                    'Writer file creation allowed',
+                    'Disable hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization disable contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-observability-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Observability status',
+                    'Signal count',
+                    'Writer file creation allowed',
+                    'Observability hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization observability contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-monitoring-review-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Review status',
+                    'Decision count',
+                    'Writer file creation allowed',
+                    'Review hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization post-monitoring review template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-health-decision-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Decision status',
+                    'Decision state count',
+                    'Decision recorded',
+                    'Decision hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization health decision template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Disable request status',
+                    'Trigger count',
+                    'Execution allowed',
+                    'Disable request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization disable request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'New cycle status',
+                    'Requirement count',
+                    'Approval granted',
+                    'New cycle hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-authorization-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Authorization status',
+                    'Evidence count',
+                    'Approval granted',
+                    'Authorization hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle authorization request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-receipt-draft-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Receipt status',
+                    'Receipt signed',
+                    'Receipt persisted',
+                    'Receipt draft hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle receipt draft template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signature-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Signature status',
+                    'Required signer count',
+                    'Signature valid',
+                    'Signature request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle signature request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-signature-runbook-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Runbook status',
+                    'Step count',
+                    'Signature valid',
+                    'Runbook hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle post-signature runbook template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signed-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Template status',
+                    'Receipt signed',
+                    'Receipt persisted',
+                    'Template hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle signed receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-preflight-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Preflight status',
+                    'Blocking count',
+                    'Execution allowed',
+                    'Preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle execution contract preflight template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Contract status',
+                    'Blocking count',
+                    'Writer file creation allowed',
+                    'Contract hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle execution contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Disable status',
+                    'Trigger count',
+                    'Writer file creation allowed',
+                    'Disable hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-observability-contract-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Observability status',
+                    'Signal count',
+                    'Writer file creation allowed',
+                    'Observability hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle observability contract template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-monitoring-review-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Review status',
+                    'Allowed decision count',
+                    'Writer file creation allowed',
+                    'Review hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle post-monitoring review template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-health-decision-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Decision status',
+                    'Decision state count',
+                    'Decision recorded',
+                    'Decision hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle health decision template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Disable request status',
+                    'Trigger count',
+                    'Execution allowed',
+                    'Disable request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-preflight-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Preflight status',
+                    'Check count',
+                    'Execution allowed',
+                    'Preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution preflight template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-receipt-draft-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Receipt draft status',
+                    'Required field count',
+                    'Receipt persisted',
+                    'Receipt draft hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution receipt draft template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-signed-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Signed receipt status',
+                    'Required signer count',
+                    'Signature valid',
+                    'Signed receipt hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution signed receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-preflight-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Persistence preflight status',
+                    'Check count',
+                    'Ledger write allowed',
+                    'Persistence preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution persistence preflight template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Persistence receipt status',
+                    'Receipt field count',
+                    'Receipt persisted',
+                    'Persistence receipt hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution persistence receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-post-persistence-review-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Review status',
+                    'Review decision count',
+                    'Ledger write allowed',
+                    'Review hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution post-persistence review template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-follow-up-observability-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Observability status',
+                    'Signal count',
+                    'Ledger write allowed',
+                    'Observability hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution follow-up observability template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-evidence-repair-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Repair request status',
+                    'Repair item count',
+                    'Ledger write allowed',
+                    'Repair request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution evidence repair request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repaired-evidence-packet-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Repaired packet status',
+                    'Packet field count',
+                    'Ledger write allowed',
+                    'Repaired packet hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution repaired evidence packet template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-review-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Repair review status',
+                    'Review outcome count',
+                    'Ledger write allowed',
+                    'Repair review hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution repair review template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-outcome-packet-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Repair outcome status',
+                    'Outcome field count',
+                    'Ledger write allowed',
+                    'Repair outcome hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution repair outcome packet template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle request status',
+                    'Request field count',
+                    'Later cycle authorized',
+                    'Later cycle request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-preflight-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle preflight status',
+                    'Preflight check count',
+                    'Later cycle authorized',
+                    'Later cycle preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle preflight template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization request status',
+                    'Authorization request field count',
+                    'Approval granted',
+                    'Later cycle authorization request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-receipt-draft-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization receipt draft status',
+                    'Receipt draft field count',
+                    'Receipt signed',
+                    'Later cycle authorization receipt draft hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization receipt draft template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization signature request status',
+                    'Signature request field count',
+                    'Signature valid',
+                    'Later cycle authorization signature request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization signature request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-signature-runbook-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization post-signature runbook status',
+                    'Runbook step count',
+                    'Signature valid',
+                    'Later cycle authorization post-signature runbook hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization post-signature runbook template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-validation-report-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization signature validation report status',
+                    'Validation check count',
+                    'Signature accepted',
+                    'Later cycle authorization signature validation report hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization signature validation report template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization signed receipt template status',
+                    'Signed receipt field count',
+                    'Receipt signed',
+                    'Later cycle authorization signed receipt template hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization signed receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-preflight-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization signed receipt preflight status',
+                    'Preflight check count',
+                    'Receipt persisted',
+                    'Later cycle authorization signed receipt preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization signed receipt preflight template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-preflight-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization persistence preflight status',
+                    'Persistence preflight check count',
+                    'Ledger write allowed',
+                    'Later cycle authorization persistence preflight hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization persistence preflight template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization persistence receipt template status',
+                    'Persistence receipt field count',
+                    'Receipt persisted',
+                    'Later cycle authorization persistence receipt template hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization persistence receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-persistence-review-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization post-persistence review status',
+                    'Allowed review decision count',
+                    'Later cycle authorized',
+                    'Later cycle authorization post-persistence review hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization post-persistence review template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-follow-up-observability-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization follow-up observability status',
+                    'Observation signal count',
+                    'Signature authority',
+                    'Later cycle authorization follow-up observability hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization follow-up observability template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-evidence-repair-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization evidence repair request status',
+                    'Repair item count',
+                    'Dispatch allowed',
+                    'Later cycle authorization evidence repair request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization evidence repair request template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization repaired evidence packet status',
+                    'Packet field count',
+                    'Signature authority',
+                    'Later cycle authorization repaired evidence packet hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization repaired evidence packet template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization repair review status',
+                    'Review outcome count',
+                    'Signature authority',
+                    'Later cycle authorization repair review hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization repair review template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization persistence rejection status',
+                    'Rejection field count',
+                    'Signature authority',
+                    'Later cycle authorization persistence rejection hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization persistence rejection template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization human escalation status',
+                    'Escalation field count',
+                    'Human notified',
+                    'Later cycle authorization human escalation hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization human escalation template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template' => [
+                '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Later cycle authorization manual decision request status',
+                    'Decision field count',
+                    'Decision requested',
+                    'Later cycle authorization manual decision request hash',
+                    'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization manual decision request template is blocked',
+                ],
+            ],
+            'test_final_operator_evidence_closure_corridor_human_output_lists_next_action_command' => [
+                '--atlas-self-construction-final-operator-evidence-closure-corridor-status',
+                [
+                    'Atlas Self-Construction OS',
+                    'Next required submission',
+                    'Next action step',
+                    'Exact command',
+                    '--atlas-self-construction-runtime-promotion-receipt-draft-status',
+                    'Can run automatically',
+                    'requires_operator_signature_and_runtime_promotion_judgment',
+                ],
+            ],
         ];
     }
 
@@ -18280,22 +19372,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('patch_execution_by_executor_release_preflight', data_get($payload, 'preflight.still_forbidden_by_preflight'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_executor_release_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-executor-release-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Preflight status', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Executor allowed', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge executor release preflight is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_executor_contract_template_blocked_as_json(): void
     {
@@ -18377,22 +19454,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('source_executor_contract_hash', data_get($payload, 'template.required_execution_receipt_fields'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_executor_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-executor-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Patch execution allowed', $output);
-        $this->assertStringContainsString('Merge allowed', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Agent review merge executor contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_execution_receipt_template_blocked_as_json(): void
     {
@@ -18477,22 +19539,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('merge_executor_uses_execution_receipt_only', data_get($payload, 'template.future_merge_preflight_requirements'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_execution_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-execution-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Patch executed', $output);
-        $this->assertStringContainsString('Merge allowed', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Agent review merge execution receipt template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_preflight_blocked_as_json(): void
     {
@@ -18573,22 +19620,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('merge_action_emits_final_merge_receipt', data_get($payload, 'preflight.future_merge_action_requirements'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Preflight status', $output);
-        $this->assertStringContainsString('Execution receipt persisted', $output);
-        $this->assertStringContainsString('Merge allowed', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution preflight is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_template_blocked_as_json(): void
     {
@@ -18669,22 +19701,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('final_merge_action_signed_receipt', data_get($payload, 'template.future_final_merge_receipt_requirements'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Default decision', $output);
-        $this->assertStringContainsString('Merge allowed', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_receipt_draft_blocked_as_json(): void
     {
@@ -18767,22 +19784,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('signed_final_merge_action_receipt_persisted_append_only', data_get($payload, 'receipt.future_signature_requirements'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_receipt_draft(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-receipt-draft' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Receipt status', $output);
-        $this->assertStringContainsString('Default decision', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Receipt hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action receipt draft is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signature_request_blocked_as_json(): void
     {
@@ -18866,22 +19868,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('selected_decision', data_get($payload, 'signable_payload.required_signable_payload_fields'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signature_request(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signature-request' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Signature status', $output);
-        $this->assertStringContainsString('Signature present', $output);
-        $this->assertStringContainsString('Signable hash', $output);
-        $this->assertStringContainsString('Request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signature request is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_post_signature_runbook_blocked_as_json(): void
     {
@@ -18969,22 +19956,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('no_hot_scope_drift_since_signature_request', data_get($payload, 'runbook.future_validator_must_check'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_post_signature_runbook(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-post-signature-runbook' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Step count', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action post-signature runbook is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_template_blocked_as_json(): void
     {
@@ -19068,22 +20040,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('merge_surface_reruns_workspace_identity_check', data_get($payload, 'template.future_merge_surface_release_conditions'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Merge allowed', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_preflight_blocked_as_json(): void
     {
@@ -19170,22 +20127,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('merge_surface_reruns_workspace_identity_check', data_get($payload, 'preflight.future_merge_surface_release_conditions'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Preflight status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt preflight is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_template_blocked_as_json(): void
     {
@@ -19271,22 +20213,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('source_hashes_match_preflight', data_get($payload, 'template.required_pre_persistence_checks'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_blocked_as_json(): void
     {
@@ -19373,22 +20300,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('hot_scope_still_clean', data_get($payload, 'receipt.required_pre_persistence_checks'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-receipt-draft' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Receipt status', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Receipt hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence receipt draft is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_preflight_blocked_as_json(): void
     {
@@ -19478,22 +20390,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('persistence_surface_allows_append_only_write_only', data_get($payload, 'preflight.release_conditions_for_future_persistence_surface'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Preflight status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence preflight is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_blocked_as_json(): void
     {
@@ -19578,22 +20475,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('step_06_prepare_future_append_only_write', data_get($payload, 'runbook.steps.5.id'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-post-preflight-runbook' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Step count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence post-preflight runbook is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_blocked_as_json(): void
     {
@@ -19683,22 +20565,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertNull(data_get($payload, 'payload.field_values.append_only_event_hash'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-append-only-event-payload-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Payload status', $output);
-        $this->assertStringContainsString('Event type', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Payload hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence append-only event payload template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_blocked_as_json(): void
     {
@@ -19784,22 +20651,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('workspace_identity_verified', data_get($payload, 'writer_preflight.future_writer_release_conditions'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Writer preflight status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Writer preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer preflight is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_blocked_as_json(): void
     {
@@ -19888,22 +20740,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('no_dispatch_authority', data_get($payload, 'contract.required_capabilities'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Contract status', $output);
-        $this->assertStringContainsString('Capability count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Contract hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_blocked_as_json(): void
     {
@@ -19992,22 +20829,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('all_forbidden_authorities_absent', data_get($payload, 'implementation_preflight.future_release_conditions'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-implementation-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Implementation preflight status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Implementation preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer implementation preflight is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_blocked_as_json(): void
     {
@@ -20095,22 +20917,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('may_write_one_append_only_persistence_event_after_all_checks_pass', data_get($payload, 'authorization.future_authorized_writer_scope'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Release authorization status', $output);
-        $this->assertStringContainsString('Required evidence count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Authorization hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release authorization template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_blocked_as_json(): void
     {
@@ -20194,22 +21001,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_authorization_receipt_hash', data_get($payload, 'preflight.future_writer_release_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Release authorization preflight status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release authorization preflight is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_blocked_as_json(): void
     {
@@ -20296,22 +21088,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('source_writer_release_authorization_preflight_hash', data_get($payload, 'receipt.signable_payload_fields'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-receipt-draft' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Receipt status', $output);
-        $this->assertStringContainsString('Selected decision', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Receipt hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release authorization receipt draft is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_blocked_as_json(): void
     {
@@ -20399,22 +21176,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame(data_get($payload, 'signature_request.signable_payload_hash'), data_get($payload, 'signable_payload_hash'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signature-request' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Signature request status', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release authorization signature request is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_blocked_as_json(): void
     {
@@ -20500,22 +21262,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_patch_still_matches_contract_hash', data_get($payload, 'runbook.future_validator_must_check'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-post-signature-runbook' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Step count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release authorization post-signature runbook is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_blocked_as_json(): void
     {
@@ -20602,22 +21349,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_capability_tests_still_pass', data_get($payload, 'template.future_writer_release_preflight_requirements'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-authorization-signed-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Receipt signed', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release authorization signed receipt template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_blocked_as_json(): void
     {
@@ -20705,22 +21437,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_workspace_identity_evidence_hash', data_get($payload, 'preflight.future_release_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Release preflight status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release preflight is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_blocked_as_json(): void
     {
@@ -20806,22 +21523,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_provider_identity_evidence_hash', data_get($payload, 'receipt.future_post_signature_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-receipt-draft' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Receipt status', $output);
-        $this->assertStringContainsString('Selected decision', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Receipt hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release receipt draft is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_blocked_as_json(): void
     {
@@ -20912,22 +21614,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('writer_release_receipt_only', data_get($payload, 'signature_request.signable_payload.requested_signature_scope'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signature-request' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Signature request status', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release signature request is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_blocked_as_json(): void
     {
@@ -21015,22 +21702,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_no_dispatch_authority_still_true', data_get($payload, 'runbook.future_validator_must_check'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-signature-runbook' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Step count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release post-signature runbook is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_blocked_as_json(): void
     {
@@ -21115,22 +21787,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_has_no_dispatch_authority', data_get($payload, 'template.future_execution_contract_requirements'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-signed-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Receipt signed', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release signed receipt template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_blocked_as_json(): void
     {
@@ -21219,22 +21876,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_provider_identity_evidence_hash', data_get($payload, 'preflight.future_execution_contract_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Execution preflight status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release execution contract preflight is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_blocked_as_json(): void
     {
@@ -21324,22 +21966,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('OBRA-ATLAS-SELF-CONSTRUCTION-OS', data_get($payload, 'contract.execution_scope.obra_id_must_match'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-execution-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Contract status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Contract hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release execution contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_blocked_as_json(): void
     {
@@ -21427,22 +22054,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('fresh_provider_identity_recheck', data_get($payload, 'disable_contract.reenable_requirements'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-disable-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Disable status', $output);
-        $this->assertStringContainsString('Trigger count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Disable hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release disable contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_blocked_as_json(): void
     {
@@ -21531,22 +22143,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_obra_identity_monitoring_hash', data_get($payload, 'observability_contract.future_observability_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-observability-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Observability status', $output);
-        $this->assertStringContainsString('Signal count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Observability hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release observability contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_blocked_as_json(): void
     {
@@ -21635,22 +22232,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_obra_identity_review_hash', data_get($payload, 'review_template.future_review_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-post-monitoring-review-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Review status', $output);
-        $this->assertStringContainsString('Decision count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Review hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release post-monitoring review template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_blocked_as_json(): void
     {
@@ -21738,22 +22320,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_reenable_obra_identity_hash', data_get($payload, 'reenable_packet.future_reenable_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-reenable-review-packet-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Re-enable status', $output);
-        $this->assertStringContainsString('Requirement count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Re-enable hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release re-enable review packet template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_blocked_as_json(): void
     {
@@ -21845,22 +22412,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('fresh_obra_identity_recheck_missing', data_get($payload, 'authorization_request.hard_blocks'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Authorization status', $output);
-        $this->assertStringContainsString('Required signer count', $output);
-        $this->assertStringContainsString('Approval granted', $output);
-        $this->assertStringContainsString('Authorization hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_blocked_as_json(): void
     {
@@ -21951,22 +22503,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('approve_fresh_authorization_request_for_signature', data_get($payload, 'receipt_draft.required_authorized_outcome'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-receipt-draft-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Receipt status', $output);
-        $this->assertStringContainsString('Receipt claim count', $output);
-        $this->assertStringContainsString('Receipt signed', $output);
-        $this->assertStringContainsString('Receipt draft hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization receipt draft template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_blocked_as_json(): void
     {
@@ -22058,22 +22595,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('workspace_identity_changed', data_get($payload, 'signature_request.signature_rejection_conditions'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signature-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Signature status', $output);
-        $this->assertStringContainsString('Signable field count', $output);
-        $this->assertStringContainsString('Signature valid', $output);
-        $this->assertStringContainsString('Signature request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization signature request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_blocked_as_json(): void
     {
@@ -22167,22 +22689,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('external_signature_provider_identity_hash', data_get($payload, 'runbook.required_external_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-signature-runbook-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Step count', $output);
-        $this->assertStringContainsString('Signature valid', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization post-signature runbook template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_blocked_as_json(): void
     {
@@ -22277,22 +22784,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('external_signature_workspace_identity_hash', data_get($payload, 'template.required_external_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-signed-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Receipt signed', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization signed receipt template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_blocked_as_json(): void
     {
@@ -22386,22 +22878,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_fresh_authorization_preflight_rejection_hash', data_get($payload, 'preflight.future_preflight_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-preflight-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Preflight status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Execution allowed', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization execution contract preflight template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_blocked_as_json(): void
     {
@@ -22493,22 +22970,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_fresh_authorization_post_execution_receipt_hash', data_get($payload, 'contract.future_post_execution_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-execution-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Contract status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Contract hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization execution contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_blocked_as_json(): void
     {
@@ -22598,22 +23060,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('fresh_provider_identity_recheck', data_get($payload, 'disable_contract.reenable_requirements'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Disable status', $output);
-        $this->assertStringContainsString('Trigger count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Disable hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization disable contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_blocked_as_json(): void
     {
@@ -22705,22 +23152,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('fresh_authorization_provider_identity_substitution_count', data_get($payload, 'observability_contract.required_metrics'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-observability-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Observability status', $output);
-        $this->assertStringContainsString('Signal count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Observability hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization observability contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_blocked_as_json(): void
     {
@@ -22812,22 +23244,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('fresh_authorization_provider_identity_still_matches', data_get($payload, 'review_template.health_checks'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-post-monitoring-review-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Review status', $output);
-        $this->assertStringContainsString('Decision count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Review hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization post-monitoring review template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_blocked_as_json(): void
     {
@@ -22920,22 +23337,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('decision_actor_provider_identity_hash', data_get($payload, 'health_decision.required_decision_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-health-decision-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Decision status', $output);
-        $this->assertStringContainsString('Decision state count', $output);
-        $this->assertStringContainsString('Decision recorded', $output);
-        $this->assertStringContainsString('Decision hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization health decision template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_blocked_as_json(): void
     {
@@ -23030,22 +23432,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_request.required_disable_request_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-disable-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Disable request status', $output);
-        $this->assertStringContainsString('Trigger count', $output);
-        $this->assertStringContainsString('Execution allowed', $output);
-        $this->assertStringContainsString('Disable request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization disable request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_blocked_as_json(): void
     {
@@ -23138,22 +23525,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'new_cycle_request.required_new_cycle_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('New cycle status', $output);
-        $this->assertStringContainsString('Requirement count', $output);
-        $this->assertStringContainsString('Approval granted', $output);
-        $this->assertStringContainsString('New cycle hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_blocked_as_json(): void
     {
@@ -23246,22 +23618,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'authorization_request.required_authorization_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-authorization-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Authorization status', $output);
-        $this->assertStringContainsString('Evidence count', $output);
-        $this->assertStringContainsString('Approval granted', $output);
-        $this->assertStringContainsString('Authorization hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle authorization request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_blocked_as_json(): void
     {
@@ -23354,22 +23711,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'receipt_draft.required_receipt_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-receipt-draft-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Receipt status', $output);
-        $this->assertStringContainsString('Receipt signed', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Receipt draft hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle receipt draft template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_blocked_as_json(): void
     {
@@ -23461,22 +23803,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'signature_request.required_signature_request_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signature-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Signature status', $output);
-        $this->assertStringContainsString('Required signer count', $output);
-        $this->assertStringContainsString('Signature valid', $output);
-        $this->assertStringContainsString('Signature request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle signature request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_blocked_as_json(): void
     {
@@ -23568,22 +23895,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('runbook_does_not_validate_signature', data_get($payload, 'runbook.runbook_policy'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-signature-runbook-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Step count', $output);
-        $this->assertStringContainsString('Signature valid', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle post-signature runbook template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_blocked_as_json(): void
     {
@@ -23675,22 +23987,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('does_not_reuse_previous_authorization', data_get($payload, 'template.receipt_scope'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-signed-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Receipt signed', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle signed receipt template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_blocked_as_json(): void
     {
@@ -23781,22 +24078,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_fresh_authorization_new_cycle_preflight_rejection_hash', data_get($payload, 'preflight.future_preflight_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-preflight-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Preflight status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Execution allowed', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle execution contract preflight template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_blocked_as_json(): void
     {
@@ -23887,22 +24169,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_fresh_authorization_new_cycle_post_execution_receipt_hash', data_get($payload, 'contract.future_post_execution_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-execution-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Contract status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Contract hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle execution contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_blocked_as_json(): void
     {
@@ -23992,22 +24259,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('later_cycle_requires_writer_capability_tests', data_get($payload, 'disable_contract.reenable_requirements'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Disable status', $output);
-        $this->assertStringContainsString('Trigger count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Disable hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_blocked_as_json(): void
     {
@@ -24097,22 +24349,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_fresh_authorization_new_cycle_post_monitoring_review_hash', data_get($payload, 'observability_contract.future_observability_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-observability-contract-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Observability status', $output);
-        $this->assertStringContainsString('Signal count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Observability hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle observability contract template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_blocked_as_json(): void
     {
@@ -24201,22 +24438,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('writer_release_fresh_authorization_new_cycle_health_decision_hash', data_get($payload, 'review_template.future_review_outputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-post-monitoring-review-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Review status', $output);
-        $this->assertStringContainsString('Allowed decision count', $output);
-        $this->assertStringContainsString('Writer file creation allowed', $output);
-        $this->assertStringContainsString('Review hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle post-monitoring review template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_blocked_as_json(): void
     {
@@ -24306,22 +24528,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'health_decision.required_decision_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-health-decision-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Decision status', $output);
-        $this->assertStringContainsString('Decision state count', $output);
-        $this->assertStringContainsString('Decision recorded', $output);
-        $this->assertStringContainsString('Decision hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle health decision template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_blocked_as_json(): void
     {
@@ -24411,22 +24618,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_request.required_disable_request_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Disable request status', $output);
-        $this->assertStringContainsString('Trigger count', $output);
-        $this->assertStringContainsString('Execution allowed', $output);
-        $this->assertStringContainsString('Disable request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_blocked_as_json(): void
     {
@@ -24514,22 +24706,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_preflight.required_preflight_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-preflight-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Preflight status', $output);
-        $this->assertStringContainsString('Check count', $output);
-        $this->assertStringContainsString('Execution allowed', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution preflight template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_blocked_as_json(): void
     {
@@ -24617,22 +24794,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_receipt_draft.required_receipt_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-receipt-draft-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Receipt draft status', $output);
-        $this->assertStringContainsString('Required field count', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Receipt draft hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution receipt draft template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_blocked_as_json(): void
     {
@@ -24721,22 +24883,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_signed_receipt.required_signature_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-signed-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Signed receipt status', $output);
-        $this->assertStringContainsString('Required signer count', $output);
-        $this->assertStringContainsString('Signature valid', $output);
-        $this->assertStringContainsString('Signed receipt hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution signed receipt template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_blocked_as_json(): void
     {
@@ -24825,22 +24972,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_persistence_preflight.required_persistence_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-preflight-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Persistence preflight status', $output);
-        $this->assertStringContainsString('Check count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Persistence preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution persistence preflight template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_blocked_as_json(): void
     {
@@ -24930,22 +25062,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('receipt_persistence_actor_provider_or_role', data_get($payload, 'disable_execution_persistence_receipt.required_persistence_receipt_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-persistence-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Persistence receipt status', $output);
-        $this->assertStringContainsString('Receipt field count', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Persistence receipt hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution persistence receipt template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_blocked_as_json(): void
     {
@@ -25034,22 +25151,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('provider_identity_snapshot_hash', data_get($payload, 'disable_execution_post_persistence_review.required_review_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-post-persistence-review-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Review status', $output);
-        $this->assertStringContainsString('Review decision count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Review hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution post-persistence review template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_blocked_as_json(): void
     {
@@ -25139,22 +25241,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('provider_identity_drift_review_hash', data_get($payload, 'disable_execution_follow_up_observability.required_observation_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-follow-up-observability-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Observability status', $output);
-        $this->assertStringContainsString('Signal count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Observability hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution follow-up observability template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_blocked_as_json(): void
     {
@@ -25244,22 +25331,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('repair_actor_provider', data_get($payload, 'disable_execution_evidence_repair_request.required_repair_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-evidence-repair-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Repair request status', $output);
-        $this->assertStringContainsString('Repair item count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Repair request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution evidence repair request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_blocked_as_json(): void
     {
@@ -25349,22 +25421,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('repair_actor_provider', data_get($payload, 'disable_execution_repaired_evidence_packet.required_packet_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repaired-evidence-packet-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Repaired packet status', $output);
-        $this->assertStringContainsString('Packet field count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Repaired packet hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution repaired evidence packet template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_blocked_as_json(): void
     {
@@ -25455,22 +25512,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('repair_actor_provider', data_get($payload, 'disable_execution_repair_review.required_review_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-review-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Repair review status', $output);
-        $this->assertStringContainsString('Review outcome count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Repair review hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution repair review template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_blocked_as_json(): void
     {
@@ -25564,22 +25606,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('outcome_actor_provider', data_get($payload, 'disable_execution_repair_outcome_packet.required_outcome_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-repair-outcome-packet-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Repair outcome status', $output);
-        $this->assertStringContainsString('Outcome field count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Repair outcome hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution repair outcome packet template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_blocked_as_json(): void
     {
@@ -25678,22 +25705,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('request_actor_provider', data_get($payload, 'disable_execution_later_cycle_request.required_request_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle request status', $output);
-        $this->assertStringContainsString('Request field count', $output);
-        $this->assertStringContainsString('Later cycle authorized', $output);
-        $this->assertStringContainsString('Later cycle request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_blocked_as_json(): void
     {
@@ -25806,22 +25818,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_preflight.required_preflight_inputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-preflight-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle preflight status', $output);
-        $this->assertStringContainsString('Preflight check count', $output);
-        $this->assertStringContainsString('Later cycle authorized', $output);
-        $this->assertStringContainsString('Later cycle preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle preflight template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_blocked_as_json(): void
     {
@@ -25934,22 +25931,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('request_actor_provider', data_get($payload, 'disable_execution_later_cycle_authorization_request.required_authorization_request_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization request status', $output);
-        $this->assertStringContainsString('Authorization request field count', $output);
-        $this->assertStringContainsString('Approval granted', $output);
-        $this->assertStringContainsString('Later cycle authorization request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_blocked_as_json(): void
     {
@@ -26066,22 +26048,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('request_actor_provider', data_get($payload, 'disable_execution_later_cycle_authorization_receipt_draft.required_receipt_draft_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-receipt-draft-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization receipt draft status', $output);
-        $this->assertStringContainsString('Receipt draft field count', $output);
-        $this->assertStringContainsString('Receipt signed', $output);
-        $this->assertStringContainsString('Later cycle authorization receipt draft hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization receipt draft template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_blocked_as_json(): void
     {
@@ -26197,22 +26164,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('signature_request_actor_provider', data_get($payload, 'disable_execution_later_cycle_authorization_signature_request.required_signature_request_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization signature request status', $output);
-        $this->assertStringContainsString('Signature request field count', $output);
-        $this->assertStringContainsString('Signature valid', $output);
-        $this->assertStringContainsString('Later cycle authorization signature request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization signature request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_blocked_as_json(): void
     {
@@ -26322,22 +26274,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('route_to_signature_validation_report_only_after_separate_validation_surface', data_get($payload, 'disable_execution_later_cycle_authorization_post_signature_runbook.runbook_steps'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-signature-runbook-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization post-signature runbook status', $output);
-        $this->assertStringContainsString('Runbook step count', $output);
-        $this->assertStringContainsString('Signature valid', $output);
-        $this->assertStringContainsString('Later cycle authorization post-signature runbook hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization post-signature runbook template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_blocked_as_json(): void
     {
@@ -26447,22 +26384,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('non_acceptance_statement', data_get($payload, 'disable_execution_later_cycle_authorization_signature_validation_report.required_validation_inputs'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signature-validation-report-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization signature validation report status', $output);
-        $this->assertStringContainsString('Validation check count', $output);
-        $this->assertStringContainsString('Signature accepted', $output);
-        $this->assertStringContainsString('Later cycle authorization signature validation report hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization signature validation report template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_blocked_as_json(): void
     {
@@ -26567,22 +26489,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('non_authorization_statement', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_template.required_signed_receipt_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization signed receipt template status', $output);
-        $this->assertStringContainsString('Signed receipt field count', $output);
-        $this->assertStringContainsString('Receipt signed', $output);
-        $this->assertStringContainsString('Later cycle authorization signed receipt template hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization signed receipt template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_blocked_as_json(): void
     {
@@ -26671,22 +26578,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('later_cycle_authorization_signed_receipt_preflight_does_not_persist_receipt', data_get($payload, 'disable_execution_later_cycle_authorization_signed_receipt_preflight.signed_receipt_preflight_policy'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-signed-receipt-preflight-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization signed receipt preflight status', $output);
-        $this->assertStringContainsString('Preflight check count', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Later cycle authorization signed receipt preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization signed receipt preflight template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_blocked_as_json(): void
     {
@@ -26782,22 +26674,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('later_cycle_authorization_persistence_preflight_does_not_write_ledger', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_preflight.persistence_preflight_policy'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-preflight-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization persistence preflight status', $output);
-        $this->assertStringContainsString('Persistence preflight check count', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Later cycle authorization persistence preflight hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization persistence preflight template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_blocked_as_json(): void
     {
@@ -26892,22 +26769,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('later_cycle_authorization_persistence_receipt_template_does_not_write_ledger', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_receipt_template.persistence_receipt_template_policy'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization persistence receipt template status', $output);
-        $this->assertStringContainsString('Persistence receipt field count', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Later cycle authorization persistence receipt template hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization persistence receipt template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_blocked_as_json(): void
     {
@@ -26998,22 +26860,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('review_requires_provider_identity_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_post_persistence_review.review_policy'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-post-persistence-review-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization post-persistence review status', $output);
-        $this->assertStringContainsString('Allowed review decision count', $output);
-        $this->assertStringContainsString('Later cycle authorized', $output);
-        $this->assertStringContainsString('Later cycle authorization post-persistence review hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization post-persistence review template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_blocked_as_json(): void
     {
@@ -27104,22 +26951,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('observability_requires_provider_identity_receipt_draft_hash', data_get($payload, 'disable_execution_later_cycle_authorization_follow_up_observability.observability_policy'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-follow-up-observability-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization follow-up observability status', $output);
-        $this->assertStringContainsString('Observation signal count', $output);
-        $this->assertStringContainsString('Signature authority', $output);
-        $this->assertStringContainsString('Later cycle authorization follow-up observability hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization follow-up observability template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_blocked_as_json(): void
     {
@@ -27213,22 +27045,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_evidence_repair_request.required_repair_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-evidence-repair-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization evidence repair request status', $output);
-        $this->assertStringContainsString('Repair item count', $output);
-        $this->assertStringContainsString('Dispatch allowed', $output);
-        $this->assertStringContainsString('Later cycle authorization evidence repair request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization evidence repair request template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_blocked_as_json(): void
     {
@@ -27322,22 +27139,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_repaired_evidence_packet.required_packet_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repaired-evidence-packet-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization repaired evidence packet status', $output);
-        $this->assertStringContainsString('Packet field count', $output);
-        $this->assertStringContainsString('Signature authority', $output);
-        $this->assertStringContainsString('Later cycle authorization repaired evidence packet hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization repaired evidence packet template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_blocked_as_json(): void
     {
@@ -27433,22 +27235,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_repair_review.required_review_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-repair-review-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization repair review status', $output);
-        $this->assertStringContainsString('Review outcome count', $output);
-        $this->assertStringContainsString('Signature authority', $output);
-        $this->assertStringContainsString('Later cycle authorization repair review hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization repair review template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_blocked_as_json(): void
     {
@@ -27546,22 +27333,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_persistence_rejection.required_rejection_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-persistence-rejection-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization persistence rejection status', $output);
-        $this->assertStringContainsString('Rejection field count', $output);
-        $this->assertStringContainsString('Signature authority', $output);
-        $this->assertStringContainsString('Later cycle authorization persistence rejection hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization persistence rejection template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_blocked_as_json(): void
     {
@@ -27663,22 +27435,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_human_escalation.required_escalation_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-human-escalation-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization human escalation status', $output);
-        $this->assertStringContainsString('Escalation field count', $output);
-        $this->assertStringContainsString('Human notified', $output);
-        $this->assertStringContainsString('Later cycle authorization human escalation hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization human escalation template is blocked', $output);
-    }
 
     public function test_command_returns_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_blocked_as_json(): void
     {
@@ -27782,22 +27539,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_reviewer_identity', data_get($payload, 'disable_execution_later_cycle_authorization_manual_decision_request.required_decision_request_evidence'));
     }
 
-    public function test_command_human_output_lists_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-review-merge-post-execution-action-signed-receipt-persistence-writer-release-fresh-authorization-new-cycle-disable-execution-later-cycle-authorization-manual-decision-request-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Later cycle authorization manual decision request status', $output);
-        $this->assertStringContainsString('Decision field count', $output);
-        $this->assertStringContainsString('Decision requested', $output);
-        $this->assertStringContainsString('Later cycle authorization manual decision request hash', $output);
-        $this->assertStringContainsString('Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization manual decision request template is blocked', $output);
-    }
 
     public function test_command_blocks_codex_start_packet_when_no_packets_remain(): void
     {
@@ -43280,22 +43022,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         }
     }
 
-    public function test_final_operator_evidence_closure_corridor_human_output_lists_next_action_command(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--atlas-self-construction-final-operator-evidence-closure-corridor-status' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Next required submission', $output);
-        $this->assertStringContainsString('Next action step', $output);
-        $this->assertStringContainsString('Exact command', $output);
-        $this->assertStringContainsString('--atlas-self-construction-runtime-promotion-receipt-draft-status', $output);
-        $this->assertStringContainsString('Can run automatically', $output);
-        $this->assertStringContainsString('requires_operator_signature_and_runtime_promotion_judgment', $output);
-    }
 
     public function test_operator_evidence_submission_readiness_human_output_lists_next_action_command(): void
     {
