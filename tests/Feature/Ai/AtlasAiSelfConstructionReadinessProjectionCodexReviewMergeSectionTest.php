@@ -34,6 +34,19 @@ final class AtlasAiSelfConstructionReadinessProjectionCodexReviewMergeSectionTes
         $this->assertSame($expected, ReadinessHash::stable($payload), 'ReadinessHash::stable must be deterministic');
     }
 
+    public function test_blocked_projection_corpus_matches_golden_hash(): void
+    {
+        \Illuminate\Support\Facades\File::deleteDirectory(storage_path('app/atlas/self-construction/reservations'));
+
+        $corpus = $this->codexReviewMergeCorpus(new ReadinessProjectionCodexReviewMergeSection());
+
+        $this->assertCount(149, $corpus);
+        $this->assertSame(
+            'ced5b7d5b0ef5dd110a5687c9f0a61fc3d3cf057afe19b735a1dc5f78ac67f17',
+            hash('sha256', json_encode($corpus, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR))
+        );
+    }
+
     public function test_all_149_codex_review_merge_methods_exist_on_section(): void
     {
         $section = new ReadinessProjectionCodexReviewMergeSection();
@@ -83,5 +96,22 @@ final class AtlasAiSelfConstructionReadinessProjectionCodexReviewMergeSectionTes
         $section = $ref->invoke($runtime);
 
         $this->assertInstanceOf(ReadinessProjectionCodexReviewMergeSection::class, $section);
+    }
+
+    private function codexReviewMergeCorpus(ReadinessProjectionCodexReviewMergeSection $section): array
+    {
+        $ref = new \ReflectionClass($section);
+        $methods = array_values(array_filter(
+            $ref->getMethods(\ReflectionMethod::IS_PUBLIC),
+            fn (\ReflectionMethod $method): bool => str_starts_with($method->getName(), 'codexReviewMerge')
+        ));
+        usort($methods, fn (\ReflectionMethod $a, \ReflectionMethod $b): int => $a->getStartLine() <=> $b->getStartLine());
+
+        $corpus = [];
+        foreach ($methods as $method) {
+            $corpus[$method->getName()] = $section->{$method->getName()}();
+        }
+
+        return $corpus;
     }
 }
